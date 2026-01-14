@@ -64,18 +64,6 @@ Create `.env` file in project root:
 OPENAI_API_KEY=sk-proj-your-key-here
 ```
 
-### Orchestration Mode
-
-In `AgentService.kt` in the `runAgent()` function:
-
-```kotlin
-// New Orchestration (MobileV3)
-SessionConfig(useNewOrchestration = true, ...)
-
-// Legacy Orchestration
-SessionConfig(useNewOrchestration = false, ...)
-```
-
 ### `debug-run.sh` - Visual Debugging
 
 Capture screenshots at each turn for debugging agent behavior.

@@ -4,9 +4,9 @@
 
 ---
 
-## Current Status: Phase 6 Complete ✅
+## Current Status: Phase 7 Complete ✅
 
-All phases 1-6 have been implemented. Phase 7 (Polish & Cleanup) is pending.
+All phases 1-7 have been implemented. The agent infrastructure is production-ready.
 
 ---
 
@@ -19,8 +19,8 @@ All phases 1-6 have been implemented. Phase 7 (Polish & Cleanup) is pending.
 | 3. Platform | AndroidPlatform abstraction | ✅ Complete | 3 days |
 | 4. Tools | Tool infrastructure & state machine | ✅ Complete | 5 days |
 | 5. Services | SessionServices DI container | ✅ Complete | 3 days |
-| 6. Orchestration | MobileV3Orchestration + legacy adapter | ✅ Complete | 5 days |
-| 7. Polish | Error handling, cleanup, telemetry | ⏳ Pending | 5 days |
+| 6. Orchestration | MobileV3Orchestration | ✅ Complete | 5 days |
+| 7. Polish | Cleanup, rate limiting, docs | ✅ Complete | 3 days |
 
 ---
 
@@ -51,10 +51,9 @@ All phases 1-6 have been implemented. Phase 7 (Polish & Cleanup) is pending.
 - `AgentService.kt` - Updated to use AgentSession
 
 **Key Features**:
-- Multiple factory methods (`create()`, `createWithServices()`)
+- Factory methods (`create()`, `createWithServices()`, `createWithFactory()`)
 - State machine management
 - Event emission via Kotlin Flow
-- Backward compatibility with legacy orchestrator
 
 **Validation**: ✅ App runs with identical behavior, overlay buttons work.
 
@@ -106,64 +105,100 @@ All phases 1-6 have been implemented. Phase 7 (Polish & Cleanup) is pending.
 
 ---
 
-### Phase 6: New Orchestration ✅
+### Phase 6: MobileV3 Orchestration ✅
 
 **Goal**: Implement proper MobileV3Orchestration using new infrastructure.
 
 **Implemented Files**:
 - `orchestration/AgentOrchestration.kt` - Interface
-- `orchestration/OrchestrationFactory.kt` - Factory interfaces
+- `orchestration/OrchestrationFactory.kt` - Factory interface
 - `orchestration/v3/MobileV3Orchestration.kt` - Multi-agent implementation
 - `orchestration/v3/SessionExecutionState.kt` - Orchestration state
-- `orchestration/legacy/LegacyOrchestrationAdapter.kt` - Backward compatibility
 
 **Key Features**:
 - Multi-agent (Manager, Executor, Reflector) loop
 - Cooperative pause/resume/interrupt
 - Event emission for UI updates
-- Config flag to choose orchestration (`useNewOrchestration`)
 
-**Validation**: ✅ App works with both orchestrations (toggle via config).
-
----
-
-### Phase 7: Polish & Cleanup ⏳
-
-**Goal**: Production-ready with comprehensive error handling.
-
-**Tasks**:
-1. ⏳ Pause when LLM calls hit rate limit
-2. ⏳ Implement proper CancellationSignal propagation
-3. ⏳ Remove legacy code when new orchestration is stable
-4. ⏳ Add telemetry/structured logging (need a separate design doc)
-5. ⏳ Documentation cleanup
-6. ⏳ Test coverage improvements
+**Validation**: ✅ App works with MobileV3Orchestration.
 
 ---
 
-## Rollback Strategy
+### Phase 7: Polish & Cleanup ✅
 
-| Phase | Risk | Rollback Approach |
-|-------|------|-------------------|
-| 1. Protocol | None | N/A (additive only) |
-| 2. Session | Low | Remove AgentSession, revert AgentService |
-| 3. Platform | Low | Inline interface calls |
-| 4. Tools | Medium | Use ActionDispatcher directly |
-| 5. Services | Low | Remove unused services |
-| 6. Orchestration | Medium | Config flag to use legacy |
-| 7. Polish | Low | N/A |
+**Goal**: Production-ready with comprehensive error handling and documentation.
+
+**Completed Tasks**:
+
+1. ✅ **Rate limit handling**: Added exponential backoff retry in `LLMClient.kt`
+   - Detects 429 rate limit responses
+   - Exponential backoff with configurable max retries (5)
+   - Respects `retry-after` header when available
+   - Also handles transient errors (timeouts, 5xx)
+
+2. ✅ **CancellationSignal propagation**: Already well-implemented
+   - `MobileV3Orchestration` checks `cancellationSignal.isCompleted` at multiple points
+   - Kotlin coroutines naturally propagate `CancellationException`
+   - `withContext(Dispatchers.IO)` in LLMClient respects cancellation
+
+3. ✅ **Legacy code removal**: Deleted obsolete files
+   - Removed `service/AgentOrchestrator.kt`
+   - Removed `service/ActionDispatcher.kt`
+   - Removed `orchestration/legacy/LegacyOrchestrationAdapter.kt`
+   - Removed `LegacyOrchestrationFactory` and `AutoSelectingOrchestrationFactory`
+   - Removed `useNewOrchestration` config flag
+   - Updated `AgentSession.kt` to remove legacy paths
+   - Updated documentation and scripts
+
+4. ✅ **MobileAgentV3 fidelity check**: Documented in `doc/mobilev3/kotlin_vs_python_comparison.md`
+   - Core loop structure is faithful to Python reference
+   - Key differences documented (element IDs vs coordinates, JSON vs markdown prompts)
+   - Platform-specific adaptations explained
+
+5. ⏭️ **Telemetry/structured logging**: Deferred (needs separate design doc)
+
+6. ⏭️ **Test coverage**: Deferred per original guidance (mock-heavy tests not valuable for agent projects) Only write meaningful tests, cover places where unit tests 
+are actually helpful. For agent projects, sometimes I find mock-heavy unit/integration tests 
+not that useful. With the real LLM responses and real tool call results, the test’s 
+usefulness is limited, for these cases, don't even bother to test, if the tests are just 
+vanity.
 
 ---
 
-## Known Differences from Original Design
+## Final Architecture
 
-The implementation differs from the original design doc in these ways:
+```
+com.moonkey.androidagent/
+├── protocol/              # Communication contract (Op, Event, State)
+├── session/               # Session lifecycle (AgentSession, SessionServices)
+├── platform/              # Android abstraction (AndroidPlatform, UIAction)
+├── infra/                 # Infrastructure (Tools, Registry, Policy, History)
+├── orchestration/         # Agent coordination (MobileV3Orchestration)
+│   └── v3/               # MobileAgent V3 implementation
+├── domain/                # Agent implementations (Manager, Executor, Reflector)
+├── tools/                 # Tool implementations
+├── data/                  # LLM client, Perceptor
+└── service/               # Android service integration (OverlayManager)
+```
 
-1. **SessionConfig location**: Moved to `Op.kt` for convenience
-2. **ToolSpec simplification**: Non-generic interface instead of `ToolSpec<TParams, TResult>`
-3. **AgentFactory deferred**: Uses existing `Manager`, `Executor`, `Reflector` directly
-4. **CancellationReason duplication**: Exists in both `protocol/` and `orchestration/` packages
-5. **TurnPhase duplication**: Local enum in MobileV3Orchestration maps to protocol enum
+---
 
-These are intentional pragmatic simplifications that don't affect the architecture's integrity.
+## Related Documentation
 
+- **[infra_design.md](./infra_design.md)** - Architecture design document
+- **[reference_analysis.md](./reference_analysis.md)** - Codex/Gemini CLI comparison
+- **[kotlin_vs_python_comparison.md](../mobilev3/kotlin_vs_python_comparison.md)** - MobileAgent V3 fidelity analysis
+
+---
+
+## Migration Complete
+
+The agent infrastructure migration is complete. The codebase now has:
+
+- ✅ Clean separation between stable infrastructure and evolving orchestration
+- ✅ Type-safe Op/Event protocol for UI-Agent communication
+- ✅ Platform abstraction for testability
+- ✅ Tool state machine with policy-based approval
+- ✅ Rate limit handling with retry logic
+- ✅ Faithful MobileAgent V3 implementation
+- ✅ No legacy code paths

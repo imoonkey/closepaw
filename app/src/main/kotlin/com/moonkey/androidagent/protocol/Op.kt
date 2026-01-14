@@ -102,9 +102,6 @@ data class SessionConfig(
     /** Approval mode for tool execution */
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     
-    /** Whether to use new orchestration (vs legacy) */
-    val useNewOrchestration: Boolean = false,
-    
     /** LLM model to use */
     val model: String = "gpt-4o",
     

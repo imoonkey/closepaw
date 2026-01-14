@@ -364,12 +364,6 @@ Loop:
 
 State management: [`orchestration/v3/SessionExecutionState.kt`](../../app/src/main/kotlin/com/moonkey/androidagent/orchestration/v3/SessionExecutionState.kt)
 
-### LegacyOrchestrationAdapter
-
-**Implementation**: [`orchestration/legacy/LegacyOrchestrationAdapter.kt`](../../app/src/main/kotlin/com/moonkey/androidagent/orchestration/legacy/LegacyOrchestrationAdapter.kt)
-
-Wraps the existing `AgentOrchestrator` for backward compatibility and A/B testing.
-
 ### OrchestrationFactory
 
 **Implementation**: [`orchestration/OrchestrationFactory.kt`](../../app/src/main/kotlin/com/moonkey/androidagent/orchestration/OrchestrationFactory.kt)
@@ -377,8 +371,6 @@ Wraps the existing `AgentOrchestrator` for backward compatibility and A/B testin
 | Factory | Description |
 |---------|-------------|
 | `MobileV3OrchestrationFactory` | Creates MobileV3Orchestration |
-| `LegacyOrchestrationFactory` | Creates LegacyOrchestrationAdapter |
-| `AutoSelectingOrchestrationFactory` | Selects based on `config.useNewOrchestration` |
 
 ---
 
@@ -427,11 +419,9 @@ com.moonkey.androidagent/
 ├── orchestration/               # Agent coordination (evolving)
 │   ├── AgentOrchestration.kt
 │   ├── OrchestrationFactory.kt
-│   ├── v3/
-│   │   ├── MobileV3Orchestration.kt
-│   │   └── SessionExecutionState.kt
-│   └── legacy/
-│       └── LegacyOrchestrationAdapter.kt
+│   └── v3/
+│       ├── MobileV3Orchestration.kt
+│       └── SessionExecutionState.kt
 │
 ├── domain/                      # Existing domain models (kept for compatibility)
 │   ├── agents/                 # Existing agent implementations
@@ -442,11 +432,8 @@ com.moonkey.androidagent/
 │   ├── llm/LLMClient.kt
 │   └── perception/Perceptor.kt
 │
-└── service/                     # Android service integration (existing)
-    ├── AgentService.kt         # Entry point, uses AgentSession
-    ├── AgentOrchestrator.kt    # Legacy orchestrator
-    ├── ActionDispatcher.kt
-    └── OverlayManager.kt
+└── service/                     # Android service integration
+    └── OverlayManager.kt       # Floating overlay UI
 ```
 
 ---
