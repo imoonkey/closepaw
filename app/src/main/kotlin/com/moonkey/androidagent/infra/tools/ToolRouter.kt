@@ -1,0 +1,296 @@
+package com.moonkey.androidagent.infra.tools
+
+import android.util.Log
+import com.moonkey.androidagent.domain.models.ScreenSnapshot
+import com.moonkey.androidagent.infra.policy.PolicyDecision
+import com.moonkey.androidagent.infra.policy.PolicyEngine
+import com.moonkey.androidagent.infra.registry.ToolRegistry
+import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.protocol.ApprovalDecision
+import com.moonkey.androidagent.protocol.ApprovalDetails
+import com.moonkey.androidagent.protocol.RiskLevel
+import kotlinx.coroutines.CompletableDeferred
+import org.json.JSONObject
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+
+/**
+ * ToolRouter - Executes tool calls with state machine and policy-based approval.
+ * 
+ * Implements the tool call lifecycle:
+ * 1. VALIDATING - Validate tool exists and parameters are correct
+ * 2. POLICY CHECK - Ask PolicyEngine if allowed/denied/ask-user
+ * 3. AWAITING_APPROVAL - (if needed) Wait for user decision
+ * 4. EXECUTING - Run the tool
+ * 5. SUCCESS/ERROR/CANCELLED - Terminal state
+ * 
+ * Pattern from Gemini CLI's CoreToolScheduler.
+ */
+class ToolRouter(
+    private val registry: ToolRegistry,
+    private val policyEngine: PolicyEngine
+) {
+    
+    companion object {
+        private const val TAG = "ToolRouter"
+    }
+    
+    // Track active tool calls for cancellation and state queries
+    private val activeToolCalls = ConcurrentHashMap<String, ToolCallState>()
+    
+    // Pending approval handlers (call ID -> deferred decision)
+    private val pendingApprovals = ConcurrentHashMap<String, CompletableDeferred<ApprovalDecision>>()
+    
+    /**
+     * Execute a tool call with full state machine lifecycle.
+     * 
+     * @param toolName Name of the tool to invoke
+     * @param params Parameters for the tool
+     * @param context Execution context with platform access
+     * @param onStateChange Callback for state changes (for UI updates)
+     * @param onApprovalRequired Callback when user approval is needed
+     * @return The final result of the tool call
+     */
+    suspend fun execute(
+        toolName: String,
+        params: JSONObject,
+        context: ToolRouterContext,
+        onStateChange: ((ToolCallState) -> Unit)? = null,
+        onApprovalRequired: ((ApprovalDetails) -> Unit)? = null
+    ): ToolCallResult {
+        val callId = generateCallId()
+        
+        Log.d(TAG, "Starting tool call: $callId ($toolName)")
+        
+        // === STATE: VALIDATING ===
+        var state: ToolCallState = ToolCallState.Validating(callId, toolName, params)
+        updateState(state, onStateChange)
+        
+        // Check tool exists
+        val tool = registry.get(toolName)
+        if (tool == null) {
+            val errorState = ToolCallState.Error(callId, toolName, params, "Unknown tool: $toolName")
+            updateState(errorState, onStateChange)
+            return ToolCallResult.Error(callId, "Unknown tool: $toolName")
+        }
+        
+        // Validate parameters
+        val validation = tool.validate(params)
+        if (validation is ValidationResult.Invalid) {
+            val errorMsg = "Validation failed: ${validation.errors.joinToString(", ")}"
+            val errorState = ToolCallState.Error(callId, toolName, params, errorMsg)
+            updateState(errorState, onStateChange)
+            return ToolCallResult.Error(callId, errorMsg)
+        }
+        
+        // Create invocation
+        val invocation = tool.createInvocation(params)
+        
+        // === POLICY CHECK ===
+        val policyDecision = policyEngine.check(toolName, params)
+        Log.d(TAG, "Policy decision for $toolName: $policyDecision")
+        
+        when (policyDecision) {
+            is PolicyDecision.Deny -> {
+                val errorState = ToolCallState.Error(callId, toolName, params, policyDecision.reason)
+                updateState(errorState, onStateChange)
+                return ToolCallResult.Error(callId, "Policy denied: ${policyDecision.reason}")
+            }
+            
+            is PolicyDecision.AskUser -> {
+                // === STATE: AWAITING_APPROVAL ===
+                state = ToolCallState.AwaitingApproval(
+                    callId = callId,
+                    toolName = toolName,
+                    params = params,
+                    invocation = invocation,
+                    description = invocation.getDescription()
+                )
+                updateState(state, onStateChange)
+                
+                // Notify that approval is required
+                val approvalDetails = ApprovalDetails(
+                    toolName = toolName,
+                    args = params,
+                    description = invocation.getDescription(),
+                    riskLevel = policyDecision.riskLevel
+                )
+                onApprovalRequired?.invoke(approvalDetails)
+                
+                // Wait for approval
+                val deferred = CompletableDeferred<ApprovalDecision>()
+                pendingApprovals[callId] = deferred
+                
+                val decision = try {
+                    deferred.await()
+                } finally {
+                    pendingApprovals.remove(callId)
+                }
+                
+                Log.d(TAG, "Approval decision for $callId: $decision")
+                
+                when (decision) {
+                    ApprovalDecision.DENIED -> {
+                        val cancelledState = ToolCallState.Cancelled(
+                            callId, toolName, params, "User denied", decision
+                        )
+                        updateState(cancelledState, onStateChange)
+                        return ToolCallResult.Cancelled(callId, "User denied")
+                    }
+                    ApprovalDecision.ABORT -> {
+                        val cancelledState = ToolCallState.Cancelled(
+                            callId, toolName, params, "User aborted", decision
+                        )
+                        updateState(cancelledState, onStateChange)
+                        return ToolCallResult.Cancelled(callId, "User aborted session")
+                    }
+                    ApprovalDecision.APPROVED -> {
+                        // Continue to execution
+                    }
+                }
+            }
+            
+            PolicyDecision.Allow -> {
+                // === STATE: SCHEDULED ===
+                state = ToolCallState.Scheduled(callId, toolName, params, invocation)
+                updateState(state, onStateChange)
+            }
+        }
+        
+        // Check for cancellation before execution
+        if (context.isCancelled()) {
+            val cancelledState = ToolCallState.Cancelled(callId, toolName, params, "Cancelled before execution")
+            updateState(cancelledState, onStateChange)
+            return ToolCallResult.Cancelled(callId, "Cancelled before execution")
+        }
+        
+        // === STATE: EXECUTING ===
+        state = ToolCallState.Executing(callId, toolName, params, invocation)
+        updateState(state, onStateChange)
+        
+        // Execute the tool
+        val executionResult = try {
+            val execContext = object : ToolExecutionContext {
+                override val platform: AndroidPlatform = context.platform
+                override val currentSnapshot: ScreenSnapshot? = context.currentSnapshot
+                override fun isCancelled(): Boolean = context.isCancelled()
+            }
+            invocation.execute(execContext)
+        } catch (e: Exception) {
+            Log.e(TAG, "Tool execution failed: $toolName", e)
+            ToolExecutionResult.Failure(e.message ?: "Execution failed", e)
+        }
+        
+        // === TERMINAL STATE ===
+        return when (executionResult) {
+            is ToolExecutionResult.Success -> {
+                val successState = ToolCallState.Success(callId, toolName, params, executionResult)
+                updateState(successState, onStateChange)
+                activeToolCalls.remove(callId)
+                ToolCallResult.Success(callId, executionResult.output, executionResult.data)
+            }
+            
+            is ToolExecutionResult.Failure -> {
+                val errorState = ToolCallState.Error(
+                    callId, toolName, params, executionResult.error, executionResult.exception
+                )
+                updateState(errorState, onStateChange)
+                activeToolCalls.remove(callId)
+                ToolCallResult.Error(callId, executionResult.error, executionResult.exception)
+            }
+            
+            is ToolExecutionResult.Cancelled -> {
+                val cancelledState = ToolCallState.Cancelled(callId, toolName, params, executionResult.reason)
+                updateState(cancelledState, onStateChange)
+                activeToolCalls.remove(callId)
+                ToolCallResult.Cancelled(callId, executionResult.reason)
+            }
+        }
+    }
+    
+    /**
+     * Resolve a pending approval.
+     * 
+     * Called when user responds to an approval request.
+     */
+    fun resolveApproval(callId: String, decision: ApprovalDecision) {
+        val deferred = pendingApprovals[callId]
+        if (deferred != null) {
+            deferred.complete(decision)
+            Log.d(TAG, "Resolved approval for $callId: $decision")
+        } else {
+            Log.w(TAG, "No pending approval found for $callId")
+        }
+    }
+    
+    /**
+     * Cancel a tool call.
+     */
+    fun cancel(callId: String) {
+        // Cancel pending approval if any
+        pendingApprovals[callId]?.complete(ApprovalDecision.ABORT)
+        activeToolCalls.remove(callId)
+        Log.d(TAG, "Cancelled tool call: $callId")
+    }
+    
+    /**
+     * Cancel all active tool calls.
+     */
+    fun cancelAll() {
+        pendingApprovals.values.forEach { it.complete(ApprovalDecision.ABORT) }
+        pendingApprovals.clear()
+        activeToolCalls.clear()
+        Log.d(TAG, "Cancelled all tool calls")
+    }
+    
+    /**
+     * Get the current state of a tool call.
+     */
+    fun getState(callId: String): ToolCallState? = activeToolCalls[callId]
+    
+    /**
+     * Get all active (non-terminal) tool calls.
+     */
+    fun getActiveCallIds(): Set<String> = activeToolCalls.keys.toSet()
+    
+    /**
+     * Check if there are any pending approvals.
+     */
+    fun hasPendingApprovals(): Boolean = pendingApprovals.isNotEmpty()
+    
+    private fun updateState(state: ToolCallState, callback: ((ToolCallState) -> Unit)?) {
+        if (!state.isTerminal()) {
+            activeToolCalls[state.callId] = state
+        }
+        callback?.invoke(state)
+        Log.d(TAG, "State: ${state.callId} -> ${state::class.simpleName}")
+    }
+    
+    private fun generateCallId(): String = UUID.randomUUID().toString().take(8)
+}
+
+/**
+ * Context provided to ToolRouter for execution.
+ */
+interface ToolRouterContext {
+    val platform: AndroidPlatform
+    val currentSnapshot: ScreenSnapshot?
+    fun isCancelled(): Boolean
+}
+
+/**
+ * Simple implementation of ToolRouterContext.
+ */
+class SimpleToolRouterContext(
+    override val platform: AndroidPlatform,
+    override val currentSnapshot: ScreenSnapshot? = null,
+    private val cancellationFlag: AtomicBoolean = AtomicBoolean(false)
+) : ToolRouterContext {
+    override fun isCancelled(): Boolean = cancellationFlag.get()
+    
+    fun cancel() {
+        cancellationFlag.set(true)
+    }
+}
+

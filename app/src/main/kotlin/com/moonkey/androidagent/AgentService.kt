@@ -1,25 +1,31 @@
 package com.moonkey.androidagent
 
 import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.GestureDescription
-import android.graphics.Path
-import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityNodeInfo
-import kotlinx.coroutines.*
-import org.json.JSONObject
+import com.moonkey.androidagent.data.llm.LLMClient
+import com.moonkey.androidagent.protocol.AgentEvent
+import com.moonkey.androidagent.protocol.Op
+import com.moonkey.androidagent.protocol.SessionConfig
+import com.moonkey.androidagent.service.OverlayManager
+import com.moonkey.androidagent.session.AgentSession
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
- * AgentService - The kernel that runs the agent loop. Mirrors the structure of kernel.py from
- * android-action-kernel.
+ * AgentService - The entry point for the Accessibility Service.
+ * 
+ * **Phase 2**: Now uses AgentSession with Op/Event protocol.
+ * Operations are submitted via Op sealed class, status is received via AgentEvent Flow.
  */
 class AgentService : AccessibilityService() {
 
     companion object {
         private const val TAG = "AgentService"
 
-        // Singleton reference for MainActivity to access
         @Volatile
         var instance: AgentService? = null
             private set
@@ -28,20 +34,26 @@ class AgentService : AccessibilityService() {
     }
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var isRunning = false
-    private val history = mutableListOf<String>()
-    private var lastElements: List<Sanitizer.Element> = emptyList()
+    private var session: AgentSession? = null
+    private var overlayManager: OverlayManager? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
         Log.i(TAG, "AgentService connected")
         updateStatus("Accessibility Service connected")
+
+        // Initialize OverlayManager with Op-based callbacks
+        overlayManager = OverlayManager(
+            context = this,
+            onStop = { submitOp(Op.Shutdown) },
+            onPause = { submitOp(Op.Pause) },
+            onResume = { submitOp(Op.Resume) }
+        )
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // We don't need to handle events in real-time for MVP
-        // The agent loop polls when needed
+        // We poll the screen, no reactive event handling needed for MVP
     }
 
     override fun onInterrupt() {
@@ -49,191 +61,135 @@ class AgentService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        submitOp(Op.Shutdown)
+        overlayManager?.hide()
         super.onDestroy()
         instance = null
         scope.cancel()
     }
 
+    /**
+     * Submit an operation to the current session.
+     */
+    private fun submitOp(op: Op) {
+        val currentSession = session
+        if (currentSession == null && op !is Op.Start) {
+            Log.w(TAG, "No active session for op: $op")
+            return
+        }
+        
+        scope.launch {
+            currentSession?.submit(op)
+        }
+    }
+
     private fun updateStatus(status: String) {
         Log.d(TAG, status)
         statusCallback?.invoke(status)
+        overlayManager?.updateStatus(status)
+    }
+
+    /**
+     * Start observing events from the session.
+     */
+    private fun observeSession(agentSession: AgentSession) {
+        scope.launch {
+            agentSession.events.collect { event ->
+                handleEvent(event)
+            }
+        }
+    }
+
+    /**
+     * Handle events from the session.
+     */
+    private fun handleEvent(event: AgentEvent) {
+        Log.d(TAG, "Received event: ${event::class.simpleName}")
+        
+        when (event) {
+            is AgentEvent.StatusUpdate -> {
+                val displayStatus = if (event.emoji != null) {
+                    "${event.emoji} ${event.status}"
+                } else {
+                    event.status
+                }
+                updateStatus(displayStatus)
+            }
+            
+            is AgentEvent.SessionStarted -> {
+                Log.i(TAG, "Session started: ${event.sessionId}, goal: ${event.goal}")
+            }
+            
+            is AgentEvent.SessionCompleted -> {
+                Log.i(TAG, "Session completed: ${event.sessionId}, reason: ${event.reason}")
+                overlayManager?.hide()
+                session = null
+            }
+            
+            is AgentEvent.SessionError -> {
+                Log.e(TAG, "Session error: ${event.error.message}")
+                updateStatus("❌ Error: ${event.error.message}")
+            }
+            
+            is AgentEvent.SessionPaused -> {
+                Log.i(TAG, "Session paused: ${event.sessionId}")
+                overlayManager?.updatePauseState(paused = true)
+            }
+            
+            is AgentEvent.SessionResumed -> {
+                Log.i(TAG, "Session resumed: ${event.sessionId}")
+                overlayManager?.updatePauseState(paused = false)
+            }
+            
+            // Handle other events as needed
+            else -> {
+                Log.d(TAG, "Unhandled event type: ${event::class.simpleName}")
+            }
+        }
     }
 
     /** Run the agent loop - called from MainActivity */
     fun runAgent(goal: String, apiKey: String, maxSteps: Int = 20) {
-        if (isRunning) {
-            updateStatus("Agent is already running")
-            return
-        }
-
+        // Initialize LLM with API Key
         LLMClient.initialize(apiKey)
-        history.clear()
-        isRunning = true
 
+        // Show overlay immediately
+        overlayManager?.show()
+        updateStatus("🚀 Starting agent...")
+
+        // Create session in coroutine (createWithServices is suspend)
         scope.launch {
-            updateStatus("🚀 Starting agent for goal: $goal")
-
             try {
-                repeat(maxSteps) { step ->
-                    if (!isRunning) return@launch
-
-                    updateStatus("--- Step ${step + 1} ---")
-
-                    // 1. Perception
-                    updateStatus("👀 Scanning screen...")
-                    val root = rootInActiveWindow
-                    lastElements = Sanitizer.snapshot(root)
-                    val screenJson = Sanitizer.toJson(lastElements)
-                    updateStatus("Found ${lastElements.size} elements")
-
-                    // 2. Reasoning
-                    updateStatus("🧠 Thinking...")
-                    val actionJson = LLMClient.nextAction(goal, screenJson, history)
-
-                    // 3. Parse and Execute
-                    updateStatus("💡 Action: $actionJson")
-                    val result = execute(actionJson)
-                    history.add("step=${step + 1} action=$actionJson result=$result")
-
-                    // Check for done
-                    try {
-                        val action = JSONObject(actionJson)
-                        if (action.optString("action") == "done") {
-                            updateStatus("✅ Goal achieved: ${action.optString("reason")}")
-                            isRunning = false
-                            return@launch
-                        }
-                    } catch (e: Exception) {
-                        /* ignore parse errors */
-                    }
-
-                    // Wait for UI to settle
-                    delay(1000)
-                }
-
-                updateStatus("⏱️ Max steps reached")
+                // Create new session with Phase 6 orchestration
+                val newSession = AgentSession.createWithServices(
+                    config = SessionConfig(
+                        maxTurns = maxSteps,
+                        debugMode = true,
+                        useNewOrchestration = true  // Use MobileV3Orchestration
+                    ),
+                    service = this@AgentService,
+                    scope = scope
+                )
+                
+                session = newSession
+                
+                // Start observing events
+                observeSession(newSession)
+                
+                // Submit start operation
+                newSession.submit(Op.Start(goal = goal))
+                
             } catch (e: Exception) {
-                updateStatus("❌ Error: ${e.message}")
-                Log.e(TAG, "Agent loop error", e)
-            } finally {
-                isRunning = false
+                Log.e(TAG, "Failed to create session", e)
+                updateStatus("❌ Failed to start: ${e.message}")
+                overlayManager?.hide()
             }
         }
     }
 
     fun stopAgent() {
-        isRunning = false
+        submitOp(Op.Shutdown)
+        overlayManager?.hide()
         updateStatus("🛑 Agent stopped")
-    }
-
-    private suspend fun execute(actionJson: String): String {
-        return try {
-            val action = JSONObject(actionJson)
-            val actionType = action.getString("action")
-
-            when (actionType) {
-                "tap" -> executeTap(action)
-                "type" -> executeType(action)
-                "scroll" -> executeScroll(action)
-                "back" -> executeBack()
-                "home" -> executeHome()
-                "wait" -> executeWait(action)
-                "done" -> "done"
-                else -> "unknown action: $actionType"
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Execute error", e)
-            "error: ${e.message}"
-        }
-    }
-
-    private fun executeTap(action: JSONObject): String {
-        val target = action.getJSONObject("target")
-        val index = target.getInt("value")
-
-        val element = lastElements.getOrNull(index) ?: return "error: element $index not found"
-
-        // Try node click first
-        val node = element.node
-        if (node != null && node.isClickable) {
-            val success = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            if (success) return "clicked element $index via node"
-        }
-
-        // Fallback to coordinate tap
-        return dispatchTap(element.center[0].toFloat(), element.center[1].toFloat())
-    }
-
-    private fun executeType(action: JSONObject): String {
-        val target = action.getJSONObject("target")
-        val index = target.getInt("value")
-        val text = action.getString("text")
-
-        val element = lastElements.getOrNull(index) ?: return "error: element $index not found"
-
-        val node = element.node ?: return "error: node reference lost"
-
-        // Focus the element first
-        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
-
-        // Set text
-        val bundle =
-                Bundle().apply {
-                    putCharSequence(
-                            AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                            text
-                    )
-                }
-        val success = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, bundle)
-
-        return if (success) "typed '$text' in element $index" else "error: failed to type"
-    }
-
-    private fun executeScroll(action: JSONObject): String {
-        val target = action.getJSONObject("target")
-        val index = target.getInt("value")
-        val direction = action.optString("direction", "down")
-
-        val element = lastElements.getOrNull(index) ?: return "error: element $index not found"
-
-        val node = element.node ?: return "error: node reference lost"
-
-        val scrollAction =
-                if (direction == "up") {
-                    AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
-                } else {
-                    AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
-                }
-
-        val success = node.performAction(scrollAction)
-        return if (success) "scrolled $direction on element $index" else "error: scroll failed"
-    }
-
-    private fun executeBack(): String {
-        val success = performGlobalAction(GLOBAL_ACTION_BACK)
-        return if (success) "pressed back" else "error: back failed"
-    }
-
-    private fun executeHome(): String {
-        val success = performGlobalAction(GLOBAL_ACTION_HOME)
-        return if (success) "pressed home" else "error: home failed"
-    }
-
-    private suspend fun executeWait(action: JSONObject): String {
-        val ms = action.optLong("ms", 1200)
-        delay(ms)
-        return "waited ${ms}ms"
-    }
-
-    private fun dispatchTap(x: Float, y: Float): String {
-        val path = Path().apply { moveTo(x, y) }
-
-        val gesture =
-                GestureDescription.Builder()
-                        .addStroke(GestureDescription.StrokeDescription(path, 0, 100))
-                        .build()
-
-        dispatchGesture(gesture, null, null)
-        return "tapped at ($x, $y)"
     }
 }
