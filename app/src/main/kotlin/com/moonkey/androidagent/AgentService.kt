@@ -160,12 +160,11 @@ class AgentService : AccessibilityService() {
         // Create session in coroutine (createWithServices is suspend)
         scope.launch {
             try {
-                // Create new session with Phase 6 orchestration
-                val newSession = AgentSession.createWithServices(
+                // Create new session
+                val newSession = AgentSession.create(
                     config = SessionConfig(
                         maxTurns = maxSteps,
-                        debugMode = true,
-                        useNewOrchestration = true  // Use MobileV3Orchestration
+                        debugMode = true
                     ),
                     service = this@AgentService,
                     scope = scope

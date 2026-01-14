@@ -5,15 +5,14 @@ package com.moonkey.androidagent.session
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import com.moonkey.androidagent.orchestration.AgentOrchestration
-import com.moonkey.androidagent.orchestration.AutoSelectingOrchestrationFactory
 import com.moonkey.androidagent.orchestration.CancellationReason
 import com.moonkey.androidagent.orchestration.CancellationSignal
+import com.moonkey.androidagent.orchestration.MobileV3OrchestrationFactory
 import com.moonkey.androidagent.orchestration.OrchestrationConfig
 import com.moonkey.androidagent.orchestration.OrchestrationFactory
 import com.moonkey.androidagent.platform.AccessibilityPlatform
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.*
-import com.moonkey.androidagent.service.AgentOrchestrator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -34,63 +33,38 @@ import kotlinx.coroutines.launch
  * - Emits Events (AgentEvent) via the events Flow
  * - Maintains session state via the state StateFlow
  * 
- * **Phase 6 Implementation**: Full orchestration support.
- * - Uses OrchestrationFactory to create orchestration instances
- * - Supports both MobileV3Orchestration (new) and LegacyOrchestrationAdapter
- * - Selection via SessionConfig.useNewOrchestration flag
- * - Proper pause/resume/interrupt via AgentOrchestration interface
+ * Uses MobileV3Orchestration for multi-agent execution with
+ * Manager, Executor, and Reflector agents.
  */
 class AgentSession private constructor(
     val sessionId: SessionId,
     private val config: SessionConfig,
     private val service: AccessibilityService,
     private val scope: CoroutineScope,
-    private val services: SessionServices? = null,
-    private val orchestrationFactory: OrchestrationFactory? = null
+    private val services: SessionServices,
+    private val orchestrationFactory: OrchestrationFactory
 ) {
     companion object {
         private const val TAG = "AgentSession"
         
         /**
-         * Create a new AgentSession (legacy mode without SessionServices).
-         * 
-         * This maintains backward compatibility with earlier implementations.
-         * Uses the old AgentOrchestrator directly.
-         */
-        fun create(
-            config: SessionConfig,
-            service: AccessibilityService,
-            scope: CoroutineScope
-        ): AgentSession {
-            return AgentSession(
-                sessionId = SessionId.generate(),
-                config = config,
-                service = service,
-                scope = scope,
-                services = null,
-                orchestrationFactory = null
-            )
-        }
-        
-        /**
          * Create a new AgentSession with full SessionServices and orchestration support.
          * 
-         * This is the preferred way to create sessions for Phase 6+ usage.
-         * Uses AutoSelectingOrchestrationFactory to choose between new/legacy based on config.
+         * This is the primary way to create sessions.
          * 
-         * @param config Session configuration (includes useNewOrchestration flag)
+         * @param config Session configuration
          * @param service AccessibilityService for platform access
          * @param scope CoroutineScope for async operations
          * @return AgentSession with SessionServices and orchestration initialized
          */
-        suspend fun createWithServices(
+        suspend fun create(
             config: SessionConfig,
             service: AccessibilityService,
             scope: CoroutineScope
         ): AgentSession {
             val platform: AndroidPlatform = AccessibilityPlatform(service)
             val services = SessionServices.create(config, platform)
-            val orchestrationFactory = AutoSelectingOrchestrationFactory(service, scope)
+            val orchestrationFactory = MobileV3OrchestrationFactory()
             
             return AgentSession(
                 sessionId = SessionId.generate(),
@@ -113,7 +87,7 @@ class AgentSession private constructor(
             scope: CoroutineScope,
             services: SessionServices
         ): AgentSession {
-            val orchestrationFactory = AutoSelectingOrchestrationFactory(service, scope)
+            val orchestrationFactory = MobileV3OrchestrationFactory()
             
             return AgentSession(
                 sessionId = SessionId.generate(),
@@ -149,19 +123,9 @@ class AgentSession private constructor(
     }
     
     /**
-     * Get the SessionServices if available.
+     * Get the SessionServices.
      */
-    fun getServices(): SessionServices? = services
-    
-    /**
-     * Check if this session has SessionServices available.
-     */
-    fun hasServices(): Boolean = services != null
-    
-    /**
-     * Check if using new orchestration.
-     */
-    fun isUsingNewOrchestration(): Boolean = config.useNewOrchestration && services != null
+    fun getServices(): SessionServices = services
     
     // ===== State =====
     
@@ -175,13 +139,9 @@ class AgentSession private constructor(
     
     // ===== Orchestration =====
     
-    // New orchestration (Phase 6)
     private var orchestration: AgentOrchestration? = null
     private var orchestrationJob: Job? = null
     private var cancellationSignal: CancellationSignal? = null
-    
-    // Legacy orchestrator (backward compatibility)
-    private var legacyOrchestrator: AgentOrchestrator? = null
     
     private var currentGoal: String = ""
     
@@ -243,23 +203,15 @@ class AgentSession private constructor(
             goal = op.goal
         ))
         
-        // Decide which orchestration to use
-        if (services != null && orchestrationFactory != null) {
-            // Phase 6: Use new orchestration system
-            startWithOrchestration(op.goal)
-        } else {
-            // Fallback: Use legacy orchestrator directly
-            startWithLegacyOrchestrator(op.goal)
-        }
+        startOrchestration(op.goal)
         
-        Log.i(TAG, "Session started: $sessionId, goal: ${op.goal}, " +
-              "useNew: ${config.useNewOrchestration}, hasServices: ${services != null}")
+        Log.i(TAG, "Session started: $sessionId, goal: ${op.goal}")
     }
     
     /**
-     * Start using the new orchestration system.
+     * Start the orchestration.
      */
-    private fun startWithOrchestration(goal: String) {
+    private fun startOrchestration(goal: String) {
         val signal = CompletableDeferred<CancellationReason>()
         cancellationSignal = signal
         
@@ -271,9 +223,9 @@ class AgentSession private constructor(
             debugMode = config.debugMode
         )
         
-        val orch = orchestrationFactory!!.create(
+        val orch = orchestrationFactory.create(
             config = orchConfig,
-            services = services!!,
+            services = services,
             eventEmitter = { event -> emit(event) },
             cancellationSignal = signal
         )
@@ -300,21 +252,7 @@ class AgentSession private constructor(
             }
         }
         
-        Log.d(TAG, "Started with new orchestration (useNew: ${config.useNewOrchestration})")
-    }
-    
-    /**
-     * Start using the legacy orchestrator directly.
-     */
-    private fun startWithLegacyOrchestrator(goal: String) {
-        legacyOrchestrator = AgentOrchestrator(
-            service = service,
-            scope = scope,
-            statusListener = { status -> emitStatus(status) }
-        )
-        legacyOrchestrator?.start(goal)
-        
-        Log.d(TAG, "Started with legacy orchestrator")
+        Log.d(TAG, "Started orchestration")
     }
     
     /**
@@ -351,8 +289,7 @@ class AgentSession private constructor(
         
         _state.value = SessionState.Paused
         
-        // Pause orchestration or legacy
-        orchestration?.pause() ?: legacyOrchestrator?.pause()
+        orchestration?.pause()
         
         emit(AgentEvent.SessionPaused(
             sessionId = sessionId,
@@ -370,8 +307,7 @@ class AgentSession private constructor(
         
         _state.value = SessionState.Running
         
-        // Resume orchestration or legacy
-        orchestration?.resume() ?: legacyOrchestrator?.resume()
+        orchestration?.resume()
         
         emit(AgentEvent.SessionResumed(
             sessionId = sessionId,
@@ -387,15 +323,8 @@ class AgentSession private constructor(
             return
         }
         
-        if (orchestration != null) {
-            // New orchestration supports interrupt
-            orchestration?.interrupt()
-            Log.i(TAG, "Interrupt requested (new orchestration)")
-        } else {
-            // Legacy doesn't support interrupt, treat as stop
-            Log.i(TAG, "Interrupt requested (legacy: treated as stop)")
-            handleShutdown()
-        }
+        orchestration?.interrupt()
+        Log.i(TAG, "Interrupt requested")
     }
     
     private suspend fun handleShutdown() {
@@ -412,12 +341,8 @@ class AgentSession private constructor(
         cancellationSignal?.complete(CancellationReason.UserRequested)
         cancellationSignal = null
         
-        // Stop legacy orchestrator
-        legacyOrchestrator?.stop()
-        legacyOrchestrator = null
-        
         // Cleanup SessionServices
-        services?.cleanup()
+        services.cleanup()
         
         emit(AgentEvent.SessionCompleted(
             sessionId = sessionId,
@@ -441,14 +366,8 @@ class AgentSession private constructor(
     }
     
     private suspend fun handleApproval(op: Op.Approve) {
-        // Forward approval to ToolRouter if services are available
-        if (services != null) {
-            services.toolRouter.resolveApproval(op.actionId, op.decision)
-            Log.d(TAG, "Resolved approval: ${op.actionId} -> ${op.decision}")
-        } else {
-            Log.w(TAG, "Approval not supported in legacy mode: ${op.actionId} -> ${op.decision}")
-            emitStatus("Approval not yet supported")
-        }
+        services.toolRouter.resolveApproval(op.actionId, op.decision)
+        Log.d(TAG, "Resolved approval: ${op.actionId} -> ${op.decision}")
     }
     
     // ===== Helpers =====
