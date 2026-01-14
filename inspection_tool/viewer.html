@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android Perception Inspector</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --border-color: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-cyan: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-orange: #d29922;
+            --accent-pink: #f778ba;
+            --accent-purple: #a371f7;
+            --accent-red: #f85149;
+            --highlight-bg: rgba(88, 166, 255, 0.15);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .header h1 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .nav-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .nav-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-btn:hover:not(:disabled) {
+            background: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+            color: var(--bg-primary);
+        }
+        
+        .nav-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .nav-info {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .file-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .file-input-wrapper label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        #folderInput {
+            display: none;
+        }
+        
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .stat-label {
+            color: var(--text-secondary);
+        }
+        
+        .stat-value {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+        
+        .stat-value.warn {
+            color: var(--accent-orange);
+        }
+        
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            height: calc(100vh - 60px);
+            gap: 1px;
+            background: var(--border-color);
+        }
+        
+        .panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg-primary);
+        }
+        
+        .panel-header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+        
+        .panel-header .icon {
+            font-size: 0.9rem;
+        }
+        
+        .panel-header .badge {
+            margin-left: auto;
+            background: var(--bg-tertiary);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.65rem;
+            color: var(--accent-cyan);
+        }
+        
+        .panel-content {
+            flex: 1;
+            overflow: auto;
+            padding: 8px;
+        }
+        
+        /* Screenshot panels */
+        .screenshot-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            position: relative;
+        }
+        
+        .screenshot-wrapper {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        .screenshot-wrapper img {
+            max-width: 100%;
+            max-height: calc(50vh - 80px);
+            display: block;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+        
+        .screenshot-wrapper.clickable {
+            cursor: crosshair;
+        }
+        
+        .highlight-overlay {
+            position: absolute;
+            border: 2px solid var(--accent-pink);
+            background: rgba(247, 120, 186, 0.2);
+            pointer-events: none;
+            border-radius: 2px;
+            transition: all 0.15s ease;
+        }
+        
+        /* Rendered view overlays */
+        .element-overlay {
+            position: absolute;
+            border: 1px solid var(--accent-cyan);
+            background: rgba(88, 166, 255, 0.1);
+            pointer-events: none;
+            font-size: 8px;
+            color: var(--accent-cyan);
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+        }
+        
+        .element-overlay.clickable {
+            border-color: var(--accent-green);
+            background: rgba(63, 185, 80, 0.15);
+        }
+        
+        .element-overlay.editable {
+            border-color: var(--accent-orange);
+            background: rgba(210, 153, 34, 0.15);
+        }
+        
+        .element-overlay.scrollable {
+            border-color: var(--accent-purple);
+            background: rgba(163, 113, 247, 0.15);
+        }
+        
+        .element-index {
+            background: var(--accent-cyan);
+            color: var(--bg-primary);
+            padding: 0 3px;
+            font-weight: 600;
+            font-size: 7px;
+            line-height: 1.4;
+        }
+        
+        .element-overlay.clickable .element-index {
+            background: var(--accent-green);
+        }
+        
+        .element-overlay.editable .element-index {
+            background: var(--accent-orange);
+        }
+        
+        /* XML container */
+        .xml-content {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            line-height: 1.5;
+        }
+        
+        .xml-tree {
+            list-style: none;
+        }
+        
+        .xml-node {
+            margin: 1px 0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.1s ease;
+            border-left: 2px solid transparent;
+            white-space: nowrap;
+        }
+        
+        .xml-node:hover {
+            background: var(--highlight-bg);
+            border-left-color: var(--accent-cyan);
+        }
+        
+        .xml-node.selected {
+            background: rgba(247, 120, 186, 0.2);
+            border-left-color: var(--accent-pink);
+        }
+        
+        .xml-node.has-bounds::before {
+            content: '◉';
+            color: var(--accent-green);
+            margin-right: 4px;
+            font-size: 0.5rem;
+        }
+        
+        .tag-name {
+            color: var(--accent-pink);
+            font-weight: 500;
+        }
+        
+        .attr-name {
+            color: var(--accent-orange);
+        }
+        
+        .attr-value {
+            color: var(--accent-green);
+        }
+        
+        .attr-bracket {
+            color: var(--text-secondary);
+        }
+        
+        .children-container {
+            margin-left: 16px;
+            border-left: 1px dashed var(--border-color);
+            padding-left: 6px;
+        }
+        
+        .toggle-btn {
+            display: inline-block;
+            width: 14px;
+            text-align: center;
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            margin-right: 2px;
+        }
+        
+        .collapsed > .children-container {
+            display: none;
+        }
+        
+        /* JSON panel */
+        .json-content {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            line-height: 1.5;
+        }
+        
+        .json-element {
+            padding: 6px 8px;
+            margin: 2px 0;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            border-left: 3px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        
+        .json-element:hover {
+            background: var(--bg-tertiary);
+            border-left-color: var(--accent-cyan);
+        }
+        
+        .json-element.selected {
+            border-left-color: var(--accent-pink);
+            background: rgba(247, 120, 186, 0.1);
+        }
+        
+        .json-element.clickable {
+            border-left-color: var(--accent-green);
+        }
+        
+        .json-element.editable {
+            border-left-color: var(--accent-orange);
+        }
+        
+        .json-element .elem-index {
+            color: var(--accent-cyan);
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        
+        .json-element .elem-class {
+            color: var(--accent-purple);
+        }
+        
+        .json-element .elem-text {
+            color: var(--accent-green);
+            margin-left: 8px;
+        }
+        
+        .json-element .elem-desc {
+            color: var(--accent-orange);
+            margin-left: 8px;
+        }
+        
+        .json-element .elem-flags {
+            color: var(--text-secondary);
+            font-size: 0.6rem;
+            margin-left: 8px;
+        }
+        
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .empty-state .icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        
+        .empty-state p {
+            font-size: 0.75rem;
+            max-width: 200px;
+        }
+        
+        .keyboard-hint {
+            margin-top: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+        
+        .keyboard-hint kbd {
+            background: var(--bg-primary);
+            padding: 1px 6px;
+            border-radius: 3px;
+            border: 1px solid var(--border-color);
+        }
+        
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 12px;
+            font-size: 0.65rem;
+            padding: 4px 8px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+        
+        .legend-color.clickable { background: var(--accent-green); }
+        .legend-color.editable { background: var(--accent-orange); }
+        .legend-color.scrollable { background: var(--accent-purple); }
+        .legend-color.text { background: var(--accent-cyan); }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-color);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>🔬 Perception Inspector</h1>
+        
+        <div class="file-input-wrapper">
+            <button class="nav-btn" onclick="document.getElementById('folderInput').click()">
+                📁 Choose Folder
+            </button>
+            <input type="file" id="folderInput" webkitdirectory directory multiple>
+        </div>
+        
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-item">
+                <span class="stat-label">Elements:</span>
+                <span class="stat-value" id="statElements">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Clickable:</span>
+                <span class="stat-value" id="statClickable">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Editable:</span>
+                <span class="stat-value" id="statEditable">-</span>
+            </div>
+        </div>
+        
+        <div class="nav-controls">
+            <button class="nav-btn" id="prevBtn" onclick="navigate(-1)" disabled>← Prev</button>
+            <span class="nav-info" id="navInfo">0 / 0</span>
+            <button class="nav-btn" id="nextBtn" onclick="navigate(1)" disabled>Next →</button>
+        </div>
+    </header>
+    
+    <main class="main-container">
+        <!-- Top Left: Original Screenshot -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="icon">📱</span>
+                Original Screenshot
+                <span class="badge" id="screenshotTime"></span>
+            </div>
+            <div class="panel-content screenshot-content">
+                <div class="screenshot-wrapper clickable" id="originalWrapper">
+                    <img id="originalScreenshot" alt="Screenshot">
+                    <div class="highlight-overlay" id="originalHighlight" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Top Right: Original XML -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="icon">📄</span>
+                Raw Accessibility XML
+                <span class="badge" id="xmlNodeCount"></span>
+            </div>
+            <div class="panel-content xml-content" id="xmlContainer">
+                <div class="empty-state">
+                    <div class="icon">🌳</div>
+                    <p>Select a folder to load captures</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Left: Rendered View -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="icon">🎯</span>
+                Rendered View (Perceptor Output)
+                <span class="badge" id="renderedCount"></span>
+            </div>
+            <div class="panel-content screenshot-content">
+                <div class="screenshot-wrapper" id="renderedWrapper">
+                    <img id="renderedScreenshot" alt="Rendered">
+                    <div id="overlayContainer"></div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-color clickable"></div>Clickable</div>
+                    <div class="legend-item"><div class="legend-color editable"></div>Editable</div>
+                    <div class="legend-item"><div class="legend-color scrollable"></div>Scrollable</div>
+                    <div class="legend-item"><div class="legend-color text"></div>Text/Desc</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Right: Perceptor JSON -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="icon">📊</span>
+                Perceptor JSON
+                <span class="badge" id="jsonCount"></span>
+            </div>
+            <div class="panel-content json-content" id="jsonContainer">
+                <div class="empty-state">
+                    <div class="icon">📋</div>
+                    <p>Sanitized perception data will appear here</p>
+                    <div class="keyboard-hint">
+                        Use <kbd>←</kbd> <kbd>→</kbd> to navigate
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        let captures = [];
+        let currentIndex = 0;
+        let currentElements = [];
+        let boundsToNodeMap = new Map();
+        let imageScale = 1;
+        
+        // Handle folder selection
+        document.getElementById('folderInput').addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            
+            // Group files by timestamp
+            const fileGroups = {};
+            
+            files.forEach(file => {
+                const match = file.name.match(/^(\d{8}_\d{6}_\d+)\.(png|xml|json)$/);
+                if (match) {
+                    const timestamp = match[1];
+                    const type = match[2];
+                    
+                    if (!fileGroups[timestamp]) {
+                        fileGroups[timestamp] = {};
+                    }
+                    fileGroups[timestamp][type] = file;
+                }
+            });
+            
+            // Convert to array and sort (require at least png and xml)
+            captures = Object.entries(fileGroups)
+                .filter(([_, files]) => files.png && files.xml)
+                .map(([timestamp, files]) => ({
+                    timestamp,
+                    png: files.png,
+                    xml: files.xml,
+                    json: files.json || null
+                }))
+                .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+            
+            if (captures.length > 0) {
+                currentIndex = 0;
+                await loadCapture(currentIndex);
+                updateNavigation();
+            } else {
+                alert('No valid capture sets found. Need at least .png and .xml files.');
+            }
+        });
+        
+        // Load a capture
+        async function loadCapture(index) {
+            if (index < 0 || index >= captures.length) return;
+            
+            const capture = captures[index];
+            
+            // Load screenshots
+            const imgUrl = URL.createObjectURL(capture.png);
+            document.getElementById('originalScreenshot').src = imgUrl;
+            document.getElementById('renderedScreenshot').src = imgUrl;
+            
+            document.getElementById('originalScreenshot').onload = () => {
+                const img = document.getElementById('originalScreenshot');
+                imageScale = img.naturalWidth / img.clientWidth;
+            };
+            
+            // Load XML
+            const xmlText = await capture.xml.text();
+            renderXML(xmlText);
+            
+            // Load JSON if available
+            if (capture.json) {
+                const jsonText = await capture.json.text();
+                try {
+                    currentElements = JSON.parse(jsonText);
+                    renderJSON(currentElements);
+                    renderOverlays(currentElements);
+                    updateStats(currentElements);
+                } catch (e) {
+                    document.getElementById('jsonContainer').innerHTML = 
+                        `<div class="empty-state"><p>Error parsing JSON: ${e.message}</p></div>`;
+                    currentElements = [];
+                }
+            } else {
+                document.getElementById('jsonContainer').innerHTML = 
+                    `<div class="empty-state"><div class="icon">⚠️</div><p>No .json file found. Run capture.sh with perceptor.py</p></div>`;
+                document.getElementById('overlayContainer').innerHTML = '';
+                currentElements = [];
+            }
+            
+            // Update badges
+            document.getElementById('screenshotTime').textContent = formatTimestamp(capture.timestamp);
+            
+            // Hide highlights
+            document.getElementById('originalHighlight').style.display = 'none';
+        }
+        
+        // Format timestamp
+        function formatTimestamp(ts) {
+            const match = ts.match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})_(\d+)$/);
+            if (match) {
+                return `${match[4]}:${match[5]}:${match[6]} #${match[7]}`;
+            }
+            return ts;
+        }
+        
+        // Render XML tree
+        function renderXML(xmlText) {
+            const container = document.getElementById('xmlContainer');
+            boundsToNodeMap.clear();
+            
+            try {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+                
+                let nodeCount = 0;
+                const countNodes = (node) => {
+                    if (node.tagName === 'node') nodeCount++;
+                    for (const child of node.children) countNodes(child);
+                };
+                countNodes(xmlDoc.documentElement);
+                document.getElementById('xmlNodeCount').textContent = `${nodeCount} nodes`;
+                
+                const treeHtml = renderXMLNode(xmlDoc.documentElement, 0, null, 0);
+                container.innerHTML = `<ul class="xml-tree">${treeHtml}</ul>`;
+                
+                // Add event listeners
+                container.querySelectorAll('.xml-node').forEach(node => {
+                    node.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        handleXMLNodeClick(node);
+                    });
+                });
+                
+                container.querySelectorAll('.toggle-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const li = btn.closest('li');
+                        li.classList.toggle('collapsed');
+                        btn.textContent = li.classList.contains('collapsed') ? '▶' : '▼';
+                    });
+                });
+                
+            } catch (err) {
+                container.innerHTML = `<div class="empty-state"><p>Error: ${err.message}</p></div>`;
+            }
+        }
+        
+        // Render single XML node
+        function renderXMLNode(node, depth, parentPath, indexInParent) {
+            if (node.nodeType !== 1) return '';
+            
+            const nodePath = parentPath ? `${parentPath}-${indexInParent}` : '0';
+            const bounds = node.getAttribute('bounds');
+            const hasBounds = bounds && bounds.match(/\[\d+,\d+\]\[\d+,\d+\]/);
+            const children = Array.from(node.children);
+            const hasChildren = children.length > 0;
+            
+            if (hasBounds) {
+                if (!boundsToNodeMap.has(bounds)) boundsToNodeMap.set(bounds, []);
+                boundsToNodeMap.get(bounds).push(nodePath);
+            }
+            
+            // Build display
+            const text = node.getAttribute('text') || '';
+            const desc = node.getAttribute('content-desc') || '';
+            const shortText = text.length > 30 ? text.substring(0, 27) + '...' : text;
+            const shortDesc = desc.length > 30 ? desc.substring(0, 27) + '...' : desc;
+            
+            let displayAttrs = '';
+            if (shortText) displayAttrs += ` <span class="attr-name">text</span>=<span class="attr-value">"${escapeHtml(shortText)}"</span>`;
+            if (shortDesc) displayAttrs += ` <span class="attr-name">desc</span>=<span class="attr-value">"${escapeHtml(shortDesc)}"</span>`;
+            
+            const nodeClass = `xml-node${hasBounds ? ' has-bounds' : ''}`;
+            const dataAttrs = hasBounds ? ` data-bounds="${bounds}" data-node-path="${nodePath}"` : ` data-node-path="${nodePath}"`;
+            
+            let html = `<li>`;
+            html += `<div class="${nodeClass}"${dataAttrs}>`;
+            html += hasChildren ? `<span class="toggle-btn">▼</span>` : `<span style="display:inline-block;width:14px;"></span>`;
+            html += `<span class="tag-name">&lt;${node.nodeName}</span>${displayAttrs}<span class="tag-name">${hasChildren ? '&gt;' : '/&gt;'}</span>`;
+            html += `</div>`;
+            
+            if (hasChildren) {
+                html += `<div class="children-container"><ul class="xml-tree">`;
+                children.forEach((child, i) => {
+                    html += renderXMLNode(child, depth + 1, nodePath, i);
+                });
+                html += `</ul></div>`;
+            }
+            
+            html += `</li>`;
+            return html;
+        }
+        
+        // Render JSON elements
+        function renderJSON(elements) {
+            const container = document.getElementById('jsonContainer');
+            document.getElementById('jsonCount').textContent = `${elements.length} elements`;
+            
+            if (elements.length === 0) {
+                container.innerHTML = `<div class="empty-state"><p>No elements after filtering</p></div>`;
+                return;
+            }
+            
+            let html = '';
+            for (const elem of elements) {
+                const flags = [];
+                if (elem.is_clickable) flags.push('click');
+                if (elem.is_editable) flags.push('edit');
+                if (elem.is_scrollable) flags.push('scroll');
+                
+                let classStr = 'json-element';
+                if (elem.is_clickable) classStr += ' clickable';
+                else if (elem.is_editable) classStr += ' editable';
+                
+                html += `<div class="${classStr}" data-index="${elem.index}" data-bounds="${JSON.stringify(elem.bounds)}">`;
+                html += `<span class="elem-index">[${elem.index}]</span>`;
+                html += `<span class="elem-class">${elem.class_name}</span>`;
+                if (elem.text) html += `<span class="elem-text">"${escapeHtml(elem.text.substring(0, 40))}"</span>`;
+                if (elem.description) html += `<span class="elem-desc">(${escapeHtml(elem.description.substring(0, 30))})</span>`;
+                if (flags.length) html += `<span class="elem-flags">[${flags.join(', ')}]</span>`;
+                html += `</div>`;
+            }
+            
+            container.innerHTML = html;
+            
+            // Add click handlers
+            container.querySelectorAll('.json-element').forEach(el => {
+                el.addEventListener('click', () => handleJSONClick(el));
+            });
+        }
+        
+        // Render overlays on screenshot
+        function renderOverlays(elements) {
+            const container = document.getElementById('overlayContainer');
+            const img = document.getElementById('renderedScreenshot');
+            
+            document.getElementById('renderedCount').textContent = `${elements.length} elements`;
+            
+            // Wait for image to load
+            const render = () => {
+                const scale = img.clientWidth / img.naturalWidth;
+                let html = '';
+                
+                for (const elem of elements) {
+                    if (!elem.bounds || elem.bounds.length !== 4) continue;
+                    
+                    const [left, top, right, bottom] = elem.bounds;
+                    const x = left * scale;
+                    const y = top * scale;
+                    const w = (right - left) * scale;
+                    const h = (bottom - top) * scale;
+                    
+                    let classStr = 'element-overlay';
+                    if (elem.is_clickable) classStr += ' clickable';
+                    else if (elem.is_editable) classStr += ' editable';
+                    else if (elem.is_scrollable) classStr += ' scrollable';
+                    
+                    html += `<div class="${classStr}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;" data-index="${elem.index}">`;
+                    html += `<span class="element-index">${elem.index}</span>`;
+                    html += `</div>`;
+                }
+                
+                container.innerHTML = html;
+            };
+            
+            if (img.complete) {
+                render();
+            } else {
+                img.onload = render;
+            }
+        }
+        
+        // Update stats
+        function updateStats(elements) {
+            document.getElementById('statElements').textContent = elements.length;
+            document.getElementById('statElements').classList.toggle('warn', elements.length >= 80);
+            document.getElementById('statClickable').textContent = elements.filter(e => e.is_clickable).length;
+            document.getElementById('statEditable').textContent = elements.filter(e => e.is_editable).length;
+        }
+        
+        // Handle XML node click
+        function handleXMLNodeClick(nodeEl) {
+            document.querySelectorAll('.xml-node.selected').forEach(n => n.classList.remove('selected'));
+            nodeEl.classList.add('selected');
+            
+            const bounds = nodeEl.dataset.bounds;
+            if (bounds) highlightBounds(bounds);
+        }
+        
+        // Handle JSON element click
+        function handleJSONClick(el) {
+            document.querySelectorAll('.json-element.selected').forEach(n => n.classList.remove('selected'));
+            el.classList.add('selected');
+            
+            const bounds = JSON.parse(el.dataset.bounds);
+            if (bounds && bounds.length === 4) {
+                highlightBoundsArray(bounds);
+            }
+        }
+        
+        // Highlight bounds from string
+        function highlightBounds(boundsStr) {
+            const match = boundsStr.match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
+            if (match) {
+                highlightBoundsArray([parseInt(match[1]), parseInt(match[2]), parseInt(match[3]), parseInt(match[4])]);
+            }
+        }
+        
+        // Highlight bounds from array
+        function highlightBoundsArray(bounds) {
+            const [x1, y1, x2, y2] = bounds;
+            const img = document.getElementById('originalScreenshot');
+            const overlay = document.getElementById('originalHighlight');
+            
+            const scale = img.clientWidth / img.naturalWidth;
+            
+            overlay.style.left = `${x1 * scale}px`;
+            overlay.style.top = `${y1 * scale}px`;
+            overlay.style.width = `${(x2 - x1) * scale}px`;
+            overlay.style.height = `${(y2 - y1) * scale}px`;
+            overlay.style.display = 'block';
+        }
+        
+        // Handle screenshot click for reverse lookup
+        document.getElementById('originalScreenshot').addEventListener('click', (e) => {
+            const rect = e.target.getBoundingClientRect();
+            const img = e.target;
+            const scale = img.naturalWidth / img.clientWidth;
+            const x = Math.round((e.clientX - rect.left) * scale);
+            const y = Math.round((e.clientY - rect.top) * scale);
+            
+            // Find smallest matching element in JSON
+            let bestMatch = null;
+            let smallestArea = Infinity;
+            
+            for (const elem of currentElements) {
+                if (!elem.bounds || elem.bounds.length !== 4) continue;
+                const [x1, y1, x2, y2] = elem.bounds;
+                
+                if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+                    const area = (x2 - x1) * (y2 - y1);
+                    if (area < smallestArea) {
+                        smallestArea = area;
+                        bestMatch = elem;
+                    }
+                }
+            }
+            
+            if (bestMatch) {
+                // Highlight in JSON panel
+                const jsonEl = document.querySelector(`.json-element[data-index="${bestMatch.index}"]`);
+                if (jsonEl) {
+                    document.querySelectorAll('.json-element.selected').forEach(n => n.classList.remove('selected'));
+                    jsonEl.classList.add('selected');
+                    jsonEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                highlightBoundsArray(bestMatch.bounds);
+            }
+        });
+        
+        // Navigation
+        function navigate(direction) {
+            const newIndex = currentIndex + direction;
+            if (newIndex >= 0 && newIndex < captures.length) {
+                currentIndex = newIndex;
+                loadCapture(currentIndex);
+                updateNavigation();
+            }
+        }
+        
+        function updateNavigation() {
+            document.getElementById('prevBtn').disabled = currentIndex === 0;
+            document.getElementById('nextBtn').disabled = currentIndex === captures.length - 1;
+            document.getElementById('navInfo').textContent = `${currentIndex + 1} / ${captures.length}`;
+        }
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') navigate(-1);
+            else if (e.key === 'ArrowRight') navigate(1);
+        });
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
