@@ -144,7 +144,7 @@ cmd_logs() {
     case "$filter" in
         orch|orchestration)
             log "Orchestration logs (Ctrl+C to stop)..."
-            adb logcat -s MobileV3Orchestration:* AgentOrchestrator:*
+            adb logcat -s MobileV3Orchestration:*
             ;;
         llm|api)
             log "LLM/API logs (Ctrl+C to stop)..."
