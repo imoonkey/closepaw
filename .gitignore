@@ -97,3 +97,6 @@ lint/tmp/
 *.bak
 
 .env
+
+# project specific
+inspection_tool/debug_data
