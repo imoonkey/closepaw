@@ -4,12 +4,9 @@ package com.moonkey.androidagent.session
 
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
-import com.moonkey.androidagent.orchestration.AgentOrchestration
-import com.moonkey.androidagent.orchestration.CancellationReason
-import com.moonkey.androidagent.orchestration.CancellationSignal
-import com.moonkey.androidagent.orchestration.MobileV3OrchestrationFactory
-import com.moonkey.androidagent.orchestration.OrchestrationConfig
-import com.moonkey.androidagent.orchestration.OrchestrationFactory
+import com.moonkey.androidagent.agent.Agent
+import com.moonkey.androidagent.agent.AgentConfig
+import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.platform.AccessibilityPlatform
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.*
@@ -33,29 +30,27 @@ import kotlinx.coroutines.launch
  * - Emits Events (AgentEvent) via the events Flow
  * - Maintains session state via the state StateFlow
  * 
- * Uses MobileV3Orchestration for multi-agent execution with
- * Manager, Executor, and Reflector agents.
+ * V2: Uses single ReAct Agent instead of multi-agent orchestration.
  */
 class AgentSession private constructor(
     val sessionId: SessionId,
     private val config: SessionConfig,
     private val service: AccessibilityService,
     private val scope: CoroutineScope,
-    private val services: SessionServices,
-    private val orchestrationFactory: OrchestrationFactory
+    private val services: SessionServices
 ) {
     companion object {
         private const val TAG = "AgentSession"
         
         /**
-         * Create a new AgentSession with full SessionServices and orchestration support.
+         * Create a new AgentSession with full SessionServices.
          * 
          * This is the primary way to create sessions.
          * 
          * @param config Session configuration
          * @param service AccessibilityService for platform access
          * @param scope CoroutineScope for async operations
-         * @return AgentSession with SessionServices and orchestration initialized
+         * @return AgentSession with SessionServices initialized
          */
         suspend fun create(
             config: SessionConfig,
@@ -64,15 +59,13 @@ class AgentSession private constructor(
         ): AgentSession {
             val platform: AndroidPlatform = AccessibilityPlatform(service)
             val services = SessionServices.create(config, platform)
-            val orchestrationFactory = MobileV3OrchestrationFactory()
             
             return AgentSession(
                 sessionId = SessionId.generate(),
                 config = config,
                 service = service,
                 scope = scope,
-                services = services,
-                orchestrationFactory = orchestrationFactory
+                services = services
             )
         }
         
@@ -87,37 +80,12 @@ class AgentSession private constructor(
             scope: CoroutineScope,
             services: SessionServices
         ): AgentSession {
-            val orchestrationFactory = MobileV3OrchestrationFactory()
-            
             return AgentSession(
                 sessionId = SessionId.generate(),
                 config = config,
                 service = service,
                 scope = scope,
-                services = services,
-                orchestrationFactory = orchestrationFactory
-            )
-        }
-        
-        /**
-         * Create with custom orchestration factory.
-         * 
-         * For testing or when you want to inject a specific orchestration type.
-         */
-        fun createWithFactory(
-            config: SessionConfig,
-            service: AccessibilityService,
-            scope: CoroutineScope,
-            services: SessionServices,
-            factory: OrchestrationFactory
-        ): AgentSession {
-            return AgentSession(
-                sessionId = SessionId.generate(),
-                config = config,
-                service = service,
-                scope = scope,
-                services = services,
-                orchestrationFactory = factory
+                services = services
             )
         }
     }
@@ -137,11 +105,11 @@ class AgentSession private constructor(
     private val eventChannel = Channel<AgentEvent>(Channel.BUFFERED)
     val events: Flow<AgentEvent> = eventChannel.receiveAsFlow()
     
-    // ===== Orchestration =====
+    // ===== Agent (V2) =====
     
-    private var orchestration: AgentOrchestration? = null
-    private var orchestrationJob: Job? = null
-    private var cancellationSignal: CancellationSignal? = null
+    private var agent: Agent? = null
+    private var agentJob: Job? = null
+    private var cancellationSignal: CompletableDeferred<AgentStopReason>? = null
     
     private var currentGoal: String = ""
     
@@ -203,72 +171,64 @@ class AgentSession private constructor(
             goal = op.goal
         ))
         
-        startOrchestration(op.goal)
+        startAgent(op.goal)
         
         Log.i(TAG, "Session started: $sessionId, goal: ${op.goal}")
     }
     
     /**
-     * Start the orchestration.
+     * Start the agent execution (V2).
      */
-    private fun startOrchestration(goal: String) {
-        val signal = CompletableDeferred<CancellationReason>()
+    private fun startAgent(goal: String) {
+        val signal = CompletableDeferred<AgentStopReason>()
         cancellationSignal = signal
         
-        val orchConfig = OrchestrationConfig(
+        val agentConfig = AgentConfig(
             goal = goal,
             sessionId = sessionId,
             maxTurns = config.maxTurns,
-            actionDelayMs = config.actionDelayMs,
+            uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode
         )
         
-        val orch = orchestrationFactory.create(
-            config = orchConfig,
+        val newAgent = Agent(
+            config = agentConfig,
             services = services,
             eventEmitter = { event -> emit(event) },
             cancellationSignal = signal
         )
-        orchestration = orch
+        agent = newAgent
         
-        // Launch orchestration in a coroutine
-        orchestrationJob = scope.launch {
+        // Launch agent in a coroutine
+        agentJob = scope.launch {
             try {
-                orch.run()
-                
-                // Check completion reason
-                if (signal.isCompleted) {
-                    val reason = signal.getCompleted()
-                    handleOrchestrationComplete(reason)
-                } else {
-                    handleOrchestrationComplete(CancellationReason.GoalAchieved)
-                }
+                val result = newAgent.run()
+                handleAgentComplete(result)
             } catch (e: CancellationException) {
-                Log.d(TAG, "Orchestration cancelled")
-                handleOrchestrationComplete(CancellationReason.UserRequested)
+                Log.d(TAG, "Agent cancelled")
+                handleAgentComplete(AgentStopReason.UserRequested)
             } catch (e: Exception) {
-                Log.e(TAG, "Orchestration error", e)
-                handleOrchestrationComplete(CancellationReason.Error(e.message ?: "Unknown error"))
+                Log.e(TAG, "Agent error", e)
+                handleAgentComplete(AgentStopReason.Error(e.message ?: "Unknown error"))
             }
         }
         
-        Log.d(TAG, "Started orchestration")
+        Log.d(TAG, "Started agent")
     }
     
     /**
-     * Handle orchestration completion.
+     * Handle agent completion (V2).
      */
-    private suspend fun handleOrchestrationComplete(reason: CancellationReason) {
+    private suspend fun handleAgentComplete(reason: AgentStopReason) {
         if (_state.value == SessionState.Shutdown) {
             return // Already shut down
         }
         
         val completionReason = when (reason) {
-            CancellationReason.GoalAchieved -> CompletionReason.GOAL_ACHIEVED
-            CancellationReason.UserRequested -> CompletionReason.USER_STOPPED
-            CancellationReason.Timeout -> CompletionReason.TIMEOUT
-            CancellationReason.MaxTurnsReached -> CompletionReason.MAX_TURNS
-            is CancellationReason.Error -> CompletionReason.ERROR
+            AgentStopReason.GoalAchieved -> CompletionReason.GOAL_ACHIEVED
+            AgentStopReason.UserRequested -> CompletionReason.USER_STOPPED
+            AgentStopReason.MaxTurnsReached -> CompletionReason.MAX_TURNS
+            is AgentStopReason.Error -> CompletionReason.ERROR
         }
         
         _state.value = SessionState.Completed
@@ -276,7 +236,7 @@ class AgentSession private constructor(
         emit(AgentEvent.SessionCompleted(
             sessionId = sessionId,
             timestamp = now(),
-            result = if (reason is CancellationReason.Error) reason.message else null,
+            result = if (reason is AgentStopReason.Error) reason.message else null,
             reason = completionReason
         ))
     }
@@ -289,7 +249,7 @@ class AgentSession private constructor(
         
         _state.value = SessionState.Paused
         
-        orchestration?.pause()
+        agent?.pause()
         
         emit(AgentEvent.SessionPaused(
             sessionId = sessionId,
@@ -307,7 +267,7 @@ class AgentSession private constructor(
         
         _state.value = SessionState.Running
         
-        orchestration?.resume()
+        agent?.resume()
         
         emit(AgentEvent.SessionResumed(
             sessionId = sessionId,
@@ -323,7 +283,7 @@ class AgentSession private constructor(
             return
         }
         
-        orchestration?.interrupt()
+        agent?.stop()
         Log.i(TAG, "Interrupt requested")
     }
     
@@ -333,12 +293,12 @@ class AgentSession private constructor(
         val previousState = _state.value
         _state.value = SessionState.Shutdown
         
-        // Stop orchestration
-        orchestration?.stop()
-        orchestration = null
-        orchestrationJob?.cancel()
-        orchestrationJob = null
-        cancellationSignal?.complete(CancellationReason.UserRequested)
+        // Stop agent
+        agent?.stop()
+        agent = null
+        agentJob?.cancel()
+        agentJob = null
+        cancellationSignal?.complete(AgentStopReason.UserRequested)
         cancellationSignal = null
         
         // Cleanup SessionServices
@@ -360,7 +320,7 @@ class AgentSession private constructor(
     }
     
     private suspend fun handleUserInput(op: Op.UserInput) {
-        // TODO: Forward to orchestration for handling
+        // TODO: Forward to agent for handling
         Log.w(TAG, "UserInput not yet supported: ${op.text}")
         emitStatus("User input not yet supported")
     }
