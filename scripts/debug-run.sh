@@ -26,11 +26,15 @@ warn() { echo -e "${YELLOW}! $1${NC}"; }
 
 # Create debug output directory
 mkdir -p "$DEBUG_DIR"
-rm -f "$DEBUG_DIR"/*.png "$DEBUG_DIR"/*.txt
+rm -f "$DEBUG_DIR"/*.png "$DEBUG_DIR"/*.txt "$DEBUG_DIR"/*.log
 log "Debug output: $DEBUG_DIR"
 
 # Load API key
-source "$PROJECT_ROOT/.env"
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
+    source "$PROJECT_ROOT/.env"
+else
+    warn "No .env file found. Make sure OPENAI_API_KEY is set."
+fi
 
 # Clear logs
 adb logcat -c
@@ -59,8 +63,8 @@ echo ""
 while [[ $TURN -lt $MAX_TURNS ]]; do
     sleep 2
     
-    # Check for new turn markers in logcat
-    NEW_TURN_LINE=$(adb logcat -d 2>/dev/null | grep "TURN.*START" | tail -1)
+    # Check for new turn markers in logcat (V2 Agent uses "=== TURN X START ===")
+    NEW_TURN_LINE=$(adb logcat -d 2>/dev/null | grep -E "TURN [0-9]+ START|TurnStarted" | tail -1)
     
     if [[ "$NEW_TURN_LINE" != "$LAST_TURN_LINE" && -n "$NEW_TURN_LINE" ]]; then
         TURN=$((TURN + 1))
@@ -70,21 +74,21 @@ while [[ $TURN -lt $MAX_TURNS ]]; do
         SCREENSHOT="$DEBUG_DIR/turn_${TURN}.png"
         adb exec-out screencap -p > "$SCREENSHOT"
         
-        # Get action and snapshot info for this turn
-        adb logcat -d 2>/dev/null | grep -E "(TURN $TURN|Action decided|Reflection outcome|SNAPSHOT)" | tail -20 > "$DEBUG_DIR/turn_${TURN}_log.txt"
+        # Get agent log for this turn (V2 Agent logs)
+        adb logcat -d 2>/dev/null | grep -E "(Agent|Turn|LLM|Tool|Screen)" | tail -30 > "$DEBUG_DIR/turn_${TURN}_log.txt"
         
         echo "  Turn $TURN captured -> $SCREENSHOT"
     fi
     
-    # Check if agent finished
-    if adb logcat -d 2>/dev/null | grep -q "SessionCompleted\|FINISHED\|GoalAchieved"; then
+    # Check if agent finished (V2 patterns)
+    if adb logcat -d 2>/dev/null | grep -q "SessionCompleted\|Goal achieved\|GoalAchieved\|DONE:"; then
         echo ""
         ok "Agent completed!"
         break
     fi
     
     # Check for stuck/error
-    if adb logcat -d 2>/dev/null | grep -q "Fatal error\|Max turns reached"; then
+    if adb logcat -d 2>/dev/null | grep -q "Fatal error\|Max turns reached\|MaxTurnsReached"; then
         echo ""
         warn "Agent stopped (error or max turns)"
         break
@@ -92,11 +96,11 @@ while [[ $TURN -lt $MAX_TURNS ]]; do
 done
 
 echo ""
-log "Saving full orchestration log..."
-adb logcat -d | grep -E "MobileV3Orchestration|Reflector|Executor|Manager" > "$DEBUG_DIR/orchestration.log"
-
 log "Saving full agent log..."
-adb logcat -d | grep -E "MobileV3|AgentService|AccessibilityPlatform|LLMClient" > "$DEBUG_DIR/agent.log"
+adb logcat -d | grep -E "Agent|Turn|LLMClient|ToolRouter|SessionServices" > "$DEBUG_DIR/agent.log"
+
+log "Saving full system log..."
+adb logcat -d | grep -E "AgentService|AccessibilityPlatform|AgentSession" > "$DEBUG_DIR/system.log"
 
 echo ""
 echo -e "${GREEN}=============================================================${NC}"
@@ -107,6 +111,5 @@ ls -la "$DEBUG_DIR"
 echo ""
 echo "To view:"
 echo "  Screenshots: open $DEBUG_DIR/turn_*.png"
-echo "  Full log:    cat $DEBUG_DIR/orchestration.log"
+echo "  Full log:    cat $DEBUG_DIR/agent.log"
 echo -e "${GREEN}=============================================================${NC}"
-

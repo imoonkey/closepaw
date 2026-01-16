@@ -190,8 +190,13 @@ object LLMClient {
         return null
     }
 
+    /**
+     * Clean response but preserve tool blocks for parsing.
+     * Only strips ```json markers, not ```tool markers.
+     */
     private fun String.cleanJson(): String {
-        return this.trim().replace("```json", "").replace("```", "").trim()
+        // Don't strip backticks - let Turn.kt parse tool blocks
+        return this.trim()
     }
 }
 
