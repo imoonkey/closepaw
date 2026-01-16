@@ -8,7 +8,13 @@ import com.moonkey.androidagent.infra.registry.ToolRegistry
 import com.moonkey.androidagent.infra.tools.ToolRouter
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.SessionConfig
-import com.moonkey.androidagent.tools.impl.*
+import com.moonkey.androidagent.tools.impl.BackTool
+import com.moonkey.androidagent.tools.impl.ClickTool
+import com.moonkey.androidagent.tools.impl.HomeTool
+import com.moonkey.androidagent.tools.impl.ScrollTool
+import com.moonkey.androidagent.tools.impl.SwipeTool
+import com.moonkey.androidagent.tools.impl.TypeTool
+import com.moonkey.androidagent.tools.impl.WaitTool
 
 /**
  * SessionServices - Dependency Injection container for all session-scoped services.
@@ -106,6 +112,7 @@ data class SessionServices(
             register(ScrollTool())
             register(SwipeTool())
             register(BackTool())
+            register(HomeTool())
             register(WaitTool())
             
             Log.d(TAG, "Registered ${size()} built-in tools")

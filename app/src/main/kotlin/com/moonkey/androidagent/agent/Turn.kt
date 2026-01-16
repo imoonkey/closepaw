@@ -106,31 +106,64 @@ class Turn(
      * Uses JSON format that the model can understand and we can parse.
      */
     private fun buildToolInstructions(): String {
-        val toolDescriptions = toolRegistry.getAll().joinToString("\n") { tool ->
-            "- ${tool.name}: ${tool.description}"
-        }
-        
         return """
             ## Tool Usage
             
-            When you need to perform an action, respond with a tool call in this exact format:
+            When you need to perform an action, respond with a tool call in this EXACT format:
             ```tool
-            {"name": "TOOL_NAME", "arguments": {"arg1": value1, "arg2": value2}}
+            {"name": "TOOL_NAME", "arguments": {"param": value}}
             ```
             
-            Available tools:
-            $toolDescriptions
+            ## Available Tools
+            
+            1. **click** - Click on a UI element
+               Arguments: {"element_index": <integer>}
+               Example: ```tool
+               {"name": "click", "arguments": {"element_index": 5}}
+               ```
+            
+            2. **type** - Type text into an editable field
+               Arguments: {"element_index": <integer>, "text": "<string>"}
+               Example: ```tool
+               {"name": "type", "arguments": {"element_index": 3, "text": "Hello"}}
+               ```
+            
+            3. **scroll** - Scroll the screen
+               Arguments: {"direction": "up" | "down" | "left" | "right"}
+               Example: ```tool
+               {"name": "scroll", "arguments": {"direction": "down"}}
+               ```
+            
+            4. **back** - Press the system back button
+               Arguments: {} (none required)
+               Example: ```tool
+               {"name": "back", "arguments": {}}
+               ```
+            
+            5. **home** - Press the system home button
+               Arguments: {} (none required)
+               Example: ```tool
+               {"name": "home", "arguments": {}}
+               ```
+            
+            6. **wait** - Wait for UI to update
+               Arguments: {"duration_ms": <integer>} (optional, default 1000)
+               Example: ```tool
+               {"name": "wait", "arguments": {"duration_ms": 2000}}
+               ```
+            
+            ## Rules
+            
+            - Use ONLY ONE tool call per response
+            - The element_index comes from the "index" field in the screen state JSON
+            - Look for elements with "clickable": true for buttons/links
+            - Look for elements with "editable": true for text input
+            - After each action, wait for the result before deciding next step
             
             ## Completion
             
             When the goal is achieved, respond with "DONE:" followed by a summary.
             Do NOT include a tool call when the task is complete.
-            
-            ## Important
-            
-            - Only use ONE tool call per response
-            - Wait for the tool result before deciding the next action
-            - Use element indices from the screen state to identify UI elements
         """.trimIndent()
     }
     
