@@ -123,7 +123,8 @@ sealed interface ToolExecutionResult {
     /** Execution succeeded */
     data class Success(
         val output: String,
-        val data: Any? = null
+        val data: Any? = null,
+        val observation: ToolObservation? = null
     ) : ToolExecutionResult
     
     /** Execution failed */
@@ -138,5 +139,22 @@ sealed interface ToolExecutionResult {
     ) : ToolExecutionResult
     
     fun isSuccess(): Boolean = this is Success
+}
+
+/**
+ * ToolObservation - Post-action observation captured after tool execution.
+ * 
+ * V2 Addition: Tools now capture the screen state after execution,
+ * so the agent can see what changed as a result of the action.
+ */
+sealed interface ToolObservation {
+    /** Screen state after action (for UI tools) */
+    data class ScreenState(
+        val accessibilityTree: String,
+        val elementCount: Int
+    ) : ToolObservation
+    
+    /** Text output for non-UI tools */
+    data class TextOutput(val content: String) : ToolObservation
 }
 
