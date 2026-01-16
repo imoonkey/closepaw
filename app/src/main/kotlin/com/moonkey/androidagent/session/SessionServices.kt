@@ -4,7 +4,6 @@ import android.util.Log
 import com.moonkey.androidagent.infra.history.HistoryConfig
 import com.moonkey.androidagent.infra.history.HistoryManager
 import com.moonkey.androidagent.infra.policy.PolicyEngine
-import com.moonkey.androidagent.infra.registry.AgentRegistry
 import com.moonkey.androidagent.infra.registry.ToolRegistry
 import com.moonkey.androidagent.infra.tools.ToolRouter
 import com.moonkey.androidagent.platform.AndroidPlatform
@@ -19,11 +18,13 @@ import com.moonkey.androidagent.tools.impl.*
  * Each service has ONE clear responsibility:
  * - toolRegistry: Discovery and schema generation for tools
  * - toolRouter: Execution of tools with state machine (includes approval flow)
- * - agentRegistry: Discovery of agent definitions
  * - historyManager: Conversation history with truncation/normalization
  * - policyEngine: Decides ALLOW/DENY/ASK_USER for tool calls
  * - platform: Android-specific operations
  * - config: Session configuration
+ * 
+ * V2 Changes:
+ * - Removed agentRegistry (no longer needed without multi-agent orchestration)
  * 
  * Usage:
  * ```kotlin
@@ -34,7 +35,6 @@ import com.moonkey.androidagent.tools.impl.*
 data class SessionServices(
     val toolRegistry: ToolRegistry,
     val toolRouter: ToolRouter,
-    val agentRegistry: AgentRegistry,
     val historyManager: HistoryManager,
     val policyEngine: PolicyEngine,
     val platform: AndroidPlatform,
@@ -50,8 +50,7 @@ data class SessionServices(
          * 1. PolicyEngine (no dependencies)
          * 2. ToolRegistry (no dependencies)
          * 3. ToolRouter (depends on ToolRegistry, PolicyEngine)
-         * 4. AgentRegistry (no dependencies)
-         * 5. HistoryManager (depends on config)
+         * 4. HistoryManager (depends on config)
          * 
          * @param config Session configuration
          * @param platform Android platform abstraction
@@ -77,13 +76,7 @@ data class SessionServices(
             val toolRouter = ToolRouter(toolRegistry, policyEngine)
             Log.d(TAG, "Created ToolRouter")
             
-            // 4. Create and initialize AgentRegistry
-            val agentRegistry = AgentRegistry().apply {
-                initialize()
-            }
-            Log.d(TAG, "Created AgentRegistry with ${agentRegistry.size()} agents")
-            
-            // 5. Create HistoryManager with config-based settings
+            // 4. Create HistoryManager with config-based settings
             val historyConfig = HistoryConfig(
                 autoCompress = true,
                 maxTokenBudget = 100_000 // Could be configurable in SessionConfig
@@ -96,7 +89,6 @@ data class SessionServices(
             return SessionServices(
                 toolRegistry = toolRegistry,
                 toolRouter = toolRouter,
-                agentRegistry = agentRegistry,
                 historyManager = historyManager,
                 policyEngine = policyEngine,
                 platform = platform,
@@ -144,11 +136,6 @@ data class SessionServices(
             appendLine()
             appendLine("Tools (${toolRegistry.size()}):")
             toolRegistry.getNames().forEach { name ->
-                appendLine("  - $name")
-            }
-            appendLine()
-            appendLine("Agents (${agentRegistry.size()}):")
-            agentRegistry.getNames().forEach { name ->
                 appendLine("  - $name")
             }
             appendLine()
@@ -214,4 +201,3 @@ object SessionServicesBuilder {
         return services
     }
 }
-
