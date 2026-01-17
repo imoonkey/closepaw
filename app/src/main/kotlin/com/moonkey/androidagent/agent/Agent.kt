@@ -11,12 +11,9 @@ import com.moonkey.androidagent.protocol.ApprovalDetails
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 /**
  * Agent - Single ReAct agent that executes goals.
@@ -196,15 +193,17 @@ class Agent(
                         params = toolCall.arguments,
                         context = context,
                         onApprovalRequired = { details ->
-                            // Launch in a coroutine since eventEmitter is suspend
-                            CoroutineScope(Dispatchers.Main).launch {
+                            // Use details.callId (from ToolRouter) for approval resolution
+                            try {
                                 eventEmitter(AgentEvent.ApprovalRequired(
                                     sessionId = config.sessionId,
                                     timestamp = System.currentTimeMillis(),
-                                    actionId = toolCall.id,
+                                    actionId = details.callId,
                                     description = details.description,
                                     details = details
                                 ))
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed to emit approval required event", e)
                             }
                         }
                     )

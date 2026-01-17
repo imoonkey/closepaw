@@ -169,31 +169,37 @@ class Turn(
     
     /**
      * Parse LLM response for tool calls and completion status.
+     * 
+     * Uses multiple patterns to handle edge cases:
+     * 1. Standard ```tool ... ``` blocks
+     * 2. Fallback JSON object detection for malformed responses
      */
     private fun parseResponse(response: String): TurnResult {
         val toolCalls = mutableListOf<ToolCallRequest>()
+        val parseErrors = mutableListOf<String>()
         
-        // Extract tool calls from ```tool blocks
+        // Primary pattern: Extract tool calls from ```tool blocks
         val toolPattern = Regex("```tool\\s*\\n?([\\s\\S]*?)\\n?```", RegexOption.MULTILINE)
-        toolPattern.findAll(response).forEach { match ->
-            try {
-                val jsonStr = match.groupValues[1].trim()
-                Log.d(TAG, "Found tool call JSON: $jsonStr")
-                
-                val json = JSONObject(jsonStr)
-                val name = json.getString("name")
-                val arguments = json.optJSONObject("arguments") ?: JSONObject()
-                
-                toolCalls.add(ToolCallRequest(
-                    id = UUID.randomUUID().toString().take(8),
-                    name = name,
-                    arguments = arguments
-                ))
-                
-                Log.d(TAG, "Parsed tool call: $name with args: $arguments")
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to parse tool call: ${e.message}")
+        val matches = toolPattern.findAll(response).toList()
+        
+        if (matches.isNotEmpty()) {
+            matches.forEach { match ->
+                val rawContent = match.groupValues[1]
+                parseToolCallJson(rawContent, toolCalls, parseErrors)
             }
+        } else {
+            // Fallback: Try to find JSON with "name" field that looks like a tool call
+            // This handles cases where LLM omits the ```tool wrapper
+            val jsonPattern = Regex("""\{[^{}]*"name"\s*:\s*"[^"]+"\s*[^{}]*\}""")
+            jsonPattern.findAll(response).forEach { match ->
+                Log.d(TAG, "Fallback: Found potential tool JSON without wrapper: ${match.value}")
+                parseToolCallJson(match.value, toolCalls, parseErrors)
+            }
+        }
+        
+        // Log parsing errors for debugging
+        if (parseErrors.isNotEmpty()) {
+            Log.w(TAG, "Tool call parsing errors:\n${parseErrors.joinToString("\n")}")
         }
         
         // Check for completion indicators
@@ -209,8 +215,62 @@ class Turn(
         return TurnResult(
             content = response,
             toolCalls = toolCalls,
-            isComplete = isComplete
+            isComplete = isComplete,
+            parseErrors = parseErrors.takeIf { it.isNotEmpty() }
         )
+    }
+    
+    /**
+     * Parse a JSON string as a tool call and add to the list if valid.
+     */
+    private fun parseToolCallJson(
+        rawContent: String,
+        toolCalls: MutableList<ToolCallRequest>,
+        parseErrors: MutableList<String>
+    ) {
+        val jsonStr = rawContent.trim()
+        
+        if (jsonStr.isEmpty()) {
+            parseErrors.add("Empty tool call block")
+            return
+        }
+        
+        try {
+            val json = JSONObject(jsonStr)
+            
+            // Validate required "name" field
+            if (!json.has("name")) {
+                parseErrors.add("Tool call missing 'name' field: $jsonStr")
+                return
+            }
+            
+            val name = json.getString("name")
+            if (name.isBlank()) {
+                parseErrors.add("Tool call has empty 'name': $jsonStr")
+                return
+            }
+            
+            // Validate tool exists in registry
+            if (toolRegistry.get(name) == null) {
+                parseErrors.add("Unknown tool '$name' - available tools: ${toolRegistry.getAll().map { it.name }}")
+                // Still add it - let ToolRouter handle the error with proper state machine
+            }
+            
+            val arguments = json.optJSONObject("arguments") ?: JSONObject()
+            
+            toolCalls.add(ToolCallRequest(
+                id = UUID.randomUUID().toString().take(8),
+                name = name,
+                arguments = arguments
+            ))
+            
+            Log.d(TAG, "Parsed tool call: $name with args: $arguments")
+            
+        } catch (e: org.json.JSONException) {
+            parseErrors.add("Invalid JSON in tool call: ${e.message}\nContent: $jsonStr")
+        } catch (e: Exception) {
+            parseErrors.add("Unexpected error parsing tool call: ${e.message}\nContent: $jsonStr")
+        }
     }
 }
 
@@ -225,7 +285,10 @@ data class TurnResult(
     val toolCalls: List<ToolCallRequest>,
     
     /** Whether the agent considers the task complete */
-    val isComplete: Boolean
+    val isComplete: Boolean,
+    
+    /** Any errors encountered while parsing tool calls (for debugging) */
+    val parseErrors: List<String>? = null
 )
 
 /**

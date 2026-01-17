@@ -1,0 +1,30 @@
+01-16 08:09:47.517  5107  5193 D LLMClient: Making API call to OpenAI...
+01-16 08:09:48.830  5107  5193 D LLMClient: LLM Response (161 chars): To search for "weather" in Chrome, I will type "weather" into the search bar.
+01-16 08:09:48.830  5107  5193 D LLMClient: 
+01-16 08:09:48.830  5107  5193 D LLMClient: ```tool
+01-16 08:09:48.830  5107  5193 D LLMClient: {"name": "type", "arguments": {"element_index": 1, "text": "weather"}}
+01-16 08:09:48.830  5107  5193 D LLMClient: ```...
+01-16 08:09:48.832  5107  5107 D Turn    : LLM response: To search for "weather" in Chrome, I will type "weather" into the search bar.
+01-16 08:09:48.832  5107  5107 D Turn    : 
+01-16 08:09:48.832  5107  5107 D Turn    : ```tool
+01-16 08:09:48.832  5107  5107 D Turn    : {"name": "type", "arguments": {"element_index": 1, "text": "weather"}}
+01-16 08:09:48.832  5107  5107 D Turn    : ```...
+01-16 08:09:48.832  5107  5107 D Turn    : Found tool call JSON: {"name": "type", "arguments": {"element_index": 1, "text": "weather"}}
+01-16 08:09:48.833  5107  5107 D Turn    : Parsed tool call: type with args: {"element_index":1,"text":"weather"}
+01-16 08:09:48.833  5107  5107 D Turn    : Parse result: 1 tool calls, isComplete=false
+01-16 08:09:48.833  5107  5107 D Agent   : Turn 3: LLM response: To search for "weather" in Chrome, I will type "weather" into the search bar.
+01-16 08:09:48.833  5107  5107 D Agent   : 
+01-16 08:09:48.833  5107  5107 D Agent   : ```tool
+01-16 08:09:48.833  5107  5107 D Agent   : {"name": "type", "arguments": {"element_index": 1, "text": "weather"}}
+01-16 08:09:48.833  5107  5107 D Agent   : ```...
+01-16 08:09:48.835  5107  5107 D Agent   : Turn 3: Tool calls: [type]
+01-16 08:09:48.835  5107  5107 D Agent   : Status: 💡 Executing actions...
+01-16 08:09:48.835  5107  5107 D AgentSession: Emitted event: StatusUpdate
+01-16 08:09:48.835  5107  5107 D Agent   : Executing tool: type with args: {"element_index":1,"text":"weather"}
+01-16 08:09:48.835  5107  5107 D ToolRouter: Starting tool call: 0b7f1a71 (type)
+01-16 08:09:48.835  5107  5107 D ToolRouter: State: 0b7f1a71 -> Validating
+01-16 08:09:48.836  5107  5107 D ToolRouter: Policy decision for type: Allow
+01-16 08:09:48.836  5107  5107 D ToolRouter: State: 0b7f1a71 -> Scheduled
+01-16 08:09:48.836  5107  5107 D ToolRouter: State: 0b7f1a71 -> Executing
+01-16 08:09:48.908  5107  5107 D AgentService: Received event: StatusUpdate
+01-16 08:09:48.908  5107  5107 D AgentService: 💡 Executing actions...
