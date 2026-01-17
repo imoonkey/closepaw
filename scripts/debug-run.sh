@@ -31,7 +31,7 @@ log "Debug output: $DEBUG_DIR"
 
 # Load API key
 if [[ -f "$PROJECT_ROOT/.env" ]]; then
-    source "$PROJECT_ROOT/.env"
+source "$PROJECT_ROOT/.env"
 else
     warn "No .env file found. Make sure OPENAI_API_KEY is set."
 fi
