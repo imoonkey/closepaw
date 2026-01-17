@@ -155,7 +155,7 @@ class AgentService : AccessibilityService() {
 
         // Show overlay immediately
         overlayManager?.show()
-        updateStatus("🚀 Starting agent...")
+        // Note: Agent.kt emits the "Starting agent" status, don't duplicate here
 
         // Create session in coroutine (createWithServices is suspend)
         scope.launch {

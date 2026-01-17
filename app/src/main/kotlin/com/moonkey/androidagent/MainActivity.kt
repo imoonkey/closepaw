@@ -6,15 +6,25 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.util.Log
-import android.widget.Button
-import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.textfield.TextInputEditText
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.*
+import com.moonkey.androidagent.ui.screen.AgentScreen
+import com.moonkey.androidagent.ui.screen.AgentUiState
+import com.moonkey.androidagent.ui.theme.AgentTheme
 import java.io.File
 
-/** MainActivity - Simple UI for entering goal and starting agent. */
-class MainActivity : AppCompatActivity() {
+/**
+ * MainActivity - Compose-based UI for the Android Agent.
+ * 
+ * Features:
+ * - Modern Material 3 design with elegant light aesthetic
+ * - Edge-to-edge display
+ * - Reactive UI state management
+ */
+class MainActivity : ComponentActivity() {
     
     companion object {
         private const val TAG = "MainActivity"
@@ -22,62 +32,96 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_GOAL = "goal"
         const val EXTRA_AUTO_START = "auto_start"
     }
-
-    private lateinit var apiKeyInput: TextInputEditText
-    private lateinit var goalInput: TextInputEditText
-    private lateinit var startButton: Button
-    private lateinit var accessibilityButton: Button
-    private lateinit var statusText: TextView
+    
+    // UI State
+    private var apiKey by mutableStateOf("")
+    private var goal by mutableStateOf("")
+    private var statusLines by mutableStateOf(listOf<String>())
+    private var isServiceEnabled by mutableStateOf(false)
+    private var isRunning by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        apiKeyInput = findViewById(R.id.apiKeyInput)
-        goalInput = findViewById(R.id.goalInput)
-        startButton = findViewById(R.id.startButton)
-        accessibilityButton = findViewById(R.id.accessibilityButton)
-        statusText = findViewById(R.id.statusText)
-
-        // Set up status callback
-        AgentService.statusCallback = { status -> runOnUiThread { statusText.append("\n$status") } }
         
-        // Try to load API key from file or intent
+        enableEdgeToEdge()
+        
+        // Set up status callback - also detect completion
+        AgentService.statusCallback = { status ->
+            runOnUiThread {
+                statusLines = statusLines + status
+                
+                // Detect completion states to reset isRunning
+                if (status.contains("✅") || 
+                    status.contains("Goal achieved") ||
+                    status.contains("completed") ||
+                    status.contains("❌") ||
+                    status.contains("stopped") ||
+                    status.contains("Error")) {
+                    isRunning = false
+                }
+            }
+        }
+        
+        // Load initial data
         loadApiKeyFromFile()
         handleIntent(intent)
-
-        startButton.setOnClickListener {
-            startAgent()
-        }
-
-        accessibilityButton.setOnClickListener {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            startActivity(intent)
+        
+        setContent {
+            AgentTheme {
+                AgentScreen(
+                    state = AgentUiState(
+                        apiKey = apiKey,
+                        goal = goal,
+                        statusLines = statusLines,
+                        isServiceEnabled = isServiceEnabled,
+                        isRunning = isRunning
+                    ),
+                    onApiKeyChange = { apiKey = it },
+                    onGoalChange = { goal = it },
+                    onStartClick = { startAgent() },
+                    onAccessibilityClick = { openAccessibilitySettings() }
+                )
+            }
         }
     }
     
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Log.d(TAG, "onNewIntent called")
-        intent?.let { 
-            setIntent(it)  // Update the activity's intent
-            handleIntent(it) 
+        setIntent(intent)
+        handleIntent(intent)
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Update service status
+        val serviceAvailable = AgentService.instance != null
+        isServiceEnabled = serviceAvailable
+        
+        if (serviceAvailable && statusLines.isEmpty()) {
+            statusLines = listOf("✓ Accessibility Service enabled. Ready to run.")
+        } else if (!serviceAvailable && statusLines.isEmpty()) {
+            statusLines = listOf("Enable Accessibility Service to get started.")
         }
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        AgentService.statusCallback = null
     }
     
     private fun handleIntent(intent: Intent) {
-        // Support launching with API key and goal via intent
         intent.getStringExtra(EXTRA_API_KEY)?.let { key ->
             if (key.isNotBlank()) {
-                apiKeyInput.setText(key)
+                apiKey = key
                 Log.d(TAG, "API key set from intent")
             }
         }
         
-        intent.getStringExtra(EXTRA_GOAL)?.let { goal ->
-            if (goal.isNotBlank()) {
-                goalInput.setText(goal)
-                Log.d(TAG, "Goal set from intent: $goal")
+        intent.getStringExtra(EXTRA_GOAL)?.let { goalText ->
+            if (goalText.isNotBlank()) {
+                goal = goalText
+                Log.d(TAG, "Goal set from intent: $goalText")
             }
         }
         
@@ -85,18 +129,17 @@ class MainActivity : AppCompatActivity() {
         if (intent.getBooleanExtra(EXTRA_AUTO_START, false)) {
             Log.d(TAG, "Auto-start requested")
             // Delay to allow UI to initialize
-            startButton.postDelayed({ startAgent() }, 500)
+            window.decorView.postDelayed({ startAgent() }, 500)
         }
     }
     
     private fun loadApiKeyFromFile() {
         try {
-            // Try to load from /sdcard/api_key.txt
             val file = File(Environment.getExternalStorageDirectory(), "api_key.txt")
             if (file.exists()) {
                 val key = file.readText().trim()
                 if (key.isNotBlank() && key.startsWith("sk-")) {
-                    apiKeyInput.setText(key)
+                    apiKey = key
                     Log.d(TAG, "API key loaded from file")
                 }
             }
@@ -106,53 +149,40 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun startAgent() {
-        val apiKey = apiKeyInput.text?.toString() ?: ""
-        val goal = goalInput.text?.toString() ?: ""
-
         if (apiKey.isBlank()) {
-            statusText.text = "❌ Please enter your OpenAI API key"
+            statusLines = statusLines + "Please enter your OpenAI API key"
             return
         }
-
+        
         if (!Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "Please grant Overlay permission", Toast.LENGTH_LONG).show()
-            val intent =
-                    Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:$packageName")
-                    )
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
             startActivity(intent)
             return
         }
-
+        
         if (goal.isBlank()) {
-            statusText.text = "❌ Please enter a goal"
+            statusLines = statusLines + "Please enter a goal"
             return
         }
-
+        
         val service = AgentService.instance
         if (service == null) {
-            statusText.text =
-                    "❌ Accessibility Service not enabled!\nPlease enable it in Settings."
+            statusLines = statusLines + "Accessibility Service not enabled. Please enable it in Settings."
             return
         }
-
-        statusText.text = ""
+        
+        // Clear previous status and start
+        statusLines = emptyList()  // Let AgentService emit the first status
+        isRunning = true
         service.runAgent(goal, apiKey)
     }
-
-    override fun onResume() {
-        super.onResume()
-        // Update status based on service state
-        if (AgentService.instance != null) {
-            statusText.text = "✅ Accessibility Service is enabled. Ready to run."
-        } else {
-            statusText.text = "⚠️ Please enable Accessibility Service first."
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        AgentService.statusCallback = null
+    
+    private fun openAccessibilitySettings() {
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        startActivity(intent)
     }
 }
