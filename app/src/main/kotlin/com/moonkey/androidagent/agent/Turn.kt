@@ -259,7 +259,7 @@ class Turn(
             val arguments = json.optJSONObject("arguments") ?: JSONObject()
             
             toolCalls.add(ToolCallRequest(
-                id = UUID.randomUUID().toString().take(8),
+                id = UUID.randomUUID().toString(),
                 name = name,
                 arguments = arguments
             ))
