@@ -1,0 +1,30 @@
+01-16 08:09:43.500  5107  5193 D LLMClient: {"name": "click", "arguments": {"element_index": 10}}
+01-16 08:09:43.500  5107  5193 D LLMClient: ```...
+01-16 08:09:43.500  5107  5107 D Turn    : LLM response: To proceed towards the goal of opening Chrome, I will click on the "Chrome" app icon.
+01-16 08:09:43.500  5107  5107 D Turn    : 
+01-16 08:09:43.500  5107  5107 D Turn    : ```tool
+01-16 08:09:43.500  5107  5107 D Turn    : {"name": "click", "arguments": {"element_index": 10}}
+01-16 08:09:43.500  5107  5107 D Turn    : ```...
+01-16 08:09:43.501  5107  5107 D Turn    : Found tool call JSON: {"name": "click", "arguments": {"element_index": 10}}
+01-16 08:09:43.501  5107  5107 D Turn    : Parsed tool call: click with args: {"element_index":10}
+01-16 08:09:43.501  5107  5107 D Turn    : Parse result: 1 tool calls, isComplete=false
+01-16 08:09:43.501  5107  5107 D Agent   : Turn 2: LLM response: To proceed towards the goal of opening Chrome, I will click on the "Chrome" app icon.
+01-16 08:09:43.501  5107  5107 D Agent   : 
+01-16 08:09:43.501  5107  5107 D Agent   : ```tool
+01-16 08:09:43.501  5107  5107 D Agent   : {"name": "click", "arguments": {"element_index": 10}}
+01-16 08:09:43.501  5107  5107 D Agent   : ```...
+01-16 08:09:43.501  5107  5107 D Agent   : Turn 2: Tool calls: [click]
+01-16 08:09:43.501  5107  5107 D Agent   : Status: 💡 Executing actions...
+01-16 08:09:43.501  5107  5107 D AgentSession: Emitted event: StatusUpdate
+01-16 08:09:43.501  5107  5107 D Agent   : Executing tool: click with args: {"element_index":10}
+01-16 08:09:43.501  5107  5107 D ToolRouter: Starting tool call: 1095e226 (click)
+01-16 08:09:43.501  5107  5107 D ToolRouter: State: 1095e226 -> Validating
+01-16 08:09:43.501  5107  5107 D ToolRouter: Policy decision for click: Allow
+01-16 08:09:43.501  5107  5107 D ToolRouter: State: 1095e226 -> Scheduled
+01-16 08:09:43.501  5107  5107 D ToolRouter: State: 1095e226 -> Executing
+01-16 08:09:43.563   570   842 V SplashScreenExceptionList: SplashScreen checking exception for package com.android.chrome (target sdk:34) -> false
+01-16 08:09:43.569  5107  5107 D AgentService: Received event: StatusUpdate
+01-16 08:09:43.569  5107  5107 D AgentService: 💡 Executing actions...
+01-16 08:09:43.597   804   973 D SplashScreenView: Build android.window.SplashScreenView{40bcec8 V.E...... ......ID 0,0-0,0}
+01-16 08:09:43.597   804   973 D SplashScreenView: Icon: view: android.widget.ImageView{8b82b61 V.ED..... ......I. 0,0-0,0 #1020504 android:id/splashscreen_icon_view} drawable: com.android.wm.shell.startingsurface.SplashscreenIconDrawableFactory$ImmobileIconDrawable@1a83686 size: 420
+01-16 08:09:43.597   804   973 D SplashScreenView: Branding: view: android.view.View{6e03b47 G.ED..... ......I. 0,0-0,0 #1020503 android:id/splashscreen_branding_view} drawable: null size w: 0 h: 0

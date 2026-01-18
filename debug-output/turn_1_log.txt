@@ -1,0 +1,30 @@
+01-16 08:09:37.366  5107  5107 D AgentService: 🧠 Thinking...
+01-16 08:09:38.940  5107  5193 D LLMClient: LLM Response (171 chars): To achieve the goal of opening Chrome and searching for weather, first navigate to the home screen to locate the Chrome app.
+01-16 08:09:38.940  5107  5193 D LLMClient: 
+01-16 08:09:38.940  5107  5193 D LLMClient: ```tool
+01-16 08:09:38.940  5107  5193 D LLMClient: {"name": "home", "arguments": {}}
+01-16 08:09:38.940  5107  5193 D LLMClient: ```...
+01-16 08:09:38.942  5107  5107 D Turn    : LLM response: To achieve the goal of opening Chrome and searching for weather, first navigate to the home screen to locate the Chrome app.
+01-16 08:09:38.942  5107  5107 D Turn    : 
+01-16 08:09:38.942  5107  5107 D Turn    : ```tool
+01-16 08:09:38.942  5107  5107 D Turn    : {"name": "home", "arguments": {}}
+01-16 08:09:38.942  5107  5107 D Turn    : ```...
+01-16 08:09:38.942  5107  5107 D Turn    : Found tool call JSON: {"name": "home", "arguments": {}}
+01-16 08:09:38.942  5107  5107 D Turn    : Parsed tool call: home with args: {}
+01-16 08:09:38.942  5107  5107 D Turn    : Parse result: 1 tool calls, isComplete=false
+01-16 08:09:38.942  5107  5107 D Agent   : Turn 1: LLM response: To achieve the goal of opening Chrome and searching for weather, first navigate to the home screen to locate the Chrome app.
+01-16 08:09:38.942  5107  5107 D Agent   : 
+01-16 08:09:38.942  5107  5107 D Agent   : ```tool
+01-16 08:09:38.942  5107  5107 D Agent   : {"name": "home", "arguments": {}}
+01-16 08:09:38.942  5107  5107 D Agent   : ```...
+01-16 08:09:38.942  5107  5107 D Agent   : Turn 1: Tool calls: [home]
+01-16 08:09:38.942  5107  5107 D Agent   : Status: 💡 Executing actions...
+01-16 08:09:38.942  5107  5107 D AgentSession: Emitted event: StatusUpdate
+01-16 08:09:38.942  5107  5107 D Agent   : Executing tool: home with args: {}
+01-16 08:09:38.942  5107  5107 D ToolRouter: Starting tool call: bdecc492 (home)
+01-16 08:09:38.942  5107  5107 D ToolRouter: State: bdecc492 -> Validating
+01-16 08:09:38.942  5107  5107 D ToolRouter: Policy decision for home: Allow
+01-16 08:09:38.942  5107  5107 D ToolRouter: State: bdecc492 -> Scheduled
+01-16 08:09:38.942  5107  5107 D ToolRouter: State: bdecc492 -> Executing
+01-16 08:09:38.943  5107  5107 D AgentService: Received event: StatusUpdate
+01-16 08:09:38.943  5107  5107 D AgentService: 💡 Executing actions...
