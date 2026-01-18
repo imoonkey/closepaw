@@ -49,7 +49,9 @@ class ToolRouter(
      * @param params Parameters for the tool
      * @param context Execution context with platform access
      * @param onStateChange Callback for state changes (for UI updates)
-     * @param onApprovalRequired Callback when user approval is needed
+     * @param onApprovalRequired Suspend callback when user approval is needed.
+     *        The callback receives ApprovalDetails which includes the callId
+     *        that must be used when resolving the approval.
      * @return The final result of the tool call
      */
     suspend fun execute(
@@ -57,7 +59,7 @@ class ToolRouter(
         params: JSONObject,
         context: ToolRouterContext,
         onStateChange: ((ToolCallState) -> Unit)? = null,
-        onApprovalRequired: ((ApprovalDetails) -> Unit)? = null
+        onApprovalRequired: (suspend (ApprovalDetails) -> Unit)? = null
     ): ToolCallResult {
         val callId = generateCallId()
         
@@ -109,8 +111,9 @@ class ToolRouter(
                 )
                 updateState(state, onStateChange)
                 
-                // Notify that approval is required
+                // Notify that approval is required (includes callId for proper resolution)
                 val approvalDetails = ApprovalDetails(
+                    callId = callId,
                     toolName = toolName,
                     args = params,
                     description = invocation.getDescription(),

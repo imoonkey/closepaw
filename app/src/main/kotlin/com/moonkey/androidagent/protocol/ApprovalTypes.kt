@@ -51,6 +51,9 @@ sealed interface ApprovalRequirement {
  * ApprovalDetails - Information about what is being approved.
  */
 data class ApprovalDetails(
+    /** Unique ID for this approval request (from ToolRouter) */
+    val callId: String,
+    
     /** Name of the tool being invoked */
     val toolName: String,
     
