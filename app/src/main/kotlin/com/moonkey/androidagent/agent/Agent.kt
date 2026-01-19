@@ -116,8 +116,12 @@ class Agent(
                 }
             }
         }
-        
-        return if (stopRequested) AgentStopReason.UserRequested else AgentStopReason.GoalAchieved
+
+        return when {
+            stopRequested -> AgentStopReason.UserRequested
+            cancellationSignal.isCompleted -> AgentStopReason.UserRequested
+            else -> AgentStopReason.GoalAchieved
+        }
     }
     
     /**
@@ -127,136 +131,140 @@ class Agent(
         turnCount++
         val turnId = "turn-$turnCount"
         Log.d(TAG, "=== TURN $turnCount START ===")
-        
-        try {
+
+        emitTurnStarted(turnId)
+
+        val outcome = try {
             // 1. PERCEPTION: Capture screen
-            emitTurnPhase(turnId, TurnPhase.PERCEPTION)
             emitStatus("👀 Scanning screen...")
-            
+
             val snapshot = services.platform.captureScreen()
             emitScreenCaptured(snapshot)
-            
+
             Log.d(TAG, "Turn $turnCount: Screen has ${snapshot.elements.size} elements")
-            
+
             // Check cancellation
             if (cancellationSignal.isCompleted || stopRequested) {
-                return TurnOutcome.Cancelled
-            }
-            
-            // 2. THINK: Call LLM
-            emitTurnPhase(turnId, TurnPhase.EXECUTION)
-            emitStatus("🧠 Thinking...")
-            
-            val turn = Turn(services.historyManager, services.toolRegistry)
-            val systemPrompt = buildSystemPrompt()
-            val userContext = buildUserContext(snapshot)
-            
-            val turnResult = turn.run(systemPrompt, userContext)
-            
-            Log.d(TAG, "Turn $turnCount: LLM response: ${turnResult.content?.take(200)}...")
-            Log.d(TAG, "Turn $turnCount: Tool calls: ${turnResult.toolCalls.map { it.name }}")
-            
-            // Record assistant response in history
-            if (turnResult.content != null) {
-                services.historyManager.addItem(
-                    ResponseItem.Message(
-                        role = "assistant",
-                        content = turnResult.content
-                    )
-                )
-            }
-            
-            // 3. ACT: Execute tool calls
-            if (turnResult.toolCalls.isNotEmpty()) {
-                emitStatus("💡 Executing actions...")
-                
-                for (toolCall in turnResult.toolCalls) {
-                    Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
-                    
-                    // Record tool call in history
+                TurnOutcome.Cancelled
+            } else {
+                // 2. THINK: Call LLM
+                emitTurnPhaseChanged(turnId, TurnPhase.PLANNING)
+                emitStatus("🧠 Thinking...")
+
+                val turn = Turn(services.historyManager, services.toolRegistry)
+                val systemPrompt = buildSystemPrompt()
+                val userContext = buildUserContext(snapshot)
+
+                val turnResult = turn.run(systemPrompt, userContext)
+
+                Log.d(TAG, "Turn $turnCount: LLM response: ${turnResult.content?.take(200)}...")
+                Log.d(TAG, "Turn $turnCount: Tool calls: ${turnResult.toolCalls.map { it.name }}")
+
+                // Record assistant response in history
+                if (turnResult.content != null) {
                     services.historyManager.addItem(
-                        ResponseItem.FunctionCall(
-                            id = toolCall.id,
-                            name = toolCall.name,
-                            arguments = toolCall.arguments
+                        ResponseItem.Message(
+                            role = "assistant",
+                            content = turnResult.content
                         )
                     )
-                    
-                    // Execute via ToolRouter
-                    val context = SimpleToolRouterContext(
-                        platform = services.platform,
-                        currentSnapshot = snapshot
-                    )
-                    
-                    val result = services.toolRouter.execute(
-                        toolName = toolCall.name,
-                        params = toolCall.arguments,
-                        context = context,
-                        onApprovalRequired = { details ->
-                            // Use details.callId (from ToolRouter) for approval resolution
-                            try {
-                                eventEmitter(AgentEvent.ApprovalRequired(
-                                    sessionId = config.sessionId,
-                                    timestamp = System.currentTimeMillis(),
-                                    actionId = details.callId,
-                                    description = details.description,
-                                    details = details
-                                ))
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Failed to emit approval required event", e)
+                }
+
+                // 3. ACT: Execute tool calls
+                if (turnResult.toolCalls.isNotEmpty()) {
+                    emitTurnPhaseChanged(turnId, TurnPhase.EXECUTION)
+                    emitStatus("💡 Executing actions...")
+
+                    for (toolCall in turnResult.toolCalls) {
+                        Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
+
+                        // Record tool call in history
+                        services.historyManager.addItem(
+                            ResponseItem.FunctionCall(
+                                id = toolCall.id,
+                                name = toolCall.name,
+                                arguments = toolCall.arguments
+                            )
+                        )
+
+                        // Execute via ToolRouter
+                        val context = SimpleToolRouterContext(
+                            platform = services.platform,
+                            currentSnapshot = snapshot
+                        )
+
+                        val result = services.toolRouter.execute(
+                            toolName = toolCall.name,
+                            params = toolCall.arguments,
+                            context = context,
+                            onApprovalRequired = { details ->
+                                // Use details.callId (from ToolRouter) for approval resolution
+                                try {
+                                    eventEmitter(AgentEvent.ApprovalRequired(
+                                        sessionId = config.sessionId,
+                                        timestamp = System.currentTimeMillis(),
+                                        actionId = details.callId,
+                                        description = details.description,
+                                        details = details
+                                    ))
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Failed to emit approval required event", e)
+                                }
                             }
-                        }
-                    )
-                    
-                    // 4. OBSERVE: Capture post-action screen
-                    val observation = captureObservation()
-                    
-                    // Record tool result with observation in history
-                    services.historyManager.addItem(
-                        ResponseItem.FunctionCallOutput(
-                            callId = toolCall.id,
-                            content = formatToolResult(result, observation),
-                            success = result is ToolCallResult.Success
                         )
-                    )
-                    
-                    // Emit action executed event
-                    eventEmitter(AgentEvent.ActionExecuted(
-                        sessionId = config.sessionId,
-                        timestamp = System.currentTimeMillis(),
-                        actionId = toolCall.id,
-                        toolName = toolCall.name,
-                        success = result is ToolCallResult.Success,
-                        result = result.toContextString()
-                    ))
-                    
-                    emitStatus("✓ ${toolCall.name} executed")
+
+                        // 4. OBSERVE: Capture post-action screen
+                        val observation = captureObservation()
+
+                        // Record tool result with observation in history
+                        services.historyManager.addItem(
+                            ResponseItem.FunctionCallOutput(
+                                callId = toolCall.id,
+                                content = formatToolResult(result, observation),
+                                success = result is ToolCallResult.Success
+                            )
+                        )
+
+                        // Emit action executed event
+                        eventEmitter(AgentEvent.ActionExecuted(
+                            sessionId = config.sessionId,
+                            timestamp = System.currentTimeMillis(),
+                            actionId = result.callId,
+                            toolName = toolCall.name,
+                            success = result is ToolCallResult.Success,
+                            result = result.toContextString()
+                        ))
+
+                        emitStatus("✓ ${toolCall.name} executed")
+                    }
+                }
+
+                // Check if complete
+                if (turnResult.isComplete) {
+                    Log.i(TAG, "Turn $turnCount: Task marked as complete")
+                    TurnOutcome.Complete(turnResult.content ?: "Goal achieved")
+                } else {
+                    TurnOutcome.Continue
                 }
             }
-            
-            // Check if complete
-            if (turnResult.isComplete) {
-                Log.i(TAG, "Turn $turnCount: Task marked as complete")
-                return TurnOutcome.Complete(turnResult.content ?: "Goal achieved")
-            }
-            
-            return TurnOutcome.Continue
-            
         } catch (e: Exception) {
             Log.e(TAG, "Turn execution failed", e)
-            
+
             // Check if error is recoverable
             val message = e.message ?: ""
             val isNetworkError = message.contains("internet", ignoreCase = true) ||
                 message.contains("network", ignoreCase = true) ||
                 message.contains("connection", ignoreCase = true) ||
                 e is java.net.UnknownHostException
-            
-            return TurnOutcome.Error(
+
+            TurnOutcome.Error(
                 message = message.ifEmpty { "Unknown error" },
                 recoverable = !isNetworkError  // Network errors are not recoverable
             )
         }
+
+        emitTurnCompleted(turnId)
+        return outcome
     }
     
     /**
@@ -338,14 +346,32 @@ class Agent(
             status = status
         ))
     }
-    
-    private suspend fun emitTurnPhase(turnId: String, phase: TurnPhase) {
+
+    private suspend fun emitTurnStarted(turnId: String) {
         eventEmitter(AgentEvent.TurnStarted(
             sessionId = config.sessionId,
             timestamp = System.currentTimeMillis(),
             turnId = turnId,
             turnNumber = turnCount,
+            phase = TurnPhase.PERCEPTION
+        ))
+    }
+
+    private suspend fun emitTurnPhaseChanged(turnId: String, phase: TurnPhase) {
+        eventEmitter(AgentEvent.TurnPhaseChanged(
+            sessionId = config.sessionId,
+            timestamp = System.currentTimeMillis(),
+            turnId = turnId,
             phase = phase
+        ))
+    }
+
+    private suspend fun emitTurnCompleted(turnId: String) {
+        eventEmitter(AgentEvent.TurnCompleted(
+            sessionId = config.sessionId,
+            timestamp = System.currentTimeMillis(),
+            turnId = turnId,
+            turnNumber = turnCount
         ))
     }
     

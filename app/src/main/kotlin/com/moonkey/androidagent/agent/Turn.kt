@@ -134,19 +134,25 @@ class Turn(
                {"name": "scroll", "arguments": {"direction": "down"}}
                ```
             
-            4. **back** - Press the system back button
+            4. **swipe** - Swipe from one point to another
+               Arguments: {"start_x": <int>, "start_y": <int>, "end_x": <int>, "end_y": <int>, "duration_ms": <int>}
+               Example: ```tool
+               {"name": "swipe", "arguments": {"start_x": 200, "start_y": 800, "end_x": 200, "end_y": 200, "duration_ms": 300}}
+               ```
+            
+            5. **back** - Press the system back button
                Arguments: {} (none required)
                Example: ```tool
                {"name": "back", "arguments": {}}
                ```
             
-            5. **home** - Press the system home button
+            6. **home** - Press the system home button
                Arguments: {} (none required)
                Example: ```tool
                {"name": "home", "arguments": {}}
                ```
             
-            6. **wait** - Wait for UI to update
+            7. **wait** - Wait for UI to update
                Arguments: {"duration_ms": <integer>} (optional, default 1000)
                Example: ```tool
                {"name": "wait", "arguments": {"duration_ms": 2000}}

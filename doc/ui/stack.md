@@ -209,10 +209,10 @@ AgentTheme/
 └── Type.kt        # Typography definitions (M3 scale)
 ```
 
-**System Bar Handling**: On Android 15+ (API 35+), the theme calls `enableEdgeToEdge()` for modern
-edge-to-edge display. The project's `minSdk` is 26; on API levels 26–34 it instead configures
-status/navigation bar colors using the (deprecated but still functional) `Window` APIs to
-approximate the same look.
+**System Bar Handling**: `MainActivity` calls `enableEdgeToEdge()` for modern edge-to-edge display
+(API 35+ handles transparent system bars by default). The project's `minSdk` is 26; on API levels
+26–34 the theme configures status/navigation bar colors using the (deprecated but still functional)
+`Window` APIs to approximate the same look.
 
 ### Visual Identity
 
