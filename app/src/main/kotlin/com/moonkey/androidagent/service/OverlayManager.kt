@@ -214,8 +214,14 @@ class OverlayManager(
     fun updateStatus(status: String) {
         statusText?.post { 
             // Clean up emoji for cleaner display using shared utility
-            val cleanStatus = StatusUtils.cleanStatusText(status).take(40)
-            statusText?.text = cleanStatus.ifEmpty { "Ready" }
+            val cleanStatus = StatusUtils.cleanStatusText(status)
+            // Truncate with ellipsis if too long
+            val displayText = if (cleanStatus.length > 40) {
+                cleanStatus.take(37) + "..."
+            } else {
+                cleanStatus
+            }
+            statusText?.text = displayText.ifEmpty { "Ready" }
             
             // Update status dot color based on status type
             val dotColor = when (StatusUtils.getStatusType(status)) {

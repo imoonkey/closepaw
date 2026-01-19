@@ -32,6 +32,9 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_API_KEY = "api_key"
         const val EXTRA_GOAL = "goal"
         const val EXTRA_AUTO_START = "auto_start"
+        
+        /** Maximum number of status lines to keep to prevent unbounded memory growth */
+        private const val MAX_STATUS_LINES = 100
     }
     
     // UI State
@@ -49,7 +52,8 @@ class MainActivity : ComponentActivity() {
         // Set up status callback - also detect completion
         AgentService.statusCallback = { status ->
             runOnUiThread {
-                statusLines = statusLines + status
+                // Add new status and limit to MAX_STATUS_LINES to prevent memory growth
+                statusLines = (statusLines + status).takeLast(MAX_STATUS_LINES)
                 
                 // Detect completion states to reset isRunning using shared utility
                 if (StatusUtils.isTerminalStatus(status)) {
@@ -167,7 +171,7 @@ class MainActivity : ComponentActivity() {
         
         val service = AgentService.instance
         if (service == null) {
-            statusLines = statusLines + "Accessibility Service not enabled. Please enable it in Settings."
+            statusLines = statusLines + "⚠️ Please enable the accessibility service in Settings"
             return
         }
         
