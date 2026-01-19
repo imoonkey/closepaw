@@ -402,7 +402,8 @@ private suspend fun capturePostActionObservation(context: ToolExecutionContext):
 }
 ```
 
-This observation is included in the tool result, so the agent immediately sees what changed.
+Note: while the observation is captured in `BaseTool`, the current `ToolCallResult` does not surface it. The agent currently performs a separate screen capture after each tool call and writes that observation into history. 
+TODO: This above noted behavior needs to be revisited.
 
 ---
 
