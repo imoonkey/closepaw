@@ -136,9 +136,11 @@ object LLMClient {
                     throw TransientException("Request timeout - try again", e)
                 }
                 
-                e is java.net.UnknownHostException -> {
-                    Log.e(TAG, "Network error - no internet: ${e.message}", e)
-                    throw RuntimeException("No internet connection", e)
+                e is java.net.UnknownHostException || 
+                message.contains("Unable to resolve host") ||
+                cause.contains("Unable to resolve host") -> {
+                    Log.e(TAG, "Network error - cannot reach OpenAI: ${e.message}", e)
+                    throw RuntimeException("No internet connection. Please check your network settings.", e)
                 }
                 
                 message.contains("500") || message.contains("502") || 
@@ -148,6 +150,17 @@ object LLMClient {
                 }
                 
                 e is java.io.IOException -> {
+                    // Check if it's a DNS/connectivity issue (non-recoverable) vs transient
+                    val isConnectivityIssue = message.contains("resolve") || 
+                        cause.contains("resolve") ||
+                        message.contains("No address") ||
+                        cause.contains("No address")
+                    
+                    if (isConnectivityIssue) {
+                        Log.e(TAG, "Network connectivity error: ${e.message}", e)
+                        throw RuntimeException("Network error: Check your internet connection", e)
+                    }
+                    
                     Log.e(TAG, "Network/IO error: ${e.message}", e)
                     throw TransientException("Network error: ${e.message}", e)
                 }

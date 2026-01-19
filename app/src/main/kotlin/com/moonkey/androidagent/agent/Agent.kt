@@ -244,7 +244,18 @@ class Agent(
             
         } catch (e: Exception) {
             Log.e(TAG, "Turn execution failed", e)
-            return TurnOutcome.Error(e.message ?: "Unknown error", recoverable = true)
+            
+            // Check if error is recoverable
+            val message = e.message ?: ""
+            val isNetworkError = message.contains("internet", ignoreCase = true) ||
+                message.contains("network", ignoreCase = true) ||
+                message.contains("connection", ignoreCase = true) ||
+                e is java.net.UnknownHostException
+            
+            return TurnOutcome.Error(
+                message = message.ifEmpty { "Unknown error" },
+                recoverable = !isNetworkError  // Network errors are not recoverable
+            )
         }
     }
     
