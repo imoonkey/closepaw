@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moonkey.androidagent.ui.theme.*
+import com.moonkey.androidagent.util.StatusUtils
 
 data class AgentUiState(
     val apiKey: String = "",
@@ -387,34 +388,19 @@ private fun StatusLog(
 
 @Composable
 private fun StatusLine(text: String, isLatest: Boolean) {
-    val (bgColor, textColor, icon) = when {
-        text.contains("✅") || text.contains("Goal achieved") || text.contains("✓") -> 
-            Triple(StatusSuccessBg, StatusSuccess, "✓")
-        text.contains("❌") || text.contains("Error") || text.contains("Failed") -> 
-            Triple(StatusErrorBg, StatusError, "✗")
-        text.contains("⚠️") || text.contains("Warning") || text.contains("Required") -> 
-            Triple(StatusWarningBg, StatusWarning, "!")
-        text.contains("🧠") || text.contains("Thinking") -> 
-            Triple(StatusInfoBg, StatusInfo, "◉")
-        text.contains("🔧") || text.contains("Tool:") || text.contains("executed") -> 
-            Triple(Color.Transparent, TextSecondary, "→")
-        text.contains("Starting") || text.contains("Running") -> 
-            Triple(StatusInfoBg, StatusInfo, "▶")
-        else -> Triple(Color.Transparent, TextSecondary, "·")
+    // Use shared StatusUtils for consistent status type detection
+    val (bgColor, textColor, icon) = when (StatusUtils.getStatusType(text)) {
+        StatusUtils.StatusType.SUCCESS -> Triple(StatusSuccessBg, StatusSuccess, "✓")
+        StatusUtils.StatusType.ERROR -> Triple(StatusErrorBg, StatusError, "✗")
+        StatusUtils.StatusType.WARNING -> Triple(StatusWarningBg, StatusWarning, "!")
+        StatusUtils.StatusType.THINKING -> Triple(StatusInfoBg, StatusInfo, "◉")
+        StatusUtils.StatusType.TOOL -> Triple(Color.Transparent, TextSecondary, "→")
+        StatusUtils.StatusType.RUNNING -> Triple(StatusInfoBg, StatusInfo, "▶")
+        StatusUtils.StatusType.NEUTRAL -> Triple(Color.Transparent, TextSecondary, "·")
     }
     
-    // Clean up emoji from display text
-    val cleanText = text
-        .replace("✅", "")
-        .replace("❌", "")
-        .replace("⚠️", "")
-        .replace("🧠", "")
-        .replace("🔧", "")
-        .replace("💡", "")
-        .replace("👀", "")
-        .replace("🚀", "")
-        .replace("🛑", "")
-        .trim()
+    // Clean up emoji from display text using shared utility
+    val cleanText = StatusUtils.cleanStatusText(text)
     
     Row(
         modifier = Modifier

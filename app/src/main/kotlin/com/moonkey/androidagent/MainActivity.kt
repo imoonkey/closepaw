@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import com.moonkey.androidagent.ui.screen.AgentScreen
 import com.moonkey.androidagent.ui.screen.AgentUiState
 import com.moonkey.androidagent.ui.theme.AgentTheme
+import com.moonkey.androidagent.util.StatusUtils
 import java.io.File
 
 /**
@@ -50,13 +51,8 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 statusLines = statusLines + status
                 
-                // Detect completion states to reset isRunning
-                if (status.contains("✅") || 
-                    status.contains("Goal achieved") ||
-                    status.contains("completed") ||
-                    status.contains("❌") ||
-                    status.contains("stopped") ||
-                    status.contains("Error")) {
+                // Detect completion states to reset isRunning using shared utility
+                if (StatusUtils.isTerminalStatus(status)) {
                     isRunning = false
                 }
             }
