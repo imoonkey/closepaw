@@ -11,9 +11,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.moonkey.androidagent.util.StatusUtils
 
 /**
  * OverlayManager - Elegant floating control bar for agent.
@@ -30,8 +30,9 @@ class OverlayManager(
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private var overlayView: ViewGroup? = null
     private var statusText: TextView? = null
+    private var statusDot: View? = null
     private var pauseButton: View? = null
-    private var pauseIcon: ImageView? = null
+    private var pauseIconText: TextView? = null
     private var isPaused = false
     
     // Colors matching the theme
@@ -85,7 +86,7 @@ class OverlayManager(
         }
 
         // Status indicator dot
-        val statusDot = View(context).apply {
+        statusDot = View(context).apply {
             layoutParams = LinearLayout.LayoutParams(dp(8), dp(8)).apply {
                 marginEnd = dp(10)
             }
@@ -166,7 +167,7 @@ class OverlayManager(
                 setColor(0xFFF7F6F3.toInt())
             }
             
-            // Icon (using text as fallback since we can't easily load vector icons)
+            // Icon (using text emoji since we can't easily load vector icons in overlay)
             val iconText = when (iconResName) {
                 "pause" -> "⏸"
                 "play" -> "▶"
@@ -189,9 +190,9 @@ class OverlayManager(
             
             setOnClickListener { onClick() }
             
-            // Store reference for pause button
+            // Store reference for pause button icon to update later
             if (iconResName == "pause") {
-                pauseIcon = null // We're using TextView, not ImageView
+                pauseIconText = icon
             }
         }
     }
@@ -201,8 +202,9 @@ class OverlayManager(
             windowManager.removeView(overlayView)
             overlayView = null
             statusText = null
+            statusDot = null
             pauseButton = null
-            pauseIcon = null
+            pauseIconText = null
         }
     }
 
@@ -211,32 +213,19 @@ class OverlayManager(
      */
     fun updateStatus(status: String) {
         statusText?.post { 
-            // Clean up emoji for cleaner display
-            val cleanStatus = status
-                .replace("✅", "")
-                .replace("❌", "")
-                .replace("⚠️", "")
-                .replace("🧠", "")
-                .replace("🔧", "")
-                .replace("💡", "")
-                .replace("👀", "")
-                .replace("🚀", "")
-                .replace("🛑", "")
-                .trim()
-                .take(40) // Limit length
-            
+            // Clean up emoji for cleaner display using shared utility
+            val cleanStatus = StatusUtils.cleanStatusText(status).take(40)
             statusText?.text = cleanStatus.ifEmpty { "Ready" }
             
-            // Update status dot color based on status
-            val dotView = (overlayView?.getChildAt(0) as? LinearLayout)?.getChildAt(0)
-            val dotColor = when {
-                status.contains("✅") || status.contains("achieved") -> colorSuccess
-                status.contains("❌") || status.contains("Error") -> colorError
-                status.contains("⚠️") -> colorWarning
-                status.contains("🧠") || status.contains("Thinking") -> colorAccent
+            // Update status dot color based on status type
+            val dotColor = when (StatusUtils.getStatusType(status)) {
+                StatusUtils.StatusType.SUCCESS -> colorSuccess
+                StatusUtils.StatusType.ERROR -> colorError
+                StatusUtils.StatusType.WARNING -> colorWarning
+                StatusUtils.StatusType.THINKING -> colorAccent
                 else -> colorSuccess
             }
-            (dotView?.background as? GradientDrawable)?.setColor(dotColor)
+            (statusDot?.background as? GradientDrawable)?.setColor(dotColor)
         }
     }
     
@@ -246,9 +235,8 @@ class OverlayManager(
     fun updatePauseState(paused: Boolean) {
         isPaused = paused
         pauseButton?.post {
-            // Update the icon text
-            val iconView = (pauseButton as? FrameLayout)?.getChildAt(0) as? TextView
-            iconView?.text = if (paused) "▶" else "⏸"
+            // Update the icon text using stored reference
+            pauseIconText?.text = if (paused) "▶" else "⏸"
         }
     }
     

@@ -70,10 +70,6 @@ dependencies {
     // Activity Compose integration
     implementation("androidx.activity:activity-compose:1.9.3")
     
-    // Lifecycle integration
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
-    
     // Debug tooling
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

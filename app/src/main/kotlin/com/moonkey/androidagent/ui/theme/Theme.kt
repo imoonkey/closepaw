@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.ui.theme
 
 import android.app.Activity
+import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -68,16 +69,23 @@ fun AgentTheme(
 ) {
     val colorScheme = AgentLightColorScheme
     
-    // Set status bar color
+    // Configure system bars appearance
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
+            // Set light status bar icons (dark icons on light background)
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
-            @Suppress("DEPRECATION")
-            window.statusBarColor = colorScheme.background.toArgb()
-            @Suppress("DEPRECATION")
-            window.navigationBarColor = colorScheme.background.toArgb()
+            
+            // On API < 35, we need to explicitly set bar colors.
+            // On API 35+, enableEdgeToEdge() in MainActivity handles this via
+            // the modern edge-to-edge approach where bars are transparent by default.
+            if (Build.VERSION.SDK_INT < 35) {
+                @Suppress("DEPRECATION")
+                window.statusBarColor = colorScheme.background.toArgb()
+                @Suppress("DEPRECATION")
+                window.navigationBarColor = colorScheme.background.toArgb()
+            }
         }
     }
 

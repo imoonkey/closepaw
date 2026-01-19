@@ -1,6 +1,7 @@
 # Android Agent UI Stack Design
 
 > **Created**: January 16, 2026
+> **Updated**: January 19, 2026
 >
 > Modernizing the Android Agent UI with Jetpack Compose and Material 3.
 
@@ -81,18 +82,19 @@ implementation("androidx.compose.foundation:foundation")
 
 // Material 3
 implementation("androidx.compose.material3:material3")
+implementation("androidx.compose.material:material-icons-extended")
 
 // Activity Compose integration
 implementation("androidx.activity:activity-compose:1.9.3")
-
-// Lifecycle + ViewModel integration
-implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
-implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 
 // Debug tooling
 debugImplementation("androidx.compose.ui:ui-tooling")
 debugImplementation("androidx.compose.ui:ui-test-manifest")
 ```
+
+> **Note**: Lifecycle/ViewModel Compose dependencies were intentionally omitted as the current
+> implementation uses simple `mutableStateOf` in the Activity. Add them when migrating to
+> ViewModel-based architecture.
 
 ### Why This Stack?
 
@@ -101,7 +103,7 @@ debugImplementation("androidx.compose.ui:ui-test-manifest")
 | **Compose BOM** | Version management | No version conflicts, single source of truth |
 | **Material 3** | Design system | Dynamic colors, modern components, accessibility |
 | **Activity Compose** | Integration | `setContent {}` entry point |
-| **Lifecycle Compose** | State management | `collectAsStateWithLifecycle()` |
+| **Material Icons** | Icon library | Comprehensive icon set for UI elements |
 
 ### Version Strategy
 
@@ -202,11 +204,14 @@ val AgentTypography = Typography(
 
 ```
 AgentTheme/
-├── Color.kt       # Color definitions
-├── Theme.kt       # Main theme composable
-├── Type.kt        # Typography definitions
-└── Shape.kt       # Shape definitions (optional, M3 has good defaults)
+├── Color.kt       # Color definitions (semantic tokens)
+├── Theme.kt       # Main theme composable + system bar config
+└── Type.kt        # Typography definitions (M3 scale)
 ```
+
+**System Bar Handling**: The theme uses `enableEdgeToEdge()` (API 35+) for modern edge-to-edge
+display. For backward compatibility (minSdk 26), it conditionally sets status/navigation bar
+colors on older APIs via deprecated but functional Window APIs.
 
 ### Visual Identity
 
@@ -269,6 +274,29 @@ fun AgentScreen(
 3. **Preview Support**: All components should have `@Preview`
 4. **Accessibility**: Use semantic modifiers (`contentDescription`, etc.)
 
+### Shared Utilities
+
+The `StatusUtils` object provides centralized status message processing:
+
+```kotlin
+// StatusUtils.kt - Shared across Compose UI and View-based Overlay
+object StatusUtils {
+    // Remove emojis for clean display
+    fun cleanStatusText(status: String): String
+    
+    // Categorize status messages semantically
+    fun getStatusType(status: String): StatusType  // SUCCESS, ERROR, WARNING, etc.
+    
+    // Detect terminal states (session completed/failed)
+    fun isTerminalStatus(status: String): Boolean
+}
+```
+
+This eliminates duplication between:
+- `AgentScreen.kt` (Compose UI status display)
+- `OverlayManager.kt` (View-based floating overlay)
+- `MainActivity.kt` (completion detection)
+
 ---
 
 ## File Structure (After Migration)
@@ -279,20 +307,22 @@ app/src/main/kotlin/com/moonkey/androidagent/
 ├── AgentService.kt              # (unchanged)
 ├── ui/
 │   ├── theme/
-│   │   ├── Color.kt
-│   │   ├── Theme.kt
-│   │   └── Type.kt
-│   ├── screen/
-│   │   └── AgentScreen.kt       # Main screen composable
-│   └── component/
-│       ├── ApiKeyField.kt
-│       ├── GoalField.kt
-│       ├── ActionButtons.kt
-│       └── StatusLog.kt
+│   │   ├── Color.kt             # Notion-inspired color palette
+│   │   ├── Theme.kt             # AgentTheme composable with system bar config
+│   │   └── Type.kt              # Material 3 typography definitions
+│   └── screen/
+│       └── AgentScreen.kt       # Main screen composable (all components inline)
+├── util/
+│   └── StatusUtils.kt           # Shared status processing utilities
+├── service/
+│   └── OverlayManager.kt        # Floating control bar (View-based for overlay)
 ├── agent/                       # (unchanged)
 ├── data/                        # (unchanged)
 ...
 ```
+
+> **Note**: Components are currently inlined in `AgentScreen.kt` for simplicity.
+> Extract to `ui/component/` when the UI grows more complex.
 
 ---
 
