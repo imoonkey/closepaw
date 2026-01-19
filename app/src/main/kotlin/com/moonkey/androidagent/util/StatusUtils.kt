@@ -9,24 +9,20 @@ package com.moonkey.androidagent.util
 object StatusUtils {
     
     /**
-     * Emojis used in status messages that should be stripped for clean display.
+     * Regex pattern to match all status emojis in a single pass.
+     * More efficient than iterating and replacing one by one.
      */
-    private val STATUS_EMOJIS = listOf(
-        "✅", "❌", "⚠️", "🧠", "🔧", "💡", "👀", "🚀", "🛑", "✓"
-    )
+    private val EMOJI_PATTERN = Regex("[✅❌⚠️🧠🔧💡👀🚀🛑✓]")
     
     /**
      * Remove emojis from status text for cleaner display.
+     * Uses regex for efficient single-pass replacement.
      * 
      * @param status The raw status message
      * @return Clean text without emojis, trimmed
      */
     fun cleanStatusText(status: String): String {
-        var result = status
-        STATUS_EMOJIS.forEach { emoji ->
-            result = result.replace(emoji, "")
-        }
-        return result.trim()
+        return EMOJI_PATTERN.replace(status, "").trim()
     }
     
     /**
@@ -44,6 +40,8 @@ object StatusUtils {
     
     /**
      * Determine the type of status from the message content.
+     * Note: "retrying" errors are classified as WARNING, not ERROR,
+     * since they represent recoverable states.
      * 
      * @param status The status message to analyze
      * @return The detected StatusType
@@ -51,7 +49,13 @@ object StatusUtils {
     fun getStatusType(status: String): StatusType = when {
         status.contains("✅") || status.contains("Goal achieved") || status.contains("✓") || status.contains("achieved") ->
             StatusType.SUCCESS
-        status.contains("❌") || status.contains("Error") || status.contains("Failed") ->
+        // Retrying errors are warnings, not terminal errors
+        status.contains("retrying", ignoreCase = true) ->
+            StatusType.WARNING
+        status.contains("❌") || status.contains("Failed") ->
+            StatusType.ERROR
+        // "Error" without retry indication is also an error
+        status.contains("Error") && !status.contains("retrying", ignoreCase = true) ->
             StatusType.ERROR
         status.contains("⚠️") || status.contains("Warning") || status.contains("Required") ->
             StatusType.WARNING
@@ -68,12 +72,26 @@ object StatusUtils {
     /**
      * Check if the status indicates a terminal state (session completed or failed).
      * 
+     * Terminal states are:
+     * - Success (goal achieved)
+     * - Final errors (not retrying)
+     * - Explicit stop/cancellation
+     * - Max turns reached
+     * 
+     * Non-terminal: warnings, retrying errors, thinking, tool execution
+     * 
      * @param status The status message to check
      * @return true if this represents a terminal state
      */
     fun isTerminalStatus(status: String): Boolean {
+        // Explicitly exclude retrying errors - they are NOT terminal
+        if (status.contains("retrying", ignoreCase = true)) {
+            return false
+        }
+        
         val type = getStatusType(status)
-        // Terminal states: success, error (but not warnings/retries), or explicit stop
+        
+        // Terminal states: success or final error
         return type == StatusType.SUCCESS || 
                type == StatusType.ERROR ||
                status.contains("stopped") ||
