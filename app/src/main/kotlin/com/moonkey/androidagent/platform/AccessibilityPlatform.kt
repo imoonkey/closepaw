@@ -11,6 +11,7 @@ import com.moonkey.androidagent.domain.models.ScreenSnapshot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 /**
@@ -27,6 +28,8 @@ class AccessibilityPlatform(
         private const val TAG = "AccessibilityPlatform"
         private const val DEFAULT_GESTURE_DURATION_MS = 100L
         private const val SWIPE_GESTURE_DURATION_MS = 300L
+        /** Timeout for gesture callbacks - prevents indefinite hang if callback never fires */
+        private const val GESTURE_TIMEOUT_MS = 5000L
     }
     
     override suspend fun captureScreen(): ScreenSnapshot {
@@ -51,6 +54,9 @@ class AccessibilityPlatform(
     }
     
     override fun hasRequiredPermissions(): Boolean {
+        // TODO: Consider checking Settings.canDrawOverlays() for overlay permission.
+        //       However, overlay permission should be verified at MainActivity level,
+        //       not here. Current check is sufficient for AccessibilityPlatform's scope.
         return service.serviceInfo != null
     }
     
@@ -90,8 +96,8 @@ class AccessibilityPlatform(
         
         // Use stored center coordinates for gesture-based click
         // This is more reliable than ACTION_CLICK on many devices
-        val centerX = element.center[0]
-        val centerY = element.center[1]
+        val centerX = element.center.x
+        val centerY = element.center.y
         
         Log.d(TAG, "Clicking element ${action.elementIndex} at ($centerX, $centerY)")
         return performClickAt(centerX, centerY)
@@ -117,8 +123,8 @@ class AccessibilityPlatform(
         
         // Re-query the accessibility tree for a fresh node
         // This avoids stale node issues from stored references
-        val centerX = element.center[0]
-        val centerY = element.center[1]
+        val centerX = element.center.x
+        val centerY = element.center.y
         
         return withContext(Dispatchers.Main) {
             // First, tap to focus the element
@@ -240,6 +246,9 @@ class AccessibilityPlatform(
         // Use safe regions to avoid triggering system gestures
         // Status bar is typically top ~100px, nav bar is bottom ~150px
         // Avoid top 0.35 (status bar pull-down zone) and bottom 0.15 (nav gestures)
+        // TODO: Consider using WindowInsets API (API 29+) for actual system gesture exclusion zones.
+        //       Current hardcoded values work well for standard phone form factors but may need
+        //       adjustment for tablets, phones with notches, or landscape mode.
         val (startY, endY) = when (action.direction) {
             ScrollDirection.DOWN -> {
                 // Swipe up to scroll down: start from lower middle, end at upper middle
@@ -339,27 +348,36 @@ class AccessibilityPlatform(
         return dispatchGesture(gesture)
     }
     
+    /**
+     * Dispatch a gesture with timeout protection.
+     * 
+     * Some devices may not invoke the gesture callback in edge cases,
+     * which would cause the coroutine to hang forever. Adding timeout
+     * ensures the agent can recover from such situations.
+     */
     private suspend fun dispatchGesture(gesture: GestureDescription): ActionResult {
-        return suspendCancellableCoroutine { continuation ->
-            val callback = object : AccessibilityService.GestureResultCallback() {
-                override fun onCompleted(gestureDescription: GestureDescription?) {
-                    if (continuation.isActive) {
-                        continuation.resume(ActionResult.Success("Gesture completed"))
+        return withTimeoutOrNull(GESTURE_TIMEOUT_MS) {
+            suspendCancellableCoroutine { continuation ->
+                val callback = object : AccessibilityService.GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        if (continuation.isActive) {
+                            continuation.resume(ActionResult.Success("Gesture completed"))
+                        }
+                    }
+                    
+                    override fun onCancelled(gestureDescription: GestureDescription?) {
+                        if (continuation.isActive) {
+                            continuation.resume(ActionResult.Cancelled("Gesture cancelled"))
+                        }
                     }
                 }
                 
-                override fun onCancelled(gestureDescription: GestureDescription?) {
-                    if (continuation.isActive) {
-                        continuation.resume(ActionResult.Cancelled("Gesture cancelled"))
-                    }
+                val dispatched = service.dispatchGesture(gesture, callback, null)
+                if (!dispatched) {
+                    continuation.resume(ActionResult.Failure("Failed to dispatch gesture"))
                 }
             }
-            
-            val dispatched = service.dispatchGesture(gesture, callback, null)
-            if (!dispatched) {
-                continuation.resume(ActionResult.Failure("Failed to dispatch gesture"))
-            }
-        }
+        } ?: ActionResult.Failure("Gesture timed out after ${GESTURE_TIMEOUT_MS}ms")
     }
 }
 
