@@ -30,6 +30,8 @@ Issues:
 class LLMClient(private val apiKey: String) { ... }
 ```
 
+**Team Note**: fix it.
+
 ---
 
 ### 2. Token Estimation Bug - Always Returns 0 Initially
@@ -60,7 +62,10 @@ fun estimateTokenCount(): Long {
     lastTokenEstimate?.let { return it }
     // ... calculate
 }
+
 ```
+
+**Team Note**: fix it.
 
 ---
 
@@ -85,6 +90,7 @@ override fun estimateTokens(): Long =
 ((name.length + arguments.toString().length) * 0.25f).toLong() + 10
 ```
 
+**Team Note**: fix it.
 ---
 
 ### 4. Inconsistent Tool Definitions (Cross-Module)
@@ -97,6 +103,8 @@ override fun estimateTokens(): Long =
 
 **Fix**: Refactor Turn.kt to use ToolRegistry for generating prompt instructions.
 
+**Team Note**: This should have been fixed. Double check if this is the case, if not, fix it.
+
 ---
 
 ### 5. Memory Leak Potential in Perception
@@ -105,6 +113,7 @@ override fun estimateTokens(): Long =
 
 `ScreenSnapshot` retains raw `AccessibilityNodeInfo` root. Comment explicitly warns about memory leaks. (See Platform review for details.)
 
+**Team Note**: fix it. Use platform_perception_summary.md as needed.
 ---
 
 ## Medium Issues (Should Fix)
@@ -117,6 +126,7 @@ Backoff is updated AFTER delay, not before. First retry uses initial backoff. Al
 
 **Fix**: Update backoff BEFORE delay for next attempt, throw latest exception.
 
+**Team Note**: Add a TODO, but does not fix it for now.
 ---
 
 ### M2. PolicyEngine Approval Mode Not Thread-Safe
@@ -127,6 +137,7 @@ Backoff is updated AFTER delay, not before. First retry uses initial backoff. Al
 
 **Fix**: Use `AtomicReference` for approval mode.
 
+**Team Note**: fix it.
 ---
 
 ### M3. TruncationPolicy.NONE Uses MAX_VALUE
@@ -137,6 +148,7 @@ Backoff is updated AFTER delay, not before. First retry uses initial backoff. Al
 
 **Fix**: Handle NONE specially - return output without truncation calculation.
 
+**Team Note**: fix it.
 ---
 
 ### M4. extractRetryAfter() Patterns Too Broad
@@ -147,6 +159,7 @@ Pattern `(\d+)\s*seconds?` matches ANY number followed by "seconds" anywhere. E.
 
 **Fix**: Use more specific patterns like "try again in N seconds".
 
+**Team Note**: If this problem still exists, fix it.
 ---
 
 ### M5. PolicyEngine.DEFAULT_RISK_LEVELS Has Unused Entries
@@ -157,6 +170,7 @@ Risk levels defined for tools that don't exist (install, uninstall, delete, purc
 
 **Fix**: Remove or document as "reserved for future".
 
+**Team Note**: document as "reserved for future".
 ---
 
 ### M6. ChatMessage Too Simple
@@ -167,6 +181,7 @@ Doesn't support function call messages, function results, multi-part content (im
 
 **Fix**: Either expand or document why text-based tool calls are preferred.
 
+**Team Note**: This should have been fixed. If not fixed, propose solution to fix it.
 ---
 
 ### M7. HistoryManager.dropLastNUserTurns() Complex Logic
@@ -174,6 +189,8 @@ Doesn't support function call messages, function results, multi-part content (im
 **Location**: `HistoryManager.kt:128-153`
 
 Index calculation is confusing and would benefit from documentation explaining the algorithm.
+
+**Team Note**: fix it with some documentation in code.
 
 ---
 
@@ -185,6 +202,7 @@ Risk levels hardcoded. No way to configure per-deployment.
 
 **Fix**: Load from configuration file or allow remote configuration.
 
+**Team Note**: add todo, but skip for now.
 ---
 
 ## Low-Risk Suggestions (Nice to Have)
@@ -207,3 +225,4 @@ Risk levels hardcoded. No way to configure per-deployment.
 2. **API key security**: API key passed from MainActivity and logged (first 10 chars). Secure enough for production?
 
 3. **Multi-model support**: SessionConfig has `model: String` but LLMClient hardcodes GPT_4O. Is model switching supposed to be supported?
+**Team Note**: supposed to be supported. This should have been fixed, fix it if not yet.
