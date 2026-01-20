@@ -68,7 +68,7 @@ data class SessionServices(
          * @param apiKey OpenAI API key for LLM client
          * @return Fully initialized SessionServices
          */
-        suspend fun create(
+        fun create(
             config: SessionConfig,
             platform: AndroidPlatform,
             apiKey: String
@@ -116,6 +116,9 @@ data class SessionServices(
         
         /**
          * Register all built-in tools in the registry.
+         * 
+         * TODO: Consider using ServiceLoader pattern when we need plugin tools.
+         * Current hardcoded approach is acceptable for ~8 built-in tools.
          */
         private fun ToolRegistry.registerBuiltInTools() {
             // Core Mobile-Agent tools
@@ -203,7 +206,7 @@ object SessionServicesBuilder {
      * @param additionalTools Additional tools to register
      * @param excludeTools Tools to exclude from registration
      */
-    suspend fun createWithCustomTools(
+    fun createWithCustomTools(
         config: SessionConfig,
         platform: AndroidPlatform,
         apiKey: String,

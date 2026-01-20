@@ -18,15 +18,15 @@ sealed interface Op {
     /**
      * Start the agent with a goal.
      * 
+     * Note: Session configuration is set at AgentSession.create() time,
+     * not here. This operation only provides the goal.
+     * 
      * Valid in: Created state
      * Transitions to: Running state
      */
     data class Start(
         /** The user's goal/instruction for the agent */
-        val goal: String,
-        
-        /** Session configuration */
-        val config: SessionConfig = SessionConfig()
+        val goal: String
     ) : Op
     
     /**
@@ -49,7 +49,10 @@ sealed interface Op {
     /**
      * Interrupt the current turn.
      * 
-     * Aborts the current action but keeps the session alive.
+     * Note: Interrupt is cooperative - the agent will complete its current
+     * action before stopping. True cancellation of in-flight LLM calls is
+     * not supported.
+     * 
      * Valid in: Running state
      * Stays in: Running state (ready for next turn)
      */
@@ -69,6 +72,9 @@ sealed interface Op {
      * User provides additional input during execution.
      * 
      * Can be used for clarification or guidance.
+     * 
+     * TODO: Planned for conversational mode - not yet implemented.
+     * Currently this operation is accepted but has no effect.
      */
     data class UserInput(
         val text: String
