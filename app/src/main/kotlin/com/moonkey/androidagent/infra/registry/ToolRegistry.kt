@@ -3,7 +3,6 @@ package com.moonkey.androidagent.infra.registry
 import android.util.Log
 import com.moonkey.androidagent.infra.tools.ToolSpec
 import com.openai.core.JsonValue
-import com.openai.models.FunctionDefinition
 import com.openai.models.responses.FunctionTool
 import org.json.JSONArray
 import org.json.JSONObject
