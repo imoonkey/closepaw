@@ -51,7 +51,7 @@ class Agent(
         """.trimIndent()
     }
     
-    // State - using thread-safe primitives to avoid race conditions (M2 fix)
+    // State - using thread-safe primitives to avoid race conditions
     private var turnCount = 0
     private val pauseState = MutableStateFlow(false)
     private val stopRequested = AtomicBoolean(false)
@@ -148,11 +148,10 @@ class Agent(
                 emitTurnPhaseChanged(turnId, TurnPhase.PLANNING)
                 emitStatus("🧠 Thinking...")
 
-                val turn = Turn(services.historyManager, services.toolRegistry)
+                val turn = Turn(services.historyManager, services.toolRegistry, services.llmClient)
                 val systemPrompt = buildSystemPrompt()
                 val userContext = buildUserContext(snapshot)
 
-                // M3 fix: Pass model from config instead of using hardcoded default
                 val turnResult = turn.run(systemPrompt, userContext, services.config.model)
 
                 Log.d(TAG, "Turn $turnCount: LLM response: ${turnResult.content?.take(200)}...")

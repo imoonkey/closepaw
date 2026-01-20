@@ -30,8 +30,8 @@ class HistoryManager(
     // The conversation history
     private val items = mutableListOf<ResponseItem>()
     
-    // Token usage tracking
-    private var lastTokenEstimate: Long = 0
+    // Token usage tracking (null = needs recalculation, fixes H2 bug)
+    private var lastTokenEstimate: Long? = null
     
     /**
      * Add a single item to history.
@@ -39,7 +39,7 @@ class HistoryManager(
     fun addItem(item: ResponseItem) {
         val processed = processItem(item, config.defaultTruncationPolicy)
         items.add(processed)
-        lastTokenEstimate = -1 // Invalidate cache
+        lastTokenEstimate = null // Invalidate cache
         Log.d(TAG, "Added item: ${item.javaClass.simpleName}, total items: ${items.size}")
     }
     
@@ -54,7 +54,7 @@ class HistoryManager(
             val processed = processItem(item, policy)
             items.add(processed)
         }
-        lastTokenEstimate = -1 // Invalidate cache
+        lastTokenEstimate = null // Invalidate cache
         Log.d(TAG, "Recorded ${newItems.size} items, total: ${items.size}")
     }
     
@@ -91,7 +91,7 @@ class HistoryManager(
      */
     fun clear() {
         items.clear()
-        lastTokenEstimate = 0
+        lastTokenEstimate = null // Reset to null, not 0
         Log.d(TAG, "History cleared")
     }
     
@@ -99,14 +99,14 @@ class HistoryManager(
      * Estimate total token count for context window management.
      * 
      * This is a rough estimate - actual tokenization depends on the model.
+     * Uses nullable type to avoid returning 0 on first call.
      */
     fun estimateTokenCount(): Long {
-        if (lastTokenEstimate >= 0) {
-            return lastTokenEstimate
-        }
+        lastTokenEstimate?.let { return it }
         
-        lastTokenEstimate = items.sumOf { it.estimateTokens() }
-        return lastTokenEstimate
+        val estimate = items.sumOf { it.estimateTokens() }
+        lastTokenEstimate = estimate
+        return estimate
     }
     
     /**
@@ -124,31 +124,41 @@ class HistoryManager(
      * 
      * A "user turn" is defined as a Message with role "user" and all subsequent
      * items until the next user message.
+     * 
+     * M7: Algorithm documentation:
+     * 1. Find indices of all user messages in the history
+     * 2. If n >= total user messages, cut from the first user message (drop everything)
+     * 3. Otherwise, find the (total - n)th user message index as the cut point
+     *    Example: [U0, A0, U1, A1, U2, A2] with n=1 → cut at U2 (index = size - 1 = 2)
+     *    userTurnPositions = [0, 2, 4], cutIndex = userTurnPositions[3 - 1] = userTurnPositions[2] = 4
+     * 4. Remove all items from cutIndex to end
      */
     fun dropLastNUserTurns(n: Int) {
         if (n <= 0) return
         
-        // Find positions of all user messages
+        // Step 1: Find positions of all user messages
         val userTurnPositions = items.mapIndexedNotNull { index, item ->
             if (item is ResponseItem.Message && item.role == "user") index else null
         }
         
         if (userTurnPositions.isEmpty()) return
         
-        // Calculate cut index
+        // Step 2-3: Calculate cut index
+        // If n >= total user turns, cut from the first user message
+        // Otherwise, cut from the (total - n)th user message
         val cutIndex = if (n >= userTurnPositions.size) {
-            userTurnPositions.first()
+            userTurnPositions.first()  // Drop all user turns
         } else {
-            userTurnPositions[userTurnPositions.size - n]
+            userTurnPositions[userTurnPositions.size - n]  // Drop last n user turns
         }
         
-        // Remove from cutIndex to end
+        // Step 4: Remove from cutIndex to end (removes the last n user turns and their responses)
         val toRemove = items.size - cutIndex
         repeat(toRemove) {
             items.removeAt(items.lastIndex)
         }
         
-        lastTokenEstimate = -1 // Invalidate cache
+        lastTokenEstimate = null // Invalidate cache
         Log.d(TAG, "Dropped last $n user turns, remaining items: ${items.size}")
     }
     
@@ -172,7 +182,7 @@ class HistoryManager(
             }
         }
         
-        lastTokenEstimate = -1 // Invalidate cache
+        lastTokenEstimate = null // Invalidate cache
         Log.d(TAG, "Removed first item: ${removed.javaClass.simpleName}")
     }
     
@@ -234,8 +244,14 @@ class HistoryManager(
     
     /**
      * Truncate a function call output based on policy.
+     * NONE policy returns output unchanged to avoid Int.MAX_VALUE overflow.
      */
     private fun truncateOutput(output: ResponseItem.FunctionCallOutput, policy: TruncationPolicy): ResponseItem.FunctionCallOutput {
+        // NONE policy: no truncation at all
+        if (policy == TruncationPolicy.NONE) {
+            return output
+        }
+        
         val maxChars = (policy.maxTokens / TOKENS_PER_CHAR).toInt()
         
         if (output.content.length <= maxChars) {
@@ -300,10 +316,12 @@ data class HistoryConfig(
 
 /**
  * TruncationPolicy - Controls how much of tool outputs to keep.
+ * 
+NONE uses -1 as sentinel value (handled specially in truncateOutput).
  */
 enum class TruncationPolicy(val maxTokens: Int) {
-    /** Keep everything (for debugging) */
-    NONE(Int.MAX_VALUE),
+    /** Keep everything (for debugging) - sentinel value, handled specially */
+    NONE(-1),
     
     /** Conservative truncation - good balance for most uses */
     CONSERVATIVE(8000),
@@ -348,7 +366,8 @@ sealed class ResponseItem {
         val name: String,
         val arguments: JSONObject
     ) : ResponseItem() {
-        override fun estimateTokens(): Long = (name.length + arguments.toString().length) * 0.25f.toLong() + 10
+        // Apply toLong() AFTER multiplication, not to 0.25f
+        override fun estimateTokens(): Long = ((name.length + arguments.toString().length) * 0.25f).toLong() + 10
     }
     
     /**
