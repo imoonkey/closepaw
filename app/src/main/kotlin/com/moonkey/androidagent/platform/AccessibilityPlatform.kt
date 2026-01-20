@@ -74,62 +74,163 @@ class AccessibilityPlatform(
     
     // ===== Action Implementations =====
     
+    /**
+     * Perform click action using stored bounds.
+     * 
+     * Uses gesture-based tap which is more reliable than ACTION_CLICK
+     * and doesn't require storing AccessibilityNodeInfo references.
+     */
     private suspend fun performClick(action: UIAction.Click, snapshot: ScreenSnapshot?): ActionResult {
         if (snapshot == null) {
             return ActionResult.Failure("Snapshot required for element-based click")
         }
         
-        val node = snapshot.rawMap[action.elementIndex]
+        val element = snapshot.elements.getOrNull(action.elementIndex)
             ?: return ActionResult.ElementNotFound(action.elementIndex)
         
-        return clickNode(node)
-    }
-    
-    private suspend fun clickNode(node: AccessibilityNodeInfo): ActionResult {
-        // Try native click first
-        if (node.isClickable) {
-            val result = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            if (result) {
-                return ActionResult.Success("Clicked via accessibility action")
-            }
-        }
+        // Use stored center coordinates for gesture-based click
+        // This is more reliable than ACTION_CLICK on many devices
+        val centerX = element.center[0]
+        val centerY = element.center[1]
         
-        // Fallback to gesture tap
-        val bounds = android.graphics.Rect()
-        node.getBoundsInScreen(bounds)
-        return performClickAt(bounds.centerX(), bounds.centerY())
+        Log.d(TAG, "Clicking element ${action.elementIndex} at ($centerX, $centerY)")
+        return performClickAt(centerX, centerY)
     }
     
     private suspend fun performClickAt(x: Int, y: Int): ActionResult {
         return performTap(x.toFloat(), y.toFloat())
     }
     
+    /**
+     * Perform type action by re-querying the accessibility tree.
+     * 
+     * Re-queries the tree to find a fresh node at the target location,
+     * avoiding stale AccessibilityNodeInfo references.
+     */
     private suspend fun performType(action: UIAction.Type, snapshot: ScreenSnapshot?): ActionResult {
         if (snapshot == null) {
             return ActionResult.Failure("Snapshot required for type action")
         }
         
-        val node = snapshot.rawMap[action.elementIndex]
+        val element = snapshot.elements.getOrNull(action.elementIndex)
             ?: return ActionResult.ElementNotFound(action.elementIndex)
         
-        // Try setting text directly
-        val args = Bundle().apply {
-            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, action.text)
-        }
-        val result = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        // Re-query the accessibility tree for a fresh node
+        // This avoids stale node issues from stored references
+        val centerX = element.center[0]
+        val centerY = element.center[1]
         
-        return if (result) {
-            ActionResult.Success("Text entered: ${action.text}")
-        } else {
-            // Try clicking first to focus, then set text
-            clickNode(node)
-            val retryResult = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-            if (retryResult) {
-                ActionResult.Success("Text entered after focus: ${action.text}")
+        return withContext(Dispatchers.Main) {
+            // First, tap to focus the element
+            val tapResult = performClickAt(centerX, centerY)
+            if (tapResult is ActionResult.Failure) {
+                return@withContext tapResult
+            }
+            
+            // Brief delay for focus to take effect
+            kotlinx.coroutines.delay(100)
+            
+            // Re-query the tree to find the focused/target node
+            val root = service.rootInActiveWindow
+            if (root == null) {
+                return@withContext ActionResult.Failure("Cannot access screen for text input")
+            }
+            
+            // Find node at the target location (by bounds overlap)
+            val targetNode = findNodeAtLocation(root, centerX, centerY)
+            
+            if (targetNode != null) {
+                val args = Bundle().apply {
+                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, action.text)
+                }
+                val result = targetNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+                
+                // Recycle the node after use (don't recycle root - owned by service)
+                if (targetNode !== root) {
+                    targetNode.recycle()
+                }
+                
+                if (result) {
+                    ActionResult.Success("Text entered: ${action.text}")
+                } else {
+                    ActionResult.Failure("Failed to set text on element (ACTION_SET_TEXT failed)")
+                }
             } else {
-                ActionResult.Failure("Failed to set text on element")
+                ActionResult.Failure("Could not find text-input element at location ($centerX, $centerY)")
             }
         }
+    }
+    
+    /**
+     * Find a text-input capable node at the given screen coordinates.
+     * Helper for performType() to re-query the accessibility tree.
+     * 
+     * - Properly recycles intermediate nodes during DFS traversal
+     * - Checks for ACTION_SET_TEXT support, not just isEditable (supports WebView/custom widgets)
+     */
+    private fun findNodeAtLocation(root: AccessibilityNodeInfo, x: Int, y: Int): AccessibilityNodeInfo? {
+        val bounds = android.graphics.Rect()
+        
+        /**
+         * Check if a node can accept text input.
+         * P2 fix: Check for ACTION_SET_TEXT action support in addition to isEditable,
+         * which handles custom widgets and WebView inputs that support text but don't set isEditable.
+         */
+        fun canAcceptTextInput(node: AccessibilityNodeInfo): Boolean {
+            if (node.isEditable) return true
+            // P2 fix: Also check if node supports ACTION_SET_TEXT action
+            val actions = node.actionList
+            return actions?.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT } == true
+        }
+        
+        /**
+         * DFS to find deepest text-input node containing the point.
+         * P1 fix: Properly recycles intermediate nodes obtained during traversal.
+         * 
+         * @param node Current node to search
+         * @param shouldRecycle Whether this node should be recycled if not returned
+         *                      (false for root which is system-owned)
+         */
+        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean): AccessibilityNodeInfo? {
+            node.getBoundsInScreen(bounds)
+            
+            if (!bounds.contains(x, y)) {
+                if (shouldRecycle) {
+                    node.recycle()
+                }
+                return null
+            }
+            
+            // Check children first (prefer deeper matches)
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                val found = search(child, shouldRecycle = true)
+                if (found != null) {
+                    // Found a match in subtree
+                    // Recycle current node if allowed (AccessibilityNodeInfo from getChild() are independent)
+                    if (shouldRecycle) {
+                        node.recycle()
+                    }
+                    return found
+                }
+                // Child subtree had no match - child was already recycled in search()
+            }
+            
+            // If this node can accept text input and contains the point, return it
+            // (don't recycle - caller will handle it)
+            if (canAcceptTextInput(node)) {
+                return node
+            }
+            
+            // No match in this subtree - recycle this node if allowed
+            if (shouldRecycle) {
+                node.recycle()
+            }
+            return null
+        }
+        
+        // Start search from root (don't recycle root - it's owned by the system)
+        return search(root, shouldRecycle = false)
     }
     
     private suspend fun performScroll(action: UIAction.Scroll): ActionResult {

@@ -16,29 +16,29 @@ object Perceptor {
     private const val MAX_ELEMENTS = 80
     private const val MAX_STRING_LENGTH = 60
 
+    /**
+     * Create a ScreenSnapshot from the accessibility tree.
+     * 
+     * Does not store AccessibilityNodeInfo references to prevent memory leaks.
+     * All data needed for action execution (bounds, center, properties) is extracted
+     * and stored in PerceptionElement.
+     */
     fun snapshot(root: AccessibilityNodeInfo?): ScreenSnapshot {
         val timestamp = System.currentTimeMillis()
         if (root == null) {
-            return ScreenSnapshot(timestamp, null, emptyList(), emptyMap())
+            return ScreenSnapshot(timestamp, emptyList())
         }
 
         val elements = mutableListOf<PerceptionElement>()
-        val nodeMap = mutableMapOf<Int, AccessibilityNodeInfo>() // Map index -> Node for execution
-
-        traverse(root, elements, nodeMap)
+        // Root is owned by system, don't recycle it
+        traverse(root, elements, shouldRecycle = false)
 
         // Take max elements to avoid token overflow
         val limitedElements = elements.take(MAX_ELEMENTS)
-        // Adjust map to only include limited elements
-        val limitedMap = nodeMap.filterKeys { it < MAX_ELEMENTS }
 
         return ScreenSnapshot(
                 timestamp = timestamp,
-                rootOriginal =
-                        root, // Warning: Keeping root might cause memory leaks if held too long in
-                // a service, usually okay for short lived loop.
-                elements = limitedElements,
-                rawMap = limitedMap
+                elements = limitedElements
         )
     }
 
@@ -64,21 +64,39 @@ object Perceptor {
         return jsonArray.toString(2)
     }
 
+    /**
+     * Traverse accessibility tree and extract element data.
+     * 
+     * - Does not store AccessibilityNodeInfo references
+     * - Properly recycles child nodes after traversal
+     * - Checks ACTION_SET_TEXT for WebView/custom widget text input support
+     * 
+     * @param node Current node to process
+     * @param elements List to collect extracted elements
+     * @param shouldRecycle Whether to recycle this node after processing (false for root)
+     */
     private fun traverse(
             node: AccessibilityNodeInfo,
             elements: MutableList<PerceptionElement>,
-            nodeMap: MutableMap<Int, AccessibilityNodeInfo>
+            shouldRecycle: Boolean = false
     ) {
-        if (elements.size >= MAX_ELEMENTS) return
+        if (elements.size >= MAX_ELEMENTS) {
+            if (shouldRecycle) node.recycle()
+            return
+        }
 
         val text = node.text?.toString()?.take(MAX_STRING_LENGTH) ?: ""
         val desc = node.contentDescription?.toString()?.take(MAX_STRING_LENGTH) ?: ""
         val resourceId = node.viewIdResourceName?.take(MAX_STRING_LENGTH) ?: ""
         val clickable = node.isClickable
-        val editable = node.isEditable
         val scrollable = node.isScrollable
+        
+        // Check both isEditable AND ACTION_SET_TEXT support
+        // This handles WebView inputs and custom widgets that support text input
+        // but don't set isEditable flag
+        val editable = node.isEditable || canAcceptTextInput(node)
 
-        // Filter valid nodes
+        // Filter valid nodes - keep nodes that are interactive or have meaningful content
         val shouldKeep =
                 clickable || editable || scrollable || text.isNotBlank() || desc.isNotBlank()
 
@@ -107,13 +125,29 @@ object Perceptor {
                             center = intArrayOf(bounds.centerX(), bounds.centerY())
                     )
             elements.add(element)
-            nodeMap[index] = node
         }
 
-        // BFS/DFS Children
+        // Traverse children and recycle after processing
         for (i in 0 until node.childCount) {
-            node.getChild(i)?.let { child -> traverse(child, elements, nodeMap) }
+            val child = node.getChild(i) ?: continue
+            traverse(child, elements, shouldRecycle = true)
+            // Note: child is recycled inside traverse() when shouldRecycle=true
         }
+        
+        // Recycle this node if allowed (not root)
+        if (shouldRecycle) {
+            node.recycle()
+        }
+    }
+    
+    /**
+     * Check if a node can accept text input via ACTION_SET_TEXT.
+     * Handles WebView inputs and custom widgets that support text
+     * but don't set the isEditable flag.
+     */
+    private fun canAcceptTextInput(node: AccessibilityNodeInfo): Boolean {
+        val actions = node.actionList ?: return false
+        return actions.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
     }
 
     private fun String.normalizeWhitespace(): String {
