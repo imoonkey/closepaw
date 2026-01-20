@@ -140,8 +140,14 @@ class ToolRouter(
                         deferred.await()
                     }
                 } catch (e: TimeoutCancellationException) {
-                    Log.w(TAG, "Approval timeout for $resolvedCallId - defaulting to DENIED")
-                    ApprovalDecision.DENIED
+                    // Timeout: return directly with proper message (not reusing DENIED path)
+                    Log.w(TAG, "Approval timeout for $resolvedCallId")
+                    pendingApprovals.remove(resolvedCallId)
+                    val cancelledState = ToolCallState.Cancelled(
+                        resolvedCallId, toolName, params, "Approval timed out", null
+                    )
+                    updateState(cancelledState, onStateChange)
+                    return ToolCallResult.Cancelled(resolvedCallId, "Approval timed out")
                 } finally {
                     pendingApprovals.remove(resolvedCallId)
                 }
