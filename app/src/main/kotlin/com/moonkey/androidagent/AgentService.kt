@@ -156,7 +156,6 @@ class AgentService : AccessibilityService() {
         // Create session in coroutine (createWithServices is suspend)
         scope.launch {
             try {
-                // H1 fix: Pass apiKey to session creation instead of using singleton
                 val newSession = AgentSession.create(
                     config = SessionConfig(
                         maxTurns = maxSteps,
@@ -164,7 +163,7 @@ class AgentService : AccessibilityService() {
                     ),
                     service = this@AgentService,
                     scope = scope,
-                    apiKey = apiKey  // H1 fix: API key injected into session
+                    apiKey = apiKey
                 )
                 
                 session = newSession

@@ -99,7 +99,7 @@ class HistoryManager(
      * Estimate total token count for context window management.
      * 
      * This is a rough estimate - actual tokenization depends on the model.
-     * H2 fix: Use nullable type to avoid returning 0 on first call.
+     * Uses nullable type to avoid returning 0 on first call.
      */
     fun estimateTokenCount(): Long {
         lastTokenEstimate?.let { return it }
@@ -244,7 +244,7 @@ class HistoryManager(
     
     /**
      * Truncate a function call output based on policy.
-     * M3 fix: NONE policy returns output unchanged to avoid Int.MAX_VALUE overflow.
+     * NONE policy returns output unchanged to avoid Int.MAX_VALUE overflow.
      */
     private fun truncateOutput(output: ResponseItem.FunctionCallOutput, policy: TruncationPolicy): ResponseItem.FunctionCallOutput {
         // NONE policy: no truncation at all
@@ -317,7 +317,7 @@ data class HistoryConfig(
 /**
  * TruncationPolicy - Controls how much of tool outputs to keep.
  * 
- * M3 fix: NONE uses -1 as sentinel value (handled specially in truncateOutput).
+NONE uses -1 as sentinel value (handled specially in truncateOutput).
  */
 enum class TruncationPolicy(val maxTokens: Int) {
     /** Keep everything (for debugging) - sentinel value, handled specially */
@@ -366,7 +366,7 @@ sealed class ResponseItem {
         val name: String,
         val arguments: JSONObject
     ) : ResponseItem() {
-        // H3 fix: Apply toLong() AFTER multiplication, not to 0.25f
+        // Apply toLong() AFTER multiplication, not to 0.25f
         override fun estimateTokens(): Long = ((name.length + arguments.toString().length) * 0.25f).toLong() + 10
     }
     

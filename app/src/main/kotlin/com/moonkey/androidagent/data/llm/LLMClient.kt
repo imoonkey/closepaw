@@ -21,7 +21,7 @@ import kotlinx.coroutines.withContext
  * - Automatic retry with exponential backoff on rate limits (429)
  * - Proper ResponseInputItem types for conversation history
  * 
- * H1 fix: Now instance-based (not singleton) to support:
+ * Now instance-based (not singleton) to support:
  * - Thread-safe initialization
  * - Different API keys for different sessions
  * - Proper dependency injection
@@ -234,7 +234,7 @@ class LLMClient(apiKey: String) {
     /**
      * Extract retry-after value from error message if present.
      * 
-     * M4 fix: Use more specific patterns to avoid false matches.
+     * Uses more specific patterns to avoid false matches.
      * e.g., "Request failed after 5 seconds" should NOT extract 5.
      */
     private fun extractRetryAfter(message: String): Long? {

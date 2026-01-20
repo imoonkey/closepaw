@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReference
 class PolicyEngine(
     initialApprovalMode: ApprovalMode = ApprovalMode.SMART
 ) {
-    // M2 fix: Use AtomicReference for thread-safe approval mode changes
+    // Use AtomicReference for thread-safe approval mode changes
     private val approvalMode = AtomicReference(initialApprovalMode)
     
     companion object {
