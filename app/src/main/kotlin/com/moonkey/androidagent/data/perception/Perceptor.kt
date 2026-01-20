@@ -2,7 +2,9 @@ package com.moonkey.androidagent.data.perception
 
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
+import com.moonkey.androidagent.domain.models.Bounds
 import com.moonkey.androidagent.domain.models.PerceptionElement
+import com.moonkey.androidagent.domain.models.Point
 import com.moonkey.androidagent.domain.models.ScreenSnapshot
 import org.json.JSONArray
 import org.json.JSONObject
@@ -13,6 +15,10 @@ import org.json.JSONObject
  */
 object Perceptor {
 
+    // TODO: Consider prioritizing interactive elements (clickable/editable) over non-interactive
+    //       text elements. Current DFS approach may cap at MAX_ELEMENTS before reaching important
+    //       buttons at the bottom of long lists. If this becomes a real issue, implement two-pass
+    //       traversal: first collect interactive elements, then fill remaining slots with text.
     private const val MAX_ELEMENTS = 80
     private const val MAX_STRING_LENGTH = 60
 
@@ -57,7 +63,9 @@ object Perceptor {
                         put("editable", elem.isEditable)
                         put("scrollable", elem.isScrollable)
                         // We simplify bounds to center for some prompts, or keep bounds
-                        put("center", JSONArray(elem.center.toList()))
+                        // TODO: Consider using streaming JSON writer for better performance
+                        //       if profiling shows JSON generation is a bottleneck.
+                        put("center", JSONArray(listOf(elem.center.x, elem.center.y)))
                     }
             jsonArray.put(obj)
         }
@@ -101,8 +109,8 @@ object Perceptor {
                 clickable || editable || scrollable || text.isNotBlank() || desc.isNotBlank()
 
         if (shouldKeep) {
-            val bounds = Rect()
-            node.getBoundsInScreen(bounds)
+            val rect = Rect()
+            node.getBoundsInScreen(rect)
 
             val index = elements.size
             val element =
@@ -115,14 +123,13 @@ object Perceptor {
                             isClickable = clickable,
                             isEditable = editable,
                             isScrollable = scrollable,
-                            bounds =
-                                    intArrayOf(
-                                            bounds.left,
-                                            bounds.top,
-                                            bounds.right,
-                                            bounds.bottom
-                                    ),
-                            center = intArrayOf(bounds.centerX(), bounds.centerY())
+                            bounds = Bounds(
+                                    left = rect.left,
+                                    top = rect.top,
+                                    right = rect.right,
+                                    bottom = rect.bottom
+                            ),
+                            center = Point(x = rect.centerX(), y = rect.centerY())
                     )
             elements.add(element)
         }
@@ -150,7 +157,16 @@ object Perceptor {
         return actions.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
     }
 
+    /**
+     * Normalize whitespace while preserving meaningful structure.
+     * - Collapses multiple horizontal spaces/tabs to single space
+     * - Collapses multiple newlines to single newline
+     * - Preserves single newlines (meaningful line breaks)
+     */
     private fun String.normalizeWhitespace(): String {
-        return this.replace(Regex("\\s+"), " ").trim()
+        return this
+            .replace(Regex("[ \\t]+"), " ")    // Collapse horizontal whitespace only
+            .replace(Regex("\\n{2,}"), "\n")   // Collapse multiple newlines to single
+            .trim()
     }
 }
