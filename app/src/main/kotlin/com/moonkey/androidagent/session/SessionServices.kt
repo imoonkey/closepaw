@@ -10,6 +10,7 @@ import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.tools.impl.BackTool
 import com.moonkey.androidagent.tools.impl.ClickTool
+import com.moonkey.androidagent.tools.impl.CompleteTaskTool
 import com.moonkey.androidagent.tools.impl.HomeTool
 import com.moonkey.androidagent.tools.impl.ScrollTool
 import com.moonkey.androidagent.tools.impl.SwipeTool
@@ -114,6 +115,9 @@ data class SessionServices(
             register(BackTool())
             register(HomeTool())
             register(WaitTool())
+            
+            // Meta tools
+            register(CompleteTaskTool())  // For signaling task completion
             
             Log.d(TAG, "Registered ${size()} built-in tools")
         }

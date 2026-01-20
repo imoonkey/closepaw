@@ -57,7 +57,7 @@ stateDiagram-v2
 | `Op.Start(goal, config)` | Created | Start agent execution | Running |
 | `Op.Pause` | Running | Cooperative pause after current action | Paused |
 | `Op.Resume` | Paused | Resume execution | Running |
-| `Op.Interrupt` | Running | Abort current turn (keep session alive) | Running |
+| `Op.Interrupt` | Running | Cooperative stop after current action | Running |
 | `Op.Shutdown` | Any | Graceful shutdown | Shutdown |
 | `Op.UserInput(text)` | Running | Provide additional context | Running |
 | `Op.Approve(actionId, decision)` | Running | Respond to approval request | Running |
@@ -101,6 +101,8 @@ data class Approve(
     val decision: ApprovalDecision
 ) : Op
 ```
+
+> **Note**: `Op.UserInput` is currently accepted but not forwarded to the agent (see `AgentSession.handleUserInput()` TODO). Treat it as unsupported until implemented.
 
 **ApprovalDecision Values:**
 

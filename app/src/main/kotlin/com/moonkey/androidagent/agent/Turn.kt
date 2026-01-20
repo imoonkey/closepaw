@@ -1,14 +1,16 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
-import com.moonkey.androidagent.data.llm.ChatMessage
 import com.moonkey.androidagent.data.llm.LLMClient
-import com.moonkey.androidagent.data.llm.Role
+import com.moonkey.androidagent.data.llm.LLMToolCall
 import com.moonkey.androidagent.infra.history.HistoryManager
 import com.moonkey.androidagent.infra.history.ResponseItem
 import com.moonkey.androidagent.infra.registry.ToolRegistry
+import com.openai.models.ChatModel
+import com.openai.models.responses.ResponseInputItem
+import com.openai.models.responses.ResponseFunctionToolCall
+import com.openai.models.responses.EasyInputMessage
 import org.json.JSONObject
-import java.util.UUID
 
 /**
  * Turn - Encapsulates a single ReAct iteration (LLM call + response parsing).
@@ -16,9 +18,15 @@ import java.util.UUID
  * Reference: labmat's Turn class (turn.py)
  * 
  * A Turn handles:
- * 1. Building messages from history + current context
- * 2. Calling the LLM with tools
- * 3. Parsing the response (content and/or tool calls)
+ * 1. Building input items from history + current context
+ * 2. Calling the LLM with tools via the Responses API
+ * 3. Processing the structured response (text and/or tool calls)
+ * 
+ * Uses OpenAI's official tool calling interface via the Responses API,
+ * which provides:
+ * - Reliable tool call parsing (no regex needed)
+ * - Proper call_id correlation for tool results
+ * - Better structured outputs
  */
 class Turn(
     private val historyManager: HistoryManager,
@@ -26,6 +34,7 @@ class Turn(
 ) {
     companion object {
         private const val TAG = "Turn"
+        private const val COMPLETE_TASK_TOOL = "complete_task"
     }
     
     /**
@@ -33,244 +42,203 @@ class Turn(
      * 
      * @param systemPrompt System prompt for the agent
      * @param userContext Current context (screen state, goal, etc.)
+     * @param modelName Model name to use (M3 fix: use config model instead of hardcoded)
      * @return TurnResult with content and/or tool calls
      */
     suspend fun run(
         systemPrompt: String,
-        userContext: String
+        userContext: String,
+        modelName: String = "gpt-4o"
     ): TurnResult {
-        // 1. Build messages from history
-        val messages = buildMessages(systemPrompt, userContext)
+        // 1. Build input items from history using proper ResponseInputItem types
+        val inputItems = buildInputItems(userContext)
         
-        Log.d(TAG, "Running turn with ${messages.size} messages")
+        Log.d(TAG, "Running turn with ${inputItems.size} input items, model=$modelName")
         
-        // 2. Call LLM
-        val response = LLMClient.chat(messages)
+        // 2. Get tools from registry
+        val tools = toolRegistry.generateResponsesApiTools()
+        Log.d(TAG, "Using ${tools.size} tools: ${tools.map { it.name() }}")
         
-        Log.d(TAG, "LLM response: ${response.take(500)}...")
+        // 3. Build full system prompt with agent instructions
+        val fullSystemPrompt = buildSystemPrompt(systemPrompt)
         
-        // 3. Parse response for tool calls
-        return parseResponse(response)
+        // 4. Convert model name to ChatModel enum (M3 fix)
+        val chatModel = modelNameToChatModel(modelName)
+        
+        // 5. Call LLM via Responses API
+        val response = LLMClient.chatWithTools(
+            systemPrompt = fullSystemPrompt,
+            inputItems = inputItems,
+            tools = tools,
+            model = chatModel
+        )
+        
+        Log.d(TAG, "LLM response: text=${response.textContent?.take(200)}, toolCalls=${response.toolCalls.size}")
+        
+        // 6. Process response
+        return processResponse(response.textContent, response.toolCalls)
     }
     
     /**
-     * Build messages list from system prompt, history, and current context.
+     * Convert model name string to ChatModel enum.
+     * Falls back to GPT_4O if model name is not recognized.
      */
-    private fun buildMessages(systemPrompt: String, userContext: String): List<ChatMessage> {
-        val messages = mutableListOf<ChatMessage>()
-        
-        // System prompt with tool instructions
-        val toolInstructions = buildToolInstructions()
-        val fullSystemPrompt = """
-            $systemPrompt
+    private fun modelNameToChatModel(modelName: String): ChatModel {
+        return when (modelName.lowercase()) {
+            "gpt-4o" -> ChatModel.GPT_4O
+            "gpt-4o-mini" -> ChatModel.GPT_4O_MINI
+            "gpt-4-turbo" -> ChatModel.GPT_4_TURBO
+            "gpt-4" -> ChatModel.GPT_4
+            "gpt-3.5-turbo" -> ChatModel.GPT_3_5_TURBO
+            "o1" -> ChatModel.O1
+            "o1-mini" -> ChatModel.O1_MINI
+            "o1-preview" -> ChatModel.O1_PREVIEW
+            else -> {
+                Log.w(TAG, "Unknown model name '$modelName', falling back to GPT_4O")
+                ChatModel.GPT_4O
+            }
+        }
+    }
+    
+    /**
+     * Build system prompt with agent behavior instructions.
+     * 
+     * Note: Tool descriptions are provided to the model via the tools parameter,
+     * not in the system prompt, which is the recommended approach.
+     */
+    private fun buildSystemPrompt(basePrompt: String): String {
+        return """
+            $basePrompt
             
-            $toolInstructions
+            ## Important Guidelines
+            
+            - Each UI element has an "index" field - use this index when calling tools like click or type
+            - Look for elements with "clickable": true for interactive items
+            - Look for elements with "editable": true for text input fields
+            - If you don't see the expected UI, try scrolling or navigating
+            - Be patient and methodical - complete one step at a time
+            - You may call multiple tools if needed, but be aware that the screen state may change between calls
+            
+            ## Completion
+            
+            When you have successfully achieved the goal, call the complete_task tool with a summary.
+            Do NOT try to detect completion through text patterns - use the complete_task tool.
         """.trimIndent()
+    }
+    
+    /**
+     * Build input items from history and current context using proper ResponseInputItem types.
+     * 
+     * Uses:
+     * - EasyInputMessage for user and assistant text messages (simpler interface)
+     * - ResponseInputItem.ofFunctionCall() for function call requests  
+     * - ResponseInputItem.ofFunctionCallOutput() for function call results
+     * 
+     * Best practice: When manually managing conversation history (not using previous_response_id),
+     * all messages including assistant responses must be included to maintain full context.
+     * See: https://platform.openai.com/docs/guides/conversation-state
+     */
+    private fun buildInputItems(userContext: String): List<ResponseInputItem> {
+        val items = mutableListOf<ResponseInputItem>()
         
-        messages.add(ChatMessage(Role.SYSTEM, fullSystemPrompt))
-        
-        // History items converted to messages
+        // Convert history items to proper ResponseInputItem types
         historyManager.forPrompt().forEach { item ->
             when (item) {
                 is ResponseItem.Message -> {
+                    // Use EasyInputMessage for simpler user/assistant message handling
                     val role = when (item.role) {
-                        "user" -> Role.USER
-                        "assistant" -> Role.ASSISTANT
-                        else -> Role.SYSTEM
+                        "user" -> EasyInputMessage.Role.USER
+                        "assistant" -> EasyInputMessage.Role.ASSISTANT
+                        else -> null  // Skip system messages (handled via instructions parameter)
                     }
-                    messages.add(ChatMessage(role, item.content))
+                    if (role != null) {
+                        items.add(
+                            ResponseInputItem.ofEasyInputMessage(
+                                EasyInputMessage.builder()
+                                    .role(role)
+                                    .content(item.content)
+                                    .build()
+                            )
+                        )
+                    }
                 }
                 is ResponseItem.FunctionCall -> {
-                    // Include as assistant message with tool call
-                    messages.add(ChatMessage(
-                        Role.ASSISTANT,
-                        "I'll use the ${item.name} tool with arguments: ${item.arguments}"
-                    ))
+                    // Create a function call input item
+                    items.add(
+                        ResponseInputItem.ofFunctionCall(
+                            ResponseFunctionToolCall.builder()
+                                .callId(item.id)
+                                .name(item.name)
+                                .arguments(item.arguments.toString())
+                                .build()
+                        )
+                    )
                 }
                 is ResponseItem.FunctionCallOutput -> {
-                    // Include as function result
-                    messages.add(ChatMessage(Role.USER, "Tool result: ${item.content}"))
+                    // Create a function call output item
+                    items.add(
+                        ResponseInputItem.ofFunctionCallOutput(
+                            ResponseInputItem.FunctionCallOutput.builder()
+                                .callId(item.callId)
+                                .output(item.content)
+                                .build()
+                        )
+                    )
                 }
                 else -> {} // Skip ghost snapshots
             }
         }
         
-        // Current context as user message
-        messages.add(ChatMessage(Role.USER, userContext))
-        
-        return messages
-    }
-    
-    /**
-     * Build tool instructions for the system prompt.
-     * Uses JSON format that the model can understand and we can parse.
-     */
-    private fun buildToolInstructions(): String {
-        return """
-            ## Tool Usage
-            
-            When you need to perform an action, respond with a tool call in this EXACT format:
-            ```tool
-            {"name": "TOOL_NAME", "arguments": {"param": value}}
-            ```
-            
-            ## Available Tools
-            
-            1. **click** - Click on a UI element
-               Arguments: {"element_index": <integer>}
-               Example: ```tool
-               {"name": "click", "arguments": {"element_index": 5}}
-               ```
-            
-            2. **type** - Type text into an editable field
-               Arguments: {"element_index": <integer>, "text": "<string>"}
-               Example: ```tool
-               {"name": "type", "arguments": {"element_index": 3, "text": "Hello"}}
-               ```
-            
-            3. **scroll** - Scroll the screen
-               Arguments: {"direction": "up" | "down" | "left" | "right"}
-               Example: ```tool
-               {"name": "scroll", "arguments": {"direction": "down"}}
-               ```
-            
-            4. **back** - Press the system back button
-               Arguments: {} (none required)
-               Example: ```tool
-               {"name": "back", "arguments": {}}
-               ```
-            
-            5. **home** - Press the system home button
-               Arguments: {} (none required)
-               Example: ```tool
-               {"name": "home", "arguments": {}}
-               ```
-            
-            6. **wait** - Wait for UI to update
-               Arguments: {"duration_ms": <integer>} (optional, default 1000)
-               Example: ```tool
-               {"name": "wait", "arguments": {"duration_ms": 2000}}
-               ```
-            
-            ## Rules
-            
-            - Use ONLY ONE tool call per response
-            - The element_index comes from the "index" field in the screen state JSON
-            - Look for elements with "clickable": true for buttons/links
-            - Look for elements with "editable": true for text input
-            - After each action, wait for the result before deciding next step
-            
-            ## Completion
-            
-            When the goal is achieved, respond with "DONE:" followed by a summary.
-            Do NOT include a tool call when the task is complete.
-        """.trimIndent()
-    }
-    
-    /**
-     * Parse LLM response for tool calls and completion status.
-     * 
-     * Uses multiple patterns to handle edge cases:
-     * 1. Standard ```tool ... ``` blocks
-     * 2. Fallback JSON object detection for malformed responses
-     */
-    private fun parseResponse(response: String): TurnResult {
-        val toolCalls = mutableListOf<ToolCallRequest>()
-        val parseErrors = mutableListOf<String>()
-        
-        // Primary pattern: Extract tool calls from ```tool blocks
-        val toolPattern = Regex("```tool\\s*\\n?([\\s\\S]*?)\\n?```", RegexOption.MULTILINE)
-        val matches = toolPattern.findAll(response).toList()
-        
-        if (matches.isNotEmpty()) {
-            matches.forEach { match ->
-                val rawContent = match.groupValues[1]
-                parseToolCallJson(rawContent, toolCalls, parseErrors)
-            }
-        } else {
-            // Fallback: Try to find JSON with "name" field that looks like a tool call
-            // This handles cases where LLM omits the ```tool wrapper
-            val jsonPattern = Regex("""\{[^{}]*"name"\s*:\s*"[^"]+"\s*[^{}]*\}""")
-            jsonPattern.findAll(response).forEach { match ->
-                Log.d(TAG, "Fallback: Found potential tool JSON without wrapper: ${match.value}")
-                parseToolCallJson(match.value, toolCalls, parseErrors)
-            }
-        }
-        
-        // Log parsing errors for debugging
-        if (parseErrors.isNotEmpty()) {
-            Log.w(TAG, "Tool call parsing errors:\n${parseErrors.joinToString("\n")}")
-        }
-        
-        // Check for completion indicators
-        val isComplete = toolCalls.isEmpty() && (
-            response.contains("DONE:", ignoreCase = false) ||
-            response.contains("goal achieved", ignoreCase = true) ||
-            response.contains("task completed", ignoreCase = true) ||
-            response.contains("successfully completed", ignoreCase = true)
+        // Add current context as user message using EasyInputMessage
+        items.add(
+            ResponseInputItem.ofEasyInputMessage(
+                EasyInputMessage.builder()
+                    .role(EasyInputMessage.Role.USER)
+                    .content(userContext)
+                    .build()
+            )
         )
         
-        Log.d(TAG, "Parse result: ${toolCalls.size} tool calls, isComplete=$isComplete")
+        return items
+    }
+    
+    /**
+     * Process the LLM response into a TurnResult.
+     */
+    private fun processResponse(
+        textContent: String?,
+        llmToolCalls: List<LLMToolCall>
+    ): TurnResult {
+        // Convert LLM tool calls to our format
+        val toolCalls = llmToolCalls.map { call ->
+            val argsJson = try {
+                JSONObject(call.arguments)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to parse tool arguments as JSON: ${call.arguments}", e)
+                JSONObject()
+            }
+            
+            ToolCallRequest(
+                id = call.callId,  // Use OpenAI's call_id
+                name = call.name,
+                arguments = argsJson
+            )
+        }
+        
+        // Check for completion:
+        // 1. complete_task tool was called, OR
+        // 2. No tool calls and there's text content (agent is done, just without using the tool)
+        val completeTaskCall = toolCalls.find { it.name == COMPLETE_TASK_TOOL }
+        val isComplete = completeTaskCall != null || (toolCalls.isEmpty() && textContent != null)
+        
+        Log.d(TAG, "Process result: ${toolCalls.size} tool calls, isComplete=$isComplete")
         
         return TurnResult(
-            content = response,
+            content = textContent,
             toolCalls = toolCalls,
             isComplete = isComplete,
-            parseErrors = parseErrors.takeIf { it.isNotEmpty() }
+            parseErrors = null  // No parsing errors with Responses API
         )
-    }
-    
-    /**
-     * Parse a JSON string as a tool call and add to the list if valid.
-     */
-    private fun parseToolCallJson(
-        rawContent: String,
-        toolCalls: MutableList<ToolCallRequest>,
-        parseErrors: MutableList<String>
-    ) {
-        val jsonStr = rawContent.trim()
-        
-        if (jsonStr.isEmpty()) {
-            parseErrors.add("Empty tool call block")
-            return
-        }
-        
-        try {
-            val json = JSONObject(jsonStr)
-            
-            // Validate required "name" field
-            if (!json.has("name")) {
-                parseErrors.add("Tool call missing 'name' field: $jsonStr")
-                return
-            }
-            
-            val name = json.getString("name")
-            if (name.isBlank()) {
-                parseErrors.add("Tool call has empty 'name': $jsonStr")
-                return
-            }
-            
-            // Validate tool exists in registry
-            if (toolRegistry.get(name) == null) {
-                parseErrors.add("Unknown tool '$name' - available tools: ${toolRegistry.getAll().map { it.name }}")
-                // Still add it - let ToolRouter handle the error with proper state machine
-            }
-            
-            val arguments = json.optJSONObject("arguments") ?: JSONObject()
-            
-            toolCalls.add(ToolCallRequest(
-                id = UUID.randomUUID().toString(),
-                name = name,
-                arguments = arguments
-            ))
-            
-            Log.d(TAG, "Parsed tool call: $name with args: $arguments")
-            
-        } catch (e: org.json.JSONException) {
-            parseErrors.add("Invalid JSON in tool call: ${e.message}\nContent: $jsonStr")
-        } catch (e: Exception) {
-            parseErrors.add("Unexpected error parsing tool call: ${e.message}\nContent: $jsonStr")
-        }
     }
 }
 
@@ -293,10 +261,12 @@ data class TurnResult(
 
 /**
  * A tool call request from the LLM.
+ * 
+ * The id is provided by OpenAI's Responses API (call_id).
  */
 data class ToolCallRequest(
+    /** The call ID from OpenAI - use this for tool result correlation */
     val id: String,
     val name: String,
     val arguments: JSONObject
 )
-

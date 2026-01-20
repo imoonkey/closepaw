@@ -48,6 +48,7 @@ class ToolRouter(
      * @param toolName Name of the tool to invoke
      * @param params Parameters for the tool
      * @param context Execution context with platform access
+     * @param callId Optional caller-provided ID (use LLM call_id when available)
      * @param onStateChange Callback for state changes (for UI updates)
      * @param onApprovalRequired Suspend callback when user approval is needed.
      *        The callback receives ApprovalDetails which includes the callId
@@ -58,32 +59,33 @@ class ToolRouter(
         toolName: String,
         params: JSONObject,
         context: ToolRouterContext,
+        callId: String? = null,
         onStateChange: ((ToolCallState) -> Unit)? = null,
         onApprovalRequired: (suspend (ApprovalDetails) -> Unit)? = null
     ): ToolCallResult {
-        val callId = generateCallId()
+        val resolvedCallId = callId ?: generateCallId()
         
-        Log.d(TAG, "Starting tool call: $callId ($toolName)")
+        Log.d(TAG, "Starting tool call: $resolvedCallId ($toolName)")
         
         // === STATE: VALIDATING ===
-        var state: ToolCallState = ToolCallState.Validating(callId, toolName, params)
+        var state: ToolCallState = ToolCallState.Validating(resolvedCallId, toolName, params)
         updateState(state, onStateChange)
         
         // Check tool exists
         val tool = registry.get(toolName)
         if (tool == null) {
-            val errorState = ToolCallState.Error(callId, toolName, params, "Unknown tool: $toolName")
+            val errorState = ToolCallState.Error(resolvedCallId, toolName, params, "Unknown tool: $toolName")
             updateState(errorState, onStateChange)
-            return ToolCallResult.Error(callId, "Unknown tool: $toolName")
+            return ToolCallResult.Error(resolvedCallId, "Unknown tool: $toolName")
         }
         
         // Validate parameters
         val validation = tool.validate(params)
         if (validation is ValidationResult.Invalid) {
             val errorMsg = "Validation failed: ${validation.errors.joinToString(", ")}"
-            val errorState = ToolCallState.Error(callId, toolName, params, errorMsg)
+            val errorState = ToolCallState.Error(resolvedCallId, toolName, params, errorMsg)
             updateState(errorState, onStateChange)
-            return ToolCallResult.Error(callId, errorMsg)
+            return ToolCallResult.Error(resolvedCallId, errorMsg)
         }
         
         // Create invocation
@@ -95,15 +97,15 @@ class ToolRouter(
         
         when (policyDecision) {
             is PolicyDecision.Deny -> {
-                val errorState = ToolCallState.Error(callId, toolName, params, policyDecision.reason)
+                val errorState = ToolCallState.Error(resolvedCallId, toolName, params, policyDecision.reason)
                 updateState(errorState, onStateChange)
-                return ToolCallResult.Error(callId, "Policy denied: ${policyDecision.reason}")
+                return ToolCallResult.Error(resolvedCallId, "Policy denied: ${policyDecision.reason}")
             }
             
             is PolicyDecision.AskUser -> {
                 // === STATE: AWAITING_APPROVAL ===
                 state = ToolCallState.AwaitingApproval(
-                    callId = callId,
+                    callId = resolvedCallId,
                     toolName = toolName,
                     params = params,
                     invocation = invocation,
@@ -113,7 +115,7 @@ class ToolRouter(
                 
                 // Notify that approval is required (includes callId for proper resolution)
                 val approvalDetails = ApprovalDetails(
-                    callId = callId,
+                    callId = resolvedCallId,
                     toolName = toolName,
                     args = params,
                     description = invocation.getDescription(),
@@ -123,30 +125,30 @@ class ToolRouter(
                 
                 // Wait for approval
                 val deferred = CompletableDeferred<ApprovalDecision>()
-                pendingApprovals[callId] = deferred
+                pendingApprovals[resolvedCallId] = deferred
                 
                 val decision = try {
                     deferred.await()
                 } finally {
-                    pendingApprovals.remove(callId)
+                    pendingApprovals.remove(resolvedCallId)
                 }
                 
-                Log.d(TAG, "Approval decision for $callId: $decision")
+                Log.d(TAG, "Approval decision for $resolvedCallId: $decision")
                 
                 when (decision) {
                     ApprovalDecision.DENIED -> {
                         val cancelledState = ToolCallState.Cancelled(
-                            callId, toolName, params, "User denied", decision
+                            resolvedCallId, toolName, params, "User denied", decision
                         )
                         updateState(cancelledState, onStateChange)
-                        return ToolCallResult.Cancelled(callId, "User denied")
+                        return ToolCallResult.Cancelled(resolvedCallId, "User denied")
                     }
                     ApprovalDecision.ABORT -> {
                         val cancelledState = ToolCallState.Cancelled(
-                            callId, toolName, params, "User aborted", decision
+                            resolvedCallId, toolName, params, "User aborted", decision
                         )
                         updateState(cancelledState, onStateChange)
-                        return ToolCallResult.Cancelled(callId, "User aborted session")
+                        return ToolCallResult.Cancelled(resolvedCallId, "User aborted session")
                     }
                     ApprovalDecision.APPROVED -> {
                         // Continue to execution
@@ -156,20 +158,20 @@ class ToolRouter(
             
             PolicyDecision.Allow -> {
                 // === STATE: SCHEDULED ===
-                state = ToolCallState.Scheduled(callId, toolName, params, invocation)
+                state = ToolCallState.Scheduled(resolvedCallId, toolName, params, invocation)
                 updateState(state, onStateChange)
             }
         }
         
         // Check for cancellation before execution
         if (context.isCancelled()) {
-            val cancelledState = ToolCallState.Cancelled(callId, toolName, params, "Cancelled before execution")
+            val cancelledState = ToolCallState.Cancelled(resolvedCallId, toolName, params, "Cancelled before execution")
             updateState(cancelledState, onStateChange)
-            return ToolCallResult.Cancelled(callId, "Cancelled before execution")
+            return ToolCallResult.Cancelled(resolvedCallId, "Cancelled before execution")
         }
         
         // === STATE: EXECUTING ===
-        state = ToolCallState.Executing(callId, toolName, params, invocation)
+        state = ToolCallState.Executing(resolvedCallId, toolName, params, invocation)
         updateState(state, onStateChange)
         
         // Execute the tool
@@ -188,26 +190,31 @@ class ToolRouter(
         // === TERMINAL STATE ===
         return when (executionResult) {
             is ToolExecutionResult.Success -> {
-                val successState = ToolCallState.Success(callId, toolName, params, executionResult)
+                val successState = ToolCallState.Success(resolvedCallId, toolName, params, executionResult)
                 updateState(successState, onStateChange)
-                activeToolCalls.remove(callId)
-                ToolCallResult.Success(callId, executionResult.output, executionResult.data)
+                activeToolCalls.remove(resolvedCallId)
+                ToolCallResult.Success(
+                    callId = resolvedCallId,
+                    output = executionResult.output,
+                    data = executionResult.data,
+                    observation = executionResult.observation
+                )
             }
             
             is ToolExecutionResult.Failure -> {
                 val errorState = ToolCallState.Error(
-                    callId, toolName, params, executionResult.error, executionResult.exception
+                    resolvedCallId, toolName, params, executionResult.error, executionResult.exception
                 )
                 updateState(errorState, onStateChange)
-                activeToolCalls.remove(callId)
-                ToolCallResult.Error(callId, executionResult.error, executionResult.exception)
+                activeToolCalls.remove(resolvedCallId)
+                ToolCallResult.Error(resolvedCallId, executionResult.error, executionResult.exception)
             }
             
             is ToolExecutionResult.Cancelled -> {
-                val cancelledState = ToolCallState.Cancelled(callId, toolName, params, executionResult.reason)
+                val cancelledState = ToolCallState.Cancelled(resolvedCallId, toolName, params, executionResult.reason)
                 updateState(cancelledState, onStateChange)
-                activeToolCalls.remove(callId)
-                ToolCallResult.Cancelled(callId, executionResult.reason)
+                activeToolCalls.remove(resolvedCallId)
+                ToolCallResult.Cancelled(resolvedCallId, executionResult.reason)
             }
         }
     }
