@@ -16,29 +16,28 @@ object Perceptor {
     private const val MAX_ELEMENTS = 80
     private const val MAX_STRING_LENGTH = 60
 
+    /**
+     * Create a ScreenSnapshot from the accessibility tree.
+     * 
+     * H5 fix: No longer stores AccessibilityNodeInfo references to prevent memory leaks.
+     * All data needed for action execution (bounds, center, properties) is extracted
+     * and stored in PerceptionElement.
+     */
     fun snapshot(root: AccessibilityNodeInfo?): ScreenSnapshot {
         val timestamp = System.currentTimeMillis()
         if (root == null) {
-            return ScreenSnapshot(timestamp, null, emptyList(), emptyMap())
+            return ScreenSnapshot(timestamp, emptyList())
         }
 
         val elements = mutableListOf<PerceptionElement>()
-        val nodeMap = mutableMapOf<Int, AccessibilityNodeInfo>() // Map index -> Node for execution
-
-        traverse(root, elements, nodeMap)
+        traverse(root, elements)
 
         // Take max elements to avoid token overflow
         val limitedElements = elements.take(MAX_ELEMENTS)
-        // Adjust map to only include limited elements
-        val limitedMap = nodeMap.filterKeys { it < MAX_ELEMENTS }
 
         return ScreenSnapshot(
                 timestamp = timestamp,
-                rootOriginal =
-                        root, // Warning: Keeping root might cause memory leaks if held too long in
-                // a service, usually okay for short lived loop.
-                elements = limitedElements,
-                rawMap = limitedMap
+                elements = limitedElements
         )
     }
 
@@ -64,10 +63,13 @@ object Perceptor {
         return jsonArray.toString(2)
     }
 
+    /**
+     * Traverse accessibility tree and extract element data.
+     * H5 fix: No longer stores AccessibilityNodeInfo references.
+     */
     private fun traverse(
             node: AccessibilityNodeInfo,
-            elements: MutableList<PerceptionElement>,
-            nodeMap: MutableMap<Int, AccessibilityNodeInfo>
+            elements: MutableList<PerceptionElement>
     ) {
         if (elements.size >= MAX_ELEMENTS) return
 
@@ -107,12 +109,11 @@ object Perceptor {
                             center = intArrayOf(bounds.centerX(), bounds.centerY())
                     )
             elements.add(element)
-            nodeMap[index] = node
         }
 
         // BFS/DFS Children
         for (i in 0 until node.childCount) {
-            node.getChild(i)?.let { child -> traverse(child, elements, nodeMap) }
+            node.getChild(i)?.let { child -> traverse(child, elements) }
         }
     }
 

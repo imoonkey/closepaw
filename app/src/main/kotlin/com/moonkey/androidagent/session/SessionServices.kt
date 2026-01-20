@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.session
 
 import android.util.Log
+import com.moonkey.androidagent.data.llm.LLMClient
 import com.moonkey.androidagent.infra.history.HistoryConfig
 import com.moonkey.androidagent.infra.history.HistoryManager
 import com.moonkey.androidagent.infra.policy.PolicyEngine
@@ -11,7 +12,7 @@ import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.tools.impl.BackTool
 import com.moonkey.androidagent.tools.impl.ClickTool
 import com.moonkey.androidagent.tools.impl.CompleteTaskTool
-import com.moonkey.androidagent.tools.impl.HomeTool
+import com.moonkey.androidagent.tools.impl.HomeTool  // Defined in BackTool.kt
 import com.moonkey.androidagent.tools.impl.ScrollTool
 import com.moonkey.androidagent.tools.impl.SwipeTool
 import com.moonkey.androidagent.tools.impl.TypeTool
@@ -32,10 +33,11 @@ import com.moonkey.androidagent.tools.impl.WaitTool
  * 
  * V2 Changes:
  * - Removed agentRegistry (no longer needed without multi-agent orchestration)
+ * - H1 fix: Added llmClient as instance-based service (not singleton)
  * 
  * Usage:
  * ```kotlin
- * val services = SessionServices.create(config, platform)
+ * val services = SessionServices.create(config, platform, apiKey)
  * // All services are now available via services.toolRegistry, services.historyManager, etc.
  * ```
  */
@@ -45,7 +47,8 @@ data class SessionServices(
     val historyManager: HistoryManager,
     val policyEngine: PolicyEngine,
     val platform: AndroidPlatform,
-    val config: SessionConfig
+    val config: SessionConfig,
+    val llmClient: LLMClient  // H1 fix: Instance-based LLM client
 ) {
     companion object {
         private const val TAG = "SessionServices"
@@ -54,36 +57,43 @@ data class SessionServices(
          * Create a new SessionServices container with all services initialized.
          * 
          * Services are created in dependency order:
-         * 1. PolicyEngine (no dependencies)
-         * 2. ToolRegistry (no dependencies)
-         * 3. ToolRouter (depends on ToolRegistry, PolicyEngine)
-         * 4. HistoryManager (depends on config)
+         * 1. LLMClient (depends on apiKey) - H1 fix
+         * 2. PolicyEngine (no dependencies)
+         * 3. ToolRegistry (no dependencies)
+         * 4. ToolRouter (depends on ToolRegistry, PolicyEngine)
+         * 5. HistoryManager (depends on config)
          * 
          * @param config Session configuration
          * @param platform Android platform abstraction
+         * @param apiKey OpenAI API key for LLM client (H1 fix)
          * @return Fully initialized SessionServices
          */
         suspend fun create(
             config: SessionConfig,
-            platform: AndroidPlatform
+            platform: AndroidPlatform,
+            apiKey: String  // H1 fix: API key passed in, not global
         ): SessionServices {
             Log.d(TAG, "Creating SessionServices...")
             
-            // 1. Create PolicyEngine with approval mode from config
+            // 1. Create LLMClient with API key (H1 fix: no longer singleton)
+            val llmClient = LLMClient(apiKey)
+            Log.d(TAG, "Created LLMClient")
+            
+            // 2. Create PolicyEngine with approval mode from config
             val policyEngine = PolicyEngine(config.approvalMode)
             Log.d(TAG, "Created PolicyEngine with mode: ${config.approvalMode}")
             
-            // 2. Create and populate ToolRegistry with built-in tools
+            // 3. Create and populate ToolRegistry with built-in tools
             val toolRegistry = ToolRegistry().apply {
                 registerBuiltInTools()
             }
             Log.d(TAG, "Created ToolRegistry with ${toolRegistry.size()} tools")
             
-            // 3. Create ToolRouter (depends on registry and policy engine)
+            // 4. Create ToolRouter (depends on registry and policy engine)
             val toolRouter = ToolRouter(toolRegistry, policyEngine)
             Log.d(TAG, "Created ToolRouter")
             
-            // 4. Create HistoryManager with config-based settings
+            // 5. Create HistoryManager with config-based settings
             val historyConfig = HistoryConfig(
                 autoCompress = true,
                 maxTokenBudget = 100_000 // Could be configurable in SessionConfig
@@ -99,7 +109,8 @@ data class SessionServices(
                 historyManager = historyManager,
                 policyEngine = policyEngine,
                 platform = platform,
-                config = config
+                config = config,
+                llmClient = llmClient  // H1 fix
             )
         }
         
@@ -188,16 +199,18 @@ object SessionServicesBuilder {
      * 
      * @param config Session configuration
      * @param platform Android platform
+     * @param apiKey OpenAI API key (H1 fix)
      * @param additionalTools Additional tools to register
      * @param excludeTools Tools to exclude from registration
      */
     suspend fun createWithCustomTools(
         config: SessionConfig,
         platform: AndroidPlatform,
+        apiKey: String,  // H1 fix
         additionalTools: List<com.moonkey.androidagent.infra.tools.ToolSpec> = emptyList(),
         excludeTools: Set<String> = emptySet()
     ): SessionServices {
-        val services = SessionServices.create(config, platform)
+        val services = SessionServices.create(config, platform, apiKey)
         
         // Remove excluded tools
         excludeTools.forEach { name ->

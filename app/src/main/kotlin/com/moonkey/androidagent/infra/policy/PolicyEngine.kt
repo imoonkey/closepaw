@@ -4,6 +4,7 @@ import android.util.Log
 import com.moonkey.androidagent.protocol.ApprovalMode
 import com.moonkey.androidagent.protocol.RiskLevel
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * PolicyEngine - Decides whether tool calls should be allowed, denied, or require approval.
@@ -16,12 +17,15 @@ import org.json.JSONObject
  * Pattern from Gemini CLI's PolicyEngine.
  */
 class PolicyEngine(
-    private var approvalMode: ApprovalMode = ApprovalMode.SMART
+    initialApprovalMode: ApprovalMode = ApprovalMode.SMART
 ) {
+    // M2 fix: Use AtomicReference for thread-safe approval mode changes
+    private val approvalMode = AtomicReference(initialApprovalMode)
     
     companion object {
         private const val TAG = "PolicyEngine"
         
+        // TODO (M8): Consider loading risk levels from configuration file for per-deployment customization.
         // Default risk levels for common Mobile-Agent tools
         private val DEFAULT_RISK_LEVELS = mapOf(
             // Low risk - typically reversible or read-only
@@ -35,7 +39,8 @@ class PolicyEngine(
             "type" to RiskLevel.MEDIUM,
             "home" to RiskLevel.MEDIUM,
             
-            // High risk - potentially destructive
+            // High risk - potentially destructive (reserved for future tools)
+            // M5: These are reserved for future tool implementations (e.g., app management, e-commerce)
             "install" to RiskLevel.HIGH,
             "uninstall" to RiskLevel.HIGH,
             "delete" to RiskLevel.HIGH,
@@ -59,7 +64,8 @@ class PolicyEngine(
      * @return PolicyDecision indicating how to proceed
      */
     fun check(toolName: String, params: JSONObject = JSONObject()): PolicyDecision {
-        Log.d(TAG, "Checking policy for: $toolName (mode: $approvalMode)")
+        val currentMode = approvalMode.get()
+        Log.d(TAG, "Checking policy for: $toolName (mode: $currentMode)")
         
         // Check deny list first
         if (toolName in denyList) {
@@ -73,8 +79,8 @@ class PolicyEngine(
             return PolicyDecision.Allow
         }
         
-        // Apply approval mode
-        return when (approvalMode) {
+        // Apply approval mode (M2: read atomic value)
+        return when (currentMode) {
             ApprovalMode.ALWAYS_ASK -> {
                 PolicyDecision.AskUser(
                     reason = "Approval required for all actions",
@@ -130,17 +136,17 @@ class PolicyEngine(
     // ===== Configuration Methods =====
     
     /**
-     * Set the approval mode.
+     * Set the approval mode (M2: thread-safe via AtomicReference).
      */
     fun setApprovalMode(mode: ApprovalMode) {
-        Log.d(TAG, "Approval mode changed: $approvalMode -> $mode")
-        approvalMode = mode
+        val oldMode = approvalMode.getAndSet(mode)
+        Log.d(TAG, "Approval mode changed: $oldMode -> $mode")
     }
     
     /**
-     * Get the current approval mode.
+     * Get the current approval mode (M2: thread-safe read).
      */
-    fun getApprovalMode(): ApprovalMode = approvalMode
+    fun getApprovalMode(): ApprovalMode = approvalMode.get()
     
     /**
      * Set a custom risk level for a tool.
@@ -184,7 +190,7 @@ class PolicyEngine(
         allowList.clear()
         denyList.clear()
         riskOverrides.clear()
-        approvalMode = ApprovalMode.SMART
+        approvalMode.set(ApprovalMode.SMART)
     }
 }
 

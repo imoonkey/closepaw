@@ -20,26 +20,32 @@ import kotlinx.coroutines.withContext
  * - Native function/tool calling via Responses API
  * - Automatic retry with exponential backoff on rate limits (429)
  * - Proper ResponseInputItem types for conversation history
+ * 
+ * H1 fix: Now instance-based (not singleton) to support:
+ * - Thread-safe initialization
+ * - Different API keys for different sessions
+ * - Proper dependency injection
  */
-object LLMClient {
-
-    private const val TAG = "LLMClient"
-    private var client: OpenAIClient? = null
-    private var isInitialized = false
+class LLMClient(apiKey: String) {
     
-    // Rate limit configuration
-    private const val MAX_RETRIES = 5
-    private const val INITIAL_BACKOFF_MS = 1000L
-    private const val MAX_BACKOFF_MS = 60000L
-    private const val BACKOFF_MULTIPLIER = 2.0
+    companion object {
+        private const val TAG = "LLMClient"
+        
+        // Rate limit configuration
+        private const val MAX_RETRIES = 5
+        private const val INITIAL_BACKOFF_MS = 1000L
+        private const val MAX_BACKOFF_MS = 60000L
+        private const val BACKOFF_MULTIPLIER = 2.0
+    }
 
-    fun initialize(apiKey: String) {
-        Log.d(TAG, "Initializing LLMClient with key: ${apiKey.take(10)}...")
+    private val client: OpenAIClient
+    
+    init {
+        Log.d(TAG, "Creating LLMClient with key: ${apiKey.take(10)}...")
         client = OpenAIOkHttpClient.builder()
             .apiKey(apiKey)
             .build()
-        isInitialized = true
-        Log.i(TAG, "LLMClient initialized successfully")
+        Log.i(TAG, "LLMClient created successfully")
     }
     
     /**
@@ -61,10 +67,6 @@ object LLMClient {
         model: ChatModel = ChatModel.GPT_4O
     ): ResponsesResult {
         return withContext(Dispatchers.IO) {
-            if (!isInitialized || client == null) {
-                throw IllegalStateException("LLMClient not initialized. Call initialize() first.")
-            }
-
             var lastException: Exception? = null
             var backoffMs = INITIAL_BACKOFF_MS
             
@@ -79,6 +81,8 @@ object LLMClient {
                         throw e
                     }
                     
+                    // TODO (M1): Update backoff BEFORE delay for next attempt, not after.
+                    // Current behavior: first retry uses initial backoff, which may be suboptimal.
                     val waitMs = e.retryAfterMs ?: backoffMs
                     Log.w(TAG, "Rate limited (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms...")
                     
@@ -128,7 +132,7 @@ object LLMClient {
             
             Log.d(TAG, "Making Responses API call to OpenAI...")
             
-            val response = client!!.responses().create(builder.build())
+            val response = client.responses().create(builder.build())
             
             // Parse output items
             val textContent = StringBuilder()
@@ -229,19 +233,28 @@ object LLMClient {
     
     /**
      * Extract retry-after value from error message if present.
+     * 
+     * M4 fix: Use more specific patterns to avoid false matches.
+     * e.g., "Request failed after 5 seconds" should NOT extract 5.
      */
     private fun extractRetryAfter(message: String): Long? {
+        // M4: More specific patterns to avoid false matches
         val patterns = listOf(
+            // Standard retry-after header/field
             Regex("""retry.?after[:\s]+(\d+)""", RegexOption.IGNORE_CASE),
-            Regex("""wait[:\s]+(\d+)""", RegexOption.IGNORE_CASE),
-            Regex("""(\d+)\s*seconds?""", RegexOption.IGNORE_CASE)
+            // "Please wait X seconds" or "wait for X seconds"
+            Regex("""(?:please\s+)?wait(?:\s+for)?\s+(\d+)\s*seconds?""", RegexOption.IGNORE_CASE),
+            // "try again in X seconds"
+            Regex("""try\s+again\s+in\s+(\d+)\s*seconds?""", RegexOption.IGNORE_CASE),
+            // "available in X seconds"
+            Regex("""available\s+in\s+(\d+)\s*seconds?""", RegexOption.IGNORE_CASE)
         )
         
         for (pattern in patterns) {
             val match = pattern.find(message)
             if (match != null) {
                 val seconds = match.groupValues[1].toLongOrNull()
-                if (seconds != null && seconds > 0) {
+                if (seconds != null && seconds > 0 && seconds <= 3600) { // Max 1 hour
                     return seconds * 1000 // Convert to milliseconds
                 }
             }
