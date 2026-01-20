@@ -30,7 +30,8 @@ object Perceptor {
         }
 
         val elements = mutableListOf<PerceptionElement>()
-        traverse(root, elements)
+        // Root is owned by system, don't recycle it
+        traverse(root, elements, shouldRecycle = false)
 
         // Take max elements to avoid token overflow
         val limitedElements = elements.take(MAX_ELEMENTS)
@@ -65,22 +66,38 @@ object Perceptor {
 
     /**
      * Traverse accessibility tree and extract element data.
-     * H5 fix: No longer stores AccessibilityNodeInfo references.
+     * 
+     * Fixes applied:
+     * - H5: No longer stores AccessibilityNodeInfo references
+     * - PR-P1: Properly recycles child nodes after traversal
+     * - PR-P2: Checks ACTION_SET_TEXT for WebView/custom widget text input support
+     * 
+     * @param node Current node to process
+     * @param elements List to collect extracted elements
+     * @param shouldRecycle Whether to recycle this node after processing (false for root)
      */
     private fun traverse(
             node: AccessibilityNodeInfo,
-            elements: MutableList<PerceptionElement>
+            elements: MutableList<PerceptionElement>,
+            shouldRecycle: Boolean = false
     ) {
-        if (elements.size >= MAX_ELEMENTS) return
+        if (elements.size >= MAX_ELEMENTS) {
+            if (shouldRecycle) node.recycle()
+            return
+        }
 
         val text = node.text?.toString()?.take(MAX_STRING_LENGTH) ?: ""
         val desc = node.contentDescription?.toString()?.take(MAX_STRING_LENGTH) ?: ""
         val resourceId = node.viewIdResourceName?.take(MAX_STRING_LENGTH) ?: ""
         val clickable = node.isClickable
-        val editable = node.isEditable
         val scrollable = node.isScrollable
+        
+        // PR-P2 fix: Check both isEditable AND ACTION_SET_TEXT support
+        // This handles WebView inputs and custom widgets that support text input
+        // but don't set isEditable flag
+        val editable = node.isEditable || canAcceptTextInput(node)
 
-        // Filter valid nodes
+        // Filter valid nodes - keep nodes that are interactive or have meaningful content
         val shouldKeep =
                 clickable || editable || scrollable || text.isNotBlank() || desc.isNotBlank()
 
@@ -111,10 +128,27 @@ object Perceptor {
             elements.add(element)
         }
 
-        // BFS/DFS Children
+        // Traverse children - PR-P1 fix: recycle child nodes after processing
         for (i in 0 until node.childCount) {
-            node.getChild(i)?.let { child -> traverse(child, elements) }
+            val child = node.getChild(i) ?: continue
+            traverse(child, elements, shouldRecycle = true)
+            // Note: child is recycled inside traverse() when shouldRecycle=true
         }
+        
+        // PR-P1 fix: Recycle this node if allowed (not root)
+        if (shouldRecycle) {
+            node.recycle()
+        }
+    }
+    
+    /**
+     * Check if a node can accept text input via ACTION_SET_TEXT.
+     * PR-P2 fix: Handles WebView inputs and custom widgets that support text
+     * but don't set the isEditable flag.
+     */
+    private fun canAcceptTextInput(node: AccessibilityNodeInfo): Boolean {
+        val actions = node.actionList ?: return false
+        return actions.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
     }
 
     private fun String.normalizeWhitespace(): String {
