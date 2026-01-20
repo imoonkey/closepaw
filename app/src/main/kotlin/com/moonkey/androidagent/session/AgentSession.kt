@@ -15,12 +15,14 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * AgentSession - Manages the lifecycle of an agent execution.
@@ -53,7 +55,7 @@ class AgentSession private constructor(
          * @param apiKey OpenAI API key for LLM client
          * @return AgentSession with SessionServices initialized
          */
-        suspend fun create(
+        fun create(
             config: SessionConfig,
             service: AccessibilityService,
             scope: CoroutineScope,
@@ -114,6 +116,9 @@ class AgentSession private constructor(
     private var cancellationSignal: CompletableDeferred<AgentStopReason>? = null
     
     private var currentGoal: String = ""
+    
+    // Guard against emitting SessionCompleted twice (Issue 2: double completion)
+    private val completionEmitted = AtomicBoolean(false)
     
     /**
      * Submit an operation to the session.
@@ -222,6 +227,12 @@ class AgentSession private constructor(
      * Handle agent completion (V2).
      */
     private suspend fun handleAgentComplete(reason: AgentStopReason) {
+        // Guard: only emit completion once
+        if (!completionEmitted.compareAndSet(false, true)) {
+            Log.d(TAG, "Completion already emitted, skipping")
+            return
+        }
+        
         if (_state.value == SessionState.Shutdown) {
             return // Already shut down
         }
@@ -241,6 +252,10 @@ class AgentSession private constructor(
             result = if (reason is AgentStopReason.Error) reason.message else null,
             reason = completionReason
         ))
+        
+        // Close channel after completion (M2: event flow should complete)
+        // Delay to allow collectors to receive the final event (Issue 1)
+        closeChannelWithDelay()
     }
     
     private suspend fun handlePause() {
@@ -285,8 +300,10 @@ class AgentSession private constructor(
             return
         }
         
+        // Interrupt is cooperative - signals agent to stop after current action.
+        // No immediate state change here; agent will complete via handleAgentComplete().
         agent?.stop()
-        Log.i(TAG, "Interrupt requested")
+        Log.i(TAG, "Interrupt requested (cooperative - will complete after current action)")
     }
     
     private suspend fun handleShutdown() {
@@ -306,29 +323,42 @@ class AgentSession private constructor(
         // Cleanup SessionServices
         services.cleanup()
         
-        emit(AgentEvent.SessionCompleted(
-            sessionId = sessionId,
-            timestamp = now(),
-            result = null,
-            reason = if (previousState == SessionState.Running || previousState == SessionState.Paused) {
-                CompletionReason.USER_STOPPED
-            } else {
-                CompletionReason.INTERRUPTED
-            }
-        ))
+        // Only emit completion if not already emitted (Issue 2: double completion)
+        if (completionEmitted.compareAndSet(false, true)) {
+            emit(AgentEvent.SessionCompleted(
+                sessionId = sessionId,
+                timestamp = now(),
+                result = null,
+                reason = if (previousState == SessionState.Running || previousState == SessionState.Paused) {
+                    CompletionReason.USER_STOPPED
+                } else {
+                    CompletionReason.INTERRUPTED
+                }
+            ))
+        }
         
-        // Close event channel
-        eventChannel.close()
+        // Close channel with delay to allow collectors to receive final event (Issue 1)
+        closeChannelWithDelay()
     }
     
     private suspend fun handleUserInput(op: Op.UserInput) {
-        // TODO: Forward to agent for handling
-        Log.w(TAG, "UserInput not yet supported: ${op.text}")
-        emitStatus("User input not yet supported")
+        // TODO: Planned for conversational mode - not yet implemented.
+        // When implemented, this should add the user input to history and trigger a new turn.
+        Log.i(TAG, "UserInput received but conversational mode not yet implemented: ${op.text}")
+        emitStatus("Conversational mode not yet available")
     }
     
     private suspend fun handleApproval(op: Op.Approve) {
         services.toolRouter.resolveApproval(op.actionId, op.decision)
+        
+        // Emit ApprovalResolved event (M4: missing event)
+        emit(AgentEvent.ApprovalResolved(
+            sessionId = sessionId,
+            timestamp = now(),
+            actionId = op.actionId,
+            decision = op.decision
+        ))
+        
         Log.d(TAG, "Resolved approval: ${op.actionId} -> ${op.decision}")
     }
     
@@ -340,6 +370,18 @@ class AgentSession private constructor(
             Log.d(TAG, "Emitted event: ${event::class.simpleName}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to emit event: $event", e)
+        }
+    }
+    
+    /**
+     * Close the event channel with a small delay to allow collectors to 
+     * receive the final event (Issue 1: channel closed before final event delivery).
+     */
+    private fun closeChannelWithDelay() {
+        scope.launch {
+            delay(100) // Give collectors time to process final event
+            eventChannel.close()
+            Log.d(TAG, "Event channel closed")
         }
     }
     

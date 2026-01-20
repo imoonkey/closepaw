@@ -397,10 +397,15 @@ class Agent(
         emitStatus("▶️ Resuming...")
     }
     
+    /**
+     * Request the agent to stop after the current action.
+     * 
+     * This method is idempotent - safe to call multiple times.
+     * Uses atomic operations so no suspend is needed.
+     */
     fun stop() {
-        // Use atomic operations - no suspend needed
         stopRequested.set(true)
-        pauseState.value = false  // MutableStateFlow is already thread-safe
+        pauseState.value = false  // MutableStateFlow is thread-safe; unpause to allow loop to exit
     }
     
     // === Event Emission ===

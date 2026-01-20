@@ -54,26 +54,29 @@ stateDiagram-v2
 
 | Operation | Valid States | Effect | Transitions To |
 |-----------|--------------|--------|----------------|
-| `Op.Start(goal, config)` | Created | Start agent execution | Running |
+| `Op.Start(goal)` | Created | Start agent execution | Running |
 | `Op.Pause` | Running | Cooperative pause after current action | Paused |
 | `Op.Resume` | Paused | Resume execution | Running |
 | `Op.Interrupt` | Running | Cooperative stop after current action | Running |
 | `Op.Shutdown` | Any | Graceful shutdown | Shutdown |
-| `Op.UserInput(text)` | Running | Provide additional context | Running |
+| `Op.UserInput(text)` | Running | *(Planned)* Provide additional context | Running |
 | `Op.Approve(actionId, decision)` | Running | Respond to approval request | Running |
+
+> **Note on Interrupt**: `Op.Interrupt` is cooperative - the agent will complete its current action before stopping. True cancellation of in-flight LLM calls is not supported. For immediate termination, use `Op.Shutdown`.
 
 ### Op.Start
 
-Starts the agent with a goal and configuration.
+Starts the agent with a goal.
 
 ```kotlin
 data class Start(
-    val goal: String,
-    val config: SessionConfig = SessionConfig()
+    val goal: String
 ) : Op
 ```
 
-**SessionConfig Options:**
+> **Note**: Session configuration is set at `AgentSession.create()` time, not in `Op.Start`.
+
+**SessionConfig** (set at session creation):
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -102,7 +105,7 @@ data class Approve(
 ) : Op
 ```
 
-> **Note**: `Op.UserInput` is currently accepted but not forwarded to the agent (see `AgentSession.handleUserInput()` TODO). Treat it as unsupported until implemented.
+> **Note**: `Op.UserInput` is **planned for conversational mode** but not yet implemented. The operation is accepted but has no effect. This will enable users to provide guidance or clarification during execution in a future release.
 
 **ApprovalDecision Values:**
 
@@ -200,7 +203,6 @@ data class SessionCompleted(
 | `GOAL_ACHIEVED` | Agent completed the goal |
 | `USER_STOPPED` | User requested shutdown |
 | `MAX_TURNS` | Turn limit reached |
-| `TIMEOUT` | Time limit reached |
 | `TASK_IMPOSSIBLE` | Agent determined task cannot be done |
 | `ERROR` | An error occurred |
 | `INTERRUPTED` | Session was interrupted |
@@ -238,9 +240,9 @@ data class TurnStarted(
 | Phase | Description |
 |-------|-------------|
 | `PERCEPTION` | Capturing/analyzing screen |
-| `REFLECTION` | Verifying previous action (future) |
-| `PLANNING` | Deciding what to do |
-| `EXECUTION` | Executing an action |
+| `REFLECTION` | *(Planned)* Verifying previous action outcome |
+| `PLANNING` | Deciding what to do (LLM reasoning) |
+| `EXECUTION` | Executing an action (tool call) |
 
 ### Action Events
 
@@ -452,10 +454,12 @@ session.events
 | `Created` | Session initialized, not started |
 | `Running` | Agent actively executing |
 | `Paused` | Execution paused, can resume |
-| `Completed` | Goal achieved or stopped |
-| `Cancelled` | User cancelled |
-| `Shutdown` | Gracefully shut down |
-| `Error(e)` | Terminated due to error |
+| `Completed` | Agent finished (see `CompletionReason` for details) |
+| `Shutdown` | User requested stop via `Op.Shutdown` |
+
+> **Note**: `Completed` and `Shutdown` are both terminal states. The difference is:
+> - `Completed`: Agent finished its work (goal achieved, max turns, or error)
+> - `Shutdown`: User explicitly stopped the session via `Op.Shutdown`
 
 ---
 

@@ -9,11 +9,16 @@ package com.moonkey.androidagent.protocol
  *      │                  │                  │
  *      │                  │ ◄──Resume────────┘
  *      │                  │
- *      │                  ├──Complete──► Completed
- *      │                  │
- *      │                  ├──Error──► Error
- *      │                  │
- *      └──────────────────┴──Shutdown──► Shutdown
+ *      │                  └──Complete──► Completed
+ *      │                                     │
+ *      └─────────────Shutdown────────────────┴──► Shutdown
+ * 
+ * Terminal states: Completed, Shutdown
+ * - Completed: Agent finished (goal achieved, max turns, or error)
+ * - Shutdown: User requested stop via Op.Shutdown
+ * 
+ * Note: CompletionReason in SessionCompleted event distinguishes
+ * between GOAL_ACHIEVED, MAX_TURNS, ERROR, USER_STOPPED, etc.
  */
 sealed interface SessionState {
     /** Session created but not yet started */
@@ -25,30 +30,10 @@ sealed interface SessionState {
     /** Session is paused (cooperative) */
     data object Paused : SessionState
     
-    /** Session completed successfully */
+    /** Session completed (see CompletionReason for details) */
     data object Completed : SessionState
     
-    /** Session was cancelled by user */
-    data object Cancelled : SessionState
-    
-    /** Session shut down gracefully */
+    /** Session shut down via Op.Shutdown */
     data object Shutdown : SessionState
-    
-    /** Session encountered an error */
-    data class Error(val exception: Throwable) : SessionState
-}
-
-/**
- * CancellationReason - Why a session or turn was cancelled.
- */
-sealed interface CancellationReason {
-    /** User requested cancellation */
-    data object UserRequested : CancellationReason
-    
-    /** Operation timed out */
-    data class Timeout(val durationMs: Long) : CancellationReason
-    
-    /** Cancelled due to error */
-    data class ErrorCancellation(val message: String) : CancellationReason
 }
 
