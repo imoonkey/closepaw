@@ -23,6 +23,8 @@ If user closes approval dialog, navigates away, or app crashes, the agent loop s
 val decision = withTimeout(APPROVAL_TIMEOUT_MS) { deferred.await() }
 ```
 
+**Team Note**: fix it.
+
 ---
 
 ### 2. Observation Data Loss in ToolRouter

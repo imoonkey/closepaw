@@ -153,7 +153,7 @@ class AgentService : AccessibilityService() {
         overlayManager?.show()
         // Note: Agent.kt emits the "Starting agent" status, don't duplicate here
 
-        // Create session in coroutine (createWithServices is suspend)
+        // Create and run session in coroutine
         scope.launch {
             try {
                 val newSession = AgentSession.create(
