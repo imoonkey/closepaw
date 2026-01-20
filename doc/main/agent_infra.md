@@ -115,8 +115,7 @@ com.moonkey.androidagent/
 │
 ├── data/                  # External services
 │   ├── llm/
-│   │   ├── ChatMessage.kt
-│   │   └── LLMClient.kt  # OpenAI API wrapper
+│   │   └── LLMClient.kt  # OpenAI Responses API wrapper
 │   └── perception/
 │       └── Perceptor.kt  # Screen → ScreenSnapshot
 │
@@ -373,6 +372,7 @@ stateDiagram-v2
 | `back` | Press back button | (none) |
 | `home` | Press home button | (none) |
 | `wait` | Wait for UI | `duration_ms: int` (optional) |
+| `complete_task` | Signal task completion | `summary: string` |
 
 ### Adding New Tools
 
@@ -398,8 +398,9 @@ private suspend fun capturePostActionObservation(context: ToolExecutionContext):
 }
 ```
 
-Note: while the observation is captured in `BaseTool`, the current `ToolCallResult` does not surface it. The agent currently performs a separate screen capture after each tool call and writes that observation into history. 
-TODO: This above noted behavior needs to be revisited.
+Note: The observation captured in `BaseTool` is now surfaced through `ToolCallResult.Success.observation`. 
+The Agent uses this observation directly, avoiding double screen capture. When the tool doesn't return 
+an observation (e.g., non-UI tools like `complete_task`), the Agent falls back to capturing the screen.
 
 ---
 
