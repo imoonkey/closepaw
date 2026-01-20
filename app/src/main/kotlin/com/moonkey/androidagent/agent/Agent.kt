@@ -198,6 +198,7 @@ class Agent(
                             toolName = toolCall.name,
                             params = toolCall.arguments,
                             context = context,
+                            callId = toolCall.id,
                             onApprovalRequired = { details ->
                                 // Use details.callId (from ToolRouter) for approval resolution
                                 try {
@@ -214,22 +215,43 @@ class Agent(
                             }
                         )
 
-                        // 4. OBSERVE: Use observation from tool execution result
+                        // 4. OBSERVE: Prefer observation from tool execution result.
                         // NOTE: If there's delay between this observation and the next LLM call,
                         // it could become stale. This is acceptable for now but worth revisiting
                         // if timing becomes critical.
-                        val observation = when (result) {
-                            is ToolCallResult.Success -> result.observation?.toAgentObservation()
-                            else -> null
-                        } ?: captureObservation() // Fallback to capture if no observation in result
+                        var observation: Observation = Observation.TextOutput("No observation captured.")
+                        var observedSnapshot: ScreenSnapshot? = null
+                        var hasObservation = false
+
+                        if (result is ToolCallResult.Success) {
+                            when (val toolObs = result.observation) {
+                                is ToolObservation.ScreenState -> {
+                                    observation = toolObs.toAgentObservation()
+                                    observedSnapshot = toolObs.snapshot
+                                    hasObservation = true
+                                }
+                                is ToolObservation.TextOutput -> {
+                                    observation = toolObs.toAgentObservation()
+                                    hasObservation = true
+                                }
+                                null -> Unit
+                            }
+                        }
+
+                        if (!hasObservation) {
+                            if (toolCall.name == "complete_task") {
+                                observation = Observation.TextOutput("Completion acknowledged; no screen captured.")
+                            } else {
+                                val capture = captureObservationWithSnapshot()
+                                observation = capture.observation
+                                observedSnapshot = capture.snapshot
+                            }
+                        }
 
                         // Update snapshot for subsequent tools from the observation
-                        if (result is ToolCallResult.Success) {
-                            val screenObs = result.observation as? ToolObservation.ScreenState
-                            if (screenObs?.snapshot != null) {
-                                currentSnapshot = screenObs.snapshot
-                                Log.d(TAG, "Updated snapshot for subsequent tools: ${currentSnapshot.elements.size} elements")
-                            }
+                        if (observedSnapshot != null) {
+                            currentSnapshot = observedSnapshot
+                            Log.d(TAG, "Updated snapshot for subsequent tools: ${currentSnapshot.elements.size} elements")
                         }
 
                         // Record tool result with observation in history
@@ -276,6 +298,7 @@ class Agent(
             // - Transient network errors (timeout, connection refused) ARE recoverable
             // - LLMClient already handles retries internally, so errors reaching here 
             //   have exhausted LLM-level retries, but turn-level retry may still help
+            // TODO: Narrow recoverable errors to explicit transient network types only.
             val message = e.message ?: ""
             val isDnsFailure = e is java.net.UnknownHostException ||
                 message.contains("Unable to resolve host", ignoreCase = true) ||
@@ -302,11 +325,19 @@ class Agent(
     /**
      * Capture post-action observation (screen state).
      */
-    private suspend fun captureObservation(): Observation {
+    private data class ObservationCapture(
+        val observation: Observation,
+        val snapshot: ScreenSnapshot?
+    )
+
+    private suspend fun captureObservationWithSnapshot(): ObservationCapture {
         delay(500) // Brief delay for UI to settle
         val snapshot = services.platform.captureScreen()
         val accessibilityTree = Perceptor.toPromptJson(snapshot)
-        return Observation.ScreenState(accessibilityTree)
+        return ObservationCapture(
+            observation = Observation.ScreenState(accessibilityTree),
+            snapshot = snapshot
+        )
     }
     
     /**

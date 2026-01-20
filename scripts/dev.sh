@@ -63,6 +63,11 @@ get_foreground() {
     adb shell dumpsys window | grep -E "mCurrentFocus" | grep -oE "com\.[a-zA-Z0-9._]+" | head -1
 }
 
+# Get recent agent logs (filtered)
+get_agent_logs() {
+    adb logcat -d -s Agent AgentSession AgentService Turn LLMClient ToolRouter AccessibilityPlatform 2>/dev/null | tail -200
+}
+
 # ===== Command: run =====
 cmd_run() {
     local goal="${1:-Open Settings}"
@@ -112,12 +117,15 @@ cmd_run() {
     
     # Wait and show key logs
     local count=0
+    local rate_limit_seen=0
     while [[ $count -lt 120 ]]; do
         sleep 2
         count=$((count + 2))
+        local logs
+        logs="$(get_agent_logs)"
         
         # Check for completion signal
-        if adb logcat -d 2>/dev/null | grep -q "Task finished\|SessionCompleted\|Goal achieved"; then
+        if echo "$logs" | grep -q "Emitted event: SessionCompleted\|Session completed\|Goal achieved\|Max turns reached"; then
             echo ""
             ok "Task completed!"
             break
@@ -125,14 +133,21 @@ cmd_run() {
         
         # Show progress
         local actions
-        actions=$(adb logcat -d 2>/dev/null | grep -c "Action result" 2>/dev/null || echo "0")
+        actions=$(echo "$logs" | grep -c "Emitted event: ActionExecuted" 2>/dev/null || echo "0")
         printf "\r  Executed %s actions... (%ds)" "$actions" "$count"
+
+        # Surface rate limit warnings once
+        if [[ $rate_limit_seen -eq 0 ]] && echo "$logs" | grep -q "Rate limit detected"; then
+            echo ""
+            warn "LLM rate limit detected; waiting for retry..."
+            rate_limit_seen=1
+        fi
     done
     
     echo ""
     echo ""
     log "Recent logs:"
-    adb logcat -d | grep -E "(Action decided|Action result|Reflection outcome|Task finished|ERROR)" | tail -15
+    get_agent_logs | tail -20
 }
 
 # ===== Command: logs =====
@@ -156,7 +171,7 @@ cmd_logs() {
             ;;
         action)
             log "Action logs (Ctrl+C to stop)..."
-            adb logcat -s MobileV3Orchestration:* AccessibilityPlatform:* | grep -E "(Action|Captured|Reflection)"
+            adb logcat -s Agent:* ToolRouter:* AccessibilityPlatform:* AgentSession:* | grep -E "(Executing tool|ActionExecuted|Captured screen|Updated snapshot|Tool call|Policy decision)" || true
             ;;
         all)
             log "All logs (Ctrl+C to stop)..."
@@ -164,7 +179,7 @@ cmd_logs() {
             ;;
         *)
             log "Agent logs (Ctrl+C to stop)..."
-            adb logcat -s AgentService:* AgentSession:* MobileV3Orchestration:* LLMClient:* AccessibilityPlatform:*
+            adb logcat -s Agent:* AgentService:* AgentSession:* Turn:* LLMClient:* ToolRouter:* AccessibilityPlatform:*
             ;;
     esac
 }
