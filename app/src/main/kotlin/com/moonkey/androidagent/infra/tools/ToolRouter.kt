@@ -191,7 +191,12 @@ class ToolRouter(
                 val successState = ToolCallState.Success(callId, toolName, params, executionResult)
                 updateState(successState, onStateChange)
                 activeToolCalls.remove(callId)
-                ToolCallResult.Success(callId, executionResult.output, executionResult.data)
+                ToolCallResult.Success(
+                    callId = callId,
+                    output = executionResult.output,
+                    data = executionResult.data,
+                    observation = executionResult.observation
+                )
             }
             
             is ToolExecutionResult.Failure -> {

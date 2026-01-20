@@ -1,0 +1,7 @@
+There has been an exercies of full codebase review. 
+- First independent reviews are done by codex(gpt-5.2 codex), gemini(3 pro), claude(opus 4.5), following the same sop [./codebase_review.md](./codebase_review.md). 
+- Then all the independent review notes are summarized by claude opus 4.5. With this prompt "I have asked three agents to follow @sop/codebase_review.md to independently review my full codebase. Their independent reviews are put under @doc/review , each under a separate folder (codex/ gemini/ claude). Summarize all of the issues mentioned by them for each submodule/subaspect into a separate markdown doc, and summary the high-level issues discovered by each of them into another overall_review_summary.md , and put your output into doc/review/summary/. If you see inconsistency of their comments, or unsure, refer to the actual code."
+- All the separate and summarized review notes are under doc/review/.
+- The `**Team Note**` comments are added by the owner of this codebase, and you should follow those as high priorities.
+
+Now, you will work on fixing the issues. Refer to the summary doc, relevant independent review notes and importantly actual code to when you decide how to exactly fix an issue.

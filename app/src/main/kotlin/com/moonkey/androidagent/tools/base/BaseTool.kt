@@ -107,17 +107,20 @@ abstract class BaseTool : ToolSpec {
     
     /**
      * Create a simple parameter schema for a tool with no parameters.
+     * Includes additionalProperties: false for strict mode compatibility.
      */
     protected fun emptySchema(): JSONObject {
         return JSONObject().apply {
             put("type", "object")
             put("properties", JSONObject())
             put("required", org.json.JSONArray())
+            put("additionalProperties", false)  // Required for strict mode
         }
     }
     
     /**
      * Create a parameter schema with specified properties.
+     * Includes additionalProperties: false for strict mode compatibility.
      */
     protected fun createSchema(
         properties: Map<String, Pair<String, String>>,  // name -> (type, description)
@@ -134,6 +137,7 @@ abstract class BaseTool : ToolSpec {
                 }
             })
             put("required", org.json.JSONArray(required))
+            put("additionalProperties", false)  // Required for strict mode
         }
     }
 }
@@ -189,6 +193,8 @@ class BaseToolInvocation(
      * Capture the screen state after action execution.
      * 
      * This allows the agent to see what changed as a result of the action.
+     * The snapshot is included so subsequent tools in the same turn can use
+     * fresh element indices.
      */
     private suspend fun capturePostActionObservation(context: ToolExecutionContext): ToolObservation? {
         return try {
@@ -200,7 +206,8 @@ class BaseToolInvocation(
             
             ToolObservation.ScreenState(
                 accessibilityTree = tree,
-                elementCount = snapshot.elements.size
+                elementCount = snapshot.elements.size,
+                snapshot = snapshot
             )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to capture post-action observation: ${e.message}")
