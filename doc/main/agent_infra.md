@@ -97,7 +97,7 @@ The agent executes a classic ReAct (Reasoning + Acting) loop:
 │   └──────────┘     └──────────┘     └──────────┘     └────┬───┘│
 │        ▲                                                  │    │
 │        └──────────────────────────────────────────────────┘    │
-│                         (Loop until DONE)                       │
+│          (Loop until complete_task or text-only response)        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -190,22 +190,18 @@ The brain of the system. Executes the ReAct loop until goal achieved or stopped.
 
 ### 2. Turn (`agent/Turn.kt`)
 
-Encapsulates a single LLM call with tool parsing.
+Encapsulates a single LLM call using the Responses API with tool calling.
 
 **Key Responsibilities:**
-- Build messages from history + current context
-- Include tool instructions in system prompt
-- Parse LLM response for `tool` blocks
-- Detect completion markers ("DONE:")
+- Build Responses API input items from history + current context
+- Provide system instructions; tool schemas are passed via `ToolRegistry`
+- Process structured tool calls and text outputs from the Responses API
+- Treat completion as either a `complete_task` tool call or a text-only response (stop to wait for user input or end of task)
 
-**Tool Call Format:**
-```
-```tool
-{"name": "click", "arguments": {"element_index": 5}}
-```‍
-```
+**Tool Calls:**
+Tool calls are returned as Responses API `function_call` items.
 
-**Code Reference:** `agent/Turn.kt:run()`, `agent/Turn.kt:parseResponse()`
+**Code Reference:** `agent/Turn.kt:run()`, `agent/Turn.kt:processResponse()`
 
 ### 3. AgentSession (`session/AgentSession.kt`)
 
@@ -304,9 +300,9 @@ sequenceDiagram
         Agent->>Plat: captureScreen()
         Plat-->>Agent: ScreenSnapshot
         Agent->>Turn: run(systemPrompt, context)
-        Turn->>LLM: chat(messages)
-        LLM-->>Turn: response
-        Turn-->>Agent: TurnResult(toolCalls)
+        Turn->>LLM: responses.create(inputItems, tools)
+        LLM-->>Turn: response (text + tool calls)
+        Turn-->>Agent: TurnResult(text, toolCalls)
         
         alt Has Tool Calls
             Agent->>TR: execute(toolName, params)
@@ -314,8 +310,8 @@ sequenceDiagram
             Plat-->>TR: ActionResult
             TR->>Plat: captureScreen() [observation]
             TR-->>Agent: ToolCallResult
-        else DONE
-            Agent-->>Sess: GoalAchieved
+        else complete_task or text-only
+            Agent-->>Sess: GoalAchieved (text-only can mean user input needed)
         end
     end
     
@@ -412,10 +408,10 @@ TODO: This above noted behavior needs to be revisited.
 | Document | Description |
 |----------|-------------|
 | [Protocol Reference](./protocol.md) | Detailed Op/Event protocol documentation |
-| [V2 Design Document](./v2/infra_v2.md) | Original V2 design rationale |
-| [V2 Execution Plan](./v2/infra_v2_execution_plan.md) | Implementation plan with code examples |
-| [Android Specifics](./v2/android_specific.md) | Android-specific considerations |
-| [OpenHands Analysis](./openhands_analysis.md) | Analysis of OpenHands architecture |
+| [V2 Design Document](doc/agent_infra/v2/infra_v2.md) | Original V2 design rationale |
+| [V2 Execution Plan](doc/agent_infra/v2/infra_v2_execution_plan.md) | Implementation plan with code examples |
+| [Android Specifics](doc/agent_infra/v2/android_specific.md) | Android-specific considerations |
+| [OpenHands Analysis](doc/agent_infra/v1/archive/openhands_analysis.md) | Analysis of OpenHands architecture |
 
 ### Archived (V1)
 
