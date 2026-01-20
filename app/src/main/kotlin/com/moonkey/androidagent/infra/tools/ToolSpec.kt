@@ -146,12 +146,17 @@ sealed interface ToolExecutionResult {
  * 
  * V2 Addition: Tools now capture the screen state after execution,
  * so the agent can see what changed as a result of the action.
+ * 
+ * The snapshot is included for use by subsequent tool executions to avoid
+ * using stale element indices.
  */
 sealed interface ToolObservation {
     /** Screen state after action (for UI tools) */
     data class ScreenState(
         val accessibilityTree: String,
-        val elementCount: Int
+        val elementCount: Int,
+        /** The actual snapshot object for subsequent tool executions */
+        val snapshot: com.moonkey.androidagent.domain.models.ScreenSnapshot? = null
     ) : ToolObservation
     
     /** Text output for non-UI tools */

@@ -6,6 +6,7 @@ import com.moonkey.androidagent.domain.models.ScreenSnapshot
 import com.moonkey.androidagent.infra.history.ResponseItem
 import com.moonkey.androidagent.infra.tools.SimpleToolRouterContext
 import com.moonkey.androidagent.infra.tools.ToolCallResult
+import com.moonkey.androidagent.infra.tools.ToolObservation
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.ApprovalDetails
 import com.moonkey.androidagent.protocol.TurnPhase
@@ -14,6 +15,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Agent - Single ReAct agent that executes goals.
@@ -35,6 +39,7 @@ class Agent(
     companion object {
         private const val TAG = "Agent"
         
+        // Base system prompt - Turn.kt will append tool usage guidelines
         private val DEFAULT_SYSTEM_PROMPT = """
             You are an Android automation agent. You can interact with the device using tools.
             
@@ -43,22 +48,14 @@ class Agent(
             2. Deciding what action to take based on the screen
             3. Executing the action using available tools
             4. Observing the result and continuing until done
-            
-            When the goal is achieved, respond with "DONE: [summary of what was accomplished]" without any tool calls.
-            
-            Important guidelines:
-            - Each UI element has an "index" field - use this index when calling tools like click or type
-            - Look for elements with "clickable": true for interactive items
-            - Look for elements with "editable": true for text input fields
-            - If you don't see the expected UI, try scrolling or navigating
-            - Be patient and methodical - complete one step at a time
         """.trimIndent()
     }
     
-    // State
+    // State - using thread-safe primitives to avoid race conditions (M2 fix)
     private var turnCount = 0
     private val pauseState = MutableStateFlow(false)
-    private var stopRequested = false
+    private val stopRequested = AtomicBoolean(false)
+    private val lifecycleMutex = Mutex()  // Protects pause/resume/stop operations
     
     /**
      * Run the agent until goal achieved, max turns, or stopped.
@@ -116,8 +113,12 @@ class Agent(
                 }
             }
         }
-        
-        return if (stopRequested) AgentStopReason.UserRequested else AgentStopReason.GoalAchieved
+
+        return when {
+            stopRequested.get() -> AgentStopReason.UserRequested
+            cancellationSignal.isCompleted -> AgentStopReason.UserRequested
+            else -> AgentStopReason.GoalAchieved
+        }
     }
     
     /**
@@ -127,146 +128,216 @@ class Agent(
         turnCount++
         val turnId = "turn-$turnCount"
         Log.d(TAG, "=== TURN $turnCount START ===")
-        
-        try {
+
+        emitTurnStarted(turnId)
+
+        val outcome = try {
             // 1. PERCEPTION: Capture screen
-            emitTurnPhase(turnId, TurnPhase.PERCEPTION)
             emitStatus("👀 Scanning screen...")
-            
+
             val snapshot = services.platform.captureScreen()
             emitScreenCaptured(snapshot)
-            
+
             Log.d(TAG, "Turn $turnCount: Screen has ${snapshot.elements.size} elements")
-            
+
             // Check cancellation
-            if (cancellationSignal.isCompleted || stopRequested) {
-                return TurnOutcome.Cancelled
-            }
-            
-            // 2. THINK: Call LLM
-            emitTurnPhase(turnId, TurnPhase.EXECUTION)
-            emitStatus("🧠 Thinking...")
-            
-            val turn = Turn(services.historyManager, services.toolRegistry)
-            val systemPrompt = buildSystemPrompt()
-            val userContext = buildUserContext(snapshot)
-            
-            val turnResult = turn.run(systemPrompt, userContext)
-            
-            Log.d(TAG, "Turn $turnCount: LLM response: ${turnResult.content?.take(200)}...")
-            Log.d(TAG, "Turn $turnCount: Tool calls: ${turnResult.toolCalls.map { it.name }}")
-            
-            // Record assistant response in history
-            if (turnResult.content != null) {
-                services.historyManager.addItem(
-                    ResponseItem.Message(
-                        role = "assistant",
-                        content = turnResult.content
-                    )
-                )
-            }
-            
-            // 3. ACT: Execute tool calls
-            if (turnResult.toolCalls.isNotEmpty()) {
-                emitStatus("💡 Executing actions...")
-                
-                for (toolCall in turnResult.toolCalls) {
-                    Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
-                    
-                    // Record tool call in history
+            if (cancellationSignal.isCompleted || stopRequested.get()) {
+                TurnOutcome.Cancelled
+            } else {
+                // 2. THINK: Call LLM
+                emitTurnPhaseChanged(turnId, TurnPhase.PLANNING)
+                emitStatus("🧠 Thinking...")
+
+                val turn = Turn(services.historyManager, services.toolRegistry)
+                val systemPrompt = buildSystemPrompt()
+                val userContext = buildUserContext(snapshot)
+
+                // M3 fix: Pass model from config instead of using hardcoded default
+                val turnResult = turn.run(systemPrompt, userContext, services.config.model)
+
+                Log.d(TAG, "Turn $turnCount: LLM response: ${turnResult.content?.take(200)}...")
+                Log.d(TAG, "Turn $turnCount: Tool calls: ${turnResult.toolCalls.map { it.name }}")
+
+                // Record assistant response in history
+                if (turnResult.content != null) {
                     services.historyManager.addItem(
-                        ResponseItem.FunctionCall(
-                            id = toolCall.id,
-                            name = toolCall.name,
-                            arguments = toolCall.arguments
+                        ResponseItem.Message(
+                            role = "assistant",
+                            content = turnResult.content
                         )
                     )
-                    
-                    // Execute via ToolRouter
-                    val context = SimpleToolRouterContext(
-                        platform = services.platform,
-                        currentSnapshot = snapshot
-                    )
-                    
-                    val result = services.toolRouter.execute(
-                        toolName = toolCall.name,
-                        params = toolCall.arguments,
-                        context = context,
-                        onApprovalRequired = { details ->
-                            // Use details.callId (from ToolRouter) for approval resolution
-                            try {
-                                eventEmitter(AgentEvent.ApprovalRequired(
-                                    sessionId = config.sessionId,
-                                    timestamp = System.currentTimeMillis(),
-                                    actionId = details.callId,
-                                    description = details.description,
-                                    details = details
-                                ))
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Failed to emit approval required event", e)
+                }
+
+                // 3. ACT: Execute tool calls
+                if (turnResult.toolCalls.isNotEmpty()) {
+                    emitTurnPhaseChanged(turnId, TurnPhase.EXECUTION)
+                    emitStatus("💡 Executing actions...")
+
+                    // Track current snapshot - update after each tool for multi-tool execution
+                    var currentSnapshot = snapshot
+
+                    for (toolCall in turnResult.toolCalls) {
+                        Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
+
+                        // Record tool call in history
+                        services.historyManager.addItem(
+                            ResponseItem.FunctionCall(
+                                id = toolCall.id,
+                                name = toolCall.name,
+                                arguments = toolCall.arguments
+                            )
+                        )
+
+                        // Execute via ToolRouter with current (possibly updated) snapshot
+                        val context = SimpleToolRouterContext(
+                            platform = services.platform,
+                            currentSnapshot = currentSnapshot
+                        )
+
+                        val result = services.toolRouter.execute(
+                            toolName = toolCall.name,
+                            params = toolCall.arguments,
+                            context = context,
+                            callId = toolCall.id,
+                            onApprovalRequired = { details ->
+                                // Use details.callId (from ToolRouter) for approval resolution
+                                try {
+                                    eventEmitter(AgentEvent.ApprovalRequired(
+                                        sessionId = config.sessionId,
+                                        timestamp = System.currentTimeMillis(),
+                                        actionId = details.callId,
+                                        description = details.description,
+                                        details = details
+                                    ))
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Failed to emit approval required event", e)
+                                }
+                            }
+                        )
+
+                        // 4. OBSERVE: Prefer observation from tool execution result.
+                        // NOTE: If there's delay between this observation and the next LLM call,
+                        // it could become stale. This is acceptable for now but worth revisiting
+                        // if timing becomes critical.
+                        var observation: Observation = Observation.TextOutput("No observation captured.")
+                        var observedSnapshot: ScreenSnapshot? = null
+                        var hasObservation = false
+
+                        if (result is ToolCallResult.Success) {
+                            when (val toolObs = result.observation) {
+                                is ToolObservation.ScreenState -> {
+                                    observation = toolObs.toAgentObservation()
+                                    observedSnapshot = toolObs.snapshot
+                                    hasObservation = true
+                                }
+                                is ToolObservation.TextOutput -> {
+                                    observation = toolObs.toAgentObservation()
+                                    hasObservation = true
+                                }
+                                null -> Unit
                             }
                         }
-                    )
-                    
-                    // 4. OBSERVE: Capture post-action screen
-                    val observation = captureObservation()
-                    
-                    // Record tool result with observation in history
-                    services.historyManager.addItem(
-                        ResponseItem.FunctionCallOutput(
-                            callId = toolCall.id,
-                            content = formatToolResult(result, observation),
-                            success = result is ToolCallResult.Success
+
+                        if (!hasObservation) {
+                            if (toolCall.name == "complete_task") {
+                                observation = Observation.TextOutput("Completion acknowledged; no screen captured.")
+                            } else {
+                                val capture = captureObservationWithSnapshot()
+                                observation = capture.observation
+                                observedSnapshot = capture.snapshot
+                            }
+                        }
+
+                        // Update snapshot for subsequent tools from the observation
+                        if (observedSnapshot != null) {
+                            currentSnapshot = observedSnapshot
+                            Log.d(TAG, "Updated snapshot for subsequent tools: ${currentSnapshot.elements.size} elements")
+                        }
+
+                        // Record tool result with observation in history
+                        services.historyManager.addItem(
+                            ResponseItem.FunctionCallOutput(
+                                callId = toolCall.id,
+                                content = formatToolResult(result, observation),
+                                success = result is ToolCallResult.Success
+                            )
                         )
-                    )
-                    
-                    // Emit action executed event
-                    eventEmitter(AgentEvent.ActionExecuted(
-                        sessionId = config.sessionId,
-                        timestamp = System.currentTimeMillis(),
-                        actionId = toolCall.id,
-                        toolName = toolCall.name,
-                        success = result is ToolCallResult.Success,
-                        result = result.toContextString()
-                    ))
-                    
-                    emitStatus("✓ ${toolCall.name} executed")
+
+                        // Emit action executed event
+                        eventEmitter(AgentEvent.ActionExecuted(
+                            sessionId = config.sessionId,
+                            timestamp = System.currentTimeMillis(),
+                            actionId = result.callId,
+                            toolName = toolCall.name,
+                            success = result is ToolCallResult.Success,
+                            result = result.toContextString()
+                        ))
+
+                        emitStatus("✓ ${toolCall.name} executed")
+                    }
+                }
+
+                // Check if complete (complete_task tool was called)
+                if (turnResult.isComplete) {
+                    // Extract completion summary from complete_task tool if present
+                    val completeTaskCall = turnResult.toolCalls.find { it.name == "complete_task" }
+                    val summary = completeTaskCall?.arguments?.optString("summary")
+                        ?: turnResult.content 
+                        ?: "Goal achieved"
+                    Log.i(TAG, "Turn $turnCount: Task marked as complete - $summary")
+                    TurnOutcome.Complete(summary)
+                } else {
+                    TurnOutcome.Continue
                 }
             }
-            
-            // Check if complete
-            if (turnResult.isComplete) {
-                Log.i(TAG, "Turn $turnCount: Task marked as complete")
-                return TurnOutcome.Complete(turnResult.content ?: "Goal achieved")
-            }
-            
-            return TurnOutcome.Continue
-            
         } catch (e: Exception) {
             Log.e(TAG, "Turn execution failed", e)
-            
-            // Check if error is recoverable
+
+            // Determine if error is recoverable
+            // - DNS failures (UnknownHostException) are NOT recoverable - host cannot be resolved
+            // - Transient network errors (timeout, connection refused) ARE recoverable
+            // - LLMClient already handles retries internally, so errors reaching here 
+            //   have exhausted LLM-level retries, but turn-level retry may still help
+            // TODO: Narrow recoverable errors to explicit transient network types only.
             val message = e.message ?: ""
-            val isNetworkError = message.contains("internet", ignoreCase = true) ||
-                message.contains("network", ignoreCase = true) ||
-                message.contains("connection", ignoreCase = true) ||
-                e is java.net.UnknownHostException
+            val isDnsFailure = e is java.net.UnknownHostException ||
+                message.contains("Unable to resolve host", ignoreCase = true) ||
+                message.contains("No address associated", ignoreCase = true)
             
-            return TurnOutcome.Error(
+            val isTransientNetworkError = !isDnsFailure && (
+                e is java.net.SocketTimeoutException ||
+                message.contains("timeout", ignoreCase = true) ||
+                message.contains("connection refused", ignoreCase = true) ||
+                message.contains("connection reset", ignoreCase = true)
+            )
+
+            TurnOutcome.Error(
                 message = message.ifEmpty { "Unknown error" },
-                recoverable = !isNetworkError  // Network errors are not recoverable
+                // DNS failures are not recoverable; transient network errors are recoverable
+                recoverable = !isDnsFailure && (isTransientNetworkError || !message.contains("internet", ignoreCase = true))
             )
         }
+
+        emitTurnCompleted(turnId)
+        return outcome
     }
     
     /**
      * Capture post-action observation (screen state).
      */
-    private suspend fun captureObservation(): Observation {
+    private data class ObservationCapture(
+        val observation: Observation,
+        val snapshot: ScreenSnapshot?
+    )
+
+    private suspend fun captureObservationWithSnapshot(): ObservationCapture {
         delay(500) // Brief delay for UI to settle
         val snapshot = services.platform.captureScreen()
         val accessibilityTree = Perceptor.toPromptJson(snapshot)
-        return Observation.ScreenState(accessibilityTree)
+        return ObservationCapture(
+            observation = Observation.ScreenState(accessibilityTree),
+            snapshot = snapshot
+        )
     }
     
     /**
@@ -308,24 +379,29 @@ class Agent(
     }
     
     private fun shouldContinue(): Boolean {
-        return !stopRequested && !cancellationSignal.isCompleted
+        return !stopRequested.get() && !cancellationSignal.isCompleted
     }
     
-    // === Lifecycle Methods ===
+    // === Lifecycle Methods (M2: Thread-safe with mutex) ===
     
     suspend fun pause() {
-        pauseState.value = true
+        lifecycleMutex.withLock {
+            pauseState.value = true
+        }
         emitStatus("⏸️ Paused")
     }
     
     suspend fun resume() {
-        pauseState.value = false
+        lifecycleMutex.withLock {
+            pauseState.value = false
+        }
         emitStatus("▶️ Resuming...")
     }
     
     fun stop() {
-        stopRequested = true
-        pauseState.value = false
+        // Use atomic operations - no suspend needed
+        stopRequested.set(true)
+        pauseState.value = false  // MutableStateFlow is already thread-safe
     }
     
     // === Event Emission ===
@@ -338,14 +414,32 @@ class Agent(
             status = status
         ))
     }
-    
-    private suspend fun emitTurnPhase(turnId: String, phase: TurnPhase) {
+
+    private suspend fun emitTurnStarted(turnId: String) {
         eventEmitter(AgentEvent.TurnStarted(
             sessionId = config.sessionId,
             timestamp = System.currentTimeMillis(),
             turnId = turnId,
             turnNumber = turnCount,
+            phase = TurnPhase.PERCEPTION
+        ))
+    }
+
+    private suspend fun emitTurnPhaseChanged(turnId: String, phase: TurnPhase) {
+        eventEmitter(AgentEvent.TurnPhaseChanged(
+            sessionId = config.sessionId,
+            timestamp = System.currentTimeMillis(),
+            turnId = turnId,
             phase = phase
+        ))
+    }
+
+    private suspend fun emitTurnCompleted(turnId: String) {
+        eventEmitter(AgentEvent.TurnCompleted(
+            sessionId = config.sessionId,
+            timestamp = System.currentTimeMillis(),
+            turnId = turnId,
+            turnNumber = turnCount
         ))
     }
     
@@ -366,6 +460,16 @@ class Agent(
 sealed class Observation {
     data class ScreenState(val accessibilityTree: String) : Observation()
     data class TextOutput(val content: String) : Observation()
+}
+
+/**
+ * Extension to convert ToolObservation to Agent's Observation.
+ */
+fun ToolObservation.toAgentObservation(): Observation {
+    return when (this) {
+        is ToolObservation.ScreenState -> Observation.ScreenState(this.accessibilityTree)
+        is ToolObservation.TextOutput -> Observation.TextOutput(this.content)
+    }
 }
 
 /**
