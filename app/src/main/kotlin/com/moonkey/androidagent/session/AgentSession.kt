@@ -44,6 +44,9 @@ class AgentSession private constructor(
     companion object {
         private const val TAG = "AgentSession"
         
+        /** Grace period to allow event collectors to process final event before channel close */
+        private const val EVENT_DELIVERY_GRACE_PERIOD_MS = 100L
+        
         /**
          * Create a new AgentSession with full SessionServices.
          * 
@@ -119,6 +122,9 @@ class AgentSession private constructor(
     
     // Guard against emitting SessionCompleted twice (Issue 2: double completion)
     private val completionEmitted = AtomicBoolean(false)
+    
+    // Guard against scheduling multiple channel close operations (PR feedback)
+    private val channelCloseScheduled = AtomicBoolean(false)
     
     /**
      * Submit an operation to the session.
@@ -227,14 +233,19 @@ class AgentSession private constructor(
      * Handle agent completion (V2).
      */
     private suspend fun handleAgentComplete(reason: AgentStopReason) {
+        // Check state BEFORE setting the completion flag to avoid race condition:
+        // If handleShutdown() has already set state to Shutdown, we should NOT consume
+        // the completionEmitted flag - let handleShutdown() emit the completion instead.
+        // (PR feedback: P1 race condition fix)
+        if (_state.value == SessionState.Shutdown) {
+            Log.d(TAG, "State is Shutdown, deferring completion to handleShutdown()")
+            return
+        }
+        
         // Guard: only emit completion once
         if (!completionEmitted.compareAndSet(false, true)) {
             Log.d(TAG, "Completion already emitted, skipping")
             return
-        }
-        
-        if (_state.value == SessionState.Shutdown) {
-            return // Already shut down
         }
         
         val completionReason = when (reason) {
@@ -376,10 +387,19 @@ class AgentSession private constructor(
     /**
      * Close the event channel with a small delay to allow collectors to 
      * receive the final event (Issue 1: channel closed before final event delivery).
+     * 
+     * Uses a guard flag to ensure only one close operation is scheduled,
+     * even if called from both handleAgentComplete() and handleShutdown().
      */
     private fun closeChannelWithDelay() {
+        // Guard: only schedule close once (PR feedback: prevent multiple delayed closes)
+        if (!channelCloseScheduled.compareAndSet(false, true)) {
+            Log.d(TAG, "Channel close already scheduled, skipping")
+            return
+        }
+        
         scope.launch {
-            delay(100) // Give collectors time to process final event
+            delay(EVENT_DELIVERY_GRACE_PERIOD_MS)
             eventChannel.close()
             Log.d(TAG, "Event channel closed")
         }

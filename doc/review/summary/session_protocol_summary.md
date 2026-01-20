@@ -3,7 +3,7 @@
 > **Files**: `session/AgentSession.kt`, `session/SessionServices.kt`, `protocol/*.kt`
 > **Reviewers**: Claude, Codex, Gemini
 
-**Team Note**: currently frontend only support pause/resume and stop, two interactions. While in the future we would support more (e.g., make this more conversational, user can add comments after pause, or add a follow-up task in the same session after task stopped/completed). We should be clear on what is currently implemented and what will future be planned to support soon (which we will keep the interface, but document/mark clearly) and what will not be supported soon (which we may be better off to keep it in the doc and remove it from the code to avoid confusion). source-of-truth doc is doc/main/, especially agent_protocol.md. Think hard on this, many of the issues below are symptoms of this, you should treat the root, and think from first principles first.
+**Team Note**: Currently frontend only supports pause/resume and stop, two interactions. While in the future we would support more (e.g., make this more conversational, user can add comments after pause, or add a follow-up task in the same session after task stopped/completed). We should be clear on what is currently implemented and what will be planned to support in the future (which we will keep the interface, but document/mark clearly) and what will not be supported soon (which we may be better off to keep it in the doc and remove it from the code to avoid confusion). Source-of-truth doc is doc/main/, especially agent_protocol.md. Think hard on this, many of the issues below are symptoms of this, you should treat the root, and think from first principles first.
 
 ---
 
