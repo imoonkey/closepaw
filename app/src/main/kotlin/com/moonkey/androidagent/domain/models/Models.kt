@@ -37,7 +37,7 @@ sealed class ValidationOutcome {
 /**
  * ScreenSnapshot - Captured state of the screen.
  * 
- * H5 fix: No longer stores AccessibilityNodeInfo references to avoid memory leaks.
+ * No longer stores AccessibilityNodeInfo references to avoid memory leaks.
  * All necessary data for action execution is stored in PerceptionElement.
  * 
  * Note: rootOriginal and rawMap have been removed. Actions now use:

@@ -19,7 +19,7 @@ object Perceptor {
     /**
      * Create a ScreenSnapshot from the accessibility tree.
      * 
-     * H5 fix: No longer stores AccessibilityNodeInfo references to prevent memory leaks.
+     * Does not store AccessibilityNodeInfo references to prevent memory leaks.
      * All data needed for action execution (bounds, center, properties) is extracted
      * and stored in PerceptionElement.
      */
@@ -67,10 +67,9 @@ object Perceptor {
     /**
      * Traverse accessibility tree and extract element data.
      * 
-     * Fixes applied:
-     * - H5: No longer stores AccessibilityNodeInfo references
-     * - PR-P1: Properly recycles child nodes after traversal
-     * - PR-P2: Checks ACTION_SET_TEXT for WebView/custom widget text input support
+     * - Does not store AccessibilityNodeInfo references
+     * - Properly recycles child nodes after traversal
+     * - Checks ACTION_SET_TEXT for WebView/custom widget text input support
      * 
      * @param node Current node to process
      * @param elements List to collect extracted elements
@@ -92,7 +91,7 @@ object Perceptor {
         val clickable = node.isClickable
         val scrollable = node.isScrollable
         
-        // PR-P2 fix: Check both isEditable AND ACTION_SET_TEXT support
+        // Check both isEditable AND ACTION_SET_TEXT support
         // This handles WebView inputs and custom widgets that support text input
         // but don't set isEditable flag
         val editable = node.isEditable || canAcceptTextInput(node)
@@ -128,14 +127,14 @@ object Perceptor {
             elements.add(element)
         }
 
-        // Traverse children - PR-P1 fix: recycle child nodes after processing
+        // Traverse children and recycle after processing
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
             traverse(child, elements, shouldRecycle = true)
             // Note: child is recycled inside traverse() when shouldRecycle=true
         }
         
-        // PR-P1 fix: Recycle this node if allowed (not root)
+        // Recycle this node if allowed (not root)
         if (shouldRecycle) {
             node.recycle()
         }
@@ -143,7 +142,7 @@ object Perceptor {
     
     /**
      * Check if a node can accept text input via ACTION_SET_TEXT.
-     * PR-P2 fix: Handles WebView inputs and custom widgets that support text
+     * Handles WebView inputs and custom widgets that support text
      * but don't set the isEditable flag.
      */
     private fun canAcceptTextInput(node: AccessibilityNodeInfo): Boolean {

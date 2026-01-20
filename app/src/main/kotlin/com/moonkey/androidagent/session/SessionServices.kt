@@ -33,7 +33,7 @@ import com.moonkey.androidagent.tools.impl.WaitTool
  * 
  * V2 Changes:
  * - Removed agentRegistry (no longer needed without multi-agent orchestration)
- * - H1 fix: Added llmClient as instance-based service (not singleton)
+ * - Added llmClient as instance-based service (not singleton)
  * 
  * Usage:
  * ```kotlin
@@ -48,7 +48,7 @@ data class SessionServices(
     val policyEngine: PolicyEngine,
     val platform: AndroidPlatform,
     val config: SessionConfig,
-    val llmClient: LLMClient  // H1 fix: Instance-based LLM client
+    val llmClient: LLMClient
 ) {
     companion object {
         private const val TAG = "SessionServices"
@@ -57,7 +57,7 @@ data class SessionServices(
          * Create a new SessionServices container with all services initialized.
          * 
          * Services are created in dependency order:
-         * 1. LLMClient (depends on apiKey) - H1 fix
+         * 1. LLMClient (depends on apiKey)
          * 2. PolicyEngine (no dependencies)
          * 3. ToolRegistry (no dependencies)
          * 4. ToolRouter (depends on ToolRegistry, PolicyEngine)
@@ -65,17 +65,17 @@ data class SessionServices(
          * 
          * @param config Session configuration
          * @param platform Android platform abstraction
-         * @param apiKey OpenAI API key for LLM client (H1 fix)
+         * @param apiKey OpenAI API key for LLM client
          * @return Fully initialized SessionServices
          */
         suspend fun create(
             config: SessionConfig,
             platform: AndroidPlatform,
-            apiKey: String  // H1 fix: API key passed in, not global
+            apiKey: String
         ): SessionServices {
             Log.d(TAG, "Creating SessionServices...")
             
-            // 1. Create LLMClient with API key (H1 fix: no longer singleton)
+            // 1. Create LLMClient with API key
             val llmClient = LLMClient(apiKey)
             Log.d(TAG, "Created LLMClient")
             
@@ -110,7 +110,7 @@ data class SessionServices(
                 policyEngine = policyEngine,
                 platform = platform,
                 config = config,
-                llmClient = llmClient  // H1 fix
+                llmClient = llmClient
             )
         }
         
@@ -199,14 +199,14 @@ object SessionServicesBuilder {
      * 
      * @param config Session configuration
      * @param platform Android platform
-     * @param apiKey OpenAI API key (H1 fix)
+     * @param apiKey OpenAI API key
      * @param additionalTools Additional tools to register
      * @param excludeTools Tools to exclude from registration
      */
     suspend fun createWithCustomTools(
         config: SessionConfig,
         platform: AndroidPlatform,
-        apiKey: String,  // H1 fix
+        apiKey: String,
         additionalTools: List<com.moonkey.androidagent.infra.tools.ToolSpec> = emptyList(),
         excludeTools: Set<String> = emptySet()
     ): SessionServices {

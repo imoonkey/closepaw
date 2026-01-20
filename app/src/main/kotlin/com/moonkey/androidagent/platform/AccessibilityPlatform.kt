@@ -75,7 +75,7 @@ class AccessibilityPlatform(
     // ===== Action Implementations =====
     
     /**
-     * Perform click action using stored bounds (H5 fix).
+     * Perform click action using stored bounds.
      * 
      * Uses gesture-based tap which is more reliable than ACTION_CLICK
      * and doesn't require storing AccessibilityNodeInfo references.
@@ -88,8 +88,8 @@ class AccessibilityPlatform(
         val element = snapshot.elements.getOrNull(action.elementIndex)
             ?: return ActionResult.ElementNotFound(action.elementIndex)
         
-        // H5 fix: Use stored center coordinates for gesture-based click
-        // This is actually more reliable than ACTION_CLICK on many devices
+        // Use stored center coordinates for gesture-based click
+        // This is more reliable than ACTION_CLICK on many devices
         val centerX = element.center[0]
         val centerY = element.center[1]
         
@@ -102,7 +102,7 @@ class AccessibilityPlatform(
     }
     
     /**
-     * Perform type action by re-querying the accessibility tree (H5 fix).
+     * Perform type action by re-querying the accessibility tree.
      * 
      * Re-queries the tree to find a fresh node at the target location,
      * avoiding stale AccessibilityNodeInfo references.
@@ -115,7 +115,7 @@ class AccessibilityPlatform(
         val element = snapshot.elements.getOrNull(action.elementIndex)
             ?: return ActionResult.ElementNotFound(action.elementIndex)
         
-        // H5 fix: Re-query the accessibility tree for a fresh node
+        // Re-query the accessibility tree for a fresh node
         // This avoids stale node issues from stored references
         val centerX = element.center[0]
         val centerY = element.center[1]
@@ -145,7 +145,7 @@ class AccessibilityPlatform(
                 }
                 val result = targetNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
                 
-                // PR fix: Recycle the node after use (don't recycle root - owned by service)
+                // Recycle the node after use (don't recycle root - owned by service)
                 if (targetNode !== root) {
                     targetNode.recycle()
                 }
@@ -165,9 +165,8 @@ class AccessibilityPlatform(
      * Find a text-input capable node at the given screen coordinates.
      * Helper for performType() to re-query the accessibility tree.
      * 
-     * PR fixes applied:
-     * - P1: Properly recycles intermediate nodes during DFS traversal
-     * - P2: Checks for ACTION_SET_TEXT support, not just isEditable (supports WebView/custom widgets)
+     * - Properly recycles intermediate nodes during DFS traversal
+     * - Checks for ACTION_SET_TEXT support, not just isEditable (supports WebView/custom widgets)
      */
     private fun findNodeAtLocation(root: AccessibilityNodeInfo, x: Int, y: Int): AccessibilityNodeInfo? {
         val bounds = android.graphics.Rect()

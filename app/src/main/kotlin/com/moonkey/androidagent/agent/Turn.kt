@@ -12,7 +12,6 @@ import com.openai.models.responses.ResponseFunctionToolCall
 import com.openai.models.responses.EasyInputMessage
 import org.json.JSONObject
 
-// H1 fix: Turn now accepts LLMClient as a dependency instead of using singleton
 
 /**
  * Turn - Encapsulates a single ReAct iteration (LLM call + response parsing).
@@ -33,7 +32,7 @@ import org.json.JSONObject
 class Turn(
     private val historyManager: HistoryManager,
     private val toolRegistry: ToolRegistry,
-    private val llmClient: LLMClient  // H1 fix: Injected, not singleton
+    private val llmClient: LLMClient
 ) {
     companion object {
         private const val TAG = "Turn"
@@ -45,7 +44,7 @@ class Turn(
      * 
      * @param systemPrompt System prompt for the agent
      * @param userContext Current context (screen state, goal, etc.)
-     * @param modelName Model name to use (M3 fix: use config model instead of hardcoded)
+     * @param modelName Model name to use
      * @return TurnResult with content and/or tool calls
      */
     suspend fun run(
@@ -65,10 +64,10 @@ class Turn(
         // 3. Build full system prompt with agent instructions
         val fullSystemPrompt = buildSystemPrompt(systemPrompt)
         
-        // 4. Convert model name to ChatModel enum (M3 fix)
+        // 4. Convert model name to ChatModel enum
         val chatModel = modelNameToChatModel(modelName)
         
-        // 5. Call LLM via Responses API (H1 fix: use injected client)
+        // 5. Call LLM via Responses API
         val response = llmClient.chatWithTools(
             systemPrompt = fullSystemPrompt,
             inputItems = inputItems,
