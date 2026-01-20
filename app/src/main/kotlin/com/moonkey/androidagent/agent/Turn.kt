@@ -12,6 +12,8 @@ import com.openai.models.responses.ResponseFunctionToolCall
 import com.openai.models.responses.EasyInputMessage
 import org.json.JSONObject
 
+// H1 fix: Turn now accepts LLMClient as a dependency instead of using singleton
+
 /**
  * Turn - Encapsulates a single ReAct iteration (LLM call + response parsing).
  * 
@@ -30,7 +32,8 @@ import org.json.JSONObject
  */
 class Turn(
     private val historyManager: HistoryManager,
-    private val toolRegistry: ToolRegistry
+    private val toolRegistry: ToolRegistry,
+    private val llmClient: LLMClient  // H1 fix: Injected, not singleton
 ) {
     companion object {
         private const val TAG = "Turn"
@@ -65,8 +68,8 @@ class Turn(
         // 4. Convert model name to ChatModel enum (M3 fix)
         val chatModel = modelNameToChatModel(modelName)
         
-        // 5. Call LLM via Responses API
-        val response = LLMClient.chatWithTools(
+        // 5. Call LLM via Responses API (H1 fix: use injected client)
+        val response = llmClient.chatWithTools(
             systemPrompt = fullSystemPrompt,
             inputItems = inputItems,
             tools = tools,

@@ -1,7 +1,5 @@
 package com.moonkey.androidagent.domain.models
 
-import android.view.accessibility.AccessibilityNodeInfo
-
 // --- Action Models ---
 
 sealed class AgentAction {
@@ -36,11 +34,19 @@ sealed class ValidationOutcome {
 
 // --- Perception Models ---
 
+/**
+ * ScreenSnapshot - Captured state of the screen.
+ * 
+ * H5 fix: No longer stores AccessibilityNodeInfo references to avoid memory leaks.
+ * All necessary data for action execution is stored in PerceptionElement.
+ * 
+ * Note: rootOriginal and rawMap have been removed. Actions now use:
+ * - Gesture-based clicks using stored bounds/center coordinates
+ * - Re-querying accessibility tree for text input when needed
+ */
 data class ScreenSnapshot(
         val timestamp: Long,
-        val rootOriginal: AccessibilityNodeInfo?, // For diffing (ActionReflector)
-        val elements: List<PerceptionElement>, // For LLM (Sanitized)
-        val rawMap: Map<Int, AccessibilityNodeInfo> // Map index -> Node (For execution)
+        val elements: List<PerceptionElement> // For LLM and action execution
 )
 
 data class PerceptionElement(

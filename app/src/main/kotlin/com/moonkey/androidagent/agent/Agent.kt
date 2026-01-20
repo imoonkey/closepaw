@@ -148,7 +148,8 @@ class Agent(
                 emitTurnPhaseChanged(turnId, TurnPhase.PLANNING)
                 emitStatus("🧠 Thinking...")
 
-                val turn = Turn(services.historyManager, services.toolRegistry)
+                // H1 fix: Pass llmClient from services instead of using singleton
+                val turn = Turn(services.historyManager, services.toolRegistry, services.llmClient)
                 val systemPrompt = buildSystemPrompt()
                 val userContext = buildUserContext(snapshot)
 

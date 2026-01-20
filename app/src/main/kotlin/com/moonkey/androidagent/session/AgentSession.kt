@@ -50,15 +50,17 @@ class AgentSession private constructor(
          * @param config Session configuration
          * @param service AccessibilityService for platform access
          * @param scope CoroutineScope for async operations
+         * @param apiKey OpenAI API key for LLM client (H1 fix)
          * @return AgentSession with SessionServices initialized
          */
         suspend fun create(
             config: SessionConfig,
             service: AccessibilityService,
-            scope: CoroutineScope
+            scope: CoroutineScope,
+            apiKey: String  // H1 fix: API key passed in
         ): AgentSession {
             val platform: AndroidPlatform = AccessibilityPlatform(service)
-            val services = SessionServices.create(config, platform)
+            val services = SessionServices.create(config, platform, apiKey)
             
             return AgentSession(
                 sessionId = SessionId.generate(),

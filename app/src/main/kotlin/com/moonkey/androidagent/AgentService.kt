@@ -3,7 +3,6 @@ package com.moonkey.androidagent
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
-import com.moonkey.androidagent.data.llm.LLMClient
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
@@ -150,9 +149,6 @@ class AgentService : AccessibilityService() {
 
     /** Run the agent loop - called from MainActivity */
     fun runAgent(goal: String, apiKey: String, maxSteps: Int = 20) {
-        // Initialize LLM with API Key
-        LLMClient.initialize(apiKey)
-
         // Show overlay immediately
         overlayManager?.show()
         // Note: Agent.kt emits the "Starting agent" status, don't duplicate here
@@ -160,14 +156,15 @@ class AgentService : AccessibilityService() {
         // Create session in coroutine (createWithServices is suspend)
         scope.launch {
             try {
-                // Create new session
+                // H1 fix: Pass apiKey to session creation instead of using singleton
                 val newSession = AgentSession.create(
                     config = SessionConfig(
                         maxTurns = maxSteps,
                         debugMode = true
                     ),
                     service = this@AgentService,
-                    scope = scope
+                    scope = scope,
+                    apiKey = apiKey  // H1 fix: API key injected into session
                 )
                 
                 session = newSession
