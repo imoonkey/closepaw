@@ -145,8 +145,10 @@ class AccessibilityPlatform(
                 }
                 val result = targetNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
                 
-                // Clean up - recycle the node we found
-                // Note: Don't recycle root as it may be reused by the service
+                // PR fix: Recycle the node after use (don't recycle root - owned by service)
+                if (targetNode !== root) {
+                    targetNode.recycle()
+                }
                 
                 if (result) {
                     ActionResult.Success("Text entered: ${action.text}")
@@ -154,44 +156,82 @@ class AccessibilityPlatform(
                     ActionResult.Failure("Failed to set text on element (ACTION_SET_TEXT failed)")
                 }
             } else {
-                ActionResult.Failure("Could not find editable element at location ($centerX, $centerY)")
+                ActionResult.Failure("Could not find text-input element at location ($centerX, $centerY)")
             }
         }
     }
     
     /**
-     * Find an editable node at the given screen coordinates.
+     * Find a text-input capable node at the given screen coordinates.
      * Helper for performType() to re-query the accessibility tree.
+     * 
+     * PR fixes applied:
+     * - P1: Properly recycles intermediate nodes during DFS traversal
+     * - P2: Checks for ACTION_SET_TEXT support, not just isEditable (supports WebView/custom widgets)
      */
     private fun findNodeAtLocation(root: AccessibilityNodeInfo, x: Int, y: Int): AccessibilityNodeInfo? {
         val bounds = android.graphics.Rect()
         
-        // DFS to find deepest editable node containing the point
-        fun search(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        /**
+         * Check if a node can accept text input.
+         * P2 fix: Check for ACTION_SET_TEXT action support in addition to isEditable,
+         * which handles custom widgets and WebView inputs that support text but don't set isEditable.
+         */
+        fun canAcceptTextInput(node: AccessibilityNodeInfo): Boolean {
+            if (node.isEditable) return true
+            // P2 fix: Also check if node supports ACTION_SET_TEXT action
+            val actions = node.actionList
+            return actions?.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT } == true
+        }
+        
+        /**
+         * DFS to find deepest text-input node containing the point.
+         * P1 fix: Properly recycles intermediate nodes obtained during traversal.
+         * 
+         * @param node Current node to search
+         * @param shouldRecycle Whether this node should be recycled if not returned
+         *                      (false for root which is system-owned)
+         */
+        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean): AccessibilityNodeInfo? {
             node.getBoundsInScreen(bounds)
             
             if (!bounds.contains(x, y)) {
+                if (shouldRecycle) {
+                    node.recycle()
+                }
                 return null
             }
             
             // Check children first (prefer deeper matches)
             for (i in 0 until node.childCount) {
                 val child = node.getChild(i) ?: continue
-                val found = search(child)
+                val found = search(child, shouldRecycle = true)
                 if (found != null) {
+                    // Found a match in subtree
+                    // Recycle current node if allowed (AccessibilityNodeInfo from getChild() are independent)
+                    if (shouldRecycle) {
+                        node.recycle()
+                    }
                     return found
                 }
+                // Child subtree had no match - child was already recycled in search()
             }
             
-            // If this node is editable and contains the point, return it
-            if (node.isEditable) {
+            // If this node can accept text input and contains the point, return it
+            // (don't recycle - caller will handle it)
+            if (canAcceptTextInput(node)) {
                 return node
             }
             
+            // No match in this subtree - recycle this node if allowed
+            if (shouldRecycle) {
+                node.recycle()
+            }
             return null
         }
         
-        return search(root)
+        // Start search from root (don't recycle root - it's owned by the system)
+        return search(root, shouldRecycle = false)
     }
     
     private suspend fun performScroll(action: UIAction.Scroll): ActionResult {

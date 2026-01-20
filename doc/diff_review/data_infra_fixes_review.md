@@ -286,3 +286,83 @@ All high-priority issues from the data_infra_summary have been addressed:
 Medium-priority issues have been addressed through fixes (M2, M3, M4) or documentation/TODOs (M1, M5, M7, M8).
 
 **Verdict**: Data & Infrastructure fixes complete.
+
+---
+
+## 8) PR Review Feedback Fixes
+
+### PR8-P1. AccessibilityNodeInfo Recycling (Copilot)
+
+**Issue**: `findNodeAtLocation` didn't recycle AccessibilityNodeInfo instances, causing memory leaks.
+
+**Fix**: 
+- Added `shouldRecycle` parameter to DFS search
+- Recycles intermediate nodes that don't match
+- Recycles `targetNode` after use in `performType()`
+- Never recycles `root` (system-owned)
+
+```kotlin
+fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean): AccessibilityNodeInfo? {
+    // ... if no match and shouldRecycle:
+    node.recycle()
+    return null
+}
+// After use:
+if (targetNode !== root) {
+    targetNode.recycle()
+}
+```
+
+---
+
+### PR8-P2. ACTION_SET_TEXT Support for Custom Widgets (Codex)
+
+**Issue**: Only checking `isEditable` missed WebView inputs and custom widgets that support `ACTION_SET_TEXT` but don't set `isEditable`.
+
+**Fix**: Added `canAcceptTextInput()` helper that checks both:
+1. `node.isEditable` (standard EditText)
+2. `node.actionList` contains `ACTION_SET_TEXT` (WebView, custom widgets)
+
+```kotlin
+fun canAcceptTextInput(node: AccessibilityNodeInfo): Boolean {
+    if (node.isEditable) return true
+    val actions = node.actionList
+    return actions?.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT } == true
+}
+```
+
+---
+
+### PR8-P1/P2 Also Applied to Perceptor.kt
+
+**Issue**: Same problems existed in `Perceptor.traverse()`:
+- Child nodes from `getChild()` were never recycled
+- `isEditable` check missed WebView/custom widget text inputs
+
+**Fix**: Applied identical fixes to `Perceptor.kt`:
+
+```kotlin
+private fun traverse(
+    node: AccessibilityNodeInfo,
+    elements: MutableList<PerceptionElement>,
+    shouldRecycle: Boolean = false  // PR-P1: track recyclable nodes
+) {
+    // ...
+    
+    // PR-P2: Check ACTION_SET_TEXT support for WebView/custom widgets
+    val editable = node.isEditable || canAcceptTextInput(node)
+    
+    // Traverse children with recycle
+    for (i in 0 until node.childCount) {
+        val child = node.getChild(i) ?: continue
+        traverse(child, elements, shouldRecycle = true)
+    }
+    
+    // PR-P1: Recycle non-root nodes after processing
+    if (shouldRecycle) {
+        node.recycle()
+    }
+}
+```
+
+**Benefit**: Now `PerceptionElement.isEditable` correctly reflects text input capability, helping LLM make better decisions about which elements can accept text input.
