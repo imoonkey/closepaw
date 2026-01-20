@@ -203,13 +203,16 @@ enum class TurnPhase {
     /** Capturing and analyzing the screen */
     PERCEPTION,
     
-    /** Verifying the outcome of the previous action */
+    /** 
+     * Verifying the outcome of the previous action.
+     * TODO: Planned for action verification - not yet implemented.
+     */
     REFLECTION,
     
-    /** Deciding what to do (Manager agent) */
+    /** Deciding what to do (LLM reasoning) */
     PLANNING,
     
-    /** Executing an action (Executor agent) */
+    /** Executing an action (tool call) */
     EXECUTION
 }
 
@@ -225,9 +228,6 @@ enum class CompletionReason {
     
     /** Maximum turns reached */
     MAX_TURNS,
-    
-    /** Timeout limit reached */
-    TIMEOUT,
     
     /** Agent decided the task cannot be completed */
     TASK_IMPOSSIBLE,
