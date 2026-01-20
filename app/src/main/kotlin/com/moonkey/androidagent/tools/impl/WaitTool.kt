@@ -31,9 +31,10 @@ class WaitTool : BaseTool() {
         val errors = mutableListOf<String>()
         
         // M8: Validate type if parameter is present
+        // Check for specific numeric types since JSONObject returns Int, Long, or Double
         if (params.has("duration_ms")) {
             val value = params.get("duration_ms")
-            if (value !is Number) {
+            if (value !is Int && value !is Long && value !is Double) {
                 errors.add("duration_ms must be a number, got ${value::class.simpleName}")
             }
         }

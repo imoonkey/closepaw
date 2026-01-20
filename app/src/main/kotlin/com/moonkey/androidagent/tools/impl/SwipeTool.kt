@@ -35,6 +35,8 @@ class SwipeTool : BaseTool() {
         val endY = validateRequiredInt(params, "end_y", errors)
         
         // M10: Validate that start and end are different (no-op swipe)
+        // Only check if all coordinates were successfully parsed (nulls indicate missing/invalid params,
+        // which are already reported by validateRequiredInt)
         if (startX != null && startY != null && endX != null && endY != null) {
             if (startX == endX && startY == endY) {
                 errors.add("start and end coordinates must be different (no-op swipe)")
@@ -42,9 +44,10 @@ class SwipeTool : BaseTool() {
         }
         
         // M8: Validate duration_ms type if present
+        // Check for specific numeric types since JSONObject returns Int, Long, or Double
         if (params.has("duration_ms")) {
             val value = params.get("duration_ms")
-            if (value !is Number) {
+            if (value !is Int && value !is Long && value !is Double) {
                 errors.add("duration_ms must be a number, got ${value::class.simpleName}")
             }
         }
