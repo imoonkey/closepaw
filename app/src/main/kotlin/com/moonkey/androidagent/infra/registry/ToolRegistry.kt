@@ -2,6 +2,9 @@ package com.moonkey.androidagent.infra.registry
 
 import android.util.Log
 import com.moonkey.androidagent.infra.tools.ToolSpec
+import com.openai.core.JsonValue
+import com.openai.models.FunctionDefinition
+import com.openai.models.responses.FunctionTool
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -133,6 +136,64 @@ class ToolRegistry {
             tools.values.forEach { tool ->
                 appendLine("  - ${tool.name}: ${tool.description}")
             }
+        }
+    }
+    
+    /**
+     * Generate FunctionTool objects for the OpenAI Responses API.
+     * 
+     * Note: strict mode is disabled because it requires ALL properties to be
+     * in the required array, which doesn't work well with optional parameters.
+     * 
+     * @param filter Optional filter to include only specific tools
+     * @return List of FunctionTool objects ready for the Responses API
+     */
+    fun generateResponsesApiTools(filter: ((ToolSpec) -> Boolean)? = null): List<FunctionTool> {
+        return tools.values
+            .filter { filter?.invoke(it) != false }
+            .map { tool ->
+                FunctionTool.builder()
+                    .name(tool.name)
+                    .description(tool.description)
+                    .parameters(jsonObjectToJsonValue(tool.parameterSchema))
+                    // strict mode disabled - it requires ALL properties in required array,
+                    // which doesn't work with optional parameters like duration_ms
+                    .strict(false)
+                    .build()
+            }
+    }
+    
+    /**
+     * Convert org.json.JSONObject to OpenAI's JsonValue.
+     */
+    private fun jsonObjectToJsonValue(json: JSONObject): JsonValue {
+        val map = mutableMapOf<String, Any?>()
+        json.keys().forEach { key ->
+            map[key] = convertJsonElement(json.get(key))
+        }
+        return JsonValue.from(map)
+    }
+    
+    /**
+     * Recursively convert JSON elements to native types for JsonValue.
+     */
+    private fun convertJsonElement(value: Any?): Any? {
+        return when (value) {
+            is JSONObject -> {
+                val map = mutableMapOf<String, Any?>()
+                value.keys().forEach { key ->
+                    map[key] = convertJsonElement(value.get(key))
+                }
+                map
+            }
+            is JSONArray -> {
+                val list = mutableListOf<Any?>()
+                for (i in 0 until value.length()) {
+                    list.add(convertJsonElement(value.get(i)))
+                }
+                list
+            }
+            else -> value
         }
     }
 }

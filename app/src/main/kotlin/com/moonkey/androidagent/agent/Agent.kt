@@ -6,6 +6,7 @@ import com.moonkey.androidagent.domain.models.ScreenSnapshot
 import com.moonkey.androidagent.infra.history.ResponseItem
 import com.moonkey.androidagent.infra.tools.SimpleToolRouterContext
 import com.moonkey.androidagent.infra.tools.ToolCallResult
+import com.moonkey.androidagent.infra.tools.ToolObservation
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.ApprovalDetails
 import com.moonkey.androidagent.protocol.TurnPhase
@@ -14,6 +15,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Agent - Single ReAct agent that executes goals.
@@ -35,6 +39,7 @@ class Agent(
     companion object {
         private const val TAG = "Agent"
         
+        // Base system prompt - Turn.kt will append tool usage guidelines
         private val DEFAULT_SYSTEM_PROMPT = """
             You are an Android automation agent. You can interact with the device using tools.
             
@@ -43,22 +48,14 @@ class Agent(
             2. Deciding what action to take based on the screen
             3. Executing the action using available tools
             4. Observing the result and continuing until done
-            
-            When the goal is achieved, respond with "DONE: [summary of what was accomplished]" without any tool calls.
-            
-            Important guidelines:
-            - Each UI element has an "index" field - use this index when calling tools like click or type
-            - Look for elements with "clickable": true for interactive items
-            - Look for elements with "editable": true for text input fields
-            - If you don't see the expected UI, try scrolling or navigating
-            - Be patient and methodical - complete one step at a time
         """.trimIndent()
     }
     
-    // State
+    // State - using thread-safe primitives to avoid race conditions (M2 fix)
     private var turnCount = 0
     private val pauseState = MutableStateFlow(false)
-    private var stopRequested = false
+    private val stopRequested = AtomicBoolean(false)
+    private val lifecycleMutex = Mutex()  // Protects pause/resume/stop operations
     
     /**
      * Run the agent until goal achieved, max turns, or stopped.
@@ -118,7 +115,7 @@ class Agent(
         }
 
         return when {
-            stopRequested -> AgentStopReason.UserRequested
+            stopRequested.get() -> AgentStopReason.UserRequested
             cancellationSignal.isCompleted -> AgentStopReason.UserRequested
             else -> AgentStopReason.GoalAchieved
         }
@@ -144,7 +141,7 @@ class Agent(
             Log.d(TAG, "Turn $turnCount: Screen has ${snapshot.elements.size} elements")
 
             // Check cancellation
-            if (cancellationSignal.isCompleted || stopRequested) {
+            if (cancellationSignal.isCompleted || stopRequested.get()) {
                 TurnOutcome.Cancelled
             } else {
                 // 2. THINK: Call LLM
@@ -155,7 +152,8 @@ class Agent(
                 val systemPrompt = buildSystemPrompt()
                 val userContext = buildUserContext(snapshot)
 
-                val turnResult = turn.run(systemPrompt, userContext)
+                // M3 fix: Pass model from config instead of using hardcoded default
+                val turnResult = turn.run(systemPrompt, userContext, services.config.model)
 
                 Log.d(TAG, "Turn $turnCount: LLM response: ${turnResult.content?.take(200)}...")
                 Log.d(TAG, "Turn $turnCount: Tool calls: ${turnResult.toolCalls.map { it.name }}")
@@ -175,6 +173,9 @@ class Agent(
                     emitTurnPhaseChanged(turnId, TurnPhase.EXECUTION)
                     emitStatus("💡 Executing actions...")
 
+                    // Track current snapshot - update after each tool for multi-tool execution
+                    var currentSnapshot = snapshot
+
                     for (toolCall in turnResult.toolCalls) {
                         Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
 
@@ -187,10 +188,10 @@ class Agent(
                             )
                         )
 
-                        // Execute via ToolRouter
+                        // Execute via ToolRouter with current (possibly updated) snapshot
                         val context = SimpleToolRouterContext(
                             platform = services.platform,
-                            currentSnapshot = snapshot
+                            currentSnapshot = currentSnapshot
                         )
 
                         val result = services.toolRouter.execute(
@@ -213,8 +214,23 @@ class Agent(
                             }
                         )
 
-                        // 4. OBSERVE: Capture post-action screen
-                        val observation = captureObservation()
+                        // 4. OBSERVE: Use observation from tool execution result
+                        // NOTE: If there's delay between this observation and the next LLM call,
+                        // it could become stale. This is acceptable for now but worth revisiting
+                        // if timing becomes critical.
+                        val observation = when (result) {
+                            is ToolCallResult.Success -> result.observation?.toAgentObservation()
+                            else -> null
+                        } ?: captureObservation() // Fallback to capture if no observation in result
+
+                        // Update snapshot for subsequent tools from the observation
+                        if (result is ToolCallResult.Success) {
+                            val screenObs = result.observation as? ToolObservation.ScreenState
+                            if (screenObs?.snapshot != null) {
+                                currentSnapshot = screenObs.snapshot
+                                Log.d(TAG, "Updated snapshot for subsequent tools: ${currentSnapshot.elements.size} elements")
+                            }
+                        }
 
                         // Record tool result with observation in history
                         services.historyManager.addItem(
@@ -239,10 +255,15 @@ class Agent(
                     }
                 }
 
-                // Check if complete
+                // Check if complete (complete_task tool was called)
                 if (turnResult.isComplete) {
-                    Log.i(TAG, "Turn $turnCount: Task marked as complete")
-                    TurnOutcome.Complete(turnResult.content ?: "Goal achieved")
+                    // Extract completion summary from complete_task tool if present
+                    val completeTaskCall = turnResult.toolCalls.find { it.name == "complete_task" }
+                    val summary = completeTaskCall?.arguments?.optString("summary")
+                        ?: turnResult.content 
+                        ?: "Goal achieved"
+                    Log.i(TAG, "Turn $turnCount: Task marked as complete - $summary")
+                    TurnOutcome.Complete(summary)
                 } else {
                     TurnOutcome.Continue
                 }
@@ -250,16 +271,27 @@ class Agent(
         } catch (e: Exception) {
             Log.e(TAG, "Turn execution failed", e)
 
-            // Check if error is recoverable
+            // Determine if error is recoverable
+            // - DNS failures (UnknownHostException) are NOT recoverable - host cannot be resolved
+            // - Transient network errors (timeout, connection refused) ARE recoverable
+            // - LLMClient already handles retries internally, so errors reaching here 
+            //   have exhausted LLM-level retries, but turn-level retry may still help
             val message = e.message ?: ""
-            val isNetworkError = message.contains("internet", ignoreCase = true) ||
-                message.contains("network", ignoreCase = true) ||
-                message.contains("connection", ignoreCase = true) ||
-                e is java.net.UnknownHostException
+            val isDnsFailure = e is java.net.UnknownHostException ||
+                message.contains("Unable to resolve host", ignoreCase = true) ||
+                message.contains("No address associated", ignoreCase = true)
+            
+            val isTransientNetworkError = !isDnsFailure && (
+                e is java.net.SocketTimeoutException ||
+                message.contains("timeout", ignoreCase = true) ||
+                message.contains("connection refused", ignoreCase = true) ||
+                message.contains("connection reset", ignoreCase = true)
+            )
 
             TurnOutcome.Error(
                 message = message.ifEmpty { "Unknown error" },
-                recoverable = !isNetworkError  // Network errors are not recoverable
+                // DNS failures are not recoverable; transient network errors are recoverable
+                recoverable = !isDnsFailure && (isTransientNetworkError || !message.contains("internet", ignoreCase = true))
             )
         }
 
@@ -316,24 +348,29 @@ class Agent(
     }
     
     private fun shouldContinue(): Boolean {
-        return !stopRequested && !cancellationSignal.isCompleted
+        return !stopRequested.get() && !cancellationSignal.isCompleted
     }
     
-    // === Lifecycle Methods ===
+    // === Lifecycle Methods (M2: Thread-safe with mutex) ===
     
     suspend fun pause() {
-        pauseState.value = true
+        lifecycleMutex.withLock {
+            pauseState.value = true
+        }
         emitStatus("⏸️ Paused")
     }
     
     suspend fun resume() {
-        pauseState.value = false
+        lifecycleMutex.withLock {
+            pauseState.value = false
+        }
         emitStatus("▶️ Resuming...")
     }
     
     fun stop() {
-        stopRequested = true
-        pauseState.value = false
+        // Use atomic operations - no suspend needed
+        stopRequested.set(true)
+        pauseState.value = false  // MutableStateFlow is already thread-safe
     }
     
     // === Event Emission ===
@@ -392,6 +429,16 @@ class Agent(
 sealed class Observation {
     data class ScreenState(val accessibilityTree: String) : Observation()
     data class TextOutput(val content: String) : Observation()
+}
+
+/**
+ * Extension to convert ToolObservation to Agent's Observation.
+ */
+fun ToolObservation.toAgentObservation(): Observation {
+    return when (this) {
+        is ToolObservation.ScreenState -> Observation.ScreenState(this.accessibilityTree)
+        is ToolObservation.TextOutput -> Observation.TextOutput(this.content)
+    }
 }
 
 /**

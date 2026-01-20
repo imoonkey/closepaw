@@ -4,18 +4,22 @@ import android.util.Log
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
-import com.openai.models.chat.completions.ChatCompletionCreateParams
+import com.openai.models.responses.ResponseCreateParams
+import com.openai.models.responses.ResponseInputItem
+import com.openai.models.responses.FunctionTool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
- * LLMClient - Wrapper for OpenAI API with rate limit handling.
+ * LLMClient - Wrapper for OpenAI Responses API with rate limit handling.
+ * 
+ * Uses the Responses API with proper tool calling support.
  * 
  * Features:
+ * - Native function/tool calling via Responses API
  * - Automatic retry with exponential backoff on rate limits (429)
- * - Configurable retry parameters
- * - Detailed logging for debugging
+ * - Proper ResponseInputItem types for conversation history
  */
 object LLMClient {
 
@@ -37,8 +41,25 @@ object LLMClient {
         isInitialized = true
         Log.i(TAG, "LLMClient initialized successfully")
     }
-
-    suspend fun chat(messages: List<ChatMessage>): String {
+    
+    /**
+     * Call the Responses API with tool/function calling support.
+     * 
+     * Uses proper ResponseInputItem types for conversation history,
+     * which enables correct function call/output correlation.
+     * 
+     * @param systemPrompt System/developer instructions
+     * @param inputItems Conversation history as ResponseInputItem list
+     * @param tools Tool definitions for function calling
+     * @param model Model to use (defaults to GPT-4o)
+     * @return ResponsesResult containing text output and/or tool calls
+     */
+    suspend fun chatWithTools(
+        systemPrompt: String,
+        inputItems: List<ResponseInputItem>,
+        tools: List<FunctionTool>,
+        model: ChatModel = ChatModel.GPT_4O
+    ): ResponsesResult {
         return withContext(Dispatchers.IO) {
             if (!isInitialized || client == null) {
                 throw IllegalStateException("LLMClient not initialized. Call initialize() first.")
@@ -49,7 +70,7 @@ object LLMClient {
             
             for (attempt in 1..MAX_RETRIES) {
                 try {
-                    return@withContext executeChat(messages)
+                    return@withContext executeChatWithTools(systemPrompt, inputItems, tools, model)
                 } catch (e: RateLimitException) {
                     lastException = e
                     
@@ -58,7 +79,6 @@ object LLMClient {
                         throw e
                     }
                     
-                    // Use retry-after header if available, otherwise exponential backoff
                     val waitMs = e.retryAfterMs ?: backoffMs
                     Log.w(TAG, "Rate limited (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms...")
                     
@@ -84,98 +104,125 @@ object LLMClient {
     }
     
     /**
-     * Execute the actual chat API call.
+     * Execute the Responses API call with tools.
      */
-    private fun executeChat(messages: List<ChatMessage>): String {
-        Log.d(TAG, "Sending ${messages.size} messages to OpenAI...")
-        messages.forEachIndexed { index, msg ->
-            Log.d(TAG, "  [$index] ${msg.role}: ${msg.content.take(100)}...")
-        }
-
-        val builder = ChatCompletionCreateParams.builder().model(ChatModel.GPT_4O)
-
-        messages.forEach { msg ->
-            when (msg.role) {
-                Role.SYSTEM -> builder.addSystemMessage(msg.content)
-                Role.USER -> builder.addUserMessage(msg.content)
-                Role.ASSISTANT -> builder.addAssistantMessage(msg.content)
-            }
-        }
-
-        Log.d(TAG, "Making API call to OpenAI...")
+    private fun executeChatWithTools(
+        systemPrompt: String,
+        inputItems: List<ResponseInputItem>,
+        tools: List<FunctionTool>,
+        model: ChatModel
+    ): ResponsesResult {
+        Log.d(TAG, "Calling Responses API with ${inputItems.size} input items, ${tools.size} tools")
         
         try {
-            val response = client!!.chat().completions().create(builder.build())
+            val builder = ResponseCreateParams.builder()
+                .model(model)
+                .instructions(systemPrompt)
+                // Use Input.ofResponse to wrap the list of input items
+                .input(ResponseCreateParams.Input.ofResponse(inputItems))
             
-            val choice = response.choices().firstOrNull()
-            if (choice == null) {
-                Log.e(TAG, "No choices in response")
-                throw RuntimeException("No choices in LLM response")
+            // Add tools
+            tools.forEach { tool ->
+                builder.addTool(tool)
             }
             
-            val content = choice.message().content().orElse("")
-            Log.d(TAG, "LLM Response (${content.length} chars): ${content.take(200)}...")
-            return content.cleanJson()
+            Log.d(TAG, "Making Responses API call to OpenAI...")
+            
+            val response = client!!.responses().create(builder.build())
+            
+            // Parse output items
+            val textContent = StringBuilder()
+            val toolCalls = mutableListOf<LLMToolCall>()
+            
+            for (item in response.output()) {
+                when {
+                    item.isFunctionCall() -> {
+                        val funcCall = item.asFunctionCall()
+                        toolCalls.add(LLMToolCall(
+                            callId = funcCall.callId(),
+                            name = funcCall.name(),
+                            arguments = funcCall.arguments()
+                        ))
+                        Log.d(TAG, "Tool call: ${funcCall.name()} with id ${funcCall.callId()}")
+                    }
+                    item.isMessage() -> {
+                        val message = item.asMessage()
+                        for (content in message.content()) {
+                            if (content.isOutputText()) {
+                                textContent.append(content.asOutputText().text())
+                            }
+                        }
+                    }
+                }
+            }
+            
+            val result = ResponsesResult(
+                textContent = textContent.toString().takeIf { it.isNotEmpty() },
+                toolCalls = toolCalls,
+                responseId = response.id()
+            )
+            
+            Log.d(TAG, "Responses API result: ${result.textContent?.take(200)}..., ${result.toolCalls.size} tool calls")
+            return result
             
         } catch (e: Exception) {
-            // Check for rate limit (429) responses
-            val message = e.message ?: ""
-            val cause = e.cause?.message ?: ""
+            handleApiException(e)
+        }
+    }
+    
+    /**
+     * Handle API exceptions with proper categorization.
+     */
+    private fun handleApiException(e: Exception): Nothing {
+        val message = e.message ?: ""
+        val cause = e.cause?.message ?: ""
+        
+        when {
+            message.contains("429") || cause.contains("429") || 
+            message.contains("rate limit", ignoreCase = true) ||
+            cause.contains("rate limit", ignoreCase = true) -> {
+                Log.w(TAG, "Rate limit detected: ${e.message}")
+                val retryAfter = extractRetryAfter(message) ?: extractRetryAfter(cause)
+                throw RateLimitException("Rate limited by OpenAI", retryAfter)
+            }
             
-            when {
-                message.contains("429") || cause.contains("429") || 
-                message.contains("rate limit", ignoreCase = true) ||
-                cause.contains("rate limit", ignoreCase = true) -> {
-                    Log.w(TAG, "Rate limit detected: ${e.message}")
-                    val retryAfter = extractRetryAfter(message) ?: extractRetryAfter(cause)
-                    throw RateLimitException("Rate limited by OpenAI", retryAfter)
+            e is java.net.SocketTimeoutException -> {
+                Log.e(TAG, "Request timeout", e)
+                throw TransientException("Request timeout - try again", e)
+            }
+            
+            e is java.net.UnknownHostException || 
+            message.contains("Unable to resolve host") ||
+            cause.contains("Unable to resolve host") -> {
+                Log.e(TAG, "Network error - cannot reach OpenAI: ${e.message}", e)
+                throw RuntimeException("No internet connection. Please check your network settings.", e)
+            }
+            
+            message.contains("500") || message.contains("502") || 
+            message.contains("503") || message.contains("504") -> {
+                Log.w(TAG, "Server error (transient): ${e.message}")
+                throw TransientException("OpenAI server error", e)
+            }
+            
+            e is java.io.IOException -> {
+                val isConnectivityIssue = message.contains("resolve") || 
+                    cause.contains("resolve") ||
+                    message.contains("No address") ||
+                    cause.contains("No address")
+                
+                if (isConnectivityIssue) {
+                    Log.e(TAG, "Network connectivity error: ${e.message}", e)
+                    throw RuntimeException("Network error: Check your internet connection", e)
                 }
                 
-                e is java.net.SocketTimeoutException -> {
-                    Log.e(TAG, "Request timeout", e)
-                    throw TransientException("Request timeout - try again", e)
-                }
-                
-                e is java.net.UnknownHostException || 
-                message.contains("Unable to resolve host") ||
-                cause.contains("Unable to resolve host") -> {
-                    Log.e(TAG, "Network error - cannot reach OpenAI: ${e.message}", e)
-                    throw RuntimeException("No internet connection. Please check your network settings.", e)
-                }
-                
-                message.contains("500") || message.contains("502") || 
-                message.contains("503") || message.contains("504") -> {
-                    Log.w(TAG, "Server error (transient): ${e.message}")
-                    throw TransientException("OpenAI server error", e)
-                }
-                
-                e is java.io.IOException -> {
-                    // Check if it's a DNS/connectivity issue (non-recoverable) vs transient
-                    val isConnectivityIssue = message.contains("resolve") || 
-                        cause.contains("resolve") ||
-                        message.contains("No address") ||
-                        cause.contains("No address")
-                    
-                    if (isConnectivityIssue) {
-                        Log.e(TAG, "Network connectivity error: ${e.message}", e)
-                        throw RuntimeException("Network error: Check your internet connection", e)
-                    }
-                    
-                    Log.e(TAG, "Network/IO error: ${e.message}", e)
-                    throw TransientException("Network error: ${e.message}", e)
-                }
-                
-                e is IllegalStateException -> {
-                    Log.e(TAG, "State error: ${e.message}", e)
-                    throw e
-                }
-                
-                else -> {
-                    Log.e(TAG, "LLM call failed: ${e.javaClass.name}: ${e.message}")
-                    Log.e(TAG, "Exception cause: ${e.cause?.message}")
-                    e.printStackTrace()
-                    throw RuntimeException("LLM error: ${e.javaClass.simpleName} - ${e.message}", e)
-                }
+                Log.e(TAG, "Network/IO error: ${e.message}", e)
+                throw TransientException("Network error: ${e.message}", e)
+            }
+            
+            else -> {
+                Log.e(TAG, "Responses API call failed: ${e.javaClass.name}: ${e.message}")
+                e.printStackTrace()
+                throw RuntimeException("LLM error: ${e.javaClass.simpleName} - ${e.message}", e)
             }
         }
     }
@@ -184,7 +231,6 @@ object LLMClient {
      * Extract retry-after value from error message if present.
      */
     private fun extractRetryAfter(message: String): Long? {
-        // Try to extract "retry after X seconds" or "retry-after: X"
         val patterns = listOf(
             Regex("""retry.?after[:\s]+(\d+)""", RegexOption.IGNORE_CASE),
             Regex("""wait[:\s]+(\d+)""", RegexOption.IGNORE_CASE),
@@ -202,16 +248,31 @@ object LLMClient {
         }
         return null
     }
-
-    /**
-     * Clean response but preserve tool blocks for parsing.
-     * Only strips ```json markers, not ```tool markers.
-     */
-    private fun String.cleanJson(): String {
-        // Don't strip backticks - let Turn.kt parse tool blocks
-        return this.trim()
-    }
 }
+
+/**
+ * Result from the Responses API.
+ */
+data class ResponsesResult(
+    /** Text content from the model (may be null if only tool calls) */
+    val textContent: String?,
+    /** Tool calls requested by the model */
+    val toolCalls: List<LLMToolCall>,
+    /** Response ID for multi-turn conversation tracking */
+    val responseId: String
+)
+
+/**
+ * A tool call from the LLM via the Responses API.
+ */
+data class LLMToolCall(
+    /** The call ID assigned by OpenAI - use this for tool result correlation */
+    val callId: String,
+    /** The name of the tool/function to call */
+    val name: String,
+    /** The arguments as a JSON string */
+    val arguments: String
+)
 
 /**
  * Exception thrown when rate limited by the API.
