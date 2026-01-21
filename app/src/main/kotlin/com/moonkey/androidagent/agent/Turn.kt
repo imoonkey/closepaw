@@ -1,11 +1,11 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
-import com.moonkey.androidagent.data.llm.LLMClient
-import com.moonkey.androidagent.data.llm.LLMToolCall
-import com.moonkey.androidagent.infra.history.HistoryManager
-import com.moonkey.androidagent.infra.history.ResponseItem
-import com.moonkey.androidagent.infra.registry.ToolRegistry
+import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.llm.LLMToolCall
+import com.moonkey.androidagent.history.HistoryManager
+import com.moonkey.androidagent.history.ResponseItem
+import com.moonkey.androidagent.tool.ToolRegistry
 import com.openai.models.ChatModel
 import com.openai.models.responses.ResponseInputItem
 import com.openai.models.responses.ResponseFunctionToolCall

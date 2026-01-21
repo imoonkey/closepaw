@@ -90,71 +90,81 @@ The agent executes a classic ReAct (Reasoning + Acting) loop:
 
 ```
 com.moonkey.androidagent/
-├── agent/                 # Core agent logic
-│   ├── Agent.kt          # ReAct loop executor
-│   ├── AgentConfig.kt    # Agent configuration
-│   ├── AgentSource.kt    # Primary/SubAgent enum (reserved)
-│   └── Turn.kt           # Single LLM turn (OpenAI Responses API)
 │
-├── data/                  # External services
-│   ├── llm/
-│   │   └── LLMClient.kt  # OpenAI Responses API client
-│   └── perception/
-│       └── Perceptor.kt  # Screen → ScreenSnapshot
+├── app/                          # Application entry points
+│   ├── MainActivity.kt           # UI entry point
+│   └── AgentService.kt           # AccessibilityService entry point
 │
-├── domain/models/         # Shared data models
-│   └── Models.kt         # ScreenSnapshot, PerceptionElement, Bounds, Point
+├── agent/                        # Core agent logic
+│   ├── Agent.kt                  # ReAct loop executor
+│   ├── AgentConfig.kt            # Agent configuration
+│   └── Turn.kt                   # Single LLM turn (OpenAI Responses API)
 │
-├── infra/                 # Infrastructure services
-│   ├── history/
-│   │   └── HistoryManager.kt  # Conversation history
-│   ├── policy/
-│   │   └── PolicyEngine.kt    # Tool approval policy
-│   ├── registry/
-│   │   └── ToolRegistry.kt    # Tool discovery
-│   └── tools/
-│       ├── ToolSpec.kt        # Tool interface
-│       ├── ToolRouter.kt      # Execution state machine
-│       ├── ToolCallState.kt   # State definitions
-│       └── ToolCallResult.kt  # Result types
+├── session/                      # Session management
+│   ├── AgentSession.kt           # Lifecycle manager
+│   └── SessionServices.kt        # Dependency injection
 │
-├── platform/              # Android abstraction
-│   ├── AndroidPlatform.kt     # Interface
-│   ├── AccessibilityPlatform.kt  # Implementation
-│   ├── UIAction.kt            # Action types (Click, Type, Scroll, etc.)
-│   └── ActionResult.kt        # Result types
-│
-├── protocol/              # Communication contract
-│   ├── Op.kt             # Operations (UI → Agent)
-│   ├── AgentEvent.kt     # Events (Agent → UI)
-│   ├── SessionState.kt   # State machine
-│   ├── ApprovalTypes.kt  # Approval enums
-│   ├── AgentError.kt     # Error types
-│   └── SessionId.kt      # ID value class
-│
-├── session/               # Session management
-│   ├── AgentSession.kt   # Lifecycle manager
-│   └── SessionServices.kt # Dependency injection
-│
-├── service/               # Android services
-│   └── OverlayManager.kt # Floating UI
-│
-├── tools/                 # Tool implementations
-│   ├── base/
-│   │   └── BaseTool.kt   # Abstract base with observation capture
-│   └── impl/
+├── tool/                         # Consolidated tool system
+│   │
+│   │  # Core abstractions
+│   ├── ToolSpec.kt               # Tool interface + types
+│   ├── ToolCallState.kt          # State definitions
+│   ├── ToolCallResult.kt         # Result types
+│   │
+│   │  # Infrastructure
+│   ├── ToolRegistry.kt           # Discovery/registration
+│   ├── ToolRouter.kt             # Execution state machine
+│   ├── PolicyEngine.kt           # Approval logic
+│   │
+│   │  # Implementations
+│   ├── BaseTool.kt               # Abstract base class
+│   └── impl/                     # Concrete tools
 │       ├── ClickTool.kt
 │       ├── TypeTool.kt
 │       ├── ScrollTool.kt
 │       ├── SwipeTool.kt
-│       ├── BackTool.kt   # Also contains HomeTool
+│       ├── NavigationTools.kt    # BackTool + HomeTool
 │       ├── WaitTool.kt
 │       └── CompleteTaskTool.kt
 │
-├── ui/                    # Jetpack Compose UI
+├── protocol/                     # Communication contracts
+│   ├── Op.kt                     # Operations (UI → Agent)
+│   ├── AgentEvent.kt             # Events (Agent → UI)
+│   ├── SessionState.kt           # State machine
+│   ├── SessionId.kt              # ID value class
+│   ├── AgentError.kt             # Error types
+│   └── ApprovalTypes.kt          # Approval enums
 │
-├── MainActivity.kt        # UI entry point
-└── AgentService.kt        # AccessibilityService entry (not yet created)
+├── platform/                     # Android platform abstraction
+│   ├── AndroidPlatform.kt        # Interface
+│   ├── AccessibilityPlatform.kt  # Implementation
+│   ├── UIAction.kt               # Action types
+│   └── ActionResult.kt           # Result types
+│
+├── perception/                   # Screen perception
+│   └── Perceptor.kt              # Accessibility tree → ScreenSnapshot
+│
+├── llm/                          # LLM integration
+│   └── LLMClient.kt              # OpenAI Responses API
+│
+├── history/                      # Conversation history
+│   └── HistoryManager.kt         # Token management, truncation
+│
+├── model/                        # Domain models
+│   └── Models.kt                 # ScreenSnapshot, PerceptionElement, etc.
+│
+├── ui/                           # UI layer
+│   ├── screen/
+│   │   └── AgentScreen.kt
+│   ├── theme/
+│   │   ├── Color.kt
+│   │   ├── Theme.kt
+│   │   └── Type.kt
+│   └── overlay/
+│       └── OverlayManager.kt
+│
+└── util/
+    └── StatusUtils.kt
 ```
 
 ---
@@ -230,7 +240,7 @@ Dependency injection container for all session-scoped services.
 val services = SessionServices.create(config, platform, apiKey)
 ```
 
-### 5. ToolRouter (`infra/tools/ToolRouter.kt`)
+### 5. ToolRouter (`tool/ToolRouter.kt`)
 
 Executes tool calls with a state machine lifecycle:
 
@@ -244,7 +254,7 @@ VALIDATING → POLICY_CHECK → [AWAITING_APPROVAL] → EXECUTING → SUCCESS/ER
 - Wait for user approval if needed (with 60s timeout)
 - Execute tool and return result
 
-### 6. Perceptor (`data/perception/Perceptor.kt`)
+### 6. Perceptor (`perception/Perceptor.kt`)
 
 Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
 
@@ -379,7 +389,7 @@ Agent                    AgentSession              UI
 
 ### Adding New Tools
 
-1. Create class extending `BaseTool` in `tools/impl/`
+1. Create class extending `BaseTool` in `tool/impl/`
 2. Implement required members:
    - `name`, `description`, `parameterSchema`
    - `validate(params)`, `createUIAction(params)`, `getActionDescription(params)`
