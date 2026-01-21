@@ -68,6 +68,11 @@ get_agent_logs() {
     adb logcat -d -s Agent AgentSession AgentService Turn LLMClient ToolRouter AccessibilityPlatform 2>/dev/null | tail -200
 }
 
+# Stop the agent on the device
+stop_agent() {
+    adb shell "am broadcast -a $PACKAGE.STOP_AGENT -p $PACKAGE" >/dev/null 2>&1 || true
+}
+
 # ===== Command: run =====
 cmd_run() {
     local goal="${1:-Open Settings}"
@@ -77,6 +82,9 @@ cmd_run() {
     load_api_key
     
     log "Running agent with goal: $goal"
+    
+    # Set up cleanup trap to stop agent when script exits (Ctrl+C, timeout, etc.)
+    trap 'echo ""; warn "Script exiting, stopping agent..."; stop_agent; exit 0' INT TERM EXIT
     
     # Go to home screen first
     adb shell input keyevent KEYCODE_HOME
@@ -128,6 +136,8 @@ cmd_run() {
         if echo "$logs" | grep -q "Emitted event: SessionCompleted\|Session completed\|Goal achieved\|Max turns reached"; then
             echo ""
             ok "Task completed!"
+            # Clear the trap since we completed normally
+            trap - INT TERM EXIT
             break
         fi
         
@@ -143,6 +153,9 @@ cmd_run() {
             rate_limit_seen=1
         fi
     done
+    
+    # Clear the trap before normal exit
+    trap - INT TERM EXIT
     
     echo ""
     echo ""
