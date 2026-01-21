@@ -168,6 +168,8 @@ class OverlayManager(
             }
             
             // Icon (using text emoji since we can't easily load vector icons in overlay)
+            // TODO: Consider using VectorDrawable or bitmap resources for consistent rendering
+            // across Android versions and OEMs. Emoji rendering varies between devices.
             val iconText = when (iconResName) {
                 "pause" -> "⏸"
                 "play" -> "▶"
@@ -212,7 +214,11 @@ class OverlayManager(
      * Update the status text displayed in the overlay.
      */
     fun updateStatus(status: String) {
-        statusText?.post { 
+        val currentStatusText = statusText ?: return
+        currentStatusText.post { 
+            // Guard: check if overlay was hidden before callback executed
+            if (overlayView == null) return@post
+            
             // Clean up emoji for cleaner display using shared utility
             val cleanStatus = StatusUtils.cleanStatusText(status)
             // Truncate with ellipsis if too long
@@ -240,7 +246,11 @@ class OverlayManager(
      */
     fun updatePauseState(paused: Boolean) {
         isPaused = paused
-        pauseButton?.post {
+        val currentPauseButton = pauseButton ?: return
+        currentPauseButton.post {
+            // Guard: check if overlay was hidden before callback executed
+            if (overlayView == null) return@post
+            
             // Update the icon text using stored reference
             pauseIconText?.text = if (paused) "▶" else "⏸"
         }

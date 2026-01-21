@@ -11,8 +11,9 @@ object StatusUtils {
     /**
      * Regex pattern to match all status emojis in a single pass.
      * More efficient than iterating and replacing one by one.
+     * Includes pause/play emojis (⏸️▶️) used in Agent.kt.
      */
-    private val EMOJI_PATTERN = Regex("[✅❌⚠️🧠🔧💡👀🚀🛑✓]")
+    private val EMOJI_PATTERN = Regex("[✅❌⚠️🧠🔧💡👀🚀🛑✓⏸️▶️⏹]")
     
     /**
      * Remove emojis from status text for cleaner display.
