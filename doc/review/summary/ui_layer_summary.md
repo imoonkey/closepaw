@@ -28,6 +28,8 @@ val encryptedPrefs = EncryptedSharedPreferences.create(...)
 apiKey = encryptedPrefs.getString("api_key", "")
 ```
 
+**Team Note**: Skip for now. This is a dev convenience feature (auto-loading API key from file). For production, remove this file-loading entirely and only accept API key via the UI text field or intent extra. Add a TODO comment noting this is dev-only.
+
 ---
 
 ### 2. AgentService.instance is Racey Global Singleton
@@ -47,6 +49,8 @@ private val _statusFlow = MutableSharedFlow<String>(replay = 1)
 val statusFlow: SharedFlow<String> = _statusFlow.asSharedFlow()
 ```
 
+**Team Note**: Fix it. Replace `statusCallback` with a `StateFlow<String>` in AgentService. MainActivity should collect with `repeatOnLifecycle(Lifecycle.State.STARTED)` to avoid leaks. This also fixes Issue 3 below.
+
 ---
 
 ### 3. MainActivity State Leaks via statusCallback
@@ -58,6 +62,8 @@ val statusFlow: SharedFlow<String> = _statusFlow.asSharedFlow()
 **Impact**: Memory leak, potential crash.
 
 **Fix**: Use lifecycle-aware collection with repeatOnLifecycle.
+
+**Team Note**: This is addressed by fixing Issue 2 above with Flow-based approach.
 
 ---
 
@@ -71,6 +77,8 @@ val statusFlow: SharedFlow<String> = _statusFlow.asSharedFlow()
 
 **Fix**: Track and cancel collector job.
 
+**Team Note**: Partially fixed by session_protocol changes (channel now closes properly with delay). However, explicitly track the collector Job and cancel it before starting a new session to be safe. Fix it.
+
 ---
 
 ### 5. OverlayManager Emoji Rendering Issues
@@ -82,6 +90,8 @@ val statusFlow: SharedFlow<String> = _statusFlow.asSharedFlow()
 **Impact**: May look like blobs or be invisible on some devices.
 
 **Fix**: Use VectorDrawable or bitmap resources.
+
+**Team Note**: Skip for now. Emoji rendering is acceptable for MVP. Add TODO noting this could be improved with vector icons for consistency.
 
 ---
 
@@ -97,6 +107,8 @@ val statusFlow: SharedFlow<String> = _statusFlow.asSharedFlow()
 
 **Fix**: Guard against concurrent sessions or stop previous before starting new.
 
+**Team Note**: Fix it. In `runAgent()`, check if a session is already active. If so, either reject the new request with a status message, or stop the previous session before starting. Prefer stopping the previous session.
+
 ---
 
 ### M2. Session Event Collection Lifecycle Issues
@@ -106,6 +118,8 @@ val statusFlow: SharedFlow<String> = _statusFlow.asSharedFlow()
 Collector never completes if session flow doesn't close, leaking coroutines across runs.
 
 **Fix**: Cancel collector when session ends.
+
+**Team Note**: This is addressed by fixing Issue 4 and M1 above.
 
 ---
 
@@ -121,6 +135,8 @@ Creates new List on every update, triggers full recomposition.
 
 **Fix**: Use `mutableStateListOf` for efficient Compose updates.
 
+**Team Note**: Skip for now. MAX_STATUS_LINES=100 limits growth. The list creation is simple and won't cause performance issues at this scale. Add TODO if profiling shows issues.
+
 ---
 
 ### M4. Service Connection Reliability
@@ -130,6 +146,8 @@ Creates new List on every update, triggers full recomposition.
 If service crashes and restarts, overlay might get out of sync with session state.
 
 **Fix**: Ensure robust state restoration on reconnect.
+
+**Team Note**: Skip for now. This is an edge case. If service crashes mid-session, user can restart manually. Add TODO for future robustness.
 
 ---
 
@@ -141,6 +159,8 @@ Fixed 500ms delay doesn't guarantee Compose UI ready.
 
 **Fix**: Use Compose LaunchedEffect.
 
+**Team Note**: Skip for now. 500ms delay is sufficient for dev use. The delay only affects auto-start via intent, not normal UI interactions.
+
 ---
 
 ### M6. StatusUtils.EMOJI_PATTERN Missing Emojis
@@ -150,6 +170,8 @@ Fixed 500ms delay doesn't guarantee Compose UI ready.
 Pattern doesn't match ⏸️ or ▶️ used in Agent.kt.
 
 **Fix**: Use Unicode-aware pattern.
+
+**Team Note**: Fix it. Add ⏸️ and ▶️ to the EMOJI_PATTERN regex.
 
 ---
 
@@ -163,6 +185,8 @@ Detection relies on string matching. Any wording change breaks detection.
 
 **Fix**: Use structured events rather than parsing status strings.
 
+**Team Note**: Skip for now. The string-based detection in StatusUtils works adequately. This is low priority since the UI handles state correctly through the isRunning flag. Add TODO for future structured event approach.
+
 ---
 
 ### M8. onServiceConnected() May Race with runAgent()
@@ -172,6 +196,8 @@ Detection relies on string matching. Any wording change breaks detection.
 `runAgent()` can be called before service fully initialized. `overlayManager` may be null.
 
 **Fix**: Guard against null or queue requests.
+
+**Team Note**: Already addressed. Code uses null-safe calls (`overlayManager?.show()`). No further action needed.
 
 ---
 
@@ -183,6 +209,8 @@ Views removed but pending `post {}` callbacks may still execute.
 
 **Fix**: Cancel pending posts before removing views.
 
+**Team Note**: Fix it. In `hide()`, call `removeCallbacks()` on views before removing them to cancel pending posts.
+
 ---
 
 ### M10. OverlayManager Colors Hardcoded
@@ -193,6 +221,8 @@ Should match Compose theme colors.
 
 **Fix**: Reference theme colors or share definitions.
 
+**Team Note**: Skip for now. Colors are consistent with app theme. Add TODO for future theming support.
+
 ---
 
 ### M11. Accessibility Service Exported
@@ -200,6 +230,8 @@ Should match Compose theme colors.
 **Location**: `AndroidManifest.xml`
 
 Service is exported without clear justification. While protected by BIND_ACCESSIBILITY_SERVICE, safer to set false if system still binds.
+
+**Team Note**: Skip. Accessibility services must be exported=true for the system to bind to them. The BIND_ACCESSIBILITY_SERVICE permission protects against unauthorized binding.
 
 ---
 
