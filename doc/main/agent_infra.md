@@ -18,7 +18,9 @@
 
 | Principle | Description |
 |-----------|-------------|
+| **Task-Based Model** | Session > Task > Turn hierarchy. Multi-round interaction via `Idle` state. |
 | **Single ReAct Agent** | One agent running Perceive → Think → Act → Observe loop. No multi-agent complexity. |
+| **Streaming Responses** | Native OpenAI streaming with `MessageDelta` events for real-time UI updates. |
 | **Thin Session Layer** | Session manages lifecycle only. All intelligence lives in the Agent. |
 | **Op/Event Protocol** | Clean separation between UI intent (Op) and agent state (Event). |
 | **Tools with Observation** | Every tool execution captures post-action screen state. |
@@ -68,19 +70,51 @@
 
 ### ReAct Loop
 
-The agent executes a classic ReAct (Reasoning + Acting) loop:
+The agent executes a classic ReAct (Reasoning + Acting) loop within each **Turn**:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         ReAct Loop                               │
+│                      ReAct Loop (Per Turn)                       │
 │                                                                  │
 │   ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌────────┐│
 │   │ PERCEIVE │────►│  THINK   │────►│   ACT    │────►│OBSERVE ││
-│   │ (Screen) │     │  (LLM)   │     │  (Tool)  │     │(Screen)││
+│   │ (Screen) │     │ (LLM +   │     │  (Tool)  │     │(Screen)││
+│   │          │     │ Streaming)│     │          │     │        ││
 │   └──────────┘     └──────────┘     └──────────┘     └────┬───┘│
-│        ▲                                                  │    │
+│        ▲                │                                 │    │
+│        │                │ MessageDelta events             │    │
+│        │                ▼                                 │    │
+│        │            (UI updates)                          │    │
+│        │                                                  │    │
 │        └──────────────────────────────────────────────────┘    │
 │          (Loop until complete_task or text-only response)        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Task Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                          Task Lifecycle                          │
+│                                                                  │
+│   Op.UserInput("Check email")                                    │
+│         │                                                        │
+│         ▼                                                        │
+│   ┌───────────┐                                                  │
+│   │TaskStarted│ ◄─── Emit event with taskId                      │
+│   └─────┬─────┘                                                  │
+│         │                                                        │
+│         ▼                                                        │
+│   ┌───────────────────────────────────────────┐                  │
+│   │  Turn 1: Perceive → Think → Act → Observe │──► MessageDelta  │
+│   │  Turn 2: Perceive → Think → Act → Observe │──► MessageDelta  │
+│   │  Turn N: ... (complete_task or text-only) │                  │
+│   └─────┬─────────────────────────────────────┘                  │
+│         │                                                        │
+│         ▼                                                        │
+│   ┌─────────────┐                                                │
+│   │TaskCompleted│ ◄─── Emit event, transition to Idle            │
+│   └─────────────┘                                                │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -145,7 +179,7 @@ com.moonkey.androidagent/
 │   └── Perceptor.kt              # Accessibility tree → ScreenSnapshot
 │
 ├── llm/                          # LLM integration
-│   └── LLMClient.kt              # OpenAI Responses API
+│   └── LLMClient.kt              # OpenAI Responses API (with streaming)
 │
 ├── history/                      # Conversation history
 │   └── HistoryManager.kt         # Token management, truncation
@@ -188,18 +222,34 @@ The brain of the system. Executes the ReAct loop until goal achieved or stopped.
 
 ### 2. Turn (`agent/Turn.kt`)
 
-Encapsulates a single LLM call using the OpenAI Responses API with native tool calling.
+Encapsulates a single LLM call using the OpenAI Responses API with native tool calling and **streaming support**.
 
 **Responsibilities:**
 - Build input items from history + current context
 - Generate tool schemas dynamically via `ToolRegistry.generateResponsesApiTools()`
+- **Stream** text and tool calls via `runStreaming()` method
 - Process structured tool calls (using `call_id` for linkage) and text outputs
 - Detect completion (via `complete_task` tool or text-only response)
 
-**Key Output:**
+**Streaming Method:**
+```kotlin
+fun runStreaming(...): Flow<TurnStreamEvent>
+```
+
+**Stream Events (`TurnStreamEvent`):**
+```kotlin
+sealed interface TurnStreamEvent {
+    data class TextDelta(val text: String) : TurnStreamEvent      // Streaming text chunk
+    data class ToolCallReceived(val toolCall: ToolCallRequest)    // Tool call ready
+    data class Complete(val result: TurnResult) : TurnStreamEvent // Turn finished
+    data class Error(val error: Throwable) : TurnStreamEvent      // Error occurred
+}
+```
+
+**Final Result (`TurnResult`):**
 ```kotlin
 data class TurnResult(
-    val content: String?,           // Text from LLM
+    val content: String?,           // Accumulated text from LLM
     val toolCalls: List<ToolCallRequest>,  // Tool calls to execute
     val isComplete: Boolean,        // Whether task is done
     val parseErrors: List<String>?  // Parsing issues (rare with Responses API)
@@ -213,13 +263,23 @@ Thin lifecycle manager. Does NOT contain agent logic.
 **Responsibilities:**
 - Process Operations (Op) from UI
 - Emit Events (AgentEvent) to UI
-- Manage session state transitions
+- Manage session state transitions (including `Idle` for multi-round)
+- Manage Task lifecycle via `handleUserInput()`
 - Create and start Agent
 
 **Key Methods:**
 - `submit(op: Op)` - Submit an operation
+- `handleUserInput(text: String)` - Primary entry point for starting Tasks
 - `events: Flow<AgentEvent>` - Event stream for UI
 - `state: StateFlow<SessionState>` - Current session state
+
+**State Transitions:**
+```
+Created ──(UserInput)──► Running ──(TaskCompleted)──► Idle ──(UserInput)──► Running
+                                                        │
+                                                        ▼
+                                                    Shutdown
+```
 
 ### 4. SessionServices (`session/SessionServices.kt`)
 
@@ -240,7 +300,37 @@ Dependency injection container for all session-scoped services.
 val services = SessionServices.create(config, platform, apiKey)
 ```
 
-### 5. ToolRouter (`tool/ToolRouter.kt`)
+### 5. LLMClient (`llm/LLMClient.kt`)
+
+OpenAI Responses API client with **native streaming** support.
+
+**Key Method:**
+```kotlin
+fun chatWithToolsStreaming(
+    systemPrompt: String,
+    inputItems: List<ResponseInputItem>,
+    tools: List<FunctionTool>,
+    model: ChatModel = ChatModel.GPT_4O
+): Flow<ResponseStreamEvent>
+```
+
+**Stream Event Types (from OpenAI Java SDK):**
+
+| Event | Description |
+|-------|-------------|
+| `response.created` | Response initiated (includes response ID) |
+| `response.output_text.delta` | Text chunk via `asOutputTextDelta().delta()` |
+| `response.output_item.done` | Output item completed (text or tool call) |
+| `response.completed` | Stream finished successfully |
+| `response.failed` | Error occurred |
+
+**Implementation Details:**
+- Uses `callbackFlow` for coroutine compatibility with blocking SDK stream
+- Manual accumulation of text and tool calls (no `ResponseAccumulator`)
+- Retry logic with exponential backoff
+- Requires OpenAI Java SDK v4.14.0+
+
+### 6. ToolRouter (`tool/ToolRouter.kt`)
 
 Executes tool calls with a state machine lifecycle:
 
@@ -254,7 +344,7 @@ VALIDATING → POLICY_CHECK → [AWAITING_APPROVAL] → EXECUTING → SUCCESS/ER
 - Wait for user approval if needed (with 60s timeout)
 - Execute tool and return result
 
-### 6. Perceptor (`perception/Perceptor.kt`)
+### 7. Perceptor (`perception/Perceptor.kt`)
 
 Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
 
@@ -279,7 +369,7 @@ Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
 }
 ```
 
-### 7. AndroidPlatform (`platform/AndroidPlatform.kt`)
+### 8. AndroidPlatform (`platform/AndroidPlatform.kt`)
 
 Abstraction for Android-specific operations.
 
@@ -294,51 +384,70 @@ Abstraction for Android-specific operations.
 
 ## Data Flow
 
-### Complete Request Flow
+### Complete Request Flow (with Streaming)
 
 ```
 User                 UI                AgentSession          Agent             LLM
   │                   │                     │                  │                │
-  │ "Open Settings"   │                     │                  │                │
+  │ "Check my email"  │                     │                  │                │
   │──────────────────►│                     │                  │                │
-  │                   │ Op.Start(goal)      │                  │                │
+  │                   │ Op.UserInput(text)  │                  │                │
   │                   │────────────────────►│                  │                │
+  │                   │                     │ TaskStarted      │                │
+  │                   │◄────────────────────│                  │                │
   │                   │                     │ create & run()   │                │
   │                   │                     │─────────────────►│                │
   │                   │                     │                  │                │
   │                   │                     │                  │ captureScreen()│
   │                   │                     │                  │◄───────────────│
   │                   │                     │                  │                │
-  │                   │                     │                  │ Turn.run()     │
+  │                   │                     │                  │ runStreaming() │
   │                   │                     │                  │───────────────►│
   │                   │                     │                  │                │
-  │                   │                     │                  │ TurnResult     │
+  │                   │                     │                  │ TextDelta      │
+  │                   │◄────── MessageDelta ◄─────────────────│◄───────────────│
+  │ "I'll open..."    │                     │                  │ TextDelta      │
+  │◄──────────────────│◄────── MessageDelta ◄─────────────────│◄───────────────│
+  │                   │                     │                  │                │
+  │                   │                     │                  │ Complete       │
   │                   │                     │                  │◄───────────────│
   │                   │                     │                  │                │
   │                   │                     │                  │ ToolRouter.execute()
-  │                   │                     │                  │ (action + observe)
-  │                   │                     │                  │                │
-  │                   │ AgentEvent.ActionExecuted              │                │
+  │                   │ AgentEvent.ActionExecuted              │ (action + observe)
   │                   │◄────────────────────│◄─────────────────│                │
   │                   │                     │                  │                │
   │                   │   ... loop ...      │                  │                │
   │                   │                     │                  │                │
-  │                   │ AgentEvent.SessionCompleted            │                │
+  │                   │ AgentEvent.TaskCompleted               │                │
   │                   │◄────────────────────│◄─────────────────│                │
-  │ "Goal achieved!"  │                     │                  │                │
+  │                   │                     │ State → Idle     │                │
+  │ Ready for input   │                     │                  │                │
   │◄──────────────────│                     │                  │                │
 ```
 
-### Event Flow
+### Streaming Event Flow
 
 ```
-Agent                    AgentSession              UI
-  │                           │                     │
-  │ emitStatus("🧠 Thinking") │                     │
-  │──────────────────────────►│                     │
-  │                           │ AgentEvent.StatusUpdate
-  │                           │────────────────────►│
-  │                           │                     │ Update UI
+Turn.runStreaming()          Agent                AgentSession           UI
+       │                       │                       │                  │
+       │ TurnStreamEvent.TextDelta("I'll")             │                  │
+       │─────────────────────►│                        │                  │
+       │                       │ MessageDelta(delta)   │                  │
+       │                       │──────────────────────►│                  │
+       │                       │                       │─────────────────►│
+       │                       │                       │                  │ Append text
+       │                       │                       │                  │
+       │ TurnStreamEvent.TextDelta(" open...")         │                  │
+       │─────────────────────►│                        │                  │
+       │                       │ MessageDelta(delta)   │                  │
+       │                       │──────────────────────►│                  │
+       │                       │                       │─────────────────►│
+       │                       │                       │                  │ Append text
+       │                       │                       │                  │
+       │ TurnStreamEvent.Complete(result)              │                  │
+       │─────────────────────►│                        │                  │
+       │                       │ Execute tools from result               │
+       │                       │────────────────────────────────────────►│
 ```
 
 ---
@@ -452,31 +561,53 @@ The observation is propagated through `ToolCallResult.Success.observation` and u
 ```kotlin
 // In AgentService
 val session = AgentSession.create(config, accessibilityService, scope, apiKey)
+
+// Primary entry point (recommended)
+session.submit(Op.UserInput("Open Settings"))
+
+// Deprecated (still works, maps to UserInput)
 session.submit(Op.Start(goal = "Open Settings"))
 ```
 
 ### Submitting Operations
 
 ```kotlin
+// Start a task
+session.submit(Op.UserInput("Check my email"))
+
 // Lifecycle ops
-session.submit(Op.Start(goal = "Open Chrome"))
 session.submit(Op.Pause)
 session.submit(Op.Resume)
-session.submit(Op.Shutdown)
+session.submit(Op.Interrupt)  // Stops task, session stays in Idle
+session.submit(Op.Shutdown)   // Terminates session
 
 // User interaction
 session.submit(Op.Approve(actionId, ApprovalDecision.APPROVED))
 ```
 
-### Observing Events
+### Observing Events (with Streaming)
 
 ```kotlin
 session.events.collect { event ->
     when (event) {
+        // Task lifecycle
+        is AgentEvent.TaskStarted -> showThinkingUI()
+        is AgentEvent.TaskCompleted -> enableInputField()
+        
+        // Streaming text
+        is AgentEvent.MessageDelta -> appendText(event.delta)
+        
+        // Actions
+        is AgentEvent.ActionExecuted -> showActionResult(event)
+        
+        // Status
         is AgentEvent.StatusUpdate -> updateUI(event.status)
-        is AgentEvent.SessionCompleted -> handleComplete(event.reason)
+        
+        // Approval
         is AgentEvent.ApprovalRequired -> showApprovalDialog(event.details)
-        // ...
+        
+        // Session end
+        is AgentEvent.SessionCompleted -> handleComplete(event.reason)
     }
 }
 ```

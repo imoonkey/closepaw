@@ -47,6 +47,8 @@ The Android Agent uses Jetpack Compose with Material 3 for a modern, elegant use
 └────────────────────────────────────────────────────────────────┘
 ```
 
+> **Note**: A streaming chat interface is planned for Phase 5. See [Streaming Chat UI](#streaming-chat-ui-planned) section below.
+
 ---
 
 ## Tech Stack
@@ -376,6 +378,97 @@ companion object {
     const val EXTRA_API_KEY = "api_key"
     const val EXTRA_GOAL = "goal"
     const val EXTRA_AUTO_START = "auto_start"
+}
+```
+
+---
+
+---
+
+## Streaming Chat UI (Planned)
+
+> **Status**: Backend streaming infrastructure complete. UI integration pending.
+
+The agent now supports streaming responses via `MessageDelta` events. The UI layer needs to integrate with these events for a real-time chat experience.
+
+### Key Events for Chat UI
+
+```kotlin
+// Task started - show thinking indicator
+AgentEvent.TaskStarted(taskId, input)
+
+// Streaming text - append to current message bubble
+AgentEvent.MessageDelta(turnId, delta)
+
+// Tool executed - show inline action card
+AgentEvent.ActionExecuted(actionId, toolName, success, result)
+
+// Task complete - ready for next input
+AgentEvent.TaskCompleted(taskId, result)
+```
+
+### Planned Components
+
+| Component | Description |
+|-----------|-------------|
+| **ChatBubble** | Expandable message bubble that grows as text streams in |
+| **ThinkingIndicator** | Visual feedback while agent is "typing" |
+| **ActionCard** | Inline display of tool calls/actions |
+| **ChatInput** | Always-visible input box at bottom |
+
+### Implementation Notes
+
+1. **Streaming Text Display**:
+   - Subscribe to `MessageDelta` events
+   - Append `delta` to current message (don't rebuild entire string)
+   - Show typing cursor while receiving deltas
+
+2. **Multi-Round Input**:
+   - Input box always visible at bottom
+   - Disable while task is running (check `SessionState.Running`)
+   - Re-enable when `TaskCompleted` or session enters `Idle` state
+
+3. **Task Lifecycle UI**:
+   - `TaskStarted` → Show thinking indicator
+   - `MessageDelta` → Build streaming message
+   - `ActionExecuted` → Show inline action card
+   - `TaskCompleted` → Hide thinking indicator, enable input
+
+### Example Event Handling
+
+```kotlin
+@Composable
+fun ChatScreen(session: AgentSession) {
+    var currentMessage by remember { mutableStateOf("") }
+    var isThinking by remember { mutableStateOf(false) }
+    var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
+    
+    LaunchedEffect(session) {
+        session.events.collect { event ->
+            when (event) {
+                is AgentEvent.TaskStarted -> {
+                    isThinking = true
+                    currentMessage = ""
+                }
+                
+                is AgentEvent.MessageDelta -> {
+                    currentMessage += event.delta
+                }
+                
+                is AgentEvent.TaskCompleted -> {
+                    if (currentMessage.isNotEmpty()) {
+                        messages = messages + ChatMessage(currentMessage, isAgent = true)
+                    }
+                    currentMessage = ""
+                    isThinking = false
+                }
+                
+                else -> { /* handle other events */ }
+            }
+        }
+    }
+    
+    // ... render chat UI with messages, currentMessage, isThinking
 }
 ```
 
