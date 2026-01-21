@@ -8,11 +8,14 @@ import com.moonkey.androidagent.protocol.SessionId
  * Simplified from OrchestrationConfig - removes multi-agent specific fields.
  */
 data class AgentConfig(
-    /** The user's goal */
+    /** The user's goal (or task input) */
     val goal: String,
     
     /** Session ID for event emission */
     val sessionId: SessionId,
+    
+    /** Task ID for this execution (optional, defaults to session ID if not provided) */
+    val taskId: String = sessionId.value,
     
     /** Maximum number of turns before stopping */
     val maxTurns: Int = 50,
@@ -26,4 +29,3 @@ data class AgentConfig(
     /** System prompt template (null = use default) */
     val systemPrompt: String? = null
 )
-

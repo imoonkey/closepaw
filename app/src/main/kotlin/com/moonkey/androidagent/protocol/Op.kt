@@ -18,12 +18,13 @@ sealed interface Op {
     /**
      * Start the agent with a goal.
      * 
-     * Note: Session configuration is set at AgentSession.create() time,
-     * not here. This operation only provides the goal.
+     * @deprecated Use UserInput to start a task instead. Kept for backward compatibility.
+     * Maps to UserInput(goal).
      * 
      * Valid in: Created state
      * Transitions to: Running state
      */
+    @Deprecated("Use UserInput instead", ReplaceWith("UserInput(goal)"))
     data class Start(
         /** The user's goal/instruction for the agent */
         val goal: String
@@ -69,12 +70,12 @@ sealed interface Op {
     // ===== User Interaction =====
     
     /**
-     * User provides additional input during execution.
+     * User provides input to the agent.
      * 
-     * Can be used for clarification or guidance.
+     * - If session is idle, starts a new Task.
+     * - If session is running, provides input to the current Task (if supported).
      * 
-     * TODO: Planned for conversational mode - not yet implemented.
-     * Currently this operation is accepted but has no effect.
+     * This is the primary way to interact with the agent in Chat Mode.
      */
     data class UserInput(
         val text: String
@@ -128,4 +129,3 @@ enum class ApprovalMode {
     /** Smart mode: auto-approve low-risk, ask for high-risk */
     SMART
 }
-
