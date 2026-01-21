@@ -37,7 +37,7 @@ class ToolRouter(
     companion object {
         private const val TAG = "ToolRouter"
         
-        /** Timeout for user approval - if not responded within this time, action is denied */
+        /** Timeout for user approval - if not responded within this time, action is cancelled */
         private const val APPROVAL_TIMEOUT_MS = 60_000L  // 60 seconds
     }
     
