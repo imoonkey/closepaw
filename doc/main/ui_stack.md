@@ -1,73 +1,57 @@
-# Android Agent UI Stack Design
+# Android Agent UI Stack
 
-> **Created**: January 16, 2026
-> **Updated**: January 20, 2026
->
-> Modernizing the Android Agent UI with Jetpack Compose and Material 3.
+> This document describes the UI architecture, design system, and component structure.
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Current State](#current-state)
-3. [Recommended Stack](#recommended-stack)
-4. [Migration Plan](#migration-plan)
-5. [Design System](#design-system)
-6. [Component Architecture](#component-architecture)
+2. [Tech Stack](#tech-stack)
+3. [Design System](#design-system)
+4. [Component Architecture](#component-architecture)
+5. [File Structure](#file-structure)
+6. [Quick Reference](#quick-reference)
 
 ---
 
 ## Overview
 
-### Goals
+The Android Agent uses Jetpack Compose with Material 3 for a modern, elegant user interface.
 
-| Goal | Description |
-|------|-------------|
-| **Modern DX** | Declarative UI with Compose - less boilerplate, easier to iterate |
-| **Beautiful UI** | Material 3 with dynamic colors and polished animations |
-| **Minimal Effort** | Leverage M3 defaults + pre-built components |
-| **Future-Proof** | Compose is Google's recommended UI toolkit for Android |
+| Goal | Implementation |
+|------|----------------|
+| **Modern DX** | Declarative UI with Compose |
+| **Beautiful UI** | Material 3 with Notion-inspired aesthetic |
+| **Edge-to-Edge** | Full screen utilization with proper insets |
+| **Reactive** | State-driven UI with automatic recomposition |
 
-### Why Jetpack Compose + Material 3?
+### Key Components
 
-1. **Declarative** - Describe what UI should look like, not how to build it
-2. **Less Code** - ~40% less code compared to XML + View binding
-3. **Type-Safe** - Kotlin-first, compile-time checks
-4. **Dynamic Theming** - Material You adapts to device wallpaper colors
-5. **Animation Built-In** - First-class animation APIs
-6. **Interop** - Can coexist with existing Views during migration
-
----
-
-## Current State
-
-### Existing UI Components
-
-| Component | Implementation | Lines of Code |
-|-----------|---------------|---------------|
-| MainActivity | XML Layout + findViewById | ~160 lines |
-| OverlayManager | Programmatic Views | ~120 lines |
-| Theme | Basic AppCompat | Minimal |
-
-### Current Dependencies
-
-```kotlin
-implementation("androidx.appcompat:appcompat:1.6.1")
-implementation("com.google.android.material:material:1.11.0")
-implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+```
+┌────────────────────────────────────────────────────────────────┐
+│                        MainActivity                             │
+│  (Compose entry point, state management, event collection)      │
+├────────────────────────────────────────────────────────────────┤
+│                        AgentScreen                              │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ Header        │ Title + subtitle                        │   │
+│  ├───────────────┼─────────────────────────────────────────┤   │
+│  │ ConfigSection │ API Key input, Goal input               │   │
+│  ├───────────────┼─────────────────────────────────────────┤   │
+│  │ ActionButtons │ Start Agent, Accessibility Settings     │   │
+│  ├───────────────┼─────────────────────────────────────────┤   │
+│  │ StatusLog     │ Activity feed with color-coded entries  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+├────────────────────────────────────────────────────────────────┤
+│                     OverlayManager                              │
+│  (View-based floating control bar during agent execution)       │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-### Pain Points
-
-- **Verbose**: `findViewById`, manual state management
-- **Limited Styling**: Basic Material Design 2 components
-- **No Animation**: Static, utilitarian UI
-- **Hard to Iterate**: XML changes require rebuild to preview
-
 ---
 
-## Recommended Stack
+## Tech Stack
 
-### Core Dependencies
+### Dependencies
 
 ```kotlin
 // Compose BOM (Bill of Materials) - manages version compatibility
@@ -92,69 +76,14 @@ debugImplementation("androidx.compose.ui:ui-tooling")
 debugImplementation("androidx.compose.ui:ui-test-manifest")
 ```
 
-> **Note**: Lifecycle/ViewModel Compose dependencies were intentionally omitted as the current
-> implementation uses simple `mutableStateOf` in the Activity. Add them when migrating to
-> ViewModel-based architecture.
-
 ### Why This Stack?
 
-| Library | Purpose | Benefit |
-|---------|---------|---------|
-| **Compose BOM** | Version management | No version conflicts, single source of truth |
-| **Material 3** | Design system | Dynamic colors, modern components, accessibility |
-| **Activity Compose** | Integration | `setContent {}` entry point |
-| **Material Icons** | Icon library | Comprehensive icon set for UI elements |
-
-### Version Strategy
-
-Using **Compose BOM 2024.12.01** ensures:
-- Kotlin 2.0+ compatibility
-- Latest M3 components
-- Stable production-ready APIs
-
----
-
-## Migration Plan
-
-### Phase 1: Setup (This PR)
-
-1. Add Compose dependencies to `build.gradle.kts`
-2. Enable Compose compiler in build config
-3. Create base theme (`AgentTheme.kt`)
-4. Migrate `MainActivity` to Compose
-
-### Phase 2: Polish (Future)
-
-1. Add animations and transitions
-2. Implement agent execution progress visualization
-3. Consider Compose-based overlay (or keep View-based for simplicity)
-
-### Migration Strategy
-
-**Side-by-Side Approach**: Compose can render inside existing Activities using `setContent {}`. No need to migrate everything at once.
-
-```kotlin
-// Before: XML-based
-class MainActivity : AppCompatActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        // findViewById...
-    }
-}
-
-// After: Compose-based
-class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContent {
-            AgentTheme {
-                AgentScreen()
-            }
-        }
-    }
-}
-```
+| Library | Purpose |
+|---------|---------|
+| **Compose BOM** | Version management, no conflicts |
+| **Material 3** | Modern design system, accessibility built-in |
+| **Activity Compose** | `setContent {}` entry point |
+| **Material Icons** | Comprehensive icon set |
 
 ---
 
@@ -172,47 +101,67 @@ val SurfaceVariant = Color(0xFFF7F6F3)
 
 // Primary - Soft charcoal (professional, calm)
 val Primary = Color(0xFF2F3437)
-
-// Accent - Warm coral for CTAs
-val Accent = Color(0xFFEB5757)
+val OnPrimary = Color(0xFFFFFFFF)
 
 // Secondary - Soft teal for secondary actions
 val Secondary = Color(0xFF0F7B6C)
+val SecondaryLight = Color(0xFFE6F4F1)
+
+// Accent - Warm coral for emphasis
+val Accent = Color(0xFFEB5757)
 
 // Text hierarchy
 val TextPrimary = Color(0xFF37352F)
 val TextSecondary = Color(0xFF6B6B6B)
 val TextMuted = Color(0xFF9B9A97)
+val TextPlaceholder = Color(0xFFB4B4B4)
+
+// Borders
+val Border = Color(0xFFE9E9E7)
+val BorderFocused = Color(0xFF2F3437)
+
+// Status colors
+val StatusSuccess = Color(0xFF0F7B6C)
+val StatusWarning = Color(0xFFF2994A)
+val StatusError = Color(0xFFEB5757)
+val StatusInfo = Color(0xFF2F80ED)
 ```
 
 ### Typography
 
-Material 3 default typography with custom display font:
+Material 3 typography scale with custom weights:
 
 ```kotlin
 val AgentTypography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 57.sp
+    headlineLarge = TextStyle(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp
     ),
-    // ... M3 provides sensible defaults for all other styles
+    bodyMedium = TextStyle(
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        lineHeight = 20.sp
+    ),
+    labelMedium = TextStyle(
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        lineHeight = 16.sp
+    ),
+    // ... full scale in Type.kt
 )
 ```
 
 ### Theme Structure
 
 ```
-AgentTheme/
+ui/theme/
 ├── Color.kt       # Color definitions (semantic tokens)
-├── Theme.kt       # Main theme composable + system bar config
+├── Theme.kt       # AgentTheme composable + system bar config
 └── Type.kt        # Typography definitions (M3 scale)
 ```
 
-**System Bar Handling**: `MainActivity` calls `enableEdgeToEdge()` for modern edge-to-edge display
-(API 35+ handles transparent system bars by default). The project's `minSdk` is 26; on API levels
-26–34 the theme configures status/navigation bar colors using the (deprecated but still functional)
-`Window` APIs to approximate the same look.
+**System Bar Handling**: `MainActivity` calls `enableEdgeToEdge()` for modern edge-to-edge display. On API levels 26-34, the theme configures status/navigation bar colors via `Window` APIs. On API 35+, bars are transparent by default.
 
 ### Visual Identity
 
@@ -220,44 +169,28 @@ AgentTheme/
 |---------|-------|
 | Background | Warm off-white (#FBFBFA) |
 | Cards | Clean white surfaces with subtle borders |
-| Inputs | Outlined text fields with rounded corners |
+| Inputs | Outlined text fields with rounded corners (10dp) |
 | Buttons | Solid charcoal primary, outlined secondary |
-| Status Log | Clean list with color-coded status indicators |
-| Overlay | Bottom-positioned floating card with controls |
+| Status Log | Color-coded entries with status icons |
+| Overlay | Bottom-positioned floating card |
 
 ---
 
 ## Component Architecture
 
-### Screen Structure
+### AgentScreen
 
-```
-AgentScreen
-├── TopBar (App title, settings)
-├── ConfigSection
-│   ├── ApiKeyField (outlined, password)
-│   └── GoalField (outlined, multiline)
-├── ActionButtons
-│   ├── StartButton (filled, prominent)
-│   └── AccessibilityButton (tonal, secondary)
-└── StatusSection
-    ├── StatusHeader
-    └── StatusLog (scrollable, monospace)
-```
-
-### State Management
+The main screen composable with state hoisting pattern.
 
 ```kotlin
-// UI State
 data class AgentUiState(
     val apiKey: String = "",
     val goal: String = "",
-    val status: List<String> = emptyList(),
+    val statusLines: List<String> = emptyList(),
     val isServiceEnabled: Boolean = false,
     val isRunning: Boolean = false
 )
 
-// In Compose
 @Composable
 fun AgentScreen(
     state: AgentUiState,
@@ -268,86 +201,136 @@ fun AgentScreen(
 )
 ```
 
-**Status Flow**: `AgentService` exposes a `StateFlow<String>` for status updates. `MainActivity` collects this flow using lifecycle-aware collection (`repeatOnLifecycle`) to prevent memory leaks and ensure updates only arrive when the activity is visible.
+### Screen Sections
 
-### Component Guidelines
+| Section | Components | Purpose |
+|---------|------------|---------|
+| Header | Title, subtitle | App branding |
+| ConfigSection | API key field, goal field | User inputs |
+| ActionButtons | Start button, accessibility button | Actions |
+| StatusLog | Scrollable activity feed | Execution feedback |
 
-1. **Single Responsibility**: Each composable does one thing
-2. **State Hoisting**: UI state lifted to screen level
-3. **Preview Support**: All components should have `@Preview`
-4. **Accessibility**: Use semantic modifiers (`contentDescription`, etc.)
+### StatusLog
 
-### Shared Utilities
-
-The `StatusUtils` object provides centralized status message processing:
+Displays agent activity with semantic color coding:
 
 ```kotlin
-// StatusUtils.kt - Shared across Compose UI and View-based Overlay
+@Composable
+private fun StatusLine(text: String, isLatest: Boolean) {
+    val (bgColor, textColor, icon) = when (StatusUtils.getStatusType(text)) {
+        StatusType.SUCCESS -> Triple(StatusSuccessBg, StatusSuccess, "✓")
+        StatusType.ERROR -> Triple(StatusErrorBg, StatusError, "✗")
+        StatusType.WARNING -> Triple(StatusWarningBg, StatusWarning, "!")
+        StatusType.THINKING -> Triple(StatusInfoBg, StatusInfo, "◉")
+        StatusType.TOOL -> Triple(Color.Transparent, TextSecondary, "→")
+        StatusType.RUNNING -> Triple(StatusInfoBg, StatusInfo, "▶")
+        StatusType.NEUTRAL -> Triple(Color.Transparent, TextSecondary, "·")
+    }
+    // ... render with icon and clean text
+}
+```
+
+### OverlayManager
+
+View-based floating control bar for agent execution. Uses Views instead of Compose because:
+- Window overlays require `WindowManager.addView()`
+- Simpler lifecycle management for system-level UI
+- Matches the theme colors programmatically
+
+**Features:**
+- Status text with truncation
+- Status indicator dot (color-coded)
+- Pause/Resume toggle
+- Stop button
+
+### StatusUtils
+
+Shared utilities for consistent status processing across all UI components:
+
+```kotlin
 object StatusUtils {
-    // Remove emojis for clean display (includes ⏸️▶️⏹ and other status emojis)
+    // Remove emojis for clean display
     fun cleanStatusText(status: String): String
     
     // Categorize status messages semantically
-    fun getStatusType(status: String): StatusType  // SUCCESS, ERROR, WARNING, etc.
+    fun getStatusType(status: String): StatusType
     
     // Detect terminal states (session completed/failed)
     fun isTerminalStatus(status: String): Boolean
 }
 ```
 
-This eliminates duplication between:
-- `AgentScreen.kt` (Compose UI status display)
-- `OverlayManager.kt` (View-based floating overlay)
-- `MainActivity.kt` (completion detection)
+Used by:
+- `AgentScreen.kt` - Status log display
+- `OverlayManager.kt` - Floating overlay
+- `MainActivity.kt` - Completion detection
 
 ---
 
-## File Structure (After Migration)
+## File Structure
 
 ```
 app/src/main/kotlin/com/moonkey/androidagent/
-├── MainActivity.kt              # Compose entry point
-├── AgentService.kt              # (unchanged)
+├── MainActivity.kt              # Compose entry point, state management
+│
 ├── ui/
 │   ├── theme/
 │   │   ├── Color.kt             # Notion-inspired color palette
-│   │   ├── Theme.kt             # AgentTheme composable with system bar config
-│   │   └── Type.kt              # Material 3 typography definitions
+│   │   ├── Theme.kt             # AgentTheme composable
+│   │   └── Type.kt              # Material 3 typography
 │   └── screen/
-│       └── AgentScreen.kt       # Main screen composable (all components inline)
+│       └── AgentScreen.kt       # Main screen (all sections inline)
+│
 ├── util/
-│   └── StatusUtils.kt           # Shared status processing utilities
+│   └── StatusUtils.kt           # Shared status processing
+│
 ├── service/
-│   └── OverlayManager.kt        # Floating control bar (View-based for overlay)
-├── agent/                       # (unchanged)
-├── data/                        # (unchanged)
-...
+│   └── OverlayManager.kt        # View-based floating control bar
+│
+└── ... (agent, data, etc.)
 ```
-
-> **Note**: Components are currently inlined in `AgentScreen.kt` for simplicity.
-> Extract to `ui/component/` when the UI grows more complex.
 
 ---
 
 ## Quick Reference
 
-### Starting with Compose
+### MainActivity Setup
 
 ```kotlin
 class MainActivity : ComponentActivity() {
+    // UI State (simple mutableStateOf, no ViewModel)
+    private var apiKey by mutableStateOf("")
+    private var goal by mutableStateOf("")
+    private var statusLines by mutableStateOf(listOf<String>())
+    private var isServiceEnabled by mutableStateOf(false)
+    private var isRunning by mutableStateOf(false)
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        enableEdgeToEdge() // Modern edge-to-edge display
+        enableEdgeToEdge()
+        
+        // Collect status updates lifecycle-aware
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                AgentService.statusFlow.collect { status ->
+                    statusLines = (statusLines + status).takeLast(MAX_STATUS_LINES)
+                    if (StatusUtils.isTerminalStatus(status)) {
+                        isRunning = false
+                    }
+                }
+            }
+        }
         
         setContent {
             AgentTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    AgentScreen()
-                }
+                AgentScreen(
+                    state = AgentUiState(apiKey, goal, statusLines, isServiceEnabled, isRunning),
+                    onApiKeyChange = { apiKey = it },
+                    onGoalChange = { goal = it },
+                    onStartClick = { startAgent() },
+                    onAccessibilityClick = { openAccessibilitySettings() }
+                )
             }
         }
     }
@@ -360,11 +343,40 @@ class MainActivity : ComponentActivity() {
 |-----------|-------|
 | `OutlinedTextField` | API key and goal inputs |
 | `Button` | Primary action (Start Agent) |
-| `FilledTonalButton` | Secondary action (Accessibility) |
-| `Card` | Status log container |
+| `OutlinedButton` | Secondary action (Accessibility) |
+| `Box`, `Column`, `Row` | Layout containers |
 | `Surface` | Background containers |
 | `Text` | All text content |
 | `Icon` | Visual indicators |
+| `CircularProgressIndicator` | Loading state |
+| `AnimatedVisibility` | Entry animations |
+
+### Status Flow
+
+```
+AgentService.statusFlow
+        │
+        ▼
+MainActivity (lifecycle-aware collection)
+        │
+        ├──► statusLines state update
+        │
+        └──► AgentScreen recomposition
+                    │
+                    └──► StatusLog display
+```
+
+### Intent Extras
+
+MainActivity supports launching with pre-filled values:
+
+```kotlin
+companion object {
+    const val EXTRA_API_KEY = "api_key"
+    const val EXTRA_GOAL = "goal"
+    const val EXTRA_AUTO_START = "auto_start"
+}
+```
 
 ---
 
@@ -373,5 +385,3 @@ class MainActivity : ComponentActivity() {
 - [Jetpack Compose Documentation](https://developer.android.com/jetpack/compose)
 - [Material 3 for Compose](https://developer.android.com/jetpack/compose/designsystems/material3)
 - [Compose BOM](https://developer.android.com/jetpack/compose/bom)
-- [Migration Guide](https://developer.android.com/jetpack/compose/migrate)
-

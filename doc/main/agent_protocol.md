@@ -1,12 +1,10 @@
 # Android Agent Protocol Reference
 
-> **Last Updated**: January 19, 2026 (V2 Architecture)
->
 > This document describes the Op/Event communication protocol between the UI layer and the agent.
 
 ## Overview
 
-The Android Agent uses a unidirectional data flow pattern inspired by Codex:
+The Android Agent uses a unidirectional data flow pattern:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -17,13 +15,11 @@ The Android Agent uses a unidirectional data flow pattern inspired by Codex:
 │   │            │ ◄─────────────────   │              │          │
 │   └────────────┘      AgentEvent      └──────────────┘          │
 │                                                                  │
-│         Submission Queue (SQ)              Event Queue (EQ)      │
-│                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-- **Operations (Op)**: User intents sent TO the agent
-- **Events (AgentEvent)**: State changes emitted FROM the agent
+- **Operations (Op)**: User intents sent TO the agent via `session.submit(op)`
+- **Events (AgentEvent)**: State changes emitted FROM the agent via `session.events` Flow
 
 ---
 
@@ -33,66 +29,56 @@ The Android Agent uses a unidirectional data flow pattern inspired by Codex:
 
 Operations are immutable, thread-safe commands submitted to the session.
 
-### Lifecycle Operations
+### State Transitions
 
-```mermaid
-stateDiagram-v2
-    [*] --> Created
-    Created --> Running: Op.Start
-    Running --> Paused: Op.Pause
-    Paused --> Running: Op.Resume
-    Running --> Running: Op.Interrupt
-    Running --> Completed: (Goal Achieved)
-    Running --> Shutdown: Op.Shutdown
-    Paused --> Shutdown: Op.Shutdown
-    Created --> Shutdown: Op.Shutdown
-    Completed --> [*]
-    Shutdown --> [*]
+```
+                              ┌─────────┐
+                              │ Created │
+                              └────┬────┘
+                                   │ Op.Start
+                                   ▼
+                    ┌─────────────────────────────┐
+            ┌──────►│           Running           │◄──────┐
+            │       └──────┬───────────────┬──────┘       │
+            │              │               │              │
+            │     Op.Pause │               │ Complete     │
+            │              ▼               │              │
+            │       ┌──────────┐           │              │
+   Op.Resume│       │  Paused  │           │              │
+            │       └──────────┘           │              │
+            │                              │              │
+            │                              ▼              │
+            │                       ┌───────────┐        │
+            │                       │ Completed │        │
+            │                       └───────────┘        │
+            │                                            │
+            │           Op.Shutdown (from any state)     │
+            │                       │                    │
+            │                       ▼                    │
+            │                ┌───────────┐               │
+            └────────────────│  Shutdown │───────────────┘
+                             └───────────┘
 ```
 
 ### Operation Types
 
-| Operation | Valid States | Effect | Transitions To |
-|-----------|--------------|--------|----------------|
-| `Op.Start(goal)` | Created | Start agent execution | Running |
-| `Op.Pause` | Running | Cooperative pause after current action | Paused |
-| `Op.Resume` | Paused | Resume execution | Running |
-| `Op.Interrupt` | Running | Cooperative stop after current action | Running |
-| `Op.Shutdown` | Any | Graceful shutdown | Shutdown |
-| `Op.UserInput(text)` | Running | *(Planned)* Provide additional context | Running |
-| `Op.Approve(actionId, decision)` | Running | Respond to approval request | Running |
-
-> **Note on Interrupt**: `Op.Interrupt` is cooperative - the agent will complete its current action before stopping. True cancellation of in-flight LLM calls is not supported. For immediate termination, use `Op.Shutdown`.
-
-> **Note on Session Config**: Session configuration (model, approval mode, delays, etc.) is set at `AgentSession.create()` time, not in `Op.Start`. The goal is the only parameter passed to `Op.Start`.
+| Operation | Valid States | Effect |
+|-----------|--------------|--------|
+| `Op.Start(goal)` | Created | Start agent execution |
+| `Op.Pause` | Running | Cooperative pause after current action |
+| `Op.Resume` | Paused | Resume execution |
+| `Op.Interrupt` | Running | Cooperative stop after current action |
+| `Op.Shutdown` | Any | Graceful shutdown |
+| `Op.UserInput(text)` | Running | *(Planned)* Provide additional context |
+| `Op.Approve(actionId, decision)` | Running | Respond to approval request |
 
 ### Op.Start
 
-Starts the agent with a goal.
+Starts the agent with a goal. Session configuration is set at `AgentSession.create()` time.
 
 ```kotlin
-data class Start(
-    val goal: String
-) : Op
+data class Start(val goal: String) : Op
 ```
-
-**SessionConfig** (set at session creation via `AgentSession.create()`):
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `maxTurns` | Int | 50 | Max iterations before auto-stop |
-| `actionDelayMs` | Long | 2000 | Delay after actions for UI settle |
-| `approvalMode` | ApprovalMode | SMART | Tool approval behavior |
-| `model` | String | "gpt-4o" | LLM model to use |
-| `debugMode` | Boolean | false | Verbose logging |
-
-**ApprovalMode Values:**
-
-| Mode | Behavior |
-|------|----------|
-| `ALWAYS_ASK` | Prompt user before every tool |
-| `AUTO_APPROVE` | Never ask, auto-approve all |
-| `SMART` | Auto-approve low-risk, ask for high-risk |
 
 ### Op.Approve
 
@@ -105,8 +91,6 @@ data class Approve(
 ) : Op
 ```
 
-> **Note**: `Op.UserInput` is **planned for conversational mode** but not yet implemented. The operation is accepted and logged, but has no effect on the agent. This will enable users to provide guidance or clarification during execution in a future release.
-
 **ApprovalDecision Values:**
 
 | Decision | Effect |
@@ -115,13 +99,25 @@ data class Approve(
 | `DENIED` | Skip this tool, continue session |
 | `ABORT` | Stop the entire session |
 
+### Notes
+
+- **Interrupt vs Shutdown**: `Op.Interrupt` is cooperative—the agent completes its current action before stopping. For immediate termination, use `Op.Shutdown`.
+- **UserInput**: Currently accepted but not implemented. Planned for conversational mode.
+
 ---
 
 ## Events (AgentEvent)
 
 **Source:** `protocol/AgentEvent.kt`
 
-Events are immutable notifications emitted by the agent to the UI layer.
+Events are immutable notifications emitted by the agent to the UI layer. All events include:
+
+```kotlin
+interface AgentEvent {
+    val sessionId: SessionId
+    val timestamp: Long
+}
+```
 
 ### Event Categories
 
@@ -139,9 +135,6 @@ AgentEvent
 │   ├── TurnCompleted
 │   └── TurnPhaseChanged
 │
-├── Agent Thinking
-│   └── AgentThinking
-│
 ├── Action Events
 │   ├── ActionProposed
 │   ├── ActionExecuted
@@ -156,17 +149,6 @@ AgentEvent
 │
 └── Status Events
     └── StatusUpdate
-```
-
-### Common Fields
-
-All events include:
-
-```kotlin
-interface AgentEvent {
-    val sessionId: SessionId
-    val timestamp: Long
-}
 ```
 
 ### Session Lifecycle Events
@@ -200,7 +182,7 @@ data class SessionCompleted(
 
 | Reason | Description |
 |--------|-------------|
-| `GOAL_ACHIEVED` | Agent completed the goal (via `complete_task` tool or text-only response) |
+| `GOAL_ACHIEVED` | Agent completed the goal |
 | `USER_STOPPED` | User requested shutdown |
 | `MAX_TURNS` | Turn limit reached |
 | `TASK_IMPOSSIBLE` | Agent determined task cannot be done |
@@ -240,25 +222,24 @@ data class TurnStarted(
 | Phase | Description |
 |-------|-------------|
 | `PERCEPTION` | Capturing/analyzing screen |
-| `REFLECTION` | *(Planned - not yet implemented)* Verifying previous action outcome |
+| `REFLECTION` | *(Planned)* Verifying previous action outcome |
 | `PLANNING` | Deciding what to do (LLM reasoning) |
 | `EXECUTION` | Executing an action (tool call) |
 
-### Action Events
+#### TurnPhaseChanged
 
-#### ActionProposed
-
-Emitted before an action is executed (for approval UI).
+Emitted when the turn phase changes.
 
 ```kotlin
-data class ActionProposed(
+data class TurnPhaseChanged(
     override val sessionId: SessionId,
     override val timestamp: Long,
-    val actionId: String,
-    val toolName: String,
-    val description: String
+    val turnId: String,
+    val phase: TurnPhase
 ) : AgentEvent
 ```
+
+### Action Events
 
 #### ActionExecuted
 
@@ -295,20 +276,13 @@ data class ApprovalRequired(
 
 ```kotlin
 data class ApprovalDetails(
+    val callId: String,        // Use this ID when submitting Op.Approve
     val toolName: String,
     val args: JSONObject,
     val description: String,
-    val riskLevel: RiskLevel
+    val riskLevel: RiskLevel   // LOW, MEDIUM, HIGH
 )
 ```
-
-**RiskLevel Values:**
-
-| Level | Typical Actions |
-|-------|-----------------|
-| `LOW` | Read-only, reversible actions |
-| `MEDIUM` | UI interactions |
-| `HIGH` | Destructive, external effects |
 
 #### ApprovalResolved
 
@@ -349,9 +323,75 @@ data class StatusUpdate(
 | ✓ | {tool} executed | Tool completed |
 | ✅ | Goal achieved! | Success |
 | ⏸️ | Paused | Session paused |
-| ⚠️ | Error/Warning | Non-fatal issue |
+| ⚠️ | Error (retrying)... | Recoverable error |
 | ❌ | Error: {message} | Fatal error |
-| 🛑 | Cancelled/Stopped | User stopped |
+| 🛑 | Cancelled | User stopped |
+
+---
+
+## Session State Machine
+
+**Source:** `protocol/SessionState.kt`
+
+### State Definitions
+
+| State | Description |
+|-------|-------------|
+| `Created` | Session initialized, not started |
+| `Running` | Agent actively executing |
+| `Paused` | Execution paused, can resume |
+| `Completed` | Agent finished (see `CompletionReason`) |
+| `Shutdown` | User requested stop via `Op.Shutdown` |
+
+Both `Completed` and `Shutdown` are terminal states. The difference:
+- `Completed`: Agent finished its work naturally
+- `Shutdown`: User explicitly stopped the session
+
+---
+
+## Session Configuration
+
+**Source:** `protocol/Op.kt`
+
+Configuration is set at session creation time via `SessionConfig`:
+
+```kotlin
+data class SessionConfig(
+    val maxTurns: Int = 50,              // Max iterations before auto-stop
+    val actionDelayMs: Long = 2000,      // Delay after actions for UI settle
+    val approvalMode: ApprovalMode = ApprovalMode.SMART,
+    val model: String = "gpt-4o",        // LLM model
+    val debugMode: Boolean = false       // Verbose logging
+)
+```
+
+**ApprovalMode Values:**
+
+| Mode | Behavior |
+|------|----------|
+| `ALWAYS_ASK` | Prompt user before every tool |
+| `AUTO_APPROVE` | Never ask, auto-approve all |
+| `SMART` | Auto-approve low-risk, ask for high-risk |
+
+---
+
+## Error Handling
+
+**Source:** `protocol/AgentError.kt`
+
+Errors are categorized for appropriate handling:
+
+| Error Type | Description | Recoverable |
+|------------|-------------|-------------|
+| `LLMError` | LLM API failure (rate limit, timeout) | Yes (with backoff) |
+| `LLMParseError` | Response parsing failed | Yes |
+| `PlatformError` | Android operation failed | No |
+| `PermissionError` | Missing permission | No |
+| `ValidationError` | Tool parameters invalid | Yes |
+| `UnknownToolError` | Tool doesn't exist | Yes |
+| `InvalidStateError` | Invalid operation for state | No |
+| `ApprovalDeniedError` | User denied action | Yes |
+| `PolicyDeniedError` | Policy forbids action | No |
 
 ---
 
@@ -360,7 +400,6 @@ data class StatusUpdate(
 ### Kotlin Flow Collection
 
 ```kotlin
-// In AgentService or Activity
 scope.launch {
     session.events.collect { event ->
         when (event) {
@@ -375,7 +414,7 @@ scope.launch {
             
             is AgentEvent.SessionCompleted -> {
                 when (event.reason) {
-                    CompletionReason.GOAL_ACHIEVED -> showSuccess()
+                    CompletionReason.GOAL_ACHIEVED -> showSuccess(event.result)
                     CompletionReason.USER_STOPPED -> showStopped()
                     CompletionReason.ERROR -> showError(event.result)
                     else -> showGenericComplete()
@@ -384,15 +423,18 @@ scope.launch {
             
             is AgentEvent.ApprovalRequired -> {
                 showApprovalDialog(
-                    actionId = event.actionId,
+                    actionId = event.details.callId,
                     description = event.description,
-                    onApprove = { session.submit(Op.Approve(event.actionId, APPROVED)) },
-                    onDeny = { session.submit(Op.Approve(event.actionId, DENIED)) }
+                    onApprove = { 
+                        session.submit(Op.Approve(event.details.callId, ApprovalDecision.APPROVED)) 
+                    },
+                    onDeny = { 
+                        session.submit(Op.Approve(event.details.callId, ApprovalDecision.DENIED)) 
+                    }
                 )
             }
             
-            // Handle other events...
-            else -> Log.d(TAG, "Unhandled: ${event::class.simpleName}")
+            else -> Log.d(TAG, "Event: ${event::class.simpleName}")
         }
     }
 }
@@ -406,76 +448,11 @@ session.events
     .filterIsInstance<AgentEvent.StatusUpdate>()
     .collect { updateStatusBar(it.status) }
 
-// Only completed/error
+// Only terminal events
 session.events
     .filter { it is AgentEvent.SessionCompleted || it is AgentEvent.SessionError }
     .collect { handleSessionEnd(it) }
 ```
-
----
-
-## Session State Machine
-
-**Source:** `protocol/SessionState.kt`
-
-```
-                              ┌─────────┐
-                              │ Created │
-                              └────┬────┘
-                                   │ Op.Start
-                                   ▼
-                    ┌─────────────────────────────┐
-            ┌──────►│           Running           │◄──────┐
-            │       └──────┬───────────────┬──────┘       │
-            │              │               │              │
-            │     Op.Pause │               │ Complete     │
-            │              ▼               │              │
-            │       ┌──────────┐           │              │
-   Op.Resume│       │  Paused  │           │              │
-            │       └──────────┘           │              │
-            │                              │              │
-            │                              ▼              │
-            │                       ┌───────────┐        │
-            │                       │ Completed │        │
-            │                       └───────────┘        │
-            │                                            │
-            │           Op.Shutdown (from any state)     │
-            │                       │                    │
-            │                       ▼                    │
-            │                ┌───────────┐               │
-            └────────────────│  Shutdown │───────────────┘
-                             └───────────┘
-```
-
-### State Definitions
-
-| State | Description |
-|-------|-------------|
-| `Created` | Session initialized, not started |
-| `Running` | Agent actively executing |
-| `Paused` | Execution paused, can resume |
-| `Completed` | Agent finished (see `CompletionReason` for details) |
-| `Shutdown` | User requested stop via `Op.Shutdown` |
-
-> **Note**: `Completed` and `Shutdown` are both terminal states. The difference is:
-> - `Completed`: Agent finished its work (goal achieved, max turns, error, etc.) - the reason is specified by `CompletionReason`
-> - `Shutdown`: User explicitly stopped the session via `Op.Shutdown`
-
----
-
-## Error Handling
-
-**Source:** `protocol/AgentError.kt`
-
-Errors are categorized for appropriate handling:
-
-| Error Type | Description | Recovery |
-|------------|-------------|----------|
-| `LLMError` | LLM API failure | Retry with backoff |
-| `ToolError` | Tool execution failed | Skip tool, continue |
-| `PlatformError` | Android operation failed | Report to user |
-| `InvalidStateError` | Invalid operation for current state | Ignore or report |
-| `TimeoutError` | Operation timed out | Retry or stop |
 
 ---
 
@@ -485,8 +462,9 @@ Errors are categorized for appropriate handling:
 
 1. **Always handle SessionCompleted** - Clean up resources
 2. **Show StatusUpdate immediately** - Provides real-time feedback
-3. **Handle ApprovalRequired with timeout** - Don't block forever
+3. **Handle ApprovalRequired with timeout** - Don't block forever (ToolRouter uses 60s timeout)
 4. **Ignore unknown events** - Forward compatibility
+5. **Use actionId/callId consistently** - Match approval requests to responses
 
 ### For Agent Developers
 
@@ -497,5 +475,4 @@ Errors are categorized for appropriate handling:
 
 ---
 
-*For the complete protocol implementation, see `protocol/` package in the source code.*
-
+*For architecture details, see [agent_infra.md](./agent_infra.md). For the complete implementation, see the `protocol/` package in the source code.*
