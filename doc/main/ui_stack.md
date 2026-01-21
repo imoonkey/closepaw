@@ -1,7 +1,7 @@
 # Android Agent UI Stack Design
 
 > **Created**: January 16, 2026
-> **Updated**: January 19, 2026
+> **Updated**: January 20, 2026
 >
 > Modernizing the Android Agent UI with Jetpack Compose and Material 3.
 
@@ -268,6 +268,8 @@ fun AgentScreen(
 )
 ```
 
+**Status Flow**: `AgentService` exposes a `StateFlow<String>` for status updates. `MainActivity` collects this flow using lifecycle-aware collection (`repeatOnLifecycle`) to prevent memory leaks and ensure updates only arrive when the activity is visible.
+
 ### Component Guidelines
 
 1. **Single Responsibility**: Each composable does one thing
@@ -282,7 +284,7 @@ The `StatusUtils` object provides centralized status message processing:
 ```kotlin
 // StatusUtils.kt - Shared across Compose UI and View-based Overlay
 object StatusUtils {
-    // Remove emojis for clean display
+    // Remove emojis for clean display (includes ⏸️▶️⏹ and other status emojis)
     fun cleanStatusText(status: String): String
     
     // Categorize status messages semantically
