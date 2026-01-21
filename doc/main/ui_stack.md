@@ -271,23 +271,24 @@ Used by:
 
 ```
 app/src/main/kotlin/com/moonkey/androidagent/
-├── MainActivity.kt              # Compose entry point, state management
+├── app/
+│   ├── MainActivity.kt              # Compose entry point, state management
+│   └── AgentService.kt              # Accessibility service
 │
 ├── ui/
 │   ├── theme/
 │   │   ├── Color.kt             # Notion-inspired color palette
 │   │   ├── Theme.kt             # AgentTheme composable
 │   │   └── Type.kt              # Material 3 typography
-│   └── screen/
-│       └── AgentScreen.kt       # Main screen (all sections inline)
+│   ├── screen/
+│   │   └── AgentScreen.kt       # Main screen (all sections inline)
+│   └── overlay/
+│       └── OverlayManager.kt    # View-based floating control bar
 │
 ├── util/
 │   └── StatusUtils.kt           # Shared status processing
 │
-├── service/
-│   └── OverlayManager.kt        # View-based floating control bar
-│
-└── ... (agent, data, etc.)
+└── ... (agent, tool, etc.)
 ```
 
 ---

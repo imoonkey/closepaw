@@ -1,22 +1,22 @@
 package com.moonkey.androidagent.session
 
 import android.util.Log
-import com.moonkey.androidagent.data.llm.LLMClient
-import com.moonkey.androidagent.infra.history.HistoryConfig
-import com.moonkey.androidagent.infra.history.HistoryManager
-import com.moonkey.androidagent.infra.policy.PolicyEngine
-import com.moonkey.androidagent.infra.registry.ToolRegistry
-import com.moonkey.androidagent.infra.tools.ToolRouter
+import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.history.HistoryConfig
+import com.moonkey.androidagent.history.HistoryManager
+import com.moonkey.androidagent.tool.PolicyEngine
+import com.moonkey.androidagent.tool.ToolRegistry
+import com.moonkey.androidagent.tool.ToolRouter
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.SessionConfig
-import com.moonkey.androidagent.tools.impl.BackTool
-import com.moonkey.androidagent.tools.impl.ClickTool
-import com.moonkey.androidagent.tools.impl.CompleteTaskTool
-import com.moonkey.androidagent.tools.impl.HomeTool  // Defined in BackTool.kt
-import com.moonkey.androidagent.tools.impl.ScrollTool
-import com.moonkey.androidagent.tools.impl.SwipeTool
-import com.moonkey.androidagent.tools.impl.TypeTool
-import com.moonkey.androidagent.tools.impl.WaitTool
+import com.moonkey.androidagent.tool.impl.BackTool
+import com.moonkey.androidagent.tool.impl.ClickTool
+import com.moonkey.androidagent.tool.impl.CompleteTaskTool
+import com.moonkey.androidagent.tool.impl.HomeTool  // Defined in NavigationTools.kt
+import com.moonkey.androidagent.tool.impl.ScrollTool
+import com.moonkey.androidagent.tool.impl.SwipeTool
+import com.moonkey.androidagent.tool.impl.TypeTool
+import com.moonkey.androidagent.tool.impl.WaitTool
 
 /**
  * SessionServices - Dependency Injection container for all session-scoped services.
@@ -210,7 +210,7 @@ object SessionServicesBuilder {
         config: SessionConfig,
         platform: AndroidPlatform,
         apiKey: String,
-        additionalTools: List<com.moonkey.androidagent.infra.tools.ToolSpec> = emptyList(),
+        additionalTools: List<com.moonkey.androidagent.tool.ToolSpec> = emptyList(),
         excludeTools: Set<String> = emptySet()
     ): SessionServices {
         val services = SessionServices.create(config, platform, apiKey)

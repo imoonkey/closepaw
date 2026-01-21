@@ -1,12 +1,12 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
-import com.moonkey.androidagent.data.perception.Perceptor
-import com.moonkey.androidagent.domain.models.ScreenSnapshot
-import com.moonkey.androidagent.infra.history.ResponseItem
-import com.moonkey.androidagent.infra.tools.SimpleToolRouterContext
-import com.moonkey.androidagent.infra.tools.ToolCallResult
-import com.moonkey.androidagent.infra.tools.ToolObservation
+import com.moonkey.androidagent.perception.Perceptor
+import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.history.ResponseItem
+import com.moonkey.androidagent.tool.SimpleToolRouterContext
+import com.moonkey.androidagent.tool.ToolCallResult
+import com.moonkey.androidagent.tool.ToolObservation
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.ApprovalDetails
 import com.moonkey.androidagent.protocol.TurnPhase

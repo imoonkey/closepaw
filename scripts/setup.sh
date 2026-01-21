@@ -81,7 +81,7 @@ ok "Overlay permission granted"
 
 # 6. Enable Accessibility service
 log "Enabling Accessibility service..."
-adb shell settings put secure enabled_accessibility_services "$PACKAGE/$PACKAGE.AgentService"
+adb shell settings put secure enabled_accessibility_services "$PACKAGE/$PACKAGE.app.AgentService"
 adb shell settings put secure accessibility_enabled 1
 sleep 1
 
@@ -96,7 +96,7 @@ fi
 
 # 7. Launch app
 log "Launching app..."
-adb shell am start -n "$PACKAGE/.MainActivity" >/dev/null
+adb shell am start -n "$PACKAGE/.app.MainActivity" >/dev/null
 ok "App launched"
 
 echo ""
