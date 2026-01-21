@@ -63,6 +63,28 @@ sealed interface AgentEvent {
         override val sessionId: SessionId,
         override val timestamp: Long
     ) : AgentEvent
+
+    // ===== Task Events (New) =====
+
+    /**
+     * A new task has started within the session.
+     */
+    data class TaskStarted(
+        override val sessionId: SessionId,
+        override val timestamp: Long,
+        val taskId: String,
+        val input: String
+    ) : AgentEvent
+
+    /**
+     * A task has completed.
+     */
+    data class TaskCompleted(
+        override val sessionId: SessionId,
+        override val timestamp: Long,
+        val taskId: String,
+        val result: String?
+    ) : AgentEvent
     
     // ===== Turn Events =====
     
@@ -95,6 +117,18 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val turnId: String,
         val phase: TurnPhase
+    ) : AgentEvent
+
+    // ===== Streaming Events (New) =====
+
+    /**
+     * A text delta from the streaming response.
+     */
+    data class MessageDelta(
+        override val sessionId: SessionId,
+        override val timestamp: Long,
+        val turnId: String,
+        val delta: String
     ) : AgentEvent
     
     // ===== Agent Thinking Events =====
@@ -238,4 +272,3 @@ enum class CompletionReason {
     /** Session was interrupted */
     INTERRUPTED
 }
-

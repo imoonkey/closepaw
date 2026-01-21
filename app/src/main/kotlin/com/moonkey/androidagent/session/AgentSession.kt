@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - Maintains session state via the state StateFlow
  * 
  * V2: Uses single ReAct Agent instead of multi-agent orchestration.
+ * Supports multi-round tasks via Op.UserInput.
  */
 class AgentSession private constructor(
     val sessionId: SessionId,
@@ -118,7 +119,7 @@ class AgentSession private constructor(
     private var agentJob: Job? = null
     private var cancellationSignal: CompletableDeferred<AgentStopReason>? = null
     
-    private var currentGoal: String = ""
+    private var currentTaskId: String? = null
     
     // Guard against emitting SessionCompleted twice (Issue 2: double completion)
     private val completionEmitted = AtomicBoolean(false)
@@ -162,43 +163,56 @@ class AgentSession private constructor(
     // ===== Operation Handlers =====
     
     private suspend fun handleStart(op: Op.Start) {
-        if (_state.value != SessionState.Created) {
-            emit(AgentEvent.SessionError(
-                sessionId = sessionId,
-                timestamp = now(),
-                error = AgentError.InvalidStateError(
-                    message = "Cannot start: session already started",
-                    currentState = _state.value.toString(),
-                    attemptedOperation = "Start"
-                )
-            ))
+        // Backward compatibility: Map Start to UserInput
+        handleUserInput(Op.UserInput(op.goal))
+    }
+    
+    private suspend fun handleUserInput(op: Op.UserInput) {
+        // If session is already running a task, reject for MVP
+        // Future: Queue the input or interrupt current task
+        if (_state.value == SessionState.Running || _state.value == SessionState.Paused) {
+            Log.w(TAG, "Rejecting UserInput: Session is busy")
+            emitStatus("⚠️ Agent is busy. Please wait.")
             return
         }
         
-        currentGoal = op.goal
+        // If this is the first interaction, emit SessionStarted
+        if (_state.value == SessionState.Created) {
+            emit(AgentEvent.SessionStarted(
+                sessionId = sessionId,
+                timestamp = now(),
+                goal = op.text // Treat first input as "goal" for compatibility
+            ))
+        }
+        
+        // Start new task
+        val taskId = "task-${System.currentTimeMillis()}"
+        currentTaskId = taskId
         _state.value = SessionState.Running
         
-        emit(AgentEvent.SessionStarted(
+        emit(AgentEvent.TaskStarted(
             sessionId = sessionId,
             timestamp = now(),
-            goal = op.goal
+            taskId = taskId,
+            input = op.text
         ))
         
-        startAgent(op.goal)
+        startAgent(op.text, taskId)
         
-        Log.i(TAG, "Session started: $sessionId, goal: ${op.goal}")
+        Log.i(TAG, "Task started: $taskId, input: ${op.text}")
     }
     
     /**
-     * Start the agent execution (V2).
+     * Start the agent execution for a specific task.
      */
-    private fun startAgent(goal: String) {
+    private fun startAgent(taskInput: String, taskId: String) {
         val signal = CompletableDeferred<AgentStopReason>()
         cancellationSignal = signal
         
         val agentConfig = AgentConfig(
-            goal = goal,
+            goal = taskInput,
             sessionId = sessionId,
+            taskId = taskId,
             maxTurns = config.maxTurns,
             uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode
@@ -226,47 +240,37 @@ class AgentSession private constructor(
             }
         }
         
-        Log.d(TAG, "Started agent")
+        Log.d(TAG, "Started agent for task $taskId")
     }
     
     /**
      * Handle agent completion (V2).
      */
     private suspend fun handleAgentComplete(reason: AgentStopReason) {
-        // Check state BEFORE setting the completion flag to avoid race condition:
-        // If handleShutdown() has already set state to Shutdown, we should NOT consume
-        // the completionEmitted flag - let handleShutdown() emit the completion instead.
-        // (PR feedback: P1 race condition fix)
+        // If we are shutting down, ignore task completion logic
         if (_state.value == SessionState.Shutdown) {
-            Log.d(TAG, "State is Shutdown, deferring completion to handleShutdown()")
             return
         }
         
-        // Guard: only emit completion once
-        if (!completionEmitted.compareAndSet(false, true)) {
-            Log.d(TAG, "Completion already emitted, skipping")
-            return
-        }
+        val taskId = currentTaskId ?: "unknown"
+        val resultMessage = if (reason is AgentStopReason.Error) reason.message else null
         
-        val completionReason = when (reason) {
-            AgentStopReason.GoalAchieved -> CompletionReason.GOAL_ACHIEVED
-            AgentStopReason.UserRequested -> CompletionReason.USER_STOPPED
-            AgentStopReason.MaxTurnsReached -> CompletionReason.MAX_TURNS
-            is AgentStopReason.Error -> CompletionReason.ERROR
-        }
-        
-        _state.value = SessionState.Completed
-        
-        emit(AgentEvent.SessionCompleted(
+        // Emit TaskCompleted
+        emit(AgentEvent.TaskCompleted(
             sessionId = sessionId,
             timestamp = now(),
-            result = if (reason is AgentStopReason.Error) reason.message else null,
-            reason = completionReason
+            taskId = taskId,
+            result = resultMessage
         ))
         
-        // Close channel after completion (M2: event flow should complete)
-        // Delay to allow collectors to receive the final event (Issue 1)
-        closeChannelWithDelay()
+        // Transition to Idle (ready for next task)
+        _state.value = SessionState.Idle
+        currentTaskId = null
+        agent = null
+        agentJob = null
+        cancellationSignal = null
+        
+        Log.i(TAG, "Task $taskId completed. Session Idle.")
     }
     
     private suspend fun handlePause() {
@@ -312,9 +316,9 @@ class AgentSession private constructor(
         }
         
         // Interrupt is cooperative - signals agent to stop after current action.
-        // No immediate state change here; agent will complete via handleAgentComplete().
+        // This will eventually trigger handleAgentComplete via AgentStopReason.UserRequested
         agent?.stop()
-        Log.i(TAG, "Interrupt requested (cooperative - will complete after current action)")
+        Log.i(TAG, "Interrupt requested")
     }
     
     private suspend fun handleShutdown() {
@@ -334,7 +338,7 @@ class AgentSession private constructor(
         // Cleanup SessionServices
         services.cleanup()
         
-        // Only emit completion if not already emitted (Issue 2: double completion)
+        // Only emit completion if not already emitted
         if (completionEmitted.compareAndSet(false, true)) {
             emit(AgentEvent.SessionCompleted(
                 sessionId = sessionId,
@@ -348,21 +352,14 @@ class AgentSession private constructor(
             ))
         }
         
-        // Close channel with delay to allow collectors to receive final event (Issue 1)
+        // Close channel with delay
         closeChannelWithDelay()
-    }
-    
-    private suspend fun handleUserInput(op: Op.UserInput) {
-        // TODO: Planned for conversational mode - not yet implemented.
-        // When implemented, this should add the user input to history and trigger a new turn.
-        Log.i(TAG, "UserInput received but conversational mode not yet implemented: ${op.text}")
-        emitStatus("Conversational mode not yet available")
     }
     
     private suspend fun handleApproval(op: Op.Approve) {
         services.toolRouter.resolveApproval(op.actionId, op.decision)
         
-        // Emit ApprovalResolved event (M4: missing event)
+        // Emit ApprovalResolved event
         emit(AgentEvent.ApprovalResolved(
             sessionId = sessionId,
             timestamp = now(),
@@ -386,15 +383,10 @@ class AgentSession private constructor(
     
     /**
      * Close the event channel with a small delay to allow collectors to 
-     * receive the final event (Issue 1: channel closed before final event delivery).
-     * 
-     * Uses a guard flag to ensure only one close operation is scheduled,
-     * even if called from both handleAgentComplete() and handleShutdown().
+     * receive the final event.
      */
     private fun closeChannelWithDelay() {
-        // Guard: only schedule close once (PR feedback: prevent multiple delayed closes)
         if (!channelCloseScheduled.compareAndSet(false, true)) {
-            Log.d(TAG, "Channel close already scheduled, skipping")
             return
         }
         

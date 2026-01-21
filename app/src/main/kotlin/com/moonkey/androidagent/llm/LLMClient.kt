@@ -3,12 +3,18 @@ package com.moonkey.androidagent.llm
 import android.util.Log
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
+import com.openai.helpers.ResponseAccumulator
 import com.openai.models.ChatModel
+import com.openai.models.responses.Response
 import com.openai.models.responses.ResponseCreateParams
 import com.openai.models.responses.ResponseInputItem
+import com.openai.models.responses.ResponseStreamEvent
 import com.openai.models.responses.FunctionTool
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -20,6 +26,7 @@ import kotlinx.coroutines.withContext
  * - Native function/tool calling via Responses API
  * - Automatic retry with exponential backoff on rate limits (429)
  * - Proper ResponseInputItem types for conversation history
+ * - Native streaming support via ResponseStreamEvent
  * 
  * Now instance-based (not singleton) to support:
  * - Thread-safe initialization
@@ -49,7 +56,7 @@ class LLMClient(apiKey: String) {
     }
     
     /**
-     * Call the Responses API with tool/function calling support.
+     * Call the Responses API with tool/function calling support (non-streaming).
      * 
      * Uses proper ResponseInputItem types for conversation history,
      * which enables correct function call/output correlation.
@@ -81,8 +88,6 @@ class LLMClient(apiKey: String) {
                         throw e
                     }
                     
-                    // TODO (M1): Update backoff BEFORE delay for next attempt, not after.
-                    // Current behavior: first retry uses initial backoff, which may be suboptimal.
                     val waitMs = e.retryAfterMs ?: backoffMs
                     Log.w(TAG, "Rate limited (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms...")
                     
@@ -106,6 +111,127 @@ class LLMClient(apiKey: String) {
             throw lastException ?: RuntimeException("Unexpected error in retry loop")
         }
     }
+    
+    /**
+     * Streaming version of chatWithTools using native OpenAI SDK streaming.
+     * 
+     * Uses the OpenAI Java SDK's native streaming support via createStreaming().
+     * Emits ResponseStreamEvent directly from the SDK, allowing consumers to
+     * process text deltas and tool calls as they arrive.
+     * 
+     * The consumer should use ResponseAccumulator to build the final response.
+     * 
+     * @param systemPrompt System/developer instructions
+     * @param inputItems Conversation history as ResponseInputItem list
+     * @param tools Tool definitions for function calling
+     * @param model Model to use (defaults to GPT-4o)
+     * @return Flow of ResponseStreamEvent (native OpenAI SDK type)
+     */
+    fun chatWithToolsStreaming(
+        systemPrompt: String,
+        inputItems: List<ResponseInputItem>,
+        tools: List<FunctionTool>,
+        model: ChatModel = ChatModel.GPT_4O
+    ): Flow<ResponseStreamEvent> = callbackFlow {
+        Log.d(TAG, "Starting native streaming chat with ${inputItems.size} input items")
+        
+        var lastException: Exception? = null
+        var backoffMs = INITIAL_BACKOFF_MS
+        
+        for (attempt in 1..MAX_RETRIES) {
+            try {
+                // Build request params
+                val builder = ResponseCreateParams.builder()
+                    .model(model)
+                    .instructions(systemPrompt)
+                    .input(ResponseCreateParams.Input.ofResponse(inputItems))
+                
+                // Add tools
+                tools.forEach { tool ->
+                    builder.addTool(tool)
+                }
+                
+                val params = builder.build()
+                
+                Log.d(TAG, "Making streaming Responses API call to OpenAI (attempt $attempt)...")
+                
+                // Use native streaming on IO dispatcher
+                withContext(Dispatchers.IO) {
+                    client.responses().createStreaming(params).use { streamResponse ->
+                        streamResponse.stream().forEach { event ->
+                            // trySend works from any context in callbackFlow
+                            trySend(event)
+                        }
+                    }
+                }
+                
+                Log.d(TAG, "Streaming completed successfully")
+                close() // Signal completion
+                return@callbackFlow
+                
+            } catch (e: Exception) {
+                val message = e.message ?: ""
+                val cause = e.cause?.message ?: ""
+                
+                // Check if rate limited
+                if (message.contains("429") || cause.contains("429") || 
+                    message.contains("rate limit", ignoreCase = true) ||
+                    cause.contains("rate limit", ignoreCase = true)) {
+                    
+                    lastException = e
+                    
+                    if (attempt == MAX_RETRIES) {
+                        Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for rate limit in streaming")
+                        close(RateLimitException("Rate limited by OpenAI", extractRetryAfter(message) ?: extractRetryAfter(cause)))
+                        return@callbackFlow
+                    }
+                    
+                    val waitMs = extractRetryAfter(message) ?: extractRetryAfter(cause) ?: backoffMs
+                    Log.w(TAG, "Rate limited (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms...")
+                    
+                    delay(waitMs)
+                    backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
+                    continue
+                }
+                
+                // Check for transient errors
+                if (e is java.net.SocketTimeoutException ||
+                    message.contains("500") || message.contains("502") || 
+                    message.contains("503") || message.contains("504")) {
+                    
+                    lastException = e
+                    
+                    if (attempt == MAX_RETRIES) {
+                        Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for transient error in streaming")
+                        close(e)
+                        return@callbackFlow
+                    }
+                    
+                    Log.w(TAG, "Transient error (attempt $attempt/$MAX_RETRIES): ${e.message}, retrying in ${backoffMs}ms...")
+                    delay(backoffMs)
+                    backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
+                    continue
+                }
+                
+                // Non-retryable error
+                Log.e(TAG, "Streaming chat failed with non-retryable error", e)
+                close(e)
+                return@callbackFlow
+            }
+        }
+        
+        close(lastException ?: RuntimeException("Unexpected error in streaming retry loop"))
+        
+        awaitClose { 
+            Log.d(TAG, "Streaming flow closed")
+        }
+    }
+    
+    /**
+     * Create a ResponseAccumulator for building the final Response from streamed events.
+     * Call this before streaming and pass events through accumulator.accumulate().
+     */
+    fun createResponseAccumulator(): ResponseAccumulator = ResponseAccumulator.create()
     
     /**
      * Execute the Responses API call with tools.
@@ -233,20 +359,12 @@ class LLMClient(apiKey: String) {
     
     /**
      * Extract retry-after value from error message if present.
-     * 
-     * Uses more specific patterns to avoid false matches.
-     * e.g., "Request failed after 5 seconds" should NOT extract 5.
      */
     private fun extractRetryAfter(message: String): Long? {
-        // M4: More specific patterns to avoid false matches
         val patterns = listOf(
-            // Standard retry-after header/field
             Regex("""retry.?after[:\s]+(\d+)""", RegexOption.IGNORE_CASE),
-            // "Please wait X seconds" or "wait for X seconds"
             Regex("""(?:please\s+)?wait(?:\s+for)?\s+(\d+)\s*seconds?""", RegexOption.IGNORE_CASE),
-            // "try again in X seconds"
             Regex("""try\s+again\s+in\s+(\d+)\s*seconds?""", RegexOption.IGNORE_CASE),
-            // "available in X seconds"
             Regex("""available\s+in\s+(\d+)\s*seconds?""", RegexOption.IGNORE_CASE)
         )
         
@@ -254,8 +372,8 @@ class LLMClient(apiKey: String) {
             val match = pattern.find(message)
             if (match != null) {
                 val seconds = match.groupValues[1].toLongOrNull()
-                if (seconds != null && seconds > 0 && seconds <= 3600) { // Max 1 hour
-                    return seconds * 1000 // Convert to milliseconds
+                if (seconds != null && seconds > 0 && seconds <= 3600) {
+                    return seconds * 1000
                 }
             }
         }
@@ -264,7 +382,7 @@ class LLMClient(apiKey: String) {
 }
 
 /**
- * Result from the Responses API.
+ * Result from the Responses API (non-streaming).
  */
 data class ResponsesResult(
     /** Text content from the model (may be null if only tool calls) */
