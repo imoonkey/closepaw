@@ -11,10 +11,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.moonkey.androidagent.ui.screen.AgentScreen
 import com.moonkey.androidagent.ui.screen.AgentUiState
 import com.moonkey.androidagent.ui.theme.AgentTheme
 import com.moonkey.androidagent.util.StatusUtils
+import kotlinx.coroutines.launch
 import java.io.File
 
 /**
@@ -49,15 +53,20 @@ class MainActivity : ComponentActivity() {
         
         enableEdgeToEdge()
         
-        // Set up status callback - also detect completion
-        AgentService.statusCallback = { status ->
-            runOnUiThread {
-                // Add new status and limit to MAX_STATUS_LINES to prevent memory growth
-                statusLines = (statusLines + status).takeLast(MAX_STATUS_LINES)
-                
-                // Detect completion states to reset isRunning using shared utility
-                if (StatusUtils.isTerminalStatus(status)) {
-                    isRunning = false
+        // Collect status updates from AgentService using lifecycle-aware collection
+        // This prevents memory leaks and stale callback references (fixes Issues 2 & 3)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                AgentService.statusFlow.collect { status ->
+                    if (status.isNotEmpty()) {
+                        // Add new status and limit to MAX_STATUS_LINES to prevent memory growth
+                        statusLines = (statusLines + status).takeLast(MAX_STATUS_LINES)
+                        
+                        // Detect completion states to reset isRunning using shared utility
+                        if (StatusUtils.isTerminalStatus(status)) {
+                            isRunning = false
+                        }
+                    }
                 }
             }
         }
@@ -107,7 +116,7 @@ class MainActivity : ComponentActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
-        AgentService.statusCallback = null
+        // No longer need to clear callback - lifecycle-aware collection handles cleanup automatically
     }
     
     private fun handleIntent(intent: Intent) {
@@ -133,8 +142,17 @@ class MainActivity : ComponentActivity() {
         }
     }
     
+    /**
+     * Load API key from external storage file.
+     * 
+     * TODO: DEV-ONLY - This is a convenience feature for development.
+     * For production, remove this file-loading entirely and only accept
+     * API key via the UI text field or intent extra. Uses deprecated
+     * external storage APIs that don't work on targetSdk 35+.
+     */
     private fun loadApiKeyFromFile() {
         try {
+            @Suppress("DEPRECATION")
             val file = File(Environment.getExternalStorageDirectory(), "api_key.txt")
             if (file.exists()) {
                 val key = file.readText().trim()
