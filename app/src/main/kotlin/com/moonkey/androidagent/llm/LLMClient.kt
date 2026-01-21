@@ -3,7 +3,6 @@ package com.moonkey.androidagent.llm
 import android.util.Log
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
-import com.openai.helpers.ResponseAccumulator
 import com.openai.models.ChatModel
 import com.openai.models.responses.Response
 import com.openai.models.responses.ResponseCreateParams
@@ -125,7 +124,7 @@ class LLMClient(apiKey: String) {
      * Note: Requires OpenAI Java SDK v4.14.0 or later for createStreaming() and
      * ResponseStreamEvent-based streaming support, as specified in the design doc.
      *
-     * The consumer should use ResponseAccumulator to build the final response.
+     * The consumer can accumulate text deltas and tool calls as they arrive.
      *
      * @param systemPrompt System/developer instructions
      * @param inputItems Conversation history as ResponseInputItem list
@@ -242,12 +241,6 @@ class LLMClient(apiKey: String) {
             Log.d(TAG, "Streaming flow closed")
         }
     }
-    
-    /**
-     * Create a ResponseAccumulator for building the final Response from streamed events.
-     * Call this before streaming and pass events through accumulator.accumulate().
-     */
-    fun createResponseAccumulator(): ResponseAccumulator = ResponseAccumulator.create()
     
     /**
      * Execute the Responses API call with tools.
