@@ -63,7 +63,7 @@ val statusFlow: SharedFlow<String> = _statusFlow.asSharedFlow()
 
 **Fix**: Use lifecycle-aware collection with repeatOnLifecycle.
 
-**Team Note**: This is addressed by fixing Issue 2 above with Flow-based approach.
+**Team Note**: Fixed. Lifecycle-aware collection via `repeatOnLifecycle(Lifecycle.State.STARTED)` in MainActivity prevents leaks.
 
 ---
 
@@ -77,7 +77,7 @@ val statusFlow: SharedFlow<String> = _statusFlow.asSharedFlow()
 
 **Fix**: Track and cancel collector job.
 
-**Team Note**: Partially fixed by session_protocol changes (channel now closes properly with delay). However, explicitly track the collector Job and cancel it before starting a new session to be safe. Fix it.
+**Team Note**: Fixed. Implementation now explicitly tracks the collector Job (`eventCollectorJob`) and cancels it before starting a new session in `AgentService.kt`.
 
 ---
 

@@ -78,6 +78,8 @@ class AgentService : AccessibilityService() {
         overlayManager?.hide()
         super.onDestroy()
         instance = null
+        // Reset statusFlow to prevent stale values when service restarts
+        _statusFlow.value = ""
         scope.cancel()
     }
 
@@ -168,13 +170,14 @@ class AgentService : AccessibilityService() {
     /** Run the agent loop - called from MainActivity */
     fun runAgent(goal: String, apiKey: String, maxSteps: Int = 20) {
         // Stop any existing session before starting new one (prevents concurrent sessions)
-        session?.let { existingSession ->
+        // Cancel collector first to stop receiving events, then shutdown session
+        if (session != null) {
             Log.i(TAG, "Stopping existing session before starting new one")
-            scope.launch {
-                existingSession.submit(Op.Shutdown)
-            }
             eventCollectorJob?.cancel()
             eventCollectorJob = null
+            // Submit shutdown synchronously since we're about to replace the session
+            // The old session will handle its own cleanup
+            scope.launch { session?.submit(Op.Shutdown) }
             session = null
         }
         
