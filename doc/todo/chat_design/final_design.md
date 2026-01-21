@@ -1,6 +1,6 @@
 # Multi-Round Chat & Streaming UI - Final Design (v2)
 
-> **Status**: Approved for Implementation
+> **Status**: Backend Implementation Complete (Phase 1-4 DONE) - Ready for UI (Phase 5)
 > **Type**: Feature (MVP)
 > **Reference**: `.reference/codex/codex-rs/docs/protocol_v1.md`
 
@@ -88,22 +88,19 @@ Use OpenAI Java SDK's **native streaming** via the Responses API.
 
 **Key Types from OpenAI SDK**:
 - `ResponseStreamEvent` - Base event type from streaming Responses API
-- `ResponseAccumulator` - Helper to accumulate streamed chunks into final `Response`
-- Event accessors: `outputTextDelta()`, `outputItemDone()`, etc.
+- Event accessors: `isOutputTextDelta()`, `isOutputItemDone()`, `isCreated()`, `isCompleted()`, `isFailed()`
 
 **Stream Events**:
 | Event Type | Description |
 |------------|-------------|
-| `response.created` | Response initiated |
-| `response.output_text.delta` | Text chunk via `outputTextDelta()` |
-| `response.function_call_arguments.delta` | Tool call arguments streaming |
-| `response.function_call_arguments.done` | Tool call complete |
+| `response.created` | Response initiated (includes response ID) |
+| `response.output_text.delta` | Text chunk via `asOutputTextDelta().delta()` |
 | `response.output_item.done` | Output item completed (text or tool call) |
 | `response.completed` | Stream finished successfully |
 | `response.failed` | Error occurred |
 
 ```kotlin
-// Native streaming method using OpenAI SDK
+// Native streaming method using OpenAI SDK (wrapped in callbackFlow)
 fun chatWithToolsStreaming(
     systemPrompt: String,
     inputItems: List<ResponseInputItem>,
@@ -111,18 +108,21 @@ fun chatWithToolsStreaming(
     model: ChatModel = ChatModel.GPT_4O
 ): Flow<ResponseStreamEvent>
 
-// Accumulator for building final response
-val accumulator = ResponseAccumulator.create()
-client.responses().createStreaming(params).stream()
-    .peek(accumulator::accumulate)
-    .forEach { event ->
-        event.outputTextDelta().ifPresent { /* handle text delta */ }
-        event.outputItemDone().ifPresent { /* handle completed item */ }
+// Manual accumulation of text and tool calls
+val textAccumulator = StringBuilder()
+val toolCalls = mutableListOf<LLMToolCall>()
+
+llmClient.chatWithToolsStreaming(...).collect { event ->
+    if (event.isOutputTextDelta()) {
+        textAccumulator.append(event.asOutputTextDelta().delta())
     }
-val finalResponse = accumulator.response()
+    if (event.isOutputItemDone() && event.asOutputItemDone().item().isFunctionCall()) {
+        // Extract and store tool call
+    }
+}
 ```
 
-**Implementation Strategy**: Use OpenAI Java SDK's native `createStreaming()` method directly.
+**Implementation Strategy**: Use OpenAI Java SDK's native `createStreaming()` method, wrapped in Kotlin `callbackFlow` for coroutine compatibility. Manual accumulation of text/tool calls (no `ResponseAccumulator`).
 
 ### 4.2 Unified `Turn` with Streaming (`agent/Turn.kt`)
 
@@ -144,9 +144,9 @@ fun runStreaming(...): Flow<TurnStreamEvent>
 **Implementation**:
 1. Call `llmClient.chatWithToolsStreaming()` to get `Flow<ResponseStreamEvent>`.
 2. Process events:
-   - `outputTextDelta()` → emit `TurnStreamEvent.TextDelta`
-   - `outputItemDone()` with function call → emit `TurnStreamEvent.ToolCallReceived`
-3. Use `ResponseAccumulator` to build final response.
+   - `isOutputTextDelta()` → accumulate text, emit `TurnStreamEvent.TextDelta`
+   - `isOutputItemDone()` with function call → accumulate tool call, emit `TurnStreamEvent.ToolCallReceived`
+3. Manually accumulate text and tool calls in local variables.
 4. When stream ends, emit `TurnStreamEvent.Complete` with `TurnResult`.
 
 ### 4.3 Agent Loop Update (`agent/Agent.kt`)
@@ -180,58 +180,58 @@ turn.runStreaming(systemPrompt, userContext, model).collect { event ->
 
 ## 5. Implementation Plan (Detailed)
 
-### Phase 1: LLM Streaming Infrastructure
+### Phase 1: LLM Streaming Infrastructure - DONE
 
 **File**: `app/src/main/kotlin/com/moonkey/androidagent/llm/LLMClient.kt`
 
-| Step | Description | LOC Est. |
-|------|-------------|----------|
-| 1.1 | Remove custom `LLMStreamChunk` sealed interface | -20 |
-| 1.2 | Update `chatWithToolsStreaming()` to use native SDK streaming | ~60 |
-| 1.3 | Use `ResponseAccumulator` for result aggregation | ~20 |
+| Step | Description | Status |
+|------|-------------|--------|
+| 1.1 | Remove custom `LLMStreamChunk` sealed interface | ✅ DONE |
+| 1.2 | Update `chatWithToolsStreaming()` to use native SDK streaming via `callbackFlow` | ✅ DONE |
+| 1.3 | Proper retry logic with exponential backoff | ✅ DONE |
 
 **Deliverable**: `LLMClient.chatWithToolsStreaming()` returns `Flow<ResponseStreamEvent>` (native OpenAI type).
 
-### Phase 2: Turn Streaming
+### Phase 2: Turn Streaming - DONE
 
 **File**: `app/src/main/kotlin/com/moonkey/androidagent/agent/Turn.kt`
 
-| Step | Description | LOC Est. |
-|------|-------------|----------|
-| 2.1 | Add `TurnStreamEvent` sealed interface | ~15 |
-| 2.2 | Add `runStreaming()` method | ~100 |
-| 2.3 | Implement delta accumulation for text and tool calls | ~50 |
+| Step | Description | Status |
+|------|-------------|--------|
+| 2.1 | Add `TurnStreamEvent` sealed interface | ✅ DONE |
+| 2.2 | Add `runStreaming()` method | ✅ DONE |
+| 2.3 | Implement manual delta accumulation for text and tool calls | ✅ DONE |
 
 **Deliverable**: `Turn.runStreaming()` returns `Flow<TurnStreamEvent>`.
 
-### Phase 3: Agent Integration
+### Phase 3: Agent Integration - DONE
 
 **File**: `app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt`
 
-| Step | Description | LOC Est. |
-|------|-------------|----------|
-| 3.1 | Update `executeTurn()` to use `turn.runStreaming()` | ~60 |
-| 3.2 | Emit `MessageDelta` events during streaming | ~10 |
-| 3.3 | Accumulate tool calls and execute after stream completes | ~30 |
+| Step | Description | Status |
+|------|-------------|--------|
+| 3.1 | Update `executeTurn()` to use `turn.runStreaming()` | ✅ DONE |
+| 3.2 | Emit `MessageDelta` events during streaming | ✅ DONE |
+| 3.3 | Execute tools after stream completes (from `TurnResult`) | ✅ DONE |
 
 **Deliverable**: Agent emits `MessageDelta` events during LLM response.
 
-### Phase 4: Protocol & Session (Already Done)
+### Phase 4: Protocol & Session - DONE
 
 | Item | Status |
 |------|--------|
-| `Op.kt` - `UserInput` as primary entry | DONE |
-| `AgentEvent.kt` - `TaskStarted`, `TaskCompleted`, `MessageDelta` | DONE |
-| `SessionState.kt` - `Idle` state | DONE |
-| `AgentSession.kt` - Task lifecycle | DONE |
+| `Op.kt` - `UserInput` as primary entry, `Start` deprecated with `ReplaceWith` | ✅ DONE |
+| `AgentEvent.kt` - `TaskStarted`, `TaskCompleted`, `MessageDelta` | ✅ DONE |
+| `SessionState.kt` - `Idle` state, `TaskCompleted` in diagram | ✅ DONE |
+| `AgentSession.kt` - Task lifecycle via `handleUserInput()` | ✅ DONE |
 
 ### Phase 5: UI Integration (Future)
 
-| Step | Description |
-|------|-------------|
-| 5.1 | Update `AgentScreen` to handle `MessageDelta` |
-| 5.2 | Implement chat bubble UI with streaming text |
-| 5.3 | Add input box for multi-round interaction |
+| Step | Description | Status |
+|------|-------------|--------|
+| 5.1 | Update `AgentScreen` to handle `MessageDelta` | PENDING |
+| 5.2 | Implement chat bubble UI with streaming text | PENDING |
+| 5.3 | Add input box for multi-round interaction | PENDING |
 
 ## 6. Open Questions & Risks
 
@@ -244,10 +244,11 @@ turn.runStreaming(systemPrompt, userContext, model).collect { event ->
 
 | File | Change Type | Description |
 |------|-------------|-------------|
-| `llm/LLMClient.kt` | MODIFY | Native streaming via `ResponseStreamEvent`, remove custom `LLMStreamChunk` |
-| `agent/Turn.kt` | MODIFY | Process `ResponseStreamEvent`, emit `TurnStreamEvent` |
-| `agent/Agent.kt` | DONE | Uses streaming turn, emits `MessageDelta` events |
-| `protocol/Op.kt` | DONE | `UserInput` as primary, `Start` deprecated |
-| `protocol/AgentEvent.kt` | DONE | `TaskStarted`, `TaskCompleted`, `MessageDelta` |
-| `protocol/SessionState.kt` | DONE | `Idle` state |
-| `session/AgentSession.kt` | DONE | Task lifecycle via `handleUserInput()` |
+| `llm/LLMClient.kt` | ✅ DONE | Native streaming via `callbackFlow`, returns `Flow<ResponseStreamEvent>` |
+| `agent/Turn.kt` | ✅ DONE | `runStreaming()` processes events, emits `TurnStreamEvent` |
+| `agent/Agent.kt` | ✅ DONE | Uses streaming turn, emits `MessageDelta` events |
+| `agent/AgentConfig.kt` | ✅ DONE | Added `taskId` field |
+| `protocol/Op.kt` | ✅ DONE | `UserInput` as primary, `Start` deprecated with `ReplaceWith` |
+| `protocol/AgentEvent.kt` | ✅ DONE | `TaskStarted`, `TaskCompleted`, `MessageDelta` |
+| `protocol/SessionState.kt` | ✅ DONE | `Idle` state, consistent `TaskCompleted` terminology |
+| `session/AgentSession.kt` | ✅ DONE | Task lifecycle via `handleUserInput()` |
