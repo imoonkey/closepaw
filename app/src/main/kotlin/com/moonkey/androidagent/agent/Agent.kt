@@ -28,7 +28,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - Simple ReAct loop: Perceive → Think → Act → Observe
  * - No multi-agent complexity (Manager/Executor/Reflector removed)
  * - Tool results include post-action screen observation
- * - Streaming support: Emits MessageDelta events during LLM response
+ * - Streaming support: Uses a streaming turn, collects MessageDelta events,
+ *   accumulates them into full messages, and then processes/emits the result
  */
 class Agent(
     private val config: AgentConfig,
@@ -185,7 +186,7 @@ class Agent(
                 
                 // Handle stream error
                 if (streamError != null) {
-                    throw streamError!!
+                    throw streamError ?: RuntimeException("Stream completed with error flag but no error details")
                 }
                 
                 // Get final result

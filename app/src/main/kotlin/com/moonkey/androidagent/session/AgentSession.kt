@@ -168,15 +168,16 @@ class AgentSession private constructor(
     }
     
     private suspend fun handleUserInput(op: Op.UserInput) {
-        // If session is already running a task, reject for MVP
-        // Future: Queue the input or interrupt current task
+        // Only Running or Paused states indicate an active task that prevents new input.
+        // Created and Idle states allow starting new tasks.
         if (_state.value == SessionState.Running || _state.value == SessionState.Paused) {
             Log.w(TAG, "Rejecting UserInput: Session is busy")
             emitStatus("⚠️ Agent is busy. Please wait.")
             return
         }
         
-        // If this is the first interaction, emit SessionStarted
+        // SessionStarted is only emitted once when the session first moves from Created
+        // to Running. Subsequent tasks (from Idle state) do not re-emit SessionStarted.
         if (_state.value == SessionState.Created) {
             emit(AgentEvent.SessionStarted(
                 sessionId = sessionId,
@@ -245,9 +246,15 @@ class AgentSession private constructor(
     
     /**
      * Handle agent completion (V2).
+     * 
+     * Cleanup of agent references happens here after task completion.
+     * Note: If handleShutdown() is called during a task, it sets state to Shutdown
+     * and performs its own cleanup (agent.stop(), agentJob.cancel(), etc.).
+     * The early return below ensures we don't double-cleanup or emit spurious events.
      */
     private suspend fun handleAgentComplete(reason: AgentStopReason) {
-        // If we are shutting down, ignore task completion logic
+        // If we are shutting down, handleShutdown() already handled cleanup.
+        // Skip task completion logic to avoid double events or stale reference issues.
         if (_state.value == SessionState.Shutdown) {
             return
         }

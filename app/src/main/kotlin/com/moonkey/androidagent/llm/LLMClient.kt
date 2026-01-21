@@ -113,19 +113,25 @@ class LLMClient(apiKey: String) {
     }
     
     /**
-     * Streaming version of chatWithTools using native OpenAI SDK streaming.
-     * 
-     * Uses the OpenAI Java SDK's native streaming support via createStreaming().
-     * Emits ResponseStreamEvent directly from the SDK, allowing consumers to
-     * process text deltas and tool calls as they arrive.
-     * 
+     * Streaming version of chatWithTools using the OpenAI SDK's streaming API,
+     * exposed as a Kotlin Flow for coroutine compatibility.
+     *
+     * Internally uses the OpenAI Java SDK's native streaming support via
+     * createStreaming(), and wraps the SDK's blocking/callback stream using
+     * callbackFlow to emit ResponseStreamEvent items as a Flow. This allows
+     * consumers to process text deltas and tool calls as they arrive while
+     * remaining fully coroutine-friendly.
+     *
+     * Note: Requires OpenAI Java SDK v4.14.0 or later for createStreaming() and
+     * ResponseStreamEvent-based streaming support, as specified in the design doc.
+     *
      * The consumer should use ResponseAccumulator to build the final response.
-     * 
+     *
      * @param systemPrompt System/developer instructions
      * @param inputItems Conversation history as ResponseInputItem list
      * @param tools Tool definitions for function calling
      * @param model Model to use (defaults to GPT-4o)
-     * @return Flow of ResponseStreamEvent (native OpenAI SDK type)
+     * @return Flow of ResponseStreamEvent (native OpenAI SDK event type wrapped in a Flow)
      */
     fun chatWithToolsStreaming(
         systemPrompt: String,
@@ -137,6 +143,7 @@ class LLMClient(apiKey: String) {
         
         var lastException: Exception? = null
         var backoffMs = INITIAL_BACKOFF_MS
+        var streamCompleted = false
         
         for (attempt in 1..MAX_RETRIES) {
             try {
@@ -166,8 +173,8 @@ class LLMClient(apiKey: String) {
                 }
                 
                 Log.d(TAG, "Streaming completed successfully")
-                close() // Signal completion
-                return@callbackFlow
+                streamCompleted = true
+                break // Exit retry loop on success
                 
             } catch (e: Exception) {
                 val message = e.message ?: ""
@@ -178,12 +185,14 @@ class LLMClient(apiKey: String) {
                     message.contains("rate limit", ignoreCase = true) ||
                     cause.contains("rate limit", ignoreCase = true)) {
                     
-                    lastException = e
+                    lastException = RateLimitException(
+                        "Rate limited by OpenAI", 
+                        extractRetryAfter(message) ?: extractRetryAfter(cause)
+                    )
                     
                     if (attempt == MAX_RETRIES) {
                         Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for rate limit in streaming")
-                        close(RateLimitException("Rate limited by OpenAI", extractRetryAfter(message) ?: extractRetryAfter(cause)))
-                        return@callbackFlow
+                        break // Exit loop, will close with lastException
                     }
                     
                     val waitMs = extractRetryAfter(message) ?: extractRetryAfter(cause) ?: backoffMs
@@ -203,8 +212,7 @@ class LLMClient(apiKey: String) {
                     
                     if (attempt == MAX_RETRIES) {
                         Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for transient error in streaming")
-                        close(e)
-                        return@callbackFlow
+                        break // Exit loop, will close with lastException
                     }
                     
                     Log.w(TAG, "Transient error (attempt $attempt/$MAX_RETRIES): ${e.message}, retrying in ${backoffMs}ms...")
@@ -215,12 +223,20 @@ class LLMClient(apiKey: String) {
                 
                 // Non-retryable error
                 Log.e(TAG, "Streaming chat failed with non-retryable error", e)
-                close(e)
-                return@callbackFlow
+                lastException = e
+                break // Exit loop, will close with lastException
             }
         }
         
-        close(lastException ?: RuntimeException("Unexpected error in streaming retry loop"))
+        // Close the flow with appropriate result
+        // Defensive note: Under normal conditions, all code paths inside the retry loop
+        // either successfully stream and set streamCompleted=true, or encounter an error
+        // and set lastException. If somehow neither is set, we close with a generic error.
+        if (streamCompleted) {
+            close()
+        } else {
+            close(lastException ?: RuntimeException("Stream completed with error flag but no error details"))
+        }
         
         awaitClose { 
             Log.d(TAG, "Streaming flow closed")
