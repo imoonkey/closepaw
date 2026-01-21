@@ -28,8 +28,10 @@ class ToolRegistry {
     /**
      * Register a tool.
      * 
+     * If a tool with the same name already exists, logs a warning and overwrites it.
+     * This allows easy re-registration during development/testing.
+     * 
      * @param tool The tool specification to register
-     * @throws IllegalArgumentException if a tool with the same name already exists
      */
     fun register(tool: ToolSpec) {
         if (tools.containsKey(tool.name)) {
