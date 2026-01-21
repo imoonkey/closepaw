@@ -69,11 +69,9 @@ class HistoryManager(
      * This performs normalization to ensure:
      * - Every function call has a corresponding output
      * - No orphaned outputs without calls
-     * - Ghost snapshots are excluded
      */
     fun forPrompt(): List<ResponseItem> {
-        val normalized = normalizeHistory(items.toList())
-        return normalized.filter { it !is ResponseItem.GhostSnapshot }
+        return normalizeHistory(items.toList())
     }
     
     /**
@@ -382,17 +380,5 @@ sealed class ResponseItem {
         override fun estimateTokens(): Long = (content.length * 0.25f).toLong() + 4
     }
     
-    /**
-     * Ghost snapshot - placeholder for a removed item.
-     * 
-     * Used to maintain history structure when items are compressed/removed.
-     * Not included in prompts.
-     */
-    data class GhostSnapshot(
-        val originalType: String,
-        val summary: String? = null
-    ) : ResponseItem() {
-        override fun estimateTokens(): Long = 0 // Not sent to model
-    }
 }
 

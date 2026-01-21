@@ -99,36 +99,6 @@ class ToolRegistry {
     }
     
     /**
-     * Generate OpenAI-compatible function schemas for all registered tools.
-     * 
-     * @param filter Optional filter to include only specific tools
-     * @return JSON array of function schemas
-     */
-    fun generateFunctionSchemas(filter: ((ToolSpec) -> Boolean)? = null): JSONArray {
-        val schemas = JSONArray()
-        
-        tools.values
-            .filter { filter?.invoke(it) != false }
-            .forEach { tool ->
-                schemas.put(tool.toFunctionSchema())
-            }
-        
-        return schemas
-    }
-    
-    /**
-     * Generate a tools parameter for OpenAI chat completion.
-     * 
-     * @param filter Optional filter to include only specific tools
-     * @return List of tool objects for the API
-     */
-    fun generateToolsParam(filter: ((ToolSpec) -> Boolean)? = null): List<JSONObject> {
-        return tools.values
-            .filter { filter?.invoke(it) != false }
-            .map { it.toFunctionSchema() }
-    }
-    
-    /**
      * Get a human-readable summary of registered tools.
      */
     fun getSummary(): String {
