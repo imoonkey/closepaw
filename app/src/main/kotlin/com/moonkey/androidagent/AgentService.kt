@@ -1,9 +1,16 @@
 package com.moonkey.androidagent
 
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
 import android.util.Log
+import com.moonkey.androidagent.BuildConfig
 import android.view.accessibility.AccessibilityEvent
 import com.moonkey.androidagent.protocol.AgentEvent
+import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.service.OverlayManager
@@ -30,6 +37,9 @@ class AgentService : AccessibilityService() {
 
     companion object {
         private const val TAG = "AgentService"
+        
+        /** Broadcast action to stop the agent remotely (from dev.sh script) */
+        const val ACTION_STOP_AGENT = "com.moonkey.androidagent.STOP_AGENT"
 
         @Volatile
         var instance: AgentService? = null
@@ -49,6 +59,16 @@ class AgentService : AccessibilityService() {
     
     /** Job for the current session's event collector, cancelled before starting new session */
     private var eventCollectorJob: Job? = null
+    
+    /** BroadcastReceiver to handle remote stop commands (from dev.sh script) */
+    private val stopReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ACTION_STOP_AGENT) {
+                Log.i(TAG, "Received STOP_AGENT broadcast")
+                stopAgent()
+            }
+        }
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -63,6 +83,18 @@ class AgentService : AccessibilityService() {
             onPause = { submitOp(Op.Pause) },
             onResume = { submitOp(Op.Resume) }
         )
+        
+        // Register broadcast receiver for remote stop commands (from adb/dev.sh)
+        // Only in debug builds - security risk if exposed in production
+        if (BuildConfig.DEBUG) {
+            val filter = IntentFilter(ACTION_STOP_AGENT)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(stopReceiver, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                @Suppress("UnspecifiedRegisterReceiverFlag")
+                registerReceiver(stopReceiver, filter)
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -76,6 +108,14 @@ class AgentService : AccessibilityService() {
     override fun onDestroy() {
         submitOp(Op.Shutdown)
         overlayManager?.hide()
+        if (BuildConfig.DEBUG) {
+            try {
+                unregisterReceiver(stopReceiver)
+            } catch (e: IllegalArgumentException) {
+                // Receiver was never registered
+                Log.w(TAG, "stopReceiver was not registered: ${e.message}")
+            }
+        }
         super.onDestroy()
         instance = null
         // Reset statusFlow to prevent stale values when service restarts
@@ -141,6 +181,18 @@ class AgentService : AccessibilityService() {
             
             is AgentEvent.SessionCompleted -> {
                 Log.i(TAG, "Session completed: ${event.sessionId}, reason: ${event.reason}")
+                
+                // Emit a terminal status so MainActivity can detect completion
+                val statusMessage = when (event.reason) {
+                    CompletionReason.GOAL_ACHIEVED -> "✅ Goal achieved!"
+                    CompletionReason.USER_STOPPED -> "🛑 Agent stopped"
+                    CompletionReason.MAX_TURNS -> "⚠️ Max turns reached"
+                    CompletionReason.TASK_IMPOSSIBLE -> "❌ Task cannot be completed"
+                    CompletionReason.ERROR -> "❌ Session ended with error"
+                    CompletionReason.INTERRUPTED -> "🛑 Session interrupted"
+                }
+                updateStatus(statusMessage)
+                
                 overlayManager?.hide()
                 session = null
             }
