@@ -4,13 +4,21 @@
 #
 # Usage: ./scripts/debug-run.sh "goal"
 #
+# Output includes:
+#   - Screenshots per turn (turn_N.png)
+#   - Log excerpts per turn (turn_N_log.txt)
+#   - Full agent log (agent.log)
+#   - Performance profiling data (perf.log, perf.jsonl)
+#
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 PACKAGE="com.moonkey.androidagent"
-DEBUG_DIR="$PROJECT_ROOT/debug-output"
+# Use timestamped directory for each run
+RUN_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DEBUG_DIR="$PROJECT_ROOT/debug-output/$RUN_TIMESTAMP"
 GOAL="${1:-Open Settings}"
 
 # Colors
@@ -26,8 +34,8 @@ warn() { echo -e "${YELLOW}! $1${NC}"; }
 
 # Create debug output directory
 mkdir -p "$DEBUG_DIR"
-rm -f "$DEBUG_DIR"/*.png "$DEBUG_DIR"/*.txt "$DEBUG_DIR"/*.log
 log "Debug output: $DEBUG_DIR"
+log "Goal: $GOAL"
 
 # Load API key
 if [[ -f "$PROJECT_ROOT/.env" ]]; then
@@ -102,6 +110,32 @@ adb logcat -d | grep -E "Agent|Turn|LLMClient|ToolRouter|SessionServices" > "$DE
 log "Saving full system log..."
 adb logcat -d | grep -E "AgentService|AccessibilityPlatform|AgentSession" > "$DEBUG_DIR/system.log"
 
+log "Extracting performance profiling data..."
+# Extract PERF logs
+adb logcat -d | grep "PERF|" > "$DEBUG_DIR/perf.log" 2>/dev/null || true
+
+# Parse PERF logs to JSONL format for analysis
+if [[ -s "$DEBUG_DIR/perf.log" ]]; then
+    # Extract fields from PERF|session|turn|span|duration|metadata format
+    awk -F'PERF\\|' '{
+        if (NF > 1) {
+            split($2, parts, "|");
+            session = parts[1];
+            turn = parts[2];
+            span = parts[3];
+            duration = parts[4];
+            meta = parts[5];
+            # Remove trailing newline/whitespace from meta
+            gsub(/[[:space:]]+$/, "", meta);
+            printf "{\"ts\":%d,\"session\":\"%s\",\"turn\":%s,\"span\":\"%s\",\"ms\":%s,\"meta\":%s}\n", 
+                systime() * 1000, session, turn, span, duration, (meta == "" ? "{}" : meta);
+        }
+    }' "$DEBUG_DIR/perf.log" > "$DEBUG_DIR/perf.jsonl"
+    ok "Performance data: $DEBUG_DIR/perf.jsonl"
+else
+    warn "No PERF logs captured"
+fi
+
 echo ""
 echo -e "${GREEN}=============================================================${NC}"
 echo -e "${GREEN}Debug output saved to: $DEBUG_DIR${NC}"
@@ -110,6 +144,10 @@ echo "Files:"
 ls -la "$DEBUG_DIR"
 echo ""
 echo "To view:"
-echo "  Screenshots: open $DEBUG_DIR/turn_*.png"
-echo "  Full log:    cat $DEBUG_DIR/agent.log"
+echo "  Screenshots:  open $DEBUG_DIR/turn_*.png"
+echo "  Full log:     cat $DEBUG_DIR/agent.log"
+echo "  Perf data:    cat $DEBUG_DIR/perf.jsonl"
+echo ""
+echo "To analyze perf data:"
+echo "  python3 -c \"import pandas as pd; df=pd.read_json('$DEBUG_DIR/perf.jsonl', lines=True); print(df.groupby('span')['ms'].describe())\""
 echo -e "${GREEN}=============================================================${NC}"

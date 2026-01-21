@@ -4,6 +4,7 @@ import android.util.Log
 import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
+import com.moonkey.androidagent.util.PerfLogger
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 
@@ -176,12 +177,27 @@ class BaseToolInvocation(
             return ToolExecutionResult.Cancelled("Cancelled before execution")
         }
         
+        // Time the action execution
+        val actionStart = System.currentTimeMillis()
         val result = context.platform.performAction(uiAction, context.currentSnapshot)
+        val actionMs = System.currentTimeMillis() - actionStart
+        PerfLogger.log("action_perform", actionMs, mapOf(
+            "action" to (uiAction::class.simpleName ?: "unknown"),
+            "tool" to toolName
+        ))
         
         return when (result) {
             is ActionResult.Success -> {
-                // V2: Capture post-action observation
+                // V2: Capture post-action observation (timed)
+                val observeStart = System.currentTimeMillis()
                 val observation = capturePostActionObservation(context)
+                val observeMs = System.currentTimeMillis() - observeStart
+                val elementCount = (observation as? ToolObservation.ScreenState)?.elementCount ?: 0
+                PerfLogger.log("observe_post_action", observeMs, mapOf(
+                    "settle_ms" to UI_SETTLE_DELAY_MS,
+                    "elements" to elementCount
+                ))
+                
                 ToolExecutionResult.Success(
                     output = result.message,
                     observation = observation
