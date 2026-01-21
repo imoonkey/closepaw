@@ -7,395 +7,395 @@ This document provides a summary of each Kotlin source file in `app/src/main/kot
 ## Entry Points & Service Layer
 
 ### `AgentService.kt`
-**AccessibilityService 入口点**
+**AccessibilityService Entry Point**
 
-Android Accessibility Service 的主入口。负责：
-- 管理 `AgentSession` 的生命周期
-- 通过 `Op` sealed class 接收操作指令（Start/Pause/Resume/Shutdown）
-- 通过 `AgentEvent` Flow 向 UI 层发送状态更新
-- 管理浮动控制条 `OverlayManager`
-- 提供静态 `statusFlow` 供 MainActivity 收集状态
+Main entry point for the Android Accessibility Service. Responsibilities:
+- Manage `AgentSession` lifecycle
+- Receive operation commands via `Op` sealed class (Start/Pause/Resume/Shutdown)
+- Send state updates to UI layer via `AgentEvent` Flow
+- Manage floating control bar `OverlayManager`
+- Provide static `statusFlow` for MainActivity to collect state
 
 ### `MainActivity.kt`
-**Compose UI 主界面**
+**Compose UI Main Screen**
 
-应用的主 Activity，使用 Jetpack Compose 构建 UI。负责：
-- 显示 API Key 输入、Goal 输入、状态日志
-- 通过 `lifecycleScope` 收集 `AgentService.statusFlow` 更新 UI
-- 处理 Intent extras（支持从命令行传入 API key 和 goal）
-- 检查权限（Overlay、Accessibility Service）
-- 调用 `AgentService.runAgent()` 启动 agent
+Main Activity of the application, built with Jetpack Compose UI. Responsibilities:
+- Display API Key input, Goal input, status log
+- Collect `AgentService.statusFlow` via `lifecycleScope` to update UI
+- Handle Intent extras (support passing API key and goal from command line)
+- Check permissions (Overlay, Accessibility Service)
+- Call `AgentService.runAgent()` to start the agent
 
 ---
 
-## Agent Core (核心逻辑)
+## Agent Core
 
 ### `agent/Agent.kt`
-**ReAct Agent 主循环**
+**ReAct Agent Main Loop**
 
-单一 ReAct agent，执行 Perceive → Think → Act → Observe 循环。负责：
-- 管理 turn 计数和 pause/stop 状态
-- 每轮：捕获屏幕 → 调用 LLM → 执行工具 → 记录观察结果
-- 通过 `eventEmitter` 发送各类事件（TurnStarted, ActionExecuted 等）
-- 处理错误恢复（区分可恢复/不可恢复错误）
-- 支持 `complete_task` 工具标记任务完成
+Single ReAct agent executing the Perceive → Think → Act → Observe loop. Responsibilities:
+- Manage turn count and pause/stop state
+- Each turn: capture screen → call LLM → execute tool → record observation
+- Emit various events via `eventEmitter` (TurnStarted, ActionExecuted, etc.)
+- Handle error recovery (distinguish recoverable/non-recoverable errors)
+- Support `complete_task` tool to mark task completion
 
 ### `agent/Turn.kt`
-**单轮 LLM 交互**
+**Single LLM Turn**
 
-封装一次 LLM 调用的完整流程：
-- 从 `HistoryManager` 构建 `ResponseInputItem` 列表
-- 调用 `LLMClient.chatWithTools()` 获取响应
-- 解析 tool calls 和文本内容
-- 检测任务是否完成（`complete_task` 被调用）
+Encapsulates a complete LLM call flow:
+- Build `ResponseInputItem` list from `HistoryManager`
+- Call `LLMClient.chatWithTools()` to get response
+- Parse tool calls and text content
+- Detect task completion (`complete_task` was called)
 
 ### `agent/AgentConfig.kt`
-**Agent 配置**
+**Agent Configuration**
 
-Agent 执行的配置数据类，包含：
-- `goal`: 用户目标
-- `sessionId`: 会话 ID
-- `maxTurns`: 最大轮数
-- `uiSettleDelayMs`: 动作后等待时间
-- `debugMode`: 调试模式开关
+Configuration data class for agent execution, containing:
+- `goal`: User goal
+- `sessionId`: Session ID
+- `maxTurns`: Maximum number of turns
+- `uiSettleDelayMs`: Wait time after actions
+- `debugMode`: Debug mode toggle
 
 ---
 
-## Session Management (会话管理)
+## Session Management
 
 ### `session/AgentSession.kt`
-**会话生命周期管理**
+**Session Lifecycle Management**
 
-Agent 执行的主控制器，实现 Op/Event 协议：
-- 接收 `Op` 操作（Start, Pause, Resume, Shutdown, Approve 等）
-- 通过 `events` Flow 发送 `AgentEvent`
-- 管理 `SessionState` 状态机（Created → Running → Paused → Completed/Shutdown）
-- 创建并运行 `Agent` 实例
-- 处理 approval 请求的转发
+Main controller for agent execution, implementing the Op/Event protocol:
+- Receive `Op` operations (Start, Pause, Resume, Shutdown, Approve, etc.)
+- Emit `AgentEvent` via `events` Flow
+- Manage `SessionState` state machine (Created → Running → Paused → Completed/Shutdown)
+- Create and run `Agent` instance
+- Forward approval requests
 
 ### `session/SessionServices.kt`
-**依赖注入容器**
+**Dependency Injection Container**
 
-会话级别的服务容器（类似 DI container）：
-- 创建并持有所有会话服务：`ToolRegistry`, `ToolRouter`, `HistoryManager`, `PolicyEngine`, `LLMClient`
-- 注册内置工具（click, type, scroll, swipe, back, home, wait, complete_task）
-- 提供 `cleanup()` 方法清理资源
+Session-level service container (similar to a DI container):
+- Create and hold all session services: `ToolRegistry`, `ToolRouter`, `HistoryManager`, `PolicyEngine`, `LLMClient`
+- Register built-in tools (click, type, scroll, swipe, back, home, wait, complete_task)
+- Provide `cleanup()` method for resource cleanup
 
 ---
 
-## Protocol (协议层)
+## Protocol Layer
 
 ### `protocol/Op.kt`
-**操作指令定义**
+**Operation Command Definitions**
 
-从 UI 层发送到 Agent 的操作指令：
-- `Start(goal)`: 启动 agent
-- `Pause` / `Resume`: 暂停/恢复
-- `Interrupt`: 中断当前轮
-- `Shutdown`: 关闭会话
-- `UserInput(text)`: 用户输入（预留）
-- `Approve(actionId, decision)`: 审批响应
+Operation commands sent from UI layer to Agent:
+- `Start(goal)`: Start agent
+- `Pause` / `Resume`: Pause/Resume
+- `Interrupt`: Interrupt current turn
+- `Shutdown`: Close session
+- `UserInput(text)`: User input (reserved)
+- `Approve(actionId, decision)`: Approval response
 
-还包含 `SessionConfig` 配置类和 `ApprovalMode` 枚举。
+Also includes `SessionConfig` configuration class and `ApprovalMode` enum.
 
 ### `protocol/AgentEvent.kt`
-**事件定义**
+**Event Definitions**
 
-从 Agent 发送到 UI 的事件：
-- 会话生命周期：`SessionStarted`, `SessionCompleted`, `SessionError`, `SessionPaused`, `SessionResumed`
-- Turn 事件：`TurnStarted`, `TurnCompleted`, `TurnPhaseChanged`
-- 动作事件：`ActionProposed`, `ActionExecuted`, `ActionSkipped`
-- 其他：`ScreenCaptured`, `ApprovalRequired`, `ApprovalResolved`, `StatusUpdate`
+Events sent from Agent to UI:
+- Session lifecycle: `SessionStarted`, `SessionCompleted`, `SessionError`, `SessionPaused`, `SessionResumed`
+- Turn events: `TurnStarted`, `TurnCompleted`, `TurnPhaseChanged`
+- Action events: `ActionProposed`, `ActionExecuted`, `ActionSkipped`
+- Others: `ScreenCaptured`, `ApprovalRequired`, `ApprovalResolved`, `StatusUpdate`
 
 ### `protocol/SessionState.kt`
-**会话状态机**
+**Session State Machine**
 
-会话的生命周期状态：
-- `Created`: 已创建未启动
-- `Running`: 运行中
-- `Paused`: 已暂停
-- `Completed`: 已完成
-- `Shutdown`: 已关闭
+Session lifecycle states:
+- `Created`: Created but not started
+- `Running`: Running
+- `Paused`: Paused
+- `Completed`: Completed
+- `Shutdown`: Shut down
 
 ### `protocol/SessionId.kt`
-**会话 ID**
+**Session ID**
 
-使用 `@JvmInline value class` 实现的类型安全会话标识符。
+Type-safe session identifier implemented using `@JvmInline value class`.
 
 ### `protocol/AgentError.kt`
-**错误类型定义**
+**Error Type Definitions**
 
-分类的错误类型，包含 `isRecoverable` 属性：
-- LLM 错误：`LLMError`, `LLMParseError`
-- 平台错误：`PlatformError`, `PermissionError`
-- 验证错误：`ValidationError`, `UnknownToolError`
-- 状态错误：`InvalidStateError`, `SessionClosedError`
-- 审批错误：`ApprovalDeniedError`, `PolicyDeniedError`
+Categorized error types with `isRecoverable` property:
+- LLM errors: `LLMError`, `LLMParseError`
+- Platform errors: `PlatformError`, `PermissionError`
+- Validation errors: `ValidationError`, `UnknownToolError`
+- State errors: `InvalidStateError`, `SessionClosedError`
+- Approval errors: `ApprovalDeniedError`, `PolicyDeniedError`
 
 ### `protocol/ApprovalTypes.kt`
-**审批相关类型**
+**Approval Related Types**
 
 - `ApprovalDecision`: APPROVED / DENIED / ABORT
 - `RiskLevel`: LOW / MEDIUM / HIGH
 - `ApprovalRequirement`: None / Required / Forbidden
-- `ApprovalDetails`: 审批请求的详细信息
+- `ApprovalDetails`: Detailed information for approval requests
 
 ---
 
-## Infrastructure (基础设施)
+## Infrastructure
 
 ### `infra/history/HistoryManager.kt`
-**对话历史管理**
+**Conversation History Management**
 
-管理 LLM 对话历史：
-- 存储 `ResponseItem`（Message, FunctionCall, FunctionCallOutput）
-- 支持截断策略（NONE, CONSERVATIVE, AGGRESSIVE, MINIMAL）
-- Token 估算和上下文窗口管理
-- 历史压缩和规范化（确保 call/output 配对）
-- `dropLastNUserTurns()` 支持回滚
+Manages LLM conversation history:
+- Store `ResponseItem` (Message, FunctionCall, FunctionCallOutput)
+- Support truncation strategies (NONE, CONSERVATIVE, AGGRESSIVE, MINIMAL)
+- Token estimation and context window management
+- History compression and normalization (ensure call/output pairing)
+- `dropLastNUserTurns()` for rollback support
 
 ### `infra/registry/ToolRegistry.kt`
-**工具注册表**
+**Tool Registry**
 
-管理工具的注册和查找：
-- 注册/注销/查找 `ToolSpec`
-- 生成 OpenAI Responses API 格式的工具定义
-- JSON 转换辅助方法
+Manages tool registration and lookup:
+- Register/unregister/find `ToolSpec`
+- Generate tool definitions in OpenAI Responses API format
+- JSON conversion helper methods
 
 ### `infra/tools/ToolRouter.kt`
-**工具执行路由**
+**Tool Execution Router**
 
-工具调用的状态机执行器：
-- 状态流程：VALIDATING → POLICY CHECK → (AWAITING_APPROVAL) → EXECUTING → SUCCESS/ERROR
-- 集成 `PolicyEngine` 进行审批决策
-- 支持审批超时（60秒）
-- 跟踪活跃的工具调用状态
+State machine executor for tool calls:
+- State flow: VALIDATING → POLICY CHECK → (AWAITING_APPROVAL) → EXECUTING → SUCCESS/ERROR
+- Integrate `PolicyEngine` for approval decisions
+- Support approval timeout (60 seconds)
+- Track active tool call states
 
 ### `infra/tools/ToolSpec.kt`
-**工具规范接口**
+**Tool Specification Interface**
 
-定义工具的接口和相关类型：
-- `ToolSpec`: 工具规范（name, description, parameterSchema, validate, createInvocation）
-- `ValidationResult`: 验证结果
-- `ToolInvocation`: 可执行的工具调用
-- `ToolExecutionContext`: 执行上下文
-- `ToolExecutionResult`: 执行结果（Success/Failure/Cancelled）
-- `ToolObservation`: 执行后的观察结果（ScreenState/TextOutput）
+Defines tool interface and related types:
+- `ToolSpec`: Tool specification (name, description, parameterSchema, validate, createInvocation)
+- `ValidationResult`: Validation result
+- `ToolInvocation`: Executable tool invocation
+- `ToolExecutionContext`: Execution context
+- `ToolExecutionResult`: Execution result (Success/Failure/Cancelled)
+- `ToolObservation`: Post-execution observation (ScreenState/TextOutput)
 
 ### `infra/tools/ToolCallResult.kt`
-**工具调用最终结果**
+**Tool Call Final Result**
 
-经过 ToolRouter 完整生命周期后的结果：
-- `Success`: 成功，包含 output 和可选的 observation
-- `Error`: 失败，包含错误信息
-- `Cancelled`: 被取消
+Result after complete ToolRouter lifecycle:
+- `Success`: Success, contains output and optional observation
+- `Error`: Failure, contains error message
+- `Cancelled`: Cancelled
 
 ### `infra/tools/ToolCallState.kt`
-**工具调用状态机**
+**Tool Call State Machine**
 
-跟踪工具调用的各个状态：
-- `Validating`: 验证中
-- `Scheduled`: 已调度
-- `AwaitingApproval`: 等待审批
-- `Executing`: 执行中
-- `Success` / `Error` / `Cancelled`: 终态
+Tracks various tool call states:
+- `Validating`: Validating
+- `Scheduled`: Scheduled
+- `AwaitingApproval`: Awaiting approval
+- `Executing`: Executing
+- `Success` / `Error` / `Cancelled`: Terminal states
 
 ### `infra/policy/PolicyEngine.kt`
-**策略引擎**
+**Policy Engine**
 
-决定工具调用是否需要审批：
-- 支持三种模式：`ALWAYS_ASK`, `AUTO_APPROVE`, `SMART`
-- 基于风险级别的决策（LOW/MEDIUM/HIGH）
-- 支持 allow/deny 列表
-- 可配置每个工具的风险级别
+Decides whether tool calls require approval:
+- Support three modes: `ALWAYS_ASK`, `AUTO_APPROVE`, `SMART`
+- Risk level-based decisions (LOW/MEDIUM/HIGH)
+- Support allow/deny lists
+- Configurable risk level per tool
 
 ---
 
-## Platform Layer (平台层)
+## Platform Layer
 
 ### `platform/AndroidPlatform.kt`
-**平台抽象接口**
+**Platform Abstraction Interface**
 
-Android 平台操作的抽象：
-- `captureScreen()`: 捕获屏幕
-- `performAction()`: 执行 UI 动作
-- `hasRequiredPermissions()`: 检查权限
-- `getCurrentPackageName()`: 获取前台应用包名
-- `getDisplayInfo()`: 获取显示信息
+Abstraction for Android platform operations:
+- `captureScreen()`: Capture screen
+- `performAction()`: Execute UI action
+- `hasRequiredPermissions()`: Check permissions
+- `getCurrentPackageName()`: Get foreground app package name
+- `getDisplayInfo()`: Get display information
 
 ### `platform/AccessibilityPlatform.kt`
-**AccessibilityService 实现**
+**AccessibilityService Implementation**
 
-`AndroidPlatform` 的真实实现：
-- 使用 `Perceptor` 捕获屏幕
-- 实现各种 UI 动作：点击、输入、滚动、滑动、系统按钮
-- 手势通过 `GestureDescription` API 实现
-- 文本输入通过重新查询 accessibility tree 找到目标节点
+Real implementation of `AndroidPlatform`:
+- Use `Perceptor` to capture screen
+- Implement various UI actions: click, type, scroll, swipe, system buttons
+- Gestures implemented via `GestureDescription` API
+- Text input by re-querying accessibility tree to find target node
 
 ### `platform/UIAction.kt`
-**UI 动作定义**
+**UI Action Definitions**
 
-平台无关的 UI 动作：
-- `Click(elementIndex)`: 点击元素
-- `ClickAt(x, y)`: 点击坐标
-- `Type(elementIndex, text)`: 输入文本
-- `Scroll(direction)`: 滚动
-- `Swipe(startX, startY, endX, endY, durationMs)`: 滑动
-- `SystemButton(button)`: 系统按钮
-- `Wait(durationMs)`: 等待
+Platform-agnostic UI actions:
+- `Click(elementIndex)`: Click element
+- `ClickAt(x, y)`: Click coordinates
+- `Type(elementIndex, text)`: Type text
+- `Scroll(direction)`: Scroll
+- `Swipe(startX, startY, endX, endY, durationMs)`: Swipe
+- `SystemButton(button)`: System button
+- `Wait(durationMs)`: Wait
 
-还定义了 `ScrollDirection` 和 `SystemButtonType` 枚举。
+Also defines `ScrollDirection` and `SystemButtonType` enums.
 
 ### `platform/ActionResult.kt`
-**动作执行结果**
+**Action Execution Result**
 
-UI 动作的执行结果：
-- `Success`: 成功
-- `Failure`: 失败
-- `ElementNotFound`: 元素未找到
-- `Cancelled`: 被取消
+UI action execution results:
+- `Success`: Success
+- `Failure`: Failure
+- `ElementNotFound`: Element not found
+- `Cancelled`: Cancelled
 
 ---
 
-## Data Layer (数据层)
+## Data Layer
 
 ### `data/perception/Perceptor.kt`
-**屏幕感知引擎**
+**Screen Perception Engine**
 
-将 AccessibilityNodeInfo 树转换为语义化的 `ScreenSnapshot`：
-- 遍历 accessibility tree，提取有意义的元素
-- 限制最大元素数（80）和字符串长度（60）
-- 正确回收 AccessibilityNodeInfo 节点
-- 生成 JSON 格式供 LLM 使用
+Converts AccessibilityNodeInfo tree to semantic `ScreenSnapshot`:
+- Traverse accessibility tree, extract meaningful elements
+- Limit maximum elements (80) and string length (60)
+- Properly recycle AccessibilityNodeInfo nodes
+- Generate JSON format for LLM use
 
 ### `data/llm/LLMClient.kt`
-**LLM 客户端**
+**LLM Client**
 
-OpenAI Responses API 的封装：
-- 支持 tool/function calling
-- 自动重试（指数退避，最多 5 次）
-- 区分可重试错误（rate limit, 5xx）和不可重试错误
-- 实例化设计（非单例），支持不同 API key
+OpenAI Responses API wrapper:
+- Support tool/function calling
+- Automatic retry (exponential backoff, up to 5 times)
+- Distinguish retryable errors (rate limit, 5xx) from non-retryable errors
+- Instance-based design (not singleton), supports different API keys
 
 ---
 
-## Domain Models (领域模型)
+## Domain Models
 
 ### `domain/models/Models.kt`
-**核心数据模型**
+**Core Data Models**
 
-- `Bounds`: 矩形边界
-- `Point`: 2D 坐标点
-- `ScreenSnapshot`: 屏幕快照（时间戳 + 元素列表）
-- `PerceptionElement`: UI 元素（index, text, resourceId, className, 交互属性, 位置等）
+- `Bounds`: Rectangle bounds
+- `Point`: 2D coordinate point
+- `ScreenSnapshot`: Screen snapshot (timestamp + element list)
+- `PerceptionElement`: UI element (index, text, resourceId, className, interaction properties, position, etc.)
 
 ---
 
-## Tools (工具实现)
+## Tools (Tool Implementations)
 
 ### `tools/base/BaseTool.kt`
-**工具基类**
+**Tool Base Class**
 
-UI 工具的抽象基类：
-- 提供参数验证辅助方法
-- 提供 JSON Schema 构建辅助方法
-- 实现 `BaseToolInvocation`：执行 UIAction 并捕获执行后的屏幕观察
+Abstract base class for UI tools:
+- Provide parameter validation helper methods
+- Provide JSON Schema building helper methods
+- Implement `BaseToolInvocation`: execute UIAction and capture post-execution screen observation
 
 ### `tools/impl/ClickTool.kt`
-**点击工具**
+**Click Tool**
 
-点击指定 index 的 UI 元素。参数：`element_index`（必填）
+Click UI element at specified index. Parameters: `element_index` (required)
 
 ### `tools/impl/TypeTool.kt`
-**输入工具**
+**Type Tool**
 
-向指定元素输入文本。参数：`element_index`（必填）, `text`（必填）
+Type text into specified element. Parameters: `element_index` (required), `text` (required)
 
 ### `tools/impl/ScrollTool.kt`
-**滚动工具**
+**Scroll Tool**
 
-向指定方向滚动屏幕。参数：`direction`（必填，up/down/left/right）
+Scroll screen in specified direction. Parameters: `direction` (required, up/down/left/right)
 
 ### `tools/impl/SwipeTool.kt`
-**滑动工具**
+**Swipe Tool**
 
-从一点滑动到另一点。参数：`start_x`, `start_y`, `end_x`, `end_y`（必填），`duration_ms`（可选）
+Swipe from one point to another. Parameters: `start_x`, `start_y`, `end_x`, `end_y` (required), `duration_ms` (optional)
 
 ### `tools/impl/BackTool.kt`
-**返回键工具**
+**Back Button Tool**
 
-按下系统返回键。无参数。
+Press system back button. No parameters.
 
-同一文件还包含 `HomeTool`：按下系统 Home 键。
+Same file also contains `HomeTool`: Press system Home button.
 
 ### `tools/impl/WaitTool.kt`
-**等待工具**
+**Wait Tool**
 
-等待指定时间。参数：`duration_ms`（可选，默认 1000，最大 30000）
+Wait for specified time. Parameters: `duration_ms` (optional, default 1000, max 30000)
 
 ### `tools/impl/CompleteTaskTool.kt`
-**任务完成工具**
+**Complete Task Tool**
 
-标记任务已完成。参数：`summary`（必填，完成摘要）
+Mark task as completed. Parameters: `summary` (required, completion summary)
 
 ---
 
-## UI Layer (UI 层)
+## UI Layer
 
 ### `ui/screen/AgentScreen.kt`
-**主界面 Compose UI**
+**Main Screen Compose UI**
 
-应用主界面的 Compose 实现：
-- Header：标题和副标题
-- ConfigSection：API Key 输入（带显示/隐藏）、Goal 输入
-- ActionButtons：Start Agent 按钮、Accessibility Settings 按钮
-- StatusLog：状态日志显示区域
-- 使用 `StatusUtils` 统一处理状态类型和颜色
+Compose implementation of the main app screen:
+- Header: Title and subtitle
+- ConfigSection: API Key input (with show/hide), Goal input
+- ActionButtons: Start Agent button, Accessibility Settings button
+- StatusLog: Status log display area
+- Use `StatusUtils` for unified status type and color handling
 
 ### `ui/theme/Theme.kt`
-**主题定义**
+**Theme Definition**
 
-Compose Material3 主题：
-- 使用 Notion 风格的浅色配色
-- 配置系统栏颜色
-- 组合 colorScheme 和 typography
+Compose Material3 theme:
+- Uses Notion-style light color palette
+- Configure system bar colors
+- Combine colorScheme and typography
 
 ### `ui/theme/Color.kt`
-**颜色定义**
+**Color Definitions**
 
-Notion 风格的优雅浅色主题色值：
-- 背景/表面色：暖白色调
-- Primary：蓝灰色
-- Accent：珊瑚/赤陶色
-- Secondary：柔和青色
-- 状态色：Success/Warning/Error/Info
+Notion-style elegant light theme colors:
+- Background/surface colors: Warm white tones
+- Primary: Blue-gray
+- Accent: Coral/terracotta
+- Secondary: Soft teal
+- Status colors: Success/Warning/Error/Info
 
 ### `ui/theme/Type.kt`
-**字体定义**
+**Typography Definitions**
 
-Material3 Typography 配置：Display, Headline, Title, Body, Label 各级别的字体样式。
+Material3 Typography configuration: Display, Headline, Title, Body, Label font styles at various levels.
 
 ---
 
-## Utilities (工具类)
+## Utilities
 
 ### `util/StatusUtils.kt`
-**状态处理工具**
+**Status Processing Utilities**
 
-集中的状态消息处理：
-- `cleanStatusText()`: 移除 emoji
-- `getStatusType()`: 检测状态类型（SUCCESS/ERROR/WARNING/THINKING/TOOL/RUNNING/NEUTRAL）
-- `isTerminalStatus()`: 判断是否为终态
+Centralized status message processing:
+- `cleanStatusText()`: Remove emoji
+- `getStatusType()`: Detect status type (SUCCESS/ERROR/WARNING/THINKING/TOOL/RUNNING/NEUTRAL)
+- `isTerminalStatus()`: Determine if it's a terminal state
 
 ---
 
-## Service Layer (服务层)
+## Service Layer
 
 ### `service/OverlayManager.kt`
-**浮动控制条**
+**Floating Control Bar**
 
-Agent 运行时的浮动 UI 控制条：
-- 显示在屏幕底部
-- 包含状态指示点、状态文本、暂停/恢复按钮、停止按钮
-- 使用 WindowManager 作为 overlay 显示
-- 根据状态类型更新指示点颜色
+Floating UI control bar during agent execution:
+- Displayed at screen bottom
+- Contains status indicator dot, status text, pause/resume button, stop button
+- Uses WindowManager as overlay display
+- Update indicator dot color based on status type
