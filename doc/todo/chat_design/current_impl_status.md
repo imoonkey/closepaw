@@ -20,6 +20,10 @@ All code review comments from PR #15 have been addressed:
 - ✅ Updated state diagram to use consistent terminology (`TaskCompleted` instead of `TaskDone`)
 - ✅ Added `ReplaceWith` to `Op.Start` deprecation annotation
 - ✅ Clarified comments in `AgentSession` about state transitions and cleanup
+- ✅ Removed unused `ResponseAccumulator` from `Turn.kt` (manual accumulation is sufficient)
+- ✅ Removed unused `createResponseAccumulator()` helper from `LLMClient.kt`
+- ✅ Removed unused local accumulators in `Agent.kt` (`TurnResult` already contains accumulated data)
+- ✅ Fixed closure capture issue with `streamError?.let { throw it }` pattern
 
 ## Files Changed
 
@@ -55,17 +59,17 @@ All code review comments from PR #15 have been addressed:
 
 ### Native OpenAI Streaming (llm/LLMClient.kt)
 
-**Removed**: Custom `LLMStreamChunk` sealed interface
+**Removed**: Custom `LLMStreamChunk` sealed interface, `createResponseAccumulator()` helper
 
 **Now using**: OpenAI Java SDK's native `ResponseStreamEvent` type directly:
 ```kotlin
-// Native streaming method - returns OpenAI SDK type
+// Native streaming method - returns OpenAI SDK type wrapped in callbackFlow
 fun chatWithToolsStreaming(...): Flow<ResponseStreamEvent>
 
 // Key event types from OpenAI SDK:
 // - event.isOutputTextDelta() → text chunk via event.asOutputTextDelta().delta()
 // - event.isOutputItemDone() → completed item (text or function call)
-// - event.isCreated() → response created with ID
+// - event.isCreated() → response created with ID (logged for debugging)
 // - event.isCompleted() → stream finished
 // - event.isFailed() → error occurred
 ```
@@ -73,10 +77,11 @@ fun chatWithToolsStreaming(...): Flow<ResponseStreamEvent>
 ### `TurnStreamEvent` (agent/Turn.kt)
 ```kotlin
 // Thin wrapper that processes ResponseStreamEvent into agent-friendly events
+// Turn.runStreaming() manually accumulates text and tool calls, then builds TurnResult
 sealed interface TurnStreamEvent {
     data class TextDelta(val text: String)
     data class ToolCallReceived(val toolCall: ToolCallRequest)
-    data class Complete(val result: TurnResult)
+    data class Complete(val result: TurnResult)  // Contains accumulated content and toolCalls
     data class Error(val error: Throwable)
 }
 ```
@@ -141,8 +146,10 @@ data object Idle : SessionState  // Session active, waiting for user input
 ### Streaming Implementation
 - **Approach**: Native OpenAI SDK streaming via `client.responses().createStreaming()`
 - **Event Processing**: Uses `ResponseStreamEvent` with `isOutputTextDelta()`, `isOutputItemDone()`, etc.
+- **Accumulation**: Manual accumulation in `Turn.runStreaming()` (no `ResponseAccumulator`)
 - **Benefits**: Real-time streaming, proper tool call events, SDK-managed connection handling
 - **Flow Type**: Uses `callbackFlow` for proper coroutine integration with blocking SDK stream
+- **Agent Integration**: `Agent.executeTurn()` forwards `MessageDelta` events to UI, uses `TurnResult` from `Complete` event
 
 ### Concurrency
 - Only one Task at a time
