@@ -10,8 +10,12 @@ import com.moonkey.androidagent.service.OverlayManager
 import com.moonkey.androidagent.session.AgentSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -19,6 +23,8 @@ import kotlinx.coroutines.launch
  * 
  * **Phase 2**: Now uses AgentSession with Op/Event protocol.
  * Operations are submitted via Op sealed class, status is received via AgentEvent Flow.
+ * 
+ * Status updates are exposed via [statusFlow] for lifecycle-aware collection by MainActivity.
  */
 class AgentService : AccessibilityService() {
 
@@ -28,13 +34,21 @@ class AgentService : AccessibilityService() {
         @Volatile
         var instance: AgentService? = null
             private set
-
-        var statusCallback: ((String) -> Unit)? = null
+        
+        /** 
+         * Status updates exposed as StateFlow for lifecycle-aware collection.
+         * Static so MainActivity can collect even before service instance is available.
+         */
+        private val _statusFlow = MutableStateFlow<String>("")
+        val statusFlow: StateFlow<String> = _statusFlow.asStateFlow()
     }
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var session: AgentSession? = null
     private var overlayManager: OverlayManager? = null
+    
+    /** Job for the current session's event collector, cancelled before starting new session */
+    private var eventCollectorJob: Job? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -84,15 +98,19 @@ class AgentService : AccessibilityService() {
 
     private fun updateStatus(status: String) {
         Log.d(TAG, status)
-        statusCallback?.invoke(status)
+        _statusFlow.value = status
         overlayManager?.updateStatus(status)
     }
 
     /**
      * Start observing events from the session.
+     * Cancels any previous collector before starting new one.
      */
     private fun observeSession(agentSession: AgentSession) {
-        scope.launch {
+        // Cancel previous collector if still active
+        eventCollectorJob?.cancel()
+        
+        eventCollectorJob = scope.launch {
             agentSession.events.collect { event ->
                 handleEvent(event)
             }
@@ -149,6 +167,17 @@ class AgentService : AccessibilityService() {
 
     /** Run the agent loop - called from MainActivity */
     fun runAgent(goal: String, apiKey: String, maxSteps: Int = 20) {
+        // Stop any existing session before starting new one (prevents concurrent sessions)
+        session?.let { existingSession ->
+            Log.i(TAG, "Stopping existing session before starting new one")
+            scope.launch {
+                existingSession.submit(Op.Shutdown)
+            }
+            eventCollectorJob?.cancel()
+            eventCollectorJob = null
+            session = null
+        }
+        
         // Show overlay immediately
         overlayManager?.show()
         // Note: Agent.kt emits the "Starting agent" status, don't duplicate here
