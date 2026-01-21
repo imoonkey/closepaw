@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - Simple ReAct loop: Perceive → Think → Act → Observe
  * - No multi-agent complexity (Manager/Executor/Reflector removed)
  * - Tool results include post-action screen observation
- * - Can spawn sub-agents (interface preserved for future)
+ * - Streaming support: Emits MessageDelta events during LLM response
  */
 class Agent(
     private val config: AgentConfig,
@@ -122,7 +122,7 @@ class Agent(
     }
     
     /**
-     * Execute a single turn of the ReAct loop.
+     * Execute a single turn of the ReAct loop with streaming.
      */
     private suspend fun executeTurn(): TurnOutcome {
         turnCount++
@@ -144,7 +144,7 @@ class Agent(
             if (cancellationSignal.isCompleted || stopRequested.get()) {
                 TurnOutcome.Cancelled
             } else {
-                // 2. THINK: Call LLM
+                // 2. THINK: Call LLM with streaming
                 emitTurnPhaseChanged(turnId, TurnPhase.PLANNING)
                 emitStatus("🧠 Thinking...")
 
@@ -152,30 +152,67 @@ class Agent(
                 val systemPrompt = buildSystemPrompt()
                 val userContext = buildUserContext(snapshot)
 
-                val turnResult = turn.run(systemPrompt, userContext, services.config.model)
-
-                Log.d(TAG, "Turn $turnCount: LLM response: ${turnResult.content?.take(200)}...")
-                Log.d(TAG, "Turn $turnCount: Tool calls: ${turnResult.toolCalls.map { it.name }}")
+                // Collect streaming response
+                val textAccumulator = StringBuilder()
+                val toolCalls = mutableListOf<ToolCallRequest>()
+                var turnResult: TurnResult? = null
+                var streamError: Throwable? = null
+                
+                turn.runStreaming(systemPrompt, userContext, services.config.model).collect { event ->
+                    when (event) {
+                        is TurnStreamEvent.TextDelta -> {
+                            textAccumulator.append(event.text)
+                            // Emit MessageDelta for UI streaming
+                            emitMessageDelta(turnId, event.text)
+                        }
+                        
+                        is TurnStreamEvent.ToolCallReceived -> {
+                            toolCalls.add(event.toolCall)
+                            Log.d(TAG, "Turn $turnCount: Received tool call: ${event.toolCall.name}")
+                        }
+                        
+                        is TurnStreamEvent.Complete -> {
+                            turnResult = event.result
+                            Log.d(TAG, "Turn $turnCount: Stream complete, isComplete=${event.result.isComplete}")
+                        }
+                        
+                        is TurnStreamEvent.Error -> {
+                            streamError = event.error
+                            Log.e(TAG, "Turn $turnCount: Stream error", event.error)
+                        }
+                    }
+                }
+                
+                // Handle stream error
+                if (streamError != null) {
+                    throw streamError!!
+                }
+                
+                // Get final result
+                val result = turnResult ?: throw RuntimeException("Stream completed without result")
+                
+                Log.d(TAG, "Turn $turnCount: LLM response: ${result.content?.take(200)}...")
+                Log.d(TAG, "Turn $turnCount: Tool calls: ${result.toolCalls.map { it.name }}")
 
                 // Record assistant response in history
-                if (turnResult.content != null) {
+                if (result.content != null) {
                     services.historyManager.addItem(
                         ResponseItem.Message(
                             role = "assistant",
-                            content = turnResult.content
+                            content = result.content
                         )
                     )
                 }
 
                 // 3. ACT: Execute tool calls
-                if (turnResult.toolCalls.isNotEmpty()) {
+                if (result.toolCalls.isNotEmpty()) {
                     emitTurnPhaseChanged(turnId, TurnPhase.EXECUTION)
                     emitStatus("💡 Executing actions...")
 
                     // Track current snapshot - update after each tool for multi-tool execution
                     var currentSnapshot = snapshot
 
-                    for (toolCall in turnResult.toolCalls) {
+                    for (toolCall in result.toolCalls) {
                         Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
 
                         // Record tool call in history
@@ -193,7 +230,7 @@ class Agent(
                             currentSnapshot = currentSnapshot
                         )
 
-                        val result = services.toolRouter.execute(
+                        val toolResult = services.toolRouter.execute(
                             toolName = toolCall.name,
                             params = toolCall.arguments,
                             context = context,
@@ -215,15 +252,12 @@ class Agent(
                         )
 
                         // 4. OBSERVE: Prefer observation from tool execution result.
-                        // NOTE: If there's delay between this observation and the next LLM call,
-                        // it could become stale. This is acceptable for now but worth revisiting
-                        // if timing becomes critical.
                         var observation: Observation = Observation.TextOutput("No observation captured.")
                         var observedSnapshot: ScreenSnapshot? = null
                         var hasObservation = false
 
-                        if (result is ToolCallResult.Success) {
-                            when (val toolObs = result.observation) {
+                        if (toolResult is ToolCallResult.Success) {
+                            when (val toolObs = toolResult.observation) {
                                 is ToolObservation.ScreenState -> {
                                     observation = toolObs.toAgentObservation()
                                     observedSnapshot = toolObs.snapshot
@@ -257,8 +291,8 @@ class Agent(
                         services.historyManager.addItem(
                             ResponseItem.FunctionCallOutput(
                                 callId = toolCall.id,
-                                content = formatToolResult(result, observation),
-                                success = result is ToolCallResult.Success
+                                content = formatToolResult(toolResult, observation),
+                                success = toolResult is ToolCallResult.Success
                             )
                         )
 
@@ -266,10 +300,10 @@ class Agent(
                         eventEmitter(AgentEvent.ActionExecuted(
                             sessionId = config.sessionId,
                             timestamp = System.currentTimeMillis(),
-                            actionId = result.callId,
+                            actionId = toolResult.callId,
                             toolName = toolCall.name,
-                            success = result is ToolCallResult.Success,
-                            result = result.toContextString()
+                            success = toolResult is ToolCallResult.Success,
+                            result = toolResult.toContextString()
                         ))
 
                         emitStatus("✓ ${toolCall.name} executed")
@@ -277,11 +311,11 @@ class Agent(
                 }
 
                 // Check if complete (complete_task tool was called)
-                if (turnResult.isComplete) {
+                if (result.isComplete) {
                     // Extract completion summary from complete_task tool if present
-                    val completeTaskCall = turnResult.toolCalls.find { it.name == "complete_task" }
+                    val completeTaskCall = result.toolCalls.find { it.name == "complete_task" }
                     val summary = completeTaskCall?.arguments?.optString("summary")
-                        ?: turnResult.content 
+                        ?: result.content 
                         ?: "Goal achieved"
                     Log.i(TAG, "Turn $turnCount: Task marked as complete - $summary")
                     TurnOutcome.Complete(summary)
@@ -293,11 +327,6 @@ class Agent(
             Log.e(TAG, "Turn execution failed", e)
 
             // Determine if error is recoverable
-            // - DNS failures (UnknownHostException) are NOT recoverable - host cannot be resolved
-            // - Transient network errors (timeout, connection refused) ARE recoverable
-            // - LLMClient already handles retries internally, so errors reaching here 
-            //   have exhausted LLM-level retries, but turn-level retry may still help
-            // TODO: Narrow recoverable errors to explicit transient network types only.
             val message = e.message ?: ""
             val isDnsFailure = e is java.net.UnknownHostException ||
                 message.contains("Unable to resolve host", ignoreCase = true) ||
@@ -312,7 +341,6 @@ class Agent(
 
             TurnOutcome.Error(
                 message = message.ifEmpty { "Unknown error" },
-                // DNS failures are not recoverable; transient network errors are recoverable
                 recoverable = !isDnsFailure && (isTransientNetworkError || !message.contains("internet", ignoreCase = true))
             )
         }
@@ -381,7 +409,7 @@ class Agent(
         return !stopRequested.get() && !cancellationSignal.isCompleted
     }
     
-    // === Lifecycle Methods (M2: Thread-safe with mutex) ===
+    // === Lifecycle Methods ===
     
     suspend fun pause() {
         lifecycleMutex.withLock {
@@ -399,13 +427,10 @@ class Agent(
     
     /**
      * Request the agent to stop after the current action.
-     * 
-     * This method is idempotent - safe to call multiple times.
-     * Uses atomic operations so no suspend is needed.
      */
     fun stop() {
         stopRequested.set(true)
-        pauseState.value = false  // MutableStateFlow is thread-safe; unpause to allow loop to exit
+        pauseState.value = false
     }
     
     // === Event Emission ===
@@ -416,6 +441,15 @@ class Agent(
             sessionId = config.sessionId,
             timestamp = System.currentTimeMillis(),
             status = status
+        ))
+    }
+    
+    private suspend fun emitMessageDelta(turnId: String, delta: String) {
+        eventEmitter(AgentEvent.MessageDelta(
+            sessionId = config.sessionId,
+            timestamp = System.currentTimeMillis(),
+            turnId = turnId,
+            delta = delta
         ))
     }
 
@@ -495,4 +529,3 @@ sealed class AgentStopReason {
     data object MaxTurnsReached : AgentStopReason()
     data class Error(val message: String) : AgentStopReason()
 }
-

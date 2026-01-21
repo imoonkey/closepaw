@@ -10,6 +10,8 @@ import com.openai.models.ChatModel
 import com.openai.models.responses.ResponseInputItem
 import com.openai.models.responses.ResponseFunctionToolCall
 import com.openai.models.responses.EasyInputMessage
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import org.json.JSONObject
 
 
@@ -23,11 +25,11 @@ import org.json.JSONObject
  * 2. Calling the LLM with tools via the Responses API
  * 3. Processing the structured response (text and/or tool calls)
  * 
- * Uses OpenAI's official tool calling interface via the Responses API,
- * which provides:
- * - Reliable tool call parsing (no regex needed)
- * - Proper call_id correlation for tool results
- * - Better structured outputs
+ * Supports both streaming and non-streaming modes:
+ * - `run()`: Non-streaming, returns complete TurnResult
+ * - `runStreaming()`: Streaming, emits TurnStreamEvent as they arrive
+ * 
+ * Uses OpenAI's official tool calling interface via the Responses API.
  */
 class Turn(
     private val historyManager: HistoryManager,
@@ -40,7 +42,7 @@ class Turn(
     }
     
     /**
-     * Execute one turn of the ReAct loop.
+     * Execute one turn of the ReAct loop (non-streaming).
      * 
      * @param systemPrompt System prompt for the agent
      * @param userContext Current context (screen state, goal, etc.)
@@ -79,6 +81,144 @@ class Turn(
         
         // 6. Process response
         return processResponse(response.textContent, response.toolCalls)
+    }
+    
+    /**
+     * Execute one turn of the ReAct loop with streaming.
+     * 
+     * Uses OpenAI's native streaming via ResponseStreamEvent.
+     * Emits TurnStreamEvent as the response is generated:
+     * - TextDelta: Incremental text from the LLM
+     * - ToolCallReceived: A complete tool call has been parsed
+     * - Complete: Stream finished, final TurnResult available
+     * - Error: An error occurred
+     * 
+     * @param systemPrompt System prompt for the agent
+     * @param userContext Current context (screen state, goal, etc.)
+     * @param modelName Model name to use
+     * @return Flow of TurnStreamEvent
+     */
+    fun runStreaming(
+        systemPrompt: String,
+        userContext: String,
+        modelName: String = "gpt-4o"
+    ): Flow<TurnStreamEvent> = flow {
+        Log.d(TAG, "Running streaming turn with native OpenAI streaming, model=$modelName")
+        
+        try {
+            // 1. Build input items
+            val inputItems = buildInputItems(userContext)
+            Log.d(TAG, "Streaming turn with ${inputItems.size} input items")
+            
+            // 2. Get tools
+            val tools = toolRegistry.generateResponsesApiTools()
+            
+            // 3. Build system prompt
+            val fullSystemPrompt = buildSystemPrompt(systemPrompt)
+            
+            // 4. Convert model name
+            val chatModel = modelNameToChatModel(modelName)
+            
+            // 5. Create accumulator for building final response
+            val accumulator = llmClient.createResponseAccumulator()
+            
+            // 6. Accumulate text and tool calls locally
+            val textAccumulator = StringBuilder()
+            val toolCalls = mutableListOf<LLMToolCall>()
+            var responseId: String? = null
+            
+            // 7. Stream response using native OpenAI SDK streaming
+            llmClient.chatWithToolsStreaming(
+                systemPrompt = fullSystemPrompt,
+                inputItems = inputItems,
+                tools = tools,
+                model = chatModel
+            ).collect { event ->
+                // Accumulate for final response
+                accumulator.accumulate(event)
+                
+                // Process text deltas: response.output_text.delta
+                if (event.isOutputTextDelta()) {
+                    val textDelta = event.asOutputTextDelta()
+                    val delta = textDelta.delta()
+                    textAccumulator.append(delta)
+                    emit(TurnStreamEvent.TextDelta(delta))
+                }
+                
+                // Process completed output items: response.output_item.done
+                // This fires when a complete output item (text or function call) is ready
+                if (event.isOutputItemDone()) {
+                    val itemDone = event.asOutputItemDone()
+                    val item = itemDone.item()
+                    
+                    // Check if it's a function call
+                    if (item.isFunctionCall()) {
+                        val funcCall = item.asFunctionCall()
+                        val llmToolCall = LLMToolCall(
+                            callId = funcCall.callId(),
+                            name = funcCall.name(),
+                            arguments = funcCall.arguments()
+                        )
+                        toolCalls.add(llmToolCall)
+                        
+                        Log.d(TAG, "Received tool call: ${funcCall.name()} with id ${funcCall.callId()}")
+                        
+                        // Convert to ToolCallRequest and emit
+                        val toolCallRequest = convertToToolCallRequest(llmToolCall)
+                        emit(TurnStreamEvent.ToolCallReceived(toolCallRequest))
+                    }
+                }
+                
+                // Capture response ID when response is created
+                if (event.isCreated()) {
+                    val created = event.asCreated()
+                    responseId = created.response().id()
+                    Log.d(TAG, "Response created with ID: $responseId")
+                }
+                
+                // Handle response completion
+                if (event.isCompleted()) {
+                    Log.d(TAG, "Response completed, building final result")
+                }
+                
+                // Handle response failure
+                if (event.isFailed()) {
+                    val failed = event.asFailed()
+                    val errorMsg = "Response failed: ${failed.response()}"
+                    Log.e(TAG, errorMsg)
+                    throw RuntimeException(errorMsg)
+                }
+            }
+            
+            // 8. Build final result from accumulated data
+            val textContent = textAccumulator.toString().takeIf { it.isNotEmpty() }
+            val result = processResponse(textContent, toolCalls)
+            
+            Log.d(TAG, "Streaming turn complete: text=${textContent?.take(100)}..., toolCalls=${toolCalls.size}")
+            emit(TurnStreamEvent.Complete(result))
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Streaming turn failed", e)
+            emit(TurnStreamEvent.Error(e))
+        }
+    }
+    
+    /**
+     * Convert LLMToolCall to ToolCallRequest.
+     */
+    private fun convertToToolCallRequest(llmToolCall: LLMToolCall): ToolCallRequest {
+        val argsJson = try {
+            JSONObject(llmToolCall.arguments)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse tool arguments as JSON: ${llmToolCall.arguments}", e)
+            JSONObject()
+        }
+        
+        return ToolCallRequest(
+            id = llmToolCall.callId,
+            name = llmToolCall.name,
+            arguments = argsJson
+        )
     }
     
     /**
@@ -213,18 +353,7 @@ class Turn(
     ): TurnResult {
         // Convert LLM tool calls to our format
         val toolCalls = llmToolCalls.map { call ->
-            val argsJson = try {
-                JSONObject(call.arguments)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to parse tool arguments as JSON: ${call.arguments}", e)
-                JSONObject()
-            }
-            
-            ToolCallRequest(
-                id = call.callId,  // Use OpenAI's call_id
-                name = call.name,
-                arguments = argsJson
-            )
+            convertToToolCallRequest(call)
         }
         
         // Check for completion:
@@ -242,6 +371,23 @@ class Turn(
             parseErrors = null  // No parsing errors with Responses API
         )
     }
+}
+
+/**
+ * Events emitted during a streaming turn.
+ */
+sealed interface TurnStreamEvent {
+    /** Incremental text delta from the LLM */
+    data class TextDelta(val text: String) : TurnStreamEvent
+    
+    /** A complete tool call has been received */
+    data class ToolCallReceived(val toolCall: ToolCallRequest) : TurnStreamEvent
+    
+    /** Stream completed, final result available */
+    data class Complete(val result: TurnResult) : TurnStreamEvent
+    
+    /** An error occurred during the turn */
+    data class Error(val error: Throwable) : TurnStreamEvent
 }
 
 /**
