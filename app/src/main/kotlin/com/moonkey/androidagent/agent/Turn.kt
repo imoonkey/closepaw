@@ -119,23 +119,17 @@ class Turn(
             // 4. Convert model name
             val chatModel = modelNameToChatModel(modelName)
             
-            // 5. Create accumulator for building final response
-            val accumulator = llmClient.createResponseAccumulator()
-            
-            // 6. Accumulate text and tool calls locally
+            // 5. Accumulate text and tool calls locally for building final result
             val textAccumulator = StringBuilder()
             val toolCalls = mutableListOf<LLMToolCall>()
-            var responseId: String? = null
             
-            // 7. Stream response using native OpenAI SDK streaming
+            // 6. Stream response using native OpenAI SDK streaming
             llmClient.chatWithToolsStreaming(
                 systemPrompt = fullSystemPrompt,
                 inputItems = inputItems,
                 tools = tools,
                 model = chatModel
             ).collect { event ->
-                // Accumulate for final response
-                accumulator.accumulate(event)
                 
                 // Process text deltas: response.output_text.delta
                 if (event.isOutputTextDelta()) {
@@ -169,10 +163,10 @@ class Turn(
                     }
                 }
                 
-                // Capture response ID when response is created
+                // Log response creation (responseId available for future use)
                 if (event.isCreated()) {
                     val created = event.asCreated()
-                    responseId = created.response().id()
+                    val responseId = created.response().id()
                     Log.d(TAG, "Response created with ID: $responseId")
                 }
                 
@@ -190,7 +184,7 @@ class Turn(
                 }
             }
             
-            // 8. Build final result from accumulated data
+            // 7. Build final result from accumulated data
             val textContent = textAccumulator.toString().takeIf { it.isNotEmpty() }
             val result = processResponse(textContent, toolCalls)
             

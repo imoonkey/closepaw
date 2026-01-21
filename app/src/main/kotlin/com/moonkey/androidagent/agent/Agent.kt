@@ -154,21 +154,20 @@ class Agent(
                 val userContext = buildUserContext(snapshot)
 
                 // Collect streaming response
-                val textAccumulator = StringBuilder()
-                val toolCalls = mutableListOf<ToolCallRequest>()
+                // Note: Turn.runStreaming() accumulates text/toolCalls internally and returns
+                // the final result via TurnStreamEvent.Complete. We only need to forward deltas
+                // for UI streaming and capture the final result.
                 var turnResult: TurnResult? = null
                 var streamError: Throwable? = null
                 
                 turn.runStreaming(systemPrompt, userContext, services.config.model).collect { event ->
                     when (event) {
                         is TurnStreamEvent.TextDelta -> {
-                            textAccumulator.append(event.text)
                             // Emit MessageDelta for UI streaming
                             emitMessageDelta(turnId, event.text)
                         }
                         
                         is TurnStreamEvent.ToolCallReceived -> {
-                            toolCalls.add(event.toolCall)
                             Log.d(TAG, "Turn $turnCount: Received tool call: ${event.toolCall.name}")
                         }
                         
@@ -185,9 +184,7 @@ class Agent(
                 }
                 
                 // Handle stream error
-                if (streamError != null) {
-                    throw streamError ?: RuntimeException("Stream completed with error flag but no error details")
-                }
+                streamError?.let { throw it }
                 
                 // Get final result
                 val result = turnResult ?: throw RuntimeException("Stream completed without result")
