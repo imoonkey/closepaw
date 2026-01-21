@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.llm
 
 import android.util.Log
+import com.moonkey.androidagent.util.PerfLogger
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
@@ -267,7 +268,11 @@ class LLMClient(apiKey: String) {
             
             Log.d(TAG, "Making Responses API call to OpenAI...")
             
+            // Time the network call specifically
+            val networkStart = System.currentTimeMillis()
             val response = client.responses().create(builder.build())
+            val networkMs = System.currentTimeMillis() - networkStart
+            PerfLogger.log("llm_network", networkMs, mapOf("model" to model.toString()))
             
             // Parse output items
             val textContent = StringBuilder()

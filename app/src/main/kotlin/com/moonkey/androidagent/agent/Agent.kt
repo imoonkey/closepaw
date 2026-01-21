@@ -11,6 +11,7 @@ import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.ApprovalDetails
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
+import com.moonkey.androidagent.util.PerfLogger
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,6 +66,9 @@ class Agent(
         Log.i(TAG, "Starting agent for goal: ${config.goal}")
         emitStatus("🚀 Starting agent...")
         
+        // Initialize perf logging for this session
+        PerfLogger.setSession(config.sessionId.value)
+        
         // Add initial user message to history
         services.historyManager.addItem(
             ResponseItem.Message(
@@ -93,7 +97,13 @@ class Agent(
             
             when (result) {
                 is TurnOutcome.Continue -> {
+                    // Time inter-turn settle delay
+                    val settleStart = System.currentTimeMillis()
                     delay(config.uiSettleDelayMs)
+                    val settleMs = System.currentTimeMillis() - settleStart
+                    PerfLogger.log("settle_inter_turn", settleMs, mapOf(
+                        "configured" to config.uiSettleDelayMs
+                    ))
                 }
                 is TurnOutcome.Complete -> {
                     emitStatus("✅ Goal achieved!")
@@ -126,9 +136,13 @@ class Agent(
      * Execute a single turn of the ReAct loop with streaming.
      */
     private suspend fun executeTurn(): TurnOutcome {
+        val turnStart = System.currentTimeMillis()
         turnCount++
         val turnId = "turn-$turnCount"
         Log.d(TAG, "=== TURN $turnCount START ===")
+        
+        // Set turn number for perf logging
+        PerfLogger.setTurn(turnCount)
 
         emitTurnStarted(turnId)
 
@@ -136,7 +150,11 @@ class Agent(
             // 1. PERCEPTION: Capture screen
             emitStatus("👀 Scanning screen...")
 
+            val captureStart = System.currentTimeMillis()
             val snapshot = services.platform.captureScreen()
+            val captureMs = System.currentTimeMillis() - captureStart
+            PerfLogger.log("capture", captureMs, mapOf("elements" to snapshot.elements.size))
+            
             emitScreenCaptured(snapshot)
 
             Log.d(TAG, "Turn $turnCount: Screen has ${snapshot.elements.size} elements")
@@ -151,12 +169,18 @@ class Agent(
 
                 val turn = Turn(services.historyManager, services.toolRegistry, services.llmClient)
                 val systemPrompt = buildSystemPrompt()
+                
+                // Time JSON serialization separately
+                val jsonStart = System.currentTimeMillis()
                 val userContext = buildUserContext(snapshot)
+                val jsonMs = System.currentTimeMillis() - jsonStart
+                PerfLogger.log("json", jsonMs, mapOf("bytes" to userContext.length))
 
-                // Collect streaming response
+                // Collect streaming response with timing
                 // Note: Turn.runStreaming() accumulates text/toolCalls internally and returns
                 // the final result via TurnStreamEvent.Complete. We only need to forward deltas
                 // for UI streaming and capture the final result.
+                val llmStart = System.currentTimeMillis()
                 var turnResult: TurnResult? = null
                 var streamError: Throwable? = null
                 
@@ -182,6 +206,13 @@ class Agent(
                         }
                     }
                 }
+                
+                // Log LLM total time (includes streaming)
+                val llmMs = System.currentTimeMillis() - llmStart
+                PerfLogger.log("llm_total", llmMs, mapOf(
+                    "tools" to (turnResult?.toolCalls?.size ?: 0),
+                    "model" to services.config.model
+                ))
                 
                 // Handle stream error
                 streamError?.let { throw it }
@@ -234,6 +265,8 @@ class Agent(
                             currentSnapshot = currentSnapshot
                         )
 
+                        // Time tool execution
+                        val toolStart = System.currentTimeMillis()
                         val toolResult = services.toolRouter.execute(
                             toolName = toolCall.name,
                             params = toolCall.arguments,
@@ -254,6 +287,11 @@ class Agent(
                                 }
                             }
                         )
+                        val toolMs = System.currentTimeMillis() - toolStart
+                        PerfLogger.log("tool_${toolCall.name}", toolMs, mapOf(
+                            "success" to (toolResult is ToolCallResult.Success),
+                            "callId" to toolCall.id
+                        ))
 
                         // 4. OBSERVE: Prefer observation from tool execution result.
                         var observation: Observation = Observation.TextOutput("No observation captured.")
@@ -349,6 +387,13 @@ class Agent(
             )
         }
 
+        // Log total turn time
+        val turnMs = System.currentTimeMillis() - turnStart
+        PerfLogger.log("turn", turnMs, mapOf(
+            "outcome" to (outcome::class.simpleName ?: "unknown"),
+            "turnNumber" to turnCount
+        ))
+        
         emitTurnCompleted(turnId)
         return outcome
     }

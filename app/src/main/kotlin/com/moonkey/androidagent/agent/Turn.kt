@@ -6,6 +6,7 @@ import com.moonkey.androidagent.llm.LLMToolCall
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.tool.ToolRegistry
+import com.moonkey.androidagent.util.PerfLogger
 import com.openai.models.ChatModel
 import com.openai.models.responses.ResponseInputItem
 import com.openai.models.responses.ResponseFunctionToolCall
@@ -55,7 +56,10 @@ class Turn(
         modelName: String = "gpt-4o"
     ): TurnResult {
         // 1. Build input items from history using proper ResponseInputItem types
+        val historyStart = System.currentTimeMillis()
         val inputItems = buildInputItems(userContext)
+        val historyMs = System.currentTimeMillis() - historyStart
+        PerfLogger.log("history_build", historyMs, mapOf("items" to inputItems.size))
         
         Log.d(TAG, "Running turn with ${inputItems.size} input items, model=$modelName")
         
@@ -69,7 +73,8 @@ class Turn(
         // 4. Convert model name to ChatModel enum
         val chatModel = modelNameToChatModel(modelName)
         
-        // 5. Call LLM via Responses API
+        // 5. Call LLM via Responses API (timing done in Agent.kt at llm_total level,
+        //    and in LLMClient at llm_network level)
         val response = llmClient.chatWithTools(
             systemPrompt = fullSystemPrompt,
             inputItems = inputItems,
@@ -80,7 +85,12 @@ class Turn(
         Log.d(TAG, "LLM response: text=${response.textContent?.take(200)}, toolCalls=${response.toolCalls.size}")
         
         // 6. Process response
-        return processResponse(response.textContent, response.toolCalls)
+        val parseStart = System.currentTimeMillis()
+        val result = processResponse(response.textContent, response.toolCalls)
+        val parseMs = System.currentTimeMillis() - parseStart
+        PerfLogger.log("response_parse", parseMs, mapOf("toolCalls" to result.toolCalls.size))
+        
+        return result
     }
     
     /**
