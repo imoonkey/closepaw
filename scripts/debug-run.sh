@@ -43,7 +43,7 @@ adb logcat -c
 log "Starting agent with goal: $GOAL"
 adb shell input keyevent KEYCODE_HOME
 sleep 0.5
-adb shell "am start -n $PACKAGE/.MainActivity \
+adb shell "am start -n $PACKAGE/.app.MainActivity \
     --activity-clear-top --activity-single-top \
     --es api_key '$OPENAI_API_KEY' \
     --es goal '$GOAL' \

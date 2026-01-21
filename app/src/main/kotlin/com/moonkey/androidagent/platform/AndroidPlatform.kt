@@ -1,6 +1,6 @@
 package com.moonkey.androidagent.platform
 
-import com.moonkey.androidagent.domain.models.ScreenSnapshot
+import com.moonkey.androidagent.model.ScreenSnapshot
 
 /**
  * AndroidPlatform - Abstraction for Android-specific operations.

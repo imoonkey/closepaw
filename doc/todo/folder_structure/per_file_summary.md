@@ -6,7 +6,7 @@ This document provides a summary of each Kotlin source file in `app/src/main/kot
 
 ## Entry Points & Service Layer
 
-### `AgentService.kt`
+### `app/AgentService.kt`
 **AccessibilityService Entry Point**
 
 Main entry point for the Android Accessibility Service. Responsibilities:
@@ -16,7 +16,7 @@ Main entry point for the Android Accessibility Service. Responsibilities:
 - Manage floating control bar `OverlayManager`
 - Provide static `statusFlow` for MainActivity to collect state
 
-### `MainActivity.kt`
+### `app/MainActivity.kt`
 **Compose UI Main Screen**
 
 Main Activity of the application, built with Jetpack Compose UI. Responsibilities:
@@ -144,7 +144,7 @@ Categorized error types with `isRecoverable` property:
 
 ## Infrastructure
 
-### `infra/history/HistoryManager.kt`
+### `history/HistoryManager.kt`
 **Conversation History Management**
 
 Manages LLM conversation history:
@@ -154,7 +154,7 @@ Manages LLM conversation history:
 - History compression and normalization (ensure call/output pairing)
 - `dropLastNUserTurns()` for rollback support
 
-### `infra/registry/ToolRegistry.kt`
+### `tool/ToolRegistry.kt`
 **Tool Registry**
 
 Manages tool registration and lookup:
@@ -162,7 +162,7 @@ Manages tool registration and lookup:
 - Generate tool definitions in OpenAI Responses API format
 - JSON conversion helper methods
 
-### `infra/tools/ToolRouter.kt`
+### `tool/ToolRouter.kt`
 **Tool Execution Router**
 
 State machine executor for tool calls:
@@ -171,7 +171,7 @@ State machine executor for tool calls:
 - Support approval timeout (60 seconds)
 - Track active tool call states
 
-### `infra/tools/ToolSpec.kt`
+### `tool/ToolSpec.kt`
 **Tool Specification Interface**
 
 Defines tool interface and related types:
@@ -182,7 +182,7 @@ Defines tool interface and related types:
 - `ToolExecutionResult`: Execution result (Success/Failure/Cancelled)
 - `ToolObservation`: Post-execution observation (ScreenState/TextOutput)
 
-### `infra/tools/ToolCallResult.kt`
+### `tool/ToolCallResult.kt`
 **Tool Call Final Result**
 
 Result after complete ToolRouter lifecycle:
@@ -190,7 +190,7 @@ Result after complete ToolRouter lifecycle:
 - `Error`: Failure, contains error message
 - `Cancelled`: Cancelled
 
-### `infra/tools/ToolCallState.kt`
+### `tool/ToolCallState.kt`
 **Tool Call State Machine**
 
 Tracks various tool call states:
@@ -200,7 +200,7 @@ Tracks various tool call states:
 - `Executing`: Executing
 - `Success` / `Error` / `Cancelled`: Terminal states
 
-### `infra/policy/PolicyEngine.kt`
+### `tool/PolicyEngine.kt`
 **Policy Engine**
 
 Decides whether tool calls require approval:
@@ -259,7 +259,7 @@ UI action execution results:
 
 ## Data Layer
 
-### `data/perception/Perceptor.kt`
+### `perception/Perceptor.kt`
 **Screen Perception Engine**
 
 Converts AccessibilityNodeInfo tree to semantic `ScreenSnapshot`:
@@ -268,7 +268,7 @@ Converts AccessibilityNodeInfo tree to semantic `ScreenSnapshot`:
 - Properly recycle AccessibilityNodeInfo nodes
 - Generate JSON format for LLM use
 
-### `data/llm/LLMClient.kt`
+### `llm/LLMClient.kt`
 **LLM Client**
 
 OpenAI Responses API wrapper:
@@ -281,7 +281,7 @@ OpenAI Responses API wrapper:
 
 ## Domain Models
 
-### `domain/models/Models.kt`
+### `model/Models.kt`
 **Core Data Models**
 
 - `Bounds`: Rectangle bounds
@@ -293,7 +293,7 @@ OpenAI Responses API wrapper:
 
 ## Tools (Tool Implementations)
 
-### `tools/base/BaseTool.kt`
+### `tool/BaseTool.kt`
 **Tool Base Class**
 
 Abstract base class for UI tools:
@@ -301,39 +301,37 @@ Abstract base class for UI tools:
 - Provide JSON Schema building helper methods
 - Implement `BaseToolInvocation`: execute UIAction and capture post-execution screen observation
 
-### `tools/impl/ClickTool.kt`
+### `tool/impl/ClickTool.kt`
 **Click Tool**
 
 Click UI element at specified index. Parameters: `element_index` (required)
 
-### `tools/impl/TypeTool.kt`
+### `tool/impl/TypeTool.kt`
 **Type Tool**
 
 Type text into specified element. Parameters: `element_index` (required), `text` (required)
 
-### `tools/impl/ScrollTool.kt`
+### `tool/impl/ScrollTool.kt`
 **Scroll Tool**
 
 Scroll screen in specified direction. Parameters: `direction` (required, up/down/left/right)
 
-### `tools/impl/SwipeTool.kt`
+### `tool/impl/SwipeTool.kt`
 **Swipe Tool**
 
 Swipe from one point to another. Parameters: `start_x`, `start_y`, `end_x`, `end_y` (required), `duration_ms` (optional)
 
-### `tools/impl/BackTool.kt`
-**Back Button Tool**
+### `tool/impl/NavigationTools.kt`
+**Navigation Tools**
 
-Press system back button. No parameters.
+Contains `BackTool` (press system back button) and `HomeTool` (press system Home button). No parameters.
 
-Same file also contains `HomeTool`: Press system Home button.
-
-### `tools/impl/WaitTool.kt`
+### `tool/impl/WaitTool.kt`
 **Wait Tool**
 
 Wait for specified time. Parameters: `duration_ms` (optional, default 1000, max 30000)
 
-### `tools/impl/CompleteTaskTool.kt`
+### `tool/impl/CompleteTaskTool.kt`
 **Complete Task Tool**
 
 Mark task as completed. Parameters: `summary` (required, completion summary)
@@ -391,7 +389,7 @@ Centralized status message processing:
 
 ## Service Layer
 
-### `service/OverlayManager.kt`
+### `ui/overlay/OverlayManager.kt`
 **Floating Control Bar**
 
 Floating UI control bar during agent execution:
