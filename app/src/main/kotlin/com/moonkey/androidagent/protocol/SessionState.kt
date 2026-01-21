@@ -9,7 +9,7 @@ package com.moonkey.androidagent.protocol
  *      │                  │                  │
  *      │                  │ ◄──Resume────────┘
  *      │                  │
- *      │                  ├──TaskDone──► Idle ──UserInput──► Running
+ *      │                  ├──TaskCompleted──► Idle ──UserInput──► Running
  *      │                  │
  *      │                  └──Complete──► Completed
  *      │                                     │

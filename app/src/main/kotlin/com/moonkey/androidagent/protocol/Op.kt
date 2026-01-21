@@ -24,7 +24,7 @@ sealed interface Op {
      * Valid in: Created state
      * Transitions to: Running state
      */
-    @Deprecated("Use UserInput instead")
+    @Deprecated("Use UserInput instead", ReplaceWith("UserInput(goal)"))
     data class Start(
         /** The user's goal/instruction for the agent */
         val goal: String

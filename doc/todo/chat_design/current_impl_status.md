@@ -1,8 +1,8 @@
 # Multi-Round Chat Implementation Status
 
 > **Date**: 2026-01-21
-> **Status**: Core Implementation Complete (Backend) - Native Streaming
-> **Next**: UI Integration
+> **Status**: Core Implementation Complete (Backend) - Ready for UI Streaming
+> **Next**: UI Integration (Phase 5)
 
 ## Overview
 
@@ -10,6 +10,16 @@ Implemented the multi-round chat feature with **native OpenAI streaming** based 
 - **Task-based model**: `Session > Task > Turn` hierarchy (from Codex protocol)
 - **Native streaming responses**: Uses OpenAI Java SDK's `ResponseStreamEvent` directly
 - **Multi-round interaction**: Session stays alive between tasks via `Idle` state
+
+## PR Review Status
+
+All code review comments from PR #15 have been addressed:
+- ✅ Fixed `awaitClose` positioning in `LLMClient.chatWithToolsStreaming()` (now properly at end of `callbackFlow`)
+- ✅ Improved documentation for streaming method (clarifies callbackFlow wrapping, SDK version requirement)
+- ✅ Added defensive error handling (replaced `!!` with safe null handling)
+- ✅ Updated state diagram to use consistent terminology (`TaskCompleted` instead of `TaskDone`)
+- ✅ Added `ReplaceWith` to `Op.Start` deprecation annotation
+- ✅ Clarified comments in `AgentSession` about state transitions and cleanup
 
 ## Files Changed
 
@@ -39,7 +49,7 @@ Implemented the multi-round chat feature with **native OpenAI streaming** based 
 
 | File | Change | Description |
 |------|--------|-------------|
-| `llm/LLMClient.kt` | MODIFIED | Added `LLMStreamChunk`, `chatWithToolsStreaming()` method |
+| `llm/LLMClient.kt` | MODIFIED | Native streaming via `chatWithToolsStreaming()` returning `Flow<ResponseStreamEvent>` |
 
 ## New Types
 
@@ -145,11 +155,38 @@ data object Idle : SessionState  // Session active, waiting for user input
 
 ## Remaining Work
 
-### UI Integration (Phase 5)
-- [ ] Update `AgentScreen` to handle `MessageDelta` events
-- [ ] Implement chat bubble UI with streaming text
-- [ ] Add input box for multi-round interaction
-- [ ] Handle `TaskStarted` / `TaskCompleted` for UI state
+### UI Integration (Phase 5) - NEXT
+
+The backend streaming infrastructure is complete. The UI layer needs to:
+
+1. **Handle `MessageDelta` events** - Subscribe to `AgentEvent.MessageDelta` and append streaming text to chat bubbles
+2. **Implement streaming chat UI**:
+   - Chat bubble component that grows as text streams in
+   - Visual indicator while agent is "typing" (streaming)
+   - Display tool calls/actions inline with chat
+3. **Multi-round input**:
+   - Input box always visible at bottom
+   - Send button triggers `Op.UserInput`
+   - Clear/disable input while task is running
+4. **Task lifecycle UI**:
+   - Show "thinking" state on `TaskStarted`
+   - Update status on `TaskCompleted`
+   - Handle `SessionState.Idle` to re-enable input
+
+**Key Events for UI**:
+```kotlin
+// Start collecting deltas for a new turn
+AgentEvent.TaskStarted(taskId, input)
+
+// Append text to current message bubble (streaming)
+AgentEvent.MessageDelta(turnId, delta)
+
+// Tool was executed (show inline action card?)
+AgentEvent.ActionExecuted(actionId, toolName, success, result)
+
+// Task complete, ready for next input
+AgentEvent.TaskCompleted(taskId, result)
+```
 
 ### Testing
 - [ ] Unit tests for streaming turn
@@ -158,6 +195,6 @@ data object Idle : SessionState  // Session active, waiting for user input
 
 ## Design Documents
 - `doc/todo/chat_design/final_design.md` - Full design specification
-- `doc/todo/chat_design/claude.md` - Initial proposal (reference)
-- `doc/todo/chat_design/codex.md` - Alternative proposal (reference)
-- `doc/todo/chat_design/gemini.md` - Alternative proposal (reference)
+- `doc/todo/chat_design/individual_design/claude.md` - Initial proposal (reference)
+- `doc/todo/chat_design/individual_design/codex.md` - Alternative proposal (reference)
+- `doc/todo/chat_design/individual_design/gemini.md` - Alternative proposal (reference)
