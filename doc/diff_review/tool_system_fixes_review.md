@@ -143,6 +143,30 @@ return try {
 
 ---
 
+### PR-P4. APPROVAL_TIMEOUT_MS Comment Says "Denied" (Copilot)
+
+**Issue**: Comment said "action is denied" but implementation returns Cancelled.
+
+**Fix**: Changed comment to "action is cancelled".
+
+---
+
+### PR-P5. Team Note Says "Default DENIED" (Copilot)
+
+**Issue**: Team Note in Issue 1 said "default DENIED" but implementation returns Cancelled directly.
+
+**Fix**: Updated to "returns `ToolCallResult.Cancelled`".
+
+---
+
+### PR-P6. Line Number References Incorrect (Copilot)
+
+**Issue**: Several line number references in documentation were incorrect after code changes.
+
+**Fix**: Updated M1, M3, M4 location references to match actual code lines.
+
+---
+
 ## 5) Issues Already Fixed (From Previous Work)
 
 | Issue | Status | Verification |

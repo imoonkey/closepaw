@@ -23,7 +23,7 @@ If user closes approval dialog, navigates away, or app crashes, the agent loop s
 val decision = withTimeout(APPROVAL_TIMEOUT_MS) { deferred.await() }
 ```
 
-**Team Note**: Fix it. Add 60-second timeout with default DENIED. Catch `TimeoutCancellationException` and return `ToolCallResult.Cancelled` with reason "Approval timed out".
+**Team Note**: Fix it. Add 60-second timeout that returns `ToolCallResult.Cancelled`. Catch `TimeoutCancellationException` and return `ToolCallResult.Cancelled` with reason "Approval timed out".
 
 ---
 
@@ -73,13 +73,13 @@ val decision = withTimeout(APPROVAL_TIMEOUT_MS) { deferred.await() }
 
 ### M1. activeToolCalls Never Cleaned on Abnormal Exit
 **Reviewer**: Claude
-**Location**: `ToolRouter.kt:195-219`
+**Location**: `ToolRouter.kt:247-250`
 
 States are removed only on terminal results. If execution exits abnormally (exception before terminal state), call remains in activeToolCalls forever.
 
 **Fix**: Ensure cleanup in finally block.
 
-**Team Note**: Fix it. The try-catch on line 178-188 catches most exceptions, but wrap the terminal state handling (lines 191-219) in a `try-finally` that calls `activeToolCalls.remove(resolvedCallId)` to ensure cleanup.
+**Team Note**: Fix it. Wrap the terminal state handling in a `try-finally` so that the cleanup in the `finally` block calls `activeToolCalls.remove(resolvedCallId)` to ensure cleanup.
 
 ---
 
@@ -97,7 +97,7 @@ When policy allows auto-execution, state transitions Scheduled → Executing ins
 
 ### M3. ToolRouter.resolveApproval() Silently Fails
 **Reviewer**: Claude
-**Location**: `ToolRouter.kt:227-234`
+**Location**: `ToolRouter.kt:262-272`
 
 If approval resolution called for unknown callId, only logs warning. User thinks approval handled but it wasn't.
 
@@ -109,7 +109,7 @@ If approval resolution called for unknown callId, only logs warning. User thinks
 
 ### M4. ToolRegistry.register() Allows Silent Overwrite
 **Reviewer**: Claude
-**Location**: `ToolRegistry.kt:34-39`
+**Location**: `ToolRegistry.kt:28-42`
 
 Documentation says throws `IllegalArgumentException` on duplicate, but actually just warns and overwrites.
 
