@@ -10,6 +10,8 @@ import com.moonkey.androidagent.protocol.ApprovalDecision
 import com.moonkey.androidagent.protocol.ApprovalDetails
 import com.moonkey.androidagent.protocol.RiskLevel
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -34,6 +36,9 @@ class ToolRouter(
     
     companion object {
         private const val TAG = "ToolRouter"
+        
+        /** Timeout for user approval - if not responded within this time, action is cancelled */
+        private const val APPROVAL_TIMEOUT_MS = 60_000L  // 60 seconds
     }
     
     // Track active tool calls for cancellation and state queries
@@ -91,6 +96,9 @@ class ToolRouter(
         // Create invocation
         val invocation = tool.createInvocation(params)
         
+        // Track if approval was required (for snapshot refresh after approval wait)
+        var approvalWasRequired = false
+        
         // === POLICY CHECK ===
         val policyDecision = policyEngine.check(toolName, params)
         Log.d(TAG, "Policy decision for $toolName: $policyDecision")
@@ -123,12 +131,23 @@ class ToolRouter(
                 )
                 onApprovalRequired?.invoke(approvalDetails)
                 
-                // Wait for approval
+                // Wait for approval with timeout
                 val deferred = CompletableDeferred<ApprovalDecision>()
                 pendingApprovals[resolvedCallId] = deferred
                 
                 val decision = try {
-                    deferred.await()
+                    withTimeout(APPROVAL_TIMEOUT_MS) {
+                        deferred.await()
+                    }
+                } catch (e: TimeoutCancellationException) {
+                    // Timeout: return directly with proper message (not reusing DENIED path)
+                    Log.w(TAG, "Approval timeout for $resolvedCallId")
+                    pendingApprovals.remove(resolvedCallId)
+                    val cancelledState = ToolCallState.Cancelled(
+                        resolvedCallId, toolName, params, "Approval timed out", null
+                    )
+                    updateState(cancelledState, onStateChange)
+                    return ToolCallResult.Cancelled(resolvedCallId, "Approval timed out")
                 } finally {
                     pendingApprovals.remove(resolvedCallId)
                 }
@@ -151,7 +170,9 @@ class ToolRouter(
                         return ToolCallResult.Cancelled(resolvedCallId, "User aborted session")
                     }
                     ApprovalDecision.APPROVED -> {
-                        // Continue to execution
+                        // Continue to execution - snapshot will be refreshed before execution
+                        // since UI may have changed during approval wait
+                        approvalWasRequired = true
                     }
                 }
             }
@@ -174,11 +195,19 @@ class ToolRouter(
         state = ToolCallState.Executing(resolvedCallId, toolName, params, invocation)
         updateState(state, onStateChange)
         
-        // Execute the tool
+        // Re-capture snapshot if approval was required (UI may have changed during wait)
+        val executionSnapshot = if (approvalWasRequired) {
+            Log.d(TAG, "Re-capturing snapshot after approval wait")
+            context.platform.captureScreen()
+        } else {
+            context.currentSnapshot
+        }
+        
+        // Execute the tool (with finally block to ensure cleanup on abnormal exit - M1)
         val executionResult = try {
             val execContext = object : ToolExecutionContext {
                 override val platform: AndroidPlatform = context.platform
-                override val currentSnapshot: ScreenSnapshot? = context.currentSnapshot
+                override val currentSnapshot: ScreenSnapshot? = executionSnapshot
                 override fun isCancelled(): Boolean = context.isCancelled()
             }
             invocation.execute(execContext)
@@ -187,35 +216,37 @@ class ToolRouter(
             ToolExecutionResult.Failure(e.message ?: "Execution failed", e)
         }
         
-        // === TERMINAL STATE ===
-        return when (executionResult) {
-            is ToolExecutionResult.Success -> {
-                val successState = ToolCallState.Success(resolvedCallId, toolName, params, executionResult)
-                updateState(successState, onStateChange)
-                activeToolCalls.remove(resolvedCallId)
-                ToolCallResult.Success(
-                    callId = resolvedCallId,
-                    output = executionResult.output,
-                    data = executionResult.data,
-                    observation = executionResult.observation
-                )
+        // === TERMINAL STATE === (cleanup in finally to handle any unexpected exceptions - M1)
+        return try {
+            when (executionResult) {
+                is ToolExecutionResult.Success -> {
+                    val successState = ToolCallState.Success(resolvedCallId, toolName, params, executionResult)
+                    updateState(successState, onStateChange)
+                    ToolCallResult.Success(
+                        callId = resolvedCallId,
+                        output = executionResult.output,
+                        data = executionResult.data,
+                        observation = executionResult.observation
+                    )
+                }
+                
+                is ToolExecutionResult.Failure -> {
+                    val errorState = ToolCallState.Error(
+                        resolvedCallId, toolName, params, executionResult.error, executionResult.exception
+                    )
+                    updateState(errorState, onStateChange)
+                    ToolCallResult.Error(resolvedCallId, executionResult.error, executionResult.exception)
+                }
+                
+                is ToolExecutionResult.Cancelled -> {
+                    val cancelledState = ToolCallState.Cancelled(resolvedCallId, toolName, params, executionResult.reason)
+                    updateState(cancelledState, onStateChange)
+                    ToolCallResult.Cancelled(resolvedCallId, executionResult.reason)
+                }
             }
-            
-            is ToolExecutionResult.Failure -> {
-                val errorState = ToolCallState.Error(
-                    resolvedCallId, toolName, params, executionResult.error, executionResult.exception
-                )
-                updateState(errorState, onStateChange)
-                activeToolCalls.remove(resolvedCallId)
-                ToolCallResult.Error(resolvedCallId, executionResult.error, executionResult.exception)
-            }
-            
-            is ToolExecutionResult.Cancelled -> {
-                val cancelledState = ToolCallState.Cancelled(resolvedCallId, toolName, params, executionResult.reason)
-                updateState(cancelledState, onStateChange)
-                activeToolCalls.remove(resolvedCallId)
-                ToolCallResult.Cancelled(resolvedCallId, executionResult.reason)
-            }
+        } finally {
+            // Ensure cleanup regardless of how we exit (M1 fix)
+            activeToolCalls.remove(resolvedCallId)
         }
     }
     
@@ -223,14 +254,20 @@ class ToolRouter(
      * Resolve a pending approval.
      * 
      * Called when user responds to an approval request.
+     * 
+     * @param callId The tool call ID to resolve
+     * @param decision The user's approval decision
+     * @return true if approval was resolved, false if no pending approval found for callId
      */
-    fun resolveApproval(callId: String, decision: ApprovalDecision) {
+    fun resolveApproval(callId: String, decision: ApprovalDecision): Boolean {
         val deferred = pendingApprovals[callId]
-        if (deferred != null) {
+        return if (deferred != null) {
             deferred.complete(decision)
             Log.d(TAG, "Resolved approval for $callId: $decision")
+            true
         } else {
             Log.w(TAG, "No pending approval found for $callId")
+            false
         }
     }
     

@@ -30,6 +30,15 @@ class WaitTool : BaseTool() {
     override fun validate(params: JSONObject): ValidationResult {
         val errors = mutableListOf<String>()
         
+        // M8: Validate type if parameter is present
+        // Check for specific numeric types since JSONObject returns Int, Long, or Double
+        if (params.has("duration_ms")) {
+            val value = params.get("duration_ms")
+            if (value !is Int && value !is Long && value !is Double) {
+                errors.add("duration_ms must be a number, got ${value::class.simpleName}")
+            }
+        }
+        
         val durationMs = params.optLong("duration_ms", DEFAULT_DURATION_MS)
         if (durationMs < 0) {
             errors.add("duration_ms must be non-negative")

@@ -29,10 +29,28 @@ class SwipeTool : BaseTool() {
     override fun validate(params: JSONObject): ValidationResult {
         val errors = mutableListOf<String>()
         
-        validateRequiredInt(params, "start_x", errors)
-        validateRequiredInt(params, "start_y", errors)
-        validateRequiredInt(params, "end_x", errors)
-        validateRequiredInt(params, "end_y", errors)
+        val startX = validateRequiredInt(params, "start_x", errors)
+        val startY = validateRequiredInt(params, "start_y", errors)
+        val endX = validateRequiredInt(params, "end_x", errors)
+        val endY = validateRequiredInt(params, "end_y", errors)
+        
+        // M10: Validate that start and end are different (no-op swipe)
+        // Only check if all coordinates were successfully parsed (nulls indicate missing/invalid params,
+        // which are already reported by validateRequiredInt)
+        if (startX != null && startY != null && endX != null && endY != null) {
+            if (startX == endX && startY == endY) {
+                errors.add("start and end coordinates must be different (no-op swipe)")
+            }
+        }
+        
+        // M8: Validate duration_ms type if present
+        // Check for specific numeric types since JSONObject returns Int, Long, or Double
+        if (params.has("duration_ms")) {
+            val value = params.get("duration_ms")
+            if (value !is Int && value !is Long && value !is Double) {
+                errors.add("duration_ms must be a number, got ${value::class.simpleName}")
+            }
+        }
         
         val durationMs = params.optInt("duration_ms", 300)
         if (durationMs < 0) {
