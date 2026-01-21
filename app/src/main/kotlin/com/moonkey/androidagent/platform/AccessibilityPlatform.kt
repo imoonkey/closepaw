@@ -6,8 +6,8 @@ import android.graphics.Path
 import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
-import com.moonkey.androidagent.data.perception.Perceptor
-import com.moonkey.androidagent.domain.models.ScreenSnapshot
+import com.moonkey.androidagent.perception.Perceptor
+import com.moonkey.androidagent.model.ScreenSnapshot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext

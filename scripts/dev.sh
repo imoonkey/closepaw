@@ -93,7 +93,7 @@ cmd_run() {
     # Launch app with intent extras
     # Using FLAG_ACTIVITY_CLEAR_TOP | FLAG_ACTIVITY_SINGLE_TOP to trigger onNewIntent
     # Don't use force-stop - it clears accessibility permission!
-    adb shell "am start -n $PACKAGE/.MainActivity \
+    adb shell "am start -n $PACKAGE/.app.MainActivity \
         --activity-clear-top --activity-single-top \
         --es api_key '$OPENAI_API_KEY' \
         --es goal '$goal' \
@@ -107,7 +107,7 @@ cmd_run() {
         adb shell input keyevent KEYCODE_BACK
         sleep 0.3
         # Retry with intent extras
-        adb shell "am start -n $PACKAGE/.MainActivity \
+        adb shell "am start -n $PACKAGE/.app.MainActivity \
             --activity-clear-top --activity-single-top \
             --es api_key '$OPENAI_API_KEY' \
             --es goal '$goal' \
