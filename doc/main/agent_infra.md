@@ -1,26 +1,20 @@
-# Android Agent Infrastructure Summary
+# Android Agent Infrastructure
 
-> **Last Updated**: January 19, 2026 (V2 Architecture)
->
-> This document is the primary reference for understanding the Android Agent infrastructure architecture.
+> This document describes the architecture and components of the Android Agent system.
 
 ## Table of Contents
 
-1. [Design Philosophy](#design-philosophy)
+1. [Design Principles](#design-principles)
 2. [Architecture Overview](#architecture-overview)
 3. [Package Structure](#package-structure)
 4. [Core Components](#core-components)
 5. [Data Flow](#data-flow)
 6. [Tool System](#tool-system)
-7. [Related Documents](#related-documents)
+7. [Quick Reference](#quick-reference)
 
 ---
 
-## Design Philosophy
-
-### Guiding Principles
-
-The V2 architecture is built on these principles, learned from analyzing Codex, labmat, and OpenHands:
+## Design Principles
 
 | Principle | Description |
 |-----------|-------------|
@@ -29,17 +23,6 @@ The V2 architecture is built on these principles, learned from analyzing Codex, 
 | **Op/Event Protocol** | Clean separation between UI intent (Op) and agent state (Event). |
 | **Tools with Observation** | Every tool execution captures post-action screen state. |
 | **Service-Oriented DI** | `SessionServices` provides all dependencies to the agent. |
-
-### What We Removed from V1
-
-The V1 multi-agent orchestration (Manager, Executor, Reflector) was replaced with a single ReAct agent:
-
-```
-V1: User → Session → Orchestration → Manager → Executor → Reflector → Platform
-V2: User → Session → Agent → Platform
-```
-
-**Rationale**: The multi-agent approach added complexity without proportional benefit. A single agent with proper tool instructions and post-action observation achieves the same goals more reliably.
 
 ---
 
@@ -110,17 +93,17 @@ com.moonkey.androidagent/
 ├── agent/                 # Core agent logic
 │   ├── Agent.kt          # ReAct loop executor
 │   ├── AgentConfig.kt    # Agent configuration
-│   ├── AgentSource.kt    # Primary/SubAgent enum (future)
-│   └── Turn.kt           # Single LLM turn
+│   ├── AgentSource.kt    # Primary/SubAgent enum (reserved)
+│   └── Turn.kt           # Single LLM turn (OpenAI Responses API)
 │
 ├── data/                  # External services
 │   ├── llm/
-│   │   └── LLMClient.kt  # OpenAI Responses API client (instance-based)
+│   │   └── LLMClient.kt  # OpenAI Responses API client
 │   └── perception/
 │       └── Perceptor.kt  # Screen → ScreenSnapshot
 │
 ├── domain/models/         # Shared data models
-│   └── Models.kt         # ScreenSnapshot, PerceptionElement
+│   └── Models.kt         # ScreenSnapshot, PerceptionElement, Bounds, Point
 │
 ├── infra/                 # Infrastructure services
 │   ├── history/
@@ -138,7 +121,7 @@ com.moonkey.androidagent/
 ├── platform/              # Android abstraction
 │   ├── AndroidPlatform.kt     # Interface
 │   ├── AccessibilityPlatform.kt  # Implementation
-│   ├── UIAction.kt            # Action types
+│   ├── UIAction.kt            # Action types (Click, Type, Scroll, etc.)
 │   └── ActionResult.kt        # Result types
 │
 ├── protocol/              # Communication contract
@@ -158,17 +141,20 @@ com.moonkey.androidagent/
 │
 ├── tools/                 # Tool implementations
 │   ├── base/
-│   │   └── BaseTool.kt   # Abstract base
+│   │   └── BaseTool.kt   # Abstract base with observation capture
 │   └── impl/
 │       ├── ClickTool.kt
 │       ├── TypeTool.kt
 │       ├── ScrollTool.kt
 │       ├── SwipeTool.kt
 │       ├── BackTool.kt   # Also contains HomeTool
-│       └── WaitTool.kt
+│       ├── WaitTool.kt
+│       └── CompleteTaskTool.kt
 │
-├── AgentService.kt        # AccessibilityService entry
-└── MainActivity.kt        # UI entry point
+├── ui/                    # Jetpack Compose UI
+│
+├── MainActivity.kt        # UI entry point
+└── AgentService.kt        # AccessibilityService entry (not yet created)
 ```
 
 ---
@@ -179,46 +165,56 @@ com.moonkey.androidagent/
 
 The brain of the system. Executes the ReAct loop until goal achieved or stopped.
 
-**Key Responsibilities:**
+**Responsibilities:**
 - Run the Perceive → Think → Act → Observe cycle
 - Manage turn count and stop conditions
 - Emit events for UI updates
 - Handle pause/resume/stop lifecycle
 
-**Code Reference:** `agent/Agent.kt:run()` (main loop), `agent/Agent.kt:executeTurn()` (single turn)
+**Key Methods:**
+- `run()` - Main loop, returns `AgentStopReason`
+- `executeTurn()` - Single turn execution
+- `pause()`, `resume()`, `stop()` - Lifecycle control
 
 ### 2. Turn (`agent/Turn.kt`)
 
 Encapsulates a single LLM call using the OpenAI Responses API with native tool calling.
 
-**Key Responsibilities:**
-- Build Responses API input items from history + current context
+**Responsibilities:**
+- Build input items from history + current context
 - Generate tool schemas dynamically via `ToolRegistry.generateResponsesApiTools()`
 - Process structured tool calls (using `call_id` for linkage) and text outputs
-- Treat completion as either a `complete_task` tool call or a text-only response
+- Detect completion (via `complete_task` tool or text-only response)
 
-**Tool Calls:**
-Tool calls are returned as Responses API `function_call` items with unique `call_id` for tracking.
-
-**Code Reference:** `agent/Turn.kt:run()`, `agent/Turn.kt:processResponse()`
+**Key Output:**
+```kotlin
+data class TurnResult(
+    val content: String?,           // Text from LLM
+    val toolCalls: List<ToolCallRequest>,  // Tool calls to execute
+    val isComplete: Boolean,        // Whether task is done
+    val parseErrors: List<String>?  // Parsing issues (rare with Responses API)
+)
+```
 
 ### 3. AgentSession (`session/AgentSession.kt`)
 
 Thin lifecycle manager. Does NOT contain agent logic.
 
-**Key Responsibilities:**
+**Responsibilities:**
 - Process Operations (Op) from UI
 - Emit Events (AgentEvent) to UI
 - Manage session state transitions
 - Create and start Agent
 
-**Code Reference:** `session/AgentSession.kt:submit()`, `session/AgentSession.kt:startAgent()`
+**Key Methods:**
+- `submit(op: Op)` - Submit an operation
+- `events: Flow<AgentEvent>` - Event stream for UI
+- `state: StateFlow<SessionState>` - Current session state
 
 ### 4. SessionServices (`session/SessionServices.kt`)
 
 Dependency injection container for all session-scoped services.
 
-**Services Provided:**
 | Service | Purpose |
 |---------|---------|
 | `toolRegistry` | Tool discovery and schema generation |
@@ -227,8 +223,12 @@ Dependency injection container for all session-scoped services.
 | `policyEngine` | Tool approval decisions |
 | `platform` | Android operations |
 | `config` | Session configuration |
+| `llmClient` | OpenAI Responses API client |
 
-**Code Reference:** `session/SessionServices.kt:create()`, `session/SessionServices.kt:registerBuiltInTools()`
+**Creation:**
+```kotlin
+val services = SessionServices.create(config, platform, apiKey)
+```
 
 ### 5. ToolRouter (`infra/tools/ToolRouter.kt`)
 
@@ -238,37 +238,47 @@ Executes tool calls with a state machine lifecycle:
 VALIDATING → POLICY_CHECK → [AWAITING_APPROVAL] → EXECUTING → SUCCESS/ERROR/CANCELLED
 ```
 
-**Key Responsibilities:**
+**Responsibilities:**
 - Validate tool exists and parameters are correct
 - Check policy for approval requirements
-- Wait for user approval if needed
+- Wait for user approval if needed (with 60s timeout)
 - Execute tool and return result
-
-**Code Reference:** `infra/tools/ToolRouter.kt:execute()`
 
 ### 6. Perceptor (`data/perception/Perceptor.kt`)
 
 Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
 
-**Key Responsibilities:**
+**Responsibilities:**
 - Traverse accessibility tree with proper node recycling
 - Extract element data (bounds, text, class) without storing raw nodes
 - Limit to MAX_ELEMENTS (80) for token budget
-- Generate JSON for LLM prompts
+- Generate JSON for LLM prompts via `toPromptJson()`
 
-**Code Reference:** `data/perception/Perceptor.kt:snapshot()`, `data/perception/Perceptor.kt:toPromptJson()`
+**Output Element Example:**
+```json
+{
+  "index": 0,
+  "text": "Settings",
+  "id": "com.android.settings:id/title",
+  "class": "TextView",
+  "desc": "",
+  "clickable": true,
+  "editable": false,
+  "scrollable": false,
+  "center": [540, 120]
+}
+```
 
-### 7. AndroidPlatform (`platform/AccessibilityPlatform.kt`)
+### 7. AndroidPlatform (`platform/AndroidPlatform.kt`)
 
 Abstraction for Android-specific operations.
 
 **Operations:**
-- `captureScreen()` - Get current UI state
-- `performAction()` - Execute UI actions
-- `hasRequiredPermissions()` - Check permissions
+- `captureScreen()` - Get current UI state as ScreenSnapshot
+- `performAction(action, snapshot)` - Execute UI actions
+- `hasRequiredPermissions()` - Check accessibility permission
+- `getCurrentPackageName()` - Get foreground app
 - `getDisplayInfo()` - Screen dimensions
-
-**Code Reference:** `platform/AndroidPlatform.kt` (interface), `platform/AccessibilityPlatform.kt` (implementation)
 
 ---
 
@@ -276,60 +286,49 @@ Abstraction for Android-specific operations.
 
 ### Complete Request Flow
 
-```mermaid
-sequenceDiagram
-    participant UI as MainActivity
-    participant Svc as AgentService
-    participant Sess as AgentSession
-    participant Agent as Agent
-    participant Turn as Turn
-    participant LLM as LLMClient
-    participant TR as ToolRouter
-    participant Plat as Platform
-
-    UI->>Svc: runAgent(goal, apiKey)
-    Svc->>LLM: initialize(apiKey)
-    Svc->>Sess: create(config, service, scope)
-    Sess->>Sess: create SessionServices
-    Svc->>Sess: submit(Op.Start(goal))
-    Sess->>Agent: new Agent(config, services)
-    Sess->>Agent: run()
-    
-    loop ReAct Loop
-        Agent->>Plat: captureScreen()
-        Plat-->>Agent: ScreenSnapshot
-        Agent->>Turn: run(systemPrompt, context)
-        Turn->>LLM: responses.create(inputItems, tools)
-        LLM-->>Turn: response (text + tool calls)
-        Turn-->>Agent: TurnResult(text, toolCalls)
-        
-        alt Has Tool Calls
-            Agent->>TR: execute(toolName, params)
-            TR->>Plat: performAction(action)
-            Plat-->>TR: ActionResult
-            TR->>Plat: captureScreen() [observation]
-            TR-->>Agent: ToolCallResult
-        else complete_task or text-only
-            Agent-->>Sess: GoalAchieved (text-only can mean user input needed)
-        end
-    end
-    
-    Sess-->>Svc: AgentEvent.SessionCompleted
-    Svc-->>UI: statusCallback
+```
+User                 UI                AgentSession          Agent             LLM
+  │                   │                     │                  │                │
+  │ "Open Settings"   │                     │                  │                │
+  │──────────────────►│                     │                  │                │
+  │                   │ Op.Start(goal)      │                  │                │
+  │                   │────────────────────►│                  │                │
+  │                   │                     │ create & run()   │                │
+  │                   │                     │─────────────────►│                │
+  │                   │                     │                  │                │
+  │                   │                     │                  │ captureScreen()│
+  │                   │                     │                  │◄───────────────│
+  │                   │                     │                  │                │
+  │                   │                     │                  │ Turn.run()     │
+  │                   │                     │                  │───────────────►│
+  │                   │                     │                  │                │
+  │                   │                     │                  │ TurnResult     │
+  │                   │                     │                  │◄───────────────│
+  │                   │                     │                  │                │
+  │                   │                     │                  │ ToolRouter.execute()
+  │                   │                     │                  │ (action + observe)
+  │                   │                     │                  │                │
+  │                   │ AgentEvent.ActionExecuted              │                │
+  │                   │◄────────────────────│◄─────────────────│                │
+  │                   │                     │                  │                │
+  │                   │   ... loop ...      │                  │                │
+  │                   │                     │                  │                │
+  │                   │ AgentEvent.SessionCompleted            │                │
+  │                   │◄────────────────────│◄─────────────────│                │
+  │ "Goal achieved!"  │                     │                  │                │
+  │◄──────────────────│                     │                  │                │
 ```
 
 ### Event Flow
 
 ```
-Agent                    AgentSession              AgentService              UI
-  │                           │                          │                    │
-  │ emitStatus("🧠 Thinking") │                          │                    │
-  │──────────────────────────►│                          │                    │
-  │                           │ AgentEvent.StatusUpdate  │                    │
-  │                           │─────────────────────────►│                    │
-  │                           │                          │ statusCallback()   │
-  │                           │                          │───────────────────►│
-  │                           │                          │                    │ Update UI
+Agent                    AgentSession              UI
+  │                           │                     │
+  │ emitStatus("🧠 Thinking") │                     │
+  │──────────────────────────►│                     │
+  │                           │ AgentEvent.StatusUpdate
+  │                           │────────────────────►│
+  │                           │                     │ Update UI
 ```
 
 ---
@@ -338,27 +337,31 @@ Agent                    AgentSession              AgentService              UI
 
 ### Tool Execution Lifecycle
 
-```mermaid
-stateDiagram-v2
-    [*] --> Validating
-    Validating --> PolicyCheck: Valid
-    Validating --> Error: Invalid
-    
-    PolicyCheck --> Scheduled: Allow
-    PolicyCheck --> AwaitingApproval: AskUser
-    PolicyCheck --> Error: Deny
-    
-    AwaitingApproval --> Scheduled: Approved
-    AwaitingApproval --> Cancelled: Denied/Abort
-    
-    Scheduled --> Executing
-    Executing --> Success
-    Executing --> Error: Exception
-    Executing --> Cancelled: Interrupted
-    
-    Success --> [*]
-    Error --> [*]
-    Cancelled --> [*]
+```
+┌──────────────┐
+│  VALIDATING  │ ─── Invalid ──► ERROR
+└──────┬───────┘
+       │ Valid
+       ▼
+┌──────────────┐
+│ POLICY_CHECK │ ─── Deny ────► ERROR
+└──────┬───────┘
+       │ Allow or AskUser
+       ▼
+┌──────────────┐
+│   AWAITING   │ ─── Denied/Timeout ──► CANCELLED
+│   APPROVAL   │
+└──────┬───────┘
+       │ Approved
+       ▼
+┌──────────────┐
+│  EXECUTING   │ ─── Exception ──► ERROR
+└──────┬───────┘
+       │ Success
+       ▼
+┌──────────────┐
+│   SUCCESS    │
+└──────────────┘
 ```
 
 ### Built-in Tools
@@ -366,7 +369,7 @@ stateDiagram-v2
 | Tool | Description | Parameters |
 |------|-------------|------------|
 | `click` | Click UI element | `element_index: int` |
-| `type` | Type text | `element_index: int`, `text: string` |
+| `type` | Type text into element | `element_index: int`, `text: string` |
 | `scroll` | Scroll screen | `direction: up/down/left/right` |
 | `swipe` | Swipe gesture | `start_x`, `start_y`, `end_x`, `end_y` |
 | `back` | Press back button | (none) |
@@ -377,14 +380,44 @@ stateDiagram-v2
 ### Adding New Tools
 
 1. Create class extending `BaseTool` in `tools/impl/`
-2. Implement required methods:
+2. Implement required members:
    - `name`, `description`, `parameterSchema`
-   - `validate(params)`, `createUIAction(params)`
+   - `validate(params)`, `createUIAction(params)`, `getActionDescription(params)`
 3. Register in `SessionServices.registerBuiltInTools()`
 
-**Code Reference:** `tools/base/BaseTool.kt`, `tools/impl/ClickTool.kt` (example)
+Example implementation:
 
-### Tool Observation (V2 Feature)
+```kotlin
+class ClickTool : BaseTool() {
+    override val name = "click"
+    override val description = "Click on a UI element by its index"
+    
+    override val parameterSchema = createSchema(
+        properties = mapOf(
+            "element_index" to ("integer" to "The index of the element to click")
+        ),
+        required = listOf("element_index")
+    )
+    
+    override fun validate(params: JSONObject): ValidationResult {
+        val errors = mutableListOf<String>()
+        val index = validateRequiredInt(params, "element_index", errors)
+        if (index != null && index < 0) errors.add("element_index must be non-negative")
+        return if (errors.isEmpty()) ValidationResult.Valid else ValidationResult.Invalid(errors)
+    }
+    
+    override fun createUIAction(params: JSONObject): UIAction? {
+        val index = params.optInt("element_index", -1)
+        return if (index >= 0) UIAction.Click(index) else null
+    }
+    
+    override fun getActionDescription(params: JSONObject): String {
+        return "Click on element at index ${params.optInt("element_index", -1)}"
+    }
+}
+```
+
+### Tool Observation
 
 Every successful tool execution captures post-action screen state:
 
@@ -394,30 +427,11 @@ private suspend fun capturePostActionObservation(context: ToolExecutionContext):
     delay(UI_SETTLE_DELAY_MS)  // 300ms
     val snapshot = context.platform.captureScreen()
     val tree = Perceptor.toPromptJson(snapshot)
-    return ToolObservation.ScreenState(tree, snapshot.elements.size)
+    return ToolObservation.ScreenState(tree, snapshot.elements.size, snapshot)
 }
 ```
 
-The observation is propagated through `ToolCallResult.Success.observation` and used directly by the Agent, avoiding double screen capture. When a tool doesn't return an observation (e.g., `complete_task`), the Agent falls back to capturing the screen.
-
----
-
-## Related Documents
-
-| Document | Description |
-|----------|-------------|
-| [Protocol Reference](./protocol.md) | Detailed Op/Event protocol documentation |
-| [V2 Design Document](doc/agent_infra/v2/infra_v2.md) | Original V2 design rationale |
-| [V2 Execution Plan](doc/agent_infra/v2/infra_v2_execution_plan.md) | Implementation plan with code examples |
-| [Android Specifics](doc/agent_infra/v2/android_specific.md) | Android-specific considerations |
-| [OpenHands Analysis](doc/agent_infra/v1/archive/openhands_analysis.md) | Analysis of OpenHands architecture |
-
-### Archived (V1)
-
-The V1 multi-agent architecture is archived in `archive_v1/`. These documents are kept for historical reference only:
-- `archive_v1/infra_design.md` - Original multi-agent design
-- `archive_v1/migration_status.md` - V1 migration tracking
-- `archive_v1/reference_analysis.md` - Analysis of reference implementations
+The observation is propagated through `ToolCallResult.Success.observation` and used by the Agent for subsequent tool calls in the same turn.
 
 ---
 
@@ -426,12 +440,9 @@ The V1 multi-agent architecture is archived in `archive_v1/`. These documents ar
 ### Starting the Agent
 
 ```kotlin
-// In MainActivity or test
-agentService.runAgent(
-    goal = "Open Settings",
-    apiKey = "sk-...",
-    maxSteps = 20
-)
+// In AgentService
+val session = AgentSession.create(config, accessibilityService, scope, apiKey)
+session.submit(Op.Start(goal = "Open Settings"))
 ```
 
 ### Submitting Operations
@@ -460,7 +471,18 @@ session.events.collect { event ->
 }
 ```
 
+### Session Configuration
+
+```kotlin
+val config = SessionConfig(
+    maxTurns = 50,           // Max iterations before auto-stop
+    actionDelayMs = 2000,    // Delay after actions for UI settle
+    approvalMode = ApprovalMode.SMART,  // ALWAYS_ASK, AUTO_APPROVE, or SMART
+    model = "gpt-4o",        // LLM model
+    debugMode = false        // Verbose logging
+)
+```
+
 ---
 
-*For questions or contributions, refer to the codebase directly. The source code is the ultimate source of truth.*
-
+*For protocol details, see [agent_protocol.md](./agent_protocol.md). For questions, refer to the source code—it is the ultimate source of truth.*
