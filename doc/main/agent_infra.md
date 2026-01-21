@@ -1,6 +1,6 @@
 # Android Agent Infrastructure Summary
 
-> **Last Updated**: January 16, 2026 (V2 Architecture)
+> **Last Updated**: January 19, 2026 (V2 Architecture)
 >
 > This document is the primary reference for understanding the Android Agent infrastructure architecture.
 
@@ -115,7 +115,7 @@ com.moonkey.androidagent/
 │
 ├── data/                  # External services
 │   ├── llm/
-│   │   └── LLMClient.kt  # OpenAI Responses API wrapper
+│   │   └── LLMClient.kt  # OpenAI Responses API client (instance-based)
 │   └── perception/
 │       └── Perceptor.kt  # Screen → ScreenSnapshot
 │
@@ -189,16 +189,16 @@ The brain of the system. Executes the ReAct loop until goal achieved or stopped.
 
 ### 2. Turn (`agent/Turn.kt`)
 
-Encapsulates a single LLM call using the Responses API with tool calling.
+Encapsulates a single LLM call using the OpenAI Responses API with native tool calling.
 
 **Key Responsibilities:**
 - Build Responses API input items from history + current context
-- Provide system instructions; tool schemas are passed via `ToolRegistry`
-- Process structured tool calls and text outputs from the Responses API
-- Treat completion as either a `complete_task` tool call or a text-only response (stop to wait for user input or end of task)
+- Generate tool schemas dynamically via `ToolRegistry.generateResponsesApiTools()`
+- Process structured tool calls (using `call_id` for linkage) and text outputs
+- Treat completion as either a `complete_task` tool call or a text-only response
 
 **Tool Calls:**
-Tool calls are returned as Responses API `function_call` items.
+Tool calls are returned as Responses API `function_call` items with unique `call_id` for tracking.
 
 **Code Reference:** `agent/Turn.kt:run()`, `agent/Turn.kt:processResponse()`
 
@@ -251,8 +251,8 @@ VALIDATING → POLICY_CHECK → [AWAITING_APPROVAL] → EXECUTING → SUCCESS/ER
 Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
 
 **Key Responsibilities:**
-- Traverse accessibility tree
-- Filter relevant UI elements
+- Traverse accessibility tree with proper node recycling
+- Extract element data (bounds, text, class) without storing raw nodes
 - Limit to MAX_ELEMENTS (80) for token budget
 - Generate JSON for LLM prompts
 
@@ -368,11 +368,11 @@ stateDiagram-v2
 | `click` | Click UI element | `element_index: int` |
 | `type` | Type text | `element_index: int`, `text: string` |
 | `scroll` | Scroll screen | `direction: up/down/left/right` |
-| `swipe` | Swipe gesture | `direction`, `distance` |
+| `swipe` | Swipe gesture | `start_x`, `start_y`, `end_x`, `end_y` |
 | `back` | Press back button | (none) |
 | `home` | Press home button | (none) |
 | `wait` | Wait for UI | `duration_ms: int` (optional) |
-| `complete_task` | Signal task completion | `summary: string` |
+| `complete_task` | Signal goal completion | `summary: string` |
 
 ### Adding New Tools
 
@@ -398,9 +398,7 @@ private suspend fun capturePostActionObservation(context: ToolExecutionContext):
 }
 ```
 
-Note: The observation captured in `BaseTool` is now surfaced through `ToolCallResult.Success.observation`. 
-The Agent uses this observation directly, avoiding double screen capture. When the tool doesn't return 
-an observation (e.g., non-UI tools like `complete_task`), the Agent falls back to capturing the screen.
+The observation is propagated through `ToolCallResult.Success.observation` and used directly by the Agent, avoiding double screen capture. When a tool doesn't return an observation (e.g., `complete_task`), the Agent falls back to capturing the screen.
 
 ---
 

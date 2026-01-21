@@ -1,6 +1,6 @@
 # Android Agent Protocol Reference
 
-> **Last Updated**: January 2026 (V2 Architecture)
+> **Last Updated**: January 19, 2026 (V2 Architecture)
 >
 > This document describes the Op/Event communication protocol between the UI layer and the agent.
 
@@ -64,6 +64,8 @@ stateDiagram-v2
 
 > **Note on Interrupt**: `Op.Interrupt` is cooperative - the agent will complete its current action before stopping. True cancellation of in-flight LLM calls is not supported. For immediate termination, use `Op.Shutdown`.
 
+> **Note on Session Config**: Session configuration (model, approval mode, delays, etc.) is set at `AgentSession.create()` time, not in `Op.Start`. The goal is the only parameter passed to `Op.Start`.
+
 ### Op.Start
 
 Starts the agent with a goal.
@@ -74,9 +76,7 @@ data class Start(
 ) : Op
 ```
 
-> **Note**: Session configuration is set at `AgentSession.create()` time, not in `Op.Start`.
-
-**SessionConfig** (set at session creation):
+**SessionConfig** (set at session creation via `AgentSession.create()`):
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -105,7 +105,7 @@ data class Approve(
 ) : Op
 ```
 
-> **Note**: `Op.UserInput` is **planned for conversational mode** but not yet implemented. The operation is accepted but has no effect. This will enable users to provide guidance or clarification during execution in a future release.
+> **Note**: `Op.UserInput` is **planned for conversational mode** but not yet implemented. The operation is accepted and logged, but has no effect on the agent. This will enable users to provide guidance or clarification during execution in a future release.
 
 **ApprovalDecision Values:**
 
@@ -200,7 +200,7 @@ data class SessionCompleted(
 
 | Reason | Description |
 |--------|-------------|
-| `GOAL_ACHIEVED` | Agent completed the goal |
+| `GOAL_ACHIEVED` | Agent completed the goal (via `complete_task` tool or text-only response) |
 | `USER_STOPPED` | User requested shutdown |
 | `MAX_TURNS` | Turn limit reached |
 | `TASK_IMPOSSIBLE` | Agent determined task cannot be done |
@@ -240,7 +240,7 @@ data class TurnStarted(
 | Phase | Description |
 |-------|-------------|
 | `PERCEPTION` | Capturing/analyzing screen |
-| `REFLECTION` | *(Planned)* Verifying previous action outcome |
+| `REFLECTION` | *(Planned - not yet implemented)* Verifying previous action outcome |
 | `PLANNING` | Deciding what to do (LLM reasoning) |
 | `EXECUTION` | Executing an action (tool call) |
 
@@ -458,7 +458,7 @@ session.events
 | `Shutdown` | User requested stop via `Op.Shutdown` |
 
 > **Note**: `Completed` and `Shutdown` are both terminal states. The difference is:
-> - `Completed`: Agent finished its work (goal achieved, max turns, or error)
+> - `Completed`: Agent finished its work (goal achieved, max turns, error, etc.) - the reason is specified by `CompletionReason`
 > - `Shutdown`: User explicitly stopped the session via `Op.Shutdown`
 
 ---

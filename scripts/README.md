@@ -1,5 +1,9 @@
 # Android Agent Development Scripts
 
+> **See also:** [Development Guide](../doc/dev/development.md) for overall development workflow.
+
+This document provides detailed reference for all development scripts.
+
 ## Workflow
 
 ```

@@ -1,5 +1,7 @@
 # Android Agent Visual Debugging Guide
 
+> **See also:** [Development Guide](../doc/dev/development.md) for overall development workflow.
+
 This document describes a systematic approach to debugging the Android Agent's orchestration using visual inspection combined with log analysis.
 
 ## Overview
