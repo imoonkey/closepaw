@@ -16,6 +16,12 @@ import org.json.JSONObject
  * 
  * Output:
  *   PERF|abc123|1|capture|85|{"elements":42}
+ * 
+ * Nested Spans:
+ *   Some spans contain other spans, creating a hierarchy for analysis:
+ *   - `llm_total` contains `history_build`, `llm_network`, and `response_parse`
+ *   - `turn` contains `capture`, `json`, `llm_total`, `tool_*`, and `settle_inter_turn`
+ *   When analyzing, be aware that parent span durations include their children.
  */
 object PerfLogger {
     private const val TAG = "PERF"

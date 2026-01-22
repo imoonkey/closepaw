@@ -102,7 +102,7 @@ class Agent(
                     delay(config.uiSettleDelayMs)
                     val settleMs = System.currentTimeMillis() - settleStart
                     PerfLogger.log("settle_inter_turn", settleMs, mapOf(
-                        "configured" to config.uiSettleDelayMs
+                        "expected_ms" to config.uiSettleDelayMs
                     ))
                 }
                 is TurnOutcome.Complete -> {

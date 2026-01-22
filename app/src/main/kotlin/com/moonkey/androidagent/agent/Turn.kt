@@ -88,7 +88,7 @@ class Turn(
         val parseStart = System.currentTimeMillis()
         val result = processResponse(response.textContent, response.toolCalls)
         val parseMs = System.currentTimeMillis() - parseStart
-        PerfLogger.log("response_parse", parseMs, mapOf("toolCalls" to result.toolCalls.size))
+        PerfLogger.log("response_parse", parseMs, mapOf("toolCalls" to response.toolCalls.size))
         
         return result
     }
