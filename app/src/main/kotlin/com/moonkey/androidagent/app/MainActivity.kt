@@ -50,6 +50,14 @@ class MainActivity : ComponentActivity() {
         
         private const val PREFS_NAME = "agent_prefs"
         private const val KEY_API_KEY = "api_key"
+        private const val KEY_MODEL = "model"
+        private const val KEY_MAX_TURNS = "max_turns"
+        private const val KEY_DEBUG_MODE = "debug_mode"
+        
+        // Default values
+        private const val DEFAULT_MODEL = "gpt-4o"
+        private const val DEFAULT_MAX_TURNS = 20
+        private const val DEFAULT_DEBUG_MODE = false
     }
     
     // Session scope - survives configuration changes within activity lifecycle
@@ -58,8 +66,11 @@ class MainActivity : ComponentActivity() {
     // Current session
     private var currentSession: AgentSession? = null
     
-    // API key state
+    // Settings state
     private var apiKey by mutableStateOf("")
+    private var selectedModel by mutableStateOf(DEFAULT_MODEL)
+    private var maxTurns by mutableStateOf(DEFAULT_MAX_TURNS)
+    private var debugMode by mutableStateOf(DEFAULT_DEBUG_MODE)
     
     // ViewModel
     private lateinit var viewModel: ChatViewModel
@@ -73,8 +84,8 @@ class MainActivity : ComponentActivity() {
         
         enableEdgeToEdge()
         
-        // Load API key from storage
-        loadApiKey()
+        // Load settings from storage
+        loadSettings()
         handleIntent(intent)
         
         // Initialize ViewModel with session provider and session creation callback
@@ -107,7 +118,22 @@ class MainActivity : ComponentActivity() {
                             apiKey = apiKey,
                             onApiKeyChange = { 
                                 apiKey = it
-                                saveApiKey(it)
+                                saveSetting(KEY_API_KEY, it)
+                            },
+                            selectedModel = selectedModel,
+                            onModelChange = {
+                                selectedModel = it
+                                saveSetting(KEY_MODEL, it)
+                            },
+                            maxTurns = maxTurns,
+                            onMaxTurnsChange = {
+                                maxTurns = it
+                                saveSetting(KEY_MAX_TURNS, it)
+                            },
+                            debugMode = debugMode,
+                            onDebugModeChange = {
+                                debugMode = it
+                                saveSetting(KEY_DEBUG_MODE, it)
                             },
                             isAccessibilityEnabled = AgentService.instance != null,
                             isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
@@ -143,7 +169,7 @@ class MainActivity : ComponentActivity() {
         intent.getStringExtra(EXTRA_API_KEY)?.let { key ->
             if (key.isNotBlank()) {
                 apiKey = key
-                saveApiKey(key)
+                saveSetting(KEY_API_KEY, key)
                 Log.d(TAG, "API key set from intent")
             }
         }
@@ -193,8 +219,9 @@ class MainActivity : ComponentActivity() {
                 try {
                     val session = AgentSession.create(
                         config = SessionConfig(
-                            maxTurns = 20,
-                            debugMode = true
+                            maxTurns = maxTurns,
+                            model = selectedModel,
+                            debugMode = debugMode
                         ),
                         service = service,
                         scope = sessionScope,
@@ -228,18 +255,36 @@ class MainActivity : ComponentActivity() {
     }
     
     /**
-     * Load API key from SharedPreferences or file.
+     * Load all settings from SharedPreferences.
      */
-    private fun loadApiKey() {
-        // First try SharedPreferences
+    private fun loadSettings() {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        
+        // Load API key
         val savedKey = prefs.getString(KEY_API_KEY, null)
         if (!savedKey.isNullOrBlank()) {
             apiKey = savedKey
-            return
+        } else {
+            // Fallback: Try to load from file (DEV-ONLY)
+            loadApiKeyFromFile()
         }
         
-        // Fallback: Try to load from file (DEV-ONLY)
+        // Load model
+        selectedModel = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
+        
+        // Load max turns
+        maxTurns = prefs.getInt(KEY_MAX_TURNS, DEFAULT_MAX_TURNS)
+        
+        // Load debug mode
+        debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
+        
+        Log.d(TAG, "Settings loaded: model=$selectedModel, maxTurns=$maxTurns, debugMode=$debugMode")
+    }
+    
+    /**
+     * Fallback: Load API key from file (DEV-ONLY).
+     */
+    private fun loadApiKeyFromFile() {
         try {
             @Suppress("DEPRECATION")
             val file = File(Environment.getExternalStorageDirectory(), "api_key.txt")
@@ -247,7 +292,7 @@ class MainActivity : ComponentActivity() {
                 val key = file.readText().trim()
                 if (key.isNotBlank() && key.startsWith("sk-")) {
                     apiKey = key
-                    saveApiKey(key) // Migrate to SharedPreferences
+                    saveSetting(KEY_API_KEY, key) // Migrate to SharedPreferences
                     Log.d(TAG, "API key loaded from file")
                 }
             }
@@ -257,11 +302,16 @@ class MainActivity : ComponentActivity() {
     }
     
     /**
-     * Save API key to SharedPreferences.
+     * Save a setting to SharedPreferences.
      */
-    private fun saveApiKey(key: String) {
+    private fun saveSetting(key: String, value: Any) {
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_API_KEY, key).apply()
+        when (value) {
+            is String -> prefs.edit().putString(key, value).apply()
+            is Int -> prefs.edit().putInt(key, value).apply()
+            is Boolean -> prefs.edit().putBoolean(key, value).apply()
+            else -> Log.w(TAG, "Unsupported setting type: ${value::class.simpleName}")
+        }
     }
     
     private fun openAccessibilitySettings() {
