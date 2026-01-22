@@ -130,7 +130,8 @@ if [[ -s "$DEBUG_DIR/perf.log" ]]; then
     {
         # Extract timestamp from logcat format: "MM-DD HH:MM:SS.mmm"
         # Example: "01-22 05:09:48.123"
-        if (match($0, /^([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})\.([0-9]{3})/, ts)) {
+        # Match timestamp anywhere in line (may have prefixes in some logcat formats)
+        if (match($0, /([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})\.([0-9]{3})/, ts)) {
             month = ts[1];
             day = ts[2];
             hour = ts[3];
@@ -160,7 +161,8 @@ if [[ -s "$DEBUG_DIR/perf.log" ]]; then
                 # Remove trailing whitespace from meta
                 gsub(/[[:space:]]+$/, "", meta);
                 
-                # Validate and sanitize metadata JSON
+                # Validate metadata is JSON-like (basic check)
+                # PerfLogger.kt already sanitizes to valid JSON, this is a backup
                 jsonMeta = meta;
                 if (jsonMeta == "" || jsonMeta !~ /^[[:space:]]*\{.*\}[[:space:]]*$/) {
                     jsonMeta = "{}";
