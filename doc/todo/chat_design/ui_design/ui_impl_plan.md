@@ -936,7 +936,7 @@ No new external dependencies required. All components use existing:
 
 ## Open Questions
 
-1. **API Key Storage**: ✅ RESOLVED — Using `SharedPreferences` (migrated from file fallback)
+1. **API Key Storage**: ✅ RESOLVED — Using `SharedPreferences` (migrated from file fallback). Note: This stores the key in cleartext; see EncryptedSharedPreferences consideration below for production security upgrade.
 2. **Session Persistence**: ✅ RESOLVED — No persistence; session cleared on task completion
 3. **Typing Indicator on Other Side**: ✅ RESOLVED — Not implemented for MVP
 

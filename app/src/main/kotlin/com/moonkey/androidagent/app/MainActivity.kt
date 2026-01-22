@@ -56,6 +56,8 @@ class MainActivity : ComponentActivity() {
         
         // Default values
         private const val DEFAULT_MODEL = "gpt-4o"
+        // Note: This UI-specific default (20) intentionally differs from SessionConfig's
+        // default (50). MainActivity's value is used when creating sessions from the chat UI.
         private const val DEFAULT_MAX_TURNS = 20
         private const val DEFAULT_DEBUG_MODE = false
     }

@@ -65,7 +65,7 @@ import com.moonkey.androidagent.ui.theme.ChatWarning
 /**
  * Available LLM models for selection.
  */
-val AVAILABLE_MODELS = listOf(
+private val AVAILABLE_MODELS = listOf(
     "gpt-4o" to "GPT-4o (Recommended)",
     "gpt-4o-mini" to "GPT-4o Mini (Faster)",
     "gpt-4-turbo" to "GPT-4 Turbo"
@@ -74,7 +74,7 @@ val AVAILABLE_MODELS = listOf(
 /**
  * Available max turns options.
  */
-val MAX_TURNS_OPTIONS = listOf(10, 20, 50)
+private val MAX_TURNS_OPTIONS = listOf(10, 20, 50)
 
 /**
  * SettingsSheet - Bottom sheet for configuration.
@@ -347,6 +347,7 @@ private fun ModelDropdown(
             value = selectedDisplayName,
             onValueChange = {},
             readOnly = true,
+            label = { Text("Model") },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Outlined.Psychology,
@@ -412,6 +413,7 @@ private fun MaxTurnsDropdown(
             value = "$maxTurns turns",
             onValueChange = {},
             readOnly = true,
+            label = { Text("Max Turns") },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Outlined.Repeat,
