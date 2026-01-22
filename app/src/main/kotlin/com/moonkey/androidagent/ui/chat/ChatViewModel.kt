@@ -14,6 +14,9 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.moonkey.androidagent.history.SessionHistoryManager
+import com.moonkey.androidagent.history.model.MessageConverter
+import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.session.AgentSession
@@ -35,9 +38,11 @@ import java.util.UUID
  * - Handle streaming text accumulation
  * - Manage input state (Idle/Working)
  * - Manage task banner state
+ * - Manage session history (list, resume, delete)
  */
 class ChatViewModel(
     private val sessionProvider: () -> AgentSession?,
+    private val sessionHistoryManager: SessionHistoryManager? = null,
     private val onSessionNeeded: ((String) -> Unit)? = null,
     private val onTaskCompleted: (() -> Unit)? = null
 ) : ViewModel() {
@@ -60,6 +65,10 @@ class ChatViewModel(
     // Task banner state
     private val _taskBannerState = MutableStateFlow<TaskBannerState>(TaskBannerState.Idle)
     val taskBannerState: StateFlow<TaskBannerState> = _taskBannerState.asStateFlow()
+    
+    // Session list state (for session history UI)
+    private val _sessions = MutableStateFlow<List<SessionInfo>>(emptyList())
+    val sessions: StateFlow<List<SessionInfo>> = _sessions.asStateFlow()
     
     // Streaming accumulator
     private val streamingBuffer = StringBuilder()
@@ -100,6 +109,10 @@ class ChatViewModel(
         }
     }
     
+    // ===== Recording Service Access =====
+    
+    private val recordingService get() = sessionHistoryManager?.getRecordingService()
+    
     private fun handleTaskStarted(event: AgentEvent.TaskStarted) {
         // Update UI state
         _uiState.update { it.copy(inputState = InputState.Working, showEmptyState = false) }
@@ -109,12 +122,25 @@ class ChatViewModel(
             taskTitle = event.input.take(50)
         )
         
-        // Add user message
+        // Initialize session recording if not already active
+        if (recordingService?.hasActiveSession() != true) {
+            recordingService?.initializeNewSession()
+        }
+        
+        val userMsgId = UUID.randomUUID().toString()
+        
+        // Record user message to history
+        recordingService?.recordUserMessage(userMsgId, event.timestamp, event.input)
+        
+        // Add user message to UI
         _messages.add(ChatMessage.User(
-            id = UUID.randomUUID().toString(),
+            id = userMsgId,
             timestamp = event.timestamp,
             text = event.input
         ))
+        
+        // Record agent message start
+        recordingService?.startAgentMessage(event.taskId, event.timestamp)
         
         // Prepare agent message placeholder with empty content blocks
         streamingBuffer.clear()
@@ -144,6 +170,10 @@ class ChatViewModel(
     private fun handleMessageDelta(event: AgentEvent.MessageDelta) {
         android.util.Log.d(TAG, "MessageDelta received: turnId=${event.turnId}, delta=${event.delta.take(30)}...")
         streamingBuffer.append(event.delta)
+        
+        // Record text delta to history
+        recordingService?.appendTextDelta(event.delta)
+        
         updateLastAgentMessage { msg ->
             val updatedBlocks = updateOrAppendTextBlock(msg.contentBlocks, streamingBuffer.toString())
             msg.copy(
@@ -182,6 +212,14 @@ class ChatViewModel(
             resultSummary = null
         )
         
+        // Record action to history
+        recordingService?.recordAction(
+            actionId = event.actionId,
+            toolName = event.toolName,
+            description = event.description,
+            state = "proposed"
+        )
+        
         // Clear streaming buffer - text before this action is "finalized"
         // New text will go into a new Text block after the action
         streamingBuffer.clear()
@@ -194,6 +232,10 @@ class ChatViewModel(
     
     private fun handleActionExecuted(event: AgentEvent.ActionExecuted) {
         val newState = if (event.success) ActionState.Success else ActionState.Failed
+        val stateString = if (event.success) "success" else "failed"
+        
+        // Update action state in history
+        recordingService?.updateActionState(event.actionId, stateString, event.result)
         
         updateLastAgentMessage { msg ->
             // Find existing action block and update it, or add new one
@@ -213,6 +255,14 @@ class ChatViewModel(
                 }
             } else {
                 // Action wasn't proposed first - add it directly
+                // Record action to history first
+                recordingService?.recordAction(
+                    actionId = event.actionId,
+                    toolName = event.toolName,
+                    description = event.result ?: event.toolName,
+                    state = stateString
+                )
+                
                 // Clear streaming buffer first since this is a new action
                 streamingBuffer.clear()
                 
@@ -231,6 +281,9 @@ class ChatViewModel(
     }
     
     private fun handleActionSkipped(event: AgentEvent.ActionSkipped) {
+        // Update action state in history
+        recordingService?.updateActionState(event.actionId, "skipped", event.reason)
+        
         updateLastAgentMessage { msg ->
             // Find existing action block and update it
             val existingBlockIndex = msg.contentBlocks.indexOfFirst { block ->
@@ -259,6 +312,9 @@ class ChatViewModel(
         _taskBannerState.value = TaskBannerState.Completed(
             summary = event.result ?: "Task complete"
         )
+        
+        // Complete agent message in history
+        recordingService?.completeAgentMessage()
         
         // Mark agent message as complete
         updateLastAgentMessage { msg ->
@@ -364,6 +420,95 @@ class ChatViewModel(
         _uiState.update { it.copy(showEmptyState = true) }
         _taskBannerState.value = TaskBannerState.Idle
     }
+    
+    // ===== Session History Methods =====
+    
+    /**
+     * Load the list of saved sessions.
+     */
+    fun loadSessions() {
+        val manager = sessionHistoryManager ?: return
+        viewModelScope.launch {
+            _sessions.value = manager.listSessions()
+            android.util.Log.d(TAG, "Loaded ${_sessions.value.size} sessions")
+        }
+    }
+    
+    /**
+     * Resume a previously saved session.
+     * 
+     * This clears current messages and restores the session's messages.
+     * 
+     * @param sessionInfo The session to resume
+     * @param onResumed Callback when session is ready (for UI to reconnect event collection)
+     */
+    fun resumeSession(sessionInfo: SessionInfo, onResumed: (() -> Unit)? = null) {
+        val manager = sessionHistoryManager ?: return
+        viewModelScope.launch {
+            manager.loadSession(sessionInfo.id)
+                .onSuccess { data ->
+                    // Clear current messages
+                    _messages.clear()
+                    streamingBuffer.clear()
+                    currentAgentMessageId = null
+                    
+                    // Restore messages from record
+                    val restoredMessages = MessageConverter.fromRecords(data.session.messages)
+                    _messages.addAll(restoredMessages)
+                    
+                    // Update UI state
+                    _uiState.update { it.copy(showEmptyState = _messages.isEmpty()) }
+                    _taskBannerState.value = TaskBannerState.Idle
+                    
+                    // Resume the session in recording service
+                    manager.resumeSession(data)
+                    
+                    android.util.Log.i(TAG, "Resumed session ${sessionInfo.id} with ${restoredMessages.size} messages")
+                    
+                    // Notify caller
+                    onResumed?.invoke()
+                }
+                .onFailure { error ->
+                    android.util.Log.e(TAG, "Failed to resume session", error)
+                }
+        }
+    }
+    
+    /**
+     * Start a new session, clearing current conversation.
+     * 
+     * @param model The model being used
+     * @param appVersion The app version
+     */
+    fun startNewSession(model: String? = null, appVersion: String? = null) {
+        clearConversation()
+        sessionHistoryManager?.startNewSession(model, appVersion)
+        android.util.Log.d(TAG, "Started new session")
+    }
+    
+    /**
+     * Delete a saved session.
+     * 
+     * @param sessionInfo The session to delete
+     */
+    fun deleteSession(sessionInfo: SessionInfo) {
+        val manager = sessionHistoryManager ?: return
+        viewModelScope.launch {
+            manager.deleteSession(sessionInfo.id)
+                .onSuccess {
+                    android.util.Log.d(TAG, "Deleted session ${sessionInfo.id}")
+                    loadSessions() // Refresh list
+                }
+                .onFailure { error ->
+                    android.util.Log.e(TAG, "Failed to delete session", error)
+                }
+        }
+    }
+    
+    /**
+     * Check if session history is available.
+     */
+    fun hasSessionHistory(): Boolean = sessionHistoryManager != null
     
     override fun onCleared() {
         super.onCleared()
