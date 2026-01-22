@@ -25,7 +25,8 @@ class ClickRippleView(context: Context) : View(context) {
         private const val LONG_PRESS_COLOR = 0xFF7C3AED.toInt()  // Purple
         private const val INITIAL_RADIUS_DP = 8f
         private const val MAX_RADIUS_DP = 48f
-        private const val ANIMATION_DURATION_MS = 300L
+        // Increased from 300ms to 500ms for better visibility
+        private const val ANIMATION_DURATION_MS = 500L
         private const val INITIAL_ALPHA = 0.6f
     }
     

@@ -49,9 +49,12 @@ class ActionVisualizerManager(
         private const val TAG = "ActionVisualizerManager"
         
         // Animation durations (should match view animations)
-        private const val CLICK_ANIMATION_DURATION_MS = 300L
-        private const val SWIPE_EXTRA_DURATION_MS = 200L
-        private const val FADE_OUT_DURATION_MS = 200L
+        // Click: 500ms animation + 300ms fade = ~800ms total visible time
+        private const val CLICK_ANIMATION_DURATION_MS = 500L
+        // Swipe: gesture duration + 400ms extra = gesture + visible tail
+        private const val SWIPE_EXTRA_DURATION_MS = 400L
+        // Fade out duration for smooth disappearance
+        private const val FADE_OUT_DURATION_MS = 300L
     }
     
     private val windowManager = context.getSystemService(WindowManager::class.java)
