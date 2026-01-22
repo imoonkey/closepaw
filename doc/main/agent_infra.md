@@ -188,14 +188,23 @@ com.moonkey.androidagent/
 │   └── Models.kt                 # ScreenSnapshot, PerceptionElement, etc.
 │
 ├── ui/                           # UI layer
-│   ├── screen/
-│   │   └── AgentScreen.kt
 │   ├── theme/
-│   │   ├── Color.kt
-│   │   ├── Theme.kt
-│   │   └── Type.kt
-│   └── overlay/
-│       └── OverlayManager.kt
+│   │   ├── Color.kt              # Light/Dark color schemes
+│   │   ├── Shape.kt              # Bubble shapes, card shapes
+│   │   ├── Theme.kt              # ChatTheme composable
+│   │   └── Type.kt               # Typography scale
+│   ├── chat/                     # Chat-based UI (Phase 5)
+│   │   ├── ChatScreen.kt         # Main screen composable
+│   │   ├── ChatViewModel.kt      # State management
+│   │   ├── components/           # ChatHeader, TaskBanner, MessageBubble, etc.
+│   │   └── model/
+│   │       └── ChatMessage.kt    # UI data classes
+│   ├── overlay/
+│   │   └── SmartCapsuleManager.kt # Streaming overlay (enhanced)
+│   ├── settings/
+│   │   └── SettingsSheet.kt      # Configuration bottom sheet
+│   └── screen/
+│       └── AgentScreen.kt        # DEPRECATED (kept for reference)
 │
 └── util/
     └── StatusUtils.kt
