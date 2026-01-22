@@ -8,9 +8,10 @@
 2. [Architecture Overview](#architecture-overview)
 3. [Package Structure](#package-structure)
 4. [Core Components](#core-components)
-5. [Data Flow](#data-flow)
-6. [Tool System](#tool-system)
-7. [Quick Reference](#quick-reference)
+5. [Session History System](#session-history-system)
+6. [Data Flow](#data-flow)
+7. [Tool System](#tool-system)
+8. [Quick Reference](#quick-reference)
 
 ---
 
@@ -25,6 +26,7 @@
 | **Op/Event Protocol** | Clean separation between UI intent (Op) and agent state (Event). |
 | **Tools with Observation** | Every tool execution captures post-action screen state. |
 | **Service-Oriented DI** | `SessionServices` provides all dependencies to the agent. |
+| **Session History Persistence** | Automatic session recording with resume capability. Real-time event-to-file persistence. |
 
 ---
 
@@ -181,8 +183,17 @@ com.moonkey.androidagent/
 ├── llm/                          # LLM integration
 │   └── LLMClient.kt              # OpenAI Responses API (with streaming)
 │
-├── history/                      # Conversation history
-│   └── HistoryManager.kt         # Token management, truncation
+├── history/                      # Conversation & session history
+│   ├── HistoryManager.kt         # Token management, truncation
+│   ├── SessionHistoryManager.kt  # High-level session management API
+│   ├── SessionRecordingService.kt # Real-time event → persistence bridge
+│   ├── model/
+│   │   ├── SessionRecord.kt      # Complete session data (persisted)
+│   │   ├── MessageRecord.kt      # Message types (User/Agent)
+│   │   ├── SessionInfo.kt        # Lightweight session summary
+│   │   └── MessageConverter.kt   # ChatMessage ↔ MessageRecord conversion
+│   └── storage/
+│       └── SessionStorage.kt     # Low-level file I/O operations
 │
 ├── model/                        # Domain models
 │   └── Models.kt                 # ScreenSnapshot, PerceptionElement, etc.
@@ -201,6 +212,10 @@ com.moonkey.androidagent/
 │   │       └── ChatMessage.kt    # UI data classes
 │   ├── overlay/
 │   │   └── SmartCapsuleManager.kt # Streaming overlay (enhanced)
+│   ├── session/                  # Session history UI
+│   │   ├── SessionListSheet.kt   # Session browser bottom sheet
+│   │   ├── SessionListItem.kt    # Individual session card
+│   │   └── TimeUtils.kt          # Relative time formatting
 │   ├── settings/
 │   │   └── SettingsSheet.kt      # Configuration bottom sheet
 │   └── screen/
@@ -388,6 +403,350 @@ Abstraction for Android-specific operations.
 - `hasRequiredPermissions()` - Check accessibility permission
 - `getCurrentPackageName()` - Get foreground app
 - `getDisplayInfo()` - Screen dimensions
+
+---
+
+## Session History System
+
+The session history system enables **automatic persistence** of chat sessions, allowing users to browse past conversations and resume them later.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Session History Architecture                  │
+│                                                                  │
+│  ┌──────────────────┐       ┌──────────────────────────────┐   │
+│  │   MainActivity   │──────►│   SessionHistoryManager      │   │
+│  │  (UI entry)      │       │   (High-level API)           │   │
+│  └────────┬─────────┘       └──────────────┬───────────────┘   │
+│           │                                │                    │
+│           │                                │ coordinates        │
+│           ▼                                ▼                    │
+│  ┌──────────────────┐       ┌──────────────────────────────┐   │
+│  │  ChatViewModel   │◄─────►│  SessionRecordingService     │   │
+│  │  (State mgmt)    │       │  (Real-time event bridge)    │   │
+│  └────────┬─────────┘       └──────────────┬───────────────┘   │
+│           │                                │                    │
+│           │ events                         │ debounced writes   │
+│           ▼                                ▼                    │
+│  ┌──────────────────┐       ┌──────────────────────────────┐   │
+│  │  AgentSession    │──────►│     SessionStorage           │   │
+│  │  (Events)        │       │     (File I/O)               │   │
+│  └──────────────────┘       └──────────────────────────────┘   │
+│                                            │                    │
+│                                            ▼                    │
+│                             ┌──────────────────────────────┐   │
+│                             │  /files/sessions/*.json      │   │
+│                             │  (Persisted session files)   │   │
+│                             └──────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Core Components
+
+#### 1. SessionHistoryManager (`history/SessionHistoryManager.kt`)
+
+High-level API for session management operations.
+
+**Responsibilities:**
+- List all sessions (lightweight `SessionInfo` for UI)
+- Load a session for resuming
+- Delete sessions
+- Create new sessions
+- Coordinate between `SessionStorage` and `SessionRecordingService`
+
+**Key Methods:**
+```kotlin
+class SessionHistoryManager(storage, recordingService, scope) {
+    // List all sessions (sorted by last updated, newest first)
+    suspend fun listSessions(): List<SessionInfo>
+    
+    // Load a session for resuming
+    suspend fun loadSession(sessionId: String): Result<ResumedSessionData>
+    
+    // Delete a session
+    suspend fun deleteSession(sessionId: String): Result<Unit>
+    
+    // Start a new session
+    fun startNewSession(model: String?, appVersion: String?): String
+    
+    // Resume an existing session
+    fun resumeSession(data: ResumedSessionData)
+    
+    // Get recording service for event recording
+    fun getRecordingService(): SessionRecordingService
+}
+```
+
+#### 2. SessionRecordingService (`history/SessionRecordingService.kt`)
+
+Real-time bridge between `AgentEvent` stream and persisted `SessionRecord`.
+
+**Responsibilities:**
+- Record user messages and agent responses in real-time
+- Build agent messages incrementally (text deltas + actions)
+- Debounce writes to avoid excessive I/O (500ms delay)
+- Handle session resume and completion
+
+**Key Methods:**
+```kotlin
+class SessionRecordingService(storage, scope) {
+    // Initialize a new session
+    fun initializeNewSession(model: String?, appVersion: String?): String
+    
+    // Resume an existing session
+    fun resumeSession(data: ResumedSessionData)
+    
+    // Record a user message
+    fun recordUserMessage(id: String, timestamp: Long, text: String)
+    
+    // Start recording an agent message
+    fun startAgentMessage(id: String, timestamp: Long)
+    
+    // Append streaming text delta
+    fun appendTextDelta(delta: String)
+    
+    // Record an action (tool execution)
+    fun recordAction(actionId: String, toolName: String, description: String, state: String)
+    
+    // Update action state (executing → success/failed)
+    fun updateActionState(actionId: String, state: String, result: String?)
+    
+    // Mark agent message as complete
+    fun completeAgentMessage()
+    
+    // Mark session as completed
+    fun completeSession()
+}
+```
+
+**Recording Flow:**
+```
+AgentEvent                     SessionRecordingService              File
+    │                                    │                            │
+    │ TaskStarted                        │                            │
+    │───────────────────────────────────►│ startAgentMessage()        │
+    │                                    │                            │
+    │ MessageDelta("I'll...")            │                            │
+    │───────────────────────────────────►│ appendTextDelta()          │
+    │                                    │ (buffer, no save)          │
+    │                                    │                            │
+    │ ActionExecuted(click)              │                            │
+    │───────────────────────────────────►│ recordAction()             │
+    │                                    │───────────────────────────►│
+    │                                    │ (debounced save)           │
+    │                                    │                            │
+    │ TaskCompleted                      │                            │
+    │───────────────────────────────────►│ completeAgentMessage()     │
+    │                                    │ completeSession()          │
+    │                                    │───────────────────────────►│
+    │                                    │ (immediate save)           │
+```
+
+#### 3. SessionStorage (`history/storage/SessionStorage.kt`)
+
+Low-level file I/O operations for session persistence.
+
+**Storage Location:**
+```
+/data/data/{package}/files/sessions/
+```
+
+**File Naming:**
+```
+session-{timestamp}-{uuid}.json
+Example: session-2024-01-21T14-30-45-a1b2c3d4-e5f6-7890-abcd-ef1234567890.json
+```
+
+**Key Methods:**
+```kotlin
+class SessionStorage(context) {
+    // Write a session record to disk
+    suspend fun writeSession(fileName: String, record: SessionRecord): Result<Unit>
+    
+    // Read a session record from disk
+    suspend fun readSession(fileName: String): Result<SessionRecord>
+    
+    // List all session files (sorted by modification time, newest first)
+    suspend fun listSessionFiles(): List<File>
+    
+    // Delete a session file
+    suspend fun deleteSession(fileName: String): Result<Unit>
+    
+    // Generate a filename for a new session
+    fun generateFileName(sessionId: String): String
+}
+```
+
+### Data Models
+
+#### SessionRecord (`history/model/SessionRecord.kt`)
+
+Complete session data stored on disk:
+
+```kotlin
+@Serializable
+data class SessionRecord(
+    val sessionId: String,           // UUID
+    val startTime: Long,             // Epoch millis
+    val lastUpdated: Long,           // Epoch millis
+    val messages: List<MessageRecord>,
+    val summary: String? = null,     // AI-generated or extracted summary
+    val metadata: SessionMetadata = SessionMetadata()
+)
+
+@Serializable
+data class SessionMetadata(
+    val appVersion: String? = null,
+    val model: String? = null,       // e.g., "gpt-4o"
+    val turnCount: Int = 0,
+    val completedNormally: Boolean = false
+)
+```
+
+#### MessageRecord (`history/model/MessageRecord.kt`)
+
+Persisted message representation:
+
+```kotlin
+@Serializable
+sealed interface MessageRecord {
+    val id: String
+    val timestamp: Long
+    
+    @Serializable @SerialName("user")
+    data class User(
+        override val id: String,
+        override val timestamp: Long,
+        val text: String
+    ) : MessageRecord
+    
+    @Serializable @SerialName("agent")
+    data class Agent(
+        override val id: String,
+        override val timestamp: Long,
+        val contentBlocks: List<ContentBlockRecord>,
+        val isComplete: Boolean
+    ) : MessageRecord
+}
+
+@Serializable
+sealed interface ContentBlockRecord {
+    @Serializable @SerialName("text")
+    data class Text(val text: String) : ContentBlockRecord
+    
+    @Serializable @SerialName("action")
+    data class Action(
+        val id: String,
+        val toolName: String,
+        val description: String,
+        val state: String,           // "proposed", "executing", "success", "failed", "skipped"
+        val resultSummary: String? = null
+    ) : ContentBlockRecord
+}
+```
+
+#### SessionInfo (`history/model/SessionInfo.kt`)
+
+Lightweight summary for session list UI:
+
+```kotlin
+data class SessionInfo(
+    val id: String,                  // Session ID (UUID)
+    val fileName: String,            // File path (relative)
+    val startTime: Long,             // When session started
+    val lastUpdated: Long,           // When session was last updated
+    val messageCount: Int,           // Number of messages
+    val displayTitle: String,        // Summary or first user message (truncated)
+    val firstUserMessage: String,    // First user message text
+    val isActive: Boolean = false    // Whether this is the current session
+)
+```
+
+### Session Lifecycle
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Session History Lifecycle                    │
+│                                                                  │
+│   ┌─────────────┐                                               │
+│   │  No Session │                                               │
+│   └──────┬──────┘                                               │
+│          │                                                       │
+│          │ startNewSession() or resumeSession()                  │
+│          ▼                                                       │
+│   ┌─────────────┐                                               │
+│   │   Active    │◄──────── recordUserMessage()                   │
+│   │   Session   │◄──────── appendTextDelta()                     │
+│   │             │◄──────── recordAction()                        │
+│   └──────┬──────┘          (debounced auto-save)                │
+│          │                                                       │
+│          │ completeSession()                                     │
+│          ▼                                                       │
+│   ┌─────────────┐                                               │
+│   │  Completed  │ ──► Saved to /files/sessions/*.json           │
+│   │   Session   │                                               │
+│   └──────┬──────┘                                               │
+│          │                                                       │
+│          │ listSessions() + user selects                         │
+│          ▼                                                       │
+│   ┌─────────────┐                                               │
+│   │   Resumed   │ ──► loadSession() ──► resumeSession()         │
+│   │   Session   │                                               │
+│   └─────────────┘                                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Usage Example
+
+```kotlin
+// In MainActivity - Initialize history manager
+val storage = SessionStorage(context)
+val sessionHistoryManager = SessionHistoryManager.create(storage, lifecycleScope)
+
+// Start a new session
+val sessionId = sessionHistoryManager.startNewSession(
+    model = "gpt-4o",
+    appVersion = BuildConfig.VERSION_NAME
+)
+
+// Record events as they occur (in ViewModel or event collector)
+val recordingService = sessionHistoryManager.getRecordingService()
+
+session.events.collect { event ->
+    when (event) {
+        is AgentEvent.TaskStarted -> {
+            recordingService.recordUserMessage(event.taskId, event.timestamp, event.input)
+            recordingService.startAgentMessage(event.taskId, event.timestamp)
+        }
+        is AgentEvent.MessageDelta -> {
+            recordingService.appendTextDelta(event.delta)
+        }
+        is AgentEvent.ActionExecuted -> {
+            recordingService.updateActionState(
+                actionId = event.actionId,
+                state = if (event.success) "success" else "failed",
+                result = event.result
+            )
+        }
+        is AgentEvent.TaskCompleted -> {
+            recordingService.completeAgentMessage()
+        }
+        is AgentEvent.SessionCompleted -> {
+            sessionHistoryManager.endSession()
+        }
+    }
+}
+
+// List and resume sessions (in UI)
+val sessions = sessionHistoryManager.listSessions()
+val selected = sessions.first()
+sessionHistoryManager.loadSession(selected.id).onSuccess { data ->
+    sessionHistoryManager.resumeSession(data)
+    // Restore messages to ChatViewModel
+}
+```
 
 ---
 
