@@ -27,6 +27,7 @@
 | **Tools with Observation** | Every tool execution captures post-action screen state. |
 | **Service-Oriented DI** | `SessionServices` provides all dependencies to the agent. |
 | **Session History Persistence** | Automatic session recording with resume capability. Real-time event-to-file persistence. |
+| **Visual Feedback** | Edge glow and action visualization provide ambient feedback during agent execution. |
 
 ---
 
@@ -211,7 +212,15 @@ com.moonkey.androidagent/
 │   │   └── model/
 │   │       └── ChatMessage.kt    # UI data classes
 │   ├── overlay/
-│   │   └── SmartCapsuleManager.kt # Streaming overlay (enhanced)
+│   │   ├── SmartCapsuleManager.kt  # Streaming overlay (enhanced)
+│   │   ├── EdgeGlowManager.kt      # Edge glow effect during execution
+│   │   ├── EdgeGlowView.kt         # Custom glow rendering view
+│   │   ├── model/
+│   │   │   └── GlowState.kt        # Glow state definitions
+│   │   └── visualizer/
+│   │       ├── ActionVisualizerManager.kt  # Touch action visualization
+│   │       ├── ClickRippleView.kt          # Ripple effect for clicks
+│   │       └── SwipeTrailView.kt           # Trail effect for swipes
 │   ├── session/                  # Session history UI
 │   │   ├── SessionListSheet.kt   # Session browser bottom sheet
 │   │   ├── SessionListItem.kt    # Individual session card
@@ -403,6 +412,27 @@ Abstraction for Android-specific operations.
 - `hasRequiredPermissions()` - Check accessibility permission
 - `getCurrentPackageName()` - Get foreground app
 - `getDisplayInfo()` - Screen dimensions
+
+**Action Visualization:**
+
+The `AccessibilityPlatform` implementation can integrate with `ActionVisualizerManager` to show visual feedback before executing gestures:
+
+```kotlin
+class AccessibilityPlatform(
+    private val service: AccessibilityService,
+    private val visualizer: ActionVisualizerManager? = null
+) {
+    private suspend fun performTap(x: Float, y: Float): ActionResult {
+        visualizer?.showClick(x, y)  // Show ripple before action
+        // ... dispatch gesture
+    }
+    
+    private suspend fun performSwipe(...): ActionResult {
+        visualizer?.showSwipe(...)   // Show trail during swipe
+        // ... dispatch gesture
+    }
+}
+```
 
 ---
 

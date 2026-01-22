@@ -11,7 +11,9 @@
 5. [Session History UI](#session-history-ui)
 6. [File Structure](#file-structure)
 7. [Smart Capsule](#smart-capsule)
-8. [Quick Reference](#quick-reference)
+8. [Edge Glow](#edge-glow)
+9. [Action Visualizer](#action-visualizer)
+10. [Quick Reference](#quick-reference)
 
 ---
 
@@ -53,8 +55,14 @@ The Android Agent uses a **chat-first conversational interface** built with Jetp
 │                    SessionListSheet                             │
 │  (Modal bottom sheet for browsing/resuming past sessions)       │
 ├────────────────────────────────────────────────────────────────┤
-│                   SmartCapsuleManager                           │
-│  (View-based floating overlay during agent execution)           │
+│                    Overlay System                               │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │ EdgeGlowManager     │ Ambient glow around screen edges   │   │
+│  ├─────────────────────┼───────────────────────────────────┤   │
+│  │ ActionVisualizer    │ Ripple/trail for touch actions     │   │
+│  ├─────────────────────┼───────────────────────────────────┤   │
+│  │ SmartCapsuleManager │ Floating capsule during execution  │   │
+│  └─────────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -223,6 +231,9 @@ ui/theme/
 | Action Cards | Bordered cards with status colors |
 | Task Banner | Subtle surface variant with pulsing dot |
 | Smart Capsule | White with shadow, status dot |
+| Edge Glow | State-colored gradient glow on screen edges |
+| Click Ripple | Expanding blue/purple circle at touch point |
+| Swipe Trail | Animated line with dots showing gesture path |
 
 ---
 
@@ -580,7 +591,15 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │       └── ChatMessage.kt       # UI data classes
 │   │
 │   ├── overlay/
-│   │   └── SmartCapsuleManager.kt   # Floating overlay with streaming
+│   │   ├── SmartCapsuleManager.kt   # Floating overlay with streaming
+│   │   ├── EdgeGlowManager.kt       # Edge glow effect during execution
+│   │   ├── EdgeGlowView.kt          # Custom glow rendering view
+│   │   ├── model/
+│   │   │   └── GlowState.kt         # Glow state definitions
+│   │   └── visualizer/
+│   │       ├── ActionVisualizerManager.kt  # Touch action visualization
+│   │       ├── ClickRippleView.kt          # Ripple effect for clicks
+│   │       └── SwipeTrailView.kt           # Trail effect for swipes
 │   │
 │   ├── session/                     # Session history UI
 │   │   ├── SessionListSheet.kt      # Session browser bottom sheet
@@ -652,6 +671,175 @@ session.events.collect { event ->
 
 ---
 
+## Edge Glow
+
+The Edge Glow provides ambient visual feedback showing the agent is actively controlling the device. It displays a glowing border around the screen edges that changes color based on the agent's state.
+
+### Features
+
+- **Full-screen edge glow** with gradient fade from edges
+- **State-based colors** matching agent execution phases
+- **Pulse animation** when active or executing
+- **Touch pass-through** (doesn't block interaction)
+- **Display cutout handling** for notched devices
+- **Auto-hide** after success state (2 seconds)
+
+### Glow States
+
+| State | Color | Hex | Behavior |
+|-------|-------|-----|----------|
+| **Active** | Primary Blue | `#2563EB` | Pulsing animation |
+| **Executing** | Light Blue | `#3B82F6` | Pulsing animation |
+| **Success** | Teal | `#0D9488` | Static, auto-hides after 2s |
+| **Error** | Red | `#DC2626` | Static |
+| **Paused** | Amber | `#F59E0B` | Static |
+
+### Integration
+
+The `EdgeGlowManager` is called from `AgentService` to show ambient feedback:
+
+```kotlin
+// In AgentService
+private var edgeGlowManager: EdgeGlowManager? = null
+
+// Show glow when task starts
+edgeGlowManager?.show(GlowState.Active)
+
+// Update state during execution
+edgeGlowManager?.updateState(GlowState.Executing)
+
+// Show success and auto-hide
+edgeGlowManager?.updateState(GlowState.Success)
+
+// Or hide manually
+edgeGlowManager?.hide()
+```
+
+### Visibility Control
+
+The edge glow is only visible when the main app is **not** in the foreground. This prevents visual clutter when the user is viewing the chat interface.
+
+```kotlin
+// In AgentService - track foreground state
+private var isAppInForeground = false
+
+// Show/hide based on foreground state
+if (!isAppInForeground && shouldShowGlow) {
+    edgeGlowManager?.show(currentGlowState)
+} else {
+    edgeGlowManager?.hide()
+}
+```
+
+### Z-Order
+
+The edge glow should be added **before** SmartCapsule so it renders below it in the overlay stack.
+
+---
+
+## Action Visualizer
+
+The Action Visualizer provides visual feedback when the agent performs touch actions (clicks, swipes, scrolls). It helps users understand where and how the agent interacts with the screen.
+
+### Features
+
+- **Ripple effect** for tap/click actions
+- **Trail animation** for swipe/scroll actions
+- **Non-intrusive** - passes all touch events through
+- **Automatic cleanup** after animation completes
+- **Color-coded** actions (different colors for different action types)
+
+### Visualization Types
+
+#### Click Ripple (`ClickRippleView`)
+
+Expanding circle animation for tap/click visualization.
+
+| Property | Value |
+|----------|-------|
+| Initial radius | 8dp |
+| Final radius | 48dp |
+| Duration | 500ms |
+| Animation | EaseOut (fast start, slow end) |
+| Click color | Blue (`#2563EB`) at 60% opacity |
+| Long press color | Purple (`#7C3AED`) at 60% opacity |
+
+#### Swipe Trail (`SwipeTrailView`)
+
+Line drawing animation for swipe/scroll visualization.
+
+| Property | Value |
+|----------|-------|
+| Line width | 4dp |
+| Start dot radius | 8dp |
+| End dot radius | 6dp |
+| Swipe color | Light Blue (`#3B82F6`) at 50% opacity |
+| Scroll color | Indigo (`#6366F1`) at 50% opacity |
+| Animation | Linear, matches gesture duration |
+
+### Integration
+
+The `ActionVisualizerManager` is called from `AccessibilityPlatform` right before dispatching gestures:
+
+```kotlin
+// In AccessibilityPlatform
+class AccessibilityPlatform(
+    private val service: AccessibilityService,
+    private val visualizer: ActionVisualizerManager? = null
+) {
+    private suspend fun performTap(x: Float, y: Float): ActionResult {
+        visualizer?.showClick(x, y)
+        // ... dispatch gesture
+    }
+    
+    private suspend fun performSwipe(
+        startX: Float, startY: Float,
+        endX: Float, endY: Float,
+        durationMs: Long
+    ): ActionResult {
+        visualizer?.showSwipe(startX, startY, endX, endY, durationMs)
+        // ... dispatch gesture
+    }
+}
+```
+
+### API Reference
+
+```kotlin
+class ActionVisualizerManager(context: AccessibilityService) {
+    /** Enable/disable visualization */
+    var enabled: Boolean
+    
+    /** Show click ripple at coordinates */
+    fun showClick(x: Float, y: Float, longPress: Boolean = false)
+    
+    /** Show swipe trail between coordinates */
+    fun showSwipe(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Long)
+    
+    /** Show scroll visualization (indigo color) */
+    fun showScrollAsSwipe(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Long)
+    
+    /** Clear all active visualizations */
+    fun clearAll()
+    
+    /** Release resources */
+    fun dispose()
+}
+```
+
+### Overlay Components Table
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **EdgeGlowManager** | `ui/overlay/EdgeGlowManager.kt` | Manages edge glow lifecycle |
+| **EdgeGlowView** | `ui/overlay/EdgeGlowView.kt` | Custom glow rendering |
+| **GlowState** | `ui/overlay/model/GlowState.kt` | State enum with colors |
+| **ActionVisualizerManager** | `ui/overlay/visualizer/ActionVisualizerManager.kt` | Action visualization orchestrator |
+| **ClickRippleView** | `ui/overlay/visualizer/ClickRippleView.kt` | Ripple effect view |
+| **SwipeTrailView** | `ui/overlay/visualizer/SwipeTrailView.kt` | Swipe trail view |
+
+---
+
 ## Quick Reference
 
 ### MainActivity Setup
@@ -714,11 +902,17 @@ class MainActivity : ComponentActivity() {
 ```
 AgentService.session.events
         │
+        ├──► EdgeGlowManager (ambient glow state)
+        │
         ├──► SmartCapsuleManager (overlay updates)
         │
         └──► ChatViewModel (message list updates)
                     │
                     └──► ChatScreen recomposition
+
+AccessibilityPlatform.performAction()
+        │
+        └──► ActionVisualizerManager (touch visualization)
 ```
 
 ---
