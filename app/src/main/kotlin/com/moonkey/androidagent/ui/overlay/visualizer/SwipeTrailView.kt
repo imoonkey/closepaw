@@ -40,6 +40,9 @@ class SwipeTrailView(context: Context) : View(context) {
     
     private var isScroll = false
     
+    /** Pending animation duration - animation starts when view is attached */
+    private var pendingAnimationDurationMs: Long = 0L
+    
     private val lineWidth = dp(LINE_WIDTH_DP)
     private val startDotRadius = dp(START_DOT_RADIUS_DP)
     private val endDotRadius = dp(END_DOT_RADIUS_DP)
@@ -61,7 +64,7 @@ class SwipeTrailView(context: Context) : View(context) {
     private var animator: ValueAnimator? = null
     
     /**
-     * Set the swipe/scroll path and start the animation.
+     * Set the swipe/scroll path. Animation will start when the view is attached.
      * 
      * @param sx Start X coordinate
      * @param sy Start Y coordinate
@@ -84,6 +87,7 @@ class SwipeTrailView(context: Context) : View(context) {
         endY = ey
         isScroll = scroll
         progress = 0f
+        pendingAnimationDurationMs = durationMs
         
         // Update paint colors based on action type
         val color = if (scroll) SCROLL_COLOR else SWIPE_COLOR
@@ -92,7 +96,20 @@ class SwipeTrailView(context: Context) : View(context) {
         dotPaint.color = color
         dotPaint.alpha = (255 * DOT_ALPHA).toInt()
         
-        startAnimation(durationMs)
+        // If already attached, start animation immediately
+        // Otherwise, animation will start in onAttachedToWindow()
+        if (isAttachedToWindow) {
+            startAnimation(durationMs)
+        }
+    }
+    
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // Start animation when view is attached (ensures view is in hierarchy for drawing)
+        if (pendingAnimationDurationMs > 0) {
+            startAnimation(pendingAnimationDurationMs)
+            pendingAnimationDurationMs = 0L
+        }
     }
     
     private fun startAnimation(durationMs: Long) {
