@@ -162,7 +162,8 @@ if [[ -s "$DEBUG_DIR/perf.log" ]]; then
                 gsub(/[[:space:]]+$/, "", meta);
                 
                 # Validate metadata is JSON-like (basic check)
-                # PerfLogger.kt already sanitizes to valid JSON, this is a backup
+                # Note: This is a permissive fallback. PerfLogger.kt uses JSONObject
+                # to create valid JSON, so malformed JSON here indicates a logging bug.
                 jsonMeta = meta;
                 if (jsonMeta == "" || jsonMeta !~ /^[[:space:]]*\{.*\}[[:space:]]*$/) {
                     jsonMeta = "{}";
