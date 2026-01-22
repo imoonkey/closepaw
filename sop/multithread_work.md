@@ -8,32 +8,35 @@ When asked to follow this SOP, you are working in parallel with other Cursor age
 
 ---
 
-## Recommended Approach: Git Worktrees
+## Recommended Approach: Git Worktrees with Parent Workspace
 
-This is the most stable method for parallel work, especially for large repos.
+This is the most stable method for parallel work, especially for large repos. **Open Cursor from a parent workspace folder** so all worktrees are accessible in one window.
 
 ### Setup Commands
 
 ```bash
-# Create worktrees for parallel features
-git worktree add ../repo-feature-a feature/a
-git worktree add ../repo-feature-b feature/b
+# Create worktrees for parallel features (from main repo)
+cd androidagent
+git worktree add ../androidagent-profiling feature/profiling
+git worktree add ../androidagent-feature-x feature/x
 ```
 
 ### Resulting Directory Structure
 
 ```
-repo-main/        -> main branch
-repo-feature-a/   -> feature/a branch
-repo-feature-b/   -> feature/b branch
+android-agent-workspace/      <- Open Cursor from HERE
+├── androidagent/             -> main branch (chat)
+├── androidagent-profiling/   -> feature/profiling branch
+└── androidagent-feature-x/   -> feature/x branch
 ```
 
 ### How It Works
 
-- Each worktree is opened in a **separate Cursor window**
-- Each window has its **own conversation**
-- Each Cursor window only sees its own branch's code
+- **One Cursor window** opened from the parent workspace folder
+- Cursor can see and edit all worktrees simultaneously
+- Each worktree operates on its **own isolated branch**
 - Code changes **only affect the corresponding branch**
+- Cursor agents can be assigned to specific worktrees within the same window
 
 ---
 
@@ -60,6 +63,9 @@ git status
 
 # Verify you're in the correct directory
 pwd
+
+# List all worktrees (verify paths are correct)
+git worktree list
 ```
 
 ---
