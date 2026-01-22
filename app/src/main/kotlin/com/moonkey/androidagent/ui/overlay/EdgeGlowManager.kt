@@ -58,6 +58,9 @@ class EdgeGlowManager(
         /** Pulse alpha range - more visible */
         private const val PULSE_ALPHA_MIN = 0.5f
         private const val PULSE_ALPHA_MAX = 0.85f
+        
+        /** Base alpha when glow is fully visible (not pulsing) */
+        private const val BASE_ALPHA = 0.7f
     }
     
     private val windowManager = context.getSystemService(WindowManager::class.java)
@@ -69,6 +72,9 @@ class EdgeGlowManager(
     // Animators
     private var pulseAnimator: ValueAnimator? = null
     private var fadeAnimator: ValueAnimator? = null
+    
+    // Animation state tracking (prevents race conditions)
+    private var isHiding = false
     
     // Pending hide runnable (for delayed hide after success)
     private var pendingHideRunnable: Runnable? = null
@@ -85,10 +91,21 @@ class EdgeGlowManager(
      * @param state The glow state (determines color)
      */
     fun show(state: GlowState = GlowState.Active) {
-        Log.d(TAG, "show() called, state=$state, currently showing=${isShowing()}")
+        Log.d(TAG, "show() called, state=$state, currently showing=${isShowing()}, isHiding=$isHiding")
         
         // Cancel any pending hide
         cancelPendingHide()
+        
+        // If currently hiding, cancel the animation and remove immediately
+        // This prevents race condition where show() is called during fade-out
+        if (isHiding) {
+            stopFadeAnimation()
+            glowView?.let { view ->
+                try { windowManager.removeView(view) } catch (_: Exception) {}
+            }
+            glowView = null
+            isHiding = false
+        }
         
         if (glowView != null) {
             updateState(state)
@@ -124,13 +141,17 @@ class EdgeGlowManager(
      * Hide the edge glow with fade-out animation.
      */
     fun hide() {
-        Log.d(TAG, "hide() called")
+        Log.d(TAG, "hide() called, isHiding=$isHiding")
+        
+        // Prevent double-hide
+        if (isHiding) return
         
         cancelPendingHide()
         stopPulseAnimation()
         
         val view = glowView ?: return
         
+        isHiding = true
         animateFadeOut {
             try {
                 windowManager.removeView(view)
@@ -138,6 +159,7 @@ class EdgeGlowManager(
                 Log.w(TAG, "Error removing glow view", e)
             }
             glowView = null
+            isHiding = false
         }
     }
     
@@ -159,15 +181,22 @@ class EdgeGlowManager(
             }
         }
         glowView = null
+        isHiding = false
     }
     
     /**
      * Update the glow state (changes color).
+     * Does nothing if glow is not currently visible.
      * 
      * @param state The new glow state
      */
     fun updateState(state: GlowState) {
-        Log.d(TAG, "updateState: $currentState -> $state")
+        Log.d(TAG, "updateState: $currentState -> $state, showing=${isShowing()}")
+        
+        if (!isShowing()) {
+            Log.w(TAG, "updateState called while not showing, ignoring")
+            return
+        }
         
         if (currentState == state) return
         currentState = state
@@ -250,13 +279,15 @@ class EdgeGlowManager(
         pulseAnimator?.cancel()
         pulseAnimator = null
         // Reset to base alpha (visible)
-        glowView?.setGlowAlpha(0.7f)
+        glowView?.setGlowAlpha(BASE_ALPHA)
     }
     
     private fun animateFadeIn(onComplete: () -> Unit = {}) {
         stopFadeAnimation()
         
-        fadeAnimator = ValueAnimator.ofFloat(0f, 0.7f).apply {
+        val viewRef = glowView ?: return onComplete()
+        
+        fadeAnimator = ValueAnimator.ofFloat(0f, BASE_ALPHA).apply {
             duration = FADE_IN_DURATION_MS
             interpolator = AccelerateDecelerateInterpolator()
             addUpdateListener { animator ->
@@ -264,7 +295,13 @@ class EdgeGlowManager(
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
-                    onComplete()
+                    animation.removeAllListeners()
+                    if (glowView === viewRef) {
+                        onComplete()
+                    }
+                }
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    animation.removeAllListeners()
                 }
             })
             start()
@@ -274,7 +311,9 @@ class EdgeGlowManager(
     private fun animateFadeOut(onComplete: () -> Unit) {
         stopFadeAnimation()
         
-        val startAlpha = glowView?.let { 0.7f } ?: return onComplete()
+        val viewRef = glowView ?: return onComplete()
+        // Use actual current alpha to avoid visual jump if mid-pulse
+        val startAlpha = viewRef.getCurrentAlpha()
         
         fadeAnimator = ValueAnimator.ofFloat(startAlpha, 0f).apply {
             duration = FADE_OUT_DURATION_MS
@@ -284,7 +323,13 @@ class EdgeGlowManager(
             }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) {
-                    onComplete()
+                    animation.removeAllListeners()
+                    if (glowView === viewRef) {
+                        onComplete()
+                    }
+                }
+                override fun onAnimationCancel(animation: android.animation.Animator) {
+                    animation.removeAllListeners()
                 }
             })
             start()

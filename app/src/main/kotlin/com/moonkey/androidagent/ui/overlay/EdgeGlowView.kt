@@ -63,7 +63,7 @@ class EdgeGlowView(context: Context) : View(context) {
     
     /**
      * Set the glow alpha (opacity).
-     * Used for pulse animation - typically oscillates between 0.3 and 0.5.
+     * Used for pulse animation - typically oscillates between 0.5 and 0.85.
      * 
      * @param alpha Value between 0.0 and 1.0
      */
@@ -76,13 +76,10 @@ class EdgeGlowView(context: Context) : View(context) {
     }
     
     /**
-     * Animate color transition to new state.
-     * Color changes are instant - for smooth transitions, use animator externally.
+     * Get the current glow alpha.
+     * Used by EdgeGlowManager to start fade-out from actual current value.
      */
-    fun animateToState(state: GlowState) {
-        // For now, instant change. Could add ValueAnimator for smooth color transitions.
-        setState(state)
-    }
+    fun getCurrentAlpha(): Float = glowAlpha
     
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
