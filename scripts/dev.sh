@@ -83,8 +83,9 @@ cmd_run() {
     
     log "Running agent with goal: $goal"
     
-    # Set up cleanup trap to stop agent when script exits (Ctrl+C, timeout, etc.)
-    trap 'echo ""; warn "Script exiting, stopping agent..."; stop_agent; exit 0' INT TERM EXIT
+    # Set up cleanup trap to stop agent when interrupted (Ctrl+C only)
+    # Don't use EXIT - it fires on normal completion too
+    trap 'echo ""; warn "Interrupted, stopping agent..."; stop_agent; exit 0' INT TERM
     
     # Go to home screen first
     adb shell input keyevent KEYCODE_HOME
@@ -137,7 +138,7 @@ cmd_run() {
             echo ""
             ok "Task completed!"
             # Clear the trap since we completed normally
-            trap - INT TERM EXIT
+            trap - INT TERM
             break
         fi
         
@@ -155,7 +156,7 @@ cmd_run() {
     done
     
     # Clear the trap before normal exit
-    trap - INT TERM EXIT
+    trap - INT TERM
     
     echo ""
     echo ""

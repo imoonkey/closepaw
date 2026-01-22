@@ -4,7 +4,7 @@
 
 ## Overview
 
-The Android Agent uses a unidirectional data flow pattern:
+The Android Agent uses a unidirectional data flow pattern with a **Task-based model**:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -21,6 +21,14 @@ The Android Agent uses a unidirectional data flow pattern:
 - **Operations (Op)**: User intents sent TO the agent via `session.submit(op)`
 - **Events (AgentEvent)**: State changes emitted FROM the agent via `session.events` Flow
 
+### Task Model
+
+The agent follows a **Session > Task > Turn** hierarchy:
+
+- **Session**: Long-lived configuration and state (History, Services)
+- **Task**: Work executed in response to a `Op.UserInput`. A Session runs one Task at a time.
+- **Turn**: One cycle of `Perceive → Think (LLM) → Act (Tool) → Observe`
+
 ---
 
 ## Operations (Op)
@@ -35,24 +43,24 @@ Operations are immutable, thread-safe commands submitted to the session.
                               ┌─────────┐
                               │ Created │
                               └────┬────┘
-                                   │ Op.Start
+                                   │ Op.UserInput
                                    ▼
                     ┌─────────────────────────────┐
             ┌──────►│           Running           │◄──────┐
             │       └──────┬───────────────┬──────┘       │
             │              │               │              │
-            │     Op.Pause │               │ Complete     │
+            │     Op.Pause │               │ TaskCompleted│
             │              ▼               │              │
             │       ┌──────────┐           │              │
    Op.Resume│       │  Paused  │           │              │
             │       └──────────┘           │              │
             │                              │              │
             │                              ▼              │
-            │                       ┌───────────┐        │
-            │                       │ Completed │        │
-            │                       └───────────┘        │
-            │                                            │
-            │           Op.Shutdown (from any state)     │
+            │    Op.UserInput        ┌──────────┐        │
+            │    (start new task)    │   Idle   │        │
+            │◄───────────────────────└────┬─────┘        │
+            │                             │              │
+            │         Op.Shutdown (from any state)       │
             │                       │                    │
             │                       ▼                    │
             │                ┌───────────┐               │
@@ -64,19 +72,35 @@ Operations are immutable, thread-safe commands submitted to the session.
 
 | Operation | Valid States | Effect |
 |-----------|--------------|--------|
-| `Op.Start(goal)` | Created | Start agent execution |
+| `Op.UserInput(text)` | Created, Idle | **Primary entry point.** Starts a new Task |
+| `Op.Start(goal)` | Created | **Deprecated.** Maps to `Op.UserInput(goal)` |
 | `Op.Pause` | Running | Cooperative pause after current action |
 | `Op.Resume` | Paused | Resume execution |
-| `Op.Interrupt` | Running | Cooperative stop after current action |
+| `Op.Interrupt` | Running | Cooperative stop after current action (Task ends, Session stays in Idle) |
 | `Op.Shutdown` | Any | Graceful shutdown |
-| `Op.UserInput(text)` | Running | *(Planned)* Provide additional context |
 | `Op.Approve(actionId, decision)` | Running | Respond to approval request |
 
-### Op.Start
+### Op.UserInput
 
-Starts the agent with a goal. Session configuration is set at `AgentSession.create()` time.
+The primary way to interact with the agent. Starts a new Task.
 
 ```kotlin
+data class UserInput(val text: String) : Op
+```
+
+When a `UserInput` is submitted:
+1. A new `taskId` is generated
+2. `TaskStarted` event is emitted
+3. The agent executes turns until task completion
+4. `TaskCompleted` event is emitted
+5. Session transitions to `Idle` state (ready for next input)
+
+### Op.Start (Deprecated)
+
+> **Note**: Use `Op.UserInput` instead. `Op.Start` is maintained for backward compatibility.
+
+```kotlin
+@Deprecated("Use Op.UserInput instead", ReplaceWith("UserInput(goal)"))
 data class Start(val goal: String) : Op
 ```
 
@@ -101,8 +125,8 @@ data class Approve(
 
 ### Notes
 
-- **Interrupt vs Shutdown**: `Op.Interrupt` is cooperative—the agent completes its current action before stopping. For immediate termination, use `Op.Shutdown`.
-- **UserInput**: Currently accepted but not implemented. Planned for conversational mode.
+- **Interrupt vs Shutdown**: `Op.Interrupt` stops the current Task but keeps the Session alive (in `Idle` state). `Op.Shutdown` terminates the entire session.
+- **Multi-Round Interaction**: After a Task completes, the session enters `Idle` state and accepts new `UserInput` for follow-up tasks.
 
 ---
 
@@ -129,6 +153,11 @@ AgentEvent
 │   ├── SessionError
 │   ├── SessionPaused
 │   └── SessionResumed
+│
+├── Task Events (NEW)
+│   ├── TaskStarted
+│   ├── TaskCompleted
+│   └── MessageDelta (streaming)
 │
 ├── Turn Events
 │   ├── TurnStarted
@@ -199,6 +228,61 @@ data class SessionError(
     override val timestamp: Long,
     val error: AgentError
 ) : AgentEvent
+```
+
+### Task Events
+
+Task events track the lifecycle of individual Tasks within a Session.
+
+#### TaskStarted
+
+Emitted when a new Task begins (in response to `Op.UserInput`).
+
+```kotlin
+data class TaskStarted(
+    override val sessionId: SessionId,
+    override val timestamp: Long,
+    val taskId: String,
+    val input: String
+) : AgentEvent
+```
+
+#### TaskCompleted
+
+Emitted when a Task ends (success, stopped, or agent determined completion).
+
+```kotlin
+data class TaskCompleted(
+    override val sessionId: SessionId,
+    override val timestamp: Long,
+    val taskId: String,
+    val result: String?
+) : AgentEvent
+```
+
+#### MessageDelta
+
+Emitted for each streaming text chunk during LLM response. Used by UI to display real-time streaming text.
+
+```kotlin
+data class MessageDelta(
+    override val sessionId: SessionId,
+    override val timestamp: Long,
+    val turnId: String,
+    val delta: String  // The text chunk to append
+) : AgentEvent
+```
+
+**Usage in UI:**
+```kotlin
+// Append streaming deltas to build the complete message
+var currentMessage by remember { mutableStateOf("") }
+
+session.events
+    .filterIsInstance<AgentEvent.MessageDelta>()
+    .collect { event ->
+        currentMessage += event.delta  // Append each chunk
+    }
 ```
 
 ### Turn Events
@@ -338,14 +422,26 @@ data class StatusUpdate(
 | State | Description |
 |-------|-------------|
 | `Created` | Session initialized, not started |
-| `Running` | Agent actively executing |
+| `Running` | Agent actively executing a Task |
 | `Paused` | Execution paused, can resume |
-| `Completed` | Agent finished (see `CompletionReason`) |
+| `Idle` | Session active, waiting for user input (between Tasks) |
+| `Completed` | Session finished (see `CompletionReason`) |
 | `Shutdown` | User requested stop via `Op.Shutdown` |
 
-Both `Completed` and `Shutdown` are terminal states. The difference:
-- `Completed`: Agent finished its work naturally
-- `Shutdown`: User explicitly stopped the session
+### Multi-Round Interaction Flow
+
+```
+Created ──(UserInput)──► Running ──(TaskCompleted)──► Idle ──(UserInput)──► Running
+                            │                          │
+                            │                          │
+                            ▼                          ▼
+                        Shutdown ◄────────────────── Shutdown
+```
+
+**Key States:**
+- `Idle`: The session remains active after a Task completes, ready for follow-up `UserInput`
+- `Running`: A Task is in progress; rejects new `UserInput` until Task completes
+- `Shutdown`: Terminal state; user explicitly ended the session
 
 ---
 
@@ -403,24 +499,34 @@ Errors are categorized for appropriate handling:
 scope.launch {
     session.events.collect { event ->
         when (event) {
+            // Task lifecycle
+            is AgentEvent.TaskStarted -> {
+                Log.i(TAG, "Task started: ${event.taskId}")
+                showThinkingIndicator()
+            }
+            
+            is AgentEvent.MessageDelta -> {
+                // Append streaming text to current message bubble
+                appendToCurrentMessage(event.delta)
+            }
+            
+            is AgentEvent.TaskCompleted -> {
+                hideThinkingIndicator()
+                enableInputField()  // Ready for next input
+            }
+            
+            // Action events
+            is AgentEvent.ActionExecuted -> {
+                showActionCard(event.toolName, event.success, event.result)
+            }
+            
+            // Status updates
             is AgentEvent.StatusUpdate -> {
                 val display = event.emoji?.let { "$it ${event.status}" } ?: event.status
                 updateUI(display)
             }
             
-            is AgentEvent.SessionStarted -> {
-                Log.i(TAG, "Session started: ${event.sessionId}")
-            }
-            
-            is AgentEvent.SessionCompleted -> {
-                when (event.reason) {
-                    CompletionReason.GOAL_ACHIEVED -> showSuccess(event.result)
-                    CompletionReason.USER_STOPPED -> showStopped()
-                    CompletionReason.ERROR -> showError(event.result)
-                    else -> showGenericComplete()
-                }
-            }
-            
+            // Approval flow
             is AgentEvent.ApprovalRequired -> {
                 showApprovalDialog(
                     actionId = event.details.callId,
@@ -443,10 +549,15 @@ scope.launch {
 ### Event Filtering
 
 ```kotlin
-// Only status updates
+// Only streaming text deltas (for chat UI)
 session.events
-    .filterIsInstance<AgentEvent.StatusUpdate>()
-    .collect { updateStatusBar(it.status) }
+    .filterIsInstance<AgentEvent.MessageDelta>()
+    .collect { appendText(it.delta) }
+
+// Only task lifecycle events
+session.events
+    .filter { it is AgentEvent.TaskStarted || it is AgentEvent.TaskCompleted }
+    .collect { handleTaskLifecycle(it) }
 
 // Only terminal events
 session.events
@@ -460,18 +571,22 @@ session.events
 
 ### For UI Developers
 
-1. **Always handle SessionCompleted** - Clean up resources
-2. **Show StatusUpdate immediately** - Provides real-time feedback
-3. **Handle ApprovalRequired with timeout** - Don't block forever (ToolRouter uses 60s timeout)
-4. **Ignore unknown events** - Forward compatibility
-5. **Use actionId/callId consistently** - Match approval requests to responses
+1. **Handle `MessageDelta` efficiently** - Append text, don't rebuild entire string on each delta
+2. **Track Task lifecycle** - Use `TaskStarted`/`TaskCompleted` for input enable/disable
+3. **Always handle SessionCompleted** - Clean up resources
+4. **Show StatusUpdate immediately** - Provides real-time feedback
+5. **Handle ApprovalRequired with timeout** - Don't block forever (ToolRouter uses 60s timeout)
+6. **Ignore unknown events** - Forward compatibility
+7. **Use taskId/turnId consistently** - Match deltas to correct message bubbles
 
 ### For Agent Developers
 
-1. **Emit StatusUpdate frequently** - User needs feedback
-2. **Use appropriate CompletionReason** - Helps UI respond correctly
-3. **Include actionId in action events** - Enables tracking
-4. **Emit events before state changes** - Order matters
+1. **Emit `MessageDelta` during streaming** - User sees real-time response
+2. **Emit StatusUpdate frequently** - User needs feedback
+3. **Use appropriate CompletionReason** - Helps UI respond correctly
+4. **Include actionId in action events** - Enables tracking
+5. **Emit events before state changes** - Order matters
+6. **Transition to `Idle` after Task** - Enables multi-round interaction
 
 ---
 
