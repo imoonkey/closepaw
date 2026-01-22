@@ -207,11 +207,17 @@ class Agent(
                     emitTurnPhaseChanged(turnId, TurnPhase.EXECUTION)
                     emitStatus("💡 Executing actions...")
 
-                    // Track current snapshot - update after each tool for multi-tool execution
-                    var currentSnapshot = snapshot
+                    // Re-capture screen before first action to avoid stale element IDs
+                    // The LLM call can take 1-5 seconds, during which the screen may have changed
+                    delay(200)  // Brief settle time
+                    var currentSnapshot = services.platform.captureScreen()
+                    Log.d(TAG, "Re-captured screen before actions: ${currentSnapshot.elements.size} elements")
 
                     for (toolCall in result.toolCalls) {
                         Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
+                        
+                        // Emit ActionProposed before execution
+                        emitActionProposed(toolCall.id, toolCall.name, formatActionDescription(toolCall))
 
                         // Record tool call in history
                         services.historyManager.addItem(
@@ -443,12 +449,59 @@ class Agent(
     }
     
     private suspend fun emitMessageDelta(turnId: String, delta: String) {
+        Log.d(TAG, "MessageDelta: turnId=$turnId, delta=${delta.take(50)}...")
         eventEmitter(AgentEvent.MessageDelta(
             sessionId = config.sessionId,
             timestamp = System.currentTimeMillis(),
             turnId = turnId,
             delta = delta
         ))
+    }
+    
+    private suspend fun emitActionProposed(actionId: String, toolName: String, description: String) {
+        Log.d(TAG, "ActionProposed: $toolName - $description")
+        eventEmitter(AgentEvent.ActionProposed(
+            sessionId = config.sessionId,
+            timestamp = System.currentTimeMillis(),
+            actionId = actionId,
+            toolName = toolName,
+            description = description
+        ))
+    }
+    
+    /**
+     * Format a human-readable description for an action.
+     */
+    private fun formatActionDescription(toolCall: ToolCallRequest): String {
+        return when (toolCall.name.lowercase()) {
+            "click" -> {
+                val elementId = toolCall.arguments.optString("element_id", "")
+                "Click on element $elementId"
+            }
+            "type" -> {
+                val text = toolCall.arguments.optString("text", "").take(30)
+                "Type \"$text\""
+            }
+            "scroll" -> {
+                val direction = toolCall.arguments.optString("direction", "down")
+                "Scroll $direction"
+            }
+            "swipe" -> {
+                val direction = toolCall.arguments.optString("direction", "")
+                "Swipe $direction"
+            }
+            "back" -> "Press back button"
+            "home" -> "Go to home screen"
+            "wait" -> {
+                val ms = toolCall.arguments.optInt("milliseconds", 1000)
+                "Wait ${ms}ms"
+            }
+            "complete_task" -> {
+                val summary = toolCall.arguments.optString("summary", "Done")
+                "Complete: $summary"
+            }
+            else -> "Execute ${toolCall.name}"
+        }
     }
 
     private suspend fun emitTurnStarted(turnId: String) {
