@@ -8,11 +8,14 @@ import android.content.IntentFilter
 import android.os.Build
 import android.util.Log
 import com.moonkey.androidagent.BuildConfig
+import com.moonkey.androidagent.ui.overlay.EdgeGlowManager
 import com.moonkey.androidagent.ui.overlay.SmartCapsuleManager
+import com.moonkey.androidagent.ui.overlay.model.GlowState
 import android.view.accessibility.AccessibilityEvent
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.Op
+import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +62,7 @@ class AgentService : AccessibilityService() {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var session: AgentSession? = null
     private var capsuleManager: SmartCapsuleManager? = null
+    private var edgeGlowManager: EdgeGlowManager? = null
     
     /** Job for the current session's event collector, cancelled before starting new session */
     private var eventCollectorJob: Job? = null
@@ -102,6 +106,9 @@ class AgentService : AccessibilityService() {
         Log.i(TAG, "AgentService connected")
         updateStatus("Accessibility Service connected")
 
+        // Initialize EdgeGlowManager first (so it renders below SmartCapsule)
+        edgeGlowManager = EdgeGlowManager(context = this)
+        
         // Initialize SmartCapsuleManager with Op-based callbacks
         capsuleManager = SmartCapsuleManager(
             context = this,
@@ -191,6 +198,7 @@ class AgentService : AccessibilityService() {
 
     override fun onDestroy() {
         submitOp(Op.Shutdown)
+        edgeGlowManager?.dispose()
         capsuleManager?.hide()
         if (BuildConfig.DEBUG) {
             try {
@@ -272,6 +280,9 @@ class AgentService : AccessibilityService() {
                 hasActiveTask = true
                 currentTaskInput = event.input
                 
+                // Show edge glow when task starts (always visible as ambient indicator)
+                edgeGlowManager?.show(GlowState.Active)
+                
                 // Only show capsule if app is NOT in foreground
                 // When app goes to background later, onAccessibilityEvent will show it
                 if (!isOurAppInForeground) {
@@ -287,7 +298,21 @@ class AgentService : AccessibilityService() {
                 capsuleManager?.onMessageDelta(event.turnId, event.delta)
             }
             
+            is AgentEvent.TurnPhaseChanged -> {
+                // Update glow based on turn phase
+                when (event.phase) {
+                    TurnPhase.EXECUTION -> edgeGlowManager?.updateState(GlowState.Executing)
+                    TurnPhase.PLANNING, TurnPhase.PERCEPTION, TurnPhase.REFLECTION -> 
+                        edgeGlowManager?.updateState(GlowState.Active)
+                }
+            }
+            
             is AgentEvent.ActionExecuted -> {
+                // Update edge glow based on action result
+                edgeGlowManager?.updateState(
+                    if (event.success) GlowState.Active else GlowState.Error
+                )
+                
                 // Fallback: if we have an active task and capsule isn't showing, show it
                 // This handles race conditions where accessibility events might be missed
                 if (hasActiveTask && !isOurAppInForeground) {
@@ -306,6 +331,10 @@ class AgentService : AccessibilityService() {
                 Log.i(TAG, "Task completed: ${event.taskId}")
                 hasActiveTask = false
                 currentTaskInput = null
+                
+                // Update glow to success (will auto-hide after delay)
+                edgeGlowManager?.updateState(GlowState.Success)
+                
                 capsuleManager?.onTaskCompleted()
             }
             
@@ -326,6 +355,22 @@ class AgentService : AccessibilityService() {
                 }
                 updateStatus(statusMessage)
                 
+                // Update glow state based on completion reason
+                when (event.reason) {
+                    CompletionReason.GOAL_ACHIEVED -> {
+                        edgeGlowManager?.updateState(GlowState.Success)
+                    }
+                    CompletionReason.USER_STOPPED, CompletionReason.INTERRUPTED -> {
+                        edgeGlowManager?.hideImmediately()
+                    }
+                    CompletionReason.ERROR, CompletionReason.TASK_IMPOSSIBLE -> {
+                        edgeGlowManager?.updateState(GlowState.Error)
+                    }
+                    CompletionReason.MAX_TURNS -> {
+                        edgeGlowManager?.updateState(GlowState.Success)
+                    }
+                }
+                
                 // Don't hide capsule immediately - let TaskCompleted's 3-second delay handle it
                 // Only hide immediately if session was stopped/interrupted
                 if (event.reason == CompletionReason.USER_STOPPED || 
@@ -338,16 +383,19 @@ class AgentService : AccessibilityService() {
             is AgentEvent.SessionError -> {
                 Log.e(TAG, "Session error: ${event.error.message}")
                 updateStatus("❌ Error: ${event.error.message}")
+                edgeGlowManager?.updateState(GlowState.Error)
                 capsuleManager?.onError(event.error.message)
             }
             
             is AgentEvent.SessionPaused -> {
                 Log.i(TAG, "Session paused: ${event.sessionId}")
+                edgeGlowManager?.updateState(GlowState.Paused)
                 capsuleManager?.updatePauseState(paused = true)
             }
             
             is AgentEvent.SessionResumed -> {
                 Log.i(TAG, "Session resumed: ${event.sessionId}")
+                edgeGlowManager?.updateState(GlowState.Active)
                 capsuleManager?.updatePauseState(paused = false)
             }
             
@@ -407,6 +455,7 @@ class AgentService : AccessibilityService() {
 
     fun stopAgent() {
         submitOp(Op.Shutdown)
+        edgeGlowManager?.hideImmediately()
         capsuleManager?.hide()
         updateStatus("🛑 Agent stopped")
     }
