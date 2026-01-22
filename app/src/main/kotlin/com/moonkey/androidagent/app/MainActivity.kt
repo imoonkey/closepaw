@@ -278,7 +278,8 @@ class MainActivity : ComponentActivity() {
                         ),
                         service = service,
                         scope = sessionScope,
-                        apiKey = apiKey
+                        apiKey = apiKey,
+                        visualizer = service.getActionVisualizer()
                     )
                     
                     currentSession = session

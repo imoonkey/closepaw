@@ -8,6 +8,7 @@ import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -19,9 +20,15 @@ import kotlin.coroutines.resume
  * 
  * This wraps the existing Perceptor for screen capture and provides
  * action execution via the accessibility service APIs.
+ * 
+ * Visualization Support:
+ * Optionally accepts an ActionVisualizerManager to display visual feedback
+ * (ripples, trails) when performing gestures. This helps users see where
+ * and how the agent is interacting with the screen.
  */
 class AccessibilityPlatform(
-    private val service: AccessibilityService
+    private val service: AccessibilityService,
+    private val visualizer: ActionVisualizerManager? = null
 ) : AndroidPlatform {
     
     companion object {
@@ -277,7 +284,7 @@ class AccessibilityPlatform(
         }
         
         Log.d(TAG, "Performing scroll ${action.direction}: ($startX, $startY) -> ($endX, $endY)")
-        return performSwipeGesture(startX, startY, endX, endY, SWIPE_GESTURE_DURATION_MS)
+        return performSwipeGesture(startX, startY, endX, endY, SWIPE_GESTURE_DURATION_MS, isScroll = true)
     }
     
     private suspend fun performSwipe(action: UIAction.Swipe): ActionResult {
@@ -286,7 +293,8 @@ class AccessibilityPlatform(
             action.startY.toFloat(),
             action.endX.toFloat(),
             action.endY.toFloat(),
-            action.durationMs
+            action.durationMs,
+            isScroll = false
         )
     }
     
@@ -318,6 +326,9 @@ class AccessibilityPlatform(
     // ===== Gesture Helpers =====
     
     private suspend fun performTap(x: Float, y: Float): ActionResult {
+        // Show visualization BEFORE the action
+        visualizer?.showClick(x, y)
+        
         val path = Path().apply {
             moveTo(x, y)
         }
@@ -334,8 +345,16 @@ class AccessibilityPlatform(
         startY: Float,
         endX: Float,
         endY: Float,
-        durationMs: Long
+        durationMs: Long,
+        isScroll: Boolean = false
     ): ActionResult {
+        // Show visualization BEFORE the action
+        if (isScroll) {
+            visualizer?.showScrollAsSwipe(startX, startY, endX, endY, durationMs)
+        } else {
+            visualizer?.showSwipe(startX, startY, endX, endY, durationMs)
+        }
+        
         val path = Path().apply {
             moveTo(startX, startY)
             lineTo(endX, endY)
