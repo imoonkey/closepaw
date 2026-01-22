@@ -51,7 +51,6 @@ class ActionVisualizerManager(
         // Animation durations (should match view animations)
         private const val CLICK_ANIMATION_DURATION_MS = 300L
         private const val SWIPE_EXTRA_DURATION_MS = 200L
-        private const val SCROLL_ANIMATION_DURATION_MS = 400L
         private const val FADE_OUT_DURATION_MS = 200L
     }
     
@@ -126,37 +125,6 @@ class ActionVisualizerManager(
             }
             
             addAndAnimate(trail, durationMs + SWIPE_EXTRA_DURATION_MS)
-        }
-    }
-    
-    /**
-     * Show a scroll indicator at the center of screen with direction arrow.
-     * 
-     * @param direction The scroll direction
-     * @param centerX Center X coordinate (defaults to screen center)
-     * @param centerY Center Y coordinate (defaults to screen center)
-     */
-    fun showScroll(
-        direction: ScrollIndicatorView.Direction,
-        centerX: Float? = null,
-        centerY: Float? = null
-    ) {
-        if (!enabled || isDisposed) return
-        
-        handler.post {
-            if (isDisposed) return@post
-            Log.d(TAG, "showScroll direction=$direction")
-            ensureOverlay()
-            
-            val displayMetrics = context.resources.displayMetrics
-            val x = centerX ?: (displayMetrics.widthPixels / 2f)
-            val y = centerY ?: (displayMetrics.heightPixels / 2f)
-            
-            val indicator = ScrollIndicatorView(context).apply {
-                setScroll(x, y, direction)
-            }
-            
-            addAndAnimate(indicator, SCROLL_ANIMATION_DURATION_MS + SWIPE_EXTRA_DURATION_MS)
         }
     }
     
