@@ -11,6 +11,7 @@ import com.moonkey.androidagent.BuildConfig
 import com.moonkey.androidagent.ui.overlay.EdgeGlowManager
 import com.moonkey.androidagent.ui.overlay.SmartCapsuleManager
 import com.moonkey.androidagent.ui.overlay.model.GlowState
+import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import android.view.accessibility.AccessibilityEvent
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.CompletionReason
@@ -63,6 +64,16 @@ class AgentService : AccessibilityService() {
     private var session: AgentSession? = null
     private var capsuleManager: SmartCapsuleManager? = null
     private var edgeGlowManager: EdgeGlowManager? = null
+    private var actionVisualizer: ActionVisualizerManager? = null
+    
+    /**
+     * Get the action visualizer for use in sessions created by MainActivity.
+     * Returns null if service is not connected or visualizer not initialized.
+     * 
+     * Note: Internal visibility - only for use within the app module.
+     * External code should not depend on this method.
+     */
+    internal fun getActionVisualizer(): ActionVisualizerManager? = actionVisualizer
     
     /** Job for the current session's event collector, cancelled before starting new session */
     private var eventCollectorJob: Job? = null
@@ -132,6 +143,10 @@ class AgentService : AccessibilityService() {
                 startActivity(intent)
             }
         )
+        
+        // Initialize ActionVisualizerManager for touch action visualization
+        actionVisualizer = ActionVisualizerManager(this)
+        Log.i(TAG, "ActionVisualizerManager initialized")
         
         // Register broadcast receiver for remote stop commands (from adb/dev.sh)
         // Only in debug builds - security risk if exposed in production
@@ -216,6 +231,8 @@ class AgentService : AccessibilityService() {
         submitOp(Op.Shutdown)
         edgeGlowManager?.dispose()
         capsuleManager?.hide()
+        actionVisualizer?.dispose()
+        actionVisualizer = null
         if (BuildConfig.DEBUG) {
             try {
                 unregisterReceiver(stopReceiver)
@@ -457,7 +474,8 @@ class AgentService : AccessibilityService() {
                     ),
                     service = this@AgentService,
                     scope = scope,
-                    apiKey = apiKey
+                    apiKey = apiKey,
+                    visualizer = actionVisualizer
                 )
                 
                 session = newSession

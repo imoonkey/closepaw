@@ -10,6 +10,7 @@ import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.platform.AccessibilityPlatform
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.*
+import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -57,15 +58,17 @@ class AgentSession private constructor(
          * @param service AccessibilityService for platform access
          * @param scope CoroutineScope for async operations
          * @param apiKey OpenAI API key for LLM client
+         * @param visualizer Optional ActionVisualizerManager for touch action visualization
          * @return AgentSession with SessionServices initialized
          */
         fun create(
             config: SessionConfig,
             service: AccessibilityService,
             scope: CoroutineScope,
-            apiKey: String
+            apiKey: String,
+            visualizer: ActionVisualizerManager? = null
         ): AgentSession {
-            val platform: AndroidPlatform = AccessibilityPlatform(service)
+            val platform: AndroidPlatform = AccessibilityPlatform(service, visualizer)
             val services = SessionServices.create(config, platform, apiKey)
             
             return AgentSession(
