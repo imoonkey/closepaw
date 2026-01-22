@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 android {
@@ -77,4 +78,7 @@ dependencies {
     
     // OpenAI SDK
     implementation("com.openai:openai-java:4.14.0")
+    
+    // Kotlin Serialization for session persistence
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 }

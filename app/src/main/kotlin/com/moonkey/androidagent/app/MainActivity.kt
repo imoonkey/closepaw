@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import com.moonkey.androidagent.BuildConfig
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -16,13 +17,17 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.moonkey.androidagent.history.SessionHistoryManager
+import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
 import com.moonkey.androidagent.ui.chat.ChatScreen
 import com.moonkey.androidagent.ui.chat.ChatViewModel
+import com.moonkey.androidagent.ui.session.SessionListSheet
 import com.moonkey.androidagent.ui.settings.SettingsSheet
 import com.moonkey.androidagent.ui.theme.ChatTheme
 import kotlinx.coroutines.CoroutineScope
@@ -74,11 +79,17 @@ class MainActivity : ComponentActivity() {
     private var maxTurns by mutableStateOf(DEFAULT_MAX_TURNS)
     private var debugMode by mutableStateOf(DEFAULT_DEBUG_MODE)
     
+    // Session history
+    private lateinit var sessionHistoryManager: SessionHistoryManager
+    
     // ViewModel
     private lateinit var viewModel: ChatViewModel
     
     // Settings visibility
     private var showSettings by mutableStateOf(false)
+    
+    // Session list visibility
+    private var showSessionList by mutableStateOf(false)
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,11 +101,18 @@ class MainActivity : ComponentActivity() {
         loadSettings()
         handleIntent(intent)
         
+        // Initialize session history manager
+        val sessionStorage = SessionStorage(applicationContext)
+        sessionHistoryManager = SessionHistoryManager.create(sessionStorage, sessionScope)
+        
         // Initialize ViewModel with session provider and session creation callback
         viewModel = ChatViewModel(
             sessionProvider = { currentSession },
+            sessionHistoryManager = sessionHistoryManager,
             onSessionNeeded = { text -> ensureSessionAndSend(text) },
             onTaskCompleted = { 
+                // Complete session recording when task completes
+                sessionHistoryManager.endSession()
                 // Clear session when task completes to allow new tasks
                 currentSession = null
                 Log.d(TAG, "Session cleared after task completion")
@@ -103,9 +121,16 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             ChatTheme {
+                // Collect session list state
+                val sessions by viewModel.sessions.collectAsStateWithLifecycle()
+                
                 ChatScreen(
                     viewModel = viewModel,
-                    onOpenSettings = { showSettings = true }
+                    onOpenSettings = { showSettings = true },
+                    onOpenSessionHistory = {
+                        viewModel.loadSessions()
+                        showSessionList = true
+                    }
                 )
                 
                 // Settings Bottom Sheet
@@ -148,6 +173,32 @@ class MainActivity : ComponentActivity() {
                             onDismiss = { showSettings = false }
                         )
                     }
+                }
+                
+                // Session List Bottom Sheet
+                if (showSessionList) {
+                    SessionListSheet(
+                        sessions = sessions,
+                        onSessionSelect = { session ->
+                            viewModel.resumeSession(session) {
+                                // Session resumed for viewing history only
+                                // End the resumed history session to avoid recording mismatch
+                                // A new session will be created when user sends a message
+                                sessionHistoryManager.getRecordingService().clearSession()
+                                currentSession = null
+                                Log.d(TAG, "History session resumed for viewing; cleared recording state")
+                            }
+                            showSessionList = false
+                        },
+                        onNewSession = {
+                            viewModel.startNewSession(selectedModel, BuildConfig.VERSION_NAME)
+                            showSessionList = false
+                        },
+                        onDeleteSession = { session ->
+                            viewModel.deleteSession(session)
+                        },
+                        onDismiss = { showSessionList = false }
+                    )
                 }
             }
         }

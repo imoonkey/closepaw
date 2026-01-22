@@ -38,6 +38,7 @@ import com.moonkey.androidagent.ui.chat.model.ChatMessage
 fun ChatScreen(
     viewModel: ChatViewModel,
     onOpenSettings: () -> Unit,
+    onOpenSessionHistory: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -63,7 +64,10 @@ fun ChatScreen(
             )
         },
         topBar = {
-            ChatHeader(onSettingsLongPress = onOpenSettings)
+            ChatHeader(
+                onSettingsLongPress = onOpenSettings,
+                onHistoryClick = onOpenSessionHistory
+            )
         },
         bottomBar = {
             InputDock(
