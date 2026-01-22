@@ -9,45 +9,49 @@
 3. [Design System](#design-system)
 4. [Component Architecture](#component-architecture)
 5. [File Structure](#file-structure)
-6. [Quick Reference](#quick-reference)
+6. [Smart Capsule](#smart-capsule)
+7. [Quick Reference](#quick-reference)
 
 ---
 
 ## Overview
 
-The Android Agent uses Jetpack Compose with Material 3 for a modern, elegant user interface.
+The Android Agent uses a **chat-first conversational interface** built with Jetpack Compose and Material 3. The UI is designed around the principle of "Invisible Intelligence" — the interface disappears, leaving only the conversation.
 
 | Goal | Implementation |
 |------|----------------|
+| **Chat-First** | Conversational UI with streaming responses |
 | **Modern DX** | Declarative UI with Compose |
-| **Beautiful UI** | Material 3 with Notion-inspired aesthetic |
+| **Beautiful UI** | Material 3 with premium polish |
 | **Edge-to-Edge** | Full screen utilization with proper insets |
-| **Reactive** | State-driven UI with automatic recomposition |
+| **Reactive** | State-driven with real-time streaming |
+| **Ubiquitous** | Smart Capsule overlay follows users across apps |
 
 ### Key Components
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │                        MainActivity                             │
-│  (Compose entry point, state management, event collection)      │
+│  (Compose entry point, ChatViewModel, event collection)         │
 ├────────────────────────────────────────────────────────────────┤
-│                        AgentScreen                              │
+│                        ChatScreen                               │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │ Header        │ Title + subtitle                        │   │
+│  │ ChatHeader     │ "Android Agent" (long-press for settings)│   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
-│  │ ConfigSection │ API Key input, Goal input               │   │
+│  │ TaskBanner    │ "Working on: ..." with status dot        │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
-│  │ ActionButtons │ Start Agent, Accessibility Settings     │   │
+│  │ MessageList   │ User/Agent bubbles, Action cards         │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
-│  │ StatusLog     │ Activity feed with color-coded entries  │   │
+│  │ InputDock     │ Text input + Send/Stop button            │   │
 │  └─────────────────────────────────────────────────────────┘   │
 ├────────────────────────────────────────────────────────────────┤
-│                     OverlayManager                              │
-│  (View-based floating control bar during agent execution)       │
+│                     SettingsSheet                               │
+│  (Modal bottom sheet for model/config)                          │
+├────────────────────────────────────────────────────────────────┤
+│                   SmartCapsuleManager                           │
+│  (View-based floating overlay during agent execution)           │
 └────────────────────────────────────────────────────────────────┘
 ```
-
-> **Note**: A streaming chat interface is planned for Phase 5. See [Streaming Chat UI](#streaming-chat-ui-planned) section below.
 
 ---
 
@@ -93,179 +97,264 @@ debugImplementation("androidx.compose.ui:ui-test-manifest")
 
 ### Color Palette
 
-Elegant, minimal palette inspired by Notion:
+Premium chat-focused palette with confident blue primary:
 
 ```kotlin
-// Background & Surface - Warm off-whites
-val Background = Color(0xFFFBFBFA)
-val Surface = Color(0xFFFFFFFF)
-val SurfaceVariant = Color(0xFFF7F6F3)
-
-// Primary - Soft charcoal (professional, calm)
-val Primary = Color(0xFF2F3437)
-val OnPrimary = Color(0xFFFFFFFF)
-
-// Secondary - Soft teal for secondary actions
-val Secondary = Color(0xFF0F7B6C)
-val SecondaryLight = Color(0xFFE6F4F1)
-
-// Accent - Warm coral for emphasis
-val Accent = Color(0xFFEB5757)
-
-// Text hierarchy
-val TextPrimary = Color(0xFF37352F)
-val TextSecondary = Color(0xFF6B6B6B)
-val TextMuted = Color(0xFF9B9A97)
-val TextPlaceholder = Color(0xFFB4B4B4)
-
-// Borders
-val Border = Color(0xFFE9E9E7)
-val BorderFocused = Color(0xFF2F3437)
-
-// Status colors
-val StatusSuccess = Color(0xFF0F7B6C)
-val StatusWarning = Color(0xFFF2994A)
-val StatusError = Color(0xFFEB5757)
-val StatusInfo = Color(0xFF2F80ED)
+// Light Theme
+val LightColorScheme = lightColorScheme(
+    // Primary - Confident blue
+    primary = Color(0xFF2563EB),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFDBEAFE),
+    onPrimaryContainer = Color(0xFF1E40AF),
+    
+    // Secondary - Success teal
+    secondary = Color(0xFF0D9488),
+    onSecondary = Color.White,
+    secondaryContainer = Color(0xFFCCFBF1),
+    onSecondaryContainer = Color(0xFF115E59),
+    
+    // Surface - Clean, minimal
+    surface = Color(0xFFFAFAFA),
+    onSurface = Color(0xFF171717),
+    surfaceVariant = Color(0xFFF5F5F5),
+    onSurfaceVariant = Color(0xFF525252),
+    
+    // Background
+    background = Color.White,
+    onBackground = Color(0xFF171717),
+    
+    // Error
+    error = Color(0xFFDC2626),
+    onError = Color.White,
+    
+    // Outline
+    outline = Color(0xFFD4D4D4),
+    outlineVariant = Color(0xFFE5E5E5)
+)
 ```
 
 ### Typography
 
-Material 3 typography scale with custom weights:
+Material 3 typography scale optimized for chat:
 
 ```kotlin
 val AgentTypography = Typography(
-    headlineLarge = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 24.sp,
-        lineHeight = 32.sp
+    // Display - Empty state title
+    displayMedium = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 28.sp,
+        lineHeight = 36.sp
     ),
-    bodyMedium = TextStyle(
+    
+    // Title - Header
+    titleLarge = TextStyle(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 20.sp,
+        lineHeight = 28.sp
+    ),
+    
+    // Body - Chat messages
+    bodyLarge = TextStyle(
         fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp
+    ),
+    
+    // Labels - Action cards, timestamps
+    labelLarge = TextStyle(
+        fontWeight = FontWeight.Medium,
         fontSize = 14.sp,
         lineHeight = 20.sp
-    ),
-    labelMedium = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp
-    ),
-    // ... full scale in Type.kt
+    )
 )
+```
+
+### Shapes
+
+Custom shapes for chat bubbles and cards:
+
+```kotlin
+// User bubble: rounded except bottom-right
+val BubbleShapeUser = RoundedCornerShape(
+    topStart = 20.dp,
+    topEnd = 20.dp,
+    bottomStart = 20.dp,
+    bottomEnd = 6.dp
+)
+
+// Agent bubble: rounded except top-left
+val BubbleShapeAgent = RoundedCornerShape(
+    topStart = 6.dp,
+    topEnd = 20.dp,
+    bottomStart = 20.dp,
+    bottomEnd = 20.dp
+)
+
+// Action cards
+val CardShape = RoundedCornerShape(12.dp)
+
+// Smart Capsule
+val CapsuleShape = RoundedCornerShape(24.dp)
 ```
 
 ### Theme Structure
 
 ```
 ui/theme/
-├── Color.kt       # Color definitions (semantic tokens)
-├── Theme.kt       # AgentTheme composable + system bar config
-└── Type.kt        # Typography definitions (M3 scale)
+├── Color.kt       # Light/Dark color schemes
+├── Shape.kt       # Bubble shapes, card shapes
+├── Theme.kt       # ChatTheme composable + system bar config
+└── Type.kt        # Typography definitions
 ```
-
-**System Bar Handling**: `MainActivity` calls `enableEdgeToEdge()` for modern edge-to-edge display. On API levels 26-34, the theme configures status/navigation bar colors via `Window` APIs. On API 35+, bars are transparent by default.
 
 ### Visual Identity
 
 | Element | Style |
 |---------|-------|
-| Background | Warm off-white (#FBFBFA) |
-| Cards | Clean white surfaces with subtle borders |
-| Inputs | Outlined text fields with rounded corners (10dp) |
-| Buttons | Solid charcoal primary, outlined secondary |
-| Status Log | Color-coded entries with status icons |
-| Overlay | Bottom-positioned floating card |
+| Background | Clean white (#FFFFFF) |
+| User Bubbles | Primary blue (#2563EB), white text |
+| Agent Bubbles | Light surface (#F5F5F5), dark text |
+| Action Cards | Bordered cards with status colors |
+| Task Banner | Subtle surface variant with pulsing dot |
+| Smart Capsule | White with shadow, status dot |
 
 ---
 
 ## Component Architecture
 
-### AgentScreen
+### ChatScreen
 
-The main screen composable with state hoisting pattern.
-
-```kotlin
-data class AgentUiState(
-    val apiKey: String = "",
-    val goal: String = "",
-    val statusLines: List<String> = emptyList(),
-    val isServiceEnabled: Boolean = false,
-    val isRunning: Boolean = false
-)
-
-@Composable
-fun AgentScreen(
-    state: AgentUiState,
-    onApiKeyChange: (String) -> Unit,
-    onGoalChange: (String) -> Unit,
-    onStartClick: () -> Unit,
-    onAccessibilityClick: () -> Unit
-)
-```
-
-### Screen Sections
-
-| Section | Components | Purpose |
-|---------|------------|---------|
-| Header | Title, subtitle | App branding |
-| ConfigSection | API key field, goal field | User inputs |
-| ActionButtons | Start button, accessibility button | Actions |
-| StatusLog | Scrollable activity feed | Execution feedback |
-
-### StatusLog
-
-Displays agent activity with semantic color coding:
+The main screen composable that integrates all chat components.
 
 ```kotlin
 @Composable
-private fun StatusLine(text: String, isLatest: Boolean) {
-    val (bgColor, textColor, icon) = when (StatusUtils.getStatusType(text)) {
-        StatusType.SUCCESS -> Triple(StatusSuccessBg, StatusSuccess, "✓")
-        StatusType.ERROR -> Triple(StatusErrorBg, StatusError, "✗")
-        StatusType.WARNING -> Triple(StatusWarningBg, StatusWarning, "!")
-        StatusType.THINKING -> Triple(StatusInfoBg, StatusInfo, "◉")
-        StatusType.TOOL -> Triple(Color.Transparent, TextSecondary, "→")
-        StatusType.RUNNING -> Triple(StatusInfoBg, StatusInfo, "▶")
-        StatusType.NEUTRAL -> Triple(Color.Transparent, TextSecondary, "·")
-    }
-    // ... render with icon and clean text
-}
+fun ChatScreen(
+    viewModel: ChatViewModel,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier
+)
 ```
 
-### OverlayManager
+### ChatViewModel
 
-View-based floating control bar for agent execution. Uses Views instead of Compose because:
-- Window overlays require `WindowManager.addView()`
-- Simpler lifecycle management for system-level UI
-- Matches the theme colors programmatically
-
-**Features:**
-- Status text with truncation
-- Status indicator dot (color-coded)
-- Pause/Resume toggle
-- Stop button
-
-### StatusUtils
-
-Shared utilities for consistent status processing across all UI components:
+State management for chat UI with event handling:
 
 ```kotlin
-object StatusUtils {
-    // Remove emojis for clean display
-    fun cleanStatusText(status: String): String
+class ChatViewModel(
+    private val session: AgentSession
+) : ViewModel() {
     
-    // Categorize status messages semantically
-    fun getStatusType(status: String): StatusType
+    // UI State
+    val uiState: StateFlow<ChatUiState>
     
-    // Detect terminal states (session completed/failed)
-    fun isTerminalStatus(status: String): Boolean
+    // Messages (Compose observable list)
+    val messages: List<ChatMessage>
+    
+    // Task banner state
+    val taskBannerState: StateFlow<TaskBannerState>
+    
+    // Actions
+    fun sendMessage(text: String)
+    fun stopTask()
+    fun clearConversation()
+}
+
+data class ChatUiState(
+    val inputState: InputState = InputState.Idle,
+    val showEmptyState: Boolean = true
+)
+```
+
+### Screen Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **ChatHeader** | `ChatHeader.kt` | Minimal header with app title (long-press for settings) |
+| **TaskBanner** | `TaskBanner.kt` | Shows current task context with animated status dot |
+| **MessageBubble** | `MessageBubble.kt` | User/Agent message bubbles with proper styling |
+| **StreamingText** | `StreamingText.kt` | Text with blinking cursor during streaming |
+| **ThinkingIndicator** | `ThinkingIndicator.kt` | Animated dots while agent is processing |
+| **ActionCard** | `ActionCard.kt` | Tool execution cards with status states |
+| **InputDock** | `InputDock.kt` | Input field with Send/Stop toggle |
+| **EmptyState** | `EmptyState.kt` | First-launch experience with suggestions |
+
+### Message Types
+
+```kotlin
+sealed interface ChatMessage {
+    val id: String
+    val timestamp: Long
+    
+    data class User(
+        override val id: String,
+        override val timestamp: Long,
+        val text: String
+    ) : ChatMessage
+    
+    data class Agent(
+        override val id: String,
+        override val timestamp: Long,
+        val content: String,
+        val state: AgentMessageState,
+        val actions: List<ActionCardData>
+    ) : ChatMessage
+}
+
+enum class AgentMessageState {
+    Thinking,   // Before first MessageDelta
+    Streaming,  // Receiving deltas
+    Complete    // Task finished
 }
 ```
 
-Used by:
-- `AgentScreen.kt` - Status log display
-- `OverlayManager.kt` - Floating overlay
-- `MainActivity.kt` - Completion detection
+### TaskBanner States
+
+```kotlin
+sealed interface TaskBannerState {
+    data object Idle : TaskBannerState
+    data class Working(val taskTitle: String, val phase: String? = null) : TaskBannerState
+    data class Completed(val summary: String) : TaskBannerState
+    data class Error(val message: String) : TaskBannerState
+}
+```
+
+### ActionCard States
+
+```kotlin
+enum class ActionState {
+    Proposed,   // Tool call proposed (dashed border)
+    Executing,  // Currently running (pulsing)
+    Success,    // Completed successfully (green)
+    Failed,     // Failed (red)
+    Skipped     // Skipped (muted)
+}
+```
+
+### Settings Sheet
+
+Modal bottom sheet for configuration:
+
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsSheet(
+    onDismiss: () -> Unit,
+    currentModel: String,
+    onModelChange: (String) -> Unit,
+    maxTurns: Int,
+    onMaxTurnsChange: (Int) -> Unit,
+    onClearConversation: () -> Unit
+)
+```
+
+**Settings Items:**
+- Model selection (GPT-4o, GPT-4o-mini, GPT-4-turbo)
+- Max turns (10, 20, 50)
+- Accessibility service status
+- Overlay permission status
+- Clear conversation
+- About & Debug
 
 ---
 
@@ -274,24 +363,96 @@ Used by:
 ```
 app/src/main/kotlin/com/moonkey/androidagent/
 ├── app/
-│   ├── MainActivity.kt              # Compose entry point, state management
-│   └── AgentService.kt              # Accessibility service
+│   ├── MainActivity.kt              # Compose entry, ChatViewModel setup
+│   └── AgentService.kt              # AccessibilityService
 │
 ├── ui/
 │   ├── theme/
-│   │   ├── Color.kt             # Notion-inspired color palette
-│   │   ├── Theme.kt             # AgentTheme composable
-│   │   └── Type.kt              # Material 3 typography
-│   ├── screen/
-│   │   └── AgentScreen.kt       # Main screen (all sections inline)
-│   └── overlay/
-│       └── OverlayManager.kt    # View-based floating control bar
+│   │   ├── Color.kt                 # Light/Dark color schemes
+│   │   ├── Shape.kt                 # Bubble shapes, card shapes
+│   │   ├── Theme.kt                 # ChatTheme composable
+│   │   └── Type.kt                  # Typography scale
+│   │
+│   ├── chat/
+│   │   ├── ChatScreen.kt            # Main screen composable
+│   │   ├── ChatViewModel.kt         # State management
+│   │   ├── components/
+│   │   │   ├── ChatHeader.kt        # Minimal header
+│   │   │   ├── TaskBanner.kt        # Task context strip
+│   │   │   ├── MessageBubble.kt     # User/Agent bubbles
+│   │   │   ├── StreamingText.kt     # Text with cursor
+│   │   │   ├── ThinkingIndicator.kt # Animated dots
+│   │   │   ├── ActionCard.kt        # Tool execution card
+│   │   │   ├── InputDock.kt         # Input area
+│   │   │   └── EmptyState.kt        # First launch
+│   │   └── model/
+│   │       └── ChatMessage.kt       # UI data classes
+│   │
+│   ├── overlay/
+│   │   └── SmartCapsuleManager.kt   # Floating overlay with streaming
+│   │
+│   ├── settings/
+│   │   └── SettingsSheet.kt         # Configuration bottom sheet
+│   │
+│   └── screen/
+│       └── AgentScreen.kt           # DEPRECATED (kept for reference)
 │
-├── util/
-│   └── StatusUtils.kt           # Shared status processing
-│
-└── ... (agent, tool, etc.)
+└── util/
+    └── StatusUtils.kt               # Status processing utilities
 ```
+
+---
+
+## Smart Capsule
+
+The Smart Capsule is a floating overlay that follows users across all apps during agent execution.
+
+### Features
+
+- **Streaming text**: Shows live agent response
+- **Status dot**: Color-coded with pulsing animation
+- **Control buttons**: Pause, Stop, Open App
+- **Morphing states**: Visual feedback through color and animation
+
+### States
+
+| State | Visual | Behavior |
+|-------|--------|----------|
+| **Thinking** | Pulsing glow, "Thinking..." | Agent processing |
+| **Acting** | Status text | Shows current tool |
+| **Streaming** | Live text | Agent response streaming |
+| **Success** | Green flash | Task complete |
+| **Error** | Red tint, shake | Something went wrong |
+| **Paused** | Amber tint | User paused execution |
+
+### Integration
+
+The `SmartCapsuleManager` is called from `AgentService` (which collects the event stream):
+
+```kotlin
+// In AgentService
+session.events.collect { event ->
+    when (event) {
+        is AgentEvent.TaskStarted -> capsuleManager.onTaskStarted(event.taskId, event.input)
+        is AgentEvent.MessageDelta -> capsuleManager.onMessageDelta(event.turnId, event.delta)
+        is AgentEvent.ActionExecuted -> capsuleManager.onActionExecuted(event.toolName, event.success)
+        is AgentEvent.TaskCompleted -> capsuleManager.onTaskCompleted()
+        // ...
+    }
+}
+```
+
+### Visual Specifications
+
+| Property | Value |
+|----------|-------|
+| Height (compact) | 48dp |
+| Width | Screen width - 32dp margins |
+| Corner Radius | 24dp (capsule) |
+| Background | White with subtle shadow |
+| Status Dot | 8dp, color-coded |
+| Typography | 14sp, Medium weight |
+| Button Size | 40dp circular |
 
 ---
 
@@ -301,175 +462,67 @@ app/src/main/kotlin/com/moonkey/androidagent/
 
 ```kotlin
 class MainActivity : ComponentActivity() {
-    // UI State (simple mutableStateOf, no ViewModel)
-    private var apiKey by mutableStateOf("")
-    private var goal by mutableStateOf("")
-    private var statusLines by mutableStateOf(listOf<String>())
-    private var isServiceEnabled by mutableStateOf(false)
-    private var isRunning by mutableStateOf(false)
+    private lateinit var viewModel: ChatViewModel
+    private var showSettings by mutableStateOf(false)
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
         enableEdgeToEdge()
         
-        // Collect status updates lifecycle-aware
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                AgentService.statusFlow.collect { status ->
-                    statusLines = (statusLines + status).takeLast(MAX_STATUS_LINES)
-                    if (StatusUtils.isTerminalStatus(status)) {
-                        isRunning = false
-                    }
-                }
-            }
-        }
+        // Initialize ViewModel with session
+        viewModel = ChatViewModel(session)
         
         setContent {
-            AgentTheme {
-                AgentScreen(
-                    state = AgentUiState(apiKey, goal, statusLines, isServiceEnabled, isRunning),
-                    onApiKeyChange = { apiKey = it },
-                    onGoalChange = { goal = it },
-                    onStartClick = { startAgent() },
-                    onAccessibilityClick = { openAccessibilitySettings() }
+            ChatTheme {
+                ChatScreen(
+                    viewModel = viewModel,
+                    onOpenSettings = { showSettings = true }
                 )
+                
+                if (showSettings) {
+                    SettingsSheet(
+                        onDismiss = { showSettings = false },
+                        // ... settings props
+                    )
+                }
             }
         }
     }
 }
 ```
+
+### Event → UI Mapping
+
+| AgentEvent | UI Update |
+|------------|-----------|
+| `TaskStarted` | Add user message, show Task Banner, disable input |
+| `TurnPhaseChanged` | Update Task Banner subtitle |
+| `MessageDelta` | Append to agent bubble, show streaming cursor |
+| `ActionExecuted` | Add action card to agent bubble |
+| `TaskCompleted` | Mark bubble complete, enable input, show "Done" |
+| `SessionError` | Show error in Task Banner, enable input |
 
 ### Material 3 Components Used
 
 | Component | Usage |
 |-----------|-------|
-| `OutlinedTextField` | API key and goal inputs |
-| `Button` | Primary action (Start Agent) |
-| `OutlinedButton` | Secondary action (Accessibility) |
-| `Box`, `Column`, `Row` | Layout containers |
-| `Surface` | Background containers |
-| `Text` | All text content |
-| `Icon` | Visual indicators |
-| `CircularProgressIndicator` | Loading state |
-| `AnimatedVisibility` | Entry animations |
+| `OutlinedTextField` | Chat input |
+| `FilledIconButton` | Send/Stop button |
+| `Surface` | Bubbles, cards, banner |
+| `LazyColumn` | Message list |
+| `AnimatedVisibility` | Entry/exit animations |
+| `ModalBottomSheet` | Settings sheet |
 
 ### Status Flow
 
 ```
-AgentService.statusFlow
+AgentService.session.events
         │
-        ▼
-MainActivity (lifecycle-aware collection)
+        ├──► SmartCapsuleManager (overlay updates)
         │
-        ├──► statusLines state update
-        │
-        └──► AgentScreen recomposition
+        └──► ChatViewModel (message list updates)
                     │
-                    └──► StatusLog display
-```
-
-### Intent Extras
-
-MainActivity supports launching with pre-filled values:
-
-```kotlin
-companion object {
-    const val EXTRA_API_KEY = "api_key"
-    const val EXTRA_GOAL = "goal"
-    const val EXTRA_AUTO_START = "auto_start"
-}
-```
-
----
-
----
-
-## Streaming Chat UI (Planned)
-
-> **Status**: Backend streaming infrastructure complete. UI integration pending.
-
-The agent now supports streaming responses via `MessageDelta` events. The UI layer needs to integrate with these events for a real-time chat experience.
-
-### Key Events for Chat UI
-
-```kotlin
-// Task started - show thinking indicator
-AgentEvent.TaskStarted(taskId, input)
-
-// Streaming text - append to current message bubble
-AgentEvent.MessageDelta(turnId, delta)
-
-// Tool executed - show inline action card
-AgentEvent.ActionExecuted(actionId, toolName, success, result)
-
-// Task complete - ready for next input
-AgentEvent.TaskCompleted(taskId, result)
-```
-
-### Planned Components
-
-| Component | Description |
-|-----------|-------------|
-| **ChatBubble** | Expandable message bubble that grows as text streams in |
-| **ThinkingIndicator** | Visual feedback while agent is "typing" |
-| **ActionCard** | Inline display of tool calls/actions |
-| **ChatInput** | Always-visible input box at bottom |
-
-### Implementation Notes
-
-1. **Streaming Text Display**:
-   - Subscribe to `MessageDelta` events
-   - Append `delta` to current message (don't rebuild entire string)
-   - Show typing cursor while receiving deltas
-
-2. **Multi-Round Input**:
-   - Input box always visible at bottom
-   - Disable while task is running (check `SessionState.Running`)
-   - Re-enable when `TaskCompleted` or session enters `Idle` state
-
-3. **Task Lifecycle UI**:
-   - `TaskStarted` → Show thinking indicator
-   - `MessageDelta` → Build streaming message
-   - `ActionExecuted` → Show inline action card
-   - `TaskCompleted` → Hide thinking indicator, enable input
-
-### Example Event Handling
-
-```kotlin
-@Composable
-fun ChatScreen(session: AgentSession) {
-    var currentMessage by remember { mutableStateOf("") }
-    var isThinking by remember { mutableStateOf(false) }
-    var messages by remember { mutableStateOf(listOf<ChatMessage>()) }
-    
-    LaunchedEffect(session) {
-        session.events.collect { event ->
-            when (event) {
-                is AgentEvent.TaskStarted -> {
-                    isThinking = true
-                    currentMessage = ""
-                }
-                
-                is AgentEvent.MessageDelta -> {
-                    currentMessage += event.delta
-                }
-                
-                is AgentEvent.TaskCompleted -> {
-                    if (currentMessage.isNotEmpty()) {
-                        messages = messages + ChatMessage(currentMessage, isAgent = true)
-                    }
-                    currentMessage = ""
-                    isThinking = false
-                }
-                
-                else -> { /* handle other events */ }
-            }
-        }
-    }
-    
-    // ... render chat UI with messages, currentMessage, isThinking
-}
+                    └──► ChatScreen recomposition
 ```
 
 ---
@@ -479,3 +532,4 @@ fun ChatScreen(session: AgentSession) {
 - [Jetpack Compose Documentation](https://developer.android.com/jetpack/compose)
 - [Material 3 for Compose](https://developer.android.com/jetpack/compose/designsystems/material3)
 - [Compose BOM](https://developer.android.com/jetpack/compose/bom)
+- [UI Final Design](../todo/chat_design/ui_design/ui_final_design.md) - Full design specification
