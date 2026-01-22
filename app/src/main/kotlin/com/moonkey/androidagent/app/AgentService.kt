@@ -69,8 +69,11 @@ class AgentService : AccessibilityService() {
     /**
      * Get the action visualizer for use in sessions created by MainActivity.
      * Returns null if service is not connected or visualizer not initialized.
+     * 
+     * Note: Internal visibility - only for use within the app module.
+     * External code should not depend on this method.
      */
-    fun getActionVisualizer(): ActionVisualizerManager? = actionVisualizer
+    internal fun getActionVisualizer(): ActionVisualizerManager? = actionVisualizer
     
     /** Job for the current session's event collector, cancelled before starting new session */
     private var eventCollectorJob: Job? = null
