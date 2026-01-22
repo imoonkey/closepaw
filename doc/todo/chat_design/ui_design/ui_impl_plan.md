@@ -1,6 +1,6 @@
 # UI Implementation Plan
 
-> **Status**: Phase 5.1 Complete, Phase 5.2 In Progress  
+> **Status**: Phase 5.1 Complete, Phase 5.2 Complete  
 > **Date**: 2026-01-21 (Updated: 2026-01-21)  
 > **Target**: Phase 5 — World-Class Chat Experience  
 > **Design Reference**: `ui_final_design.md`  
@@ -31,9 +31,9 @@ All core chat functionality is implemented and functional:
 | Theme (Light + Dark) | `ui/theme/Theme.kt` | ✅ Complete |
 | MainActivity | `app/MainActivity.kt` | ✅ Complete |
 
-### 🔄 Phase 5.2: Polish — IN PROGRESS
+### ✅ Phase 5.2: Polish — COMPLETE
 
-Most polish items completed during Phase 5.1 implementation:
+All polish items completed:
 
 | Item | Status | Notes |
 |------|--------|-------|
@@ -43,21 +43,25 @@ Most polish items completed during Phase 5.1 implementation:
 | ActionCard (all states) | ✅ Done | `ui/chat/components/ActionCard.kt` |
 | TaskBanner phase display | ✅ Done | Shows phase in subtitle |
 | SmartCapsule pulsing | ✅ Done | `startPulsingAnimation()` |
-| Message animations | ⚠️ Basic | Uses `animateItem()`, could enhance |
-| Model selection | ❌ TODO | Add dropdown to SettingsSheet |
-| Max turns dropdown | ❌ TODO | Add dropdown to SettingsSheet |
-| About & Debug section | ❌ TODO | Add to SettingsSheet |
+| Message animations | ⚠️ Basic | Uses `animateItem()`, could enhance in Phase 5.3 |
+| Model selection | ✅ Done | Dropdown in SettingsSheet (GPT-4o, GPT-4o-mini, GPT-4-turbo) |
+| Max turns dropdown | ✅ Done | Dropdown in SettingsSheet (10, 20, 50) |
+| About & Debug section | ✅ Done | Version info + debug mode toggle in SettingsSheet |
 
-### 📋 Phase 5.2 Remaining Work
+### 📋 Phase 5.3 Work (Advanced)
 
-1. **SettingsSheet Enhancements**:
-   - Model selection dropdown (GPT-4o, etc.)
-   - Max turns dropdown (10, 20, 50)
-   - About & Debug section with version info
-
-2. **Animation Refinements** (Optional):
+1. **Animation Refinements** (Optional):
    - Explicit 200ms FastOutSlowIn for message appear
    - 150ms FastOutSlowIn for action card state changes
+
+2. **Smart Capsule Expanded Mode**:
+   - Tap to expand to 280dp
+   - Full streaming text + action cards
+
+3. **Accessibility Audit**:
+   - WCAG AA compliance
+   - Touch targets 48dp minimum
+   - Screen reader support
 
 ---
 
@@ -770,8 +774,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │   └── SmartCapsuleManager.kt # ✅ Streaming, pulsing, Open App
 │   │
 │   ├── settings/
-│   │   └── SettingsSheet.kt      # ✅ API key, permissions, clear
-│   │                             # 🔄 TODO: model dropdown, max turns
+│   │   └── SettingsSheet.kt      # ✅ Complete: API key, model, max turns, permissions, debug
 │   │
 │   └── screen/
 │       └── AgentScreen.kt        # DEPRECATED (keep for rollback)
@@ -801,7 +804,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 - [x] **SmartCapsuleManager**: streaming text support — onMessageDelta, onTaskStarted, etc.
 - [x] **SmartCapsuleManager**: "Open App" button — Opens MainActivity
 
-### Phase 5.2 (Polish) — P1 🔄 IN PROGRESS
+### Phase 5.2 (Polish) — P1 ✅ COMPLETE
 
 - [x] **EmptyState** with suggestions — Tappable suggestion chips
 - [x] **SettingsSheet** bottom sheet — API key, permissions, clear conversation
@@ -809,10 +812,10 @@ app/src/main/kotlin/com/moonkey/androidagent/
 - [x] **ActionCard** (all states) — Proposed, Executing, Success, Failed, Skipped
 - [x] **TaskBanner**: phase display — Shows phase in subtitle
 - [x] **SmartCapsule**: pulsing animation — ObjectAnimator pulsing
-- [ ] **Message animations** — Enhance with explicit animation specs (200ms FastOutSlowIn)
-- [ ] **Model selection dropdown** in SettingsSheet (GPT-4o, etc.)
-- [ ] **Max turns dropdown** in SettingsSheet (10, 20, 50)
-- [ ] **About & Debug section** in SettingsSheet
+- [x] **Model selection dropdown** in SettingsSheet (GPT-4o, GPT-4o-mini, GPT-4-turbo)
+- [x] **Max turns dropdown** in SettingsSheet (10, 20, 50)
+- [x] **About & Debug section** in SettingsSheet — Version info + debug mode toggle
+- [ ] **Message animations** — Can enhance with explicit animation specs (moved to Phase 5.3)
 
 ### Phase 5.3 (Advanced) — P2
 
@@ -822,69 +825,11 @@ app/src/main/kotlin/com/moonkey/androidagent/
 
 ---
 
-## Next Steps: Phase 5.2 Implementation
+## Next Steps: Phase 5.3 Implementation (Advanced)
 
-### Priority 1: SettingsSheet Enhancements
+Phase 5.2 is complete. The following items are planned for Phase 5.3:
 
-The current `SettingsSheet.kt` handles API key and permissions. Add the remaining configuration options from the design:
-
-**File**: `ui/settings/SettingsSheet.kt` (UPDATE)
-
-#### 1. Model Selection Dropdown
-
-```kotlin
-// Add to SettingsSheet
-SettingsSection(title = "Model") {
-    var expanded by remember { mutableStateOf(false) }
-    val models = listOf("gpt-4o", "gpt-4o-mini", "gpt-4-turbo")
-    
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
-    ) {
-        OutlinedTextField(
-            value = selectedModel,
-            onValueChange = {},
-            readOnly = true,
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.menuAnchor()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            models.forEach { model ->
-                DropdownMenuItem(
-                    text = { Text(model) },
-                    onClick = {
-                        onModelChange(model)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-```
-
-#### 2. Max Turns Dropdown
-
-```kotlin
-// Similar pattern - options: 10, 20, 50
-val turnOptions = listOf(10, 20, 50)
-```
-
-#### 3. About & Debug Section
-
-```kotlin
-SettingsSection(title = "About") {
-    Text("Version: ${BuildConfig.VERSION_NAME}")
-    // Debug toggle switch
-    // Clear cache option
-}
-```
-
-### Priority 2: Animation Refinements (Optional)
+### Priority 1: Animation Refinements
 
 Current implementation uses Compose defaults. For pixel-perfect matching of design spec:
 
@@ -894,12 +839,30 @@ Current implementation uses Compose defaults. For pixel-perfect matching of desi
 | Action card state | Instant | 150ms tween |
 | Task Banner | slideIn + fadeIn | Spring(stiffness=400) |
 
+### Priority 2: Smart Capsule Expanded Mode
+
+Add tap-to-expand functionality:
+- Compact (48dp): Status dot + truncated text + buttons
+- Expanded (280dp): Full streaming text + action cards + larger buttons
+
+Animation: 250ms height transition with `FastOutSlowIn`.
+
+### Priority 3: Accessibility Audit
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Color contrast | 4.5:1 minimum |
+| Touch targets | 48dp × 48dp minimum |
+| Screen reader | `contentDescription` on all interactive elements |
+| Focus order | Logical tab order |
+| Reduced motion | Check `LocalReducedMotion.current` |
+| Font scaling | Support up to 200% scale |
+
 ### Implementation Order
 
-1. **SettingsSheet model dropdown** — Affects SessionConfig
-2. **SettingsSheet max turns dropdown** — Affects SessionConfig  
-3. **SettingsSheet About section** — Informational
-4. **Animation refinements** — Polish, can defer to Phase 5.3
+1. **Animation refinements** — Polish existing components
+2. **Smart Capsule expanded mode** — Enhanced overlay experience
+3. **Accessibility audit** — WCAG AA compliance
 
 ---
 
@@ -977,12 +940,18 @@ No new external dependencies required. All components use existing:
 2. **Session Persistence**: ✅ RESOLVED — No persistence; session cleared on task completion
 3. **Typing Indicator on Other Side**: ✅ RESOLVED — Not implemented for MVP
 
-### New Questions for Phase 5.2+
+### Resolved in Phase 5.2
 
-1. **Model Selection**: Store selected model in SharedPreferences alongside API key?
-2. **Max Turns**: Default to 20, allow user override in settings?
-3. **EncryptedSharedPreferences**: Upgrade API key storage for production?
+1. **Model Selection**: ✅ RESOLVED — Stored in SharedPreferences (`KEY_MODEL`), default "gpt-4o"
+2. **Max Turns**: ✅ RESOLVED — Stored in SharedPreferences (`KEY_MAX_TURNS`), default 20
+3. **Debug Mode**: ✅ RESOLVED — Stored in SharedPreferences (`KEY_DEBUG_MODE`), default false
+
+### New Questions for Phase 5.3+
+
+1. **EncryptedSharedPreferences**: Upgrade API key storage for production security?
+2. **Conversation Persistence**: Store chat history across app restarts?
+3. **Performance**: Virtualization strategy for 100+ messages?
 
 ---
 
-*Phase 5.1 Complete. Proceed to Phase 5.2: SettingsSheet enhancements (model dropdown, max turns dropdown).*
+*Phase 5.2 Complete. Proceed to Phase 5.3: Advanced features (animation refinements, expanded capsule, accessibility).*
