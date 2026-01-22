@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import com.moonkey.androidagent.BuildConfig
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -180,14 +181,17 @@ class MainActivity : ComponentActivity() {
                         sessions = sessions,
                         onSessionSelect = { session ->
                             viewModel.resumeSession(session) {
-                                // Session resumed, clear the app session since we're just viewing history
+                                // Session resumed for viewing history only
+                                // End the resumed history session to avoid recording mismatch
                                 // A new session will be created when user sends a message
+                                sessionHistoryManager.getRecordingService().clearSession()
                                 currentSession = null
+                                Log.d(TAG, "History session resumed for viewing; cleared recording state")
                             }
                             showSessionList = false
                         },
                         onNewSession = {
-                            viewModel.startNewSession(selectedModel, null)
+                            viewModel.startNewSession(selectedModel, BuildConfig.VERSION_NAME)
                             showSessionList = false
                         },
                         onDeleteSession = { session ->

@@ -1,7 +1,9 @@
 package com.moonkey.androidagent.ui.session
 
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -10,8 +12,9 @@ import java.util.concurrent.TimeUnit
  */
 object TimeUtils {
     
-    private val dateFormat = SimpleDateFormat("MMM d", Locale.US)
-    private val dateWithYearFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
+    // DateTimeFormatter is thread-safe unlike SimpleDateFormat
+    private val dateFormatter = DateTimeFormatter.ofPattern("MMM d", Locale.US)
+    private val dateWithYearFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
     
     /**
      * Format timestamp as relative time.
@@ -45,16 +48,16 @@ object TimeUtils {
                 if (days == 1L) "Yesterday" else "$days days ago"
             }
             else -> {
-                val date = Date(timestamp)
-                val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
-                val timestampYear = java.util.Calendar.getInstance().apply { 
-                    timeInMillis = timestamp 
-                }.get(java.util.Calendar.YEAR)
+                val dateTime = LocalDateTime.ofInstant(
+                    Instant.ofEpochMilli(timestamp), 
+                    ZoneId.systemDefault()
+                )
+                val currentYear = LocalDateTime.now().year
                 
-                if (timestampYear == currentYear) {
-                    dateFormat.format(date)
+                if (dateTime.year == currentYear) {
+                    dateTime.format(dateFormatter)
                 } else {
-                    dateWithYearFormat.format(date)
+                    dateTime.format(dateWithYearFormatter)
                 }
             }
         }

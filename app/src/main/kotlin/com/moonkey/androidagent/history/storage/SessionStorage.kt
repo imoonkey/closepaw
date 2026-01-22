@@ -8,9 +8,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 /**
  * Low-level storage operations for session files.
@@ -29,7 +28,8 @@ class SessionStorage(private val context: Context) {
         private const val SESSION_PREFIX = "session-"
         private const val SESSION_SUFFIX = ".json"
         
-        private val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH-mm-ss", Locale.US)
+        // DateTimeFormatter is thread-safe unlike SimpleDateFormat
+        private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss")
     }
     
     private val json = Json {
@@ -53,13 +53,12 @@ class SessionStorage(private val context: Context) {
     /**
      * Generate a filename for a new session.
      * 
-     * Format: session-{timestamp}-{uuid_8chars}.json
-     * Example: session-2024-01-21T14-30-45-a1b2c3d4.json
+     * Format: session-{timestamp}-{uuid}.json
+     * Example: session-2024-01-21T14-30-45-a1b2c3d4-e5f6-7890-abcd-ef1234567890.json
      */
     fun generateFileName(sessionId: String): String {
-        val timestamp = dateFormat.format(Date())
-        val shortId = sessionId.take(8)
-        return "$SESSION_PREFIX$timestamp-$shortId$SESSION_SUFFIX"
+        val timestamp = LocalDateTime.now().format(dateFormatter)
+        return "$SESSION_PREFIX$timestamp-$sessionId$SESSION_SUFFIX"
     }
     
     /**
@@ -135,7 +134,7 @@ class SessionStorage(private val context: Context) {
                     Log.d(TAG, "Deleted session: $fileName")
                     Result.success(Unit)
                 } else {
-                    Result.failure(Exception("Failed to delete file"))
+                    Result.failure(Exception("Failed to delete file: ${file.absolutePath}"))
                 }
             } else {
                 Log.w(TAG, "Session file not found for deletion: $fileName")

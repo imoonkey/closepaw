@@ -58,13 +58,13 @@ class SessionHistoryManager(
     /**
      * Load a session for resuming.
      * 
-     * @param sessionId The session ID to load
+     * @param sessionId The full session ID to load
      * @return Result containing ResumedSessionData or an error
      */
     suspend fun loadSession(sessionId: String): Result<ResumedSessionData> {
-        // Find the file for this session
+        // Find the file for this session using full session ID to avoid collisions
         val files = storage.listSessionFiles()
-        val file = files.find { it.name.contains(sessionId.take(8)) }
+        val file = files.find { it.name.contains(sessionId) }
             ?: return Result.failure(NoSuchElementException("Session not found: $sessionId"))
         
         return loadSessionByFileName(file.name)
@@ -88,13 +88,13 @@ class SessionHistoryManager(
     /**
      * Delete a session.
      * 
-     * @param sessionId The session ID to delete
+     * @param sessionId The full session ID to delete
      * @return Result indicating success or failure
      */
     suspend fun deleteSession(sessionId: String): Result<Unit> {
-        // Find the file for this session
+        // Find the file for this session using full session ID to avoid collisions
         val files = storage.listSessionFiles()
-        val file = files.find { it.name.contains(sessionId.take(8)) }
+        val file = files.find { it.name.contains(sessionId) }
             ?: return Result.failure(NoSuchElementException("Session not found: $sessionId"))
         
         return storage.deleteSession(file.name)
