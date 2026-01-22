@@ -10,6 +10,9 @@
 #   - Full agent log (agent.log)
 #   - Performance profiling data (perf.log, perf.jsonl)
 #
+# Note: Each run creates a timestamped directory under debug-output/.
+#       Old runs are not automatically cleaned up - remove manually when needed.
+#
 
 set -e
 
@@ -117,18 +120,48 @@ adb logcat -d | grep "PERF|" > "$DEBUG_DIR/perf.log" 2>/dev/null || true
 # Parse PERF logs to JSONL format for analysis
 if [[ -s "$DEBUG_DIR/perf.log" ]]; then
     # Extract fields from PERF|session|turn|span|duration|metadata format
-    awk -F'PERF\\|' '{
-        if (NF > 1) {
-            split($2, parts, "|");
-            session = parts[1];
-            turn = parts[2];
-            span = parts[3];
-            duration = parts[4];
-            meta = parts[5];
-            # Remove trailing newline/whitespace from meta
-            gsub(/[[:space:]]+$/, "", meta);
-            printf "{\"ts\":%d,\"session\":\"%s\",\"turn\":%s,\"span\":\"%s\",\"ms\":%s,\"meta\":%s}\n", 
-                systime() * 1000, session, turn, span, duration, (meta == "" ? "{}" : meta);
+    # Parse Android logcat timestamps and PERF logs
+    awk '{
+        # Extract timestamp from logcat format (first 18 chars: "MM-DD HH:MM:SS.mmm")
+        timestamp = substr($0, 1, 18);
+        
+        # Find PERF| in the line
+        perf_idx = index($0, "PERF|");
+        if (perf_idx > 0) {
+            # Extract everything after PERF|
+            perf_data = substr($0, perf_idx + 5);
+            
+            # Split by pipe
+            split(perf_data, parts, "|");
+            if (length(parts) >= 5) {
+                session = parts[1];
+                turn = parts[2];
+                span = parts[3];
+                duration = parts[4];
+                meta = parts[5];
+                
+                # Remove trailing whitespace from meta
+                gsub(/[[:space:]]+$/, "", meta);
+                
+                # Validate and sanitize metadata JSON
+                jsonMeta = meta;
+                if (jsonMeta == "" || jsonMeta !~ /^[[:space:]]*\{.*\}[[:space:]]*$/) {
+                    jsonMeta = "{}";
+                }
+                
+                # Convert timestamp to ISO format (use current year as logcat doesnt include it)
+                gsub(/-/, " ", timestamp);
+                gsub(/\./, " ", timestamp);
+                split(timestamp, ts_parts);
+                # Get current year
+                cmd = "date +%Y";
+                cmd | getline current_year;
+                close(cmd);
+                iso_ts = sprintf("%s-%02d-%02dT%s.%03dZ", current_year, ts_parts[1], ts_parts[2], ts_parts[3], ts_parts[4]);
+                
+                printf "{\"ts\":\"%s\",\"session\":\"%s\",\"turn\":%s,\"span\":\"%s\",\"ms\":%s,\"meta\":%s}\n", 
+                    iso_ts, session, turn, span, duration, jsonMeta;
+            }
         }
     }' "$DEBUG_DIR/perf.log" > "$DEBUG_DIR/perf.jsonl"
     ok "Performance data: $DEBUG_DIR/perf.jsonl"
