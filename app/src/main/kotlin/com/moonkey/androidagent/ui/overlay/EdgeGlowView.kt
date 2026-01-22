@@ -32,8 +32,8 @@ class EdgeGlowView(context: Context) : View(context) {
         /** Width of the glow in dp - increased for visibility */
         private const val GLOW_WIDTH_DP = 40f
         
-        /** Base alpha for the glow (0.0 to 1.0) */
-        private const val BASE_ALPHA = 0.7f
+        /** Base alpha for the glow (0.0 to 1.0). Shared with EdgeGlowManager. */
+        const val BASE_ALPHA = 0.7f
     }
     
     // Dimensions in pixels
@@ -45,6 +45,16 @@ class EdgeGlowView(context: Context) : View(context) {
     
     // Paint for drawing glow edges - simple gradient, no blur filter
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    
+    // Cached gradients to avoid allocation on every frame
+    // Recreated when dimensions or color/alpha change
+    private var cachedWidth: Float = 0f
+    private var cachedHeight: Float = 0f
+    private var cachedColorWithAlpha: Int = 0
+    private var topGradient: LinearGradient? = null
+    private var bottomGradient: LinearGradient? = null
+    private var leftGradient: LinearGradient? = null
+    private var rightGradient: LinearGradient? = null
     
     init {
         // Hardware layer for better performance
@@ -91,43 +101,67 @@ class EdgeGlowView(context: Context) : View(context) {
         
         // Calculate the color with current alpha
         val colorWithAlpha = applyAlpha(glowColor, glowAlpha)
-        val transparent = Color.TRANSPARENT
+        
+        // Recreate gradients only if dimensions or color changed
+        if (w != cachedWidth || h != cachedHeight || colorWithAlpha != cachedColorWithAlpha) {
+            updateGradientCache(w, h, colorWithAlpha)
+        }
         
         // Draw top edge glow
-        paint.shader = LinearGradient(
+        paint.shader = topGradient
+        canvas.drawRect(0f, 0f, w, glowWidth, paint)
+        
+        // Draw bottom edge glow
+        paint.shader = bottomGradient
+        canvas.drawRect(0f, h - glowWidth, w, h, paint)
+        
+        // Draw left edge glow
+        paint.shader = leftGradient
+        canvas.drawRect(0f, 0f, glowWidth, h, paint)
+        
+        // Draw right edge glow
+        paint.shader = rightGradient
+        canvas.drawRect(w - glowWidth, 0f, w, h, paint)
+    }
+    
+    /**
+     * Update cached gradient objects when dimensions or color change.
+     * This avoids allocating new LinearGradient objects on every frame.
+     */
+    private fun updateGradientCache(w: Float, h: Float, colorWithAlpha: Int) {
+        val transparent = Color.TRANSPARENT
+        
+        cachedWidth = w
+        cachedHeight = h
+        cachedColorWithAlpha = colorWithAlpha
+        
+        topGradient = LinearGradient(
             0f, 0f,
             0f, glowWidth,
             colorWithAlpha, transparent,
             Shader.TileMode.CLAMP
         )
-        canvas.drawRect(0f, 0f, w, glowWidth, paint)
         
-        // Draw bottom edge glow
-        paint.shader = LinearGradient(
+        bottomGradient = LinearGradient(
             0f, h,
             0f, h - glowWidth,
             colorWithAlpha, transparent,
             Shader.TileMode.CLAMP
         )
-        canvas.drawRect(0f, h - glowWidth, w, h, paint)
         
-        // Draw left edge glow
-        paint.shader = LinearGradient(
+        leftGradient = LinearGradient(
             0f, 0f,
             glowWidth, 0f,
             colorWithAlpha, transparent,
             Shader.TileMode.CLAMP
         )
-        canvas.drawRect(0f, 0f, glowWidth, h, paint)
         
-        // Draw right edge glow
-        paint.shader = LinearGradient(
+        rightGradient = LinearGradient(
             w, 0f,
             w - glowWidth, 0f,
             colorWithAlpha, transparent,
             Shader.TileMode.CLAMP
         )
-        canvas.drawRect(w - glowWidth, 0f, w, h, paint)
     }
     
     /**

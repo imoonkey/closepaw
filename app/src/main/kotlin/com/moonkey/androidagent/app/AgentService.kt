@@ -109,7 +109,14 @@ class AgentService : AccessibilityService() {
         Log.i(TAG, "AgentService connected")
         updateStatus("Accessibility Service connected")
 
-        // Initialize EdgeGlowManager first (so it renders below SmartCapsule)
+        // NOTE: EdgeGlowManager is initialized before SmartCapsuleManager so that its
+        // overlay is added to WindowManager first and *should* render below the capsule.
+        // This relies on platform/OEM behavior that is not strongly documented and may
+        // vary across Android versions and device manufacturers.
+        //
+        // If you change overlay window types/flags in EdgeGlowManager or SmartCapsuleManager,
+        // or target new Android versions, verify the z-order (glow under capsule) on
+        // representative devices.
         edgeGlowManager = EdgeGlowManager(context = this)
         
         // Initialize SmartCapsuleManager with Op-based callbacks

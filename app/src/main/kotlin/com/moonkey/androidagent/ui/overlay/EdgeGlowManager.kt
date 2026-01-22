@@ -58,14 +58,13 @@ class EdgeGlowManager(
         /** Pulse alpha range - more visible */
         private const val PULSE_ALPHA_MIN = 0.5f
         private const val PULSE_ALPHA_MAX = 0.85f
-        
-        /** Base alpha when glow is fully visible (not pulsing) */
-        private const val BASE_ALPHA = 0.7f
     }
     
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
     
+    // @Volatile ensures visibility across threads (animation callbacks may execute on different threads)
+    @Volatile
     private var glowView: EdgeGlowView? = null
     private var currentState: GlowState = GlowState.Active
     
@@ -279,7 +278,7 @@ class EdgeGlowManager(
         pulseAnimator?.cancel()
         pulseAnimator = null
         // Reset to base alpha (visible)
-        glowView?.setGlowAlpha(BASE_ALPHA)
+        glowView?.setGlowAlpha(EdgeGlowView.BASE_ALPHA)
     }
     
     private fun animateFadeIn(onComplete: () -> Unit = {}) {
@@ -287,7 +286,7 @@ class EdgeGlowManager(
         
         val viewRef = glowView ?: return onComplete()
         
-        fadeAnimator = ValueAnimator.ofFloat(0f, BASE_ALPHA).apply {
+        fadeAnimator = ValueAnimator.ofFloat(0f, EdgeGlowView.BASE_ALPHA).apply {
             duration = FADE_IN_DURATION_MS
             interpolator = AccelerateDecelerateInterpolator()
             addUpdateListener { animator ->
