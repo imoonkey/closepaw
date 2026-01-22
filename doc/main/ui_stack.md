@@ -8,9 +8,10 @@
 2. [Tech Stack](#tech-stack)
 3. [Design System](#design-system)
 4. [Component Architecture](#component-architecture)
-5. [File Structure](#file-structure)
-6. [Smart Capsule](#smart-capsule)
-7. [Quick Reference](#quick-reference)
+5. [Session History UI](#session-history-ui)
+6. [File Structure](#file-structure)
+7. [Smart Capsule](#smart-capsule)
+8. [Quick Reference](#quick-reference)
 
 ---
 
@@ -26,6 +27,7 @@ The Android Agent uses a **chat-first conversational interface** built with Jetp
 | **Edge-to-Edge** | Full screen utilization with proper insets |
 | **Reactive** | State-driven with real-time streaming |
 | **Ubiquitous** | Smart Capsule overlay follows users across apps |
+| **Session History** | Browse and resume past conversations |
 
 ### Key Components
 
@@ -47,6 +49,9 @@ The Android Agent uses a **chat-first conversational interface** built with Jetp
 ├────────────────────────────────────────────────────────────────┤
 │                     SettingsSheet                               │
 │  (Modal bottom sheet for model/config)                          │
+├────────────────────────────────────────────────────────────────┤
+│                    SessionListSheet                             │
+│  (Modal bottom sheet for browsing/resuming past sessions)       │
 ├────────────────────────────────────────────────────────────────┤
 │                   SmartCapsuleManager                           │
 │  (View-based floating overlay during agent execution)           │
@@ -358,6 +363,192 @@ fun SettingsSheet(
 
 ---
 
+## Session History UI
+
+The session history UI enables users to browse, resume, and manage past chat sessions.
+
+### SessionListSheet
+
+Modal bottom sheet for browsing and selecting sessions.
+
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SessionListSheet(
+    sessions: List<SessionInfo>,
+    onSessionSelect: (SessionInfo) -> Unit,
+    onNewSession: () -> Unit,
+    onDeleteSession: (SessionInfo) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+)
+```
+
+**Features:**
+- Header with title and close button
+- "Start New Session" button (primary action)
+- Scrollable list of past sessions (sorted by last updated)
+- Delete action on each session
+- Empty state when no sessions exist
+
+**Visual Layout:**
+```
+┌────────────────────────────────────────┐
+│  Session History                   [X] │
+├────────────────────────────────────────┤
+│  [ + Start New Session ]               │
+├────────────────────────────────────────┤
+│  Recent Sessions                       │
+│  ──────────────────────────────────────│
+│  ┌────────────────────────────────┐    │
+│  │ "Check my email and reply..."  │    │
+│  │ 5 messages • 2 hours ago    🗑 │    │
+│  └────────────────────────────────┘    │
+│  ┌────────────────────────────────┐    │
+│  │ "Open Settings app"            │    │
+│  │ 3 messages • Yesterday      🗑 │    │
+│  └────────────────────────────────┘    │
+│  ...                                   │
+└────────────────────────────────────────┘
+```
+
+### SessionListItem
+
+Individual session card in the list.
+
+```kotlin
+@Composable
+fun SessionListItem(
+    session: SessionInfo,
+    onClick: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+)
+```
+
+**Displays:**
+- Display title (summary or first user message, truncated to 50 chars)
+- Message count
+- Relative timestamp (via `TimeUtils`)
+- Delete button (trailing icon)
+- Active session indicator (optional badge)
+
+### TimeUtils
+
+Utility for user-friendly relative time formatting.
+
+```kotlin
+object TimeUtils {
+    /**
+     * Format a timestamp as a relative time string.
+     * Examples: "Just now", "5 min ago", "2 hours ago", "Yesterday", "Jan 15"
+     */
+    fun formatRelativeTime(timestamp: Long): String
+}
+```
+
+**Output Examples:**
+
+| Time Difference | Output |
+|----------------|--------|
+| < 1 minute | "Just now" |
+| 1-59 minutes | "5 min ago" |
+| 1-23 hours | "2 hours ago" |
+| 1 day | "Yesterday" |
+| 2-6 days | "3 days ago" |
+| 7+ days (same year) | "Jan 15" |
+| Different year | "Jan 15, 2025" |
+
+### Integration with ChatViewModel
+
+```kotlin
+class ChatViewModel(
+    private val session: AgentSession,
+    private val sessionHistoryManager: SessionHistoryManager?
+) : ViewModel() {
+    
+    // Session list state
+    private val _sessions = mutableStateOf<List<SessionInfo>>(emptyList())
+    val sessions: List<SessionInfo> by _sessions
+    
+    // Load sessions for display
+    fun loadSessions() {
+        viewModelScope.launch {
+            _sessions.value = sessionHistoryManager?.listSessions() ?: emptyList()
+        }
+    }
+    
+    // Resume a selected session
+    fun resumeSession(sessionInfo: SessionInfo) {
+        viewModelScope.launch {
+            sessionHistoryManager?.loadSession(sessionInfo.id)?.onSuccess { data ->
+                sessionHistoryManager.resumeSession(data)
+                // Restore messages to UI
+                restoreMessages(data.session.messages)
+            }
+        }
+    }
+    
+    // Delete a session
+    fun deleteSession(sessionInfo: SessionInfo) {
+        viewModelScope.launch {
+            sessionHistoryManager?.deleteSession(sessionInfo.id)
+            loadSessions() // Refresh list
+        }
+    }
+    
+    // Start fresh session
+    fun startNewSession() {
+        clearMessages()
+        sessionHistoryManager?.startNewSession(model = currentModel)
+    }
+}
+```
+
+### Usage in MainActivity
+
+```kotlin
+// State for showing session list
+var showSessionList by remember { mutableStateOf(false) }
+
+// Trigger from ChatHeader (e.g., history icon)
+ChatScreen(
+    viewModel = viewModel,
+    onOpenSessionList = { showSessionList = true },
+    onOpenSettings = { showSettings = true }
+)
+
+// Show session list sheet
+if (showSessionList) {
+    SessionListSheet(
+        sessions = viewModel.sessions,
+        onSessionSelect = { session ->
+            viewModel.resumeSession(session)
+            showSessionList = false
+        },
+        onNewSession = {
+            viewModel.startNewSession()
+            showSessionList = false
+        },
+        onDeleteSession = { session ->
+            viewModel.deleteSession(session)
+        },
+        onDismiss = { showSessionList = false }
+    )
+}
+```
+
+### Session History UI Components Table
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| **SessionListSheet** | `ui/session/SessionListSheet.kt` | Bottom sheet for browsing sessions |
+| **SessionListItem** | `ui/session/SessionListItem.kt` | Individual session card |
+| **TimeUtils** | `ui/session/TimeUtils.kt` | Relative time formatting |
+
+---
+
 ## File Structure
 
 ```
@@ -390,6 +581,11 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │
 │   ├── overlay/
 │   │   └── SmartCapsuleManager.kt   # Floating overlay with streaming
+│   │
+│   ├── session/                     # Session history UI
+│   │   ├── SessionListSheet.kt      # Session browser bottom sheet
+│   │   ├── SessionListItem.kt       # Individual session card
+│   │   └── TimeUtils.kt             # Relative time formatting
 │   │
 │   ├── settings/
 │   │   └── SettingsSheet.kt         # Configuration bottom sheet
