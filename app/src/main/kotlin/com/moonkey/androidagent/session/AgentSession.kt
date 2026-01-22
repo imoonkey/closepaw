@@ -14,13 +14,13 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -110,8 +110,14 @@ class AgentSession private constructor(
     
     // ===== Events =====
     
-    private val eventChannel = Channel<AgentEvent>(Channel.BUFFERED)
-    val events: Flow<AgentEvent> = eventChannel.receiveAsFlow()
+    // Use SharedFlow to allow multiple collectors (ChatViewModel + AgentService)
+    // replay=8: replay recent events for late collectors (esp. TaskStarted)
+    // extraBufferCapacity: buffer events to avoid slow collectors blocking emitter
+    private val _events = MutableSharedFlow<AgentEvent>(
+        replay = 8,
+        extraBufferCapacity = 64
+    )
+    val events: SharedFlow<AgentEvent> = _events.asSharedFlow()
     
     // ===== Agent (V2) =====
     
@@ -381,7 +387,7 @@ class AgentSession private constructor(
     
     private suspend fun emit(event: AgentEvent) {
         try {
-            eventChannel.send(event)
+            _events.emit(event)
             Log.d(TAG, "Emitted event: ${event::class.simpleName}")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to emit event: $event", e)
@@ -389,8 +395,8 @@ class AgentSession private constructor(
     }
     
     /**
-     * Close the event channel with a small delay to allow collectors to 
-     * receive the final event.
+     * Mark the session as closed after a delay.
+     * SharedFlow doesn't need explicit closing, but this signals end of session.
      */
     private fun closeChannelWithDelay() {
         if (!channelCloseScheduled.compareAndSet(false, true)) {
@@ -399,8 +405,8 @@ class AgentSession private constructor(
         
         scope.launch {
             delay(EVENT_DELIVERY_GRACE_PERIOD_MS)
-            eventChannel.close()
-            Log.d(TAG, "Event channel closed")
+            // SharedFlow doesn't have close(), session lifecycle is tracked via state
+            Log.d(TAG, "Session event stream ended")
         }
     }
     

@@ -8,7 +8,7 @@ import android.content.IntentFilter
 import android.os.Build
 import android.util.Log
 import com.moonkey.androidagent.BuildConfig
-import com.moonkey.androidagent.ui.overlay.OverlayManager
+import com.moonkey.androidagent.ui.overlay.SmartCapsuleManager
 import android.view.accessibility.AccessibilityEvent
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.CompletionReason
@@ -40,6 +40,9 @@ class AgentService : AccessibilityService() {
         
         /** Broadcast action to stop the agent remotely (from dev.sh script) */
         const val ACTION_STOP_AGENT = "com.moonkey.androidagent.STOP_AGENT"
+        
+        /** Our package name for detecting when app is in foreground */
+        private const val OUR_PACKAGE = "com.moonkey.androidagent"
 
         @Volatile
         var instance: AgentService? = null
@@ -55,10 +58,33 @@ class AgentService : AccessibilityService() {
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var session: AgentSession? = null
-    private var overlayManager: OverlayManager? = null
+    private var capsuleManager: SmartCapsuleManager? = null
     
     /** Job for the current session's event collector, cancelled before starting new session */
     private var eventCollectorJob: Job? = null
+    
+    /** Whether there's an active task that should show capsule when app is in background */
+    private var hasActiveTask = false
+    
+    /** Whether our app is currently in the foreground (initialized to true since service is enabled from our app) */
+    private var isOurAppInForeground = true
+    
+    /** Current task input for restoring capsule state when switching to background */
+    private var currentTaskInput: String? = null
+    
+    /** Tracking last known foreground package for debug logging */
+    private var lastKnownForegroundPackage: String? = null
+    
+    /**
+     * Register an external session (created by MainActivity) for capsule observation.
+     * This allows the SmartCapsule to display streaming updates from sessions created outside AgentService.
+     */
+    fun observeExternalSession(externalSession: AgentSession) {
+        Log.i(TAG, "Observing external session: ${externalSession.sessionId}")
+        session = externalSession
+        // Don't show capsule here - it will be shown on TaskStarted if app is not in foreground
+        observeSession(externalSession)
+    }
     
     /** BroadcastReceiver to handle remote stop commands (from dev.sh script) */
     private val stopReceiver = object : BroadcastReceiver() {
@@ -76,12 +102,18 @@ class AgentService : AccessibilityService() {
         Log.i(TAG, "AgentService connected")
         updateStatus("Accessibility Service connected")
 
-        // Initialize OverlayManager with Op-based callbacks
-        overlayManager = OverlayManager(
+        // Initialize SmartCapsuleManager with Op-based callbacks
+        capsuleManager = SmartCapsuleManager(
             context = this,
             onStop = { submitOp(Op.Shutdown) },
             onPause = { submitOp(Op.Pause) },
-            onResume = { submitOp(Op.Resume) }
+            onResume = { submitOp(Op.Resume) },
+            onOpenApp = {
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                }
+                startActivity(intent)
+            }
         )
         
         // Register broadcast receiver for remote stop commands (from adb/dev.sh)
@@ -98,7 +130,59 @@ class AgentService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // We poll the screen, no reactive event handling needed for MVP
+        // Detect when our app goes to foreground/background to show/hide capsule
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val packageName = event.packageName?.toString()
+            val className = event.className?.toString()
+            
+            // Log all window state changes for debugging
+            Log.d(TAG, "TYPE_WINDOW_STATE_CHANGED: pkg=$packageName, class=$className, lastKnown=$lastKnownForegroundPackage")
+            
+            // IMPORTANT: Only consider Activity windows for foreground detection.
+            // Popup windows, overlays, and dialogs (like FrameLayout, PopupWindow, etc.)
+            // should not affect foreground state - they would cause our capsule overlay
+            // to trigger a false "our app is in foreground" detection.
+            val isActivityWindow = className != null && 
+                (className.endsWith("Activity") || 
+                 className.contains("Launcher") ||
+                 className.contains(".app.") ||
+                 // Some launchers use custom class names
+                 className.contains("Home"))
+            
+            // Skip non-activity windows to avoid detecting our own overlay as "foreground"
+            if (!isActivityWindow) {
+                Log.d(TAG, "Ignoring non-activity window: $className")
+                return
+            }
+            
+            if (packageName != null && packageName != lastKnownForegroundPackage) {
+                lastKnownForegroundPackage = packageName
+                val wasInForeground = isOurAppInForeground
+                isOurAppInForeground = packageName == OUR_PACKAGE
+                
+                Log.d(TAG, "Window changed (state update): pkg=$packageName, wasInForeground=$wasInForeground, isInForeground=$isOurAppInForeground, hasActiveTask=$hasActiveTask")
+                
+                // Only react if state changed and we have an active task
+                if (wasInForeground != isOurAppInForeground && hasActiveTask) {
+                    if (isOurAppInForeground) {
+                        // Our app came to foreground - hide capsule
+                        Log.d(TAG, "Our app in foreground, hiding capsule")
+                        capsuleManager?.hide()
+                    } else {
+                        // Our app went to background - show capsule with current task
+                        Log.d(TAG, "Our app went to background with active task, attempting to show capsule")
+                        Log.d(TAG, "  capsuleManager=${capsuleManager != null}, currentTaskInput=$currentTaskInput")
+                        if (currentTaskInput != null) {
+                            Log.d(TAG, "  calling onTaskStarted with input")
+                            capsuleManager?.onTaskStarted("restore", currentTaskInput!!)
+                        } else {
+                            Log.d(TAG, "  calling show() directly (no input)")
+                            capsuleManager?.show()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun onInterrupt() {
@@ -107,7 +191,7 @@ class AgentService : AccessibilityService() {
 
     override fun onDestroy() {
         submitOp(Op.Shutdown)
-        overlayManager?.hide()
+        capsuleManager?.hide()
         if (BuildConfig.DEBUG) {
             try {
                 unregisterReceiver(stopReceiver)
@@ -128,6 +212,8 @@ class AgentService : AccessibilityService() {
      */
     private fun submitOp(op: Op) {
         val currentSession = session
+        Log.d(TAG, "submitOp: $op, session=${currentSession?.sessionId}")
+        
         if (currentSession == null && op !is Op.Start) {
             Log.w(TAG, "No active session for op: $op")
             return
@@ -141,7 +227,7 @@ class AgentService : AccessibilityService() {
     private fun updateStatus(status: String) {
         Log.d(TAG, status)
         _statusFlow.value = status
-        overlayManager?.updateStatus(status)
+        capsuleManager?.updateStatus(status)
     }
 
     /**
@@ -179,8 +265,55 @@ class AgentService : AccessibilityService() {
                 Log.i(TAG, "Session started: ${event.sessionId}, goal: ${event.goal}")
             }
             
+            // ===== Task Events (for SmartCapsule streaming) =====
+            
+            is AgentEvent.TaskStarted -> {
+                Log.i(TAG, "Task started: ${event.taskId}, input: ${event.input}, isOurAppInForeground=$isOurAppInForeground")
+                hasActiveTask = true
+                currentTaskInput = event.input
+                
+                // Only show capsule if app is NOT in foreground
+                // When app goes to background later, onAccessibilityEvent will show it
+                if (!isOurAppInForeground) {
+                    Log.d(TAG, "App not in foreground, showing capsule for task")
+                    capsuleManager?.onTaskStarted(event.taskId, event.input)
+                } else {
+                    Log.d(TAG, "App in foreground, capsule will show when navigating away")
+                }
+            }
+            
+            is AgentEvent.MessageDelta -> {
+                // Always forward streaming text to capsule
+                capsuleManager?.onMessageDelta(event.turnId, event.delta)
+            }
+            
+            is AgentEvent.ActionExecuted -> {
+                // Fallback: if we have an active task and capsule isn't showing, show it
+                // This handles race conditions where accessibility events might be missed
+                if (hasActiveTask && !isOurAppInForeground) {
+                    Log.d(TAG, "ActionExecuted: ensuring capsule is visible (fallback)")
+                    if (capsuleManager?.isShowing() != true) {
+                        currentTaskInput?.let { input ->
+                            capsuleManager?.onTaskStarted("action-fallback", input)
+                        }
+                    }
+                }
+                // Always update capsule with action result
+                capsuleManager?.onActionExecuted(event.toolName, event.success)
+            }
+            
+            is AgentEvent.TaskCompleted -> {
+                Log.i(TAG, "Task completed: ${event.taskId}")
+                hasActiveTask = false
+                currentTaskInput = null
+                capsuleManager?.onTaskCompleted()
+            }
+            
+            // ===== Session Lifecycle Events =====
+            
             is AgentEvent.SessionCompleted -> {
                 Log.i(TAG, "Session completed: ${event.sessionId}, reason: ${event.reason}")
+                hasActiveTask = false
                 
                 // Emit a terminal status so MainActivity can detect completion
                 val statusMessage = when (event.reason) {
@@ -193,23 +326,29 @@ class AgentService : AccessibilityService() {
                 }
                 updateStatus(statusMessage)
                 
-                overlayManager?.hide()
+                // Don't hide capsule immediately - let TaskCompleted's 3-second delay handle it
+                // Only hide immediately if session was stopped/interrupted
+                if (event.reason == CompletionReason.USER_STOPPED || 
+                    event.reason == CompletionReason.INTERRUPTED) {
+                    capsuleManager?.hide()
+                }
                 session = null
             }
             
             is AgentEvent.SessionError -> {
                 Log.e(TAG, "Session error: ${event.error.message}")
                 updateStatus("❌ Error: ${event.error.message}")
+                capsuleManager?.onError(event.error.message)
             }
             
             is AgentEvent.SessionPaused -> {
                 Log.i(TAG, "Session paused: ${event.sessionId}")
-                overlayManager?.updatePauseState(paused = true)
+                capsuleManager?.updatePauseState(paused = true)
             }
             
             is AgentEvent.SessionResumed -> {
                 Log.i(TAG, "Session resumed: ${event.sessionId}")
-                overlayManager?.updatePauseState(paused = false)
+                capsuleManager?.updatePauseState(paused = false)
             }
             
             // Handle other events as needed
@@ -233,8 +372,8 @@ class AgentService : AccessibilityService() {
             session = null
         }
         
-        // Show overlay immediately
-        overlayManager?.show()
+        // Show capsule overlay immediately
+        capsuleManager?.show()
         // Note: Agent.kt emits the "Starting agent" status, don't duplicate here
 
         // Create and run session in coroutine
@@ -261,14 +400,14 @@ class AgentService : AccessibilityService() {
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create session", e)
                 updateStatus("❌ Failed to start: ${e.message}")
-                overlayManager?.hide()
+                capsuleManager?.hide()
             }
         }
     }
 
     fun stopAgent() {
         submitOp(Op.Shutdown)
-        overlayManager?.hide()
+        capsuleManager?.hide()
         updateStatus("🛑 Agent stopped")
     }
 }

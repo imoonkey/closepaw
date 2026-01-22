@@ -1,5 +1,6 @@
 package com.moonkey.androidagent.app
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -10,25 +11,34 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.*
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.moonkey.androidagent.app.AgentService
-import com.moonkey.androidagent.ui.screen.AgentScreen
-import com.moonkey.androidagent.ui.screen.AgentUiState
-import com.moonkey.androidagent.ui.theme.AgentTheme
-import com.moonkey.androidagent.util.StatusUtils
+import com.moonkey.androidagent.protocol.Op
+import com.moonkey.androidagent.protocol.SessionConfig
+import com.moonkey.androidagent.session.AgentSession
+import com.moonkey.androidagent.ui.chat.ChatScreen
+import com.moonkey.androidagent.ui.chat.ChatViewModel
+import com.moonkey.androidagent.ui.settings.SettingsSheet
+import com.moonkey.androidagent.ui.theme.ChatTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * MainActivity - Compose-based UI for the Android Agent.
+ * MainActivity - Chat-based UI for the Android Agent.
  * 
  * Features:
- * - Modern Material 3 design with elegant light aesthetic
+ * - Modern chat interface with streaming support
+ * - Material 3 design with dark mode support
  * - Edge-to-edge display
- * - Reactive UI state management
+ * - Settings accessible via long-press on header
  */
 class MainActivity : ComponentActivity() {
     
@@ -38,59 +48,79 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_GOAL = "goal"
         const val EXTRA_AUTO_START = "auto_start"
         
-        /** Maximum number of status lines to keep to prevent unbounded memory growth */
-        private const val MAX_STATUS_LINES = 100
+        private const val PREFS_NAME = "agent_prefs"
+        private const val KEY_API_KEY = "api_key"
     }
     
-    // UI State
+    // Session scope - survives configuration changes within activity lifecycle
+    private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    
+    // Current session
+    private var currentSession: AgentSession? = null
+    
+    // API key state
     private var apiKey by mutableStateOf("")
-    private var goal by mutableStateOf("")
-    private var statusLines by mutableStateOf(listOf<String>())
-    private var isServiceEnabled by mutableStateOf(false)
-    private var isRunning by mutableStateOf(false)
+    
+    // ViewModel
+    private lateinit var viewModel: ChatViewModel
+    
+    // Settings visibility
+    private var showSettings by mutableStateOf(false)
 
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
         enableEdgeToEdge()
         
-        // Collect status updates from AgentService using lifecycle-aware collection
-        // This prevents memory leaks and stale callback references (fixes Issues 2 & 3)
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                AgentService.statusFlow.collect { status ->
-                    if (status.isNotEmpty()) {
-                        // Add new status and limit to MAX_STATUS_LINES to prevent memory growth
-                        statusLines = (statusLines + status).takeLast(MAX_STATUS_LINES)
-                        
-                        // Detect completion states to reset isRunning using shared utility
-                        if (StatusUtils.isTerminalStatus(status)) {
-                            isRunning = false
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Load initial data
-        loadApiKeyFromFile()
+        // Load API key from storage
+        loadApiKey()
         handleIntent(intent)
         
+        // Initialize ViewModel with session provider and session creation callback
+        viewModel = ChatViewModel(
+            sessionProvider = { currentSession },
+            onSessionNeeded = { text -> ensureSessionAndSend(text) },
+            onTaskCompleted = { 
+                // Clear session when task completes to allow new tasks
+                currentSession = null
+                Log.d(TAG, "Session cleared after task completion")
+            }
+        )
+        
         setContent {
-            AgentTheme {
-                AgentScreen(
-                    state = AgentUiState(
-                        apiKey = apiKey,
-                        goal = goal,
-                        statusLines = statusLines,
-                        isServiceEnabled = isServiceEnabled,
-                        isRunning = isRunning
-                    ),
-                    onApiKeyChange = { apiKey = it },
-                    onGoalChange = { goal = it },
-                    onStartClick = { startAgent() },
-                    onAccessibilityClick = { openAccessibilitySettings() }
+            ChatTheme {
+                ChatScreen(
+                    viewModel = viewModel,
+                    onOpenSettings = { showSettings = true }
                 )
+                
+                // Settings Bottom Sheet
+                if (showSettings) {
+                    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                    
+                    ModalBottomSheet(
+                        onDismissRequest = { showSettings = false },
+                        sheetState = sheetState
+                    ) {
+                        SettingsSheet(
+                            apiKey = apiKey,
+                            onApiKeyChange = { 
+                                apiKey = it
+                                saveApiKey(it)
+                            },
+                            isAccessibilityEnabled = AgentService.instance != null,
+                            isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
+                            onAccessibilityClick = { openAccessibilitySettings() },
+                            onOverlayClick = { openOverlaySettings() },
+                            onClearConversation = { 
+                                viewModel.clearConversation()
+                                showSettings = false
+                            },
+                            onDismiss = { showSettings = false }
+                        )
+                    }
+                }
             }
         }
     }
@@ -102,56 +132,114 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
     
-    override fun onResume() {
-        super.onResume()
-        // Update service status
-        val serviceAvailable = AgentService.instance != null
-        isServiceEnabled = serviceAvailable
-        
-        if (serviceAvailable && statusLines.isEmpty()) {
-            statusLines = listOf("✓ Accessibility Service enabled. Ready to run.")
-        } else if (!serviceAvailable && statusLines.isEmpty()) {
-            statusLines = listOf("Enable Accessibility Service to get started.")
-        }
-    }
-    
     override fun onDestroy() {
         super.onDestroy()
-        // No longer need to clear callback - lifecycle-aware collection handles cleanup automatically
+        // Don't shutdown session when activity is destroyed - agent continues in service
+        // The session will be cleaned up when task completes or user explicitly stops
+        Log.d(TAG, "onDestroy called, session active: ${currentSession != null}")
     }
     
     private fun handleIntent(intent: Intent) {
         intent.getStringExtra(EXTRA_API_KEY)?.let { key ->
             if (key.isNotBlank()) {
                 apiKey = key
+                saveApiKey(key)
                 Log.d(TAG, "API key set from intent")
             }
         }
         
         intent.getStringExtra(EXTRA_GOAL)?.let { goalText ->
             if (goalText.isNotBlank()) {
-                goal = goalText
                 Log.d(TAG, "Goal set from intent: $goalText")
+                // Auto-send the goal as first message
+                window.decorView.postDelayed({
+                    ensureSessionAndSend(goalText)
+                }, 500)
             }
         }
         
         // Auto-start if requested
         if (intent.getBooleanExtra(EXTRA_AUTO_START, false)) {
             Log.d(TAG, "Auto-start requested")
-            // Delay to allow UI to initialize
-            window.decorView.postDelayed({ startAgent() }, 500)
         }
     }
     
     /**
-     * Load API key from external storage file.
-     * 
-     * TODO: DEV-ONLY - This is a convenience feature for development.
-     * For production, remove this file-loading entirely and only accept
-     * API key via the UI text field or intent extra. Uses deprecated
-     * external storage APIs that don't work on targetSdk 35+.
+     * Ensure session exists and send message.
      */
-    private fun loadApiKeyFromFile() {
+    private fun ensureSessionAndSend(text: String) {
+        if (apiKey.isBlank()) {
+            Toast.makeText(this, "Please set your API key in Settings", Toast.LENGTH_LONG).show()
+            showSettings = true
+            return
+        }
+        
+        if (!Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Please grant Overlay permission", Toast.LENGTH_LONG).show()
+            openOverlaySettings()
+            return
+        }
+        
+        val service = AgentService.instance
+        if (service == null) {
+            Toast.makeText(this, "Please enable the Accessibility Service", Toast.LENGTH_LONG).show()
+            openAccessibilitySettings()
+            return
+        }
+        
+        // Create session if needed
+        if (currentSession == null) {
+            lifecycleScope.launch {
+                try {
+                    val session = AgentSession.create(
+                        config = SessionConfig(
+                            maxTurns = 20,
+                            debugMode = true
+                        ),
+                        service = service,
+                        scope = sessionScope,
+                        apiKey = apiKey
+                    )
+                    
+                    currentSession = session
+                    
+                    // Connect ViewModel to session events
+                    viewModel.startEventCollection(session)
+                    
+                    // Let AgentService observe the session for SmartCapsule updates
+                    service.observeExternalSession(session)
+                    
+                    // Send the message
+                    session.submit(Op.UserInput(text))
+                    
+                    Log.i(TAG, "Session created and message sent")
+                    
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to create session", e)
+                    Toast.makeText(this@MainActivity, "Failed to start: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        } else {
+            // Session exists, just send
+            lifecycleScope.launch {
+                currentSession?.submit(Op.UserInput(text))
+            }
+        }
+    }
+    
+    /**
+     * Load API key from SharedPreferences or file.
+     */
+    private fun loadApiKey() {
+        // First try SharedPreferences
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedKey = prefs.getString(KEY_API_KEY, null)
+        if (!savedKey.isNullOrBlank()) {
+            apiKey = savedKey
+            return
+        }
+        
+        // Fallback: Try to load from file (DEV-ONLY)
         try {
             @Suppress("DEPRECATION")
             val file = File(Environment.getExternalStorageDirectory(), "api_key.txt")
@@ -159,6 +247,7 @@ class MainActivity : ComponentActivity() {
                 val key = file.readText().trim()
                 if (key.isNotBlank() && key.startsWith("sk-")) {
                     apiKey = key
+                    saveApiKey(key) // Migrate to SharedPreferences
                     Log.d(TAG, "API key loaded from file")
                 }
             }
@@ -167,41 +256,24 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private fun startAgent() {
-        if (apiKey.isBlank()) {
-            statusLines = statusLines + "Please enter your OpenAI API key"
-            return
-        }
-        
-        if (!Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Please grant Overlay permission", Toast.LENGTH_LONG).show()
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
-            )
-            startActivity(intent)
-            return
-        }
-        
-        if (goal.isBlank()) {
-            statusLines = statusLines + "Please enter a goal"
-            return
-        }
-        
-        val service = AgentService.instance
-        if (service == null) {
-            statusLines = statusLines + "⚠️ Please enable the accessibility service in Settings"
-            return
-        }
-        
-        // Clear previous status and start
-        statusLines = emptyList()  // Let AgentService emit the first status
-        isRunning = true
-        service.runAgent(goal, apiKey)
+    /**
+     * Save API key to SharedPreferences.
+     */
+    private fun saveApiKey(key: String) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_API_KEY, key).apply()
     }
     
     private fun openAccessibilitySettings() {
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        startActivity(intent)
+    }
+    
+    private fun openOverlaySettings() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName")
+        )
         startActivity(intent)
     }
 }
