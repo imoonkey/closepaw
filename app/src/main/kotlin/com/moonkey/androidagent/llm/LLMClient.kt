@@ -144,8 +144,13 @@ class LLMClient(apiKey: String) {
         var lastException: Exception? = null
         var backoffMs = INITIAL_BACKOFF_MS
         var streamCompleted = false
+        var totalRetryWaitMs = 0L  // Track time spent waiting for retries
+        var retryCount = 0
+        val overallStart = System.currentTimeMillis()
         
         for (attempt in 1..MAX_RETRIES) {
+            val attemptStart = System.currentTimeMillis()
+            
             try {
                 // Build request params
                 val builder = ResponseCreateParams.builder()
@@ -172,11 +177,21 @@ class LLMClient(apiKey: String) {
                     }
                 }
                 
+                // Log successful network time (actual LLM latency)
+                val networkMs = System.currentTimeMillis() - attemptStart
+                PerfLogger.log("llm_network", networkMs, mapOf(
+                    "model" to model.toString(),
+                    "streaming" to true,
+                    "attempt" to attempt,
+                    "success" to true
+                ))
+                
                 Log.d(TAG, "Streaming completed successfully")
                 streamCompleted = true
                 break // Exit retry loop on success
                 
             } catch (e: Exception) {
+                val attemptMs = System.currentTimeMillis() - attemptStart
                 val message = e.message ?: ""
                 val cause = e.cause?.message ?: ""
                 
@@ -184,6 +199,12 @@ class LLMClient(apiKey: String) {
                 if (message.contains("429") || cause.contains("429") || 
                     message.contains("rate limit", ignoreCase = true) ||
                     cause.contains("rate limit", ignoreCase = true)) {
+                    
+                    // Log rate limit event
+                    PerfLogger.log("llm_rate_limit", attemptMs, mapOf(
+                        "model" to model.toString(),
+                        "attempt" to attempt
+                    ))
                     
                     lastException = RateLimitException(
                         "Rate limited by OpenAI", 
@@ -198,15 +219,30 @@ class LLMClient(apiKey: String) {
                     val waitMs = extractRetryAfter(message) ?: extractRetryAfter(cause) ?: backoffMs
                     Log.w(TAG, "Rate limited (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms...")
                     
+                    totalRetryWaitMs += waitMs
+                    retryCount++
                     delay(waitMs)
                     backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
                     continue
                 }
                 
-                // Check for transient errors
+                // Check for transient errors (timeout, server errors)
                 if (e is java.net.SocketTimeoutException ||
+                    message.contains("timeout", ignoreCase = true) ||
                     message.contains("500") || message.contains("502") || 
                     message.contains("503") || message.contains("504")) {
+                    
+                    // Log timeout/transient error
+                    val errorType = when {
+                        e is java.net.SocketTimeoutException -> "timeout"
+                        message.contains("timeout", ignoreCase = true) -> "timeout"
+                        else -> "server_error"
+                    }
+                    PerfLogger.log("llm_$errorType", attemptMs, mapOf(
+                        "model" to model.toString(),
+                        "attempt" to attempt,
+                        "error" to message.take(100)
+                    ))
                     
                     lastException = e
                     
@@ -216,16 +252,32 @@ class LLMClient(apiKey: String) {
                     }
                     
                     Log.w(TAG, "Transient error (attempt $attempt/$MAX_RETRIES): ${e.message}, retrying in ${backoffMs}ms...")
+                    totalRetryWaitMs += backoffMs
+                    retryCount++
                     delay(backoffMs)
                     backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
                     continue
                 }
                 
                 // Non-retryable error
+                PerfLogger.log("llm_error", attemptMs, mapOf(
+                    "model" to model.toString(),
+                    "attempt" to attempt,
+                    "error" to message.take(100)
+                ))
                 Log.e(TAG, "Streaming chat failed with non-retryable error", e)
                 lastException = e
                 break // Exit loop, will close with lastException
             }
+        }
+        
+        // Log overall streaming metrics if there were retries
+        if (retryCount > 0) {
+            val overallMs = System.currentTimeMillis() - overallStart
+            PerfLogger.log("llm_retry_overhead", totalRetryWaitMs, mapOf(
+                "retries" to retryCount,
+                "total_time" to overallMs
+            ))
         }
         
         // Close the flow with appropriate result
