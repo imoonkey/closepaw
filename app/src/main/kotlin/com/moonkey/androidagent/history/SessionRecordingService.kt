@@ -16,7 +16,7 @@ import java.util.UUID
  * Records chat events to a session file in real-time.
  * 
  * Usage:
- * 1. Call initialize() with optional resumeData to start/resume a session
+ * 1. Call initializeNewSession() to start a new session, or resumeSession() to resume an existing one
  * 2. Call record*() methods as events occur
  * 3. Session is auto-saved after each significant change (debounced)
  * 
@@ -263,9 +263,12 @@ class SessionRecordingService(
         
         Log.i(TAG, "Session completed: ${session.sessionId}")
         
-        // Force immediate save
-        saveJob?.cancel()
+        // Force immediate save - cancel debounce but let any in-progress save complete
+        val pendingSave = saveJob
+        saveJob = null
         scope.launch {
+            // Wait for any pending save to complete before doing final save
+            pendingSave?.join()
             save()
         }
     }
@@ -292,15 +295,21 @@ class SessionRecordingService(
     
     /**
      * Clear session tracking (called when session ends).
+     * Waits for any pending save to complete before clearing.
      */
     fun clearSession() {
-        currentSession = null
-        currentFileName = null
-        currentAgentMessageId = null
-        currentTextBuffer.clear()
-        currentContentBlocks.clear()
-        saveJob?.cancel()
-        Log.d(TAG, "Session tracking cleared")
+        // Let any pending save complete before clearing state
+        val pendingSave = saveJob
+        saveJob = null
+        scope.launch {
+            pendingSave?.join()
+            currentSession = null
+            currentFileName = null
+            currentAgentMessageId = null
+            currentTextBuffer.clear()
+            currentContentBlocks.clear()
+            Log.d(TAG, "Session tracking cleared")
+        }
     }
     
     // ===== Private Helpers =====

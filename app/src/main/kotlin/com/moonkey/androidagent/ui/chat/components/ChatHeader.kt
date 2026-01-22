@@ -67,7 +67,7 @@ fun ChatHeader(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.History,
-                        contentDescription = "Session history",
+                        contentDescription = "Session History",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
