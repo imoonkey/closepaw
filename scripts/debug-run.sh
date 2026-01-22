@@ -121,9 +121,26 @@ adb logcat -d | grep "PERF|" > "$DEBUG_DIR/perf.log" 2>/dev/null || true
 if [[ -s "$DEBUG_DIR/perf.log" ]]; then
     # Extract fields from PERF|session|turn|span|duration|metadata format
     # Parse Android logcat timestamps and PERF logs
-    awk '{
-        # Extract timestamp from logcat format (first 18 chars: "MM-DD HH:MM:SS.mmm")
-        timestamp = substr($0, 1, 18);
+    awk 'BEGIN {
+        # Get current year once
+        cmd = "date +%Y";
+        cmd | getline current_year;
+        close(cmd);
+    }
+    {
+        # Extract timestamp from logcat format: "MM-DD HH:MM:SS.mmm"
+        # Example: "01-22 05:09:48.123"
+        if (match($0, /^([0-9]{2})-([0-9]{2}) ([0-9]{2}):([0-9]{2}):([0-9]{2})\.([0-9]{3})/, ts)) {
+            month = ts[1];
+            day = ts[2];
+            hour = ts[3];
+            minute = ts[4];
+            second = ts[5];
+            millis = ts[6];
+            iso_ts = sprintf("%s-%s-%sT%s:%s:%s.%sZ", current_year, month, day, hour, minute, second, millis);
+        } else {
+            iso_ts = "";
+        }
         
         # Find PERF| in the line
         perf_idx = index($0, "PERF|");
@@ -148,16 +165,6 @@ if [[ -s "$DEBUG_DIR/perf.log" ]]; then
                 if (jsonMeta == "" || jsonMeta !~ /^[[:space:]]*\{.*\}[[:space:]]*$/) {
                     jsonMeta = "{}";
                 }
-                
-                # Convert timestamp to ISO format (use current year as logcat doesnt include it)
-                gsub(/-/, " ", timestamp);
-                gsub(/\./, " ", timestamp);
-                split(timestamp, ts_parts);
-                # Get current year
-                cmd = "date +%Y";
-                cmd | getline current_year;
-                close(cmd);
-                iso_ts = sprintf("%s-%02d-%02dT%s.%03dZ", current_year, ts_parts[1], ts_parts[2], ts_parts[3], ts_parts[4]);
                 
                 printf "{\"ts\":\"%s\",\"session\":\"%s\",\"turn\":%s,\"span\":\"%s\",\"ms\":%s,\"meta\":%s}\n", 
                     iso_ts, session, turn, span, duration, jsonMeta;
