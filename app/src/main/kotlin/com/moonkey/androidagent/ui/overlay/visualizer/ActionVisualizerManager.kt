@@ -55,10 +55,16 @@ class ActionVisualizerManager(
         private const val SWIPE_EXTRA_DURATION_MS = 400L
         // Fade out duration for smooth disappearance
         private const val FADE_OUT_DURATION_MS = 300L
+        // Padding from screen edges for coordinate clamping
+        private const val EDGE_PADDING = 10f
     }
     
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
+    
+    /** Cached screen dimensions for coordinate clamping */
+    private var screenWidth: Int = 0
+    private var screenHeight: Int = 0
     
     /**
      * Reusable overlay container - stays added to WindowManager,
@@ -79,6 +85,7 @@ class ActionVisualizerManager(
     
     /**
      * Show a click/tap ripple effect at the given coordinates.
+     * Coordinates are clamped to screen bounds to ensure visibility.
      * 
      * @param x Screen X coordinate
      * @param y Screen Y coordinate
@@ -89,11 +96,15 @@ class ActionVisualizerManager(
         
         handler.post {
             if (isDisposed) return@post
-            Log.d(TAG, "showClick at ($x, $y), longPress=$longPress")
             ensureOverlay()
             
+            // Clamp coordinates to screen bounds
+            val clampedX = clampX(x)
+            val clampedY = clampY(y)
+            Log.d(TAG, "showClick at ($x, $y) -> clamped ($clampedX, $clampedY), longPress=$longPress")
+            
             val ripple = ClickRippleView(context).apply {
-                setPosition(x, y, longPress)
+                setPosition(clampedX, clampedY, longPress)
             }
             
             addAndAnimate(ripple, CLICK_ANIMATION_DURATION_MS)
@@ -102,6 +113,7 @@ class ActionVisualizerManager(
     
     /**
      * Show a swipe trail from start to end coordinates.
+     * Coordinates are clamped to screen bounds to ensure visibility.
      * 
      * @param startX Start X coordinate
      * @param startY Start Y coordinate
@@ -120,11 +132,17 @@ class ActionVisualizerManager(
         
         handler.post {
             if (isDisposed) return@post
-            Log.d(TAG, "showSwipe from ($startX, $startY) to ($endX, $endY), duration=$durationMs")
             ensureOverlay()
             
+            // Clamp coordinates to screen bounds
+            val clampedStartX = clampX(startX)
+            val clampedStartY = clampY(startY)
+            val clampedEndX = clampX(endX)
+            val clampedEndY = clampY(endY)
+            Log.d(TAG, "showSwipe from ($startX, $startY) to ($endX, $endY) -> clamped ($clampedStartX, $clampedStartY) to ($clampedEndX, $clampedEndY), duration=$durationMs")
+            
             val trail = SwipeTrailView(context).apply {
-                setPath(startX, startY, endX, endY, durationMs, scroll = false)
+                setPath(clampedStartX, clampedStartY, clampedEndX, clampedEndY, durationMs, scroll = false)
             }
             
             addAndAnimate(trail, durationMs + SWIPE_EXTRA_DURATION_MS)
@@ -133,7 +151,7 @@ class ActionVisualizerManager(
     
     /**
      * Show a scroll visualization using swipe trail (alternative to arrow).
-     * This is useful when you want to show the actual swipe path used for scrolling.
+     * Coordinates are clamped to screen bounds to ensure visibility.
      * 
      * @param startX Start X coordinate
      * @param startY Start Y coordinate
@@ -152,11 +170,17 @@ class ActionVisualizerManager(
         
         handler.post {
             if (isDisposed) return@post
-            Log.d(TAG, "showScrollAsSwipe from ($startX, $startY) to ($endX, $endY)")
             ensureOverlay()
             
+            // Clamp coordinates to screen bounds
+            val clampedStartX = clampX(startX)
+            val clampedStartY = clampY(startY)
+            val clampedEndX = clampX(endX)
+            val clampedEndY = clampY(endY)
+            Log.d(TAG, "showScrollAsSwipe from ($startX, $startY) to ($endX, $endY) -> clamped ($clampedStartX, $clampedStartY) to ($clampedEndX, $clampedEndY)")
+            
             val trail = SwipeTrailView(context).apply {
-                setPath(startX, startY, endX, endY, durationMs, scroll = true)
+                setPath(clampedStartX, clampedStartY, clampedEndX, clampedEndY, durationMs, scroll = true)
             }
             
             addAndAnimate(trail, durationMs + SWIPE_EXTRA_DURATION_MS)
@@ -188,6 +212,9 @@ class ActionVisualizerManager(
         }
         
         try {
+            // Update screen dimensions for coordinate clamping
+            updateScreenDimensions()
+            
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -215,6 +242,29 @@ class ActionVisualizerManager(
             Log.e(TAG, "Failed to create overlay container", e)
             overlayContainer = null
         }
+    }
+    
+    /**
+     * Update cached screen dimensions.
+     */
+    private fun updateScreenDimensions() {
+        val displayMetrics = context.resources.displayMetrics
+        screenWidth = displayMetrics.widthPixels
+        screenHeight = displayMetrics.heightPixels
+        Log.d(TAG, "Screen dimensions: ${screenWidth}x${screenHeight}")
+    }
+    
+    /**
+     * Clamp a coordinate to stay within screen bounds with padding.
+     */
+    private fun clampX(x: Float): Float {
+        if (screenWidth <= 0) return x
+        return x.coerceIn(EDGE_PADDING, screenWidth - EDGE_PADDING)
+    }
+    
+    private fun clampY(y: Float): Float {
+        if (screenHeight <= 0) return y
+        return y.coerceIn(EDGE_PADDING, screenHeight - EDGE_PADDING)
     }
     
     /**

@@ -39,6 +39,9 @@ class ClickRippleView(context: Context) : View(context) {
     
     private var isLongPress = false
     
+    /** Whether animation should start when view is attached */
+    private var pendingAnimation = false
+    
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = CLICK_COLOR
         style = Paint.Style.FILL
@@ -48,7 +51,7 @@ class ClickRippleView(context: Context) : View(context) {
     private var animator: ValueAnimator? = null
     
     /**
-     * Set the tap position and start the ripple animation.
+     * Set the tap position. Animation will start when view is attached.
      * 
      * @param x Screen X coordinate
      * @param y Screen Y coordinate
@@ -63,7 +66,22 @@ class ClickRippleView(context: Context) : View(context) {
         paint.color = if (longPress) LONG_PRESS_COLOR else CLICK_COLOR
         paint.alpha = (255 * INITIAL_ALPHA).toInt()
         
-        startAnimation()
+        // If already attached, start animation immediately
+        // Otherwise, animation will start in onAttachedToWindow()
+        if (isAttachedToWindow) {
+            startAnimation()
+        } else {
+            pendingAnimation = true
+        }
+    }
+    
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // Start animation when view is attached (ensures view is in hierarchy for drawing)
+        if (pendingAnimation) {
+            startAnimation()
+            pendingAnimation = false
+        }
     }
     
     private fun startAnimation() {
