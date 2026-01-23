@@ -44,7 +44,7 @@ class TypeTool : BaseTool() {
         val elementIndex = params.optInt("element_index", -1)
         val text = params.optString("text", "")
         if (elementIndex < 0) return null
-        return UIAction.Type(elementIndex, text)
+        return UIAction.Type(text, elementIndex)
     }
     
     override fun getActionDescription(params: JSONObject): String {

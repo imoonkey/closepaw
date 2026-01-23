@@ -2,6 +2,8 @@ package com.moonkey.androidagent.platform
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Path
 import android.os.Bundle
 import android.util.Log
@@ -52,6 +54,7 @@ class AccessibilityPlatform(
         return when (action) {
             is UIAction.Click -> performClick(action, snapshot)
             is UIAction.ClickAt -> performClickAt(action.x, action.y)
+            is UIAction.LongClick -> performLongClick(action, snapshot)
             is UIAction.Type -> performType(action, snapshot)
             is UIAction.Scroll -> performScroll(action)
             is UIAction.Swipe -> performSwipe(action)
@@ -88,10 +91,13 @@ class AccessibilityPlatform(
     // ===== Action Implementations =====
     
     /**
-     * Perform click action using stored bounds.
+     * Perform click action using multiple strategies.
      * 
-     * Uses gesture-based tap which is more reliable than ACTION_CLICK
-     * and doesn't require storing AccessibilityNodeInfo references.
+     * Strategy 1: Try ACTION_CLICK on the accessibility node (works better with some apps like Notion)
+     * Strategy 2: Fall back to gesture-based tap (works better with native Android apps)
+     * 
+     * Some cross-platform apps (Notion, Flutter apps, etc.) respond better to accessibility
+     * node clicks than raw gestures, while native apps often work better with gestures.
      */
     private suspend fun performClick(action: UIAction.Click, snapshot: ScreenSnapshot?): ActionResult {
         if (snapshot == null) {
@@ -101,13 +107,75 @@ class AccessibilityPlatform(
         val element = snapshot.elements.getOrNull(action.elementIndex)
             ?: return ActionResult.ElementNotFound(action.elementIndex)
         
-        // Use stored center coordinates for gesture-based click
-        // This is more reliable than ACTION_CLICK on many devices
         val centerX = element.center.x
         val centerY = element.center.y
         
         Log.d(TAG, "Clicking element ${action.elementIndex} at ($centerX, $centerY)")
-        return performClickAt(centerX, centerY)
+        
+        // Strategy 1: Try ACTION_CLICK on the accessibility node
+        // This works better with cross-platform apps like Notion, Flutter, React Native
+        return withContext(Dispatchers.Main) {
+            val root = service.rootInActiveWindow
+            if (root != null) {
+                val clickableNode = findClickableNodeAtLocation(root, centerX, centerY)
+                if (clickableNode != null) {
+                    Log.d(TAG, "Trying ACTION_CLICK on node at ($centerX, $centerY)")
+                    visualizer?.showClick(centerX.toFloat(), centerY.toFloat())
+                    
+                    val success = clickableNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    clickableNode.recycle()
+                    
+                    if (success) {
+                        Log.d(TAG, "ACTION_CLICK succeeded")
+                        return@withContext ActionResult.Success("Clicked element ${action.elementIndex}")
+                    } else {
+                        Log.d(TAG, "ACTION_CLICK failed, falling back to gesture")
+                    }
+                } else {
+                    Log.d(TAG, "No clickable node found at location, using gesture")
+                }
+            }
+            
+            // Strategy 2: Fall back to gesture-based tap
+            performClickAt(centerX, centerY)
+        }
+    }
+    
+    /**
+     * Find a clickable node at the given coordinates.
+     * Used for ACTION_CLICK approach which works better with some apps.
+     */
+    private fun findClickableNodeAtLocation(root: AccessibilityNodeInfo, x: Int, y: Int): AccessibilityNodeInfo? {
+        val bounds = android.graphics.Rect()
+        
+        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean): AccessibilityNodeInfo? {
+            node.getBoundsInScreen(bounds)
+            
+            if (!bounds.contains(x, y)) {
+                if (shouldRecycle) node.recycle()
+                return null
+            }
+            
+            // Check children first (prefer deeper matches)
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                val found = search(child, shouldRecycle = true)
+                if (found != null) {
+                    if (shouldRecycle) node.recycle()
+                    return found
+                }
+            }
+            
+            // If this node is clickable, return it
+            if (node.isClickable) {
+                return node
+            }
+            
+            if (shouldRecycle) node.recycle()
+            return null
+        }
+        
+        return search(root, shouldRecycle = false)
     }
     
     private suspend fun performClickAt(x: Int, y: Int): ActionResult {
@@ -121,38 +189,61 @@ class AccessibilityPlatform(
      * avoiding stale AccessibilityNodeInfo references.
      */
     private suspend fun performType(action: UIAction.Type, snapshot: ScreenSnapshot?): ActionResult {
-        if (snapshot == null) {
-            return ActionResult.Failure("Snapshot required for type action")
-        }
-        
-        val element = snapshot.elements.getOrNull(action.elementIndex)
-            ?: return ActionResult.ElementNotFound(action.elementIndex)
-        
-        // Re-query the accessibility tree for a fresh node
-        // This avoids stale node issues from stored references
-        val centerX = element.center.x
-        val centerY = element.center.y
+        Log.d(TAG, "performType: text='${action.text}', elementIndex=${action.elementIndex}")
         
         return withContext(Dispatchers.Main) {
-            // First, tap to focus the element
-            val tapResult = performClickAt(centerX, centerY)
-            if (tapResult is ActionResult.Failure) {
-                return@withContext tapResult
-            }
-            
-            // Brief delay for focus to take effect
-            kotlinx.coroutines.delay(100)
-            
-            // Re-query the tree to find the focused/target node
             val root = service.rootInActiveWindow
             if (root == null) {
+                Log.e(TAG, "performType: Cannot access screen (root is null)")
                 return@withContext ActionResult.Failure("Cannot access screen for text input")
             }
             
-            // Find node at the target location (by bounds overlap)
-            val targetNode = findNodeAtLocation(root, centerX, centerY)
+            // Determine target location - either from element or use currently focused
+            val targetNode: AccessibilityNodeInfo? = if (action.elementIndex != null) {
+                // Element index provided - tap to focus first
+                if (snapshot == null) {
+                    Log.e(TAG, "performType: Snapshot is null but element_index provided")
+                    return@withContext ActionResult.Failure("Snapshot required when element_index is provided")
+                }
+                
+                val element = snapshot.elements.getOrNull(action.elementIndex)
+                if (element == null) {
+                    Log.e(TAG, "performType: Element ${action.elementIndex} not found (snapshot has ${snapshot.elements.size} elements)")
+                    return@withContext ActionResult.ElementNotFound(action.elementIndex)
+                }
+                
+                val centerX = element.center.x
+                val centerY = element.center.y
+                Log.d(TAG, "performType: Tapping element ${action.elementIndex} at ($centerX, $centerY) to focus")
+                
+                // Tap to focus the element
+                val tapResult = performClickAt(centerX, centerY)
+                if (tapResult is ActionResult.Failure) {
+                    Log.e(TAG, "performType: Tap to focus failed: ${tapResult.reason}")
+                    return@withContext tapResult
+                }
+                
+                // Brief delay for focus to take effect
+                kotlinx.coroutines.delay(100)
+                
+                // Re-query tree and find node at location
+                val freshRoot = service.rootInActiveWindow
+                if (freshRoot == null) {
+                    Log.e(TAG, "performType: Lost screen access after tap")
+                    return@withContext ActionResult.Failure("Lost screen access after tap")
+                }
+                
+                val node = findNodeAtLocation(freshRoot, centerX, centerY)
+                Log.d(TAG, "performType: findNodeAtLocation returned ${if (node != null) "a node" else "null"}")
+                node
+            } else {
+                // No element index - find currently focused node
+                Log.d(TAG, "performType: No element_index, finding focused editable node")
+                findFocusedEditableNode(root)
+            }
             
             if (targetNode != null) {
+                Log.d(TAG, "performType: Found target node, setting text")
                 val args = Bundle().apply {
                     putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, action.text)
                 }
@@ -164,14 +255,62 @@ class AccessibilityPlatform(
                 }
                 
                 if (result) {
+                    Log.d(TAG, "performType: Text entered successfully")
                     ActionResult.Success("Text entered: ${action.text}")
                 } else {
+                    Log.e(TAG, "performType: ACTION_SET_TEXT failed")
                     ActionResult.Failure("Failed to set text on element (ACTION_SET_TEXT failed)")
                 }
             } else {
-                ActionResult.Failure("Could not find text-input element at location ($centerX, $centerY)")
+                val msg = if (action.elementIndex != null) {
+                    "Could not find text-input element at specified location"
+                } else {
+                    "No focused editable element found. Specify element_index to focus a field first."
+                }
+                Log.e(TAG, "performType: $msg")
+                ActionResult.Failure(msg)
             }
         }
+    }
+    
+    /**
+     * Find a focused editable node in the tree.
+     * Used when typing into the currently focused field.
+     */
+    private fun findFocusedEditableNode(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        // First, try to find the input-focused node
+        val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        if (focused != null) {
+            // Check if it supports text input
+            if (focused.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }) {
+                return focused
+            }
+            focused.recycle()
+        }
+        
+        // Fallback: DFS for any editable node that has focus
+        return findEditableWithFocus(root)
+    }
+    
+    /**
+     * DFS to find an editable node with focus.
+     */
+    private fun findEditableWithFocus(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        if (node.isFocused && node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }) {
+            return node
+        }
+        
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val result = findEditableWithFocus(child)
+            if (result != null) {
+                if (result !== child) child.recycle()
+                return result
+            }
+            child.recycle()
+        }
+        
+        return null
     }
     
     /**
@@ -300,10 +439,16 @@ class AccessibilityPlatform(
     
     private suspend fun performSystemButton(action: UIAction.SystemButton): ActionResult {
         return withContext(Dispatchers.Main) {
+            // ENTER is a key event, not a global action - handle separately
+            if (action.button == SystemButtonType.ENTER) {
+                return@withContext performEnterKey()
+            }
+            
             val globalAction = when (action.button) {
                 SystemButtonType.BACK -> AccessibilityService.GLOBAL_ACTION_BACK
                 SystemButtonType.HOME -> AccessibilityService.GLOBAL_ACTION_HOME
                 SystemButtonType.RECENTS -> AccessibilityService.GLOBAL_ACTION_RECENTS
+                SystemButtonType.ENTER -> return@withContext ActionResult.Failure("ENTER handled above")
             }
             
             Log.d(TAG, "Performing global action: ${action.button} -> $globalAction")
@@ -316,6 +461,29 @@ class AccessibilityPlatform(
                 ActionResult.Failure("Failed to perform system action: ${action.button}")
             }
         }
+    }
+    
+    /**
+     * Perform ENTER key press on the currently focused element.
+     */
+    private fun performEnterKey(): ActionResult {
+        val root = service.rootInActiveWindow ?: return ActionResult.Failure("No active window")
+        
+        // Find the focused element and perform click (simulates Enter)
+        val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+        if (focused != null) {
+            // Try IME action first (works for text fields with actionDone/actionGo etc)
+            val imeResult = focused.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            focused.recycle()
+            
+            return if (imeResult) {
+                ActionResult.Success("Enter key pressed")
+            } else {
+                ActionResult.Failure("Failed to perform Enter action")
+            }
+        }
+        
+        return ActionResult.Failure("No focused element to send Enter to")
     }
     
     private suspend fun performWait(action: UIAction.Wait): ActionResult {
@@ -397,6 +565,106 @@ class AccessibilityPlatform(
                 }
             }
         } ?: ActionResult.Failure("Gesture timed out after ${GESTURE_TIMEOUT_MS}ms")
+    }
+    
+    // ===== Long Click Implementation =====
+    
+    /**
+     * Perform long press using gesture with extended duration.
+     */
+    private suspend fun performLongClick(action: UIAction.LongClick, snapshot: ScreenSnapshot?): ActionResult {
+        if (snapshot == null) {
+            return ActionResult.Failure("Snapshot required for element-based long click")
+        }
+        
+        val element = snapshot.elements.getOrNull(action.elementIndex)
+            ?: return ActionResult.ElementNotFound(action.elementIndex)
+        
+        val x = element.center.x.toFloat()
+        val y = element.center.y.toFloat()
+        
+        Log.d(TAG, "Long click element ${action.elementIndex} at ($x, $y) for ${action.durationMs}ms")
+        
+        // Show visualization (longPress ripple effect)
+        visualizer?.showClick(x, y, longPress = true)
+        
+        // Long press is a stationary gesture held for duration
+        val path = Path().apply {
+            moveTo(x, y)
+        }
+        
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, action.durationMs))
+            .build()
+        
+        return dispatchGesture(gesture)
+    }
+    
+    // ===== App Management Implementation =====
+    
+    /**
+     * Get list of installed launchable apps.
+     * 
+     * Uses PackageManager to query apps that have a launcher activity.
+     */
+    override suspend fun getInstalledApps(): List<AppInfo> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val pm = service.packageManager
+                val intent = Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_LAUNCHER)
+                }
+                
+                val resolveInfos = pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
+                
+                resolveInfos.mapNotNull { resolveInfo ->
+                    val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
+                    val packageName = activityInfo.packageName
+                    val label = resolveInfo.loadLabel(pm)?.toString() ?: packageName
+                    val isSystem = (activityInfo.applicationInfo.flags and 
+                        android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+                    
+                    AppInfo(
+                        packageName = packageName,
+                        label = label,
+                        isSystemApp = isSystem
+                    )
+                }.distinctBy { it.packageName }  // Remove duplicates
+                    .sortedBy { it.label.lowercase() }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to get installed apps", e)
+                emptyList()
+            }
+        }
+    }
+    
+    /**
+     * Launch an app by package name.
+     * 
+     * Uses PackageManager.getLaunchIntentForPackage to get the launch intent.
+     */
+    override suspend fun launchApp(packageName: String): ActionResult {
+        return withContext(Dispatchers.Main) {
+            try {
+                val pm = service.packageManager
+                val launchIntent = pm.getLaunchIntentForPackage(packageName)
+                
+                if (launchIntent == null) {
+                    return@withContext ActionResult.Failure(
+                        "App not found or not launchable: $packageName"
+                    )
+                }
+                
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                service.startActivity(launchIntent)
+                
+                Log.d(TAG, "Launched app: $packageName")
+                ActionResult.Success("Launched $packageName")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to launch app: $packageName", e)
+                ActionResult.Failure("Failed to launch $packageName: ${e.message}", e)
+            }
+        }
     }
 }
 

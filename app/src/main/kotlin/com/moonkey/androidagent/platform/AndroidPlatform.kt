@@ -50,6 +50,25 @@ interface AndroidPlatform {
      * @return DisplayInfo containing screen dimensions
      */
     fun getDisplayInfo(): DisplayInfo
+    
+    // =========================================================================
+    // App Management (P0)
+    // =========================================================================
+    
+    /**
+     * Get list of installed launchable apps.
+     * 
+     * @return List of AppInfo for apps with launcher activities
+     */
+    suspend fun getInstalledApps(): List<AppInfo>
+    
+    /**
+     * Launch an app by package name.
+     * 
+     * @param packageName The package name of the app to launch
+     * @return ActionResult indicating success or failure
+     */
+    suspend fun launchApp(packageName: String): ActionResult
 }
 
 /**
@@ -59,5 +78,14 @@ data class DisplayInfo(
     val widthPixels: Int,
     val heightPixels: Int,
     val density: Float
+)
+
+/**
+ * AppInfo - Information about an installed app.
+ */
+data class AppInfo(
+    val packageName: String,
+    val label: String,
+    val isSystemApp: Boolean = false
 )
 

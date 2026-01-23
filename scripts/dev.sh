@@ -94,11 +94,13 @@ cmd_run() {
     # Launch app with intent extras
     # Using FLAG_ACTIVITY_CLEAR_TOP | FLAG_ACTIVITY_SINGLE_TOP to trigger onNewIntent
     # Don't use force-stop - it clears accessibility permission!
+    # fresh_session=true ensures we start with a new session, not continuing an existing one
     adb shell "am start -n $PACKAGE/.app.MainActivity \
         --activity-clear-top --activity-single-top \
         --es api_key '$OPENAI_API_KEY' \
         --es goal '$goal' \
-        --ez auto_start true" >/dev/null
+        --ez auto_start true \
+        --ez fresh_session true" >/dev/null
     sleep 1.5
     
     # Check if on correct screen
@@ -112,7 +114,8 @@ cmd_run() {
             --activity-clear-top --activity-single-top \
             --es api_key '$OPENAI_API_KEY' \
             --es goal '$goal' \
-            --ez auto_start true" >/dev/null
+            --ez auto_start true \
+            --ez fresh_session true" >/dev/null
         sleep 1
     fi
     

@@ -140,6 +140,18 @@ class Agent(
             emitScreenCaptured(snapshot)
 
             Log.d(TAG, "Turn $turnCount: Screen has ${snapshot.elements.size} elements")
+            
+            // Log all elements for debugging - helps understand element indexing issues
+            Log.d(TAG, "Turn $turnCount: Elements (first 20):")
+            snapshot.elements.take(20).forEach { elem ->
+                val text = elem.text.ifEmpty { elem.description }.take(25)
+                val flags = buildString {
+                    if (elem.isClickable) append("C")
+                    if (elem.isEditable) append("E")
+                    if (elem.isScrollable) append("S")
+                }
+                Log.d(TAG, "  [${elem.index}] \"$text\" $flags @(${elem.center.x},${elem.center.y})")
+            }
 
             // Check cancellation
             if (cancellationSignal.isCompleted || stopRequested.get()) {
