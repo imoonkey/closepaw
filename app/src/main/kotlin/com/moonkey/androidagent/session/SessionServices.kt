@@ -4,19 +4,15 @@ import android.util.Log
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.history.HistoryConfig
 import com.moonkey.androidagent.history.HistoryManager
+import com.moonkey.androidagent.history.TruncationPolicy
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.SessionConfig
-import com.moonkey.androidagent.tool.impl.BackTool
-import com.moonkey.androidagent.tool.impl.ClickTool
+import com.moonkey.androidagent.tool.impl.AppControlTool
 import com.moonkey.androidagent.tool.impl.CompleteTaskTool
-import com.moonkey.androidagent.tool.impl.HomeTool  // Defined in NavigationTools.kt
-import com.moonkey.androidagent.tool.impl.ScrollTool
-import com.moonkey.androidagent.tool.impl.SwipeTool
-import com.moonkey.androidagent.tool.impl.TypeTool
-import com.moonkey.androidagent.tool.impl.WaitTool
+import com.moonkey.androidagent.tool.impl.MobileActionTool
 
 /**
  * SessionServices - Dependency Injection container for all session-scoped services.
@@ -94,9 +90,11 @@ data class SessionServices(
             Log.d(TAG, "Created ToolRouter")
             
             // 5. Create HistoryManager with config-based settings
+            // Use AGGRESSIVE truncation to keep screen observations smaller
             val historyConfig = HistoryConfig(
+                defaultTruncationPolicy = TruncationPolicy.AGGRESSIVE, // 2000 tokens vs 8000
                 autoCompress = true,
-                maxTokenBudget = 100_000 // Could be configurable in SessionConfig
+                maxTokenBudget = 18_000 // Leave headroom for tools (~700), screen (~5-10K), and response
             )
             val historyManager = HistoryManager(historyConfig)
             Log.d(TAG, "Created HistoryManager")
@@ -117,23 +115,22 @@ data class SessionServices(
         /**
          * Register all built-in tools in the registry.
          * 
-         * TODO: Consider using ServiceLoader pattern when we need plugin tools.
-         * Current hardcoded approach is acceptable for ~8 built-in tools.
+         * Uses the consolidated tool pattern from pragmatic_tool_design.md:
+         * - complete_task: Agent metatool for finishing tasks
+         * - mobile_action: All UI interactions (click, type, swipe, system_button, wait)
+         * - app_control: App discovery and launching (list_apps, open_app)
          */
         private fun ToolRegistry.registerBuiltInTools() {
-            // Core Mobile-Agent tools
-            register(ClickTool())
-            register(TypeTool())
-            register(ScrollTool())
-            register(SwipeTool())
-            register(BackTool())
-            register(HomeTool())
-            register(WaitTool())
+            // P0: Agent metatool
+            register(CompleteTaskTool())
             
-            // Meta tools
-            register(CompleteTaskTool())  // For signaling task completion
+            // P0: Consolidated UI interactions (replaces click, type, swipe, scroll, back, home, wait)
+            register(MobileActionTool())
             
-            Log.d(TAG, "Registered ${size()} built-in tools")
+            // P0: App control (list_apps, open_app)
+            register(AppControlTool())
+            
+            Log.d(TAG, "Registered ${size()} built-in tools: ${getNames().joinToString()}")
         }
     }
     

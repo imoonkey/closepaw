@@ -24,22 +24,29 @@ sealed interface UIAction {
     ) : UIAction
     
     /**
-     * Type text into an element.
+     * Long press on an element by its index.
      */
-    data class Type(
+    data class LongClick(
         val elementIndex: Int,
-        val text: String
+        val durationMs: Long = 1000
     ) : UIAction
     
     /**
-     * Scroll in a direction.
+     * Type text into a field.
+     * 
+     * @param text The text to type
+     * @param elementIndex Optional element to focus first. If null, types into current focus.
      */
-    data class Scroll(
-        val direction: ScrollDirection
+    data class Type(
+        val text: String,
+        val elementIndex: Int? = null
     ) : UIAction
     
     /**
      * Swipe from one point to another.
+     * 
+     * Note: Scroll functionality is implemented via swipe - use appropriate
+     * start/end coordinates to achieve scrolling behavior.
      */
     data class Swipe(
         val startX: Int,
@@ -65,21 +72,12 @@ sealed interface UIAction {
 }
 
 /**
- * ScrollDirection - Direction for scroll actions.
- */
-enum class ScrollDirection {
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT
-}
-
-/**
  * SystemButtonType - System buttons that can be pressed.
  */
 enum class SystemButtonType {
     BACK,
     HOME,
-    RECENTS
+    RECENTS,
+    ENTER  // Enter/Return key
 }
 

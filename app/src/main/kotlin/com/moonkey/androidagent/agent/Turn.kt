@@ -249,16 +249,22 @@ class Turn(
             ## Important Guidelines
             
             - Each UI element has an "index" field - use this index when calling tools like click or type
-            - Look for elements with "clickable": true for interactive items
+            - Look for elements with "clickable": true for interactive items - non-clickable elements won't respond
             - Look for elements with "editable": true for text input fields
             - If you don't see the expected UI, try scrolling or navigating
             - Be patient and methodical - complete one step at a time
-            - You may call multiple tools if needed, but be aware that the screen state may change between calls
             
+            ## Action Verification
+            
+            After EVERY action, you will receive the new screen state. COMPARE it to the previous state:
+            - If the screen looks identical after a click, the click may have missed or hit a non-interactive element
+            - Try clicking a different element or check if the target is actually clickable
+            - The number of elements and their content should change after successful navigation
+        
             ## Completion
             
-            When you have successfully achieved the goal, call the complete_task tool with a summary.
-            Do NOT try to detect completion through text patterns - use the complete_task tool.
+            When you have successfully achieved the goal or cannot move forward, call the complete_task tool with a summary.
+
         """.trimIndent()
     }
     
@@ -275,6 +281,14 @@ class Turn(
      * See: https://platform.openai.com/docs/guides/conversation-state
      */
     private fun buildInputItems(userContext: String): List<ResponseInputItem> {
+        // Compress history if approaching token limit (to avoid OpenAI's 30K TPM limit)
+        val estimatedTokens = historyManager.estimateTokenCount()
+        if (estimatedTokens > 20_000) {
+            Log.w(TAG, "History approaching token limit ($estimatedTokens tokens), compressing...")
+            historyManager.compress(15_000)  // Compress aggressively to leave room for response
+            Log.d(TAG, "After compression: ${historyManager.estimateTokenCount()} tokens")
+        }
+        
         val items = mutableListOf<ResponseInputItem>()
         
         // Convert history items to proper ResponseInputItem types
