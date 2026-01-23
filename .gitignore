@@ -97,7 +97,7 @@ lint/tmp/
 *.bak
 
 # Kotlin
-./kotlin
+.kotlin/
 
 # env config
 .env
