@@ -466,7 +466,8 @@ Supported intent types:
 
 3. **Implement `mobile_action`** ✅
    - Created action handlers for: click, long_press, type, swipe, system_button, wait
-   - Scroll intentionally omitted (subset of swipe)
+   - Scroll fully removed from codebase (UIAction.Scroll, ScrollDirection deleted)
+   - For scrolling behavior, use swipe with appropriate start/end coordinates
    - Added `UIAction.LongClick` to platform
 
 4. **Implement `app_control`** ✅
@@ -485,26 +486,22 @@ Supported intent types:
 
 ```
 tool/
-├── BaseTool.kt              # Update: add ActionHandler pattern
+├── BaseTool.kt              # Base class for simple tools
+├── MultiActionTool.kt       # Base class for action-dispatching tools
 ├── ToolSpec.kt              # Keep as-is
 ├── ToolRegistry.kt          # Keep as-is
 ├── ToolRouter.kt            # Keep as-is
-├── handlers/                # NEW directory for action handlers
+├── handlers/                # Action handlers for multi-action tools
 │   ├── ActionHandler.kt     # Interface
 │   ├── UIActionInvocation.kt  # Shared invocation for UI actions
 │   └── DataQueryInvocation.kt # Shared invocation for data queries
-├── impl/
-│   ├── CompleteTaskTool.kt  # Update: add status param
-│   ├── MobileActionTool.kt  # NEW: consolidated simulation actions
-│   ├── AppControlTool.kt    # NEW: list_apps, open_app
-│   └── FireIntentTool.kt    # NEW (P1): intent firing
-└── (DELETE old individual tools after migration)
-    ├── ClickTool.kt         # -> MobileActionTool
-    ├── TypeTool.kt          # -> MobileActionTool
-    ├── SwipeTool.kt         # -> MobileActionTool
-    ├── ScrollTool.kt        # DELETE (swipe covers it)
-    ├── WaitTool.kt          # -> MobileActionTool
-    └── NavigationTools.kt   # -> MobileActionTool (system_button)
+└── impl/
+    ├── CompleteTaskTool.kt  # Agent metatool with status param
+    ├── MobileActionTool.kt  # Consolidated: click, long_press, type, swipe, system_button, wait
+    └── AppControlTool.kt    # App management: list_apps, open_app
+
+Legacy tools DELETED (consolidated into MobileActionTool):
+- ClickTool.kt, TypeTool.kt, SwipeTool.kt, ScrollTool.kt, WaitTool.kt, NavigationTools.kt
 ```
 
 ---

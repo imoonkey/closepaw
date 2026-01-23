@@ -231,7 +231,9 @@ class MainActivity : ComponentActivity() {
         // Handle fresh_session request - clear any existing session before starting new one
         if (intent.getBooleanExtra(EXTRA_FRESH_SESSION, false)) {
             Log.d(TAG, "Fresh session requested, clearing existing state")
-            clearCurrentSession()
+            lifecycleScope.launch {
+                clearCurrentSession()
+            }
         }
         
         intent.getStringExtra(EXTRA_GOAL)?.let { goalText ->
@@ -253,17 +255,20 @@ class MainActivity : ComponentActivity() {
     /**
      * Clear the current session and conversation state.
      * Used when starting a fresh session from intents (e.g., dev.sh, debug-run.sh).
+     * 
+     * This is a suspending function to ensure proper ordering - the old session
+     * must be shutdown before clearing state to avoid race conditions.
      */
-    private fun clearCurrentSession() {
-        // Shutdown existing session if running
+    private suspend fun clearCurrentSession() {
+        // Shutdown existing session if running and wait for completion
         currentSession?.let { session ->
-            lifecycleScope.launch {
-                try {
-                    session.submit(Op.Shutdown)
-                    Log.d(TAG, "Existing session shutdown requested")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error shutting down session: ${e.message}")
-                }
+            try {
+                session.submit(Op.Shutdown)
+                // Brief delay to allow shutdown to propagate
+                kotlinx.coroutines.delay(100)
+                Log.d(TAG, "Existing session shutdown completed")
+            } catch (e: Exception) {
+                Log.w(TAG, "Error shutting down session: ${e.message}")
             }
         }
         currentSession = null

@@ -16,6 +16,51 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
+ * Well-known app aliases for common search terms.
+ * 
+ * Shared between list_apps (for filtering) and open_app (for resolution).
+ */
+private object AppAliases {
+    /**
+     * Maps common search terms to package names for direct resolution.
+     */
+    val PACKAGE_ALIASES = mapOf(
+        "google maps" to "com.google.android.apps.maps",
+        "maps" to "com.google.android.apps.maps",
+        "chrome" to "com.android.chrome",
+        "google chrome" to "com.android.chrome",
+        "browser" to "com.android.chrome",
+        "gmail" to "com.google.android.gm",
+        "email" to "com.google.android.gm",
+        "youtube" to "com.google.android.youtube",
+        "play store" to "com.android.vending",
+        "google play" to "com.android.vending",
+        "files" to "com.google.android.apps.nbu.files",
+        "phone" to "com.android.dialer",
+        "dialer" to "com.android.dialer",
+        "camera" to "com.android.camera",
+        "settings" to "com.android.settings",
+        "messages" to "com.google.android.apps.messaging",
+        "sms" to "com.google.android.apps.messaging"
+    )
+    
+    /**
+     * Maps search terms to expanded search terms for list_apps filtering.
+     * Includes multilingual aliases.
+     */
+    val SEARCH_ALIASES = mapOf(
+        "map" to listOf("maps", "地图", "com.google.android.apps.maps"),
+        "maps" to listOf("map", "地图", "com.google.android.apps.maps"),
+        "browser" to listOf("chrome", "浏览器", "com.android.chrome"),
+        "search" to listOf("google", "chrome", "browser"),
+        "video" to listOf("youtube", "tiktok"),
+        "email" to listOf("gmail", "mail"),
+        "chat" to listOf("whatsapp", "wechat", "微信", "messenger"),
+        "music" to listOf("spotify", "music", "yt music")
+    )
+}
+
+/**
  * AppControlTool - Tool for app discovery and launching.
  * 
  * Actions:
@@ -103,28 +148,13 @@ class ListAppsActionHandler : ActionHandler {
     private suspend fun queryApps(context: ToolExecutionContext, filter: String): String {
         val apps = context.platform.getInstalledApps()
         
-        // Debug: log total apps and first few
         Log.d(TAG, "getInstalledApps returned ${apps.size} apps")
-        apps.take(5).forEach { app ->
-            Log.d(TAG, "  App: ${app.label} (${app.packageName})")
-        }
         
         val filtered = if (filter.isNotEmpty()) {
             val searchTerm = filter.lowercase()
             
-            // Well-known aliases for common search terms
-            val knownAliases = mapOf(
-                "map" to listOf("maps", "地图", "com.google.android.apps.maps"),
-                "maps" to listOf("map", "地图", "com.google.android.apps.maps"),
-                "browser" to listOf("chrome", "浏览器", "com.android.chrome"),
-                "search" to listOf("google", "chrome", "browser"),
-                "video" to listOf("youtube", "tiktok"),
-                "email" to listOf("gmail", "mail"),
-                "chat" to listOf("whatsapp", "wechat", "微信", "messenger"),
-                "music" to listOf("spotify", "music", "yt music")
-            )
-            
-            val aliasTerms = knownAliases[searchTerm] ?: emptyList()
+            // Use shared aliases for expanded search terms
+            val aliasTerms = AppAliases.SEARCH_ALIASES[searchTerm] ?: emptyList()
             val allSearchTerms = listOf(searchTerm) + aliasTerms
             
             apps.filter { app ->
@@ -137,7 +167,6 @@ class ListAppsActionHandler : ActionHandler {
             apps
         }
         
-        // Debug: log filter results
         if (filter.isNotEmpty()) {
             Log.d(TAG, "Filter '$filter' matched ${filtered.size} apps")
         }
@@ -250,24 +279,7 @@ class OpenAppInvocation(
             }
             // Strategy 4: Try well-known app aliases (handles "Google Maps" -> maps, "Chrome" etc.)
             ?: run {
-                val knownAliases = mapOf(
-                    "google maps" to "com.google.android.apps.maps",
-                    "maps" to "com.google.android.apps.maps",
-                    "chrome" to "com.android.chrome",
-                    "google chrome" to "com.android.chrome",
-                    "gmail" to "com.google.android.gm",
-                    "youtube" to "com.google.android.youtube",
-                    "play store" to "com.android.vending",
-                    "google play" to "com.android.vending",
-                    "files" to "com.google.android.apps.nbu.files",
-                    "phone" to "com.android.dialer",
-                    "dialer" to "com.android.dialer",
-                    "camera" to "com.android.camera",
-                    "settings" to "com.android.settings",
-                    "messages" to "com.google.android.apps.messaging",
-                    "sms" to "com.google.android.apps.messaging"
-                )
-                val aliasPackage = knownAliases[searchTerm]
+                val aliasPackage = AppAliases.PACKAGE_ALIASES[searchTerm]
                 if (aliasPackage != null) {
                     apps.find { it.packageName == aliasPackage }
                 } else {

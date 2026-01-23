@@ -36,8 +36,8 @@ Actions:
 - click: Tap on element by index (element_index required)
 - long_press: Long press element (element_index required, duration_ms optional)
 - type: Input text into field (text required, element_index optional to focus first)
-- swipe: Swipe gesture (start and end coordinates required as [x,y] arrays)
-- system_button: Press system button (button required: back/home/enter/menu)
+- swipe: Swipe gesture (start and end coordinates required as [x,y] arrays). Coordinates beyond screen bounds are clamped.
+- system_button: Press system button (button required: back/home/enter/recents)
 - wait: Wait for UI updates (duration_ms optional, default 1000ms)
 """.trimIndent()
     
@@ -75,7 +75,7 @@ Actions:
                 "button" to PropertySpec(
                     type = "string",
                     description = "System button for system_button action",
-                    enum = listOf("back", "home", "enter", "menu")
+                    enum = listOf("back", "home", "enter", "recents")
                 ),
                 "duration_ms" to PropertySpec(
                     type = "integer",
@@ -266,7 +266,7 @@ class SystemButtonActionHandler : ActionHandler {
             return ValidationResult.Invalid("system_button action requires button parameter")
         }
         val button = params.optString("button", "").lowercase()
-        val validButtons = listOf("back", "home", "enter", "menu")
+        val validButtons = listOf("back", "home", "enter", "recents")
         if (button !in validButtons) {
             return ValidationResult.Invalid(
                 "button must be one of: ${validButtons.joinToString()}"
@@ -281,7 +281,7 @@ class SystemButtonActionHandler : ActionHandler {
             "back" -> SystemButtonType.BACK
             "home" -> SystemButtonType.HOME
             "enter" -> SystemButtonType.ENTER
-            "menu" -> SystemButtonType.RECENTS
+            "recents" -> SystemButtonType.RECENTS
             else -> SystemButtonType.BACK // Shouldn't happen after validation
         }
         

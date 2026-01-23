@@ -43,14 +43,10 @@ sealed interface UIAction {
     ) : UIAction
     
     /**
-     * Scroll in a direction.
-     */
-    data class Scroll(
-        val direction: ScrollDirection
-    ) : UIAction
-    
-    /**
      * Swipe from one point to another.
+     * 
+     * Note: Scroll functionality is implemented via swipe - use appropriate
+     * start/end coordinates to achieve scrolling behavior.
      */
     data class Swipe(
         val startX: Int,
@@ -73,16 +69,6 @@ sealed interface UIAction {
     data class Wait(
         val durationMs: Long
     ) : UIAction
-}
-
-/**
- * ScrollDirection - Direction for scroll actions.
- */
-enum class ScrollDirection {
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT
 }
 
 /**
