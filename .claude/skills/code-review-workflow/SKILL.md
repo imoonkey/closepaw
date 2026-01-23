@@ -1,6 +1,6 @@
 # Code Review Workflow
 
-Systematic review process. Merged from `sop/diff_review.md` and `sop/codebase_review.md`.
+Systematic review process.
 
 ## Review Mindset
 
