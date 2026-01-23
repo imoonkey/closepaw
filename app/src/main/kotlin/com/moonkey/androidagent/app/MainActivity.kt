@@ -52,6 +52,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_API_KEY = "api_key"
         const val EXTRA_GOAL = "goal"
         const val EXTRA_AUTO_START = "auto_start"
+        const val EXTRA_FRESH_SESSION = "fresh_session"
         
         private const val PREFS_NAME = "agent_prefs"
         private const val KEY_API_KEY = "api_key"
@@ -227,6 +228,12 @@ class MainActivity : ComponentActivity() {
             }
         }
         
+        // Handle fresh_session request - clear any existing session before starting new one
+        if (intent.getBooleanExtra(EXTRA_FRESH_SESSION, false)) {
+            Log.d(TAG, "Fresh session requested, clearing existing state")
+            clearCurrentSession()
+        }
+        
         intent.getStringExtra(EXTRA_GOAL)?.let { goalText ->
             if (goalText.isNotBlank()) {
                 Log.d(TAG, "Goal set from intent: $goalText")
@@ -241,6 +248,37 @@ class MainActivity : ComponentActivity() {
         if (intent.getBooleanExtra(EXTRA_AUTO_START, false)) {
             Log.d(TAG, "Auto-start requested")
         }
+    }
+    
+    /**
+     * Clear the current session and conversation state.
+     * Used when starting a fresh session from intents (e.g., dev.sh, debug-run.sh).
+     */
+    private fun clearCurrentSession() {
+        // Shutdown existing session if running
+        currentSession?.let { session ->
+            lifecycleScope.launch {
+                try {
+                    session.submit(Op.Shutdown)
+                    Log.d(TAG, "Existing session shutdown requested")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error shutting down session: ${e.message}")
+                }
+            }
+        }
+        currentSession = null
+        
+        // Clear conversation UI if ViewModel is initialized
+        if (::viewModel.isInitialized) {
+            viewModel.clearConversation()
+        }
+        
+        // Clear session recording if manager is initialized
+        if (::sessionHistoryManager.isInitialized) {
+            sessionHistoryManager.getRecordingService().clearSession()
+        }
+        
+        Log.d(TAG, "Current session cleared")
     }
     
     /**

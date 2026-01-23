@@ -24,11 +24,22 @@ sealed interface UIAction {
     ) : UIAction
     
     /**
-     * Type text into an element.
+     * Long press on an element by its index.
+     */
+    data class LongClick(
+        val elementIndex: Int,
+        val durationMs: Long = 1000
+    ) : UIAction
+    
+    /**
+     * Type text into a field.
+     * 
+     * @param text The text to type
+     * @param elementIndex Optional element to focus first. If null, types into current focus.
      */
     data class Type(
-        val elementIndex: Int,
-        val text: String
+        val text: String,
+        val elementIndex: Int? = null
     ) : UIAction
     
     /**
@@ -80,6 +91,7 @@ enum class ScrollDirection {
 enum class SystemButtonType {
     BACK,
     HOME,
-    RECENTS
+    RECENTS,
+    ENTER  // Enter/Return key
 }
 
