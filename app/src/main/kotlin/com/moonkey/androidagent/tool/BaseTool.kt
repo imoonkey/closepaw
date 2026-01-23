@@ -21,9 +21,6 @@ abstract class BaseTool : ToolSpec {
      * This serves as a defensive fallback for edge cases where parameters are
      * technically valid but cannot produce a meaningful action.
      * 
-     * For example, SwipeTool returns null if coordinates are negative as a
-     * defensive check, even though validate() should have caught this.
-     * 
      * If null is returned, the invocation will fail with "Failed to create UI action".
      * 
      * @param params The validated parameters from the tool call
