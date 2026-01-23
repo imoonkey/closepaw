@@ -20,7 +20,7 @@ Sync documentation with code changes before commits.
 3. **Update relevant docs**
    - Keep same detail level
    - Don't over-document minor changes
-   - Link instead of duplicate
+   - DRY: Link instead of duplicate
 
 4. **Verify**
    - Doc links work
@@ -41,9 +41,9 @@ Updates made:
 Verification: [OK/ISSUES]
 ```
 
-## Principles (from sop/doc_update.md)
+## Principles
 
-- `doc/main`, `doc/dev`: Must stay current
+- `doc/main`, `doc/dev`: Must stay current, should be best onboarding resources
 - `doc/todo/active_proj`: Reflect latest status
 - `doc/archive`: OK if outdated
 - Keep discussion at appropriate detail level

@@ -47,7 +47,7 @@ Add exponential backoff retry for transient LLM failures.
 1. Add `RetryableError` sealed class variant
    Risk: Low
 
-### Phase 2: Retry Logic  
+### Phase 2: Retry Logic
 1. Create `withRetry()` extension
 2. Integrate with LLM calls
    Risk: Medium (timeout handling)
