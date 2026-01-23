@@ -94,7 +94,7 @@ data class SessionServices(
             val historyConfig = HistoryConfig(
                 defaultTruncationPolicy = TruncationPolicy.AGGRESSIVE, // 2000 tokens vs 8000
                 autoCompress = true,
-                maxTokenBudget = 25_000 // Keep well below OpenAI's 30K TPM limit
+                maxTokenBudget = 18_000 // Leave headroom for tools (~700), screen (~5-10K), and response
             )
             val historyManager = HistoryManager(historyConfig)
             Log.d(TAG, "Created HistoryManager")

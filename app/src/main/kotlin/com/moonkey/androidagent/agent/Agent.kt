@@ -141,16 +141,18 @@ class Agent(
 
             Log.d(TAG, "Turn $turnCount: Screen has ${snapshot.elements.size} elements")
             
-            // Log all elements for debugging - helps understand element indexing issues
-            Log.d(TAG, "Turn $turnCount: Elements (first 20):")
-            snapshot.elements.take(20).forEach { elem ->
-                val text = elem.text.ifEmpty { elem.description }.take(25)
-                val flags = buildString {
-                    if (elem.isClickable) append("C")
-                    if (elem.isEditable) append("E")
-                    if (elem.isScrollable) append("S")
+            // Log element details only in debug mode to avoid PII exposure in production
+            if (config.debugMode) {
+                Log.d(TAG, "Turn $turnCount: Elements (first 20):")
+                snapshot.elements.take(20).forEach { elem ->
+                    val text = elem.text.ifEmpty { elem.description }.take(25)
+                    val flags = buildString {
+                        if (elem.isClickable) append("C")
+                        if (elem.isEditable) append("E")
+                        if (elem.isScrollable) append("S")
+                    }
+                    Log.d(TAG, "  [${elem.index}] \"$text\" $flags @(${elem.center.x},${elem.center.y})")
                 }
-                Log.d(TAG, "  [${elem.index}] \"$text\" $flags @(${elem.center.x},${elem.center.y})")
             }
 
             // Check cancellation
@@ -483,34 +485,68 @@ class Agent(
     
     /**
      * Format a human-readable description for an action.
+     * 
+     * Handles the consolidated tool schema:
+     * - mobile_action: click, long_press, type, swipe, system_button, wait
+     * - app_control: list_apps, open_app
+     * - complete_task: finish task with status
      */
     private fun formatActionDescription(toolCall: ToolCallRequest): String {
         return when (toolCall.name.lowercase()) {
-            "click" -> {
-                val elementId = toolCall.arguments.optString("element_id", "")
-                "Click on element $elementId"
+            "mobile_action" -> {
+                val action = toolCall.arguments.optString("action", "")
+                when (action) {
+                    "click" -> {
+                        val idx = toolCall.arguments.optInt("element_index", -1)
+                        "Click element $idx"
+                    }
+                    "long_press" -> {
+                        val idx = toolCall.arguments.optInt("element_index", -1)
+                        "Long press element $idx"
+                    }
+                    "type" -> {
+                        val text = toolCall.arguments.optString("text", "").take(30)
+                        "Type \"$text\""
+                    }
+                    "swipe" -> {
+                        val start = toolCall.arguments.optJSONArray("start")
+                        val end = toolCall.arguments.optJSONArray("end")
+                        if (start != null && end != null) {
+                            "Swipe from (${start.optInt(0)},${start.optInt(1)}) to (${end.optInt(0)},${end.optInt(1)})"
+                        } else {
+                            "Swipe gesture"
+                        }
+                    }
+                    "system_button" -> {
+                        val button = toolCall.arguments.optString("button", "")
+                        "Press $button button"
+                    }
+                    "wait" -> {
+                        val ms = toolCall.arguments.optLong("duration_ms", 1000)
+                        "Wait ${ms}ms"
+                    }
+                    else -> "Mobile action: $action"
+                }
             }
-            "type" -> {
-                val text = toolCall.arguments.optString("text", "").take(30)
-                "Type \"$text\""
-            }
-            "scroll" -> {
-                val direction = toolCall.arguments.optString("direction", "down")
-                "Scroll $direction"
-            }
-            "swipe" -> {
-                val direction = toolCall.arguments.optString("direction", "")
-                "Swipe $direction"
-            }
-            "back" -> "Press back button"
-            "home" -> "Go to home screen"
-            "wait" -> {
-                val ms = toolCall.arguments.optInt("milliseconds", 1000)
-                "Wait ${ms}ms"
+            "app_control" -> {
+                val action = toolCall.arguments.optString("action", "")
+                when (action) {
+                    "list_apps" -> {
+                        val filter = toolCall.arguments.optString("filter", "")
+                        if (filter.isNotEmpty()) "List apps matching '$filter'" else "List all apps"
+                    }
+                    "open_app" -> {
+                        val name = toolCall.arguments.optString("app_name", "")
+                        val pkg = toolCall.arguments.optString("package_name", "")
+                        "Open app: ${name.ifEmpty { pkg }}"
+                    }
+                    else -> "App control: $action"
+                }
             }
             "complete_task" -> {
-                val summary = toolCall.arguments.optString("summary", "Done")
-                "Complete: $summary"
+                val status = toolCall.arguments.optString("status", "")
+                val answer = toolCall.arguments.optString("answer", "").take(50)
+                "Complete ($status): $answer"
             }
             else -> "Execute ${toolCall.name}"
         }

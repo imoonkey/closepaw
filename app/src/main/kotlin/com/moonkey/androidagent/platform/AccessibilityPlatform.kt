@@ -56,7 +56,6 @@ class AccessibilityPlatform(
             is UIAction.ClickAt -> performClickAt(action.x, action.y)
             is UIAction.LongClick -> performLongClick(action, snapshot)
             is UIAction.Type -> performType(action, snapshot)
-            is UIAction.Scroll -> performScroll(action)
             is UIAction.Swipe -> performSwipe(action)
             is UIAction.SystemButton -> performSystemButton(action)
             is UIAction.Wait -> performWait(action)
@@ -385,55 +384,13 @@ class AccessibilityPlatform(
         return search(root, shouldRecycle = false)
     }
     
-    private suspend fun performScroll(action: UIAction.Scroll): ActionResult {
-        val display = getDisplayInfo()
-        val centerX = display.widthPixels / 2f
-        
-        // Use safe regions to avoid triggering system gestures
-        // Status bar is typically top ~100px, nav bar is bottom ~150px
-        // Avoid top 0.35 (status bar pull-down zone) and bottom 0.15 (nav gestures)
-        // TODO: Consider using WindowInsets API (API 29+) for actual system gesture exclusion zones.
-        //       Current hardcoded values work well for standard phone form factors but may need
-        //       adjustment for tablets, phones with notches, or landscape mode.
-        val (startY, endY) = when (action.direction) {
-            ScrollDirection.DOWN -> {
-                // Swipe up to scroll down: start from lower middle, end at upper middle
-                display.heightPixels * 0.75f to display.heightPixels * 0.35f
-            }
-            ScrollDirection.UP -> {
-                // Swipe down to scroll up: start from upper middle (but not too high!), end at lower
-                display.heightPixels * 0.45f to display.heightPixels * 0.85f
-            }
-            ScrollDirection.LEFT, ScrollDirection.RIGHT -> {
-                // Horizontal scroll - use center Y
-                display.heightPixels * 0.5f to display.heightPixels * 0.5f
-            }
-        }
-        
-        val (startX, endX) = when (action.direction) {
-            ScrollDirection.LEFT -> {
-                // Swipe right to left to scroll left
-                display.widthPixels * 0.8f to display.widthPixels * 0.2f
-            }
-            ScrollDirection.RIGHT -> {
-                // Swipe left to right to scroll right
-                display.widthPixels * 0.2f to display.widthPixels * 0.8f
-            }
-            else -> centerX to centerX
-        }
-        
-        Log.d(TAG, "Performing scroll ${action.direction}: ($startX, $startY) -> ($endX, $endY)")
-        return performSwipeGesture(startX, startY, endX, endY, SWIPE_GESTURE_DURATION_MS, isScroll = true)
-    }
-    
     private suspend fun performSwipe(action: UIAction.Swipe): ActionResult {
         return performSwipeGesture(
             action.startX.toFloat(),
             action.startY.toFloat(),
             action.endX.toFloat(),
             action.endY.toFloat(),
-            action.durationMs,
-            isScroll = false
+            action.durationMs
         )
     }
     
@@ -465,15 +422,23 @@ class AccessibilityPlatform(
     
     /**
      * Perform ENTER key press on the currently focused element.
+     * 
+     * Uses AccessibilityNodeInfo.ACTION_IME_ENTER (API 30+) for proper IME action,
+     * with fallback to ACTION_CLICK for older devices.
      */
     private fun performEnterKey(): ActionResult {
         val root = service.rootInActiveWindow ?: return ActionResult.Failure("No active window")
         
-        // Find the focused element and perform click (simulates Enter)
+        // Find the focused element
         val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
         if (focused != null) {
-            // Try IME action first (works for text fields with actionDone/actionGo etc)
-            val imeResult = focused.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            // Try ACTION_IME_ENTER first (API 30+) - properly triggers IME actions like Done/Go/Search
+            val imeResult = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                focused.performAction(AccessibilityNodeInfo.ACTION_IME_ENTER)
+            } else {
+                // Fallback for older devices: try ACTION_CLICK which sometimes works for submit
+                focused.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            }
             focused.recycle()
             
             return if (imeResult) {
@@ -513,15 +478,10 @@ class AccessibilityPlatform(
         startY: Float,
         endX: Float,
         endY: Float,
-        durationMs: Long,
-        isScroll: Boolean = false
+        durationMs: Long
     ): ActionResult {
         // Show visualization BEFORE the action
-        if (isScroll) {
-            visualizer?.showScrollAsSwipe(startX, startY, endX, endY, durationMs)
-        } else {
-            visualizer?.showSwipe(startX, startY, endX, endY, durationMs)
-        }
+        visualizer?.showSwipe(startX, startY, endX, endY, durationMs)
         
         val path = Path().apply {
             moveTo(startX, startY)
