@@ -423,9 +423,10 @@ class AccessibilityPlatform(
     /**
      * Perform ENTER key press on the currently focused element.
      * 
-     * Uses AccessibilityNodeInfo.ACTION_IME_ENTER (API 30+) for proper IME action,
+     * Uses AccessibilityAction.ACTION_IME_ENTER (API 30+) for proper IME action,
      * with fallback to ACTION_CLICK for older devices.
      */
+    @Suppress("DEPRECATION")
     private fun performEnterKey(): ActionResult {
         val root = service.rootInActiveWindow ?: return ActionResult.Failure("No active window")
         
@@ -434,7 +435,8 @@ class AccessibilityPlatform(
         if (focused != null) {
             // Try ACTION_IME_ENTER first (API 30+) - properly triggers IME actions like Done/Go/Search
             val imeResult = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                focused.performAction(AccessibilityNodeInfo.ACTION_IME_ENTER)
+                // ACTION_IME_ENTER is available via AccessibilityAction on API 30+
+                focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
             } else {
                 // Fallback for older devices: try ACTION_CLICK which sometimes works for submit
                 focused.performAction(AccessibilityNodeInfo.ACTION_CLICK)
