@@ -96,6 +96,10 @@ lint/tmp/
 *.swp
 *.bak
 
+# Kotlin
+.kotlin/
+
+# env config
 .env
 
 # project specific
