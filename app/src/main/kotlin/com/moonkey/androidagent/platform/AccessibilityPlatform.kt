@@ -385,6 +385,7 @@ class AccessibilityPlatform(
     }
     
     private suspend fun performSwipe(action: UIAction.Swipe): ActionResult {
+        Log.d(TAG, "Swipe: (${action.startX},${action.startY}) -> (${action.endX},${action.endY}), duration=${action.durationMs}ms")
         return performSwipeGesture(
             action.startX.toFloat(),
             action.startY.toFloat(),
