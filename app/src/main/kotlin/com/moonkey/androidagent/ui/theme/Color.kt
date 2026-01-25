@@ -106,8 +106,15 @@ val ChatOutline = Color(0xFFE5E5E5)         // Clear border
 val ChatOutlineVariant = Color(0xFFEEEEEE)  // Subtle variant
 
 // Icon tints - Visible, not washed out
+// Note: ChatIconPrimary/Secondary are part of the design system for icon tints
+// even if not currently used - reserved for future consistency
 val ChatIconPrimary = Color(0xFF5D5D5D)     // Medium gray - visible!
 val ChatIconSecondary = Color(0xFF8E8E8E)   // Lighter but still visible
+
+// Send button active state (ChatGPT-style: pure black/white for high contrast)
+// These are intentionally high-contrast for the send button when text is entered
+val ChatSendButtonActive = Color(0xFF000000)     // Pure black when has text
+val ChatSendButtonOnActive = Color(0xFFFFFFFF)   // Pure white icon on black
 
 // ============================================
 // Chat UI Dark Theme Colors - Clean Dark

@@ -16,7 +16,7 @@ The current app navigation has several UX issues that make it unsuitable for pub
 ## Design Goals
 
 1. **Discoverability**: All features accessible via visible, tappable UI elements
-2. **Familiarity**: Follow established patterns from ChatGPT, Claude, Manus
+2. **Familiarity**: Follow established patterns from ChatGPT, Claude
 3. **Efficiency**: Quick access to frequent actions (new chat, settings)
 4. **Simplicity**: Clean interface that doesn't overwhelm
 
@@ -86,7 +86,7 @@ Instead of bottom sheets, use a side navigation drawer that contains:
 │  │ [X]      Sessions           │    │  ← Header
 │  └─────────────────────────────┘    │
 │                                      │
-│  [+ Start New Session]               │  ← Primary action
+│  [+ New Conversation]                │  ← Primary action
 │                                      │
 │  ─────────────────────────────────  │
 │  Recent                              │
@@ -121,7 +121,7 @@ Instead of bottom sheets, use a side navigation drawer that contains:
 **Top Section:**
 - Close button (X) or back arrow
 - "Sessions" title
-- "Start New Session" button
+- "New Conversation" button
 
 **Middle Section (scrollable):**
 - Session list grouped by time (Today, Yesterday, Previous 7 Days, etc.)
@@ -170,9 +170,8 @@ New component that combines session history and settings access:
 
 ```kotlin
 @Composable
-fun NavigationDrawer(
+fun NavigationDrawerContent(
     sessions: List<SessionInfo>,
-    currentSessionId: String?,
     currentModel: String,
     appVersion: String,
     onSessionSelect: (SessionInfo) -> Unit,
@@ -180,8 +179,11 @@ fun NavigationDrawer(
     onDeleteSession: (SessionInfo) -> Unit,
     onSettingsClick: () -> Unit,
     onClose: () -> Unit,
+    modifier: Modifier = Modifier
 )
 ```
+
+Note: The `currentSessionId` parameter was deferred from the initial implementation as session highlighting is not yet needed.
 
 ### 3. ChatScreen.kt
 
@@ -292,13 +294,13 @@ No major changes needed. Settings sheet remains a bottom sheet, accessed via the
 ```
 [Old Flow]
 1. Tap history icon → Bottom sheet opens
-2. Tap "Start New Session" button
+2. Tap "New Conversation" button
 
 [New Flow - Quick Access]
 1. Tap (+) button in header → New session starts
    OR
 1. Tap menu button (≡) → Drawer opens
-2. Tap "Start New Session" → New session starts, drawer closes
+2. Tap "New Conversation" → New session starts, drawer closes
 ```
 
 ### Flow 4: Delete Session

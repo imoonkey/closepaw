@@ -91,11 +91,15 @@ class SmartCapsuleManager(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-                // FLAG_NOT_TOUCH_MODAL: touches outside this window pass through to underlying apps
-                // FLAG_NOT_FOCUSABLE: don't steal focus from underlying apps
-                // This allows both:
-                // 1. Capsule buttons to receive touches
-                // 2. Gestures outside the capsule area to reach underlying apps
+                // Window flags explanation:
+                // - FLAG_NOT_FOCUSABLE: don't steal focus from underlying apps
+                // - FLAG_NOT_TOUCH_MODAL: touches INSIDE the capsule area are received by the
+                //   overlay (making buttons interactive), while touches OUTSIDE this window
+                //   pass through to underlying apps
+                // 
+                // This replaces the previous FLAG_NOT_TOUCHABLE which made the ENTIRE overlay
+                // non-interactive. The change enables capsule buttons to be tappable while
+                // still allowing gestures outside the capsule to interact with underlying apps.
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
