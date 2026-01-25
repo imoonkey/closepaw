@@ -130,14 +130,14 @@ fun NavigationDrawerContent(
                 }
             }
             
-            // Settings entry at bottom
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            
+            // Settings entry at bottom - no divider, uses surface background to distinguish
             SettingsEntry(
                 currentModel = currentModel,
                 appVersion = appVersion,
                 onClick = onSettingsClick,
-                modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                modifier = Modifier
+                    .padding(bottom = 8.dp)  // Consistent bottom spacing
+                    .windowInsetsPadding(WindowInsets.navigationBars)
             )
         }
     }
@@ -175,19 +175,23 @@ private fun DrawerHeader(
 }
 
 /**
- * New session button.
+ * New session button - Outlined style (like ChatGPT).
  */
 @Composable
 private fun NewSessionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Button(
+    androidx.compose.material3.OutlinedButton(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline
+        ),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = MaterialTheme.colorScheme.onSurface
         )
     ) {
         Icon(
@@ -215,7 +219,7 @@ private fun DrawerSessionItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.surfaceVariant,  // Full opacity
         shape = RoundedCornerShape(8.dp)
     ) {
         Row(
@@ -251,7 +255,7 @@ private fun DrawerSessionItem(
                         modifier = Modifier
                             .size(3.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant)
                     )
                     
                     Text(
@@ -271,7 +275,7 @@ private fun DrawerSessionItem(
                     imageVector = Icons.Rounded.Delete,
                     contentDescription = "Delete session",
                     modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -298,13 +302,14 @@ private fun EmptySessionsMessage(
         Text(
             text = "Your chat history will appear here",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
 /**
  * Settings entry at bottom of drawer.
+ * Uses surface color (no fill) to distinguish from session items above.
  */
 @Composable
 private fun SettingsEntry(
@@ -313,41 +318,35 @@ private fun SettingsEntry(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Settings,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+        Icon(
+            imageVector = Icons.Outlined.Settings,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Settings",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
             )
             
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                
-                Text(
-                    text = "$currentModel • v$appVersion",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = "$currentModel • v$appVersion",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

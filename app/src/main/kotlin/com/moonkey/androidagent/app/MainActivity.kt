@@ -154,7 +154,8 @@ class MainActivity : ComponentActivity() {
                     
                     ModalBottomSheet(
                         onDismissRequest = { showSettings = false },
-                        sheetState = sheetState
+                        sheetState = sheetState,
+                        dragHandle = {}  // Hide default drag handle, use custom header instead
                     ) {
                         SettingsSheet(
                             apiKey = apiKey,
@@ -181,10 +182,6 @@ class MainActivity : ComponentActivity() {
                             isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
                             onAccessibilityClick = { openAccessibilitySettings() },
                             onOverlayClick = { openOverlaySettings() },
-                            onClearConversation = { 
-                                viewModel.clearConversation()
-                                showSettings = false
-                            },
                             onDismiss = { showSettings = false }
                         )
                     }

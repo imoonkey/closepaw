@@ -29,6 +29,9 @@ import androidx.compose.ui.unit.dp
  * Layout: [Menu] --- Title --- [New Chat]
  * - Menu button (left): Opens navigation drawer with history + settings
  * - New Chat button (right): Quick new conversation
+ * 
+ * Uses background color (not surface) for seamless visual integration
+ * with content area below.
  */
 @Composable
 fun ChatHeader(
@@ -41,7 +44,7 @@ fun ChatHeader(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars),
-        color = MaterialTheme.colorScheme.surface
+        color = MaterialTheme.colorScheme.background  // Use background for seamless look
     ) {
         Row(
             modifier = Modifier
@@ -58,17 +61,18 @@ fun ChatHeader(
                 Icon(
                     imageVector = Icons.Rounded.Menu,
                     contentDescription = "Open menu",
+                    modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             
             Spacer(modifier = Modifier.weight(1f))
             
-            // Title (center)
+            // Title (center) - slightly lighter weight for elegance
             Text(
                 text = "Android Agent",
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Medium,  // Lighter than SemiBold
                 color = MaterialTheme.colorScheme.onSurface
             )
             
@@ -83,6 +87,7 @@ fun ChatHeader(
                     Icon(
                         imageVector = Icons.Rounded.Add,
                         contentDescription = "New conversation",
+                        modifier = Modifier.size(24.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

@@ -51,6 +51,8 @@ fun MessageBubble(
 
 /**
  * UserBubble - Right-aligned user message.
+ * 
+ * Uses light gray bubble for a clean, modern look (not dark/heavy).
  */
 @Composable
 private fun UserBubble(
@@ -69,12 +71,12 @@ private fun UserBubble(
         ) {
             Surface(
                 shape = BubbleShapeUser,
-                color = MaterialTheme.colorScheme.primary
+                color = com.moonkey.androidagent.ui.theme.UserBubble  // Light gray bubble
             ) {
                 Text(
                     text = message.text,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = com.moonkey.androidagent.ui.theme.UserBubbleText,  // Dark text
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                 )
             }
@@ -83,7 +85,7 @@ private fun UserBubble(
             Text(
                 text = formatTime(message.timestamp),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

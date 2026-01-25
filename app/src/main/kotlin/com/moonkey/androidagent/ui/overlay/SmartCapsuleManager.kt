@@ -91,10 +91,13 @@ class SmartCapsuleManager(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                     WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-                // FLAG_NOT_TOUCHABLE is critical: ensures gestures pass through to underlying apps
-                // Without this, AccessibilityService.dispatchGesture may target our overlay instead
+                // FLAG_NOT_TOUCH_MODAL: touches outside this window pass through to underlying apps
+                // FLAG_NOT_FOCUSABLE: don't steal focus from underlying apps
+                // This allows both:
+                // 1. Capsule buttons to receive touches
+                // 2. Gestures outside the capsule area to reach underlying apps
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
             )

@@ -32,41 +32,41 @@ ui/theme/
 
 ## Color Palette
 
-Premium chat-focused palette with confident blue primary:
+Clean, modern palette inspired by ChatGPT and contemporary AI assistants:
 
 ### Light Theme
 
 ```kotlin
 val LightColorScheme = lightColorScheme(
-    // Primary - Confident blue
-    primary = Color(0xFF2563EB),
+    // Primary - Soft black for CTA (send button)
+    primary = Color(0xFF3B3B3B),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFDBEAFE),
-    onPrimaryContainer = Color(0xFF1E40AF),
+    primaryContainer = Color(0xFFF0F0F0),
+    onPrimaryContainer = Color(0xFF3B3B3B),
     
-    // Secondary - Success teal
-    secondary = Color(0xFF0D9488),
+    // Secondary - ChatGPT teal for success/accent
+    secondary = Color(0xFF10A37F),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFCCFBF1),
-    onSecondaryContainer = Color(0xFF115E59),
+    secondaryContainer = Color(0xFFE6F4F1),
+    onSecondaryContainer = Color(0xFF0D7355),
     
-    // Surface - Clean, minimal
-    surface = Color(0xFFFAFAFA),
-    onSurface = Color(0xFF171717),
-    surfaceVariant = Color(0xFFF5F5F5),
-    onSurfaceVariant = Color(0xFF525252),
+    // Surface - Pure white, unified
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF0D0D0D),
+    surfaceVariant = Color(0xFFF7F7F8),
+    onSurfaceVariant = Color(0xFF5D5D5D),
     
-    // Background
-    background = Color.White,
-    onBackground = Color(0xFF171717),
+    // Background - Pure white
+    background = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF0D0D0D),
     
     // Error
-    error = Color(0xFFDC2626),
+    error = Color(0xFFEF4146),
     onError = Color.White,
     
-    // Outline
-    outline = Color(0xFFD4D4D4),
-    outlineVariant = Color(0xFFE5E5E5)
+    // Outline - Visible borders
+    outline = Color(0xFFE5E5E5),
+    outlineVariant = Color(0xFFEEEEEE)
 )
 ```
 
@@ -74,13 +74,13 @@ val LightColorScheme = lightColorScheme(
 
 | Role | Color | Hex |
 |------|-------|-----|
-| Primary Blue | Confident blue | `#2563EB` |
-| Success Teal | Secondary | `#0D9488` |
-| Light Blue | Executing state | `#3B82F6` |
-| Purple | Long press | `#7C3AED` |
-| Indigo | Scroll actions | `#6366F1` |
-| Amber | Paused state | `#F59E0B` |
-| Error Red | Error state | `#DC2626` |
+| Primary (Send Button) | Soft black | `#3B3B3B` |
+| Success Teal | ChatGPT green | `#10A37F` |
+| Warning | Warm amber | `#F5A623` |
+| Error Red | Clear red | `#EF4146` |
+| Info Blue | Standard blue | `#2563EB` |
+| User Bubble | Light gray | `#EFEFEF` |
+| Icon Tint | Medium gray | `#5D5D5D` |
 
 ---
 
@@ -97,9 +97,9 @@ val AgentTypography = Typography(
         lineHeight = 36.sp
     ),
     
-    // Title - Header
+    // Title - Header (Medium weight for elegance)
     titleLarge = TextStyle(
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         fontSize = 20.sp,
         lineHeight = 28.sp
     ),
@@ -180,14 +180,15 @@ The theme wraps the entire app with Material 3 theming and edge-to-edge configur
 
 | Element | Style |
 |---------|-------|
-| Background | Clean white (#FFFFFF) |
-| User Bubbles | Primary blue (#2563EB), white text |
-| Agent Bubbles | Light surface (#F5F5F5), dark text |
+| Background | Pure white (#FFFFFF) |
+| User Bubbles | Light gray (#EFEFEF), dark text — modern chat style |
+| Agent Bubbles | Surface variant (#F7F7F8), dark text |
 | Action Cards | Bordered cards with status colors |
 | Task Banner | Subtle surface variant with pulsing dot |
 | Smart Capsule | White with shadow, status dot |
+| Send Button | Pure black when text entered, gray when empty |
 | Edge Glow | State-colored gradient glow on screen edges |
-| Click Ripple | Expanding blue/purple circle at touch point |
+| Click Ripple | Expanding circle at touch point |
 | Swipe Trail | Animated line with dots showing gesture path |
 
 ---
@@ -210,11 +211,11 @@ The theme wraps the entire app with Material 3 theming and edge-to-edge configur
 
 | State | Color | Hex |
 |-------|-------|-----|
-| Active | Primary Blue | `#2563EB` |
+| Active | Teal | `#10A37F` |
 | Executing | Light Blue | `#3B82F6` |
-| Success | Teal | `#0D9488` |
-| Error | Red | `#DC2626` |
-| Paused | Amber | `#F59E0B` |
+| Success | Teal | `#10A37F` |
+| Error | Red | `#EF4146` |
+| Paused | Amber | `#F5A623` |
 
 ### Click Ripple
 
@@ -224,7 +225,7 @@ The theme wraps the entire app with Material 3 theming and edge-to-edge configur
 | Final radius | 48dp |
 | Duration | 500ms |
 | Animation | EaseOut (fast start, slow end) |
-| Click color | Blue (`#2563EB`) at 60% opacity |
+| Click color | Gray at 60% opacity |
 | Long press color | Purple (`#7C3AED`) at 60% opacity |
 
 ### Swipe Trail

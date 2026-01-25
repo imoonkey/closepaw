@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -20,7 +22,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BugReport
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Layers
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -58,7 +60,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.moonkey.androidagent.BuildConfig
-import com.moonkey.androidagent.ui.theme.ChatError
 import com.moonkey.androidagent.ui.theme.ChatSuccess
 import com.moonkey.androidagent.ui.theme.ChatWarning
 
@@ -85,11 +86,9 @@ private val MAX_TURNS_OPTIONS = listOf(10, 20, 50)
  * - API Key
  * - Accessibility Service status
  * - Overlay Permission status
- * - Clear Conversation
  * - About & Debug
  */
 @OptIn(ExperimentalMaterial3Api::class)
-@Suppress("UNUSED_PARAMETER") // onDismiss reserved for future use (e.g., explicit close button)
 @Composable
 fun SettingsSheet(
     apiKey: String,
@@ -104,7 +103,6 @@ fun SettingsSheet(
     isOverlayEnabled: Boolean,
     onAccessibilityClick: () -> Unit,
     onOverlayClick: () -> Unit,
-    onClearConversation: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -114,17 +112,20 @@ fun SettingsSheet(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .verticalScroll(scrollState)
-            .padding(horizontal = 24.dp)
+            .statusBarsPadding()  // Add padding for status bar / Dynamic Island
+            .displayCutoutPadding()  // Handle camera cutout
             .navigationBarsPadding()
     ) {
-        // Title
-        Text(
-            text = "Settings",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
+        // Header with close button (like ChatGPT/Manus)
+        SettingsHeader(onClose = onDismiss)
+        
+        // Scrollable content
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp)
+        ) {
         
         // Model Section
         SettingsSection(title = "Model") {
@@ -216,36 +217,6 @@ fun SettingsSheet(
         
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Destructive Actions
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onClearConversation),
-            color = ChatError.copy(alpha = 0.1f),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = ChatError
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Clear Conversation",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = ChatError
-                )
-            }
-        }
-        
         Spacer(modifier = Modifier.height(20.dp))
         
         // About & Debug Section
@@ -323,7 +294,39 @@ fun SettingsSheet(
             }
         }
         
-        Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+/**
+ * Settings header with title and close button.
+ */
+@Composable
+private fun SettingsHeader(
+    onClose: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Settings",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        
+        IconButton(onClick = onClose) {
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = "Close",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -469,7 +472,7 @@ private fun SettingsSection(
         Text(
             text = title,
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,  // Muted instead of primary
             modifier = Modifier.padding(bottom = 12.dp)
         )
         content()
