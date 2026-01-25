@@ -1,6 +1,6 @@
 ---
-description: Systematic code review with severity-based findings.
-agent: code-reviewer
+name: code-review
+description: Systematic code review with severity-based findings. Use before merging or when reviewing changes.
 ---
 
 # Code Review

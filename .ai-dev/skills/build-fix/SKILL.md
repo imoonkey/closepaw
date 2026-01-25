@@ -1,6 +1,6 @@
 ---
-description: Fix Gradle/Kotlin build errors incrementally. No refactoring - just get the build green.
-agent: build-error-resolver
+name: build-fix
+description: Fix Gradle/Kotlin build errors incrementally. No refactoring - just get the build green. Use when verify fails.
 ---
 
 # Build Fix

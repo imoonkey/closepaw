@@ -1,11 +1,11 @@
 ---
-description: Android/Kotlin coding conventions and patterns.
-user-invocable: false
+name: coding-standards
+description: Android/Kotlin coding conventions and patterns. Auto-applied as reference during code changes.
 ---
 
 # Coding Standards
 
-Android/Kotlin coding conventions and patterns. Auto-applied as reference during code changes.
+Android/Kotlin coding conventions and patterns.
 
 ## Core Principles
 

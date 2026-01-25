@@ -1,5 +1,6 @@
 ---
-description: Test-driven development. Write tests FIRST, then implement.
+name: tdd
+description: Test-driven development. Write tests FIRST, then implement. Use for core logic, state machines, data transformations.
 ---
 
 # TDD

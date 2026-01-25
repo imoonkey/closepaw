@@ -1,6 +1,6 @@
 ---
-description: Create implementation plan. WAIT for confirmation before coding.
-agent: planner
+name: plan
+description: Create implementation plan before coding. WAIT for confirmation. Use for new features, complex changes, or unclear requirements.
 ---
 
 # Plan
