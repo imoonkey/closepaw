@@ -14,7 +14,7 @@ Sync documentation with code changes before commits.
    |-------------|---------------|
    | `agent/`, `session/`, `protocol/` | `doc/main/agent_infra.md` |
    | `tool/` | `doc/main/agent_protocol.md` |
-   | `ui/` | `doc/main/ui_stack.md` |
+   | `ui/` | `doc/main/ui/` (user_interaction.md, tech_design.md, style.md) |
    | Build/gradle | `doc/dev/development.md` |
 
 3. **Update relevant docs**
