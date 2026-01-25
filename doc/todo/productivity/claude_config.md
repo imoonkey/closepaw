@@ -565,39 +565,33 @@ These configurations should work across Claude Code, Cursor, and Codex (OpenAI) 
 
 ### Directory Structure
 
+> **Updated 2025-01-25**: Commands merged into skills. Renamed to `.ai-dev` for tool-agnostic naming.
+
 ```
 androidagent/
-├── .claude/                    # Primary config location
-│   ├── skills/
-│   │   ├── verification-loop/
-│   │   │   └── SKILL.md
-│   │   ├── doc-update/
-│   │   │   └── SKILL.md
-│   │   ├── strategic-compact/
-│   │   │   └── SKILL.md
-│   │   ├── code-review-workflow/
-│   │   │   └── SKILL.md
-│   │   ├── tdd-workflow/
-│   │   │   └── SKILL.md
-│   │   ├── coding-standards/
-│   │   │   └── SKILL.md
-│   │   └── planning-workflow/
-│   │       └── SKILL.md
-│   ├── agents/
-│   │   ├── build-error-resolver.md
-│   │   ├── planner.md
-│   │   ├── code-reviewer.md
-│   │   └── architect.md
-│   ├── commands/
-│   │   ├── verify.md
-│   │   ├── update-docs.md
-│   │   ├── plan.md
-│   │   ├── tdd.md
-│   │   └── build-fix.md
-├── .cursor -> .claude          # Symlink for Cursor
-├── .codex -> .claude           # Symlink for Codex
-├── CLAUDE.md                   # Project-level config
-└── AGENTS.md -> CLAUDE.md      # Symlink for Codex compatibility
+├── .ai-dev/                    # Primary config location (tool-agnostic)
+│   ├── skills/                 # Single source of truth for workflows
+│   │   ├── plan/               # /plan - Structured planning
+│   │   ├── verify/             # /verify - Pre-commit quality gates
+│   │   ├── update-docs/        # /update-docs - Sync documentation
+│   │   ├── tdd/                # /tdd - Test-driven development
+│   │   ├── visual-fix/         # /visual-fix - Debug with screenshots
+│   │   ├── build-fix/          # /build-fix - Fix Gradle errors
+│   │   ├── code-review/        # /code-review - Systematic review
+│   │   ├── strategic-compact/  # /strategic-compact - Context compaction
+│   │   ├── orchestrate/        # /orchestrate - Chain skills/agents
+│   │   └── coding-standards/   # Reference skill (auto-applied)
+│   └── agents/                 # Thin persona + tool restrictions
+│       ├── build-error-resolver.md
+│       ├── planner.md
+│       ├── code-reviewer.md
+│       └── architect.md
+├── .claude -> .ai-dev          # Symlink for Claude Code
+├── .cursor -> .ai-dev          # Symlink for Cursor
+├── .codex -> .ai-dev           # Symlink for Codex
+├── AIDEV.md                    # Project-level config (primary)
+├── CLAUDE.md -> AIDEV.md       # Symlink for Claude Code
+└── AGENTS.md -> AIDEV.md       # Symlink for Codex compatibility
 ```
 
 ### Setup Script
@@ -611,11 +605,9 @@ Create `scripts/setup-ai-config.sh`:
 
 cd "$(dirname "$0")/.."
 
-# Create .claude directory structure if not exists
-mkdir -p .claude/skills
-mkdir -p .claude/agents
-mkdir -p .claude/commands
-mkdir -p .claude/contexts
+# Create .ai-dev directory structure if not exists
+mkdir -p .ai-dev/skills
+mkdir -p .ai-dev/agents
 
 # Create symlinks for other tools
 # Remove existing symlinks/directories first (preserve if real directories)
@@ -624,16 +616,20 @@ mkdir -p .claude/contexts
 [ -L AGENTS.md ] && rm AGENTS.md
 
 # Create symlinks for tool directories
-ln -sf .claude .cursor
-ln -sf .claude .codex
+ln -sf .ai-dev .claude
+ln -sf .ai-dev .cursor
+ln -sf .ai-dev .codex
 
-# Create symlink for Codex AGENTS.md compatibility
-[ -f CLAUDE.md ] && ln -sf CLAUDE.md AGENTS.md
+# Create symlinks for project-level config
+[ -f AIDEV.md ] && ln -sf AIDEV.md CLAUDE.md
+[ -f AIDEV.md ] && ln -sf AIDEV.md AGENTS.md
 
 echo "AI config symlinks created:"
-echo "  .cursor -> .claude"
-echo "  .codex -> .claude"
-[ -f CLAUDE.md ] && echo "  AGENTS.md -> CLAUDE.md"
+echo "  .claude -> .ai-dev"
+echo "  .cursor -> .ai-dev"
+echo "  .codex -> .ai-dev"
+[ -f AIDEV.md ] && echo "  CLAUDE.md -> AIDEV.md"
+[ -f AIDEV.md ] && echo "  AGENTS.md -> AIDEV.md"
 
 # Verify structure
 echo ""

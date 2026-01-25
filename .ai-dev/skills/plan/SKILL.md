@@ -1,22 +1,30 @@
-# Planning Workflow
+---
+name: plan
+description: Create implementation plan before coding. WAIT for confirmation. Use for new features, complex changes, or unclear requirements.
+---
 
-Structured planning before implementation.
+# Plan
+
+Structured planning before implementation. Invokes the planner agent.
 
 ## When to Use
 
-- New features
-- Complex changes
+- Starting new feature
+- Complex bugfix
+- Architectural change
 - Multiple files affected
-- Unclear requirements
+- Requirements unclear
 
 ## Planning Steps
 
 ### 1. Understand Requirements
+
 - What problem are we solving?
 - What are the constraints?
 - What's the success criteria?
 
 ### 2. Analyze Impact
+
 ```bash
 # Find related code
 grep -rn "RelatedClass" app/src/ --include="*.kt"
@@ -28,6 +36,7 @@ Questions:
 - What could break?
 
 ### 3. Design Approach
+
 - How does this fit existing architecture?
 - What patterns should we follow?
 - What are the alternatives?
@@ -65,33 +74,43 @@ Risk: High
 ## Output Format
 
 ```markdown
-# Plan: [Feature]
+# Plan: [Feature Name]
 
 ## Summary
 [2-3 sentences]
 
-## Requirements
-- [R1]
-- [R2]
-
 ## Affected Components
-- [Component]: [what changes]
+- [file path]: [what changes]
 
 ## Phases
-[Phase breakdown]
+
+### Phase 1: [Name]
+1. **[Step]** (`path/to/file.kt`)
+   - Action: [specific change]
+   - Risk: Low/Medium/High
+
+### Phase 2: [Name]
+...
 
 ## Risks
-[Risk table]
+- [Risk]: [Mitigation]
 
-## Testing
-[Strategy]
+## Testing Strategy
+- Unit: [what to test]
+- Manual: [what to verify]
 
-**Waiting for confirmation**
+**Proceed? (yes/modify/no)**
 ```
 
-## Principles
+## Android-Specific Considerations
 
-- Be specific with file paths
-- Consider Android-specific concerns (lifecycle, threading)
-- Enable incremental verification
-- Document decisions
+- Lifecycle implications
+- Threading requirements (main-safe?)
+- Permission requirements
+- Accessibility service constraints
+- State persistence needs
+
+## After Confirmation
+
+- Use `/tdd` for core logic
+- Use `/verify` before commit

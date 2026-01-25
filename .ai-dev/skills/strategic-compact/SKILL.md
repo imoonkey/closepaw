@@ -1,6 +1,11 @@
+---
+name: strategic-compact
+description: Suggest context compaction at logical task boundaries. Use after completing milestones or before switching tasks.
+---
+
 # Strategic Compact
 
-Suggest context compaction at logical task boundaries.
+Strategic context compaction at logical task boundaries.
 
 ## Why Strategic > Auto
 
@@ -22,9 +27,9 @@ Auto-compaction triggers arbitrarily (often mid-task). Strategic compaction pres
 ## Workflow Integration
 
 ```
-/plan → [plan finalized] → /compact → implement
-                                         ↓
-                            [milestone complete] → /compact → next task
+/plan → [plan finalized] → /strategic-compact → implement
+                                                    ↓
+                                       [milestone complete] → /strategic-compact → next task
 ```
 
 ## Reminder Thresholds
