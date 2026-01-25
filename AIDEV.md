@@ -79,13 +79,16 @@ sealed class AgentError {
 // Service: custom scope with SupervisorJob
 ```
 
-## Commands
-
+## Skills
 - `/plan` - Create implementation plan before coding
 - `/verify` - Run build + lint + tests
 - `/build-fix` - Fix Gradle errors incrementally
 - `/update-docs` - Sync docs with code changes
 - `/tdd` - Test-driven development for core logic
+- `/visual-fix` - Debug agent with visual inspection
+- `/code-review` - Systematic code review
+- `/strategic-compact` - Context compaction at task boundaries
+- `/orchestrate` - Chain skills/agents for complex workflows
 
 ## Git
 
