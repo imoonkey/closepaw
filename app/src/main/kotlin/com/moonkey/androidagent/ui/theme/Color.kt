@@ -3,133 +3,153 @@ package com.moonkey.androidagent.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ============================================
-// Elegant Light Theme - Notion-inspired
-// Clean, minimal, professional
+// Clean Light Theme - Clear, Inviting, Modern
+// Inspired by ChatGPT, Claude, modern AI apps
+// High clarity, warm neutrals, good contrast
 // ============================================
 
-// Background & Surface - Warm off-whites
-val Background = Color(0xFFFBFBFA)
-val Surface = Color(0xFFFFFFFF)
-val SurfaceVariant = Color(0xFFF7F6F3)
+// Background & Surface - Clean whites
+val Background = Color(0xFFFFFFFF)          // Pure white
+val Surface = Color(0xFFFFFFFF)             // Same as background
+val SurfaceVariant = Color(0xFFF7F7F8)      // Light warm gray (visible!)
 val SurfaceElevated = Color(0xFFFFFFFF)
 
-// Primary - Soft blue-gray (professional, calm)
-val Primary = Color(0xFF2F3437)
-val PrimaryVariant = Color(0xFF37352F)
+// Primary - For send button & user messages (warm, not too dark)
+val Primary = Color(0xFF3B3B3B)             // Soft black (readable, not harsh)
+val PrimaryVariant = Color(0xFF2D2D2D)      // Slightly darker
 val OnPrimary = Color(0xFFFFFFFF)
 
-// Accent - Warm coral/terracotta for CTAs
-val Accent = Color(0xFFEB5757)
-val AccentMuted = Color(0xFFF2994A)
-val AccentSoft = Color(0xFFFFF3E0)
+// Accent - Teal/green for active states (fresh, not muted)
+val Accent = Color(0xFF10A37F)              // ChatGPT green (recognizable)
+val AccentMuted = Color(0xFF5D5D5D)         // Neutral gray
+val AccentSoft = Color(0xFFF0F0F0)          // Light background
 
-// Secondary - Soft teal for secondary actions
-val Secondary = Color(0xFF0F7B6C)
-val SecondaryLight = Color(0xFFE6F4F1)
+// Secondary - For success states
+val Secondary = Color(0xFF10A37F)           // Same teal
+val SecondaryLight = Color(0xFFE6F4F1)      // Light teal bg
 
-// Text hierarchy
-val TextPrimary = Color(0xFF37352F)
-val TextSecondary = Color(0xFF6B6B6B)
-val TextMuted = Color(0xFF9B9A97)
-val TextPlaceholder = Color(0xFFB4B4B4)
+// Text hierarchy - High contrast, readable
+val TextPrimary = Color(0xFF0D0D0D)         // Near black (clear!)
+val TextSecondary = Color(0xFF5D5D5D)       // Medium gray (visible!)
+val TextMuted = Color(0xFF8E8E8E)           // Light gray (still visible)
+val TextPlaceholder = Color(0xFFB4B4B4)     // Placeholder gray
 
-// Borders & Dividers
-val Border = Color(0xFFE9E9E7)
-val BorderFocused = Color(0xFF2F3437)
-val Divider = Color(0xFFF0F0EE)
+// Borders & Dividers - Visible but subtle
+val Border = Color(0xFFE5E5E5)              // Clear border
+val BorderFocused = Color(0xFFCCCCCC)       // Darker when focused
+val Divider = Color(0xFFEEEEEE)             // Subtle divider
 
-// Status colors - Muted, elegant
-val StatusSuccess = Color(0xFF0F7B6C)
-val StatusSuccessBg = Color(0xFFE6F4F1)
-val StatusWarning = Color(0xFFF2994A)
-val StatusWarningBg = Color(0xFFFFF8E6)
-val StatusError = Color(0xFFEB5757)
-val StatusErrorBg = Color(0xFFFEEBEB)
-val StatusInfo = Color(0xFF2F80ED)
-val StatusInfoBg = Color(0xFFE8F2FD)
+// Status colors - Clear, not muted
+val StatusSuccess = Color(0xFF10A37F)       // Teal green
+val StatusSuccessBg = Color(0xFFE6F4F1)     // Light teal
+val StatusWarning = Color(0xFFF5A623)       // Warm amber
+val StatusWarningBg = Color(0xFFFFF8E6)     // Light amber
+val StatusError = Color(0xFFEF4146)         // Clear red
+val StatusErrorBg = Color(0xFFFEEEEF)       // Light red
+val StatusInfo = Color(0xFF2563EB)          // Blue
+val StatusInfoBg = Color(0xFFEFF6FF)        // Light blue
 
 // Interactive states
-val Hover = Color(0xFFF7F6F3)
-val Pressed = Color(0xFFEFEEEB)
-val Disabled = Color(0xFFE9E9E7)
-val DisabledText = Color(0xFFB4B4B4)
+val Hover = Color(0xFFF7F7F8)               // Light hover
+val Pressed = Color(0xFFEEEEEE)             // Pressed state
+val Disabled = Color(0xFFE5E5E5)            // Disabled bg
+val DisabledText = Color(0xFFB4B4B4)        // Disabled text
 
-// Shadows (for elevation)
-val ShadowColor = Color(0x0A000000)
+// Shadows
+val ShadowColor = Color(0x0A000000)         // Subtle shadow
 
 // ============================================
-// Chat UI Colors (see ui_final_design.md §5.1)
-// Modern, confident color palette for chat experience
+// Chat UI Colors - Clean, Clear Theme
+// High contrast, warm tones, inviting
 // ============================================
 
-// Primary - Confident blue
-val ChatPrimary = Color(0xFF2563EB)
+// Primary - For send button (dark for contrast)
+val ChatPrimary = Color(0xFF3B3B3B)         // Soft black for send button
 val ChatOnPrimary = Color.White
-val ChatPrimaryContainer = Color(0xFFDBEAFE)
-val ChatOnPrimaryContainer = Color(0xFF1E40AF)
+val ChatPrimaryContainer = Color(0xFFF0F0F0) // Light gray for chips
+val ChatOnPrimaryContainer = Color(0xFF3B3B3B) // Dark text on light
 
-// Secondary - Success teal
-val ChatSecondary = Color(0xFF0D9488)
+// User bubble - Light, fresh (like modern chat apps)
+val UserBubble = Color(0xFFEFEFEF)          // Light gray - clean, modern
+val UserBubbleText = Color(0xFF1A1A1A)      // Dark text on light bubble
+
+// Secondary - Fresh teal for accents
+val ChatSecondary = Color(0xFF10A37F)       // ChatGPT teal
 val ChatOnSecondary = Color.White
-val ChatSecondaryContainer = Color(0xFFCCFBF1)
-val ChatOnSecondaryContainer = Color(0xFF115E59)
+val ChatSecondaryContainer = Color(0xFFE6F4F1) // Light teal
+val ChatOnSecondaryContainer = Color(0xFF0D7355) // Dark teal
 
 // Success
-val ChatSuccess = Color(0xFF0D9488)
-val ChatSuccessBg = Color(0xFFCCFBF1)
+val ChatSuccess = Color(0xFF10A37F)         // Teal
+val ChatSuccessBg = Color(0xFFE6F4F1)       // Light teal
 
 // Error
-val ChatError = Color(0xFFDC2626)
-val ChatErrorBg = Color(0xFFFEE2E2)
+val ChatError = Color(0xFFEF4146)           // Clear red
+val ChatErrorBg = Color(0xFFFEEEEF)         // Light red
 
 // Warning
-val ChatWarning = Color(0xFFF59E0B)
-val ChatWarningBg = Color(0xFFFEF3C7)
+val ChatWarning = Color(0xFFF5A623)         // Warm amber
+val ChatWarningBg = Color(0xFFFFF8E6)       // Light amber
 
-// Surface - Clean, minimal
-val ChatSurface = Color(0xFFFAFAFA)
-val ChatSurfaceVariant = Color(0xFFF5F5F5)
-val ChatOnSurface = Color(0xFF171717)
-val ChatOnSurfaceVariant = Color(0xFF525252)
+// Surface - Clean whites
+val ChatSurface = Color(0xFFFFFFFF)         // Pure white
+val ChatSurfaceVariant = Color(0xFFF7F7F8)  // Visible light gray
+val ChatOnSurface = Color(0xFF0D0D0D)       // Near black - readable!
+val ChatOnSurfaceVariant = Color(0xFF5D5D5D) // Medium gray - visible!
 
-// Background
-val ChatBackground = Color.White
-val ChatOnBackground = Color(0xFF171717)
+// Background - Pure white
+val ChatBackground = Color(0xFFFFFFFF)      // Pure white
+val ChatOnBackground = Color(0xFF0D0D0D)    // Near black
 
-// Outline
-val ChatOutline = Color(0xFFD4D4D4)
-val ChatOutlineVariant = Color(0xFFE5E5E5)
+// Outline - Visible borders
+val ChatOutline = Color(0xFFE5E5E5)         // Clear border
+val ChatOutlineVariant = Color(0xFFEEEEEE)  // Subtle variant
+
+// Icon tints - Visible, not washed out
+// Note: ChatIconPrimary/Secondary are part of the design system for icon tints
+// even if not currently used - reserved for future consistency
+val ChatIconPrimary = Color(0xFF5D5D5D)     // Medium gray - visible!
+val ChatIconSecondary = Color(0xFF8E8E8E)   // Lighter but still visible
+
+// Send button active state (ChatGPT-style: pure black/white for high contrast)
+// These are intentionally high-contrast for the send button when text is entered
+val ChatSendButtonActive = Color(0xFF000000)     // Pure black when has text
+val ChatSendButtonOnActive = Color(0xFFFFFFFF)   // Pure white icon on black
 
 // ============================================
-// Chat UI Dark Theme Colors
+// Chat UI Dark Theme Colors - Clean Dark
 // ============================================
 
-// Primary - Brighter blue
-val ChatPrimaryDark = Color(0xFF60A5FA)
-val ChatOnPrimaryDark = Color(0xFF1E3A5F)
-val ChatPrimaryContainerDark = Color(0xFF1E40AF)
-val ChatOnPrimaryContainerDark = Color(0xFFDBEAFE)
+// Primary - Light for dark mode
+val ChatPrimaryDark = Color(0xFFEEEEEE)     // Light gray
+val ChatOnPrimaryDark = Color(0xFF1A1A1A)   // Dark text
+val ChatPrimaryContainerDark = Color(0xFF2D2D2D) // Dark container
+val ChatOnPrimaryContainerDark = Color(0xFFEEEEEE) // Light text
 
-// Secondary - Bright teal
-val ChatSecondaryDark = Color(0xFF2DD4BF)
-val ChatOnSecondaryDark = Color(0xFF0F3D38)
-val ChatSecondaryContainerDark = Color(0xFF115E59)
-val ChatOnSecondaryContainerDark = Color(0xFFCCFBF1)
+// Secondary - Teal in dark mode
+val ChatSecondaryDark = Color(0xFF4ADE9E)   // Lighter teal
+val ChatOnSecondaryDark = Color(0xFF052E20) // Dark teal text
+val ChatSecondaryContainerDark = Color(0xFF0D7355) // Medium teal
+val ChatOnSecondaryContainerDark = Color(0xFFE6F4F1) // Light teal text
 
-// Surface - Deep grays
-val ChatSurfaceDark = Color(0xFF171717)
-val ChatSurfaceVariantDark = Color(0xFF262626)
-val ChatOnSurfaceDark = Color(0xFFFAFAFA)
-val ChatOnSurfaceVariantDark = Color(0xFFA3A3A3)
+// Surface - Dark grays
+val ChatSurfaceDark = Color(0xFF1A1A1A)     // Dark surface
+val ChatSurfaceVariantDark = Color(0xFF2D2D2D) // Slightly lighter
+val ChatOnSurfaceDark = Color(0xFFEEEEEE)   // Light text
+val ChatOnSurfaceVariantDark = Color(0xFFB4B4B4) // Medium text
 
 // Background
-val ChatBackgroundDark = Color(0xFF0A0A0A)
-val ChatOnBackgroundDark = Color(0xFFFAFAFA)
+val ChatBackgroundDark = Color(0xFF0D0D0D)  // Near black
+val ChatOnBackgroundDark = Color(0xFFEEEEEE) // Light text
 
 // Error
-val ChatErrorDark = Color(0xFFF87171)
-val ChatErrorContainerDark = Color(0xFF7F1D1D)
+val ChatErrorDark = Color(0xFFFF6B6B)       // Light red
+val ChatErrorContainerDark = Color(0xFF5C1E1E) // Dark red
 
 // Outline
-val ChatOutlineDark = Color(0xFF404040)
-val ChatOutlineVariantDark = Color(0xFF262626)
+val ChatOutlineDark = Color(0xFF3D3D3D)     // Dark border
+val ChatOutlineVariantDark = Color(0xFF2D2D2D) // Subtle border
+
+// Icon tints - Dark mode
+val ChatIconPrimaryDark = Color(0xFFB4B4B4) // Visible gray
+val ChatIconSecondaryDark = Color(0xFF8E8E8E) // Slightly darker
