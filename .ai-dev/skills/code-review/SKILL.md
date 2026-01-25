@@ -1,6 +1,11 @@
-# Code Review Workflow
+---
+name: code-review
+description: Systematic code review with severity-based findings. Use before merging or when reviewing changes.
+---
 
-Systematic review process.
+# Code Review
+
+Systematic review process with high standards.
 
 ## Review Mindset
 

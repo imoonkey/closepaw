@@ -1,3 +1,8 @@
+---
+name: coding-standards
+description: Android/Kotlin coding conventions and patterns. Auto-applied as reference during code changes.
+---
+
 # Coding Standards
 
 Android/Kotlin coding conventions and patterns.
@@ -12,6 +17,7 @@ Android/Kotlin coding conventions and patterns.
 ## Kotlin Idioms
 
 ### Naming
+
 ```kotlin
 // Classes: PascalCase
 class SessionManager
@@ -25,6 +31,7 @@ const val MAX_RETRIES = 3
 ```
 
 ### Null Safety
+
 ```kotlin
 // ✅ Prefer safe calls
 user?.name?.uppercase()
@@ -37,6 +44,7 @@ user!!.name  // BAD
 ```
 
 ### Immutability
+
 ```kotlin
 // ✅ Prefer val
 val state: SessionState
@@ -49,6 +57,7 @@ var mutableState  // BAD if avoidable
 ```
 
 ### Sealed Classes for State
+
 ```kotlin
 sealed class Result<T> {
     data class Success<T>(val data: T) : Result<T>()
@@ -59,6 +68,7 @@ sealed class Result<T> {
 ## Android Patterns
 
 ### Coroutines
+
 ```kotlin
 // ✅ Structured concurrency
 viewModelScope.launch {
@@ -75,6 +85,7 @@ GlobalScope.launch { }  // BAD
 ```
 
 ### Lifecycle
+
 ```kotlin
 // ✅ Scope to lifecycle
 lifecycleScope.launch {
@@ -90,6 +101,7 @@ companion object {
 ```
 
 ### State Management
+
 ```kotlin
 // ViewModel
 private val _state = MutableStateFlow(initialState)

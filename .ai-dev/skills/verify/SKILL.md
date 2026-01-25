@@ -1,4 +1,9 @@
-# Verification Loop
+---
+name: verify
+description: Run verification loop (build, lint, test, security) before commits. Use before any commit or PR.
+---
+
+# Verify
 
 Pre-commit quality gates for Android projects.
 
@@ -8,25 +13,35 @@ Pre-commit quality gates for Android projects.
 - After significant changes
 - Before PR creation
 
+## Arguments
+
+- `quick` - Build + lint only
+- `full` - All checks (default)
+
 ## Verification Phases
 
 ### 1. Build
+
 ```bash
 ./gradlew assembleDebug 2>&1 | tail -30
 ```
-If fails, STOP and fix.
+
+If fails, STOP and report errors. Use `/build-fix` to resolve.
 
 ### 2. Lint
+
 ```bash
 ./gradlew lint 2>&1 | head -30
 ```
 
 ### 3. Tests
+
 ```bash
 ./gradlew test 2>&1 | tail -50
 ```
 
 ### 4. Security Scan
+
 ```bash
 # Check for hardcoded keys
 grep -rn "api_key\|apiKey\|API_KEY" --include="*.kt" app/src/ 2>/dev/null | head -10
@@ -34,9 +49,16 @@ grep -rn "sk-\|key-" --include="*.kt" app/src/ 2>/dev/null | head -10
 ```
 
 ### 5. Code Quality
+
 ```bash
 # Large files (>400 lines)
 find app/src -name "*.kt" -exec wc -l {} + | awk '$1 > 400 {print}'
+```
+
+### 6. Git Status
+
+```bash
+git diff --stat
 ```
 
 ## Output Format
