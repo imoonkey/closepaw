@@ -29,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.moonkey.androidagent.ui.chat.model.InputState
+import com.moonkey.androidagent.ui.theme.ChatSendButtonActive
+import com.moonkey.androidagent.ui.theme.ChatSendButtonOnActive
 
 /**
  * InputDock - Always-visible input area at the bottom of the chat.
@@ -89,6 +91,7 @@ fun InputDock(
             Spacer(Modifier.width(12.dp))
             
             // Send/Stop button - Pure black when has text (like ChatGPT)
+            // Uses ChatSendButtonActive/OnActive for themed high-contrast styling
             FilledIconButton(
                 onClick = {
                     if (isWorking) {
@@ -102,12 +105,12 @@ fun InputDock(
                 colors = IconButtonDefaults.filledIconButtonColors(
                     containerColor = when {
                         isWorking -> MaterialTheme.colorScheme.error
-                        hasText -> androidx.compose.ui.graphics.Color.Black  // Pure black
+                        hasText -> ChatSendButtonActive  // Themed pure black
                         else -> MaterialTheme.colorScheme.surfaceVariant
                     },
                     contentColor = when {
                         isWorking -> MaterialTheme.colorScheme.onError
-                        hasText -> androidx.compose.ui.graphics.Color.White  // Pure white
+                        hasText -> ChatSendButtonOnActive  // Themed pure white
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
                 )

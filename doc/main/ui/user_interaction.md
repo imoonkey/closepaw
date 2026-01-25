@@ -152,7 +152,7 @@ Individual session card in the drawer list.
 | Time Difference | Output |
 |----------------|--------|
 | < 1 minute | "Just now" |
-| 1-59 minutes | "5 min ago" |
+| 1-59 minutes | "5 minutes ago" |
 | 1-23 hours | "2 hours ago" |
 | 1 day | "Yesterday" |
 | 2-6 days | "3 days ago" |

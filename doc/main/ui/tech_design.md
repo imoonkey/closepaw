@@ -252,7 +252,11 @@ fun SettingsSheet(
     onModelChange: (String) -> Unit,
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit
-    // Note: Has custom header with close button and display cutout handling
+    // Notes:
+    // - Has custom header with close button and display cutout handling
+    // - The previous onClearConversation callback was removed to decouple
+    //   settings UI from conversation lifecycle. Clearing a conversation
+    //   is now handled from the main chat surface instead of this sheet.
 )
 ```
 

@@ -55,14 +55,14 @@ Comprehensive UX overhaul to address color inconsistencies, display cutout issue
 Redesign the color system for a sophisticated, minimal aesthetic.
 
 **Tasks:**
-1. Define new color palette in `Color.kt`:
+1. Define new color palette in `Color.kt` (ChatGPT-inspired):
    - Background: Pure white (#FFFFFF) 
    - Surface: Pure white (#FFFFFF) - matches background
-   - SurfaceVariant: Very light warm gray (#F8F8F7)
-   - Primary: Soft slate (#64748B) - for icons, secondary text
-   - Accent: Muted sage (#10B981) for success/active states
-   - Send button: Soft charcoal (#374151) instead of bright blue
-   - Text: Charcoal (#1F2937) for primary, slate (#6B7280) for secondary
+   - SurfaceVariant: Very light warm gray (#F7F7F8)
+   - Primary: Soft black (#3B3B3B) - main UI/brand color
+   - Secondary/Accent: ChatGPT teal (#10A37F) for success/active states
+   - Send button: Pure black (#000000) when text entered (high contrast)
+   - Text: Near black (#0D0D0D) for primary, medium gray (#5D5D5D) for secondary
 
 2. Update `Theme.kt` color schemes
 
@@ -153,37 +153,40 @@ Use ADB to capture screenshots and iterate on details.
 
 ## New Color Palette Specification
 
-### Light Theme (Primary Focus)
+> **Note (Design History)**: The original planning specification below has been **superseded** by the final ChatGPT-inspired palette described in the "Implementation Status" section. The original spec is retained here for historical context only.
+
+### Light Theme (Primary Focus) - Original Planning Spec
 
 ```kotlin
+// HISTORICAL - See Implementation Status for actual values used
 // Backgrounds - Pure, unified whites
 val PremiumBackground = Color(0xFFFFFFFF)      // Pure white
 val PremiumSurface = Color(0xFFFFFFFF)         // Same as background
 val PremiumSurfaceVariant = Color(0xFFF8F8F7)  // Warm light gray
 
 // Primary - Soft slate for icons/secondary actions
-val PremiumPrimary = Color(0xFF64748B)         // Slate-500
+val PremiumPrimary = Color(0xFF64748B)         // Slate-500 → CHANGED to #3B3B3B
 val PremiumOnPrimary = Color(0xFFFFFFFF)
 
 // Accent/CTA - Muted charcoal for primary actions
-val PremiumAccent = Color(0xFF374151)          // Gray-700
+val PremiumAccent = Color(0xFF374151)          // Gray-700 → CHANGED to #10A37F (ChatGPT teal)
 val PremiumOnAccent = Color(0xFFFFFFFF)
 
 // Success - Soft sage green
-val PremiumSuccess = Color(0xFF10B981)         // Emerald-500
+val PremiumSuccess = Color(0xFF10B981)         // Emerald-500 → CHANGED to #10A37F
 val PremiumSuccessBg = Color(0xFFECFDF5)
 
 // Text hierarchy
-val PremiumTextPrimary = Color(0xFF1F2937)     // Gray-800
-val PremiumTextSecondary = Color(0xFF6B7280)   // Gray-500
+val PremiumTextPrimary = Color(0xFF1F2937)     // Gray-800 → CHANGED to #0D0D0D
+val PremiumTextSecondary = Color(0xFF6B7280)   // Gray-500 → CHANGED to #5D5D5D
 val PremiumTextMuted = Color(0xFF9CA3AF)       // Gray-400
 
 // Borders - Very subtle
-val PremiumBorder = Color(0xFFE5E7EB)          // Gray-200
+val PremiumBorder = Color(0xFFE5E7EB)          // Gray-200 → CHANGED to #E5E5E5
 val PremiumBorderFocused = Color(0xFF9CA3AF)   // Gray-400
 
 // Error - Muted red
-val PremiumError = Color(0xFFEF4444)           // Red-500 (softer than current)
+val PremiumError = Color(0xFFEF4444)           // Red-500 → CHANGED to #EF4146
 val PremiumErrorBg = Color(0xFFFEF2F2)
 ```
 
@@ -255,9 +258,9 @@ val PremiumErrorBg = Color(0xFFFEF2F2)
 
 3. **SettingsSheet.kt**: Display cutout handling + header redesign
    - Added `statusBarsPadding()` and `displayCutoutPadding()` modifiers
-   - New header with close button (like ChatGPT/Manus)
+   - New header with close button (like ChatGPT)
    - Section titles now use `onSurfaceVariant` (muted) instead of `primary`
-   - Removed "Clear Conversation" destructive action (moved to drawer context)
+   - Removed "Clear Conversation" destructive action from Settings sheet (not re-exposed in this change; the function remains in ChatViewModel for future use)
 
 4. **MainActivity.kt**: Bottom sheet refinement
    - Hidden default drag handle (`dragHandle = {}`)
