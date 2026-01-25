@@ -1,5 +1,6 @@
 ---
-description: Sync documentation with code changes before commits.
+name: update-docs
+description: Sync documentation with code changes before commits. Use after architecture or workflow changes.
 ---
 
 # Update Docs

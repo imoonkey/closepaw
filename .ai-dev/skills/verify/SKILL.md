@@ -1,5 +1,6 @@
 ---
-description: Run verification loop (build, lint, test, security) before commits.
+name: verify
+description: Run verification loop (build, lint, test, security) before commits. Use before any commit or PR.
 ---
 
 # Verify

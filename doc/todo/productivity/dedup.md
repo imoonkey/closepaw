@@ -20,20 +20,28 @@ Merged duplicate commands into skills following Claude Code best practices. Comm
   agents/             # 4 files - kept as-is
 ```
 
-### After (13 files, deduplicated)
+### After (14 files, deduplicated, tool-agnostic)
 ```
-.claude/
-  skills/             # 9 folders with short command-like names
-    plan/             # Merged planning-workflow + commands/plan.md
-    verify/           # Merged verification-loop + commands/verify.md
-    update-docs/      # Merged doc-update + commands/update-docs.md
-    tdd/              # Merged tdd-workflow + commands/tdd.md
-    visual-fix/       # Merged visual-debug-workflow + commands/visual-fix.md
-    build-fix/        # NEW - migrated from commands/build-fix.md
-    code-review/      # Renamed from code-review-workflow
-    compact/          # Renamed from strategic-compact
-    coding-standards/ # Kept as reference skill (user-invocable: false)
-  agents/             # 4 files - unchanged (thin persona + tool restrictions)
+.ai-dev/                      # Primary location (tool-agnostic name)
+  skills/                     # 10 folders with short command names
+    plan/                     # Structured planning
+    verify/                   # Pre-commit quality gates
+    update-docs/              # Sync docs with code
+    tdd/                      # Test-driven development
+    visual-fix/               # Debug with screenshots
+    build-fix/                # Fix Gradle errors
+    code-review/              # Systematic review
+    strategic-compact/        # Context compaction (renamed from compact)
+    orchestrate/              # NEW - chain skills/agents together
+    coding-standards/         # Reference skill (auto-applied)
+  agents/                     # 4 files (thin persona + tool restrictions)
+
+# Symlinks for cross-tool compatibility
+.claude -> .ai-dev
+.cursor -> .ai-dev
+.codex -> .ai-dev
+CLAUDE.md -> AIDEV.md
+AGENTS.md -> AIDEV.md
 ```
 
 ### Available Commands (via skills)
@@ -44,7 +52,8 @@ Merged duplicate commands into skills following Claude Code best practices. Comm
 - `/visual-fix` - Debug agent with visual inspection
 - `/build-fix` - Fix Gradle/Kotlin errors incrementally
 - `/code-review` - Systematic code review
-- `/compact` - Strategic context compaction
+- `/strategic-compact` - Strategic context compaction
+- `/orchestrate` - Chain skills/agents for complex workflows
 
 ---
 
