@@ -27,7 +27,7 @@ Keep documentation in sync with code changes.
 2. **Match to Docs**
    - `agent/`, `session/`, `protocol/` → `doc/main/agent_infra.md`
    - `tool/` → `doc/main/agent_protocol.md`
-   - `ui/` → `doc/main/ui_stack.md`
+   - `ui/` → `doc/main/ui/` (user_interaction.md, tech_design.md, style.md)
    - Build/gradle changes → `doc/dev/development.md`
 
 3. **Update Principles**
