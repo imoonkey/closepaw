@@ -565,35 +565,26 @@ These configurations should work across Claude Code, Cursor, and Codex (OpenAI) 
 
 ### Directory Structure
 
+> **Updated 2025-01-25**: Commands merged into skills per best practice (see `dedup.md`).
+
 ```
 androidagent/
 ├── .claude/                    # Primary config location
-│   ├── skills/
-│   │   ├── verification-loop/
-│   │   │   └── SKILL.md
-│   │   ├── doc-update/
-│   │   │   └── SKILL.md
-│   │   ├── strategic-compact/
-│   │   │   └── SKILL.md
-│   │   ├── code-review-workflow/
-│   │   │   └── SKILL.md
-│   │   ├── tdd-workflow/
-│   │   │   └── SKILL.md
-│   │   ├── coding-standards/
-│   │   │   └── SKILL.md
-│   │   └── planning-workflow/
-│   │       └── SKILL.md
-│   ├── agents/
-│   │   ├── build-error-resolver.md
-│   │   ├── planner.md
-│   │   ├── code-reviewer.md
-│   │   └── architect.md
-│   ├── commands/
-│   │   ├── verify.md
-│   │   ├── update-docs.md
-│   │   ├── plan.md
-│   │   ├── tdd.md
-│   │   └── build-fix.md
+│   ├── skills/                 # Single source of truth for workflows
+│   │   ├── plan/               # /plan command
+│   │   ├── verify/             # /verify command
+│   │   ├── update-docs/        # /update-docs command
+│   │   ├── tdd/                # /tdd command
+│   │   ├── visual-fix/         # /visual-fix command
+│   │   ├── build-fix/          # /build-fix command
+│   │   ├── code-review/        # /code-review command
+│   │   ├── compact/            # /compact command
+│   │   └── coding-standards/   # Reference skill (not invokable)
+│   └── agents/                 # Thin persona + tool restrictions
+│       ├── build-error-resolver.md
+│       ├── planner.md
+│       ├── code-reviewer.md
+│       └── architect.md
 ├── .cursor -> .claude          # Symlink for Cursor
 ├── .codex -> .claude           # Symlink for Codex
 ├── CLAUDE.md                   # Project-level config
@@ -614,8 +605,6 @@ cd "$(dirname "$0")/.."
 # Create .claude directory structure if not exists
 mkdir -p .claude/skills
 mkdir -p .claude/agents
-mkdir -p .claude/commands
-mkdir -p .claude/contexts
 
 # Create symlinks for other tools
 # Remove existing symlinks/directories first (preserve if real directories)

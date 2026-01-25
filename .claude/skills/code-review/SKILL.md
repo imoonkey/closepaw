@@ -1,6 +1,11 @@
-# Code Review Workflow
+---
+description: Systematic code review with severity-based findings.
+agent: code-reviewer
+---
 
-Systematic review process.
+# Code Review
+
+Systematic review process with high standards.
 
 ## Review Mindset
 
