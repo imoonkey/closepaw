@@ -1,7 +1,5 @@
 package com.moonkey.androidagent.ui.chat.components
 
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -12,7 +10,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -21,20 +20,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * ChatHeader - Minimal header with brand name and history button.
+ * ChatHeader - Header with navigation menu and new chat button.
  * 
- * Long-press opens settings (power user gesture).
- * History button opens session list.
+ * Layout: [Menu] --- Title --- [New Chat]
+ * - Menu button (left): Opens navigation drawer with history + settings
+ * - New Chat button (right): Quick new conversation
  */
 @Composable
 fun ChatHeader(
-    onSettingsLongPress: () -> Unit,
-    onHistoryClick: (() -> Unit)? = null,
+    onMenuClick: () -> Unit,
+    onNewChatClick: (() -> Unit)? = null,
+    showNewChatButton: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -47,14 +47,24 @@ fun ChatHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .padding(start = 20.dp, end = 8.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onLongPress = { onSettingsLongPress() }
-                    )
-                },
+                .padding(start = 4.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Menu button (left)
+            IconButton(
+                onClick = onMenuClick,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Menu,
+                    contentDescription = "Open menu",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Spacer(modifier = Modifier.weight(1f))
+            
+            // Title (center)
             Text(
                 text = "Android Agent",
                 style = MaterialTheme.typography.titleLarge,
@@ -64,18 +74,21 @@ fun ChatHeader(
             
             Spacer(modifier = Modifier.weight(1f))
             
-            // History button (only shown if callback provided)
-            if (onHistoryClick != null) {
+            // New chat button (right)
+            if (showNewChatButton && onNewChatClick != null) {
                 IconButton(
-                    onClick = onHistoryClick,
-                    modifier = Modifier.size(40.dp)
+                    onClick = onNewChatClick,
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.History,
-                        contentDescription = "Session History",
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = "New conversation",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            } else {
+                // Placeholder for symmetry
+                Spacer(modifier = Modifier.size(48.dp))
             }
         }
     }

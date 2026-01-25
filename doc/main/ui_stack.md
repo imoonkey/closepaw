@@ -40,7 +40,7 @@ The Android Agent uses a **chat-first conversational interface** built with Jetp
 ├────────────────────────────────────────────────────────────────┤
 │                        ChatScreen                               │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │ ChatHeader     │ "Android Agent" (long-press for settings)│   │
+│  │ ChatHeader     │ [≡] Android Agent [+] (menu & new chat) │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
 │  │ TaskBanner    │ "Working on: ..." with status dot        │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
@@ -49,11 +49,11 @@ The Android Agent uses a **chat-first conversational interface** built with Jetp
 │  │ InputDock     │ Text input + Send/Stop button            │   │
 │  └─────────────────────────────────────────────────────────┘   │
 ├────────────────────────────────────────────────────────────────┤
+│                   NavigationDrawer                              │
+│  (Side drawer with session history + settings entry)            │
+├────────────────────────────────────────────────────────────────┤
 │                     SettingsSheet                               │
 │  (Modal bottom sheet for model/config)                          │
-├────────────────────────────────────────────────────────────────┤
-│                    SessionListSheet                             │
-│  (Modal bottom sheet for browsing/resuming past sessions)       │
 ├────────────────────────────────────────────────────────────────┤
 │                    Overlay System                               │
 │  ┌─────────────────────────────────────────────────────────┐   │
@@ -286,7 +286,7 @@ data class ChatUiState(
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| **ChatHeader** | `ChatHeader.kt` | Minimal header with app title (long-press for settings) |
+| **ChatHeader** | `ChatHeader.kt` | Header with menu (≡) left, title center, new chat (+) right |
 | **TaskBanner** | `TaskBanner.kt` | Shows current task context with animated status dot |
 | **MessageBubble** | `MessageBubble.kt` | User/Agent message bubbles with proper styling |
 | **StreamingText** | `StreamingText.kt` | Text with blinking cursor during streaming |
@@ -376,74 +376,67 @@ fun SettingsSheet(
 
 ## Session History UI
 
-The session history UI enables users to browse, resume, and manage past chat sessions.
+The session history UI enables users to browse, resume, and manage past chat sessions via a **navigation drawer**.
 
-### SessionListSheet
+### Navigation Drawer
 
-Modal bottom sheet for browsing and selecting sessions.
+Side drawer containing session history and settings access. Opens via the menu button (≡) in the header.
 
 ```kotlin
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SessionListSheet(
+fun NavigationDrawerContent(
     sessions: List<SessionInfo>,
+    currentModel: String,
+    appVersion: String,
     onSessionSelect: (SessionInfo) -> Unit,
     onNewSession: () -> Unit,
     onDeleteSession: (SessionInfo) -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-    sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-)
-```
-
-**Features:**
-- Header with title and close button
-- "Start New Session" button (primary action)
-- Scrollable list of past sessions (sorted by last updated)
-- Delete action on each session
-- Empty state when no sessions exist
-
-**Visual Layout:**
-```
-┌────────────────────────────────────────┐
-│  Session History                   [X] │
-├────────────────────────────────────────┤
-│  [ + Start New Session ]               │
-├────────────────────────────────────────┤
-│  Recent Sessions                       │
-│  ──────────────────────────────────────│
-│  ┌────────────────────────────────┐    │
-│  │ "Check my email and reply..."  │    │
-│  │ 5 messages • 2 hours ago    🗑 │    │
-│  └────────────────────────────────┘    │
-│  ┌────────────────────────────────┐    │
-│  │ "Open Settings app"            │    │
-│  │ 3 messages • Yesterday      🗑 │    │
-│  └────────────────────────────────┘    │
-│  ...                                   │
-└────────────────────────────────────────┘
-```
-
-### SessionListItem
-
-Individual session card in the list.
-
-```kotlin
-@Composable
-fun SessionListItem(
-    session: SessionInfo,
-    onClick: () -> Unit,
-    onDelete: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier
 )
 ```
 
+**Features:**
+- Header with "Sessions" title and close button
+- "New Conversation" button (primary action)
+- Scrollable list of past sessions (sorted by last updated)
+- Delete action on each session
+- Settings entry at bottom with model/version info
+- Proper system bar inset handling via `AppWindowInsets`
+
+**Visual Layout:**
+```
+┌─────────────────────────────────┐
+│  Sessions                   [X] │
+├─────────────────────────────────┤
+│  [ + New Conversation ]         │
+├─────────────────────────────────┤
+│  Recent                         │
+│  ───────────────────────────────│
+│  ┌───────────────────────────┐  │
+│  │ "Check my email and..."   │  │
+│  │  5 messages • 2 hours ago │🗑│
+│  └───────────────────────────┘  │
+│  ┌───────────────────────────┐  │
+│  │ "Open Settings app"       │  │
+│  │  3 messages • Yesterday   │🗑│
+│  └───────────────────────────┘  │
+│  ...                            │
+├─────────────────────────────────┤
+│  ⚙ Settings                     │
+│    gpt-4o • v1.0                │
+└─────────────────────────────────┘
+```
+
+### DrawerSessionItem
+
+Individual session card in the drawer list.
+
 **Displays:**
-- Display title (summary or first user message, truncated to 50 chars)
-- Message count
-- Relative timestamp (via `TimeUtils`)
+- Display title (summary or first user message, truncated)
+- Message count and relative timestamp
 - Delete button (trailing icon)
-- Active session indicator (optional badge)
 
 ### TimeUtils
 
@@ -520,42 +513,36 @@ class ChatViewModel(
 ### Usage in MainActivity
 
 ```kotlin
-// State for showing session list
-var showSessionList by remember { mutableStateOf(false) }
-
-// Trigger from ChatHeader (e.g., history icon)
+// Drawer is integrated into ChatScreen - no separate state needed
 ChatScreen(
     viewModel = viewModel,
-    onOpenSessionList = { showSessionList = true },
-    onOpenSettings = { showSettings = true }
+    sessions = sessions,                      // Observed from viewModel
+    currentModel = selectedModel,
+    appVersion = BuildConfig.VERSION_NAME,
+    onOpenSettings = { showSettings = true },
+    onSessionSelect = { session ->
+        viewModel.resumeSession(session)
+    },
+    onNewSession = {
+        viewModel.startNewSession()
+    },
+    onDeleteSession = { session ->
+        viewModel.deleteSession(session)
+    },
+    onLoadSessions = {
+        viewModel.loadSessions()
+    }
 )
-
-// Show session list sheet
-if (showSessionList) {
-    SessionListSheet(
-        sessions = viewModel.sessions,
-        onSessionSelect = { session ->
-            viewModel.resumeSession(session)
-            showSessionList = false
-        },
-        onNewSession = {
-            viewModel.startNewSession()
-            showSessionList = false
-        },
-        onDeleteSession = { session ->
-            viewModel.deleteSession(session)
-        },
-        onDismiss = { showSessionList = false }
-    )
-}
 ```
+
+The drawer opens automatically when the user taps the menu (≡) button in the header. Sessions are loaded when the drawer opens via the `onLoadSessions` callback.
 
 ### Session History UI Components Table
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| **SessionListSheet** | `ui/session/SessionListSheet.kt` | Bottom sheet for browsing sessions |
-| **SessionListItem** | `ui/session/SessionListItem.kt` | Individual session card |
+| **NavigationDrawer** | `ui/navigation/NavigationDrawer.kt` | Side drawer with history + settings |
+| **SessionListSheet** | `ui/session/SessionListSheet.kt` | DEPRECATED (use NavigationDrawer) |
 | **TimeUtils** | `ui/session/TimeUtils.kt` | Relative time formatting |
 
 ---
@@ -573,13 +560,14 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │   ├── Color.kt                 # Light/Dark color schemes
 │   │   ├── Shape.kt                 # Bubble shapes, card shapes
 │   │   ├── Theme.kt                 # ChatTheme composable
-│   │   └── Type.kt                  # Typography scale
+│   │   ├── Type.kt                  # Typography scale
+│   │   └── WindowInsets.kt          # AppWindowInsets for consistent inset handling
 │   │
 │   ├── chat/
-│   │   ├── ChatScreen.kt            # Main screen composable
+│   │   ├── ChatScreen.kt            # Main screen with drawer integration
 │   │   ├── ChatViewModel.kt         # State management
 │   │   ├── components/
-│   │   │   ├── ChatHeader.kt        # Minimal header
+│   │   │   ├── ChatHeader.kt        # Header: [≡] Title [+]
 │   │   │   ├── TaskBanner.kt        # Task context strip
 │   │   │   ├── MessageBubble.kt     # User/Agent bubbles
 │   │   │   ├── StreamingText.kt     # Text with cursor
@@ -589,6 +577,9 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │   │   └── EmptyState.kt        # First launch
 │   │   └── model/
 │   │       └── ChatMessage.kt       # UI data classes
+│   │
+│   ├── navigation/
+│   │   └── NavigationDrawer.kt      # Side drawer with history + settings
 │   │
 │   ├── overlay/
 │   │   ├── SmartCapsuleManager.kt   # Floating overlay with streaming
@@ -601,8 +592,8 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │       ├── ClickRippleView.kt          # Ripple effect for clicks
 │   │       └── SwipeTrailView.kt           # Trail effect for swipes
 │   │
-│   ├── session/                     # Session history UI
-│   │   ├── SessionListSheet.kt      # Session browser bottom sheet
+│   ├── session/                     # Session history utilities
+│   │   ├── SessionListSheet.kt      # DEPRECATED (use NavigationDrawer)
 │   │   ├── SessionListItem.kt       # Individual session card
 │   │   └── TimeUtils.kt             # Relative time formatting
 │   │
@@ -858,16 +849,24 @@ class MainActivity : ComponentActivity() {
         
         setContent {
             ChatTheme {
+                val sessions by viewModel.sessions.collectAsStateWithLifecycle()
+                
                 ChatScreen(
                     viewModel = viewModel,
-                    onOpenSettings = { showSettings = true }
+                    sessions = sessions,
+                    currentModel = selectedModel,
+                    appVersion = BuildConfig.VERSION_NAME,
+                    onOpenSettings = { showSettings = true },
+                    onSessionSelect = { viewModel.resumeSession(it) },
+                    onNewSession = { viewModel.startNewSession() },
+                    onDeleteSession = { viewModel.deleteSession(it) },
+                    onLoadSessions = { viewModel.loadSessions() }
                 )
                 
                 if (showSettings) {
-                    SettingsSheet(
-                        onDismiss = { showSettings = false },
-                        // ... settings props
-                    )
+                    ModalBottomSheet(onDismissRequest = { showSettings = false }) {
+                        SettingsSheet(/* ... settings props */)
+                    }
                 }
             }
         }
@@ -893,8 +892,10 @@ class MainActivity : ComponentActivity() {
 | `OutlinedTextField` | Chat input |
 | `FilledIconButton` | Send/Stop button |
 | `Surface` | Bubbles, cards, banner |
-| `LazyColumn` | Message list |
+| `LazyColumn` | Message list, session list |
 | `AnimatedVisibility` | Entry/exit animations |
+| `ModalNavigationDrawer` | Navigation drawer with session history |
+| `ModalDrawerSheet` | Drawer container with inset handling |
 | `ModalBottomSheet` | Settings sheet |
 
 ### Status Flow
