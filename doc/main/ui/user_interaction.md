@@ -82,15 +82,19 @@ The Android Agent uses a **chat-first conversational interface** built with Jetp
 
 ### Settings Sheet
 
-Modal bottom sheet for configuration.
+Modal bottom sheet for configuration. Features a header with title and close button (no drag handle).
 
 **Settings Items:**
 - Model selection (GPT-4o, GPT-4o-mini, GPT-4-turbo)
 - Max turns (10, 20, 50)
 - Accessibility service status
 - Overlay permission status
-- Clear conversation
 - About & Debug
+
+**Layout Features:**
+- Custom header with "Settings" title and close (X) button
+- Display cutout padding for notched devices
+- Status bar padding for Dynamic Island compatibility
 
 ---
 
@@ -104,7 +108,7 @@ Side drawer containing session history and settings access. Opens via the menu b
 
 **Features:**
 - Header with "Sessions" title and close button
-- "New Conversation" button (primary action)
+- "New Conversation" outlined button (light, unobtrusive style)
 - Scrollable list of past sessions (sorted by last updated)
 - Delete action on each session
 - Settings entry at bottom with model/version info

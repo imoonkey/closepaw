@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 
 /**
  * EmptyState - First launch experience with suggestions.
+ * 
+ * Clean design: Clear icon, visible suggestions, good contrast.
  */
 @Composable
 fun EmptyState(
@@ -34,21 +36,21 @@ fun EmptyState(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Icon
+        // Icon - visible, friendly
         Icon(
             imageVector = Icons.Rounded.SmartToy,
             contentDescription = null,
             modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+            tint = MaterialTheme.colorScheme.onSurfaceVariant  // No alpha! Visible.
         )
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // Title
+        // Title - clear, readable
         Text(
             text = "Android Agent",
             style = MaterialTheme.typography.headlineMedium,
@@ -58,35 +60,32 @@ fun EmptyState(
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        // Subtitle
+        // Subtitle - visible secondary text
         Text(
             text = "Your AI assistant for everything on Android",
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,  // No alpha!
             textAlign = TextAlign.Center
         )
         
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(40.dp))
         
-        // Suggestions
+        // Suggestions - clearly tappable
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             SuggestionChip(
-                emoji = "💡",
                 text = "Check my unread emails",
                 onClick = { onSuggestionClick("Check my unread emails") }
             )
             
             SuggestionChip(
-                emoji = "📱",
                 text = "Turn on Do Not Disturb",
                 onClick = { onSuggestionClick("Turn on Do Not Disturb") }
             )
             
             SuggestionChip(
-                emoji = "🔍",
                 text = "Search for nearby restaurants",
                 onClick = { onSuggestionClick("Search for nearby restaurants") }
             )
@@ -96,10 +95,11 @@ fun EmptyState(
 
 /**
  * SuggestionChip - Tappable suggestion.
+ * 
+ * Clear, visible design - looks clickable.
  */
 @Composable
 private fun SuggestionChip(
-    emoji: String,
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -108,14 +108,18 @@ private fun SuggestionChip(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,  // Full opacity - visible!
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        )
     ) {
         Text(
-            text = "$emoji  \"$text\"",
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            text = "\"$text\"",
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurface  // Full contrast text
         )
     }
 }

@@ -251,8 +251,8 @@ fun SettingsSheet(
     currentModel: String,
     onModelChange: (String) -> Unit,
     maxTurns: Int,
-    onMaxTurnsChange: (Int) -> Unit,
-    onClearConversation: () -> Unit
+    onMaxTurnsChange: (Int) -> Unit
+    // Note: Has custom header with close button and display cutout handling
 )
 ```
 
@@ -480,7 +480,10 @@ class MainActivity : ComponentActivity() {
                 )
                 
                 if (showSettings) {
-                    ModalBottomSheet(onDismissRequest = { showSettings = false }) {
+                    ModalBottomSheet(
+                        onDismissRequest = { showSettings = false },
+                        dragHandle = {}  // Custom header in SettingsSheet
+                    ) {
                         SettingsSheet(/* ... settings props */)
                     }
                 }

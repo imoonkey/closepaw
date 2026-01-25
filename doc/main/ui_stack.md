@@ -110,40 +110,40 @@ debugImplementation("androidx.compose.ui:ui-test-manifest")
 
 ### Color Palette
 
-Premium chat-focused palette with confident blue primary:
+Clean, modern palette inspired by ChatGPT and contemporary AI assistants:
 
 ```kotlin
 // Light Theme
 val LightColorScheme = lightColorScheme(
-    // Primary - Confident blue
-    primary = Color(0xFF2563EB),
+    // Primary - Soft black for CTA (send button)
+    primary = Color(0xFF3B3B3B),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFDBEAFE),
-    onPrimaryContainer = Color(0xFF1E40AF),
+    primaryContainer = Color(0xFFF0F0F0),
+    onPrimaryContainer = Color(0xFF3B3B3B),
     
-    // Secondary - Success teal
-    secondary = Color(0xFF0D9488),
+    // Secondary - ChatGPT teal for success/accent
+    secondary = Color(0xFF10A37F),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFCCFBF1),
-    onSecondaryContainer = Color(0xFF115E59),
+    secondaryContainer = Color(0xFFE6F4F1),
+    onSecondaryContainer = Color(0xFF0D7355),
     
-    // Surface - Clean, minimal
-    surface = Color(0xFFFAFAFA),
-    onSurface = Color(0xFF171717),
-    surfaceVariant = Color(0xFFF5F5F5),
-    onSurfaceVariant = Color(0xFF525252),
+    // Surface - Pure white, unified with background
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF0D0D0D),
+    surfaceVariant = Color(0xFFF7F7F8),
+    onSurfaceVariant = Color(0xFF5D5D5D),
     
-    // Background
-    background = Color.White,
-    onBackground = Color(0xFF171717),
+    // Background - Pure white
+    background = Color(0xFFFFFFFF),
+    onBackground = Color(0xFF0D0D0D),
     
     // Error
-    error = Color(0xFFDC2626),
+    error = Color(0xFFEF4146),
     onError = Color.White,
     
-    // Outline
-    outline = Color(0xFFD4D4D4),
-    outlineVariant = Color(0xFFE5E5E5)
+    // Outline - Visible borders
+    outline = Color(0xFFE5E5E5),
+    outlineVariant = Color(0xFFEEEEEE)
 )
 ```
 
@@ -160,9 +160,9 @@ val AgentTypography = Typography(
         lineHeight = 36.sp
     ),
     
-    // Title - Header
+    // Title - Header (Medium weight for elegance)
     titleLarge = TextStyle(
-        fontWeight = FontWeight.SemiBold,
+        fontWeight = FontWeight.Medium,
         fontSize = 20.sp,
         lineHeight = 28.sp
     ),
