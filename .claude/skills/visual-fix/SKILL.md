@@ -1,4 +1,8 @@
-# Visual Debug Workflow
+---
+description: Debug Android Agent issues using visual inspection + log analysis.
+---
+
+# Visual Fix
 
 Debug Android Agent using visual inspection + log analysis.
 
@@ -56,7 +60,7 @@ For each turn compare:
 - Check timing (UI changed during action?)
 - Check ActionResult error
 
-### 4. Apply Fix
+### 4. Apply Targeted Fix
 
 | Issue | Fix Location |
 |-------|--------------|
@@ -79,10 +83,21 @@ grep "ActionResult" debug-output/orchestration.log               # Results
 grep "ERROR\|Exception" debug-output/agent.log                   # Errors
 ```
 
-## AI-Assisted Debugging
+## Output Format
 
-When asking for help:
-1. Share `turn_N.png` screenshots
-2. Share relevant log excerpts
-3. Describe symptom: "Agent keeps pressing back when Chrome is visible"
-4. Ask specific: "Why does agent choose X when element Y is visible?"
+```
+VISUAL DEBUG SESSION
+
+Goal: [user goal]
+Turn N: [screenshot] → [perception] → [action] → [result]
+Issue: [category]
+Root cause: [explanation]
+Fix: [file:change]
+Verification: [PASS/FAIL]
+```
+
+## Rules
+
+- Capture screenshots before fixing
+- One issue at a time
+- Verify fix doesn't break other flows

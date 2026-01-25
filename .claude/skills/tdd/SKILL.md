@@ -1,23 +1,38 @@
-# TDD Workflow
+---
+description: Test-driven development. Write tests FIRST, then implement.
+---
 
-Test-driven development for Android/Kotlin.
+# TDD
 
-## When to Activate
+Test-driven development for Android/Kotlin core logic.
 
-**Use for:**
-- Core agent logic (state machines, orchestration)
-- Data transformations
+## When to Use
+
+**Best for:**
+- State machines, orchestration logic
+- Data transformations, utilities
 - Protocol implementations
 - Pure utility functions
 
 **Skip for:**
-- UI components
-- Android system integration
+- UI components (manual testing)
+- Android system integration (e2e better)
 - Simple CRUD
+
+## TDD Cycle
+
+```
+RED → GREEN → REFACTOR
+
+1. Write failing test
+2. Implement minimal code to pass
+3. Refactor, keep tests green
+```
 
 ## Workflow
 
 ### 1. Define Types
+
 ```kotlin
 interface Calculator {
     fun calculate(input: Input): Result
@@ -30,6 +45,7 @@ sealed class Result {
 ```
 
 ### 2. Write Tests (RED)
+
 ```kotlin
 class CalculatorTest {
     private val calculator = CalculatorImpl()
@@ -55,11 +71,15 @@ class CalculatorTest {
 ```
 
 ### 3. Run Tests (Should Fail)
+
 ```bash
 ./gradlew test --tests "*CalculatorTest*"
 ```
 
 ### 4. Implement (GREEN)
+
+Write minimal code to pass.
+
 ```kotlin
 class CalculatorImpl : Calculator {
     override fun calculate(input: Input): Result {
@@ -70,9 +90,11 @@ class CalculatorImpl : Calculator {
 ```
 
 ### 5. Refactor
+
 Keep tests green while improving code.
 
 ### 6. Verify Coverage
+
 ```bash
 ./gradlew jacocoTestReport
 # Check build/reports/jacoco/

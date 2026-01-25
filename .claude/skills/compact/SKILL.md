@@ -1,6 +1,10 @@
-# Strategic Compact
+---
+description: Suggest context compaction at logical task boundaries.
+---
 
-Suggest context compaction at logical task boundaries.
+# Compact
+
+Strategic context compaction at logical task boundaries.
 
 ## Why Strategic > Auto
 
