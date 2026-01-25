@@ -194,11 +194,11 @@ skills 有两个特别去重友好的开关： ([Claude Code][1])
 
 ## 6) 进阶社区套路：搞一个“单一真源目录”，其余都是 loader
 
-社区里有人专门解决“agents/commands/skills 多处重复”的问题：建立一个工具无关的 `ai-dev/` 目录做唯一真源，然后 `.claude/` 只引用/映射它 ([Medium][5])
+社区里有人专门解决“agents/commands/skills 多处重复”的问题：建立一个工具无关的 `.ai-dev/` 目录做唯一真源，然后 `.claude/` 只引用/映射它 ([Medium][5])
 
 ✅ **Best practice #7（工程化上限更高）：**
 
-* 把所有通用规则、prompt、模板放 `ai-dev/`
+* 把所有通用规则、prompt、模板放 `.ai-dev/`
 * `.claude/` 用脚本/生成器输出（或 symlink）
   这样你甚至能同时喂给 Copilot / Cursor / Claude，彻底杜绝 drift。
 
