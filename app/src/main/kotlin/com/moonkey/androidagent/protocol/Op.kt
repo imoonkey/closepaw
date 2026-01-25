@@ -109,8 +109,11 @@ data class SessionConfig(
     /** Approval mode for tool execution */
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     
-    /** LLM model to use */
+    /** LLM model to use (for OpenAI backend) */
     val model: String = "gpt-4o",
+    
+    /** LLM backend type (OpenAI cloud or local on-device) */
+    val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
     
     /** Enable verbose debug logging */
     val debugMode: Boolean = false
@@ -128,4 +131,36 @@ enum class ApprovalMode {
     
     /** Smart mode: auto-approve low-risk, ask for high-risk */
     SMART
+}
+
+/**
+ * LLMBackendType - Which LLM backend to use for inference.
+ * 
+ * Supports both cloud-based OpenAI API and local on-device inference.
+ * Local inference provides privacy, offline capability, and cost savings.
+ */
+enum class LLMBackendType {
+    /**
+     * Use OpenAI's cloud API (default).
+     * 
+     * Requires API key and internet connection.
+     * Supports GPT-4o, GPT-4, o1, etc.
+     */
+    OPENAI,
+    
+    /**
+     * Use local on-device LLM (LFM2.5-Thinking via llama.android).
+     * 
+     * Requires model to be downloaded to device storage.
+     * No internet or API key needed for inference.
+     * Privacy-preserving: no data leaves the device.
+     */
+    LOCAL,
+    
+    /**
+     * Automatic fallback: try local first, fall back to OpenAI on failure.
+     * 
+     * Useful for offline-first usage with cloud backup.
+     */
+    LOCAL_WITH_FALLBACK
 }

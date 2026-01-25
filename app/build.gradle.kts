@@ -81,4 +81,24 @@ dependencies {
     
     // Kotlin Serialization for session persistence
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    
+    // Local LLM Support (llama.cpp via llama.android)
+    // ================================================
+    // To enable local LLM inference, you have two options:
+    //
+    // Option 1: Build llama.android from source
+    //   1. Clone https://github.com/ggml-org/llama.cpp
+    //   2. Build the llama.android module: ./gradlew :examples:llama.android:lib:assembleRelease
+    //   3. Copy the AAR to app/libs/
+    //   4. Uncomment the implementation line below
+    //
+    // Option 2: Use a prebuilt AAR (if available)
+    //   1. Download the llama-android-release.aar
+    //   2. Place in app/libs/
+    //   3. Uncomment the implementation line below
+    //
+    // implementation(files("libs/llama-android-release.aar"))
+    //
+    // Note: The LFMLLMClient uses reflection to check if the library is available.
+    // If not present, local LLM will fail gracefully and OpenAI backend will be used.
 }

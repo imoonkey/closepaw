@@ -1,7 +1,12 @@
 package com.moonkey.androidagent.session
 
+import android.content.Context
 import android.util.Log
+import com.moonkey.androidagent.llm.FallbackLLMClient
 import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.llm.OpenAILLMClient
+import com.moonkey.androidagent.llm.local.LFMLLMClient
+import com.moonkey.androidagent.llm.local.LocalLLMConfig
 import com.moonkey.androidagent.history.HistoryConfig
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.TruncationPolicy
@@ -9,6 +14,7 @@ import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.tool.impl.AppControlTool
 import com.moonkey.androidagent.tool.impl.CompleteTaskTool
@@ -53,7 +59,7 @@ data class SessionServices(
          * Create a new SessionServices container with all services initialized.
          * 
          * Services are created in dependency order:
-         * 1. LLMClient (depends on apiKey)
+         * 1. LLMClient (depends on apiKey and backend type)
          * 2. PolicyEngine (no dependencies)
          * 3. ToolRegistry (no dependencies)
          * 4. ToolRouter (depends on ToolRegistry, PolicyEngine)
@@ -61,19 +67,21 @@ data class SessionServices(
          * 
          * @param config Session configuration
          * @param platform Android platform abstraction
-         * @param apiKey OpenAI API key for LLM client
+         * @param apiKey OpenAI API key for LLM client (optional if using local backend)
+         * @param context Android context for local LLM (optional if using OpenAI backend)
          * @return Fully initialized SessionServices
          */
         fun create(
             config: SessionConfig,
             platform: AndroidPlatform,
-            apiKey: String
+            apiKey: String,
+            context: Context? = null
         ): SessionServices {
-            Log.d(TAG, "Creating SessionServices...")
+            Log.d(TAG, "Creating SessionServices with backend: ${config.llmBackend}...")
             
-            // 1. Create LLMClient with API key
-            val llmClient = LLMClient(apiKey)
-            Log.d(TAG, "Created LLMClient")
+            // 1. Create LLMClient based on backend type
+            val llmClient: LLMClient = createLLMClient(config, apiKey, context)
+            Log.d(TAG, "Created LLMClient for backend: ${config.llmBackend}")
             
             // 2. Create PolicyEngine with approval mode from config
             val policyEngine = PolicyEngine(config.approvalMode)
@@ -132,6 +140,47 @@ data class SessionServices(
             
             Log.d(TAG, "Registered ${size()} built-in tools: ${getNames().joinToString()}")
         }
+        
+        /**
+         * Create LLMClient based on backend type configuration.
+         * 
+         * @param config Session configuration with backend type
+         * @param apiKey OpenAI API key (required for OPENAI and LOCAL_WITH_FALLBACK)
+         * @param context Android context (required for LOCAL and LOCAL_WITH_FALLBACK)
+         * @return LLMClient instance for the configured backend
+         */
+        private fun createLLMClient(
+            config: SessionConfig,
+            apiKey: String,
+            context: Context?
+        ): LLMClient {
+            return when (config.llmBackend) {
+                LLMBackendType.OPENAI -> {
+                    Log.d(TAG, "Creating OpenAI LLM client")
+                    OpenAILLMClient(apiKey)
+                }
+                
+                LLMBackendType.LOCAL -> {
+                    requireNotNull(context) { 
+                        "Context required for local LLM backend"
+                    }
+                    Log.d(TAG, "Creating local LLM client")
+                    LFMLLMClient(context, LocalLLMConfig.TOOL_CALLING)
+                }
+                
+                LLMBackendType.LOCAL_WITH_FALLBACK -> {
+                    requireNotNull(context) { 
+                        "Context required for local LLM backend with fallback"
+                    }
+                    Log.d(TAG, "Creating local LLM client with OpenAI fallback")
+                    // Create a fallback client that tries local first, then OpenAI
+                    FallbackLLMClient(
+                        primary = LFMLLMClient(context, LocalLLMConfig.TOOL_CALLING),
+                        fallback = OpenAILLMClient(apiKey)
+                    )
+                }
+            }
+        }
     }
     
     /**
@@ -151,6 +200,7 @@ data class SessionServices(
             appendLine()
             appendLine("Config:")
             appendLine("  Model: ${config.model}")
+            appendLine("  LLM Backend: ${config.llmBackend}")
             appendLine("  Approval Mode: ${config.approvalMode}")
             appendLine("  Max Turns: ${config.maxTurns}")
             appendLine("  Action Delay: ${config.actionDelayMs}ms")
@@ -200,6 +250,7 @@ object SessionServicesBuilder {
      * @param config Session configuration
      * @param platform Android platform
      * @param apiKey OpenAI API key
+     * @param context Android context (required for local LLM backend)
      * @param additionalTools Additional tools to register
      * @param excludeTools Tools to exclude from registration
      */
@@ -207,10 +258,11 @@ object SessionServicesBuilder {
         config: SessionConfig,
         platform: AndroidPlatform,
         apiKey: String,
+        context: Context? = null,
         additionalTools: List<com.moonkey.androidagent.tool.ToolSpec> = emptyList(),
         excludeTools: Set<String> = emptySet()
     ): SessionServices {
-        val services = SessionServices.create(config, platform, apiKey)
+        val services = SessionServices.create(config, platform, apiKey, context)
         
         // Remove excluded tools
         excludeTools.forEach { name ->

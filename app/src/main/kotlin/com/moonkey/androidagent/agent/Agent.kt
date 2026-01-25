@@ -181,6 +181,11 @@ class Agent(
                             emitMessageDelta(turnId, event.text)
                         }
                         
+                        is TurnStreamEvent.ThinkingDelta -> {
+                            // Log thinking content (could also emit for UI if desired)
+                            Log.v(TAG, "Turn $turnCount: Thinking: ${event.text.take(100)}...")
+                        }
+                        
                         is TurnStreamEvent.ToolCallReceived -> {
                             Log.d(TAG, "Turn $turnCount: Received tool call: ${event.toolCall.name}")
                         }

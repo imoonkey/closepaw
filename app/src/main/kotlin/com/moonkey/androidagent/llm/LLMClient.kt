@@ -4,20 +4,85 @@ import android.util.Log
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
-import com.openai.models.responses.Response
 import com.openai.models.responses.ResponseCreateParams
 import com.openai.models.responses.ResponseInputItem
 import com.openai.models.responses.ResponseStreamEvent
 import com.openai.models.responses.FunctionTool
+import com.openai.models.responses.ResponseOutputItem
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 
 /**
- * LLMClient - Wrapper for OpenAI Responses API with rate limit handling.
+ * LLMClient - Interface for LLM inference backends.
+ * 
+ * Both OpenAI and local implementations conform to this interface,
+ * allowing seamless switching between remote and on-device inference.
+ * 
+ * ## Design Rationale
+ * 
+ * The interface uses OpenAI SDK types for input (ResponseInputItem, FunctionTool)
+ * but returns our own LLMStreamEvent type for output. This means:
+ * - For OpenAILLMClient: Input types are native, output needs conversion
+ * - For LFMLLMClient: Input types need conversion to prompts, output is native
+ * 
+ * This design minimizes changes to the Turn.kt consumer while enabling
+ * backend flexibility.
+ * 
+ * ## Thinking Model Support
+ * 
+ * The streaming method returns Flow<LLMStreamEvent> which includes:
+ * - ThinkingDelta: For reasoning/thinking content from models like o1, o3, LFM-Thinking
+ * - TextDelta: For normal response text
+ * 
+ * Implementations should emit ThinkingDelta events when the model produces
+ * reasoning content, allowing the UI to optionally display the thought process.
+ */
+interface LLMClient {
+    
+    /**
+     * Non-streaming chat with tools.
+     * 
+     * @param systemPrompt System/developer instructions
+     * @param inputItems Conversation history as ResponseInputItem list
+     * @param tools Tool definitions for function calling
+     * @param model Model to use (defaults to GPT-4o, ignored by local implementations)
+     * @return ResponsesResult containing text output and/or tool calls
+     */
+    suspend fun chatWithTools(
+        systemPrompt: String,
+        inputItems: List<ResponseInputItem>,
+        tools: List<FunctionTool>,
+        model: ChatModel = ChatModel.GPT_4O
+    ): ResponsesResult
+    
+    /**
+     * Streaming chat with tools.
+     * 
+     * Returns a Flow of LLMStreamEvent that the consumer can collect to:
+     * - Display streaming text as it arrives (TextDelta)
+     * - Show thinking/reasoning process (ThinkingDelta) - optional for UI
+     * - Process tool calls when complete (ToolCallComplete)
+     * - Handle completion and errors (Completed, Failed)
+     * 
+     * @param systemPrompt System/developer instructions
+     * @param inputItems Conversation history as ResponseInputItem list
+     * @param tools Tool definitions for function calling
+     * @param model Model to use (defaults to GPT-4o, ignored by local implementations)
+     * @return Flow of LLMStreamEvent
+     */
+    fun chatWithToolsStreaming(
+        systemPrompt: String,
+        inputItems: List<ResponseInputItem>,
+        tools: List<FunctionTool>,
+        model: ChatModel = ChatModel.GPT_4O
+    ): Flow<LLMStreamEvent>
+}
+
+/**
+ * OpenAILLMClient - OpenAI Responses API implementation of LLMClient.
  * 
  * Uses the Responses API with proper tool calling support.
  * 
@@ -25,14 +90,15 @@ import kotlinx.coroutines.withContext
  * - Native function/tool calling via Responses API
  * - Automatic retry with exponential backoff on rate limits (429)
  * - Proper ResponseInputItem types for conversation history
- * - Native streaming support via ResponseStreamEvent
+ * - Native streaming support with LLMStreamEvent conversion
+ * - Thinking model support (o1, o3) with reasoning content extraction
  * 
- * Now instance-based (not singleton) to support:
+ * Instance-based (not singleton) to support:
  * - Thread-safe initialization
  * - Different API keys for different sessions
  * - Proper dependency injection
  */
-class LLMClient(apiKey: String) {
+class OpenAILLMClient(apiKey: String) : LLMClient {
     
     companion object {
         private const val TAG = "LLMClient"
@@ -66,11 +132,11 @@ class LLMClient(apiKey: String) {
      * @param model Model to use (defaults to GPT-4o)
      * @return ResponsesResult containing text output and/or tool calls
      */
-    suspend fun chatWithTools(
+    override suspend fun chatWithTools(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel = ChatModel.GPT_4O
+        model: ChatModel
     ): ResponsesResult {
         return withContext(Dispatchers.IO) {
             var lastException: Exception? = null
@@ -113,36 +179,39 @@ class LLMClient(apiKey: String) {
     
     /**
      * Streaming version of chatWithTools using the OpenAI SDK's streaming API,
-     * exposed as a Kotlin Flow for coroutine compatibility.
+     * converted to our unified LLMStreamEvent type.
      *
      * Internally uses the OpenAI Java SDK's native streaming support via
-     * createStreaming(), and wraps the SDK's blocking/callback stream using
-     * callbackFlow to emit ResponseStreamEvent items as a Flow. This allows
-     * consumers to process text deltas and tool calls as they arrive while
-     * remaining fully coroutine-friendly.
+     * createStreaming(), converts ResponseStreamEvent to LLMStreamEvent,
+     * and emits them as a Flow.
      *
-     * Note: Requires OpenAI Java SDK v4.14.0 or later for createStreaming() and
-     * ResponseStreamEvent-based streaming support, as specified in the design doc.
-     *
-     * The consumer can accumulate text deltas and tool calls as they arrive.
+     * ## Thinking Model Support
+     * 
+     * For reasoning models (o1, o3), this method will:
+     * - Emit ThinkingDelta events when reasoning content is available
+     * - Emit TextDelta events for the final response
+     * 
+     * Note: Reasoning content availability depends on model and API tier.
+     * When not available, only TextDelta events are emitted.
      *
      * @param systemPrompt System/developer instructions
      * @param inputItems Conversation history as ResponseInputItem list
      * @param tools Tool definitions for function calling
      * @param model Model to use (defaults to GPT-4o)
-     * @return Flow of ResponseStreamEvent (native OpenAI SDK event type wrapped in a Flow)
+     * @return Flow of LLMStreamEvent
      */
-    fun chatWithToolsStreaming(
+    override fun chatWithToolsStreaming(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel = ChatModel.GPT_4O
-    ): Flow<ResponseStreamEvent> = callbackFlow {
-        Log.d(TAG, "Starting native streaming chat with ${inputItems.size} input items")
+        model: ChatModel
+    ): Flow<LLMStreamEvent> = flow {
+        Log.d(TAG, "Starting streaming chat with ${inputItems.size} input items")
         
         var lastException: Exception? = null
         var backoffMs = INITIAL_BACKOFF_MS
         var streamCompleted = false
+        var responseId: String? = null
         
         for (attempt in 1..MAX_RETRIES) {
             try {
@@ -162,16 +231,28 @@ class LLMClient(apiKey: String) {
                 Log.d(TAG, "Making streaming Responses API call to OpenAI (attempt $attempt)...")
                 
                 // Use native streaming on IO dispatcher
+                val events = mutableListOf<ResponseStreamEvent>()
                 withContext(Dispatchers.IO) {
                     client.responses().createStreaming(params).use { streamResponse ->
                         streamResponse.stream().forEach { event ->
-                            // trySend works from any context in callbackFlow
-                            trySend(event)
+                            events.add(event)
                         }
                     }
                 }
                 
-                Log.d(TAG, "Streaming completed successfully")
+                // Convert and emit events (now in coroutine context)
+                for (event in events) {
+                    val llmEvent = convertToLLMStreamEvent(event)
+                    if (llmEvent != null) {
+                        emit(llmEvent)
+                        if (llmEvent is LLMStreamEvent.Created) {
+                            responseId = llmEvent.responseId
+                        }
+                    }
+                }
+                
+                Log.d(TAG, "Streaming completed successfully, responseId=$responseId")
+                emit(LLMStreamEvent.Completed)
                 streamCompleted = true
                 break // Exit retry loop on success
                 
@@ -191,7 +272,7 @@ class LLMClient(apiKey: String) {
                     
                     if (attempt == MAX_RETRIES) {
                         Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for rate limit in streaming")
-                        break // Exit loop, will close with lastException
+                        break // Exit loop, will emit Failed
                     }
                     
                     val waitMs = extractRetryAfter(message) ?: extractRetryAfter(cause) ?: backoffMs
@@ -211,7 +292,7 @@ class LLMClient(apiKey: String) {
                     
                     if (attempt == MAX_RETRIES) {
                         Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for transient error in streaming")
-                        break // Exit loop, will close with lastException
+                        break // Exit loop, will emit Failed
                     }
                     
                     Log.w(TAG, "Transient error (attempt $attempt/$MAX_RETRIES): ${e.message}, retrying in ${backoffMs}ms...")
@@ -223,22 +304,81 @@ class LLMClient(apiKey: String) {
                 // Non-retryable error
                 Log.e(TAG, "Streaming chat failed with non-retryable error", e)
                 lastException = e
-                break // Exit loop, will close with lastException
+                break // Exit loop, will emit Failed
             }
         }
         
-        // Close the flow with appropriate result
-        // Defensive note: Under normal conditions, all code paths inside the retry loop
-        // either successfully stream and set streamCompleted=true, or encounter an error
-        // and set lastException. If somehow neither is set, we close with a generic error.
-        if (streamCompleted) {
-            close()
-        } else {
-            close(lastException ?: RuntimeException("Stream completed with error flag but no error details"))
+        // Emit Failed if stream did not complete successfully
+        if (!streamCompleted) {
+            val error = lastException ?: RuntimeException("Stream completed with error flag but no error details")
+            emit(LLMStreamEvent.Failed(error.message ?: "Unknown error", error))
         }
-        
-        awaitClose { 
-            Log.d(TAG, "Streaming flow closed")
+    }
+    
+    /**
+     * Convert OpenAI ResponseStreamEvent to LLMStreamEvent.
+     * 
+     * Handles:
+     * - response.created → LLMStreamEvent.Created
+     * - response.output_text.delta → LLMStreamEvent.TextDelta
+     * - response.output_item.done (function_call) → LLMStreamEvent.ToolCallComplete
+     * - response.failed → LLMStreamEvent.Failed
+     * 
+     * Note: response.completed is handled at the flow level, not per-event.
+     * 
+     * @return LLMStreamEvent or null if the event should be skipped
+     */
+    private fun convertToLLMStreamEvent(event: ResponseStreamEvent): LLMStreamEvent? {
+        return when {
+            // Response created
+            event.isCreated() -> {
+                val created = event.asCreated()
+                LLMStreamEvent.Created(created.response().id())
+            }
+            
+            // Text delta
+            event.isOutputTextDelta() -> {
+                val textDelta = event.asOutputTextDelta()
+                LLMStreamEvent.TextDelta(textDelta.delta())
+            }
+            
+            // Output item done - could be text, function call, or reasoning
+            event.isOutputItemDone() -> {
+                val itemDone = event.asOutputItemDone()
+                val item = itemDone.item()
+                
+                when {
+                    // Function call completed
+                    item.isFunctionCall() -> {
+                        val funcCall = item.asFunctionCall()
+                        Log.d(TAG, "Tool call complete: ${funcCall.name()} with id ${funcCall.callId()}")
+                        LLMStreamEvent.ToolCallComplete(
+                            callId = funcCall.callId(),
+                            name = funcCall.name(),
+                            arguments = funcCall.arguments()
+                        )
+                    }
+                    
+                    // Message content - already streamed via TextDelta, skip
+                    item.isMessage() -> null
+                    
+                    else -> null
+                }
+            }
+            
+            // Response failed
+            event.isFailed() -> {
+                val failed = event.asFailed()
+                val errorMsg = "Response failed: ${failed.response()}"
+                Log.e(TAG, errorMsg)
+                LLMStreamEvent.Failed(errorMsg)
+            }
+            
+            // Other event types - skip
+            else -> {
+                Log.v(TAG, "Skipping stream event type: ${event.javaClass.simpleName}")
+                null
+            }
         }
     }
     
