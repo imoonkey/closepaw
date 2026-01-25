@@ -27,7 +27,6 @@ import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
 import com.moonkey.androidagent.ui.chat.ChatScreen
 import com.moonkey.androidagent.ui.chat.ChatViewModel
-import com.moonkey.androidagent.ui.session.SessionListSheet
 import com.moonkey.androidagent.ui.settings.SettingsSheet
 import com.moonkey.androidagent.ui.theme.ChatTheme
 import kotlinx.coroutines.CoroutineScope
@@ -88,9 +87,6 @@ class MainActivity : ComponentActivity() {
     
     // Settings visibility
     private var showSettings by mutableStateOf(false)
-    
-    // Session list visibility
-    private var showSessionList by mutableStateOf(false)
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -127,10 +123,28 @@ class MainActivity : ComponentActivity() {
                 
                 ChatScreen(
                     viewModel = viewModel,
+                    sessions = sessions,
+                    currentModel = selectedModel,
+                    appVersion = BuildConfig.VERSION_NAME,
                     onOpenSettings = { showSettings = true },
-                    onOpenSessionHistory = {
+                    onSessionSelect = { session ->
+                        viewModel.resumeSession(session) {
+                            // Session resumed for viewing history only
+                            // End the resumed history session to avoid recording mismatch
+                            // A new session will be created when user sends a message
+                            sessionHistoryManager.getRecordingService().clearSession()
+                            currentSession = null
+                            Log.d(TAG, "History session resumed for viewing; cleared recording state")
+                        }
+                    },
+                    onNewSession = {
+                        viewModel.startNewSession(selectedModel, BuildConfig.VERSION_NAME)
+                    },
+                    onDeleteSession = { session ->
+                        viewModel.deleteSession(session)
+                    },
+                    onLoadSessions = {
                         viewModel.loadSessions()
-                        showSessionList = true
                     }
                 )
                 
@@ -174,32 +188,6 @@ class MainActivity : ComponentActivity() {
                             onDismiss = { showSettings = false }
                         )
                     }
-                }
-                
-                // Session List Bottom Sheet
-                if (showSessionList) {
-                    SessionListSheet(
-                        sessions = sessions,
-                        onSessionSelect = { session ->
-                            viewModel.resumeSession(session) {
-                                // Session resumed for viewing history only
-                                // End the resumed history session to avoid recording mismatch
-                                // A new session will be created when user sends a message
-                                sessionHistoryManager.getRecordingService().clearSession()
-                                currentSession = null
-                                Log.d(TAG, "History session resumed for viewing; cleared recording state")
-                            }
-                            showSessionList = false
-                        },
-                        onNewSession = {
-                            viewModel.startNewSession(selectedModel, BuildConfig.VERSION_NAME)
-                            showSessionList = false
-                        },
-                        onDeleteSession = { session ->
-                            viewModel.deleteSession(session)
-                        },
-                        onDismiss = { showSessionList = false }
-                    )
                 }
             }
         }

@@ -1,6 +1,5 @@
 package com.moonkey.androidagent.ui.chat
 
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,94 +10,129 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.ui.chat.components.ChatHeader
 import com.moonkey.androidagent.ui.chat.components.EmptyState
 import com.moonkey.androidagent.ui.chat.components.InputDock
 import com.moonkey.androidagent.ui.chat.components.MessageBubble
 import com.moonkey.androidagent.ui.chat.components.TaskBanner
 import com.moonkey.androidagent.ui.chat.model.ChatMessage
+import com.moonkey.androidagent.ui.navigation.NavigationDrawerContent
+import kotlinx.coroutines.launch
 
 /**
  * ChatScreen - Main chat interface composable.
  * 
  * Orchestrates all chat components into a cohesive conversation experience.
+ * Includes navigation drawer for session history and settings access.
  */
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel,
+    sessions: List<SessionInfo>,
+    currentModel: String,
+    appVersion: String,
     onOpenSettings: () -> Unit,
-    onOpenSessionHistory: (() -> Unit)? = null,
+    onSessionSelect: (SessionInfo) -> Unit,
+    onNewSession: () -> Unit,
+    onDeleteSession: (SessionInfo) -> Unit,
+    onLoadSessions: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val taskBannerState by viewModel.taskBannerState.collectAsStateWithLifecycle()
     val messages = viewModel.messages
     
-    // Track swipe gesture for opening settings
-    var swipeOffset by remember { mutableFloatStateOf(0f) }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     
-    Scaffold(
-        modifier = modifier.pointerInput(Unit) {
-            detectVerticalDragGestures(
-                onDragEnd = {
-                    // Trigger settings if swiped up more than 100px from bottom
-                    if (swipeOffset < -100f) {
-                        onOpenSettings()
-                    }
-                    swipeOffset = 0f
+    // Load sessions when drawer opens
+    LaunchedEffect(drawerState.isOpen) {
+        if (drawerState.isOpen) {
+            onLoadSessions()
+        }
+    }
+    
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            NavigationDrawerContent(
+                sessions = sessions,
+                currentModel = currentModel,
+                appVersion = appVersion,
+                onSessionSelect = { session ->
+                    scope.launch { drawerState.close() }
+                    onSessionSelect(session)
                 },
-                onVerticalDrag = { _, dragAmount ->
-                    swipeOffset += dragAmount
+                onNewSession = {
+                    scope.launch { drawerState.close() }
+                    onNewSession()
+                },
+                onDeleteSession = onDeleteSession,
+                onSettingsClick = {
+                    scope.launch { drawerState.close() }
+                    onOpenSettings()
+                },
+                onClose = {
+                    scope.launch { drawerState.close() }
                 }
             )
         },
-        topBar = {
-            ChatHeader(
-                onSettingsLongPress = onOpenSettings,
-                onHistoryClick = onOpenSessionHistory
-            )
-        },
-        bottomBar = {
-            InputDock(
-                state = uiState.inputState,
-                onSend = viewModel::sendMessage,
-                onStop = viewModel::stopTask
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // Task Banner
-            TaskBanner(state = taskBannerState)
-            
-            // Content area - use Box with conditional content
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                if (messages.isEmpty() && uiState.showEmptyState) {
-                    // Empty state
-                    EmptyState(
-                        onSuggestionClick = viewModel::sendMessage,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else if (messages.isNotEmpty()) {
-                    // Message list
-                    MessageList(
-                        messages = messages,
-                        modifier = Modifier.fillMaxSize()
-                    )
+        gesturesEnabled = true
+    ) {
+        Scaffold(
+            modifier = modifier,
+            topBar = {
+                ChatHeader(
+                    onMenuClick = {
+                        scope.launch { drawerState.open() }
+                    },
+                    onNewChatClick = onNewSession,
+                    showNewChatButton = messages.isNotEmpty()
+                )
+            },
+            bottomBar = {
+                InputDock(
+                    state = uiState.inputState,
+                    onSend = viewModel::sendMessage,
+                    onStop = viewModel::stopTask
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // Task Banner
+                TaskBanner(state = taskBannerState)
+                
+                // Content area - use Box with conditional content
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    if (messages.isEmpty() && uiState.showEmptyState) {
+                        // Empty state
+                        EmptyState(
+                            onSuggestionClick = viewModel::sendMessage,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (messages.isNotEmpty()) {
+                        // Message list
+                        MessageList(
+                            messages = messages,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }
