@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.llm
 
 import android.util.Log
+import com.moonkey.androidagent.BuildConfig
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
@@ -29,6 +30,8 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
     
     companion object {
         private const val TAG = "OpenAILLMClient"
+        private const val MAX_LOG_LENGTH = 2000
+        private val VERBOSE_LOGGING = BuildConfig.DEBUG
     }
 
     private val client: OpenAIClient
@@ -104,10 +107,14 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
         model: ChatModel
     ): Flow<LLMStreamEvent> = callbackFlow {
         Log.d(TAG, "Starting native streaming chat with ${inputItems.size} input items")
+        logLLMInput(systemPrompt, inputItems, tools)
         
         var lastException: Exception? = null
         var backoffMs = INITIAL_BACKOFF_MS
         var streamCompleted = false
+        var responseId: String? = null
+        val textAccumulator = StringBuilder()
+        val toolCalls = mutableListOf<LLMToolCall>()
         
         for (attempt in 1..MAX_RETRIES) {
             try {
@@ -134,10 +141,12 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
                             when {
                                 event.isCreated() -> {
                                     val created = event.asCreated()
+                                    responseId = created.response().id()
                                     trySend(LLMStreamEvent.Created(created.response().id()))
                                 }
                                 event.isOutputTextDelta() -> {
                                     val textDelta = event.asOutputTextDelta()
+                                    textAccumulator.append(textDelta.delta())
                                     trySend(LLMStreamEvent.TextDelta(textDelta.delta()))
                                 }
                                 event.isOutputItemDone() -> {
@@ -145,16 +154,23 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
                                     val item = itemDone.item()
                                     if (item.isFunctionCall()) {
                                         val funcCall = item.asFunctionCall()
-                                        trySend(LLMStreamEvent.ToolCallDone(
-                                            LLMToolCall(
-                                                callId = funcCall.callId(),
-                                                name = funcCall.name(),
-                                                arguments = funcCall.arguments()
-                                            )
-                                        ))
+                                        val toolCall = LLMToolCall(
+                                            callId = funcCall.callId(),
+                                            name = funcCall.name(),
+                                            arguments = funcCall.arguments()
+                                        )
+                                        toolCalls.add(toolCall)
+                                        trySend(LLMStreamEvent.ToolCallDone(toolCall))
                                     }
                                 }
                                 event.isCompleted() -> {
+                                    logLLMOutput(
+                                        ResponsesResult(
+                                            textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
+                                            toolCalls = toolCalls,
+                                            responseId = responseId ?: "unknown"
+                                        )
+                                    )
                                     trySend(LLMStreamEvent.Completed)
                                 }
                                 event.isFailed() -> {
@@ -244,6 +260,7 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
         model: ChatModel
     ): ResponsesResult {
         Log.d(TAG, "Calling Responses API with ${inputItems.size} input items, ${tools.size} tools")
+        logLLMInput(systemPrompt, inputItems, tools)
         
         try {
             val builder = ResponseCreateParams.builder()
@@ -293,6 +310,7 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
             )
             
             Log.d(TAG, "Responses API result: ${result.textContent?.take(200)}..., ${result.toolCalls.size} tool calls")
+            logLLMOutput(result)
             return result
             
         } catch (e: Exception) {
@@ -378,5 +396,107 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
             }
         }
         return null
+    }
+
+    // ===== Logging helpers =====
+
+    private fun logLLMInput(
+        systemPrompt: String,
+        inputItems: List<ResponseInputItem>,
+        tools: List<FunctionTool>
+    ) {
+        if (!VERBOSE_LOGGING) return
+        
+        Log.i(TAG, "╔══════════════════════════════════════════════════════════════")
+        Log.i(TAG, "║ LLM INPUT")
+        Log.i(TAG, "╠══════════════════════════════════════════════════════════════")
+        
+        Log.i(TAG, "║ SYSTEM PROMPT (${systemPrompt.length} chars):")
+        logLongMessage("SYSTEM", systemPrompt)
+        
+        Log.i(TAG, "║ INPUT ITEMS (${inputItems.size} total):")
+        inputItems.forEachIndexed { idx, item ->
+            val itemSummary = when {
+                item.isEasyInputMessage() -> {
+                    val msg = item.asEasyInputMessage()
+                    val role = msg.role().toString()
+                    val content = extractMessageContent(msg.content())
+                    "[$idx] $role: ${content.take(200)}${if (content.length > 200) "..." else ""}"
+                }
+                item.isFunctionCall() -> {
+                    val call = item.asFunctionCall()
+                    "[$idx] FUNCTION_CALL: ${call.name()}(${call.arguments().take(100)})"
+                }
+                item.isFunctionCallOutput() -> {
+                    val output = item.asFunctionCallOutput()
+                    val content = output.output().toString()
+                    "[$idx] FUNCTION_OUTPUT: ${content.take(200)}${if (content.length > 200) "..." else ""}"
+                }
+                else -> "[$idx] Unknown type: ${item::class.simpleName}"
+            }
+            Log.i(TAG, "║ $itemSummary")
+        }
+        
+        Log.i(TAG, "║ TOOLS (${tools.size} registered):")
+        tools.forEach { tool ->
+            Log.i(TAG, "║   - ${tool.name()}: ${tool.description().orElse("").take(100)}")
+        }
+        
+        Log.i(TAG, "╚══════════════════════════════════════════════════════════════")
+    }
+
+    private fun logLLMOutput(result: ResponsesResult) {
+        if (!VERBOSE_LOGGING) return
+        
+        Log.i(TAG, "╔══════════════════════════════════════════════════════════════")
+        Log.i(TAG, "║ LLM OUTPUT")
+        Log.i(TAG, "╠══════════════════════════════════════════════════════════════")
+        
+        if (result.textContent != null) {
+            Log.i(TAG, "║ TEXT CONTENT (${result.textContent.length} chars):")
+            logLongMessage("OUTPUT", result.textContent)
+        } else {
+            Log.i(TAG, "║ TEXT CONTENT: (none)")
+        }
+        
+        Log.i(TAG, "║ TOOL CALLS (${result.toolCalls.size}):")
+        result.toolCalls.forEach { call ->
+            Log.i(TAG, "║   - ${call.name}(${call.arguments})")
+        }
+        
+        Log.i(TAG, "╚══════════════════════════════════════════════════════════════")
+    }
+
+    private fun extractMessageContent(content: Any): String {
+        return when (content) {
+            is String -> content
+            is List<*> -> {
+                content.mapNotNull { part ->
+                    when (part) {
+                        is String -> part
+                        else -> part?.toString()
+                    }
+                }.joinToString(" ")
+            }
+            else -> content.toString()
+        }
+    }
+
+    private fun logLongMessage(prefix: String, message: String) {
+        val truncated = if (message.length > MAX_LOG_LENGTH) {
+            message.take(MAX_LOG_LENGTH) + "...[truncated ${message.length - MAX_LOG_LENGTH} chars]"
+        } else {
+            message
+        }
+        
+        truncated.split("\n").forEach { line ->
+            if (line.length > 1000) {
+                line.chunked(1000).forEach { chunk ->
+                    Log.i(TAG, "║ [$prefix] $chunk")
+                }
+            } else {
+                Log.i(TAG, "║ [$prefix] $line")
+            }
+        }
     }
 }

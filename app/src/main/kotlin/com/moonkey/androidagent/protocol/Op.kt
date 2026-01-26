@@ -135,18 +135,18 @@ enum class LLMBackendType {
 
 /**
  * Configuration for local LLM inference.
- * 
+ *
  * Available models from Leap Model Library (leap.liquid.ai/models):
- * - "LFM2-1.2B" / "Q5_K_M" (~843MB, recommended for tool-calling)
- * - "LFM2-1.2B" / "Q4_K_M" (~731MB, smaller quantization)
+ * - "LFM2.5-1.2B-Instruct" / "Q4_K_M" (~731MB, recommended for tool-calling)
+ * - "LFM2.5-1.2B-Instruct" / "Q5_K_M" (~843MB, higher quality)
  * - "lfm2-350m" / "lfm2-350m-20250710-8da4w" (~400MB, smallest, less capable)
  */
 data class LocalLLMSessionConfig(
-    /** Model slug (e.g., "LFM2-1.2B") */
-    val modelSlug: String = "LFM2-1.2B",
-    
-    /** Quantization slug (e.g., "Q5_K_M") - must match Leap Model Library */
-    val quantizationSlug: String = "Q5_K_M"
+    /** Model slug (e.g., "LFM2.5-1.2B-Instruct") */
+    val modelSlug: String = "LFM2.5-1.2B-Instruct",
+
+    /** Quantization slug (e.g., "Q4_K_M") - must match Leap Model Library */
+    val quantizationSlug: String = "Q4_K_M"
 )
 
 /**

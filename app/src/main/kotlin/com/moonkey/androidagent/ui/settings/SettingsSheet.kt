@@ -86,14 +86,19 @@ private val AVAILABLE_CLOUD_MODELS = listOf(
  */
 private val AVAILABLE_LOCAL_MODELS = listOf(
     LocalModelOption(
+        id = "LFM2.5-1.2B-Instruct",
+        displayName = "LFM 1.2B Instruct (Recommended)",
+        modelSlug = "LFM2.5-1.2B-Instruct",
+        quantizationSlug = "Q4_K_M",
+        description = "On-device inference, ~1.2B parameters, tool-calling support"
+    ),
+    LocalModelOption(
         id = "lfm2-350m",
         displayName = "LFM 350M",
         modelSlug = "lfm2-350m",
         quantizationSlug = "lfm2-350m-20250710-8da4w",
-        description = "On-device inference, ~350M parameters"
+        description = "On-device inference, ~350M parameters, smaller/faster"
     )
-    // Note: Larger models (1.2B+) require manual download and local file loading,
-    // not yet supported via the downloadable model API.
 )
 
 /**

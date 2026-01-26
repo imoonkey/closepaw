@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,12 +9,12 @@ plugins {
 
 android {
     namespace = "com.moonkey.androidagent"
-    compileSdk = 35
+    compileSdk = 36  // Required by Leap SDK 0.9.2 (depends on androidx.core:core-ktx:1.17.0)
 
     defaultConfig {
         applicationId = "com.moonkey.androidagent"
         minSdk = 31  // Required by LiquidAI Leap SDK
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
     }
@@ -26,10 +28,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -48,6 +46,20 @@ android {
             excludes += "META-INF/notice.txt"
             excludes += "META-INF/ASL2.0"
         }
+    }
+    
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+// Kotlin 2.3.0 compilerOptions DSL (replaces deprecated kotlinOptions)
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
@@ -80,11 +92,17 @@ dependencies {
     implementation("com.openai:openai-java:4.14.0")
     
     // LiquidAI Leap SDK for local LLM inference
-    implementation("ai.liquid.leap:leap-sdk:0.6.0")
-    implementation("ai.liquid.leap:leap-gson:0.6.0")
-    implementation("ai.liquid.leap:leap-model-downloader:0.6.0")
-    implementation("com.google.code.gson:gson:2.13.1")
+    // Version 0.9.2 includes manifest.LeapDownloader with loadModel(modelSlug, quantizationSlug) API
+    implementation("ai.liquid.leap:leap-sdk:0.9.2")
     
     // Kotlin Serialization for session persistence
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    
+    // Testing
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("io.mockk:mockk:1.13.9")
+    testImplementation("com.google.truth:truth:1.4.2")
+    // Pure Java JSON library for unit tests (Android's JSONObject is not available in unit tests)
+    testImplementation("org.json:json:20240303")
 }
