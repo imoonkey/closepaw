@@ -215,7 +215,7 @@ cmd_logs() {
             ;;
         llm|api)
             log "LLM/API logs (Ctrl+C to stop)..."
-            adb logcat -s LLMClient:*
+            adb logcat -s OpenAILLMClient:* LFMLLMClient:* LLMClient:*
             ;;
         session)
             log "Session logs (Ctrl+C to stop)..."

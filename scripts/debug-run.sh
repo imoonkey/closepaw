@@ -139,6 +139,12 @@ adb logcat -d | grep -E "Agent|Turn|LLMClient|ToolRouter|SessionServices" > "$DE
 log "Saving full system log..."
 adb logcat -d | grep -E "AgentService|AccessibilityPlatform|AgentSession" > "$DEBUG_DIR/system.log"
 
+# Save LFMLLMClient specific logs for local LLM debugging
+if [[ "$LLM_BACKEND" == "local" ]]; then
+    log "Saving local LLM logs..."
+    adb logcat -d | grep -E "LFMLLMClient|Leap|Model" > "$DEBUG_DIR/local_llm.log"
+fi
+
 echo ""
 echo -e "${GREEN}=============================================================${NC}"
 echo -e "${GREEN}Debug output saved to: $DEBUG_DIR${NC}"

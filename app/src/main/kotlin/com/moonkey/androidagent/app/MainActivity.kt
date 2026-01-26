@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
         private const val DEFAULT_MAX_TURNS = 20
         private const val DEFAULT_DEBUG_MODE = false
         private const val DEFAULT_LLM_BACKEND = "OPENAI"
-        private const val DEFAULT_LOCAL_MODEL_ID = "LFM2-1.2B"
+        private const val DEFAULT_LOCAL_MODEL_ID = "LFM2.5-1.2B-Instruct"
     }
     
     // Session scope - survives configuration changes within activity lifecycle
@@ -93,8 +93,8 @@ class MainActivity : ComponentActivity() {
     // LLM Backend settings
     private var llmBackend by mutableStateOf(LLMBackendType.OPENAI)
     private var selectedLocalModelId by mutableStateOf(DEFAULT_LOCAL_MODEL_ID)
-    private var localModelSlug by mutableStateOf("LFM2-1.2B")
-    private var localModelQuant by mutableStateOf("Q5_K_M")
+    private var localModelSlug by mutableStateOf("LFM2.5-1.2B-Instruct")
+    private var localModelQuant by mutableStateOf("Q4_K_M")
     private var modelLoadingStatus by mutableStateOf<ModelLoadingStatus>(ModelLoadingStatus.Idle)
     
     // Session history
@@ -450,8 +450,8 @@ class MainActivity : ComponentActivity() {
         
         // Load local model settings
         selectedLocalModelId = prefs.getString(KEY_LOCAL_MODEL_ID, DEFAULT_LOCAL_MODEL_ID) ?: DEFAULT_LOCAL_MODEL_ID
-        localModelSlug = prefs.getString(KEY_LOCAL_MODEL_SLUG, "LFM2-1.2B") ?: "LFM2-1.2B"
-        localModelQuant = prefs.getString(KEY_LOCAL_MODEL_QUANT, "Q5_K_M") ?: "Q5_K_M"
+        localModelSlug = prefs.getString(KEY_LOCAL_MODEL_SLUG, "LFM2.5-1.2B-Instruct") ?: "LFM2.5-1.2B-Instruct"
+        localModelQuant = prefs.getString(KEY_LOCAL_MODEL_QUANT, "Q4_K_M") ?: "Q4_K_M"
         
         Log.d(TAG, "Settings loaded: backend=$llmBackend, model=$selectedModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode")
     }
