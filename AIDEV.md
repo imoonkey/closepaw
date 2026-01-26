@@ -1,6 +1,6 @@
 # Android Agent
 
-AI-powered Android automation using accessibility services. Kotlin/Jetpack Compose app that perceives screen state and executes actions via natural language.
+AI-powered Android automation using accessibility services to operate apps. Kotlin/Jetpack Compose app that perceives screen state and executes actions via natural language.
 
 ## Quick Reference
 
@@ -79,7 +79,7 @@ sealed class AgentError {
 // Service: custom scope with SupervisorJob
 ```
 
-## Skills
+## Agent Skills
 - `/plan` - Create implementation plan before coding
 - `/verify` - Run build + lint + tests
 - `/build-fix` - Fix Gradle errors incrementally
