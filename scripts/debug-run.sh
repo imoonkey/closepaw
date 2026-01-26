@@ -2,7 +2,12 @@
 #
 # debug-run.sh - Run agent with screenshot capture at each turn
 #
-# Usage: ./scripts/debug-run.sh "goal"
+# Usage: 
+#   ./scripts/debug-run.sh "goal"              # Run with OpenAI backend
+#   ./scripts/debug-run.sh --local "goal"      # Run with local LLM backend
+#
+# Environment Variables:
+#   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
 #
 
 set -e
@@ -11,7 +16,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 PACKAGE="com.moonkey.androidagent"
 DEBUG_DIR="$PROJECT_ROOT/debug-output"
-GOAL="${1:-Open Settings}"
+
+# Parse arguments
+USE_LOCAL=false
+GOAL=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --local|-l)
+            USE_LOCAL=true
+            shift
+            ;;
+        *)
+            GOAL="$1"
+            shift
+            ;;
+    esac
+done
+GOAL="${GOAL:-Open Settings}"
 
 # Colors
 GREEN='\033[0;32m'
@@ -29,15 +50,32 @@ mkdir -p "$DEBUG_DIR"
 rm -f "$DEBUG_DIR"/*.png "$DEBUG_DIR"/*.txt "$DEBUG_DIR"/*.log
 log "Debug output: $DEBUG_DIR"
 
-# Load API key
+# Load environment variables
 if [[ -f "$PROJECT_ROOT/.env" ]]; then
-source "$PROJECT_ROOT/.env"
-else
-    warn "No .env file found. Make sure OPENAI_API_KEY is set."
+    source "$PROJECT_ROOT/.env"
 fi
+
+# Determine LLM backend
+LLM_BACKEND="${LLM_BACKEND:-openai}"
+if [[ "$USE_LOCAL" == "true" ]]; then
+    LLM_BACKEND="local"
+fi
+
+# Check API key for OpenAI backend
+if [[ "$LLM_BACKEND" == "openai" && -z "$OPENAI_API_KEY" ]]; then
+    warn "No API key found. Set OPENAI_API_KEY in .env or use --local flag."
+fi
+
+log "Using LLM backend: $LLM_BACKEND"
 
 # Clear logs
 adb logcat -c
+
+# Build intent extras based on backend
+INTENT_EXTRAS="--es goal '$GOAL' --es llm_backend '$LLM_BACKEND' --ez auto_start true --ez fresh_session true"
+if [[ "$LLM_BACKEND" == "openai" ]]; then
+    INTENT_EXTRAS="--es api_key '$OPENAI_API_KEY' $INTENT_EXTRAS"
+fi
 
 # Start agent
 log "Starting agent with goal: $GOAL"
@@ -46,10 +84,7 @@ sleep 0.5
 # fresh_session=true ensures we start with a new session, not continuing an existing one
 adb shell "am start -n $PACKAGE/.app.MainActivity \
     --activity-clear-top --activity-single-top \
-    --es api_key '$OPENAI_API_KEY' \
-    --es goal '$GOAL' \
-    --ez auto_start true \
-    --ez fresh_session true" >/dev/null
+    $INTENT_EXTRAS" >/dev/null
 
 ok "Agent started"
 echo ""

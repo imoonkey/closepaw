@@ -2,6 +2,7 @@ package com.moonkey.androidagent.agent
 
 import android.util.Log
 import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.LLMToolCall
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
@@ -123,64 +124,42 @@ class Turn(
             val textAccumulator = StringBuilder()
             val toolCalls = mutableListOf<LLMToolCall>()
             
-            // 6. Stream response using native OpenAI SDK streaming
+            // 6. Stream response using LLMStreamEvent (works with both OpenAI and local models)
             llmClient.chatWithToolsStreaming(
                 systemPrompt = fullSystemPrompt,
                 inputItems = inputItems,
                 tools = tools,
                 model = chatModel
             ).collect { event ->
-                
-                // Process text deltas: response.output_text.delta
-                if (event.isOutputTextDelta()) {
-                    val textDelta = event.asOutputTextDelta()
-                    val delta = textDelta.delta()
-                    textAccumulator.append(delta)
-                    emit(TurnStreamEvent.TextDelta(delta))
-                }
-                
-                // Process completed output items: response.output_item.done
-                // This fires when a complete output item (text or function call) is ready
-                if (event.isOutputItemDone()) {
-                    val itemDone = event.asOutputItemDone()
-                    val item = itemDone.item()
+                when (event) {
+                    is LLMStreamEvent.Created -> {
+                        Log.d(TAG, "Response created with ID: ${event.responseId}")
+                    }
                     
-                    // Check if it's a function call
-                    if (item.isFunctionCall()) {
-                        val funcCall = item.asFunctionCall()
-                        val llmToolCall = LLMToolCall(
-                            callId = funcCall.callId(),
-                            name = funcCall.name(),
-                            arguments = funcCall.arguments()
-                        )
+                    is LLMStreamEvent.TextDelta -> {
+                        textAccumulator.append(event.delta)
+                        emit(TurnStreamEvent.TextDelta(event.delta))
+                    }
+                    
+                    is LLMStreamEvent.ToolCallDone -> {
+                        val llmToolCall = event.toolCall
                         toolCalls.add(llmToolCall)
                         
-                        Log.d(TAG, "Received tool call: ${funcCall.name()} with id ${funcCall.callId()}")
+                        Log.d(TAG, "Received tool call: ${llmToolCall.name} with id ${llmToolCall.callId}")
                         
                         // Convert to ToolCallRequest and emit
                         val toolCallRequest = convertToToolCallRequest(llmToolCall)
                         emit(TurnStreamEvent.ToolCallReceived(toolCallRequest))
                     }
-                }
-                
-                // Log response creation (responseId available for future use)
-                if (event.isCreated()) {
-                    val created = event.asCreated()
-                    val responseId = created.response().id()
-                    Log.d(TAG, "Response created with ID: $responseId")
-                }
-                
-                // Handle response completion
-                if (event.isCompleted()) {
-                    Log.d(TAG, "Response completed, building final result")
-                }
-                
-                // Handle response failure
-                if (event.isFailed()) {
-                    val failed = event.asFailed()
-                    val errorMsg = "Response failed: ${failed.response()}"
-                    Log.e(TAG, errorMsg)
-                    throw RuntimeException(errorMsg)
+                    
+                    is LLMStreamEvent.Completed -> {
+                        Log.d(TAG, "Response completed, building final result")
+                    }
+                    
+                    is LLMStreamEvent.Failed -> {
+                        Log.e(TAG, event.error)
+                        throw RuntimeException(event.error)
+                    }
                 }
             }
             

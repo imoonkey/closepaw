@@ -109,11 +109,44 @@ data class SessionConfig(
     /** Approval mode for tool execution */
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     
-    /** LLM model to use */
+    /** LLM model to use (for cloud backends) */
     val model: String = "gpt-4o",
+    
+    /** LLM backend type (cloud or local) */
+    val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
+    
+    /** Local LLM configuration (used when llmBackend is LOCAL) */
+    val localLLMConfig: LocalLLMSessionConfig? = null,
     
     /** Enable verbose debug logging */
     val debugMode: Boolean = false
+)
+
+/**
+ * LLM backend type - determines which LLM client to use.
+ */
+enum class LLMBackendType {
+    /** Use OpenAI cloud API */
+    OPENAI,
+    
+    /** Use local on-device LLM via Leap SDK */
+    LOCAL
+}
+
+/**
+ * Configuration for local LLM inference.
+ * 
+ * Available models from Leap Model Library (leap.liquid.ai/models):
+ * - "LFM2-1.2B" / "Q5_K_M" (~843MB, recommended for tool-calling)
+ * - "LFM2-1.2B" / "Q4_K_M" (~731MB, smaller quantization)
+ * - "lfm2-350m" / "lfm2-350m-20250710-8da4w" (~400MB, smallest, less capable)
+ */
+data class LocalLLMSessionConfig(
+    /** Model slug (e.g., "LFM2-1.2B") */
+    val modelSlug: String = "LFM2-1.2B",
+    
+    /** Quantization slug (e.g., "Q5_K_M") - must match Leap Model Library */
+    val quantizationSlug: String = "Q5_K_M"
 )
 
 /**

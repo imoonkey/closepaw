@@ -1,397 +1,114 @@
 package com.moonkey.androidagent.llm
 
-import android.util.Log
-import com.openai.client.OpenAIClient
-import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
-import com.openai.models.responses.Response
-import com.openai.models.responses.ResponseCreateParams
-import com.openai.models.responses.ResponseInputItem
-import com.openai.models.responses.ResponseStreamEvent
 import com.openai.models.responses.FunctionTool
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.delay
+import com.openai.models.responses.ResponseInputItem
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.withContext
 
 /**
- * LLMClient - Wrapper for OpenAI Responses API with rate limit handling.
+ * LLMClient - Abstract base class for LLM clients.
  * 
- * Uses the Responses API with proper tool calling support.
+ * Defines the interface for interacting with LLMs (both cloud and local).
+ * Uses OpenAI Responses API types (ResponseInputItem, FunctionTool) as input
+ * to minimize changes to callers (Turn.kt, ToolRegistry.kt).
  * 
- * Features:
- * - Native function/tool calling via Responses API
- * - Automatic retry with exponential backoff on rate limits (429)
- * - Proper ResponseInputItem types for conversation history
- * - Native streaming support via ResponseStreamEvent
+ * Implementations:
+ * - OpenAILLMClient: Cloud-based using OpenAI Responses API
+ * - LFMLLMClient: Local inference using LiquidAI Leap SDK
  * 
- * Now instance-based (not singleton) to support:
- * - Thread-safe initialization
- * - Different API keys for different sessions
- * - Proper dependency injection
+ * Note: We reuse OpenAI types for input but use our own LLMStreamEvent for
+ * streaming output, since OpenAI's ResponseStreamEvent cannot be constructed
+ * outside the SDK.
  */
-class LLMClient(apiKey: String) {
+abstract class LLMClient {
     
     companion object {
-        private const val TAG = "LLMClient"
+        const val TAG = "LLMClient"
         
-        // Rate limit configuration
-        private const val MAX_RETRIES = 5
-        private const val INITIAL_BACKOFF_MS = 1000L
-        private const val MAX_BACKOFF_MS = 60000L
-        private const val BACKOFF_MULTIPLIER = 2.0
-    }
-
-    private val client: OpenAIClient
-    
-    init {
-        Log.d(TAG, "Creating LLMClient with key: ${apiKey.take(10)}...")
-        client = OpenAIOkHttpClient.builder()
-            .apiKey(apiKey)
-            .build()
-        Log.i(TAG, "LLMClient created successfully")
+        // Rate limit configuration (shared defaults)
+        const val MAX_RETRIES = 5
+        const val INITIAL_BACKOFF_MS = 1000L
+        const val MAX_BACKOFF_MS = 60000L
+        const val BACKOFF_MULTIPLIER = 2.0
     }
     
     /**
-     * Call the Responses API with tool/function calling support (non-streaming).
-     * 
-     * Uses proper ResponseInputItem types for conversation history,
-     * which enables correct function call/output correlation.
+     * Call the LLM with tool/function calling support (non-streaming).
      * 
      * @param systemPrompt System/developer instructions
      * @param inputItems Conversation history as ResponseInputItem list
      * @param tools Tool definitions for function calling
-     * @param model Model to use (defaults to GPT-4o)
+     * @param model Model to use (ignored for local models)
      * @return ResponsesResult containing text output and/or tool calls
      */
-    suspend fun chatWithTools(
+    abstract suspend fun chatWithTools(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
         model: ChatModel = ChatModel.GPT_4O
-    ): ResponsesResult {
-        return withContext(Dispatchers.IO) {
-            var lastException: Exception? = null
-            var backoffMs = INITIAL_BACKOFF_MS
-            
-            for (attempt in 1..MAX_RETRIES) {
-                try {
-                    return@withContext executeChatWithTools(systemPrompt, inputItems, tools, model)
-                } catch (e: RateLimitException) {
-                    lastException = e
-                    
-                    if (attempt == MAX_RETRIES) {
-                        Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for rate limit")
-                        throw e
-                    }
-                    
-                    val waitMs = e.retryAfterMs ?: backoffMs
-                    Log.w(TAG, "Rate limited (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms...")
-                    
-                    delay(waitMs)
-                    backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
-                    
-                } catch (e: TransientException) {
-                    lastException = e
-                    
-                    if (attempt == MAX_RETRIES) {
-                        Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for transient error")
-                        throw e.cause ?: e
-                    }
-                    
-                    Log.w(TAG, "Transient error (attempt $attempt/$MAX_RETRIES): ${e.message}, retrying in ${backoffMs}ms...")
-                    delay(backoffMs)
-                    backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
-                }
-            }
-            
-            throw lastException ?: RuntimeException("Unexpected error in retry loop")
-        }
-    }
+    ): ResponsesResult
     
     /**
-     * Streaming version of chatWithTools using the OpenAI SDK's streaming API,
-     * exposed as a Kotlin Flow for coroutine compatibility.
-     *
-     * Internally uses the OpenAI Java SDK's native streaming support via
-     * createStreaming(), and wraps the SDK's blocking/callback stream using
-     * callbackFlow to emit ResponseStreamEvent items as a Flow. This allows
-     * consumers to process text deltas and tool calls as they arrive while
-     * remaining fully coroutine-friendly.
-     *
-     * Note: Requires OpenAI Java SDK v4.14.0 or later for createStreaming() and
-     * ResponseStreamEvent-based streaming support, as specified in the design doc.
-     *
+     * Streaming version of chatWithTools.
+     * 
+     * Returns a Flow of LLMStreamEvent items for real-time response processing.
      * The consumer can accumulate text deltas and tool calls as they arrive.
-     *
+     * 
      * @param systemPrompt System/developer instructions
      * @param inputItems Conversation history as ResponseInputItem list
      * @param tools Tool definitions for function calling
-     * @param model Model to use (defaults to GPT-4o)
-     * @return Flow of ResponseStreamEvent (native OpenAI SDK event type wrapped in a Flow)
+     * @param model Model to use (ignored for local models)
+     * @return Flow of LLMStreamEvent
      */
-    fun chatWithToolsStreaming(
+    abstract fun chatWithToolsStreaming(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
         model: ChatModel = ChatModel.GPT_4O
-    ): Flow<ResponseStreamEvent> = callbackFlow {
-        Log.d(TAG, "Starting native streaming chat with ${inputItems.size} input items")
-        
-        var lastException: Exception? = null
-        var backoffMs = INITIAL_BACKOFF_MS
-        var streamCompleted = false
-        
-        for (attempt in 1..MAX_RETRIES) {
-            try {
-                // Build request params
-                val builder = ResponseCreateParams.builder()
-                    .model(model)
-                    .instructions(systemPrompt)
-                    .input(ResponseCreateParams.Input.ofResponse(inputItems))
-                
-                // Add tools
-                tools.forEach { tool ->
-                    builder.addTool(tool)
-                }
-                
-                val params = builder.build()
-                
-                Log.d(TAG, "Making streaming Responses API call to OpenAI (attempt $attempt)...")
-                
-                // Use native streaming on IO dispatcher
-                withContext(Dispatchers.IO) {
-                    client.responses().createStreaming(params).use { streamResponse ->
-                        streamResponse.stream().forEach { event ->
-                            // trySend works from any context in callbackFlow
-                            trySend(event)
-                        }
-                    }
-                }
-                
-                Log.d(TAG, "Streaming completed successfully")
-                streamCompleted = true
-                break // Exit retry loop on success
-                
-            } catch (e: Exception) {
-                val message = e.message ?: ""
-                val cause = e.cause?.message ?: ""
-                
-                // Check if rate limited
-                if (message.contains("429") || cause.contains("429") || 
-                    message.contains("rate limit", ignoreCase = true) ||
-                    cause.contains("rate limit", ignoreCase = true)) {
-                    
-                    lastException = RateLimitException(
-                        "Rate limited by OpenAI", 
-                        extractRetryAfter(message) ?: extractRetryAfter(cause)
-                    )
-                    
-                    if (attempt == MAX_RETRIES) {
-                        Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for rate limit in streaming")
-                        break // Exit loop, will close with lastException
-                    }
-                    
-                    val waitMs = extractRetryAfter(message) ?: extractRetryAfter(cause) ?: backoffMs
-                    Log.w(TAG, "Rate limited (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms...")
-                    
-                    delay(waitMs)
-                    backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
-                    continue
-                }
-                
-                // Check for transient errors
-                if (e is java.net.SocketTimeoutException ||
-                    message.contains("500") || message.contains("502") || 
-                    message.contains("503") || message.contains("504")) {
-                    
-                    lastException = e
-                    
-                    if (attempt == MAX_RETRIES) {
-                        Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for transient error in streaming")
-                        break // Exit loop, will close with lastException
-                    }
-                    
-                    Log.w(TAG, "Transient error (attempt $attempt/$MAX_RETRIES): ${e.message}, retrying in ${backoffMs}ms...")
-                    delay(backoffMs)
-                    backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
-                    continue
-                }
-                
-                // Non-retryable error
-                Log.e(TAG, "Streaming chat failed with non-retryable error", e)
-                lastException = e
-                break // Exit loop, will close with lastException
-            }
-        }
-        
-        // Close the flow with appropriate result
-        // Defensive note: Under normal conditions, all code paths inside the retry loop
-        // either successfully stream and set streamCompleted=true, or encounter an error
-        // and set lastException. If somehow neither is set, we close with a generic error.
-        if (streamCompleted) {
-            close()
-        } else {
-            close(lastException ?: RuntimeException("Stream completed with error flag but no error details"))
-        }
-        
-        awaitClose { 
-            Log.d(TAG, "Streaming flow closed")
-        }
-    }
+    ): Flow<LLMStreamEvent>
     
     /**
-     * Execute the Responses API call with tools.
+     * Check if the client is ready to process requests.
+     * 
+     * For cloud clients, this is typically always true.
+     * For local clients, this may be false until the model is loaded.
      */
-    private fun executeChatWithTools(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: ChatModel
-    ): ResponsesResult {
-        Log.d(TAG, "Calling Responses API with ${inputItems.size} input items, ${tools.size} tools")
-        
-        try {
-            val builder = ResponseCreateParams.builder()
-                .model(model)
-                .instructions(systemPrompt)
-                // Use Input.ofResponse to wrap the list of input items
-                .input(ResponseCreateParams.Input.ofResponse(inputItems))
-            
-            // Add tools
-            tools.forEach { tool ->
-                builder.addTool(tool)
-            }
-            
-            Log.d(TAG, "Making Responses API call to OpenAI...")
-            
-            val response = client.responses().create(builder.build())
-            
-            // Parse output items
-            val textContent = StringBuilder()
-            val toolCalls = mutableListOf<LLMToolCall>()
-            
-            for (item in response.output()) {
-                when {
-                    item.isFunctionCall() -> {
-                        val funcCall = item.asFunctionCall()
-                        toolCalls.add(LLMToolCall(
-                            callId = funcCall.callId(),
-                            name = funcCall.name(),
-                            arguments = funcCall.arguments()
-                        ))
-                        Log.d(TAG, "Tool call: ${funcCall.name()} with id ${funcCall.callId()}")
-                    }
-                    item.isMessage() -> {
-                        val message = item.asMessage()
-                        for (content in message.content()) {
-                            if (content.isOutputText()) {
-                                textContent.append(content.asOutputText().text())
-                            }
-                        }
-                    }
-                }
-            }
-            
-            val result = ResponsesResult(
-                textContent = textContent.toString().takeIf { it.isNotEmpty() },
-                toolCalls = toolCalls,
-                responseId = response.id()
-            )
-            
-            Log.d(TAG, "Responses API result: ${result.textContent?.take(200)}..., ${result.toolCalls.size} tool calls")
-            return result
-            
-        } catch (e: Exception) {
-            handleApiException(e)
-        }
-    }
+    open fun isReady(): Boolean = true
     
     /**
-     * Handle API exceptions with proper categorization.
+     * Cleanup resources held by the client.
+     * 
+     * Called when the session is ending.
      */
-    private fun handleApiException(e: Exception): Nothing {
-        val message = e.message ?: ""
-        val cause = e.cause?.message ?: ""
-        
-        when {
-            message.contains("429") || cause.contains("429") || 
-            message.contains("rate limit", ignoreCase = true) ||
-            cause.contains("rate limit", ignoreCase = true) -> {
-                Log.w(TAG, "Rate limit detected: ${e.message}")
-                val retryAfter = extractRetryAfter(message) ?: extractRetryAfter(cause)
-                throw RateLimitException("Rate limited by OpenAI", retryAfter)
-            }
-            
-            e is java.net.SocketTimeoutException -> {
-                Log.e(TAG, "Request timeout", e)
-                throw TransientException("Request timeout - try again", e)
-            }
-            
-            e is java.net.UnknownHostException || 
-            message.contains("Unable to resolve host") ||
-            cause.contains("Unable to resolve host") -> {
-                Log.e(TAG, "Network error - cannot reach OpenAI: ${e.message}", e)
-                throw RuntimeException("No internet connection. Please check your network settings.", e)
-            }
-            
-            message.contains("500") || message.contains("502") || 
-            message.contains("503") || message.contains("504") -> {
-                Log.w(TAG, "Server error (transient): ${e.message}")
-                throw TransientException("OpenAI server error", e)
-            }
-            
-            e is java.io.IOException -> {
-                val isConnectivityIssue = message.contains("resolve") || 
-                    cause.contains("resolve") ||
-                    message.contains("No address") ||
-                    cause.contains("No address")
-                
-                if (isConnectivityIssue) {
-                    Log.e(TAG, "Network connectivity error: ${e.message}", e)
-                    throw RuntimeException("Network error: Check your internet connection", e)
-                }
-                
-                Log.e(TAG, "Network/IO error: ${e.message}", e)
-                throw TransientException("Network error: ${e.message}", e)
-            }
-            
-            else -> {
-                Log.e(TAG, "Responses API call failed: ${e.javaClass.name}: ${e.message}")
-                e.printStackTrace()
-                throw RuntimeException("LLM error: ${e.javaClass.simpleName} - ${e.message}", e)
-            }
-        }
-    }
-    
-    /**
-     * Extract retry-after value from error message if present.
-     */
-    private fun extractRetryAfter(message: String): Long? {
-        val patterns = listOf(
-            Regex("""retry.?after[:\s]+(\d+)""", RegexOption.IGNORE_CASE),
-            Regex("""(?:please\s+)?wait(?:\s+for)?\s+(\d+)\s*seconds?""", RegexOption.IGNORE_CASE),
-            Regex("""try\s+again\s+in\s+(\d+)\s*seconds?""", RegexOption.IGNORE_CASE),
-            Regex("""available\s+in\s+(\d+)\s*seconds?""", RegexOption.IGNORE_CASE)
-        )
-        
-        for (pattern in patterns) {
-            val match = pattern.find(message)
-            if (match != null) {
-                val seconds = match.groupValues[1].toLongOrNull()
-                if (seconds != null && seconds > 0 && seconds <= 3600) {
-                    return seconds * 1000
-                }
-            }
-        }
-        return null
-    }
+    open suspend fun cleanup() {}
 }
 
 /**
- * Result from the Responses API (non-streaming).
+ * Unified streaming events for LLM responses.
+ * 
+ * Both OpenAI and local LLM clients emit these events during streaming.
+ * This abstraction is necessary because OpenAI's ResponseStreamEvent cannot
+ * be constructed outside the SDK.
+ */
+sealed interface LLMStreamEvent {
+    /** Response creation started, contains response ID */
+    data class Created(val responseId: String) : LLMStreamEvent
+    
+    /** Incremental text delta */
+    data class TextDelta(val delta: String) : LLMStreamEvent
+    
+    /** A complete tool call has been received */
+    data class ToolCallDone(val toolCall: LLMToolCall) : LLMStreamEvent
+    
+    /** Response completed successfully */
+    data object Completed : LLMStreamEvent
+    
+    /** Response failed */
+    data class Failed(val error: String) : LLMStreamEvent
+}
+
+/**
+ * Result from an LLM call (non-streaming).
  */
 data class ResponsesResult(
     /** Text content from the model (may be null if only tool calls) */
@@ -403,10 +120,10 @@ data class ResponsesResult(
 )
 
 /**
- * A tool call from the LLM via the Responses API.
+ * A tool call from the LLM.
  */
 data class LLMToolCall(
-    /** The call ID assigned by OpenAI - use this for tool result correlation */
+    /** The call ID - use this for tool result correlation */
     val callId: String,
     /** The name of the tool/function to call */
     val name: String,

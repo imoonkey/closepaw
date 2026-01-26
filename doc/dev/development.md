@@ -6,9 +6,11 @@ This guide covers the development workflow for Android Agent - building, testing
 
 - Android device or emulator with USB debugging enabled
 - ADB installed and accessible
-- OpenAI API key
+- OpenAI API key (for cloud backend) OR compatible Android device (for local LLM)
 
 ## Quick Start
+
+### Using OpenAI (Cloud)
 
 ```bash
 # 1. Setup API key
@@ -20,6 +22,18 @@ echo 'OPENAI_API_KEY=sk-your-key' > .env
 # 3. Run a test
 ./scripts/dev.sh run "Open Settings"
 ```
+
+### Using Local LLM (On-Device)
+
+```bash
+# 1. Build and deploy (no API key needed)
+LLM_BACKEND=local ./scripts/setup.sh
+
+# 2. Run a test with local model
+./scripts/dev.sh run --local "Open Settings"
+```
+
+The local backend uses LiquidAI's Leap SDK to run LFM models on-device. The model is downloaded automatically on first use (~800MB for lfm2-350m).
 
 ## Development Cycle
 
@@ -46,6 +60,7 @@ Run the agent with a goal:
 ```bash
 ./scripts/dev.sh run                    # Default: "Open Settings"
 ./scripts/dev.sh run "Open Chrome"      # Custom goal
+./scripts/dev.sh run --local "Open Settings"  # Use local LLM
 ```
 
 ### 3. View Logs
@@ -64,7 +79,8 @@ Monitor agent behavior through filtered logs:
 For deeper investigation, use visual debugging to capture screenshots at each turn:
 
 ```bash
-./scripts/debug-run.sh "Open Chrome"
+./scripts/debug-run.sh "Open Chrome"              # With OpenAI
+./scripts/debug-run.sh --local "Open Chrome"      # With local LLM
 ```
 
 Output in `debug-output/`:
@@ -76,13 +92,37 @@ See [Visual Debugging Guide](../../scripts/agent_process_visual_debug.md) for sy
 
 ## Configuration
 
-### API Key
+### API Key (OpenAI Backend)
 
 Create `.env` in project root:
 
 ```
 OPENAI_API_KEY=sk-proj-your-key-here
 ```
+
+### LLM Backend Selection
+
+You can choose between cloud (OpenAI) and local (on-device) LLM backends:
+
+**Via environment variable:**
+```bash
+# Set in .env for persistence
+echo 'LLM_BACKEND=local' >> .env
+
+# Or use inline for one-off runs
+LLM_BACKEND=local ./scripts/dev.sh run
+```
+
+**Via command-line flag:**
+```bash
+./scripts/dev.sh run --local "Open Settings"
+./scripts/debug-run.sh --local "Open Chrome"
+```
+
+| Backend | Pros | Cons |
+|---------|------|------|
+| `openai` | Better quality, tool-calling | Requires API key, network latency |
+| `local` | Offline, no cost, fast | Lower quality, ~800MB model download |
 
 ### Device Status
 
