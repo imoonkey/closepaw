@@ -5,9 +5,13 @@
 # Purpose: Run agent tests and view logs (assumes app is already installed)
 #
 # Commands:
-#   ./scripts/dev.sh run [goal]         # Run agent with goal (default: "Open Settings")
-#   ./scripts/dev.sh logs [filter]      # View logs
-#   ./scripts/dev.sh status             # Check device and service status
+#   ./scripts/dev.sh run [goal]              # Run agent with goal (default: "Open Settings")
+#   ./scripts/dev.sh run --local [goal]      # Run with local LLM backend
+#   ./scripts/dev.sh logs [filter]           # View logs
+#   ./scripts/dev.sh status                  # Check device and service status
+#
+# Environment Variables:
+#   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
 #
 # Note: Run ./scripts/setup.sh first to build, install and configure permissions
 #
@@ -47,13 +51,19 @@ check_app() {
     fi
 }
 
-# Load API key
-load_api_key() {
+# Load environment variables
+load_env() {
     if [[ -f "$PROJECT_ROOT/.env" ]]; then
         source "$PROJECT_ROOT/.env"
     fi
-    if [[ -z "$OPENAI_API_KEY" ]]; then
-        err "API Key not found, please check .env file"
+    # Set default backend if not specified
+    LLM_BACKEND="${LLM_BACKEND:-openai}"
+}
+
+# Check API key (only required for OpenAI backend)
+check_api_key() {
+    if [[ "$LLM_BACKEND" == "openai" && -z "$OPENAI_API_KEY" ]]; then
+        err "API Key not found for OpenAI backend. Set OPENAI_API_KEY in .env or use --local flag"
         exit 1
     fi
 }
@@ -75,13 +85,38 @@ stop_agent() {
 
 # ===== Command: run =====
 cmd_run() {
-    local goal="${1:-Open Settings}"
+    local goal=""
+    local use_local=false
+    
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --local|-l)
+                use_local=true
+                shift
+                ;;
+            *)
+                goal="$1"
+                shift
+                ;;
+        esac
+    done
+    
+    # Default goal
+    goal="${goal:-Open Settings}"
     
     check_device
     check_app
-    load_api_key
+    load_env
     
-    log "Running agent with goal: $goal"
+    # Override backend if --local flag is used
+    if [[ "$use_local" == "true" ]]; then
+        LLM_BACKEND="local"
+    fi
+    
+    check_api_key
+    
+    log "Running agent with goal: $goal (backend: $LLM_BACKEND)"
     
     # Set up cleanup trap to stop agent when interrupted (Ctrl+C only)
     # Don't use EXIT - it fires on normal completion too
@@ -91,16 +126,19 @@ cmd_run() {
     adb shell input keyevent KEYCODE_HOME
     sleep 0.5
     
+    # Build intent extras based on backend
+    local intent_extras="--es goal '$goal' --es llm_backend '$LLM_BACKEND' --ez auto_start true --ez fresh_session true"
+    if [[ "$LLM_BACKEND" == "openai" ]]; then
+        intent_extras="--es api_key '$OPENAI_API_KEY' $intent_extras"
+    fi
+    
     # Launch app with intent extras
     # Using FLAG_ACTIVITY_CLEAR_TOP | FLAG_ACTIVITY_SINGLE_TOP to trigger onNewIntent
     # Don't use force-stop - it clears accessibility permission!
     # fresh_session=true ensures we start with a new session, not continuing an existing one
     adb shell "am start -n $PACKAGE/.app.MainActivity \
         --activity-clear-top --activity-single-top \
-        --es api_key '$OPENAI_API_KEY' \
-        --es goal '$goal' \
-        --ez auto_start true \
-        --ez fresh_session true" >/dev/null
+        $intent_extras" >/dev/null
     sleep 1.5
     
     # Check if on correct screen
@@ -112,10 +150,7 @@ cmd_run() {
         # Retry with intent extras
         adb shell "am start -n $PACKAGE/.app.MainActivity \
             --activity-clear-top --activity-single-top \
-            --es api_key '$OPENAI_API_KEY' \
-            --es goal '$goal' \
-            --ez auto_start true \
-            --ez fresh_session true" >/dev/null
+            $intent_extras" >/dev/null
         sleep 1
     fi
     
@@ -259,14 +294,20 @@ show_help() {
     echo "Usage: ./scripts/dev.sh <command> [args]"
     echo ""
     echo "Commands:"
-    echo "  run [goal]         Run agent test (default: 'Open Settings')"
-    echo "  logs [filter]      View logs"
-    echo "                     filter: default, orch, llm, session, action, all"
-    echo "  status             Check device and service status"
+    echo "  run [--local] [goal]   Run agent test (default: 'Open Settings')"
+    echo "                         --local: Use local LLM backend instead of OpenAI"
+    echo "  logs [filter]          View logs"
+    echo "                         filter: default, orch, llm, session, action, all"
+    echo "  status                 Check device and service status"
+    echo ""
+    echo "Environment Variables:"
+    echo "  LLM_BACKEND            'openai' (default) or 'local'"
     echo ""
     echo "Examples:"
     echo "  ./scripts/dev.sh run"
     echo "  ./scripts/dev.sh run 'Open Chrome'"
+    echo "  ./scripts/dev.sh run --local 'Open Settings'    # Use local LLM"
+    echo "  LLM_BACKEND=local ./scripts/dev.sh run          # Same as --local"
     echo "  ./scripts/dev.sh logs orch"
     echo "  ./scripts/dev.sh status"
     echo ""
@@ -276,7 +317,8 @@ show_help() {
 # ===== Main Entry =====
 case "${1:-help}" in
     run)
-        cmd_run "$2"
+        shift  # Remove "run" from arguments
+        cmd_run "$@"  # Pass remaining arguments
         ;;
     logs)
         cmd_logs "$2"

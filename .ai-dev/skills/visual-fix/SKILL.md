@@ -31,10 +31,19 @@ Debug Android Agent using visual inspection + log analysis.
 ### 1. Capture Debug Data
 
 ```bash
+# With OpenAI backend (default)
 ./scripts/debug-run.sh "Goal here"
+
+# With Local LLM backend (on-device)
+./scripts/debug-run.sh --local "Goal here"
 ```
 
 Creates `debug-output/` with `turn_N.png`, `turn_N_log.txt`, logs.
+
+**Local model debugging tips:**
+- First model run downloads ~800MB (lfm2-350m) or ~730MB (LFM2.5-1.2B Q4_K_M)
+- Check `adb logcat -s LFMLLMClient` for model loading status
+- Local models may reason differently than cloud models
 
 ### 2. Turn-by-Turn Analysis
 
@@ -73,15 +82,23 @@ For each turn compare:
 ### 5. Verify
 
 ```bash
+# OpenAI backend
 ./scripts/setup.sh && ./scripts/debug-run.sh "Goal here"
+
+# Local LLM backend
+LLM_BACKEND=local ./scripts/setup.sh && ./scripts/debug-run.sh --local "Goal here"
 ```
 
 ## Quick Diagnostics
 
 ```bash
-grep -E "click|type|scroll|back" debug-output/orchestration.log  # Actions
-grep "ActionResult" debug-output/orchestration.log               # Results
+grep -E "click|type|scroll|back" debug-output/agent.log          # Actions
+grep "ActionResult" debug-output/agent.log                       # Results
 grep "ERROR\|Exception" debug-output/agent.log                   # Errors
+
+# Local LLM specific
+adb logcat -d | grep -E "LFMLLMClient|Leap|Model"                # Model loading
+adb logcat -d | grep "Tool call"                                 # Tool calls from local model
 ```
 
 ## Output Format

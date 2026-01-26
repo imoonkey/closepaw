@@ -11,7 +11,7 @@ android {
 
     defaultConfig {
         applicationId = "com.moonkey.androidagent"
-        minSdk = 26
+        minSdk = 31  // Required by LiquidAI Leap SDK
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -78,6 +78,12 @@ dependencies {
     
     // OpenAI SDK
     implementation("com.openai:openai-java:4.14.0")
+    
+    // LiquidAI Leap SDK for local LLM inference
+    implementation("ai.liquid.leap:leap-sdk:0.6.0")
+    implementation("ai.liquid.leap:leap-gson:0.6.0")
+    implementation("ai.liquid.leap:leap-model-downloader:0.6.0")
+    implementation("com.google.code.gson:gson:2.13.1")
     
     // Kotlin Serialization for session persistence
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")

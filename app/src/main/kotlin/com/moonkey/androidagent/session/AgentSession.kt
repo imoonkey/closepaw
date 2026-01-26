@@ -57,7 +57,7 @@ class AgentSession private constructor(
          * @param config Session configuration
          * @param service AccessibilityService for platform access
          * @param scope CoroutineScope for async operations
-         * @param apiKey OpenAI API key for LLM client
+         * @param apiKey OpenAI API key for LLM client (required for OPENAI backend)
          * @param visualizer Optional ActionVisualizerManager for touch action visualization
          * @return AgentSession with SessionServices initialized
          */
@@ -65,11 +65,12 @@ class AgentSession private constructor(
             config: SessionConfig,
             service: AccessibilityService,
             scope: CoroutineScope,
-            apiKey: String,
+            apiKey: String? = null,
             visualizer: ActionVisualizerManager? = null
         ): AgentSession {
             val platform: AndroidPlatform = AccessibilityPlatform(service, visualizer)
-            val services = SessionServices.create(config, platform, apiKey)
+            // Service is a Context, so we can use it for local LLM model loading
+            val services = SessionServices.create(config, platform, apiKey, context = service)
             
             return AgentSession(
                 sessionId = SessionId.generate(),
