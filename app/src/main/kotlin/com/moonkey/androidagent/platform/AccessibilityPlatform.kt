@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 import java.io.ByteArrayOutputStream
 import kotlin.coroutines.resume
 
@@ -157,6 +158,9 @@ class AccessibilityPlatform(
             scaledBitmap.recycle()
 
             jpegBytes?.let {
+                if (config.debugMode) {
+                    persistDebugScreenshot(it, width, height)
+                }
                 ScreenImage(
                     width = width,
                     height = height,
@@ -188,6 +192,22 @@ class AccessibilityPlatform(
         val output = ByteArrayOutputStream()
         val success = bitmap.compress(Bitmap.CompressFormat.JPEG, safeQuality, output)
         return if (success) output.toByteArray() else null
+    }
+
+    private fun persistDebugScreenshot(bytes: ByteArray, width: Int, height: Int) {
+        val dir = service.getExternalFilesDir("debug-output") ?: return
+        if (!dir.exists() && !dir.mkdirs()) {
+            Log.w(TAG, "Failed to create debug-output directory")
+            return
+        }
+        val filename = "llm_screenshot_${System.currentTimeMillis()}_${width}x${height}.jpg"
+        val file = File(dir, filename)
+        try {
+            file.outputStream().use { it.write(bytes) }
+            Log.d(TAG, "Saved LLM screenshot: ${file.absolutePath}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to save LLM screenshot: ${e.message}")
+        }
     }
 
     private fun formatScreenshotError(errorCode: Int): String {

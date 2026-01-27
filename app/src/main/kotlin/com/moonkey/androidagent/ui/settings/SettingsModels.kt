@@ -4,9 +4,8 @@ package com.moonkey.androidagent.ui.settings
  * Available cloud LLM models for selection.
  */
 internal val AVAILABLE_CLOUD_MODELS = listOf(
-    "gpt-4o" to "GPT-4o (Recommended)",
-    "gpt-4o-mini" to "GPT-4o Mini (Faster)",
-    "gpt-4-turbo" to "GPT-4 Turbo"
+    "gpt-5.2" to "GPT-5.2 (Recommended)",
+    "gpt-5.2-pro" to "GPT-5.2 Pro (Stronger)"
 )
 
 /**

@@ -9,7 +9,8 @@ data class MainActivityIntentPayload(
     val goalText: String?,
     val freshSession: Boolean,
     val autoStart: Boolean,
-    val screenshotInputEnabled: Boolean?
+    val screenshotInputEnabled: Boolean?,
+    val debugMode: Boolean?
 ) {
     companion object {
         fun from(intent: Intent): MainActivityIntentPayload {
@@ -34,6 +35,11 @@ data class MainActivityIntentPayload(
             } else {
                 null
             }
+            val debugMode = if (intent.hasExtra(MainActivity.EXTRA_DEBUG_MODE)) {
+                intent.getBooleanExtra(MainActivity.EXTRA_DEBUG_MODE, false)
+            } else {
+                null
+            }
 
             return MainActivityIntentPayload(
                 apiKey = apiKey,
@@ -41,7 +47,8 @@ data class MainActivityIntentPayload(
                 goalText = goalText,
                 freshSession = intent.getBooleanExtra(MainActivity.EXTRA_FRESH_SESSION, false),
                 autoStart = intent.getBooleanExtra(MainActivity.EXTRA_AUTO_START, false),
-                screenshotInputEnabled = screenshotInputEnabled
+                screenshotInputEnabled = screenshotInputEnabled,
+                debugMode = debugMode
             )
         }
     }

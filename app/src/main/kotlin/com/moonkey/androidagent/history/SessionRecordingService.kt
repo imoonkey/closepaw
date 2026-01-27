@@ -45,7 +45,7 @@ class SessionRecordingService(
     /**
      * Initialize a new session.
      * 
-     * @param model The LLM model being used (e.g., "gpt-4o")
+     * @param model The LLM model being used (e.g., "gpt-5.2")
      * @param appVersion The app version creating this session
      * @return The session ID
      */

@@ -61,6 +61,11 @@ if [[ "$USE_LOCAL" == "true" ]]; then
     LLM_BACKEND="local"
 fi
 
+# Default debug mode on for debug-run unless explicitly set
+if [[ -z "${DEBUG_MODE+x}" ]]; then
+    DEBUG_MODE=true
+fi
+
 # Default screenshot input on for OpenAI runs unless explicitly set
 if [[ -z "${SCREENSHOT_INPUT+x}" ]]; then
     if [[ "$LLM_BACKEND" == "openai" ]]; then
@@ -81,7 +86,7 @@ log "Using LLM backend: $LLM_BACKEND"
 adb logcat -c
 
 # Build intent extras based on backend
-INTENT_EXTRAS="--es goal '$GOAL' --es llm_backend '$LLM_BACKEND' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT"
+INTENT_EXTRAS="--es goal '$GOAL' --es llm_backend '$LLM_BACKEND' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT --ez debug_mode $DEBUG_MODE"
 if [[ "$LLM_BACKEND" == "openai" ]]; then
     INTENT_EXTRAS="--es api_key '$OPENAI_API_KEY' $INTENT_EXTRAS"
 fi
@@ -147,6 +152,15 @@ adb logcat -d | grep -E "Agent|Turn|LLMClient|ToolRouter|SessionServices" > "$DE
 
 log "Saving full system log..."
 adb logcat -d | grep -E "AgentService|AccessibilityPlatform|AgentSession" > "$DEBUG_DIR/system.log"
+
+# Pull compressed LLM screenshots saved by debug mode (if any)
+DEVICE_LLM_DIR="/sdcard/Android/data/$PACKAGE/files/debug-output"
+LOCAL_LLM_DIR="$DEBUG_DIR/llm_screens"
+mkdir -p "$LOCAL_LLM_DIR"
+if adb shell "ls $DEVICE_LLM_DIR" >/dev/null 2>&1; then
+    log "Pulling LLM screenshots..."
+    adb pull "$DEVICE_LLM_DIR/." "$LOCAL_LLM_DIR/" >/dev/null 2>&1 || true
+fi
 
 # Save LFMLLMClient specific logs for local LLM debugging
 if [[ "$LLM_BACKEND" == "local" ]]; then
