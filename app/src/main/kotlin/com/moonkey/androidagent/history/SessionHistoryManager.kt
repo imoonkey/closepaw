@@ -5,6 +5,7 @@ import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.history.storage.SessionStorage
 import kotlinx.coroutines.CoroutineScope
+import java.io.File
 
 /**
  * High-level session management API.
@@ -40,6 +41,13 @@ class SessionHistoryManager(
             return SessionHistoryManager(storage, recordingService, scope)
         }
     }
+
+    private data class CachedSessionInfo(
+        val lastModified: Long,
+        val info: SessionInfo
+    )
+
+    private val sessionInfoCache = mutableMapOf<String, CachedSessionInfo>()
     
     /**
      * List all sessions (lightweight, doesn't load full content).
@@ -49,9 +57,9 @@ class SessionHistoryManager(
     suspend fun listSessions(): List<SessionInfo> {
         val files = storage.listSessionFiles()
         Log.d(TAG, "Found ${files.size} session files")
-        
+
         return files.mapNotNull { file ->
-            extractSessionInfo(file.name)
+            getSessionInfoCached(file)
         }
     }
     
@@ -97,14 +105,18 @@ class SessionHistoryManager(
         val file = files.find { it.name.contains(sessionId) }
             ?: return Result.failure(NoSuchElementException("Session not found: $sessionId"))
         
-        return storage.deleteSession(file.name)
+        return storage.deleteSession(file.name).onSuccess {
+            sessionInfoCache.remove(file.name)
+        }
     }
     
     /**
      * Delete a session by file name.
      */
     suspend fun deleteSessionByFileName(fileName: String): Result<Unit> {
-        return storage.deleteSession(fileName)
+        return storage.deleteSession(fileName).onSuccess {
+            sessionInfoCache.remove(fileName)
+        }
     }
     
     /**
@@ -196,7 +208,19 @@ class SessionHistoryManager(
             messageCount = record.messages.size,
             displayTitle = displayTitle,
             firstUserMessage = firstUserMessage,
-            isActive = record.sessionId == getCurrentSessionId()
+            isActive = false
         )
+    }
+
+    private suspend fun getSessionInfoCached(file: File): SessionInfo? {
+        val cached = sessionInfoCache[file.name]
+        val info = if (cached != null && cached.lastModified == file.lastModified()) {
+            cached.info
+        } else {
+            val fresh = extractSessionInfo(file.name) ?: return null
+            sessionInfoCache[file.name] = CachedSessionInfo(file.lastModified(), fresh)
+            fresh
+        }
+        return info.copy(isActive = info.id == getCurrentSessionId())
     }
 }

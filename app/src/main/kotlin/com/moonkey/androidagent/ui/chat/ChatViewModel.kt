@@ -2,6 +2,7 @@ package com.moonkey.androidagent.ui.chat
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Home
@@ -370,6 +371,9 @@ class ChatViewModel(
      * Map tool names to Material icons.
      */
     private fun getToolIcon(toolName: String): ImageVector = when (toolName.lowercase()) {
+        "mobile_action" -> Icons.Rounded.TouchApp
+        "app_control" -> Icons.Rounded.Apps
+        "complete_task" -> Icons.Rounded.CheckCircle
         "click" -> Icons.Rounded.TouchApp
         "type" -> Icons.Rounded.Keyboard
         "scroll" -> Icons.Rounded.UnfoldMore

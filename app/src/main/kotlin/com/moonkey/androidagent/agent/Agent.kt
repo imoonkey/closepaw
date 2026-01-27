@@ -93,6 +93,11 @@ class Agent(
                 pauseState.first { !it }
                 emitStatus("▶️ Resuming...")
             }
+            // Re-check stop/cancel after pause wait to avoid running another turn
+            if (!shouldContinue()) {
+                emitStatus("🛑 Cancelled")
+                return AgentStopReason.UserRequested
+            }
             
             // Check max turns
             if (turnCount >= config.maxTurns) {
@@ -229,8 +234,19 @@ class Agent(
                     )
                 }
 
-                // 3. ACT: Execute tool calls
-                if (result.toolCalls.isNotEmpty()) {
+                val hasNonCompletionTool = result.toolCalls.any { it.name != "complete_task" }
+                val toolCallsToExecute = when {
+                    result.toolCalls.isEmpty() -> emptyList()
+                    hasNonCompletionTool -> listOf(result.toolCalls.first { it.name != "complete_task" })
+                    else -> listOf(result.toolCalls.first())
+                }
+                if (result.toolCalls.size > 1) {
+                    Log.w(TAG, "Turn $turnCount: Multiple tool calls returned: ${result.toolCalls.map { it.name }}")
+                    emitStatus("⚠️ Multiple actions returned; executing first only")
+                }
+
+                // 3. ACT: Execute tool calls (one per turn)
+                if (toolCallsToExecute.isNotEmpty()) {
                     emitTurnPhaseChanged(turnId, TurnPhase.EXECUTION)
                     emitStatus("💡 Executing actions...")
 
@@ -240,7 +256,7 @@ class Agent(
                     var currentSnapshot = services.platform.captureScreen()
                     Log.d(TAG, "Re-captured screen before actions: ${currentSnapshot.elements.size} elements")
 
-                    for (toolCall in result.toolCalls) {
+                    for (toolCall in toolCallsToExecute) {
                         Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
                         
                         // Emit ActionProposed before execution
@@ -342,7 +358,8 @@ class Agent(
                 }
 
                 // Check if complete (complete_task tool was called)
-                if (result.isComplete) {
+                val shouldComplete = result.isComplete && !hasNonCompletionTool
+                if (shouldComplete) {
                     // Extract completion summary from complete_task tool if present
                     val completeTaskCall = result.toolCalls.find { it.name == "complete_task" }
                     val summary = completeTaskCall?.arguments?.optString("summary")
