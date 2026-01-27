@@ -64,7 +64,7 @@ class AgentSession private constructor(
             apiKey: String? = null,
             visualizer: ActionVisualizerManager? = null
         ): AgentSession {
-            val platform: AndroidPlatform = AccessibilityPlatform(service, visualizer)
+            val platform: AndroidPlatform = AccessibilityPlatform(service, config, visualizer)
             // Service is a Context, so we can use it for local LLM model loading
             val services = SessionServices.create(config, platform, apiKey, context = service)
             

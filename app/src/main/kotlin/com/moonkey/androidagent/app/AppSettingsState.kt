@@ -26,6 +26,8 @@ class AppSettingsState(
         private set
     var debugMode by mutableStateOf(AppSettingsStore.DEFAULT_DEBUG_MODE)
         private set
+    var enableScreenshotInput by mutableStateOf(AppSettingsStore.DEFAULT_SCREENSHOT_INPUT)
+        private set
     var llmBackend by mutableStateOf(AppSettingsStore.DEFAULT_LLM_BACKEND)
         private set
     var selectedLocalModelId by mutableStateOf(AppSettingsStore.DEFAULT_LOCAL_MODEL_ID)
@@ -43,6 +45,7 @@ class AppSettingsState(
         selectedModel = settings.selectedModel
         maxTurns = settings.maxTurns
         debugMode = settings.debugMode
+        enableScreenshotInput = settings.enableScreenshotInput
         llmBackend = settings.llmBackend
         selectedLocalModelId = settings.localModelId
         localModelSlug = settings.localModelSlug
@@ -50,7 +53,7 @@ class AppSettingsState(
 
         Log.d(
             TAG,
-            "Settings loaded: backend=$llmBackend, model=$selectedModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode"
+            "Settings loaded: backend=$llmBackend, model=$selectedModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, screenshotInput=$enableScreenshotInput"
         )
     }
 
@@ -86,6 +89,11 @@ class AppSettingsState(
     fun updateDebugMode(value: Boolean) {
         debugMode = value
         store.saveDebugMode(value)
+    }
+
+    fun updateScreenshotInputEnabled(value: Boolean) {
+        enableScreenshotInput = value
+        store.saveScreenshotInputEnabled(value)
     }
 
     fun updateModelLoadingStatus(status: ModelLoadingStatus) {

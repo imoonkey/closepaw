@@ -161,6 +161,8 @@ class MainActivity : ComponentActivity() {
                             // Other settings
                             maxTurns = settingsState.maxTurns,
                             onMaxTurnsChange = settingsState::updateMaxTurns,
+                            screenshotInputEnabled = settingsState.enableScreenshotInput,
+                            onScreenshotInputChange = settingsState::updateScreenshotInputEnabled,
                             debugMode = settingsState.debugMode,
                             onDebugModeChange = settingsState::updateDebugMode,
                             isAccessibilityEnabled = AgentService.instance != null,
@@ -308,8 +310,10 @@ class MainActivity : ComponentActivity() {
                             maxTurns = settingsState.maxTurns,
                             model = settingsState.selectedModel,
                             debugMode = settingsState.debugMode,
-                            llmBackend = settingsState.llmBackend,
-                            localLLMConfig = localConfig
+                                llmBackend = settingsState.llmBackend,
+                                localLLMConfig = localConfig,
+                                enableScreenshotInput = settingsState.enableScreenshotInput &&
+                                    settingsState.llmBackend == LLMBackendType.OPENAI
                         ),
                         service = service,
                         scope = sessionScope,
