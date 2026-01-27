@@ -1,6 +1,7 @@
 # Android Agent Infrastructure
 
 > This document describes the architecture and components of the Android Agent system.
+> Last updated: 2026-01-26
 
 ## Table of Contents
 
@@ -182,7 +183,10 @@ com.moonkey.androidagent/
 │   └── Perceptor.kt              # Accessibility tree → ScreenSnapshot
 │
 ├── llm/                          # LLM integration
-│   └── LLMClient.kt              # OpenAI Responses API (with streaming)
+│   ├── LLMClient.kt              # Unified LLM interface + stream events
+│   ├── OpenAILLMClient.kt        # OpenAI Responses API client
+│   ├── LFMLLMClient.kt           # Local LFM client (Leap SDK)
+│   └── LeapFunctionInterop.kt    # Tool schema + argument adapters
 │
 ├── history/                      # Conversation & session history
 │   ├── HistoryManager.kt         # Token management, truncation
@@ -326,7 +330,7 @@ Dependency injection container for all session-scoped services.
 | `policyEngine` | Tool approval decisions |
 | `platform` | Android operations |
 | `config` | Session configuration |
-| `llmClient` | OpenAI Responses API client |
+| `llmClient` | LLM client (OpenAI or local LFM) |
 
 **Creation:**
 ```kotlin
@@ -335,7 +339,7 @@ val services = SessionServices.create(config, platform, apiKey)
 
 ### 5. LLMClient (`llm/LLMClient.kt`)
 
-OpenAI Responses API client with **native streaming** support.
+Unified LLM interface with **native streaming** support for both OpenAI and local LFM.
 
 **Key Method:**
 ```kotlin
@@ -344,24 +348,24 @@ fun chatWithToolsStreaming(
     inputItems: List<ResponseInputItem>,
     tools: List<FunctionTool>,
     model: ChatModel = ChatModel.GPT_4O
-): Flow<ResponseStreamEvent>
+): Flow<LLMStreamEvent>
 ```
 
-**Stream Event Types (from OpenAI Java SDK):**
+**Stream Event Types:**
 
 | Event | Description |
 |-------|-------------|
-| `response.created` | Response initiated (includes response ID) |
-| `response.output_text.delta` | Text chunk via `asOutputTextDelta().delta()` |
-| `response.output_item.done` | Output item completed (text or tool call) |
-| `response.completed` | Stream finished successfully |
-| `response.failed` | Error occurred |
+| `Created` | Response initiated (includes response ID) |
+| `TextDelta` | Text chunk |
+| `ToolCallDone` | Tool call completed |
+| `Completed` | Stream finished successfully |
+| `Failed` | Error occurred |
 
 **Implementation Details:**
-- Uses `callbackFlow` for coroutine compatibility with blocking SDK stream
-- Manual accumulation of text and tool calls (no `ResponseAccumulator`)
-- Retry logic with exponential backoff
-- Requires OpenAI Java SDK v4.14.0+
+- Uses `callbackFlow` for coroutine compatibility with the OpenAI stream
+- Manual accumulation of text and tool calls
+- Retry logic with exponential backoff for OpenAI only
+- Local backend uses Leap SDK function calling and model download
 
 ### 6. ToolRouter (`tool/ToolRouter.kt`)
 
@@ -1017,7 +1021,9 @@ val config = SessionConfig(
     maxTurns = 50,           // Max iterations before auto-stop
     actionDelayMs = 2000,    // Delay after actions for UI settle
     approvalMode = ApprovalMode.SMART,  // ALWAYS_ASK, AUTO_APPROVE, or SMART
-    model = "gpt-4o",        // LLM model
+    model = "gpt-4o",        // LLM model (cloud only)
+    llmBackend = LLMBackendType.OPENAI, // OPENAI or LOCAL
+    localLLMConfig = null,   // Set when llmBackend == LOCAL
     debugMode = false        // Verbose logging
 )
 ```
