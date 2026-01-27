@@ -37,9 +37,7 @@ class SessionRecordingService(
     private var currentFileName: String? = null
     
     // Current agent message being built
-    private var currentAgentMessageId: String? = null
-    private var currentTextBuffer: StringBuilder = StringBuilder()
-    private var currentContentBlocks: MutableList<ContentBlockRecord> = mutableListOf()
+    private val agentMessageBuffer = AgentMessageBuffer()
     
     // Debounced save job
     private var saveJob: Job? = null
@@ -71,9 +69,7 @@ class SessionRecordingService(
         currentFileName = storage.generateFileName(sessionId)
         
         // Reset state
-        currentAgentMessageId = null
-        currentTextBuffer.clear()
-        currentContentBlocks.clear()
+        agentMessageBuffer.clear()
         
         Log.i(TAG, "Initialized new session: $sessionId, file: $currentFileName")
         scheduleSave()
@@ -91,9 +87,7 @@ class SessionRecordingService(
         currentFileName = data.fileName
         
         // Reset agent message state (we're starting fresh)
-        currentAgentMessageId = null
-        currentTextBuffer.clear()
-        currentContentBlocks.clear()
+        agentMessageBuffer.clear()
         
         Log.i(TAG, "Resumed session: ${data.session.sessionId}, file: ${data.fileName}")
     }
@@ -137,9 +131,7 @@ class SessionRecordingService(
         // Finalize any previous agent message
         finalizeCurrentAgentMessage()
         
-        currentAgentMessageId = id
-        currentTextBuffer.clear()
-        currentContentBlocks.clear()
+        agentMessageBuffer.start(id)
         
         Log.d(TAG, "Started agent message: $id")
     }
@@ -148,24 +140,12 @@ class SessionRecordingService(
      * Append text delta to current agent message.
      */
     fun appendTextDelta(delta: String) {
-        if (currentAgentMessageId == null) {
+        if (!agentMessageBuffer.hasActiveMessage()) {
             Log.w(TAG, "No active agent message for text delta")
             return
         }
-        
-        currentTextBuffer.append(delta)
+        agentMessageBuffer.appendText(delta)
         // Don't save on every delta - wait for action or completion
-    }
-    
-    /**
-     * Finalize current text block (called before adding an action).
-     * This ensures text before an action is saved separately.
-     */
-    private fun finalizeCurrentTextBlock() {
-        if (currentTextBuffer.isNotEmpty()) {
-            currentContentBlocks.add(ContentBlockRecord.Text(currentTextBuffer.toString()))
-            currentTextBuffer.clear()
-        }
     }
     
     /**
@@ -177,14 +157,11 @@ class SessionRecordingService(
         description: String,
         state: String
     ) {
-        if (currentAgentMessageId == null) {
+        if (!agentMessageBuffer.hasActiveMessage()) {
             Log.w(TAG, "No active agent message for action")
             return
         }
-        
-        // Finalize any text before this action
-        finalizeCurrentTextBlock()
-        
+
         val action = ContentBlockRecord.Action(
             id = actionId,
             toolName = toolName,
@@ -192,8 +169,7 @@ class SessionRecordingService(
             state = state,
             resultSummary = null
         )
-        
-        currentContentBlocks.add(action)
+        agentMessageBuffer.recordAction(action)
         Log.d(TAG, "Recorded action: $toolName ($state)")
         
         // Save after adding action
@@ -205,21 +181,11 @@ class SessionRecordingService(
      * Update an action's state and result.
      */
     fun updateActionState(actionId: String, state: String, result: String?) {
-        if (currentAgentMessageId == null) {
+        if (!agentMessageBuffer.hasActiveMessage()) {
             Log.w(TAG, "No active agent message for action update")
             return
         }
-        
-        // Find and update the action in current content blocks
-        val updatedBlocks = currentContentBlocks.map { block ->
-            if (block is ContentBlockRecord.Action && block.id == actionId) {
-                block.copy(state = state, resultSummary = result)
-            } else {
-                block
-            }
-        }
-        currentContentBlocks.clear()
-        currentContentBlocks.addAll(updatedBlocks)
+        agentMessageBuffer.updateActionState(actionId, state, result)
         
         Log.d(TAG, "Updated action $actionId state to $state")
         
@@ -305,9 +271,7 @@ class SessionRecordingService(
             pendingSave?.join()
             currentSession = null
             currentFileName = null
-            currentAgentMessageId = null
-            currentTextBuffer.clear()
-            currentContentBlocks.clear()
+            agentMessageBuffer.clear()
             Log.d(TAG, "Session tracking cleared")
         }
     }
@@ -318,27 +282,17 @@ class SessionRecordingService(
      * Finalize the current agent message and add it to the session.
      */
     private fun finalizeCurrentAgentMessage() {
-        val msgId = currentAgentMessageId ?: return
+        val snapshot = agentMessageBuffer.finalizeSnapshot() ?: return
         val session = currentSession ?: return
-        
-        // Finalize any remaining text
-        finalizeCurrentTextBlock()
-        
-        // Only add if we have content
-        if (currentContentBlocks.isEmpty()) {
-            currentAgentMessageId = null
-            return
-        }
-        
-        // Check if message already exists (update) or needs to be added
+
         val existingIndex = session.messages.indexOfFirst { 
-            it is MessageRecord.Agent && it.id == msgId 
+            it is MessageRecord.Agent && it.id == snapshot.id 
         }
-        
+
         val agentMessage = MessageRecord.Agent(
-            id = msgId,
+            id = snapshot.id,
             timestamp = System.currentTimeMillis(),
-            contentBlocks = currentContentBlocks.toList(),
+            contentBlocks = snapshot.blocks,
             isComplete = true
         )
         
@@ -357,10 +311,6 @@ class SessionRecordingService(
                 lastUpdated = System.currentTimeMillis()
             )
         }
-        
-        // Reset state
-        currentAgentMessageId = null
-        currentContentBlocks.clear()
     }
     
     /**
@@ -368,27 +318,19 @@ class SessionRecordingService(
      * Used for incremental updates (action state changes).
      */
     private fun updateAgentMessageInSession() {
-        val msgId = currentAgentMessageId ?: return
+        val snapshot = agentMessageBuffer.buildPartialSnapshot() ?: return
         val session = currentSession ?: return
-        
-        // Build blocks including current text buffer
-        val blocks = currentContentBlocks.toMutableList()
-        if (currentTextBuffer.isNotEmpty()) {
-            blocks.add(ContentBlockRecord.Text(currentTextBuffer.toString()))
-        }
-        
-        if (blocks.isEmpty()) return
-        
+
         val agentMessage = MessageRecord.Agent(
-            id = msgId,
+            id = snapshot.id,
             timestamp = System.currentTimeMillis(),
-            contentBlocks = blocks,
+            contentBlocks = snapshot.blocks,
             isComplete = false
         )
         
         // Check if message already exists
         val existingIndex = session.messages.indexOfFirst { 
-            it is MessageRecord.Agent && it.id == msgId 
+            it is MessageRecord.Agent && it.id == snapshot.id 
         }
         
         currentSession = if (existingIndex >= 0) {
