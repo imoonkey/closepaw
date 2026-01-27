@@ -13,6 +13,10 @@
 #
 # Usage: ./scripts/setup.sh
 #
+# Environment Variables:
+#   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
+#                Set to "local" to skip API key requirement
+#
 # Note: Run this after code changes before using dev.sh
 #
 
@@ -52,16 +56,25 @@ fi
 DEVICE=$(adb devices | grep -v "List" | grep "device$" | head -1 | awk '{print $1}')
 ok "Device connected: $DEVICE"
 
-# 2. Check .env file
-log "Checking API Key..."
-if [[ ! -f "$PROJECT_ROOT/.env" ]]; then
-    err ".env file not found. Please create: echo 'OPENAI_API_KEY=sk-xxx' > .env"
+# 2. Load .env file and check backend
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
+    source "$PROJECT_ROOT/.env"
 fi
-source "$PROJECT_ROOT/.env"
-if [[ -z "$OPENAI_API_KEY" || ! "$OPENAI_API_KEY" =~ ^sk- ]]; then
-    err "Invalid API Key. Please set OPENAI_API_KEY=sk-xxx in .env"
+
+# Determine LLM backend (env var takes precedence)
+LLM_BACKEND="${LLM_BACKEND:-openai}"
+log "LLM Backend: $LLM_BACKEND"
+
+# Check API key only for OpenAI backend
+if [[ "$LLM_BACKEND" == "openai" ]]; then
+    log "Checking API Key..."
+    if [[ -z "$OPENAI_API_KEY" || ! "$OPENAI_API_KEY" =~ ^sk- ]]; then
+        err "Invalid API Key. Please set OPENAI_API_KEY=sk-xxx in .env, or use LLM_BACKEND=local"
+    fi
+    ok "API Key configured"
+else
+    ok "Using local LLM backend (no API key required)"
 fi
-ok "API Key configured: ${OPENAI_API_KEY:0:15}..."
 
 # 3. Build APK
 log "Building APK..."

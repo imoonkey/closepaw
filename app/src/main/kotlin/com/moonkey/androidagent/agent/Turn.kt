@@ -2,6 +2,7 @@ package com.moonkey.androidagent.agent
 
 import android.util.Log
 import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.LLMToolCall
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
@@ -103,7 +104,7 @@ class Turn(
         userContext: String,
         modelName: String = "gpt-4o"
     ): Flow<TurnStreamEvent> = flow {
-        Log.d(TAG, "Running streaming turn with native OpenAI streaming, model=$modelName")
+        Log.d(TAG, "Running streaming turn with LLM streaming, model=$modelName")
         
         try {
             // 1. Build input items
@@ -123,64 +124,42 @@ class Turn(
             val textAccumulator = StringBuilder()
             val toolCalls = mutableListOf<LLMToolCall>()
             
-            // 6. Stream response using native OpenAI SDK streaming
+            // 6. Stream response using LLMStreamEvent (works with both OpenAI and local models)
             llmClient.chatWithToolsStreaming(
                 systemPrompt = fullSystemPrompt,
                 inputItems = inputItems,
                 tools = tools,
                 model = chatModel
             ).collect { event ->
-                
-                // Process text deltas: response.output_text.delta
-                if (event.isOutputTextDelta()) {
-                    val textDelta = event.asOutputTextDelta()
-                    val delta = textDelta.delta()
-                    textAccumulator.append(delta)
-                    emit(TurnStreamEvent.TextDelta(delta))
-                }
-                
-                // Process completed output items: response.output_item.done
-                // This fires when a complete output item (text or function call) is ready
-                if (event.isOutputItemDone()) {
-                    val itemDone = event.asOutputItemDone()
-                    val item = itemDone.item()
+                when (event) {
+                    is LLMStreamEvent.Created -> {
+                        Log.d(TAG, "Response created with ID: ${event.responseId}")
+                    }
                     
-                    // Check if it's a function call
-                    if (item.isFunctionCall()) {
-                        val funcCall = item.asFunctionCall()
-                        val llmToolCall = LLMToolCall(
-                            callId = funcCall.callId(),
-                            name = funcCall.name(),
-                            arguments = funcCall.arguments()
-                        )
+                    is LLMStreamEvent.TextDelta -> {
+                        textAccumulator.append(event.delta)
+                        emit(TurnStreamEvent.TextDelta(event.delta))
+                    }
+                    
+                    is LLMStreamEvent.ToolCallDone -> {
+                        val llmToolCall = event.toolCall
                         toolCalls.add(llmToolCall)
                         
-                        Log.d(TAG, "Received tool call: ${funcCall.name()} with id ${funcCall.callId()}")
+                        Log.d(TAG, "Received tool call: ${llmToolCall.name} with id ${llmToolCall.callId}")
                         
                         // Convert to ToolCallRequest and emit
                         val toolCallRequest = convertToToolCallRequest(llmToolCall)
                         emit(TurnStreamEvent.ToolCallReceived(toolCallRequest))
                     }
-                }
-                
-                // Log response creation (responseId available for future use)
-                if (event.isCreated()) {
-                    val created = event.asCreated()
-                    val responseId = created.response().id()
-                    Log.d(TAG, "Response created with ID: $responseId")
-                }
-                
-                // Handle response completion
-                if (event.isCompleted()) {
-                    Log.d(TAG, "Response completed, building final result")
-                }
-                
-                // Handle response failure
-                if (event.isFailed()) {
-                    val failed = event.asFailed()
-                    val errorMsg = "Response failed: ${failed.response()}"
-                    Log.e(TAG, errorMsg)
-                    throw RuntimeException(errorMsg)
+                    
+                    is LLMStreamEvent.Completed -> {
+                        Log.d(TAG, "Response completed, building final result")
+                    }
+                    
+                    is LLMStreamEvent.Failed -> {
+                        Log.e(TAG, event.error)
+                        throw RuntimeException(event.error)
+                    }
                 }
             }
             
@@ -241,29 +220,39 @@ class Turn(
      * 
      * Note: Tool descriptions are provided to the model via the tools parameter,
      * not in the system prompt, which is the recommended approach.
+     * 
+     * Optimized for both large (GPT-4) and smaller local models (1-2B params).
      */
     private fun buildSystemPrompt(basePrompt: String): String {
         return """
             $basePrompt
             
-            ## Important Guidelines
+            ## CRITICAL RULES
             
-            - Each UI element has an "index" field - use this index when calling tools like click or type
-            - Look for elements with "clickable": true for interactive items - non-clickable elements won't respond
-            - Look for elements with "editable": true for text input fields
-            - If you don't see the expected UI, try scrolling or navigating
-            - Be patient and methodical - complete one step at a time
+            1. EXECUTE ONE ACTION PER TURN. Call mobile_action or app_control, then STOP and wait.
+            2. NEVER call complete_task together with other actions in the same turn.
+            3. Only call complete_task in the next turn AFTER you see the result of your action has achieved user's goal
             
-            ## Action Verification
+            ## Element Selection
             
-            After EVERY action, you will receive the new screen state. COMPARE it to the previous state:
-            - If the screen looks identical after a click, the click may have missed or hit a non-interactive element
-            - Try clicking a different element or check if the target is actually clickable
-            - The number of elements and their content should change after successful navigation
-        
+            - Use the "index" field to identify elements (e.g., element_index=5)
+            - Only click elements with "clickable": true
+            - Only type in elements with "editable": true
+            
+            ## ReAct Loop
+            
+            Each turn:
+            1. OBSERVE: Read the screen state JSON
+            2. THINK: Identify what action to take
+            3. ACT: Call ONE tool (mobile_action, app_control)
+            4. WAIT: You will receive the new screen state in the next turn
+            
             ## Completion
             
-            When you have successfully achieved the goal or cannot move forward, call the complete_task tool with a summary.
+            Call complete_task ONLY when:
+            - You see the target screen/content after your action succeeded
+            - You have verified the goal is achieved by checking the screen state
+            - NEVER call complete_task before executing and verifying an action
 
         """.trimIndent()
     }

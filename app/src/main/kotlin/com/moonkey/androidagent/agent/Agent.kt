@@ -9,6 +9,7 @@ import com.moonkey.androidagent.tool.ToolCallResult
 import com.moonkey.androidagent.tool.ToolObservation
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.ApprovalDetails
+import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
 import kotlinx.coroutines.CompletableDeferred
@@ -42,13 +43,25 @@ class Agent(
         
         // Base system prompt - Turn.kt will append tool usage guidelines
         private val DEFAULT_SYSTEM_PROMPT = """
-            You are an Android automation agent. You can interact with the device using tools.
+            You are an Android automation agent. You control the device using tools.
             
             Your task is to achieve the user's goal by:
             1. Observing the current screen state (provided as a JSON list of UI elements)
             2. Deciding what action to take based on the screen
             3. Executing the action using available tools
             4. Observing the result and continuing until done
+            5. If you have achieved the goal, call complete_task to wrap up. Do NOT call it prematurely.
+
+            Your start screen maybe the Android Agent app itself, or any other screen. 
+            Your actions should almost always start with directly opening or navigating to the right app/page first.
+        """.trimIndent()
+
+        private val LOCAL_PROMPT_SUFFIX = """
+            ## LOCAL MODEL TOOL CALLING
+            
+            - Use function calling with the registered tools. Do NOT emit <action> tags or raw JSON.
+            - Call exactly one tool per turn (mobile_action or app_control) unless you are completing.
+            - When the goal is achieved, call complete_task with status and answer.
         """.trimIndent()
     }
     
@@ -404,7 +417,12 @@ class Agent(
     }
     
     private fun buildSystemPrompt(): String {
-        return config.systemPrompt ?: DEFAULT_SYSTEM_PROMPT
+        val basePrompt = config.systemPrompt ?: DEFAULT_SYSTEM_PROMPT
+        return if (services.config.llmBackend == LLMBackendType.LOCAL) {
+            "$basePrompt\n\n$LOCAL_PROMPT_SUFFIX"
+        } else {
+            basePrompt
+        }
     }
     
     private fun buildUserContext(snapshot: ScreenSnapshot): String {
