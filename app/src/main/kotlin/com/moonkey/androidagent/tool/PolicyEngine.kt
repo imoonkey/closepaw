@@ -27,26 +27,11 @@ class PolicyEngine(
         private const val TAG = "PolicyEngine"
         
         // TODO (M8): Consider loading risk levels from configuration file for per-deployment customization.
-        // Default risk levels for common Mobile-Agent tools
+        // Default risk levels for core tools (mobile actions are resolved per action).
         private val DEFAULT_RISK_LEVELS = mapOf(
-            // Low risk - typically reversible or read-only
-            "click" to RiskLevel.LOW,
-            "scroll" to RiskLevel.LOW,
-            "swipe" to RiskLevel.LOW,
-            "back" to RiskLevel.LOW,
-            "wait" to RiskLevel.LOW,
-            
-            // Medium risk - may modify state
-            "type" to RiskLevel.MEDIUM,
-            "home" to RiskLevel.MEDIUM,
-            
-            // High risk - potentially destructive (reserved for future tools)
-            // M5: These are reserved for future tool implementations (e.g., app management, e-commerce)
-            "install" to RiskLevel.HIGH,
-            "uninstall" to RiskLevel.HIGH,
-            "delete" to RiskLevel.HIGH,
-            "purchase" to RiskLevel.HIGH,
-            "send" to RiskLevel.HIGH
+            ToolName.MobileAction.canonical to RiskLevel.MEDIUM,
+            ToolName.AppControl.canonical to RiskLevel.MEDIUM,
+            ToolName.CompleteTask.canonical to RiskLevel.MEDIUM
         )
     }
     
@@ -66,17 +51,18 @@ class PolicyEngine(
      */
     fun check(toolName: String, params: JSONObject = JSONObject()): PolicyDecision {
         val currentMode = approvalMode.get()
+        val canonicalName = ToolName.from(toolName).canonical
         Log.d(TAG, "Checking policy for: $toolName (mode: $currentMode)")
 
         return synchronized(lock) {
             // Check deny list first
-            if (toolName in denyList) {
+            if (canonicalName in denyList) {
                 Log.d(TAG, "Tool $toolName is in deny list")
                 return@synchronized PolicyDecision.Deny("Tool '$toolName' is forbidden by policy")
             }
 
             // Check allow list (overrides everything except deny list)
-            if (toolName in allowList) {
+            if (canonicalName in allowList) {
                 Log.d(TAG, "Tool $toolName is in allow list")
                 return@synchronized PolicyDecision.Allow
             }
@@ -86,7 +72,7 @@ class PolicyEngine(
                 ApprovalMode.ALWAYS_ASK -> {
                     PolicyDecision.AskUser(
                         reason = "Approval required for all actions",
-                        riskLevel = getRiskLevelLocked(toolName)
+                        riskLevel = getRiskLevelLocked(toolName, params)
                     )
                 }
 
@@ -105,7 +91,7 @@ class PolicyEngine(
      * Evaluate risk-based policy for SMART mode.
      */
     private fun evaluateRiskLocked(toolName: String, params: JSONObject): PolicyDecision {
-        val riskLevel = getRiskLevelLocked(toolName)
+        val riskLevel = getRiskLevelLocked(toolName, params)
         
         return when (riskLevel) {
             RiskLevel.LOW -> {
@@ -134,12 +120,15 @@ class PolicyEngine(
         }
     }
 
-    private fun getRiskLevelLocked(toolName: String): RiskLevel {
+    private fun getRiskLevelLocked(toolName: String, params: JSONObject = JSONObject()): RiskLevel {
+        val action = resolveActionName(toolName, params)
+        val riskKey = action?.canonical ?: ToolName.from(toolName).canonical
+
         // Check custom overrides first
-        riskOverrides[toolName]?.let { return it }
+        riskOverrides[riskKey]?.let { return it }
 
         // Use default risk levels
-        return DEFAULT_RISK_LEVELS[toolName] ?: RiskLevel.MEDIUM
+        return action?.defaultRiskLevel ?: DEFAULT_RISK_LEVELS[riskKey] ?: RiskLevel.MEDIUM
     }
     
     // ===== Configuration Methods =====
@@ -161,8 +150,9 @@ class PolicyEngine(
      * Set a custom risk level for a tool.
      */
     fun setRiskLevel(toolName: String, level: RiskLevel) {
+        val riskKey = resolveRiskKey(toolName)
         synchronized(lock) {
-            riskOverrides[toolName] = level
+            riskOverrides[riskKey] = level
         }
         Log.d(TAG, "Risk level for $toolName set to $level")
     }
@@ -171,9 +161,10 @@ class PolicyEngine(
      * Add a tool to the allow list (always allowed in SMART mode).
      */
     fun allowTool(toolName: String) {
+        val canonicalName = ToolName.from(toolName).canonical
         synchronized(lock) {
-            allowList.add(toolName)
-            denyList.remove(toolName)
+            allowList.add(canonicalName)
+            denyList.remove(canonicalName)
         }
         Log.d(TAG, "Tool $toolName added to allow list")
     }
@@ -182,9 +173,10 @@ class PolicyEngine(
      * Add a tool to the deny list (always denied).
      */
     fun denyTool(toolName: String) {
+        val canonicalName = ToolName.from(toolName).canonical
         synchronized(lock) {
-            denyList.add(toolName)
-            allowList.remove(toolName)
+            denyList.add(canonicalName)
+            allowList.remove(canonicalName)
         }
         Log.d(TAG, "Tool $toolName added to deny list")
     }
@@ -193,10 +185,11 @@ class PolicyEngine(
      * Remove a tool from allow/deny lists.
      */
     fun resetTool(toolName: String) {
+        val canonicalName = ToolName.from(toolName).canonical
         synchronized(lock) {
-            allowList.remove(toolName)
-            denyList.remove(toolName)
-            riskOverrides.remove(toolName)
+            allowList.remove(canonicalName)
+            denyList.remove(canonicalName)
+            riskOverrides.remove(canonicalName)
         }
     }
     
@@ -211,6 +204,18 @@ class PolicyEngine(
         }
         approvalMode.set(ApprovalMode.SMART)
     }
+}
+
+private fun resolveRiskKey(toolName: String): String {
+    val action = MobileActionName.fromOrNull(toolName)
+    return action?.canonical ?: ToolName.from(toolName).canonical
+}
+
+private fun resolveActionName(toolName: String, params: JSONObject): MobileActionName? {
+    MobileActionName.fromOrNull(toolName)?.let { return it }
+    return if (ToolName.from(toolName) == ToolName.MobileAction) {
+        MobileActionName.fromOrNull(params.optString("action"))
+    } else null
 }
 
 /**

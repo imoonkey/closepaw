@@ -90,12 +90,7 @@ data class SessionServices(
                 }
                 LLMBackendType.LOCAL -> {
                     requireNotNull(context) { "Context is required for local LLM backend" }
-                    val localConfig = config.localLLMConfig?.let {
-                        LocalLLMConfig(
-                            modelSlug = it.modelSlug,
-                            quantizationSlug = it.quantizationSlug
-                        )
-                    } ?: LocalLLMConfig()
+                    val localConfig = config.localLLMConfig ?: LocalLLMConfig()
                     LFMLLMClient(context, localConfig)
                 }
             }

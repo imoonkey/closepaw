@@ -1,5 +1,7 @@
 package com.moonkey.androidagent.protocol
 
+import com.moonkey.androidagent.llm.LocalLLMConfig
+
 /**
  * Op - Operations sent from the UI layer to the agent session.
  * 
@@ -116,7 +118,7 @@ data class SessionConfig(
     val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
     
     /** Local LLM configuration (used when llmBackend is LOCAL) */
-    val localLLMConfig: LocalLLMSessionConfig? = null,
+    val localLLMConfig: LocalLLMConfig? = null,
     
     /** Enable verbose debug logging */
     val debugMode: Boolean = false
@@ -132,22 +134,6 @@ enum class LLMBackendType {
     /** Use local on-device LLM via Leap SDK */
     LOCAL
 }
-
-/**
- * Configuration for local LLM inference.
- *
- * Available models from Leap Model Library (leap.liquid.ai/models):
- * - "LFM2.5-1.2B-Instruct" / "Q4_K_M" (~731MB, recommended for tool-calling)
- * - "LFM2.5-1.2B-Instruct" / "Q5_K_M" (~843MB, higher quality)
- * - "lfm2-350m" / "lfm2-350m-20250710-8da4w" (~400MB, smallest, less capable)
- */
-data class LocalLLMSessionConfig(
-    /** Model slug (e.g., "LFM2.5-1.2B-Instruct") */
-    val modelSlug: String = "LFM2.5-1.2B-Instruct",
-
-    /** Quantization slug (e.g., "Q4_K_M") - must match Leap Model Library */
-    val quantizationSlug: String = "Q4_K_M"
-)
 
 /**
  * ApprovalMode - How tool execution approvals are handled.
