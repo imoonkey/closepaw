@@ -33,7 +33,7 @@ LLM_BACKEND=local ./scripts/setup.sh
 ./scripts/dev.sh run --local "Open Settings"
 ```
 
-The local backend uses LiquidAI's Leap SDK to run LFM models on-device. The model is downloaded automatically on first use (~800MB for lfm2-350m).
+The local backend uses LiquidAI's Leap SDK to run LFM models on-device. The model is downloaded automatically on first use and is a relatively large download.
 
 ## Development Cycle
 

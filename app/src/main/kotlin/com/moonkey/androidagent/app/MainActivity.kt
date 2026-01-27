@@ -22,6 +22,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.moonkey.androidagent.history.SessionHistoryManager
 import com.moonkey.androidagent.history.storage.SessionStorage
+import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.LocalLLMSessionConfig
 import com.moonkey.androidagent.protocol.Op
@@ -269,20 +270,25 @@ class MainActivity : ComponentActivity() {
             }
         }
         
-        // Handle fresh_session request - clear any existing session before starting new one
-        if (intent.getBooleanExtra(EXTRA_FRESH_SESSION, false)) {
+        val goalText = intent.getStringExtra(EXTRA_GOAL)?.takeIf { it.isNotBlank() }
+        val freshSession = intent.getBooleanExtra(EXTRA_FRESH_SESSION, false)
+
+        if (freshSession) {
             Log.d(TAG, "Fresh session requested, clearing existing state")
             lifecycleScope.launch {
                 clearCurrentSession()
+                goalText?.let {
+                    Log.d(TAG, "Goal set from intent: $it")
+                    kotlinx.coroutines.delay(500)
+                    ensureSessionAndSend(it)
+                }
             }
-        }
-        
-        intent.getStringExtra(EXTRA_GOAL)?.let { goalText ->
-            if (goalText.isNotBlank()) {
-                Log.d(TAG, "Goal set from intent: $goalText")
+        } else {
+            goalText?.let {
+                Log.d(TAG, "Goal set from intent: $it")
                 // Auto-send the goal as first message
                 window.decorView.postDelayed({
-                    ensureSessionAndSend(goalText)
+                    ensureSessionAndSend(it)
                 }, 500)
             }
         }
@@ -382,9 +388,16 @@ class MainActivity : ComponentActivity() {
                         visualizer = service.getActionVisualizer()
                     )
                     
-                    // Update loading status after session creation
+                    // Update loading status using the local model loader callbacks
                     if (llmBackend == LLMBackendType.LOCAL) {
-                        modelLoadingStatus = ModelLoadingStatus.Ready
+                        val localClient = session.getServices().llmClient as? LFMLLMClient
+                        if (localClient == null) {
+                            modelLoadingStatus = ModelLoadingStatus.Error("Local LLM client unavailable")
+                        } else {
+                            localClient.loadModel { state ->
+                                modelLoadingStatus = state.toUiStatus()
+                            }
+                        }
                     }
                     
                     currentSession = session
@@ -486,6 +499,16 @@ class MainActivity : ComponentActivity() {
             is Int -> prefs.edit().putInt(key, value).apply()
             is Boolean -> prefs.edit().putBoolean(key, value).apply()
             else -> Log.w(TAG, "Unsupported setting type: ${value::class.simpleName}")
+        }
+    }
+
+    private fun LFMLLMClient.ModelLoadingState.toUiStatus(): ModelLoadingStatus {
+        return when (this) {
+            is LFMLLMClient.ModelLoadingState.NotLoaded -> ModelLoadingStatus.Idle
+            is LFMLLMClient.ModelLoadingState.Downloading -> ModelLoadingStatus.Downloading(progress)
+            is LFMLLMClient.ModelLoadingState.Loading -> ModelLoadingStatus.Loading
+            is LFMLLMClient.ModelLoadingState.Ready -> ModelLoadingStatus.Ready
+            is LFMLLMClient.ModelLoadingState.Error -> ModelLoadingStatus.Error(message)
         }
     }
     

@@ -58,36 +58,43 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
     ): ResponsesResult {
         return withContext(Dispatchers.IO) {
             var lastException: Exception? = null
-            var backoffMs = INITIAL_BACKOFF_MS
+            var backoffMs = LLMClient.INITIAL_BACKOFF_MS
             
-            for (attempt in 1..MAX_RETRIES) {
+            for (attempt in 1..LLMClient.MAX_RETRIES) {
                 try {
                     return@withContext executeChatWithTools(systemPrompt, inputItems, tools, model)
                 } catch (e: RateLimitException) {
                     lastException = e
                     
-                    if (attempt == MAX_RETRIES) {
-                        Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for rate limit")
+                    if (attempt == LLMClient.MAX_RETRIES) {
+                        Log.e(TAG, "Max retries (${LLMClient.MAX_RETRIES}) exceeded for rate limit")
                         throw e
                     }
                     
                     val waitMs = e.retryAfterMs ?: backoffMs
-                    Log.w(TAG, "Rate limited (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms...")
+                    Log.w(TAG, "Rate limited (attempt $attempt/${LLMClient.MAX_RETRIES}), waiting ${waitMs}ms...")
                     
                     delay(waitMs)
-                    backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
+                    backoffMs = (backoffMs * LLMClient.BACKOFF_MULTIPLIER)
+                        .toLong()
+                        .coerceAtMost(LLMClient.MAX_BACKOFF_MS)
                     
                 } catch (e: TransientException) {
                     lastException = e
                     
-                    if (attempt == MAX_RETRIES) {
-                        Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for transient error")
+                    if (attempt == LLMClient.MAX_RETRIES) {
+                        Log.e(TAG, "Max retries (${LLMClient.MAX_RETRIES}) exceeded for transient error")
                         throw e.cause ?: e
                     }
                     
-                    Log.w(TAG, "Transient error (attempt $attempt/$MAX_RETRIES): ${e.message}, retrying in ${backoffMs}ms...")
+                    Log.w(
+                        TAG,
+                        "Transient error (attempt $attempt/${LLMClient.MAX_RETRIES}): ${e.message}, retrying in ${backoffMs}ms..."
+                    )
                     delay(backoffMs)
-                    backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
+                    backoffMs = (backoffMs * LLMClient.BACKOFF_MULTIPLIER)
+                        .toLong()
+                        .coerceAtMost(LLMClient.MAX_BACKOFF_MS)
                 }
             }
             
@@ -110,13 +117,13 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
         logLLMInput(systemPrompt, inputItems, tools)
         
         var lastException: Exception? = null
-        var backoffMs = INITIAL_BACKOFF_MS
+        var backoffMs = LLMClient.INITIAL_BACKOFF_MS
         var streamCompleted = false
         var responseId: String? = null
         val textAccumulator = StringBuilder()
         val toolCalls = mutableListOf<LLMToolCall>()
         
-        for (attempt in 1..MAX_RETRIES) {
+        for (attempt in 1..LLMClient.MAX_RETRIES) {
             try {
                 // Build request params
                 val builder = ResponseCreateParams.builder()
@@ -200,16 +207,18 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
                         extractRetryAfter(message) ?: extractRetryAfter(cause)
                     )
                     
-                    if (attempt == MAX_RETRIES) {
-                        Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for rate limit in streaming")
+                    if (attempt == LLMClient.MAX_RETRIES) {
+                        Log.e(TAG, "Max retries (${LLMClient.MAX_RETRIES}) exceeded for rate limit in streaming")
                         break // Exit loop, will close with lastException
                     }
                     
                     val waitMs = extractRetryAfter(message) ?: extractRetryAfter(cause) ?: backoffMs
-                    Log.w(TAG, "Rate limited (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms...")
+                    Log.w(TAG, "Rate limited (attempt $attempt/${LLMClient.MAX_RETRIES}), waiting ${waitMs}ms...")
                     
                     delay(waitMs)
-                    backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
+                    backoffMs = (backoffMs * LLMClient.BACKOFF_MULTIPLIER)
+                        .toLong()
+                        .coerceAtMost(LLMClient.MAX_BACKOFF_MS)
                     continue
                 }
                 
@@ -220,14 +229,19 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
                     
                     lastException = e
                     
-                    if (attempt == MAX_RETRIES) {
-                        Log.e(TAG, "Max retries ($MAX_RETRIES) exceeded for transient error in streaming")
+                    if (attempt == LLMClient.MAX_RETRIES) {
+                        Log.e(TAG, "Max retries (${LLMClient.MAX_RETRIES}) exceeded for transient error in streaming")
                         break // Exit loop, will close with lastException
                     }
                     
-                    Log.w(TAG, "Transient error (attempt $attempt/$MAX_RETRIES): ${e.message}, retrying in ${backoffMs}ms...")
+                    Log.w(
+                        TAG,
+                        "Transient error (attempt $attempt/${LLMClient.MAX_RETRIES}): ${e.message}, retrying in ${backoffMs}ms..."
+                    )
                     delay(backoffMs)
-                    backoffMs = (backoffMs * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
+                    backoffMs = (backoffMs * LLMClient.BACKOFF_MULTIPLIER)
+                        .toLong()
+                        .coerceAtMost(LLMClient.MAX_BACKOFF_MS)
                     continue
                 }
                 
