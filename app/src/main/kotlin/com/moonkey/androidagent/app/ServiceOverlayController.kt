@@ -60,6 +60,7 @@ class ServiceOverlayController(
 
         val isActivityWindow = className != null &&
             (className.endsWith("Activity") ||
+                className.contains("Activity") ||
                 className.contains("Launcher") ||
                 className.contains(".app.") ||
                 className.contains("Home"))

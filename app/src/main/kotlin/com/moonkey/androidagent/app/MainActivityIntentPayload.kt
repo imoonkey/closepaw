@@ -8,7 +8,8 @@ data class MainActivityIntentPayload(
     val backendType: LLMBackendType?,
     val goalText: String?,
     val freshSession: Boolean,
-    val autoStart: Boolean
+    val autoStart: Boolean,
+    val screenshotInputEnabled: Boolean?
 ) {
     companion object {
         fun from(intent: Intent): MainActivityIntentPayload {
@@ -28,12 +29,19 @@ data class MainActivityIntentPayload(
             val goalText = intent.getStringExtra(MainActivity.EXTRA_GOAL)
                 ?.takeIf { it.isNotBlank() }
 
+            val screenshotInputEnabled = if (intent.hasExtra(MainActivity.EXTRA_SCREENSHOT_INPUT)) {
+                intent.getBooleanExtra(MainActivity.EXTRA_SCREENSHOT_INPUT, false)
+            } else {
+                null
+            }
+
             return MainActivityIntentPayload(
                 apiKey = apiKey,
                 backendType = backendType,
                 goalText = goalText,
                 freshSession = intent.getBooleanExtra(MainActivity.EXTRA_FRESH_SESSION, false),
-                autoStart = intent.getBooleanExtra(MainActivity.EXTRA_AUTO_START, false)
+                autoStart = intent.getBooleanExtra(MainActivity.EXTRA_AUTO_START, false),
+                screenshotInputEnabled = screenshotInputEnabled
             )
         }
     }

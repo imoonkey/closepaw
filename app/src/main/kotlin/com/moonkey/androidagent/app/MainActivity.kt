@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_AUTO_START = "auto_start"
         const val EXTRA_FRESH_SESSION = "fresh_session"
         const val EXTRA_LLM_BACKEND = "llm_backend"  // "openai" or "local"
+        const val EXTRA_SCREENSHOT_INPUT = "screenshot_input"
     }
     
     // Session scope - survives configuration changes within activity lifecycle
@@ -202,6 +203,11 @@ class MainActivity : ComponentActivity() {
         payload.backendType?.let {
             settingsState.updateBackend(it)
             Log.d(TAG, "LLM backend set from intent: $it")
+        }
+
+        payload.screenshotInputEnabled?.let { enabled ->
+            settingsState.updateScreenshotInputEnabled(enabled)
+            Log.d(TAG, "Screenshot input set from intent: $enabled")
         }
 
         if (payload.freshSession) {

@@ -61,6 +61,15 @@ if [[ "$USE_LOCAL" == "true" ]]; then
     LLM_BACKEND="local"
 fi
 
+# Default screenshot input on for OpenAI runs unless explicitly set
+if [[ -z "${SCREENSHOT_INPUT+x}" ]]; then
+    if [[ "$LLM_BACKEND" == "openai" ]]; then
+        SCREENSHOT_INPUT=true
+    else
+        SCREENSHOT_INPUT=false
+    fi
+fi
+
 # Check API key for OpenAI backend
 if [[ "$LLM_BACKEND" == "openai" && -z "$OPENAI_API_KEY" ]]; then
     warn "No API key found. Set OPENAI_API_KEY in .env or use --local flag."
@@ -72,7 +81,7 @@ log "Using LLM backend: $LLM_BACKEND"
 adb logcat -c
 
 # Build intent extras based on backend
-INTENT_EXTRAS="--es goal '$GOAL' --es llm_backend '$LLM_BACKEND' --ez auto_start true --ez fresh_session true"
+INTENT_EXTRAS="--es goal '$GOAL' --es llm_backend '$LLM_BACKEND' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT"
 if [[ "$LLM_BACKEND" == "openai" ]]; then
     INTENT_EXTRAS="--es api_key '$OPENAI_API_KEY' $INTENT_EXTRAS"
 fi
