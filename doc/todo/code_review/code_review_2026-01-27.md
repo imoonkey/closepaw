@@ -41,6 +41,7 @@
   - Split view model logic: event ingestion vs UI state reducers.
     - [Done] event routing grouped into `ChatViewModel.EventReducer`.
   - [Done] Turn input assembly moved to `TurnInputBuilder`.
+- [Done] `SmartCapsuleManager` UI construction moved to `SmartCapsuleLayoutBuilder`.
 - [Done] Consolidate local LLM config types: `LocalLLMSessionConfig` vs `LocalLLMConfig` duplication leads to drift; unify or enforce a single mapping layer.
 - [Done] Replace stringly-typed tool names with sealed types/enums for safer UI mapping and policy checks.
 
