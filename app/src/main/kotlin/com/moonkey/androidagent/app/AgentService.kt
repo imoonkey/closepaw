@@ -334,7 +334,7 @@ class AgentService : AccessibilityService() {
                 // Track glow state based on turn phase
                 currentGlowState = when (event.phase) {
                     TurnPhase.EXECUTION -> GlowState.Executing
-                    TurnPhase.PLANNING, TurnPhase.PERCEPTION, TurnPhase.REFLECTION -> GlowState.Active
+                    TurnPhase.PLANNING, TurnPhase.PERCEPTION -> GlowState.Active
                 }
                 // Only update if glow is showing (i.e., app not in foreground)
                 edgeGlowManager?.updateState(currentGlowState)

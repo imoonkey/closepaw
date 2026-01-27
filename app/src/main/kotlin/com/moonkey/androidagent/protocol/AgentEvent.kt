@@ -131,18 +131,6 @@ sealed interface AgentEvent {
         val delta: String
     ) : AgentEvent
     
-    // ===== Agent Thinking Events =====
-    
-    /**
-     * An agent is "thinking" (LLM call in progress or completed).
-     */
-    data class AgentThinking(
-        override val sessionId: SessionId,
-        override val timestamp: Long,
-        val agentName: String,  // "manager", "executor", "reflector"
-        val thought: String
-    ) : AgentEvent
-    
     // ===== Action Events =====
     
     /**
@@ -166,16 +154,6 @@ sealed interface AgentEvent {
         val toolName: String,
         val success: Boolean,
         val result: String?
-    ) : AgentEvent
-    
-    /**
-     * An action was skipped (e.g., denied by user or policy).
-     */
-    data class ActionSkipped(
-        override val sessionId: SessionId,
-        override val timestamp: Long,
-        val actionId: String,
-        val reason: String
     ) : AgentEvent
     
     // ===== Perception Events =====
@@ -236,12 +214,6 @@ sealed interface AgentEvent {
 enum class TurnPhase {
     /** Capturing and analyzing the screen */
     PERCEPTION,
-    
-    /** 
-     * Verifying the outcome of the previous action.
-     * TODO: Planned for action verification - not yet implemented.
-     */
-    REFLECTION,
     
     /** Deciding what to do (LLM reasoning) */
     PLANNING,

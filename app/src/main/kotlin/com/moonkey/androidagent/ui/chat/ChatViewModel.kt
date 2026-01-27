@@ -103,7 +103,6 @@ class ChatViewModel(
             is AgentEvent.MessageDelta -> handleMessageDelta(event)
             is AgentEvent.ActionProposed -> handleActionProposed(event)
             is AgentEvent.ActionExecuted -> handleActionExecuted(event)
-            is AgentEvent.ActionSkipped -> handleActionSkipped(event)
             is AgentEvent.TaskCompleted -> handleTaskCompleted(event)
             is AgentEvent.SessionError -> handleError(event)
             else -> { /* Ignore other events */ }
@@ -278,30 +277,6 @@ class ChatViewModel(
                 msg.contentBlocks + ContentBlock.Action(newAction)
             }
             msg.copy(contentBlocks = updatedBlocks)
-        }
-    }
-    
-    private fun handleActionSkipped(event: AgentEvent.ActionSkipped) {
-        // Update action state in history
-        recordingService?.updateActionState(event.actionId, "skipped", event.reason)
-        
-        updateLastAgentMessage { msg ->
-            // Find existing action block and update it
-            val existingBlockIndex = msg.contentBlocks.indexOfFirst { block ->
-                block is ContentBlock.Action && block.data.id == event.actionId
-            }
-            
-            if (existingBlockIndex >= 0) {
-                val updatedBlocks = msg.contentBlocks.mapIndexed { index, block ->
-                    if (index == existingBlockIndex && block is ContentBlock.Action) {
-                        ContentBlock.Action(block.data.copy(
-                            state = ActionState.Skipped,
-                            resultSummary = event.reason
-                        ))
-                    } else block
-                }
-                msg.copy(contentBlocks = updatedBlocks)
-            } else msg
         }
     }
     
