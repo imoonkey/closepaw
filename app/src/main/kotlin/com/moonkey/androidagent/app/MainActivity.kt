@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_FRESH_SESSION = "fresh_session"
         const val EXTRA_LLM_BACKEND = "llm_backend"  // "openai" or "local"
         const val EXTRA_SCREENSHOT_INPUT = "screenshot_input"
+        const val EXTRA_DEBUG_MODE = "debug_mode"
     }
     
     // Session scope - survives configuration changes within activity lifecycle
@@ -208,6 +209,11 @@ class MainActivity : ComponentActivity() {
         payload.screenshotInputEnabled?.let { enabled ->
             settingsState.updateScreenshotInputEnabled(enabled)
             Log.d(TAG, "Screenshot input set from intent: $enabled")
+        }
+
+        payload.debugMode?.let { enabled ->
+            settingsState.updateDebugMode(enabled)
+            Log.d(TAG, "Debug mode set from intent: $enabled")
         }
 
         if (payload.freshSession) {
