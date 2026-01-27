@@ -67,6 +67,8 @@ class ChatViewModel(
     
     // Active event collection job
     private var eventCollectionJob: kotlinx.coroutines.Job? = null
+
+    private val eventReducer = EventReducer()
     
     /**
      * Start collecting events from a session.
@@ -86,241 +88,247 @@ class ChatViewModel(
      * Handle incoming AgentEvent.
      */
     private fun handleEvent(event: AgentEvent) {
-        when (event) {
-            is AgentEvent.TaskStarted -> handleTaskStarted(event)
-            is AgentEvent.TurnStarted -> handleTurnStarted(event)
-            is AgentEvent.TurnPhaseChanged -> handlePhaseChanged(event)
-            is AgentEvent.MessageDelta -> handleMessageDelta(event)
-            is AgentEvent.ActionProposed -> handleActionProposed(event)
-            is AgentEvent.ActionExecuted -> handleActionExecuted(event)
-            is AgentEvent.TaskCompleted -> handleTaskCompleted(event)
-            is AgentEvent.SessionError -> handleError(event)
-            else -> { /* Ignore other events */ }
-        }
+        eventReducer.handle(event)
     }
     
     // ===== Recording Service Access =====
     
     private val recordingService get() = sessionHistoryManager?.getRecordingService()
-    
-    private fun handleTaskStarted(event: AgentEvent.TaskStarted) {
-        // Update UI state
-        _uiState.update { it.copy(inputState = InputState.Working, showEmptyState = false) }
-        
-        // Update banner
-        _taskBannerState.value = TaskBannerState.Working(
-            taskTitle = event.input.take(50)
-        )
-        
-        // Initialize session recording if not already active
-        if (recordingService?.hasActiveSession() != true) {
-            recordingService?.initializeNewSession()
+
+    private inner class EventReducer {
+        fun handle(event: AgentEvent) {
+            when (event) {
+                is AgentEvent.TaskStarted -> handleTaskStarted(event)
+                is AgentEvent.TurnStarted -> handleTurnStarted(event)
+                is AgentEvent.TurnPhaseChanged -> handlePhaseChanged(event)
+                is AgentEvent.MessageDelta -> handleMessageDelta(event)
+                is AgentEvent.ActionProposed -> handleActionProposed(event)
+                is AgentEvent.ActionExecuted -> handleActionExecuted(event)
+                is AgentEvent.TaskCompleted -> handleTaskCompleted(event)
+                is AgentEvent.SessionError -> handleError(event)
+                else -> { /* Ignore other events */ }
+            }
         }
-        
-        val userMsgId = UUID.randomUUID().toString()
-        
-        // Record user message to history
-        recordingService?.recordUserMessage(userMsgId, event.timestamp, event.input)
-        
-        // Add user message to UI
-        _messages.add(ChatMessage.User(
-            id = userMsgId,
-            timestamp = event.timestamp,
-            text = event.input
-        ))
-        
-        // Record agent message start
-        recordingService?.startAgentMessage(event.taskId, event.timestamp)
-        
-        // Prepare agent message placeholder with empty content blocks
-        streamingBuffer.clear()
-        currentAgentMessageId = event.taskId
-        _messages.add(ChatMessage.Agent(
-            id = event.taskId,
-            timestamp = event.timestamp,
-            contentBlocks = emptyList(),
-            state = AgentMessageState.Thinking
-        ))
-    }
-    
-    private fun handleTurnStarted(event: AgentEvent.TurnStarted) {
-        // Clear streaming buffer at turn start to properly segment text between turns
-        // This prevents text from previous turns accumulating with new turn text
-        android.util.Log.d(TAG, "TurnStarted: turn=${event.turnNumber}, clearing buffer")
-        streamingBuffer.clear()
-    }
-    
-    private fun handlePhaseChanged(event: AgentEvent.TurnPhaseChanged) {
-        val current = _taskBannerState.value
-        if (current is TaskBannerState.Working) {
-            _taskBannerState.value = current.copy(phase = event.phase.name)
-        }
-    }
-    
-    private fun handleMessageDelta(event: AgentEvent.MessageDelta) {
-        android.util.Log.d(TAG, "MessageDelta received: turnId=${event.turnId}, delta=${event.delta.take(30)}...")
-        streamingBuffer.append(event.delta)
-        
-        // Record text delta to history
-        recordingService?.appendTextDelta(event.delta)
-        
-        updateLastAgentMessage { msg ->
-            val updatedBlocks = updateOrAppendTextBlock(msg.contentBlocks, streamingBuffer.toString())
-            msg.copy(
-                contentBlocks = updatedBlocks,
-                state = AgentMessageState.Streaming
+
+        private fun handleTaskStarted(event: AgentEvent.TaskStarted) {
+            // Update UI state
+            _uiState.update { it.copy(inputState = InputState.Working, showEmptyState = false) }
+
+            // Update banner
+            _taskBannerState.value = TaskBannerState.Working(
+                taskTitle = event.input.take(50)
             )
-        }
-    }
-    
-    /**
-     * Update the last Text block or append a new one if needed.
-     * This maintains proper interleaving: if the last block is an Action, we start a new Text block.
-     */
-    private fun updateOrAppendTextBlock(blocks: List<ContentBlock>, text: String): List<ContentBlock> {
-        if (blocks.isEmpty()) {
-            return listOf(ContentBlock.Text(text))
-        }
-        
-        val lastBlock = blocks.last()
-        return if (lastBlock is ContentBlock.Text) {
-            // Update the existing last text block
-            blocks.dropLast(1) + ContentBlock.Text(text)
-        } else {
-            // Last block is an action - append new text block
-            blocks + ContentBlock.Text(text)
-        }
-    }
-    
-    private fun handleActionProposed(event: AgentEvent.ActionProposed) {
-        val newAction = ActionCardData(
-            id = event.actionId,
-            toolName = formatToolName(event.toolName),
-            toolIcon = getToolIcon(event.toolName),
-            description = event.description,
-            state = ActionState.Proposed,
-            resultSummary = null
-        )
-        
-        // Record action to history
-        recordingService?.recordAction(
-            actionId = event.actionId,
-            toolName = event.toolName,
-            description = event.description,
-            state = "proposed"
-        )
-        
-        // Clear streaming buffer - text before this action is "finalized"
-        // New text will go into a new Text block after the action
-        streamingBuffer.clear()
-        
-        updateLastAgentMessage { msg ->
-            // Append action block
-            msg.copy(contentBlocks = msg.contentBlocks + ContentBlock.Action(newAction))
-        }
-    }
-    
-    private fun handleActionExecuted(event: AgentEvent.ActionExecuted) {
-        val newState = if (event.success) ActionState.Success else ActionState.Failed
-        val stateString = if (event.success) "success" else "failed"
-        
-        // Update action state in history
-        recordingService?.updateActionState(event.actionId, stateString, event.result)
-        
-        updateLastAgentMessage { msg ->
-            // Find existing action block and update it, or add new one
-            val existingBlockIndex = msg.contentBlocks.indexOfFirst { block ->
-                block is ContentBlock.Action && block.data.id == event.actionId
+
+            // Initialize session recording if not already active
+            if (recordingService?.hasActiveSession() != true) {
+                recordingService?.initializeNewSession()
             }
-            
-            val updatedBlocks = if (existingBlockIndex >= 0) {
-                // Update existing action block
-                msg.contentBlocks.mapIndexed { index, block ->
-                    if (index == existingBlockIndex && block is ContentBlock.Action) {
-                        ContentBlock.Action(block.data.copy(
-                            state = newState,
-                            resultSummary = event.result
-                        ))
-                    } else block
-                }
+
+            val userMsgId = UUID.randomUUID().toString()
+
+            // Record user message to history
+            recordingService?.recordUserMessage(userMsgId, event.timestamp, event.input)
+
+            // Add user message to UI
+            _messages.add(ChatMessage.User(
+                id = userMsgId,
+                timestamp = event.timestamp,
+                text = event.input
+            ))
+
+            // Record agent message start
+            recordingService?.startAgentMessage(event.taskId, event.timestamp)
+
+            // Prepare agent message placeholder with empty content blocks
+            streamingBuffer.clear()
+            currentAgentMessageId = event.taskId
+            _messages.add(ChatMessage.Agent(
+                id = event.taskId,
+                timestamp = event.timestamp,
+                contentBlocks = emptyList(),
+                state = AgentMessageState.Thinking
+            ))
+        }
+
+        private fun handleTurnStarted(event: AgentEvent.TurnStarted) {
+            // Clear streaming buffer at turn start to properly segment text between turns
+            // This prevents text from previous turns accumulating with new turn text
+            android.util.Log.d(TAG, "TurnStarted: turn=${event.turnNumber}, clearing buffer")
+            streamingBuffer.clear()
+        }
+
+        private fun handlePhaseChanged(event: AgentEvent.TurnPhaseChanged) {
+            val current = _taskBannerState.value
+            if (current is TaskBannerState.Working) {
+                _taskBannerState.value = current.copy(phase = event.phase.name)
+            }
+        }
+
+        private fun handleMessageDelta(event: AgentEvent.MessageDelta) {
+            android.util.Log.d(TAG, "MessageDelta received: turnId=${event.turnId}, delta=${event.delta.take(30)}...")
+            streamingBuffer.append(event.delta)
+
+            // Record text delta to history
+            recordingService?.appendTextDelta(event.delta)
+
+            updateLastAgentMessage { msg ->
+                val updatedBlocks = updateOrAppendTextBlock(msg.contentBlocks, streamingBuffer.toString())
+                msg.copy(
+                    contentBlocks = updatedBlocks,
+                    state = AgentMessageState.Streaming
+                )
+            }
+        }
+
+        /**
+         * Update the last Text block or append a new one if needed.
+         * This maintains proper interleaving: if the last block is an Action, we start a new Text block.
+         */
+        private fun updateOrAppendTextBlock(blocks: List<ContentBlock>, text: String): List<ContentBlock> {
+            if (blocks.isEmpty()) {
+                return listOf(ContentBlock.Text(text))
+            }
+
+            val lastBlock = blocks.last()
+            return if (lastBlock is ContentBlock.Text) {
+                // Update the existing last text block
+                blocks.dropLast(1) + ContentBlock.Text(text)
             } else {
-                // Action wasn't proposed first - add it directly
-                // Record action to history first
-                recordingService?.recordAction(
-                    actionId = event.actionId,
-                    toolName = event.toolName,
-                    description = event.result ?: event.toolName,
-                    state = stateString
-                )
-                
-                // Clear streaming buffer first since this is a new action
-                streamingBuffer.clear()
-                
-                val newAction = ActionCardData(
-                    id = event.actionId,
-                    toolName = formatToolName(event.toolName),
-                    toolIcon = getToolIcon(event.toolName),
-                    description = event.result ?: event.toolName,
-                    state = newState,
-                    resultSummary = event.result
-                )
-                msg.contentBlocks + ContentBlock.Action(newAction)
-            }
-            msg.copy(contentBlocks = updatedBlocks)
-        }
-    }
-    
-    private fun handleTaskCompleted(event: AgentEvent.TaskCompleted) {
-        // Update UI state
-        _uiState.update { it.copy(inputState = InputState.Idle) }
-        
-        // Update banner
-        _taskBannerState.value = TaskBannerState.Completed(
-            summary = event.result ?: "Task complete"
-        )
-        
-        // Complete agent message in history
-        recordingService?.completeAgentMessage()
-        
-        // Mark agent message as complete
-        updateLastAgentMessage { msg ->
-            msg.copy(state = AgentMessageState.Complete)
-        }
-        
-        // Reset streaming state
-        streamingBuffer.clear()
-        currentAgentMessageId = null
-        
-        // Notify that task is completed (for session cleanup)
-        onTaskCompleted?.invoke()
-        
-        // Auto-hide banner after delay
-        viewModelScope.launch {
-            delay(BANNER_FADE_DELAY_MS)
-            if (_taskBannerState.value is TaskBannerState.Completed) {
-                _taskBannerState.value = TaskBannerState.Idle
+                // Last block is an action - append new text block
+                blocks + ContentBlock.Text(text)
             }
         }
-    }
-    
-    private fun handleError(event: AgentEvent.SessionError) {
-        _uiState.update { it.copy(inputState = InputState.Idle) }
-        _taskBannerState.value = TaskBannerState.Error(event.error.message)
-        
-        // Also mark any pending agent message as complete
-        updateLastAgentMessage { msg ->
-            msg.copy(state = AgentMessageState.Complete)
+
+        private fun handleActionProposed(event: AgentEvent.ActionProposed) {
+            val newAction = ActionCardData(
+                id = event.actionId,
+                toolName = formatToolName(event.toolName),
+                toolIcon = getToolIcon(event.toolName),
+                description = event.description,
+                state = ActionState.Proposed,
+                resultSummary = null
+            )
+
+            // Record action to history
+            recordingService?.recordAction(
+                actionId = event.actionId,
+                toolName = event.toolName,
+                description = event.description,
+                state = "proposed"
+            )
+
+            // Clear streaming buffer - text before this action is "finalized"
+            // New text will go into a new Text block after the action
+            streamingBuffer.clear()
+
+            updateLastAgentMessage { msg ->
+                // Append action block
+                msg.copy(contentBlocks = msg.contentBlocks + ContentBlock.Action(newAction))
+            }
         }
-    }
-    
-    /**
-     * Helper: update the last agent message in the list.
-     */
-    private inline fun updateLastAgentMessage(transform: (ChatMessage.Agent) -> ChatMessage.Agent) {
-        val index = _messages.indexOfLast { it is ChatMessage.Agent }
-        if (index >= 0) {
-            val current = _messages[index] as ChatMessage.Agent
-            _messages[index] = transform(current)
+
+        private fun handleActionExecuted(event: AgentEvent.ActionExecuted) {
+            val newState = if (event.success) ActionState.Success else ActionState.Failed
+            val stateString = if (event.success) "success" else "failed"
+
+            // Update action state in history
+            recordingService?.updateActionState(event.actionId, stateString, event.result)
+
+            updateLastAgentMessage { msg ->
+                // Find existing action block and update it, or add new one
+                val existingBlockIndex = msg.contentBlocks.indexOfFirst { block ->
+                    block is ContentBlock.Action && block.data.id == event.actionId
+                }
+
+                val updatedBlocks = if (existingBlockIndex >= 0) {
+                    // Update existing action block
+                    msg.contentBlocks.mapIndexed { index, block ->
+                        if (index == existingBlockIndex && block is ContentBlock.Action) {
+                            ContentBlock.Action(block.data.copy(
+                                state = newState,
+                                resultSummary = event.result
+                            ))
+                        } else block
+                    }
+                } else {
+                    // Action wasn't proposed first - add it directly
+                    // Record action to history first
+                    recordingService?.recordAction(
+                        actionId = event.actionId,
+                        toolName = event.toolName,
+                        description = event.result ?: event.toolName,
+                        state = stateString
+                    )
+
+                    // Clear streaming buffer first since this is a new action
+                    streamingBuffer.clear()
+
+                    val newAction = ActionCardData(
+                        id = event.actionId,
+                        toolName = formatToolName(event.toolName),
+                        toolIcon = getToolIcon(event.toolName),
+                        description = event.result ?: event.toolName,
+                        state = newState,
+                        resultSummary = event.result
+                    )
+                    msg.contentBlocks + ContentBlock.Action(newAction)
+                }
+                msg.copy(contentBlocks = updatedBlocks)
+            }
+        }
+
+        private fun handleTaskCompleted(event: AgentEvent.TaskCompleted) {
+            // Update UI state
+            _uiState.update { it.copy(inputState = InputState.Idle) }
+
+            // Update banner
+            _taskBannerState.value = TaskBannerState.Completed(
+                summary = event.result ?: "Task complete"
+            )
+
+            // Complete agent message in history
+            recordingService?.completeAgentMessage()
+
+            // Mark agent message as complete
+            updateLastAgentMessage { msg ->
+                msg.copy(state = AgentMessageState.Complete)
+            }
+
+            // Reset streaming state
+            streamingBuffer.clear()
+            currentAgentMessageId = null
+
+            // Notify that task is completed (for session cleanup)
+            onTaskCompleted?.invoke()
+
+            // Auto-hide banner after delay
+            viewModelScope.launch {
+                delay(BANNER_FADE_DELAY_MS)
+                if (_taskBannerState.value is TaskBannerState.Completed) {
+                    _taskBannerState.value = TaskBannerState.Idle
+                }
+            }
+        }
+
+        private fun handleError(event: AgentEvent.SessionError) {
+            _uiState.update { it.copy(inputState = InputState.Idle) }
+            _taskBannerState.value = TaskBannerState.Error(event.error.message)
+
+            // Also mark any pending agent message as complete
+            updateLastAgentMessage { msg ->
+                msg.copy(state = AgentMessageState.Complete)
+            }
+        }
+
+        /**
+         * Helper: update the last agent message in the list.
+         */
+        private inline fun updateLastAgentMessage(transform: (ChatMessage.Agent) -> ChatMessage.Agent) {
+            val index = _messages.indexOfLast { it is ChatMessage.Agent }
+            if (index >= 0) {
+                val current = _messages[index] as ChatMessage.Agent
+                _messages[index] = transform(current)
+            }
         }
     }
     
