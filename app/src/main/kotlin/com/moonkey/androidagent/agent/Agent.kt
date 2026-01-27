@@ -248,15 +248,24 @@ class Agent(
                     )
                 }
 
+                val hasCompletionTool = result.toolCalls.any { it.name == "complete_task" }
                 val hasNonCompletionTool = result.toolCalls.any { it.name != "complete_task" }
-                val toolCallsToExecute = when {
-                    result.toolCalls.isEmpty() -> emptyList()
-                    hasNonCompletionTool -> listOf(result.toolCalls.first { it.name != "complete_task" })
-                    else -> listOf(result.toolCalls.first())
+                val selectedTool = result.toolCalls.firstOrNull { it.name != "complete_task" }
+                    ?: result.toolCalls.firstOrNull()
+                val toolCallsToExecute = selectedTool?.let { listOf(it) } ?: emptyList()
+                if (result.toolCalls.size > 1 && selectedTool != null) {
+                    Log.w(
+                        TAG,
+                        "Turn $turnCount: Multiple tool calls returned: ${result.toolCalls.map { it.name }}, executing: ${selectedTool.name}"
+                    )
+                    eventDispatcher.status("⚠️ Multiple actions returned; executing ${selectedTool.name} only")
                 }
-                if (result.toolCalls.size > 1) {
-                    Log.w(TAG, "Turn $turnCount: Multiple tool calls returned: ${result.toolCalls.map { it.name }}")
-                    eventDispatcher.status("⚠️ Multiple actions returned; executing first only")
+                if (hasCompletionTool && hasNonCompletionTool) {
+                    Log.w(
+                        TAG,
+                        "Turn $turnCount: complete_task returned alongside other tools; completion deferred"
+                    )
+                    eventDispatcher.status("⚠️ Completion returned with other actions; executing action first")
                 }
 
                 // 3. ACT: Execute tool calls (one per turn)

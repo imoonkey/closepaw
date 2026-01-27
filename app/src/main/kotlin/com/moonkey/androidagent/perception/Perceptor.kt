@@ -118,39 +118,41 @@ object Perceptor {
             TraversalMode.ALL -> clickable || editable || scrollable || hasContent
         }
 
-        if (shouldKeep) {
-            val rect = Rect()
-            node.getBoundsInScreen(rect)
-
+        val rect = Rect()
+        node.getBoundsInScreen(rect)
+        val className = node.className?.toString()?.substringAfterLast('.') ?: ""
+        val key = buildElementKey(
+            resourceId = resourceId,
+            className = className,
+            text = text,
+            desc = desc,
+            rect = rect,
+            isClickable = clickable,
+            isEditable = editable,
+            isScrollable = scrollable
+        )
+        val alreadySeen = seenKeys.contains(key)
+        if (shouldKeep && !alreadySeen) {
+            seenKeys.add(key)
             val index = elements.size
-            val className = node.className?.toString()?.substringAfterLast('.') ?: ""
-            val key = buildElementKey(
+            val element = PerceptionElement(
+                index = index,
+                text = text.normalizeWhitespace(),
                 resourceId = resourceId,
                 className = className,
-                text = text,
-                desc = desc,
-                rect = rect
+                description = desc.normalizeWhitespace(),
+                isClickable = clickable,
+                isEditable = editable,
+                isScrollable = scrollable,
+                bounds = Bounds(
+                    left = rect.left,
+                    top = rect.top,
+                    right = rect.right,
+                    bottom = rect.bottom
+                ),
+                center = Point(x = rect.centerX(), y = rect.centerY())
             )
-            if (seenKeys.add(key)) {
-                val element = PerceptionElement(
-                    index = index,
-                    text = text.normalizeWhitespace(),
-                    resourceId = resourceId,
-                    className = className,
-                    description = desc.normalizeWhitespace(),
-                    isClickable = clickable,
-                    isEditable = editable,
-                    isScrollable = scrollable,
-                    bounds = Bounds(
-                        left = rect.left,
-                        top = rect.top,
-                        right = rect.right,
-                        bottom = rect.bottom
-                    ),
-                    center = Point(x = rect.centerX(), y = rect.centerY())
-                )
-                elements.add(element)
-            }
+            elements.add(element)
         }
 
         // Traverse children and recycle after processing
@@ -181,7 +183,10 @@ object Perceptor {
         className: String,
         text: String,
         desc: String,
-        rect: Rect
+        rect: Rect,
+        isClickable: Boolean,
+        isEditable: Boolean,
+        isScrollable: Boolean
     ): String {
         return buildString {
             append(resourceId)
@@ -191,6 +196,10 @@ object Perceptor {
             append(text)
             append('|')
             append(desc)
+            append('|')
+            append(if (isClickable) '1' else '0')
+            append(if (isEditable) '1' else '0')
+            append(if (isScrollable) '1' else '0')
             append('|')
             append(rect.left)
             append(',')
