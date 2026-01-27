@@ -1,18 +1,6 @@
 package com.moonkey.androidagent.ui.chat
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.Build
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.HourglassEmpty
-import androidx.compose.material.icons.rounded.Keyboard
-import androidx.compose.material.icons.rounded.SwipeVertical
-import androidx.compose.material.icons.rounded.TouchApp
-import androidx.compose.material.icons.rounded.UnfoldMore
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moonkey.androidagent.history.SessionHistoryManager
@@ -21,6 +9,8 @@ import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.session.AgentSession
+import com.moonkey.androidagent.ui.common.formatToolName
+import com.moonkey.androidagent.ui.common.getToolIcon
 import com.moonkey.androidagent.ui.chat.model.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -332,32 +322,6 @@ class ChatViewModel(
             val current = _messages[index] as ChatMessage.Agent
             _messages[index] = transform(current)
         }
-    }
-    
-    /**
-     * Format tool name for display (e.g., "click" -> "Click").
-     */
-    private fun formatToolName(toolName: String): String {
-        return toolName.replaceFirstChar { it.uppercase() }
-            .replace("_", " ")
-    }
-    
-    /**
-     * Map tool names to Material icons.
-     */
-    private fun getToolIcon(toolName: String): ImageVector = when (toolName.lowercase()) {
-        "mobile_action" -> Icons.Rounded.TouchApp
-        "app_control" -> Icons.Rounded.Apps
-        "complete_task" -> Icons.Rounded.CheckCircle
-        "click" -> Icons.Rounded.TouchApp
-        "type" -> Icons.Rounded.Keyboard
-        "scroll" -> Icons.Rounded.UnfoldMore
-        "swipe" -> Icons.Rounded.SwipeVertical
-        "back" -> Icons.AutoMirrored.Rounded.ArrowBack
-        "home" -> Icons.Rounded.Home
-        "wait" -> Icons.Rounded.HourglassEmpty
-        "complete_task" -> Icons.Rounded.CheckCircle
-        else -> Icons.Rounded.Build
     }
     
     /**

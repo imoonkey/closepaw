@@ -22,7 +22,7 @@ import com.moonkey.androidagent.history.SessionHistoryManager
 import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.protocol.LLMBackendType
-import com.moonkey.androidagent.protocol.LocalLLMSessionConfig
+import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
@@ -341,7 +341,7 @@ class MainActivity : ComponentActivity() {
                 try {
                     // Build local LLM config if using local backend
                     val localConfig = if (llmBackend == LLMBackendType.LOCAL) {
-                        LocalLLMSessionConfig(
+                        LocalLLMConfig(
                             modelSlug = localModelSlug,
                             quantizationSlug = localModelQuant
                         )

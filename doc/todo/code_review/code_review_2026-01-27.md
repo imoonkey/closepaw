@@ -7,12 +7,12 @@
 ## Critical
 - None found.
 
-## High
+## [Done] High
 1. Approval race can drop fast user responses: `ToolRouter.execute()` invokes `onApprovalRequired` before `pendingApprovals[callId]` is registered, so an immediate `resolveApproval()` can fail and the tool waits until timeout. Fix: register the `CompletableDeferred` before emitting the approval event (or buffer early approvals).
 2. Stop while paused can still execute a new turn: `Agent.run()` only checks `shouldContinue()` at loop start. If `stop()` is called while paused, the loop resumes and runs another `executeTurn()` before re-checking. Fix: re-check stop/cancel after pause wait (and before max-turn/turn execution).
 3. Multiple tool calls executed per turn despite one-action rule: `Agent.executeTurn()` iterates all `result.toolCalls`, but the system prompt explicitly forbids multiple actions per turn. This violates the observe-act loop and can chain actions without fresh screen state. Fix: enforce one tool call (first one only) or treat multi-tool responses as an error and retry.
 
-## Medium
+## [Done] Medium
 1. Perception truncation can hide critical controls: `Perceptor.snapshot()` DFS + `MAX_ELEMENTS` can cap out before reaching interactive elements deeper in the tree; TODO already calls this out. Fix: two-pass traversal (interactive first, then text), or prioritize nodes with `clickable/editable/scrollable`.
 2. Session listing scales poorly: `SessionHistoryManager.listSessions()` reads full session files to extract titles. For large histories, this is heavy. Fix: store lightweight index metadata or a separate summary file.
 3. PolicyEngine config is not thread-safe: `allowList/denyList/riskOverrides` are mutable sets/maps without synchronization. If updated from UI while tools are executing, races are possible. Fix: guard with `Mutex` or use concurrent collections.
@@ -21,7 +21,7 @@
 ## Low
 1. Overlay emoji icons are device-dependent: `OverlayManager` uses emoji glyphs for control icons. TODO already notes vector assets for consistency.
 
-## Dead Code / Unused
+## [Done] Dead Code / Unused
 - Legacy UI screen and theme: `ui/screen/AgentScreen.kt` and `AgentTheme` are not referenced.
 - Legacy session bottom sheet: `ui/session/SessionListSheet.kt` and `SessionListItem.kt` have no call sites.
 - `OverlayManager` is not referenced (SmartCapsule/EdgeGlow appear to be the active path).
@@ -35,8 +35,8 @@
   - Split service logic: overlay management, session observation, foreground tracking.
   - Split activity logic: settings persistence, intent handling, session wiring.
   - Split view model logic: event ingestion vs UI state reducers.
-- Consolidate local LLM config types: `LocalLLMSessionConfig` vs `LocalLLMConfig` duplication leads to drift; unify or enforce a single mapping layer.
-- Replace stringly-typed tool names with sealed types/enums for safer UI mapping and policy checks.
+- [Done] Consolidate local LLM config types: `LocalLLMSessionConfig` vs `LocalLLMConfig` duplication leads to drift; unify or enforce a single mapping layer.
+- [Done] Replace stringly-typed tool names with sealed types/enums for safer UI mapping and policy checks.
 
 ## Tests (Targeted)
 - `ToolRouter` approval flow: immediate approve, timeout, cancel path.
