@@ -1,20 +1,12 @@
 package com.moonkey.androidagent.history.model
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Build
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.HourglassEmpty
-import androidx.compose.material.icons.rounded.Keyboard
-import androidx.compose.material.icons.rounded.SwipeVertical
-import androidx.compose.material.icons.rounded.TouchApp
-import androidx.compose.material.icons.rounded.UnfoldMore
 import com.moonkey.androidagent.ui.chat.model.ActionCardData
 import com.moonkey.androidagent.ui.chat.model.ActionState
 import com.moonkey.androidagent.ui.chat.model.AgentMessageState
 import com.moonkey.androidagent.ui.chat.model.ChatMessage
 import com.moonkey.androidagent.ui.chat.model.ContentBlock
+import com.moonkey.androidagent.ui.common.formatToolName
+import com.moonkey.androidagent.ui.common.getToolIcon
 
 /**
  * Utility functions for converting between ChatMessage (UI) and MessageRecord (persistence).
@@ -99,23 +91,6 @@ object MessageConverter {
     }
     
     // ===== Private Helpers =====
-    
-    private fun formatToolName(toolName: String): String {
-        return toolName.replaceFirstChar { it.uppercase() }
-            .replace("_", " ")
-    }
-    
-    private fun getToolIcon(toolName: String) = when (toolName.lowercase()) {
-        "click" -> Icons.Rounded.TouchApp
-        "type" -> Icons.Rounded.Keyboard
-        "scroll" -> Icons.Rounded.UnfoldMore
-        "swipe" -> Icons.Rounded.SwipeVertical
-        "back" -> Icons.AutoMirrored.Rounded.ArrowBack
-        "home" -> Icons.Rounded.Home
-        "wait" -> Icons.Rounded.HourglassEmpty
-        "complete_task" -> Icons.Rounded.CheckCircle
-        else -> Icons.Rounded.Build
-    }
     
     private fun parseActionState(state: String): ActionState {
         return when (state.lowercase()) {

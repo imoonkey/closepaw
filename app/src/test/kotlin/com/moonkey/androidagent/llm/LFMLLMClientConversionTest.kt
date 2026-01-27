@@ -225,11 +225,23 @@ class LFMLLMClientConversionTest {
 }
 
 private fun buildFunctionTool(schema: JSONObject): FunctionTool {
+    val parameters = FunctionTool.Parameters.builder()
+        .putAllAdditionalProperties(jsonObjectToJsonValueMap(schema))
+        .build()
     return FunctionTool.builder()
         .name("test_tool")
         .description("Test tool")
-        .parameters(JsonValue.from(jsonObjectToMap(schema)))
+        .parameters(parameters)
+        .strict(false)
         .build()
+}
+
+private fun jsonObjectToJsonValueMap(obj: JSONObject): Map<String, JsonValue> {
+    val map = mutableMapOf<String, JsonValue>()
+    obj.keys().forEach { key ->
+        map[key] = JsonValue.from(jsonElementToValue(obj.get(key)))
+    }
+    return map
 }
 
 private fun parseSingleParam(schema: JSONObject, name: String) =
@@ -241,23 +253,22 @@ private fun parseParams(schema: JSONObject) =
 private fun jsonObjectToMap(obj: JSONObject): Map<String, Any?> {
     val map = mutableMapOf<String, Any?>()
     obj.keys().forEach { key ->
-        map[key] = when (val value = obj.get(key)) {
-            JSONObject.NULL -> null
-            is JSONObject -> jsonObjectToMap(value)
-            is JSONArray -> jsonArrayToList(value)
-            else -> value
-        }
+        map[key] = jsonElementToValue(obj.get(key))
     }
     return map
 }
 
+private fun jsonElementToValue(value: Any?): Any? {
+    return when (value) {
+        JSONObject.NULL -> null
+        is JSONObject -> jsonObjectToMap(value)
+        is JSONArray -> jsonArrayToList(value)
+        else -> value
+    }
+}
+
 private fun jsonArrayToList(array: JSONArray): List<Any?> {
     return (0 until array.length()).map { idx ->
-        when (val value = array.get(idx)) {
-            JSONObject.NULL -> null
-            is JSONObject -> jsonObjectToMap(value)
-            is JSONArray -> jsonArrayToList(value)
-            else -> value
-        }
+        jsonElementToValue(array.get(idx))
     }
 }

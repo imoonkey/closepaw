@@ -4,15 +4,11 @@ package com.moonkey.androidagent.session
 
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
-import com.moonkey.androidagent.agent.Agent
-import com.moonkey.androidagent.agent.AgentConfig
 import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.platform.AccessibilityPlatform
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -124,11 +120,15 @@ class AgentSession private constructor(
     val events: SharedFlow<AgentEvent> = _events.asSharedFlow()
     
     // ===== Agent (V2) =====
-    
-    private var agent: Agent? = null
-    private var agentJob: Job? = null
-    private var cancellationSignal: CompletableDeferred<AgentStopReason>? = null
-    
+    private val agentRunner = SessionAgentRunner(
+        scope = scope,
+        services = services,
+        sessionId = sessionId,
+        config = config,
+        emitEvent = { event -> emit(event) },
+        onComplete = { reason -> handleAgentComplete(reason) }
+    )
+
     private var currentTaskId: String? = null
     
     // Guard against emitting SessionCompleted twice (Issue 2: double completion)
@@ -208,50 +208,9 @@ class AgentSession private constructor(
             input = op.text
         ))
         
-        startAgent(op.text, taskId)
+        agentRunner.start(op.text, taskId)
         
         Log.i(TAG, "Task started: $taskId, input: ${op.text}")
-    }
-    
-    /**
-     * Start the agent execution for a specific task.
-     */
-    private fun startAgent(taskInput: String, taskId: String) {
-        val signal = CompletableDeferred<AgentStopReason>()
-        cancellationSignal = signal
-        
-        val agentConfig = AgentConfig(
-            goal = taskInput,
-            sessionId = sessionId,
-            taskId = taskId,
-            maxTurns = config.maxTurns,
-            uiSettleDelayMs = config.actionDelayMs,
-            debugMode = config.debugMode
-        )
-        
-        val newAgent = Agent(
-            config = agentConfig,
-            services = services,
-            eventEmitter = { event -> emit(event) },
-            cancellationSignal = signal
-        )
-        agent = newAgent
-        
-        // Launch agent in a coroutine
-        agentJob = scope.launch {
-            try {
-                val result = newAgent.run()
-                handleAgentComplete(result)
-            } catch (e: CancellationException) {
-                Log.d(TAG, "Agent cancelled")
-                handleAgentComplete(AgentStopReason.UserRequested)
-            } catch (e: Exception) {
-                Log.e(TAG, "Agent error", e)
-                handleAgentComplete(AgentStopReason.Error(e.message ?: "Unknown error"))
-            }
-        }
-        
-        Log.d(TAG, "Started agent for task $taskId")
     }
     
     /**
@@ -283,9 +242,7 @@ class AgentSession private constructor(
         // Transition to Idle (ready for next task)
         _state.value = SessionState.Idle
         currentTaskId = null
-        agent = null
-        agentJob = null
-        cancellationSignal = null
+        agentRunner.clear()
         
         Log.i(TAG, "Task $taskId completed. Session Idle.")
     }
@@ -298,7 +255,7 @@ class AgentSession private constructor(
         
         _state.value = SessionState.Paused
         
-        agent?.pause()
+        agentRunner.pause()
         
         emit(AgentEvent.SessionPaused(
             sessionId = sessionId,
@@ -316,7 +273,7 @@ class AgentSession private constructor(
         
         _state.value = SessionState.Running
         
-        agent?.resume()
+        agentRunner.resume()
         
         emit(AgentEvent.SessionResumed(
             sessionId = sessionId,
@@ -334,7 +291,7 @@ class AgentSession private constructor(
         
         // Interrupt is cooperative - signals agent to stop after current action.
         // This will eventually trigger handleAgentComplete via AgentStopReason.UserRequested
-        agent?.stop()
+        agentRunner.stop()
         Log.i(TAG, "Interrupt requested")
     }
     
@@ -345,12 +302,7 @@ class AgentSession private constructor(
         _state.value = SessionState.Shutdown
         
         // Stop agent
-        agent?.stop()
-        agent = null
-        agentJob?.cancel()
-        agentJob = null
-        cancellationSignal?.complete(AgentStopReason.UserRequested)
-        cancellationSignal = null
+        agentRunner.shutdown()
         
         // Cleanup SessionServices
         services.cleanup()

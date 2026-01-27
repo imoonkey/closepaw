@@ -1,6 +1,7 @@
 # Android Agent UI Stack
 
 > This document describes the UI architecture, design system, and component structure.
+> Last updated: 2026-01-27
 
 ## Table of Contents
 
@@ -542,7 +543,6 @@ The drawer opens automatically when the user taps the menu (≡) button in the h
 | Component | File | Purpose |
 |-----------|------|---------|
 | **NavigationDrawer** | `ui/navigation/NavigationDrawer.kt` | Side drawer with history + settings |
-| **SessionListSheet** | `ui/session/SessionListSheet.kt` | DEPRECATED (use NavigationDrawer) |
 | **TimeUtils** | `ui/session/TimeUtils.kt` | Relative time formatting |
 
 ---
@@ -593,16 +593,11 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │       └── SwipeTrailView.kt           # Trail effect for swipes
 │   │
 │   ├── session/                     # Session history utilities
-│   │   ├── SessionListSheet.kt      # DEPRECATED (use NavigationDrawer)
-│   │   ├── SessionListItem.kt       # Individual session card
 │   │   └── TimeUtils.kt             # Relative time formatting
 │   │
 │   ├── settings/
 │   │   └── SettingsSheet.kt         # Configuration bottom sheet
 │   │
-│   └── screen/
-│       └── AgentScreen.kt           # DEPRECATED (kept for reference)
-│
 └── util/
     └── StatusUtils.kt               # Status processing utilities
 ```

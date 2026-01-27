@@ -4,7 +4,7 @@ package com.moonkey.androidagent.util
  * Utility functions for status message processing.
  * 
  * Centralizes emoji cleanup and status type detection to avoid duplication
- * across OverlayManager, AgentScreen, and MainActivity.
+ * across SmartCapsule/overlay utilities and UI components.
  */
 object StatusUtils {
     
