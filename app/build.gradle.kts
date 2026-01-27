@@ -13,7 +13,9 @@ android {
 
     defaultConfig {
         applicationId = "com.moonkey.androidagent"
-        minSdk = 31  // Required by LiquidAI Leap SDK
+        // Required by LiquidAI Leap SDK for local inference.
+        // If we need to support Android < 12, consider a cloud-only flavor.
+        minSdk = 31
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"

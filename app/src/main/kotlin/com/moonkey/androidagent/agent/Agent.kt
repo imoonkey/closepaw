@@ -50,10 +50,10 @@ class Agent(
             2. Deciding what action to take based on the screen
             3. Executing the action using available tools
             4. Observing the result and continuing until done
-            5. If you have achieve the goal, call complete_task to wrap up. Do NOT call it prematurely.
+            5. If you have achieved the goal, call complete_task to wrap up. Do NOT call it prematurely.
 
             Your start screen maybe the Android Agent app itself, or any other screen. 
-            Your actions should almost always start with directly openning or navigating to the right app/page first.
+            Your actions should almost always start with directly opening or navigating to the right app/page first.
         """.trimIndent()
 
         private val LOCAL_PROMPT_SUFFIX = """

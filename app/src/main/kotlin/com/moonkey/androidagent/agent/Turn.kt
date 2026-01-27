@@ -231,7 +231,7 @@ class Turn(
             
             1. EXECUTE ONE ACTION PER TURN. Call mobile_action or app_control, then STOP and wait.
             2. NEVER call complete_task together with other actions in the same turn.
-            3. Only call complete_task in the next turn AFTER you see the result of your action has achived user's goal
+            3. Only call complete_task in the next turn AFTER you see the result of your action has achieved user's goal
             
             ## Element Selection
             

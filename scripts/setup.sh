@@ -71,7 +71,7 @@ if [[ "$LLM_BACKEND" == "openai" ]]; then
     if [[ -z "$OPENAI_API_KEY" || ! "$OPENAI_API_KEY" =~ ^sk- ]]; then
         err "Invalid API Key. Please set OPENAI_API_KEY=sk-xxx in .env, or use LLM_BACKEND=local"
     fi
-    ok "API Key configured: ${OPENAI_API_KEY:0:15}..."
+    ok "API Key configured"
 else
     ok "Using local LLM backend (no API key required)"
 fi
