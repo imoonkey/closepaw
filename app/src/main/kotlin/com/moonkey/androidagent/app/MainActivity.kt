@@ -1,10 +1,8 @@
 package com.moonkey.androidagent.app
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
@@ -24,11 +22,10 @@ import com.moonkey.androidagent.history.SessionHistoryManager
 import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.protocol.LLMBackendType
-import com.moonkey.androidagent.protocol.LocalLLMSessionConfig
+import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
-import com.moonkey.androidagent.ui.settings.LocalModelOption
 import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
 import com.moonkey.androidagent.ui.chat.ChatScreen
 import com.moonkey.androidagent.ui.chat.ChatViewModel
@@ -38,7 +35,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.io.File
 
 /**
  * MainActivity - Chat-based UI for the Android Agent.
@@ -58,25 +54,6 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_AUTO_START = "auto_start"
         const val EXTRA_FRESH_SESSION = "fresh_session"
         const val EXTRA_LLM_BACKEND = "llm_backend"  // "openai" or "local"
-        
-        private const val PREFS_NAME = "agent_prefs"
-        private const val KEY_API_KEY = "api_key"
-        private const val KEY_MODEL = "model"
-        private const val KEY_MAX_TURNS = "max_turns"
-        private const val KEY_DEBUG_MODE = "debug_mode"
-        private const val KEY_LLM_BACKEND = "llm_backend"
-        private const val KEY_LOCAL_MODEL_ID = "local_model_id"
-        private const val KEY_LOCAL_MODEL_SLUG = "local_model_slug"
-        private const val KEY_LOCAL_MODEL_QUANT = "local_model_quant"
-        
-        // Default values
-        private const val DEFAULT_MODEL = "gpt-4o"
-        // Note: This UI-specific default (20) intentionally differs from SessionConfig's
-        // default (50). MainActivity's value is used when creating sessions from the chat UI.
-        private const val DEFAULT_MAX_TURNS = 20
-        private const val DEFAULT_DEBUG_MODE = false
-        private const val DEFAULT_LLM_BACKEND = "OPENAI"
-        private const val DEFAULT_LOCAL_MODEL_ID = "LFM2.5-1.2B-Instruct"
     }
     
     // Session scope - survives configuration changes within activity lifecycle
@@ -86,18 +63,8 @@ class MainActivity : ComponentActivity() {
     private var currentSession: AgentSession? = null
     
     // Settings state
-    private var apiKey by mutableStateOf("")
-    private var selectedModel by mutableStateOf(DEFAULT_MODEL)
-    private var maxTurns by mutableStateOf(DEFAULT_MAX_TURNS)
-    private var debugMode by mutableStateOf(DEFAULT_DEBUG_MODE)
-    
-    // LLM Backend settings
-    private var llmBackend by mutableStateOf(LLMBackendType.OPENAI)
-    private var selectedLocalModelId by mutableStateOf(DEFAULT_LOCAL_MODEL_ID)
-    private var localModelSlug by mutableStateOf("LFM2.5-1.2B-Instruct")
-    private var localModelQuant by mutableStateOf("Q4_K_M")
-    private var modelLoadingStatus by mutableStateOf<ModelLoadingStatus>(ModelLoadingStatus.Idle)
-    
+    private lateinit var settingsState: AppSettingsState
+
     // Session history
     private lateinit var sessionHistoryManager: SessionHistoryManager
     
@@ -114,7 +81,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         
         // Load settings from storage
-        loadSettings()
+        settingsState = AppSettingsState(AppSettingsStore(applicationContext))
+        settingsState.load()
         handleIntent(intent)
         
         // Initialize session history manager
@@ -143,7 +111,7 @@ class MainActivity : ComponentActivity() {
                 ChatScreen(
                     viewModel = viewModel,
                     sessions = sessions,
-                    currentModel = selectedModel,
+                    currentModel = settingsState.selectedModel,
                     appVersion = BuildConfig.VERSION_NAME,
                     onOpenSettings = { showSettings = true },
                     onSessionSelect = { session ->
@@ -157,7 +125,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     onNewSession = {
-                        viewModel.startNewSession(selectedModel, BuildConfig.VERSION_NAME)
+                        viewModel.startNewSession(settingsState.selectedModel, BuildConfig.VERSION_NAME)
                     },
                     onDeleteSession = { session ->
                         viewModel.deleteSession(session)
@@ -178,49 +146,23 @@ class MainActivity : ComponentActivity() {
                     ) {
                         SettingsSheet(
                             // Backend selection
-                            llmBackend = llmBackend,
-                            onBackendChange = { backend ->
-                                llmBackend = backend
-                                saveSetting(KEY_LLM_BACKEND, backend.name)
-                                // Reset model loading status when switching backends
-                                modelLoadingStatus = ModelLoadingStatus.Idle
-                            },
+                            llmBackend = settingsState.llmBackend,
+                            onBackendChange = settingsState::updateBackend,
                             // Cloud model
-                            selectedModel = selectedModel,
-                            onModelChange = {
-                                selectedModel = it
-                                saveSetting(KEY_MODEL, it)
-                            },
+                            selectedModel = settingsState.selectedModel,
+                            onModelChange = settingsState::updateModel,
                             // Local model
-                            selectedLocalModel = selectedLocalModelId,
-                            onLocalModelChange = { model ->
-                                selectedLocalModelId = model.id
-                                localModelSlug = model.modelSlug
-                                localModelQuant = model.quantizationSlug
-                                saveSetting(KEY_LOCAL_MODEL_ID, model.id)
-                                saveSetting(KEY_LOCAL_MODEL_SLUG, model.modelSlug)
-                                saveSetting(KEY_LOCAL_MODEL_QUANT, model.quantizationSlug)
-                                // Reset model loading status when changing local model
-                                modelLoadingStatus = ModelLoadingStatus.Idle
-                            },
-                            modelLoadingStatus = modelLoadingStatus,
+                            selectedLocalModel = settingsState.selectedLocalModelId,
+                            onLocalModelChange = settingsState::updateLocalModel,
+                            modelLoadingStatus = settingsState.modelLoadingStatus,
                             // API key
-                            apiKey = apiKey,
-                            onApiKeyChange = { 
-                                apiKey = it
-                                saveSetting(KEY_API_KEY, it)
-                            },
+                            apiKey = settingsState.apiKey,
+                            onApiKeyChange = settingsState::updateApiKey,
                             // Other settings
-                            maxTurns = maxTurns,
-                            onMaxTurnsChange = {
-                                maxTurns = it
-                                saveSetting(KEY_MAX_TURNS, it)
-                            },
-                            debugMode = debugMode,
-                            onDebugModeChange = {
-                                debugMode = it
-                                saveSetting(KEY_DEBUG_MODE, it)
-                            },
+                            maxTurns = settingsState.maxTurns,
+                            onMaxTurnsChange = settingsState::updateMaxTurns,
+                            debugMode = settingsState.debugMode,
+                            onDebugModeChange = settingsState::updateDebugMode,
                             isAccessibilityEnabled = AgentService.instance != null,
                             isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
                             onAccessibilityClick = { openAccessibilitySettings() },
@@ -248,43 +190,30 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun handleIntent(intent: Intent) {
-        intent.getStringExtra(EXTRA_API_KEY)?.let { key ->
-            if (key.isNotBlank()) {
-                apiKey = key
-                saveSetting(KEY_API_KEY, key)
-                Log.d(TAG, "API key set from intent")
-            }
-        }
-        
-        // Handle LLM backend selection from intent
-        intent.getStringExtra(EXTRA_LLM_BACKEND)?.let { backend ->
-            val backendType = when (backend.lowercase()) {
-                "local" -> LLMBackendType.LOCAL
-                "openai" -> LLMBackendType.OPENAI
-                else -> null
-            }
-            backendType?.let {
-                llmBackend = it
-                saveSetting(KEY_LLM_BACKEND, it.name)
-                Log.d(TAG, "LLM backend set from intent: $it")
-            }
-        }
-        
-        val goalText = intent.getStringExtra(EXTRA_GOAL)?.takeIf { it.isNotBlank() }
-        val freshSession = intent.getBooleanExtra(EXTRA_FRESH_SESSION, false)
+        val payload = MainActivityIntentPayload.from(intent)
 
-        if (freshSession) {
+        payload.apiKey?.let { key ->
+            settingsState.updateApiKey(key)
+            Log.d(TAG, "API key set from intent")
+        }
+
+        payload.backendType?.let {
+            settingsState.updateBackend(it)
+            Log.d(TAG, "LLM backend set from intent: $it")
+        }
+
+        if (payload.freshSession) {
             Log.d(TAG, "Fresh session requested, clearing existing state")
             lifecycleScope.launch {
                 clearCurrentSession()
-                goalText?.let {
+                payload.goalText?.let {
                     Log.d(TAG, "Goal set from intent: $it")
                     kotlinx.coroutines.delay(500)
                     ensureSessionAndSend(it)
                 }
             }
         } else {
-            goalText?.let {
+            payload.goalText?.let {
                 Log.d(TAG, "Goal set from intent: $it")
                 // Auto-send the goal as first message
                 window.decorView.postDelayed({
@@ -294,7 +223,7 @@ class MainActivity : ComponentActivity() {
         }
         
         // Auto-start if requested
-        if (intent.getBooleanExtra(EXTRA_AUTO_START, false)) {
+        if (payload.autoStart) {
             Log.d(TAG, "Auto-start requested")
         }
     }
@@ -338,7 +267,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun ensureSessionAndSend(text: String) {
         // Check API key only for cloud backend
-        if (llmBackend == LLMBackendType.OPENAI && apiKey.isBlank()) {
+        if (settingsState.llmBackend == LLMBackendType.OPENAI && settingsState.apiKey.isBlank()) {
             Toast.makeText(this, "Please set your API key in Settings", Toast.LENGTH_LONG).show()
             showSettings = true
             return
@@ -362,40 +291,44 @@ class MainActivity : ComponentActivity() {
             lifecycleScope.launch {
                 try {
                     // Build local LLM config if using local backend
-                    val localConfig = if (llmBackend == LLMBackendType.LOCAL) {
-                        LocalLLMSessionConfig(
-                            modelSlug = localModelSlug,
-                            quantizationSlug = localModelQuant
+                    val localConfig = if (settingsState.llmBackend == LLMBackendType.LOCAL) {
+                        LocalLLMConfig(
+                            modelSlug = settingsState.localModelSlug,
+                            quantizationSlug = settingsState.localModelQuant
                         )
                     } else null
                     
                     // Update loading status for local backend
-                    if (llmBackend == LLMBackendType.LOCAL) {
-                        modelLoadingStatus = ModelLoadingStatus.Loading
+                    if (settingsState.llmBackend == LLMBackendType.LOCAL) {
+                        settingsState.updateModelLoadingStatus(ModelLoadingStatus.Loading)
                     }
                     
                     val session = AgentSession.create(
                         config = SessionConfig(
-                            maxTurns = maxTurns,
-                            model = selectedModel,
-                            debugMode = debugMode,
-                            llmBackend = llmBackend,
+                            maxTurns = settingsState.maxTurns,
+                            model = settingsState.selectedModel,
+                            debugMode = settingsState.debugMode,
+                            llmBackend = settingsState.llmBackend,
                             localLLMConfig = localConfig
                         ),
                         service = service,
                         scope = sessionScope,
-                        apiKey = if (llmBackend == LLMBackendType.OPENAI) apiKey else null,
+                        apiKey = if (settingsState.llmBackend == LLMBackendType.OPENAI) {
+                            settingsState.apiKey
+                        } else null,
                         visualizer = service.getActionVisualizer()
                     )
                     
                     // Update loading status using the local model loader callbacks
-                    if (llmBackend == LLMBackendType.LOCAL) {
+                    if (settingsState.llmBackend == LLMBackendType.LOCAL) {
                         val localClient = session.getServices().llmClient as? LFMLLMClient
                         if (localClient == null) {
-                            modelLoadingStatus = ModelLoadingStatus.Error("Local LLM client unavailable")
+                            settingsState.updateModelLoadingStatus(
+                                ModelLoadingStatus.Error("Local LLM client unavailable")
+                            )
                         } else {
                             localClient.loadModel { state ->
-                                modelLoadingStatus = state.toUiStatus()
+                                settingsState.updateModelLoadingStatus(state.toUiStatus())
                             }
                         }
                     }
@@ -411,12 +344,14 @@ class MainActivity : ComponentActivity() {
                     // Send the message
                     session.submit(Op.UserInput(text))
                     
-                    Log.i(TAG, "Session created with backend=$llmBackend and message sent")
+                    Log.i(TAG, "Session created with backend=${settingsState.llmBackend} and message sent")
                     
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to create session", e)
-                    if (llmBackend == LLMBackendType.LOCAL) {
-                        modelLoadingStatus = ModelLoadingStatus.Error(e.message ?: "Unknown error")
+                    if (settingsState.llmBackend == LLMBackendType.LOCAL) {
+                        settingsState.updateModelLoadingStatus(
+                            ModelLoadingStatus.Error(e.message ?: "Unknown error")
+                        )
                     }
                     Toast.makeText(this@MainActivity, "Failed to start: ${e.message}", Toast.LENGTH_LONG).show()
                 }
@@ -429,79 +364,6 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    /**
-     * Load all settings from SharedPreferences.
-     */
-    private fun loadSettings() {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        
-        // Load API key
-        val savedKey = prefs.getString(KEY_API_KEY, null)
-        if (!savedKey.isNullOrBlank()) {
-            apiKey = savedKey
-        } else {
-            // Fallback: Try to load from file (DEV-ONLY)
-            loadApiKeyFromFile()
-        }
-        
-        // Load model
-        selectedModel = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
-        
-        // Load max turns
-        maxTurns = prefs.getInt(KEY_MAX_TURNS, DEFAULT_MAX_TURNS)
-        
-        // Load debug mode
-        debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
-        
-        // Load LLM backend
-        val backendName = prefs.getString(KEY_LLM_BACKEND, DEFAULT_LLM_BACKEND) ?: DEFAULT_LLM_BACKEND
-        llmBackend = try {
-            LLMBackendType.valueOf(backendName)
-        } catch (e: Exception) {
-            LLMBackendType.OPENAI
-        }
-        
-        // Load local model settings
-        selectedLocalModelId = prefs.getString(KEY_LOCAL_MODEL_ID, DEFAULT_LOCAL_MODEL_ID) ?: DEFAULT_LOCAL_MODEL_ID
-        localModelSlug = prefs.getString(KEY_LOCAL_MODEL_SLUG, "LFM2.5-1.2B-Instruct") ?: "LFM2.5-1.2B-Instruct"
-        localModelQuant = prefs.getString(KEY_LOCAL_MODEL_QUANT, "Q4_K_M") ?: "Q4_K_M"
-        
-        Log.d(TAG, "Settings loaded: backend=$llmBackend, model=$selectedModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode")
-    }
-    
-    /**
-     * Fallback: Load API key from file (DEV-ONLY).
-     */
-    private fun loadApiKeyFromFile() {
-        try {
-            @Suppress("DEPRECATION")
-            val file = File(Environment.getExternalStorageDirectory(), "api_key.txt")
-            if (file.exists()) {
-                val key = file.readText().trim()
-                if (key.isNotBlank() && key.startsWith("sk-")) {
-                    apiKey = key
-                    saveSetting(KEY_API_KEY, key) // Migrate to SharedPreferences
-                    Log.d(TAG, "API key loaded from file")
-                }
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not load API key from file: ${e.message}")
-        }
-    }
-    
-    /**
-     * Save a setting to SharedPreferences.
-     */
-    private fun saveSetting(key: String, value: Any) {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        when (value) {
-            is String -> prefs.edit().putString(key, value).apply()
-            is Int -> prefs.edit().putInt(key, value).apply()
-            is Boolean -> prefs.edit().putBoolean(key, value).apply()
-            else -> Log.w(TAG, "Unsupported setting type: ${value::class.simpleName}")
-        }
-    }
-
     private fun LFMLLMClient.ModelLoadingState.toUiStatus(): ModelLoadingStatus {
         return when (this) {
             is LFMLLMClient.ModelLoadingState.NotLoaded -> ModelLoadingStatus.Idle

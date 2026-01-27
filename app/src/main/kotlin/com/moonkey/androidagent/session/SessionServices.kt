@@ -90,12 +90,7 @@ data class SessionServices(
                 }
                 LLMBackendType.LOCAL -> {
                     requireNotNull(context) { "Context is required for local LLM backend" }
-                    val localConfig = config.localLLMConfig?.let {
-                        LocalLLMConfig(
-                            modelSlug = it.modelSlug,
-                            quantizationSlug = it.quantizationSlug
-                        )
-                    } ?: LocalLLMConfig()
+                    val localConfig = config.localLLMConfig ?: LocalLLMConfig()
                     LFMLLMClient(context, localConfig)
                 }
             }
@@ -202,7 +197,7 @@ data class SessionServices(
      * 
      * Should be called when the session is ending.
      */
-    fun cleanup() {
+    suspend fun cleanup() {
         Log.d(TAG, "Cleaning up SessionServices...")
         
         // Cancel any pending tool calls
@@ -210,6 +205,9 @@ data class SessionServices(
         
         // Clear history
         historyManager.clear()
+
+        // Release LLM resources (especially important for local models)
+        llmClient.cleanup()
         
         Log.i(TAG, "SessionServices cleaned up")
     }

@@ -1,6 +1,7 @@
 # UI Tech Design
 
 > This document covers the technical implementation: tech stack, code structure, state management, and integration.
+> Last updated: 2026-01-27
 
 ## Table of Contents
 
@@ -98,16 +99,14 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │       └── SwipeTrailView.kt           # Trail effect for swipes
 │   │
 │   ├── session/                     # Session history utilities
-│   │   ├── SessionListSheet.kt      # DEPRECATED (use NavigationDrawer)
-│   │   ├── SessionListItem.kt       # Individual session card
 │   │   └── TimeUtils.kt             # Relative time formatting
 │   │
 │   ├── settings/
-│   │   └── SettingsSheet.kt         # Configuration bottom sheet
+│   │   ├── SettingsSheet.kt         # Configuration bottom sheet
+│   │   ├── SettingsModels.kt        # Settings data + defaults
+│   │   ├── SettingsDropdowns.kt     # Model/backend dropdowns
+│   │   └── SettingsWidgets.kt       # Shared settings UI widgets
 │   │
-│   └── screen/
-│       └── AgentScreen.kt           # DEPRECATED (kept for reference)
-│
 └── util/
     └── StatusUtils.kt               # Status processing utilities
 ```
@@ -244,19 +243,25 @@ enum class ActionState {
 ### Settings Sheet
 
 ```kotlin
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSheet(
-    onDismiss: () -> Unit,
-    currentModel: String,
+    llmBackend: LLMBackendType,
+    onBackendChange: (LLMBackendType) -> Unit,
+    selectedModel: String,
     onModelChange: (String) -> Unit,
+    selectedLocalModel: String,
+    onLocalModelChange: (LocalModelOption) -> Unit,
+    modelLoadingStatus: ModelLoadingStatus,
+    apiKey: String,
+    onApiKeyChange: (String) -> Unit,
     maxTurns: Int,
-    onMaxTurnsChange: (Int) -> Unit
+    onMaxTurnsChange: (Int) -> Unit,
+    debugMode: Boolean,
+    onDebugModeChange: (Boolean) -> Unit,
+    onDismiss: () -> Unit
     // Notes:
-    // - Has custom header with close button and display cutout handling
-    // - The previous onClearConversation callback was removed to decouple
-    //   settings UI from conversation lifecycle. Clearing a conversation
-    //   is now handled from the main chat surface instead of this sheet.
+    // - API key is shown only for cloud backend
+    // - Local model shows download/loading status
 )
 ```
 

@@ -4,22 +4,16 @@ import android.accessibilityservice.AccessibilityService
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Intent
-import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.util.TypedValue
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.LinearInterpolator
-import android.widget.FrameLayout
-import android.widget.LinearLayout
 import android.widget.TextView
 import com.moonkey.androidagent.app.MainActivity
 import com.moonkey.androidagent.util.StatusUtils
@@ -85,131 +79,35 @@ class SmartCapsuleManager(
         }
 
         try {
-            val params = WindowManager.LayoutParams(
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.WRAP_CONTENT,
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-                // Window flags explanation:
-                // - FLAG_NOT_FOCUSABLE: don't steal focus from underlying apps
-                // - FLAG_NOT_TOUCH_MODAL: touches INSIDE the capsule area are received by the
-                //   overlay (making buttons interactive), while touches OUTSIDE this window
-                //   pass through to underlying apps
-                // 
-                // This replaces the previous FLAG_NOT_TOUCHABLE which made the ENTIRE overlay
-                // non-interactive. The change enables capsule buttons to be tappable while
-                // still allowing gestures outside the capsule to interact with underlying apps.
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                PixelFormat.TRANSLUCENT
+            val builder = SmartCapsuleLayoutBuilder(
+                context = context,
+                colors = CapsuleColors(
+                    background = colorBackground,
+                    border = colorBorder,
+                    primary = colorPrimary,
+                    error = colorError,
+                    text = colorText
+                )
             )
-
-            params.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-
-            // Main container with padding
-            val container = FrameLayout(context).apply {
-                setPadding(dp(16), dp(8), dp(16), dp(24))
-            }
-            
-            // Card layout - capsule shape
-            val card = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(12), dp(12), dp(12))
-                
-                // Rounded capsule background
-                background = GradientDrawable().apply {
-                    setColor(colorBackground)
-                    cornerRadius = dp(24).toFloat()
-                    setStroke(1, colorBorder)
-                }
-                
-                // Elevation shadow
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    elevation = dp(8).toFloat()
-                }
-            }
-
-            // Status indicator dot
-            statusDot = View(context).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(8), dp(8)).apply {
-                    marginEnd = dp(10)
-                }
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(colorPrimary)
-                }
-            }
-            card.addView(statusDot)
-
-            // Status text
-            statusText = TextView(context).apply {
-                text = "Ready"
-                setTextColor(colorText)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            val views = builder.build(
+                onPauseToggle = {
+                    if (isPaused) {
+                        onResume()
+                    } else {
+                        onPause()
+                    }
+                },
+                onStop = onStop,
+                onOpenApp = { openAgentApp() }
+            )
+            windowManager.addView(views.container, builder.createLayoutParams())
+            overlayView = views.container
+            statusText = views.statusText.apply {
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                maxLines = 1
-                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
-            card.addView(statusText)
-
-            // Spacer
-            card.addView(View(context).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(12), 0)
-            })
-
-            // Pause/Resume button
-            pauseButton = createIconButton(
-                iconText = "⏸",
-                contentDescription = "Pause"
-            ) {
-                if (isPaused) {
-                    onResume()
-                } else {
-                    onPause()
-                }
-            }
-            card.addView(pauseButton)
-
-            // Spacer between buttons
-            card.addView(View(context).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(6), 0)
-            })
-
-            // Stop button
-            val stopButton = createIconButton(
-                iconText = "⏹",
-                contentDescription = "Stop",
-                tintColor = colorError
-            ) {
-                onStop()
-            }
-            card.addView(stopButton)
-            
-            // Spacer between buttons
-            card.addView(View(context).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(6), 0)
-            })
-            
-            // Open App button
-            val openAppButton = createIconButton(
-                iconText = "↗",
-                contentDescription = "Open App",
-                tintColor = colorPrimary
-            ) {
-                openAgentApp()
-            }
-            card.addView(openAppButton)
-
-            container.addView(card, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ))
-
-            windowManager.addView(container, params)
-            overlayView = container
+            statusDot = views.statusDot
+            pauseButton = views.pauseButton
+            pauseIconText = views.pauseIconText
             Log.i(TAG, "show() - overlay view added successfully")
             
             // Reset state
@@ -218,43 +116,6 @@ class SmartCapsuleManager(
             currentTurnId = null
         } catch (e: Exception) {
             Log.e(TAG, "show() - failed to add overlay view", e)
-        }
-    }
-    
-    private fun createIconButton(
-        iconText: String,
-        contentDescription: String,
-        tintColor: Int = colorText,
-        onClick: () -> Unit
-    ): View {
-        return FrameLayout(context).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
-            
-            // Circular background
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(0xFFF5F5F5.toInt())
-            }
-            
-            val icon = TextView(context).apply {
-                text = iconText
-                setTextColor(tintColor)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                gravity = Gravity.CENTER
-                this.contentDescription = contentDescription
-            }
-            
-            addView(icon, FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            ))
-            
-            setOnClickListener { onClick() }
-            
-            // Store reference for pause button icon
-            if (iconText == "⏸") {
-                pauseIconText = icon
-            }
         }
     }
     
@@ -428,11 +289,4 @@ class SmartCapsuleManager(
         statusDot?.alpha = 1f
     }
     
-    private fun dp(value: Int): Int {
-        return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            value.toFloat(),
-            context.resources.displayMetrics
-        ).toInt()
-    }
 }

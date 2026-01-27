@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.ui.overlay.visualizer
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -19,6 +20,7 @@ import android.view.animation.LinearInterpolator
  * - Duration: Match gesture duration + 200ms fade
  * - Animation: Draw line as gesture progresses
  */
+@SuppressLint("Range")
 class SwipeTrailView(context: Context) : View(context) {
     
     companion object {

@@ -20,15 +20,28 @@ internal object LeapToolSchemaAdapter {
     }
 
     private fun parseToolParameters(tool: FunctionTool): JSONObject? {
-        val rawField = tool._parameters()
+        val knownParams = tool._parameters().asKnown().orElse(null)
+        if (knownParams != null) {
+            return jsonValueMapToJsonObject(knownParams._additionalProperties())
+        }
+
+        val rawField = tool._parameters().asUnknown().orElse(null) ?: run {
+            Log.w(TAG, "Tool parameters missing for ${tool.name()}")
+            return null
+        }
+
         val objectMap = rawField.asObject().orElse(null)
         if (objectMap != null) {
             return jsonValueMapToJsonObject(objectMap)
         }
 
-        val knownParams = rawField.asKnown().orElse(null)
-        if (knownParams != null) {
-            return jsonValueMapToJsonObject(knownParams._additionalProperties())
+        val rawJson = rawField.toString()
+        if (rawJson.startsWith("{")) {
+            try {
+                return JSONObject(rawJson)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to parse parameters JSON for ${tool.name()}", e)
+            }
         }
         Log.w(TAG, "Tool parameters missing for ${tool.name()}")
         return null
@@ -39,8 +52,16 @@ internal object LeapToolSchemaAdapter {
         if (schemaType != "object") {
             return emptyList()
         }
-        val properties = schema.optJSONObject("properties") ?: return emptyList()
-        val required = schema.optJSONArray("required")?.toStringSet() ?: emptySet()
+        val properties = when (val rawProps = schema.opt("properties")) {
+            is JSONObject -> rawProps
+            is Map<*, *> -> mapToJsonObject(rawProps)
+            else -> null
+        } ?: return emptyList()
+        val required = when (val rawRequired = schema.opt("required")) {
+            is JSONArray -> rawRequired.toStringSet()
+            is Iterable<*> -> rawRequired.mapNotNull { it?.toString() }.toSet()
+            else -> emptySet()
+        }
         val parameters = mutableListOf<LeapFunctionParameter>()
 
         properties.keys().forEach { name ->
@@ -61,7 +82,7 @@ internal object LeapToolSchemaAdapter {
     }
 
     private fun parseParameterType(schema: JSONObject): LeapFunctionParameterType {
-        val description = schema.optString("description", null)
+        val description = schema.optString("description").takeIf { it.isNotBlank() }
         val rawType = schema.opt("type")
         val type = when (rawType) {
             is JSONArray -> rawType.toStringList().firstOrNull { it != "null" } ?: "string"
@@ -142,6 +163,16 @@ internal object LeapToolSchemaAdapter {
 
     private fun JSONArray.toStringSet(): Set<String> = toStringList().toSet()
 
+    private fun mapToJsonObject(map: Map<*, *>): JSONObject {
+        val jsonObject = JSONObject()
+        map.forEach { (key, value) ->
+            if (key != null) {
+                jsonObject.put(key.toString(), value)
+            }
+        }
+        return jsonObject
+    }
+
     private fun jsonValueMapToJsonObject(map: Map<String, JsonValue>): JSONObject {
         val obj = JSONObject()
         map.forEach { (key, value) ->
@@ -156,12 +187,29 @@ internal object LeapToolSchemaAdapter {
         value.asBoolean().orElse(null)?.let { return it }
         value.asNumber().orElse(null)?.let { return it }
         value.asArray().orElse(null)?.let { array ->
-            return array.map { jsonValueToAny(it) }
+            val jsonArray = JSONArray()
+            array.forEach { jsonArray.put(jsonValueToAny(it)) }
+            return jsonArray
         }
         value.asObject().orElse(null)?.let { obj ->
-            return obj.mapValues { jsonValueToAny(it.value) }
+            return jsonValueMapToJsonObject(obj)
         }
-        return value.toString()
+        val raw = value.toString()
+        if (raw.startsWith("{")) {
+            return try {
+                JSONObject(raw)
+            } catch (_: Exception) {
+                raw
+            }
+        }
+        if (raw.startsWith("[")) {
+            return try {
+                JSONArray(raw)
+            } catch (_: Exception) {
+                raw
+            }
+        }
+        return raw
     }
 }
 
