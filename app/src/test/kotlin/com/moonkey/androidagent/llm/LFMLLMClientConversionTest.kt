@@ -2,8 +2,8 @@ package com.moonkey.androidagent.llm
 
 import ai.liquid.leap.function.LeapFunctionParameterType
 import com.google.common.truth.Truth.assertThat
-import com.openai.core.JsonValue
 import com.openai.models.responses.FunctionTool
+import com.moonkey.androidagent.tool.jsonObjectToJsonValueMap
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Test
@@ -234,14 +234,6 @@ private fun buildFunctionTool(schema: JSONObject): FunctionTool {
         .parameters(parameters)
         .strict(false)
         .build()
-}
-
-private fun jsonObjectToJsonValueMap(obj: JSONObject): Map<String, JsonValue> {
-    val map = mutableMapOf<String, JsonValue>()
-    obj.keys().forEach { key ->
-        map[key] = JsonValue.from(jsonElementToValue(obj.get(key)))
-    }
-    return map
 }
 
 private fun parseSingleParam(schema: JSONObject, name: String) =

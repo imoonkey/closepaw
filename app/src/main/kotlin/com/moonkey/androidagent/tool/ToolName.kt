@@ -155,8 +155,10 @@ private fun normalizeName(raw: String): String {
 
 private fun formatDisplayName(raw: String): String {
     val trimmed = raw.trim()
-    if (trimmed.isEmpty()) return "Tool"
-    return trimmed.replace("-", " ")
+    val normalized = trimmed
+        .replace("-", " ")
         .replace("_", " ")
-        .replaceFirstChar { it.uppercase() }
+        .trim()
+    if (normalized.isEmpty()) return "Tool"
+    return normalized.replaceFirstChar { it.uppercase() }
 }
