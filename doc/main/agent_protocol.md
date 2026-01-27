@@ -455,7 +455,7 @@ data class SessionConfig(
     val maxTurns: Int = 50,              // Max iterations before auto-stop
     val actionDelayMs: Long = 2000,      // Delay after actions for UI settle
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
-    val model: String = "gpt-4o",        // LLM model
+    val model: String = "gpt-5.2",       // LLM model
     val debugMode: Boolean = false       // Verbose logging
 )
 ```
