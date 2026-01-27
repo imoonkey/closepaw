@@ -56,6 +56,28 @@ data class ScreenImage(
         val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
         return "data:$mimeType;base64,$base64"
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ScreenImage) return false
+
+        if (width != other.width) return false
+        if (height != other.height) return false
+        if (mimeType != other.mimeType) return false
+        if (!bytes.contentEquals(other.bytes)) return false
+        if (source != other.source) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = width
+        result = 31 * result + height
+        result = 31 * result + mimeType.hashCode()
+        result = 31 * result + bytes.contentHashCode()
+        result = 31 * result + source.hashCode()
+        return result
+    }
 }
 
 enum class ScreenImageSource {
