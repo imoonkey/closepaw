@@ -260,12 +260,20 @@ fun SettingsSheet(
     onApiKeyChange: (String) -> Unit,
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit,
+    screenshotInputEnabled: Boolean,
+    onScreenshotInputChange: (Boolean) -> Unit,
     debugMode: Boolean,
     onDebugModeChange: (Boolean) -> Unit,
+    isAccessibilityEnabled: Boolean,
+    isOverlayEnabled: Boolean,
+    onAccessibilityClick: () -> Unit,
+    onOverlayClick: () -> Unit,
     onDismiss: () -> Unit
     // Notes:
     // - API key is shown only for cloud backend
     // - Local model shows download/loading status
+    // - Screenshot input is toggled in the Perception section
+    // - Permission rows show current accessibility/overlay status
 )
 ```
 

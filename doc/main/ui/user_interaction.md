@@ -87,13 +87,15 @@ Modal bottom sheet for configuration. Features a header with title and close but
 
 **Settings Items:**
 - LLM backend (Cloud/OpenAI vs Local)
-- Cloud model selection (GPT-4o, GPT-4o-mini, GPT-4-turbo)
-- Local model selection (LFM 1.2B, LFM 350M) with download status
+- Cloud model selection (GPT-5.2, GPT-5.2 Pro)
+- Local model selection (LFM 1.2B Instruct, LFM 350M) with download status
+- Screenshot input toggle (compressed screenshots)
 - API key (cloud only)
 - Max turns (10, 20, 50)
 - Accessibility service status
 - Overlay permission status
-- About & Debug
+- Debug mode toggle
+- About & version info
 
 **Layout Features:**
 - Custom header with "Settings" title and close (X) button
