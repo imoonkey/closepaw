@@ -5,6 +5,8 @@ import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.history.storage.SessionStorage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 
 /**
@@ -48,6 +50,7 @@ class SessionHistoryManager(
     )
 
     private val sessionInfoCache = mutableMapOf<String, CachedSessionInfo>()
+    private val cacheMutex = Mutex()
     
     /**
      * List all sessions (lightweight, doesn't load full content).
@@ -106,7 +109,9 @@ class SessionHistoryManager(
             ?: return Result.failure(NoSuchElementException("Session not found: $sessionId"))
         
         return storage.deleteSession(file.name).onSuccess {
-            sessionInfoCache.remove(file.name)
+            cacheMutex.withLock {
+                sessionInfoCache.remove(file.name)
+            }
         }
     }
     
@@ -115,7 +120,9 @@ class SessionHistoryManager(
      */
     suspend fun deleteSessionByFileName(fileName: String): Result<Unit> {
         return storage.deleteSession(fileName).onSuccess {
-            sessionInfoCache.remove(fileName)
+            cacheMutex.withLock {
+                sessionInfoCache.remove(fileName)
+            }
         }
     }
     
@@ -213,12 +220,14 @@ class SessionHistoryManager(
     }
 
     private suspend fun getSessionInfoCached(file: File): SessionInfo? {
-        val cached = sessionInfoCache[file.name]
+        val cached = cacheMutex.withLock { sessionInfoCache[file.name] }
         val info = if (cached != null && cached.lastModified == file.lastModified()) {
             cached.info
         } else {
             val fresh = extractSessionInfo(file.name) ?: return null
-            sessionInfoCache[file.name] = CachedSessionInfo(file.lastModified(), fresh)
+            cacheMutex.withLock {
+                sessionInfoCache[file.name] = CachedSessionInfo(file.lastModified(), fresh)
+            }
             fresh
         }
         return info.copy(isActive = info.id == getCurrentSessionId())

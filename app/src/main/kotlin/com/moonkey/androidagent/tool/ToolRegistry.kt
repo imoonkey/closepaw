@@ -122,10 +122,13 @@ class ToolRegistry {
         return tools.values
             .filter { filter?.invoke(it) != false }
             .map { tool ->
+                val parameters = FunctionTool.Parameters.builder()
+                    .putAllAdditionalProperties(jsonObjectToJsonValueMap(tool.parameterSchema))
+                    .build()
                 FunctionTool.builder()
                     .name(tool.name)
                     .description(tool.description)
-                    .parameters(jsonObjectToJsonValue(tool.parameterSchema))
+                    .parameters(parameters)
                     // strict mode disabled - it requires ALL properties in required array,
                     // which doesn't work with optional parameters like duration_ms
                     .strict(false)
@@ -136,12 +139,12 @@ class ToolRegistry {
     /**
      * Convert org.json.JSONObject to OpenAI's JsonValue.
      */
-    private fun jsonObjectToJsonValue(json: JSONObject): JsonValue {
-        val map = mutableMapOf<String, Any?>()
+    private fun jsonObjectToJsonValueMap(json: JSONObject): Map<String, JsonValue> {
+        val map = mutableMapOf<String, JsonValue>()
         json.keys().forEach { key ->
-            map[key] = convertJsonElement(json.get(key))
+            map[key] = JsonValue.from(convertJsonElement(json.get(key)))
         }
-        return JsonValue.from(map)
+        return map
     }
     
     /**

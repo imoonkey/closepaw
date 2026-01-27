@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.ui.overlay.visualizer
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -18,6 +19,7 @@ import android.view.animation.DecelerateInterpolator
  * - Color: Primary Blue (#2563EB) at 60% opacity
  * - Animation: EaseOut (fast start, slow end)
  */
+@SuppressLint("Range")
 class ClickRippleView(context: Context) : View(context) {
     
     companion object {
