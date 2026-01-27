@@ -21,12 +21,16 @@ content when the tree is incomplete.
 - Replacing the a11y tree as the primary interaction anchor.
 
 ## Current State (Code Touchpoints)
-- `AccessibilityPlatform.captureScreen()` gets `rootInActiveWindow` and calls
-  `Perceptor.snapshot()` to produce `ScreenSnapshot` (a11y only).
-- `AgentPromptBuilder.buildUserContext()` injects `Perceptor.toPromptJson(snapshot)`
-  into the LLM prompt.
-- `ToolObservation.ScreenState` and `Observation.ScreenState` only include
-  `accessibilityTree` strings.
+- `AccessibilityPlatform.captureScreen()` calls `Perceptor.snapshot()` and, when
+  `SessionConfig.enableScreenshotInput` is true (API 30+), attaches a compressed
+  screenshot captured via `takeScreenshot`/`takeScreenshotOfWindow`.
+- `ScreenSnapshot` now includes `image: ScreenImage?` (JPEG bytes + metadata).
+- `TurnInputBuilder` attaches image content for OpenAI backends; local LLMs remain
+  a11y-only.
+- `AgentPromptBuilder` adds a “Screenshot attached (compressed)” hint when image
+  content is present.
+- `ToolObservation.ScreenState` continues to persist accessibility tree + snapshot
+  only; images are not written to history.
 
 ## Proposed Design
 
@@ -134,11 +138,12 @@ This connects to `AppSettingsStore` and `SessionConfig`.
 ## Implementation Plan (Phased)
 
 **Phase 1: A11y screenshot path (API 30+)**
-- Add `android:canTakeScreenshot="true"` to `agent_accessibility_config.xml`.
-- Add `ScreenImage` and optional fields to `ScreenSnapshot`.
-- Implement `AccessibilityScreenshotProvider` using `takeScreenshot`.
-- Pass image to `AgentPromptBuilder` / `TurnInputBuilder` when backend supports it.
-- Add config flags and a UI toggle.
+- ✅ Implemented (2026-01-27):
+  - `android:canTakeScreenshot="true"` in `agent_accessibility_config.xml`
+  - `ScreenImage` + optional `ScreenSnapshot.image`
+  - Screenshot capture in `AccessibilityPlatform` with compression
+  - Multimodal prompt attachment for OpenAI backends
+  - Settings toggle + config flags (`enableScreenshotInput`, size/quality)
 
 **Phase 2: Overlay-aware screenshots (API 34+)**
 - Prefer `takeScreenshotOfWindow` when available.

@@ -184,7 +184,7 @@ AgentEvent
 
 #### SessionStarted
 
-Emitted when `Op.Start` is processed.
+Emitted when the session first transitions from `Created` to `Running` (first `Op.UserInput` or deprecated `Op.Start`). Subsequent tasks from `Idle` do **not** re-emit this event.
 
 ```kotlin
 data class SessionStarted(
@@ -455,10 +455,22 @@ data class SessionConfig(
     val maxTurns: Int = 50,              // Max iterations before auto-stop
     val actionDelayMs: Long = 2000,      // Delay after actions for UI settle
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
-    val model: String = "gpt-5.2",       // LLM model
-    val debugMode: Boolean = false       // Verbose logging
+    val model: String = "gpt-5.2",       // LLM model (cloud)
+    val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
+    val localLLMConfig: LocalLLMConfig? = null,
+    val debugMode: Boolean = false,      // Verbose logging
+    val enableScreenshotInput: Boolean = false,
+    val screenshotMaxDimension: Int = 1024,
+    val screenshotJpegQuality: Int = 70
 )
 ```
+
+**LLMBackendType Values:**
+
+| Backend | Description |
+|---------|-------------|
+| `OPENAI` | Use OpenAI cloud API |
+| `LOCAL` | Use on-device LFM backend |
 
 **ApprovalMode Values:**
 
