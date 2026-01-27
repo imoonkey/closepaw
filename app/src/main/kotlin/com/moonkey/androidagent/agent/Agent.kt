@@ -1,15 +1,14 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
-import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.tool.SimpleToolRouterContext
 import com.moonkey.androidagent.tool.ToolCallResult
 import com.moonkey.androidagent.tool.ToolObservation
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.ApprovalDetails
-import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
 import kotlinx.coroutines.CompletableDeferred
@@ -70,6 +69,13 @@ class Agent(
     private val pauseState = MutableStateFlow(false)
     private val stopRequested = AtomicBoolean(false)
     private val lifecycleMutex = Mutex()  // Protects pause/resume/stop operations
+    private val promptBuilder = AgentPromptBuilder(
+        basePrompt = config.systemPrompt,
+        defaultPrompt = DEFAULT_SYSTEM_PROMPT,
+        localPromptSuffix = LOCAL_PROMPT_SUFFIX,
+        llmBackend = services.config.llmBackend,
+        toolRegistry = services.toolRegistry
+    )
     
     /**
      * Run the agent until goal achieved, max turns, or stopped.
@@ -182,8 +188,8 @@ class Agent(
                 emitStatus("🧠 Thinking...")
 
                 val turn = Turn(services.historyManager, services.toolRegistry, services.llmClient)
-                val systemPrompt = buildSystemPrompt()
-                val userContext = buildUserContext(snapshot)
+                val systemPrompt = promptBuilder.buildSystemPrompt()
+                val userContext = promptBuilder.buildUserContext(snapshot)
 
                 // Collect streaming response
                 // Note: Turn.runStreaming() accumulates text/toolCalls internally and returns
@@ -260,7 +266,11 @@ class Agent(
                         Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
                         
                         // Emit ActionProposed before execution
-                        emitActionProposed(toolCall.id, toolCall.name, formatActionDescription(toolCall))
+                        emitActionProposed(
+                            toolCall.id,
+                            toolCall.name,
+                            ActionDescriptionFormatter.format(toolCall)
+                        )
 
                         // Record tool call in history
                         services.historyManager.addItem(
@@ -433,31 +443,6 @@ class Agent(
         return "$resultText\n\n$observationText"
     }
     
-    private fun buildSystemPrompt(): String {
-        val basePrompt = config.systemPrompt ?: DEFAULT_SYSTEM_PROMPT
-        return if (services.config.llmBackend == LLMBackendType.LOCAL) {
-            "$basePrompt\n\n$LOCAL_PROMPT_SUFFIX"
-        } else {
-            basePrompt
-        }
-    }
-    
-    private fun buildUserContext(snapshot: ScreenSnapshot): String {
-        val screenJson = Perceptor.toPromptJson(snapshot)
-        val toolNames = services.toolRegistry.getNames().joinToString(", ")
-        
-        return """
-            Current screen state (${snapshot.elements.size} elements):
-            ```json
-            $screenJson
-            ```
-            
-            Available tools: $toolNames
-            
-            What action should I take next to achieve the goal?
-        """.trimIndent()
-    }
-    
     private fun shouldContinue(): Boolean {
         return !stopRequested.get() && !cancellationSignal.isCompleted
     }
@@ -518,75 +503,6 @@ class Agent(
         ))
     }
     
-    /**
-     * Format a human-readable description for an action.
-     * 
-     * Handles the consolidated tool schema:
-     * - mobile_action: click, long_press, type, swipe, system_button, wait
-     * - app_control: list_apps, open_app
-     * - complete_task: finish task with status
-     */
-    private fun formatActionDescription(toolCall: ToolCallRequest): String {
-        return when (toolCall.name.lowercase()) {
-            "mobile_action" -> {
-                val action = toolCall.arguments.optString("action", "")
-                when (action) {
-                    "click" -> {
-                        val idx = toolCall.arguments.optInt("element_index", -1)
-                        "Click element $idx"
-                    }
-                    "long_press" -> {
-                        val idx = toolCall.arguments.optInt("element_index", -1)
-                        "Long press element $idx"
-                    }
-                    "type" -> {
-                        val text = toolCall.arguments.optString("text", "").take(30)
-                        "Type \"$text\""
-                    }
-                    "swipe" -> {
-                        val start = toolCall.arguments.optJSONArray("start")
-                        val end = toolCall.arguments.optJSONArray("end")
-                        if (start != null && end != null) {
-                            "Swipe from (${start.optInt(0)},${start.optInt(1)}) to (${end.optInt(0)},${end.optInt(1)})"
-                        } else {
-                            "Swipe gesture"
-                        }
-                    }
-                    "system_button" -> {
-                        val button = toolCall.arguments.optString("button", "")
-                        "Press $button button"
-                    }
-                    "wait" -> {
-                        val ms = toolCall.arguments.optLong("duration_ms", 1000)
-                        "Wait ${ms}ms"
-                    }
-                    else -> "Mobile action: $action"
-                }
-            }
-            "app_control" -> {
-                val action = toolCall.arguments.optString("action", "")
-                when (action) {
-                    "list_apps" -> {
-                        val filter = toolCall.arguments.optString("filter", "")
-                        if (filter.isNotEmpty()) "List apps matching '$filter'" else "List all apps"
-                    }
-                    "open_app" -> {
-                        val name = toolCall.arguments.optString("app_name", "")
-                        val pkg = toolCall.arguments.optString("package_name", "")
-                        "Open app: ${name.ifEmpty { pkg }}"
-                    }
-                    else -> "App control: $action"
-                }
-            }
-            "complete_task" -> {
-                val status = toolCall.arguments.optString("status", "")
-                val answer = toolCall.arguments.optString("answer", "").take(50)
-                "Complete ($status): $answer"
-            }
-            else -> "Execute ${toolCall.name}"
-        }
-    }
-
     private suspend fun emitTurnStarted(turnId: String) {
         eventEmitter(AgentEvent.TurnStarted(
             sessionId = config.sessionId,
