@@ -1,6 +1,7 @@
 # UI User Interaction
 
 > This document describes the UI pages, components, user behaviors, and interaction flows.
+> Last updated: 2026-01-26
 
 ## Table of Contents
 
@@ -85,7 +86,10 @@ The Android Agent uses a **chat-first conversational interface** built with Jetp
 Modal bottom sheet for configuration. Features a header with title and close button (no drag handle).
 
 **Settings Items:**
-- Model selection (GPT-4o, GPT-4o-mini, GPT-4-turbo)
+- LLM backend (Cloud/OpenAI vs Local)
+- Cloud model selection (GPT-4o, GPT-4o-mini, GPT-4-turbo)
+- Local model selection (LFM 1.2B, LFM 350M) with download status
+- API key (cloud only)
 - Max turns (10, 20, 50)
 - Accessibility service status
 - Overlay permission status

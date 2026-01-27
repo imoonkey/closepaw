@@ -202,7 +202,7 @@ data class SessionServices(
      * 
      * Should be called when the session is ending.
      */
-    fun cleanup() {
+    suspend fun cleanup() {
         Log.d(TAG, "Cleaning up SessionServices...")
         
         // Cancel any pending tool calls
@@ -210,6 +210,9 @@ data class SessionServices(
         
         // Clear history
         historyManager.clear()
+
+        // Release LLM resources (especially important for local models)
+        llmClient.cleanup()
         
         Log.i(TAG, "SessionServices cleaned up")
     }
