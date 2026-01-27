@@ -136,10 +136,16 @@ com.moonkey.androidagent/
 ├── agent/                        # Core agent logic
 │   ├── Agent.kt                  # ReAct loop executor
 │   ├── AgentConfig.kt            # Agent configuration
-│   └── Turn.kt                   # Single LLM turn (OpenAI Responses API)
+│   ├── AgentEventDispatcher.kt   # AgentEvent emission helpers
+│   ├── AgentObservation.kt       # Observation types + conversions
+│   ├── AgentPromptBuilder.kt     # System prompt + context builder
+│   ├── ActionDescriptionFormatter.kt # Tool action descriptions
+│   ├── Turn.kt                   # Single LLM turn (OpenAI Responses API)
+│   └── TurnInputBuilder.kt       # ResponseInputItem assembly
 │
 ├── session/                      # Session management
 │   ├── AgentSession.kt           # Lifecycle manager
+│   ├── SessionAgentRunner.kt     # Agent lifecycle runner
 │   └── SessionServices.kt        # Dependency injection
 │
 ├── tool/                         # Consolidated tool system
@@ -148,22 +154,25 @@ com.moonkey.androidagent/
 │   ├── ToolSpec.kt               # Tool interface + types
 │   ├── ToolCallState.kt          # State definitions
 │   ├── ToolCallResult.kt         # Result types
+│   ├── BaseTool.kt               # Single-action UI tools
+│   ├── MultiActionTool.kt        # Action dispatch for consolidated tools
 │   │
 │   │  # Infrastructure
 │   ├── ToolRegistry.kt           # Discovery/registration
 │   ├── ToolRouter.kt             # Execution state machine
 │   ├── PolicyEngine.kt           # Approval logic
 │   │
+│   │  # Handlers + invocations
+│   ├── handlers/
+│   │   ├── ActionHandler.kt       # Per-action validation + invocation
+│   │   ├── UIActionInvocation.kt  # UIAction-backed tool invocation
+│   │   └── DataQueryInvocation.kt # Data-only tool invocation
+│   │
 │   │  # Implementations
-│   ├── BaseTool.kt               # Abstract base class
 │   └── impl/                     # Concrete tools
-│       ├── ClickTool.kt
-│       ├── TypeTool.kt
-│       ├── ScrollTool.kt
-│       ├── SwipeTool.kt
-│       ├── NavigationTools.kt    # BackTool + HomeTool
-│       ├── WaitTool.kt
-│       └── CompleteTaskTool.kt
+│       ├── MobileActionTool.kt   # UI interactions (click/type/swipe/system_button)
+│       ├── AppControlTool.kt     # list_apps / open_app
+│       └── CompleteTaskTool.kt   # Task completion
 │
 ├── protocol/                     # Communication contracts
 │   ├── Op.kt                     # Operations (UI → Agent)
@@ -176,6 +185,7 @@ com.moonkey.androidagent/
 ├── platform/                     # Android platform abstraction
 │   ├── AndroidPlatform.kt        # Interface
 │   ├── AccessibilityPlatform.kt  # Implementation
+│   ├── AccessibilityNodeFinder.kt # Node search helpers
 │   ├── UIAction.kt               # Action types
 │   └── ActionResult.kt           # Result types
 │
@@ -192,6 +202,7 @@ com.moonkey.androidagent/
 │   ├── HistoryManager.kt         # Token management, truncation
 │   ├── SessionHistoryManager.kt  # High-level session management API
 │   ├── SessionRecordingService.kt # Real-time event → persistence bridge
+│   ├── AgentMessageBuffer.kt     # Streaming agent message buffer
 │   ├── model/
 │   │   ├── SessionRecord.kt      # Complete session data (persisted)
 │   │   ├── MessageRecord.kt      # Message types (User/Agent)
@@ -212,11 +223,13 @@ com.moonkey.androidagent/
 │   ├── chat/                     # Chat-based UI (Phase 5)
 │   │   ├── ChatScreen.kt         # Main screen composable
 │   │   ├── ChatViewModel.kt      # State management
+│   │   ├── ChatSessionHistoryController.kt # Session history orchestration
 │   │   ├── components/           # ChatHeader, TaskBanner, MessageBubble, etc.
 │   │   └── model/
 │   │       └── ChatMessage.kt    # UI data classes
 │   ├── overlay/
 │   │   ├── SmartCapsuleManager.kt  # Streaming overlay (enhanced)
+│   │   ├── SmartCapsuleLayoutBuilder.kt # Capsule view construction
 │   │   ├── EdgeGlowManager.kt      # Edge glow effect during execution
 │   │   ├── EdgeGlowView.kt         # Custom glow rendering view
 │   │   ├── model/
@@ -247,6 +260,12 @@ The brain of the system. Executes the ReAct loop until goal achieved or stopped.
 - Emit events for UI updates
 - Handle pause/resume/stop lifecycle
 
+**Supporting helpers:**
+- `AgentPromptBuilder` builds system prompt + user context
+- `ActionDescriptionFormatter` formats tool action descriptions
+- `AgentEventDispatcher` emits `AgentEvent` with timestamps
+- `AgentObservation` converts tool observations into agent observations
+
 **Key Methods:**
 - `run()` - Main loop, returns `AgentStopReason`
 - `executeTurn()` - Single turn execution
@@ -257,7 +276,7 @@ The brain of the system. Executes the ReAct loop until goal achieved or stopped.
 Encapsulates a single LLM call using the OpenAI Responses API with native tool calling and **streaming support**.
 
 **Responsibilities:**
-- Build input items from history + current context
+- Build input items from history + current context (via `TurnInputBuilder`)
 - Generate tool schemas dynamically via `ToolRegistry.generateResponsesApiTools()`
 - **Stream** text and tool calls via `runStreaming()` method
 - Process structured tool calls (using `call_id` for linkage) and text outputs
@@ -297,7 +316,7 @@ Thin lifecycle manager. Does NOT contain agent logic.
 - Emit Events (AgentEvent) to UI
 - Manage session state transitions (including `Idle` for multi-round)
 - Manage Task lifecycle via `handleUserInput()`
-- Create and start Agent
+- Delegate agent lifecycle to `SessionAgentRunner`
 
 **Key Methods:**
 - `submit(op: Op)` - Submit an operation
@@ -342,7 +361,7 @@ fun chatWithToolsStreaming(
     systemPrompt: String,
     inputItems: List<ResponseInputItem>,
     tools: List<FunctionTool>,
-    model: ChatModel = ChatModel.GPT_4O
+    model: ChatModel = ChatModel.GPT_5_2
 ): Flow<LLMStreamEvent>
 ```
 
@@ -385,6 +404,7 @@ Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
 - Extract element data (bounds, text, class) without storing raw nodes
 - Limit to MAX_ELEMENTS (80) for token budget
 - Generate JSON for LLM prompts via `toPromptJson()`
+- When enabled, allow `AccessibilityPlatform` to attach a compressed screenshot to `ScreenSnapshot.image`
 
 **Output Element Example:**
 ```json
@@ -514,7 +534,7 @@ Real-time bridge between `AgentEvent` stream and persisted `SessionRecord`.
 
 **Responsibilities:**
 - Record user messages and agent responses in real-time
-- Build agent messages incrementally (text deltas + actions)
+- Build agent messages incrementally (text deltas + actions) using `AgentMessageBuffer`
 - Debounce writes to avoid excessive I/O (500ms delay)
 - Handle session resume and completion
 
@@ -628,7 +648,7 @@ data class SessionRecord(
 @Serializable
 data class SessionMetadata(
     val appVersion: String? = null,
-    val model: String? = null,       // e.g., "gpt-4o"
+    val model: String? = null,       // e.g., "gpt-5.2"
     val turnCount: Int = 0,
     val completedNormally: Boolean = false
 )
@@ -736,7 +756,7 @@ val sessionHistoryManager = SessionHistoryManager.create(storage, lifecycleScope
 
 // Start a new session
 val sessionId = sessionHistoryManager.startNewSession(
-    model = "gpt-4o",
+    model = "gpt-5.2",
     appVersion = BuildConfig.VERSION_NAME
 )
 
@@ -884,51 +904,45 @@ Turn.runStreaming()          Agent                AgentSession           UI
 
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `click` | Click UI element | `element_index: int` |
-| `type` | Type text into element | `element_index: int`, `text: string` |
-| `scroll` | Scroll screen | `direction: up/down/left/right` |
-| `swipe` | Swipe gesture | `start_x`, `start_y`, `end_x`, `end_y` |
-| `back` | Press back button | (none) |
-| `home` | Press home button | (none) |
-| `wait` | Wait for UI | `duration_ms: int` (optional) |
-| `complete_task` | Signal goal completion | `summary: string` |
+| `mobile_action` | Consolidated UI actions (`click`, `long_press`, `type`, `swipe`, `system_button`, `wait`) | `action` + per-action fields (`element_index`, `text`, `start`, `end`, `button`, `duration_ms`) |
+| `app_control` | App discovery and launch (`list_apps`, `open_app`) | `action` + `filter`, `package_name`, `app_name` |
+| `complete_task` | Signal goal completion | `status`, `answer`, `reason` (optional) |
+
+**Notes:**
+- Scrolling is modeled as `mobile_action` with `action: "swipe"`.
+- System buttons are invoked via `mobile_action` with `action: "system_button"` and `button: back|home|enter|recents`.
 
 ### Adding New Tools
 
-1. Create class extending `BaseTool` in `tool/impl/`
+1. Implement `ToolSpec` in `tool/impl/`
+   - For single UI actions, extend `BaseTool`
+   - For grouped actions, extend `MultiActionTool` and provide `ActionHandler`s
 2. Implement required members:
    - `name`, `description`, `parameterSchema`
-   - `validate(params)`, `createUIAction(params)`, `getActionDescription(params)`
-3. Register in `SessionServices.registerBuiltInTools()`
+   - `validate(params)`, `createInvocation(params)`
+3. Register in `SessionServices.registerBuiltInTools()` (or use `SessionServicesBuilder`)
 
 Example implementation:
 
 ```kotlin
-class ClickTool : BaseTool() {
-    override val name = "click"
-    override val description = "Click on a UI element by its index"
-    
-    override val parameterSchema = createSchema(
-        properties = mapOf(
-            "element_index" to ("integer" to "The index of the element to click")
-        ),
-        required = listOf("element_index")
-    )
-    
-    override fun validate(params: JSONObject): ValidationResult {
-        val errors = mutableListOf<String>()
-        val index = validateRequiredInt(params, "element_index", errors)
-        if (index != null && index < 0) errors.add("element_index must be non-negative")
-        return if (errors.isEmpty()) ValidationResult.Valid else ValidationResult.Invalid(errors)
+class PingTool : ToolSpec {
+    override val name = "ping"
+    override val description = "Return a health-check response"
+    override val parameterSchema = JSONObject().apply {
+        put("type", "object")
+        put("properties", JSONObject())
+        put("required", JSONArray())
+        put("additionalProperties", false)
     }
-    
-    override fun createUIAction(params: JSONObject): UIAction? {
-        val index = params.optInt("element_index", -1)
-        return if (index >= 0) UIAction.Click(index) else null
-    }
-    
-    override fun getActionDescription(params: JSONObject): String {
-        return "Click on element at index ${params.optInt("element_index", -1)}"
+
+    override fun validate(params: JSONObject) = ValidationResult.Valid
+
+    override fun createInvocation(params: JSONObject) = object : ToolInvocation {
+        override val toolName = name
+        override val params = params
+        override fun getDescription() = "Health check"
+        override suspend fun execute(context: ToolExecutionContext) =
+            ToolExecutionResult.Success(output = "pong")
     }
 }
 ```
@@ -1016,10 +1030,13 @@ val config = SessionConfig(
     maxTurns = 50,           // Max iterations before auto-stop
     actionDelayMs = 2000,    // Delay after actions for UI settle
     approvalMode = ApprovalMode.SMART,  // ALWAYS_ASK, AUTO_APPROVE, or SMART
-    model = "gpt-4o",        // LLM model (cloud only)
+    model = "gpt-5.2",       // LLM model (cloud only)
     llmBackend = LLMBackendType.OPENAI, // OPENAI or LOCAL
     localLLMConfig = null,   // Set when llmBackend == LOCAL
-    debugMode = false        // Verbose logging
+    enableScreenshotInput = false,      // Attach screenshots when supported
+    screenshotMaxDimension = 1024,      // Long edge max
+    screenshotJpegQuality = 70,         // 0-100 JPEG quality
+    debugMode = false                   // Verbose logging
 )
 ```
 

@@ -50,8 +50,8 @@ class Turn(
      */
     suspend fun run(
         systemPrompt: String,
-        userContext: String,
-        modelName: String = "gpt-4o"
+        userContext: AgentPromptBuilder.UserContext,
+        modelName: String = "gpt-5.2"
     ): TurnResult {
         // 1. Build input items from history using proper ResponseInputItem types
         val inputItems = inputBuilder.build(userContext)
@@ -99,8 +99,8 @@ class Turn(
      */
     fun runStreaming(
         systemPrompt: String,
-        userContext: String,
-        modelName: String = "gpt-4o"
+        userContext: AgentPromptBuilder.UserContext,
+        modelName: String = "gpt-5.2"
     ): Flow<TurnStreamEvent> = flow {
         Log.d(TAG, "Running streaming turn with LLM streaming, model=$modelName")
         
@@ -194,10 +194,13 @@ class Turn(
     
     /**
      * Convert model name string to ChatModel enum.
-     * Falls back to GPT_4O if model name is not recognized.
+     * Falls back to GPT_5_2 if model name is not recognized.
      */
     private fun modelNameToChatModel(modelName: String): ChatModel {
         return when (modelName.lowercase()) {
+            "gpt-5.2" -> ChatModel.GPT_5_2
+            "gpt-5.2-pro" -> ChatModel.GPT_5_2_PRO
+            "gpt-5.2-chat-latest" -> ChatModel.GPT_5_2_CHAT_LATEST
             "gpt-4o" -> ChatModel.GPT_4O
             "gpt-4o-mini" -> ChatModel.GPT_4O_MINI
             "gpt-4-turbo" -> ChatModel.GPT_4_TURBO
@@ -207,8 +210,8 @@ class Turn(
             "o1-mini" -> ChatModel.O1_MINI
             "o1-preview" -> ChatModel.O1_PREVIEW
             else -> {
-                Log.w(TAG, "Unknown model name '$modelName', falling back to GPT_4O")
-                ChatModel.GPT_4O
+                Log.w(TAG, "Unknown model name '$modelName', falling back to GPT_5_2")
+                ChatModel.GPT_5_2
             }
         }
     }

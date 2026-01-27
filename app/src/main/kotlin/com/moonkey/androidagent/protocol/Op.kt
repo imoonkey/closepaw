@@ -112,7 +112,7 @@ data class SessionConfig(
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     
     /** LLM model to use (for cloud backends) */
-    val model: String = "gpt-4o",
+    val model: String = "gpt-5.2",
     
     /** LLM backend type (cloud or local) */
     val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
@@ -121,7 +121,16 @@ data class SessionConfig(
     val localLLMConfig: LocalLLMConfig? = null,
     
     /** Enable verbose debug logging */
-    val debugMode: Boolean = false
+    val debugMode: Boolean = false,
+
+    /** Enable screenshot input for multimodal prompts */
+    val enableScreenshotInput: Boolean = false,
+
+    /** Maximum screenshot dimension (long edge) */
+    val screenshotMaxDimension: Int = 1024,
+
+    /** JPEG quality for screenshot upload (0-100) */
+    val screenshotJpegQuality: Int = 70
 )
 
 /**

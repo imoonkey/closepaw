@@ -72,6 +72,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   ├── chat/
 │   │   ├── ChatScreen.kt            # Main screen with drawer integration
 │   │   ├── ChatViewModel.kt         # State management
+│   │   ├── ChatSessionHistoryController.kt # Session history orchestration
 │   │   ├── components/
 │   │   │   ├── ChatHeader.kt        # Header: [≡] Title [+]
 │   │   │   ├── TaskBanner.kt        # Task context strip
@@ -89,6 +90,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │
 │   ├── overlay/
 │   │   ├── SmartCapsuleManager.kt   # Floating overlay with streaming
+│   │   ├── SmartCapsuleLayoutBuilder.kt # Capsule view construction
 │   │   ├── EdgeGlowManager.kt       # Edge glow effect during execution
 │   │   ├── EdgeGlowView.kt          # Custom glow rendering view
 │   │   ├── model/
@@ -130,6 +132,8 @@ app/src/main/kotlin/com/moonkey/androidagent/
 
 | Component | File | Purpose |
 |-----------|------|---------|
+| **SmartCapsuleManager** | `ui/overlay/SmartCapsuleManager.kt` | Overlay behavior + updates |
+| **SmartCapsuleLayoutBuilder** | `ui/overlay/SmartCapsuleLayoutBuilder.kt` | Capsule view construction |
 | **EdgeGlowManager** | `ui/overlay/EdgeGlowManager.kt` | Manages edge glow lifecycle |
 | **EdgeGlowView** | `ui/overlay/EdgeGlowView.kt` | Custom glow rendering |
 | **GlowState** | `ui/overlay/model/GlowState.kt` | State enum with colors |
@@ -256,12 +260,20 @@ fun SettingsSheet(
     onApiKeyChange: (String) -> Unit,
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit,
+    screenshotInputEnabled: Boolean,
+    onScreenshotInputChange: (Boolean) -> Unit,
     debugMode: Boolean,
     onDebugModeChange: (Boolean) -> Unit,
+    isAccessibilityEnabled: Boolean,
+    isOverlayEnabled: Boolean,
+    onAccessibilityClick: () -> Unit,
+    onOverlayClick: () -> Unit,
     onDismiss: () -> Unit
     // Notes:
     // - API key is shown only for cloud backend
     // - Local model shows download/loading status
+    // - Screenshot input is toggled in the Perception section
+    // - Permission rows show current accessibility/overlay status
 )
 ```
 
@@ -305,42 +317,22 @@ class ChatViewModel(
     private val session: AgentSession,
     private val sessionHistoryManager: SessionHistoryManager?
 ) : ViewModel() {
-    
-    // Session list state
-    private val _sessions = mutableStateOf<List<SessionInfo>>(emptyList())
-    val sessions: List<SessionInfo> by _sessions
-    
-    // Load sessions for display
-    fun loadSessions() {
-        viewModelScope.launch {
-            _sessions.value = sessionHistoryManager?.listSessions() ?: emptyList()
-        }
-    }
-    
-    // Resume a selected session
-    fun resumeSession(sessionInfo: SessionInfo) {
-        viewModelScope.launch {
-            sessionHistoryManager?.loadSession(sessionInfo.id)?.onSuccess { data ->
-                sessionHistoryManager.resumeSession(data)
-                // Restore messages to UI
-                restoreMessages(data.session.messages)
-            }
-        }
-    }
-    
-    // Delete a session
-    fun deleteSession(sessionInfo: SessionInfo) {
-        viewModelScope.launch {
-            sessionHistoryManager?.deleteSession(sessionInfo.id)
-            loadSessions() // Refresh list
-        }
-    }
-    
-    // Start fresh session
-    fun startNewSession() {
-        clearMessages()
-        sessionHistoryManager?.startNewSession(model = currentModel)
-    }
+    private val sessionHistoryController = ChatSessionHistoryController(
+        scope = viewModelScope,
+        sessionHistoryManager = sessionHistoryManager,
+        messages = _messages,
+        streamingBuffer = streamingBuffer,
+        setCurrentAgentMessageId = { currentAgentMessageId = it },
+        uiState = _uiState,
+        taskBannerState = _taskBannerState
+    )
+
+    val sessions: StateFlow<List<SessionInfo>> = sessionHistoryController.sessions
+
+    fun loadSessions() = sessionHistoryController.loadSessions()
+    fun resumeSession(sessionInfo: SessionInfo) = sessionHistoryController.resumeSession(sessionInfo)
+    fun deleteSession(sessionInfo: SessionInfo) = sessionHistoryController.deleteSession(sessionInfo)
+    fun startNewSession() = sessionHistoryController.startNewSession()
 }
 ```
 
@@ -350,7 +342,8 @@ class ChatViewModel(
 
 ### Smart Capsule
 
-The `SmartCapsuleManager` is called from `AgentService`:
+The `SmartCapsuleManager` is called from `AgentService` and delegates view construction to
+`SmartCapsuleLayoutBuilder`:
 
 ```kotlin
 // In AgentService

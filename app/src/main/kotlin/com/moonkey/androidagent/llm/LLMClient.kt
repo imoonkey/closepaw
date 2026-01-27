@@ -45,7 +45,7 @@ abstract class LLMClient {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel = ChatModel.GPT_4O
+        model: ChatModel = ChatModel.GPT_5_2
     ): ResponsesResult
     
     /**
@@ -64,7 +64,7 @@ abstract class LLMClient {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel = ChatModel.GPT_4O
+        model: ChatModel = ChatModel.GPT_5_2
     ): Flow<LLMStreamEvent>
     
     /**

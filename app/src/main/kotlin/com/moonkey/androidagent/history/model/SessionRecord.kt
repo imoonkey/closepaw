@@ -37,7 +37,7 @@ data class SessionMetadata(
     /** App version that created this session */
     val appVersion: String? = null,
     
-    /** Model used (e.g., "gpt-4o") */
+    /** Model used (e.g., "gpt-5.2") */
     val model: String? = null,
     
     /** Total number of turns */

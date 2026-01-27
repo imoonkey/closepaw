@@ -356,22 +356,40 @@ Modal bottom sheet for configuration:
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSheet(
-    onDismiss: () -> Unit,
-    currentModel: String,
+    llmBackend: LLMBackendType,
+    onBackendChange: (LLMBackendType) -> Unit,
+    selectedModel: String,
     onModelChange: (String) -> Unit,
+    selectedLocalModel: String,
+    onLocalModelChange: (LocalModelOption) -> Unit,
+    modelLoadingStatus: ModelLoadingStatus,
+    apiKey: String,
+    onApiKeyChange: (String) -> Unit,
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit,
-    onClearConversation: () -> Unit
+    screenshotInputEnabled: Boolean,
+    onScreenshotInputChange: (Boolean) -> Unit,
+    debugMode: Boolean,
+    onDebugModeChange: (Boolean) -> Unit,
+    isAccessibilityEnabled: Boolean,
+    isOverlayEnabled: Boolean,
+    onAccessibilityClick: () -> Unit,
+    onOverlayClick: () -> Unit,
+    onDismiss: () -> Unit
 )
 ```
 
 **Settings Items:**
-- Model selection (GPT-4o, GPT-4o-mini, GPT-4-turbo)
+- LLM backend (Cloud/OpenAI vs Local)
+- Cloud model selection (GPT-5.2, GPT-5.2 Pro)
+- Local model selection (LFM 1.2B Instruct, LFM 350M) with download status
+- Screenshot input toggle (compressed screenshots)
+- API key (cloud only)
 - Max turns (10, 20, 50)
 - Accessibility service status
 - Overlay permission status
-- Clear conversation
-- About & Debug
+- Debug mode toggle
+- About & version info
 
 ---
 
@@ -426,7 +444,7 @@ fun NavigationDrawerContent(
 │  ...                            │
 ├─────────────────────────────────┤
 │  ⚙ Settings                     │
-│    gpt-4o • v1.0                │
+│    gpt-5.2 • v1.0               │
 └─────────────────────────────────┘
 ```
 
@@ -583,6 +601,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │
 │   ├── overlay/
 │   │   ├── SmartCapsuleManager.kt   # Floating overlay with streaming
+│   │   ├── SmartCapsuleLayoutBuilder.kt # Capsule view construction
 │   │   ├── EdgeGlowManager.kt       # Edge glow effect during execution
 │   │   ├── EdgeGlowView.kt          # Custom glow rendering view
 │   │   ├── model/
@@ -596,7 +615,10 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │   └── TimeUtils.kt             # Relative time formatting
 │   │
 │   ├── settings/
-│   │   └── SettingsSheet.kt         # Configuration bottom sheet
+│   │   ├── SettingsSheet.kt         # Configuration bottom sheet
+│   │   ├── SettingsModels.kt        # Settings data + defaults
+│   │   ├── SettingsDropdowns.kt     # Model/backend dropdowns
+│   │   └── SettingsWidgets.kt       # Shared settings UI widgets
 │   │
 └── util/
     └── StatusUtils.kt               # Status processing utilities
@@ -817,6 +839,8 @@ class ActionVisualizerManager(context: AccessibilityService) {
 
 | Component | File | Purpose |
 |-----------|------|---------|
+| **SmartCapsuleManager** | `ui/overlay/SmartCapsuleManager.kt` | Floating capsule behavior + updates |
+| **SmartCapsuleLayoutBuilder** | `ui/overlay/SmartCapsuleLayoutBuilder.kt` | Capsule view construction |
 | **EdgeGlowManager** | `ui/overlay/EdgeGlowManager.kt` | Manages edge glow lifecycle |
 | **EdgeGlowView** | `ui/overlay/EdgeGlowView.kt` | Custom glow rendering |
 | **GlowState** | `ui/overlay/model/GlowState.kt` | State enum with colors |

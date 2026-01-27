@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * High-level session management API.
@@ -49,7 +50,7 @@ class SessionHistoryManager(
         val info: SessionInfo
     )
 
-    private val sessionInfoCache = mutableMapOf<String, CachedSessionInfo>()
+    private val sessionInfoCache = ConcurrentHashMap<String, CachedSessionInfo>()
     private val cacheMutex = Mutex()
     
     /**
@@ -136,7 +137,7 @@ class SessionHistoryManager(
         if (files.isEmpty()) return null
         
         // Files are already sorted by modification time (newest first)
-        return extractSessionInfo(files.first().name)
+        return getSessionInfoCached(files.first())
     }
     
     /**
@@ -215,21 +216,46 @@ class SessionHistoryManager(
             messageCount = record.messages.size,
             displayTitle = displayTitle,
             firstUserMessage = firstUserMessage,
-            isActive = false
+            isActive = record.sessionId == getCurrentSessionId()
         )
     }
 
     private suspend fun getSessionInfoCached(file: File): SessionInfo? {
-        val cached = cacheMutex.withLock { sessionInfoCache[file.name] }
-        val info = if (cached != null && cached.lastModified == file.lastModified()) {
-            cached.info
-        } else {
-            val fresh = extractSessionInfo(file.name) ?: return null
-            cacheMutex.withLock {
-                sessionInfoCache[file.name] = CachedSessionInfo(file.lastModified(), fresh)
+        val fileName = file.name
+        val initialLastModified = file.lastModified()
+
+        val cached = cacheMutex.withLock { sessionInfoCache[fileName] }
+        val baseInfo: SessionInfo? =
+            if (cached != null && cached.lastModified == initialLastModified) {
+                cached.info
+            } else {
+                try {
+                    val fresh = extractSessionInfo(fileName) ?: run {
+                        cacheMutex.withLock { sessionInfoCache.remove(fileName) }
+                        return null
+                    }
+
+                    val currentLastModified = file.lastModified()
+                    if (currentLastModified != initialLastModified) {
+                        Log.w(
+                            TAG,
+                            "Session file $fileName modified during read; returning uncached info"
+                        )
+                        fresh
+                    } else {
+                        cacheMutex.withLock {
+                            sessionInfoCache[fileName] = CachedSessionInfo(currentLastModified, fresh)
+                        }
+                        fresh
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to extract session info for $fileName", e)
+                    cacheMutex.withLock { sessionInfoCache.remove(fileName) }
+                    return null
+                }
             }
-            fresh
-        }
-        return info.copy(isActive = info.id == getCurrentSessionId())
+
+        val currentSessionId = getCurrentSessionId()
+        return baseInfo?.copy(isActive = baseInfo.id == currentSessionId)
     }
 }

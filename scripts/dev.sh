@@ -35,6 +35,18 @@ ok() { echo -e "${GREEN}✓ $1${NC}"; }
 warn() { echo -e "${YELLOW}! $1${NC}"; }
 err() { echo -e "${RED}x $1${NC}"; }
 
+escape_shell_arg() {
+    printf "%s" "$1" | sed "s/'/'\\\\''/g"
+}
+
+normalize_bool() {
+    case "$1" in
+        true|TRUE|True|1|yes|YES|Yes|y|Y) echo "true" ;;
+        false|FALSE|False|0|no|NO|No|n|N|"") echo "false" ;;
+        *) echo "false" ;;
+    esac
+}
+
 # Check device connection
 check_device() {
     if ! adb get-state >/dev/null 2>&1; then
@@ -113,6 +125,17 @@ cmd_run() {
     if [[ "$use_local" == "true" ]]; then
         LLM_BACKEND="local"
     fi
+
+    # Default screenshot input on for OpenAI runs unless explicitly set
+    if [[ -z "${SCREENSHOT_INPUT+x}" ]]; then
+        if [[ "$LLM_BACKEND" == "openai" ]]; then
+            SCREENSHOT_INPUT=true
+        else
+            SCREENSHOT_INPUT=false
+        fi
+    fi
+
+    SCREENSHOT_INPUT=$(normalize_bool "$SCREENSHOT_INPUT")
     
     check_api_key
     
@@ -127,9 +150,16 @@ cmd_run() {
     sleep 0.5
     
     # Build intent extras based on backend
-    local intent_extras="--es goal '$goal' --es llm_backend '$LLM_BACKEND' --ez auto_start true --ez fresh_session true"
+    local safe_goal
+    safe_goal=$(escape_shell_arg "$goal")
+    local safe_backend
+    safe_backend=$(escape_shell_arg "$LLM_BACKEND")
+    local safe_api_key
+    safe_api_key=$(escape_shell_arg "${OPENAI_API_KEY:-}")
+
+    local intent_extras="--es goal '$safe_goal' --es llm_backend '$safe_backend' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT"
     if [[ "$LLM_BACKEND" == "openai" ]]; then
-        intent_extras="--es api_key '$OPENAI_API_KEY' $intent_extras"
+        intent_extras="--es api_key '$safe_api_key' $intent_extras"
     fi
     
     # Launch app with intent extras

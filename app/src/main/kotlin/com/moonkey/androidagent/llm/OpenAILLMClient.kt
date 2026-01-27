@@ -203,6 +203,7 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
 
                 if (retryable && emittedEvent) {
                     Log.w(TAG, "Stream error after output; skipping retry: ${classified.message}")
+                    emit(LLMStreamEvent.Failed("Stream interrupted after partial output: ${classified.message}"))
                     break
                 }
 
@@ -315,5 +316,10 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
         }
 
         return builder.build()
+    }
+
+    override suspend fun cleanup() {
+        // No-op for cloud client, but kept suspend to match interface.
+        Log.d(TAG, "Cleanup requested (no-op for OpenAI client)")
     }
 }

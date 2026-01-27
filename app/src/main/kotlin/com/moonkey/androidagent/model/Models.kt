@@ -41,8 +41,48 @@ data class Point(
  */
 data class ScreenSnapshot(
         val timestamp: Long,
-        val elements: List<PerceptionElement> // For LLM and action execution
+        val elements: List<PerceptionElement>, // For LLM and action execution
+        val image: ScreenImage? = null
 )
+
+data class ScreenImage(
+        val width: Int,
+        val height: Int,
+        val mimeType: String,
+        val bytes: ByteArray,
+        val source: ScreenImageSource
+) {
+    fun toDataUrl(): String {
+        val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+        return "data:$mimeType;base64,$base64"
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ScreenImage) return false
+
+        if (width != other.width) return false
+        if (height != other.height) return false
+        if (mimeType != other.mimeType) return false
+        if (!bytes.contentEquals(other.bytes)) return false
+        if (source != other.source) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = width
+        result = 31 * result + height
+        result = 31 * result + mimeType.hashCode()
+        result = 31 * result + bytes.contentHashCode()
+        result = 31 * result + source.hashCode()
+        return result
+    }
+}
+
+enum class ScreenImageSource {
+    ACCESSIBILITY_SCREENSHOT
+}
 
 data class PerceptionElement(
         val index: Int,

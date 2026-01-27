@@ -4,17 +4,26 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.Path
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.annotation.RequiresApi
 import com.moonkey.androidagent.perception.Perceptor
+import com.moonkey.androidagent.model.ScreenImage
+import com.moonkey.androidagent.model.ScreenImageSource
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
+import java.io.ByteArrayOutputStream
 import kotlin.coroutines.resume
 
 /**
@@ -30,6 +39,7 @@ import kotlin.coroutines.resume
  */
 class AccessibilityPlatform(
     private val service: AccessibilityService,
+    private val config: SessionConfig,
     private val visualizer: ActionVisualizerManager? = null
 ) : AndroidPlatform {
     
@@ -42,11 +52,170 @@ class AccessibilityPlatform(
     }
     
     override suspend fun captureScreen(): ScreenSnapshot {
+        val root = withContext(Dispatchers.Main) { service.rootInActiveWindow }
+        val windowId = root?.windowId
+        val snapshot = Perceptor.snapshot(root)
+        val image = captureScreenshotIfEnabled(windowId)
+        Log.d(TAG, "Captured screen: ${snapshot.elements.size} elements, package: ${root?.packageName}")
+        return snapshot.copy(image = image)
+    }
+
+    private suspend fun captureScreenshotIfEnabled(windowId: Int?): ScreenImage? {
+        if (!config.enableScreenshotInput) {
+            return null
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return null
+        }
+
+        val result = takeScreenshotResult(windowId) ?: return null
+        return compressScreenshot(result)
+    }
+
+    private suspend fun takeScreenshotResult(
+        windowId: Int?
+    ): AccessibilityService.ScreenshotResult? {
+        val windowResult = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            windowId?.let { takeWindowScreenshot(it) }
+        } else {
+            null
+        }
+        return windowResult ?: takeDisplayScreenshot()
+    }
+
+    private suspend fun takeDisplayScreenshot(): AccessibilityService.ScreenshotResult? {
         return withContext(Dispatchers.Main) {
-            val root = service.rootInActiveWindow
-            val snapshot = Perceptor.snapshot(root)
-            Log.d(TAG, "Captured screen: ${snapshot.elements.size} elements, package: ${root?.packageName}")
-            snapshot
+            suspendCancellableCoroutine { continuation ->
+                service.takeScreenshot(Display.DEFAULT_DISPLAY, service.mainExecutor,
+                    object : AccessibilityService.TakeScreenshotCallback {
+                        override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
+                            if (continuation.isActive) {
+                                continuation.resume(screenshot)
+                            }
+                        }
+
+                        override fun onFailure(errorCode: Int) {
+                            Log.w(TAG, "takeScreenshot failed: ${formatScreenshotError(errorCode)}")
+                            if (continuation.isActive) {
+                                continuation.resume(null)
+                            }
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private suspend fun takeWindowScreenshot(
+        windowId: Int
+    ): AccessibilityService.ScreenshotResult? {
+        return withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine { continuation ->
+                service.takeScreenshotOfWindow(windowId, service.mainExecutor,
+                    object : AccessibilityService.TakeScreenshotCallback {
+                        override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
+                            if (continuation.isActive) {
+                                continuation.resume(screenshot)
+                            }
+                        }
+
+                        override fun onFailure(errorCode: Int) {
+                            Log.w(TAG, "takeScreenshotOfWindow failed: ${formatScreenshotError(errorCode)}")
+                            if (continuation.isActive) {
+                                continuation.resume(null)
+                            }
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    private suspend fun compressScreenshot(
+        screenshot: AccessibilityService.ScreenshotResult
+    ): ScreenImage? = withContext(Dispatchers.Default) {
+        val hardwareBuffer = screenshot.hardwareBuffer
+        try {
+            val hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshot.colorSpace)
+                ?: return@withContext null
+
+            val softwareBitmap = hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false)
+            hardwareBitmap.recycle()
+            if (softwareBitmap == null) {
+                return@withContext null
+            }
+
+            val scaledBitmap = scaleBitmapIfNeeded(softwareBitmap, config.screenshotMaxDimension)
+            val width = scaledBitmap.width
+            val height = scaledBitmap.height
+
+            val jpegBytes = compressJpeg(scaledBitmap, config.screenshotJpegQuality)
+
+            if (scaledBitmap !== softwareBitmap) {
+                softwareBitmap.recycle()
+            }
+            scaledBitmap.recycle()
+
+            jpegBytes?.let {
+                if (config.debugMode) {
+                    persistDebugScreenshot(it, width, height)
+                }
+                ScreenImage(
+                    width = width,
+                    height = height,
+                    mimeType = "image/jpeg",
+                    bytes = it,
+                    source = ScreenImageSource.ACCESSIBILITY_SCREENSHOT
+                )
+            }
+        } finally {
+            hardwareBuffer.close()
+        }
+    }
+
+    private fun scaleBitmapIfNeeded(bitmap: Bitmap, maxDimension: Int): Bitmap {
+        val safeMax = maxDimension.coerceAtLeast(1)
+        val currentMax = maxOf(bitmap.width, bitmap.height)
+        if (currentMax <= safeMax) {
+            return bitmap
+        }
+
+        val scale = safeMax.toFloat() / currentMax.toFloat()
+        val targetWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
+        val targetHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+    }
+
+    private fun compressJpeg(bitmap: Bitmap, quality: Int): ByteArray? {
+        val safeQuality = quality.coerceIn(1, 100)
+        val output = ByteArrayOutputStream()
+        val success = bitmap.compress(Bitmap.CompressFormat.JPEG, safeQuality, output)
+        return if (success) output.toByteArray() else null
+    }
+
+    private fun persistDebugScreenshot(bytes: ByteArray, width: Int, height: Int) {
+        val dir = service.getExternalFilesDir("debug-output") ?: return
+        if (!dir.exists() && !dir.mkdirs()) {
+            Log.w(TAG, "Failed to create debug-output directory")
+            return
+        }
+        val filename = "llm_screenshot_${System.currentTimeMillis()}_${width}x${height}.jpg"
+        val file = File(dir, filename)
+        try {
+            file.outputStream().use { it.write(bytes) }
+            Log.d(TAG, "Saved LLM screenshot: ${file.absolutePath}")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to save LLM screenshot: ${e.message}")
+        }
+    }
+
+    private fun formatScreenshotError(errorCode: Int): String {
+        return when (errorCode) {
+            AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT -> "interval too short"
+            AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERNAL_ERROR -> "internal error"
+            AccessibilityService.ERROR_TAKE_SCREENSHOT_SECURE_WINDOW -> "secure window"
+            else -> "error code $errorCode"
         }
     }
     

@@ -1,7 +1,7 @@
 # UI User Interaction
 
 > This document describes the UI pages, components, user behaviors, and interaction flows.
-> Last updated: 2026-01-26
+> Last updated: 2026-01-27
 
 ## Table of Contents
 
@@ -87,13 +87,15 @@ Modal bottom sheet for configuration. Features a header with title and close but
 
 **Settings Items:**
 - LLM backend (Cloud/OpenAI vs Local)
-- Cloud model selection (GPT-4o, GPT-4o-mini, GPT-4-turbo)
-- Local model selection (LFM 1.2B, LFM 350M) with download status
+- Cloud model selection (GPT-5.2, GPT-5.2 Pro)
+- Local model selection (LFM 1.2B Instruct, LFM 350M) with download status
+- Screenshot input toggle (compressed screenshots)
 - API key (cloud only)
 - Max turns (10, 20, 50)
 - Accessibility service status
 - Overlay permission status
-- About & Debug
+- Debug mode toggle
+- About & version info
 
 **Layout Features:**
 - Custom header with "Settings" title and close (X) button
@@ -138,7 +140,7 @@ Side drawer containing session history and settings access. Opens via the menu b
 │  ...                            │
 ├─────────────────────────────────┤
 │  ⚙ Settings                     │
-│    gpt-4o • v1.0                │
+│    gpt-5.2 • v1.0               │
 └─────────────────────────────────┘
 ```
 

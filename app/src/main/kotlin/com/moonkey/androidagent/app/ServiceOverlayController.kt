@@ -58,11 +58,13 @@ class ServiceOverlayController(
     fun handleWindowStateChanged(packageName: String?, className: String?) {
         Log.d(logTag, "TYPE_WINDOW_STATE_CHANGED: pkg=$packageName, class=$className, lastKnown=$lastKnownForegroundPackage")
 
-        val isActivityWindow = className != null &&
-            (className.endsWith("Activity") ||
-                className.contains("Launcher") ||
-                className.contains(".app.") ||
-                className.contains("Home"))
+        val normalizedClassName = className?.substringBefore('$')
+        val isActivityWindow = normalizedClassName != null &&
+            (normalizedClassName.endsWith("Activity") ||
+                normalizedClassName.contains("Activity") ||
+                normalizedClassName.contains("Launcher") ||
+                normalizedClassName.contains(".app.") ||
+                normalizedClassName.contains("Home"))
 
         if (!isActivityWindow) {
             Log.d(logTag, "Ignoring non-activity window: $className")
