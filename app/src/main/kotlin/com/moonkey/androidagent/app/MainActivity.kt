@@ -190,41 +190,30 @@ class MainActivity : ComponentActivity() {
     }
     
     private fun handleIntent(intent: Intent) {
-        intent.getStringExtra(EXTRA_API_KEY)?.let { key ->
-            if (key.isNotBlank()) {
-                settingsState.updateApiKey(key)
-                Log.d(TAG, "API key set from intent")
-            }
-        }
-        
-        // Handle LLM backend selection from intent
-        intent.getStringExtra(EXTRA_LLM_BACKEND)?.let { backend ->
-            val backendType = when (backend.lowercase()) {
-                "local" -> LLMBackendType.LOCAL
-                "openai" -> LLMBackendType.OPENAI
-                else -> null
-            }
-            backendType?.let {
-                settingsState.updateBackend(it)
-                Log.d(TAG, "LLM backend set from intent: $it")
-            }
-        }
-        
-        val goalText = intent.getStringExtra(EXTRA_GOAL)?.takeIf { it.isNotBlank() }
-        val freshSession = intent.getBooleanExtra(EXTRA_FRESH_SESSION, false)
+        val payload = MainActivityIntentPayload.from(intent)
 
-        if (freshSession) {
+        payload.apiKey?.let { key ->
+            settingsState.updateApiKey(key)
+            Log.d(TAG, "API key set from intent")
+        }
+
+        payload.backendType?.let {
+            settingsState.updateBackend(it)
+            Log.d(TAG, "LLM backend set from intent: $it")
+        }
+
+        if (payload.freshSession) {
             Log.d(TAG, "Fresh session requested, clearing existing state")
             lifecycleScope.launch {
                 clearCurrentSession()
-                goalText?.let {
+                payload.goalText?.let {
                     Log.d(TAG, "Goal set from intent: $it")
                     kotlinx.coroutines.delay(500)
                     ensureSessionAndSend(it)
                 }
             }
         } else {
-            goalText?.let {
+            payload.goalText?.let {
                 Log.d(TAG, "Goal set from intent: $it")
                 // Auto-send the goal as first message
                 window.decorView.postDelayed({
@@ -234,7 +223,7 @@ class MainActivity : ComponentActivity() {
         }
         
         // Auto-start if requested
-        if (intent.getBooleanExtra(EXTRA_AUTO_START, false)) {
+        if (payload.autoStart) {
             Log.d(TAG, "Auto-start requested")
         }
     }

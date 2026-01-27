@@ -36,6 +36,7 @@
     - [Done] overlay management + foreground tracking moved to `ServiceOverlayController`.
   - Split activity logic: settings persistence, intent handling, session wiring.
     - [Done] settings persistence moved into `AppSettingsState`.
+    - [Done] intent parsing moved into `MainActivityIntentPayload`.
   - Split view model logic: event ingestion vs UI state reducers.
     - [Done] event routing grouped into `ChatViewModel.EventReducer`.
 - [Done] Consolidate local LLM config types: `LocalLLMSessionConfig` vs `LocalLLMConfig` duplication leads to drift; unify or enforce a single mapping layer.
