@@ -136,10 +136,16 @@ com.moonkey.androidagent/
 ├── agent/                        # Core agent logic
 │   ├── Agent.kt                  # ReAct loop executor
 │   ├── AgentConfig.kt            # Agent configuration
-│   └── Turn.kt                   # Single LLM turn (OpenAI Responses API)
+│   ├── AgentEventDispatcher.kt   # AgentEvent emission helpers
+│   ├── AgentObservation.kt       # Observation types + conversions
+│   ├── AgentPromptBuilder.kt     # System prompt + context builder
+│   ├── ActionDescriptionFormatter.kt # Tool action descriptions
+│   ├── Turn.kt                   # Single LLM turn (OpenAI Responses API)
+│   └── TurnInputBuilder.kt       # ResponseInputItem assembly
 │
 ├── session/                      # Session management
 │   ├── AgentSession.kt           # Lifecycle manager
+│   ├── SessionAgentRunner.kt     # Agent lifecycle runner
 │   └── SessionServices.kt        # Dependency injection
 │
 ├── tool/                         # Consolidated tool system
@@ -176,6 +182,7 @@ com.moonkey.androidagent/
 ├── platform/                     # Android platform abstraction
 │   ├── AndroidPlatform.kt        # Interface
 │   ├── AccessibilityPlatform.kt  # Implementation
+│   ├── AccessibilityNodeFinder.kt # Node search helpers
 │   ├── UIAction.kt               # Action types
 │   └── ActionResult.kt           # Result types
 │
@@ -192,6 +199,7 @@ com.moonkey.androidagent/
 │   ├── HistoryManager.kt         # Token management, truncation
 │   ├── SessionHistoryManager.kt  # High-level session management API
 │   ├── SessionRecordingService.kt # Real-time event → persistence bridge
+│   ├── AgentMessageBuffer.kt     # Streaming agent message buffer
 │   ├── model/
 │   │   ├── SessionRecord.kt      # Complete session data (persisted)
 │   │   ├── MessageRecord.kt      # Message types (User/Agent)
@@ -212,11 +220,13 @@ com.moonkey.androidagent/
 │   ├── chat/                     # Chat-based UI (Phase 5)
 │   │   ├── ChatScreen.kt         # Main screen composable
 │   │   ├── ChatViewModel.kt      # State management
+│   │   ├── ChatSessionHistoryController.kt # Session history orchestration
 │   │   ├── components/           # ChatHeader, TaskBanner, MessageBubble, etc.
 │   │   └── model/
 │   │       └── ChatMessage.kt    # UI data classes
 │   ├── overlay/
 │   │   ├── SmartCapsuleManager.kt  # Streaming overlay (enhanced)
+│   │   ├── SmartCapsuleLayoutBuilder.kt # Capsule view construction
 │   │   ├── EdgeGlowManager.kt      # Edge glow effect during execution
 │   │   ├── EdgeGlowView.kt         # Custom glow rendering view
 │   │   ├── model/
@@ -247,6 +257,12 @@ The brain of the system. Executes the ReAct loop until goal achieved or stopped.
 - Emit events for UI updates
 - Handle pause/resume/stop lifecycle
 
+**Supporting helpers:**
+- `AgentPromptBuilder` builds system prompt + user context
+- `ActionDescriptionFormatter` formats tool action descriptions
+- `AgentEventDispatcher` emits `AgentEvent` with timestamps
+- `AgentObservation` converts tool observations into agent observations
+
 **Key Methods:**
 - `run()` - Main loop, returns `AgentStopReason`
 - `executeTurn()` - Single turn execution
@@ -257,7 +273,7 @@ The brain of the system. Executes the ReAct loop until goal achieved or stopped.
 Encapsulates a single LLM call using the OpenAI Responses API with native tool calling and **streaming support**.
 
 **Responsibilities:**
-- Build input items from history + current context
+- Build input items from history + current context (via `TurnInputBuilder`)
 - Generate tool schemas dynamically via `ToolRegistry.generateResponsesApiTools()`
 - **Stream** text and tool calls via `runStreaming()` method
 - Process structured tool calls (using `call_id` for linkage) and text outputs
@@ -297,7 +313,7 @@ Thin lifecycle manager. Does NOT contain agent logic.
 - Emit Events (AgentEvent) to UI
 - Manage session state transitions (including `Idle` for multi-round)
 - Manage Task lifecycle via `handleUserInput()`
-- Create and start Agent
+- Delegate agent lifecycle to `SessionAgentRunner`
 
 **Key Methods:**
 - `submit(op: Op)` - Submit an operation
@@ -342,7 +358,7 @@ fun chatWithToolsStreaming(
     systemPrompt: String,
     inputItems: List<ResponseInputItem>,
     tools: List<FunctionTool>,
-    model: ChatModel = ChatModel.GPT_4O
+    model: ChatModel = ChatModel.GPT_5_2
 ): Flow<LLMStreamEvent>
 ```
 
@@ -514,7 +530,7 @@ Real-time bridge between `AgentEvent` stream and persisted `SessionRecord`.
 
 **Responsibilities:**
 - Record user messages and agent responses in real-time
-- Build agent messages incrementally (text deltas + actions)
+- Build agent messages incrementally (text deltas + actions) using `AgentMessageBuffer`
 - Debounce writes to avoid excessive I/O (500ms delay)
 - Handle session resume and completion
 
@@ -628,7 +644,7 @@ data class SessionRecord(
 @Serializable
 data class SessionMetadata(
     val appVersion: String? = null,
-    val model: String? = null,       // e.g., "gpt-4o"
+    val model: String? = null,       // e.g., "gpt-5.2"
     val turnCount: Int = 0,
     val completedNormally: Boolean = false
 )
@@ -736,7 +752,7 @@ val sessionHistoryManager = SessionHistoryManager.create(storage, lifecycleScope
 
 // Start a new session
 val sessionId = sessionHistoryManager.startNewSession(
-    model = "gpt-4o",
+    model = "gpt-5.2",
     appVersion = BuildConfig.VERSION_NAME
 )
 
@@ -1016,7 +1032,7 @@ val config = SessionConfig(
     maxTurns = 50,           // Max iterations before auto-stop
     actionDelayMs = 2000,    // Delay after actions for UI settle
     approvalMode = ApprovalMode.SMART,  // ALWAYS_ASK, AUTO_APPROVE, or SMART
-    model = "gpt-4o",        // LLM model (cloud only)
+    model = "gpt-5.2",       // LLM model (cloud only)
     llmBackend = LLMBackendType.OPENAI, // OPENAI or LOCAL
     localLLMConfig = null,   // Set when llmBackend == LOCAL
     debugMode = false        // Verbose logging

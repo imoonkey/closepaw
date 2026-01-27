@@ -1,7 +1,7 @@
 # UI User Interaction
 
 > This document describes the UI pages, components, user behaviors, and interaction flows.
-> Last updated: 2026-01-26
+> Last updated: 2026-01-27
 
 ## Table of Contents
 
@@ -138,7 +138,7 @@ Side drawer containing session history and settings access. Opens via the menu b
 │  ...                            │
 ├─────────────────────────────────┤
 │  ⚙ Settings                     │
-│    gpt-4o • v1.0                │
+│    gpt-5.2 • v1.0               │
 └─────────────────────────────────┘
 ```
 
