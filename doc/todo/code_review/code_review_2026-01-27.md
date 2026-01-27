@@ -41,6 +41,7 @@
     - [Done] intent parsing moved into `MainActivityIntentPayload`.
   - Split view model logic: event ingestion vs UI state reducers.
     - [Done] event routing grouped into `ChatViewModel.EventReducer`.
+    - [Done] session history handling moved to `ChatSessionHistoryController`.
   - [Done] Turn input assembly moved to `TurnInputBuilder`.
 - [Done] `SmartCapsuleManager` UI construction moved to `SmartCapsuleLayoutBuilder`.
 - [Done] `SessionRecordingService` message buffering moved to `AgentMessageBuffer`.

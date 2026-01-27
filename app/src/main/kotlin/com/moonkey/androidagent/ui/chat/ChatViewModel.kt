@@ -4,7 +4,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moonkey.androidagent.history.SessionHistoryManager
-import com.moonkey.androidagent.history.model.MessageConverter
 import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.Op
@@ -57,10 +56,6 @@ class ChatViewModel(
     private val _taskBannerState = MutableStateFlow<TaskBannerState>(TaskBannerState.Idle)
     val taskBannerState: StateFlow<TaskBannerState> = _taskBannerState.asStateFlow()
     
-    // Session list state (for session history UI)
-    private val _sessions = MutableStateFlow<List<SessionInfo>>(emptyList())
-    val sessions: StateFlow<List<SessionInfo>> = _sessions.asStateFlow()
-    
     // Streaming accumulator
     private val streamingBuffer = StringBuilder()
     private var currentAgentMessageId: String? = null
@@ -69,6 +64,16 @@ class ChatViewModel(
     private var eventCollectionJob: kotlinx.coroutines.Job? = null
 
     private val eventReducer = EventReducer()
+    private val sessionHistoryController = ChatSessionHistoryController(
+        scope = viewModelScope,
+        sessionHistoryManager = sessionHistoryManager,
+        messages = _messages,
+        streamingBuffer = streamingBuffer,
+        setCurrentAgentMessageId = { currentAgentMessageId = it },
+        uiState = _uiState,
+        taskBannerState = _taskBannerState
+    )
+    val sessions: StateFlow<List<SessionInfo>> = sessionHistoryController.sessions
     
     /**
      * Start collecting events from a session.
@@ -365,11 +370,7 @@ class ChatViewModel(
      * Clear conversation history.
      */
     fun clearConversation() {
-        _messages.clear()
-        streamingBuffer.clear()
-        currentAgentMessageId = null
-        _uiState.update { it.copy(showEmptyState = true) }
-        _taskBannerState.value = TaskBannerState.Idle
+        sessionHistoryController.clearConversation()
     }
     
     // ===== Session History Methods =====
@@ -378,11 +379,7 @@ class ChatViewModel(
      * Load the list of saved sessions.
      */
     fun loadSessions() {
-        val manager = sessionHistoryManager ?: return
-        viewModelScope.launch {
-            _sessions.value = manager.listSessions()
-            android.util.Log.d(TAG, "Loaded ${_sessions.value.size} sessions")
-        }
+        sessionHistoryController.loadSessions()
     }
     
     /**
@@ -394,35 +391,7 @@ class ChatViewModel(
      * @param onResumed Callback when session is ready (for UI to reconnect event collection)
      */
     fun resumeSession(sessionInfo: SessionInfo, onResumed: (() -> Unit)? = null) {
-        val manager = sessionHistoryManager ?: return
-        viewModelScope.launch {
-            manager.loadSession(sessionInfo.id)
-                .onSuccess { data ->
-                    // Clear current messages
-                    _messages.clear()
-                    streamingBuffer.clear()
-                    currentAgentMessageId = null
-                    
-                    // Restore messages from record
-                    val restoredMessages = MessageConverter.fromRecords(data.session.messages)
-                    _messages.addAll(restoredMessages)
-                    
-                    // Update UI state
-                    _uiState.update { it.copy(showEmptyState = _messages.isEmpty()) }
-                    _taskBannerState.value = TaskBannerState.Idle
-                    
-                    // Resume the session in recording service
-                    manager.resumeSession(data)
-                    
-                    android.util.Log.i(TAG, "Resumed session ${sessionInfo.id} with ${restoredMessages.size} messages")
-                    
-                    // Notify caller
-                    onResumed?.invoke()
-                }
-                .onFailure { error ->
-                    android.util.Log.e(TAG, "Failed to resume session", error)
-                }
-        }
+        sessionHistoryController.resumeSession(sessionInfo, onResumed)
     }
     
     /**
@@ -432,9 +401,7 @@ class ChatViewModel(
      * @param appVersion The app version
      */
     fun startNewSession(model: String? = null, appVersion: String? = null) {
-        clearConversation()
-        sessionHistoryManager?.startNewSession(model, appVersion)
-        android.util.Log.d(TAG, "Started new session")
+        sessionHistoryController.startNewSession(model, appVersion)
     }
     
     /**
@@ -443,23 +410,13 @@ class ChatViewModel(
      * @param sessionInfo The session to delete
      */
     fun deleteSession(sessionInfo: SessionInfo) {
-        val manager = sessionHistoryManager ?: return
-        viewModelScope.launch {
-            manager.deleteSession(sessionInfo.id)
-                .onSuccess {
-                    android.util.Log.d(TAG, "Deleted session ${sessionInfo.id}")
-                    loadSessions() // Refresh list
-                }
-                .onFailure { error ->
-                    android.util.Log.e(TAG, "Failed to delete session", error)
-                }
-        }
+        sessionHistoryController.deleteSession(sessionInfo)
     }
     
     /**
      * Check if session history is available.
      */
-    fun hasSessionHistory(): Boolean = sessionHistoryManager != null
+    fun hasSessionHistory(): Boolean = sessionHistoryController.hasSessionHistory()
     
     override fun onCleared() {
         super.onCleared()
