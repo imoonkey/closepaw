@@ -4,17 +4,24 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.Path
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import com.moonkey.androidagent.perception.Perceptor
+import com.moonkey.androidagent.model.ScreenImage
+import com.moonkey.androidagent.model.ScreenImageSource
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.ByteArrayOutputStream
 import kotlin.coroutines.resume
 
 /**
@@ -30,6 +37,7 @@ import kotlin.coroutines.resume
  */
 class AccessibilityPlatform(
     private val service: AccessibilityService,
+    private val config: SessionConfig,
     private val visualizer: ActionVisualizerManager? = null
 ) : AndroidPlatform {
     
@@ -42,11 +50,113 @@ class AccessibilityPlatform(
     }
     
     override suspend fun captureScreen(): ScreenSnapshot {
+        val root = withContext(Dispatchers.Main) { service.rootInActiveWindow }
+        val snapshot = Perceptor.snapshot(root)
+        val image = captureScreenshotIfEnabled()
+        Log.d(TAG, "Captured screen: ${snapshot.elements.size} elements, package: ${root?.packageName}")
+        return snapshot.copy(image = image)
+    }
+
+    private suspend fun captureScreenshotIfEnabled(): ScreenImage? {
+        if (!config.enableScreenshotInput) {
+            return null
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return null
+        }
+
+        val result = takeScreenshotResult() ?: return null
+        return compressScreenshot(result)
+    }
+
+    private suspend fun takeScreenshotResult(): AccessibilityService.ScreenshotResult? {
         return withContext(Dispatchers.Main) {
-            val root = service.rootInActiveWindow
-            val snapshot = Perceptor.snapshot(root)
-            Log.d(TAG, "Captured screen: ${snapshot.elements.size} elements, package: ${root?.packageName}")
-            snapshot
+            suspendCancellableCoroutine { continuation ->
+                service.takeScreenshot(Display.DEFAULT_DISPLAY, service.mainExecutor,
+                    object : AccessibilityService.TakeScreenshotCallback {
+                        override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
+                            if (continuation.isActive) {
+                                continuation.resume(screenshot)
+                            }
+                        }
+
+                        override fun onFailure(errorCode: Int) {
+                            Log.w(TAG, "takeScreenshot failed: ${formatScreenshotError(errorCode)}")
+                            if (continuation.isActive) {
+                                continuation.resume(null)
+                            }
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    private suspend fun compressScreenshot(
+        screenshot: AccessibilityService.ScreenshotResult
+    ): ScreenImage? = withContext(Dispatchers.Default) {
+        val hardwareBuffer = screenshot.hardwareBuffer
+        try {
+            val hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshot.colorSpace)
+                ?: return@withContext null
+
+            val softwareBitmap = hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false)
+            hardwareBitmap.recycle()
+            if (softwareBitmap == null) {
+                return@withContext null
+            }
+
+            val scaledBitmap = scaleBitmapIfNeeded(softwareBitmap, config.screenshotMaxDimension)
+            val width = scaledBitmap.width
+            val height = scaledBitmap.height
+
+            val jpegBytes = compressJpeg(scaledBitmap, config.screenshotJpegQuality)
+
+            if (scaledBitmap !== softwareBitmap) {
+                softwareBitmap.recycle()
+            }
+            scaledBitmap.recycle()
+
+            jpegBytes?.let {
+                ScreenImage(
+                    width = width,
+                    height = height,
+                    mimeType = "image/jpeg",
+                    bytes = it,
+                    source = ScreenImageSource.ACCESSIBILITY_SCREENSHOT
+                )
+            }
+        } finally {
+            hardwareBuffer.close()
+        }
+    }
+
+    private fun scaleBitmapIfNeeded(bitmap: Bitmap, maxDimension: Int): Bitmap {
+        val safeMax = maxDimension.coerceAtLeast(1)
+        val currentMax = maxOf(bitmap.width, bitmap.height)
+        if (currentMax <= safeMax) {
+            return bitmap
+        }
+
+        val scale = safeMax.toFloat() / currentMax.toFloat()
+        val targetWidth = (bitmap.width * scale).toInt().coerceAtLeast(1)
+        val targetHeight = (bitmap.height * scale).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+    }
+
+    private fun compressJpeg(bitmap: Bitmap, quality: Int): ByteArray? {
+        val safeQuality = quality.coerceIn(1, 100)
+        val output = ByteArrayOutputStream()
+        val success = bitmap.compress(Bitmap.CompressFormat.JPEG, safeQuality, output)
+        return if (success) output.toByteArray() else null
+    }
+
+    private fun formatScreenshotError(errorCode: Int): String {
+        return when (errorCode) {
+            AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERVAL_TIME_SHORT -> "interval too short"
+            AccessibilityService.ERROR_TAKE_SCREENSHOT_INTERNAL_ERROR -> "internal error"
+            AccessibilityService.ERROR_TAKE_SCREENSHOT_SECURE_WINDOW -> "secure window"
+            else -> "error code $errorCode"
         }
     }
     

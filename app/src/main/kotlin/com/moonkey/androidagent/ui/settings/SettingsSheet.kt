@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Layers
@@ -80,6 +81,8 @@ fun SettingsSheet(
     // Other settings
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit,
+    screenshotInputEnabled: Boolean,
+    onScreenshotInputChange: (Boolean) -> Unit,
     debugMode: Boolean,
     onDebugModeChange: (Boolean) -> Unit,
     isAccessibilityEnabled: Boolean,
@@ -150,6 +153,48 @@ fun SettingsSheet(
                     maxTurns = maxTurns,
                     onMaxTurnsChange = onMaxTurnsChange
                 )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            SettingsSection(title = "Perception") {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Image,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Screenshot Input",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = "Send compressed screenshots to the model",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = screenshotInputEnabled,
+                            onCheckedChange = onScreenshotInputChange,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
