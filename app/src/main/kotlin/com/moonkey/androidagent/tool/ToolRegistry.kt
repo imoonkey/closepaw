@@ -1,10 +1,7 @@
 package com.moonkey.androidagent.tool
 
 import android.util.Log
-import com.openai.core.JsonValue
 import com.openai.models.responses.FunctionTool
-import org.json.JSONArray
-import org.json.JSONObject
 
 /**
  * ToolRegistry - Manages tool discovery, registration, and lookup.
@@ -136,38 +133,5 @@ class ToolRegistry {
             }
     }
     
-    /**
-     * Convert org.json.JSONObject to OpenAI's JsonValue.
-     */
-    private fun jsonObjectToJsonValueMap(json: JSONObject): Map<String, JsonValue> {
-        val map = mutableMapOf<String, JsonValue>()
-        json.keys().forEach { key ->
-            map[key] = JsonValue.from(convertJsonElement(json.get(key)))
-        }
-        return map
-    }
-    
-    /**
-     * Recursively convert JSON elements to native types for JsonValue.
-     */
-    private fun convertJsonElement(value: Any?): Any? {
-        return when (value) {
-            is JSONObject -> {
-                val map = mutableMapOf<String, Any?>()
-                value.keys().forEach { key ->
-                    map[key] = convertJsonElement(value.get(key))
-                }
-                map
-            }
-            is JSONArray -> {
-                val list = mutableListOf<Any?>()
-                for (i in 0 until value.length()) {
-                    list.add(convertJsonElement(value.get(i)))
-                }
-                list
-            }
-            else -> value
-        }
-    }
 }
 

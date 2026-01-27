@@ -36,14 +36,31 @@ internal object LeapToolSchemaAdapter {
         }
 
         val rawJson = rawField.toString()
-        if (rawJson.startsWith("{")) {
-            try {
-                return JSONObject(rawJson)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to parse parameters JSON for ${tool.name()}", e)
-            }
+        if (rawJson.isBlank()) {
+            Log.w(TAG, "Tool parameters present but empty for ${tool.name()}")
+            return null
         }
-        Log.w(TAG, "Tool parameters missing for ${tool.name()}")
+
+        val trimmed = rawJson.trim()
+        if (trimmed.startsWith("{")) {
+            try {
+                return JSONObject(trimmed)
+            } catch (e: Exception) {
+                val snippet = if (trimmed.length > 200) trimmed.take(200) + "..." else trimmed
+                Log.w(
+                    TAG,
+                    "Failed to parse parameters JSON for ${tool.name()}. Raw snippet: $snippet",
+                    e
+                )
+            }
+        } else {
+            val snippet = if (trimmed.length > 200) trimmed.take(200) + "..." else trimmed
+            Log.w(
+                TAG,
+                "Tool parameters for ${tool.name()} are in an unexpected format. Raw snippet: $snippet"
+            )
+        }
+        Log.w(TAG, "Tool parameters missing or unparsable for ${tool.name()}")
         return null
     }
 

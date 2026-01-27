@@ -5,7 +5,10 @@ import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
 import com.openai.models.responses.EasyInputMessage
 import com.openai.models.responses.ResponseFunctionToolCall
+import com.openai.models.responses.ResponseInputContent
+import com.openai.models.responses.ResponseInputImage
 import com.openai.models.responses.ResponseInputItem
+import com.openai.models.responses.ResponseInputText
 
 class TurnInputBuilder(
     private val historyManager: HistoryManager
@@ -17,7 +20,7 @@ class TurnInputBuilder(
     /**
      * Build input items from history and current context using proper ResponseInputItem types.
      */
-    fun build(userContext: String): List<ResponseInputItem> {
+    fun build(userContext: AgentPromptBuilder.UserContext): List<ResponseInputItem> {
         val estimatedTokens = historyManager.estimateTokenCount()
         if (estimatedTokens > 20_000) {
             Log.w(TAG, "History approaching token limit ($estimatedTokens tokens), compressing...")
@@ -70,15 +73,35 @@ class TurnInputBuilder(
             }
         }
 
-        items.add(
-            ResponseInputItem.ofEasyInputMessage(
-                EasyInputMessage.builder()
-                    .role(EasyInputMessage.Role.USER)
-                    .content(userContext)
-                    .build()
-            )
-        )
+        items.add(buildUserContextItem(userContext))
 
         return items
+    }
+
+    private fun buildUserContextItem(userContext: AgentPromptBuilder.UserContext): ResponseInputItem {
+        val builder = EasyInputMessage.builder()
+            .role(EasyInputMessage.Role.USER)
+
+        val image = userContext.image
+        if (image == null) {
+            builder.content(userContext.text)
+        } else {
+            val contentItems = listOf(
+                ResponseInputContent.ofInputText(
+                    ResponseInputText.builder()
+                        .text(userContext.text)
+                        .build()
+                ),
+                ResponseInputContent.ofInputImage(
+                    ResponseInputImage.builder()
+                        .detail(ResponseInputImage.Detail.AUTO)
+                        .imageUrl(image.toDataUrl())
+                        .build()
+                )
+            )
+            builder.contentOfResponseInputMessageContentList(contentItems)
+        }
+
+        return ResponseInputItem.ofEasyInputMessage(builder.build())
     }
 }

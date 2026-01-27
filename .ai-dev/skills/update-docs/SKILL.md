@@ -27,7 +27,7 @@ Keep documentation in sync with code changes.
 ### 1. Analyze Changes
 
 ```bash
-git diff --name-only HEAD~1
+git diff --name-only main...HEAD
 ```
 
 ### 2. Map to Docs
@@ -69,6 +69,6 @@ Verification: [OK/ISSUES]
 ## Principles
 
 - `doc/main`, `doc/dev`: Must stay current, best onboarding resources
-- `doc/todo/active_proj`: Reflect latest status
+- `doc/todo/`: Active projects, reflect latest status
 - `doc/archive`: OK if outdated
 - Keep discussion at appropriate detail level

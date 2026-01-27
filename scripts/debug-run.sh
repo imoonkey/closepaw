@@ -45,6 +45,18 @@ log() { echo -e "${BLUE}> $1${NC}"; }
 ok() { echo -e "${GREEN}✓ $1${NC}"; }
 warn() { echo -e "${YELLOW}! $1${NC}"; }
 
+escape_shell_arg() {
+    printf "%s" "$1" | sed "s/'/'\\\\''/g"
+}
+
+normalize_bool() {
+    case "$1" in
+        true|TRUE|True|1|yes|YES|Yes|y|Y) echo "true" ;;
+        false|FALSE|False|0|no|NO|No|n|N|"") echo "false" ;;
+        *) echo "false" ;;
+    esac
+}
+
 # Create debug output directory
 mkdir -p "$DEBUG_DIR"
 rm -f "$DEBUG_DIR"/*.png "$DEBUG_DIR"/*.txt "$DEBUG_DIR"/*.log
@@ -61,6 +73,23 @@ if [[ "$USE_LOCAL" == "true" ]]; then
     LLM_BACKEND="local"
 fi
 
+# Default debug mode on for debug-run unless explicitly set
+if [[ -z "${DEBUG_MODE+x}" ]]; then
+    DEBUG_MODE=true
+fi
+
+# Default screenshot input on for OpenAI runs unless explicitly set
+if [[ -z "${SCREENSHOT_INPUT+x}" ]]; then
+    if [[ "$LLM_BACKEND" == "openai" ]]; then
+        SCREENSHOT_INPUT=true
+    else
+        SCREENSHOT_INPUT=false
+    fi
+fi
+
+SCREENSHOT_INPUT=$(normalize_bool "$SCREENSHOT_INPUT")
+DEBUG_MODE=$(normalize_bool "$DEBUG_MODE")
+
 # Check API key for OpenAI backend
 if [[ "$LLM_BACKEND" == "openai" && -z "$OPENAI_API_KEY" ]]; then
     warn "No API key found. Set OPENAI_API_KEY in .env or use --local flag."
@@ -72,9 +101,13 @@ log "Using LLM backend: $LLM_BACKEND"
 adb logcat -c
 
 # Build intent extras based on backend
-INTENT_EXTRAS="--es goal '$GOAL' --es llm_backend '$LLM_BACKEND' --ez auto_start true --ez fresh_session true"
+SAFE_GOAL=$(escape_shell_arg "$GOAL")
+SAFE_BACKEND=$(escape_shell_arg "$LLM_BACKEND")
+SAFE_API_KEY=$(escape_shell_arg "${OPENAI_API_KEY:-}")
+
+INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT --ez debug_mode $DEBUG_MODE"
 if [[ "$LLM_BACKEND" == "openai" ]]; then
-    INTENT_EXTRAS="--es api_key '$OPENAI_API_KEY' $INTENT_EXTRAS"
+    INTENT_EXTRAS="--es api_key '$SAFE_API_KEY' $INTENT_EXTRAS"
 fi
 
 # Start agent
@@ -138,6 +171,15 @@ adb logcat -d | grep -E "Agent|Turn|LLMClient|ToolRouter|SessionServices" > "$DE
 
 log "Saving full system log..."
 adb logcat -d | grep -E "AgentService|AccessibilityPlatform|AgentSession" > "$DEBUG_DIR/system.log"
+
+# Pull compressed LLM screenshots saved by debug mode (if any)
+DEVICE_LLM_DIR="/sdcard/Android/data/$PACKAGE/files/debug-output"
+LOCAL_LLM_DIR="$DEBUG_DIR/llm_screens"
+mkdir -p "$LOCAL_LLM_DIR"
+if adb shell "ls $DEVICE_LLM_DIR" >/dev/null 2>&1; then
+    log "Pulling LLM screenshots..."
+    adb pull "$DEVICE_LLM_DIR/." "$LOCAL_LLM_DIR/" >/dev/null 2>&1 || true
+fi
 
 # Save LFMLLMClient specific logs for local LLM debugging
 if [[ "$LLM_BACKEND" == "local" ]]; then
