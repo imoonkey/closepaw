@@ -1,6 +1,7 @@
 # Android Agent Protocol Reference
 
 > This document describes the Op/Event communication protocol between the UI layer and the agent.
+> Last updated: 2026-01-27
 
 ## Overview
 
@@ -166,8 +167,7 @@ AgentEvent
 │
 ├── Action Events
 │   ├── ActionProposed
-│   ├── ActionExecuted
-│   └── ActionSkipped
+│   └── ActionExecuted
 │
 ├── Perception Events
 │   └── ScreenCaptured
@@ -306,7 +306,6 @@ data class TurnStarted(
 | Phase | Description |
 |-------|-------------|
 | `PERCEPTION` | Capturing/analyzing screen |
-| `REFLECTION` | *(Planned)* Verifying previous action outcome |
 | `PLANNING` | Deciding what to do (LLM reasoning) |
 | `EXECUTION` | Executing an action (tool call) |
 

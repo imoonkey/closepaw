@@ -1,7 +1,7 @@
 # Android Agent Infrastructure
 
 > This document describes the architecture and components of the Android Agent system.
-> Last updated: 2026-01-26
+> Last updated: 2026-01-27
 
 ## Table of Contents
 
@@ -226,14 +226,9 @@ com.moonkey.androidagent/
 │   │       ├── ClickRippleView.kt          # Ripple effect for clicks
 │   │       └── SwipeTrailView.kt           # Trail effect for swipes
 │   ├── session/                  # Session history UI
-│   │   ├── SessionListSheet.kt   # Session browser bottom sheet
-│   │   ├── SessionListItem.kt    # Individual session card
 │   │   └── TimeUtils.kt          # Relative time formatting
 │   ├── settings/
 │   │   └── SettingsSheet.kt      # Configuration bottom sheet
-│   └── screen/
-│       └── AgentScreen.kt        # DEPRECATED (kept for reference)
-│
 └── util/
     └── StatusUtils.kt
 ```
