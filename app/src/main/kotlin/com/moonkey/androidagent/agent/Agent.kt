@@ -76,13 +76,17 @@ class Agent(
         llmBackend = services.config.llmBackend,
         toolRegistry = services.toolRegistry
     )
+    private val eventDispatcher = AgentEventDispatcher(
+        sessionId = config.sessionId,
+        eventEmitter = eventEmitter
+    )
     
     /**
      * Run the agent until goal achieved, max turns, or stopped.
      */
     suspend fun run(): AgentStopReason {
         Log.i(TAG, "Starting agent for goal: ${config.goal}")
-        emitStatus("🚀 Starting agent...")
+        eventDispatcher.status("🚀 Starting agent...")
         
         // Add initial user message to history
         services.historyManager.addItem(
@@ -95,20 +99,20 @@ class Agent(
         while (shouldContinue()) {
             // Check pause
             if (pauseState.value) {
-                emitStatus("⏸️ Paused - waiting to resume...")
+                eventDispatcher.status("⏸️ Paused - waiting to resume...")
                 pauseState.first { !it }
-                emitStatus("▶️ Resuming...")
+                eventDispatcher.status("▶️ Resuming...")
             }
             // Re-check stop/cancel after pause wait to avoid running another turn
             if (!shouldContinue()) {
-                emitStatus("🛑 Cancelled")
+                eventDispatcher.status("🛑 Cancelled")
                 return AgentStopReason.UserRequested
             }
             
             // Check max turns
             if (turnCount >= config.maxTurns) {
                 Log.w(TAG, "Max turns (${config.maxTurns}) reached")
-                emitStatus("⚠️ Max turns reached")
+                eventDispatcher.status("⚠️ Max turns reached")
                 return AgentStopReason.MaxTurnsReached
             }
             
@@ -120,20 +124,20 @@ class Agent(
                     delay(config.uiSettleDelayMs)
                 }
                 is TurnOutcome.Complete -> {
-                    emitStatus("✅ Goal achieved!")
+                    eventDispatcher.status("✅ Goal achieved!")
                     return AgentStopReason.GoalAchieved
                 }
                 is TurnOutcome.Error -> {
                     if (!result.recoverable) {
-                        emitStatus("❌ Error: ${result.message}")
+                        eventDispatcher.status("❌ Error: ${result.message}")
                         return AgentStopReason.Error(result.message)
                     }
                     // Recoverable error - continue with delay
-                    emitStatus("⚠️ Error (retrying): ${result.message}")
+                    eventDispatcher.status("⚠️ Error (retrying): ${result.message}")
                     delay(config.uiSettleDelayMs)
                 }
                 TurnOutcome.Cancelled -> {
-                    emitStatus("🛑 Cancelled")
+                    eventDispatcher.status("🛑 Cancelled")
                     return AgentStopReason.UserRequested
                 }
             }
@@ -154,14 +158,18 @@ class Agent(
         val turnId = "turn-$turnCount"
         Log.d(TAG, "=== TURN $turnCount START ===")
 
-        emitTurnStarted(turnId)
+        eventDispatcher.turnStarted(turnId, turnCount)
 
         val outcome = try {
             // 1. PERCEPTION: Capture screen
-            emitStatus("👀 Scanning screen...")
+            eventDispatcher.status("👀 Scanning screen...")
 
             val snapshot = services.platform.captureScreen()
-            emitScreenCaptured(snapshot)
+            eventDispatcher.screenCaptured(
+                snapshot = snapshot,
+                packageName = services.platform.getCurrentPackageName(),
+                activityName = null
+            )
 
             Log.d(TAG, "Turn $turnCount: Screen has ${snapshot.elements.size} elements")
             
@@ -184,8 +192,8 @@ class Agent(
                 TurnOutcome.Cancelled
             } else {
                 // 2. THINK: Call LLM with streaming
-                emitTurnPhaseChanged(turnId, TurnPhase.PLANNING)
-                emitStatus("🧠 Thinking...")
+                eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PLANNING)
+                eventDispatcher.status("🧠 Thinking...")
 
                 val turn = Turn(services.historyManager, services.toolRegistry, services.llmClient)
                 val systemPrompt = promptBuilder.buildSystemPrompt()
@@ -202,7 +210,7 @@ class Agent(
                     when (event) {
                         is TurnStreamEvent.TextDelta -> {
                             // Emit MessageDelta for UI streaming
-                            emitMessageDelta(turnId, event.text)
+                            eventDispatcher.messageDelta(turnId, event.text)
                         }
                         
                         is TurnStreamEvent.ToolCallReceived -> {
@@ -248,13 +256,13 @@ class Agent(
                 }
                 if (result.toolCalls.size > 1) {
                     Log.w(TAG, "Turn $turnCount: Multiple tool calls returned: ${result.toolCalls.map { it.name }}")
-                    emitStatus("⚠️ Multiple actions returned; executing first only")
+                    eventDispatcher.status("⚠️ Multiple actions returned; executing first only")
                 }
 
                 // 3. ACT: Execute tool calls (one per turn)
                 if (toolCallsToExecute.isNotEmpty()) {
-                    emitTurnPhaseChanged(turnId, TurnPhase.EXECUTION)
-                    emitStatus("💡 Executing actions...")
+                    eventDispatcher.turnPhaseChanged(turnId, TurnPhase.EXECUTION)
+                    eventDispatcher.status("💡 Executing actions...")
 
                     // Re-capture screen before first action to avoid stale element IDs
                     // The LLM call can take 1-5 seconds, during which the screen may have changed
@@ -266,7 +274,7 @@ class Agent(
                         Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
                         
                         // Emit ActionProposed before execution
-                        emitActionProposed(
+                        eventDispatcher.actionProposed(
                             toolCall.id,
                             toolCall.name,
                             ActionDescriptionFormatter.format(toolCall)
@@ -316,12 +324,12 @@ class Agent(
                         if (toolResult is ToolCallResult.Success) {
                             when (val toolObs = toolResult.observation) {
                                 is ToolObservation.ScreenState -> {
-                                    observation = toolObs.toAgentObservation()
+                                    observation = toolObs.toObservation()
                                     observedSnapshot = toolObs.snapshot
                                     hasObservation = true
                                 }
                                 is ToolObservation.TextOutput -> {
-                                    observation = toolObs.toAgentObservation()
+                                    observation = toolObs.toObservation()
                                     hasObservation = true
                                 }
                                 null -> Unit
@@ -363,7 +371,7 @@ class Agent(
                             result = toolResult.toContextString()
                         ))
 
-                        emitStatus("✓ ${toolCall.name} executed")
+                        eventDispatcher.status("✓ ${toolCall.name} executed")
                     }
                 }
 
@@ -403,7 +411,7 @@ class Agent(
             )
         }
 
-        emitTurnCompleted(turnId)
+        eventDispatcher.turnCompleted(turnId, turnCount)
         return outcome
     }
     
@@ -453,14 +461,14 @@ class Agent(
         lifecycleMutex.withLock {
             pauseState.value = true
         }
-        emitStatus("⏸️ Paused")
+        eventDispatcher.status("⏸️ Paused")
     }
     
     suspend fun resume() {
         lifecycleMutex.withLock {
             pauseState.value = false
         }
-        emitStatus("▶️ Resuming...")
+        eventDispatcher.status("▶️ Resuming...")
     }
     
     /**
@@ -471,93 +479,6 @@ class Agent(
         pauseState.value = false
     }
     
-    // === Event Emission ===
-    
-    private suspend fun emitStatus(status: String) {
-        Log.d(TAG, "Status: $status")
-        eventEmitter(AgentEvent.StatusUpdate(
-            sessionId = config.sessionId,
-            timestamp = System.currentTimeMillis(),
-            status = status
-        ))
-    }
-    
-    private suspend fun emitMessageDelta(turnId: String, delta: String) {
-        Log.d(TAG, "MessageDelta: turnId=$turnId, delta=${delta.take(50)}...")
-        eventEmitter(AgentEvent.MessageDelta(
-            sessionId = config.sessionId,
-            timestamp = System.currentTimeMillis(),
-            turnId = turnId,
-            delta = delta
-        ))
-    }
-    
-    private suspend fun emitActionProposed(actionId: String, toolName: String, description: String) {
-        Log.d(TAG, "ActionProposed: $toolName - $description")
-        eventEmitter(AgentEvent.ActionProposed(
-            sessionId = config.sessionId,
-            timestamp = System.currentTimeMillis(),
-            actionId = actionId,
-            toolName = toolName,
-            description = description
-        ))
-    }
-    
-    private suspend fun emitTurnStarted(turnId: String) {
-        eventEmitter(AgentEvent.TurnStarted(
-            sessionId = config.sessionId,
-            timestamp = System.currentTimeMillis(),
-            turnId = turnId,
-            turnNumber = turnCount,
-            phase = TurnPhase.PERCEPTION
-        ))
-    }
-
-    private suspend fun emitTurnPhaseChanged(turnId: String, phase: TurnPhase) {
-        eventEmitter(AgentEvent.TurnPhaseChanged(
-            sessionId = config.sessionId,
-            timestamp = System.currentTimeMillis(),
-            turnId = turnId,
-            phase = phase
-        ))
-    }
-
-    private suspend fun emitTurnCompleted(turnId: String) {
-        eventEmitter(AgentEvent.TurnCompleted(
-            sessionId = config.sessionId,
-            timestamp = System.currentTimeMillis(),
-            turnId = turnId,
-            turnNumber = turnCount
-        ))
-    }
-    
-    private suspend fun emitScreenCaptured(snapshot: ScreenSnapshot) {
-        eventEmitter(AgentEvent.ScreenCaptured(
-            sessionId = config.sessionId,
-            timestamp = System.currentTimeMillis(),
-            elementCount = snapshot.elements.size,
-            packageName = services.platform.getCurrentPackageName(),
-            activityName = null
-        ))
-    }
-}
-
-/**
- * Observation - Post-action state captured after tool execution.
- */
-sealed class Observation {
-    data class ScreenState(val accessibilityTree: String) : Observation()
-    data class TextOutput(val content: String) : Observation()
-}
-
-/**
- * Extension to convert ToolObservation to Agent's Observation.
- */
-fun ToolObservation.toAgentObservation(): Observation {
-    return when (this) {
-        is ToolObservation.ScreenState -> Observation.ScreenState(this.accessibilityTree)
-        is ToolObservation.TextOutput -> Observation.TextOutput(this.content)
-    }
 }
 
 /**
