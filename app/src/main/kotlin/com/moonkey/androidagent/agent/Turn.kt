@@ -5,12 +5,8 @@ import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.LLMToolCall
 import com.moonkey.androidagent.history.HistoryManager
-import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.openai.models.ChatModel
-import com.openai.models.responses.ResponseInputItem
-import com.openai.models.responses.ResponseFunctionToolCall
-import com.openai.models.responses.EasyInputMessage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.json.JSONObject
@@ -41,6 +37,8 @@ class Turn(
         private const val TAG = "Turn"
         private const val COMPLETE_TASK_TOOL = "complete_task"
     }
+
+    private val inputBuilder = TurnInputBuilder(historyManager)
     
     /**
      * Execute one turn of the ReAct loop (non-streaming).
@@ -56,7 +54,7 @@ class Turn(
         modelName: String = "gpt-4o"
     ): TurnResult {
         // 1. Build input items from history using proper ResponseInputItem types
-        val inputItems = buildInputItems(userContext)
+        val inputItems = inputBuilder.build(userContext)
         
         Log.d(TAG, "Running turn with ${inputItems.size} input items, model=$modelName")
         
@@ -108,7 +106,7 @@ class Turn(
         
         try {
             // 1. Build input items
-            val inputItems = buildInputItems(userContext)
+            val inputItems = inputBuilder.build(userContext)
             Log.d(TAG, "Streaming turn with ${inputItems.size} input items")
             
             // 2. Get tools
@@ -255,90 +253,6 @@ class Turn(
             - NEVER call complete_task before executing and verifying an action
 
         """.trimIndent()
-    }
-    
-    /**
-     * Build input items from history and current context using proper ResponseInputItem types.
-     * 
-     * Uses:
-     * - EasyInputMessage for user and assistant text messages (simpler interface)
-     * - ResponseInputItem.ofFunctionCall() for function call requests  
-     * - ResponseInputItem.ofFunctionCallOutput() for function call results
-     * 
-     * Best practice: When manually managing conversation history (not using previous_response_id),
-     * all messages including assistant responses must be included to maintain full context.
-     * See: https://platform.openai.com/docs/guides/conversation-state
-     */
-    private fun buildInputItems(userContext: String): List<ResponseInputItem> {
-        // Compress history if approaching token limit (to avoid OpenAI's 30K TPM limit)
-        val estimatedTokens = historyManager.estimateTokenCount()
-        if (estimatedTokens > 20_000) {
-            Log.w(TAG, "History approaching token limit ($estimatedTokens tokens), compressing...")
-            historyManager.compress(15_000)  // Compress aggressively to leave room for response
-            Log.d(TAG, "After compression: ${historyManager.estimateTokenCount()} tokens")
-        }
-        
-        val items = mutableListOf<ResponseInputItem>()
-        
-        // Convert history items to proper ResponseInputItem types
-        historyManager.forPrompt().forEach { item ->
-            when (item) {
-                is ResponseItem.Message -> {
-                    // Use EasyInputMessage for simpler user/assistant message handling
-                    val role = when (item.role) {
-                        "user" -> EasyInputMessage.Role.USER
-                        "assistant" -> EasyInputMessage.Role.ASSISTANT
-                        else -> null  // Skip system messages (handled via instructions parameter)
-                    }
-                    if (role != null) {
-                        items.add(
-                            ResponseInputItem.ofEasyInputMessage(
-                                EasyInputMessage.builder()
-                                    .role(role)
-                                    .content(item.content)
-                                    .build()
-                            )
-                        )
-                    }
-                }
-                is ResponseItem.FunctionCall -> {
-                    // Create a function call input item
-                    items.add(
-                        ResponseInputItem.ofFunctionCall(
-                            ResponseFunctionToolCall.builder()
-                                .callId(item.id)
-                                .name(item.name)
-                                .arguments(item.arguments.toString())
-                                .build()
-                        )
-                    )
-                }
-                is ResponseItem.FunctionCallOutput -> {
-                    // Create a function call output item
-                    items.add(
-                        ResponseInputItem.ofFunctionCallOutput(
-                            ResponseInputItem.FunctionCallOutput.builder()
-                                .callId(item.callId)
-                                .output(item.content)
-                                .build()
-                        )
-                    )
-                }
-                else -> {} // Skip ghost snapshots
-            }
-        }
-        
-        // Add current context as user message using EasyInputMessage
-        items.add(
-            ResponseInputItem.ofEasyInputMessage(
-                EasyInputMessage.builder()
-                    .role(EasyInputMessage.Role.USER)
-                    .content(userContext)
-                    .build()
-            )
-        )
-        
-        return items
     }
     
     /**

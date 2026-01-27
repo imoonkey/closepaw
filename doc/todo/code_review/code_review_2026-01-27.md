@@ -32,6 +32,7 @@
 ## Refactor Opportunities
 - Large files exceed the 400-line rule: `Agent.kt`, `AgentService.kt`, `MainActivity.kt`, `ChatViewModel.kt`, `Turn.kt`.
   - Split agent logic: prompt building, tool execution, event emission.
+    - [Done] prompt building and action descriptions moved to helpers.
   - Split service logic: overlay management, session observation, foreground tracking.
     - [Done] overlay management + foreground tracking moved to `ServiceOverlayController`.
   - Split activity logic: settings persistence, intent handling, session wiring.
@@ -39,6 +40,7 @@
     - [Done] intent parsing moved into `MainActivityIntentPayload`.
   - Split view model logic: event ingestion vs UI state reducers.
     - [Done] event routing grouped into `ChatViewModel.EventReducer`.
+  - [Done] Turn input assembly moved to `TurnInputBuilder`.
 - [Done] Consolidate local LLM config types: `LocalLLMSessionConfig` vs `LocalLLMConfig` duplication leads to drift; unify or enforce a single mapping layer.
 - [Done] Replace stringly-typed tool names with sealed types/enums for safer UI mapping and policy checks.
 
