@@ -1,0 +1,86 @@
+package com.moonkey.androidagent.agent
+
+import android.util.Log
+import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.protocol.AgentEvent
+import com.moonkey.androidagent.protocol.SessionId
+import com.moonkey.androidagent.protocol.TurnPhase
+
+class AgentEventDispatcher(
+    private val sessionId: SessionId,
+    private val eventEmitter: suspend (AgentEvent) -> Unit
+) {
+    companion object {
+        private const val TAG = "AgentEventDispatcher"
+    }
+
+    suspend fun status(status: String) {
+        Log.d(TAG, "Status: $status")
+        eventEmitter(AgentEvent.StatusUpdate(
+            sessionId = sessionId,
+            timestamp = now(),
+            status = status
+        ))
+    }
+
+    suspend fun messageDelta(turnId: String, delta: String) {
+        Log.d(TAG, "MessageDelta: turnId=$turnId, delta=${delta.take(50)}...")
+        eventEmitter(AgentEvent.MessageDelta(
+            sessionId = sessionId,
+            timestamp = now(),
+            turnId = turnId,
+            delta = delta
+        ))
+    }
+
+    suspend fun actionProposed(actionId: String, toolName: String, description: String) {
+        Log.d(TAG, "ActionProposed: $toolName - $description")
+        eventEmitter(AgentEvent.ActionProposed(
+            sessionId = sessionId,
+            timestamp = now(),
+            actionId = actionId,
+            toolName = toolName,
+            description = description
+        ))
+    }
+
+    suspend fun turnStarted(turnId: String, turnNumber: Int) {
+        eventEmitter(AgentEvent.TurnStarted(
+            sessionId = sessionId,
+            timestamp = now(),
+            turnId = turnId,
+            turnNumber = turnNumber,
+            phase = TurnPhase.PERCEPTION
+        ))
+    }
+
+    suspend fun turnPhaseChanged(turnId: String, phase: TurnPhase) {
+        eventEmitter(AgentEvent.TurnPhaseChanged(
+            sessionId = sessionId,
+            timestamp = now(),
+            turnId = turnId,
+            phase = phase
+        ))
+    }
+
+    suspend fun turnCompleted(turnId: String, turnNumber: Int) {
+        eventEmitter(AgentEvent.TurnCompleted(
+            sessionId = sessionId,
+            timestamp = now(),
+            turnId = turnId,
+            turnNumber = turnNumber
+        ))
+    }
+
+    suspend fun screenCaptured(snapshot: ScreenSnapshot, packageName: String?, activityName: String?) {
+        eventEmitter(AgentEvent.ScreenCaptured(
+            sessionId = sessionId,
+            timestamp = now(),
+            elementCount = snapshot.elements.size,
+            packageName = packageName,
+            activityName = activityName
+        ))
+    }
+
+    private fun now(): Long = System.currentTimeMillis()
+}
