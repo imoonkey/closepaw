@@ -1,7 +1,11 @@
 package com.moonkey.androidagent.session
 
+import android.content.Context
 import android.util.Log
 import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.llm.OpenAILLMClient
+import com.moonkey.androidagent.llm.LFMLLMClient
+import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.history.HistoryConfig
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.TruncationPolicy
@@ -9,6 +13,7 @@ import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.tool.impl.AppControlTool
 import com.moonkey.androidagent.tool.impl.CompleteTaskTool
@@ -33,8 +38,12 @@ import com.moonkey.androidagent.tool.impl.MobileActionTool
  * 
  * Usage:
  * ```kotlin
- * val services = SessionServices.create(config, platform, apiKey)
- * // All services are now available via services.toolRegistry, services.historyManager, etc.
+ * // For OpenAI backend:
+ * val services = SessionServices.create(config, platform, apiKey = "sk-...")
+ * 
+ * // For local LLM backend:
+ * val localConfig = config.copy(llmBackend = LLMBackendType.LOCAL)
+ * val services = SessionServices.create(localConfig, platform, context = context)
  * ```
  */
 data class SessionServices(
@@ -53,7 +62,7 @@ data class SessionServices(
          * Create a new SessionServices container with all services initialized.
          * 
          * Services are created in dependency order:
-         * 1. LLMClient (depends on apiKey)
+         * 1. LLMClient (depends on config.llmBackend, apiKey, context)
          * 2. PolicyEngine (no dependencies)
          * 3. ToolRegistry (no dependencies)
          * 4. ToolRouter (depends on ToolRegistry, PolicyEngine)
@@ -61,19 +70,36 @@ data class SessionServices(
          * 
          * @param config Session configuration
          * @param platform Android platform abstraction
-         * @param apiKey OpenAI API key for LLM client
+         * @param apiKey OpenAI API key for LLM client (required for OPENAI backend, optional for LOCAL)
+         * @param context Android context (required for LOCAL backend for model downloading)
          * @return Fully initialized SessionServices
          */
         fun create(
             config: SessionConfig,
             platform: AndroidPlatform,
-            apiKey: String
+            apiKey: String? = null,
+            context: Context? = null
         ): SessionServices {
-            Log.d(TAG, "Creating SessionServices...")
+            Log.d(TAG, "Creating SessionServices with backend: ${config.llmBackend}...")
             
-            // 1. Create LLMClient with API key
-            val llmClient = LLMClient(apiKey)
-            Log.d(TAG, "Created LLMClient")
+            // 1. Create LLMClient based on backend type
+            val llmClient: LLMClient = when (config.llmBackend) {
+                LLMBackendType.OPENAI -> {
+                    requireNotNull(apiKey) { "API key is required for OpenAI backend" }
+                    OpenAILLMClient(apiKey)
+                }
+                LLMBackendType.LOCAL -> {
+                    requireNotNull(context) { "Context is required for local LLM backend" }
+                    val localConfig = config.localLLMConfig?.let {
+                        LocalLLMConfig(
+                            modelSlug = it.modelSlug,
+                            quantizationSlug = it.quantizationSlug
+                        )
+                    } ?: LocalLLMConfig()
+                    LFMLLMClient(context, localConfig)
+                }
+            }
+            Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
             
             // 2. Create PolicyEngine with approval mode from config
             val policyEngine = PolicyEngine(config.approvalMode)
@@ -199,18 +225,20 @@ object SessionServicesBuilder {
      * 
      * @param config Session configuration
      * @param platform Android platform
-     * @param apiKey OpenAI API key
+     * @param apiKey OpenAI API key (required for OPENAI backend)
+     * @param context Android context (required for LOCAL backend)
      * @param additionalTools Additional tools to register
      * @param excludeTools Tools to exclude from registration
      */
     fun createWithCustomTools(
         config: SessionConfig,
         platform: AndroidPlatform,
-        apiKey: String,
+        apiKey: String? = null,
+        context: Context? = null,
         additionalTools: List<com.moonkey.androidagent.tool.ToolSpec> = emptyList(),
         excludeTools: Set<String> = emptySet()
     ): SessionServices {
-        val services = SessionServices.create(config, platform, apiKey)
+        val services = SessionServices.create(config, platform, apiKey, context)
         
         // Remove excluded tools
         excludeTools.forEach { name ->
