@@ -21,6 +21,7 @@ class PolicyEngine(
 ) {
     // Use AtomicReference for thread-safe approval mode changes
     private val approvalMode = AtomicReference(initialApprovalMode)
+    private val lock = Any()
     
     companion object {
         private const val TAG = "PolicyEngine"
@@ -66,34 +67,36 @@ class PolicyEngine(
     fun check(toolName: String, params: JSONObject = JSONObject()): PolicyDecision {
         val currentMode = approvalMode.get()
         Log.d(TAG, "Checking policy for: $toolName (mode: $currentMode)")
-        
-        // Check deny list first
-        if (toolName in denyList) {
-            Log.d(TAG, "Tool $toolName is in deny list")
-            return PolicyDecision.Deny("Tool '$toolName' is forbidden by policy")
-        }
-        
-        // Check allow list (overrides everything except deny list)
-        if (toolName in allowList) {
-            Log.d(TAG, "Tool $toolName is in allow list")
-            return PolicyDecision.Allow
-        }
-        
-        // Apply approval mode (M2: read atomic value)
-        return when (currentMode) {
-            ApprovalMode.ALWAYS_ASK -> {
-                PolicyDecision.AskUser(
-                    reason = "Approval required for all actions",
-                    riskLevel = getRiskLevel(toolName)
-                )
+
+        return synchronized(lock) {
+            // Check deny list first
+            if (toolName in denyList) {
+                Log.d(TAG, "Tool $toolName is in deny list")
+                return@synchronized PolicyDecision.Deny("Tool '$toolName' is forbidden by policy")
             }
-            
-            ApprovalMode.AUTO_APPROVE -> {
-                PolicyDecision.Allow
+
+            // Check allow list (overrides everything except deny list)
+            if (toolName in allowList) {
+                Log.d(TAG, "Tool $toolName is in allow list")
+                return@synchronized PolicyDecision.Allow
             }
-            
-            ApprovalMode.SMART -> {
-                evaluateRisk(toolName, params)
+
+            // Apply approval mode (M2: read atomic value)
+            return@synchronized when (currentMode) {
+                ApprovalMode.ALWAYS_ASK -> {
+                    PolicyDecision.AskUser(
+                        reason = "Approval required for all actions",
+                        riskLevel = getRiskLevelLocked(toolName)
+                    )
+                }
+
+                ApprovalMode.AUTO_APPROVE -> {
+                    PolicyDecision.Allow
+                }
+
+                ApprovalMode.SMART -> {
+                    evaluateRiskLocked(toolName, params)
+                }
             }
         }
     }
@@ -101,8 +104,8 @@ class PolicyEngine(
     /**
      * Evaluate risk-based policy for SMART mode.
      */
-    private fun evaluateRisk(toolName: String, params: JSONObject): PolicyDecision {
-        val riskLevel = getRiskLevel(toolName)
+    private fun evaluateRiskLocked(toolName: String, params: JSONObject): PolicyDecision {
+        val riskLevel = getRiskLevelLocked(toolName)
         
         return when (riskLevel) {
             RiskLevel.LOW -> {
@@ -126,9 +129,15 @@ class PolicyEngine(
      * Get the risk level for a tool.
      */
     fun getRiskLevel(toolName: String): RiskLevel {
+        return synchronized(lock) {
+            getRiskLevelLocked(toolName)
+        }
+    }
+
+    private fun getRiskLevelLocked(toolName: String): RiskLevel {
         // Check custom overrides first
         riskOverrides[toolName]?.let { return it }
-        
+
         // Use default risk levels
         return DEFAULT_RISK_LEVELS[toolName] ?: RiskLevel.MEDIUM
     }
@@ -152,7 +161,9 @@ class PolicyEngine(
      * Set a custom risk level for a tool.
      */
     fun setRiskLevel(toolName: String, level: RiskLevel) {
-        riskOverrides[toolName] = level
+        synchronized(lock) {
+            riskOverrides[toolName] = level
+        }
         Log.d(TAG, "Risk level for $toolName set to $level")
     }
     
@@ -160,8 +171,10 @@ class PolicyEngine(
      * Add a tool to the allow list (always allowed in SMART mode).
      */
     fun allowTool(toolName: String) {
-        allowList.add(toolName)
-        denyList.remove(toolName)
+        synchronized(lock) {
+            allowList.add(toolName)
+            denyList.remove(toolName)
+        }
         Log.d(TAG, "Tool $toolName added to allow list")
     }
     
@@ -169,8 +182,10 @@ class PolicyEngine(
      * Add a tool to the deny list (always denied).
      */
     fun denyTool(toolName: String) {
-        denyList.add(toolName)
-        allowList.remove(toolName)
+        synchronized(lock) {
+            denyList.add(toolName)
+            allowList.remove(toolName)
+        }
         Log.d(TAG, "Tool $toolName added to deny list")
     }
     
@@ -178,18 +193,22 @@ class PolicyEngine(
      * Remove a tool from allow/deny lists.
      */
     fun resetTool(toolName: String) {
-        allowList.remove(toolName)
-        denyList.remove(toolName)
-        riskOverrides.remove(toolName)
+        synchronized(lock) {
+            allowList.remove(toolName)
+            denyList.remove(toolName)
+            riskOverrides.remove(toolName)
+        }
     }
     
     /**
      * Reset all policy customizations.
      */
     fun reset() {
-        allowList.clear()
-        denyList.clear()
-        riskOverrides.clear()
+        synchronized(lock) {
+            allowList.clear()
+            denyList.clear()
+            riskOverrides.clear()
+        }
         approvalMode.set(ApprovalMode.SMART)
     }
 }

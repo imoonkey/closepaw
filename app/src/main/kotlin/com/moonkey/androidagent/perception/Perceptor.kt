@@ -15,12 +15,14 @@ import org.json.JSONObject
  */
 object Perceptor {
 
-    // TODO: Consider prioritizing interactive elements (clickable/editable) over non-interactive
-    //       text elements. Current DFS approach may cap at MAX_ELEMENTS before reaching important
-    //       buttons at the bottom of long lists. If this becomes a real issue, implement two-pass
-    //       traversal: first collect interactive elements, then fill remaining slots with text.
+    // Prioritize interactive elements before non-interactive text to reduce truncation risk.
     private const val MAX_ELEMENTS = 80
     private const val MAX_STRING_LENGTH = 60
+
+    private enum class TraversalMode {
+        INTERACTIVE_ONLY,
+        ALL
+    }
 
     /**
      * Create a ScreenSnapshot from the accessibility tree.
@@ -36,8 +38,12 @@ object Perceptor {
         }
 
         val elements = mutableListOf<PerceptionElement>()
+        val seenKeys = mutableSetOf<String>()
         // Root is owned by system, don't recycle it
-        traverse(root, elements, shouldRecycle = false)
+        traverse(root, elements, seenKeys, shouldRecycle = false, mode = TraversalMode.INTERACTIVE_ONLY)
+        if (elements.size < MAX_ELEMENTS) {
+            traverse(root, elements, seenKeys, shouldRecycle = false, mode = TraversalMode.ALL)
+        }
 
         // Take max elements to avoid token overflow
         val limitedElements = elements.take(MAX_ELEMENTS)
@@ -84,9 +90,11 @@ object Perceptor {
      * @param shouldRecycle Whether to recycle this node after processing (false for root)
      */
     private fun traverse(
-            node: AccessibilityNodeInfo,
-            elements: MutableList<PerceptionElement>,
-            shouldRecycle: Boolean = false
+        node: AccessibilityNodeInfo,
+        elements: MutableList<PerceptionElement>,
+        seenKeys: MutableSet<String>,
+        shouldRecycle: Boolean = false,
+        mode: TraversalMode
     ) {
         if (elements.size >= MAX_ELEMENTS) {
             if (shouldRecycle) node.recycle()
@@ -104,40 +112,51 @@ object Perceptor {
         // but don't set isEditable flag
         val editable = node.isEditable || canAcceptTextInput(node)
 
-        // Filter valid nodes - keep nodes that are interactive or have meaningful content
-        val shouldKeep =
-                clickable || editable || scrollable || text.isNotBlank() || desc.isNotBlank()
+        val hasContent = text.isNotBlank() || desc.isNotBlank()
+        val shouldKeep = when (mode) {
+            TraversalMode.INTERACTIVE_ONLY -> clickable || editable || scrollable
+            TraversalMode.ALL -> clickable || editable || scrollable || hasContent
+        }
 
         if (shouldKeep) {
             val rect = Rect()
             node.getBoundsInScreen(rect)
 
             val index = elements.size
-            val element =
-                    PerceptionElement(
-                            index = index,
-                            text = text.normalizeWhitespace(),
-                            resourceId = resourceId,
-                            className = node.className?.toString()?.substringAfterLast('.') ?: "",
-                            description = desc.normalizeWhitespace(),
-                            isClickable = clickable,
-                            isEditable = editable,
-                            isScrollable = scrollable,
-                            bounds = Bounds(
-                                    left = rect.left,
-                                    top = rect.top,
-                                    right = rect.right,
-                                    bottom = rect.bottom
-                            ),
-                            center = Point(x = rect.centerX(), y = rect.centerY())
-                    )
-            elements.add(element)
+            val className = node.className?.toString()?.substringAfterLast('.') ?: ""
+            val key = buildElementKey(
+                resourceId = resourceId,
+                className = className,
+                text = text,
+                desc = desc,
+                rect = rect
+            )
+            if (seenKeys.add(key)) {
+                val element = PerceptionElement(
+                    index = index,
+                    text = text.normalizeWhitespace(),
+                    resourceId = resourceId,
+                    className = className,
+                    description = desc.normalizeWhitespace(),
+                    isClickable = clickable,
+                    isEditable = editable,
+                    isScrollable = scrollable,
+                    bounds = Bounds(
+                        left = rect.left,
+                        top = rect.top,
+                        right = rect.right,
+                        bottom = rect.bottom
+                    ),
+                    center = Point(x = rect.centerX(), y = rect.centerY())
+                )
+                elements.add(element)
+            }
         }
 
         // Traverse children and recycle after processing
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
-            traverse(child, elements, shouldRecycle = true)
+            traverse(child, elements, seenKeys, shouldRecycle = true, mode = mode)
             // Note: child is recycled inside traverse() when shouldRecycle=true
         }
         
@@ -155,6 +174,32 @@ object Perceptor {
     private fun canAcceptTextInput(node: AccessibilityNodeInfo): Boolean {
         val actions = node.actionList ?: return false
         return actions.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
+    }
+
+    private fun buildElementKey(
+        resourceId: String,
+        className: String,
+        text: String,
+        desc: String,
+        rect: Rect
+    ): String {
+        return buildString {
+            append(resourceId)
+            append('|')
+            append(className)
+            append('|')
+            append(text)
+            append('|')
+            append(desc)
+            append('|')
+            append(rect.left)
+            append(',')
+            append(rect.top)
+            append(',')
+            append(rect.right)
+            append(',')
+            append(rect.bottom)
+        }
     }
 
     /**

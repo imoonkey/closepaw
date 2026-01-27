@@ -118,6 +118,10 @@ class ToolRouter(
                 )
                 updateState(state, onStateChange)
                 
+                // Prepare approval tracking BEFORE notifying UI to avoid race with fast approvals
+                val deferred = CompletableDeferred<ApprovalDecision>()
+                pendingApprovals[resolvedCallId] = deferred
+
                 // Notify that approval is required (includes callId for proper resolution)
                 val approvalDetails = ApprovalDetails(
                     callId = resolvedCallId,
@@ -126,11 +130,22 @@ class ToolRouter(
                     description = invocation.getDescription(),
                     riskLevel = policyDecision.riskLevel
                 )
-                onApprovalRequired?.invoke(approvalDetails)
+                try {
+                    onApprovalRequired?.invoke(approvalDetails)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to request approval for $resolvedCallId", e)
+                    pendingApprovals.remove(resolvedCallId)
+                    val errorState = ToolCallState.Error(
+                        resolvedCallId,
+                        toolName,
+                        params,
+                        "Approval request failed: ${e.message}"
+                    )
+                    updateState(errorState, onStateChange)
+                    return ToolCallResult.Error(resolvedCallId, "Approval request failed: ${e.message}")
+                }
                 
                 // Wait for approval with timeout
-                val deferred = CompletableDeferred<ApprovalDecision>()
-                pendingApprovals[resolvedCallId] = deferred
                 
                 val decision = try {
                     withTimeout(APPROVAL_TIMEOUT_MS) {
