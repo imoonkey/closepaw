@@ -113,6 +113,15 @@ cmd_run() {
     if [[ "$use_local" == "true" ]]; then
         LLM_BACKEND="local"
     fi
+
+    # Default screenshot input on for OpenAI runs unless explicitly set
+    if [[ -z "${SCREENSHOT_INPUT+x}" ]]; then
+        if [[ "$LLM_BACKEND" == "openai" ]]; then
+            SCREENSHOT_INPUT=true
+        else
+            SCREENSHOT_INPUT=false
+        fi
+    fi
     
     check_api_key
     
@@ -127,7 +136,7 @@ cmd_run() {
     sleep 0.5
     
     # Build intent extras based on backend
-    local intent_extras="--es goal '$goal' --es llm_backend '$LLM_BACKEND' --ez auto_start true --ez fresh_session true"
+    local intent_extras="--es goal '$goal' --es llm_backend '$LLM_BACKEND' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT"
     if [[ "$LLM_BACKEND" == "openai" ]]; then
         intent_extras="--es api_key '$OPENAI_API_KEY' $intent_extras"
     fi

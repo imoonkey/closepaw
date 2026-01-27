@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.annotation.RequiresApi
 import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenImageSource
@@ -51,13 +52,14 @@ class AccessibilityPlatform(
     
     override suspend fun captureScreen(): ScreenSnapshot {
         val root = withContext(Dispatchers.Main) { service.rootInActiveWindow }
+        val windowId = root?.windowId
         val snapshot = Perceptor.snapshot(root)
-        val image = captureScreenshotIfEnabled()
+        val image = captureScreenshotIfEnabled(windowId)
         Log.d(TAG, "Captured screen: ${snapshot.elements.size} elements, package: ${root?.packageName}")
         return snapshot.copy(image = image)
     }
 
-    private suspend fun captureScreenshotIfEnabled(): ScreenImage? {
+    private suspend fun captureScreenshotIfEnabled(windowId: Int?): ScreenImage? {
         if (!config.enableScreenshotInput) {
             return null
         }
@@ -65,11 +67,22 @@ class AccessibilityPlatform(
             return null
         }
 
-        val result = takeScreenshotResult() ?: return null
+        val result = takeScreenshotResult(windowId) ?: return null
         return compressScreenshot(result)
     }
 
-    private suspend fun takeScreenshotResult(): AccessibilityService.ScreenshotResult? {
+    private suspend fun takeScreenshotResult(
+        windowId: Int?
+    ): AccessibilityService.ScreenshotResult? {
+        val windowResult = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            windowId?.let { takeWindowScreenshot(it) }
+        } else {
+            null
+        }
+        return windowResult ?: takeDisplayScreenshot()
+    }
+
+    private suspend fun takeDisplayScreenshot(): AccessibilityService.ScreenshotResult? {
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine { continuation ->
                 service.takeScreenshot(Display.DEFAULT_DISPLAY, service.mainExecutor,
@@ -82,6 +95,32 @@ class AccessibilityPlatform(
 
                         override fun onFailure(errorCode: Int) {
                             Log.w(TAG, "takeScreenshot failed: ${formatScreenshotError(errorCode)}")
+                            if (continuation.isActive) {
+                                continuation.resume(null)
+                            }
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private suspend fun takeWindowScreenshot(
+        windowId: Int
+    ): AccessibilityService.ScreenshotResult? {
+        return withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine { continuation ->
+                service.takeScreenshotOfWindow(windowId, service.mainExecutor,
+                    object : AccessibilityService.TakeScreenshotCallback {
+                        override fun onSuccess(screenshot: AccessibilityService.ScreenshotResult) {
+                            if (continuation.isActive) {
+                                continuation.resume(screenshot)
+                            }
+                        }
+
+                        override fun onFailure(errorCode: Int) {
+                            Log.w(TAG, "takeScreenshotOfWindow failed: ${formatScreenshotError(errorCode)}")
                             if (continuation.isActive) {
                                 continuation.resume(null)
                             }
