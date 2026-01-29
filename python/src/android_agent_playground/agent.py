@@ -129,7 +129,6 @@ class Agent:
 
     def _execute_turn(self) -> TurnOutcome:
         self._turn_count += 1
-        turn_id = f"turn-{self._turn_count}"
         self._emit(f"Turn {self._turn_count} start")
 
         try:
@@ -148,7 +147,6 @@ class Agent:
             if result.content:
                 self._history.add_item(Message(role="assistant", content=result.content))
 
-            has_completion_tool = any(call.name == "complete_task" for call in result.tool_calls)
             has_non_completion_tool = any(call.name != "complete_task" for call in result.tool_calls)
 
             selected_tool = next((call for call in result.tool_calls if call.name != "complete_task"), None)

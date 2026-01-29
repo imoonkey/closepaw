@@ -185,7 +185,7 @@ class OpenAppInvocation:
         if isinstance(result, ActionResultFailure):
             return ToolExecutionFailure(result.reason, result.exception)
         if isinstance(result, ActionResultCancelled):
-            return ToolExecutionFailure(result.reason)
+            return ToolExecutionCancelled(result.reason)
         if not isinstance(result, ActionResultSuccess):
             return ToolExecutionFailure("Unexpected result from launch_app")
 

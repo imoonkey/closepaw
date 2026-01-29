@@ -89,6 +89,7 @@ class HistoryManager:
             item = self._items[i]
             if isinstance(item, FunctionCallOutput):
                 self._items[i] = self._truncate_output(item, TruncationPolicy.AGGRESSIVE)
+        self._last_token_estimate = None
 
         while self.estimate_token_count() > target_tokens and len(self._items) > 2:
             self._remove_first_item()

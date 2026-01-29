@@ -61,7 +61,7 @@ class AgentPromptBuilder:
         screen_json = Perceptor.to_prompt_json(snapshot)
         tool_names = ", ".join(sorted(self._tool_registry.get_names()))
         image = snapshot.image if self._llm_backend.lower() == "openai" else None
-        image_hint = "\nScreenshot attached (compressed)." if image else ""
+        image_hint = "\nScreenshot attached." if image else ""
 
         text = (
             f"Current screen state ({len(snapshot.elements)} elements):\n"

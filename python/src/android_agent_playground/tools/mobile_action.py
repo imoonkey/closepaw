@@ -32,6 +32,15 @@ from android_agent_playground.tools.registry import (
 )
 
 
+def _parse_int(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 class ActionHandler(Protocol):
     action_name: str
 
@@ -88,7 +97,7 @@ class MobileActionTool(ToolSpec):
         "- click: Tap on element by index (element_index required)\n"
         "- long_press: Long press element (element_index required, duration_ms optional)\n"
         "- type: Input text into field (text required, element_index optional to focus first)\n"
-        "- swipe: Swipe gesture (start and end coordinates required as [x,y] arrays). Coordinates beyond screen bounds are clamped.\n"
+        "- swipe: Swipe gesture (start and end coordinates required as [x,y] arrays). Coordinates should be within screen bounds; no automatic clamping is performed.\n"
         "- system_button: Press system button (button required: back/home/enter/recents)\n"
         "- wait: Wait for UI updates (duration_ms optional, default 1000ms)"
     )
@@ -181,11 +190,18 @@ class LongPressActionHandler:
         idx = params.get("element_index")
         if not isinstance(idx, int) or idx < 0:
             return ValidationResult.invalid("element_index must be >= 0")
+        duration_ms = _parse_int(params.get("duration_ms", self.default_duration_ms))
+        if duration_ms is None:
+            return ValidationResult.invalid("duration_ms must be an integer")
+        if duration_ms < 0:
+            return ValidationResult.invalid("duration_ms must be non-negative")
         return ValidationResult.ok()
 
     def create_invocation(self, params: dict) -> ToolInvocation:
         idx = params["element_index"]
-        duration_ms = int(params.get("duration_ms", self.default_duration_ms))
+        duration_ms = _parse_int(params.get("duration_ms", self.default_duration_ms))
+        if duration_ms is None:
+            duration_ms = self.default_duration_ms
         return UIActionInvocation(
             tool_name="mobile_action",
             params=params,
@@ -232,12 +248,19 @@ class SwipeActionHandler:
             return ValidationResult.invalid("end must be an array of [x, y]")
         if any(not isinstance(val, int) or val < 0 for val in start + end):
             return ValidationResult.invalid("Coordinates must be non-negative integers")
+        duration_ms = _parse_int(params.get("duration_ms", self.default_duration_ms))
+        if duration_ms is None:
+            return ValidationResult.invalid("duration_ms must be an integer")
+        if duration_ms < 0:
+            return ValidationResult.invalid("duration_ms must be non-negative")
         return ValidationResult.ok()
 
     def create_invocation(self, params: dict) -> ToolInvocation:
         start = params["start"]
         end = params["end"]
-        duration_ms = int(params.get("duration_ms", self.default_duration_ms))
+        duration_ms = _parse_int(params.get("duration_ms", self.default_duration_ms))
+        if duration_ms is None:
+            duration_ms = self.default_duration_ms
         return UIActionInvocation(
             tool_name="mobile_action",
             params=params,
@@ -272,7 +295,9 @@ class WaitActionHandler:
     default_wait_ms = 1000
 
     def validate(self, params: dict) -> ValidationResult:
-        duration_ms = int(params.get("duration_ms", self.default_wait_ms))
+        duration_ms = _parse_int(params.get("duration_ms", self.default_wait_ms))
+        if duration_ms is None:
+            return ValidationResult.invalid("duration_ms must be an integer")
         if duration_ms < 0:
             return ValidationResult.invalid("duration_ms must be non-negative")
         if duration_ms > 30000:
@@ -280,7 +305,9 @@ class WaitActionHandler:
         return ValidationResult.ok()
 
     def create_invocation(self, params: dict) -> ToolInvocation:
-        duration_ms = int(params.get("duration_ms", self.default_wait_ms))
+        duration_ms = _parse_int(params.get("duration_ms", self.default_wait_ms))
+        if duration_ms is None:
+            duration_ms = self.default_wait_ms
         return UIActionInvocation(
             tool_name="mobile_action",
             params=params,

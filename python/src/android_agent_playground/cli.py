@@ -38,8 +38,6 @@ def run(
     platform = AdbPlatform(
         serial=serial,
         enable_screenshot=enable_screenshot,
-        screenshot_max_dimension=config.screenshot_max_dimension,
-        screenshot_jpeg_quality=config.screenshot_jpeg_quality,
         adb_timeout_s=config.adb_timeout_s,
     )
 
