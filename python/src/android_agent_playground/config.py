@@ -14,6 +14,4 @@ class AgentConfig:
     llm_backend: str = "openai"
     adb_serial: str | None = None
     enable_screenshot_input: bool = False
-    screenshot_max_dimension: int = 1080
-    screenshot_jpeg_quality: int = 70
     adb_timeout_s: int = 30

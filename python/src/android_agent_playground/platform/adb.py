@@ -119,14 +119,10 @@ class AdbPlatform(AndroidPlatform):
         self,
         serial: str | None = None,
         enable_screenshot: bool = False,
-        screenshot_max_dimension: int = 1080,
-        screenshot_jpeg_quality: int = 70,
         adb_timeout_s: int = 30,
     ) -> None:
         self._adb = AdbClient(serial=serial, timeout_s=adb_timeout_s)
         self._enable_screenshot = enable_screenshot
-        self._screenshot_max_dimension = screenshot_max_dimension
-        self._screenshot_jpeg_quality = screenshot_jpeg_quality
 
     def capture_screen(self) -> ScreenSnapshot:
         xml = self._dump_uiautomator_xml()

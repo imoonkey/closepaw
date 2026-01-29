@@ -5,7 +5,7 @@ import json
 from typing import Iterable
 
 from android_agent_playground.history import FunctionCall, FunctionCallOutput, HistoryManager, Message
-from android_agent_playground.llm import LLMClient, LLMResponse, LLMStreamEvent, LLMToolCall
+from android_agent_playground.llm import LLMClient, LLMResponse, LLMToolCall
 from android_agent_playground.prompt import UserContext
 from android_agent_playground.tools.registry import ToolRegistry
 
@@ -164,7 +164,7 @@ class Turn:
 
         parsed_tool_calls = [self._convert_tool_call(call) for call in tool_calls]
         complete_task_call = next((call for call in parsed_tool_calls if call.name == self.COMPLETE_TASK_TOOL), None)
-        is_complete = complete_task_call is not None or (not parsed_tool_calls and text_content)
+        is_complete = complete_task_call is not None
         return TurnResult(content=text_content, tool_calls=parsed_tool_calls, is_complete=bool(is_complete))
 
     def _convert_tool_call(self, call: LLMToolCall) -> ToolCallRequest:
