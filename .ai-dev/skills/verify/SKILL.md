@@ -15,7 +15,7 @@ Pre-commit quality gates for Android projects.
 
 ## Arguments
 
-- `quick` - Build + lint only
+- `quick` - Build + lint + unit tests
 - `full` - All checks (default)
 
 ## Verification Phases
@@ -34,7 +34,7 @@ If fails, STOP and report errors. Use `/build-fix` to resolve.
 ./gradlew lint 2>&1 | head -30
 ```
 
-### 3. Tests
+### 3. Tests (JVM)
 
 ```bash
 ./gradlew test 2>&1 | tail -50
