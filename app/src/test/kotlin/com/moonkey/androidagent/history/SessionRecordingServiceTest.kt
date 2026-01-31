@@ -1,11 +1,9 @@
 package com.moonkey.androidagent.history
 
 import com.google.common.truth.Truth.assertThat
-import android.content.Context
 import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.storage.SessionStorage
-import io.mockk.every
-import io.mockk.mockk
+import com.moonkey.androidagent.test.buildTestContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -23,7 +21,7 @@ class SessionRecordingServiceTest {
 
     @Test
     fun `recordUserMessage persists after debounce`() = runTest {
-        val context = buildContext(tempFolder.newFolder("files"))
+        val context = buildTestContext(tempFolder.newFolder("files"))
         val ioDispatcher = StandardTestDispatcher(testScheduler)
         val storage = SessionStorage(context, ioDispatcher)
         val service = SessionRecordingService(storage, this)
@@ -44,7 +42,7 @@ class SessionRecordingServiceTest {
 
     @Test
     fun `completeSession marks metadata and summary`() = runTest {
-        val context = buildContext(tempFolder.newFolder("files"))
+        val context = buildTestContext(tempFolder.newFolder("files"))
         val ioDispatcher = StandardTestDispatcher(testScheduler)
         val storage = SessionStorage(context, ioDispatcher)
         val service = SessionRecordingService(storage, this)
@@ -69,7 +67,7 @@ class SessionRecordingServiceTest {
 
     @Test
     fun `recordAction updates agent message blocks`() = runTest {
-        val context = buildContext(tempFolder.newFolder("files"))
+        val context = buildTestContext(tempFolder.newFolder("files"))
         val ioDispatcher = StandardTestDispatcher(testScheduler)
         val storage = SessionStorage(context, ioDispatcher)
         val service = SessionRecordingService(storage, this)
@@ -104,10 +102,4 @@ class SessionRecordingServiceTest {
             )
         )
     }
-}
-
-private fun buildContext(filesDir: java.io.File): Context {
-    val context = mockk<Context>(relaxed = true)
-    every { context.filesDir } returns filesDir
-    return context
 }

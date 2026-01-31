@@ -5,16 +5,11 @@ import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.ResponsesResult
-import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.platform.ActionResult
-import com.moonkey.androidagent.platform.AndroidPlatform
-import com.moonkey.androidagent.platform.AppInfo
-import com.moonkey.androidagent.platform.DisplayInfo
-import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionId
 import com.moonkey.androidagent.session.SessionServices
+import com.moonkey.androidagent.test.FakeAndroidPlatform
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -112,30 +107,6 @@ private fun buildServices(llmClient: LLMClient): SessionServices {
         config = config,
         llmClient = llmClient
     )
-}
-
-private class FakeAndroidPlatform : AndroidPlatform {
-    override suspend fun captureScreen(): ScreenSnapshot {
-        return ScreenSnapshot(timestamp = System.currentTimeMillis(), elements = emptyList())
-    }
-
-    override suspend fun performAction(action: UIAction, snapshot: ScreenSnapshot?): ActionResult {
-        return ActionResult.Success()
-    }
-
-    override fun hasRequiredPermissions(): Boolean = true
-
-    override fun getCurrentPackageName(): String? = "com.example.fake"
-
-    override fun getDisplayInfo(): DisplayInfo = DisplayInfo(
-        widthPixels = 1080,
-        heightPixels = 1920,
-        density = 2f
-    )
-
-    override suspend fun getInstalledApps(): List<AppInfo> = emptyList()
-
-    override suspend fun launchApp(packageName: String): ActionResult = ActionResult.Success()
 }
 
 private class AgentErrorTestLLMClient(
