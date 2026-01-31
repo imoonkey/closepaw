@@ -1,0 +1,63 @@
+package com.moonkey.androidagent.tool.impl
+
+import com.google.common.truth.Truth.assertThat
+import com.moonkey.androidagent.tool.ValidationResult
+import org.json.JSONArray
+import org.json.JSONObject
+import org.junit.Test
+
+class MobileActionToolTest {
+
+    @Test
+    fun `missing action is invalid`() {
+        val tool = MobileActionTool()
+
+        val result = tool.validate(JSONObject())
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
+    fun `unknown action is invalid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject().put("action", "unknown")
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
+    fun `click requires element_index`() {
+        val tool = MobileActionTool()
+        val params = JSONObject().put("action", "click")
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
+    fun `swipe requires start and end`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "swipe")
+            .put("start", JSONArray(listOf(0, 0)))
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
+    fun `type with text only is valid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "type")
+            .put("text", "hello")
+
+        val result = tool.validate(params)
+
+        assertThat(result).isEqualTo(ValidationResult.Valid)
+    }
+}

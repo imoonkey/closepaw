@@ -41,6 +41,7 @@ class HistoryManager(
         items.add(processed)
         lastTokenEstimate = null // Invalidate cache
         Log.d(TAG, "Added item: ${item.javaClass.simpleName}, total items: ${items.size}")
+        autoCompressIfNeeded()
     }
     
     /**
@@ -56,6 +57,7 @@ class HistoryManager(
         }
         lastTokenEstimate = null // Invalidate cache
         Log.d(TAG, "Recorded ${newItems.size} items, total: ${items.size}")
+        autoCompressIfNeeded()
     }
     
     /**
@@ -203,6 +205,7 @@ class HistoryManager(
                 items[i] = truncateOutput(item, TruncationPolicy.AGGRESSIVE)
             }
         }
+        lastTokenEstimate = null
         
         // Strategy 2: Remove oldest items until within budget
         while (estimateTokenCount() > targetTokens && items.size > 2) {
@@ -293,6 +296,14 @@ class HistoryManager(
         
         return result
     }
+
+    private fun autoCompressIfNeeded() {
+        if (!config.autoCompress) return
+        if (config.maxTokenBudget <= 0) return
+        if (isApproachingLimit(config.maxTokenBudget, config.autoCompressThreshold)) {
+            compress(config.maxTokenBudget)
+        }
+    }
 }
 
 /**
@@ -381,4 +392,3 @@ sealed class ResponseItem {
     }
     
 }
-

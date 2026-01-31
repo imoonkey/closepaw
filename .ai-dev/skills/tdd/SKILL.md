@@ -47,6 +47,8 @@ sealed class Result {
 
 ### 2. Write Tests (RED)
 
+Some tests matter much more than others, some tests no longer make sense because it mock too much (e.g., without real llm api response, some parts are not really testsable). Your goal is to improve system robustness, stability and scalability, not to just hit a test coverage number. If some parts are not suitable for TDD, then do not forcefully follow this process.
+
 ```kotlin
 class CalculatorTest {
     private val calculator = CalculatorImpl()

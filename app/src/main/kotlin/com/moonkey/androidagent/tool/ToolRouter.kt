@@ -78,6 +78,7 @@ class ToolRouter(
         if (tool == null) {
             val errorState = ToolCallState.Error(resolvedCallId, toolName, params, "Unknown tool: $toolName")
             updateState(errorState, onStateChange)
+            activeToolCalls.remove(resolvedCallId)
             return ToolCallResult.Error(resolvedCallId, "Unknown tool: $toolName")
         }
         
@@ -87,6 +88,7 @@ class ToolRouter(
             val errorMsg = "Validation failed: ${validation.errors.joinToString(", ")}"
             val errorState = ToolCallState.Error(resolvedCallId, toolName, params, errorMsg)
             updateState(errorState, onStateChange)
+            activeToolCalls.remove(resolvedCallId)
             return ToolCallResult.Error(resolvedCallId, errorMsg)
         }
         
@@ -104,6 +106,7 @@ class ToolRouter(
             is PolicyDecision.Deny -> {
                 val errorState = ToolCallState.Error(resolvedCallId, toolName, params, policyDecision.reason)
                 updateState(errorState, onStateChange)
+                activeToolCalls.remove(resolvedCallId)
                 return ToolCallResult.Error(resolvedCallId, "Policy denied: ${policyDecision.reason}")
             }
             
@@ -142,6 +145,7 @@ class ToolRouter(
                         "Approval request failed: ${e.message}"
                     )
                     updateState(errorState, onStateChange)
+                    activeToolCalls.remove(resolvedCallId)
                     return ToolCallResult.Error(resolvedCallId, "Approval request failed: ${e.message}")
                 }
                 
@@ -159,6 +163,7 @@ class ToolRouter(
                         resolvedCallId, toolName, params, "Approval timed out", null
                     )
                     updateState(cancelledState, onStateChange)
+                    activeToolCalls.remove(resolvedCallId)
                     return ToolCallResult.Cancelled(resolvedCallId, "Approval timed out")
                 } finally {
                     pendingApprovals.remove(resolvedCallId)
@@ -172,6 +177,7 @@ class ToolRouter(
                             resolvedCallId, toolName, params, "User denied", decision
                         )
                         updateState(cancelledState, onStateChange)
+                        activeToolCalls.remove(resolvedCallId)
                         return ToolCallResult.Cancelled(resolvedCallId, "User denied")
                     }
                     ApprovalDecision.ABORT -> {
@@ -179,6 +185,7 @@ class ToolRouter(
                             resolvedCallId, toolName, params, "User aborted", decision
                         )
                         updateState(cancelledState, onStateChange)
+                        activeToolCalls.remove(resolvedCallId)
                         return ToolCallResult.Cancelled(resolvedCallId, "User aborted session")
                     }
                     ApprovalDecision.APPROVED -> {
@@ -200,6 +207,7 @@ class ToolRouter(
         if (context.isCancelled()) {
             val cancelledState = ToolCallState.Cancelled(resolvedCallId, toolName, params, "Cancelled before execution")
             updateState(cancelledState, onStateChange)
+            activeToolCalls.remove(resolvedCallId)
             return ToolCallResult.Cancelled(resolvedCallId, "Cancelled before execution")
         }
         
