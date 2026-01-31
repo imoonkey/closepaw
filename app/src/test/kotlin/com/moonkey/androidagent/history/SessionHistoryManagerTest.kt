@@ -1,10 +1,8 @@
 package com.moonkey.androidagent.history
 
 import com.google.common.truth.Truth.assertThat
-import android.content.Context
 import com.moonkey.androidagent.history.storage.SessionStorage
-import io.mockk.every
-import io.mockk.mockk
+import com.moonkey.androidagent.test.buildTestContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -22,7 +20,7 @@ class SessionHistoryManagerTest {
 
     @Test
     fun `listSessions returns active session and load works`() = runTest {
-        val context = buildContext(tempFolder.newFolder("files"))
+        val context = buildTestContext(tempFolder.newFolder("files"))
         val ioDispatcher = StandardTestDispatcher(testScheduler)
         val storage = SessionStorage(context, ioDispatcher)
         val manager = SessionHistoryManager.create(storage, this)
@@ -47,7 +45,7 @@ class SessionHistoryManagerTest {
 
     @Test
     fun `loadSession fails when session is missing`() = runTest {
-        val context = buildContext(tempFolder.newFolder("files"))
+        val context = buildTestContext(tempFolder.newFolder("files"))
         val ioDispatcher = StandardTestDispatcher(testScheduler)
         val storage = SessionStorage(context, ioDispatcher)
         val manager = SessionHistoryManager.create(storage, this)
@@ -56,10 +54,4 @@ class SessionHistoryManagerTest {
 
         assertThat(result.isFailure).isTrue()
     }
-}
-
-private fun buildContext(filesDir: java.io.File): Context {
-    val context = mockk<Context>(relaxed = true)
-    every { context.filesDir } returns filesDir
-    return context
 }

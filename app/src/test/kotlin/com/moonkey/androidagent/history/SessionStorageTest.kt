@@ -1,12 +1,10 @@
 package com.moonkey.androidagent.history
 
 import com.google.common.truth.Truth.assertThat
-import android.content.Context
 import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.model.SessionRecord
 import com.moonkey.androidagent.history.storage.SessionStorage
-import io.mockk.every
-import io.mockk.mockk
+import com.moonkey.androidagent.test.buildTestContext
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
@@ -20,7 +18,7 @@ class SessionStorageTest {
 
     @Test
     fun `write and read session round trip`() = runTest {
-        val context = buildContext(tempFolder.newFolder("files"))
+        val context = buildTestContext(tempFolder.newFolder("files"))
         val ioDispatcher = StandardTestDispatcher(testScheduler)
         val storage = SessionStorage(context, ioDispatcher)
         val record = SessionRecord(
@@ -45,7 +43,7 @@ class SessionStorageTest {
 
     @Test
     fun `listSessionFiles returns newest first`() = runTest {
-        val context = buildContext(tempFolder.newFolder("files"))
+        val context = buildTestContext(tempFolder.newFolder("files"))
         val ioDispatcher = StandardTestDispatcher(testScheduler)
         val storage = SessionStorage(context, ioDispatcher)
 
@@ -76,10 +74,4 @@ class SessionStorageTest {
         assertThat(files[0].name).isEqualTo(file2)
         assertThat(files[1].name).isEqualTo(file1)
     }
-}
-
-private fun buildContext(filesDir: java.io.File): Context {
-    val context = mockk<Context>(relaxed = true)
-    every { context.filesDir } returns filesDir
-    return context
 }
