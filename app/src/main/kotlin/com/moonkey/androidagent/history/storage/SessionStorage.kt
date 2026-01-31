@@ -3,6 +3,7 @@ package com.moonkey.androidagent.history.storage
 import android.content.Context
 import android.util.Log
 import com.moonkey.androidagent.history.model.SessionRecord
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -20,7 +21,10 @@ import java.time.format.DateTimeFormatter
  * This class handles all file I/O operations and is the only component
  * that should directly interact with the filesystem for session data.
  */
-class SessionStorage(private val context: Context) {
+class SessionStorage(
+    private val context: Context,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+) {
     
     companion object {
         private const val TAG = "SessionStorage"
@@ -68,7 +72,7 @@ class SessionStorage(private val context: Context) {
      * @param record The session record to persist
      * @return Result indicating success or failure
      */
-    suspend fun writeSession(fileName: String, record: SessionRecord): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun writeSession(fileName: String, record: SessionRecord): Result<Unit> = withContext(ioDispatcher) {
         try {
             val file = File(getSessionsDir(), fileName)
             val jsonString = json.encodeToString(record)
@@ -87,7 +91,7 @@ class SessionStorage(private val context: Context) {
      * @param fileName The name of the file to read
      * @return Result containing the session record or an error
      */
-    suspend fun readSession(fileName: String): Result<SessionRecord> = withContext(Dispatchers.IO) {
+    suspend fun readSession(fileName: String): Result<SessionRecord> = withContext(ioDispatcher) {
         try {
             val file = File(getSessionsDir(), fileName)
             if (!file.exists()) {
@@ -108,7 +112,7 @@ class SessionStorage(private val context: Context) {
      * 
      * @return List of session files, sorted by last modified descending
      */
-    suspend fun listSessionFiles(): List<File> = withContext(Dispatchers.IO) {
+    suspend fun listSessionFiles(): List<File> = withContext(ioDispatcher) {
         val dir = getSessionsDir()
         val files = dir.listFiles { file ->
             file.isFile && 
@@ -125,7 +129,7 @@ class SessionStorage(private val context: Context) {
      * @param fileName The name of the file to delete
      * @return Result indicating success or failure
      */
-    suspend fun deleteSession(fileName: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun deleteSession(fileName: String): Result<Unit> = withContext(ioDispatcher) {
         try {
             val file = File(getSessionsDir(), fileName)
             if (file.exists()) {

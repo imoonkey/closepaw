@@ -414,9 +414,17 @@ class Agent(
                 message.contains("connection reset", ignoreCase = true)
             )
 
+            val isContextLimit = message.contains("context length", ignoreCase = true) ||
+                message.contains("maximum context", ignoreCase = true) ||
+                message.contains("context window", ignoreCase = true) ||
+                message.contains("too many tokens", ignoreCase = true) ||
+                message.contains("max tokens", ignoreCase = true)
+
             TurnOutcome.Error(
                 message = message.ifEmpty { "Unknown error" },
-                recoverable = !isDnsFailure && (isTransientNetworkError || !message.contains("internet", ignoreCase = true))
+                recoverable = !isDnsFailure &&
+                    !isContextLimit &&
+                    (isTransientNetworkError || !message.contains("internet", ignoreCase = true))
             )
         }
 
