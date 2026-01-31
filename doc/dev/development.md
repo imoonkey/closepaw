@@ -40,7 +40,7 @@ The local backend uses LiquidAI's Leap SDK to run LFM models on-device. The mode
 The typical development loop:
 
 ```
-Code change → Build & Deploy → Test → View Logs → Debug (if needed)
+Code change → Build & Deploy → Unit Tests → Device Test → View Logs → Debug (if needed)
 ```
 
 ### 1. Build & Deploy
@@ -53,7 +53,21 @@ After any code change, run setup to build, install, and configure permissions:
 
 This handles everything: build APK, install, grant permissions, enable accessibility, launch app.
 
-### 2. Test
+### 2. Unit Tests (JVM)
+
+Run the local JVM test suite after code changes:
+
+```bash
+./gradlew test
+```
+
+For faster iteration, run a single test class:
+
+```bash
+./gradlew test --tests "com.moonkey.androidagent.history.HistoryManagerTest"
+```
+
+### 3. Device Test
 
 Run the agent with a goal:
 
@@ -63,7 +77,7 @@ Run the agent with a goal:
 ./scripts/dev.sh run --local "Open Settings"  # Use local LLM
 ```
 
-### 3. View Logs
+### 4. View Logs
 
 Monitor agent behavior through filtered logs:
 
@@ -74,7 +88,7 @@ Monitor agent behavior through filtered logs:
 ./scripts/dev.sh logs action    # Action execution
 ```
 
-### 4. Debug
+### 5. Debug
 
 For deeper investigation, use visual debugging to capture screenshots at each turn:
 

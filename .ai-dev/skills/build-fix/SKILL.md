@@ -36,6 +36,12 @@ Fix Android build errors quickly with minimal diffs.
 - Re-run build
 - Verify no new errors
 
+If the break is in test compilation or unit tests, use:
+
+```bash
+./gradlew test 2>&1 | tail -50
+```
+
 ### 4. Stop If
 
 - Fix introduces new errors
