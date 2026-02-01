@@ -233,10 +233,12 @@ class Turn(
             1. EXECUTE ONE ACTION PER TURN. Call mobile_action or app_control, then STOP and wait.
             2. NEVER call complete_task together with other actions in the same turn.
             3. Only call complete_task in the next turn AFTER you see the result of your action has achieved user's goal
+            4. When calling a tool, include agent_thought with a brief reason for the action.
             
             ## Element Selection
             
-            - Use the "index" field to identify elements (e.g., element_index=5)
+            - For click, prefer resource_id/text/bounds when available; element_index is a fallback
+            - Use element_index to identify elements when no better selector is available (e.g., element_index=5)
             - Only click elements with "clickable": true
             - Only type in elements with "editable": true
             

@@ -68,7 +68,8 @@ object Perceptor {
                         put("clickable", elem.isClickable)
                         put("editable", elem.isEditable)
                         put("scrollable", elem.isScrollable)
-                        // We simplify bounds to center for some prompts, or keep bounds
+                        put("bounds", JSONArray(listOf(elem.bounds.left, elem.bounds.top, elem.bounds.right, elem.bounds.bottom)))
+                        // Provide both bounds and center for flexible targeting
                         // TODO: Consider using streaming JSON writer for better performance
                         //       if profiling shows JSON generation is a bottleneck.
                         put("center", JSONArray(listOf(elem.center.x, elem.center.y)))

@@ -320,7 +320,7 @@ class AccessibilityPlatform(
      * avoiding stale AccessibilityNodeInfo references.
      */
     private suspend fun performType(action: UIAction.Type, snapshot: ScreenSnapshot?): ActionResult {
-        Log.d(TAG, "performType: text='${action.text}', elementIndex=${action.elementIndex}")
+        Log.d(TAG, "performType: text='${action.text}', elementIndex=${action.elementIndex}, clear=${action.clear}")
         
         return withContext(Dispatchers.Main) {
             val root = service.rootInActiveWindow
@@ -374,9 +374,25 @@ class AccessibilityPlatform(
             }
             
             if (targetNode != null) {
-                Log.d(TAG, "performType: Found target node, setting text")
+                Log.d(TAG, "performType: Found target node, setting text (clear=${action.clear})")
+                if (action.clear) {
+                    val clearArgs = Bundle().apply {
+                        putCharSequence(
+                            AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                            ""
+                        )
+                    }
+                    val clearResult = targetNode.performAction(
+                        AccessibilityNodeInfo.ACTION_SET_TEXT,
+                        clearArgs
+                    )
+                    Log.d(TAG, "performType: Clear result=$clearResult")
+                }
                 val args = Bundle().apply {
-                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, action.text)
+                    putCharSequence(
+                        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
+                        action.text
+                    )
                 }
                 val result = targetNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
                 
@@ -405,12 +421,24 @@ class AccessibilityPlatform(
     }
     
     private suspend fun performSwipe(action: UIAction.Swipe): ActionResult {
-        Log.d(TAG, "Swipe: (${action.startX},${action.startY}) -> (${action.endX},${action.endY}), duration=${action.durationMs}ms")
+        val display = getDisplayInfo()
+        val maxX = (display.widthPixels - 1).coerceAtLeast(0)
+        val maxY = (display.heightPixels - 1).coerceAtLeast(0)
+        val startX = action.startX.coerceIn(0, maxX)
+        val startY = action.startY.coerceIn(0, maxY)
+        val endX = action.endX.coerceIn(0, maxX)
+        val endY = action.endY.coerceIn(0, maxY)
+
+        if (startX != action.startX || startY != action.startY || endX != action.endX || endY != action.endY) {
+            Log.w(TAG, "Swipe coordinates clamped to screen bounds")
+        }
+
+        Log.d(TAG, "Swipe: (${startX},${startY}) -> (${endX},${endY}), duration=${action.durationMs}ms")
         return performSwipeGesture(
-            action.startX.toFloat(),
-            action.startY.toFloat(),
-            action.endX.toFloat(),
-            action.endY.toFloat(),
+            startX.toFloat(),
+            startY.toFloat(),
+            endX.toFloat(),
+            endY.toFloat(),
             action.durationMs
         )
     }
@@ -650,4 +678,3 @@ class AccessibilityPlatform(
         }
     }
 }
-

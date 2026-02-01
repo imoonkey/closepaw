@@ -92,6 +92,10 @@ Actions:
         createActionSchema(
             actionDescription = "The action to perform",
             additionalProperties = mapOf(
+                "agent_thought" to PropertySpec(
+                    type = "string",
+                    description = "Brief reason for why this action is being performed"
+                ),
                 "package_name" to PropertySpec(
                     type = "string",
                     description = "Package name for open_app (e.g., 'com.google.android.gm' for Gmail)"
@@ -131,16 +135,23 @@ class ListAppsActionHandler : ActionHandler {
     
     override fun createInvocation(params: JSONObject): ToolInvocation {
         val filter = params.optString("filter", "")
+        val agentThought = params.optString("agent_thought", "").trim()
         val description = if (filter.isNotEmpty()) {
             "List apps matching '$filter'"
         } else {
             "List all installed apps"
         }
         
+        val finalDescription = if (agentThought.isNotEmpty()) {
+            "$description (reason: $agentThought)"
+        } else {
+            description
+        }
+
         return DataQueryInvocation(
             toolName = "app_control",
             params = params,
-            description = description,
+            description = finalDescription,
             queryFn = { context -> queryApps(context, filter) }
         )
     }
@@ -218,13 +229,20 @@ class OpenAppActionHandler : ActionHandler {
     override fun createInvocation(params: JSONObject): ToolInvocation {
         val packageName = params.optString("package_name", "")
         val appName = params.optString("app_name", "")
+        val agentThought = params.optString("agent_thought", "").trim()
         
         val description = when {
             packageName.isNotEmpty() -> "Open app: $packageName"
             else -> "Open app: $appName"
         }
-        
-        return OpenAppInvocation(params, description, packageName, appName)
+
+        val finalDescription = if (agentThought.isNotEmpty()) {
+            "$description (reason: $agentThought)"
+        } else {
+            description
+        }
+
+        return OpenAppInvocation(params, finalDescription, packageName, appName)
     }
 }
 

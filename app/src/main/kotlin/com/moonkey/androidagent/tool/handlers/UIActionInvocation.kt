@@ -32,7 +32,14 @@ class UIActionInvocation(
         private const val UI_SETTLE_DELAY_MS = 300L
     }
     
-    override fun getDescription(): String = description
+    override fun getDescription(): String {
+        val agentThought = params.optString("agent_thought", "").trim()
+        return if (agentThought.isNotEmpty()) {
+            "$description (reason: $agentThought)"
+        } else {
+            description
+        }
+    }
     
     override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
         if (context.isCancelled()) {
@@ -50,9 +57,19 @@ class UIActionInvocation(
                 )
             }
             is ActionResult.Failure -> ToolExecutionResult.Failure(result.reason, result.exception)
-            is ActionResult.ElementNotFound -> ToolExecutionResult.Failure(
-                "Element not found: index ${result.elementIndex}"
-            )
+            is ActionResult.ElementNotFound -> {
+                val available = context.currentSnapshot?.elements?.map { it.index } ?: emptyList()
+                val availableSuffix = if (available.isNotEmpty()) {
+                    val preview = available.take(20).joinToString(", ")
+                    val more = if (available.size > 20) " ... and ${available.size - 20} more" else ""
+                    " Available indices: $preview$more"
+                } else {
+                    ""
+                }
+                ToolExecutionResult.Failure(
+                    "Element not found: index ${result.elementIndex}.$availableSuffix"
+                )
+            }
             is ActionResult.Cancelled -> ToolExecutionResult.Cancelled(result.reason)
         }
     }

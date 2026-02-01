@@ -39,7 +39,8 @@ sealed interface UIAction {
      */
     data class Type(
         val text: String,
-        val elementIndex: Int? = null
+        val elementIndex: Int? = null,
+        val clear: Boolean = false
     ) : UIAction
     
     /**
@@ -80,4 +81,3 @@ enum class SystemButtonType {
     RECENTS,
     ENTER  // Enter/Return key
 }
-
