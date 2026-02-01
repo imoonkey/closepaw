@@ -65,73 +65,65 @@ class ClickTargetInvocation(
             }
         }
 
-        val hasBounds = params.has("x1") && params.has("y1") && params.has("x2") && params.has("y2")
-        if (hasBounds) {
-            val x1 = params.optInt("x1", -1)
-            val y1 = params.optInt("y1", -1)
-            val x2 = params.optInt("x2", -1)
-            val y2 = params.optInt("y2", -1)
-            val cx = (x1 + x2) / 2
-            val cy = (y1 + y2) / 2
-            val result = attempt("bounds center ($cx,$cy)", UIAction.ClickAt(cx, cy))
+        val selectorAttempts = MultiSelectorTargeting.attemptsFromParams(
+            params = params,
+            textKey = "text",
+            textIndexKey = "text_index",
+            textLabel = "text"
+        )
+
+        for (selectorAttempt in selectorAttempts) {
+            val selector = selectorAttempt.selector
+            val label = selectorAttempt.label
+
+            val result = when (selector) {
+                is MultiSelectorTargeting.Selector.Bounds -> {
+                    val (cx, cy) = selector.center()
+                    attempt(label, UIAction.ClickAt(cx, cy))
+                }
+                is MultiSelectorTargeting.Selector.Point -> attempt(
+                    label,
+                    UIAction.ClickAt(selector.x, selector.y)
+                )
+                is MultiSelectorTargeting.Selector.ResourceId -> {
+                    val elementIndex = MultiSelectorTargeting.findElementIndexByResourceId(
+                        snapshot = snapshot,
+                        resourceId = selector.resourceId,
+                        index = selector.index
+                    )
+                    if (elementIndex == null) {
+                        val count = MultiSelectorTargeting.matchCountByResourceId(snapshot, selector.resourceId)
+                        attempts.add(
+                            "resource_id='${selector.resourceId}' index ${selector.index} out of range (found $count)"
+                        )
+                        null
+                    } else {
+                        attempt(label, UIAction.Click(elementIndex))
+                    }
+                }
+                is MultiSelectorTargeting.Selector.Text -> {
+                    val elementIndex = MultiSelectorTargeting.findElementIndexByTextOrDescription(
+                        snapshot = snapshot,
+                        text = selector.text,
+                        index = selector.index
+                    )
+                    if (elementIndex == null) {
+                        val count = MultiSelectorTargeting.matchCountByTextOrDescription(snapshot, selector.text)
+                        attempts.add(
+                            "text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
+                        )
+                        null
+                    } else {
+                        attempt(label, UIAction.Click(elementIndex))
+                    }
+                }
+                is MultiSelectorTargeting.Selector.ElementIndex -> attempt(
+                    label,
+                    UIAction.Click(selector.elementIndex)
+                )
+            }
+
             if (result != null) return result
-        }
-
-        val hasPoint = params.has("x") && params.has("y")
-        if (hasPoint) {
-            val x = params.optInt("x", -1)
-            val y = params.optInt("y", -1)
-            val result = attempt("coordinates ($x,$y)", UIAction.ClickAt(x, y))
-            if (result != null) return result
-        }
-
-        val resourceId = params.optString("resource_id", "").trim()
-        if (resourceId.isNotEmpty()) {
-            val matches = snapshot.elements.filter { it.resourceId == resourceId }
-            val index = params.optInt("resource_id_index", 0)
-            val element = matches.getOrNull(index)
-            if (element == null) {
-                attempts.add(
-                    "resource_id='$resourceId' index $index out of range (found ${matches.size})"
-                )
-            } else {
-                val result = attempt(
-                    "resource_id='$resourceId' index $index",
-                    UIAction.Click(element.index)
-                )
-                if (result != null) return result
-            }
-        }
-
-        val text = params.optString("text", "").trim()
-        if (text.isNotEmpty()) {
-            val matches = snapshot.elements.filter {
-                it.text.equals(text, ignoreCase = true) ||
-                    it.description.equals(text, ignoreCase = true)
-            }
-            val index = params.optInt("text_index", 0)
-            val element = matches.getOrNull(index)
-            if (element == null) {
-                attempts.add(
-                    "text=\"$text\" index $index out of range (found ${matches.size})"
-                )
-            } else {
-                val result = attempt(
-                    "text=\"$text\" index $index",
-                    UIAction.Click(element.index)
-                )
-                if (result != null) return result
-            }
-        }
-
-        if (params.has("element_index")) {
-            val idx = params.optInt("element_index", -1)
-            if (idx >= 0) {
-                val result = attempt("element_index $idx", UIAction.Click(idx))
-                if (result != null) return result
-            } else {
-                attempts.add("element_index must be >= 0")
-            }
         }
 
         val details = if (attempts.isNotEmpty()) {

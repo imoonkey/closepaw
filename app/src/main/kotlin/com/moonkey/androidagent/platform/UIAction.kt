@@ -30,6 +30,18 @@ sealed interface UIAction {
         val elementIndex: Int,
         val durationMs: Long = 1000
     ) : UIAction
+
+    /**
+     * Long press at specific screen coordinates.
+     *
+     * This is useful as a defensive fallback when element indices are stale or
+     * when the accessibility tree cannot reliably identify the target element.
+     */
+    data class LongClickAt(
+        val x: Int,
+        val y: Int,
+        val durationMs: Long = 1000
+    ) : UIAction
     
     /**
      * Type text into a field.

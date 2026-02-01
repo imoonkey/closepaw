@@ -39,11 +39,53 @@ object ActionDescriptionFormatter {
                     else -> "Click element ${args.optInt("element_index", -1)}"
                 }
             }
-            "long_press" -> "Long press element ${args.optInt("element_index", -1)}"
+            "long_press" -> {
+                val resourceId = args.optString("resource_id", "").trim()
+                val text = args.optString("text", "").trim()
+                val hasBounds = args.has("x1") && args.has("y1") && args.has("x2") && args.has("y2")
+                val hasPoint = args.has("x") && args.has("y")
+                val durationMs = args.optLong("duration_ms", 1000)
+                when {
+                    resourceId.isNotEmpty() ->
+                        "Long press resource_id '$resourceId' (index ${args.optInt("resource_id_index", 0)}) for ${durationMs}ms"
+                    text.isNotEmpty() ->
+                        "Long press text \"$text\" (index ${args.optInt("text_index", 0)}) for ${durationMs}ms"
+                    hasBounds -> {
+                        val x1 = args.optInt("x1", -1)
+                        val y1 = args.optInt("y1", -1)
+                        val x2 = args.optInt("x2", -1)
+                        val y2 = args.optInt("y2", -1)
+                        "Long press bounds ($x1,$y1)-($x2,$y2) for ${durationMs}ms"
+                    }
+                    hasPoint -> "Long press at (${args.optInt("x", -1)},${args.optInt("y", -1)}) for ${durationMs}ms"
+                    else -> "Long press element ${args.optInt("element_index", -1)} for ${durationMs}ms"
+                }
+            }
             "type" -> {
                 val text = args.optString("text", "").take(30)
                 val clear = args.optBoolean("clear", false)
-                "Type \"${text}\"${if (clear) " (clear first)" else ""}"
+                val resourceId = args.optString("resource_id", "").trim()
+                val targetText = args.optString("target_text", "").trim()
+                val hasBounds = args.has("x1") && args.has("y1") && args.has("x2") && args.has("y2")
+                val hasPoint = args.has("x") && args.has("y")
+                val hasElementIndex = args.has("element_index") && args.optInt("element_index", -1) >= 0
+                val target = when {
+                    resourceId.isNotEmpty() ->
+                        "resource_id '$resourceId' (index ${args.optInt("resource_id_index", 0)})"
+                    targetText.isNotEmpty() ->
+                        "target_text \"$targetText\" (index ${args.optInt("target_text_index", args.optInt("text_index", 0))})"
+                    hasBounds -> {
+                        val x1 = args.optInt("x1", -1)
+                        val y1 = args.optInt("y1", -1)
+                        val x2 = args.optInt("x2", -1)
+                        val y2 = args.optInt("y2", -1)
+                        "bounds ($x1,$y1)-($x2,$y2)"
+                    }
+                    hasPoint -> "coordinates (${args.optInt("x", -1)},${args.optInt("y", -1)})"
+                    hasElementIndex -> "element ${args.optInt("element_index", -1)}"
+                    else -> "focused field"
+                }
+                "Type \"${text}\" into $target${if (clear) " (clear first)" else ""}"
             }
             "swipe" -> {
                 val start = args.optJSONArray("start")

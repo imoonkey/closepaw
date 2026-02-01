@@ -224,6 +224,7 @@ class AccessibilityPlatform(
             is UIAction.Click -> performClick(action, snapshot)
             is UIAction.ClickAt -> performClickAt(action.x, action.y)
             is UIAction.LongClick -> performLongClick(action, snapshot)
+            is UIAction.LongClickAt -> performLongClickAt(action)
             is UIAction.Type -> performType(action, snapshot)
             is UIAction.Swipe -> performSwipe(action)
             is UIAction.SystemButton -> performSystemButton(action)
@@ -608,6 +609,22 @@ class AccessibilityPlatform(
             .addStroke(GestureDescription.StrokeDescription(path, 0, action.durationMs))
             .build()
         
+        return dispatchGesture(gesture)
+    }
+
+    private suspend fun performLongClickAt(action: UIAction.LongClickAt): ActionResult {
+        val x = action.x.toFloat()
+        val y = action.y.toFloat()
+
+        Log.d(TAG, "Long click at ($x, $y) for ${action.durationMs}ms")
+
+        visualizer?.showClick(x, y, longPress = true)
+
+        val path = Path().apply { moveTo(x, y) }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, action.durationMs))
+            .build()
+
         return dispatchGesture(gesture)
     }
     
