@@ -1,35 +1,36 @@
-# Minitap (mobile-use) - history/state + context window notes
+# Minitap (mobile-use) - a11y/UI hierarchy handling notes
 
 ## Sources (local)
-- `doc/todo/success/minitap_codex.md`
-- `doc/todo/success/minitap_claude.md`
-- `doc/todo/success/improvement_recommendations_codex.md`
-- `doc/todo/success/improvement_recommendations_claude.md`
-- `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/contextor/contextor.py`
-- `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/cortex/cortex.py`
-- `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/planner/planner.py`
-- `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/executor/executor.py`
-- `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/graph/state.py`
 - `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/clients/ui_automator_client.py`
-- `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/tools/scratchpad.py`
+- `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/utils/ui_hierarchy.py`
+- `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/tools/mobile/tap.py`
+- `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/tools/utils.py`
 
-## 1) Context window contents (beyond chat history)
-- **Contextor -> Cortex pipeline**:
-  - Contextor gathers `latest_ui_hierarchy`, `latest_screenshot` (base64), focused app info, and device date. (See `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/contextor/contextor.py`.)
-  - Cortex builds a fresh message set each step: system prompt (goal, subgoals, tools, app lock), device info + device date + focused app info, **agent thoughts history**, then UI hierarchy JSON and screenshot (compressed). (See `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/cortex/cortex.py`.)
-- **Planner** context includes initial goal, previous plan, and agent thoughts; also platform, tool list, and app-lock state. (See `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/planner/planner.py`.)
-- **Executor** context includes Cortex decisions + last thought + accumulated executor messages; tools are bound at call time. (See `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/executor/executor.py`.)
-- **Scratchpad** is persistent key/value memory via tools (`save_note`, `read_note`, `list_notes`), but its contents are not auto-injected into prompts unless tools are invoked. (See `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/tools/scratchpad.py`.)
+## 1) How it captures + represents the hierarchy
+- Capture: UIAutomator2 `dump_hierarchy()` provides an XML hierarchy.
+- Parse: `_parse_hierarchy_xml_to_elements()` flattens XML into a **flat list of dicts**.
+- Key attributes preserved in the element dict:
+  - `resource-id`, `text`, `content-desc` (+ `accessibilityText` alias), `bounds`, `class`, `package`
+  - common flags: `clickable`, `enabled`, `focusable`, `focused`, `scrollable`, `long-clickable`, etc.
 
-## 2) Screenshot retention and history
-- Only the **latest screenshot** is stored in state (`latest_screenshot`) and sent to Cortex; it is **cleared immediately after** Cortex runs. (See `state.asanitize_update` in `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/cortex/cortex.py`.)
-- Screenshots are **compressed** before sending to the LLM (`get_compressed_b64_screenshot`). (See `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/cortex/cortex.py` and controller implementations.)
-- This avoids keeping a full screenshot history in the context window; only the current image is used per step.
+This is “wide” (many attributes), not just minimal fields.
 
-## 3) Other context injected
-- Agent thoughts accumulate in state and are re-fed to Cortex as AI messages, providing a lightweight textual history. (See `agents_thoughts` in `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/graph/state.py` and usage in Cortex.)
-- App lock state and current foreground app are injected into planner/contextor prompts to enforce app constraints. (See Contextor and Planner code.)
+## 2) Selector strategy (relevant to `resource_id`)
+- Tool layer uses a `Target` object (resource_id, bounds, text + optional indices).
+- They have a defensive mismatch pattern:
+  - When both `resource_id` and `text` exist, they may **ignore the ID** if it resolves to an element whose text does not match (prevents misleading IDs).
+  - See `focus_element_if_needed()` in `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/tools/utils.py`.
 
-## 4) A11y tree sanitization
-- UI hierarchy comes from UIAutomator2 `dump_hierarchy(compressed=True)` and is parsed into a **flat list of element dicts** with selected attributes (resource-id, text, content-desc/accessibilityText, bounds, class, package, and common flags). (See `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/clients/ui_automator_client.py`.)
-- There is **no explicit visibility/size filtering** before inserting the hierarchy into the Cortex prompt; sanitization is mainly the XML cleanup + attribute selection.
+## 3) Fallback order (important nuance)
+Their `tap` tool tries:
+1) bounds/coordinates
+2) resource_id (+ index)
+3) text (+ index)
+
+This matches a “visual first” bias (if bounds exist), but they still preserve `resource_id` as a key locator and support `resource_id_index` / `text_index` semantics.
+
+## 4) Practical takeaways for us
+- Minitap keeps **resource-id + many flags**, even if text/desc is empty. That helps when IDs exist but labels don’t.
+- They explicitly model `resource_id_index` / `text_index`, which makes “nth match” stable and tool-friendly.
+- They actively defend against “ID points to the wrong element” when text is also provided.
+
