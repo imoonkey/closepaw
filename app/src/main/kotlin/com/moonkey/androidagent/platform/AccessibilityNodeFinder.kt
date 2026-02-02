@@ -5,40 +5,60 @@ import android.view.accessibility.AccessibilityNodeInfo
 
 internal object AccessibilityNodeFinder {
     /**
-     * Find a clickable node at the given coordinates.
+     * Find the smallest clickable node at the given coordinates.
+     * 
+     * This function finds the clickable node with the smallest bounding area
+     * that contains the given point. This is important because:
+     * - Some apps have overlapping clickable elements (e.g., a button inside a larger view)
+     * - The user typically wants to click the specific UI element (the smaller one)
+     * - Simply taking the first clickable child in traversal order may pick the wrong element
+     * 
      * Used for ACTION_CLICK approach which works better with some apps.
      */
     fun findClickableNodeAtLocation(root: AccessibilityNodeInfo, x: Int, y: Int): AccessibilityNodeInfo? {
         val bounds = Rect()
+        var bestNode: AccessibilityNodeInfo? = null
+        var bestArea = Long.MAX_VALUE
 
-        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean): AccessibilityNodeInfo? {
+        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean) {
             node.getBoundsInScreen(bounds)
 
             if (!bounds.contains(x, y)) {
                 if (shouldRecycle) node.recycle()
-                return null
+                return
             }
 
-            // Check children first (prefer deeper matches)
-            for (i in 0 until node.childCount) {
-                val child = node.getChild(i) ?: continue
-                val found = search(child, shouldRecycle = true)
-                if (found != null) {
-                    if (shouldRecycle) node.recycle()
-                    return found
+            // Check if this node is clickable and smaller than current best
+            if (node.isClickable) {
+                val area = bounds.width().toLong() * bounds.height().toLong()
+                if (area < bestArea) {
+                    // Found a smaller clickable node
+                    bestNode?.recycle()
+                    bestNode = node
+                    bestArea = area
+                    // Don't recycle - we're keeping this as best candidate
+                    // Continue searching children for potentially smaller nodes
+                } else if (shouldRecycle) {
+                    // Larger than best, recycle if allowed
+                    node.recycle()
+                    return
                 }
             }
 
-            // If this node is clickable, return it
-            if (node.isClickable) {
-                return node
+            // Search children for potentially smaller clickable nodes
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                search(child, shouldRecycle = true)
             }
 
-            if (shouldRecycle) node.recycle()
-            return null
+            // Recycle non-clickable nodes if allowed and not the best
+            if (!node.isClickable && shouldRecycle) {
+                node.recycle()
+            }
         }
 
-        return search(root, shouldRecycle = false)
+        search(root, shouldRecycle = false)
+        return bestNode
     }
 
     /**

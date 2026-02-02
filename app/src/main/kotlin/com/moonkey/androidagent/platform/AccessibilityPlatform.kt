@@ -327,11 +327,15 @@ class AccessibilityPlatform(
     /**
      * Perform click action using multiple strategies.
      * 
-     * Strategy 1: Try ACTION_CLICK on the accessibility node (works better with some apps like Notion)
-     * Strategy 2: Fall back to gesture-based tap (works better with native Android apps)
+     * Strategy 1: Try ACTION_CLICK on the accessibility node first (most reliable for complex apps)
+     * Strategy 2: Fall back to gesture-based tap if ACTION_CLICK fails
      * 
-     * Some cross-platform apps (Notion, Flutter apps, etc.) respond better to accessibility
-     * node clicks than raw gestures, while native apps often work better with gestures.
+     * ACTION_CLICK is preferred because:
+     * - It's more reliable for apps with complex ViewGroups (YouTube, Notion, Flutter apps)
+     * - The accessibility framework routes the click to the correct target
+     * - Gesture taps can report "success" even when the UI doesn't respond
+     * 
+     * Gesture tap is used as fallback for apps that don't handle ACTION_CLICK well.
      */
     private suspend fun performClick(action: UIAction.Click, snapshot: ScreenSnapshot?): ActionResult {
         if (snapshot == null) {
@@ -346,8 +350,45 @@ class AccessibilityPlatform(
         
         Log.d(TAG, "Clicking element ${action.elementIndex} at ($centerX, $centerY)")
 
-        // Prefer gesture tap first. In some apps ACTION_CLICK returns true but has no visible effect,
-        // which can lead to retry loops. Gesture tap is closer to real user input.
+        // Strategy 1: Try ACTION_CLICK on the accessibility node first
+        // This is more reliable for apps with complex ViewGroups like YouTube
+        val actionClickResult = withContext(Dispatchers.Main) {
+            val root = service.rootInActiveWindow
+            if (root != null) {
+                val clickableNode = AccessibilityNodeFinder.findClickableNodeAtLocation(root, centerX, centerY)
+                if (clickableNode != null) {
+                    Log.d(TAG, "Trying ACTION_CLICK on node at ($centerX, $centerY)")
+                    visualizer?.showClick(centerX.toFloat(), centerY.toFloat())
+                    
+                    val success = clickableNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    clickableNode.recycle()
+                    
+                    if (success) {
+                        Log.d(TAG, "ACTION_CLICK succeeded")
+                        return@withContext ActionResult.Success(
+                            if (element.isEditable) {
+                                "Clicked editable element ${action.elementIndex}"
+                            } else {
+                                "Clicked element ${action.elementIndex}"
+                            }
+                        )
+                    }
+                    Log.d(TAG, "ACTION_CLICK returned false")
+                } else {
+                    Log.d(TAG, "No clickable node found at ($centerX, $centerY)")
+                }
+            } else {
+                Log.d(TAG, "Root is null, cannot try ACTION_CLICK")
+            }
+            null // ACTION_CLICK didn't work
+        }
+        
+        if (actionClickResult is ActionResult.Success) {
+            return actionClickResult
+        }
+
+        // Strategy 2: Fall back to gesture-based tap
+        Log.d(TAG, "ACTION_CLICK failed or unavailable, falling back to gesture tap at ($centerX, $centerY)")
         val tapResult = performClickAt(centerX, centerY)
         if (tapResult is ActionResult.Success) {
             return ActionResult.Success(
@@ -358,33 +399,8 @@ class AccessibilityPlatform(
                 }
             )
         }
-
-        // Fallback: Try ACTION_CLICK on a clickable node at the tap point.
-        return withContext(Dispatchers.Main) {
-            val root = service.rootInActiveWindow
-            if (root != null) {
-                val clickableNode = AccessibilityNodeFinder.findClickableNodeAtLocation(root, centerX, centerY)
-                if (clickableNode != null) {
-                    Log.d(TAG, "Gesture tap failed, trying ACTION_CLICK on node at ($centerX, $centerY)")
-                    visualizer?.showClick(centerX.toFloat(), centerY.toFloat())
-
-                    val success = clickableNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                    clickableNode.recycle()
-
-                    if (success) {
-                        Log.d(TAG, "ACTION_CLICK succeeded")
-                        return@withContext ActionResult.Success("Clicked element ${action.elementIndex}")
-                    }
-                    Log.d(TAG, "ACTION_CLICK failed after gesture failure")
-                } else {
-                    Log.d(TAG, "Gesture tap failed and no clickable node found at location")
-                }
-            } else {
-                Log.d(TAG, "Gesture tap failed and root is null")
-            }
-
-            tapResult
-        }
+        
+        return tapResult
     }
     
     private suspend fun performClickAt(x: Int, y: Int): ActionResult {
