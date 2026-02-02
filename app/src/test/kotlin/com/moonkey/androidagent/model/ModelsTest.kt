@@ -26,6 +26,9 @@ class ModelsTest {
             isClickable = false,
             isEditable = false,
             isScrollable = false,
+            isEnabled = true,
+            isFocused = false,
+            isLongClickable = false,
             bounds = Bounds(0, 0, 1, 1),
             center = Point(0, 0)
         )

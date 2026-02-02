@@ -76,7 +76,12 @@ class AccessibilityPlatform(
                 null
             }
 
-        val snapshot = Perceptor.snapshot(root)
+        val displayMetrics = service.resources.displayMetrics
+        val snapshot = Perceptor.snapshot(
+            root = root,
+            screenWidthPx = displayMetrics.widthPixels,
+            screenHeightPx = displayMetrics.heightPixels
+        )
 
         val sanitizedTreeArtifact =
             if (traceRecorder.enabled) {

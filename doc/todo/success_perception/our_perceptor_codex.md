@@ -4,10 +4,14 @@
 Yes.
 
 - Extraction: `AccessibilityNodeInfo.viewIdResourceName` -> `PerceptionElement.resourceId` in `app/src/main/kotlin/com/moonkey/androidagent/perception/Perceptor.kt`.
-- Prompt JSON: emitted as `id` (not `resource_id`) via `Perceptor.toPromptJson()` (`put("id", elem.resourceId)`).
+- Prompt JSON: emitted as `resource_id` via `Perceptor.toPromptJson()` (`put("resource_id", elem.resourceId)`).
 - Tool usage: our tool schema/handlers use the parameter name `resource_id` (e.g. `MultiSelectorTargeting` + `ClickTargetInvocation`).
 
-So the data is preserved, but **the prompt field name (`id`) and tool argument name (`resource_id`) are inconsistent**.
+So the data is preserved and the prompt key now matches tool args.
+
+## What we now output in prompt JSON (high-signal fields)
+- Locators: `resource_id`, `resource_id_index`, `text`, `text_index`, `desc`, `desc_index`, `bounds`, `center`
+- Flags: `clickable`, `editable`, `scrollable`, `enabled`, `focused`, `long_clickable`
 
 ## What might cause `resource_id` targeting to fail (even if we “keep it”)?
 1) **Some nodes do not have view IDs**:

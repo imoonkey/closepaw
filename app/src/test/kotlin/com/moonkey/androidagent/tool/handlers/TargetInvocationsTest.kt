@@ -164,9 +164,11 @@ class TargetInvocationsTest {
             isClickable = true,
             isEditable = true,
             isScrollable = false,
+            isEnabled = true,
+            isFocused = false,
+            isLongClickable = false,
             bounds = Bounds(left = 0, top = 0, right = 10, bottom = 10),
             center = Point(x = 5, y = 5)
         )
     }
 }
-

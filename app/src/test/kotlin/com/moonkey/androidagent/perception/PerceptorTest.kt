@@ -21,6 +21,9 @@ class PerceptorTest {
             isClickable = true,
             isEditable = false,
             isScrollable = false,
+            isEnabled = true,
+            isFocused = false,
+            isLongClickable = false,
             bounds = Bounds(left = 0, top = 0, right = 100, bottom = 50),
             center = Point(x = 50, y = 25)
         )
@@ -33,12 +36,18 @@ class PerceptorTest {
         val obj = array.getJSONObject(0)
         assertThat(obj.getInt("index")).isEqualTo(0)
         assertThat(obj.getString("text")).isEqualTo("Hello")
-        assertThat(obj.getString("id")).isEqualTo("id/button")
+        assertThat(obj.getString("resource_id")).isEqualTo("id/button")
+        assertThat(obj.getInt("resource_id_index")).isEqualTo(0)
+        assertThat(obj.getInt("text_index")).isEqualTo(0)
+        assertThat(obj.getInt("desc_index")).isEqualTo(0)
         assertThat(obj.getString("class")).isEqualTo("Button")
         assertThat(obj.getString("desc")).isEqualTo("desc")
         assertThat(obj.getBoolean("clickable")).isTrue()
         assertThat(obj.getBoolean("editable")).isFalse()
         assertThat(obj.getBoolean("scrollable")).isFalse()
+        assertThat(obj.getBoolean("enabled")).isTrue()
+        assertThat(obj.getBoolean("focused")).isFalse()
+        assertThat(obj.getBoolean("long_clickable")).isFalse()
         val center = obj.getJSONArray("center")
         assertThat(center.getInt(0)).isEqualTo(50)
         assertThat(center.getInt(1)).isEqualTo(25)

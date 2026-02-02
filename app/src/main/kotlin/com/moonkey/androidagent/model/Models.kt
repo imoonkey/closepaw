@@ -103,6 +103,9 @@ data class PerceptionElement(
         val isClickable: Boolean,
         val isEditable: Boolean,
         val isScrollable: Boolean,
+        val isEnabled: Boolean,
+        val isFocused: Boolean,
+        val isLongClickable: Boolean,
         val bounds: Bounds,
         val center: Point
 )

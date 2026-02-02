@@ -1,14 +1,20 @@
 # Recommendations: optimize a11y Perception and align it with our tools
 
+## Implementation status (this repo)
+- Implemented: prompt JSON key `resource_id`, plus `resource_id_index` / `text_index` / `desc_index`.
+- Implemented: `enabled` / `focused` / `long_clickable` flags in prompt JSON.
+- Implemented: basic filtering (off-screen + min-size) and bounds clipping using screen size from `AccessibilityPlatform`.
+- Implemented: keyboard node filtering for common IME resourceId prefixes.
+
 ## A) Confirmed current behavior (as of 2026-02-02)
 - We extract `viewIdResourceName` and store it as `PerceptionElement.resourceId`.
-- In prompt JSON we emit it as `id` (not `resource_id`).
+- In prompt JSON we emit it as `resource_id` (aligned with tool args).
 - Our click fallback order in code is: `bounds -> x/y -> resource_id -> text -> element_index`.
 
 ## B) Align naming + schema: prompt JSON vs tool args
 Goal: reduce LLM parameter drift and keep perception/tool/execution “speaking the same language”.
 
-- Rename prompt JSON key `id` -> `resource_id`.
+- Keep prompt JSON key as `resource_id` (matching tool args).
 - Keep meanings stable:
   - `index` = our snapshot index
   - `resource_id` = Android view id string (what tools expect as `resource_id`)
