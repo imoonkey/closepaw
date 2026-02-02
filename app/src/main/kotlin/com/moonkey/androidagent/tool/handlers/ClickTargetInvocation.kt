@@ -1,15 +1,11 @@
 package com.moonkey.androidagent.tool.handlers
 
-import android.util.Log
 import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
-import com.moonkey.androidagent.tool.ToolObservation
-import kotlinx.coroutines.delay
 import org.json.JSONObject
 
 /**
@@ -22,7 +18,6 @@ class ClickTargetInvocation(
 
     companion object {
         private const val TAG = "ClickTargetInvocation"
-        private const val UI_SETTLE_DELAY_MS = 300L
     }
 
     override val toolName: String = "mobile_action"
@@ -42,23 +37,28 @@ class ClickTargetInvocation(
         }
 
         val snapshot = context.currentSnapshot
-            ?: return ToolExecutionResult.Failure("Snapshot required for click targeting")
 
         val attempts = mutableListOf<String>()
 
-        suspend fun attempt(label: String, action: UIAction): ToolExecutionResult? {
-            val result = context.platform.performAction(action, snapshot)
+        suspend fun attempt(label: String, action: UIAction, snapshotForAction: ScreenSnapshot?): ToolExecutionResult? {
+            val result = context.platform.performAction(action, snapshotForAction)
             return when (result) {
                 is ActionResult.Success -> ToolExecutionResult.Success(
                     output = result.message,
-                    observation = capturePostActionObservation(context)
+                    observation = TargetingInvocationUtils.capturePostActionObservation(context, TAG)
                 )
                 is ActionResult.Failure -> {
                     attempts.add("$label: ${result.reason}")
                     null
                 }
                 is ActionResult.ElementNotFound -> {
-                    attempts.add("$label: ${buildElementNotFoundMessage(result.elementIndex, snapshot)}")
+                    val snap = snapshotForAction
+                    val reason = if (snap != null) {
+                        TargetingInvocationUtils.buildElementNotFoundMessage(result.elementIndex, snap)
+                    } else {
+                        "Element not found: index ${result.elementIndex} (no snapshot available)"
+                    }
+                    attempts.add("$label: $reason")
                     null
                 }
                 is ActionResult.Cancelled -> ToolExecutionResult.Cancelled(result.reason)
@@ -79,48 +79,66 @@ class ClickTargetInvocation(
             val result = when (selector) {
                 is MultiSelectorTargeting.Selector.Bounds -> {
                     val (cx, cy) = selector.center()
-                    attempt(label, UIAction.ClickAt(cx, cy))
+                    attempt(label, UIAction.ClickAt(cx, cy), snapshotForAction = null)
                 }
                 is MultiSelectorTargeting.Selector.Point -> attempt(
                     label,
-                    UIAction.ClickAt(selector.x, selector.y)
+                    UIAction.ClickAt(selector.x, selector.y),
+                    snapshotForAction = null
                 )
                 is MultiSelectorTargeting.Selector.ResourceId -> {
-                    val elementIndex = MultiSelectorTargeting.findElementIndexByResourceId(
-                        snapshot = snapshot,
-                        resourceId = selector.resourceId,
-                        index = selector.index
-                    )
-                    if (elementIndex == null) {
-                        val count = MultiSelectorTargeting.matchCountByResourceId(snapshot, selector.resourceId)
-                        attempts.add(
-                            "resource_id='${selector.resourceId}' index ${selector.index} out of range (found $count)"
-                        )
+                    val snap = snapshot
+                    if (snap == null) {
+                        attempts.add("$label: Snapshot required for resource_id lookup")
                         null
                     } else {
-                        attempt(label, UIAction.Click(elementIndex))
+                        val elementIndex = MultiSelectorTargeting.findElementIndexByResourceId(
+                            snapshot = snap,
+                            resourceId = selector.resourceId,
+                            index = selector.index
+                        )
+                        if (elementIndex == null) {
+                            val count = MultiSelectorTargeting.matchCountByResourceId(snap, selector.resourceId)
+                            attempts.add(
+                                "resource_id='${selector.resourceId}' index ${selector.index} out of range (found $count)"
+                            )
+                            null
+                        } else {
+                            attempt(label, UIAction.Click(elementIndex), snapshotForAction = snap)
+                        }
                     }
                 }
                 is MultiSelectorTargeting.Selector.Text -> {
-                    val elementIndex = MultiSelectorTargeting.findElementIndexByTextOrDescription(
-                        snapshot = snapshot,
-                        text = selector.text,
-                        index = selector.index
-                    )
-                    if (elementIndex == null) {
-                        val count = MultiSelectorTargeting.matchCountByTextOrDescription(snapshot, selector.text)
-                        attempts.add(
-                            "text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
-                        )
+                    val snap = snapshot
+                    if (snap == null) {
+                        attempts.add("$label: Snapshot required for text lookup")
                         null
                     } else {
-                        attempt(label, UIAction.Click(elementIndex))
+                        val elementIndex = MultiSelectorTargeting.findElementIndexByTextOrDescription(
+                            snapshot = snap,
+                            text = selector.text,
+                            index = selector.index
+                        )
+                        if (elementIndex == null) {
+                            val count = MultiSelectorTargeting.matchCountByTextOrDescription(snap, selector.text)
+                            attempts.add(
+                                "text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
+                            )
+                            null
+                        } else {
+                            attempt(label, UIAction.Click(elementIndex), snapshotForAction = snap)
+                        }
                     }
                 }
-                is MultiSelectorTargeting.Selector.ElementIndex -> attempt(
-                    label,
-                    UIAction.Click(selector.elementIndex)
-                )
+                is MultiSelectorTargeting.Selector.ElementIndex -> {
+                    val snap = snapshot
+                    if (snap == null) {
+                        attempts.add("$label: Snapshot required for element_index click")
+                        null
+                    } else {
+                        attempt(label, UIAction.Click(selector.elementIndex), snapshotForAction = snap)
+                    }
+                }
             }
 
             if (result != null) return result
@@ -134,30 +152,4 @@ class ClickTargetInvocation(
         return ToolExecutionResult.Failure("Failed to click element.$details")
     }
 
-    private fun buildElementNotFoundMessage(index: Int, snapshot: ScreenSnapshot): String {
-        val available = snapshot.elements.map { it.index }
-        val preview = available.take(20).joinToString(", ")
-        val more = if (available.size > 20) " ... and ${available.size - 20} more" else ""
-        return if (available.isNotEmpty()) {
-            "Element not found: index $index. Available indices: $preview$more"
-        } else {
-            "Element not found: index $index. No elements available."
-        }
-    }
-
-    private suspend fun capturePostActionObservation(context: ToolExecutionContext): ToolObservation? {
-        return try {
-            delay(UI_SETTLE_DELAY_MS)
-            val snapshot = context.platform.captureScreen()
-            val tree = Perceptor.toPromptJson(snapshot)
-            ToolObservation.ScreenState(
-                accessibilityTree = tree,
-                elementCount = snapshot.elements.size,
-                snapshot = snapshot
-            )
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to capture post-action observation: ${e.message}")
-            null
-        }
-    }
 }

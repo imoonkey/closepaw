@@ -905,14 +905,15 @@ Turn.runStreaming()          Agent                AgentSession           UI
 
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `mobile_action` | Consolidated UI actions (`click`, `long_press`, `type`, `swipe`, `system_button`, `wait`) | `action` + per-action fields (`element_index`, `resource_id`, `resource_id_index`, `text`, `text_index`, `x`, `y`, `x1`, `y1`, `x2`, `y2`, `start`, `end`, `button`, `duration_ms`, `clear`, `agent_thought`) |
+| `mobile_action` | Consolidated UI actions (`click`, `long_press`, `type`, `swipe`, `system_button`, `wait`) | `action` + per-action fields (`element_index`, `resource_id`, `resource_id_index`, `text`, `text_index`, `target_text`, `target_text_index`, `x`, `y`, `x1`, `y1`, `x2`, `y2`, `start`, `end`, `button`, `duration_ms`, `clear`, `agent_thought`) |
 | `app_control` | App discovery and launch (`list_apps`, `open_app`) | `action` + `filter`, `package_name`, `app_name`, `agent_thought` |
 | `complete_task` | Signal goal completion | `status`, `answer`, `reason` (optional) |
 
 **Notes:**
 - Scrolling is modeled as `mobile_action` with `action: "swipe"`.
 - System buttons are invoked via `mobile_action` with `action: "system_button"` and `button: back|home|enter|recents`.
-- `click` supports multi-selector targeting with fallback order: bounds → x/y → resource_id → text → element_index.
+- `click` and `long_press` support multi-selector targeting with fallback order: bounds → x/y → resource_id → text → element_index.
+- `type` supports multi-selector targeting for focusing a field before input (fallback order: bounds → x/y → resource_id → target_text → element_index). If no targeting selector is provided, it types into the focused field. Text-based targeting uses `target_text` (not `text`, which is the input payload).
 
 ### Adding New Tools
 

@@ -73,7 +73,7 @@ Actions:
                 ),
                 "text_index" to PropertySpec(
                     type = "integer",
-                    description = "Zero-based index when multiple elements share the same text (click/long_press only; default 0)"
+                    description = "Zero-based index when multiple elements share the same text (click/long_press only; default 0). For type with target_text, prefer target_text_index."
                 ),
                 "target_text" to PropertySpec(
                     type = "string",
@@ -81,7 +81,7 @@ Actions:
                 ),
                 "target_text_index" to PropertySpec(
                     type = "integer",
-                    description = "Zero-based index when multiple elements share the same target_text (default 0)"
+                    description = "Zero-based index when multiple elements share the same target_text (default 0). Compatibility: text_index is accepted as an alias if target_text_index is omitted."
                 ),
                 "x" to PropertySpec(
                     type = "integer",

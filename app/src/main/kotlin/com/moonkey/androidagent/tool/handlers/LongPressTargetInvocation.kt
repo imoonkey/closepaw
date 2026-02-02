@@ -1,15 +1,11 @@
 package com.moonkey.androidagent.tool.handlers
 
-import android.util.Log
 import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
-import com.moonkey.androidagent.tool.ToolObservation
-import kotlinx.coroutines.delay
 import org.json.JSONObject
 
 /**
@@ -22,7 +18,6 @@ class LongPressTargetInvocation(
 
     companion object {
         private const val TAG = "LongPressTargetInvocation"
-        private const val UI_SETTLE_DELAY_MS = 300L
         private const val DEFAULT_DURATION_MS = 1000L
     }
 
@@ -52,7 +47,7 @@ class LongPressTargetInvocation(
             return when (result) {
                 is ActionResult.Success -> ToolExecutionResult.Success(
                     output = result.message,
-                    observation = capturePostActionObservation(context)
+                    observation = TargetingInvocationUtils.capturePostActionObservation(context, TAG)
                 )
                 is ActionResult.Failure -> {
                     attempts.add("$label: ${result.reason}")
@@ -61,7 +56,7 @@ class LongPressTargetInvocation(
                 is ActionResult.ElementNotFound -> {
                     val snap = snapshotForAction
                     val reason = if (snap != null) {
-                        buildElementNotFoundMessage(result.elementIndex, snap)
+                        TargetingInvocationUtils.buildElementNotFoundMessage(result.elementIndex, snap)
                     } else {
                         "Element not found: index ${result.elementIndex} (no snapshot available)"
                     }
@@ -173,32 +168,5 @@ class LongPressTargetInvocation(
             ""
         }
         return ToolExecutionResult.Failure("Failed to long press element.$details")
-    }
-
-    private fun buildElementNotFoundMessage(index: Int, snapshot: ScreenSnapshot): String {
-        val available = snapshot.elements.map { it.index }
-        val preview = available.take(20).joinToString(", ")
-        val more = if (available.size > 20) " ... and ${available.size - 20} more" else ""
-        return if (available.isNotEmpty()) {
-            "Element not found: index $index. Available indices: $preview$more"
-        } else {
-            "Element not found: index $index. No elements available."
-        }
-    }
-
-    private suspend fun capturePostActionObservation(context: ToolExecutionContext): ToolObservation? {
-        return try {
-            delay(UI_SETTLE_DELAY_MS)
-            val snapshot = context.platform.captureScreen()
-            val tree = Perceptor.toPromptJson(snapshot)
-            ToolObservation.ScreenState(
-                accessibilityTree = tree,
-                elementCount = snapshot.elements.size,
-                snapshot = snapshot
-            )
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to capture post-action observation: ${e.message}")
-            null
-        }
     }
 }

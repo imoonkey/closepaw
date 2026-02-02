@@ -1,14 +1,11 @@
 package com.moonkey.androidagent.tool.handlers
 
-import android.util.Log
 import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
-import com.moonkey.androidagent.tool.ToolObservation
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 
@@ -25,7 +22,6 @@ class TypeTargetInvocation(
 
     companion object {
         private const val TAG = "TypeTargetInvocation"
-        private const val UI_SETTLE_DELAY_MS = 300L
         private const val FOCUS_DELAY_MS = 120L
     }
 
@@ -68,7 +64,7 @@ class TypeTargetInvocation(
                     is ActionResult.ElementNotFound -> {
                         val snap = snapshotForType
                         val reason = if (snap != null) {
-                            buildElementNotFoundMessage(focusResult.elementIndex, snap)
+                            TargetingInvocationUtils.buildElementNotFoundMessage(focusResult.elementIndex, snap)
                         } else {
                             "Element not found: index ${focusResult.elementIndex} (no snapshot available)"
                         }
@@ -85,7 +81,7 @@ class TypeTargetInvocation(
             return when (result) {
                 is ActionResult.Success -> ToolExecutionResult.Success(
                     output = result.message,
-                    observation = capturePostActionObservation(context)
+                    observation = TargetingInvocationUtils.capturePostActionObservation(context, TAG)
                 )
                 is ActionResult.Failure -> {
                     attempts.add("$label: ${result.reason}")
@@ -94,7 +90,7 @@ class TypeTargetInvocation(
                 is ActionResult.ElementNotFound -> {
                     val snap = snapshotForType
                     val reason = if (snap != null) {
-                        buildElementNotFoundMessage(result.elementIndex, snap)
+                        TargetingInvocationUtils.buildElementNotFoundMessage(result.elementIndex, snap)
                     } else {
                         "Element not found: index ${result.elementIndex} (no snapshot available)"
                     }
@@ -105,40 +101,22 @@ class TypeTargetInvocation(
             }
         }
 
-        val targetTextIndexKey = if (params.has("target_text_index")) "target_text_index" else "text_index"
         val selectorAttempts = MultiSelectorTargeting.attemptsFromParams(
             params = params,
             textKey = "target_text",
-            textIndexKey = targetTextIndexKey,
+            textIndexKey = MultiSelectorTargeting.targetTextIndexKey(params),
             textLabel = "target_text"
-        ).let { rawAttempts ->
-            val targetText = params.optString("target_text", "").trim()
-            val resourceId = params.optString("resource_id", "").trim()
-            if (resourceId.isEmpty() || targetText.isEmpty() || snapshot == null) return@let rawAttempts
+        )
 
-            val resourceIdAttempt = rawAttempts.firstOrNull {
-                it.selector is MultiSelectorTargeting.Selector.ResourceId
-            } ?: return@let rawAttempts
+        val filtered = MultiSelectorTargeting.filterTypeAttemptsByResourceIdTargetTextMismatch(
+            params = params,
+            snapshot = snapshot,
+            attempts = selectorAttempts
+        )
+        attempts.addAll(filtered.warnings)
+        val effectiveAttempts = filtered.attempts
 
-            val elementIndex = MultiSelectorTargeting.findElementIndexByResourceId(
-                snapshot = snapshot,
-                resourceId = resourceId,
-                index = params.optInt("resource_id_index", 0)
-            ) ?: return@let rawAttempts
-
-            val element = snapshot.elements.firstOrNull { it.index == elementIndex } ?: return@let rawAttempts
-            val elementLabel = element.text.ifBlank { element.description }.trim()
-            if (elementLabel.isNotEmpty() && !elementLabel.equals(targetText, ignoreCase = true)) {
-                attempts.add(
-                    "resource_id='$resourceId' ignored: target_text=\"$targetText\" does not match resolved element text/description \"$elementLabel\""
-                )
-                rawAttempts.filterNot { it === resourceIdAttempt }
-            } else {
-                rawAttempts
-            }
-        }
-
-        if (selectorAttempts.isEmpty()) {
+        if (effectiveAttempts.isEmpty()) {
             val result = attemptType(
                 label = "focused field",
                 focusAction = null,
@@ -147,7 +125,7 @@ class TypeTargetInvocation(
             )
             if (result != null) return result
         } else {
-            for (selectorAttempt in selectorAttempts) {
+            for (selectorAttempt in effectiveAttempts) {
                 val selector = selectorAttempt.selector
                 val label = selectorAttempt.label
 
@@ -247,32 +225,5 @@ class TypeTargetInvocation(
             ""
         }
         return ToolExecutionResult.Failure("Failed to type text.$details")
-    }
-
-    private fun buildElementNotFoundMessage(index: Int, snapshot: ScreenSnapshot): String {
-        val available = snapshot.elements.map { it.index }
-        val preview = available.take(20).joinToString(", ")
-        val more = if (available.size > 20) " ... and ${available.size - 20} more" else ""
-        return if (available.isNotEmpty()) {
-            "Element not found: index $index. Available indices: $preview$more"
-        } else {
-            "Element not found: index $index. No elements available."
-        }
-    }
-
-    private suspend fun capturePostActionObservation(context: ToolExecutionContext): ToolObservation? {
-        return try {
-            delay(UI_SETTLE_DELAY_MS)
-            val snapshot = context.platform.captureScreen()
-            val tree = Perceptor.toPromptJson(snapshot)
-            ToolObservation.ScreenState(
-                accessibilityTree = tree,
-                elementCount = snapshot.elements.size,
-                snapshot = snapshot
-            )
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to capture post-action observation: ${e.message}")
-            null
-        }
     }
 }
