@@ -89,6 +89,23 @@ cd inspection_tool
 # Select the debug_data folder
 ```
 
+## Trace Viewer (Agent Runs)
+
+When using `./scripts/debug-run.sh`, the app can persist a full trace (LLM inputs/outputs + actions + raw/sanitized trees) as:
+
+- `trace.jsonl` - event timeline (JSON lines)
+- `meta.json` - run metadata (app/device/config)
+- `artifacts/` - referenced payloads (raw a11y tree, sanitized tree, prompts, tool args/results, screenshots per step)
+
+To view:
+
+```bash
+cd inspection_tool
+./serve.sh 8080
+# Open http://localhost:8080/trace_viewer.html
+# Select the pulled trace folder (e.g. debug-output/run_YYYYMMDD_HHMMSS/trace)
+```
+
 ## Workflow for Tuning Perceptor
 
 1. **Capture diverse screens** - Navigate through different apps/screens
@@ -114,4 +131,3 @@ inspection_tool/
     ├── {timestamp}.xml
     └── {timestamp}.json
 ```
-

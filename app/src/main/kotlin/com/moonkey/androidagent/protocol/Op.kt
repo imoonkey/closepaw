@@ -123,6 +123,12 @@ data class SessionConfig(
     /** Enable verbose debug logging */
     val debugMode: Boolean = false,
 
+    /** Persist a full JSONL trace (for inspection_tool) */
+    val traceEnabled: Boolean = false,
+
+    /** Trace run id (folder name) for correlating host/device artifacts */
+    val traceRunId: String? = null,
+
     /** Enable screenshot input for multimodal prompts */
     val enableScreenshotInput: Boolean = false,
 

@@ -9,6 +9,7 @@ import com.moonkey.androidagent.platform.AccessibilityPlatform
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
+import com.moonkey.androidagent.trace.TraceRecorderFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -64,12 +65,21 @@ class AgentSession private constructor(
             apiKey: String? = null,
             visualizer: ActionVisualizerManager? = null
         ): AgentSession {
-            val platform: AndroidPlatform = AccessibilityPlatform(service, config, visualizer)
+            val sessionId = SessionId.generate()
+            val traceRecorder = TraceRecorderFactory.create(service, config, sessionId)
+            val platform: AndroidPlatform = AccessibilityPlatform(service, config, visualizer, traceRecorder)
             // Service is a Context, so we can use it for local LLM model loading
-            val services = SessionServices.create(config, platform, apiKey, context = service)
+            val services =
+                SessionServices.create(
+                    config = config,
+                    platform = platform,
+                    apiKey = apiKey,
+                    context = service,
+                    traceRecorder = traceRecorder
+                )
             
             return AgentSession(
-                sessionId = SessionId.generate(),
+                sessionId = sessionId,
                 config = config,
                 service = service,
                 scope = scope,

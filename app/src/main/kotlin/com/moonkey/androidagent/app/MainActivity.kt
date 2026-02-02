@@ -56,6 +56,8 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_LLM_BACKEND = "llm_backend"  // "openai" or "local"
         const val EXTRA_SCREENSHOT_INPUT = "screenshot_input"
         const val EXTRA_DEBUG_MODE = "debug_mode"
+        const val EXTRA_TRACE_ENABLED = "trace_enabled"
+        const val EXTRA_TRACE_RUN_ID = "trace_run_id"
     }
     
     // Session scope - survives configuration changes within activity lifecycle
@@ -66,6 +68,10 @@ class MainActivity : ComponentActivity() {
     
     // Settings state
     private lateinit var settingsState: AppSettingsState
+
+    // Per-intent trace controls (not persisted to settings)
+    private var pendingTraceEnabled: Boolean? = null
+    private var pendingTraceRunId: String? = null
 
     // Session history
     private lateinit var sessionHistoryManager: SessionHistoryManager
@@ -216,6 +222,16 @@ class MainActivity : ComponentActivity() {
             Log.d(TAG, "Debug mode set from intent: $enabled")
         }
 
+        payload.traceEnabled?.let { enabled ->
+            pendingTraceEnabled = enabled
+            Log.d(TAG, "Trace enabled set from intent: $enabled")
+        }
+
+        payload.traceRunId?.let { runId ->
+            pendingTraceRunId = runId
+            Log.d(TAG, "Trace run id set from intent: $runId")
+        }
+
         if (payload.freshSession) {
             Log.d(TAG, "Fresh session requested, clearing existing state")
             lifecycleScope.launch {
@@ -322,6 +338,8 @@ class MainActivity : ComponentActivity() {
                             maxTurns = settingsState.maxTurns,
                             model = settingsState.selectedModel,
                             debugMode = settingsState.debugMode,
+                            traceEnabled = pendingTraceEnabled ?: settingsState.debugMode,
+                            traceRunId = pendingTraceRunId,
                                 llmBackend = settingsState.llmBackend,
                                 localLLMConfig = localConfig,
                                 enableScreenshotInput = settingsState.enableScreenshotInput &&
@@ -350,6 +368,8 @@ class MainActivity : ComponentActivity() {
                     }
                     
                     currentSession = session
+                    pendingTraceEnabled = null
+                    pendingTraceRunId = null
                     
                     // Connect ViewModel to session events
                     viewModel.startEventCollection(session)

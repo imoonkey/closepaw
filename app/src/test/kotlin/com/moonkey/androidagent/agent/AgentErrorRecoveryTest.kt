@@ -10,6 +10,7 @@ import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionId
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.test.FakeAndroidPlatform
+import com.moonkey.androidagent.trace.NoopTraceRecorder
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -105,7 +106,8 @@ private fun buildServices(llmClient: LLMClient): SessionServices {
         policyEngine = policyEngine,
         platform = platform,
         config = config,
-        llmClient = llmClient
+        llmClient = llmClient,
+        traceRecorder = NoopTraceRecorder
     )
 }
 

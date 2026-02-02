@@ -15,7 +15,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 PACKAGE="com.moonkey.androidagent"
-DEBUG_DIR="$PROJECT_ROOT/debug-output"
+RUN_ID="$(date +"%Y%m%d_%H%M%S")"
+DEBUG_DIR="$PROJECT_ROOT/debug-output/run_${RUN_ID}"
 
 # Parse arguments
 USE_LOCAL=false
@@ -59,7 +60,6 @@ normalize_bool() {
 
 # Create debug output directory
 mkdir -p "$DEBUG_DIR"
-rm -f "$DEBUG_DIR"/*.png "$DEBUG_DIR"/*.txt "$DEBUG_DIR"/*.log
 log "Debug output: $DEBUG_DIR"
 
 # Load environment variables
@@ -97,18 +97,36 @@ fi
 
 log "Using LLM backend: $LLM_BACKEND"
 
-# Clear logs
+# Ensure device connected
+if ! adb devices | grep -q "device$"; then
+    warn "No Android device detected. Waiting for device..."
+    adb wait-for-device
+fi
+
+# Clear logs and start streaming capture
 adb logcat -c
+adb logcat -v threadtime > "$DEBUG_DIR/logcat_full.log" 2>&1 &
+LOGCAT_PID=$!
+trap 'kill "$LOGCAT_PID" >/dev/null 2>&1 || true' EXIT
+
+# Capture basic device/app info
+adb shell getprop > "$DEBUG_DIR/device_getprop.txt" 2>/dev/null || true
+adb shell dumpsys package "$PACKAGE" > "$DEBUG_DIR/package_dumpsys.txt" 2>/dev/null || true
 
 # Build intent extras based on backend
 SAFE_GOAL=$(escape_shell_arg "$GOAL")
 SAFE_BACKEND=$(escape_shell_arg "$LLM_BACKEND")
 SAFE_API_KEY=$(escape_shell_arg "${OPENAI_API_KEY:-}")
+SAFE_RUN_ID=$(escape_shell_arg "$RUN_ID")
 
-INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT --ez debug_mode $DEBUG_MODE"
+INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
 if [[ "$LLM_BACKEND" == "openai" ]]; then
     INTENT_EXTRAS="--es api_key '$SAFE_API_KEY' $INTENT_EXTRAS"
 fi
+
+# Clear any previous trace folder for this run id (best-effort)
+DEVICE_TRACE_DIR="/sdcard/Android/data/$PACKAGE/files/inspection-trace/$RUN_ID"
+adb shell "rm -rf '$DEVICE_TRACE_DIR'" >/dev/null 2>&1 || true
 
 # Start agent
 log "Starting agent with goal: $GOAL"
@@ -134,7 +152,7 @@ while [[ $TURN -lt $MAX_TURNS ]]; do
     sleep 2
     
     # Check for new turn markers in logcat (V2 Agent uses "=== TURN X START ===")
-    NEW_TURN_LINE=$(adb logcat -d 2>/dev/null | grep -E "TURN [0-9]+ START|TurnStarted" | tail -1)
+    NEW_TURN_LINE=$(tail -n 300 "$DEBUG_DIR/logcat_full.log" | grep -E "=== TURN [0-9]+ START ===|TurnStarted" | tail -1 || true)
     
     if [[ "$NEW_TURN_LINE" != "$LAST_TURN_LINE" && -n "$NEW_TURN_LINE" ]]; then
         TURN=$((TURN + 1))
@@ -144,21 +162,21 @@ while [[ $TURN -lt $MAX_TURNS ]]; do
         SCREENSHOT="$DEBUG_DIR/turn_${TURN}.png"
         adb exec-out screencap -p > "$SCREENSHOT"
         
-        # Get agent log for this turn (V2 Agent logs)
-        adb logcat -d 2>/dev/null | grep -E "(Agent|Turn|LLM|Tool|Screen)" | tail -30 > "$DEBUG_DIR/turn_${TURN}_log.txt"
+        # Save recent log context around the turn boundary
+        tail -n 400 "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/turn_${TURN}_log.txt"
         
         echo "  Turn $TURN captured -> $SCREENSHOT"
     fi
     
     # Check if agent finished (V2 patterns)
-    if adb logcat -d 2>/dev/null | grep -q "SessionCompleted\|Goal achieved\|GoalAchieved\|DONE:"; then
+    if tail -n 500 "$DEBUG_DIR/logcat_full.log" | grep -q "SessionCompleted\\|Goal achieved\\|GoalAchieved\\|DONE:"; then
         echo ""
         ok "Agent completed!"
         break
     fi
     
     # Check for stuck/error
-    if adb logcat -d 2>/dev/null | grep -q "Fatal error\|Max turns reached\|MaxTurnsReached"; then
+    if tail -n 500 "$DEBUG_DIR/logcat_full.log" | grep -q "Fatal error\\|Max turns reached\\|MaxTurnsReached"; then
         echo ""
         warn "Agent stopped (error or max turns)"
         break
@@ -167,10 +185,10 @@ done
 
 echo ""
 log "Saving full agent log..."
-adb logcat -d | grep -E "Agent|Turn|LLMClient|ToolRouter|SessionServices" > "$DEBUG_DIR/agent.log"
+grep -E "Agent|Turn|LLMClient|ToolRouter|SessionServices" "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/agent.log" || true
 
 log "Saving full system log..."
-adb logcat -d | grep -E "AgentService|AccessibilityPlatform|AgentSession" > "$DEBUG_DIR/system.log"
+grep -E "AgentService|AccessibilityPlatform|AgentSession" "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/system.log" || true
 
 # Pull compressed LLM screenshots saved by debug mode (if any)
 DEVICE_LLM_DIR="/sdcard/Android/data/$PACKAGE/files/debug-output"
@@ -181,10 +199,18 @@ if adb shell "ls $DEVICE_LLM_DIR" >/dev/null 2>&1; then
     adb pull "$DEVICE_LLM_DIR/." "$LOCAL_LLM_DIR/" >/dev/null 2>&1 || true
 fi
 
+# Pull trace (JSONL + artifacts)
+LOCAL_TRACE_DIR="$DEBUG_DIR/trace"
+mkdir -p "$LOCAL_TRACE_DIR"
+if adb shell "ls '$DEVICE_TRACE_DIR' " >/dev/null 2>&1; then
+    log "Pulling trace artifacts..."
+    adb pull "$DEVICE_TRACE_DIR/." "$LOCAL_TRACE_DIR/" >/dev/null 2>&1 || true
+fi
+
 # Save LFMLLMClient specific logs for local LLM debugging
 if [[ "$LLM_BACKEND" == "local" ]]; then
     log "Saving local LLM logs..."
-    adb logcat -d | grep -E "LFMLLMClient|Leap|Model" > "$DEBUG_DIR/local_llm.log"
+    grep -E "LFMLLMClient|Leap|Model" "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/local_llm.log" || true
 fi
 
 echo ""
@@ -197,4 +223,5 @@ echo ""
 echo "To view:"
 echo "  Screenshots: open $DEBUG_DIR/turn_*.png"
 echo "  Full log:    cat $DEBUG_DIR/agent.log"
+echo "  Trace:       cd inspection_tool && ./serve.sh 8080  (open /trace_viewer.html, pick $DEBUG_DIR/trace)"
 echo -e "${GREEN}=============================================================${NC}"

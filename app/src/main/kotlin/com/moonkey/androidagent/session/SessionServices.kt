@@ -18,6 +18,7 @@ import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.tool.impl.AppControlTool
 import com.moonkey.androidagent.tool.impl.CompleteTaskTool
 import com.moonkey.androidagent.tool.impl.MobileActionTool
+import com.moonkey.androidagent.trace.TraceRecorder
 
 /**
  * SessionServices - Dependency Injection container for all session-scoped services.
@@ -53,7 +54,8 @@ data class SessionServices(
     val policyEngine: PolicyEngine,
     val platform: AndroidPlatform,
     val config: SessionConfig,
-    val llmClient: LLMClient
+    val llmClient: LLMClient,
+    val traceRecorder: TraceRecorder
 ) {
     companion object {
         private const val TAG = "SessionServices"
@@ -78,7 +80,8 @@ data class SessionServices(
             config: SessionConfig,
             platform: AndroidPlatform,
             apiKey: String? = null,
-            context: Context? = null
+            context: Context? = null,
+            traceRecorder: TraceRecorder
         ): SessionServices {
             Log.d(TAG, "Creating SessionServices with backend: ${config.llmBackend}...")
             
@@ -129,7 +132,8 @@ data class SessionServices(
                 policyEngine = policyEngine,
                 platform = platform,
                 config = config,
-                llmClient = llmClient
+                llmClient = llmClient,
+                traceRecorder = traceRecorder
             )
         }
         
@@ -208,6 +212,9 @@ data class SessionServices(
 
         // Release LLM resources (especially important for local models)
         llmClient.cleanup()
+
+        // Flush/close trace last so we still capture teardown artifacts if needed
+        traceRecorder.close()
         
         Log.i(TAG, "SessionServices cleaned up")
     }
@@ -233,10 +240,11 @@ object SessionServicesBuilder {
         platform: AndroidPlatform,
         apiKey: String? = null,
         context: Context? = null,
+        traceRecorder: TraceRecorder,
         additionalTools: List<com.moonkey.androidagent.tool.ToolSpec> = emptyList(),
         excludeTools: Set<String> = emptySet()
     ): SessionServices {
-        val services = SessionServices.create(config, platform, apiKey, context)
+        val services = SessionServices.create(config, platform, apiKey, context, traceRecorder)
         
         // Remove excluded tools
         excludeTools.forEach { name ->

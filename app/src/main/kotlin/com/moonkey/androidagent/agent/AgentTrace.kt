@@ -1,0 +1,339 @@
+package com.moonkey.androidagent.agent
+
+import com.moonkey.androidagent.history.ResponseItem
+import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.protocol.SessionId
+import com.moonkey.androidagent.session.SessionServices
+import com.moonkey.androidagent.tool.ToolCallResult
+import com.moonkey.androidagent.trace.HistoryTraceSerializer
+import com.moonkey.androidagent.trace.TraceArtifactRef
+import com.moonkey.androidagent.trace.TraceJson
+import com.moonkey.androidagent.trace.emit
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+
+internal class AgentTrace(
+    private val sessionId: SessionId,
+    private val services: SessionServices
+) {
+    private val trace = services.traceRecorder
+
+    fun sessionStarted(config: AgentConfig) {
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "session_started",
+            data =
+                buildJsonObject {
+                    put("goal", JsonPrimitive(config.goal))
+                    put("task_id", JsonPrimitive(config.taskId))
+                    put("max_turns", JsonPrimitive(config.maxTurns))
+                    put("ui_settle_delay_ms", JsonPrimitive(config.uiSettleDelayMs))
+                    put("llm_backend", JsonPrimitive(services.config.llmBackend.name))
+                    put("model", JsonPrimitive(services.config.model))
+                    put("approval_mode", JsonPrimitive(services.config.approvalMode.name))
+                    put("debug_mode", JsonPrimitive(services.config.debugMode))
+                    put("trace_enabled", JsonPrimitive(services.config.traceEnabled))
+                }
+        )
+    }
+
+    fun sessionStopped(reason: AgentStopReason, turnsExecuted: Int) {
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "session_stopped",
+            data =
+                buildJsonObject {
+                    put("reason", JsonPrimitive(reason::class.simpleName ?: "unknown"))
+                    put("turns_executed", JsonPrimitive(turnsExecuted))
+                }
+        )
+    }
+
+    fun turnStarted(turnId: String, turnNumber: Int) {
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "turn_started",
+            turnId = turnId,
+            turnNumber = turnNumber
+        )
+    }
+
+    fun turnCompleted(turnId: String, turnNumber: Int) {
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "turn_completed",
+            turnId = turnId,
+            turnNumber = turnNumber
+        )
+    }
+
+    fun turnError(turnId: String, turnNumber: Int, error: Throwable) {
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "turn_error",
+            turnId = turnId,
+            turnNumber = turnNumber,
+            data =
+                buildJsonObject {
+                    put("message", JsonPrimitive(error.message ?: "Unknown error"))
+                    put("type", JsonPrimitive(error::class.qualifiedName ?: "Exception"))
+                }
+        )
+    }
+
+    fun screenCaptured(turnId: String, turnNumber: Int, snapshot: ScreenSnapshot, packageName: String?) {
+        val artifacts =
+            buildList {
+                snapshot.debug?.rawA11yTreePath?.let {
+                    add(TraceArtifactRef(kind = "raw_a11y_tree", path = it, mimeType = "application/json"))
+                }
+                snapshot.debug?.sanitizedA11yTreePath?.let {
+                    add(TraceArtifactRef(kind = "sanitized_a11y_tree", path = it, mimeType = "application/json"))
+                }
+                snapshot.debug?.screenshotPath?.let {
+                    add(TraceArtifactRef(kind = "screenshot", path = it, mimeType = "image/jpeg"))
+                }
+            }
+
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "screen_captured",
+            turnId = turnId,
+            turnNumber = turnNumber,
+            data =
+                buildJsonObject {
+                    put("elements", JsonPrimitive(snapshot.elements.size))
+                    packageName?.let { put("package", JsonPrimitive(it)) }
+                },
+            artifacts = artifacts
+        )
+    }
+
+    fun llmRequest(
+        turnId: String,
+        turnNumber: Int,
+        snapshot: ScreenSnapshot,
+        systemPrompt: String,
+        userContextText: String,
+        history: List<ResponseItem>
+    ) {
+        if (!trace.enabled) return
+
+        val historyJson = HistoryTraceSerializer.toJson(history)
+        val historyArtifact =
+            trace.storeText(
+                kind = "llm_history",
+                filenameHint = "turn_${turnNumber}_history.json",
+                content = TraceJson.instance.encodeToString(historyJson),
+                mimeType = "application/json"
+            )
+
+        val systemArtifact =
+            trace.storeText(
+                kind = "llm_system_prompt",
+                filenameHint = "turn_${turnNumber}_system.txt",
+                content = systemPrompt,
+                mimeType = "text/plain"
+            )
+
+        val contextArtifact =
+            trace.storeText(
+                kind = "llm_user_context",
+                filenameHint = "turn_${turnNumber}_user_context.txt",
+                content = userContextText,
+                mimeType = "text/plain"
+            )
+
+        val snapshotArtifacts =
+            listOfNotNull(
+                snapshot.debug?.sanitizedA11yTreePath?.let {
+                    TraceArtifactRef(kind = "sanitized_a11y_tree", path = it, mimeType = "application/json")
+                },
+                snapshot.debug?.rawA11yTreePath?.let {
+                    TraceArtifactRef(kind = "raw_a11y_tree", path = it, mimeType = "application/json")
+                },
+                snapshot.debug?.screenshotPath?.let {
+                    TraceArtifactRef(kind = "screenshot", path = it, mimeType = "image/jpeg")
+                }
+            )
+
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "llm_request",
+            turnId = turnId,
+            turnNumber = turnNumber,
+            data =
+                buildJsonObject {
+                    put("history_items", JsonPrimitive(history.size))
+                    put("model", JsonPrimitive(services.config.model))
+                    put("screenshot_attached", JsonPrimitive(snapshot.image != null))
+                },
+            artifacts = listOfNotNull(historyArtifact, systemArtifact, contextArtifact) + snapshotArtifacts
+        )
+    }
+
+    fun llmResponse(turnId: String, turnNumber: Int, result: TurnResult) {
+        if (!trace.enabled) return
+
+        val toolCallsJson =
+            buildJsonArray {
+                result.toolCalls.forEach { call ->
+                    add(
+                        buildJsonObject {
+                            put("id", JsonPrimitive(call.id))
+                            put("name", JsonPrimitive(call.name))
+                            put("arguments_json", JsonPrimitive(call.arguments.toString()))
+                        }
+                    )
+                }
+            }
+
+        val responseTextArtifact =
+            result.content?.let {
+                trace.storeText(
+                    kind = "llm_response_text",
+                    filenameHint = "turn_${turnNumber}_assistant.txt",
+                    content = it,
+                    mimeType = "text/plain"
+                )
+            }
+
+        val toolCallsArtifact =
+            trace.storeText(
+                kind = "llm_tool_calls",
+                filenameHint = "turn_${turnNumber}_tool_calls.json",
+                content = TraceJson.instance.encodeToString(toolCallsJson),
+                mimeType = "application/json"
+            )
+
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "llm_response",
+            turnId = turnId,
+            turnNumber = turnNumber,
+            data =
+                buildJsonObject {
+                    put("has_text", JsonPrimitive(result.content != null))
+                    put("tool_calls", JsonPrimitive(result.toolCalls.size))
+                    put("is_complete", JsonPrimitive(result.isComplete))
+                },
+            artifacts = listOfNotNull(responseTextArtifact, toolCallsArtifact)
+        )
+    }
+
+    fun toolCall(turnId: String, turnNumber: Int, toolCall: ToolCallRequest) {
+        if (!trace.enabled) return
+
+        val argsArtifact =
+            trace.storeText(
+                kind = "tool_call_args",
+                filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}.json",
+                content = toolCall.arguments.toString(2),
+                mimeType = "application/json"
+            )
+
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "tool_call",
+            turnId = turnId,
+            turnNumber = turnNumber,
+            data =
+                buildJsonObject {
+                    put("id", JsonPrimitive(toolCall.id))
+                    put("name", JsonPrimitive(toolCall.name))
+                },
+            artifacts = listOfNotNull(argsArtifact)
+        )
+    }
+
+    fun toolResult(
+        turnId: String,
+        turnNumber: Int,
+        toolCall: ToolCallRequest,
+        toolResult: ToolCallResult,
+        formattedResult: String,
+        observation: Observation,
+        observedSnapshot: ScreenSnapshot?
+    ) {
+        if (!trace.enabled) return
+
+        val resultArtifact =
+            trace.storeText(
+                kind = "tool_result",
+                filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_result.txt",
+                content = formattedResult,
+                mimeType = "text/plain"
+            )
+
+        val observationArtifact =
+            when (observation) {
+                is Observation.ScreenState ->
+                    trace.storeText(
+                        kind = "tool_observation_screen",
+                        filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_screen.json",
+                        content = observation.accessibilityTree,
+                        mimeType = "application/json"
+                    )
+
+                is Observation.TextOutput ->
+                    trace.storeText(
+                        kind = "tool_observation_text",
+                        filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_obs.txt",
+                        content = observation.content,
+                        mimeType = "text/plain"
+                    )
+            }
+
+        val postArtifacts =
+            buildList {
+                addAll(listOfNotNull(resultArtifact, observationArtifact))
+                observedSnapshot?.debug?.rawA11yTreePath?.let {
+                    add(
+                        TraceArtifactRef(
+                            kind = "raw_a11y_tree",
+                            path = it,
+                            mimeType = "application/json",
+                            description = "Post-action raw tree"
+                        )
+                    )
+                }
+                observedSnapshot?.debug?.sanitizedA11yTreePath?.let {
+                    add(
+                        TraceArtifactRef(
+                            kind = "sanitized_a11y_tree",
+                            path = it,
+                            mimeType = "application/json",
+                            description = "Post-action sanitized tree"
+                        )
+                    )
+                }
+                observedSnapshot?.debug?.screenshotPath?.let {
+                    add(
+                        TraceArtifactRef(
+                            kind = "screenshot",
+                            path = it,
+                            mimeType = "image/jpeg",
+                            description = "Post-action screenshot"
+                        )
+                    )
+                }
+            }
+
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "tool_result",
+            turnId = turnId,
+            turnNumber = turnNumber,
+            data =
+                buildJsonObject {
+                    put("id", JsonPrimitive(toolCall.id))
+                    put("name", JsonPrimitive(toolCall.name))
+                    put("success", JsonPrimitive(toolResult is ToolCallResult.Success))
+                },
+            artifacts = postArtifacts
+        )
+    }
+}
+

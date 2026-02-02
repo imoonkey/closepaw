@@ -42,7 +42,17 @@ data class Point(
 data class ScreenSnapshot(
         val timestamp: Long,
         val elements: List<PerceptionElement>, // For LLM and action execution
-        val image: ScreenImage? = null
+        val image: ScreenImage? = null,
+        val debug: ScreenSnapshotDebug? = null
+)
+
+data class ScreenSnapshotDebug(
+        /** Relative path (within trace run folder) to raw accessibility tree JSON */
+        val rawA11yTreePath: String? = null,
+        /** Relative path (within trace run folder) to Perceptor prompt JSON */
+        val sanitizedA11yTreePath: String? = null,
+        /** Relative path (within trace run folder) to a screenshot captured for this snapshot (if any) */
+        val screenshotPath: String? = null
 )
 
 data class ScreenImage(

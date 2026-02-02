@@ -10,7 +10,9 @@ data class MainActivityIntentPayload(
     val freshSession: Boolean,
     val autoStart: Boolean,
     val screenshotInputEnabled: Boolean?,
-    val debugMode: Boolean?
+    val debugMode: Boolean?,
+    val traceEnabled: Boolean?,
+    val traceRunId: String?
 ) {
     companion object {
         fun from(intent: Intent): MainActivityIntentPayload {
@@ -41,6 +43,15 @@ data class MainActivityIntentPayload(
                 null
             }
 
+            val traceEnabled = if (intent.hasExtra(MainActivity.EXTRA_TRACE_ENABLED)) {
+                intent.getBooleanExtra(MainActivity.EXTRA_TRACE_ENABLED, false)
+            } else {
+                null
+            }
+
+            val traceRunId = intent.getStringExtra(MainActivity.EXTRA_TRACE_RUN_ID)
+                ?.takeIf { it.isNotBlank() }
+
             return MainActivityIntentPayload(
                 apiKey = apiKey,
                 backendType = backendType,
@@ -48,7 +59,9 @@ data class MainActivityIntentPayload(
                 freshSession = intent.getBooleanExtra(MainActivity.EXTRA_FRESH_SESSION, false),
                 autoStart = intent.getBooleanExtra(MainActivity.EXTRA_AUTO_START, false),
                 screenshotInputEnabled = screenshotInputEnabled,
-                debugMode = debugMode
+                debugMode = debugMode,
+                traceEnabled = traceEnabled,
+                traceRunId = traceRunId
             )
         }
     }

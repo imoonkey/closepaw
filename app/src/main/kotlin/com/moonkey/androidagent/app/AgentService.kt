@@ -313,7 +313,8 @@ class AgentService : AccessibilityService() {
                 val newSession = AgentSession.create(
                     config = SessionConfig(
                         maxTurns = maxSteps,
-                        debugMode = true
+                        debugMode = true,
+                        traceEnabled = true
                     ),
                     service = this@AgentService,
                     scope = scope,

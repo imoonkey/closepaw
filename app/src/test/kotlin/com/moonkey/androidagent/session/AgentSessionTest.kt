@@ -15,6 +15,7 @@ import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
 import com.moonkey.androidagent.test.FakeAndroidPlatform
+import com.moonkey.androidagent.trace.NoopTraceRecorder
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
 import io.mockk.mockk
@@ -72,7 +73,8 @@ private fun buildSession(
         policyEngine = policyEngine,
         platform = platform,
         config = config,
-        llmClient = SessionTestLLMClient(llmDelayMs)
+        llmClient = SessionTestLLMClient(llmDelayMs),
+        traceRecorder = NoopTraceRecorder
     )
     val service = mockk<AccessibilityService>(relaxed = true)
     return AgentSession.createWithServices(

@@ -16,12 +16,18 @@ import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenImageSource
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.model.ScreenSnapshotDebug
 import com.moonkey.androidagent.protocol.SessionConfig
+import com.moonkey.androidagent.trace.A11yTreeDumper
+import com.moonkey.androidagent.trace.NoopTraceRecorder
+import com.moonkey.androidagent.trace.TraceJson
+import com.moonkey.androidagent.trace.TraceRecorder
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.encodeToString
 import java.io.File
 import java.io.ByteArrayOutputStream
 import kotlin.coroutines.resume
@@ -40,7 +46,8 @@ import kotlin.coroutines.resume
 class AccessibilityPlatform(
     private val service: AccessibilityService,
     private val config: SessionConfig,
-    private val visualizer: ActionVisualizerManager? = null
+    private val visualizer: ActionVisualizerManager? = null,
+    private val traceRecorder: TraceRecorder = NoopTraceRecorder
 ) : AndroidPlatform {
     
     companion object {
@@ -54,14 +61,61 @@ class AccessibilityPlatform(
     override suspend fun captureScreen(): ScreenSnapshot {
         val root = withContext(Dispatchers.Main) { service.rootInActiveWindow }
         val windowId = root?.windowId
+
+        val rawTreeArtifact =
+            if (traceRecorder.enabled) {
+                val dump = withContext(Dispatchers.Default) { A11yTreeDumper.dump(root) }
+                val json = TraceJson.instance.encodeToString(dump)
+                traceRecorder.storeText(
+                    kind = "raw_a11y_tree",
+                    filenameHint = "raw_${System.currentTimeMillis()}.json",
+                    content = json,
+                    mimeType = "application/json"
+                )
+            } else {
+                null
+            }
+
         val snapshot = Perceptor.snapshot(root)
-        val image = captureScreenshotIfEnabled(windowId)
+
+        val sanitizedTreeArtifact =
+            if (traceRecorder.enabled) {
+                val json = Perceptor.toPromptJson(snapshot)
+                traceRecorder.storeText(
+                    kind = "sanitized_a11y_tree",
+                    filenameHint = "sanitized_${snapshot.timestamp}.json",
+                    content = json,
+                    mimeType = "application/json"
+                )
+            } else {
+                null
+            }
+
+        val shouldCaptureScreenshot = config.enableScreenshotInput || traceRecorder.enabled
+        val screenshotCapture = captureScreenshotIfEnabled(windowId, enabled = shouldCaptureScreenshot)
+        val image = if (config.enableScreenshotInput) screenshotCapture?.image else null
         Log.d(TAG, "Captured screen: ${snapshot.elements.size} elements, package: ${root?.packageName}")
-        return snapshot.copy(image = image)
+        val debug =
+            if (traceRecorder.enabled) {
+                ScreenSnapshotDebug(
+                    rawA11yTreePath = rawTreeArtifact?.path,
+                    sanitizedA11yTreePath = sanitizedTreeArtifact?.path,
+                    screenshotPath = screenshotCapture?.tracePath
+                )
+            } else {
+                null
+            }
+
+        return snapshot.copy(image = image, debug = debug)
     }
 
-    private suspend fun captureScreenshotIfEnabled(windowId: Int?): ScreenImage? {
-        if (!config.enableScreenshotInput) {
+    private data class ScreenshotCapture(
+        val image: ScreenImage,
+        val tracePath: String?
+    )
+
+    private suspend fun captureScreenshotIfEnabled(windowId: Int?, enabled: Boolean): ScreenshotCapture? {
+        if (!enabled) {
             return null
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
@@ -134,7 +188,7 @@ class AccessibilityPlatform(
 
     private suspend fun compressScreenshot(
         screenshot: AccessibilityService.ScreenshotResult
-    ): ScreenImage? = withContext(Dispatchers.Default) {
+    ): ScreenshotCapture? = withContext(Dispatchers.Default) {
         val hardwareBuffer = screenshot.hardwareBuffer
         try {
             val hardwareBitmap = Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshot.colorSpace)
@@ -161,13 +215,24 @@ class AccessibilityPlatform(
                 if (config.debugMode) {
                     persistDebugScreenshot(it, width, height)
                 }
+                val tracePath =
+                    if (traceRecorder.enabled) {
+                        traceRecorder.storeBytes(
+                            kind = "screenshot",
+                            filenameHint = "screenshot_${System.currentTimeMillis()}_${width}x${height}.jpg",
+                            bytes = it,
+                            mimeType = "image/jpeg"
+                        )?.path
+                    } else {
+                        null
+                    }
                 ScreenImage(
                     width = width,
                     height = height,
                     mimeType = "image/jpeg",
                     bytes = it,
                     source = ScreenImageSource.ACCESSIBILITY_SCREENSHOT
-                )
+                ).let { image -> ScreenshotCapture(image = image, tracePath = tracePath) }
             }
         } finally {
             hardwareBuffer.close()
