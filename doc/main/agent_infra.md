@@ -1,7 +1,7 @@
 # Android Agent Infrastructure
 
 > This document describes the architecture and components of the Android Agent system.
-> Last updated: 2026-01-27
+> Last updated: 2026-02-02
 
 ## Table of Contents
 
@@ -403,8 +403,11 @@ Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
 **Responsibilities:**
 - Traverse accessibility tree with proper node recycling
 - Extract element data (bounds, text, class) without storing raw nodes
+- Filter off-screen elements and elements below minimum size (5px)
+- Filter keyboard/IME nodes (Gboard, Samsung, SwiftKey) to reduce noise
+- Clip element bounds to screen dimensions
 - Limit to MAX_ELEMENTS (80) for token budget
-- Generate JSON for LLM prompts via `toPromptJson()`
+- Generate JSON for LLM prompts via `toPromptJson()` with occurrence indices for disambiguation
 - When enabled, allow `AccessibilityPlatform` to attach a compressed screenshot to `ScreenSnapshot.image`
 
 **Output Element Example:**
@@ -412,15 +415,24 @@ Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
 {
   "index": 0,
   "text": "Settings",
-  "id": "com.android.settings:id/title",
+  "resource_id": "com.android.settings:id/title",
+  "resource_id_index": 0,
+  "text_index": 0,
   "class": "TextView",
   "desc": "",
   "clickable": true,
   "editable": false,
   "scrollable": false,
-  "center": [540, 120]
+  "enabled": true,
+  "focused": false,
+  "long_clickable": false,
+  "bounds": [0, 100, 1080, 150],
+  "center": [540, 125]
 }
 ```
+
+**Occurrence Indices:**
+- `resource_id_index`, `text_index`, `desc_index` - 0-based occurrence count for disambiguation when multiple elements share the same identifier
 
 ### 8. AndroidPlatform (`platform/AndroidPlatform.kt`)
 

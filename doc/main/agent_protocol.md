@@ -1,7 +1,7 @@
 # Android Agent Protocol Reference
 
 > This document describes the Op/Event communication protocol between the UI layer and the agent.
-> Last updated: 2026-01-27
+> Last updated: 2026-02-02
 
 ## Overview
 
