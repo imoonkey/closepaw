@@ -75,6 +75,7 @@ Run the agent with a goal:
 ./scripts/dev.sh run                    # Default: "Open Settings"
 ./scripts/dev.sh run "Open Chrome"      # Custom goal
 ./scripts/dev.sh run --local "Open Settings"  # Use local LLM
+SCREENSHOT_INPUT=true ./scripts/dev.sh run "Open Chrome"  # Send screenshots to LLM
 ```
 
 ### 4. View Logs
@@ -137,6 +138,15 @@ LLM_BACKEND=local ./scripts/dev.sh run
 |---------|------|------|
 | `openai` | Better quality, tool-calling | Requires API key, network latency |
 | `local` | Offline, no cost, fast | Lower quality, ~800MB model download |
+
+### Screenshot Input (Optional)
+
+By default, `./scripts/dev.sh` and `./scripts/debug-run.sh` do **not** send screenshots to the LLM (`screenshot_input=false`). To enable screenshot input for a run:
+
+```bash
+SCREENSHOT_INPUT=true ./scripts/dev.sh run "Open Settings"
+SCREENSHOT_INPUT=true ./scripts/debug-run.sh "Open Chrome"
+```
 
 ### Device Status
 

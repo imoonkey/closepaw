@@ -36,6 +36,9 @@ Debug Android Agent using visual inspection + log analysis.
 
 # With Local LLM backend (on-device)
 ./scripts/debug-run.sh --local "Goal here"
+
+# Optional: send screenshots to the LLM (default: off)
+SCREENSHOT_INPUT=true ./scripts/debug-run.sh "Goal here"
 ```
 
 Creates `debug-output/` with `turn_N.png`, `turn_N_log.txt`, logs.

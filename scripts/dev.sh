@@ -12,6 +12,7 @@
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
+#   SCREENSHOT_INPUT: "true"/"false" - whether to send screenshots to the LLM (default: false)
 #
 # Note: Run ./scripts/setup.sh first to build, install and configure permissions
 #
@@ -126,13 +127,9 @@ cmd_run() {
         LLM_BACKEND="local"
     fi
 
-    # Default screenshot input on for OpenAI runs unless explicitly set
+    # Default screenshot input OFF unless explicitly set
     if [[ -z "${SCREENSHOT_INPUT+x}" ]]; then
-        if [[ "$LLM_BACKEND" == "openai" ]]; then
-            SCREENSHOT_INPUT=true
-        else
-            SCREENSHOT_INPUT=false
-        fi
+        SCREENSHOT_INPUT=false
     fi
 
     SCREENSHOT_INPUT=$(normalize_bool "$SCREENSHOT_INPUT")
@@ -332,12 +329,14 @@ show_help() {
     echo ""
     echo "Environment Variables:"
     echo "  LLM_BACKEND            'openai' (default) or 'local'"
+    echo "  SCREENSHOT_INPUT       'true' to send screenshots to the LLM (default: false)"
     echo ""
     echo "Examples:"
     echo "  ./scripts/dev.sh run"
     echo "  ./scripts/dev.sh run 'Open Chrome'"
     echo "  ./scripts/dev.sh run --local 'Open Settings'    # Use local LLM"
     echo "  LLM_BACKEND=local ./scripts/dev.sh run          # Same as --local"
+    echo "  SCREENSHOT_INPUT=true ./scripts/dev.sh run      # Enable screenshot input"
     echo "  ./scripts/dev.sh logs orch"
     echo "  ./scripts/dev.sh status"
     echo ""

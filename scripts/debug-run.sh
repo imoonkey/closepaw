@@ -8,6 +8,7 @@
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
+#   SCREENSHOT_INPUT: "true"/"false" - whether to send screenshots to the LLM (default: false)
 #
 
 set -e
@@ -78,13 +79,9 @@ if [[ -z "${DEBUG_MODE+x}" ]]; then
     DEBUG_MODE=true
 fi
 
-# Default screenshot input on for OpenAI runs unless explicitly set
+# Default screenshot input OFF unless explicitly set
 if [[ -z "${SCREENSHOT_INPUT+x}" ]]; then
-    if [[ "$LLM_BACKEND" == "openai" ]]; then
-        SCREENSHOT_INPUT=true
-    else
-        SCREENSHOT_INPUT=false
-    fi
+    SCREENSHOT_INPUT=false
 fi
 
 SCREENSHOT_INPUT=$(normalize_bool "$SCREENSHOT_INPUT")
@@ -141,32 +138,43 @@ ok "Agent started"
 echo ""
 
 # Monitor turns and capture screenshots
-TURN=0
+# Track which turns we've already captured using file existence check (bash 3.2 compatible)
 MAX_TURNS=20
-LAST_TURN_LINE=""
+LAST_CAPTURED=0
 
 log "Monitoring turns (max $MAX_TURNS)..."
 echo ""
 
-while [[ $TURN -lt $MAX_TURNS ]]; do
-    sleep 2
+while [[ $LAST_CAPTURED -lt $MAX_TURNS ]]; do
+    sleep 1  # Poll more frequently (1s instead of 2s)
     
-    # Check for new turn markers in logcat (V2 Agent uses "=== TURN X START ===")
-    NEW_TURN_LINE=$(tail -n 300 "$DEBUG_DIR/logcat_full.log" | grep -E "=== TURN [0-9]+ START ===|TurnStarted" | tail -1 || true)
+    # Extract ALL turn numbers from log (not just the last one)
+    # This catches multiple turns that may have started in one polling interval
+    TURN_NUMBERS=$(tail -n 500 "$DEBUG_DIR/logcat_full.log" | grep -oE "=== TURN ([0-9]+) START ===" | sed 's/[^0-9]//g' | sort -n | uniq 2>/dev/null || true)
     
-    if [[ "$NEW_TURN_LINE" != "$LAST_TURN_LINE" && -n "$NEW_TURN_LINE" ]]; then
-        TURN=$((TURN + 1))
-        LAST_TURN_LINE="$NEW_TURN_LINE"
+    for TURN_NUM in $TURN_NUMBERS; do
+        # Skip empty
+        [[ -z "$TURN_NUM" ]] && continue
         
-        # Capture screenshot
-        SCREENSHOT="$DEBUG_DIR/turn_${TURN}.png"
-        adb exec-out screencap -p > "$SCREENSHOT"
+        SCREENSHOT="$DEBUG_DIR/turn_${TURN_NUM}.png"
+        
+        # Skip if we already captured this turn (check file existence)
+        if [[ -f "$SCREENSHOT" ]]; then
+            continue
+        fi
+        
+        # Capture screenshot for this turn
+        adb exec-out screencap -p > "$SCREENSHOT" 2>/dev/null || true
         
         # Save recent log context around the turn boundary
-        tail -n 400 "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/turn_${TURN}_log.txt"
+        tail -n 400 "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/turn_${TURN_NUM}_log.txt"
         
-        echo "  Turn $TURN captured -> $SCREENSHOT"
-    fi
+        echo "  Turn $TURN_NUM captured -> $SCREENSHOT"
+        
+        if [[ $TURN_NUM -gt $LAST_CAPTURED ]]; then
+            LAST_CAPTURED=$TURN_NUM
+        fi
+    done
     
     # Check if agent finished (V2 patterns)
     if tail -n 500 "$DEBUG_DIR/logcat_full.log" | grep -q "SessionCompleted\\|Goal achieved\\|GoalAchieved\\|DONE:"; then
