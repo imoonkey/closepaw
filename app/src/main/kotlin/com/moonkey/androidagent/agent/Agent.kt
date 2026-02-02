@@ -273,11 +273,11 @@ class Agent(
                     eventDispatcher.turnPhaseChanged(turnId, TurnPhase.EXECUTION)
                     eventDispatcher.status("💡 Executing actions...")
 
-                    // Re-capture screen before first action to avoid stale element IDs
-                    // The LLM call can take 1-5 seconds, during which the screen may have changed
-                    delay(200)  // Brief settle time
-                    var currentSnapshot = services.platform.captureScreen()
-                    Log.d(TAG, "Re-captured screen before actions: ${currentSnapshot.elements.size} elements")
+                    // Use the same snapshot that the LLM just observed. Re-capturing here can reshuffle
+                    // element indices and cause element_index-based actions to hit the wrong target.
+                    delay(200) // Brief settle time before injecting input
+                    var currentSnapshot = snapshot
+                    Log.d(TAG, "Using turn snapshot for actions: ${currentSnapshot.elements.size} elements")
 
                     for (toolCall in toolCallsToExecute) {
                         Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")

@@ -280,33 +280,45 @@ class AccessibilityPlatform(
         val centerY = element.center.y
         
         Log.d(TAG, "Clicking element ${action.elementIndex} at ($centerX, $centerY)")
-        
-        // Strategy 1: Try ACTION_CLICK on the accessibility node
-        // This works better with cross-platform apps like Notion, Flutter, React Native
+
+        // Prefer gesture tap first. In some apps ACTION_CLICK returns true but has no visible effect,
+        // which can lead to retry loops. Gesture tap is closer to real user input.
+        val tapResult = performClickAt(centerX, centerY)
+        if (tapResult is ActionResult.Success) {
+            return ActionResult.Success(
+                if (element.isEditable) {
+                    "Tapped editable element ${action.elementIndex}"
+                } else {
+                    "Tapped element ${action.elementIndex}"
+                }
+            )
+        }
+
+        // Fallback: Try ACTION_CLICK on a clickable node at the tap point.
         return withContext(Dispatchers.Main) {
             val root = service.rootInActiveWindow
             if (root != null) {
                 val clickableNode = AccessibilityNodeFinder.findClickableNodeAtLocation(root, centerX, centerY)
                 if (clickableNode != null) {
-                    Log.d(TAG, "Trying ACTION_CLICK on node at ($centerX, $centerY)")
+                    Log.d(TAG, "Gesture tap failed, trying ACTION_CLICK on node at ($centerX, $centerY)")
                     visualizer?.showClick(centerX.toFloat(), centerY.toFloat())
-                    
+
                     val success = clickableNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                     clickableNode.recycle()
-                    
+
                     if (success) {
                         Log.d(TAG, "ACTION_CLICK succeeded")
                         return@withContext ActionResult.Success("Clicked element ${action.elementIndex}")
-                    } else {
-                        Log.d(TAG, "ACTION_CLICK failed, falling back to gesture")
                     }
+                    Log.d(TAG, "ACTION_CLICK failed after gesture failure")
                 } else {
-                    Log.d(TAG, "No clickable node found at location, using gesture")
+                    Log.d(TAG, "Gesture tap failed and no clickable node found at location")
                 }
+            } else {
+                Log.d(TAG, "Gesture tap failed and root is null")
             }
-            
-            // Strategy 2: Fall back to gesture-based tap
-            performClickAt(centerX, centerY)
+
+            tapResult
         }
     }
     
