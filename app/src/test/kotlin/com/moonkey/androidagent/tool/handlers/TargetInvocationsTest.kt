@@ -11,8 +11,11 @@ import com.moonkey.androidagent.platform.AppInfo
 import com.moonkey.androidagent.platform.DisplayInfo
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.tool.ToolExecutionContext
+import com.moonkey.androidagent.tool.ValidationResult
+import com.moonkey.androidagent.tool.impl.mobileaction.SwipeActionHandler
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Test
 
@@ -108,6 +111,37 @@ class TargetInvocationsTest {
         assertThat(platform.performedActions).containsExactly(
             UIAction.Type(text = "hello", elementIndex = 1, clear = false)
         )
+    }
+
+    @Test
+    fun `swipe direction computes vertical motion`() = runTest {
+        val platform = RecordingAndroidPlatform(results = listOf(ActionResult.Success("ok")))
+        val context = TestToolExecutionContext(platform = platform, snapshot = null)
+        val params = JSONObject().apply {
+            put("direction", "down")
+            put("distance", "medium")
+        }
+
+        val result = SwipeTargetInvocation(params = params, description = "swipe").execute(context)
+
+        assertThat(result).isInstanceOf(com.moonkey.androidagent.tool.ToolExecutionResult.Success::class.java)
+        val action = platform.performedActions.single() as UIAction.Swipe
+        // "swipe down" = finger moves down = start high (smaller Y), end low (larger Y)
+        assertThat(action.startY).isLessThan(action.endY)
+    }
+
+    @Test
+    fun `swipe validation rejects direction with start end`() {
+        val handler = SwipeActionHandler()
+        val params = JSONObject().apply {
+            put("direction", "down")
+            put("start", JSONArray(listOf(0, 0)))
+            put("end", JSONArray(listOf(0, 100)))
+        }
+
+        val result = handler.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
     }
 
     private class TestToolExecutionContext(

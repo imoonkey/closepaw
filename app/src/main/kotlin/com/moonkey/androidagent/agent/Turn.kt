@@ -237,10 +237,11 @@ class Turn(
             
             ## Element Selection
             
-            - For click, prefer resource_id/text/bounds when available; element_index is a fallback
+            - For click, identify the target by resource_id/element_index/text/bounds
             - Use element_index to identify elements when no better selector is available (e.g., element_index=5)
             - Only click elements with "clickable": true
             - Only type in elements with "editable": true
+            - For scrolling, prefer swipe with direction (up/down/left/right) and optional distance; use start/end only for precise gestures.
             
             ## ReAct Loop
             

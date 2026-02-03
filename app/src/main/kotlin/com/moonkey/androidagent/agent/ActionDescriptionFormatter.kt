@@ -88,10 +88,34 @@ object ActionDescriptionFormatter {
                 "Type \"${text}\" into $target${if (clear) " (clear first)" else ""}"
             }
             "swipe" -> {
+                val direction = args.optString("direction", "").trim()
                 val start = args.optJSONArray("start")
                 val end = args.optJSONArray("end")
-                if (start != null && end != null) {
+                if (start != null && end != null && direction.isEmpty()) {
                     "Swipe from (${start.optInt(0)},${start.optInt(1)}) to (${end.optInt(0)},${end.optInt(1)})"
+                } else if (direction.isNotEmpty()) {
+                    val distance = args.optString("distance", "medium").trim().ifEmpty { "medium" }
+                    val target = when {
+                        args.optString("resource_id", "").trim().isNotEmpty() ->
+                            "resource_id '${args.optString("resource_id", "").trim()}' (index ${args.optInt("resource_id_index", 0)})"
+                        args.optString("text", "").trim().isNotEmpty() ->
+                            "text \"${args.optString("text", "").trim()}\" (index ${args.optInt("text_index", 0)})"
+                        args.has("x1") && args.has("y1") && args.has("x2") && args.has("y2") -> {
+                            val x1 = args.optInt("x1", -1)
+                            val y1 = args.optInt("y1", -1)
+                            val x2 = args.optInt("x2", -1)
+                            val y2 = args.optInt("y2", -1)
+                            "bounds ($x1,$y1)-($x2,$y2)"
+                        }
+                        args.has("x") && args.has("y") -> "coordinates (${args.optInt("x", -1)},${args.optInt("y", -1)})"
+                        args.has("element_index") -> "element ${args.optInt("element_index", -1)}"
+                        else -> ""
+                    }
+                    if (target.isNotEmpty()) {
+                        "Swipe $direction ($distance) from $target"
+                    } else {
+                        "Swipe $direction ($distance)"
+                    }
                 } else {
                     "Swipe gesture"
                 }

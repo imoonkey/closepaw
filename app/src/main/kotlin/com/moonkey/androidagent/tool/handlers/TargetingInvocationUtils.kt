@@ -22,23 +22,58 @@ internal object TargetingInvocationUtils {
     }
 
     suspend fun capturePostActionObservation(
-        context: ToolExecutionContext,
-        logTag: String,
-        uiSettleDelayMs: Long = DEFAULT_UI_SETTLE_DELAY_MS
+            context: ToolExecutionContext,
+            logTag: String,
+            uiSettleDelayMs: Long = DEFAULT_UI_SETTLE_DELAY_MS
     ): ToolObservation? {
         return try {
             delay(uiSettleDelayMs)
             val snapshot = context.platform.captureScreen()
             val tree = Perceptor.toPromptJson(snapshot)
             ToolObservation.ScreenState(
-                accessibilityTree = tree,
-                elementCount = snapshot.elements.size,
-                snapshot = snapshot
+                    accessibilityTree = tree,
+                    elementCount = snapshot.elements.size,
+                    snapshot = snapshot
             )
         } catch (e: Exception) {
             Log.w(logTag, "Failed to capture post-action observation: ${e.message}")
             null
         }
     }
-}
 
+    /**
+     * Detects if a swipe reached a scroll boundary by comparing before/after screen state.
+     * Returns a warning message if the screen appears unchanged, null otherwise.
+     */
+    fun detectScrollBoundary(
+            preSnapshot: ScreenSnapshot?,
+            postObservation: ToolObservation?
+    ): String? {
+        if (preSnapshot == null) return null
+
+        val postSnapshot =
+                (postObservation as? ToolObservation.ScreenState)?.snapshot ?: return null
+
+        // Extract text content from elements for comparison
+        val preTexts =
+                preSnapshot
+                        .elements
+                        .filter { it.text.isNotBlank() || it.description.isNotBlank() }
+                        .map { "${it.text}|${it.description}|${it.bounds}" }
+                        .sorted()
+
+        val postTexts =
+                postSnapshot
+                        .elements
+                        .filter { it.text.isNotBlank() || it.description.isNotBlank() }
+                        .map { "${it.text}|${it.description}|${it.bounds}" }
+                        .sorted()
+
+        // If element lists are identical (same text, description, and bounds), screen didn't change
+        if (preTexts == postTexts && preTexts.isNotEmpty()) {
+            return "Screen content unchanged after swipe - may have reached scroll boundary"
+        }
+
+        return null
+    }
+}

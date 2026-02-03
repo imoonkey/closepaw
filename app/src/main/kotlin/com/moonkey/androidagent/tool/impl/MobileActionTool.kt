@@ -37,7 +37,7 @@ Actions:
 - click: Tap using one of element_index, resource_id, text, bounds (x1,y1,x2,y2), or coordinates (x,y).
 - long_press: Long press using bounds, coordinates (x,y), resource_id, text, or element_index (duration_ms optional)
 - type: Input into field (text required, clear optional). To focus first, use resource_id, target_text, bounds, x/y, or element_index.
-- swipe: Swipe gesture (start and end coordinates required as [x,y] arrays). Coordinates beyond screen bounds are clamped.
+- swipe: Swipe gesture using either explicit start/end coords or direction (up/down/left/right) with optional distance (short/medium/long) and target selectors.
 - system_button: Press system button (button required: back/home/enter/recents)
 - wait: Wait for UI updates (duration_ms optional, default 1000ms)
 """.trimIndent()
@@ -65,7 +65,7 @@ Actions:
                 ),
                 "resource_id" to PropertySpec(
                     type = "string",
-                    description = "Resource id selector for click/long_press/type (e.g., 'com.app:id/button')"
+                    description = "Resource id selector for click/long_press/type/swipe (e.g., 'com.app:id/button')"
                 ),
                 "resource_id_index" to PropertySpec(
                     type = "integer",
@@ -73,7 +73,7 @@ Actions:
                 ),
                 "text_index" to PropertySpec(
                     type = "integer",
-                    description = "Zero-based index when multiple elements share the same text (click/long_press only; default 0). For type with target_text, prefer target_text_index."
+                    description = "Zero-based index when multiple elements share the same text (click/long_press/swipe; default 0). For type with target_text, prefer target_text_index."
                 ),
                 "target_text" to PropertySpec(
                     type = "string",
@@ -109,7 +109,7 @@ Actions:
                 ),
                 "text" to PropertySpec(
                     type = "string",
-                    description = "Text to input for type action, or text selector for click/long_press"
+                    description = "Text to input for type action, or text selector for click/long_press/swipe"
                 ),
                 "clear" to PropertySpec(
                     type = "boolean",
@@ -124,6 +124,16 @@ Actions:
                     type = "array",
                     description = "[x, y] end coordinates in pixels for swipe",
                     items = JSONObject().put("type", "integer")
+                ),
+                "direction" to PropertySpec(
+                    type = "string",
+                    description = "Direction for swipe (up, down, left, right). Mutually exclusive with start/end.",
+                    enum = listOf("up", "down", "left", "right")
+                ),
+                "distance" to PropertySpec(
+                    type = "string",
+                    description = "Distance for directional swipe (short, medium, long). Default medium.",
+                    enum = listOf("short", "medium", "long")
                 ),
                 "button" to PropertySpec(
                     type = "string",
