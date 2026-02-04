@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moonkey.androidagent.history.SessionHistoryManager
+import com.moonkey.androidagent.history.model.ScreenStateRecord
 import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.Op
@@ -110,6 +111,7 @@ class ChatViewModel(
                 is AgentEvent.ActionProposed -> handleActionProposed(event)
                 is AgentEvent.ActionExecuted -> handleActionExecuted(event)
                 is AgentEvent.TaskCompleted -> handleTaskCompleted(event)
+                is AgentEvent.ScreenCaptured -> handleScreenCaptured(event)
                 is AgentEvent.SessionError -> handleError(event)
                 else -> { /* Ignore other events */ }
             }
@@ -323,6 +325,25 @@ class ChatViewModel(
             updateLastAgentMessage { msg ->
                 msg.copy(state = AgentMessageState.Complete)
             }
+        }
+
+        private fun handleScreenCaptured(event: AgentEvent.ScreenCaptured) {
+            recordingService?.recordScreenState(
+                ScreenStateRecord(
+                    id = UUID.randomUUID().toString(),
+                    timestamp = event.timestamp,
+                    turnId = event.turnId,
+                    turnNumber = event.turnNumber,
+                    phase = event.phase,
+                    elementCount = event.elementCount,
+                    packageName = event.packageName,
+                    activityName = event.activityName,
+                    rawA11yTreePath = event.rawA11yTreePath,
+                    sanitizedA11yTreePath = event.sanitizedA11yTreePath,
+                    screenshotPath = event.screenshotPath,
+                    traceRunId = event.traceRunId
+                )
+            )
         }
 
         /**

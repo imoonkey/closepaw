@@ -40,6 +40,8 @@ internal class AgentRuntime(
             Planning tools:
             - Use write_todos to track multi-step tasks (always send the full list).
             - Use scratchpad to store key-value facts you will need later.
+            - When extracting info from content screens (emails, documents, chats), write key facts to scratchpad before leaving the screen.
+            - Avoid reopening the same item repeatedly; track visited items in scratchpad and move to new items.
         """.trimIndent()
 
         private val LOCAL_PROMPT_SUFFIX =

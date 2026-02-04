@@ -3,6 +3,7 @@ package com.moonkey.androidagent.history
 import android.util.Log
 import com.moonkey.androidagent.history.model.ContentBlockRecord
 import com.moonkey.androidagent.history.model.MessageRecord
+import com.moonkey.androidagent.history.model.ScreenStateRecord
 import com.moonkey.androidagent.history.model.SessionMetadata
 import com.moonkey.androidagent.history.model.SessionRecord
 import com.moonkey.androidagent.history.storage.SessionStorage
@@ -357,6 +358,32 @@ class SessionRecordingService(
             delay(SAVE_DEBOUNCE_MS)
             save()
         }
+    }
+
+    /**
+     * Record a screen state reference for replay/debug.
+     */
+    fun recordScreenState(state: ScreenStateRecord) {
+        val session = currentSession ?: run {
+            Log.w(TAG, "No active session for recording screen state")
+            return
+        }
+
+        val updatedMetadata =
+            if (!state.traceRunId.isNullOrBlank() && session.metadata.traceRunId.isNullOrBlank()) {
+                session.metadata.copy(traceRunId = state.traceRunId)
+            } else {
+                session.metadata
+            }
+
+        currentSession = session.copy(
+            screenStates = session.screenStates + state,
+            lastUpdated = state.timestamp,
+            metadata = updatedMetadata
+        )
+
+        Log.d(TAG, "Recorded screen state: turn=${state.turnNumber}, phase=${state.phase}")
+        scheduleSave()
     }
     
     /**

@@ -3,6 +3,7 @@ package com.moonkey.androidagent.tool.handlers
 import android.util.Log
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
+import com.moonkey.androidagent.perception.toSummary
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolObservation
 import kotlinx.coroutines.delay
@@ -33,6 +34,7 @@ internal object TargetingInvocationUtils {
             ToolObservation.ScreenState(
                     accessibilityTree = tree,
                     elementCount = snapshot.elements.size,
+                    summary = snapshot.toSummary(context.platform.getCurrentPackageName()),
                     snapshot = snapshot
             )
         } catch (e: Exception) {

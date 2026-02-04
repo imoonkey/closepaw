@@ -1,178 +1,98 @@
-# History Compression Design
+# History Compression Design (Implemented + Next TODOs)
 
-> **Core Insight**: Mobile-use agents don't need past screenshots in context
-
-**Codex addition**: Add `screen_summary` (1-3 lines) to each turn for minimal context.
-
----
-
-## The Problem
-
-```
-Turn 1: [screenshot_1, a11y_tree_1] → action_1 → result_1
-Turn 2: [screenshot_2, a11y_tree_2] → action_2 → result_2
-Turn 3: [screenshot_3, a11y_tree_3] → action_3 → result_3
-...
-Turn N: [screenshot_N, a11y_tree_N] → action_N → ???
-```
-
-Currently, LLM receives ALL screenshots in history. But:
-- Past screenshots are **irrelevant** after screen changes
-- They consume **massive context** (images + a11y trees)
-- They add **noise**, not signal
-
-**Coding agent**: Past file contents matter (edits build on edits)  
-**Mobile agent**: Past screens don't matter (only current screen matters)
+> **Core Insight**: Mobile-use agents do not need old screenshots/a11y trees in LLM prompt history.  
+> **Current direction**: Keep replay/debug artifacts, but keep LLM history compact and text-first.
 
 ---
 
-## The Solution
+## What Was Implemented
 
-### Text-Only History + Current Screen + Screen Summary
+### 1) LLM history is compressed (no raw screen JSON in tool history)
 
-```kotlin
-// Build prompt with compressed history
-fun buildPromptMessages(history: HistoryManager, currentScreen: ScreenSnapshot): List<Message> {
-    val messages = mutableListOf<Message>()
-    
-    // 1. Add text summaries of past turns (includes screen_summary)
-    for (turn in history.turns) {
-        messages.add(Message.User(turn.toTextSummary()))
-        messages.add(Message.Assistant(turn.assistantSummary()))
-    }
-    
-    // 2. Add ONLY current screen (not in history)
-    messages.add(Message.User(
-        content = "Current screen state:",
-        images = listOf(currentScreen.screenshot),
-        attachments = listOf(currentScreen.a11yTree.toJson())
-    ))
-    
-    return messages
-}
-```
+- Tool result history now stores text summaries like:
+  - `Success: Clicked element 6: "...label..."`
+  - `Screen after action: com.google.android.gm | elements=..., labels=...`
+- Raw/sanitized a11y trees and screenshots are **not** appended as past-turn LLM history items.
+- Current turn still gets full `Current screen state (...)` JSON (and optional screenshot input).
 
-### Turn Summary Format (Codex-enhanced)
+This preserves grounding for the current action while reducing historical noise.
 
-```kotlin
-fun TurnRecord.toTextSummary(): String = buildString {
-    appendLine("Turn ${index}:")
-    appendLine("- Screen: ${screenSummary}")  // NEW: 1-3 line screen description
-    appendLine("- Thought: ${thought}")
-    appendLine("- Action: ${action.name}(${action.params})")
-    appendLine("- Result: ${result.summary}")
-    // NO screenshot, NO a11y tree JSON
-}
+### 2) Replay history is persisted out-of-band
 
-// Screen summary generation (can be LLM-generated or heuristic)
-fun ScreenSnapshot.toSummary(): String {
-    // Option A: Extract from a11y tree
-    val appName = a11yTree.rootNode.contentDescription ?: packageName
-    val focusedElement = a11yTree.findFocused()?.text ?: ""
-    return "$appName - $focusedElement visible"
-    
-    // Option B: Ask LLM (more expensive but better)
-    // return llm.summarize("Summarize this screen in 1-2 lines: ${a11yTree.toJson()}")
-}
-```
+- Added `ScreenStatePhase` with:
+  - `PRE_TURN`
+  - `POST_ACTION`
+- Added `ScreenStateRecord` and persisted it in `SessionRecord.screenStates`.
+- `AgentEvent.ScreenCaptured` now carries replay metadata:
+  - turn info, phase, element count
+  - raw/sanitized tree paths
+  - screenshot path
+  - trace run id
+- `ChatViewModel` records these events via `SessionRecordingService.recordScreenState(...)`.
+
+So replay/debug keeps full trace references, without polluting prompt history.
+
+### 3) Screen summary heuristic (v1)
+
+- Added `ScreenSnapshot.toSummary(packageName)`:
+  - counts: elements/clickable/editable
+  - focused label
+  - top labels
+- Gmail-specific stopwords are filtered to reduce nav chrome noise.
+
+### 4) Regression mitigation already added
+
+Observed regression: repeated reopening of the same Gmail email after compression.
+
+Mitigations implemented:
+- Click/tap success strings now include clicked element label snippet.
+- Prompt now nudges:
+  - write extracted facts to scratchpad before leaving content screens
+  - avoid reopening already-visited items
+- Summary label filtering improved for Gmail.
 
 ---
 
-## Implementation
+## Current Trade-off
 
-### Option A: Modify HistoryManager
+**Gain**
+- Much smaller history context
+- Cleaner signal for current-screen reasoning
+- Replay/debug still available via artifact references
 
-```kotlin
-class HistoryManager {
-    private val turns = mutableListOf<TurnRecord>()
-    
-    fun addTurn(turn: TurnRecord) {
-        // Store full turn internally
-        turns.add(turn)
-    }
-    
-    fun toPromptMessages(): List<Message> {
-        // Return text-only summaries
-        return turns.map { turn ->
-            Message.User(turn.toTextSummary())
-        }
-    }
-    
-    // Current screen provided separately, not from history
-}
-```
-
-### Option B: Modify Prompt Builder (Less Invasive)
-
-```kotlin
-class AgentPromptBuilder {
-    fun build(
-        systemPrompt: String,
-        history: HistoryManager,
-        currentScreen: ScreenSnapshot
-    ): List<Message> {
-        val messages = mutableListOf<Message>()
-        
-        messages.add(Message.System(systemPrompt))
-        
-        // Compress history to text
-        for (turn in history.turns) {
-            messages.add(Message.User("Previous action: ${turn.toTextSummary()}"))
-        }
-        
-        // Current screen as latest user message
-        messages.add(Message.User(
-            content = buildCurrentScreenContext(currentScreen),
-            images = listOf(currentScreen.screenshotData)
-        ))
-        
-        return messages
-    }
-}
-```
+**Cost**
+- Historical screen state in LLM history is lossy (summary-level, not full JSON/image)
 
 ---
 
-## Benefits
+## TODO: Screen Summary Optimization (next)
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Context tokens (10 turns) | ~50k | ~5k |
-| Image tokens | 10 images | 1 image |
-| Relevance | Low (old screens) | High (current only) |
-| Noise | High | Low |
+### Proposed approach: "retain one extra screen state, then summarize transition"
 
----
+Keep an additional one-turn temporal window for better continuity:
 
-## Trade-offs
+1. Keep `prev_screen_state` + `current_screen_state` for one step (ephemeral prompt context, not permanent large history).
+2. In the next turn, have the main agent naturally produce a short transition summary (what changed after last action).
+3. After that summary is captured, drop the older unsummarized screen from prompt context.
+4. Replay history still keeps full PRE/POST references independently.
 
-**What we lose**:
-- LLM can't "look back" at what previous screens looked like
-- Can't compare current vs previous visually
+This gives better continuity without adding a separate post-tool LLM call.
 
-**Why that's OK**:
-- Summary text captures what mattered
-- If comparison is needed, agent can use `scratchpad` tool to note observations
-- Executor is stateless anyway (by design)
+### Why this is preferred now
 
----
+- **Feasible** with current architecture (small changes in prompt assembly/history bookkeeping).
+- Avoids an extra "summary-only" LLM call in tool post-processing (which is structurally heavier and costlier).
+- Avoids introducing a dedicated summarizer sub-agent too early.
 
-## Connection to Multi-Agent
+### Future refinements (optional)
 
-This design aligns perfectly with Planner-Executor:
-- **Executor**: Fresh session, only sees current screen
-- **Planner**: Sees text summaries of Executor reports
-- No shared screenshot history between them
+- Add hash-based dedupe for identical PRE/POST captures.
+- Add explicit "visited item" extraction helper into scratchpad conventions.
+- If needed later, introduce a dedicated summarizer agent only when prompt-only natural summarization proves insufficient.
 
 ---
 
-## Implementation Priority
+## Status
 
-**High**: This can be done BEFORE multi-agent infra and provides immediate value.
-
-1. Add `TurnRecord.toTextSummary()` method
-2. Modify `AgentPromptBuilder` to use summaries
-3. Pass current screen separately from history
-4. Test with existing single-agent flow
-
-**Estimated effort**: 0.5-1 day
+- Phase goal ("history compression + replay separation") is implemented.
+- Next recommended step is the one-turn retention transition-summary TODO above.

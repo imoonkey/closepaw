@@ -2,6 +2,7 @@ package com.moonkey.androidagent.tool
 
 import android.util.Log
 import com.moonkey.androidagent.perception.Perceptor
+import com.moonkey.androidagent.perception.toSummary
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
 import kotlinx.coroutines.delay
@@ -223,10 +224,12 @@ class BaseToolInvocation(
             
             val snapshot = context.platform.captureScreen()
             val tree = Perceptor.toPromptJson(snapshot)
+            val summary = snapshot.toSummary(context.platform.getCurrentPackageName())
             
             ToolObservation.ScreenState(
                 accessibilityTree = tree,
                 elementCount = snapshot.elements.size,
+                summary = summary,
                 snapshot = snapshot
             )
         } catch (e: Exception) {

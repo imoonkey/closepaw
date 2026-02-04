@@ -3,6 +3,7 @@ package com.moonkey.androidagent.tool.impl
 import android.content.Intent
 import android.util.Log
 import com.moonkey.androidagent.platform.ActionResult
+import com.moonkey.androidagent.perception.toSummary
 import com.moonkey.androidagent.tool.MultiActionTool
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
@@ -335,6 +336,7 @@ class OpenAppInvocation(
                     ToolObservation.ScreenState(
                         accessibilityTree = tree,
                         elementCount = it.elements.size,
+                        summary = it.toSummary(context.platform.getCurrentPackageName()),
                         snapshot = it
                     )
                 }

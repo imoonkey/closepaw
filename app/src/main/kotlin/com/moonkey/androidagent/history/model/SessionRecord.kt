@@ -21,6 +21,9 @@ data class SessionRecord(
     
     /** All messages in the session */
     val messages: List<MessageRecord>,
+
+    /** Screen state references for replay/debug (paths only) */
+    val screenStates: List<ScreenStateRecord> = emptyList(),
     
     /** AI-generated or extracted summary (optional) */
     val summary: String? = null,
@@ -39,6 +42,9 @@ data class SessionMetadata(
     
     /** Model used (e.g., "gpt-5.2") */
     val model: String? = null,
+
+    /** Trace run id for correlating screen artifacts */
+    val traceRunId: String? = null,
     
     /** Total number of turns */
     val turnCount: Int = 0,

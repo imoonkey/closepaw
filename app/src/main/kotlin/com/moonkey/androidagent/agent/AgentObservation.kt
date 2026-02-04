@@ -6,7 +6,7 @@ import com.moonkey.androidagent.tool.ToolObservation
  * Observation - Post-action state captured after tool execution.
  */
 sealed class Observation {
-    data class ScreenState(val accessibilityTree: String) : Observation()
+    data class ScreenState(val accessibilityTree: String, val summary: String) : Observation()
     data class TextOutput(val content: String) : Observation()
 }
 
@@ -15,7 +15,7 @@ sealed class Observation {
  */
 fun ToolObservation.toObservation(): Observation {
     return when (this) {
-        is ToolObservation.ScreenState -> Observation.ScreenState(this.accessibilityTree)
+        is ToolObservation.ScreenState -> Observation.ScreenState(this.accessibilityTree, this.summary)
         is ToolObservation.TextOutput -> Observation.TextOutput(this.content)
     }
 }

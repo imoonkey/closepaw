@@ -349,6 +349,7 @@ class AccessibilityPlatform(
         
         val element = snapshot.elements.getOrNull(action.elementIndex)
             ?: return ActionResult.ElementNotFound(action.elementIndex)
+        val labelSuffix = buildElementLabelSuffix(element.text.ifBlank { element.description })
         
         val centerX = element.center.x
         val centerY = element.center.y
@@ -372,9 +373,9 @@ class AccessibilityPlatform(
                         Log.d(TAG, "ACTION_CLICK succeeded")
                         return@withContext ActionResult.Success(
                             if (element.isEditable) {
-                                "Clicked editable element ${action.elementIndex}"
+                                "Clicked editable element ${action.elementIndex}$labelSuffix"
                             } else {
-                                "Clicked element ${action.elementIndex}"
+                                "Clicked element ${action.elementIndex}$labelSuffix"
                             }
                         )
                     }
@@ -398,9 +399,9 @@ class AccessibilityPlatform(
         if (tapResult is ActionResult.Success) {
             return ActionResult.Success(
                 if (element.isEditable) {
-                    "Tapped editable element ${action.elementIndex}"
+                    "Tapped editable element ${action.elementIndex}$labelSuffix"
                 } else {
-                    "Tapped element ${action.elementIndex}"
+                    "Tapped element ${action.elementIndex}$labelSuffix"
                 }
             )
         }
@@ -410,6 +411,13 @@ class AccessibilityPlatform(
     
     private suspend fun performClickAt(x: Int, y: Int): ActionResult {
         return performTap(x.toFloat(), y.toFloat())
+    }
+
+    private fun buildElementLabelSuffix(rawLabel: String): String {
+        val normalized = rawLabel.replace('\n', ' ').trim()
+        if (normalized.isBlank()) return ""
+        val label = if (normalized.length <= 60) normalized else normalized.take(57) + "..."
+        return ": \"$label\""
     }
     
     /**

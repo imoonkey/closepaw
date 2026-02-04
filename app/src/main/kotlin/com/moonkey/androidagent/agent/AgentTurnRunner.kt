@@ -4,7 +4,9 @@ import android.util.Log
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
+import com.moonkey.androidagent.perception.toSummary
 import com.moonkey.androidagent.protocol.AgentEvent
+import com.moonkey.androidagent.protocol.ScreenStatePhase
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.tool.ToolName
@@ -44,7 +46,11 @@ internal class AgentTurnRunner(
                 eventDispatcher.screenCaptured(
                     snapshot = snapshot,
                     packageName = currentPackage,
-                    activityName = null
+                    activityName = null,
+                    turnId = turnId,
+                    turnNumber = turnNumber,
+                    phase = ScreenStatePhase.PRE_TURN,
+                    traceRunId = services.config.traceRunId
                 )
 
                 Log.d(TAG, "Turn $turnNumber: Screen has ${snapshot.elements.size} elements")
@@ -229,6 +235,15 @@ internal class AgentTurnRunner(
                             if (observedSnapshot != null) {
                                 currentSnapshot = observedSnapshot
                                 Log.d(TAG, "Updated snapshot for subsequent tools: ${currentSnapshot.elements.size} elements")
+                                eventDispatcher.screenCaptured(
+                                    snapshot = currentSnapshot,
+                                    packageName = services.platform.getCurrentPackageName(),
+                                    activityName = null,
+                                    turnId = turnId,
+                                    turnNumber = turnNumber,
+                                    phase = ScreenStatePhase.POST_ACTION,
+                                    traceRunId = services.config.traceRunId
+                                )
                             }
 
                             val formatted = formatToolResult(toolResult, observation)
@@ -328,7 +343,10 @@ internal class AgentTurnRunner(
         val snapshot = services.platform.captureScreen()
         val accessibilityTree = Perceptor.toPromptJson(snapshot)
         return ObservationCapture(
-            observation = Observation.ScreenState(accessibilityTree),
+            observation = Observation.ScreenState(
+                accessibilityTree = accessibilityTree,
+                summary = snapshot.toSummary(services.platform.getCurrentPackageName())
+            ),
             snapshot = snapshot
         )
     }
@@ -362,7 +380,7 @@ internal class AgentTurnRunner(
 
         val observationText =
             when (observation) {
-                is Observation.ScreenState -> "Screen after action:\n${observation.accessibilityTree}"
+                is Observation.ScreenState -> "Screen after action: ${observation.summary}"
                 is Observation.TextOutput -> observation.content
             }
 

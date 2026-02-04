@@ -3,6 +3,7 @@ package com.moonkey.androidagent.agent
 import android.util.Log
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.AgentEvent
+import com.moonkey.androidagent.protocol.ScreenStatePhase
 import com.moonkey.androidagent.protocol.SessionId
 import com.moonkey.androidagent.protocol.Todo
 import com.moonkey.androidagent.protocol.TurnPhase
@@ -73,13 +74,28 @@ class AgentEventDispatcher(
         ))
     }
 
-    suspend fun screenCaptured(snapshot: ScreenSnapshot, packageName: String?, activityName: String?) {
+    suspend fun screenCaptured(
+        snapshot: ScreenSnapshot,
+        packageName: String?,
+        activityName: String?,
+        turnId: String,
+        turnNumber: Int,
+        phase: ScreenStatePhase,
+        traceRunId: String?
+    ) {
         eventEmitter(AgentEvent.ScreenCaptured(
             sessionId = sessionId,
             timestamp = now(),
             elementCount = snapshot.elements.size,
             packageName = packageName,
-            activityName = activityName
+            activityName = activityName,
+            turnId = turnId,
+            turnNumber = turnNumber,
+            phase = phase,
+            rawA11yTreePath = snapshot.debug?.rawA11yTreePath,
+            sanitizedA11yTreePath = snapshot.debug?.sanitizedA11yTreePath,
+            screenshotPath = snapshot.debug?.screenshotPath,
+            traceRunId = traceRunId
         ))
     }
 
