@@ -1,7 +1,7 @@
 # Multi-Agent System
 
 > Sub-agent delegation, executor agents, and orchestration.
-> Last updated: 2026-02-05
+> Last updated: 2026-02-04
 
 ## Planner-Executor Pattern
 
@@ -42,7 +42,8 @@ data class AgentDefinition(
     val systemPrompt: String,   // Sub-agent system prompt
     val toolNames: List<String>, // Tools available to this agent
     val maxTurns: Int = 10,
-    val timeoutMs: Long = 60_000
+    val timeoutMs: Long = 60_000,
+    val narrativeSummaryOnLimit: Boolean = true
 )
 ```
 
@@ -71,6 +72,7 @@ Executes a sub-agent with isolated context:
 - Inherits parent `cognitionProfileId` for consistent planner/executor cognition mode
 - Bridges events to parent session
 - Returns `SubAgentResult` on completion
+- Emits a narrative failure summary when max-turn limit is reached (if enabled)
 
 **Isolation properties:**
 - Child has its own history (no parent history access)
@@ -122,6 +124,8 @@ The default executor agent specializes in:
 - Grounding semantic instructions to UI elements
 - Executing a single atomic action
 - Reporting success/failure back to planner
+
+`SessionAgentRunner` tunes executor `maxTurns` from the active cognition profile (`maxExecutorSteps`) before registering `delegate_task`.
 
 ---
 

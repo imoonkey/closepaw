@@ -7,6 +7,11 @@
 
 The agent uses **planning state tools** to track progress on complex tasks and share data between planner and executor.
 
+`ContextPackager` also injects system reminders based on planning state:
+- Todo reminder only when there are actionable items (not all completed/cancelled)
+- Scratchpad reminder with key count + key preview
+- Loop/turn-budget reminders from cognition policies
+
 ---
 
 ## TodoState

@@ -5,9 +5,9 @@ import com.moonkey.androidagent.agent.AgentPromptBuilder
 import com.moonkey.androidagent.agent.cognition.profile.BuiltinCognitionProfiles
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.LLMBackendType
-import com.moonkey.androidagent.session.AgentSessionState
 import com.moonkey.androidagent.protocol.Todo
 import com.moonkey.androidagent.protocol.TodoStatus
+import com.moonkey.androidagent.session.AgentSessionState
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
@@ -92,9 +92,47 @@ class ContextPackagerTest {
                     )
             )
 
-        assertThat(packaged.userContext.text).contains("LOOP DETECTED")
+        assertThat(packaged.userContext.text).contains("LOOP WARNING")
         assertThat(packaged.userContext.text).contains("Todo status")
         assertThat(packaged.userContext.text).contains("Scratchpad has 1 key")
+    }
+
+    @Test
+    fun `buildTurnInput skips todo reminder when all todos are completed`() {
+        val registry = ToolRegistry().apply {
+            register(TestContextTool("delegate_task"))
+            register(TestContextTool("write_todos"))
+        }
+        val sessionState = AgentSessionState()
+        sessionState.todos.update(
+            listOf(
+                Todo(description = "Open Gmail", status = TodoStatus.COMPLETED),
+                Todo(description = "Read inbox", status = TodoStatus.CANCELLED)
+            )
+        )
+
+        val promptBuilder =
+            AgentPromptBuilder(
+                basePrompt = "planner",
+                llmBackend = LLMBackendType.OPENAI,
+                toolRegistry = registry,
+                sessionState = sessionState,
+                visibleToolNames = setOf("delegate_task", "write_todos")
+            )
+        val packager =
+            DefaultContextPackager(
+                promptBuilder = promptBuilder,
+                todoState = sessionState.todos,
+                scratchpadState = sessionState.scratchpad
+            )
+
+        val packaged =
+            packager.buildTurnInput(
+                profile = BuiltinCognitionProfiles.baseline,
+                raw = RawTurnData(snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()))
+            )
+
+        assertThat(packaged.userContext.text).doesNotContain("Todo status:")
     }
 }
 

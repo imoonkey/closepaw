@@ -11,6 +11,8 @@ data class CognitionProfile(
     val turnPolicyMode: TurnPolicyMode = TurnPolicyMode.BASELINE,
     val loopDetectionEnabled: Boolean = true,
     val loopSimilarityThreshold: Double = 0.90,
+    val loopRepeatedScreenWindow: Int = 3,
+    val loopRepeatedActionWindow: Int = 3,
     val maxConsecutiveScrollActions: Int = 5,
     val maxExecutorSteps: Int = 5,
     val narrativeSummaryOnExecutorLimit: Boolean = true,

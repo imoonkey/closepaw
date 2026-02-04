@@ -1,7 +1,7 @@
 # Agent Loop Execution
 
 > ReAct loop, Turn mechanics, and streaming execution.
-> Last updated: 2026-02-05
+> Last updated: 2026-02-04
 
 ## ReAct Loop
 
@@ -90,9 +90,19 @@ Encapsulates a single LLM call using the OpenAI Responses API with native tool c
 → See: `agent/cognition/`
 
 - **Prompt layer**: profile-aware prompt assembly (`baseline` / `concise`)
-- **Context layer**: explicit packager boundary before LLM input item build
+- **Context layer**: explicit packager boundary before LLM input item build, with system reminders for loop warnings, turn-budget pressure, todos, and scratchpad usage
 - **Policy layer**: multi-tool arbitration and completion decision extracted from runner
-- **Trace layer**: full prompt + input items artifacts with redaction
+- **Loop guard**: a11y-tree signature similarity + repeated action/scroll detection
+- **Step guard**: warns from `maxTurns - 2` and injects final-turn narrative summary at limit
+- **Trace layer**: full prompt/input-item artifacts with redaction, plus tool arbitration decision logging
+
+### Runner State
+
+→ See: `agent/TurnRunnerState.kt`
+
+Per-turn mutable cognition state is carried explicitly by `AgentRuntime` and passed into `AgentTurnRunner`:
+- `navigationState` (recent screen signatures/actions)
+- `previousActionSignature` (used to detect repeated action loops)
 
 ---
 

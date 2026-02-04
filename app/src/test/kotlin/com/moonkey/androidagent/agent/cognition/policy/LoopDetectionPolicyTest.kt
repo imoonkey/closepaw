@@ -62,6 +62,26 @@ class LoopDetectionPolicyTest {
         assertThat(warning?.message).contains("Same action repeated")
     }
 
+    @Test
+    fun `detect treats near-identical screens as repeated`() {
+        val policy =
+            LoopDetectionPolicy(
+                LoopDetectionConfig(
+                    similarityThreshold = 0.80
+                )
+            )
+        var state = NavigationState()
+
+        state = state.advance(snapshot(label = "Inbox"), previousAction = null)
+        state = state.advance(snapshot(label = "Inbox "), previousAction = null)
+        state = state.advance(snapshot(label = "Inbox  "), previousAction = null)
+
+        val warning = policy.detect(state)
+
+        assertThat(warning).isNotNull()
+        assertThat(warning?.severity).isEqualTo(LoopWarningSeverity.CRITICAL)
+    }
+
     private fun snapshot(label: String): ScreenSnapshot {
         return ScreenSnapshot(
             timestamp = System.currentTimeMillis(),

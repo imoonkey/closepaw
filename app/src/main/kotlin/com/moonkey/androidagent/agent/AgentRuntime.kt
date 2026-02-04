@@ -85,6 +85,7 @@ internal class AgentRuntime(
         )
 
         var stopReason: AgentStopReason? = null
+        var turnRunnerState = TurnRunnerState()
         while (shouldContinue()) {
             if (pauseState.value) {
                 eventDispatcher.status("⏸️ Paused - waiting to resume...")
@@ -111,7 +112,9 @@ internal class AgentRuntime(
             eventDispatcher.turnStarted(turnId, turnCount)
             eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PERCEPTION)
 
-            val result = turnRunner.executeTurn(turnId, turnCount)
+            val turnExecution = turnRunner.executeTurn(turnId, turnCount, turnRunnerState)
+            turnRunnerState = turnExecution.nextState
+            val result = turnExecution.outcome
             when (result) {
                 is TurnOutcome.Continue -> delay(config.uiSettleDelayMs)
                 is TurnOutcome.Complete -> {

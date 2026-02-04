@@ -2,8 +2,9 @@ package com.moonkey.androidagent.agent
 
 import android.util.Log
 import com.moonkey.androidagent.agent.cognition.context.ContextPackager
-import com.moonkey.androidagent.agent.cognition.context.NavigationState
 import com.moonkey.androidagent.agent.cognition.context.RawTurnData
+import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
+import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
 import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionConfig
 import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionPolicy
 import com.moonkey.androidagent.agent.cognition.policy.TurnPolicyEngine
@@ -44,11 +45,21 @@ internal class AgentTurnRunner(
     companion object {
         private const val TAG = "AgentTurnRunner"
     }
-    private var navigationState: NavigationState = NavigationState()
-    private var previousActionSignature: String? = null
+    private val loopDetectionPolicy by lazy { createLoopDetectionPolicy() }
+    private val executorStepPolicy by lazy {
+        ExecutorStepPolicy(
+            maxSteps = config.maxTurns,
+            narrativeSummaryOnLimit = cognitionProfile.narrativeSummaryOnExecutorLimit
+        )
+    }
 
-    suspend fun executeTurn(turnId: String, turnNumber: Int): TurnOutcome {
+    suspend fun executeTurn(
+        turnId: String,
+        turnNumber: Int,
+        state: TurnRunnerState
+    ): TurnExecutionResult {
         trace.turnStarted(turnId, turnNumber)
+        var nextState = state
 
         val outcome =
             try {
@@ -88,20 +99,33 @@ internal class AgentTurnRunner(
                 if (cancellationSignal.isCompleted || stopRequested.get()) {
                     TurnOutcome.Cancelled
                 } else {
-                    navigationState =
-                        navigationState.advance(
+                    val navigationState =
+                        state.navigationState.advance(
                             snapshot = snapshot,
-                            previousAction = previousActionSignature
+                            previousAction = state.previousActionSignature
                         )
+                    nextState = nextState.copy(navigationState = navigationState)
+
                     val loopWarning =
                         if (cognitionProfile.loopDetectionEnabled) {
-                            createLoopDetectionPolicy().detect(navigationState)
+                            loopDetectionPolicy.detect(navigationState)
                         } else {
                             null
                         }
                     if (loopWarning != null) {
                         Log.w(TAG, "Turn $turnNumber loop warning: ${loopWarning.message}")
                         eventDispatcher.status("⚠️ ${loopWarning.message}")
+                    }
+
+                    val stepDecision =
+                        executorStepPolicy.evaluate(
+                            stepCount = turnNumber,
+                            delegatedQuery = config.goal,
+                            history = services.historyManager.getAll()
+                        )
+                    val stepReminder = buildStepReminder(turnNumber, stepDecision)
+                    if (stepReminder != null) {
+                        eventDispatcher.status("⚠️ Turn budget warning: approaching limit")
                     }
 
                     // 2. THINK (LLM)
@@ -118,7 +142,12 @@ internal class AgentTurnRunner(
                     val packagedInput =
                         contextPackager.buildTurnInput(
                             profile = cognitionProfile,
-                            raw = RawTurnData(snapshot = snapshot, loopWarning = loopWarning)
+                            raw =
+                                RawTurnData(
+                                    snapshot = snapshot,
+                                    loopWarning = loopWarning,
+                                    systemReminders = listOfNotNull(stepReminder)
+                                )
                         )
                     val userContext = packagedInput.userContext
                     val inputItems = turn.buildInputItems(userContext)
@@ -207,6 +236,7 @@ internal class AgentTurnRunner(
                         Log.d(TAG, "Using turn snapshot for actions: ${currentSnapshot.elements.size} elements")
 
                         for (toolCall in toolCallsToExecute) {
+                            // Tracks the most recent action. Arbitration currently executes at most one tool.
                             actionForNextTurn = classifyAction(toolCall)
                             Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
                             trace.toolCall(turnId, turnNumber, toolCall)
@@ -335,7 +365,7 @@ internal class AgentTurnRunner(
                             eventDispatcher.status("✓ ${toolCall.name} executed")
                         }
                     }
-                    previousActionSignature = actionForNextTurn
+                    nextState = nextState.copy(previousActionSignature = actionForNextTurn)
 
                     val completion = turnPolicyEngine.decideCompletion(result, arbitration, cognitionProfile)
                     if (completion.shouldComplete) {
@@ -382,7 +412,10 @@ internal class AgentTurnRunner(
                 trace.turnCompleted(turnId, turnNumber)
             }
 
-        return outcome
+        return TurnExecutionResult(
+            outcome = outcome,
+            nextState = nextState
+        )
     }
 
     private data class ObservationCapture(
@@ -443,9 +476,30 @@ internal class AgentTurnRunner(
         return LoopDetectionPolicy(
             LoopDetectionConfig(
                 similarityThreshold = cognitionProfile.loopSimilarityThreshold,
+                repeatedScreenWindow = cognitionProfile.loopRepeatedScreenWindow,
+                repeatedActionWindow = cognitionProfile.loopRepeatedActionWindow,
                 maxConsecutiveScrollActions = cognitionProfile.maxConsecutiveScrollActions
             )
         )
+    }
+
+    private fun buildStepReminder(turnNumber: Int, stepDecision: ExecutorStepDecision): String? {
+        return when (stepDecision) {
+            ExecutorStepDecision.Continue -> null
+            ExecutorStepDecision.WarnApproaching ->
+                """
+                <system_reminder>
+                TURN BUDGET WARNING: turn $turnNumber of ${config.maxTurns}. Prioritize decisive action and avoid repeating failed attempts.
+                </system_reminder>
+                """.trimIndent()
+            is ExecutorStepDecision.ForceStop ->
+                """
+                <system_reminder>
+                FINAL TURN WARNING: this turn is at configured limit (${config.maxTurns}).
+                ${stepDecision.narrativeSummary}
+                </system_reminder>
+                """.trimIndent()
+        }
     }
 
     private fun classifyAction(toolCall: ToolCallRequest): String {

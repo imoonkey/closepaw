@@ -17,6 +17,7 @@ internal class ExecutorStepPolicy(
     private val narrativeSummaryOnLimit: Boolean
 ) {
     fun evaluate(stepCount: Int, delegatedQuery: String, history: List<ResponseItem>): ExecutorStepDecision {
+        val warningThreshold = (maxSteps - 2).coerceAtLeast(1)
         return when {
             stepCount >= maxSteps && narrativeSummaryOnLimit ->
                 ExecutorStepDecision.ForceStop(
@@ -26,7 +27,7 @@ internal class ExecutorStepPolicy(
                             history = history
                         )
                 )
-            stepCount >= maxSteps - 1 -> ExecutorStepDecision.WarnApproaching
+            stepCount >= warningThreshold -> ExecutorStepDecision.WarnApproaching
             else -> ExecutorStepDecision.Continue
         }
     }

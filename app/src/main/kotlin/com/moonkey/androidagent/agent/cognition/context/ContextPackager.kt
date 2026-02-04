@@ -58,10 +58,10 @@ internal class DefaultContextPackager(
     }
 
     private fun formatLoopWarning(loopWarning: LoopWarning): String {
-        val priority = if (loopWarning.severity == LoopWarningSeverity.CRITICAL) "high" else "medium"
+        val priorityLabel = if (loopWarning.severity == LoopWarningSeverity.CRITICAL) "HIGH" else "MEDIUM"
         return """
-            <system_reminder priority="$priority">
-            LOOP DETECTED: ${loopWarning.message}
+            <system_reminder>
+            LOOP WARNING ($priorityLabel): ${loopWarning.message}
             </system_reminder>
         """.trimIndent()
     }
@@ -70,11 +70,17 @@ internal class DefaultContextPackager(
         val todos = todoState?.get() ?: return null
         if (todos.isEmpty()) return null
 
-        val inProgress = todos.firstOrNull { it.status == TodoStatus.IN_PROGRESS }?.description
-        val pending = todos.filter { it.status == TodoStatus.PENDING }.take(2).map { it.description }
+        val actionableTodos =
+            todos.filterNot { todo ->
+                todo.status == TodoStatus.COMPLETED || todo.status == TodoStatus.CANCELLED
+            }
+        if (actionableTodos.isEmpty()) return null
+
+        val inProgress = actionableTodos.firstOrNull { it.status == TodoStatus.IN_PROGRESS }?.description
+        val pending = actionableTodos.filter { it.status == TodoStatus.PENDING }.take(2).map { it.description }
         val summary =
             buildString {
-                append("Todo status: ${todos.size} items tracked.")
+                append("Todo status: ${actionableTodos.size} actionable item(s) (${todos.size} total tracked).")
                 if (inProgress != null) append(" In progress: $inProgress.")
                 if (pending.isNotEmpty()) append(" Next: ${pending.joinToString(separator = "; ")}.")
             }
