@@ -1,9 +1,9 @@
 ---
-name: visual-fix
+name: visual-debug
 description: Debug Android Agent using visual inspection and log analysis. Use when agent is stuck, choosing wrong actions, or actions fail.
 ---
 
-# Visual Fix
+# Visual Debug
 
 Debug Android Agent using visual inspection + log analysis.
 
