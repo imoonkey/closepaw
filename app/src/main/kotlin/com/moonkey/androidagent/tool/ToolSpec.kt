@@ -155,7 +155,7 @@ sealed interface ToolObservation {
     data class ScreenState(
         val accessibilityTree: String,
         val elementCount: Int,
-        val summary: String,
+        val summary: String = "",
         /** The actual snapshot object for subsequent tool executions */
         val snapshot: com.moonkey.androidagent.model.ScreenSnapshot? = null
     ) : ToolObservation

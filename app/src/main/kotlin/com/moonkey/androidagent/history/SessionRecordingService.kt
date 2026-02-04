@@ -368,22 +368,46 @@ class SessionRecordingService(
             Log.w(TAG, "No active session for recording screen state")
             return
         }
+        val normalizedState = normalizeScreenStateRecord(state)
+        val hasArtifactPath =
+            normalizedState.rawA11yTreePath != null ||
+                normalizedState.sanitizedA11yTreePath != null ||
+                normalizedState.screenshotPath != null
+        if (!hasArtifactPath && !normalizedState.traceRunId.isNullOrBlank()) {
+            Log.w(
+                TAG,
+                "Screen state recorded without artifact paths: turn=${normalizedState.turnNumber}, phase=${normalizedState.phase}"
+            )
+        }
 
         val updatedMetadata =
-            if (!state.traceRunId.isNullOrBlank() && session.metadata.traceRunId.isNullOrBlank()) {
-                session.metadata.copy(traceRunId = state.traceRunId)
+            if (!normalizedState.traceRunId.isNullOrBlank() && session.metadata.traceRunId.isNullOrBlank()) {
+                session.metadata.copy(traceRunId = normalizedState.traceRunId)
             } else {
                 session.metadata
             }
 
         currentSession = session.copy(
-            screenStates = session.screenStates + state,
-            lastUpdated = state.timestamp,
+            screenStates = session.screenStates + normalizedState,
+            lastUpdated = normalizedState.timestamp,
             metadata = updatedMetadata
         )
 
-        Log.d(TAG, "Recorded screen state: turn=${state.turnNumber}, phase=${state.phase}")
+        Log.d(TAG, "Recorded screen state: turn=${normalizedState.turnNumber}, phase=${normalizedState.phase}")
         scheduleSave()
+    }
+
+    private fun normalizeScreenStateRecord(state: ScreenStateRecord): ScreenStateRecord {
+        return state.copy(
+            rawA11yTreePath = normalizePath(state.rawA11yTreePath),
+            sanitizedA11yTreePath = normalizePath(state.sanitizedA11yTreePath),
+            screenshotPath = normalizePath(state.screenshotPath),
+            traceRunId = state.traceRunId?.trim()?.takeIf { it.isNotEmpty() }
+        )
+    }
+
+    private fun normalizePath(path: String?): String? {
+        return path?.trim()?.takeIf { it.isNotEmpty() }
     }
     
     /**

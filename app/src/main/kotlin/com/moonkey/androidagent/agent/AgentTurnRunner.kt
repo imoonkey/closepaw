@@ -224,7 +224,9 @@ internal class AgentTurnRunner(
 
                             if (!hasObservation) {
                                 if (toolCall.name == "complete_task") {
+                                    // Intentional: completion does not require a fresh capture, so no POST_ACTION screen event.
                                     observation = Observation.TextOutput("Completion acknowledged; no screen captured.")
+                                    Log.d(TAG, "Skipping post-action capture for complete_task")
                                 } else {
                                     val capture = captureObservationWithSnapshot()
                                     observation = capture.observation

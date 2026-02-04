@@ -1,11 +1,9 @@
 package com.moonkey.androidagent.tool
 
 import android.util.Log
-import com.moonkey.androidagent.perception.Perceptor
-import com.moonkey.androidagent.perception.toSummary
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
-import kotlinx.coroutines.delay
+import com.moonkey.androidagent.tool.handlers.TargetingInvocationUtils
 import org.json.JSONObject
 
 /**
@@ -186,7 +184,12 @@ class BaseToolInvocation(
         return when (result) {
             is ActionResult.Success -> {
                 // V2: Capture post-action observation
-                val observation = capturePostActionObservation(context)
+                val observation =
+                    TargetingInvocationUtils.capturePostActionObservation(
+                        context = context,
+                        logTag = TAG,
+                        uiSettleDelayMs = UI_SETTLE_DELAY_MS
+                    )
                 ToolExecutionResult.Success(
                     output = result.message,
                     observation = observation
@@ -210,31 +213,4 @@ class BaseToolInvocation(
         }
     }
     
-    /**
-     * Capture the screen state after action execution.
-     * 
-     * This allows the agent to see what changed as a result of the action.
-     * The snapshot is included so subsequent tools in the same turn can use
-     * fresh element indices.
-     */
-    private suspend fun capturePostActionObservation(context: ToolExecutionContext): ToolObservation? {
-        return try {
-            // Brief delay for UI to settle
-            delay(UI_SETTLE_DELAY_MS)
-            
-            val snapshot = context.platform.captureScreen()
-            val tree = Perceptor.toPromptJson(snapshot)
-            val summary = snapshot.toSummary(context.platform.getCurrentPackageName())
-            
-            ToolObservation.ScreenState(
-                accessibilityTree = tree,
-                elementCount = snapshot.elements.size,
-                summary = summary,
-                snapshot = snapshot
-            )
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to capture post-action observation: ${e.message}")
-            null // Return null if capture fails - non-fatal
-        }
-    }
 }
