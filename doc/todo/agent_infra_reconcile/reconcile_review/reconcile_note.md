@@ -1,0 +1,6 @@
+
+我读了 agent_infra_reconcile下的三个文档以后，我的想法：
+1. Agent definition: Agent Infra就用multiagent_infra/design.md的为主。Planner agent就是主agent，不用额外叫它planner。executor agent是一个registered subagent。
+2. state sharing: 这个地方目前conflict比较多，我觉得可以先尽量往isolated的方向走。通过structured context passing来完成一部分sharing。我甚至有一个想法：memory 像subgoal, scratchpad这种东西是不是可以变成tool的部分，然后tool自己本身可以有状态？或者说一般的todo/subgoal tool都是怎么实现的？看看 .reference/code_agent/下codex/gemini-cli都是怎么实现todo tool的？我甚至觉得可以在修改multi-agent infra前，可以先把todo和scratchpad的tool实现好，然后再实现multi-agent infra，并很好地把这两个tool集成到其中。这个应该是个reasonable phase plan。
+3. state sharing continued: 我之所以要用multi-agent infra搞两个layer，要解决的非常非常非常核心的一个问题是在mobile-use中很多时候single ReAct agent之前history turn的context是无关紧要的。过去的screenshot或者a11y tree几乎只增加noise，又很占用context空间。像autodev等等，不管是planner还是executor，其实只用最新的屏幕状态。这跟general agent或者coding agent还挺不一样的，一个coding agent在当前context下之前读了什么文件，执行有什么结果，其实后面还都用得到，但是mobile agent执行完上面的任务，屏幕发生变化后，之前屏幕的具体信息完全不需要保留，只需要一个简单的text summary就够了。所以我的agent可以尽量的去follow一个simple ReAct agent，但是要做一些小的修改，就是chat history里面，不要把screenshots放进去。每次发给llm的只有最新的屏幕状态，不管是screenshot还是a11y tree。这样的话，history都是用text来表示的，
+4. Tool abstraction: 我觉得把semantic tools全统一成delegate的parameter挺好的，不需要有单独的tap(intent), swipe(intent)，这部分无需结构化，通过prompt让subagent executor接受的natural language指令中反映出来就好了。 codex 2.E的proposal Option 1.
