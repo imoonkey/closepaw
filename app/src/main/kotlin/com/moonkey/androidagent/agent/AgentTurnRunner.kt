@@ -7,6 +7,7 @@ import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
+import com.moonkey.androidagent.tool.ToolName
 import com.moonkey.androidagent.tool.SimpleToolRouterContext
 import com.moonkey.androidagent.tool.ToolCallResult
 import com.moonkey.androidagent.tool.ToolObservation
@@ -194,6 +195,8 @@ internal class AgentTurnRunner(
                                     }
                                 )
 
+                            emitPlanningEvents(toolCall, toolResult)
+
                             var observation: Observation = Observation.TextOutput("No observation captured.")
                             var observedSnapshot: ScreenSnapshot? = null
                             var hasObservation = false
@@ -330,6 +333,25 @@ internal class AgentTurnRunner(
         )
     }
 
+    private suspend fun emitPlanningEvents(toolCall: ToolCallRequest, toolResult: ToolCallResult) {
+        if (toolResult !is ToolCallResult.Success) return
+        when (ToolName.from(toolCall.name)) {
+            ToolName.WriteTodos -> {
+                eventDispatcher.todosUpdated(services.sessionState.todos.get())
+            }
+            ToolName.Scratchpad -> {
+                val action = toolCall.arguments.optString("action", "")
+                if (action == "write" || action == "delete") {
+                    val key = toolCall.arguments.optString("key", "")
+                    if (key.isNotBlank()) {
+                        eventDispatcher.scratchpadUpdated(key, action)
+                    }
+                }
+            }
+            else -> Unit
+        }
+    }
+
     private fun formatToolResult(result: ToolCallResult, observation: Observation): String {
         val resultText =
             when (result) {
@@ -347,4 +369,3 @@ internal class AgentTurnRunner(
         return "$resultText\n\n$observationText"
     }
 }
-

@@ -18,6 +18,8 @@ import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.tool.impl.AppControlTool
 import com.moonkey.androidagent.tool.impl.CompleteTaskTool
 import com.moonkey.androidagent.tool.impl.MobileActionTool
+import com.moonkey.androidagent.tool.impl.ScratchpadTool
+import com.moonkey.androidagent.tool.impl.WriteTodosTool
 import com.moonkey.androidagent.trace.TraceRecorder
 
 /**
@@ -29,6 +31,7 @@ import com.moonkey.androidagent.trace.TraceRecorder
  * - toolRegistry: Discovery and schema generation for tools
  * - toolRouter: Execution of tools with state machine (includes approval flow)
  * - historyManager: Conversation history with truncation/normalization
+ * - sessionState: Planning state (todos + scratchpad)
  * - policyEngine: Decides ALLOW/DENY/ASK_USER for tool calls
  * - platform: Android-specific operations
  * - config: Session configuration
@@ -51,6 +54,7 @@ data class SessionServices(
     val toolRegistry: ToolRegistry,
     val toolRouter: ToolRouter,
     val historyManager: HistoryManager,
+    val sessionState: AgentSessionState,
     val policyEngine: PolicyEngine,
     val platform: AndroidPlatform,
     val config: SessionConfig,
@@ -102,10 +106,11 @@ data class SessionServices(
             // 2. Create PolicyEngine with approval mode from config
             val policyEngine = PolicyEngine(config.approvalMode)
             Log.d(TAG, "Created PolicyEngine with mode: ${config.approvalMode}")
-            
+
             // 3. Create and populate ToolRegistry with built-in tools
+            val sessionState = AgentSessionState()
             val toolRegistry = ToolRegistry().apply {
-                registerBuiltInTools()
+                registerBuiltInTools(sessionState)
             }
             Log.d(TAG, "Created ToolRegistry with ${toolRegistry.size()} tools")
             
@@ -129,6 +134,7 @@ data class SessionServices(
                 toolRegistry = toolRegistry,
                 toolRouter = toolRouter,
                 historyManager = historyManager,
+                sessionState = sessionState,
                 policyEngine = policyEngine,
                 platform = platform,
                 config = config,
@@ -145,16 +151,20 @@ data class SessionServices(
          * - mobile_action: All UI interactions (click, type, swipe, system_button, wait)
          * - app_control: App discovery and launching (list_apps, open_app)
          */
-        private fun ToolRegistry.registerBuiltInTools() {
+        private fun ToolRegistry.registerBuiltInTools(sessionState: AgentSessionState) {
             // P0: Agent metatool
             register(CompleteTaskTool())
-            
+
             // P0: Consolidated UI interactions (replaces click, type, swipe, scroll, back, home, wait)
             register(MobileActionTool())
-            
+
             // P0: App control (list_apps, open_app)
             register(AppControlTool())
-            
+
+            // P0: Planning state tools
+            register(WriteTodosTool(sessionState.todos))
+            register(ScratchpadTool(sessionState.scratchpad))
+
             Log.d(TAG, "Registered ${size()} built-in tools: ${getNames().joinToString()}")
         }
     }

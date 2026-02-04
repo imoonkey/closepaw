@@ -70,6 +70,7 @@ private fun buildSession(
         toolRegistry = toolRegistry,
         toolRouter = toolRouter,
         historyManager = HistoryManager(),
+        sessionState = AgentSessionState(),
         policyEngine = policyEngine,
         platform = platform,
         config = config,

@@ -31,7 +31,9 @@ class PolicyEngine(
         private val DEFAULT_RISK_LEVELS = mapOf(
             ToolName.MobileAction.canonical to RiskLevel.MEDIUM,
             ToolName.AppControl.canonical to RiskLevel.MEDIUM,
-            ToolName.CompleteTask.canonical to RiskLevel.MEDIUM
+            ToolName.CompleteTask.canonical to RiskLevel.MEDIUM,
+            ToolName.WriteTodos.canonical to RiskLevel.LOW,
+            ToolName.Scratchpad.canonical to RiskLevel.LOW
         )
     }
     
@@ -234,4 +236,3 @@ sealed interface PolicyDecision {
         val riskLevel: RiskLevel
     ) : PolicyDecision
 }
-

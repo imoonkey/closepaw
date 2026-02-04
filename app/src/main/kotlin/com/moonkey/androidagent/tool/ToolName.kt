@@ -25,6 +25,16 @@ sealed class ToolName(
         canonical = "complete_task",
         displayName = "Complete task"
     )
+    data object WriteTodos : ToolName(
+        raw = "write_todos",
+        canonical = "write_todos",
+        displayName = "Write todos"
+    )
+    data object Scratchpad : ToolName(
+        raw = "scratchpad",
+        canonical = "scratchpad",
+        displayName = "Scratchpad"
+    )
     data class Unknown(private val name: String) : ToolName(
         raw = name,
         canonical = normalizeName(name),
@@ -37,6 +47,8 @@ sealed class ToolName(
                 MobileAction.canonical -> MobileAction
                 AppControl.canonical -> AppControl
                 CompleteTask.canonical -> CompleteTask
+                WriteTodos.canonical -> WriteTodos
+                Scratchpad.canonical -> Scratchpad
                 else -> Unknown(raw)
             }
         }

@@ -4,6 +4,7 @@ import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.protocol.LLMBackendType
+import com.moonkey.androidagent.session.AgentSessionState
 import com.moonkey.androidagent.tool.ToolRegistry
 
 class AgentPromptBuilder(
@@ -11,7 +12,8 @@ class AgentPromptBuilder(
     private val defaultPrompt: String,
     private val localPromptSuffix: String,
     private val llmBackend: LLMBackendType,
-    private val toolRegistry: ToolRegistry
+    private val toolRegistry: ToolRegistry,
+    private val sessionState: AgentSessionState
 ) {
     data class UserContext(
         val text: String,
@@ -20,10 +22,16 @@ class AgentPromptBuilder(
 
     fun buildSystemPrompt(): String {
         val prompt = basePrompt ?: defaultPrompt
-        return if (llmBackend == LLMBackendType.LOCAL) {
+        val base = if (llmBackend == LLMBackendType.LOCAL) {
             "$prompt\n\n$localPromptSuffix"
         } else {
             prompt
+        }
+        val stateContext = buildStateContext()
+        return if (stateContext.isNotEmpty()) {
+            "$base\n\n$stateContext"
+        } else {
+            base
         }
     }
 
@@ -53,5 +61,22 @@ class AgentPromptBuilder(
             text = text,
             image = image
         )
+    }
+
+    private fun buildStateContext(): String {
+        return buildString {
+            val todosContext = sessionState.todos.toPromptContext()
+            if (todosContext.isNotEmpty()) {
+                appendLine("## Current Todos")
+                appendLine(todosContext)
+                appendLine()
+            }
+
+            val scratchpadContext = sessionState.scratchpad.toPromptContext()
+            if (scratchpadContext.isNotEmpty()) {
+                appendLine("## Scratchpad")
+                appendLine(scratchpadContext)
+            }
+        }.trimEnd()
     }
 }

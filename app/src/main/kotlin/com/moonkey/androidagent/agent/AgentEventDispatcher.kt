@@ -4,6 +4,7 @@ import android.util.Log
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.SessionId
+import com.moonkey.androidagent.protocol.Todo
 import com.moonkey.androidagent.protocol.TurnPhase
 
 class AgentEventDispatcher(
@@ -79,6 +80,23 @@ class AgentEventDispatcher(
             elementCount = snapshot.elements.size,
             packageName = packageName,
             activityName = activityName
+        ))
+    }
+
+    suspend fun todosUpdated(todos: List<Todo>) {
+        eventEmitter(AgentEvent.TodosUpdated(
+            sessionId = sessionId,
+            timestamp = now(),
+            todos = todos
+        ))
+    }
+
+    suspend fun scratchpadUpdated(key: String, action: String) {
+        eventEmitter(AgentEvent.ScratchpadUpdated(
+            sessionId = sessionId,
+            timestamp = now(),
+            key = key,
+            action = action
         ))
     }
 

@@ -103,6 +103,7 @@ private fun buildServices(llmClient: LLMClient): SessionServices {
         toolRegistry = toolRegistry,
         toolRouter = toolRouter,
         historyManager = HistoryManager(),
+        sessionState = com.moonkey.androidagent.session.AgentSessionState(),
         policyEngine = policyEngine,
         platform = platform,
         config = config,

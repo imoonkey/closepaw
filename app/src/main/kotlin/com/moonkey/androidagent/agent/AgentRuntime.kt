@@ -36,6 +36,10 @@ internal class AgentRuntime(
 
             Your start screen maybe the Android Agent app itself, or any other screen.
             Your actions should almost always start with directly opening or navigating to the right app/page first.
+
+            Planning tools:
+            - Use write_todos to track multi-step tasks (always send the full list).
+            - Use scratchpad to store key-value facts you will need later.
         """.trimIndent()
 
         private val LOCAL_PROMPT_SUFFIX =
@@ -59,7 +63,8 @@ internal class AgentRuntime(
             defaultPrompt = DEFAULT_SYSTEM_PROMPT,
             localPromptSuffix = LOCAL_PROMPT_SUFFIX,
             llmBackend = services.config.llmBackend,
-            toolRegistry = services.toolRegistry
+            toolRegistry = services.toolRegistry,
+            sessionState = services.sessionState
         )
 
     private val eventDispatcher =
@@ -181,4 +186,3 @@ internal class AgentRuntime(
         return !stopRequested.get() && !cancellationSignal.isCompleted
     }
 }
-

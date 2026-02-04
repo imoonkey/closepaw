@@ -48,15 +48,15 @@ To reduce prompt size and keep code simple:
 - Parent prompt instructs the agent to call these tools instead of carrying large plans in memory.
 
 Minimal data model for TODO tool:
-- List of items: {id, text, status}
-- Operations: add, update_status, list, clear
+- List of items: {description, status}
+- Status: pending | in_progress | completed | cancelled (max 1 in_progress)
+- Operation: full-list replacement via write_todos(todos = [...])
 
 Minimal data model for Scratchpad:
 - Map of key -> value
-- Operations: put, get, list_keys, clear
+- Actions: write, read, delete, list
 
 KISS outcome:
 - No new shared state types.
 - The tool itself holds the state.
 - The LLM only sees what it asks for.
-
