@@ -1,7 +1,7 @@
 # Final Design: Multi-Agent Infrastructure (KISS)
 
 > **Author**: Claude (updated with Codex comparison)
-> **Date**: 2026-02-03
+> **Date**: 2026-02-04
 > **Principle**: Minimal code, maximum flexibility
 
 ---
@@ -25,24 +25,39 @@ Based on reconciliation discussions, this design follows these decisions:
 ## Phased Implementation (Updated per Codex)
 
 ### Phase 0: Foundation Tools (Very Low Risk)
-1. `write_todos` tool — Subgoal/task tracking
-2. `scratchpad` tool — Key-value memory
-3. Update main agent prompt to use these tools
+1. ✅ `write_todos` tool — Subgoal/task tracking
+2. ✅ `scratchpad` tool — Key-value memory
+3. ✅ Update main agent prompt to use these tools
+4. ✅ Hardened: thread-safe state, size limits, extra tests, icon update
 
 ### Phase 1: Context Hygiene (Low Risk) ← *Codex rightly puts this before multi-agent*
-4. Stop storing screenshots/a11y trees in chat history
-5. Inject only latest screen state into each LLM prompt
-6. Add `screen_summary` string to history instead of raw data
+4. ⏳ Stop storing screenshots/a11y trees in chat history
+5. ⏳ Inject only latest screen state into each LLM prompt
+6. ⏳ Add `screen_summary` string to history instead of raw data
 
 ### Phase 2: Sub-Agent Infra (Medium Risk)
-7. `AgentDefinition` + `AgentRegistry`
-8. `SubAgentRunner` with isolation
-9. `DelegateTaskTool` + event bridging
+7. ⏳ `AgentDefinition` + `AgentRegistry`
+8. ⏳ `SubAgentRunner` with isolation
+9. ⏳ `DelegateTaskTool` + event bridging
 
 ### Phase 3: Executor Agent (Medium Risk)
-10. Register `ExecutorAgent` with grounded tools
-11. Parent prompt: "delegate_task for screen grounding"
-12. Test end-to-end flow
+10. ⏳ Register `ExecutorAgent` with grounded tools
+11. ⏳ Parent prompt: "delegate_task for screen grounding"
+12. ⏳ Test end-to-end flow
+
+---
+
+## Implementation Status (as of 2026-02-04)
+
+**Completed**
+- Phase 0 tools + state + prompt injection + UI events.
+- Added safety hardening: thread-safe state access, scratchpad size limits, `TodoState.clear()`.
+- Expanded tests for edge cases and prompt formatting.
+- Updated WriteTodos icon to distinct list icon.
+
+**Pending**
+- Phase 1 context hygiene changes.
+- Phase 2–3 multi-agent infra and executor flow.
 
 ---
 

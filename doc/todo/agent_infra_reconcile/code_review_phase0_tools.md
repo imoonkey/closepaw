@@ -1,6 +1,6 @@
 # Review: Phase 0 Tools Implementation
 
-> **Commit**: (working tree)  
+> **Commit**: `faf2bba fix: harden planning state tools`  
 > **Reviewer**: Codex  
 > **Date**: 2026-02-04
 
@@ -63,14 +63,7 @@ class ScratchpadState(
 )
 ```
 
-**Risk**: Currently access is single-threaded (agent loop), but future changes (parallel tool execution, UI reads) could cause race conditions.
-
-**Recommendation**: Either:
-- Document the single-threaded assumption
-- Use `synchronizedMap`/`synchronizedList` or `ConcurrentHashMap`
-- Add `@Synchronized` to mutation methods
-
-**Severity**: Medium — Not a bug today, but a latent risk.
+**Status**: ✅ Fixed — Added explicit locking for reads/writes in both state classes.
 
 ---
 
@@ -80,13 +73,7 @@ class ScratchpadState(
 
 **Issue**: `ScratchpadState` has `clear()` but `TodoState` doesn't. Session reset would need to call `update(emptyList())` instead of `clear()`.
 
-**Recommendation**: Add for API consistency:
-
-```kotlin
-fun clear() {
-    todos.clear()
-}
-```
+**Status**: ✅ Fixed — `TodoState.clear()` added and tested.
 
 ---
 
@@ -98,10 +85,11 @@ fun clear() {
 
 **Risk**: If LLM stores long extracted content (e.g., full webpage text), the prompt context could exceed token limits or degrade performance.
 
-**Recommendation**: Consider:
-- Max value length (e.g., 2KB)
-- Max total entries (e.g., 20)
-- Warning in tool description
+**Status**: ✅ Fixed — Limits added:
+- Max entries: 20
+- Max key length: 100 chars
+- Max value length: 2048 chars
+- Tool description + validation updated
 
 ---
 
@@ -133,11 +121,13 @@ private suspend fun emitPlanningEvents(toolCall: ToolCallRequest, toolResult: To
 
 **Current Coverage**: Basic happy paths and validation errors.
 
-**Missing**:
-- Empty todo descriptions (edge case)
-- Very long values (stress test)
+**Fixed**:
+- Empty todo descriptions validation
+- Very long scratchpad values validation
+- `toPromptContext()` output format tests for todos/scratchpad
+
+**Remaining**:
 - Special characters / unicode in keys/values
-- `toPromptContext()` output format
 - Full round-trip with prompt builder
 
 **Recommendation**: Expand tests in follow-up, especially for prompt integration.
@@ -155,7 +145,7 @@ ToolName.WriteTodos -> ToolDisplay(tool.displayName, Icons.Rounded.CheckCircle) 
 ToolName.CompleteTask -> ToolDisplay(tool.displayName, Icons.Rounded.CheckCircle)
 ```
 
-**Recommendation**: Use `Icons.Rounded.Checklist` or `FormatListBulleted` for WriteTodos.
+**Status**: ✅ Fixed — switched to `Icons.AutoMirrored.Rounded.FormatListBulleted`.
 
 ---
 
@@ -163,7 +153,7 @@ ToolName.CompleteTask -> ToolDisplay(tool.displayName, Icons.Rounded.CheckCircle
 
 **Where**: `TodoModels.kt`, `TodoState.kt`, `ScratchpadState.kt`
 
-Protocol classes lack documentation. While the code is straightforward, KDoc helps with IDE hints and onboarding.
+**Status**: ✅ Fixed — KDoc added for state classes (protocol already documented).
 
 ---
 
@@ -176,9 +166,7 @@ val status = todo.status.name.lowercase()  // Outputs "in_progress"
 "${index + 1}. [$status] ${todo.description}"
 ```
 
-Design doc shows: `"1. [IN_PROGRESS] First task"` (uppercase).
-
-**Impact**: Cosmetic. LLM can parse either.
+**Status**: ✅ Fixed — `toPromptContext()` now outputs uppercase status.
 
 ---
 
@@ -225,12 +213,10 @@ rg -n "write_todos|scratchpad" debug-output/run_YYYYMMDD_HHMMSS/agent.log
 
 ## Recommendation
 
-**APPROVE** — Implementation is solid and matches the design. Medium issues are latent risks or nice-to-haves, not blockers. Address thread safety documentation and test expansion in follow-up.
+**APPROVE** — Implementation matches design, with key risks addressed.
 
 ### Suggested Follow-ups
 
-1. Add thread-safety comment or synchronization to state classes
-2. Add `TodoState.clear()`
-3. Consider size limits for scratchpad
-4. Expand test coverage (edge cases, prompt integration)
-5. Update icon for WriteTodos (optional)
+1. Add prompt-builder round-trip tests
+2. Add unicode/special-char tests for scratchpad keys/values
+3. Consider whether event emission should move into tools (if UI needs richer progress)

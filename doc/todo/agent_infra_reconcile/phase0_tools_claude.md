@@ -1,6 +1,7 @@
-# Phase 0: Foundation Tools Design
+# Phase 0: Foundation Tools Design (Implemented)
 
 > **Goal**: Implement `write_todos` and `scratchpad` tools before multi-agent infra
+> **Status**: ✅ Implemented + hardened (thread safety, size limits, tests)
 
 ---
 
@@ -80,26 +81,38 @@ object WriteTodosTool : BaseTool(
 )
 ```
 
-### Storage
+### Storage (Implemented)
 
 ```kotlin
 class TodoState(
     private val todos: MutableList<Todo> = mutableListOf()
 ) {
+    // Thread-safe access
+    private val lock = Any()
+
     fun update(newTodos: List<Todo>) {
         // Validate: max 1 IN_PROGRESS
         require(newTodos.count { it.status == IN_PROGRESS } <= 1) {
             "Only one task can be IN_PROGRESS at a time"
         }
-        todos.clear()
-        todos.addAll(newTodos)
+        synchronized(lock) {
+            todos.clear()
+            todos.addAll(newTodos)
+        }
     }
     
-    fun get(): List<Todo> = todos.toList()
+    fun clear() {
+        synchronized(lock) { todos.clear() }
+    }
     
-    fun toPromptContext(): String = todos.mapIndexed { i, todo ->
-        "${i + 1}. [${todo.status}] ${todo.description}"
-    }.joinToString("\n")
+    fun get(): List<Todo> = synchronized(lock) { todos.toList() }
+    
+    fun toPromptContext(): String {
+        val snapshot = get()
+        return snapshot.mapIndexed { i, todo ->
+            "${i + 1}. [${todo.status}] ${todo.description}"
+        }.joinToString("\n")
+    }
 }
 ```
 
@@ -158,27 +171,41 @@ object ScratchpadTool : BaseTool(
 )
 ```
 
-### Storage
+### Storage (Implemented + Limits)
 
 ```kotlin
 class ScratchpadState(
     private val data: MutableMap<String, String> = mutableMapOf()
 ) {
+    companion object {
+        const val MAX_ENTRIES = 20
+        const val MAX_KEY_LENGTH = 100
+        const val MAX_VALUE_LENGTH = 2048
+    }
+
+    private val lock = Any()
+
     fun write(key: String, value: String) {
-        data[key] = value
+        require(key.length <= MAX_KEY_LENGTH)
+        require(value.length <= MAX_VALUE_LENGTH)
+        synchronized(lock) {
+            if (!data.containsKey(key) && data.size >= MAX_ENTRIES) {
+                error("Scratchpad is full")
+            }
+            data[key] = value
+        }
     }
     
-    fun read(key: String): String? = data[key]
+    fun read(key: String): String? = synchronized(lock) { data[key] }
     
-    fun delete(key: String) {
-        data.remove(key)
-    }
+    fun delete(key: String): Boolean = synchronized(lock) { data.remove(key) != null }
     
-    fun list(): List<String> = data.keys.toList()
+    fun list(): List<String> = synchronized(lock) { data.keys.toList() }
     
     fun toPromptContext(): String {
-        if (data.isEmpty()) return ""
-        return data.entries.joinToString("\n") { "- ${it.key}: ${it.value}" }
+        val snapshot = synchronized(lock) { data.toMap() }
+        if (snapshot.isEmpty()) return ""
+        return snapshot.entries.joinToString("\n") { "- ${it.key}: ${it.value}" }
     }
 }
 ```
@@ -245,17 +272,30 @@ data class ScratchpadUpdated(
 ) : AgentEvent
 ```
 
+**Note**: Events are emitted by `AgentTurnRunner` after tool success (not by tools).
+
 ---
 
 ## Implementation Order
 
-1. Add `Todo` and `TodoStatus` data classes
-2. Add `TodoState` with validation
-3. Implement `WriteTodosTool`
-4. Add `ScratchpadState`
-5. Implement `ScratchpadTool`
-6. Add to `SessionServices`
-7. Inject into system prompt
-8. Add events and UI updates
+✅ 1. Add `Todo` and `TodoStatus` data classes  
+✅ 2. Add `TodoState` with validation + thread safety + `clear()`  
+✅ 3. Implement `WriteTodosTool`  
+✅ 4. Add `ScratchpadState` + limits  
+✅ 5. Implement `ScratchpadTool`  
+✅ 6. Add to `SessionServices`  
+✅ 7. Inject into system prompt  
+✅ 8. Add events and UI updates
+
+### Implemented Files (for reference)
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/WriteTodosTool.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ScratchpadTool.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/TodoState.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/ScratchpadState.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/AgentSessionState.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/TodoModels.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentPromptBuilder.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/AgentEvent.kt`
 
 **Estimated effort**: 1-2 days
