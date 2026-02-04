@@ -144,14 +144,14 @@ interface TurnPolicyEngine {
 
 ## 7. 分阶段实施（最佳落地顺序）
 
-### Phase A（低风险，必须先做）
+### Phase A（低风险，必须先做） ✅ Completed
 Prompt 集中化 + `PromptAssembler`，行为不变。
 
 验收：
 1. 所有 prompt 文本可在 `agent/cognition/prompt/` 定位。
 2. baseline 行为与当前版本一致。
 
-### Phase B（高价值）
+### Phase B（高价值） ✅ Completed
 完整输入可观测性。
 
 新增 artifact：
@@ -159,13 +159,13 @@ Prompt 集中化 + `PromptAssembler`，行为不变。
 2. `turn_{n}_llm_input_items.json`
 3. `run_summary.json`（可先最小版）
 
-### Phase C（实验能力）
+### Phase C（实验能力） ✅ Completed
 引入 `CognitionProfile` 与 registry，支持 `cognitionProfileId` 切换。
 
-### Phase D（策略解耦）
+### Phase D（策略解耦） ✅ Completed
 抽离 `TurnPolicyEngine`，把关键裁决逻辑从 runner 中移出并可配置化。
 
-### Phase E（可选）
+### Phase E（可选） ⏳ Pending
 评测基线任务集与 profile 对比报表。
 
 ---
@@ -268,7 +268,7 @@ Risk: Medium-High
 
 ---
 
-## 12. Implementation Status（完成情况，2026-02-04）
+## 12. Implementation Status（完成情况，2026-02-05）
 
 ### 已完成里程碑
 1. **Phase 1: Prompt 集中化（完成）**
@@ -295,6 +295,10 @@ Risk: Medium-High
    - 多 tool 仲裁与完成条件判断从 `AgentTurnRunner` 抽离到 policy 层。
    - commit: `19257ed`
 
+5. **架构收口（完成）**
+   - 新增 `ContextPackager` / `ContextPolicy` / `RunMetrics`，并在 `AgentTurnRunner`、`AgentTrace` 中接入。
+   - commit: `710089a`
+
 ### 结构覆盖情况
 - `profile/`: 已落地
 - `prompt/`: 已落地
@@ -305,3 +309,8 @@ Risk: Medium-High
 
 ### Phase E 说明
 `Phase E` 在原计划中为可选项（评测任务集与 profile 对比报表），本轮未实现，保持为后续增量迭代项。
+
+### 验证状态
+- `./gradlew assembleDebug` ✅
+- `./gradlew lint` ✅
+- `./gradlew test` ✅

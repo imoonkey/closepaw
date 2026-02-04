@@ -1,7 +1,7 @@
 # Agent Core Overview
 
 > Design principles, architecture, and package structure for the Android Agent.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-05
 
 ## Design Principles
 
@@ -14,6 +14,7 @@
 | **Tools with Observation** | Every tool execution captures post-action screen state. |
 | **Context Hygiene** | Text-only history (no screenshots/a11y trees). Latest screen injected per turn. |
 | **Planning State Tools** | `write_todos` and `scratchpad` for stateful planning and cross-agent data handoff. |
+| **Cognition Layer** | Prompt/context/policy/trace logic is isolated under `agent/cognition/` for faster iteration. |
 
 ---
 
@@ -61,6 +62,13 @@ com.moonkey.androidagent/
 │   ├── ActionDescriptionFormatter.kt # Tool action descriptions
 │   ├── Turn.kt                   # LLM call wrapper (OpenAI Responses API)
 │   ├── TurnInputBuilder.kt       # ResponseInputItem assembly
+│   ├── cognition/                # Cognition layer (Lab)
+│   │   ├── prompt/               # Prompt templates + assembler
+│   │   ├── profile/              # Cognition profiles + registry
+│   │   ├── context/              # Context packaging policy
+│   │   ├── policy/               # Turn arbitration/completion policy
+│   │   ├── trace/                # Redaction + input trace serializers
+│   │   └── metrics/              # Run metrics model
 │   └── subagent/                 # Sub-agent delegation
 │       ├── AgentDefinition.kt    # Sub-agent definition
 │       ├── AgentRegistry.kt      # Sub-agent discovery

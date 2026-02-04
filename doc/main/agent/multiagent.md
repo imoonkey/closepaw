@@ -1,7 +1,7 @@
 # Multi-Agent System
 
 > Sub-agent delegation, executor agents, and orchestration.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-05
 
 ## Planner-Executor Pattern
 
@@ -68,6 +68,7 @@ class AgentRegistry {
 Executes a sub-agent with isolated context:
 - Creates a fresh `AgentRuntime` with filtered tools
 - Injects sub-agent system prompt
+- Inherits parent `cognitionProfileId` for consistent planner/executor cognition mode
 - Bridges events to parent session
 - Returns `SubAgentResult` on completion
 
@@ -110,7 +111,7 @@ The executor reads the current screen in its own turn loop. For structured data 
 
 | Agent | Description | Tools |
 |-------|-------------|-------|
-| `executor` | UI grounding and atomic action execution | `mobile_action`, `app_control`, `complete_task` |
+| `executor` | UI grounding and atomic action execution | `mobile_action`, `app_control`, `scratchpad`, `complete_task` |
 
 ### Executor Agent
 
@@ -145,7 +146,7 @@ Events emitted during sub-agent execution:
    - Specialized system prompt
    - Filtered tool list
    
-2. Register in `SessionServices.registerBuiltInAgents()`
+2. Register in `agent/subagent/AgentRegistry.kt`
 
 3. Document in agent directory for `delegate_task` prompt
 

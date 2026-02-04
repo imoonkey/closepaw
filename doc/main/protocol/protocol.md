@@ -1,7 +1,7 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-05
 
 ## Overview
 
@@ -203,8 +203,11 @@ data class SessionConfig(
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     val model: String = "gpt-5.2",
     val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
+    val cognitionProfileId: String? = null,
     val localLLMConfig: LocalLLMConfig? = null,
     val debugMode: Boolean = false,
+    val traceEnabled: Boolean = false,
+    val traceRunId: String? = null,
     val enableScreenshotInput: Boolean = false,
     val screenshotMaxDimension: Int = 1024,
     val screenshotJpegQuality: Int = 70
@@ -217,6 +220,9 @@ data class SessionConfig(
 | `actionDelayMs` | Delay after actions for UI settle |
 | `approvalMode` | ALWAYS_ASK, AUTO_APPROVE, or SMART |
 | `llmBackend` | OPENAI or LOCAL |
+| `cognitionProfileId` | Select cognition profile (`baseline`, `concise`, etc.) |
+| `traceEnabled` | Persist full trace events/artifacts |
+| `traceRunId` | Explicit trace folder/run id |
 | `enableScreenshotInput` | Attach screenshots to perception |
 
 ---

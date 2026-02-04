@@ -1,7 +1,7 @@
 # Agent Loop Execution
 
 > ReAct loop, Turn mechanics, and streaming execution.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-05
 
 ## ReAct Loop
 
@@ -66,6 +66,9 @@ The brain of the system. Executes the ReAct loop until goal achieved or stopped.
 
 **Supporting helpers:**
 - `AgentPromptBuilder` builds system prompt + user context
+- `agent/cognition/prompt/PromptAssembler` assembles role/profile aware prompts
+- `agent/cognition/context/ContextPackager` packages per-turn input context
+- `agent/cognition/policy/TurnPolicyEngine` arbitrates tool calls + completion
 - `ActionDescriptionFormatter` formats tool action descriptions
 - `AgentEventDispatcher` emits `AgentEvent` with timestamps
 - `AgentObservation` converts tool observations into agent observations
@@ -81,6 +84,15 @@ Encapsulates a single LLM call using the OpenAI Responses API with native tool c
 - Generate tool schemas dynamically via `ToolRegistry.generateResponsesApiTools()`
 - Stream text and tool calls via `runStreaming()` method
 - Detect completion (via `complete_task` tool or text-only response)
+
+### Cognition Integration
+
+→ See: `agent/cognition/`
+
+- **Prompt layer**: profile-aware prompt assembly (`baseline` / `concise`)
+- **Context layer**: explicit packager boundary before LLM input item build
+- **Policy layer**: multi-tool arbitration and completion decision extracted from runner
+- **Trace layer**: full prompt + input items artifacts with redaction
 
 ---
 
@@ -146,6 +158,20 @@ Turn.runStreaming()          Agent                AgentSession           UI
 | `PERCEPTION` | Capturing/analyzing screen |
 | `PLANNING` | LLM reasoning (streaming) |
 | `EXECUTION` | Tool execution |
+
+### Trace Artifacts (Per Turn)
+
+When trace is enabled, `AgentTrace` emits cognition-focused artifacts:
+
+- `turn_{n}_full_prompt.txt`
+- `turn_{n}_llm_input_items.json`
+- `turn_{n}_history.json`
+- `turn_{n}_system.txt`
+- `turn_{n}_user_context.txt`
+
+Plus run-level summary:
+
+- `run_summary.json`
 
 ---
 

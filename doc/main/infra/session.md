@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionServices, and session lifecycle.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-05
 
 ## AgentSession
 
@@ -69,6 +69,7 @@ Bridges AgentSession and AgentRuntime:
 - Creates AgentRuntime for each task
 - Handles agent lifecycle (start, pause, resume, stop)
 - Collects agent events and forwards to session
+- Passes `SessionConfig.cognitionProfileId` into `AgentConfig` for cognition profile selection
 
 ---
 
