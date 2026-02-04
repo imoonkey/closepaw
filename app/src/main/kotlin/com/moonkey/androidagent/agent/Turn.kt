@@ -31,7 +31,8 @@ import org.json.JSONObject
 class Turn(
     private val historyManager: HistoryManager,
     private val toolRegistry: ToolRegistry,
-    private val llmClient: LLMClient
+    private val llmClient: LLMClient,
+    private val allowedToolNames: Set<String>? = null
 ) {
     companion object {
         private const val TAG = "Turn"
@@ -59,7 +60,9 @@ class Turn(
         Log.d(TAG, "Running turn with ${inputItems.size} input items, model=$modelName")
         
         // 2. Get tools from registry
-        val tools = toolRegistry.generateResponsesApiTools()
+        val tools = toolRegistry.generateResponsesApiTools { spec ->
+            allowedToolNames?.contains(spec.name) != false
+        }
         Log.d(TAG, "Using ${tools.size} tools: ${tools.map { it.name() }}")
         
         // 3. Build full system prompt with agent instructions
@@ -110,7 +113,9 @@ class Turn(
             Log.d(TAG, "Streaming turn with ${inputItems.size} input items")
             
             // 2. Get tools
-            val tools = toolRegistry.generateResponsesApiTools()
+            val tools = toolRegistry.generateResponsesApiTools { spec ->
+                allowedToolNames?.contains(spec.name) != false
+            }
             
             // 3. Build system prompt
             val fullSystemPrompt = buildSystemPrompt(systemPrompt)
@@ -225,39 +230,57 @@ class Turn(
      * Optimized for both large (GPT-4) and smaller local models (1-2B params).
      */
     private fun buildSystemPrompt(basePrompt: String): String {
+        val visibleTools = allowedToolNames ?: toolRegistry.getNames()
+        val hasDelegate = "delegate_task" in visibleTools
+        val hasMobileAction = "mobile_action" in visibleTools
+
+        val roleRules = if (hasDelegate && !hasMobileAction) {
+            """
+            ## Planner Rules
+
+            1. You are a planner. Do NOT attempt low-level UI actions directly.
+            2. For grounded UI work, call `delegate_task` with a complete, self-contained query.
+            3. You may use `app_control` directly for fast app switching/opening when appropriate.
+            4. Keep one execution action per turn (`delegate_task` or `app_control`), then wait.
+            5. Use `write_todos` and `scratchpad` to track progress and facts.
+            6. Call `complete_task` only after the overall goal is fully achieved.
+
+            ## Writing Good Executor Queries
+
+            When calling delegate_task, your query should be specific and actionable:
+            - BAD: "Search for cats" (too vague)
+            - GOOD: "In Chrome browser, tap the search bar and type 'cats', then tap Search"
+            
+            Include in your query:
+            - What app/screen context you're on
+            - What specific element to interact with (by text, description, or purpose)
+            - What the success criteria is
+            """.trimIndent()
+        } else {
+            """
+            ## Executor Rules
+
+            1. Execute ONE action per turn, then STOP and observe the result.
+            2. Never call `complete_task` together with another action in the same turn.
+            3. Call `complete_task` only after verifying the goal on screen.
+            4. Include `agent_thought` explaining WHY you chose this element.
+
+            ## Element Selection (CRITICAL)
+
+            Before acting, SCAN the screen JSON to find your target:
+            1. Match by text or desc first - find elements whose text/desc matches your target
+            2. Use resource_id if available and unique (e.g., "com.app:id/search_button")
+            3. Use element_index as last resort
+            4. If target not visible, scroll first (swipe direction="up" to scroll down)
+            
+            NEVER click randomly. ALWAYS identify the specific element first.
+            """.trimIndent()
+        }
+
         return """
             $basePrompt
-            
-            ## CRITICAL RULES
-            
-            1. EXECUTE ONE ACTION PER TURN. Call mobile_action or app_control, then STOP and wait.
-            2. NEVER call complete_task together with other actions in the same turn.
-            3. Only call complete_task in the next turn AFTER you see the result of your action has achieved user's goal
-            4. When calling a tool, include agent_thought with a brief reason for the action.
-            
-            ## Element Selection
-            
-            - For click, identify the target by resource_id/element_index/text/bounds
-            - Use element_index to identify elements when no better selector is available (e.g., element_index=5)
-            - Only click elements with "clickable": true
-            - Only type in elements with "editable": true
-            - For scrolling, prefer swipe with direction (up/down/left/right) and optional distance; use start/end only for precise gestures.
-            
-            ## ReAct Loop
-            
-            Each turn:
-            1. OBSERVE: Read the screen state JSON
-            2. THINK: Identify what action to take
-            3. ACT: Call ONE tool (mobile_action, app_control)
-            4. WAIT: You will receive the new screen state in the next turn
-            
-            ## Completion
-            
-            Call complete_task ONLY when:
-            - You see the target screen/content after your action succeeded
-            - You have verified the goal is achieved by checking the screen state
-            - NEVER call complete_task before executing and verifying an action
 
+            $roleRules
         """.trimIndent()
     }
     
@@ -269,8 +292,16 @@ class Turn(
         llmToolCalls: List<LLMToolCall>
     ): TurnResult {
         // Convert LLM tool calls to our format
-        val toolCalls = llmToolCalls.map { call ->
+        val allToolCalls = llmToolCalls.map { call ->
             convertToToolCallRequest(call)
+        }
+        val toolCalls = allToolCalls.filter { call ->
+            allowedToolNames?.contains(call.name) != false
+        }
+        if (toolCalls.size != allToolCalls.size) {
+            val acceptedNames = toolCalls.map { it.name }.toSet()
+            val dropped = allToolCalls.map { it.name }.filter { name -> name !in acceptedNames }
+            Log.w(TAG, "Dropped disallowed tool calls: $dropped")
         }
         
         // Check for completion:

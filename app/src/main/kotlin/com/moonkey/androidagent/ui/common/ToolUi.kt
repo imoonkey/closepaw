@@ -37,6 +37,7 @@ private fun resolveToolDisplay(toolName: String): ToolDisplay {
         ToolName.CompleteTask -> ToolDisplay(tool.displayName, Icons.Rounded.CheckCircle)
         ToolName.WriteTodos -> ToolDisplay(tool.displayName, Icons.AutoMirrored.Rounded.FormatListBulleted)
         ToolName.Scratchpad -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
+        ToolName.DelegateTask -> ToolDisplay(tool.displayName, Icons.Rounded.Apps)
         is ToolName.Unknown -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
     }
 }

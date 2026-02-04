@@ -27,5 +27,11 @@ data class AgentConfig(
     val debugMode: Boolean = false,
     
     /** System prompt template (null = use default) */
-    val systemPrompt: String? = null
+    val systemPrompt: String? = null,
+
+    /**
+     * Optional allowlist of tools exposed to this agent in LLM function schemas.
+     * Null means all registered tools are exposed.
+     */
+    val allowedToolNames: Set<String>? = null
 )

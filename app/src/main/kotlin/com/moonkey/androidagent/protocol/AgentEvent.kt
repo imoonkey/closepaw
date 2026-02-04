@@ -106,6 +106,39 @@ sealed interface AgentEvent {
         val key: String,
         val action: String
     ) : AgentEvent
+
+    // ===== Sub-Agent Events =====
+
+    /**
+     * Parent agent delegated a task to a sub-agent.
+     */
+    data class SubAgentStarted(
+        override val sessionId: SessionId,
+        override val timestamp: Long,
+        val agentName: String,
+        val query: String
+    ) : AgentEvent
+
+    /**
+     * Bridged activity emitted from a running sub-agent.
+     */
+    data class SubAgentActivity(
+        override val sessionId: SessionId,
+        override val timestamp: Long,
+        val agentName: String,
+        val activity: String
+    ) : AgentEvent
+
+    /**
+     * Sub-agent completed with success/failure status.
+     */
+    data class SubAgentCompleted(
+        override val sessionId: SessionId,
+        override val timestamp: Long,
+        val agentName: String,
+        val success: Boolean,
+        val message: String
+    ) : AgentEvent
     
     // ===== Turn Events =====
     

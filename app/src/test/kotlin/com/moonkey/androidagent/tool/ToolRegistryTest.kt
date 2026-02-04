@@ -41,6 +41,23 @@ class ToolRegistryTest {
         assertThat(tools).hasSize(1)
         assertThat(tools.single().name()).isEqualTo("keep")
     }
+
+    @Test
+    fun `createFilteredCopy keeps allowed tools and excludes explicit names`() {
+        val registry = ToolRegistry()
+        registry.register(RegistryTestToolSpec("mobile_action"))
+        registry.register(RegistryTestToolSpec("delegate_task"))
+        registry.register(RegistryTestToolSpec("complete_task"))
+
+        val filtered = registry.createFilteredCopy(
+            allowedNames = setOf("mobile_action", "delegate_task"),
+            excludedNames = setOf("delegate_task")
+        )
+
+        assertThat(filtered.contains("mobile_action")).isTrue()
+        assertThat(filtered.contains("delegate_task")).isFalse()
+        assertThat(filtered.contains("complete_task")).isFalse()
+    }
 }
 
 private class RegistryTestToolSpec(override val name: String) : ToolSpec {

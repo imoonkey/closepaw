@@ -1,240 +1,186 @@
-# Phase 1: Sub-Agent Infrastructure Design
+# Phase 1: Sub-Agent Infrastructure Design (Reconciled)
 
-> **Goal**: Minimal infra to support delegation to specialized agents
-
-**Codex Addition - Context Passing Fields**:
-When parent delegates to executor, pass only:
-- `query` (string) — the complete instruction
-- `current_subgoal` (string, optional) — for context
-- `important_notes` (short list, optional) — key observations
-- Latest screen snapshot (a11y tree + screenshot)
-
-Do NOT pass: full history, prior screenshots, or parent's todo list.
+> **Goal**: Add minimal, safe delegation infra without introducing new loop types.
+> 
+> **Status**: Updated to match current AndroidAgent codebase constraints.
 
 ---
 
-## 1. AgentDefinition (Minimal)
+## 0. Constraints from Current Code
+
+This phase is designed for the existing architecture:
+
+- Keep single ReAct loop (`AgentRuntime` + `AgentTurnRunner`) as-is.
+- `SessionServices` currently has no `sessionId` field, so delegation wiring belongs in `SessionAgentRunner` (where `sessionId` + event emitter are available).
+- `Agent.run()` returns `AgentStopReason` (not a rich result object), so sub-agent success/failure mapping must use stop reason.
+- `ToolSpec` + `ToolInvocation` is the current tool abstraction; `delegate_task` should follow this pattern.
+
+---
+
+## 1. Delegation Contract
+
+When parent delegates to executor, pass:
+
+- `query` (required): complete instruction
+- `current_subgoal` (optional): short current focus
+- `important_notes` (optional): compact list of key facts
+
+Do not pass:
+
+- full parent history
+- prior screenshots/a11y trees
+- parent todos/scratchpad
+
+The runner will build a compact child goal string from these fields.
+
+---
+
+## 2. AgentDefinition (Minimal)
 
 ```kotlin
-/**
- * Defines a sub-agent that can be invoked via delegate_task.
- * 
- * KISS: Just enough to spawn an isolated agent session.
- */
 data class AgentDefinition(
     val name: String,
     val description: String,
     val systemPrompt: String,
-    val toolNames: List<String>,  // Allowed tools
+    val toolNames: List<String>,
     val maxTurns: Int = 10,
     val timeoutMs: Long = 60_000
 )
 ```
 
-No complex InputConfig/OutputConfig. Natural language in, natural language out.
+KISS decisions:
+
+- No InputConfig/OutputConfig schema types.
+- Natural language input/output.
+- Tool allowlist per agent.
 
 ---
 
-## 2. AgentRegistry (Minimal)
+## 3. AgentRegistry (Minimal)
 
 ```kotlin
-/**
- * Simple map of agent definitions.
- */
 class AgentRegistry {
     private val agents = mutableMapOf<String, AgentDefinition>()
-    
-    fun register(definition: AgentDefinition) {
-        agents[definition.name] = definition
-    }
-    
-    fun get(name: String): AgentDefinition? = agents[name]
-    
-    fun getAll(): List<AgentDefinition> = agents.values.toList()
-    
-    fun getDirectoryPrompt(): String = agents.values.joinToString("\n") {
-        "- ${it.name}: ${it.description}"
-    }
-    
+
+    fun register(definition: AgentDefinition)
+    fun get(name: String): AgentDefinition?
+    fun getAll(): List<AgentDefinition>
+    fun getDirectoryPrompt(): String
+
     companion object {
-        fun createDefault(toolRegistry: ToolRegistry): AgentRegistry {
-            return AgentRegistry().apply {
-                register(ExecutorAgent.definition)
-                // Future: register(ScreenAnalyzerAgent.definition)
-            }
-        }
+        fun createDefault(): AgentRegistry
     }
 }
 ```
 
+`createDefault()` initially registers only `ExecutorAgent.definition`.
+
 ---
 
-## 3. SubAgentRunner (Core)
+## 4. Tool Filtering (for Isolation)
+
+Add helper on `ToolRegistry`:
 
 ```kotlin
-/**
- * Runs a sub-agent in isolation.
- * 
- * Key isolation guarantees:
- * - Fresh HistoryManager (no parent history)
- * - Filtered ToolRegistry (only allowed tools)
- * - Events bridged to parent
- */
-class SubAgentRunner(
+fun createFilteredCopy(
+    allowedNames: Set<String>,
+    excludedNames: Set<String> = emptySet()
+): ToolRegistry
+```
+
+Rules:
+
+- Include only tools in `allowedNames`.
+- Always exclude recursion paths like `delegate_task` for child agents.
+
+---
+
+## 5. SubAgentRunner (Core Isolation)
+
+```kotlin
+interface SubAgentRunner {
+    suspend fun run(request: SubAgentRequest): SubAgentResult
+}
+
+class IsolatedSubAgentRunner(
     private val definition: AgentDefinition,
     private val parentServices: SessionServices,
-    private val eventBridge: (AgentEvent) -> Unit
-) {
-    suspend fun run(query: String): SubAgentResult = coroutineScope {
-        // 1. Create isolated services
-        val childTools = parentServices.toolRegistry
-            .filterByNames(definition.toolNames)
-            .exclude("delegate_task")  // Prevent recursion
-        
-        val childHistory = HistoryManager()  // Fresh, empty
-        
-        val childServices = parentServices.copy(
-            toolRegistry = childTools,
-            historyManager = childHistory
-        )
-        
-        // 2. Create and run agent
-        val agent = Agent(
-            services = childServices,
-            config = AgentConfig(
-                systemPrompt = definition.systemPrompt,
-                maxTurns = definition.maxTurns
-            ),
-            eventEmitter = { event -> bridgeEvent(event) }
-        )
-        
-        // 3. Run with timeout
-        val result = withTimeoutOrNull(definition.timeoutMs) {
-            agent.run(goal = query)
-        }
-        
-        // 4. Return result
-        SubAgentResult(
-            success = result?.reason == AgentStopReason.GOAL_ACHIEVED,
-            message = result?.message ?: "Timeout after ${definition.timeoutMs}ms"
-        )
-    }
-    
-    private fun bridgeEvent(event: AgentEvent) {
-        // Transform child events to parent-friendly format
-        val bridged = SubAgentActivity(
-            sessionId = parentServices.sessionId,
-            agentName = definition.name,
-            activity = event.toString()
-        )
-        eventBridge(bridged)
-    }
-}
-
-data class SubAgentResult(
-    val success: Boolean,
-    val message: String
-)
+    private val parentSessionId: SessionId,
+    private val eventEmitter: suspend (AgentEvent) -> Unit
+) : SubAgentRunner
 ```
+
+Isolation guarantees:
+
+- Fresh `HistoryManager`
+- Fresh `AgentSessionState`
+- New child `ToolRouter` with filtered tools
+- Shared platform/LLM/config (to execute on same device session)
+
+Timeout behavior:
+
+- Wrap child `Agent.run()` with `withTimeoutOrNull(timeoutMs)`
+- Return `SubAgentResult(success=false, message="Timeout after ...")` on timeout
+
+Success mapping:
+
+- `AgentStopReason.GoalAchieved` => success
+- `MaxTurnsReached`/`UserRequested`/`Error` => failure with readable message
 
 ---
 
-## 4. DelegateTaskTool
+## 6. DelegateTaskTool
 
 ```kotlin
-/**
- * Tool for parent agent to delegate work to sub-agents.
- * 
- * Usage in prompt:
- * delegate_task(agent_name="executor", query="tap the login button")
- */
 class DelegateTaskTool(
+    private val sessionId: SessionId,
     private val registry: AgentRegistry,
-    private val services: SessionServices,
-    private val eventEmitter: (AgentEvent) -> Unit
-) : BaseTool(
-    name = "delegate_task",
-    description = """
-        Delegate a task to a specialized sub-agent.
-        
-        Available agents:
-        ${registry.getDirectoryPrompt()}
-        
-        The query should be a complete, self-contained instruction.
-        The sub-agent has no memory of previous delegations.
-    """.trimIndent(),
-    arguments = listOf(
-        Argument("agent_name", "string", required = true,
-            description = "Name of the agent to delegate to"),
-        Argument("query", "string", required = true,
-            description = "Complete instruction for the sub-agent")
-    )
-) {
-    override suspend fun execute(args: JSONObject): ToolCallResult {
-        val agentName = args.getString("agent_name")
-        val query = args.getString("query")
-        
-        val definition = registry.get(agentName)
-            ?: return ToolCallResult.Error("Unknown agent: $agentName")
-        
-        // Emit start event
-        eventEmitter(SubAgentStarted(
-            sessionId = services.sessionId,
-            agentName = agentName,
-            query = query
-        ))
-        
-        val runner = SubAgentRunner(definition, services, eventEmitter)
-        val result = runner.run(query)
-        
-        // Emit completion event
-        eventEmitter(SubAgentCompleted(
-            sessionId = services.sessionId,
-            agentName = agentName,
-            success = result.success,
-            message = result.message
-        ))
-        
-        return if (result.success) {
-            ToolCallResult.Success(observation = result.message)
-        } else {
-            ToolCallResult.Success(observation = "Sub-agent failed: ${result.message}")
-        }
-    }
-}
+    private val runnerFactory: (AgentDefinition) -> SubAgentRunner,
+    private val eventEmitter: suspend (AgentEvent) -> Unit
+) : ToolSpec
 ```
+
+Parameters:
+
+- `agent_name` (required)
+- `query` (required)
+- `current_subgoal` (optional)
+- `important_notes` (optional string array)
+
+Execution flow:
+
+1. Validate agent exists.
+2. Emit `SubAgentStarted`.
+3. Run child via runner.
+4. Emit `SubAgentCompleted`.
+5. Return `ToolExecutionResult.Success` with observation text.
+
+For child failures/timeouts, still return success observation text (`"Sub-agent failed: ..."`) so planner can recover next turn.
 
 ---
 
-## 5. ExecutorAgent (Built-in)
+## 7. Protocol Events (Minimal)
+
+Add to `AgentEvent`:
 
 ```kotlin
-/**
- * Executor: Grounds semantic intent to UI actions.
- * 
- * Designed for mobile-use: receives complete instruction,
- * interacts with current screen, returns result.
- */
+data class SubAgentStarted(...)
+data class SubAgentActivity(...)
+data class SubAgentCompleted(...)
+```
+
+`SubAgentActivity` is a compact bridged string, not raw nested event structures.
+
+---
+
+## 8. Built-in Executor Agent
+
+```kotlin
 object ExecutorAgent {
     val definition = AgentDefinition(
         name = "executor",
-        description = "Execute UI actions on the current screen",
-        systemPrompt = """
-            You are an Executor agent. Your job is to accomplish the given query
-            by interacting with the Android device.
-            
-            Rules:
-            1. Read the query carefully - it contains your complete objective
-            2. Look at the CURRENT screen and find the right element
-            3. Execute the action (tap, type, scroll, etc.)
-            4. Observe the result
-            5. Use complete_task when done or if stuck
-            
-            Do NOT:
-            - Ask for clarification (you won't get a response)
-            - Make assumptions about previous screens
-            - Take more than 10 actions
-        """.trimIndent(),
+        description = "Execute grounded UI actions on the current screen",
+        systemPrompt = "...",
         toolNames = listOf("mobile_action", "app_control", "complete_task"),
         maxTurns = 10,
         timeoutMs = 60_000
@@ -244,78 +190,51 @@ object ExecutorAgent {
 
 ---
 
-## 6. Protocol Events
+## 9. Integration Points
 
-```kotlin
-// Minimal sub-agent events
-data class SubAgentStarted(
-    override val sessionId: SessionId,
-    override val timestamp: Long = System.currentTimeMillis(),
-    val agentName: String,
-    val query: String
-) : AgentEvent
+### 9.1 Session wiring
 
-data class SubAgentActivity(
-    override val sessionId: SessionId,
-    override val timestamp: Long = System.currentTimeMillis(),
-    val agentName: String,
-    val activity: String
-) : AgentEvent
+Register `delegate_task` from `SessionAgentRunner.start(...)` (not `SessionServices.create(...)`), because the runner has both:
 
-data class SubAgentCompleted(
-    override val sessionId: SessionId,
-    override val timestamp: Long = System.currentTimeMillis(),
-    val agentName: String,
-    val success: Boolean,
-    val message: String
-) : AgentEvent
-```
+- `sessionId`
+- suspend event emitter
+
+Registration should be idempotent (`if (!toolRegistry.contains("delegate_task"))`).
+
+### 9.2 Tool taxonomy and policy
+
+Update:
+
+- `ToolName` to include `DelegateTask`
+- `PolicyEngine.DEFAULT_RISK_LEVELS` to include `delegate_task`
+- `ToolUi` icon/name mapping
+
+### 9.3 Parent prompt
+
+Add brief planner guidance in `AgentRuntime`:
+
+- use `delegate_task(agent_name="executor", query="...")` for grounded execution when appropriate.
 
 ---
 
-## 7. Integration Points
+## 10. TDD Scope (Core First)
 
-### ToolRegistry Setup
-```kotlin
-// When creating parent agent
-val registry = AgentRegistry.createDefault(toolRegistry)
-val delegateTool = DelegateTaskTool(registry, services, eventEmitter)
-toolRegistry.register(delegateTool)
-```
+Core tests first:
 
-### System Prompt Addition
-```kotlin
-// Add to parent agent's system prompt
-"""
-## Available Sub-Agents
-${registry.getDirectoryPrompt()}
+1. `ToolRegistry.createFilteredCopy` behavior.
+2. `AgentRegistry` register/get/directory prompt.
+3. `DelegateTaskTool` validation + success/failure event flow.
+4. `IsolatedSubAgentRunner` success + timeout mapping.
 
-Use delegate_task to have a sub-agent execute UI actions.
-Provide complete, self-contained instructions.
-"""
-```
+Then implement minimum integration wiring in `SessionAgentRunner`.
 
 ---
 
-## Implementation Order
+## 11. Not Included (KISS)
 
-1. Add `AgentDefinition` data class
-2. Add `AgentRegistry`
-3. Add sub-agent events
-4. Implement `SubAgentRunner`
-5. Implement `DelegateTaskTool`
-6. Add `ExecutorAgent.definition`
-7. Wire up in `SessionServices`
-8. Test end-to-end delegation
+- Approval bridging into parent approval UI (future phase)
+- Nested delegation
+- Parallel sub-agents
+- Structured agent-to-agent protocol
+- New loop classes (`PlannerLoop`, etc.)
 
-**Estimated effort**: 2-3 days
-
----
-
-## What's NOT Included (KISS)
-
-- ❌ Approval bridging (Phase 3)
-- ❌ Nested delegation (out of scope)
-- ❌ InputConfig/OutputConfig schemas
-- ❌ Parallel sub-agents
-- ❌ Agent-to-Agent protocol

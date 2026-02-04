@@ -93,6 +93,20 @@ class ToolRegistry {
         tools.clear()
         Log.d(TAG, "Cleared all tools")
     }
+
+    /**
+     * Create a new registry containing only allowed tools, minus explicitly excluded names.
+     */
+    fun createFilteredCopy(
+        allowedNames: Set<String>,
+        excludedNames: Set<String> = emptySet()
+    ): ToolRegistry {
+        val filtered = ToolRegistry()
+        tools.values
+            .filter { it.name in allowedNames && it.name !in excludedNames }
+            .forEach { filtered.register(it) }
+        return filtered
+    }
     
     /**
      * Get a human-readable summary of registered tools.
@@ -134,4 +148,3 @@ class ToolRegistry {
     }
     
 }
-

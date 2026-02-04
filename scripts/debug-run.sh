@@ -138,58 +138,74 @@ ok "Agent started"
 echo ""
 
 # Monitor turns and capture screenshots
-# Track which turns we've already captured using file existence check (bash 3.2 compatible)
-MAX_TURNS=20
-LAST_CAPTURED=0
+# DEBUG_MAX_TURNS controls how many turn-start events to capture (default 80 for multi-agent runs)
+MAX_TURNS="${DEBUG_MAX_TURNS:-80}"
+CAPTURE_COUNT=0
+LAST_LOG_LINE=0
 
-log "Monitoring turns (max $MAX_TURNS)..."
+log "Monitoring turns (max $MAX_TURNS captured turn-start events)..."
 echo ""
 
-while [[ $LAST_CAPTURED -lt $MAX_TURNS ]]; do
+while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
     sleep 1  # Poll more frequently (1s instead of 2s)
-    
-    # Extract ALL turn numbers from log (not just the last one)
-    # This catches multiple turns that may have started in one polling interval
-    TURN_NUMBERS=$(tail -n 500 "$DEBUG_DIR/logcat_full.log" | grep -oE "=== TURN ([0-9]+) START ===" | sed 's/[^0-9]//g' | sort -n | uniq 2>/dev/null || true)
-    
-    for TURN_NUM in $TURN_NUMBERS; do
-        # Skip empty
-        [[ -z "$TURN_NUM" ]] && continue
-        
-        SCREENSHOT="$DEBUG_DIR/turn_${TURN_NUM}.png"
-        
-        # Skip if we already captured this turn (check file existence)
-        if [[ -f "$SCREENSHOT" ]]; then
-            continue
-        fi
-        
-        # Capture screenshot for this turn
-        adb exec-out screencap -p > "$SCREENSHOT" 2>/dev/null || true
-        
-        # Save recent log context around the turn boundary
-        tail -n 400 "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/turn_${TURN_NUM}_log.txt"
-        
-        echo "  Turn $TURN_NUM captured -> $SCREENSHOT"
-        
-        if [[ $TURN_NUM -gt $LAST_CAPTURED ]]; then
-            LAST_CAPTURED=$TURN_NUM
-        fi
-    done
-    
-    # Check if agent finished (V2 patterns)
-    if tail -n 500 "$DEBUG_DIR/logcat_full.log" | grep -q "SessionCompleted\\|Goal achieved\\|GoalAchieved\\|DONE:"; then
+
+    TOTAL_LINES=$(wc -l < "$DEBUG_DIR/logcat_full.log" | tr -d ' ')
+    TOTAL_LINES=${TOTAL_LINES:-0}
+
+    if [[ $TOTAL_LINES -gt $LAST_LOG_LINE ]]; then
+        START_LINE=$((LAST_LOG_LINE + 1))
+
+        while IFS= read -r TURN_ENTRY; do
+            [[ -z "$TURN_ENTRY" ]] && continue
+
+            REL_LINE="${TURN_ENTRY%%:*}"
+            LOG_LINE="${TURN_ENTRY#*:}"
+            TURN_NUM=$(printf "%s" "$LOG_LINE" | sed -n 's/.*=== TURN \([0-9][0-9]*\) START ===.*/\1/p')
+            [[ -z "$TURN_NUM" ]] && continue
+
+            ABS_LINE=$((START_LINE + REL_LINE - 1))
+            CAPTURE_COUNT=$((CAPTURE_COUNT + 1))
+            TURN_PREFIX=$(printf "turn_%03d_n%s" "$CAPTURE_COUNT" "$TURN_NUM")
+
+            SCREENSHOT="$DEBUG_DIR/${TURN_PREFIX}.png"
+            adb exec-out screencap -p > "$SCREENSHOT" 2>/dev/null || true
+
+            CONTEXT_START=$((ABS_LINE - 200))
+            if [[ $CONTEXT_START -lt 1 ]]; then
+                CONTEXT_START=1
+            fi
+            CONTEXT_END=$((ABS_LINE + 200))
+            sed -n "${CONTEXT_START},${CONTEXT_END}p" "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/${TURN_PREFIX}_log.txt"
+
+            echo "  Turn $TURN_NUM captured (#$CAPTURE_COUNT) -> $SCREENSHOT"
+
+            if [[ $CAPTURE_COUNT -ge $MAX_TURNS ]]; then
+                break
+            fi
+        done < <(sed -n "${START_LINE},${TOTAL_LINES}p" "$DEBUG_DIR/logcat_full.log" | grep -nE "=== TURN ([0-9]+) START ===" || true)
+
+        LAST_LOG_LINE=$TOTAL_LINES
+    fi
+
+    # Check if main session finished.
+    # Avoid generic "GoalAchieved" patterns because sub-agents can emit those too.
+    if tail -n 800 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionCompleted\\|AgentService: Session completed\\|AgentService: Task completed"; then
         echo ""
         ok "Agent completed!"
         break
     fi
-    
-    # Check for stuck/error
-    if tail -n 500 "$DEBUG_DIR/logcat_full.log" | grep -q "Fatal error\\|Max turns reached\\|MaxTurnsReached"; then
+
+    # Check for terminal errors at session level.
+    if tail -n 800 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionError\\|AgentService: Session error\\|Fatal error"; then
         echo ""
-        warn "Agent stopped (error or max turns)"
+        warn "Agent stopped (session error)"
         break
     fi
 done
+
+if [[ $CAPTURE_COUNT -ge $MAX_TURNS ]]; then
+    warn "Reached max captured turn-start events ($MAX_TURNS)"
+fi
 
 echo ""
 log "Saving full agent log..."

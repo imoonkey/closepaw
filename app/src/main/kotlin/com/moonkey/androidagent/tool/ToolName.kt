@@ -35,6 +35,11 @@ sealed class ToolName(
         canonical = "scratchpad",
         displayName = "Scratchpad"
     )
+    data object DelegateTask : ToolName(
+        raw = "delegate_task",
+        canonical = "delegate_task",
+        displayName = "Delegate task"
+    )
     data class Unknown(private val name: String) : ToolName(
         raw = name,
         canonical = normalizeName(name),
@@ -49,6 +54,7 @@ sealed class ToolName(
                 CompleteTask.canonical -> CompleteTask
                 WriteTodos.canonical -> WriteTodos
                 Scratchpad.canonical -> Scratchpad
+                DelegateTask.canonical -> DelegateTask
                 else -> Unknown(raw)
             }
         }

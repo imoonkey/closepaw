@@ -76,7 +76,12 @@ internal class AgentTurnRunner(
                     eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PLANNING)
                     eventDispatcher.status("🧠 Thinking...")
 
-                    val turn = Turn(services.historyManager, services.toolRegistry, services.llmClient)
+                    val turn = Turn(
+                        historyManager = services.historyManager,
+                        toolRegistry = services.toolRegistry,
+                        llmClient = services.llmClient,
+                        allowedToolNames = config.allowedToolNames
+                    )
                     val systemPrompt = promptBuilder.buildSystemPrompt()
                     val userContext = promptBuilder.buildUserContext(snapshot)
 
@@ -287,7 +292,8 @@ internal class AgentTurnRunner(
                     if (shouldComplete) {
                         val completeTaskCall = result.toolCalls.find { it.name == "complete_task" }
                         val summary =
-                            completeTaskCall?.arguments?.optString("summary")
+                            completeTaskCall?.arguments?.optString("answer")?.takeIf { it.isNotBlank() }
+                                ?: completeTaskCall?.arguments?.optString("summary")
                                 ?: result.content
                                 ?: "Goal achieved"
                         Log.i(TAG, "Turn $turnNumber: Task marked as complete - $summary")

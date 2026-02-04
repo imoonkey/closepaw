@@ -236,8 +236,12 @@ class EdgeGlowManager(
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            // Use TYPE_ACCESSIBILITY_OVERLAY for accessibility service windows:
+            // - Exempt from Android 12+ untrusted touch blocking
+            // - Doesn't require SYSTEM_ALERT_WINDOW permission
+            // - Automatically removed when accessibility service disabled
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1)
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
             else
                 @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
             // Critical flags:

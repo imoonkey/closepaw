@@ -33,7 +33,8 @@ class PolicyEngine(
             ToolName.AppControl.canonical to RiskLevel.MEDIUM,
             ToolName.CompleteTask.canonical to RiskLevel.MEDIUM,
             ToolName.WriteTodos.canonical to RiskLevel.LOW,
-            ToolName.Scratchpad.canonical to RiskLevel.LOW
+            ToolName.Scratchpad.canonical to RiskLevel.LOW,
+            ToolName.DelegateTask.canonical to RiskLevel.MEDIUM
         )
     }
     

@@ -242,6 +242,19 @@ class AgentService : AccessibilityService() {
             is AgentEvent.ActionExecuted -> {
                 overlayController?.onActionExecuted(event.toolName, event.success)
             }
+
+            is AgentEvent.SubAgentStarted -> {
+                updateStatus("🤖 Delegating to ${event.agentName}...")
+            }
+
+            is AgentEvent.SubAgentActivity -> {
+                // Activity events can be very frequent; keep UI/log noise low.
+            }
+
+            is AgentEvent.SubAgentCompleted -> {
+                val status = if (event.success) "completed" else "failed"
+                updateStatus("🤖 ${event.agentName} $status")
+            }
             
             is AgentEvent.TaskCompleted -> {
                 overlayController?.onTaskCompleted()

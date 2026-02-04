@@ -129,9 +129,15 @@ internal class SmartCapsuleLayoutBuilder(
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            // Use TYPE_ACCESSIBILITY_OVERLAY - exempt from untrusted touch blocking
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1)
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+            else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
+            // Flags for interactive overlay (has pause/stop buttons):
+            // - NOT_FOCUSABLE: Don't steal focus from target apps
+            // - LAYOUT_IN_SCREEN: Cover full screen including status bar
+            // Note: Do NOT use FLAG_NOT_TOUCHABLE - buttons need to be clickable!
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply {

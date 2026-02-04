@@ -4,9 +4,12 @@ import android.util.Log
 import com.moonkey.androidagent.agent.Agent
 import com.moonkey.androidagent.agent.AgentConfig
 import com.moonkey.androidagent.agent.AgentStopReason
+import com.moonkey.androidagent.agent.subagent.AgentRegistry
+import com.moonkey.androidagent.agent.subagent.IsolatedSubAgentRunner
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.SessionId
 import com.moonkey.androidagent.protocol.SessionConfig
+import com.moonkey.androidagent.tool.impl.DelegateTaskTool
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +26,13 @@ internal class SessionAgentRunner(
 ) {
     companion object {
         private const val TAG = "SessionAgentRunner"
+        private val PLANNER_ALLOWED_TOOLS = setOf(
+            "app_control",
+            "write_todos",
+            "scratchpad",
+            "delegate_task",
+            "complete_task"
+        )
     }
 
     private var agent: Agent? = null
@@ -30,6 +40,8 @@ internal class SessionAgentRunner(
     private var cancellationSignal: CompletableDeferred<AgentStopReason>? = null
 
     fun start(taskInput: String, taskId: String) {
+        ensureDelegationToolRegistered()
+
         val signal = CompletableDeferred<AgentStopReason>()
         cancellationSignal = signal
 
@@ -39,7 +51,8 @@ internal class SessionAgentRunner(
             taskId = taskId,
             maxTurns = config.maxTurns,
             uiSettleDelayMs = config.actionDelayMs,
-            debugMode = config.debugMode
+            debugMode = config.debugMode,
+            allowedToolNames = PLANNER_ALLOWED_TOOLS
         )
 
         val newAgent = Agent(
@@ -64,6 +77,26 @@ internal class SessionAgentRunner(
         }
 
         Log.d(TAG, "Started agent for task $taskId")
+    }
+
+    private fun ensureDelegationToolRegistered() {
+        if (services.toolRegistry.contains("delegate_task")) return
+
+        val registry = AgentRegistry.createDefault()
+        val delegateTool = DelegateTaskTool(
+            sessionId = sessionId,
+            registry = registry,
+            runnerFactory = { definition ->
+                IsolatedSubAgentRunner(
+                    definition = definition,
+                    parentServices = services,
+                    parentSessionId = sessionId,
+                    eventEmitter = emitEvent
+                )
+            },
+            eventEmitter = emitEvent
+        )
+        services.toolRegistry.register(delegateTool)
     }
 
     suspend fun pause() {

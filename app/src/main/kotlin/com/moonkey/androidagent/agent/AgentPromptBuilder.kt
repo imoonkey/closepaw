@@ -13,7 +13,8 @@ class AgentPromptBuilder(
     private val localPromptSuffix: String,
     private val llmBackend: LLMBackendType,
     private val toolRegistry: ToolRegistry,
-    private val sessionState: AgentSessionState
+    private val sessionState: AgentSessionState,
+    private val visibleToolNames: Set<String>? = null
 ) {
     data class UserContext(
         val text: String,
@@ -37,7 +38,11 @@ class AgentPromptBuilder(
 
     fun buildUserContext(snapshot: ScreenSnapshot): UserContext {
         val screenJson = Perceptor.toPromptJson(snapshot)
-        val toolNames = toolRegistry.getNames().joinToString(", ")
+        val toolNames = toolRegistry.getNames()
+            .asSequence()
+            .filter { name -> visibleToolNames?.contains(name) != false }
+            .sorted()
+            .joinToString(", ")
         val image = snapshot.image?.takeIf { llmBackend == LLMBackendType.OPENAI }
         val imageHint = if (image != null) {
             "\nScreenshot attached (compressed)."
