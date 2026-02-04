@@ -1,5 +1,7 @@
 package com.moonkey.androidagent.agent.cognition.profile
 
+import com.moonkey.androidagent.agent.cognition.policy.RetryPolicy
+
 data class CognitionProfile(
     val id: String,
     val promptVariant: PromptVariant = PromptVariant.BASELINE,
@@ -16,10 +18,6 @@ enum class PromptVariant {
 enum class ContextPolicy {
     STANDARD
 }
-
-data class RetryPolicy(
-    val allowTransientNetworkRetry: Boolean = true
-)
 
 enum class TurnPolicyMode {
     BASELINE,

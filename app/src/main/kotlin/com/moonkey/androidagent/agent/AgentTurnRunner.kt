@@ -1,6 +1,8 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
+import com.moonkey.androidagent.agent.cognition.policy.TurnPolicyEngine
+import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
@@ -25,7 +27,9 @@ internal class AgentTurnRunner(
     private val cancellationSignal: CompletableDeferred<AgentStopReason>,
     private val stopRequested: AtomicBoolean,
     private val promptBuilder: AgentPromptBuilder,
-    private val trace: AgentTrace
+    private val trace: AgentTrace,
+    private val turnPolicyEngine: TurnPolicyEngine,
+    private val cognitionProfile: CognitionProfile
 ) {
     companion object {
         private const val TAG = "AgentTurnRunner"
@@ -137,19 +141,16 @@ internal class AgentTurnRunner(
                         )
                     }
 
-                    val hasCompletionTool = result.toolCalls.any { it.name == "complete_task" }
-                    val hasNonCompletionTool = result.toolCalls.any { it.name != "complete_task" }
-                    val selectedTool = result.toolCalls.firstOrNull { it.name != "complete_task" }
-                        ?: result.toolCalls.firstOrNull()
-                    val toolCallsToExecute = selectedTool?.let { listOf(it) } ?: emptyList()
-                    if (result.toolCalls.size > 1 && selectedTool != null) {
+                    val arbitration = turnPolicyEngine.arbitrateToolCalls(result.toolCalls, cognitionProfile)
+                    val toolCallsToExecute = arbitration.selectedToolCalls
+                    if (result.toolCalls.size > 1 && arbitration.selectedTool != null) {
                         Log.w(
                             TAG,
-                            "Turn $turnNumber: Multiple tool calls returned: ${result.toolCalls.map { it.name }}, executing: ${selectedTool.name}"
+                            "Turn $turnNumber: Multiple tool calls returned: ${result.toolCalls.map { it.name }}, executing: ${arbitration.selectedTool.name}"
                         )
-                        eventDispatcher.status("⚠️ Multiple actions returned; executing ${selectedTool.name} only")
+                        eventDispatcher.status("⚠️ Multiple actions returned; executing ${arbitration.selectedTool.name} only")
                     }
-                    if (hasCompletionTool && hasNonCompletionTool) {
+                    if (arbitration.hasCompletionTool && arbitration.hasNonCompletionTool) {
                         Log.w(
                             TAG,
                             "Turn $turnNumber: complete_task returned alongside other tools; completion deferred"
@@ -295,14 +296,9 @@ internal class AgentTurnRunner(
                         }
                     }
 
-                    val shouldComplete = result.isComplete && !hasNonCompletionTool
-                    if (shouldComplete) {
-                        val completeTaskCall = result.toolCalls.find { it.name == "complete_task" }
-                        val summary =
-                            completeTaskCall?.arguments?.optString("answer")?.takeIf { it.isNotBlank() }
-                                ?: completeTaskCall?.arguments?.optString("summary")
-                                ?: result.content
-                                ?: "Goal achieved"
+                    val completion = turnPolicyEngine.decideCompletion(result, arbitration, cognitionProfile)
+                    if (completion.shouldComplete) {
+                        val summary = completion.summary ?: "Goal achieved"
                         Log.i(TAG, "Turn $turnNumber: Task marked as complete - $summary")
                         TurnOutcome.Complete(summary)
                     } else {

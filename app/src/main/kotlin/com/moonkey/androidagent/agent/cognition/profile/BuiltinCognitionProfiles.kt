@@ -1,5 +1,7 @@
 package com.moonkey.androidagent.agent.cognition.profile
 
+import com.moonkey.androidagent.agent.cognition.policy.RetryPolicy
+
 object BuiltinCognitionProfiles {
     const val BASELINE_ID: String = "baseline"
     private const val CONCISE_ID: String = "concise"
