@@ -22,6 +22,26 @@ class TodoStateTest {
     }
 
     @Test
+    fun `clear removes all todos`() {
+        val state = TodoState()
+        state.update(listOf(Todo("first", TodoStatus.PENDING)))
+
+        state.clear()
+
+        assertThat(state.get()).isEmpty()
+    }
+
+    @Test
+    fun `toPromptContext uses uppercase status`() {
+        val state = TodoState()
+        state.update(listOf(Todo("first", TodoStatus.IN_PROGRESS)))
+
+        val context = state.toPromptContext()
+
+        assertThat(context).isEqualTo("1. [IN_PROGRESS] first")
+    }
+
+    @Test
     fun `update rejects multiple in progress`() {
         val state = TodoState()
         val todos = listOf(

@@ -2,6 +2,7 @@ package com.moonkey.androidagent.ui.common
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.FormatListBulleted
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -34,7 +35,7 @@ private fun resolveToolDisplay(toolName: String): ToolDisplay {
         ToolName.MobileAction -> ToolDisplay(tool.displayName, Icons.Rounded.TouchApp)
         ToolName.AppControl -> ToolDisplay(tool.displayName, Icons.Rounded.Apps)
         ToolName.CompleteTask -> ToolDisplay(tool.displayName, Icons.Rounded.CheckCircle)
-        ToolName.WriteTodos -> ToolDisplay(tool.displayName, Icons.Rounded.CheckCircle)
+        ToolName.WriteTodos -> ToolDisplay(tool.displayName, Icons.AutoMirrored.Rounded.FormatListBulleted)
         ToolName.Scratchpad -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
         is ToolName.Unknown -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
     }

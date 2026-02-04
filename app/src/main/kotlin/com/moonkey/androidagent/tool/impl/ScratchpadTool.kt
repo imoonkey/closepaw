@@ -29,6 +29,11 @@ class ScratchpadTool(
         - read: Get value for key
         - delete: Remove key
         - list: Show all keys
+
+        Limits:
+        - Max keys: ${ScratchpadState.MAX_ENTRIES}
+        - Max key length: ${ScratchpadState.MAX_KEY_LENGTH} chars
+        - Max value length: ${ScratchpadState.MAX_VALUE_LENGTH} chars
         """.trimIndent()
 
     override val parameterSchema: JSONObject =
@@ -70,6 +75,18 @@ class ScratchpadTool(
                 val value = params.optString("value", "").trim()
                 if (key.isEmpty()) errors.add("Missing required parameter: key")
                 if (value.isEmpty()) errors.add("Missing required parameter: value")
+                if (key.length > ScratchpadState.MAX_KEY_LENGTH) {
+                    errors.add("key exceeds max length (${ScratchpadState.MAX_KEY_LENGTH})")
+                }
+                if (value.length > ScratchpadState.MAX_VALUE_LENGTH) {
+                    errors.add("value exceeds max length (${ScratchpadState.MAX_VALUE_LENGTH})")
+                }
+                if (key.isNotEmpty()) {
+                    val keys = state.list()
+                    if (!keys.contains(key) && keys.size >= ScratchpadState.MAX_ENTRIES) {
+                        errors.add("scratchpad is full (max ${ScratchpadState.MAX_ENTRIES} entries)")
+                    }
+                }
             }
             "read", "delete" -> {
                 val key = params.optString("key", "").trim()

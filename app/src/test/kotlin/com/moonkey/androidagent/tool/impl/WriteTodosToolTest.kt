@@ -38,6 +38,20 @@ class WriteTodosToolTest {
     }
 
     @Test
+    fun `empty description is rejected`() {
+        val tool = WriteTodosTool(TodoState())
+        val params = JSONObject().put("todos", JSONArray().put(
+            JSONObject()
+                .put("description", " ")
+                .put("status", "pending")
+        ))
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
     fun `multiple in progress is invalid`() {
         val tool = WriteTodosTool(TodoState())
         val params = JSONObject().put("todos", JSONArray().apply {

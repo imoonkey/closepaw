@@ -32,6 +32,36 @@ class ScratchpadToolTest {
     }
 
     @Test
+    fun `write rejects overly long value`() {
+        val tool = ScratchpadTool(ScratchpadState())
+        val params = JSONObject()
+            .put("action", "write")
+            .put("key", "key")
+            .put("value", "x".repeat(ScratchpadState.MAX_VALUE_LENGTH + 1))
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
+    fun `write rejects when scratchpad full`() {
+        val state = ScratchpadState()
+        repeat(ScratchpadState.MAX_ENTRIES) { index ->
+            state.write("key$index", "value")
+        }
+        val tool = ScratchpadTool(state)
+        val params = JSONObject()
+            .put("action", "write")
+            .put("key", "new")
+            .put("value", "value")
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
     fun `execute write and read`() = runTest {
         val state = ScratchpadState()
         val tool = ScratchpadTool(state)
