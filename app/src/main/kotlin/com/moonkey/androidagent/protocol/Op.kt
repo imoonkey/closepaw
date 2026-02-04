@@ -116,6 +116,9 @@ data class SessionConfig(
     
     /** LLM backend type (cloud or local) */
     val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
+
+    /** Cognition profile id (baseline, concise, etc.) */
+    val cognitionProfileId: String? = null,
     
     /** Local LLM configuration (used when llmBackend is LOCAL) */
     val localLLMConfig: LocalLLMConfig? = null,

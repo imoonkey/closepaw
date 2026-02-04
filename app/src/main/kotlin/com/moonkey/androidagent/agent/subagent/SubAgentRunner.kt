@@ -54,7 +54,8 @@ class IsolatedSubAgentRunner(
                 uiSettleDelayMs = parentServices.config.actionDelayMs,
                 debugMode = parentServices.config.debugMode,
                 systemPrompt = definition.systemPrompt,
-                allowedToolNames = definition.toolNames.toSet()
+                allowedToolNames = definition.toolNames.toSet(),
+                cognitionProfileId = parentServices.config.cognitionProfileId
             ),
             services = childServices,
             eventEmitter = { event -> bridgeEvent(event) },

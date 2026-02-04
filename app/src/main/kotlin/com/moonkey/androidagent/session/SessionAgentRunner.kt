@@ -53,7 +53,8 @@ internal class SessionAgentRunner(
             maxTurns = config.maxTurns,
             uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode,
-            allowedToolNames = PLANNER_ALLOWED_TOOLS
+            allowedToolNames = PLANNER_ALLOWED_TOOLS,
+            cognitionProfileId = config.cognitionProfileId
         )
 
         val newAgent = Agent(

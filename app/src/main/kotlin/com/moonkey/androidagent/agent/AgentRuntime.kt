@@ -1,6 +1,8 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
+import com.moonkey.androidagent.agent.cognition.profile.CognitionProfileRegistry
+import com.moonkey.androidagent.agent.cognition.profile.DefaultCognitionProfileRegistry
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.TurnPhase
@@ -27,6 +29,8 @@ internal class AgentRuntime(
     private val pauseState = MutableStateFlow(false)
     private val stopRequested = AtomicBoolean(false)
     private val lifecycleMutex = Mutex()
+    private val profileRegistry: CognitionProfileRegistry = DefaultCognitionProfileRegistry()
+    private val cognitionProfile = profileRegistry.resolve(config.cognitionProfileId)
 
     private val promptBuilder =
         AgentPromptBuilder(
@@ -34,7 +38,8 @@ internal class AgentRuntime(
             llmBackend = services.config.llmBackend,
             toolRegistry = services.toolRegistry,
             sessionState = services.sessionState,
-            visibleToolNames = config.allowedToolNames
+            visibleToolNames = config.allowedToolNames,
+            cognitionProfile = cognitionProfile
         )
 
     private val eventDispatcher =

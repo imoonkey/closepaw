@@ -1,13 +1,16 @@
 package com.moonkey.androidagent.agent.cognition.prompt
 
 import com.moonkey.androidagent.agent.cognition.AgentRole
+import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
+import com.moonkey.androidagent.agent.cognition.profile.PromptVariant
 import com.moonkey.androidagent.protocol.LLMBackendType
 
 internal data class PromptBuildContext(
     val basePrompt: String?,
     val llmBackend: LLMBackendType,
     val visibleToolNames: Set<String>,
-    val stateContext: String
+    val stateContext: String,
+    val profile: CognitionProfile
 )
 
 internal interface PromptAssembler {
@@ -30,17 +33,30 @@ internal class DefaultPromptAssembler : PromptAssembler {
             } else {
                 backendPrompt
             }
-        val roleRules =
-            if (role == AgentRole.PLANNER) {
-                SharedPromptRules.plannerRoleRules
-            } else {
-                SharedPromptRules.executorRoleRules
-            }
+        val roleRules = selectRoleRules(role, context.profile.promptVariant)
 
         return """
             $withStateContext
 
             $roleRules
         """.trimIndent()
+    }
+
+    private fun selectRoleRules(role: AgentRole, variant: PromptVariant): String {
+        return when (variant) {
+            PromptVariant.BASELINE ->
+                if (role == AgentRole.PLANNER) {
+                    SharedPromptRules.plannerRoleRules
+                } else {
+                    SharedPromptRules.executorRoleRules
+                }
+
+            PromptVariant.CONCISE ->
+                if (role == AgentRole.PLANNER) {
+                    SharedPromptRules.plannerRoleRulesConcise
+                } else {
+                    SharedPromptRules.executorRoleRulesConcise
+                }
+        }
     }
 }

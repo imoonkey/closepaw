@@ -49,6 +49,7 @@ internal class AgentTrace(
                     put("approval_mode", JsonPrimitive(services.config.approvalMode.name))
                     put("debug_mode", JsonPrimitive(services.config.debugMode))
                     put("trace_enabled", JsonPrimitive(services.config.traceEnabled))
+                    put("cognition_profile_id", JsonPrimitive(config.cognitionProfileId ?: "baseline"))
                 }
         )
     }

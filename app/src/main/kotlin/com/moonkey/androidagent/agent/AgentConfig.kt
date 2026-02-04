@@ -33,5 +33,10 @@ data class AgentConfig(
      * Optional allowlist of tools exposed to this agent in LLM function schemas.
      * Null means all registered tools are exposed.
      */
-    val allowedToolNames: Set<String>? = null
+    val allowedToolNames: Set<String>? = null,
+
+    /**
+     * Cognition profile id to select prompt/context/policy behavior.
+     */
+    val cognitionProfileId: String? = null
 )

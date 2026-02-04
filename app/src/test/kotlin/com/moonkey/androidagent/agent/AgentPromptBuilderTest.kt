@@ -1,6 +1,8 @@
 package com.moonkey.androidagent.agent
 
 import com.google.common.truth.Truth.assertThat
+import com.moonkey.androidagent.agent.cognition.profile.BuiltinCognitionProfiles
+import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.session.AgentSessionState
@@ -95,10 +97,22 @@ class AgentPromptBuilderTest {
         assertThat(prompt).contains("You are the MAIN PLANNER agent for Android automation.")
     }
 
+    @Test
+    fun `buildSystemPrompt uses concise prompt variant when profile switches`() {
+        val prompt = createBuilder(
+            visibleToolNames = setOf("delegate_task", "complete_task"),
+            cognitionProfile = BuiltinCognitionProfiles.concise
+        ).buildSystemPrompt()
+
+        assertThat(prompt).contains("## Planner Rules (Concise)")
+        assertThat(prompt).doesNotContain("## Planner Rules\n")
+    }
+
     private fun createBuilder(
         visibleToolNames: Set<String>?,
         llmBackend: LLMBackendType = LLMBackendType.OPENAI,
-        basePrompt: String? = "planner"
+        basePrompt: String? = "planner",
+        cognitionProfile: CognitionProfile = BuiltinCognitionProfiles.baseline
     ): AgentPromptBuilder {
         val registry = ToolRegistry().apply {
             register(TestPromptTool("mobile_action"))
@@ -113,7 +127,8 @@ class AgentPromptBuilderTest {
             llmBackend = llmBackend,
             toolRegistry = registry,
             sessionState = AgentSessionState(),
-            visibleToolNames = visibleToolNames
+            visibleToolNames = visibleToolNames,
+            cognitionProfile = cognitionProfile
         )
     }
 }

@@ -53,4 +53,25 @@ internal object SharedPromptRules {
 
         NEVER click randomly. ALWAYS identify the specific element first.
         """.trimIndent()
+
+    val plannerRoleRulesConcise: String =
+        """
+        ## Planner Rules (Concise)
+
+        1. Plan only; avoid low-level UI actions.
+        2. Use `delegate_task` for grounded UI execution.
+        3. Keep one execution action per turn, then wait.
+        4. Use `write_todos`/`scratchpad` for state.
+        5. Call `complete_task` only when the goal is fully done.
+        """.trimIndent()
+
+    val executorRoleRulesConcise: String =
+        """
+        ## Executor Rules (Concise)
+
+        1. Execute one action per turn.
+        2. Never mix `complete_task` with another action.
+        3. Ground target selection using text/desc/resource_id first.
+        4. Call `complete_task` after verification or when blocked.
+        """.trimIndent()
 }

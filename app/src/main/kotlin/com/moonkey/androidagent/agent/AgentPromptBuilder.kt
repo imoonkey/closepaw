@@ -3,6 +3,8 @@ package com.moonkey.androidagent.agent
 import com.moonkey.androidagent.agent.cognition.prompt.DefaultPromptAssembler
 import com.moonkey.androidagent.agent.cognition.prompt.PromptAssembler
 import com.moonkey.androidagent.agent.cognition.prompt.PromptBuildContext
+import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
+import com.moonkey.androidagent.agent.cognition.profile.BuiltinCognitionProfiles
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
@@ -15,7 +17,8 @@ class AgentPromptBuilder(
     private val llmBackend: LLMBackendType,
     private val toolRegistry: ToolRegistry,
     private val sessionState: AgentSessionState,
-    private val visibleToolNames: Set<String>? = null
+    private val visibleToolNames: Set<String>? = null,
+    private val cognitionProfile: CognitionProfile = BuiltinCognitionProfiles.baseline
 ) {
     data class UserContext(
         val text: String,
@@ -36,7 +39,8 @@ class AgentPromptBuilder(
                 basePrompt = basePrompt,
                 llmBackend = llmBackend,
                 visibleToolNames = visibleTools,
-                stateContext = buildStateContext()
+                stateContext = buildStateContext(),
+                profile = cognitionProfile
             )
         )
     }
