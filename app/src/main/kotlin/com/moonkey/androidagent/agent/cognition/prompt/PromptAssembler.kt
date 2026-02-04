@@ -34,11 +34,22 @@ internal class DefaultPromptAssembler : PromptAssembler {
                 backendPrompt
             }
         val roleRules = selectRoleRules(role, context.profile.promptVariant)
+        val failureRecoveryRules =
+            if (context.profile.failureRecoveryRulesEnabled) {
+                when (role) {
+                    AgentRole.PLANNER -> FailureRecoveryRules.planner
+                    AgentRole.EXECUTOR -> FailureRecoveryRules.executor
+                }
+            } else {
+                ""
+            }
 
         return """
             $withStateContext
 
             $roleRules
+
+            $failureRecoveryRules
         """.trimIndent()
     }
 

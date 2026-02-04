@@ -2,9 +2,15 @@ package com.moonkey.androidagent.agent
 
 import android.util.Log
 import com.moonkey.androidagent.agent.cognition.context.ContextPackager
+import com.moonkey.androidagent.agent.cognition.context.NavigationState
 import com.moonkey.androidagent.agent.cognition.context.RawTurnData
+import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionConfig
+import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionPolicy
 import com.moonkey.androidagent.agent.cognition.policy.TurnPolicyEngine
 import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
+import com.moonkey.androidagent.agent.cognition.trace.ArbitrationDecision
+import com.moonkey.androidagent.agent.cognition.trace.DropReason
+import com.moonkey.androidagent.agent.cognition.trace.DroppedToolCall
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
@@ -13,6 +19,7 @@ import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.ScreenStatePhase
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
+import com.moonkey.androidagent.tool.MobileActionName
 import com.moonkey.androidagent.tool.ToolName
 import com.moonkey.androidagent.tool.SimpleToolRouterContext
 import com.moonkey.androidagent.tool.ToolCallResult
@@ -37,6 +44,8 @@ internal class AgentTurnRunner(
     companion object {
         private const val TAG = "AgentTurnRunner"
     }
+    private var navigationState: NavigationState = NavigationState()
+    private var previousActionSignature: String? = null
 
     suspend fun executeTurn(turnId: String, turnNumber: Int): TurnOutcome {
         trace.turnStarted(turnId, turnNumber)
@@ -79,6 +88,22 @@ internal class AgentTurnRunner(
                 if (cancellationSignal.isCompleted || stopRequested.get()) {
                     TurnOutcome.Cancelled
                 } else {
+                    navigationState =
+                        navigationState.advance(
+                            snapshot = snapshot,
+                            previousAction = previousActionSignature
+                        )
+                    val loopWarning =
+                        if (cognitionProfile.loopDetectionEnabled) {
+                            createLoopDetectionPolicy().detect(navigationState)
+                        } else {
+                            null
+                        }
+                    if (loopWarning != null) {
+                        Log.w(TAG, "Turn $turnNumber loop warning: ${loopWarning.message}")
+                        eventDispatcher.status("⚠️ ${loopWarning.message}")
+                    }
+
                     // 2. THINK (LLM)
                     eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PLANNING)
                     eventDispatcher.status("🧠 Thinking...")
@@ -93,7 +118,7 @@ internal class AgentTurnRunner(
                     val packagedInput =
                         contextPackager.buildTurnInput(
                             profile = cognitionProfile,
-                            raw = RawTurnData(snapshot = snapshot)
+                            raw = RawTurnData(snapshot = snapshot, loopWarning = loopWarning)
                         )
                     val userContext = packagedInput.userContext
                     val inputItems = turn.buildInputItems(userContext)
@@ -150,6 +175,11 @@ internal class AgentTurnRunner(
                     }
 
                     val arbitration = turnPolicyEngine.arbitrateToolCalls(result.toolCalls, cognitionProfile)
+                    trace.arbitrationDecision(
+                        turnId = turnId,
+                        turnNumber = turnNumber,
+                        decision = buildArbitrationDecision(result.toolCalls, arbitration)
+                    )
                     val toolCallsToExecute = arbitration.selectedToolCalls
                     if (result.toolCalls.size > 1 && arbitration.selectedTool != null) {
                         Log.w(
@@ -167,6 +197,7 @@ internal class AgentTurnRunner(
                     }
 
                     // 3. ACT
+                    var actionForNextTurn: String? = null
                     if (toolCallsToExecute.isNotEmpty()) {
                         eventDispatcher.turnPhaseChanged(turnId, TurnPhase.EXECUTION)
                         eventDispatcher.status("💡 Executing actions...")
@@ -176,6 +207,7 @@ internal class AgentTurnRunner(
                         Log.d(TAG, "Using turn snapshot for actions: ${currentSnapshot.elements.size} elements")
 
                         for (toolCall in toolCallsToExecute) {
+                            actionForNextTurn = classifyAction(toolCall)
                             Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
                             trace.toolCall(turnId, turnNumber, toolCall)
 
@@ -303,6 +335,7 @@ internal class AgentTurnRunner(
                             eventDispatcher.status("✓ ${toolCall.name} executed")
                         }
                     }
+                    previousActionSignature = actionForNextTurn
 
                     val completion = turnPolicyEngine.decideCompletion(result, arbitration, cognitionProfile)
                     if (completion.shouldComplete) {
@@ -404,5 +437,63 @@ internal class AgentTurnRunner(
             }
 
         return "$resultText\n\n$observationText"
+    }
+
+    private fun createLoopDetectionPolicy(): LoopDetectionPolicy {
+        return LoopDetectionPolicy(
+            LoopDetectionConfig(
+                similarityThreshold = cognitionProfile.loopSimilarityThreshold,
+                maxConsecutiveScrollActions = cognitionProfile.maxConsecutiveScrollActions
+            )
+        )
+    }
+
+    private fun classifyAction(toolCall: ToolCallRequest): String {
+        if (toolCall.name != ToolName.MobileAction.raw) {
+            return toolCall.name.lowercase()
+        }
+
+        val action = toolCall.arguments.optString("action", "").trim().lowercase()
+        val mobileActionName = MobileActionName.from(action)
+        return when (mobileActionName) {
+            MobileActionName.Scroll -> "scroll:legacy"
+            MobileActionName.Swipe -> {
+                val direction = toolCall.arguments.optString("direction", "").trim().lowercase()
+                "scroll:${direction.ifBlank { "unknown" }}"
+            }
+            else -> "mobile_action:${mobileActionName.canonical}"
+        }
+    }
+
+    private fun buildArbitrationDecision(
+        originalCalls: List<ToolCallRequest>,
+        arbitration: com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
+    ): ArbitrationDecision {
+        val originalNameCounts = originalCalls.groupingBy { it.name }.eachCount()
+        val selectedToolIds = arbitration.selectedToolCalls.map { it.id }.toSet()
+        val dropped =
+            originalCalls
+                .filterNot { it.id in selectedToolIds }
+                .map { call ->
+                    val reason =
+                        when {
+                            call.name == "complete_task" && arbitration.hasNonCompletionTool ->
+                                DropReason.COMPLETE_TASK_DEFERRED
+                            (originalNameCounts[call.name] ?: 0) > 1 ->
+                                DropReason.DUPLICATE_TOOL
+                            arbitration.selectedToolCalls.isNotEmpty() ->
+                                DropReason.MAX_TOOLS_EXCEEDED
+                            else -> DropReason.POLICY_REJECTION
+                        }
+                    DroppedToolCall(toolName = call.name, reason = reason)
+                }
+
+        return ArbitrationDecision(
+            selectedTool = arbitration.selectedTool,
+            droppedToolCalls = dropped,
+            policyMode = cognitionProfile.turnPolicyMode,
+            selectedToolCount = arbitration.selectedToolCalls.size,
+            originalToolCount = originalCalls.size
+        )
     }
 }

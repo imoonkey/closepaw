@@ -6,6 +6,8 @@ import com.moonkey.androidagent.agent.cognition.profile.BuiltinCognitionProfiles
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.session.AgentSessionState
+import com.moonkey.androidagent.protocol.Todo
+import com.moonkey.androidagent.protocol.TodoStatus
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
@@ -43,6 +45,56 @@ class ContextPackagerTest {
         assertThat(packaged.userContext.text).contains("Current screen state (0 elements):")
         assertThat(packaged.userContext.text).contains("Available tools:")
         assertThat(packaged.userContext.text).contains("delegate_task")
+    }
+
+    @Test
+    fun `buildTurnInput appends loop and memory reminders`() {
+        val registry = ToolRegistry().apply {
+            register(TestContextTool("delegate_task"))
+            register(TestContextTool("write_todos"))
+            register(TestContextTool("scratchpad"))
+        }
+        val sessionState = AgentSessionState()
+        sessionState.todos.update(
+            listOf(
+                Todo(description = "Open Gmail", status = TodoStatus.IN_PROGRESS),
+                Todo(description = "Count unread emails", status = TodoStatus.PENDING)
+            )
+        )
+        sessionState.scratchpad.write("email_count", "7")
+
+        val promptBuilder =
+            AgentPromptBuilder(
+                basePrompt = "planner",
+                llmBackend = LLMBackendType.OPENAI,
+                toolRegistry = registry,
+                sessionState = sessionState,
+                visibleToolNames = setOf("delegate_task", "write_todos", "scratchpad")
+            )
+        val packager =
+            DefaultContextPackager(
+                promptBuilder = promptBuilder,
+                todoState = sessionState.todos,
+                scratchpadState = sessionState.scratchpad
+            )
+
+        val packaged =
+            packager.buildTurnInput(
+                profile = BuiltinCognitionProfiles.baseline,
+                raw =
+                    RawTurnData(
+                        snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()),
+                        loopWarning =
+                            LoopWarning(
+                                message = "Screen unchanged for 3 turns.",
+                                severity = LoopWarningSeverity.CRITICAL
+                            )
+                    )
+            )
+
+        assertThat(packaged.userContext.text).contains("LOOP DETECTED")
+        assertThat(packaged.userContext.text).contains("Todo status")
+        assertThat(packaged.userContext.text).contains("Scratchpad has 1 key")
     }
 }
 

@@ -3,6 +3,8 @@ package com.moonkey.androidagent.agent.subagent
 import com.moonkey.androidagent.agent.Agent
 import com.moonkey.androidagent.agent.AgentConfig
 import com.moonkey.androidagent.agent.AgentStopReason
+import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
+import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.protocol.AgentEvent
@@ -78,9 +80,27 @@ class IsolatedSubAgentRunner(
                 }
             }
             AgentStopReason.MaxTurnsReached -> {
+                val stepLimitNarrative =
+                    when (
+                        val stepDecision =
+                            ExecutorStepPolicy(
+                                definition.maxTurns,
+                                definition.narrativeSummaryOnLimit
+                            ).evaluate(
+                                stepCount = definition.maxTurns,
+                                delegatedQuery = request.query,
+                                history = childServices.historyManager.getAll()
+                            )
+                    ) {
+                        is ExecutorStepDecision.ForceStop -> stepDecision.narrativeSummary
+                        else -> null
+                    }
                 SubAgentResult(
                     success = false,
-                    message = completion?.toFailureMessage(definition.name) ?: "Sub-agent reached max turns."
+                    message =
+                        completion?.toFailureMessage(definition.name)
+                            ?: stepLimitNarrative
+                            ?: "Sub-agent reached max turns."
                 )
             }
             AgentStopReason.UserRequested -> {

@@ -146,6 +146,34 @@ class SubAgentRunnerTest {
         assertThat(result.message).contains("Not installed")
         assertThat(result.message).contains("Could not find Notion app")
     }
+
+    @Test
+    fun `runner returns narrative summary when executor hits step limit`() = runTest {
+        val llm = ScriptedSubAgentLLMClient(events = listOf(LLMStreamEvent.Completed))
+        val services = buildServices(llm, includeCompleteTask = false)
+        val runner =
+            IsolatedSubAgentRunner(
+                definition =
+                    AgentDefinition(
+                        name = "executor",
+                        description = "Exec",
+                        systemPrompt = "prompt",
+                        toolNames = emptyList(),
+                        maxTurns = 1,
+                        timeoutMs = 5_000,
+                        narrativeSummaryOnLimit = true
+                    ),
+                parentServices = services,
+                parentSessionId = SessionId("session-1"),
+                eventEmitter = { }
+            )
+
+        val result = runner.run(SubAgentRequest(query = "Tap search"))
+
+        assertThat(result.success).isFalse()
+        assertThat(result.message).contains("Executor reached step limit")
+        assertThat(result.message).contains("Delegated query: Tap search")
+    }
 }
 
 private fun buildServices(

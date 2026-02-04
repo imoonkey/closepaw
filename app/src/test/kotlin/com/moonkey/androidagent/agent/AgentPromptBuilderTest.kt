@@ -108,6 +108,16 @@ class AgentPromptBuilderTest {
         assertThat(prompt).doesNotContain("## Planner Rules\n")
     }
 
+    @Test
+    fun `buildSystemPrompt includes failure recovery rules when enabled`() {
+        val prompt = createBuilder(
+            visibleToolNames = setOf("delegate_task", "complete_task"),
+            cognitionProfile = BuiltinCognitionProfiles.baseline
+        ).buildSystemPrompt()
+
+        assertThat(prompt).contains("## Failure Recovery (Planner)")
+    }
+
     private fun createBuilder(
         visibleToolNames: Set<String>?,
         llmBackend: LLMBackendType = LLMBackendType.OPENAI,

@@ -8,7 +8,14 @@ data class CognitionProfile(
     val promptVariant: PromptVariant = PromptVariant.BASELINE,
     val contextPolicy: ContextPolicy = ContextPolicy.STANDARD,
     val retryPolicy: RetryPolicy = RetryPolicy(),
-    val turnPolicyMode: TurnPolicyMode = TurnPolicyMode.BASELINE
+    val turnPolicyMode: TurnPolicyMode = TurnPolicyMode.BASELINE,
+    val loopDetectionEnabled: Boolean = true,
+    val loopSimilarityThreshold: Double = 0.90,
+    val maxConsecutiveScrollActions: Int = 5,
+    val maxExecutorSteps: Int = 5,
+    val narrativeSummaryOnExecutorLimit: Boolean = true,
+    val failureRecoveryRulesEnabled: Boolean = true,
+    val todoListEnabled: Boolean = true
 )
 
 enum class PromptVariant {

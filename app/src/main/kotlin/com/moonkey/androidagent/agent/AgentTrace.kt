@@ -3,6 +3,7 @@ package com.moonkey.androidagent.agent
 import com.moonkey.androidagent.agent.cognition.trace.CognitionTraceRedactor
 import com.moonkey.androidagent.agent.cognition.trace.LlmInputItemsTraceSerializer
 import com.moonkey.androidagent.agent.cognition.metrics.RunMetrics
+import com.moonkey.androidagent.agent.cognition.trace.ArbitrationDecision
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.SessionId
@@ -268,6 +269,36 @@ internal class AgentTrace(
                     put("is_complete", JsonPrimitive(result.isComplete))
                 },
             artifacts = listOfNotNull(responseTextArtifact, toolCallsArtifact)
+        )
+    }
+
+    fun arbitrationDecision(turnId: String, turnNumber: Int, decision: ArbitrationDecision) {
+        if (!trace.enabled) return
+        trace.emit(
+            sessionId = sessionId.value,
+            type = "tool_arbitration",
+            turnId = turnId,
+            turnNumber = turnNumber,
+            data =
+                buildJsonObject {
+                    put("policy_mode", JsonPrimitive(decision.policyMode.name))
+                    put("original_tool_count", JsonPrimitive(decision.originalToolCount))
+                    put("selected_tool_count", JsonPrimitive(decision.selectedToolCount))
+                    put("selected_tool", JsonPrimitive(decision.selectedTool?.name ?: "none"))
+                    put(
+                        "dropped_tools",
+                        buildJsonArray {
+                            decision.droppedToolCalls.forEach { dropped ->
+                                add(
+                                    buildJsonObject {
+                                        put("name", JsonPrimitive(dropped.toolName))
+                                        put("reason", JsonPrimitive(dropped.reason.name))
+                                    }
+                                )
+                            }
+                        }
+                    )
+                }
         )
     }
 

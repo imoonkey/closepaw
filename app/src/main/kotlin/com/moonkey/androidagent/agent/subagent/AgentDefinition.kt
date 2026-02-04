@@ -9,7 +9,8 @@ data class AgentDefinition(
     val systemPrompt: String,
     val toolNames: List<String>,
     val maxTurns: Int = 10,
-    val timeoutMs: Long = 60_000
+    val timeoutMs: Long = 60_000,
+    val narrativeSummaryOnLimit: Boolean = true
 )
 
 /**

@@ -64,7 +64,12 @@ internal class AgentRuntime(
             trace = trace,
             turnPolicyEngine = DefaultTurnPolicyEngine(),
             cognitionProfile = cognitionProfile,
-            contextPackager = DefaultContextPackager(promptBuilder)
+            contextPackager =
+                DefaultContextPackager(
+                    promptBuilder = promptBuilder,
+                    todoState = services.sessionState.todos,
+                    scratchpadState = services.sessionState.scratchpad
+                )
         )
 
     suspend fun run(): AgentStopReason {
