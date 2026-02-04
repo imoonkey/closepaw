@@ -84,6 +84,7 @@ internal class AgentTurnRunner(
                     )
                     val systemPrompt = promptBuilder.buildSystemPrompt()
                     val userContext = promptBuilder.buildUserContext(snapshot)
+                    val inputItems = turn.buildInputItems(userContext)
 
                     trace.llmRequest(
                         turnId = turnId,
@@ -91,13 +92,19 @@ internal class AgentTurnRunner(
                         snapshot = snapshot,
                         systemPrompt = systemPrompt,
                         userContextText = userContext.text,
-                        history = services.historyManager.forPrompt()
+                        history = services.historyManager.forPrompt(),
+                        inputItems = inputItems
                     )
 
                     var turnResult: TurnResult? = null
                     var streamError: Throwable? = null
 
-                    turn.runStreaming(systemPrompt, userContext, services.config.model).collect { event ->
+                    turn.runStreaming(
+                        systemPrompt = systemPrompt,
+                        userContext = userContext,
+                        modelName = services.config.model,
+                        inputItemsOverride = inputItems
+                    ).collect { event ->
                         when (event) {
                             is TurnStreamEvent.TextDelta -> eventDispatcher.messageDelta(turnId, event.text)
                             is TurnStreamEvent.ToolCallReceived ->

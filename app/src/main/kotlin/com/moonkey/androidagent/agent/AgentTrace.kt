@@ -1,5 +1,7 @@
 package com.moonkey.androidagent.agent
 
+import com.moonkey.androidagent.agent.cognition.trace.CognitionTraceRedactor
+import com.moonkey.androidagent.agent.cognition.trace.LlmInputItemsTraceSerializer
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.SessionId
@@ -9,7 +11,9 @@ import com.moonkey.androidagent.trace.HistoryTraceSerializer
 import com.moonkey.androidagent.trace.TraceArtifactRef
 import com.moonkey.androidagent.trace.TraceJson
 import com.moonkey.androidagent.trace.emit
+import com.openai.models.responses.ResponseInputItem
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -19,8 +23,18 @@ internal class AgentTrace(
     private val services: SessionServices
 ) {
     private val trace = services.traceRecorder
+    private var sessionStartedAtMs: Long = 0L
+    private var turnStartedCount: Int = 0
+    private var turnCompletedCount: Int = 0
+    private var turnErrorCount: Int = 0
+    private var llmRequestCount: Int = 0
+    private var llmResponseCount: Int = 0
+    private var toolCallCount: Int = 0
+    private var toolSuccessCount: Int = 0
+    private var toolFailureCount: Int = 0
 
     fun sessionStarted(config: AgentConfig) {
+        sessionStartedAtMs = System.currentTimeMillis()
         trace.emit(
             sessionId = sessionId.value,
             type = "session_started",
@@ -40,6 +54,7 @@ internal class AgentTrace(
     }
 
     fun sessionStopped(reason: AgentStopReason, turnsExecuted: Int) {
+        val summaryArtifact = writeRunSummary(reason, turnsExecuted)
         trace.emit(
             sessionId = sessionId.value,
             type = "session_stopped",
@@ -47,11 +62,13 @@ internal class AgentTrace(
                 buildJsonObject {
                     put("reason", JsonPrimitive(reason::class.simpleName ?: "unknown"))
                     put("turns_executed", JsonPrimitive(turnsExecuted))
-                }
+                },
+            artifacts = listOfNotNull(summaryArtifact)
         )
     }
 
     fun turnStarted(turnId: String, turnNumber: Int) {
+        turnStartedCount++
         trace.emit(
             sessionId = sessionId.value,
             type = "turn_started",
@@ -61,6 +78,7 @@ internal class AgentTrace(
     }
 
     fun turnCompleted(turnId: String, turnNumber: Int) {
+        turnCompletedCount++
         trace.emit(
             sessionId = sessionId.value,
             type = "turn_completed",
@@ -70,6 +88,7 @@ internal class AgentTrace(
     }
 
     fun turnError(turnId: String, turnNumber: Int, error: Throwable) {
+        turnErrorCount++
         trace.emit(
             sessionId = sessionId.value,
             type = "turn_error",
@@ -117,21 +136,23 @@ internal class AgentTrace(
         snapshot: ScreenSnapshot,
         systemPrompt: String,
         userContextText: String,
-        history: List<ResponseItem>
+        history: List<ResponseItem>,
+        inputItems: List<ResponseInputItem>
     ) {
         if (!trace.enabled) return
+        llmRequestCount++
 
         val historyJson = HistoryTraceSerializer.toJson(history)
         val historyArtifact =
-            trace.storeText(
+            storeRedactedText(
                 kind = "llm_history",
                 filenameHint = "turn_${turnNumber}_history.json",
-                content = TraceJson.instance.encodeToString(historyJson),
+                content = encodeRedactedJson(historyJson),
                 mimeType = "application/json"
             )
 
         val systemArtifact =
-            trace.storeText(
+            storeRedactedText(
                 kind = "llm_system_prompt",
                 filenameHint = "turn_${turnNumber}_system.txt",
                 content = systemPrompt,
@@ -139,11 +160,34 @@ internal class AgentTrace(
             )
 
         val contextArtifact =
-            trace.storeText(
+            storeRedactedText(
                 kind = "llm_user_context",
                 filenameHint = "turn_${turnNumber}_user_context.txt",
                 content = userContextText,
                 mimeType = "text/plain"
+            )
+
+        val fullPromptArtifact =
+            storeRedactedText(
+                kind = "llm_full_prompt",
+                filenameHint = "turn_${turnNumber}_full_prompt.txt",
+                content =
+                    """
+                    === SYSTEM PROMPT ===
+                    $systemPrompt
+
+                    === USER CONTEXT ===
+                    $userContextText
+                    """.trimIndent(),
+                mimeType = "text/plain"
+            )
+
+        val inputItemsArtifact =
+            storeRedactedText(
+                kind = "llm_input_items",
+                filenameHint = "turn_${turnNumber}_llm_input_items.json",
+                content = encodeRedactedJson(LlmInputItemsTraceSerializer.toJson(inputItems)),
+                mimeType = "application/json"
             )
 
         val snapshotArtifacts =
@@ -167,15 +211,24 @@ internal class AgentTrace(
             data =
                 buildJsonObject {
                     put("history_items", JsonPrimitive(history.size))
+                    put("input_items", JsonPrimitive(inputItems.size))
                     put("model", JsonPrimitive(services.config.model))
                     put("screenshot_attached", JsonPrimitive(snapshot.image != null))
                 },
-            artifacts = listOfNotNull(historyArtifact, systemArtifact, contextArtifact) + snapshotArtifacts
+            artifacts =
+                listOfNotNull(
+                    historyArtifact,
+                    systemArtifact,
+                    contextArtifact,
+                    fullPromptArtifact,
+                    inputItemsArtifact
+                ) + snapshotArtifacts
         )
     }
 
     fun llmResponse(turnId: String, turnNumber: Int, result: TurnResult) {
         if (!trace.enabled) return
+        llmResponseCount++
 
         val toolCallsJson =
             buildJsonArray {
@@ -192,7 +245,7 @@ internal class AgentTrace(
 
         val responseTextArtifact =
             result.content?.let {
-                trace.storeText(
+                storeRedactedText(
                     kind = "llm_response_text",
                     filenameHint = "turn_${turnNumber}_assistant.txt",
                     content = it,
@@ -201,10 +254,10 @@ internal class AgentTrace(
             }
 
         val toolCallsArtifact =
-            trace.storeText(
+            storeRedactedText(
                 kind = "llm_tool_calls",
                 filenameHint = "turn_${turnNumber}_tool_calls.json",
-                content = TraceJson.instance.encodeToString(toolCallsJson),
+                content = encodeRedactedJson(toolCallsJson),
                 mimeType = "application/json"
             )
 
@@ -225,9 +278,10 @@ internal class AgentTrace(
 
     fun toolCall(turnId: String, turnNumber: Int, toolCall: ToolCallRequest) {
         if (!trace.enabled) return
+        toolCallCount++
 
         val argsArtifact =
-            trace.storeText(
+            storeRedactedText(
                 kind = "tool_call_args",
                 filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}.json",
                 content = toolCall.arguments.toString(2),
@@ -258,9 +312,14 @@ internal class AgentTrace(
         observedSnapshot: ScreenSnapshot?
     ) {
         if (!trace.enabled) return
+        if (toolResult is ToolCallResult.Success) {
+            toolSuccessCount++
+        } else {
+            toolFailureCount++
+        }
 
         val resultArtifact =
-            trace.storeText(
+            storeRedactedText(
                 kind = "tool_result",
                 filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_result.txt",
                 content = formattedResult,
@@ -270,7 +329,7 @@ internal class AgentTrace(
         val observationArtifact =
             when (observation) {
                 is Observation.ScreenState ->
-                    trace.storeText(
+                    storeRedactedText(
                         kind = "tool_observation_screen",
                         filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_screen.json",
                         content = observation.accessibilityTree,
@@ -278,7 +337,7 @@ internal class AgentTrace(
                     )
 
                 is Observation.TextOutput ->
-                    trace.storeText(
+                    storeRedactedText(
                         kind = "tool_observation_text",
                         filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_obs.txt",
                         content = observation.content,
@@ -335,5 +394,51 @@ internal class AgentTrace(
             artifacts = postArtifacts
         )
     }
-}
 
+    private fun writeRunSummary(reason: AgentStopReason, turnsExecuted: Int): TraceArtifactRef? {
+        if (!trace.enabled) return null
+        val stoppedAtMs = System.currentTimeMillis()
+        val summaryJson =
+            buildJsonObject {
+                put("session_id", JsonPrimitive(sessionId.value))
+                trace.runId?.let { put("run_id", JsonPrimitive(it)) }
+                put("started_at_ms", JsonPrimitive(sessionStartedAtMs))
+                put("stopped_at_ms", JsonPrimitive(stoppedAtMs))
+                put("duration_ms", JsonPrimitive((stoppedAtMs - sessionStartedAtMs).coerceAtLeast(0)))
+                put("stop_reason", JsonPrimitive(reason::class.simpleName ?: "unknown"))
+                put("turns_executed", JsonPrimitive(turnsExecuted))
+                put("turns_started", JsonPrimitive(turnStartedCount))
+                put("turns_completed", JsonPrimitive(turnCompletedCount))
+                put("turn_errors", JsonPrimitive(turnErrorCount))
+                put("llm_requests", JsonPrimitive(llmRequestCount))
+                put("llm_responses", JsonPrimitive(llmResponseCount))
+                put("tool_calls", JsonPrimitive(toolCallCount))
+                put("tool_successes", JsonPrimitive(toolSuccessCount))
+                put("tool_failures", JsonPrimitive(toolFailureCount))
+            }
+        return storeRedactedText(
+            kind = "run_summary",
+            filenameHint = "run_summary.json",
+            content = encodeRedactedJson(summaryJson),
+            mimeType = "application/json"
+        )
+    }
+
+    private fun storeRedactedText(
+        kind: String,
+        filenameHint: String,
+        content: String,
+        mimeType: String
+    ): TraceArtifactRef? {
+        return trace.storeText(
+            kind = kind,
+            filenameHint = filenameHint,
+            content = CognitionTraceRedactor.redactText(content),
+            mimeType = mimeType
+        )
+    }
+
+    private fun encodeRedactedJson(element: JsonElement): String {
+        return TraceJson.instance.encodeToString(CognitionTraceRedactor.redactJson(element))
+    }
+}

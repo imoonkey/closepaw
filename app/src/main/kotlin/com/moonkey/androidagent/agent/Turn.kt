@@ -7,6 +7,7 @@ import com.moonkey.androidagent.llm.LLMToolCall
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.openai.models.ChatModel
+import com.openai.models.responses.ResponseInputItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.json.JSONObject
@@ -40,6 +41,10 @@ class Turn(
     }
 
     private val inputBuilder = TurnInputBuilder(historyManager)
+
+    fun buildInputItems(userContext: AgentPromptBuilder.UserContext): List<ResponseInputItem> {
+        return inputBuilder.build(userContext)
+    }
     
     /**
      * Execute one turn of the ReAct loop (non-streaming).
@@ -52,10 +57,11 @@ class Turn(
     suspend fun run(
         systemPrompt: String,
         userContext: AgentPromptBuilder.UserContext,
-        modelName: String = "gpt-5.2"
+        modelName: String = "gpt-5.2",
+        inputItemsOverride: List<ResponseInputItem>? = null
     ): TurnResult {
         // 1. Build input items from history using proper ResponseInputItem types
-        val inputItems = inputBuilder.build(userContext)
+        val inputItems = inputItemsOverride ?: inputBuilder.build(userContext)
         
         Log.d(TAG, "Running turn with ${inputItems.size} input items, model=$modelName")
         
@@ -100,13 +106,14 @@ class Turn(
     fun runStreaming(
         systemPrompt: String,
         userContext: AgentPromptBuilder.UserContext,
-        modelName: String = "gpt-5.2"
+        modelName: String = "gpt-5.2",
+        inputItemsOverride: List<ResponseInputItem>? = null
     ): Flow<TurnStreamEvent> = flow {
         Log.d(TAG, "Running streaming turn with LLM streaming, model=$modelName")
         
         try {
             // 1. Build input items
-            val inputItems = inputBuilder.build(userContext)
+            val inputItems = inputItemsOverride ?: inputBuilder.build(userContext)
             Log.d(TAG, "Streaming turn with ${inputItems.size} input items")
             
             // 2. Get tools
