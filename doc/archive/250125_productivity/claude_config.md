@@ -575,7 +575,7 @@ androidagent/
 │   │   ├── verify/             # /verify - Pre-commit quality gates
 │   │   ├── update-docs/        # /update-docs - Sync documentation
 │   │   ├── tdd/                # /tdd - Test-driven development
-│   │   ├── visual-fix/         # /visual-fix - Debug with screenshots
+│   │   ├── visual-debug/         # /visual-debug - Debug with screenshots
 │   │   ├── build-fix/          # /build-fix - Fix Gradle errors
 │   │   ├── code-review/        # /code-review - Systematic review
 │   │   ├── strategic-compact/  # /strategic-compact - Context compaction

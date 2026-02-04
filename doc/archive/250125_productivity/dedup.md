@@ -13,7 +13,7 @@ Merged duplicate commands into skills following Claude Code best practices. Comm
 ```
 .claude/
   commands/           # 6 files - REMOVED
-    plan.md, verify.md, update-docs.md, tdd.md, visual-fix.md, build-fix.md
+    plan.md, verify.md, update-docs.md, tdd.md, visual-debug.md, build-fix.md
   skills/             # 8 folders with verbose names
     planning-workflow/, verification-loop/, doc-update/, tdd-workflow/,
     visual-debug-workflow/, code-review-workflow/, strategic-compact/, coding-standards/
@@ -28,7 +28,7 @@ Merged duplicate commands into skills following Claude Code best practices. Comm
     verify/                   # Pre-commit quality gates
     update-docs/              # Sync docs with code
     tdd/                      # Test-driven development
-    visual-fix/               # Debug with screenshots
+    visual-debug/               # Debug with screenshots
     build-fix/                # Fix Gradle errors
     code-review/              # Systematic review
     strategic-compact/        # Context compaction (renamed from compact)
@@ -49,7 +49,7 @@ AGENTS.md -> AIDEV.md
 - `/verify` - Pre-commit quality gates (build, lint, test)
 - `/update-docs` - Sync documentation with code changes
 - `/tdd` - Test-driven development workflow
-- `/visual-fix` - Debug agent with visual inspection
+- `/visual-debug` - Debug agent with visual inspection
 - `/build-fix` - Fix Gradle/Kotlin errors incrementally
 - `/code-review` - Systematic code review
 - `/strategic-compact` - Strategic context compaction
