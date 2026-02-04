@@ -106,6 +106,24 @@ cd inspection_tool
 # Select the pulled trace folder (e.g. debug-output/run_YYYYMMDD_HHMMSS/trace)
 ```
 
+## Replay Viewer v2 (Step-Centric)
+
+For cognition debugging, compile a replay index and use the new viewer:
+
+```bash
+cd inspection_tool
+python3 replay_compiler.py ../debug-output/run_YYYYMMDD_HHMMSS/trace
+./serve.sh 8080
+# Open http://localhost:8080/replay_v2/index.html
+# Select the same trace folder (debug-output/run_YYYYMMDD_HHMMSS/trace)
+```
+
+Generated files:
+
+- `derived/replay_index.json`
+- `derived/agent_tree.json`
+- `derived/steps.jsonl`
+
 ## Workflow for Tuning Perceptor
 
 1. **Capture diverse screens** - Navigate through different apps/screens

@@ -1,5 +1,7 @@
 package com.moonkey.androidagent.agent.subagent
 
+import com.moonkey.androidagent.agent.AgentExecutionRole
+
 /**
  * Defines a sub-agent that can be invoked through delegate_task.
  */
@@ -10,7 +12,8 @@ data class AgentDefinition(
     val toolNames: List<String>,
     val maxTurns: Int = 10,
     val timeoutMs: Long = 60_000,
-    val narrativeSummaryOnLimit: Boolean = true
+    val narrativeSummaryOnLimit: Boolean = true,
+    val executionRole: AgentExecutionRole? = null
 )
 
 /**
@@ -19,7 +22,8 @@ data class AgentDefinition(
 data class SubAgentRequest(
     val query: String,
     val currentSubgoal: String? = null,
-    val importantNotes: List<String> = emptyList()
+    val importantNotes: List<String> = emptyList(),
+    val delegationCallId: String? = null
 )
 
 /**

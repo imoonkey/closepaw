@@ -70,7 +70,7 @@ class DelegateTaskToolTest {
             put("important_notes", JSONArray(listOf("button near bottom", "do not open settings")))
         })
 
-        val result = invocation.execute(TestToolExecutionContext())
+        val result = invocation.execute(TestToolExecutionContext(callId = "call-123"))
 
         assertThat(result is ToolExecutionResult.Success).isTrue()
         val success = result as ToolExecutionResult.Success
@@ -82,6 +82,7 @@ class DelegateTaskToolTest {
             "button near bottom",
             "do not open settings"
         )
+        assertThat(capturedRequests.single().delegationCallId).isEqualTo("call-123")
         assertThat(events.filterIsInstance<AgentEvent.SubAgentStarted>()).hasSize(1)
         assertThat(events.filterIsInstance<AgentEvent.SubAgentCompleted>()).hasSize(1)
     }
@@ -120,7 +121,9 @@ class DelegateTaskToolTest {
     }
 }
 
-private class TestToolExecutionContext : ToolExecutionContext {
+private class TestToolExecutionContext(
+    override val callId: String? = null
+) : ToolExecutionContext {
     override val platform = FakeAndroidPlatform()
     override val currentSnapshot = null
     override fun isCancelled(): Boolean = false

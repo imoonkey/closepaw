@@ -2,6 +2,7 @@ package com.moonkey.androidagent.agent.subagent
 
 import com.moonkey.androidagent.agent.Agent
 import com.moonkey.androidagent.agent.AgentConfig
+import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
@@ -57,7 +58,11 @@ class IsolatedSubAgentRunner(
                 debugMode = parentServices.config.debugMode,
                 systemPrompt = definition.systemPrompt,
                 allowedToolNames = definition.toolNames.toSet(),
-                cognitionProfileId = parentServices.config.cognitionProfileId
+                cognitionProfileId = parentServices.config.cognitionProfileId,
+                agentId = childSessionId.value,
+                agentRole = definition.executionRole ?: AgentExecutionRole.EXECUTOR,
+                parentSessionId = parentSessionId,
+                delegationCallId = request.delegationCallId
             ),
             services = childServices,
             eventEmitter = { event -> bridgeEvent(event) },

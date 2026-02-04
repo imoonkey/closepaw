@@ -229,6 +229,11 @@ mkdir -p "$LOCAL_TRACE_DIR"
 if adb shell "ls '$DEVICE_TRACE_DIR' " >/dev/null 2>&1; then
     log "Pulling trace artifacts..."
     adb pull "$DEVICE_TRACE_DIR/." "$LOCAL_TRACE_DIR/" >/dev/null 2>&1 || true
+    if command -v python3 >/dev/null 2>&1; then
+        log "Compiling replay index..."
+        python3 "$PROJECT_ROOT/inspection_tool/replay_compiler.py" "$LOCAL_TRACE_DIR" \
+            > "$DEBUG_DIR/replay_compile.log" 2>&1 || true
+    fi
 fi
 
 # Save LFMLLMClient specific logs for local LLM debugging
@@ -248,4 +253,5 @@ echo "To view:"
 echo "  Screenshots: open $DEBUG_DIR/turn_*.png"
 echo "  Full log:    cat $DEBUG_DIR/agent.log"
 echo "  Trace:       cd inspection_tool && ./serve.sh 8080  (open /trace_viewer.html, pick $DEBUG_DIR/trace)"
+echo "  Replay v2:   cd inspection_tool && ./serve.sh 8080  (open /replay_v2/index.html, pick $DEBUG_DIR/trace)"
 echo -e "${GREEN}=============================================================${NC}"

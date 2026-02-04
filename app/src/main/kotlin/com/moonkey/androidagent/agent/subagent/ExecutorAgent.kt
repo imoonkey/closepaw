@@ -13,6 +13,7 @@ object ExecutorAgent {
         // app_control is available here so executor can recover when delegation lands outside target app.
         toolNames = listOf("mobile_action", "app_control", "scratchpad", "complete_task"),
         maxTurns = 5,  // Reduced from 10 - atomic actions should complete in 1-3 turns
-        timeoutMs = 30_000  // Reduced from 60s - atomic actions are fast
+        timeoutMs = 30_000,  // Reduced from 60s - atomic actions are fast
+        executionRole = com.moonkey.androidagent.agent.AgentExecutionRole.EXECUTOR
     )
 }

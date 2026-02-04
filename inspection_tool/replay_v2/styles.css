@@ -1,0 +1,237 @@
+:root {
+  --bg: #0f141a;
+  --bg-panel: #17202b;
+  --bg-panel-2: #1f2b39;
+  --border: #2f4052;
+  --text: #e8eef4;
+  --text-muted: #9cb0c4;
+  --accent: #52c2ff;
+  --ok: #39d98a;
+  --warn: #ffb454;
+  --err: #ff6b6b;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top right, #203145 0%, var(--bg) 45%);
+  color: var(--text);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(23, 32, 43, 0.9);
+}
+
+.title {
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#folderInput { display: none; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 300px 360px 1fr;
+  height: calc(100vh - 52px);
+  gap: 1px;
+  background: var(--border);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  min-width: 0;
+}
+
+.panel-header {
+  padding: 10px 12px;
+  background: var(--bg-panel-2);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+
+.panel-body {
+  padding: 10px;
+  overflow: auto;
+  flex: 1;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  background: #233448;
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn:hover { border-color: var(--accent); }
+
+.pill {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: #162332;
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-item {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+
+.tree-item:hover { border-color: var(--border); }
+.tree-item.active {
+  border-color: var(--accent);
+  background: rgba(82, 194, 255, 0.12);
+}
+
+.tree-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tree-meta {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.timeline {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.timeline-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.timeline-item.active {
+  border-color: var(--accent);
+  background: rgba(82, 194, 255, 0.1);
+}
+
+.timeline-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.timeline-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+
+.timeline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section {
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: #1a2635;
+}
+
+.section-title {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+.preview {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #13202e;
+  max-height: 320px;
+  overflow: auto;
+  padding: 8px;
+}
+
+.preview pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.preview img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--text-muted);
+  background: #162332;
+}
+
+.chip:hover { border-color: var(--accent); color: var(--text); }
+
+.status-ok { color: var(--ok); }
+.status-err { color: var(--err); }
+.status-warn { color: var(--warn); }
+
+.code {
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-size: 12px;
+}

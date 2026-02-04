@@ -7,6 +7,18 @@ import com.moonkey.androidagent.protocol.SessionId
  * 
  * Simplified from OrchestrationConfig - removes multi-agent specific fields.
  */
+/**
+ * Execution role used for trace classification and replay grouping.
+ */
+enum class AgentExecutionRole {
+    /** Main planner/orchestrator. */
+    PLANNER,
+    /** Delegated executor for atomic actions. */
+    EXECUTOR,
+    /** Single-agent mode without delegation. */
+    STANDALONE
+}
+
 data class AgentConfig(
     /** The user's goal (or task input) */
     val goal: String,
@@ -38,5 +50,27 @@ data class AgentConfig(
     /**
      * Cognition profile id to select prompt/context/policy behavior.
      */
-    val cognitionProfileId: String? = null
+    val cognitionProfileId: String? = null,
+
+    /**
+     * Stable id used for trace grouping in multi-agent runs.
+     *
+     * Defaults to session id (one agent per session) for Phase 1.
+     */
+    val agentId: String = sessionId.value,
+
+    /**
+     * Runtime role of this agent instance.
+     */
+    val agentRole: AgentExecutionRole = AgentExecutionRole.STANDALONE,
+
+    /**
+     * Parent session id when spawned by delegation.
+     */
+    val parentSessionId: SessionId? = null,
+
+    /**
+     * Parent delegate tool call id that spawned this agent.
+     */
+    val delegationCallId: String? = null
 )

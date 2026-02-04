@@ -3,6 +3,7 @@ package com.moonkey.androidagent.session
 import android.util.Log
 import com.moonkey.androidagent.agent.Agent
 import com.moonkey.androidagent.agent.AgentConfig
+import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.agent.cognition.profile.DefaultCognitionProfileRegistry
 import com.moonkey.androidagent.agent.subagent.AgentRegistry
@@ -56,7 +57,9 @@ internal class SessionAgentRunner(
             uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode,
             allowedToolNames = PLANNER_ALLOWED_TOOLS,
-            cognitionProfileId = config.cognitionProfileId
+            cognitionProfileId = config.cognitionProfileId,
+            agentId = sessionId.value,
+            agentRole = AgentExecutionRole.PLANNER
         )
 
         val newAgent = Agent(

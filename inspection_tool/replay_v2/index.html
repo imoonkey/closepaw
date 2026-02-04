@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Android Agent Replay v2</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="title">Android Agent Replay v2</div>
+    <div class="toolbar">
+      <span id="meta" class="pill">No trace loaded</span>
+      <input id="folderInput" type="file" webkitdirectory directory multiple />
+      <button id="loadBtn" class="btn">Load Trace Folder</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel">
+      <div class="panel-header">Agent Tree</div>
+      <div id="treePanel" class="panel-body hint">Load a trace folder.</div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">Step Timeline</div>
+      <div class="panel-body">
+        <div class="timeline-toolbar">
+          <button id="prevBtn" class="btn">Prev</button>
+          <button id="nextBtn" class="btn">Next</button>
+          <span id="stepCounter" class="pill">0 / 0</span>
+        </div>
+        <ul id="timeline" class="timeline"></ul>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">Detail</div>
+      <div id="detailPanel" class="panel-body hint">Select a step.</div>
+    </section>
+  </main>
+
+  <script type="module" src="./replay.js"></script>
+</body>
+</html>

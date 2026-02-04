@@ -25,6 +25,9 @@ import com.openai.models.responses.ResponseInputItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicLong
 
@@ -60,6 +63,12 @@ class AgentTraceObservabilityTest {
             inputItems = inputItems
         )
         trace.sessionStopped(AgentStopReason.GoalAchieved, turnsExecuted = 1)
+
+        val sessionStarted = recorder.findEvent("session_started")
+        assertThat(sessionStarted).isNotNull()
+        val dataJson = Json.parseToJsonElement(sessionStarted!!.data.toString()).jsonObject
+        assertThat(dataJson["agent_role"]?.jsonPrimitive?.content).isEqualTo("standalone")
+        assertThat(dataJson["agent_id"]?.jsonPrimitive?.content).isEqualTo("session-1")
 
         val fullPrompt = recorder.findStored("turn_1_full_prompt.txt")
         val inputItemsJson = recorder.findStored("turn_1_llm_input_items.json")
@@ -109,10 +118,13 @@ private class RecordingTraceRecorder : TraceRecorder {
 
     private val seq = AtomicLong(0L)
     private val storedTexts = mutableMapOf<String, String>()
+    private val recordedEvents = mutableListOf<TraceEventRecord>()
 
     override fun nextSeq(): Long = seq.incrementAndGet()
 
-    override fun record(event: TraceEventRecord) = Unit
+    override fun record(event: TraceEventRecord) {
+        recordedEvents.add(event)
+    }
 
     override fun storeText(
         kind: String,
@@ -148,6 +160,10 @@ private class RecordingTraceRecorder : TraceRecorder {
     override suspend fun close() = Unit
 
     fun findStored(filenameHint: String): String? = storedTexts[filenameHint]
+
+    fun findEvent(type: String): TraceEventRecord? {
+        return recordedEvents.firstOrNull { it.type == type }
+    }
 }
 
 private class NoopLLMClient : LLMClient() {

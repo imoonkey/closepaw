@@ -226,6 +226,7 @@ class ToolRouter(
         // Execute the tool (with finally block to ensure cleanup on abnormal exit - M1)
         val executionResult = try {
             val execContext = object : ToolExecutionContext {
+                override val callId: String = resolvedCallId
                 override val platform: AndroidPlatform = context.platform
                 override val currentSnapshot: ScreenSnapshot? = executionSnapshot
                 override fun isCancelled(): Boolean = context.isCancelled()
@@ -360,4 +361,3 @@ class SimpleToolRouterContext(
         cancellationFlag.set(true)
     }
 }
-

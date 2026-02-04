@@ -106,6 +106,12 @@ interface ToolInvocation {
  * ToolExecutionContext - Context provided to tool invocations during execution.
  */
 interface ToolExecutionContext {
+    /**
+     * Call id assigned by ToolRouter, useful for cross-component correlation.
+     * Nullable for tests or custom execution contexts.
+     */
+    val callId: String? get() = null
+
     /** Access to platform operations */
     val platform: com.moonkey.androidagent.platform.AndroidPlatform
     

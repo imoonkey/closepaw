@@ -157,16 +157,18 @@ private class DelegateTaskInvocation(
             return ToolExecutionResult.Cancelled("Cancelled before execution")
         }
 
+        val requestWithCallId = request.copy(delegationCallId = context.callId)
+
         eventEmitter(
             AgentEvent.SubAgentStarted(
                 sessionId = sessionId,
                 timestamp = System.currentTimeMillis(),
                 agentName = definition.name,
-                query = request.query
+                query = requestWithCallId.query
             )
         )
 
-        val result = runnerFactory(definition).run(request)
+        val result = runnerFactory(definition).run(requestWithCallId)
 
         eventEmitter(
             AgentEvent.SubAgentCompleted(
