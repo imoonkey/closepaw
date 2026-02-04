@@ -1,18 +1,7 @@
 # UI Style Guide
 
-> This document defines the design system: colors, typography, shapes, and visual specifications.
-
-## Table of Contents
-
-1. [Design System](#design-system)
-2. [Color Palette](#color-palette)
-3. [Typography](#typography)
-4. [Shapes](#shapes)
-5. [Theme Structure](#theme-structure)
-6. [Visual Identity](#visual-identity)
-7. [Component Specifications](#component-specifications)
-
----
+> Design system: colors, typography, shapes, and visual specifications.
+> Last updated: 2026-02-04
 
 ## Design System
 
@@ -20,19 +9,21 @@ The Android Agent uses Material 3 design with a premium chat-focused aesthetic.
 
 ### Theme Files
 
-```
-ui/theme/
-├── Color.kt       # Light/Dark color schemes
-├── Shape.kt       # Bubble shapes, card shapes
-├── Theme.kt       # ChatTheme composable + system bar config
-└── Type.kt        # Typography definitions
-```
+→ See: `ui/theme/`
+
+| File | Purpose |
+|------|---------|
+| `Color.kt` | Light/Dark color schemes |
+| `Shape.kt` | Bubble shapes, card shapes |
+| `Theme.kt` | ChatTheme composable + system bar config |
+| `Type.kt` | Typography definitions |
+| `WindowInsets.kt` | AppWindowInsets for consistent inset handling |
 
 ---
 
 ## Color Palette
 
-Clean, modern palette inspired by ChatGPT and contemporary AI assistants:
+Clean, modern palette inspired by ChatGPT and contemporary AI assistants.
 
 ### Light Theme
 
@@ -91,36 +82,18 @@ Material 3 typography scale optimized for chat:
 ```kotlin
 val AgentTypography = Typography(
     // Display - Empty state title
-    displayMedium = TextStyle(
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 36.sp
-    ),
+    displayMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp),
     
     // Title - Header (Medium weight for elegance)
-    titleLarge = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize = 20.sp,
-        lineHeight = 28.sp
-    ),
+    titleLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 20.sp, lineHeight = 28.sp),
     
     // Body - Chat messages
-    bodyLarge = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp
-    ),
+    bodyLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
     
     // Labels - Action cards, timestamps
-    labelLarge = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp
-    )
+    labelLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp)
 )
 ```
-
-### Typography Usage
 
 | Style | Usage |
 |-------|-------|
@@ -138,18 +111,14 @@ Custom shapes for chat bubbles and cards:
 ```kotlin
 // User bubble: rounded except bottom-right
 val BubbleShapeUser = RoundedCornerShape(
-    topStart = 20.dp,
-    topEnd = 20.dp,
-    bottomStart = 20.dp,
-    bottomEnd = 6.dp
+    topStart = 20.dp, topEnd = 20.dp,
+    bottomStart = 20.dp, bottomEnd = 6.dp
 )
 
 // Agent bubble: rounded except top-left
 val BubbleShapeAgent = RoundedCornerShape(
-    topStart = 6.dp,
-    topEnd = 20.dp,
-    bottomStart = 20.dp,
-    bottomEnd = 20.dp
+    topStart = 6.dp, topEnd = 20.dp,
+    bottomStart = 20.dp, bottomEnd = 20.dp
 )
 
 // Action cards
@@ -161,95 +130,31 @@ val CapsuleShape = RoundedCornerShape(24.dp)
 
 ---
 
-## Theme Structure
+## Visual Identity
 
-### ChatTheme Composable
+| Element | Style |
+|---------|-------|
+| Background | Pure white (#FFFFFF) |
+| User Bubbles | Light gray (#EFEFEF), dark text |
+| Agent Bubbles | Surface variant (#F7F7F8), dark text |
+| Action Cards | Bordered cards with status colors |
+| Task Banner | Subtle surface variant with pulsing dot |
+| Send Button | Pure black when text entered, gray when empty |
 
-The theme wraps the entire app with Material 3 theming and edge-to-edge configuration.
+---
 
-### System Bar Configuration
+## System Configuration
 
-- Edge-to-edge enabled
+### Edge-to-Edge
+
 - Status bar: Transparent
 - Navigation bar: Transparent with scrim
 - Proper inset handling via `AppWindowInsets`
 
 ---
 
-## Visual Identity
-
-| Element | Style |
-|---------|-------|
-| Background | Pure white (#FFFFFF) |
-| User Bubbles | Light gray (#EFEFEF), dark text — modern chat style |
-| Agent Bubbles | Surface variant (#F7F7F8), dark text |
-| Action Cards | Bordered cards with status colors |
-| Task Banner | Subtle surface variant with pulsing dot |
-| Smart Capsule | White with shadow, status dot |
-| Send Button | Pure black when text entered, gray when empty |
-| Edge Glow | State-colored gradient glow on screen edges |
-| Click Ripple | Expanding circle at touch point |
-| Swipe Trail | Animated line with dots showing gesture path |
-
----
-
-## Component Specifications
-
-### Smart Capsule
-
-| Property | Value |
-|----------|-------|
-| Height (compact) | 48dp |
-| Width | Screen width - 32dp margins |
-| Corner Radius | 24dp (capsule) |
-| Background | White with subtle shadow |
-| Status Dot | 8dp, color-coded |
-| Typography | 14sp, Medium weight |
-| Button Size | 40dp circular |
-
-### Edge Glow Colors
-
-| State | Color | Hex |
-|-------|-------|-----|
-| Active | Teal | `#10A37F` |
-| Executing | Light Blue | `#3B82F6` |
-| Success | Teal | `#10A37F` |
-| Error | Red | `#EF4146` |
-| Paused | Amber | `#F5A623` |
-
-### Click Ripple
-
-| Property | Value |
-|----------|-------|
-| Initial radius | 8dp |
-| Final radius | 48dp |
-| Duration | 500ms |
-| Animation | EaseOut (fast start, slow end) |
-| Click color | Gray at 60% opacity |
-| Long press color | Purple (`#7C3AED`) at 60% opacity |
-
-### Swipe Trail
-
-| Property | Value |
-|----------|-------|
-| Line width | 4dp |
-| Start dot radius | 8dp |
-| End dot radius | 6dp |
-| Swipe color | Light Blue (`#3B82F6`) at 50% opacity |
-| Scroll color | Indigo (`#6366F1`) at 50% opacity |
-| Animation | Linear, matches gesture duration |
-
----
-
-## References
-
-- [Jetpack Compose Documentation](https://developer.android.com/jetpack/compose)
-- [Material 3 for Compose](https://developer.android.com/jetpack/compose/designsystems/material3)
-- [Compose BOM](https://developer.android.com/jetpack/compose/bom)
-
----
-
 ## Related Docs
 
-- [UI User Interaction](user_interaction.md) - Pages, components, user behaviors
-- [UI Tech Design](tech_design.md) - Technical implementation details
+- [User Interaction](user_interaction.md) - Pages, components, user behaviors
+- [Tech Design](tech_design.md) - Technical implementation details
+- [Overlay](overlay.md) - Overlay visual specifications
