@@ -1,7 +1,7 @@
 # Android Agent Infrastructure
 
 > This document describes the architecture and components of the Android Agent system.
-> Last updated: 2026-02-02
+> Last updated: 2026-02-04
 
 ## Table of Contents
 
@@ -9,10 +9,13 @@
 2. [Architecture Overview](#architecture-overview)
 3. [Package Structure](#package-structure)
 4. [Core Components](#core-components)
-5. [Session History System](#session-history-system)
-6. [Data Flow](#data-flow)
-7. [Tool System](#tool-system)
-8. [Quick Reference](#quick-reference)
+5. [Sub-Agent System](#sub-agent-system)
+6. [Planning State System](#planning-state-system)
+7. [Context Hygiene](#context-hygiene-history-compression)
+8. [Session History System](#session-history-system)
+9. [Data Flow](#data-flow)
+10. [Tool System](#tool-system)
+11. [Quick Reference](#quick-reference)
 
 ---
 
@@ -21,7 +24,7 @@
 | Principle | Description |
 |-----------|-------------|
 | **Task-Based Model** | Session > Task > Turn hierarchy. Multi-round interaction via `Idle` state. |
-| **Single ReAct Agent** | One agent running Perceive → Think → Act → Observe loop. No multi-agent complexity. |
+| **Planner-Executor Pattern** | Main agent plans and delegates atomic UI actions to executor sub-agents. |
 | **Streaming Responses** | Native OpenAI streaming with `MessageDelta` events for real-time UI updates. |
 | **Thin Session Layer** | Session manages lifecycle only. All intelligence lives in the Agent. |
 | **Op/Event Protocol** | Clean separation between UI intent (Op) and agent state (Event). |
@@ -29,6 +32,8 @@
 | **Service-Oriented DI** | `SessionServices` provides all dependencies to the agent. |
 | **Session History Persistence** | Automatic session recording with resume capability. Real-time event-to-file persistence. |
 | **Visual Feedback** | Edge glow and action visualization provide ambient feedback during agent execution. |
+| **Context Hygiene** | Text-only history (no screenshots/a11y trees). Latest screen injected per turn. |
+| **Planning State Tools** | `write_todos` and `scratchpad` for stateful planning and cross-agent data handoff. |
 
 ---
 
@@ -134,19 +139,28 @@ com.moonkey.androidagent/
 │   └── AgentService.kt           # AccessibilityService entry point
 │
 ├── agent/                        # Core agent logic
-│   ├── Agent.kt                  # ReAct loop executor
+│   ├── AgentRuntime.kt           # ReAct loop executor
+│   ├── AgentTurnRunner.kt        # Single turn execution
 │   ├── AgentConfig.kt            # Agent configuration
 │   ├── AgentEventDispatcher.kt   # AgentEvent emission helpers
 │   ├── AgentObservation.kt       # Observation types + conversions
 │   ├── AgentPromptBuilder.kt     # System prompt + context builder
 │   ├── ActionDescriptionFormatter.kt # Tool action descriptions
-│   ├── Turn.kt                   # Single LLM turn (OpenAI Responses API)
-│   └── TurnInputBuilder.kt       # ResponseInputItem assembly
+│   ├── Turn.kt                   # LLM call wrapper (OpenAI Responses API)
+│   ├── TurnInputBuilder.kt       # ResponseInputItem assembly
+│   └── subagent/                 # Sub-agent delegation
+│       ├── AgentDefinition.kt    # Sub-agent definition + request/result
+│       ├── AgentRegistry.kt      # Sub-agent discovery
+│       ├── SubAgentRunner.kt     # Sub-agent execution with isolation
+│       └── ExecutorAgent.kt      # UI grounding executor agent
 │
 ├── session/                      # Session management
 │   ├── AgentSession.kt           # Lifecycle manager
 │   ├── SessionAgentRunner.kt     # Agent lifecycle runner
-│   └── SessionServices.kt        # Dependency injection
+│   ├── SessionServices.kt        # Dependency injection
+│   ├── AgentSessionState.kt      # Shared state container
+│   ├── TodoState.kt              # Todo list state (planning)
+│   └── ScratchpadState.kt        # Key-value memory state
 │
 ├── tool/                         # Consolidated tool system
 │   │
@@ -174,15 +188,20 @@ com.moonkey.androidagent/
 │   └── impl/                     # Concrete tools
 │       ├── MobileActionTool.kt   # UI interactions (click/type/swipe/system_button)
 │       ├── AppControlTool.kt     # list_apps / open_app
-│       └── CompleteTaskTool.kt   # Task completion
+│       ├── CompleteTaskTool.kt   # Task completion
+│       ├── WriteTodosTool.kt     # Todo list management (planning)
+│       ├── ScratchpadTool.kt     # Key-value memory
+│       └── DelegateTaskTool.kt   # Sub-agent delegation
 │
 ├── protocol/                     # Communication contracts
 │   ├── Op.kt                     # Operations (UI → Agent)
-│   ├── AgentEvent.kt             # Events (Agent → UI)
+│   ├── AgentEvent.kt             # Events (Agent → UI, includes sub-agent events)
 │   ├── SessionState.kt           # State machine
 │   ├── SessionId.kt              # ID value class
 │   ├── AgentError.kt             # Error types
-│   └── ApprovalTypes.kt          # Approval enums
+│   ├── ApprovalTypes.kt          # Approval enums
+│   ├── TodoModels.kt             # Todo/TodoStatus models
+│   └── ScreenStatePhase.kt       # Screen capture phase enum
 │
 ├── platform/                     # Android platform abstraction
 │   ├── AndroidPlatform.kt        # Interface
@@ -192,7 +211,8 @@ com.moonkey.androidagent/
 │   └── ActionResult.kt           # Result types
 │
 ├── perception/                   # Screen perception
-│   └── Perceptor.kt              # Accessibility tree → ScreenSnapshot
+│   ├── Perceptor.kt              # Accessibility tree → ScreenSnapshot
+│   └── ScreenSummary.kt          # Text summary for history compression
 │
 ├── llm/                          # LLM integration
 │   ├── LLMClient.kt              # Unified LLM interface + stream events
@@ -465,6 +485,203 @@ class AccessibilityPlatform(
         // ... dispatch gesture
     }
 }
+```
+
+---
+
+## Sub-Agent System
+
+The Android Agent supports a **Planner-Executor** delegation pattern where the main agent acts as a planner and delegates atomic UI actions to specialized sub-agents.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Planner-Executor Pattern                     │
+│                                                                  │
+│   ┌────────────────────────────────────────────────────┐        │
+│   │              Main Agent (Planner)                   │        │
+│   │  - Plans multi-step tasks                          │        │
+│   │  - Manages todos and scratchpad                    │        │
+│   │  - Delegates atomic actions via delegate_task      │        │
+│   └───────────────────────┬────────────────────────────┘        │
+│                           │                                      │
+│                           │ delegate_task(query)                 │
+│                           ▼                                      │
+│   ┌────────────────────────────────────────────────────┐        │
+│   │              Executor Agent (Sub-Agent)             │        │
+│   │  - Receives semantic intent                        │        │
+│   │  - Grounds to actual UI elements                   │        │
+│   │  - Executes ONE atomic action                      │        │
+│   │  - Returns result to planner                       │        │
+│   └────────────────────────────────────────────────────┘        │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Core Components
+
+#### AgentDefinition (`agent/subagent/AgentDefinition.kt`)
+
+Defines a sub-agent that can be invoked via `delegate_task`:
+
+```kotlin
+data class AgentDefinition(
+    val name: String,           // e.g., "executor"
+    val description: String,    // For agent directory prompt
+    val systemPrompt: String,   // Sub-agent system prompt
+    val toolNames: List<String>, // Tools available to this agent
+    val maxTurns: Int = 10,     // Max turns before timeout
+    val timeoutMs: Long = 60_000
+)
+```
+
+#### AgentRegistry (`agent/subagent/AgentRegistry.kt`)
+
+Registry for available sub-agents:
+
+```kotlin
+class AgentRegistry {
+    fun register(definition: AgentDefinition)
+    fun get(name: String): AgentDefinition?
+    fun getAll(): List<AgentDefinition>
+    fun getDirectoryPrompt(): String  // For delegate_task description
+}
+```
+
+#### SubAgentRunner (`agent/subagent/SubAgentRunner.kt`)
+
+Executes a sub-agent with isolated context:
+
+- Creates a fresh `AgentRuntime` with filtered tools
+- Injects sub-agent system prompt
+- Bridges events to parent session
+- Returns `SubAgentResult` on completion
+
+**Key isolation properties:**
+- Child has its own history (no parent history access)
+- Child reads fresh screen state on each turn
+- `scratchpad` is intentionally shared for data handoff
+
+#### DelegateTaskTool (`tool/impl/DelegateTaskTool.kt`)
+
+Tool for delegating tasks to sub-agents:
+
+```kotlin
+// Usage from main agent
+delegate_task(
+    agent_name = "executor",
+    query = "Tap on the 'Send' button",
+    current_subgoal = "Send the email",        // optional
+    important_notes = ["Recipient: john@example.com"]  // optional
+)
+```
+
+### Context Passing
+
+When delegating, pass only:
+- `query` — Self-contained instruction (required)
+- `current_subgoal` — What we're trying to achieve (optional)
+- `important_notes` — Short list of key facts (optional)
+
+Do NOT pass: full history, prior screenshots, prior a11y trees.
+
+The executor reads the current screen in its own turn loop. For structured data handoff, use the shared `scratchpad`.
+
+### Built-in Sub-Agents
+
+| Agent | Description | Tools |
+|-------|-------------|-------|
+| `executor` | UI grounding and atomic action execution | `mobile_action`, `app_control`, `complete_task` |
+
+---
+
+## Planning State System
+
+The agent uses **planning state tools** to track progress on complex tasks and share data between planner and executor.
+
+### TodoState (`session/TodoState.kt`)
+
+Thread-safe todo list for tracking subgoals:
+
+```kotlin
+class TodoState {
+    fun update(todos: List<Todo>)  // Replace entire list
+    fun get(): List<Todo>          // Get current list
+    fun clear()                    // Clear all todos
+}
+```
+
+**Constraints:**
+- Only ONE todo can be `IN_PROGRESS` at a time
+- Full list replacement (no incremental updates)
+
+### ScratchpadState (`session/ScratchpadState.kt`)
+
+Thread-safe key-value store for intermediate data:
+
+```kotlin
+class ScratchpadState {
+    fun write(key: String, value: String)
+    fun read(key: String): String?
+    fun delete(key: String): Boolean
+    fun list(): List<String>
+    fun clear()
+    
+    companion object {
+        const val MAX_ENTRIES = 20
+        const val MAX_KEY_LENGTH = 100
+        const val MAX_VALUE_LENGTH = 2000
+    }
+}
+```
+
+**Use cases:**
+- Store extracted info from one screen to use in another
+- Remember values across navigation
+- Pass structured data from planner to executor
+
+---
+
+## Context Hygiene (History Compression)
+
+To optimize token usage and improve LLM performance, the agent uses text-only history with latest screen injection.
+
+### Key Design Decisions
+
+| Aspect | Approach |
+|--------|----------|
+| **History** | Text-only (no screenshots, no a11y trees) |
+| **Screen State** | Latest screen injected per turn (not stored in history) |
+| **Observations** | `ScreenSummary` text instead of raw JSON |
+
+### ScreenSummary (`perception/ScreenSummary.kt`)
+
+Generates a concise text summary for history:
+
+```kotlin
+object ScreenSummary {
+    fun generate(snapshot: ScreenSnapshot): String
+    // Example: "Screen: com.google.gmail (MainActivity) - 42 elements"
+}
+```
+
+### Data Flow
+
+```
+Turn N                                  Turn N+1
+  │                                       │
+  ├─ Perceive: capture screen            ├─ Perceive: capture screen
+  │                                       │
+  ├─ Think: LLM with                     ├─ Think: LLM with
+  │   - History (text-only)              │   - History (text-only)
+  │   - Latest screen (full JSON)        │   - Latest screen (full JSON)
+  │   - Todos, scratchpad                │   - Todos, scratchpad
+  │                                       │
+  ├─ Act: execute tool                   ├─ Act: execute tool
+  │                                       │
+  └─ Observe: add text summary           └─ Observe: add text summary
+      to history (NOT raw screen)            to history (NOT raw screen)
 ```
 
 ---
@@ -921,6 +1138,9 @@ Turn.runStreaming()          Agent                AgentSession           UI
 | `mobile_action` | Consolidated UI actions (`click`, `long_press`, `type`, `swipe`, `system_button`, `wait`) | `action` + per-action fields (`element_index`, `resource_id`, `resource_id_index`, `text`, `text_index`, `target_text`, `target_text_index`, `x`, `y`, `x1`, `y1`, `x2`, `y2`, `start`, `end`, `direction`, `distance`, `button`, `duration_ms`, `clear`, `agent_thought`) |
 | `app_control` | App discovery and launch (`list_apps`, `open_app`) | `action` + `filter`, `package_name`, `app_name`, `agent_thought` |
 | `complete_task` | Signal goal completion | `status`, `answer`, `reason` (optional) |
+| `write_todos` | Todo list for tracking progress on multi-step tasks | `todos` (array of `{description, status}`), `agent_thought` (optional) |
+| `scratchpad` | Key-value memory for intermediate data | `action` (`write`/`read`/`delete`/`list`), `key`, `value`, `agent_thought` (optional) |
+| `delegate_task` | Delegate atomic action to a sub-agent | `agent_name`, `query`, `current_subgoal` (optional), `important_notes` (optional), `agent_thought` (optional) |
 
 **Notes:**
 - Scrolling is modeled as `mobile_action` with `action: "swipe"`. Two modes are supported:

@@ -1,7 +1,7 @@
 # Android Agent Protocol Reference
 
 > This document describes the Op/Event communication protocol between the UI layer and the agent.
-> Last updated: 2026-02-02
+> Last updated: 2026-02-04
 
 ## Overview
 
@@ -155,10 +155,19 @@ AgentEvent
 │   ├── SessionPaused
 │   └── SessionResumed
 │
-├── Task Events (NEW)
+├── Task Events
 │   ├── TaskStarted
 │   ├── TaskCompleted
 │   └── MessageDelta (streaming)
+│
+├── Planning State Events
+│   ├── TodosUpdated
+│   └── ScratchpadUpdated
+│
+├── Sub-Agent Events
+│   ├── SubAgentStarted
+│   ├── SubAgentActivity
+│   └── SubAgentCompleted
 │
 ├── Turn Events
 │   ├── TurnStarted
@@ -283,6 +292,87 @@ session.events
     .collect { event ->
         currentMessage += event.delta  // Append each chunk
     }
+```
+
+### Planning State Events
+
+Events for tracking agent planning state (todos, scratchpad).
+
+#### TodosUpdated
+
+Emitted when the agent updates its todo list via `write_todos` tool.
+
+```kotlin
+data class TodosUpdated(
+    override val sessionId: SessionId,
+    override val timestamp: Long,
+    val todos: List<Todo>
+) : AgentEvent
+```
+
+**Todo Structure:**
+```kotlin
+data class Todo(
+    val description: String,
+    val status: TodoStatus  // PENDING, IN_PROGRESS, COMPLETED, CANCELLED
+)
+```
+
+#### ScratchpadUpdated
+
+Emitted when the agent writes or deletes from scratchpad.
+
+```kotlin
+data class ScratchpadUpdated(
+    override val sessionId: SessionId,
+    override val timestamp: Long,
+    val key: String,
+    val action: String  // "write" or "delete"
+) : AgentEvent
+```
+
+### Sub-Agent Events
+
+Events for tracking sub-agent delegation and execution.
+
+#### SubAgentStarted
+
+Emitted when the main agent delegates a task to a sub-agent via `delegate_task`.
+
+```kotlin
+data class SubAgentStarted(
+    override val sessionId: SessionId,
+    override val timestamp: Long,
+    val agentName: String,  // e.g., "executor"
+    val query: String       // Delegated instruction
+) : AgentEvent
+```
+
+#### SubAgentActivity
+
+Emitted for bridged activity from a running sub-agent (e.g., status updates).
+
+```kotlin
+data class SubAgentActivity(
+    override val sessionId: SessionId,
+    override val timestamp: Long,
+    val agentName: String,
+    val activity: String
+) : AgentEvent
+```
+
+#### SubAgentCompleted
+
+Emitted when a sub-agent finishes execution.
+
+```kotlin
+data class SubAgentCompleted(
+    override val sessionId: SessionId,
+    override val timestamp: Long,
+    val agentName: String,
+    val success: Boolean,
+    val message: String
+) : AgentEvent
 ```
 
 ### Turn Events
