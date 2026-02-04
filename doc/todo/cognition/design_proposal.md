@@ -12,6 +12,30 @@
 
 **Core Insight**: AndroidAgent's architecture is already more maintainable than AutoDev. The gap is in tactical cognition features—loop detection, failure recovery, and structured memory usage—not in fundamental design.
 
+## Implementation Progress (as of 2026-02-04)
+
+### Completed in code
+
+- `3.1` Loop detection: implemented with a11y-tree signature similarity, repeated-action detection, and consecutive-scroll detection.
+- `3.2` Step limits + narrative failure: implemented in `ExecutorStepPolicy`; integrated into main turn flow (warnings injected into context) and sub-agent failure summaries.
+- `3.4` Failure recovery rules: implemented and injected via `PromptAssembler`, adapted to **a11y-first + optional screenshot** workflow (no `transcribe_screen()` dependency).
+- `3.6` Dynamic context injection: implemented in `ContextPackager` (loop/turn-budget/todo/scratchpad reminders).
+- `3.7` Arbitration trace: implemented (`ArbitrationTrace` + `AgentTrace.tool_arbitration` events).
+
+### Partially completed
+
+- `3.5` Todo reminders: implemented using existing `TodoState`/`ScratchpadState` instead of introducing a new `TodoList` module. Reminder logic now skips completed/cancelled-only lists.
+
+### Explicitly skipped for now
+
+- `3.3` Domain heuristics: intentionally skipped to avoid hacky prompt bloat.
+- `Phase 4` On-demand OCR/transcription tooling: not started (and intentionally not required for current a11y-first stack).
+
+### Reference commits
+
+- `5289eb3`: initial implementation pass for 3.1/3.2/3.4 (+ selective 3.5/3.6/3.7).
+- `0990fa9`: hardening pass from review (thread-safety state passing, step warning injection, edge-case/test/doc fixes).
+
 ---
 
 ## 1. Current State Assessment
@@ -46,23 +70,26 @@
 ```
 agent/cognition/
 ├── context/
-│   ├── ContextPackager.kt          [EXTEND] Add system reminders
-│   └── NavigationState.kt          [NEW] Track screen hashes, scroll counts
+│   ├── ContextPackager.kt          [DONE] System reminders (loop/step/todo/scratchpad)
+│   └── NavigationState.kt          [DONE] Screen signatures + action history
 ├── policy/
-│   ├── TurnPolicyEngine.kt         [EXTEND] Add loop detection policy
-│   ├── LoopDetectionPolicy.kt      [NEW] Screen/action repetition detection
-│   └── ExecutorStepPolicy.kt       [NEW] MAX_STEPS enforcement
+│   ├── TurnPolicyEngine.kt         [UNCHANGED] Arbitration/completion kept separate
+│   ├── LoopDetectionPolicy.kt      [DONE] Screen/action repetition detection
+│   └── ExecutorStepPolicy.kt       [DONE] Step-limit warning + narrative summary
 ├── profile/
-│   └── CognitionProfile.kt         [EXTEND] Add todoListEnabled, maxExecutorSteps
+│   └── CognitionProfile.kt         [DONE] loop/todo/step config fields
 ├── prompt/
-│   ├── DomainHeuristics.kt         [NEW] Date, count, search rules
-│   ├── FailureRecoveryRules.kt     [NEW] Alternative approach guidance
-│   └── PromptAssembler.kt          [EXTEND] Inject dynamic sections
+│   ├── DomainHeuristics.kt         [SKIPPED] intentionally not added
+│   ├── FailureRecoveryRules.kt     [DONE] Alternative approach guidance
+│   └── PromptAssembler.kt          [DONE] Inject dynamic sections
 ├── memory/
-│   ├── TodoList.kt                 [NEW] Structured task tracking
-│   └── ScratchpadReminder.kt       [NEW] System reminder generation
+│   ├── TodoState (existing)        [REUSED] Existing planning state
+│   └── ScratchpadState (existing)  [REUSED] Existing planning state
 └── trace/
-    └── ArbitrationTrace.kt         [NEW] Log dropped tool calls + reasons
+    └── ArbitrationTrace.kt         [DONE] Log dropped tool calls + reasons
+
+agent/
+└── TurnRunnerState.kt              [DONE] Explicit per-runner state passing
 ```
 
 ### Data Flow
@@ -99,6 +126,11 @@ graph TB
 **Problem**: Agent scrolls indefinitely or repeats actions without progress.
 
 **Solution**: Track screen signatures and action patterns, inject warnings.
+
+**Status**: DONE
+- Implemented with a11y signature token similarity (Jaccard-like), not strict screenshot hashes.
+- Integrated in `AgentTurnRunner` + `ContextPackager`.
+- Configurable thresholds wired through `CognitionProfile`.
 
 ```kotlin
 // agent/cognition/context/NavigationState.kt
@@ -155,6 +187,10 @@ data class LoopWarning(val message: String)
 
 **Solution**: Enforce MAX_STEPS, generate narrative summaries on limit.
 
+**Status**: DONE
+- `ExecutorStepPolicy` implemented and used both in main turn flow (warning reminders) and sub-agent limit failure summaries.
+- Warning threshold aligned to `maxSteps - 2`.
+
 ```kotlin
 // Extension to CognitionProfile
 data class CognitionProfile(
@@ -189,6 +225,9 @@ class ExecutorStepPolicy(private val maxSteps: Int) {
 **Problem**: Agent lacks domain-specific guidance for common tasks.
 
 **Solution**: Modular heuristic rules injected based on detected task type.
+
+**Status**: SKIPPED (intentional)
+- Kept out to avoid brittle prompt hacks and token bloat.
 
 ```kotlin
 // agent/cognition/prompt/DomainHeuristics.kt
@@ -245,6 +284,10 @@ object DomainHeuristics {
 
 **Solution**: Explicit failure recovery guidance in prompts.
 
+**Status**: DONE (adapted)
+- Implemented in `FailureRecoveryRules.kt` and injected by `PromptAssembler`.
+- Adapted to current architecture: **a11y tree primary, screenshot optional**, and no dependency on `transcribe_screen()`.
+
 ```kotlin
 // agent/cognition/prompt/FailureRecoveryRules.kt
 object FailureRecoveryRules {
@@ -280,6 +323,10 @@ object FailureRecoveryRules {
 **Problem**: Agent forgets multi-step plans mid-execution.
 
 **Solution**: Structured TodoList with per-turn reminders.
+
+**Status**: PARTIAL
+- No new `TodoList` class added; reused existing `TodoState`.
+- Reminder injection is implemented in `ContextPackager`.
 
 ```kotlin
 // agent/cognition/memory/TodoList.kt
@@ -335,6 +382,9 @@ class TodoList {
 
 **Solution**: Extend `ContextPackager` to inject reminders.
 
+**Status**: DONE
+- `ContextPackager` now injects loop warnings, step warnings, todo reminders, and scratchpad reminders.
+
 ```kotlin
 // Extension to ContextPackager
 class ContextPackager(
@@ -372,6 +422,9 @@ class ContextPackager(
 
 **Solution**: Log arbitration decisions in trace.
 
+**Status**: DONE
+- `ArbitrationTrace` implemented and emitted as `tool_arbitration` events in `AgentTrace`.
+
 ```kotlin
 // agent/cognition/trace/ArbitrationTrace.kt
 data class ArbitrationDecision(
@@ -400,26 +453,28 @@ enum class DropReason {
 
 ### Files to Modify
 
-| File | Changes |
-|------|---------|
-| `CognitionProfile.kt` | Add `maxExecutorSteps`, `todoListEnabled`, `loopDetectionEnabled` |
-| `ContextPackager.kt` | Add reminder injection, loop warning injection |
-| `PromptAssembler.kt` | Add selective domain heuristics inclusion |
-| `AgentTurnRunner.kt` | Integrate `NavigationState`, step counting |
-| `TurnPolicyEngine.kt` | Add loop detection policy evaluation |
-| `AgentTrace.kt` | Add arbitration decision logging |
+| File | Planned Changes | Status |
+|------|------------------|--------|
+| `CognitionProfile.kt` | Add cognition feature toggles/limits | DONE |
+| `ContextPackager.kt` | Reminder + warning injection | DONE |
+| `PromptAssembler.kt` | Inject recovery/rules sections | DONE |
+| `AgentTurnRunner.kt` | Integrate navigation state + step warnings | DONE |
+| `TurnPolicyEngine.kt` | Loop detection policy evaluation | SKIPPED (kept in runner) |
+| `AgentTrace.kt` | Add arbitration decision logging | DONE |
+| `AgentRuntime.kt` | Carry runner state across turns | DONE |
 
 ### New Files
 
-| File | Purpose |
-|------|---------|
-| `context/NavigationState.kt` | Screen hash tracking, loop detection |
-| `policy/LoopDetectionPolicy.kt` | Loop detection policy logic |
-| `policy/ExecutorStepPolicy.kt` | Step limit enforcement |
-| `prompt/DomainHeuristics.kt` | Modular domain rules |
-| `prompt/FailureRecoveryRules.kt` | Recovery guidance |
-| `memory/TodoList.kt` | Structured task tracking |
-| `trace/ArbitrationTrace.kt` | Arbitration decision logging |
+| File | Purpose | Status |
+|------|---------|--------|
+| `context/NavigationState.kt` | Screen signature tracking, loop detection input | DONE |
+| `policy/LoopDetectionPolicy.kt` | Loop detection policy logic | DONE |
+| `policy/ExecutorStepPolicy.kt` | Step-limit warning/enforcement policy | DONE |
+| `prompt/DomainHeuristics.kt` | Modular domain rules | SKIPPED |
+| `prompt/FailureRecoveryRules.kt` | Recovery guidance | DONE |
+| `memory/TodoList.kt` | Structured task tracking | SKIPPED (reused `TodoState`) |
+| `trace/ArbitrationTrace.kt` | Arbitration decision logging | DONE |
+| `agent/TurnRunnerState.kt` | Explicit runtime state passing | DONE |
 
 ---
 
@@ -427,39 +482,55 @@ enum class DropReason {
 
 ### Phase 1: Loop Detection & Failure Recovery (Week 1)
 
-1. Implement `NavigationState` with screen hashing
-2. Add loop detection policy to `TurnPolicyEngine`
-3. Inject loop warnings via `ContextPackager`
-4. Implement executor step limit with narrative summary
-5. Add failure recovery rules to prompts
+Status: COMPLETED (with minor architecture adaptation)
+
+1. ✅ Implement `NavigationState` with signature-based matching
+2. ✅ Add `LoopDetectionPolicy` (integrated in `AgentTurnRunner`, not `TurnPolicyEngine`)
+3. ✅ Inject loop warnings via `ContextPackager`
+4. ✅ Implement executor step limit with narrative summary
+5. ✅ Add failure recovery rules to prompts
 
 **Validation**: Agent should stop infinite scrolling within 5 attempts.
 
 ### Phase 2: Memory Enforcement (Week 2)
 
-1. Implement `TodoList` with system reminders
-2. Enhance `ScratchpadTool` with PAD-N key convention
-3. Update prompts to enforce scratchpad usage
-4. Add arbitration trace logging
+Status: PARTIAL
+
+1. ✅ Todo/scratchpad reminders injected through `ContextPackager` using existing state classes
+2. ⏳ Enhance `ScratchpadTool` with PAD-N key convention (not started)
+3. ⏳ Prompt-level scratchpad discipline improvements beyond current recovery rules (not started)
+4. ✅ Add arbitration trace logging
 
 **Validation**: Agent should maintain awareness of todos across 10+ turns.
 
 ### Phase 3: Domain Heuristics (Week 3)
 
-1. Implement `DomainHeuristics` module
-2. Add task-type detection to `PromptAssembler`
-3. Selectively inject relevant heuristics
-4. Port date handling, count/search, multi-item rules
+Status: DEFERRED (intentional)
+
+1. ⏸️ Implement `DomainHeuristics` module
+2. ⏸️ Add task-type detection to `PromptAssembler`
+3. ⏸️ Selectively inject relevant heuristics
+4. ⏸️ Port date handling, count/search, multi-item rules
 
 **Validation**: Agent should correctly handle "count emails from next week" type tasks.
 
 ### Phase 4: On-Demand OCR (Optional)
 
-1. Add `TranscribeScreenTool` for on-demand OCR
-2. Integrate with perception layer
-3. Update prompts with OCR usage guidance
+Status: NOT STARTED (and not planned near-term for this project)
+
+1. ⏸️ Add `TranscribeScreenTool` for on-demand OCR
+2. ⏸️ Integrate with perception layer
+3. ⏸️ Update prompts with OCR usage guidance
 
 **Validation**: Agent should read text from image-heavy screens.
+
+### Next Pickup Guide
+
+If continuing this work, start with Phase 2 unfinished items:
+
+1. Add scratchpad keying convention + cleanup policy (`ScratchpadTool` + tests).
+2. Add lightweight prompt constraints for scratchpad discipline (without full domain heuristics).
+3. Run measurement pass for loop rate / recovery rate with trace-based sampling before adding new prompt complexity.
 
 ---
 
