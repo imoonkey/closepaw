@@ -64,16 +64,13 @@ class Turn(
             allowedToolNames?.contains(spec.name) != false
         }
         Log.d(TAG, "Using ${tools.size} tools: ${tools.map { it.name() }}")
-        
-        // 3. Build full system prompt with agent instructions
-        val fullSystemPrompt = buildSystemPrompt(systemPrompt)
-        
-        // 4. Convert model name to ChatModel enum
+
+        // 3. Convert model name to ChatModel enum
         val chatModel = modelNameToChatModel(modelName)
-        
-        // 5. Call LLM via Responses API
+
+        // 4. Call LLM via Responses API
         val response = llmClient.chatWithTools(
-            systemPrompt = fullSystemPrompt,
+            systemPrompt = systemPrompt,
             inputItems = inputItems,
             tools = tools,
             model = chatModel
@@ -116,20 +113,17 @@ class Turn(
             val tools = toolRegistry.generateResponsesApiTools { spec ->
                 allowedToolNames?.contains(spec.name) != false
             }
-            
-            // 3. Build system prompt
-            val fullSystemPrompt = buildSystemPrompt(systemPrompt)
-            
-            // 4. Convert model name
+
+            // 3. Convert model name
             val chatModel = modelNameToChatModel(modelName)
-            
-            // 5. Accumulate text and tool calls locally for building final result
+
+            // 4. Accumulate text and tool calls locally for building final result
             val textAccumulator = StringBuilder()
             val toolCalls = mutableListOf<LLMToolCall>()
-            
-            // 6. Stream response using LLMStreamEvent (works with both OpenAI and local models)
+
+            // 5. Stream response using LLMStreamEvent (works with both OpenAI and local models)
             llmClient.chatWithToolsStreaming(
-                systemPrompt = fullSystemPrompt,
+                systemPrompt = systemPrompt,
                 inputItems = inputItems,
                 tools = tools,
                 model = chatModel
@@ -166,7 +160,7 @@ class Turn(
                 }
             }
             
-            // 7. Build final result from accumulated data
+            // 6. Build final result from accumulated data
             val textContent = textAccumulator.toString().takeIf { it.isNotEmpty() }
             val result = processResponse(textContent, toolCalls)
             
@@ -219,69 +213,6 @@ class Turn(
                 ChatModel.GPT_5_2
             }
         }
-    }
-    
-    /**
-     * Build system prompt with agent behavior instructions.
-     * 
-     * Note: Tool descriptions are provided to the model via the tools parameter,
-     * not in the system prompt, which is the recommended approach.
-     * 
-     * Optimized for both large (GPT-4) and smaller local models (1-2B params).
-     */
-    private fun buildSystemPrompt(basePrompt: String): String {
-        val visibleTools = allowedToolNames ?: toolRegistry.getNames()
-        val hasDelegate = "delegate_task" in visibleTools
-        val hasMobileAction = "mobile_action" in visibleTools
-
-        val roleRules = if (hasDelegate && !hasMobileAction) {
-            """
-            ## Planner Rules
-
-            1. You are a planner. Do NOT attempt low-level UI actions directly.
-            2. For grounded UI work, call `delegate_task` with a complete, self-contained query.
-            3. You may use `app_control` directly for fast app switching/opening when appropriate.
-            4. Keep one execution action per turn (`delegate_task` or `app_control`), then wait.
-            5. Use `write_todos` and `scratchpad` to track progress and facts.
-            6. Call `complete_task` only after the overall goal is fully achieved.
-
-            ## Writing Good Executor Queries
-
-            When calling delegate_task, your query should be specific and actionable:
-            - BAD: "Search for cats" (too vague)
-            - GOOD: "In Chrome browser, tap the search bar and type 'cats', then tap Search"
-            
-            Include in your query:
-            - What app/screen context you're on
-            - What specific element to interact with (by text, description, or purpose)
-            - What the success criteria is
-            """.trimIndent()
-        } else {
-            """
-            ## Executor Rules
-
-            1. Execute ONE action per turn, then STOP and observe the result.
-            2. Never call `complete_task` together with another action in the same turn.
-            3. Call `complete_task` only after verifying the goal on screen.
-            4. Include `agent_thought` explaining WHY you chose this element.
-
-            ## Element Selection (CRITICAL)
-
-            Before acting, SCAN the screen JSON to find your target:
-            1. Match by text or desc first - find elements whose text/desc matches your target
-            2. Use resource_id if available and unique (e.g., "com.app:id/search_button")
-            3. Use element_index as last resort
-            4. If target not visible, scroll first (swipe direction="up" to scroll down)
-            
-            NEVER click randomly. ALWAYS identify the specific element first.
-            """.trimIndent()
-        }
-
-        return """
-            $basePrompt
-
-            $roleRules
-        """.trimIndent()
     }
     
     /**

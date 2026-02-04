@@ -55,7 +55,51 @@ class AgentPromptBuilderTest {
         assertThat(context.text).doesNotContain("delegate_task")
     }
 
-    private fun createBuilder(visibleToolNames: Set<String>?): AgentPromptBuilder {
+    @Test
+    fun `buildSystemPrompt uses planner rules when only planner tools are visible`() {
+        val prompt = createBuilder(
+            visibleToolNames = setOf("delegate_task", "complete_task", "write_todos")
+        ).buildSystemPrompt()
+
+        assertThat(prompt).contains("## Planner Rules")
+        assertThat(prompt).doesNotContain("## Executor Rules")
+    }
+
+    @Test
+    fun `buildSystemPrompt uses executor rules when mobile action is visible`() {
+        val prompt = createBuilder(
+            visibleToolNames = setOf("mobile_action", "complete_task")
+        ).buildSystemPrompt()
+
+        assertThat(prompt).contains("## Executor Rules")
+        assertThat(prompt).doesNotContain("## Planner Rules")
+    }
+
+    @Test
+    fun `buildSystemPrompt appends local backend suffix`() {
+        val prompt = createBuilder(
+            visibleToolNames = setOf("delegate_task"),
+            llmBackend = LLMBackendType.LOCAL
+        ).buildSystemPrompt()
+
+        assertThat(prompt).contains("## LOCAL MODEL TOOL CALLING")
+    }
+
+    @Test
+    fun `buildSystemPrompt falls back to default planner template when base prompt missing`() {
+        val prompt = createBuilder(
+            visibleToolNames = setOf("delegate_task"),
+            basePrompt = null
+        ).buildSystemPrompt()
+
+        assertThat(prompt).contains("You are the MAIN PLANNER agent for Android automation.")
+    }
+
+    private fun createBuilder(
+        visibleToolNames: Set<String>?,
+        llmBackend: LLMBackendType = LLMBackendType.OPENAI,
+        basePrompt: String? = "planner"
+    ): AgentPromptBuilder {
         val registry = ToolRegistry().apply {
             register(TestPromptTool("mobile_action"))
             register(TestPromptTool("app_control"))
@@ -65,10 +109,8 @@ class AgentPromptBuilderTest {
             register(TestPromptTool("scratchpad"))
         }
         return AgentPromptBuilder(
-            basePrompt = "planner",
-            defaultPrompt = "planner",
-            localPromptSuffix = "",
-            llmBackend = LLMBackendType.OPENAI,
+            basePrompt = basePrompt,
+            llmBackend = llmBackend,
             toolRegistry = registry,
             sessionState = AgentSessionState(),
             visibleToolNames = visibleToolNames

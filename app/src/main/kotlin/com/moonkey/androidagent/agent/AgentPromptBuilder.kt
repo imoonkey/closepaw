@@ -1,5 +1,8 @@
 package com.moonkey.androidagent.agent
 
+import com.moonkey.androidagent.agent.cognition.prompt.DefaultPromptAssembler
+import com.moonkey.androidagent.agent.cognition.prompt.PromptAssembler
+import com.moonkey.androidagent.agent.cognition.prompt.PromptBuildContext
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
@@ -9,8 +12,6 @@ import com.moonkey.androidagent.tool.ToolRegistry
 
 class AgentPromptBuilder(
     private val basePrompt: String?,
-    private val defaultPrompt: String,
-    private val localPromptSuffix: String,
     private val llmBackend: LLMBackendType,
     private val toolRegistry: ToolRegistry,
     private val sessionState: AgentSessionState,
@@ -21,19 +22,23 @@ class AgentPromptBuilder(
         val image: ScreenImage?
     )
 
+    private val promptAssembler: PromptAssembler = DefaultPromptAssembler()
+
     fun buildSystemPrompt(): String {
-        val prompt = basePrompt ?: defaultPrompt
-        val base = if (llmBackend == LLMBackendType.LOCAL) {
-            "$prompt\n\n$localPromptSuffix"
-        } else {
-            prompt
-        }
-        val stateContext = buildStateContext()
-        return if (stateContext.isNotEmpty()) {
-            "$base\n\n$stateContext"
-        } else {
-            base
-        }
+        val visibleTools =
+            toolRegistry.getNames()
+                .asSequence()
+                .filter { name -> visibleToolNames?.contains(name) != false }
+                .toSet()
+
+        return promptAssembler.build(
+            PromptBuildContext(
+                basePrompt = basePrompt,
+                llmBackend = llmBackend,
+                visibleToolNames = visibleTools,
+                stateContext = buildStateContext()
+            )
+        )
     }
 
     fun buildUserContext(snapshot: ScreenSnapshot): UserContext {
