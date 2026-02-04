@@ -1,5 +1,6 @@
 package com.moonkey.androidagent.agent.cognition.profile
 
+import com.moonkey.androidagent.agent.cognition.context.ContextPolicy
 import com.moonkey.androidagent.agent.cognition.policy.RetryPolicy
 
 data class CognitionProfile(
@@ -13,10 +14,6 @@ data class CognitionProfile(
 enum class PromptVariant {
     BASELINE,
     CONCISE
-}
-
-enum class ContextPolicy {
-    STANDARD
 }
 
 enum class TurnPolicyMode {

@@ -265,3 +265,43 @@ Risk: Medium-High
   - `AgentPromptBuilder` 相关用例（或迁移为 cognition prompt 测试）
 - Verify:
   - `./gradlew assembleDebug test lint`
+
+---
+
+## 12. Implementation Status（完成情况，2026-02-04）
+
+### 已完成里程碑
+1. **Phase 1: Prompt 集中化（完成）**
+   - 新增 `agent/cognition/prompt/` 与 `AgentRole`。
+   - `Turn.kt` 移除内联角色规则拼接，改为消费外部组装 `systemPrompt`。
+   - commit: `160ff70`
+
+2. **Phase 2: 输入可观测性（完成）**
+   - 新增 artifact：
+     - `turn_{n}_full_prompt.txt`
+     - `turn_{n}_llm_input_items.json`
+     - `run_summary.json`
+   - 新增 trace redaction（email/token/jwt/sensitive key）。
+   - commit: `41129c3`
+
+3. **Phase 3: Profile 切换（完成）**
+   - 新增 `CognitionProfile` / `CognitionProfileRegistry` / `BuiltinCognitionProfiles`。
+   - 增加 `cognitionProfileId` 配置通路：`SessionConfig -> AgentConfig -> AgentRuntime`。
+   - 支持 baseline / concise prompt 变体。
+   - commit: `27b5c2c`
+
+4. **Phase 4: 策略解耦（完成）**
+   - 新增 `TurnPolicyEngine` + `ToolArbitrationResult` + `CompletionDecision`。
+   - 多 tool 仲裁与完成条件判断从 `AgentTurnRunner` 抽离到 policy 层。
+   - commit: `19257ed`
+
+### 结构覆盖情况
+- `profile/`: 已落地
+- `prompt/`: 已落地
+- `context/`: 已落地（`ContextPackager` + `ContextPolicy`）
+- `policy/`: 已落地（`RetryPolicy` + `TurnPolicyEngine`）
+- `trace/`: 已落地（redaction + input artifacts）
+- `metrics/`: 已落地（`RunMetrics`）
+
+### Phase E 说明
+`Phase E` 在原计划中为可选项（评测任务集与 profile 对比报表），本轮未实现，保持为后续增量迭代项。

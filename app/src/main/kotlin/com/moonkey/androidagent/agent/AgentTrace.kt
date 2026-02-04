@@ -2,6 +2,7 @@ package com.moonkey.androidagent.agent
 
 import com.moonkey.androidagent.agent.cognition.trace.CognitionTraceRedactor
 import com.moonkey.androidagent.agent.cognition.trace.LlmInputItemsTraceSerializer
+import com.moonkey.androidagent.agent.cognition.metrics.RunMetrics
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.SessionId
@@ -24,14 +25,7 @@ internal class AgentTrace(
 ) {
     private val trace = services.traceRecorder
     private var sessionStartedAtMs: Long = 0L
-    private var turnStartedCount: Int = 0
-    private var turnCompletedCount: Int = 0
-    private var turnErrorCount: Int = 0
-    private var llmRequestCount: Int = 0
-    private var llmResponseCount: Int = 0
-    private var toolCallCount: Int = 0
-    private var toolSuccessCount: Int = 0
-    private var toolFailureCount: Int = 0
+    private val runMetrics = RunMetrics()
 
     fun sessionStarted(config: AgentConfig) {
         sessionStartedAtMs = System.currentTimeMillis()
@@ -69,7 +63,7 @@ internal class AgentTrace(
     }
 
     fun turnStarted(turnId: String, turnNumber: Int) {
-        turnStartedCount++
+        runMetrics.turnsStarted++
         trace.emit(
             sessionId = sessionId.value,
             type = "turn_started",
@@ -79,7 +73,7 @@ internal class AgentTrace(
     }
 
     fun turnCompleted(turnId: String, turnNumber: Int) {
-        turnCompletedCount++
+        runMetrics.turnsCompleted++
         trace.emit(
             sessionId = sessionId.value,
             type = "turn_completed",
@@ -89,7 +83,7 @@ internal class AgentTrace(
     }
 
     fun turnError(turnId: String, turnNumber: Int, error: Throwable) {
-        turnErrorCount++
+        runMetrics.turnErrors++
         trace.emit(
             sessionId = sessionId.value,
             type = "turn_error",
@@ -141,7 +135,7 @@ internal class AgentTrace(
         inputItems: List<ResponseInputItem>
     ) {
         if (!trace.enabled) return
-        llmRequestCount++
+        runMetrics.llmRequests++
 
         val historyJson = HistoryTraceSerializer.toJson(history)
         val historyArtifact =
@@ -229,7 +223,7 @@ internal class AgentTrace(
 
     fun llmResponse(turnId: String, turnNumber: Int, result: TurnResult) {
         if (!trace.enabled) return
-        llmResponseCount++
+        runMetrics.llmResponses++
 
         val toolCallsJson =
             buildJsonArray {
@@ -279,7 +273,7 @@ internal class AgentTrace(
 
     fun toolCall(turnId: String, turnNumber: Int, toolCall: ToolCallRequest) {
         if (!trace.enabled) return
-        toolCallCount++
+        runMetrics.toolCalls++
 
         val argsArtifact =
             storeRedactedText(
@@ -314,9 +308,9 @@ internal class AgentTrace(
     ) {
         if (!trace.enabled) return
         if (toolResult is ToolCallResult.Success) {
-            toolSuccessCount++
+            runMetrics.toolSuccesses++
         } else {
-            toolFailureCount++
+            runMetrics.toolFailures++
         }
 
         val resultArtifact =
@@ -408,14 +402,14 @@ internal class AgentTrace(
                 put("duration_ms", JsonPrimitive((stoppedAtMs - sessionStartedAtMs).coerceAtLeast(0)))
                 put("stop_reason", JsonPrimitive(reason::class.simpleName ?: "unknown"))
                 put("turns_executed", JsonPrimitive(turnsExecuted))
-                put("turns_started", JsonPrimitive(turnStartedCount))
-                put("turns_completed", JsonPrimitive(turnCompletedCount))
-                put("turn_errors", JsonPrimitive(turnErrorCount))
-                put("llm_requests", JsonPrimitive(llmRequestCount))
-                put("llm_responses", JsonPrimitive(llmResponseCount))
-                put("tool_calls", JsonPrimitive(toolCallCount))
-                put("tool_successes", JsonPrimitive(toolSuccessCount))
-                put("tool_failures", JsonPrimitive(toolFailureCount))
+                put("turns_started", JsonPrimitive(runMetrics.turnsStarted))
+                put("turns_completed", JsonPrimitive(runMetrics.turnsCompleted))
+                put("turn_errors", JsonPrimitive(runMetrics.turnErrors))
+                put("llm_requests", JsonPrimitive(runMetrics.llmRequests))
+                put("llm_responses", JsonPrimitive(runMetrics.llmResponses))
+                put("tool_calls", JsonPrimitive(runMetrics.toolCalls))
+                put("tool_successes", JsonPrimitive(runMetrics.toolSuccesses))
+                put("tool_failures", JsonPrimitive(runMetrics.toolFailures))
             }
         return storeRedactedText(
             kind = "run_summary",

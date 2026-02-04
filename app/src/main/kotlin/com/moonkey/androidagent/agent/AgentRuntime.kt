@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
+import com.moonkey.androidagent.agent.cognition.context.DefaultContextPackager
 import com.moonkey.androidagent.agent.cognition.policy.DefaultTurnPolicyEngine
 import com.moonkey.androidagent.agent.cognition.profile.CognitionProfileRegistry
 import com.moonkey.androidagent.agent.cognition.profile.DefaultCognitionProfileRegistry
@@ -62,7 +63,8 @@ internal class AgentRuntime(
             promptBuilder = promptBuilder,
             trace = trace,
             turnPolicyEngine = DefaultTurnPolicyEngine(),
-            cognitionProfile = cognitionProfile
+            cognitionProfile = cognitionProfile,
+            contextPackager = DefaultContextPackager(promptBuilder)
         )
 
     suspend fun run(): AgentStopReason {

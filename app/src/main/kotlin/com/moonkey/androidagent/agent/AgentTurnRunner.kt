@@ -1,6 +1,8 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
+import com.moonkey.androidagent.agent.cognition.context.ContextPackager
+import com.moonkey.androidagent.agent.cognition.context.RawTurnData
 import com.moonkey.androidagent.agent.cognition.policy.TurnPolicyEngine
 import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
 import com.moonkey.androidagent.history.ResponseItem
@@ -29,7 +31,8 @@ internal class AgentTurnRunner(
     private val promptBuilder: AgentPromptBuilder,
     private val trace: AgentTrace,
     private val turnPolicyEngine: TurnPolicyEngine,
-    private val cognitionProfile: CognitionProfile
+    private val cognitionProfile: CognitionProfile,
+    private val contextPackager: ContextPackager
 ) {
     companion object {
         private const val TAG = "AgentTurnRunner"
@@ -87,7 +90,12 @@ internal class AgentTurnRunner(
                         allowedToolNames = config.allowedToolNames
                     )
                     val systemPrompt = promptBuilder.buildSystemPrompt()
-                    val userContext = promptBuilder.buildUserContext(snapshot)
+                    val packagedInput =
+                        contextPackager.buildTurnInput(
+                            profile = cognitionProfile,
+                            raw = RawTurnData(snapshot = snapshot)
+                        )
+                    val userContext = packagedInput.userContext
                     val inputItems = turn.buildInputItems(userContext)
 
                     trace.llmRequest(
