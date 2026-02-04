@@ -1,7 +1,9 @@
 package com.moonkey.androidagent.ui.overlay
 
 import android.accessibilityservice.AccessibilityService
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -49,6 +51,9 @@ internal class SmartCapsuleLayoutBuilder(
                 cornerRadius = dp(24).toFloat()
                 setStroke(1, this@SmartCapsuleLayoutBuilder.colors.border)
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                elevation = dp(8).toFloat()
+            }
         }
 
         val statusDot = View(context).apply {
@@ -66,6 +71,7 @@ internal class SmartCapsuleLayoutBuilder(
             text = "Ready"
             setTextColor(colors.text)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             maxLines = 1
             layoutParams = LinearLayout.LayoutParams(
                 0,

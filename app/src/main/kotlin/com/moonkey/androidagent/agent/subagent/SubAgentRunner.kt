@@ -34,7 +34,8 @@ class IsolatedSubAgentRunner(
             allowedNames = definition.toolNames.toSet(),
             excludedNames = setOf("delegate_task")
         )
-        // Share scratchpad between planner and executor for cross-agent data flow
+        // Share scratchpad by reference on purpose so planner/executor exchange state in one turn.
+        // ScratchpadState uses synchronized access and is safe for concurrent coroutine access.
         val childServices = parentServices.copy(
             toolRegistry = childTools,
             toolRouter = ToolRouter(childTools, parentServices.policyEngine),

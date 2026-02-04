@@ -18,6 +18,44 @@ class AgentPromptBuilderTest {
 
     @Test
     fun `buildUserContext only lists visible tools`() {
+        val context = createBuilder(
+            visibleToolNames = setOf("delegate_task", "complete_task", "write_todos", "scratchpad")
+        ).buildUserContext(
+            snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList())
+        )
+
+        assertThat(context.text).contains("delegate_task")
+        assertThat(context.text).contains("write_todos")
+        assertThat(context.text).contains("scratchpad")
+        assertThat(context.text).doesNotContain("mobile_action")
+        assertThat(context.text).doesNotContain("app_control")
+    }
+
+    @Test
+    fun `buildUserContext lists all tools when filter is null`() {
+        val context = createBuilder(visibleToolNames = null).buildUserContext(
+            snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList())
+        )
+
+        assertThat(context.text).contains("mobile_action")
+        assertThat(context.text).contains("app_control")
+        assertThat(context.text).contains("delegate_task")
+        assertThat(context.text).contains("complete_task")
+    }
+
+    @Test
+    fun `buildUserContext lists no tools when filter is empty`() {
+        val context = createBuilder(visibleToolNames = emptySet()).buildUserContext(
+            snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList())
+        )
+
+        assertThat(context.text).contains("Available tools:")
+        assertThat(context.text).doesNotContain("mobile_action")
+        assertThat(context.text).doesNotContain("app_control")
+        assertThat(context.text).doesNotContain("delegate_task")
+    }
+
+    private fun createBuilder(visibleToolNames: Set<String>?): AgentPromptBuilder {
         val registry = ToolRegistry().apply {
             register(TestPromptTool("mobile_action"))
             register(TestPromptTool("app_control"))
@@ -26,29 +64,15 @@ class AgentPromptBuilderTest {
             register(TestPromptTool("write_todos"))
             register(TestPromptTool("scratchpad"))
         }
-
-        val builder = AgentPromptBuilder(
+        return AgentPromptBuilder(
             basePrompt = "planner",
             defaultPrompt = "planner",
             localPromptSuffix = "",
             llmBackend = LLMBackendType.OPENAI,
             toolRegistry = registry,
             sessionState = AgentSessionState(),
-            visibleToolNames = setOf("delegate_task", "complete_task", "write_todos", "scratchpad")
+            visibleToolNames = visibleToolNames
         )
-
-        val context = builder.buildUserContext(
-            snapshot = ScreenSnapshot(
-                timestamp = 1L,
-                elements = emptyList()
-            )
-        )
-
-        assertThat(context.text).contains("delegate_task")
-        assertThat(context.text).contains("write_todos")
-        assertThat(context.text).contains("scratchpad")
-        assertThat(context.text).doesNotContain("mobile_action")
-        assertThat(context.text).doesNotContain("app_control")
     }
 }
 

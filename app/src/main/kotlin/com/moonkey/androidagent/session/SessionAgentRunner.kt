@@ -27,6 +27,7 @@ internal class SessionAgentRunner(
     companion object {
         private const val TAG = "SessionAgentRunner"
         private val PLANNER_ALLOWED_TOOLS = setOf(
+            // Planner may open/switch apps directly when delegation overhead is unnecessary.
             "app_control",
             "write_todos",
             "scratchpad",
