@@ -63,8 +63,8 @@ com.moonkey.androidagent/
 │   ├── Turn.kt                   # LLM call wrapper (OpenAI Responses API)
 │   ├── TurnInputBuilder.kt       # ResponseInputItem assembly
 │   ├── cognition/                # Cognition layer (Lab)
-│   │   ├── prompt/               # Prompt templates + assembler
-│   │   ├── profile/              # Cognition profiles + registry
+│   │   ├── prompt/               # Role-based prompt templates (planner/executor)
+│   │   ├── profile/              # Cognition profiles (baseline only)
 │   │   ├── context/              # Context packaging policy
 │   │   ├── policy/               # Turn arbitration/completion policy
 │   │   ├── trace/                # Redaction + input trace serializers
