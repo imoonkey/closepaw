@@ -9,22 +9,35 @@ const meta = document.getElementById("meta");
 const stepCounter = document.getElementById("stepCounter");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
+const filterInput = document.getElementById("filterInput");
+const clearFilterBtn = document.getElementById("clearFilterBtn");
 
 /** @type {Map<string, File>} */
 let fileMap = new Map();
 let rootPrefix = "";
-let allEvents = [];
 let sessions = [];
 let sessionById = new Map();
+let stepById = new Map();
 let steps = [];
 let filteredSteps = [];
 let selectedSessionId = null;
 let selectedStepIndex = -1;
+let filterQuery = "";
+let treeError = null;
 
 loadBtn.addEventListener("click", () => folderInput.click());
 folderInput.addEventListener("change", () => loadTrace(folderInput.files));
 prevBtn.addEventListener("click", () => selectStep(selectedStepIndex - 1));
 nextBtn.addEventListener("click", () => selectStep(selectedStepIndex + 1));
+filterInput.addEventListener("input", () => {
+  filterQuery = filterInput.value.trim().toLowerCase();
+  applyFilters();
+});
+clearFilterBtn.addEventListener("click", () => {
+  filterQuery = "";
+  filterInput.value = "";
+  applyFilters();
+});
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") {
@@ -32,6 +45,12 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.key === "ArrowLeft") {
     selectStep(selectedStepIndex - 1);
+  }
+  if (event.key === "ArrowUp") {
+    selectStep(selectedStepIndex - 1);
+  }
+  if (event.key === "ArrowDown") {
+    selectStep(selectedStepIndex + 1);
   }
 });
 
@@ -71,6 +90,7 @@ async function loadTrace(files) {
 
   buildFileMap(files);
   rootPrefix = detectRootPrefix();
+  treeError = null;
 
   const metaText = await readText("meta.json");
   const metaJson = parseJson(metaText);
@@ -80,34 +100,37 @@ async function loadTrace(files) {
     meta.textContent = "Trace loaded";
   }
 
-  const traceText = await readText("trace.jsonl");
-  if (!traceText) {
-    meta.textContent = "Missing trace.jsonl";
+  const derivedTreeText = await readText("derived/agent_tree.json");
+  const derivedStepsText = await readText("derived/steps.jsonl");
+  if (!derivedTreeText || !derivedStepsText) {
+    meta.textContent = "Missing derived replay data";
+    treePanel.textContent = "Missing derived/agent_tree.json or derived/steps.jsonl.";
+    timeline.innerHTML = "";
+    detailPanel.textContent = "Select a step.";
     return;
   }
 
-  allEvents = traceText
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map(parseJson)
-    .filter(Boolean)
-    .sort((a, b) => (a.seq || 0) - (b.seq || 0));
-
-  const derivedTree = parseJson(await readText("derived/agent_tree.json"));
-  const derivedStepsText = await readText("derived/steps.jsonl");
-
-  sessions = derivedTree?.sessions || buildSessions(allEvents);
+  const derivedTree = parseJson(derivedTreeText);
+  if (!derivedTree || !Array.isArray(derivedTree.sessions)) {
+    sessions = [];
+    treeError = "Invalid agent_tree.json.";
+  } else {
+    sessions = derivedTree.sessions;
+    treeError = null;
+  }
   sessionById = new Map(sessions.map((node) => [node.session_id, node]));
 
-  steps = derivedStepsText ? parseJsonLines(derivedStepsText) : buildStepsFallback(allEvents);
-  filteredSteps = steps;
+  steps = parseJsonLines(derivedStepsText);
+  stepById = new Map(steps.map((step) => [step.step_id, step]));
+  filteredSteps = steps.slice();
 
   selectedSessionId = null;
   selectedStepIndex = -1;
+  filterQuery = "";
+  filterInput.value = "";
 
   renderTree();
-  renderTimeline();
+  applyFilters();
   detailPanel.textContent = "Select a step.";
 }
 
@@ -129,143 +152,11 @@ function parseJsonLines(text) {
     .filter(Boolean);
 }
 
-function eventType(event) {
-  return event.type || event.event || "unknown";
-}
-
-function eventSessionId(event) {
-  return event.sessionId || event.session_id || event.ctx?.session_id || null;
-}
-
-function eventTurnNumber(event) {
-  return event.turnNumber ?? event.ctx?.turn_number ?? null;
-}
-
-function buildSessions(events) {
-  const map = new Map();
-
-  for (const event of events) {
-    if (eventType(event) !== "session_started") continue;
-    const sessionId = eventSessionId(event);
-    if (!sessionId) continue;
-    const data = event.data || {};
-    map.set(sessionId, {
-      session_id: sessionId,
-      parent_session_id: data.parent_session_id || parseParentSessionId(sessionId),
-      agent_role: data.agent_role || "unknown",
-      goal: data.goal || "",
-      status: "running",
-      children: [],
-    });
-  }
-
-  for (const event of events) {
-    if (eventType(event) !== "session_stopped") continue;
-    const sessionId = eventSessionId(event);
-    if (!sessionId) continue;
-    if (!map.has(sessionId)) {
-      map.set(sessionId, {
-        session_id: sessionId,
-        parent_session_id: parseParentSessionId(sessionId),
-        agent_role: "unknown",
-        goal: "",
-        status: "stopped",
-        children: [],
-      });
-    }
-    const reason = event.data?.reason || "stopped";
-    map.get(sessionId).status = reason;
-  }
-
-  for (const session of map.values()) {
-    const parent = session.parent_session_id;
-    if (parent && map.has(parent)) {
-      map.get(parent).children.push(session.session_id);
-    }
-  }
-
-  return Array.from(map.values());
-}
-
-function parseParentSessionId(sessionId) {
-  if (!sessionId || !sessionId.includes("::")) return null;
-  return sessionId.split("::").slice(0, -1).join("::");
-}
-
-function buildStepsFallback(events) {
-  const grouped = new Map();
-
-  for (const event of events) {
-    const sessionId = eventSessionId(event);
-    const turnNumber = eventTurnNumber(event);
-    if (!sessionId || turnNumber == null) continue;
-    const key = `${sessionId}::${turnNumber}`;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(event);
-  }
-
-  const steps = [];
-  for (const [key, turnEvents] of grouped.entries()) {
-    turnEvents.sort((a, b) => (a.seq || 0) - (b.seq || 0));
-    const [sessionId, turnRaw] = key.split("::");
-    const turnNumber = Number(turnRaw);
-    const stepId = `${sessionId}::turn-${turnNumber}`;
-
-    const preEvent = turnEvents.find((event) => eventType(event) === "screen_captured");
-    const reqEvent = turnEvents.find((event) => eventType(event) === "llm_request");
-    const respEvent = turnEvents.find((event) => eventType(event) === "llm_response");
-
-    const toolCalls = turnEvents.filter((event) => eventType(event) === "tool_call");
-    const toolResults = turnEvents.filter((event) => eventType(event) === "tool_result");
-
-    steps.push({
-      step_id: stepId,
-      session_id: sessionId,
-      turn_number: turnNumber,
-      event_types: turnEvents.map(eventType),
-      world: {
-        pre: preEvent ? {
-          event: compactEvent(preEvent),
-          screenshot: findArtifact(preEvent, "screenshot"),
-          raw_a11y_tree: findArtifact(preEvent, "raw_a11y_tree"),
-          sanitized_a11y_tree: findArtifact(preEvent, "sanitized_a11y_tree"),
-        } : null,
-        post: null,
-      },
-      mind: {
-        llm_request: reqEvent ? compactEvent(reqEvent) : null,
-        llm_response: respEvent ? compactEvent(respEvent) : null,
-      },
-      tool: {
-        calls: toolCalls.map(compactEvent),
-        results: toolResults.map(compactEvent),
-      },
-      links: {
-        parent_step_id: null,
-        child_session_ids: [],
-      },
-    });
-  }
-
-  return steps.sort((a, b) => (a.turn_number || 0) - (b.turn_number || 0));
-}
-
-function compactEvent(event) {
-  return {
-    seq: event.seq,
-    ts_ms: event.tsMs,
-    type: eventType(event),
-    data: event.data,
-    artifacts: Array.isArray(event.artifacts) ? event.artifacts : [],
-  };
-}
-
-function findArtifact(event, kind) {
-  const artifacts = Array.isArray(event.artifacts) ? event.artifacts : [];
-  return artifacts.find((artifact) => artifact.kind === kind) || null;
-}
-
 function renderTree() {
+  if (treeError) {
+    treePanel.textContent = treeError;
+    return;
+  }
   if (!sessions.length) {
     treePanel.textContent = "No session metadata.";
     return;
@@ -292,14 +183,7 @@ function appendTreeNode(parent, node, depth) {
   `;
 
   li.addEventListener("click", () => {
-    selectedSessionId = node.session_id;
-    filteredSteps = steps.filter((step) => step.session_id === selectedSessionId);
-    selectedStepIndex = -1;
-    renderTree();
-    renderTimeline();
-    if (filteredSteps.length > 0) {
-      selectStep(0);
-    }
+    selectSession(node.session_id);
   });
 
   parent.appendChild(li);
@@ -318,13 +202,55 @@ function roleLabel(role) {
   return "[?]";
 }
 
+function selectSession(sessionId) {
+  selectedSessionId = sessionId;
+  selectedStepIndex = -1;
+  renderTree();
+  applyFilters();
+  if (filteredSteps.length > 0) {
+    selectStep(0);
+  } else {
+    detailPanel.textContent = "Select a step.";
+  }
+}
+
+function applyFilters() {
+  filteredSteps = steps.filter((step) => {
+    if (selectedSessionId && step.session_id !== selectedSessionId) return false;
+    return stepMatchesFilter(step);
+  });
+  selectedStepIndex = -1;
+  renderTimeline();
+}
+
+function stepMatchesFilter(step) {
+  if (!filterQuery) return true;
+  const toolNames = (step.tool?.calls || [])
+    .map((call) => call?.data?.name)
+    .filter(Boolean)
+    .join(" ");
+  const parts = [
+    step.step_id,
+    step.session_id,
+    step.agent_role,
+    step.turn_number != null ? String(step.turn_number) : "",
+    Array.isArray(step.event_types) ? step.event_types.join(" ") : "",
+    toolNames,
+  ];
+  return parts.join(" ").toLowerCase().includes(filterQuery);
+}
+
 function renderTimeline() {
   timeline.innerHTML = "";
   if (!filteredSteps.length) {
     stepCounter.textContent = "0 / 0";
     const empty = document.createElement("li");
     empty.className = "hint";
-    empty.textContent = selectedSessionId ? "No steps in selected agent." : "Select an agent node.";
+    if (filterQuery) {
+      empty.textContent = "No steps match the filter.";
+    } else {
+      empty.textContent = selectedSessionId ? "No steps in selected agent." : "Select an agent node.";
+    }
     timeline.appendChild(empty);
     return;
   }
@@ -364,7 +290,38 @@ function selectStep(index) {
     step,
     getFile,
     escapeHtml,
+    onJumpToStepId: (stepId) => jumpToStep(stepId),
+    onJumpToSessionId: (sessionId) => jumpToSession(sessionId),
   });
+}
+
+function jumpToStep(stepId) {
+  if (!stepId || !stepById.has(stepId)) return;
+  const step = stepById.get(stepId);
+  if (step?.session_id) {
+    selectedSessionId = step.session_id;
+    clearFilter();
+    applyFilters();
+    const index = filteredSteps.findIndex((item) => item.step_id === stepId);
+    if (index >= 0) {
+      selectStep(index);
+    }
+  }
+}
+
+function jumpToSession(sessionId) {
+  if (!sessionId) return;
+  selectedSessionId = sessionId;
+  clearFilter();
+  applyFilters();
+  if (filteredSteps.length > 0) {
+    selectStep(0);
+  }
+}
+
+function clearFilter() {
+  filterQuery = "";
+  filterInput.value = "";
 }
 
 function escapeHtml(text) {
