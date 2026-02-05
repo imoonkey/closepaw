@@ -1,8 +1,6 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
-import com.moonkey.androidagent.agent.cognition.context.ContextPackager
-import com.moonkey.androidagent.agent.cognition.context.RawTurnData
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
 import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionConfig
@@ -39,8 +37,7 @@ internal class AgentTurnRunner(
     private val promptBuilder: AgentPromptBuilder,
     private val trace: AgentTrace,
     private val turnPolicyEngine: TurnPolicyEngine,
-    private val cognitionProfile: CognitionProfile,
-    private val contextPackager: ContextPackager
+    private val cognitionProfile: CognitionProfile
 ) {
     companion object {
         private const val TAG = "AgentTurnRunner"
@@ -139,17 +136,13 @@ internal class AgentTurnRunner(
                         allowedToolNames = config.allowedToolNames
                     )
                     val systemPrompt = promptBuilder.buildSystemPrompt()
-                    val packagedInput =
-                        contextPackager.buildTurnInput(
+                    val userContext =
+                        promptBuilder.buildUserContext(
+                            snapshot = snapshot,
                             profile = cognitionProfile,
-                            raw =
-                                RawTurnData(
-                                    snapshot = snapshot,
-                                    loopWarning = loopWarning,
-                                    systemReminders = listOfNotNull(stepReminder)
-                                )
+                            loopWarning = loopWarning,
+                            systemReminders = listOfNotNull(stepReminder)
                         )
-                    val userContext = packagedInput.userContext
                     val inputItems = turn.buildInputItems(userContext)
 
                     trace.llmRequest(
@@ -286,19 +279,19 @@ internal class AgentTurnRunner(
 
                             emitPlanningEvents(toolCall, toolResult)
 
-                            var observation: Observation = Observation.TextOutput("No observation captured.")
+                            var observation: ToolObservation = ToolObservation.TextOutput("No observation captured.")
                             var observedSnapshot: ScreenSnapshot? = null
                             var hasObservation = false
 
                             if (toolResult is ToolCallResult.Success) {
                                 when (val toolObs = toolResult.observation) {
                                     is ToolObservation.ScreenState -> {
-                                        observation = toolObs.toObservation()
+                                        observation = toolObs
                                         observedSnapshot = toolObs.snapshot
                                         hasObservation = true
                                     }
                                     is ToolObservation.TextOutput -> {
-                                        observation = toolObs.toObservation()
+                                        observation = toolObs
                                         hasObservation = true
                                     }
                                     null -> Unit
@@ -308,7 +301,7 @@ internal class AgentTurnRunner(
                             if (!hasObservation) {
                                 if (toolCall.name == "complete_task") {
                                     // Intentional: completion does not require a fresh capture, so no POST_ACTION screen event.
-                                    observation = Observation.TextOutput("Completion acknowledged; no screen captured.")
+                                    observation = ToolObservation.TextOutput("Completion acknowledged; no screen captured.")
                                     Log.d(TAG, "Skipping post-action capture for complete_task")
                                 } else {
                                     val capture = captureObservationWithSnapshot()
@@ -367,7 +360,7 @@ internal class AgentTurnRunner(
                     }
                     nextState = nextState.copy(previousActionSignature = actionForNextTurn)
 
-                    val completion = turnPolicyEngine.decideCompletion(result, arbitration, cognitionProfile)
+                    val completion = turnPolicyEngine.decideCompletion(result, arbitration)
                     if (completion.shouldComplete) {
                         val summary = completion.summary ?: "Goal achieved"
                         Log.i(TAG, "Turn $turnNumber: Task marked as complete - $summary")
@@ -381,31 +374,40 @@ internal class AgentTurnRunner(
                 trace.turnError(turnId, turnNumber, e)
 
                 val message = e.message ?: ""
+                val causes = generateSequence(e as Throwable?) { it.cause }.toList()
+
+                fun anyMessageContains(keyword: String): Boolean {
+                    return causes.any { cause ->
+                        cause.message?.contains(keyword, ignoreCase = true) == true
+                    }
+                }
+
                 val isDnsFailure =
-                    e is java.net.UnknownHostException ||
-                        message.contains("Unable to resolve host", ignoreCase = true) ||
-                        message.contains("No address associated", ignoreCase = true)
+                    causes.any { it is java.net.UnknownHostException } ||
+                        anyMessageContains("Unable to resolve host") ||
+                        anyMessageContains("No address associated")
 
                 val isTransientNetworkError =
                     !isDnsFailure &&
-                        (e is java.net.SocketTimeoutException ||
-                            message.contains("timeout", ignoreCase = true) ||
-                            message.contains("connection refused", ignoreCase = true) ||
-                            message.contains("connection reset", ignoreCase = true))
+                        (causes.any { it is java.net.SocketTimeoutException } ||
+                            anyMessageContains("timeout") ||
+                            anyMessageContains("connection refused") ||
+                            anyMessageContains("connection reset"))
 
                 val isContextLimit =
-                    message.contains("context length", ignoreCase = true) ||
-                        message.contains("maximum context", ignoreCase = true) ||
-                        message.contains("context window", ignoreCase = true) ||
-                        message.contains("too many tokens", ignoreCase = true) ||
-                        message.contains("max tokens", ignoreCase = true)
+                    anyMessageContains("context length") ||
+                        anyMessageContains("maximum context") ||
+                        anyMessageContains("context window") ||
+                        anyMessageContains("too many tokens") ||
+                        anyMessageContains("max tokens")
 
                 TurnOutcome.Error(
                     message = message.ifEmpty { "Unknown error" },
                     recoverable =
-                        !isDnsFailure &&
+                        cognitionProfile.allowTransientNetworkRetry &&
+                            !isDnsFailure &&
                             !isContextLimit &&
-                            (isTransientNetworkError || !message.contains("internet", ignoreCase = true))
+                            isTransientNetworkError
                 )
             } finally {
                 eventDispatcher.turnCompleted(turnId, turnNumber)
@@ -419,7 +421,7 @@ internal class AgentTurnRunner(
     }
 
     private data class ObservationCapture(
-        val observation: Observation,
+        val observation: ToolObservation,
         val snapshot: ScreenSnapshot?
     )
 
@@ -428,9 +430,11 @@ internal class AgentTurnRunner(
         val snapshot = services.platform.captureScreen()
         val accessibilityTree = Perceptor.toPromptJson(snapshot)
         return ObservationCapture(
-            observation = Observation.ScreenState(
+            observation = ToolObservation.ScreenState(
                 accessibilityTree = accessibilityTree,
-                summary = snapshot.toSummary(services.platform.getCurrentPackageName())
+                elementCount = snapshot.elements.size,
+                summary = snapshot.toSummary(services.platform.getCurrentPackageName()),
+                snapshot = snapshot
             ),
             snapshot = snapshot
         )
@@ -455,7 +459,7 @@ internal class AgentTurnRunner(
         }
     }
 
-    private fun formatToolResult(result: ToolCallResult, observation: Observation): String {
+    private fun formatToolResult(result: ToolCallResult, observation: ToolObservation): String {
         val resultText =
             when (result) {
                 is ToolCallResult.Success -> "Success: ${result.output}"
@@ -465,8 +469,8 @@ internal class AgentTurnRunner(
 
         val observationText =
             when (observation) {
-                is Observation.ScreenState -> "Screen after action: ${observation.summary}"
-                is Observation.TextOutput -> observation.content
+                is ToolObservation.ScreenState -> "Screen after action: ${observation.summary}"
+                is ToolObservation.TextOutput -> observation.content
             }
 
         return "$resultText\n\n$observationText"

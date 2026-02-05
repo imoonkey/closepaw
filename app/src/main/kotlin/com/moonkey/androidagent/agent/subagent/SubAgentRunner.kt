@@ -6,6 +6,7 @@ import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
+import com.moonkey.androidagent.agent.cognition.prompt.ExecutorPromptTemplate
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.protocol.AgentEvent
@@ -15,6 +16,80 @@ import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.tool.ToolRouter
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
+
+/**
+ * Defines a sub-agent that can be invoked through delegate_task.
+ */
+data class AgentDefinition(
+    val name: String,
+    val description: String,
+    val systemPrompt: String,
+    val toolNames: List<String>,
+    val maxTurns: Int = 10,
+    val timeoutMs: Long = 60_000,
+    val narrativeSummaryOnLimit: Boolean = true,
+    val executionRole: AgentExecutionRole? = null
+)
+
+/**
+ * Delegation payload passed from parent to a sub-agent.
+ */
+data class SubAgentRequest(
+    val query: String,
+    val currentSubgoal: String? = null,
+    val importantNotes: List<String> = emptyList(),
+    val delegationCallId: String? = null
+)
+
+/**
+ * Result returned after running a sub-agent.
+ */
+data class SubAgentResult(
+    val success: Boolean,
+    val message: String
+)
+
+/**
+ * Built-in executor that grounds high-level instructions into UI actions.
+ */
+object ExecutorAgent {
+    val definition: AgentDefinition =
+        AgentDefinition(
+            name = "executor",
+            description = "Execute ONE atomic UI action on the current screen",
+            systemPrompt = ExecutorPromptTemplate.systemPrompt,
+            // app_control is available here so executor can recover when delegation lands outside target app.
+            toolNames = listOf("mobile_action", "app_control", "scratchpad", "complete_task"),
+            maxTurns = 5,
+            timeoutMs = 30_000,
+            executionRole = AgentExecutionRole.EXECUTOR
+        )
+}
+
+/**
+ * Simple in-memory registry for sub-agent definitions.
+ */
+class AgentRegistry {
+    private val agents = linkedMapOf<String, AgentDefinition>()
+
+    fun register(definition: AgentDefinition) {
+        agents[definition.name] = definition
+    }
+
+    fun get(name: String): AgentDefinition? = agents[name]
+
+    fun getAll(): List<AgentDefinition> = agents.values.toList()
+
+    fun getDirectoryPrompt(): String =
+        agents.values.joinToString("\n") { "- ${it.name}: ${it.description}" }
+
+    companion object {
+        fun createDefault(): AgentRegistry =
+            AgentRegistry().apply {
+                register(ExecutorAgent.definition)
+            }
+    }
+}
 
 fun interface SubAgentRunner {
     suspend fun run(request: SubAgentRequest): SubAgentResult

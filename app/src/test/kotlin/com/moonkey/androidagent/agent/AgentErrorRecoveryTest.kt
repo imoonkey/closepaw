@@ -49,7 +49,7 @@ class AgentErrorRecoveryTest {
     }
 
     @Test
-    fun `transient network error retries and reaches max turns`() = runTest {
+    fun `transient network error stops with error when no retry budget remains`() = runTest {
         val services = buildServices(AgentErrorTestLLMClient(SocketTimeoutException("timeout")))
         val agent = Agent(
             config = AgentConfig(
@@ -65,7 +65,7 @@ class AgentErrorRecoveryTest {
 
         val result = agent.run()
 
-        assertThat(result).isEqualTo(AgentStopReason.MaxTurnsReached)
+        assertThat(result).isInstanceOf(AgentStopReason.Error::class.java)
     }
 
     @Test

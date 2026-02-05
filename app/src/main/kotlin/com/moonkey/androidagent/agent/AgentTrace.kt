@@ -2,13 +2,13 @@ package com.moonkey.androidagent.agent
 
 import com.moonkey.androidagent.agent.cognition.trace.CognitionTraceRedactor
 import com.moonkey.androidagent.agent.cognition.trace.LlmInputItemsTraceSerializer
-import com.moonkey.androidagent.agent.cognition.metrics.RunMetrics
 import com.moonkey.androidagent.agent.cognition.trace.ArbitrationDecision
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.SessionId
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.tool.ToolCallResult
+import com.moonkey.androidagent.tool.ToolObservation
 import com.moonkey.androidagent.trace.HistoryTraceSerializer
 import com.moonkey.androidagent.trace.TraceArtifactRef
 import com.moonkey.androidagent.trace.TraceJson
@@ -338,7 +338,7 @@ internal class AgentTrace(
         toolCall: ToolCallRequest,
         toolResult: ToolCallResult,
         formattedResult: String,
-        observation: Observation,
+        observation: ToolObservation,
         observedSnapshot: ScreenSnapshot?
     ) {
         if (!trace.enabled) return
@@ -358,7 +358,7 @@ internal class AgentTrace(
 
         val observationArtifact =
             when (observation) {
-                is Observation.ScreenState ->
+                is ToolObservation.ScreenState ->
                     storeRedactedText(
                         kind = "tool_observation_screen",
                         filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_screen.json",
@@ -366,7 +366,7 @@ internal class AgentTrace(
                         mimeType = "application/json"
                     )
 
-                is Observation.TextOutput ->
+                is ToolObservation.TextOutput ->
                     storeRedactedText(
                         kind = "tool_observation_text",
                         filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_obs.txt",
@@ -472,3 +472,14 @@ internal class AgentTrace(
         return TraceJson.instance.encodeToString(CognitionTraceRedactor.redactJson(element))
     }
 }
+
+private data class RunMetrics(
+    var turnsStarted: Int = 0,
+    var turnsCompleted: Int = 0,
+    var turnErrors: Int = 0,
+    var llmRequests: Int = 0,
+    var llmResponses: Int = 0,
+    var toolCalls: Int = 0,
+    var toolSuccesses: Int = 0,
+    var toolFailures: Int = 0
+)

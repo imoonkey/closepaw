@@ -5,7 +5,7 @@ import com.moonkey.androidagent.agent.Agent
 import com.moonkey.androidagent.agent.AgentConfig
 import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.AgentStopReason
-import com.moonkey.androidagent.agent.cognition.profile.DefaultCognitionProfileRegistry
+import com.moonkey.androidagent.agent.cognition.profile.resolveCognitionProfile
 import com.moonkey.androidagent.agent.subagent.AgentRegistry
 import com.moonkey.androidagent.agent.subagent.ExecutorAgent
 import com.moonkey.androidagent.agent.subagent.IsolatedSubAgentRunner
@@ -89,7 +89,7 @@ internal class SessionAgentRunner(
     private fun ensureDelegationToolRegistered() {
         if (services.toolRegistry.contains("delegate_task")) return
 
-        val profile = DefaultCognitionProfileRegistry().resolve(config.cognitionProfileId)
+        val profile = resolveCognitionProfile(config.cognitionProfileId)
         val registry = AgentRegistry()
         AgentRegistry.createDefault().getAll().forEach { definition ->
             val tunedDefinition =

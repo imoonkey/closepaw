@@ -1,13 +1,20 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
+import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.LLMToolCall
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.openai.models.ChatModel
+import com.openai.models.responses.EasyInputMessage
+import com.openai.models.responses.FunctionTool
+import com.openai.models.responses.ResponseFunctionToolCall
+import com.openai.models.responses.ResponseInputContent
+import com.openai.models.responses.ResponseInputImage
 import com.openai.models.responses.ResponseInputItem
+import com.openai.models.responses.ResponseInputText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.json.JSONObject
@@ -40,11 +47,67 @@ class Turn(
         private const val COMPLETE_TASK_TOOL = "complete_task"
     }
 
-    private val inputBuilder = TurnInputBuilder(historyManager)
-
     fun buildInputItems(userContext: AgentPromptBuilder.UserContext): List<ResponseInputItem> {
-        return inputBuilder.build(userContext)
+        val estimatedTokens = historyManager.estimateTokenCount()
+        if (estimatedTokens > 20_000) {
+            Log.w(TAG, "History approaching token limit ($estimatedTokens tokens), compressing...")
+            historyManager.compress(15_000)
+            Log.d(TAG, "After compression: ${historyManager.estimateTokenCount()} tokens")
+        }
+
+        val items = mutableListOf<ResponseInputItem>()
+        historyManager.forPrompt().forEach { item ->
+            when (item) {
+                is ResponseItem.Message -> {
+                    val role =
+                        when (item.role) {
+                            "user" -> EasyInputMessage.Role.USER
+                            "assistant" -> EasyInputMessage.Role.ASSISTANT
+                            else -> null
+                        }
+                    if (role != null) {
+                        items.add(
+                            ResponseInputItem.ofEasyInputMessage(
+                                EasyInputMessage.builder()
+                                    .role(role)
+                                    .content(item.content)
+                                    .build()
+                            )
+                        )
+                    }
+                }
+                is ResponseItem.FunctionCall -> {
+                    items.add(
+                        ResponseInputItem.ofFunctionCall(
+                            ResponseFunctionToolCall.builder()
+                                .callId(item.id)
+                                .name(item.name)
+                                .arguments(item.arguments.toString())
+                                .build()
+                        )
+                    )
+                }
+                is ResponseItem.FunctionCallOutput -> {
+                    items.add(
+                        ResponseInputItem.ofFunctionCallOutput(
+                            ResponseInputItem.FunctionCallOutput.builder()
+                                .callId(item.callId)
+                                .output(item.content)
+                                .build()
+                        )
+                    )
+                }
+            }
+        }
+        items.add(buildUserContextItem(userContext))
+        return items
     }
+
+    private data class TurnRequest(
+        val inputItems: List<ResponseInputItem>,
+        val tools: List<FunctionTool>,
+        val model: ChatModel
+    )
     
     /**
      * Execute one turn of the ReAct loop (non-streaming).
@@ -60,26 +123,15 @@ class Turn(
         modelName: String = "gpt-5.2",
         inputItemsOverride: List<ResponseInputItem>? = null
     ): TurnResult {
-        // 1. Build input items from history using proper ResponseInputItem types
-        val inputItems = inputItemsOverride ?: inputBuilder.build(userContext)
-        
-        Log.d(TAG, "Running turn with ${inputItems.size} input items, model=$modelName")
-        
-        // 2. Get tools from registry
-        val tools = toolRegistry.generateResponsesApiTools { spec ->
-            allowedToolNames?.contains(spec.name) != false
-        }
-        Log.d(TAG, "Using ${tools.size} tools: ${tools.map { it.name() }}")
+        val request = prepareRequest(userContext, modelName, inputItemsOverride)
+        Log.d(TAG, "Running turn with ${request.inputItems.size} input items, model=$modelName")
+        Log.d(TAG, "Using ${request.tools.size} tools: ${request.tools.map { it.name() }}")
 
-        // 3. Convert model name to ChatModel enum
-        val chatModel = modelNameToChatModel(modelName)
-
-        // 4. Call LLM via Responses API
         val response = llmClient.chatWithTools(
             systemPrompt = systemPrompt,
-            inputItems = inputItems,
-            tools = tools,
-            model = chatModel
+            inputItems = request.inputItems,
+            tools = request.tools,
+            model = request.model
         )
         
         Log.d(TAG, "LLM response: text=${response.textContent?.take(200)}, toolCalls=${response.toolCalls.size}")
@@ -112,17 +164,8 @@ class Turn(
         Log.d(TAG, "Running streaming turn with LLM streaming, model=$modelName")
         
         try {
-            // 1. Build input items
-            val inputItems = inputItemsOverride ?: inputBuilder.build(userContext)
-            Log.d(TAG, "Streaming turn with ${inputItems.size} input items")
-            
-            // 2. Get tools
-            val tools = toolRegistry.generateResponsesApiTools { spec ->
-                allowedToolNames?.contains(spec.name) != false
-            }
-
-            // 3. Convert model name
-            val chatModel = modelNameToChatModel(modelName)
+            val request = prepareRequest(userContext, modelName, inputItemsOverride)
+            Log.d(TAG, "Streaming turn with ${request.inputItems.size} input items")
 
             // 4. Accumulate text and tool calls locally for building final result
             val textAccumulator = StringBuilder()
@@ -131,9 +174,9 @@ class Turn(
             // 5. Stream response using LLMStreamEvent (works with both OpenAI and local models)
             llmClient.chatWithToolsStreaming(
                 systemPrompt = systemPrompt,
-                inputItems = inputItems,
-                tools = tools,
-                model = chatModel
+                inputItems = request.inputItems,
+                tools = request.tools,
+                model = request.model
             ).collect { event ->
                 when (event) {
                     is LLMStreamEvent.Created -> {
@@ -197,6 +240,51 @@ class Turn(
             arguments = argsJson
         )
     }
+
+    private fun prepareRequest(
+        userContext: AgentPromptBuilder.UserContext,
+        modelName: String,
+        inputItemsOverride: List<ResponseInputItem>?
+    ): TurnRequest {
+        val inputItems = inputItemsOverride ?: buildInputItems(userContext)
+        val tools = toolRegistry.generateResponsesApiTools { spec ->
+            allowedToolNames?.contains(spec.name) != false
+        }
+        val model = modelNameToChatModel(modelName)
+        return TurnRequest(
+            inputItems = inputItems,
+            tools = tools,
+            model = model
+        )
+    }
+
+    private fun buildUserContextItem(userContext: AgentPromptBuilder.UserContext): ResponseInputItem {
+        val builder =
+            EasyInputMessage.builder()
+                .role(EasyInputMessage.Role.USER)
+
+        val image = userContext.image
+        if (image == null) {
+            builder.content(userContext.text)
+        } else {
+            val contentItems =
+                listOf(
+                    ResponseInputContent.ofInputText(
+                        ResponseInputText.builder()
+                            .text(userContext.text)
+                            .build()
+                    ),
+                    ResponseInputContent.ofInputImage(
+                        ResponseInputImage.builder()
+                            .detail(ResponseInputImage.Detail.AUTO)
+                            .imageUrl(image.toDataUrl())
+                            .build()
+                    )
+                )
+            builder.contentOfResponseInputMessageContentList(contentItems)
+        }
+        return ResponseInputItem.ofEasyInputMessage(builder.build())
+    }
     
     /**
      * Convert model name string to ChatModel enum.
@@ -253,8 +341,7 @@ class Turn(
         return TurnResult(
             content = textContent,
             toolCalls = toolCalls,
-            isComplete = isComplete,
-            parseErrors = null  // No parsing errors with Responses API
+            isComplete = isComplete
         )
     }
 }
@@ -287,10 +374,7 @@ data class TurnResult(
     val toolCalls: List<ToolCallRequest>,
     
     /** Whether the agent considers the task complete */
-    val isComplete: Boolean,
-    
-    /** Any errors encountered while parsing tool calls (for debugging) */
-    val parseErrors: List<String>? = null
+    val isComplete: Boolean
 )
 
 /**

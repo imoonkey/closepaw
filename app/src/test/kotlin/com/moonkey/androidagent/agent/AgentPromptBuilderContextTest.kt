@@ -1,7 +1,8 @@
-package com.moonkey.androidagent.agent.cognition.context
+package com.moonkey.androidagent.agent
 
 import com.google.common.truth.Truth.assertThat
-import com.moonkey.androidagent.agent.AgentPromptBuilder
+import com.moonkey.androidagent.agent.cognition.context.LoopWarning
+import com.moonkey.androidagent.agent.cognition.context.LoopWarningSeverity
 import com.moonkey.androidagent.agent.cognition.profile.BuiltinCognitionProfiles
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.LLMBackendType
@@ -18,10 +19,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Test
 
-class ContextPackagerTest {
+class AgentPromptBuilderContextTest {
 
     @Test
-    fun `buildTurnInput packages user context through prompt builder`() {
+    fun `buildUserContext includes screen and tools`() {
         val registry = ToolRegistry().apply {
             register(TestContextTool("delegate_task"))
             register(TestContextTool("complete_task"))
@@ -34,21 +35,19 @@ class ContextPackagerTest {
                 sessionState = AgentSessionState(),
                 visibleToolNames = setOf("delegate_task", "complete_task")
             )
-        val packager = DefaultContextPackager(promptBuilder)
-
-        val packaged =
-            packager.buildTurnInput(
-                profile = BuiltinCognitionProfiles.baseline,
-                raw = RawTurnData(snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()))
+        val userContext =
+            promptBuilder.buildUserContext(
+                snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()),
+                profile = BuiltinCognitionProfiles.baseline
             )
 
-        assertThat(packaged.userContext.text).contains("Current screen state (0 elements):")
-        assertThat(packaged.userContext.text).contains("Available tools:")
-        assertThat(packaged.userContext.text).contains("delegate_task")
+        assertThat(userContext.text).contains("Current screen state (0 elements):")
+        assertThat(userContext.text).contains("Available tools:")
+        assertThat(userContext.text).contains("delegate_task")
     }
 
     @Test
-    fun `buildTurnInput appends loop and memory reminders`() {
+    fun `buildUserContext appends loop and memory reminders`() {
         val registry = ToolRegistry().apply {
             register(TestContextTool("delegate_task"))
             register(TestContextTool("write_todos"))
@@ -71,34 +70,24 @@ class ContextPackagerTest {
                 sessionState = sessionState,
                 visibleToolNames = setOf("delegate_task", "write_todos", "scratchpad")
             )
-        val packager =
-            DefaultContextPackager(
-                promptBuilder = promptBuilder,
-                todoState = sessionState.todos,
-                scratchpadState = sessionState.scratchpad
-            )
-
-        val packaged =
-            packager.buildTurnInput(
+        val userContext =
+            promptBuilder.buildUserContext(
+                snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()),
                 profile = BuiltinCognitionProfiles.baseline,
-                raw =
-                    RawTurnData(
-                        snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()),
-                        loopWarning =
-                            LoopWarning(
-                                message = "Screen unchanged for 3 turns.",
-                                severity = LoopWarningSeverity.CRITICAL
-                            )
+                loopWarning =
+                    LoopWarning(
+                        message = "Screen unchanged for 3 turns.",
+                        severity = LoopWarningSeverity.CRITICAL
                     )
             )
 
-        assertThat(packaged.userContext.text).contains("LOOP WARNING")
-        assertThat(packaged.userContext.text).contains("Todo status")
-        assertThat(packaged.userContext.text).contains("Scratchpad has 1 key")
+        assertThat(userContext.text).contains("LOOP WARNING")
+        assertThat(userContext.text).contains("Todo status")
+        assertThat(userContext.text).contains("Scratchpad has 1 key")
     }
 
     @Test
-    fun `buildTurnInput skips todo reminder when all todos are completed`() {
+    fun `buildUserContext skips todo reminder when all todos are completed`() {
         val registry = ToolRegistry().apply {
             register(TestContextTool("delegate_task"))
             register(TestContextTool("write_todos"))
@@ -119,20 +108,13 @@ class ContextPackagerTest {
                 sessionState = sessionState,
                 visibleToolNames = setOf("delegate_task", "write_todos")
             )
-        val packager =
-            DefaultContextPackager(
-                promptBuilder = promptBuilder,
-                todoState = sessionState.todos,
-                scratchpadState = sessionState.scratchpad
+        val userContext =
+            promptBuilder.buildUserContext(
+                snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()),
+                profile = BuiltinCognitionProfiles.baseline
             )
 
-        val packaged =
-            packager.buildTurnInput(
-                profile = BuiltinCognitionProfiles.baseline,
-                raw = RawTurnData(snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()))
-            )
-
-        assertThat(packaged.userContext.text).doesNotContain("Todo status:")
+        assertThat(userContext.text).doesNotContain("Todo status:")
     }
 }
 

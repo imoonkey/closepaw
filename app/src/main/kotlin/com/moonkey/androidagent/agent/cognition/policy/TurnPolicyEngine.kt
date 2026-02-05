@@ -20,21 +20,8 @@ internal data class CompletionDecision(
     val summary: String?
 )
 
-internal interface TurnPolicyEngine {
+internal class TurnPolicyEngine {
     fun arbitrateToolCalls(
-        toolCalls: List<ToolCallRequest>,
-        profile: CognitionProfile
-    ): ToolArbitrationResult
-
-    fun decideCompletion(
-        turnResult: TurnResult,
-        arbitration: ToolArbitrationResult,
-        profile: CognitionProfile
-    ): CompletionDecision
-}
-
-internal class DefaultTurnPolicyEngine : TurnPolicyEngine {
-    override fun arbitrateToolCalls(
         toolCalls: List<ToolCallRequest>,
         profile: CognitionProfile
     ): ToolArbitrationResult {
@@ -59,10 +46,9 @@ internal class DefaultTurnPolicyEngine : TurnPolicyEngine {
         )
     }
 
-    override fun decideCompletion(
+    fun decideCompletion(
         turnResult: TurnResult,
-        arbitration: ToolArbitrationResult,
-        profile: CognitionProfile
+        arbitration: ToolArbitrationResult
     ): CompletionDecision {
         val shouldComplete = turnResult.isComplete && !arbitration.hasNonCompletionTool
         if (!shouldComplete) {

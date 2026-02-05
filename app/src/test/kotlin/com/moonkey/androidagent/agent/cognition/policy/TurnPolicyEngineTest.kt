@@ -8,7 +8,7 @@ import org.json.JSONObject
 import org.junit.Test
 
 class TurnPolicyEngineTest {
-    private val engine = DefaultTurnPolicyEngine()
+    private val engine = TurnPolicyEngine()
 
     @Test
     fun `arbitrateToolCalls prefers non completion call when mixed with complete_task`() {
@@ -49,7 +49,7 @@ class TurnPolicyEngineTest {
         val turnResult = TurnResult(content = "text", toolCalls = calls, isComplete = true)
         val arbitration = engine.arbitrateToolCalls(calls, BuiltinCognitionProfiles.baseline)
 
-        val decision = engine.decideCompletion(turnResult, arbitration, BuiltinCognitionProfiles.baseline)
+        val decision = engine.decideCompletion(turnResult, arbitration)
 
         assertThat(decision.shouldComplete).isFalse()
         assertThat(decision.summary).isNull()
@@ -64,7 +64,7 @@ class TurnPolicyEngineTest {
         val turnResult = TurnResult(content = "fallback", toolCalls = calls, isComplete = true)
         val arbitration = engine.arbitrateToolCalls(calls, BuiltinCognitionProfiles.baseline)
 
-        val decision = engine.decideCompletion(turnResult, arbitration, BuiltinCognitionProfiles.baseline)
+        val decision = engine.decideCompletion(turnResult, arbitration)
 
         assertThat(decision.shouldComplete).isTrue()
         assertThat(decision.summary).isEqualTo("final answer")
