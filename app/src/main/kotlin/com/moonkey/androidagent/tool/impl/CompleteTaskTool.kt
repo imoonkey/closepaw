@@ -30,8 +30,7 @@ Call this when you have finished working on the task.
 
 Parameters:
 - status: "success" if the goal was achieved, "failure" if it cannot be completed
-- answer: The response to return to the user (always required)
-- reason: If status is "failure", explain why (optional but recommended)
+- answer: The response to return to the user (always required). For failures, include the reason here.
 
 Always provide a helpful answer even when failing - explain what you tried and why it didn't work.
 """.trimIndent()
@@ -47,10 +46,6 @@ Always provide a helpful answer even when failing - explain what you tried and w
             put("answer", JSONObject().apply {
                 put("type", "string")
                 put("description", "The answer or result to return to the user")
-            })
-            put("reason", JSONObject().apply {
-                put("type", "string")
-                put("description", "If failure, explain why the task could not be completed")
             })
         })
         put("required", JSONArray(listOf("status", "answer")))
@@ -106,7 +101,6 @@ class CompleteTaskInvocation(
     override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
         val status = params.optString("status", "success")
         val answer = params.optString("answer", "Task completed")
-        val reason = if (params.has("reason")) params.optString("reason", "") else null
         
         val isSuccess = status == "success"
         
@@ -116,9 +110,6 @@ class CompleteTaskInvocation(
                 append("Task completed successfully.\n")
             } else {
                 append("Task failed.\n")
-                if (reason != null) {
-                    append("Reason: $reason\n")
-                }
             }
             append("\nAnswer: $answer")
         }
@@ -128,8 +119,7 @@ class CompleteTaskInvocation(
             data = mapOf(
                 "completed" to true,
                 "success" to isSuccess,
-                "answer" to answer,
-                "reason" to reason
+                "answer" to answer
             )
         )
     }

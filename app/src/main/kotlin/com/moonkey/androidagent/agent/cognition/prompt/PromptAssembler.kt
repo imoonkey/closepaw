@@ -1,16 +1,11 @@
 package com.moonkey.androidagent.agent.cognition.prompt
 
 import com.moonkey.androidagent.agent.cognition.AgentRole
-import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
-import com.moonkey.androidagent.agent.cognition.profile.PromptVariant
-import com.moonkey.androidagent.protocol.LLMBackendType
 
 internal data class PromptBuildContext(
     val basePrompt: String?,
-    val llmBackend: LLMBackendType,
     val visibleToolNames: Set<String>,
-    val stateContext: String,
-    val profile: CognitionProfile
+    val stateContext: String
 )
 
 internal interface PromptAssembler {
@@ -20,54 +15,18 @@ internal interface PromptAssembler {
 internal class DefaultPromptAssembler : PromptAssembler {
     override fun build(context: PromptBuildContext): String {
         val role = AgentRole.fromToolNames(context.visibleToolNames)
-        val prompt = context.basePrompt ?: PlannerPromptTemplate.defaultSystemPrompt
-        val backendPrompt =
-            if (context.llmBackend == LLMBackendType.LOCAL) {
-                "$prompt\n\n${SharedPromptRules.localModelToolCalling}"
-            } else {
-                prompt
-            }
-        val withStateContext =
-            if (context.stateContext.isNotBlank()) {
-                "$backendPrompt\n\n${context.stateContext}"
-            } else {
-                backendPrompt
-            }
-        val roleRules = selectRoleRules(role, context.profile.promptVariant)
-        val failureRecoveryRules =
-            if (context.profile.failureRecoveryRulesEnabled) {
-                when (role) {
-                    AgentRole.PLANNER -> FailureRecoveryRules.planner
-                    AgentRole.EXECUTOR -> FailureRecoveryRules.executor
-                }
-            } else {
-                ""
-            }
-
-        return """
-            $withStateContext
-
-            $roleRules
-
-            $failureRecoveryRules
-        """.trimIndent()
-    }
-
-    private fun selectRoleRules(role: AgentRole, variant: PromptVariant): String {
-        return when (variant) {
-            PromptVariant.BASELINE ->
-                if (role == AgentRole.PLANNER) {
-                    SharedPromptRules.plannerRoleRules
+        val prompt =
+            context.basePrompt
+                ?: if (role == AgentRole.EXECUTOR) {
+                    ExecutorPromptTemplate.systemPrompt
                 } else {
-                    SharedPromptRules.executorRoleRules
+                    PlannerPromptTemplate.defaultSystemPrompt
                 }
 
-            PromptVariant.CONCISE ->
-                if (role == AgentRole.PLANNER) {
-                    SharedPromptRules.plannerRoleRulesConcise
-                } else {
-                    SharedPromptRules.executorRoleRulesConcise
-                }
+        return if (context.stateContext.isNotBlank()) {
+            "$prompt\n\n${context.stateContext}"
+        } else {
+            prompt
         }
     }
 }

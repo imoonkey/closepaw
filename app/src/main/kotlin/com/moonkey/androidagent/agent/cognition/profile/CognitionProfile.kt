@@ -5,7 +5,6 @@ import com.moonkey.androidagent.agent.cognition.policy.RetryPolicy
 
 data class CognitionProfile(
     val id: String,
-    val promptVariant: PromptVariant = PromptVariant.BASELINE,
     val contextPolicy: ContextPolicy = ContextPolicy.STANDARD,
     val retryPolicy: RetryPolicy = RetryPolicy(),
     val turnPolicyMode: TurnPolicyMode = TurnPolicyMode.BASELINE,
@@ -16,14 +15,8 @@ data class CognitionProfile(
     val maxConsecutiveScrollActions: Int = 5,
     val maxExecutorSteps: Int = 5,
     val narrativeSummaryOnExecutorLimit: Boolean = true,
-    val failureRecoveryRulesEnabled: Boolean = true,
     val todoListEnabled: Boolean = true
 )
-
-enum class PromptVariant {
-    BASELINE,
-    CONCISE
-}
 
 enum class TurnPolicyMode {
     BASELINE,

@@ -119,7 +119,7 @@ class SubAgentRunnerTest {
                     LLMToolCall(
                         callId = "call-1",
                         name = "complete_task",
-                        arguments = "{\"status\":\"failure\",\"answer\":\"Could not find Notion app\",\"reason\":\"Not installed\"}"
+                        arguments = "{\"status\":\"failure\",\"answer\":\"Could not find Notion app: Not installed\"}"
                     )
                 ),
                 LLMStreamEvent.Completed
@@ -143,8 +143,7 @@ class SubAgentRunnerTest {
         val result = runner.run(SubAgentRequest(query = "do it"))
 
         assertThat(result.success).isFalse()
-        assertThat(result.message).contains("Not installed")
-        assertThat(result.message).contains("Could not find Notion app")
+        assertThat(result.message).contains("Could not find Notion app: Not installed")
     }
 
     @Test

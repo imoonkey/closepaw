@@ -14,10 +14,9 @@ class CognitionProfileRegistryTest {
     }
 
     @Test
-    fun `resolve returns requested profile when id exists`() {
+    fun `resolve falls back to baseline when id is not registered`() {
         val profile = registry.resolve("concise")
-        assertThat(profile.id).isEqualTo("concise")
-        assertThat(profile.promptVariant).isEqualTo(PromptVariant.CONCISE)
+        assertThat(profile.id).isEqualTo(BuiltinCognitionProfiles.BASELINE_ID)
     }
 
     @Test

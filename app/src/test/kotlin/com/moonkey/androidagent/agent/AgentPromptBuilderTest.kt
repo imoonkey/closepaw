@@ -1,8 +1,6 @@
 package com.moonkey.androidagent.agent
 
 import com.google.common.truth.Truth.assertThat
-import com.moonkey.androidagent.agent.cognition.profile.BuiltinCognitionProfiles
-import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.session.AgentSessionState
@@ -58,33 +56,13 @@ class AgentPromptBuilderTest {
     }
 
     @Test
-    fun `buildSystemPrompt uses planner rules when only planner tools are visible`() {
+    fun `buildSystemPrompt uses base prompt when provided`() {
         val prompt = createBuilder(
-            visibleToolNames = setOf("delegate_task", "complete_task", "write_todos")
+            visibleToolNames = setOf("delegate_task", "complete_task", "write_todos"),
+            basePrompt = "custom planner prompt"
         ).buildSystemPrompt()
 
-        assertThat(prompt).contains("## Planner Rules")
-        assertThat(prompt).doesNotContain("## Executor Rules")
-    }
-
-    @Test
-    fun `buildSystemPrompt uses executor rules when mobile action is visible`() {
-        val prompt = createBuilder(
-            visibleToolNames = setOf("mobile_action", "complete_task")
-        ).buildSystemPrompt()
-
-        assertThat(prompt).contains("## Executor Rules")
-        assertThat(prompt).doesNotContain("## Planner Rules")
-    }
-
-    @Test
-    fun `buildSystemPrompt appends local backend suffix`() {
-        val prompt = createBuilder(
-            visibleToolNames = setOf("delegate_task"),
-            llmBackend = LLMBackendType.LOCAL
-        ).buildSystemPrompt()
-
-        assertThat(prompt).contains("## LOCAL MODEL TOOL CALLING")
+        assertThat(prompt).contains("custom planner prompt")
     }
 
     @Test
@@ -98,31 +76,19 @@ class AgentPromptBuilderTest {
     }
 
     @Test
-    fun `buildSystemPrompt uses concise prompt variant when profile switches`() {
+    fun `buildSystemPrompt falls back to executor template when base prompt missing`() {
         val prompt = createBuilder(
-            visibleToolNames = setOf("delegate_task", "complete_task"),
-            cognitionProfile = BuiltinCognitionProfiles.concise
+            visibleToolNames = setOf("mobile_action", "complete_task"),
+            basePrompt = null
         ).buildSystemPrompt()
 
-        assertThat(prompt).contains("## Planner Rules (Concise)")
-        assertThat(prompt).doesNotContain("## Planner Rules\n")
-    }
-
-    @Test
-    fun `buildSystemPrompt includes failure recovery rules when enabled`() {
-        val prompt = createBuilder(
-            visibleToolNames = setOf("delegate_task", "complete_task"),
-            cognitionProfile = BuiltinCognitionProfiles.baseline
-        ).buildSystemPrompt()
-
-        assertThat(prompt).contains("## Failure Recovery (Planner)")
+        assertThat(prompt).contains("You are an Executor agent.")
     }
 
     private fun createBuilder(
         visibleToolNames: Set<String>?,
         llmBackend: LLMBackendType = LLMBackendType.OPENAI,
-        basePrompt: String? = "planner",
-        cognitionProfile: CognitionProfile = BuiltinCognitionProfiles.baseline
+        basePrompt: String? = "planner"
     ): AgentPromptBuilder {
         val registry = ToolRegistry().apply {
             register(TestPromptTool("mobile_action"))
@@ -137,8 +103,7 @@ class AgentPromptBuilderTest {
             llmBackend = llmBackend,
             toolRegistry = registry,
             sessionState = AgentSessionState(),
-            visibleToolNames = visibleToolNames,
-            cognitionProfile = cognitionProfile
+            visibleToolNames = visibleToolNames
         )
     }
 }

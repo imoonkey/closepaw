@@ -20,10 +20,26 @@ Generated files:
 - `derived/agent_tree.json`
 - `derived/steps.jsonl`
 
+## A11y Token Stats
+
+Compute token counts for raw vs sanitized accessibility trees:
+
+```bash
+cd inspection_tool
+python3 a11y_token_stats.py --run ../debug-output/run_YYYYMMDD_HHMMSS
+```
+
+Optional CSV output:
+
+```bash
+python3 a11y_token_stats.py --run ../debug-output/run_YYYYMMDD_HHMMSS --csv /tmp/a11y_tokens.csv
+```
+
 ## File Structure
 
 ```
 inspection_tool/
+├── a11y_token_stats.py  # A11y tree token stats
 ├── replay_compiler.py   # Trace -> derived step index
 ├── replay_v2/            # Viewer UI
 ├── serve.sh              # HTTP server

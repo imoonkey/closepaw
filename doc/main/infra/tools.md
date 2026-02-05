@@ -87,7 +87,7 @@ Determines whether tools need user approval:
 |------|-------------|----------------|
 | `mobile_action` | UI interactions | `action`, `element_index`, `resource_id`, `text`, `x`, `y`, `direction` |
 | `app_control` | App discovery/launch | `action` (`list_apps`, `open_app`), `package_name` |
-| `complete_task` | Signal completion | `status`, `answer`, `reason` |
+| `complete_task` | Signal completion | `status`, `answer` |
 | `write_todos` | Todo list management | `todos` array |
 | `scratchpad` | Key-value memory | `action`, `key`, `value` |
 | `delegate_task` | Sub-agent delegation | `agent_name`, `query` |

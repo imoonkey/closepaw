@@ -144,8 +144,7 @@ class IsolatedSubAgentRunner(
 
 private data class CompletionPayload(
     val status: String,
-    val answer: String,
-    val reason: String?
+    val answer: String
 )
 
 private fun extractCompletion(historyManager: HistoryManager): CompletionPayload? {
@@ -158,12 +157,10 @@ private fun extractCompletion(historyManager: HistoryManager): CompletionPayload
     val status = completionCall.arguments.optString("status", "success")
     val answer = completionCall.arguments.optString("answer", "").trim()
         .ifEmpty { completionCall.arguments.optString("summary", "").trim() }
-    val reason = completionCall.arguments.optString("reason", "").trim().ifEmpty { null }
 
     return CompletionPayload(
         status = status,
-        answer = answer,
-        reason = reason
+        answer = answer
     )
 }
 
@@ -175,9 +172,6 @@ private fun CompletionPayload.toSuccessMessage(agentName: String): String {
 private fun CompletionPayload.toFailureMessage(agentName: String): String {
     return buildString {
         append("Sub-agent '$agentName' reported failure.")
-        if (reason != null) {
-            append("\nReason: $reason")
-        }
         if (answer.isNotBlank()) {
             append("\n")
             append(answer)

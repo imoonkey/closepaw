@@ -40,8 +40,7 @@ internal class AgentRuntime(
             llmBackend = services.config.llmBackend,
             toolRegistry = services.toolRegistry,
             sessionState = services.sessionState,
-            visibleToolNames = config.allowedToolNames,
-            cognitionProfile = cognitionProfile
+            visibleToolNames = config.allowedToolNames
         )
 
     private val eventDispatcher =
