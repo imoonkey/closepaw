@@ -18,12 +18,7 @@
 
   <main class="layout">
     <section class="panel">
-      <div class="panel-header">Agent Tree</div>
-      <div id="treePanel" class="panel-body hint">Load a trace folder.</div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-header">Step Timeline</div>
+      <div class="panel-header">Step Tree</div>
       <div class="panel-body">
         <div class="timeline-toolbar">
           <button id="prevBtn" class="btn">Prev</button>
@@ -32,7 +27,7 @@
           <button id="clearFilterBtn" class="btn">Clear</button>
           <span id="stepCounter" class="pill">0 / 0</span>
         </div>
-        <ul id="timeline" class="timeline"></ul>
+        <div id="treePanel" class="tree-panel hint">Load a trace folder.</div>
       </div>
     </section>
 

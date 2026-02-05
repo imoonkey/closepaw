@@ -2,10 +2,22 @@ export function renderDetailPanel({ container, step, getFile, escapeHtml, onJump
   container.innerHTML = "";
 
   container.appendChild(renderSummary(step, escapeHtml));
-  container.appendChild(renderWorldPanel(step, getFile, escapeHtml));
-  container.appendChild(renderMindPanel(step, getFile, escapeHtml));
-  container.appendChild(renderToolPanel(step, escapeHtml));
-  container.appendChild(renderLinksPanel(step, escapeHtml, onJumpToStepId, onJumpToSessionId));
+
+  const grid = document.createElement("div");
+  grid.className = "detail-grid";
+
+  const worldColumn = document.createElement("div");
+  worldColumn.className = "detail-column";
+  worldColumn.appendChild(renderWorldPanel(step, getFile, escapeHtml));
+
+  const mindColumn = document.createElement("div");
+  mindColumn.className = "detail-column";
+  mindColumn.appendChild(renderMindPanel(step, getFile, escapeHtml));
+  mindColumn.appendChild(renderLinksPanel(step, escapeHtml, onJumpToStepId, onJumpToSessionId));
+
+  grid.appendChild(worldColumn);
+  grid.appendChild(mindColumn);
+  container.appendChild(grid);
 }
 
 function renderSummary(step, escapeHtml) {
@@ -76,7 +88,7 @@ function renderWorldPanel(step, getFile, escapeHtml) {
   `;
 
   const stageWrapper = document.createElement("div");
-  stageWrapper.className = "preview";
+  stageWrapper.className = "world-preview";
 
   world.appendChild(controls);
   world.appendChild(legend);
@@ -281,99 +293,160 @@ function renderMindPanel(step, getFile, escapeHtml) {
 function buildMindTabs(step) {
   const reqArtifacts = step.mind?.llm_request?.artifacts || [];
   const respArtifacts = step.mind?.llm_response?.artifacts || [];
-  const toolCallArtifacts = (step.tool?.calls || []).flatMap((item) => item.artifacts || []);
-  const toolResultArtifacts = (step.tool?.results || []).flatMap((item) => item.artifacts || []);
+  const toolCalls = step.tool?.calls || [];
+  const toolResults = step.tool?.results || [];
 
   return [
-    { id: "prompt", label: "Prompt", kind: "prompt", reqArtifacts },
-    { id: "input", label: "Input Items", kind: "input", reqArtifacts },
-    { id: "response", label: "Response", kind: "response", step },
-    { id: "tool_call", label: "Tool Calls", kind: "tool_call", respArtifacts, toolCallArtifacts },
-    { id: "tool_result", label: "Tool Results", kind: "tool_result", toolResultArtifacts },
+    { id: "llm_request", label: "LLM Request", kind: "llm_request", reqArtifacts },
+    { id: "llm_response", label: "LLM Response", kind: "llm_response", respArtifacts, step },
+    { id: "tool_execution", label: "Tool Execution", kind: "tool_execution", toolCalls, toolResults },
   ];
 }
 
 async function renderMindTab({ item, content, getFile, escapeHtml }) {
   content.innerHTML = "<pre>Loading...</pre>";
 
-  if (item.kind === "prompt") {
-    const fullPrompt = findArtifact(item.reqArtifacts, "llm_full_prompt");
+  if (item.kind === "llm_request") {
     const systemPrompt = findArtifact(item.reqArtifacts, "llm_system_prompt");
     const userContext = findArtifact(item.reqArtifacts, "llm_user_context");
+    const inputItems = findArtifact(item.reqArtifacts, "llm_input_items");
     const history = findArtifact(item.reqArtifacts, "llm_history");
 
     const blocks = [];
-    if (fullPrompt) {
-      blocks.push({ title: "full_prompt", artifact: fullPrompt });
-    } else {
-      if (systemPrompt) blocks.push({ title: "system_prompt", artifact: systemPrompt });
-      if (userContext) blocks.push({ title: "user_context", artifact: userContext });
-      if (history) blocks.push({ title: "history", artifact: history });
-    }
+    if (systemPrompt) blocks.push({ title: "=== SYSTEM PROMPT ===", artifact: systemPrompt });
+    if (userContext) blocks.push({ title: "=== USER CONTEXT ===", artifact: userContext });
+    if (inputItems) blocks.push({ title: "=== INPUT ITEMS ===", artifact: inputItems, format: true });
+    if (history) blocks.push({ title: "=== CHAT HISTORY ===", artifact: history, format: true, collapsible: true });
+
     if (!blocks.length) {
-      content.innerHTML = "<pre>No prompt artifacts available.</pre>";
+      content.innerHTML = "<pre>No LLM request artifacts available.</pre>";
       return;
     }
     content.innerHTML = "";
     for (const block of blocks) {
-      const text = await readArtifactText(block.artifact, getFile);
-      appendBlock(content, block.title, text);
+      let text = await readArtifactText(block.artifact, getFile);
+      if (block.format) text = tryPretty(text);
+      appendSectionBlock(content, block.title, text, escapeHtml, block.collapsible);
     }
     return;
   }
 
-  if (item.kind === "input") {
-    const inputItems = findArtifact(item.reqArtifacts, "llm_input_items");
-    if (!inputItems) {
-      content.innerHTML = "<pre>No input item artifacts available.</pre>";
-      return;
-    }
-    const text = await readArtifactText(inputItems, getFile);
-    content.innerHTML = `<pre>${escapeHtml(tryPretty(text))}</pre>`;
-    return;
-  }
+  if (item.kind === "llm_response") {
+    const responseText = findArtifact(item.respArtifacts, "llm_response_text");
+    const toolCalls = findArtifact(item.respArtifacts, "llm_tool_calls");
 
-  if (item.kind === "response") {
-    const data = item.step?.mind?.llm_response?.data;
-    const text = tryPretty(data != null ? JSON.stringify(data) : "{}");
-    content.innerHTML = `<pre>${escapeHtml(text)}</pre>`;
-    return;
-  }
+    const blocks = [];
+    if (responseText) blocks.push({ title: "=== TEXT OUTPUT ===", artifact: responseText });
+    if (toolCalls) blocks.push({ title: "=== TOOL CALLS ===", artifact: toolCalls, format: true });
 
-  if (item.kind === "tool_call") {
-    const toolCalls = [];
-    const llmToolCalls = findArtifact(item.respArtifacts, "llm_tool_calls");
-    if (llmToolCalls) {
-      toolCalls.push({ title: "llm_tool_calls", artifact: llmToolCalls });
-    }
-    item.toolCallArtifacts
-      .filter((artifact) => artifact.kind === "tool_call_args")
-      .forEach((artifact, index) => {
-        toolCalls.push({ title: `tool_call_args_${index + 1}`, artifact });
-      });
-
-    if (!toolCalls.length) {
-      content.innerHTML = "<pre>No tool call artifacts available.</pre>";
+    if (!blocks.length) {
+      // Fallback to data object if no artifacts
+      const data = item.step?.mind?.llm_response?.data;
+      if (data) {
+        content.innerHTML = `<pre>${escapeHtml(tryPretty(JSON.stringify(data)))}</pre>`;
+        return;
+      }
+      content.innerHTML = "<pre>No LLM response artifacts available.</pre>";
       return;
     }
     content.innerHTML = "";
-    for (const block of toolCalls) {
-      const text = await readArtifactText(block.artifact, getFile);
-      appendBlock(content, block.title, tryPretty(text));
+    for (const block of blocks) {
+      let text = await readArtifactText(block.artifact, getFile);
+      if (block.format) text = tryPretty(text);
+      appendSectionBlock(content, block.title, text, escapeHtml);
     }
     return;
   }
 
-  if (item.kind === "tool_result") {
-    const toolResults = item.toolResultArtifacts || [];
-    if (!toolResults.length) {
-      content.innerHTML = "<pre>No tool result artifacts available.</pre>";
+  if (item.kind === "tool_execution") {
+    const toolCalls = item.toolCalls || [];
+    const toolResults = item.toolResults || [];
+
+    if (!toolCalls.length && !toolResults.length) {
+      content.innerHTML = "<pre>No tool executions in this turn.</pre>";
       return;
     }
+
     content.innerHTML = "";
-    for (const [index, artifact] of toolResults.entries()) {
-      const text = await readArtifactText(artifact, getFile);
-      appendBlock(content, `${artifact.kind || "tool_result"}_${index + 1}`, tryPretty(text));
+
+    // Build a map of call_id -> result for matching
+    const resultsByCallId = new Map();
+    for (const result of toolResults) {
+      const callId = result.data?.id;
+      if (callId) resultsByCallId.set(callId, result);
+    }
+
+    // Render each tool call with its matched result
+    for (const [index, call] of toolCalls.entries()) {
+      const callId = call.data?.id;
+      const toolName = call.data?.name || "unknown";
+      const result = callId ? resultsByCallId.get(callId) : toolResults[index];
+      const success = result?.data?.success;
+
+      const card = document.createElement("div");
+      card.className = "tool-card";
+
+      // Build status indicator
+      let statusClass = "tool-status-pending";
+      let statusText = "pending";
+      if (result) {
+        statusClass = success ? "tool-status-success" : "tool-status-error";
+        statusText = success ? "✓ success" : "✗ failed";
+      }
+
+      // Header
+      const header = document.createElement("div");
+      header.className = "tool-card-header";
+      header.innerHTML = `
+        <span class="tool-card-name">[${index + 1}] ${escapeHtml(toolName)}</span>
+        <span class="tool-status ${statusClass}">${statusText}</span>
+      `;
+      card.appendChild(header);
+
+      // Input section
+      const inputArtifact = findArtifact(call.artifacts || [], "tool_call_args");
+      if (inputArtifact) {
+        const inputText = await readArtifactText(inputArtifact, getFile);
+        const inputSection = document.createElement("div");
+        inputSection.className = "tool-section";
+        inputSection.innerHTML = `
+          <div class="tool-section-title">Input:</div>
+          <pre>${escapeHtml(tryPretty(inputText))}</pre>
+        `;
+        card.appendChild(inputSection);
+      }
+
+      // Output section
+      if (result) {
+        const outputArtifact = findArtifact(result.artifacts || [], "tool_result");
+        if (outputArtifact) {
+          const outputText = await readArtifactText(outputArtifact, getFile);
+          const outputSection = document.createElement("div");
+          outputSection.className = "tool-section";
+          outputSection.innerHTML = `
+            <div class="tool-section-title">Output:</div>
+            <pre>${escapeHtml(outputText)}</pre>
+          `;
+          card.appendChild(outputSection);
+        }
+
+        // Observation section (screen state or text)
+        const screenObs = findArtifact(result.artifacts || [], "tool_observation_screen");
+        const textObs = findArtifact(result.artifacts || [], "tool_observation_text");
+        const obsArtifact = screenObs || textObs;
+        if (obsArtifact) {
+          const obsText = await readArtifactText(obsArtifact, getFile);
+          const obsSection = document.createElement("div");
+          obsSection.className = "tool-section tool-observation";
+          obsSection.innerHTML = `
+            <div class="tool-section-title">Observation:</div>
+            <pre>${escapeHtml(tryPretty(obsText))}</pre>
+          `;
+          card.appendChild(obsSection);
+        }
+      }
+
+      content.appendChild(card);
     }
     return;
   }
@@ -381,14 +454,30 @@ async function renderMindTab({ item, content, getFile, escapeHtml }) {
   content.innerHTML = "<pre>No data.</pre>";
 }
 
-function renderToolPanel(step, escapeHtml) {
-  const tool = document.createElement("div");
-  tool.className = "section";
-  tool.innerHTML = `
-    <div class="section-title">Tool</div>
-    <div class="preview"><pre>${escapeHtml(pretty(step.tool))}</pre></div>
-  `;
-  return tool;
+function appendSectionBlock(container, title, text, escapeHtml, collapsible = false) {
+  const block = document.createElement("div");
+  block.className = "llm-section-block";
+
+  const titleEl = document.createElement("div");
+  titleEl.className = "llm-section-title";
+  titleEl.textContent = title;
+
+  const pre = document.createElement("pre");
+  pre.textContent = text;
+
+  if (collapsible) {
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = title;
+    details.appendChild(summary);
+    details.appendChild(pre);
+    block.appendChild(details);
+  } else {
+    block.appendChild(titleEl);
+    block.appendChild(pre);
+  }
+
+  container.appendChild(block);
 }
 
 function renderLinksPanel(step, escapeHtml, onJumpToStepId, onJumpToSessionId) {
