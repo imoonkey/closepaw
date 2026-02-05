@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cog Tune"
+  short_description: "Trace-driven cognition review and tuning"
+  default_prompt: "Use $cog-tune to analyze a debug-run and improve prompts, tools, and context."
