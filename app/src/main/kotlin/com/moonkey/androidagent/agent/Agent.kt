@@ -1,27 +1,25 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
-import com.moonkey.androidagent.agent.cognition.policy.TurnPolicyEngine
+import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
+import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.util.concurrent.atomic.AtomicBoolean
-import com.moonkey.androidagent.history.ResponseItem
 
-/**
- * Agent - Public entry point for running a single ReAct agent session.
- */
+/** Agent - Public entry point for running a single ReAct agent session. */
 class Agent(
-    private val config: AgentConfig,
-    private val services: SessionServices,
-    private val eventEmitter: suspend (AgentEvent) -> Unit,
-    private val cancellationSignal: CompletableDeferred<AgentStopReason>
+        private val config: AgentConfig,
+        private val services: SessionServices,
+        private val eventEmitter: suspend (AgentEvent) -> Unit,
+        private val cancellationSignal: CompletableDeferred<AgentStopReason>
 ) {
     companion object {
         private const val TAG = "Agent"
@@ -33,35 +31,22 @@ class Agent(
     private val stopRequested = AtomicBoolean(false)
     private val lifecycleMutex = Mutex()
 
-    private val promptBuilder =
-        AgentPromptBuilder(
-            basePrompt = config.systemPrompt,
-            llmBackend = services.config.llmBackend,
-            toolRegistry = services.toolRegistry,
-            sessionState = services.sessionState,
-            visibleToolNames = config.allowedToolNames
-        )
-
     private val eventDispatcher =
-        AgentEventDispatcher(
-            sessionId = config.sessionId,
-            eventEmitter = eventEmitter
-        )
+            AgentEventDispatcher(sessionId = config.sessionId, eventEmitter = eventEmitter)
 
     private val trace = AgentTrace(config.sessionId, services)
 
     private val turnRunner =
-        AgentTurnRunner(
-            config = config,
-            services = services,
-            eventDispatcher = eventDispatcher,
-            eventEmitter = eventEmitter,
-            cancellationSignal = cancellationSignal,
-            stopRequested = stopRequested,
-            promptBuilder = promptBuilder,
-            trace = trace,
-            turnPolicyEngine = TurnPolicyEngine()
-        )
+            AgentTurnRunner(
+                    config = config,
+                    services = services,
+                    eventDispatcher = eventDispatcher,
+                    eventEmitter = eventEmitter,
+                    cancellationSignal = cancellationSignal,
+                    stopRequested = stopRequested,
+                    trace = trace,
+                    turnPolicyEngine = TurnToolPolicy()
+            )
 
     suspend fun run(): AgentStopReason {
         Log.i(TAG, "Starting agent for goal: ${config.goal}")
@@ -69,10 +54,7 @@ class Agent(
         trace.sessionStarted(config)
 
         services.historyManager.addItem(
-            ResponseItem.Message(
-                role = "user",
-                content = "Goal: ${config.goal}"
-            )
+                ResponseItem.Message(role = "user", content = "Goal: ${config.goal}")
         )
 
         var stopReason: AgentStopReason? = null
@@ -124,9 +106,7 @@ class Agent(
 
                     val retryLimit = MAX_RECOVERABLE_RETRIES
                     val hasRemainingTurns = turnCount < config.maxTurns
-                    val canRetry =
-                        hasRemainingTurns &&
-                            recoverableRetryCount < retryLimit
+                    val canRetry = hasRemainingTurns && recoverableRetryCount < retryLimit
 
                     if (!canRetry) {
                         eventDispatcher.status("❌ Error: ${result.message}")
@@ -136,7 +116,7 @@ class Agent(
 
                     recoverableRetryCount++
                     eventDispatcher.status(
-                        "⚠️ Error (retry $recoverableRetryCount/$retryLimit): ${result.message}"
+                            "⚠️ Error (retry $recoverableRetryCount/$retryLimit): ${result.message}"
                     )
                     delay(config.uiSettleDelayMs)
                 }
@@ -148,26 +128,25 @@ class Agent(
             }
         }
 
-        val finalReason = stopReason ?: when {
-            stopRequested.get() || cancellationSignal.isCompleted -> AgentStopReason.UserRequested
-            else -> AgentStopReason.GoalAchieved
-        }
+        val finalReason =
+                stopReason
+                        ?: when {
+                            stopRequested.get() || cancellationSignal.isCompleted ->
+                                    AgentStopReason.UserRequested
+                            else -> AgentStopReason.GoalAchieved
+                        }
 
         trace.sessionStopped(finalReason, turnCount)
         return finalReason
     }
 
     suspend fun pause() {
-        lifecycleMutex.withLock {
-            pauseState.value = true
-        }
+        lifecycleMutex.withLock { pauseState.value = true }
         eventDispatcher.status("⏸️ Paused")
     }
 
     suspend fun resume() {
-        lifecycleMutex.withLock {
-            pauseState.value = false
-        }
+        lifecycleMutex.withLock { pauseState.value = false }
         eventDispatcher.status("▶️ Resuming...")
     }
 

@@ -6,16 +6,19 @@ import com.moonkey.androidagent.agent.TurnResult
 import org.json.JSONObject
 import org.junit.Test
 
-class TurnPolicyEngineTest {
-    private val engine = TurnPolicyEngine()
+class TurnToolPolicyTest {
+    private val engine = TurnToolPolicy()
 
     @Test
     fun `arbitrateToolCalls prefers non completion call when mixed with complete_task`() {
         val calls =
-            listOf(
-                toolCall(name = "complete_task", arguments = JSONObject("""{"answer":"done"}""")),
-                toolCall(name = "delegate_task")
-            )
+                listOf(
+                        toolCall(
+                                name = "complete_task",
+                                arguments = JSONObject("""{"answer":"done"}""")
+                        ),
+                        toolCall(name = "delegate_task")
+                )
 
         val result = engine.arbitrateToolCalls(calls)
 
@@ -41,10 +44,13 @@ class TurnPolicyEngineTest {
     @Test
     fun `decideCompletion defers completion when non completion tool exists`() {
         val calls =
-            listOf(
-                toolCall(name = "complete_task", arguments = JSONObject("""{"answer":"done"}""")),
-                toolCall(name = "delegate_task")
-            )
+                listOf(
+                        toolCall(
+                                name = "complete_task",
+                                arguments = JSONObject("""{"answer":"done"}""")
+                        ),
+                        toolCall(name = "delegate_task")
+                )
         val turnResult = TurnResult(content = "text", toolCalls = calls, isComplete = true)
         val arbitration = engine.arbitrateToolCalls(calls)
 
@@ -57,9 +63,12 @@ class TurnPolicyEngineTest {
     @Test
     fun `decideCompletion uses answer from complete_task when available`() {
         val calls =
-            listOf(
-                toolCall(name = "complete_task", arguments = JSONObject("""{"answer":"final answer"}"""))
-            )
+                listOf(
+                        toolCall(
+                                name = "complete_task",
+                                arguments = JSONObject("""{"answer":"final answer"}""")
+                        )
+                )
         val turnResult = TurnResult(content = "fallback", toolCalls = calls, isComplete = true)
         val arbitration = engine.arbitrateToolCalls(calls)
 
@@ -70,10 +79,6 @@ class TurnPolicyEngineTest {
     }
 
     private fun toolCall(name: String, arguments: JSONObject = JSONObject()): ToolCallRequest {
-        return ToolCallRequest(
-            id = "call-$name",
-            name = name,
-            arguments = arguments
-        )
+        return ToolCallRequest(id = "call-$name", name = name, arguments = arguments)
     }
 }
