@@ -1,6 +1,6 @@
 ---
 name: update-docs
-description: Sync documentation with code changes before commits. Use after architecture or workflow changes.
+description: Sync documentation with code changes before commits. Triggered by /update-doc or /update-docs after architecture/workflow changes.
 ---
 
 # Update Docs
@@ -17,42 +17,15 @@ Keep documentation in sync with code changes.
 
 | Folder | Priority | Update When |
 |--------|----------|-------------|
-| `doc/main/` | Critical | Architecture changes |
+| `doc/main/` | Critical | Architecture and runtime behavior changes |
 | `doc/dev/` | Critical | Workflow/build changes |
 | `doc/todo/` | High | Active project status |
 | `doc/archive/` | Low | OK if outdated |
 
-## Doc Structure
+## Canonical Doc Map
 
-```
-doc/main/
-├── README.md        # Entry point, navigation guide, code structure
-│
-├── agent/           # Core agent intelligence
-│   ├── overview.md  # Design principles, architecture, package structure
-│   ├── loop.md      # ReAct loop, Turn, streaming execution
-│   ├── multiagent.md # Sub-agent system, delegation, registry
-│   └── planning.md  # TodoState, ScratchpadState, context hygiene
-│
-├── infra/           # Agent infrastructure
-│   ├── session.md   # AgentSession, SessionServices, lifecycle
-│   ├── tools.md     # Tool system, ToolRouter, ToolRegistry
-│   ├── platform.md  # AndroidPlatform, Perceptor, perception
-│   └── llm.md       # LLM clients, backends, API configuration
-│
-├── protocol/        # Communication contracts
-│   └── protocol.md  # Op/Event, state machine, errors, config
-│
-├── app/             # Application layer (non-agentic)
-│   ├── history.md   # Session history persistence
-│   └── settings.md  # User settings, preferences persistence
-│
-└── ui/              # User interface
-    ├── style.md     # Design system, colors, typography
-    ├── tech_design.md # Technical implementation
-    ├── user_interaction.md # Pages, user behaviors
-    └── overlay.md   # Smart Capsule, Edge Glow, Visualizer
-```
+- Use `doc/main/README.md` as the source of truth for documentation structure and navigation.
+- Do not duplicate the full `doc/main` tree inside this skill file.
 
 ## Workflow
 
@@ -60,40 +33,43 @@ doc/main/
 
 ```bash
 git diff --name-only main...HEAD
+# or, if a commit baseline is provided:
+git diff --name-only <base_commit>..HEAD
 ```
 
 ### 2. Map to Docs
 
 | Code Change | Doc to Update |
 |-------------|---------------|
-| `agent/AgentRuntime.kt`, `agent/Turn.kt` | `doc/main/agent/loop.md` |
+| `agent/Agent.kt`, `agent/AgentTurnRunner.kt`, `agent/Turn.kt`, `agent/AgentRuntimeTypes.kt` | `doc/main/agent/loop.md` |
 | `agent/subagent/` | `doc/main/agent/multiagent.md` |
-| `session/TodoState.kt`, `session/ScratchpadState.kt` | `doc/main/agent/planning.md` |
-| `session/AgentSession.kt`, `session/SessionServices.kt` | `doc/main/infra/session.md` |
+| `agent/cognition/`, `session/TodoState.kt`, `session/ScratchpadState.kt`, `perception/ScreenSummary.kt` | `doc/main/agent/planning.md` |
+| `session/AgentSession.kt`, `session/SessionAgentRunner.kt`, `session/SessionServices.kt` | `doc/main/infra/session.md` |
 | `tool/` | `doc/main/infra/tools.md` |
 | `platform/`, `perception/` | `doc/main/infra/platform.md` |
 | `protocol/` | `doc/main/protocol/protocol.md` |
 | `history/` | `doc/main/app/history.md` |
 | `llm/` | `doc/main/infra/llm.md` |
-| `ui/settings/` | `doc/main/app/settings.md` |
+| `ui/settings/`, `app/AppSettings*` | `doc/main/app/settings.md` |
 | `ui/theme/` | `doc/main/ui/style.md` |
 | `ui/chat/`, `ui/navigation/`, `ui/settings/` | `doc/main/ui/tech_design.md`, `doc/main/ui/user_interaction.md` |
 | `ui/overlay/` | `doc/main/ui/overlay.md` |
+| `trace/` | `doc/main/agent/turn_prompt_anatomy.md` and related sections in `doc/main/agent/loop.md` |
 | Build/gradle | `doc/dev/development.md` |
 
 ### 3. Update Principles
 
-- Keep same detail level as existing content
-- Don't over-document minor changes
-- Use `→ See:` pointers to source files instead of long code blocks
-- Link rather than duplicate
-- Update timestamps
+- Keep the same detail level as nearby content
+- Do not over-document tiny internal renames
+- Use `→ See:` pointers to source files instead of large code blocks
+- Prefer linking over duplicating explanations
+- Update timestamps (`Last updated`) on touched docs
 
 ### 4. Verify
 
-- All doc links still work
-- Code examples still valid
-- No stale references to removed code
+- Search for removed/renamed symbols in docs (`rg` against `doc/main`)
+- Verify referenced files/classes still exist
+- Ensure links still work
 
 ## Output Format
 
@@ -111,8 +87,8 @@ Verification: [OK/ISSUES]
 
 ## Principles
 
-- `doc/main`, `doc/dev`: Must stay current, best onboarding resources
-- `doc/todo/`: Active projects, reflect latest status
-- `doc/archive`: OK if outdated
-- Minimize code blocks; use file pointers (`→ See: path/to/file.kt`)
-- Keep discussion at appropriate detail level
+- `doc/main` and `doc/dev` are primary onboarding docs and must stay current
+- `doc/todo` should reflect active status
+- `doc/archive` can lag behind
+- Minimize code blocks; prefer file pointers (`→ See: path/to/file.kt`)
+- Keep explanation depth proportional to change impact

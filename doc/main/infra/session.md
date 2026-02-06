@@ -1,28 +1,28 @@
 # Session Infrastructure
 
 > AgentSession, SessionServices, and session lifecycle.
-> Last updated: 2026-02-05
+> Last updated: 2026-02-06
 
 ## AgentSession
 
 → See: `session/AgentSession.kt`
 
-Thin lifecycle manager. Does NOT contain agent logic.
+Thin lifecycle manager. It does not implement planning/action logic directly.
 
 **Responsibilities:**
-- Process Operations (Op) from UI
-- Emit Events (AgentEvent) to UI
-- Manage session state transitions (including `Idle` for multi-round)
-- Manage Task lifecycle via `handleUserInput()`
-- Delegate agent lifecycle to `SessionAgentRunner`
+- Process `Op` from UI
+- Emit `AgentEvent` to UI
+- Manage session state transitions (`Created`/`Running`/`Paused`/`Idle`/`Shutdown`)
+- Manage per-task lifecycle via `handleUserInput()`
+- Delegate runtime start/stop to `SessionAgentRunner`
 
 ### Key Methods
 
 ```kotlin
 class AgentSession {
-    fun submit(op: Op)                    // Submit an operation
-    val events: Flow<AgentEvent>          // Event stream for UI
-    val state: StateFlow<SessionState>    // Current session state
+    suspend fun submit(op: Op)             // Submit an operation
+    val events: SharedFlow<AgentEvent>     // Event stream for UI
+    val state: StateFlow<SessionState>     // Current session state
 }
 ```
 
@@ -30,9 +30,9 @@ class AgentSession {
 
 ```
 Created ──(UserInput)──► Running ──(TaskCompleted)──► Idle ──(UserInput)──► Running
-                                                        │
-                                                        ▼
-                                                    Shutdown
+                                                       │
+                                                       ▼
+                                                   Shutdown
 ```
 
 ---
@@ -41,22 +41,24 @@ Created ──(UserInput)──► Running ──(TaskCompleted)──► Idle �
 
 → See: `session/SessionServices.kt`
 
-Dependency injection container for all session-scoped services.
+Dependency-injection container for all session-scoped services.
 
 | Service | Purpose |
 |---------|---------|
 | `toolRegistry` | Tool discovery and schema generation |
-| `toolRouter` | Tool execution with state machine |
-| `historyManager` | Conversation history management |
+| `toolRouter` | Tool execution + approval lifecycle |
+| `historyManager` | Conversation history + compression |
+| `sessionState` | Shared planning state (todos + scratchpad) |
 | `policyEngine` | Tool approval decisions |
 | `platform` | Android operations |
 | `config` | Session configuration |
 | `llmClient` | LLM client (OpenAI or local LFM) |
+| `traceRecorder` | Trace persistence sink |
 
 ### Creation
 
 ```kotlin
-val services = SessionServices.create(config, platform, apiKey)
+val services = SessionServices.create(config, platform, apiKey, context, traceRecorder)
 ```
 
 ---
@@ -65,11 +67,13 @@ val services = SessionServices.create(config, platform, apiKey)
 
 → See: `session/SessionAgentRunner.kt`
 
-Bridges AgentSession and AgentRuntime:
-- Creates AgentRuntime for each task
-- Handles agent lifecycle (start, pause, resume, stop)
-- Collects agent events and forwards to session
-- Passes `SessionConfig.cognitionProfileId` into `AgentConfig` for cognition profile selection
+Bridges `AgentSession` and the runtime `Agent`:
+- Creates planner `Agent` per task
+- Handles lifecycle (`start`, `pause`, `resume`, `stop`, `shutdown`)
+- Registers `delegate_task` lazily when missing
+- Wires `AgentRegistry` + `IsolatedSubAgentRunner` for delegation
+
+Planner tool allowlist is defined in `SessionAgentRunner` (`app_control`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task`).
 
 ---
 
@@ -78,9 +82,8 @@ Bridges AgentSession and AgentRuntime:
 → See: `session/AgentSessionState.kt`
 
 Shared state container accessible to agent and tools:
-- `TodoState` - Current todo list
-- `ScratchpadState` - Key-value memory
-- Cleared on new task start (except for resumed sessions)
+- `TodoState` - current todo list
+- `ScratchpadState` - key-value memory
 
 ---
 
@@ -113,11 +116,11 @@ session.submit(Op.UserInput("Open Settings"))
 
 ```kotlin
 session.submit(Op.UserInput("Check my email"))  // Start task
-session.submit(Op.Pause)                        // Pause
-session.submit(Op.Resume)                       // Resume
-session.submit(Op.Interrupt)                    // Stop task, session stays Idle
-session.submit(Op.Shutdown)                     // Terminate session
-session.submit(Op.Approve(actionId, decision))  // Respond to approval
+session.submit(Op.Pause)                         // Pause
+session.submit(Op.Resume)                        // Resume
+session.submit(Op.Interrupt)                     // Stop task, session stays Idle
+session.submit(Op.Shutdown)                      // Terminate session
+session.submit(Op.Approve(actionId, decision))   // Respond to approval
 ```
 
 ### Observing Events

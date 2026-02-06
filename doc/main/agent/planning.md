@@ -1,16 +1,18 @@
 # Planning State & Context Hygiene
 
 > TodoState, ScratchpadState, and history compression strategies.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-06
 
 ## Planning State System
 
-The agent uses **planning state tools** to track progress on complex tasks and share data between planner and executor.
+The agent uses planning-state tools to track progress and share data between planner and executor.
 
-`ContextPackager` also injects system reminders based on planning state:
-- Todo reminder only when there are actionable items (not all completed/cancelled)
+`PromptUtils` injects dynamic reminders based on planning/context state:
+- Todo reminder only when actionable items exist
 - Scratchpad reminder with key count + key preview
-- Loop/turn-budget reminders from cognition policies
+- Loop and turn-budget reminders from cognition policies
+
+→ See: `agent/cognition/prompt/PromptUtils.kt`
 
 ---
 
@@ -25,12 +27,13 @@ class TodoState {
     fun update(todos: List<Todo>)  // Replace entire list
     fun get(): List<Todo>          // Get current list
     fun clear()                    // Clear all todos
+    fun toPromptContext(): String  // Markdown list for prompt context
 }
 ```
 
 **Constraints:**
-- Only ONE todo can be `IN_PROGRESS` at a time
-- Full list replacement (no incremental updates)
+- Only one todo can be `IN_PROGRESS`
+- Full-list replacement model (no partial patch API)
 
 ### Todo Model
 
@@ -70,19 +73,20 @@ class ScratchpadState {
     fun delete(key: String): Boolean
     fun list(): List<String>
     fun clear()
-    
+    fun toPromptContext(): String
+
     companion object {
         const val MAX_ENTRIES = 20
         const val MAX_KEY_LENGTH = 100
-        const val MAX_VALUE_LENGTH = 2000
+        const val MAX_VALUE_LENGTH = 2048
     }
 }
 ```
 
 **Use cases:**
-- Store extracted info from one screen to use in another
-- Remember values across navigation
-- Pass structured data from planner to executor
+- Store extracted info from one screen for later turns
+- Persist critical facts across app navigation
+- Share structured handoff data between planner and executor
 
 ### scratchpad Tool
 
@@ -106,28 +110,24 @@ scratchpad(action = "list")
 
 ## Context Hygiene (History Compression)
 
-To optimize token usage and improve LLM performance, the agent uses text-only history with latest screen injection.
+To control token usage, the runtime keeps history text-first and injects fresh screen context every turn.
 
 ### Key Design Decisions
 
 | Aspect | Approach |
 |--------|----------|
-| **History** | Text-only (no screenshots, no a11y trees) |
-| **Screen State** | Latest screen injected per turn (not stored in history) |
-| **Observations** | `ScreenSummary` text instead of raw JSON |
+| **History** | Messages + tool calls/outputs (no full raw screen JSON history growth) |
+| **Screen State** | Fresh snapshot injected each turn via prompt context |
+| **Observations** | Compact summary strings (`ScreenSnapshot.toSummary`) |
+| **Compression** | `HistoryManager` auto-compresses near budget |
 
-### ScreenSummary
+### Screen Summary
 
 → See: `perception/ScreenSummary.kt`
 
-Generates a concise text summary for history:
+`ScreenSnapshot.toSummary(packageName)` generates a compact observation string, for example:
 
-```kotlin
-object ScreenSummary {
-    fun generate(snapshot: ScreenSnapshot): String
-    // Example: "Screen: com.google.gmail (MainActivity) - 42 elements"
-}
-```
+`com.google.android.gm | elements=42, clickable=18, editable=1, focused=Search mail, labels=Inbox, Promotions, Social`
 
 ### Data Flow
 
@@ -137,14 +137,14 @@ Turn N                                  Turn N+1
   ├─ Perceive: capture screen            ├─ Perceive: capture screen
   │                                       │
   ├─ Think: LLM with                     ├─ Think: LLM with
-  │   - History (text-only)              │   - History (text-only)
-  │   - Latest screen (full JSON)        │   - Latest screen (full JSON)
-  │   - Todos, scratchpad                │   - Todos, scratchpad
+  │   - History (text/tool outputs)      │   - History (text/tool outputs)
+  │   - Latest screen (prompt JSON)      │   - Latest screen (prompt JSON)
+  │   - Todos + scratchpad               │   - Todos + scratchpad
   │                                       │
   ├─ Act: execute tool                   ├─ Act: execute tool
   │                                       │
-  └─ Observe: add text summary           └─ Observe: add text summary
-      to history (NOT raw screen)            to history (NOT raw screen)
+  └─ Observe: append compact summary     └─ Observe: append compact summary
+      (not full raw tree)                    (not full raw tree)
 ```
 
 ---
@@ -153,10 +153,10 @@ Turn N                                  Turn N+1
 
 | Problem | Solution |
 |---------|----------|
-| Token explosion from a11y trees | Only inject latest; summarize in history |
-| Stale screen state confusion | Fresh capture each turn |
-| History bloat | Text summaries, not full observations |
-| Cross-turn data loss | Scratchpad for explicit persistence |
+| Token explosion from full a11y trees | Fresh-turn injection + compact summaries |
+| Stale screen-state confusion | Re-capture screen every turn |
+| History bloat | History compression near budget |
+| Cross-turn data loss | Explicit persistence via scratchpad/todos |
 
 ---
 

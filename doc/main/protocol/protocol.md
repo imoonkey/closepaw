@@ -1,11 +1,11 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-05
+> Last updated: 2026-02-06
 
 ## Overview
 
-The Android Agent uses a unidirectional data flow pattern with a **Task-based model**:
+The Android Agent uses unidirectional flow with a task-based model:
 
 ```
 ┌────────────┐         Op           ┌──────────────┐
@@ -15,14 +15,14 @@ The Android Agent uses a unidirectional data flow pattern with a **Task-based mo
 └────────────┘      AgentEvent      └──────────────┘
 ```
 
-- **Operations (Op)**: User intents sent TO the agent via `session.submit(op)`
-- **Events (AgentEvent)**: State changes emitted FROM the agent via `session.events` Flow
+- **Operations (Op)**: user intents sent to the session via `session.submit(op)`
+- **Events (AgentEvent)**: state/progress emitted from the session via `session.events`
 
 ### Task Model
 
-- **Session**: Long-lived configuration and state (History, Services)
-- **Task**: Work executed in response to `Op.UserInput`. One at a time.
-- **Turn**: One cycle of `Perceive → Think (LLM) → Act (Tool) → Observe`
+- **Session**: long-lived runtime and services
+- **Task**: work initiated by `Op.UserInput`
+- **Turn**: one cycle of `Perceive → Think (LLM) → Act (Tool) → Observe`
 
 ---
 
@@ -61,20 +61,20 @@ The Android Agent uses a unidirectional data flow pattern with a **Task-based mo
 
 | Operation | Valid States | Effect |
 |-----------|--------------|--------|
-| `Op.UserInput(text)` | Created, Idle | Start a new Task |
-| `Op.Pause` | Running | Pause after current action |
+| `Op.UserInput(text)` | Created, Idle | Start a new task |
+| `Op.Pause` | Running | Pause cooperatively |
 | `Op.Resume` | Paused | Resume execution |
-| `Op.Interrupt` | Running | Stop task, session → Idle |
+| `Op.Interrupt` | Running | Stop current task, session returns to Idle |
 | `Op.Shutdown` | Any | Graceful shutdown |
-| `Op.Approve(id, decision)` | Running | Respond to approval request |
+| `Op.Approve(id, decision)` | Running | Resolve pending approval |
 
 ### ApprovalDecision
 
 | Decision | Effect |
 |----------|--------|
 | `APPROVED` | Execute the tool |
-| `DENIED` | Skip this tool, continue |
-| `ABORT` | Stop the entire session |
+| `DENIED` | Skip this tool and continue |
+| `ABORT` | Stop the current session/task |
 
 ---
 
@@ -98,7 +98,7 @@ AgentEvent
 ├── Task Events
 │   ├── TaskStarted
 │   ├── TaskCompleted
-│   └── MessageDelta (streaming)
+│   └── MessageDelta
 │
 ├── Planning State Events
 │   ├── TodosUpdated
@@ -141,19 +141,19 @@ AgentEvent
 
 | Reason | Description |
 |--------|-------------|
-| `GOAL_ACHIEVED` | Agent completed the goal |
+| `GOAL_ACHIEVED` | Goal completed successfully |
 | `USER_STOPPED` | User requested shutdown |
 | `MAX_TURNS` | Turn limit reached |
-| `TASK_IMPOSSIBLE` | Agent determined task cannot be done |
-| `ERROR` | An error occurred |
-| `INTERRUPTED` | Session was interrupted |
+| `TASK_IMPOSSIBLE` | Runtime deemed task not completable |
+| `ERROR` | Error occurred |
+| `INTERRUPTED` | Session interrupted |
 
 ### Planning State Events
 
 | Event | Key Fields |
 |-------|------------|
 | `TodosUpdated` | `todos: List<Todo>` |
-| `ScratchpadUpdated` | `key`, `action` ("write" or "delete") |
+| `ScratchpadUpdated` | `key`, `action` (`write` or `delete`) |
 
 ### Sub-Agent Events
 
@@ -184,9 +184,9 @@ AgentEvent
 | State | Description |
 |-------|-------------|
 | `Created` | Session initialized, not started |
-| `Running` | Agent actively executing a Task |
+| `Running` | Agent actively executing a task |
 | `Paused` | Execution paused, can resume |
-| `Idle` | Session active, waiting for input |
+| `Idle` | Session active, waiting for user input |
 | `Completed` | Session finished |
 | `Shutdown` | User requested stop |
 
@@ -203,7 +203,6 @@ data class SessionConfig(
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     val model: String = "gpt-5.2",
     val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
-    val cognitionProfileId: String? = null,
     val localLLMConfig: LocalLLMConfig? = null,
     val debugMode: Boolean = false,
     val traceEnabled: Boolean = false,
@@ -216,14 +215,17 @@ data class SessionConfig(
 
 | Setting | Description |
 |---------|-------------|
-| `maxTurns` | Max iterations before auto-stop |
+| `maxTurns` | Max turns before auto-stop |
 | `actionDelayMs` | Delay after actions for UI settle |
-| `approvalMode` | ALWAYS_ASK, AUTO_APPROVE, or SMART |
-| `llmBackend` | OPENAI or LOCAL |
-| `cognitionProfileId` | Select cognition profile (`baseline`, `concise`, etc.) |
+| `approvalMode` | `ALWAYS_ASK`, `AUTO_APPROVE`, or `SMART` |
+| `model` | Cloud model name |
+| `llmBackend` | `OPENAI` or `LOCAL` |
+| `localLLMConfig` | Local model backend config |
 | `traceEnabled` | Persist full trace events/artifacts |
 | `traceRunId` | Explicit trace folder/run id |
-| `enableScreenshotInput` | Attach screenshots to perception |
+| `enableScreenshotInput` | Attach screenshots to prompts |
+| `screenshotMaxDimension` | Screenshot long-edge cap |
+| `screenshotJpegQuality` | JPEG compression quality |
 
 ---
 
@@ -233,7 +235,7 @@ data class SessionConfig(
 
 | Error Type | Description | Recoverable |
 |------------|-------------|-------------|
-| `LLMError` | LLM API failure | Yes (with backoff) |
+| `LLMError` | LLM API failure | Depends on status code |
 | `LLMParseError` | Response parsing failed | Yes |
 | `PlatformError` | Android operation failed | No |
 | `PermissionError` | Missing permission | No |
@@ -241,6 +243,7 @@ data class SessionConfig(
 | `UnknownToolError` | Tool doesn't exist | Yes |
 | `ApprovalDeniedError` | User denied action | Yes |
 | `PolicyDeniedError` | Policy forbids action | No |
+| `UnexpectedError` | Unclassified runtime error | No |
 
 ---
 
@@ -259,44 +262,3 @@ session.events.collect { event ->
     }
 }
 ```
-
-### Filtering Events
-
-```kotlin
-// Only streaming text
-session.events
-    .filterIsInstance<AgentEvent.MessageDelta>()
-    .collect { appendText(it.delta) }
-
-// Only terminal events
-session.events
-    .filter { it is SessionCompleted || it is SessionError }
-    .collect { handleSessionEnd(it) }
-```
-
----
-
-## Best Practices
-
-### For UI Developers
-
-1. Handle `MessageDelta` efficiently — append, don't rebuild
-2. Use `TaskStarted`/`TaskCompleted` for input enable/disable
-3. Always handle `SessionCompleted` — clean up resources
-4. Handle `ApprovalRequired` with timeout (60s)
-5. Ignore unknown events for forward compatibility
-
-### For Agent Developers
-
-1. Emit `MessageDelta` during streaming
-2. Emit `StatusUpdate` frequently for user feedback
-3. Use appropriate `CompletionReason`
-4. Transition to `Idle` after Task for multi-round
-
----
-
-## Related Docs
-
-- [Session](../infra/session.md) - AgentSession implementation
-- [Agent Loop](../agent/loop.md) - Event emission during loop
-- [Multi-Agent](../agent/multiagent.md) - Sub-agent events

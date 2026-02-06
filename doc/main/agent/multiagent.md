@@ -1,27 +1,27 @@
 # Multi-Agent System
 
 > Sub-agent delegation, executor agents, and orchestration.
-> Last updated: 2026-02-05
+> Last updated: 2026-02-06
 
 ## Planner-Executor Pattern
 
-The Android Agent uses a delegation pattern where the main agent acts as a **planner** and delegates atomic UI actions to specialized **executor** sub-agents.
+The Android Agent uses delegation where the main agent is a **planner** and delegates atomic UI actions to an **executor** sub-agent.
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│              Main Agent (Planner)                               │
-│  - Plans multi-step tasks                                       │
-│  - Manages todos and scratchpad                                 │
-│  - Delegates atomic actions via delegate_task                   │
+│              Main Agent (Planner)                             │
+│  - Plans multi-step tasks                                     │
+│  - Manages todos and scratchpad                               │
+│  - Delegates atomic actions via delegate_task                 │
 └───────────────────────┬────────────────────────────────────────┘
                         │ delegate_task(query)
                         ▼
 ┌────────────────────────────────────────────────────────────────┐
-│              Executor Agent (Sub-Agent)                         │
-│  - Receives semantic intent                                     │
-│  - Grounds to actual UI elements                                │
-│  - Executes ONE atomic action                                   │
-│  - Returns result to planner                                    │
+│              Executor Agent (Sub-Agent)                       │
+│  - Receives semantic intent                                   │
+│  - Grounds to actual UI elements                              │
+│  - Executes one atomic action                                 │
+│  - Returns success/failure summary to planner                 │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -31,53 +31,53 @@ The Android Agent uses a delegation pattern where the main agent acts as a **pla
 
 ### AgentDefinition
 
-→ See: `agent/subagent/AgentDefinition.kt`
+→ See: `agent/subagent/SubAgentRunner.kt`
 
-Defines a sub-agent that can be invoked via `delegate_task`:
+Defines a sub-agent invokable via `delegate_task`:
 
 ```kotlin
 data class AgentDefinition(
-    val name: String,           // e.g., "executor"
-    val description: String,    // For agent directory prompt
-    val systemPrompt: String,   // Sub-agent system prompt
-    val toolNames: List<String>, // Tools available to this agent
+    val name: String,
+    val description: String,
+    val systemPrompt: String,
+    val toolNames: List<String>,
     val maxTurns: Int = 10,
     val timeoutMs: Long = 60_000,
-    val narrativeSummaryOnLimit: Boolean = true
+    val narrativeSummaryOnLimit: Boolean = true,
+    val executionRole: AgentExecutionRole? = null
 )
 ```
 
 ### AgentRegistry
 
-→ See: `agent/subagent/AgentRegistry.kt`
+→ See: `agent/subagent/SubAgentRunner.kt`
 
-Registry for available sub-agents:
+In-memory registry for available sub-agents:
 
 ```kotlin
 class AgentRegistry {
     fun register(definition: AgentDefinition)
     fun get(name: String): AgentDefinition?
     fun getAll(): List<AgentDefinition>
-    fun getDirectoryPrompt(): String  // For delegate_task description
+    fun getDirectoryPrompt(): String
+
+    companion object {
+        fun createDefault(): AgentRegistry
+    }
 }
 ```
 
-### SubAgentRunner
+### IsolatedSubAgentRunner
 
 → See: `agent/subagent/SubAgentRunner.kt`
 
-Executes a sub-agent with isolated context:
-- Creates a fresh `AgentRuntime` with filtered tools
-- Injects sub-agent system prompt
-- Inherits parent `cognitionProfileId` for consistent planner/executor cognition mode
-- Bridges events to parent session
-- Returns `SubAgentResult` on completion
-- Emits a narrative failure summary when max-turn limit is reached (if enabled)
-
-**Isolation properties:**
-- Child has its own history (no parent history access)
-- Child reads fresh screen state on each turn
-- `scratchpad` is intentionally **shared** for data handoff
+Executes one delegated sub-agent request with isolated runtime state:
+- Creates a child `Agent` with filtered tools
+- Uses child history (no parent history access)
+- Shares parent scratchpad intentionally for handoff
+- Emits bridged activity events to parent session
+- Returns normalized `SubAgentResult(success, message)`
+- Produces a narrative summary when step limit is reached
 
 ---
 
@@ -85,31 +85,29 @@ Executes a sub-agent with isolated context:
 
 → See: `tool/impl/DelegateTaskTool.kt`
 
-Tool for delegating tasks to sub-agents:
+Tool for delegating to a sub-agent:
 
 ```kotlin
 delegate_task(
     agent_name = "executor",
     query = "Tap on the 'Send' button",
-    current_subgoal = "Send the email",        // optional
-    important_notes = ["Recipient: john@example.com"]  // optional
+    current_subgoal = "Send the email",               // optional
+    important_notes = ["Recipient: john@example.com"] // optional
 )
 ```
 
 ### Context Passing
 
 When delegating, pass only:
-- `query` — Self-contained instruction (required)
-- `current_subgoal` — What we're trying to achieve (optional)
-- `important_notes` — Short list of key facts (optional)
+- `query` - self-contained instruction (required)
+- `current_subgoal` - current planner objective (optional)
+- `important_notes` - key facts (optional)
 
-**Do NOT pass:** full history, prior screenshots, prior a11y trees.
-
-The executor reads the current screen in its own turn loop. For structured data handoff, use the shared `scratchpad`.
+Do not pass full history/screenshots/raw tree dumps. Executor captures fresh screen state itself.
 
 ---
 
-## Built-in Sub-Agents
+## Built-in Sub-Agent
 
 | Agent | Description | Tools |
 |-------|-------------|-------|
@@ -117,21 +115,26 @@ The executor reads the current screen in its own turn loop. For structured data 
 
 ### Executor Agent
 
-→ See: `agent/subagent/ExecutorAgent.kt`
+→ See: `agent/subagent/SubAgentRunner.kt`
 
-The default executor agent specializes in:
-- Reading current screen state
-- Grounding semantic instructions to UI elements
-- Executing a single atomic action
-- Reporting success/failure back to planner
+`ExecutorAgent.definition` includes:
+- Name: `executor`
+- Prompt: `ExecutorPromptTemplate.systemPrompt`
+- Max turns: `5`
+- Timeout: `30_000ms`
+- Role: `AgentExecutionRole.EXECUTOR`
 
-`SessionAgentRunner` tunes executor `maxTurns` from the active cognition profile (`maxExecutorSteps`) before registering `delegate_task`.
+---
+
+## Runtime Wiring
+
+→ See: `session/SessionAgentRunner.kt`
+
+`SessionAgentRunner` lazily registers `DelegateTaskTool` and creates a default `AgentRegistry` (`executor` included) when delegation is first needed.
 
 ---
 
 ## Sub-Agent Events
-
-Events emitted during sub-agent execution:
 
 | Event | Description |
 |-------|-------------|
@@ -145,14 +148,9 @@ Events emitted during sub-agent execution:
 
 ## Adding New Sub-Agents
 
-1. Create `AgentDefinition` with:
-   - Unique name
-   - Specialized system prompt
-   - Filtered tool list
-   
-2. Register in `agent/subagent/AgentRegistry.kt`
-
-3. Document in agent directory for `delegate_task` prompt
+1. Add a new `AgentDefinition` and register it in `AgentRegistry` creation.
+2. Ensure the prompt + tool list are scoped to that agent's responsibility.
+3. Expose it through `DelegateTaskTool` registry wiring in `SessionAgentRunner`.
 
 ---
 

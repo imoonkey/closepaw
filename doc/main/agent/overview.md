@@ -1,20 +1,20 @@
 # Agent Core Overview
 
 > Design principles, architecture, and package structure for the Android Agent.
-> Last updated: 2026-02-05
+> Last updated: 2026-02-06
 
 ## Design Principles
 
 | Principle | Description |
 |-----------|-------------|
 | **Task-Based Model** | Session > Task > Turn hierarchy. Multi-round interaction via `Idle` state. |
-| **Planner-Executor Pattern** | Main agent plans and delegates atomic UI actions to executor sub-agents. |
+| **Planner-Executor Pattern** | Main planner agent delegates atomic UI actions to executor sub-agents. |
 | **Streaming Responses** | Native OpenAI streaming with `MessageDelta` events for real-time UI updates. |
-| **Thin Session Layer** | Session manages lifecycle only. All intelligence lives in the Agent. |
-| **Tools with Observation** | Every tool execution captures post-action screen state. |
-| **Context Hygiene** | Text-only history (no screenshots/a11y trees). Latest screen injected per turn. |
-| **Planning State Tools** | `write_todos` and `scratchpad` for stateful planning and cross-agent data handoff. |
-| **Cognition Layer** | Prompt/context/policy/trace logic is isolated under `agent/cognition/` for faster iteration. |
+| **Thin Session Layer** | Session manages lifecycle only. Intelligence lives under `agent/`. |
+| **Tools with Observation** | Tool execution captures post-action context for grounding. |
+| **Context Hygiene** | Text-first history with fresh screen state injected each turn. |
+| **Planning State Tools** | `write_todos` and `scratchpad` persist intent and facts across turns/agents. |
+| **Cognition Layer** | Prompt/context/policy logic is isolated under `agent/cognition/`. |
 
 ---
 
@@ -22,23 +22,23 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Android Application                       │
+│                        Android Application                     │
 ├─────────────────────────────────────────────────────────────────┤
-│  MainActivity ◄─────────────────────────────────────────────┐   │
-│       │ runAgent(goal, apiKey)                              │   │
-│       ▼                                                     │   │
-│  AgentService (AccessibilityService entry point)            │   │
-│       │ creates                                             │   │
-│       ▼                                                     │   │
-│  AgentSession ────────► SessionServices (Dependencies)      │   │
-│       │ starts              │                               │   │
-│       ▼                     │ provides                      │   │
-│  AgentRuntime (ReAct Loop) ◄┘                               │   │
-│       │ executes tools via                                  │   │
-│       ▼                                                     │   │
-│  ToolRouter ────────► AndroidPlatform (Accessibility)       │   │
-│                                                             │   │
-│  Events (AgentEvent) ───────────────────────────────────────┘   │
+│  MainActivity ◄─────────────────────────────────────────────┐  │
+│       │ runAgent(goal, apiKey)                              │  │
+│       ▼                                                     │  │
+│  AgentService (AccessibilityService entry point)            │  │
+│       │ creates                                             │  │
+│       ▼                                                     │  │
+│  AgentSession ────────► SessionServices (Dependencies)      │  │
+│       │ starts              │                               │  │
+│       ▼                     │ provides                      │  │
+│  Agent (turn loop) ◄────────┘                               │  │
+│       │ executes one turn via                               │  │
+│       ▼                                                     │  │
+│  AgentTurnRunner ────► ToolRouter ────► AndroidPlatform    │  │
+│                                                             │  │
+│  Events (AgentEvent) ───────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -53,35 +53,27 @@ com.moonkey.androidagent/
 │   └── AgentService.kt           # AccessibilityService entry point
 │
 ├── agent/                        # Core agent logic
-│   ├── AgentRuntime.kt           # ReAct loop executor
-│   ├── AgentTurnRunner.kt        # Single turn execution
-│   ├── AgentConfig.kt            # Agent configuration
-│   ├── AgentEventDispatcher.kt   # AgentEvent emission helpers
-│   ├── AgentObservation.kt       # Observation types + conversions
-│   ├── AgentPromptBuilder.kt     # System prompt + context builder
+│   ├── Agent.kt                  # Top-level task/turn loop controller
+│   ├── AgentTurnRunner.kt        # Per-turn pipeline executor
+│   ├── AgentRuntimeTypes.kt      # Stop reasons + turn outcomes + turn state
+│   ├── AgentConfig.kt            # Runtime configuration
+│   ├── AgentEventDispatcher.kt   # Event emission helpers
 │   ├── ActionDescriptionFormatter.kt # Tool action descriptions
-│   ├── Turn.kt                   # LLM call wrapper (OpenAI Responses API)
-│   ├── TurnInputBuilder.kt       # ResponseInputItem assembly
-│   ├── cognition/                # Cognition layer (Lab)
-│   │   ├── prompt/               # Role-based prompt templates (planner/executor)
-│   │   ├── profile/              # Cognition profiles (baseline only)
-│   │   ├── context/              # Context packaging policy
-│   │   ├── policy/               # Turn arbitration/completion policy
-│   │   ├── trace/                # Redaction + input trace serializers
-│   │   └── metrics/              # Run metrics model
-│   └── subagent/                 # Sub-agent delegation
-│       ├── AgentDefinition.kt    # Sub-agent definition
-│       ├── AgentRegistry.kt      # Sub-agent discovery
-│       ├── SubAgentRunner.kt     # Sub-agent execution with isolation
-│       └── ExecutorAgent.kt      # UI grounding executor agent
+│   ├── Turn.kt                   # LLM call wrapper (Responses API)
+│   ├── cognition/
+│   │   ├── prompt/               # Planner/Executor templates + PromptUtils
+│   │   ├── context/              # NavigationState + screen signatures
+│   │   └── policy/               # TurnToolPolicy, loop detection, step budget
+│   └── subagent/
+│       └── SubAgentRunner.kt     # AgentDefinition/Registry + isolated runner
 │
 ├── session/                      # Session management
 │   ├── AgentSession.kt           # Lifecycle manager
-│   ├── SessionAgentRunner.kt     # Agent lifecycle runner
+│   ├── SessionAgentRunner.kt     # Starts planner and wires delegation tool
 │   ├── SessionServices.kt        # Dependency injection
 │   ├── AgentSessionState.kt      # Shared state container
-│   ├── TodoState.kt              # Todo list state (planning)
-│   └── ScratchpadState.kt        # Key-value memory state
+│   ├── TodoState.kt              # Todo list state
+│   └── ScratchpadState.kt        # Key-value state
 │
 ├── tool/                         # Tool system
 │   └── (see infra/tools.md)
@@ -97,6 +89,9 @@ com.moonkey.androidagent/
 │
 ├── llm/                          # LLM integration
 │   └── (see infra/llm.md)
+│
+├── trace/                        # Trace events + persisted artifacts
+│   └── (see agent/turn_prompt_anatomy.md)
 │
 ├── history/                      # Session history
 │   └── (see app/history.md)

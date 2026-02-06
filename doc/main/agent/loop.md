@@ -1,7 +1,7 @@
 # Agent Loop Execution
 
 > ReAct loop, Turn mechanics, and streaming execution.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-06
 
 ## ReAct Loop
 
@@ -9,17 +9,17 @@ The agent executes a classic ReAct (Reasoning + Acting) loop within each **Turn*
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      ReAct Loop (Per Turn)                       │
-│                                                                  │
-│   ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌────────┐ │
-│   │ PERCEIVE │────►│  THINK   │────►│   ACT    │────►│OBSERVE │ │
-│   │ (Screen) │     │ (LLM +   │     │  (Tool)  │     │(Screen)│ │
-│   │          │     │ Streaming)│     │          │     │        │ │
-│   └──────────┘     └──────────┘     └──────────┘     └────┬───┘ │
-│        ▲                                                  │     │
-│        │                                                  │     │
-│        └──────────────────────────────────────────────────┘     │
-│          (Loop until complete_task or text-only response)       │
+│                      ReAct Loop (Per Turn)                     │
+│                                                                 │
+│   ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌────────┐│
+│   │ PERCEIVE │────►│  THINK   │────►│   ACT    │────►│OBSERVE ││
+│   │ (Screen) │     │ (LLM +   │     │  (Tool)  │     │(Screen)││
+│   │          │     │ Streaming)│    │          │     │        ││
+│   └──────────┘     └──────────┘     └──────────┘     └────┬───┘│
+│        ▲                                                  │    │
+│        │                                                  │    │
+│        └──────────────────────────────────────────────────┘    │
+│          (Loop until complete_task or text-only response)      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -34,15 +34,15 @@ Op.UserInput("Check email")
 ┌───────────┐
 │TaskStarted│ ◄─── Emit event with taskId
 └─────┬─────┘
-       │
-       ▼
+      │
+      ▼
 ┌───────────────────────────────────────────┐
 │  Turn 1: Perceive → Think → Act → Observe │──► MessageDelta
 │  Turn 2: Perceive → Think → Act → Observe │──► MessageDelta
 │  Turn N: ... (complete_task or text-only) │
 └─────┬─────────────────────────────────────┘
-       │
-       ▼
+      │
+      ▼
 ┌─────────────┐
 │TaskCompleted│ ◄─── Emit event, transition to Idle
 └─────────────┘
@@ -52,57 +52,64 @@ Op.UserInput("Check email")
 
 ## Core Components
 
-### AgentRuntime
+### Agent
 
-→ See: `agent/AgentRuntime.kt`
+→ See: `agent/Agent.kt`
 
-The brain of the system. Executes the ReAct loop until goal achieved or stopped.
+Top-level controller that runs turn-by-turn until a stop condition.
 
 **Responsibilities:**
-- Run the Perceive → Think → Act → Observe cycle
-- Manage turn count and stop conditions
-- Emit events for UI updates
-- Handle pause/resume/stop lifecycle
+- Manage loop lifecycle (`run`, `pause`, `resume`, `stop`)
+- Track turn count and max-turn enforcement
+- Carry cross-turn `TurnRunnerState`
+- Handle recoverable vs fatal turn errors
 
-**Supporting helpers:**
-- `AgentPromptBuilder` builds system prompt + user context
-- `agent/cognition/prompt/PromptAssembler` assembles role/profile aware prompts
-- `agent/cognition/context/ContextPackager` packages per-turn input context
-- `agent/cognition/policy/TurnToolPolicy` arbitrates tool calls + completion
-- `ActionDescriptionFormatter` formats tool action descriptions
-- `AgentEventDispatcher` emits `AgentEvent` with timestamps
-- `AgentObservation` converts tool observations into agent observations
+### AgentTurnRunner
+
+→ See: `agent/AgentTurnRunner.kt`
+
+Executes one full turn.
+
+**Responsibilities:**
+- Capture pre-turn snapshot and emit perception events
+- Build prompt context and stream LLM response via `Turn`
+- Apply `TurnToolPolicy` to choose executable tool calls
+- Execute selected tools and persist outputs/observations
+- Decide turn outcome (`Continue`, `Complete`, `Error`, `Cancelled`)
 
 ### Turn
 
 → See: `agent/Turn.kt`
 
-Encapsulates a single LLM call using the OpenAI Responses API with native tool calling and streaming.
+Encapsulates a single Responses API call with streaming.
 
 **Responsibilities:**
-- Build input items from history + current context (via `TurnInputBuilder`)
-- Generate tool schemas dynamically via `ToolRegistry.generateResponsesApiTools()`
-- Stream text and tool calls via `runStreaming()` method
-- Detect completion (via `complete_task` tool or text-only response)
+- Build input items from history + current user context
+- Generate tool schemas from `ToolRegistry`
+- Stream text and tool calls via `runStreaming()`
+- Mark completion when `complete_task` is present, or text-only response has no tool calls
 
-### Cognition Integration
+### Runtime Types
+
+→ See: `agent/AgentRuntimeTypes.kt`
+
+Defines runtime control/result types:
+- `AgentStopReason`
+- `TurnOutcome`
+- `TurnRunnerState`
+- `TurnExecutionResult`
+
+---
+
+## Cognition Integration
 
 → See: `agent/cognition/`
 
-- **Prompt layer**: profile-aware prompt assembly (`baseline` / `concise`)
-- **Context layer**: explicit packager boundary before LLM input item build, with system reminders for loop warnings, turn-budget pressure, todos, and scratchpad usage
-- **Policy layer**: multi-tool arbitration and completion decision extracted from runner
-- **Loop guard**: a11y-tree signature similarity + repeated action/scroll detection
-- **Step guard**: warns from `maxTurns - 2` and injects final-turn narrative summary at limit
-- **Trace layer**: full prompt/input-item artifacts with redaction, plus tool arbitration decision logging
-
-### Runner State
-
-→ See: `agent/TurnRunnerState.kt`
-
-Per-turn mutable cognition state is carried explicitly by `AgentRuntime` and passed into `AgentTurnRunner`:
-- `navigationState` (recent screen signatures/actions)
-- `previousActionSignature` (used to detect repeated action loops)
+- **Prompt layer**: `PromptUtils` + Planner/Executor templates generate system/user prompt text
+- **Context layer**: `NavigationState` tracks recent screens/actions for loop detection
+- **Policy layer**: `TurnToolPolicy` arbitrates tool calls and completion
+- **Loop guard**: `LoopDetectionPolicy` emits reminders for repeated screens/actions/scroll loops
+- **Step guard**: `ExecutorStepPolicy` injects turn-budget reminders and final-turn narrative summary
 
 ---
 
@@ -112,10 +119,10 @@ Per-turn mutable cognition state is carried explicitly by `AgentRuntime` and pas
 
 ```kotlin
 sealed interface TurnStreamEvent {
-    data class TextDelta(val text: String)           // Streaming text chunk
-    data class ToolCallReceived(val toolCall: ToolCallRequest)  // Tool call ready
-    data class Complete(val result: TurnResult)      // Turn finished
-    data class Error(val error: Throwable)           // Error occurred
+    data class TextDelta(val text: String)
+    data class ToolCallReceived(val toolCall: ToolCallRequest)
+    data class Complete(val result: TurnResult)
+    data class Error(val error: Throwable)
 }
 ```
 
@@ -123,29 +130,22 @@ sealed interface TurnStreamEvent {
 
 ```kotlin
 data class TurnResult(
-    val content: String?,           // Accumulated text from LLM
-    val toolCalls: List<ToolCallRequest>,  // Tool calls to execute
-    val isComplete: Boolean,        // Whether task is done
-    val parseErrors: List<String>?  // Parsing issues (rare)
+    val content: String?,
+    val toolCalls: List<ToolCallRequest>,
+    val isComplete: Boolean
 )
 ```
 
 ---
 
-## Data Flow
+## Tool Arbitration
 
-```
-Turn.runStreaming()          Agent                AgentSession           UI
-       │                       │                       │                  │
-       │ TextDelta("I'll")     │                       │                  │
-       │──────────────────────►│ MessageDelta(delta)   │                  │
-       │                       │──────────────────────►│─────────────────►│
-       │                       │                       │                  │ Append text
-       │                       │                       │                  │
-       │ Complete(result)      │                       │                  │
-       │──────────────────────►│                       │                  │
-       │                       │ Execute tools from result               │
-```
+`TurnToolPolicy` enforces a one-tool-per-turn execution model:
+- Prefer the first non-`complete_task` tool call
+- Defer `complete_task` if another action tool exists
+- Complete task only when no non-completion action remains
+
+→ See: `agent/cognition/policy/TurnToolPolicy.kt`
 
 ---
 
@@ -155,18 +155,18 @@ Turn.runStreaming()          Agent                AgentSession           UI
 
 | Condition | Result |
 |-----------|--------|
-| `complete_task` tool called | `GOAL_ACHIEVED` |
-| Text-only response (no tools) | `GOAL_ACHIEVED` |
-| Max turns reached | `MAX_TURNS` |
-| User interrupt | `INTERRUPTED` |
-| Unrecoverable error | `ERROR` |
+| `complete_task` selected without non-completion tool | `GoalAchieved` |
+| Text-only response with no tool calls | `GoalAchieved` |
+| Max turns reached | `MaxTurnsReached` |
+| User interrupt/stop signal | `UserRequested` |
+| Unrecoverable error | `Error(message)` |
 
 ### Turn Phases
 
 | Phase | Description |
 |-------|-------------|
-| `PERCEPTION` | Capturing/analyzing screen |
-| `PLANNING` | LLM reasoning (streaming) |
+| `PERCEPTION` | Capturing and analyzing screen |
+| `PLANNING` | LLM reasoning and tool selection |
 | `EXECUTION` | Tool execution |
 
 ### Trace Artifacts (Per Turn)
@@ -182,6 +182,8 @@ When trace is enabled, `AgentTrace` emits cognition-focused artifacts:
 Plus run-level summary:
 
 - `run_summary.json`
+
+→ See: `trace/AgentTrace.kt`
 
 ---
 

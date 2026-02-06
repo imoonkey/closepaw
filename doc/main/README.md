@@ -1,7 +1,7 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-06
 
 ## Quick Start
 
@@ -56,25 +56,31 @@ doc/main/
 app/src/main/kotlin/com/moonkey/androidagent/
 │
 ├── app/                          # Application entry points
-│   ├── MainActivity.kt           # UI entry, Compose setup
-│   └── AgentService.kt           # AccessibilityService entry
+│   ├── MainActivity.kt           # UI entry point
+│   └── AgentService.kt           # AccessibilityService entry point
 │
 ├── agent/                        # Core agent logic
-│   ├── AgentRuntime.kt           # ReAct loop executor
+│   ├── Agent.kt                  # Top-level turn loop controller
 │   ├── AgentTurnRunner.kt        # Single turn execution
-│   ├── Turn.kt                   # LLM call wrapper
-│   ├── AgentPromptBuilder.kt     # System prompt builder
-│   └── subagent/                 # Sub-agent delegation
-│       ├── AgentDefinition.kt
-│       ├── AgentRegistry.kt
-│       ├── SubAgentRunner.kt
-│       └── ExecutorAgent.kt
+│   ├── AgentRuntimeTypes.kt      # AgentStopReason, TurnOutcome, TurnRunnerState
+│   ├── AgentConfig.kt            # Agent runtime configuration
+│   ├── AgentEventDispatcher.kt   # AgentEvent emission helpers
+│   ├── ActionDescriptionFormatter.kt # Tool action descriptions
+│   ├── Turn.kt                   # LLM call wrapper (OpenAI Responses API)
+│   ├── cognition/                # Prompt and policy helpers
+│   │   ├── prompt/               # Planner/Executor templates + PromptUtils
+│   │   ├── context/              # NavigationState loop memory
+│   │   └── policy/               # TurnToolPolicy, loop detection, step budget
+│   └── subagent/
+│       └── SubAgentRunner.kt     # AgentDefinition/Registry + runner + executor preset
 │
 ├── session/                      # Session management
 │   ├── AgentSession.kt           # Lifecycle manager
+│   ├── SessionAgentRunner.kt     # Planner runner + delegate tool wiring
 │   ├── SessionServices.kt        # Dependency injection
+│   ├── AgentSessionState.kt      # Shared state container
 │   ├── TodoState.kt              # Planning state
-│   └── ScratchpadState.kt        # Key-value memory
+│   └── ScratchpadState.kt        # Key-value memory state
 │
 ├── tool/                         # Tool system
 │   ├── ToolSpec.kt               # Tool interface
@@ -89,6 +95,11 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │       ├── ScratchpadTool.kt
 │       └── DelegateTaskTool.kt
 │
+├── trace/                        # Structured trace events and artifacts
+│   ├── AgentTrace.kt             # Runtime-to-trace bridge
+│   ├── TraceRecorder.kt          # Recorder interface
+│   └── TraceRecorderFactory.kt   # Recorder creation
+│
 ├── protocol/                     # Communication contracts
 │   ├── Op.kt                     # Operations (UI → Agent)
 │   ├── AgentEvent.kt             # Events (Agent → UI)
@@ -102,7 +113,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │
 ├── perception/                   # Screen perception
 │   ├── Perceptor.kt              # A11y tree → ScreenSnapshot
-│   └── ScreenSummary.kt          # Text summary for history
+│   └── ScreenSummary.kt          # Compact observation summary
 │
 ├── llm/                          # LLM integration
 │   ├── LLMClient.kt              # Unified interface
