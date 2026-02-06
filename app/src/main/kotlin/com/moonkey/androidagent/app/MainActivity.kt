@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_DEBUG_MODE = "debug_mode"
         const val EXTRA_TRACE_ENABLED = "trace_enabled"
         const val EXTRA_TRACE_RUN_ID = "trace_run_id"
+        const val EXTRA_AGENT_MODE = "agent_mode"
     }
     
     // Session scope - survives configuration changes within activity lifecycle
@@ -169,6 +170,8 @@ class MainActivity : ComponentActivity() {
                             // Other settings
                             maxTurns = settingsState.maxTurns,
                             onMaxTurnsChange = settingsState::updateMaxTurns,
+                            agentMode = settingsState.agentMode,
+                            onAgentModeChange = settingsState::updateAgentMode,
                             screenshotInputEnabled = settingsState.enableScreenshotInput,
                             onScreenshotInputChange = settingsState::updateScreenshotInputEnabled,
                             debugMode = settingsState.debugMode,
@@ -210,6 +213,11 @@ class MainActivity : ComponentActivity() {
         payload.backendType?.let {
             settingsState.updateBackend(it)
             Log.d(TAG, "LLM backend set from intent: $it")
+        }
+
+        payload.agentMode?.let {
+            settingsState.updateAgentMode(it)
+            Log.d(TAG, "Agent mode set from intent: $it")
         }
 
         payload.screenshotInputEnabled?.let { enabled ->
@@ -340,10 +348,11 @@ class MainActivity : ComponentActivity() {
                             debugMode = settingsState.debugMode,
                             traceEnabled = pendingTraceEnabled ?: settingsState.debugMode,
                             traceRunId = pendingTraceRunId,
-                                llmBackend = settingsState.llmBackend,
-                                localLLMConfig = localConfig,
-                                enableScreenshotInput = settingsState.enableScreenshotInput &&
-                                    settingsState.llmBackend == LLMBackendType.OPENAI
+                            llmBackend = settingsState.llmBackend,
+                            localLLMConfig = localConfig,
+                            agentMode = settingsState.agentMode,
+                            enableScreenshotInput = settingsState.enableScreenshotInput &&
+                                settingsState.llmBackend == LLMBackendType.OPENAI
                         ),
                         service = service,
                         scope = sessionScope,

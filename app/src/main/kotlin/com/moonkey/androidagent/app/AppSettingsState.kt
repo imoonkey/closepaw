@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.ui.settings.LocalModelOption
 import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
@@ -28,6 +29,8 @@ class AppSettingsState(
         private set
     var enableScreenshotInput by mutableStateOf(AppSettingsStore.DEFAULT_SCREENSHOT_INPUT)
         private set
+    var agentMode by mutableStateOf(AppSettingsStore.DEFAULT_AGENT_MODE)
+        private set
     var llmBackend by mutableStateOf(AppSettingsStore.DEFAULT_LLM_BACKEND)
         private set
     var selectedLocalModelId by mutableStateOf(AppSettingsStore.DEFAULT_LOCAL_MODEL_ID)
@@ -46,6 +49,7 @@ class AppSettingsState(
         maxTurns = settings.maxTurns
         debugMode = settings.debugMode
         enableScreenshotInput = settings.enableScreenshotInput
+        agentMode = settings.agentMode
         llmBackend = settings.llmBackend
         selectedLocalModelId = settings.localModelId
         localModelSlug = settings.localModelSlug
@@ -53,7 +57,7 @@ class AppSettingsState(
 
         Log.d(
             TAG,
-            "Settings loaded: backend=$llmBackend, model=$selectedModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, screenshotInput=$enableScreenshotInput"
+            "Settings loaded: backend=$llmBackend, model=$selectedModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, screenshotInput=$enableScreenshotInput, agentMode=$agentMode"
         )
     }
 
@@ -94,6 +98,11 @@ class AppSettingsState(
     fun updateScreenshotInputEnabled(value: Boolean) {
         enableScreenshotInput = value
         store.saveScreenshotInputEnabled(value)
+    }
+
+    fun updateAgentMode(value: AgentMode) {
+        agentMode = value
+        store.saveAgentMode(value)
     }
 
     fun updateModelLoadingStatus(status: ModelLoadingStatus) {

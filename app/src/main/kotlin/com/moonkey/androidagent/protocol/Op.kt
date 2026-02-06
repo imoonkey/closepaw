@@ -117,6 +117,9 @@ data class SessionConfig(
     /** LLM backend type (cloud or local) */
     val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
 
+    /** Execution mode for main agent orchestration */
+    val agentMode: AgentMode = AgentMode.PRO,
+
     /** Local LLM configuration (used when llmBackend is LOCAL) */
     val localLLMConfig: LocalLLMConfig? = null,
     
@@ -138,6 +141,17 @@ data class SessionConfig(
     /** JPEG quality for screenshot upload (0-100) */
     val screenshotJpegQuality: Int = 70
 )
+
+/**
+ * Agent execution mode.
+ */
+enum class AgentMode {
+    /** Single standalone agent with direct UI tools. */
+    BASIC,
+
+    /** Planner + delegated executor flow. */
+    PRO
+}
 
 /**
  * LLM backend type - determines which LLM client to use.

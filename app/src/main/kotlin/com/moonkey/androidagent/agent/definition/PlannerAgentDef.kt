@@ -1,7 +1,21 @@
-package com.moonkey.androidagent.agent.cognition.prompt
+package com.moonkey.androidagent.agent.definition
 
-internal object PlannerPromptTemplate {
-    val defaultSystemPrompt: String =
+import com.moonkey.androidagent.agent.AgentExecutionRole
+
+internal object PlannerAgentDef : AgentDef() {
+    override val id: String = "planner"
+    override val executionRole: AgentExecutionRole = AgentExecutionRole.PLANNER
+    override val allowedTools: Set<String> =
+        setOf(
+            "app_control",
+            "write_todos",
+            "scratchpad",
+            "delegate_task",
+            "complete_task"
+        )
+    override val requiresDelegationToolRegistration: Boolean = true
+
+    override val systemPrompt: String =
         """
         You are the MAIN PLANNER agent for Android automation.
 

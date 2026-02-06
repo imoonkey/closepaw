@@ -1,6 +1,5 @@
 package com.moonkey.androidagent.agent.cognition.prompt
 
-import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.cognition.context.LoopWarning
 import com.moonkey.androidagent.agent.cognition.context.LoopWarningSeverity
 import com.moonkey.androidagent.model.ScreenImage
@@ -29,15 +28,10 @@ data class UserMessage(val text: String, val image: ScreenImage?)
 
 internal object PromptUtils {
 
-    fun buildSystemPrompt(basePrompt: String?, role: AgentExecutionRole): String {
-        return basePrompt
-                ?: when (role) {
-                    AgentExecutionRole.EXECUTOR -> ExecutorPromptTemplate.systemPrompt
-                    AgentExecutionRole.PLANNER -> PlannerPromptTemplate.defaultSystemPrompt
-                    else ->
-                            PlannerPromptTemplate
-                                    .defaultSystemPrompt // Default to planner for standalone
-                }
+    fun buildSystemPrompt(basePrompt: String?): String {
+        return requireNotNull(basePrompt) {
+            "System prompt is required and must be provided by AgentDef."
+        }
     }
 
     fun buildUserMessage(context: PromptContext): UserMessage {

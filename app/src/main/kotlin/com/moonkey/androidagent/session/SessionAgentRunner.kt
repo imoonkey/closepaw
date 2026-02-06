@@ -2,9 +2,9 @@ package com.moonkey.androidagent.session
 
 import android.util.Log
 import com.moonkey.androidagent.agent.Agent
-import com.moonkey.androidagent.agent.AgentConfig
-import com.moonkey.androidagent.agent.AgentExecutionRole
+import com.moonkey.androidagent.agent.AgentExecutionConfig
 import com.moonkey.androidagent.agent.AgentStopReason
+import com.moonkey.androidagent.agent.definition.AgentDefRegistry
 import com.moonkey.androidagent.agent.subagent.AgentRegistry
 import com.moonkey.androidagent.agent.subagent.IsolatedSubAgentRunner
 import com.moonkey.androidagent.protocol.AgentEvent
@@ -27,14 +27,6 @@ internal class SessionAgentRunner(
 ) {
     companion object {
         private const val TAG = "SessionAgentRunner"
-        private val PLANNER_ALLOWED_TOOLS = setOf(
-            // Planner may open/switch apps directly when delegation overhead is unnecessary.
-            "app_control",
-            "write_todos",
-            "scratchpad",
-            "delegate_task",
-            "complete_task"
-        )
     }
 
     private var agent: Agent? = null
@@ -42,21 +34,25 @@ internal class SessionAgentRunner(
     private var cancellationSignal: CompletableDeferred<AgentStopReason>? = null
 
     fun start(taskInput: String, taskId: String) {
-        ensureDelegationToolRegistered()
+        val agentDef = AgentDefRegistry.mainFor(config.agentMode)
+        if (agentDef.requiresDelegationToolRegistration) {
+            ensureDelegationToolRegistered()
+        }
 
         val signal = CompletableDeferred<AgentStopReason>()
         cancellationSignal = signal
 
-        val agentConfig = AgentConfig(
+        val agentConfig = AgentExecutionConfig(
             goal = taskInput,
             sessionId = sessionId,
             taskId = taskId,
             maxTurns = config.maxTurns,
             uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode,
-            allowedToolNames = PLANNER_ALLOWED_TOOLS,
+            systemPrompt = agentDef.systemPrompt,
+            allowedToolNames = agentDef.allowedTools,
             agentId = sessionId.value,
-            agentRole = AgentExecutionRole.PLANNER
+            agentRole = agentDef.executionRole
         )
 
         val newAgent = Agent(

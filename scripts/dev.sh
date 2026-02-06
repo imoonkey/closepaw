@@ -7,11 +7,14 @@
 # Commands:
 #   ./scripts/dev.sh run [goal]              # Run agent with goal (default: "Open Settings")
 #   ./scripts/dev.sh run --local [goal]      # Run with local LLM backend
+#   ./scripts/dev.sh run --basic [goal]      # Run in Basic (standalone) execution mode
+#   ./scripts/dev.sh run --pro [goal]        # Run in Pro (planner+executor) execution mode
 #   ./scripts/dev.sh logs [filter]           # View logs
 #   ./scripts/dev.sh status                  # Check device and service status
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
+#   AGENT_MODE: "pro" (default) or "basic" - selects execution mode
 #   SCREENSHOT_INPUT: "true"/"false" - whether to send screenshots to the LLM (default: false)
 #
 # Note: Run ./scripts/setup.sh first to build, install and configure permissions
@@ -45,6 +48,14 @@ normalize_bool() {
         true|TRUE|True|1|yes|YES|Yes|y|Y) echo "true" ;;
         false|FALSE|False|0|no|NO|No|n|N|"") echo "false" ;;
         *) echo "false" ;;
+    esac
+}
+
+normalize_agent_mode() {
+    case "$1" in
+        basic|BASIC|Basic) echo "basic" ;;
+        pro|PRO|Pro|"") echo "pro" ;;
+        *) echo "pro" ;;
     esac
 }
 
@@ -100,12 +111,21 @@ stop_agent() {
 cmd_run() {
     local goal=""
     local use_local=false
+    local forced_agent_mode=""
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --local|-l)
                 use_local=true
+                shift
+                ;;
+            --basic)
+                forced_agent_mode="basic"
+                shift
+                ;;
+            --pro)
+                forced_agent_mode="pro"
                 shift
                 ;;
             *)
@@ -127,6 +147,13 @@ cmd_run() {
         LLM_BACKEND="local"
     fi
 
+    # Set execution mode from env or explicit flag
+    AGENT_MODE="${AGENT_MODE:-pro}"
+    if [[ -n "$forced_agent_mode" ]]; then
+        AGENT_MODE="$forced_agent_mode"
+    fi
+    AGENT_MODE=$(normalize_agent_mode "$AGENT_MODE")
+
     # Default screenshot input OFF unless explicitly set
     if [[ -z "${SCREENSHOT_INPUT+x}" ]]; then
         SCREENSHOT_INPUT=false
@@ -136,7 +163,7 @@ cmd_run() {
     
     check_api_key
     
-    log "Running agent with goal: $goal (backend: $LLM_BACKEND)"
+    log "Running agent with goal: $goal (backend: $LLM_BACKEND, mode: $AGENT_MODE)"
     
     # Set up cleanup trap to stop agent when interrupted (Ctrl+C only)
     # Don't use EXIT - it fires on normal completion too
@@ -153,8 +180,10 @@ cmd_run() {
     safe_backend=$(escape_shell_arg "$LLM_BACKEND")
     local safe_api_key
     safe_api_key=$(escape_shell_arg "${OPENAI_API_KEY:-}")
+    local safe_agent_mode
+    safe_agent_mode=$(escape_shell_arg "$AGENT_MODE")
 
-    local intent_extras="--es goal '$safe_goal' --es llm_backend '$safe_backend' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT"
+    local intent_extras="--es goal '$safe_goal' --es llm_backend '$safe_backend' --es agent_mode '$safe_agent_mode' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT"
     if [[ "$LLM_BACKEND" == "openai" ]]; then
         intent_extras="--es api_key '$safe_api_key' $intent_extras"
     fi

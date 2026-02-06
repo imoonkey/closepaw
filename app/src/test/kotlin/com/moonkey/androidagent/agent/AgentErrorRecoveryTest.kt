@@ -32,11 +32,12 @@ class AgentErrorRecoveryTest {
     fun `dns failure is non recoverable`() = runTest {
         val services = buildServices(AgentErrorTestLLMClient(UnknownHostException("Unable to resolve host")))
         val agent = Agent(
-            config = AgentConfig(
+            config = AgentExecutionConfig(
                 goal = "goal",
                 sessionId = SessionId.generate(),
                 maxTurns = 1,
-                uiSettleDelayMs = 0
+                uiSettleDelayMs = 0,
+                systemPrompt = "test prompt"
             ),
             services = services,
             eventEmitter = { },
@@ -52,11 +53,12 @@ class AgentErrorRecoveryTest {
     fun `transient network error stops with error when no retry budget remains`() = runTest {
         val services = buildServices(AgentErrorTestLLMClient(SocketTimeoutException("timeout")))
         val agent = Agent(
-            config = AgentConfig(
+            config = AgentExecutionConfig(
                 goal = "goal",
                 sessionId = SessionId.generate(),
                 maxTurns = 1,
-                uiSettleDelayMs = 0
+                uiSettleDelayMs = 0,
+                systemPrompt = "test prompt"
             ),
             services = services,
             eventEmitter = { },
@@ -72,11 +74,12 @@ class AgentErrorRecoveryTest {
     fun `context length exceeded is non recoverable`() = runTest {
         val services = buildServices(AgentErrorTestLLMClient(RuntimeException("maximum context length exceeded")))
         val agent = Agent(
-            config = AgentConfig(
+            config = AgentExecutionConfig(
                 goal = "goal",
                 sessionId = SessionId.generate(),
                 maxTurns = 1,
-                uiSettleDelayMs = 0
+                uiSettleDelayMs = 0,
+                systemPrompt = "test prompt"
             ),
             services = services,
             eventEmitter = { },

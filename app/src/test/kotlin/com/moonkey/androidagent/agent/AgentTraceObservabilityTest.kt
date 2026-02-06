@@ -48,10 +48,11 @@ class AgentTraceObservabilityTest {
         )
 
         trace.sessionStarted(
-            AgentConfig(
+            AgentExecutionConfig(
                 goal = "test",
                 sessionId = SessionId("session-1"),
-                maxTurns = 1
+                maxTurns = 1,
+                systemPrompt = "test prompt"
             )
         )
         trace.llmRequest(

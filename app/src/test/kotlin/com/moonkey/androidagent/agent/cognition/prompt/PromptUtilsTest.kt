@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.agent.cognition.prompt
 
 import com.google.common.truth.Truth.assertThat
-import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.cognition.context.LoopWarning
 import com.moonkey.androidagent.agent.cognition.context.LoopWarningSeverity
 import com.moonkey.androidagent.model.ScreenSnapshot
@@ -67,25 +66,17 @@ class PromptUtilsTest {
     }
 
     @Test
-    fun `buildSystemPrompt uses base prompt when provided`() {
-        val prompt =
-                PromptUtils.buildSystemPrompt(
-                        basePrompt = "custom planner prompt",
-                        role = AgentExecutionRole.PLANNER
-                )
+    fun `buildSystemPrompt uses provided prompt`() {
+        val prompt = PromptUtils.buildSystemPrompt(basePrompt = "custom planner prompt")
 
         assertThat(prompt).contains("custom planner prompt")
     }
 
     @Test
-    fun `buildSystemPrompt uses role based templates when base prompt missing`() {
-        val plannerPrompt =
-                PromptUtils.buildSystemPrompt(basePrompt = null, role = AgentExecutionRole.PLANNER)
-        assertThat(plannerPrompt).contains("You are the MAIN PLANNER agent for Android automation.")
-
-        val executorPrompt =
-                PromptUtils.buildSystemPrompt(basePrompt = null, role = AgentExecutionRole.EXECUTOR)
-        assertThat(executorPrompt).contains("You are an Executor agent.")
+    fun `buildSystemPrompt throws when prompt missing`() {
+        val thrown = runCatching { PromptUtils.buildSystemPrompt(basePrompt = null) }.exceptionOrNull()
+        assertThat(thrown).isNotNull()
+        assertThat(thrown).hasMessageThat().contains("System prompt is required")
     }
 
     @Test

@@ -48,6 +48,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.moonkey.androidagent.BuildConfig
+import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 
 /**
@@ -81,6 +82,8 @@ fun SettingsSheet(
     // Other settings
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit,
+    agentMode: AgentMode,
+    onAgentModeChange: (AgentMode) -> Unit,
     screenshotInputEnabled: Boolean,
     onScreenshotInputChange: (Boolean) -> Unit,
     debugMode: Boolean,
@@ -152,6 +155,15 @@ fun SettingsSheet(
                 MaxTurnsDropdown(
                     maxTurns = maxTurns,
                     onMaxTurnsChange = onMaxTurnsChange
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            SettingsSection(title = "Execution") {
+                AgentModeDropdown(
+                    agentMode = agentMode,
+                    onAgentModeChange = onAgentModeChange
                 )
             }
 

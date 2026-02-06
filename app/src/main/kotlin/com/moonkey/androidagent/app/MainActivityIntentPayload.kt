@@ -1,11 +1,13 @@
 package com.moonkey.androidagent.app
 
 import android.content.Intent
+import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 
 data class MainActivityIntentPayload(
     val apiKey: String?,
     val backendType: LLMBackendType?,
+    val agentMode: AgentMode?,
     val goalText: String?,
     val freshSession: Boolean,
     val autoStart: Boolean,
@@ -32,6 +34,15 @@ data class MainActivityIntentPayload(
             val goalText = intent.getStringExtra(MainActivity.EXTRA_GOAL)
                 ?.takeIf { it.isNotBlank() }
 
+            val agentMode = intent.getStringExtra(MainActivity.EXTRA_AGENT_MODE)
+                ?.let { raw ->
+                    try {
+                        AgentMode.valueOf(raw.uppercase())
+                    } catch (_: Exception) {
+                        AgentMode.PRO
+                    }
+                }
+
             val screenshotInputEnabled = if (intent.hasExtra(MainActivity.EXTRA_SCREENSHOT_INPUT)) {
                 intent.getBooleanExtra(MainActivity.EXTRA_SCREENSHOT_INPUT, false)
             } else {
@@ -55,6 +66,7 @@ data class MainActivityIntentPayload(
             return MainActivityIntentPayload(
                 apiKey = apiKey,
                 backendType = backendType,
+                agentMode = agentMode,
                 goalText = goalText,
                 freshSession = intent.getBooleanExtra(MainActivity.EXTRA_FRESH_SESSION, false),
                 autoStart = intent.getBooleanExtra(MainActivity.EXTRA_AUTO_START, false),

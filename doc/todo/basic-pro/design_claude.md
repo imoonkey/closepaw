@@ -1,475 +1,323 @@
-# Basic Mode vs Pro Mode: Agent Execution Strategy Design
+# Basic / Pro Execution Mode Design (Implementation Ready)
 
-> **Author**: Claude  
-> **Date**: 2026-02-04  
-> **Status**: Draft
-
----
-
-## Problem Statement
-
-The current two-agent (Planner-Executor) architecture introduces significant latency overhead for simple tasks:
-
-| Task Type | Current Approach | Overhead |
-|-----------|-----------------|----------|
-| "Tap the Send button" | Planner → delegate_task → Executor → complete_task | 2x LLM calls minimum |
-| "Open Gmail" | Planner → app_control → (maybe delegation) | Unnecessary planning |
-| "Read the first email and summarize" | Appropriate multi-step delegation | ✓ Good fit |
-
-**Goal**: Provide two execution modes that users can select:
-- **Basic Mode**: Single-agent for speed on simple tasks
-- **Pro Mode**: Two-agent Planner-Executor for complex multi-step tasks
+> **Author**: Claude + Codex (refined)
+> **Last Updated**: 2026-02-06
+> **Status**: Ready for implementation
+> **Supersedes**: 2026-02-04 draft in the same file
 
 ---
 
-## Design Principles
+## 1. Goals
 
-| Principle | Description |
-|-----------|-------------|
-| **Mode is User Choice** | User selects mode; no auto-detection initially |
-| **Minimal Code Duplication** | Share infrastructure (AgentRuntime, tools, cognition layer) |
-| **Cognition Profile Driven** | Mode differences expressed via `CognitionProfile` |
-| **Clean Tool Separation** | Each mode has distinct tool availability |
-| **Same Agent Loop** | No new loop classes; mode affects config/prompt/tools only |
+为 Android Agent 提供两种可选执行模式，降低简单任务时延，同时保留复杂任务能力。
+
+- **Basic Mode**: 单 Agent，直接执行 UI 操作（快）
+- **Pro Mode**: Planner + Executor 双 Agent（稳，适合复杂多步）
 
 ---
 
-## Architecture Overview
+## 2. Confirmed Organization Decision
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         User Selection                                │
-│                     [ Basic Mode ] [ Pro Mode ]                       │
-└────────────────────────────┬─────────────────────────────────────────┘
-                             │
-                             ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                        SessionAgentRunner                             │
-│  - Reads mode from SessionConfig                                      │
-│  - Selects appropriate CognitionProfile                               │
-│  - Configures tools based on mode                                     │
-└────────────────────────────┬─────────────────────────────────────────┘
-                             │
-              ┌──────────────┴──────────────┐
-              ▼                              ▼
-┌─────────────────────────┐    ┌─────────────────────────────────────┐
-│      Basic Mode         │    │            Pro Mode                  │
-│   Single Agent          │    │     Planner + Executor               │
-│                         │    │                                      │
-│ Tools:                  │    │ Planner Tools:                       │
-│ - mobile_action         │    │ - delegate_task                      │
-│ - app_control           │    │ - app_control                        │
-│ - scratchpad            │    │ - scratchpad                         │
-│ - write_todos           │    │ - write_todos                        │
-│ - complete_task         │    │ - complete_task                      │
-│                         │    │                                      │
-│ Role: STANDALONE        │    │ Executor Tools:                      │
-│                         │    │ - mobile_action                      │
-│                         │    │ - app_control                        │
-│                         │    │ - scratchpad                         │
-│                         │    │ - complete_task                      │
-└─────────────────────────┘    └─────────────────────────────────────┘
-```
+已确认采用你建议的组织方式：**每个 agent 一个独立定义文件，差异全部并列收敛**。
+
+- `PlannerAgentDef`（主规划）
+- `ExecutorAgentDef`（委托执行）
+- `StandaloneAgentDef`（单体直连执行）
+
+三者放在 `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/`，每个文件集中定义该 agent 的 `systemPrompt + allowedTools + executionRole`，由 registry 选择，避免业务代码到处分支。
 
 ---
 
-## Mode Differences
+## 3. Codebase Reality Check (vs old draft)
 
-### Tool Availability
+旧稿中的以下假设已过时，必须修正后才能实施：
 
-| Tool | Basic Mode | Pro Mode (Planner) | Pro Mode (Executor) |
-|------|------------|-------------------|---------------------|
-| `mobile_action` | ✓ | ✗ | ✓ |
-| `app_control` | ✓ | ✓ | ✓ |
-| `scratchpad` | ✓ | ✓ | ✓ |
-| `write_todos` | ✓ | ✓ | ✗ |
-| `delegate_task` | ✗ | ✓ | ✗ |
-| `complete_task` | ✓ | ✓ | ✓ |
-
-**Key Difference**: Basic mode agent has direct `mobile_action` access. Pro mode planner must delegate UI actions.
-
-### Prompt Strategy
-
-| Aspect | Basic Mode | Pro Mode |
-|--------|------------|----------|
-| System Prompt | `BasicAgentPromptTemplate` (NEW) | `PlannerPromptTemplate` + `ExecutorPromptTemplate` |
-| Agent Identity | "You are an Android automation agent" | "You are the MAIN PLANNER agent" / "You are an Executor agent" |
-| Action Style | Direct execution | Semantic delegation |
-| Planning Depth | Lighter (inline) | Explicit (todos for complex multi-step) |
-
-### Cognition Profile
-
-| Parameter | Basic Mode | Pro Mode |
-|-----------|------------|----------|
-| `promptVariant` | `BASIC` (NEW) | `BASELINE` |
-| `delegationEnabled` | `false` | `true` |
-| `maxTurns` | 30 | 50 |
-| `maxExecutorSteps` | N/A | 5 |
-| `loopDetectionEnabled` | `true` | `true` |
-| `todoListEnabled` | `true` | `true` |
+| Old Assumption | Current Reality | Implementation Decision |
+|---|---|---|
+| `protocol/SessionConfig.kt` 存在 | `SessionConfig` 在 `app/src/main/kotlin/com/moonkey/androidagent/protocol/Op.kt` | 在 `Op.kt` 修改 `SessionConfig` |
+| 有 `CognitionProfile`/`PromptVariant` | 当前代码无 `agent/cognition/profile/` 目录 | 不引入该层；改用 `definition` 收敛差异 |
+| 有 `PromptAssembler` | 当前入口是 `PromptUtils.buildSystemPrompt(...)` | 删除 role-switch 逻辑，主路径完全由 `AgentDef.systemPrompt` 提供 |
+| 使用 `settings/UserPreferences.kt` | 当前是 `AppSettingsStore` + `AppSettingsState` | 在 `app/` 现有 settings 体系加 `agentMode` |
+| `SessionAgentRunner` 依赖 profile id | 当前 `SessionAgentRunner` 直接构造 `AgentConfig` | runner 仅消费 `AgentDefRegistry`，不内联差异 |
+| `AgentConfig` 命名含义偏泛 | 当前文件名与职责不够直观 | 一次性更名为 `AgentExecutionConfig`（不保留别名） |
 
 ---
 
-## Implementation Plan
+## 4. Target Runtime Model
 
-### Phase 1: Data Model Updates
+### 4.1 Mode Enum
 
-#### 1.1 Add `AgentMode` Enum
-
-**File**: `protocol/SessionConfig.kt`
+在 `app/src/main/kotlin/com/moonkey/androidagent/protocol/Op.kt` 增加：
 
 ```kotlin
 enum class AgentMode {
-    BASIC,   // Single agent with direct UI access
-    PRO      // Planner-Executor delegation
+    BASIC,
+    PRO
 }
 ```
 
-#### 1.2 Update `SessionConfig`
-
-**File**: `protocol/SessionConfig.kt`
-
-```diff
-data class SessionConfig(
-    val maxTurns: Int = 50,
-    val actionDelayMs: Long = 3000,
-    val debugMode: Boolean = false,
-    val cognitionProfileId: String? = null
-+   val agentMode: AgentMode = AgentMode.PRO  // Default to current behavior
-)
-```
-
-#### 1.3 Update `CognitionProfile`
-
-**File**: `agent/cognition/profile/CognitionProfile.kt`
-
-```diff
-data class CognitionProfile(
-    val id: String,
-    val promptVariant: PromptVariant = PromptVariant.BASELINE,
-+   val delegationEnabled: Boolean = true,  // false for Basic mode
-    // ... existing fields
-)
-```
-
-#### 1.4 Add New `PromptVariant`
-
-**File**: `agent/cognition/profile/CognitionProfile.kt`
-
-```diff
-enum class PromptVariant {
-    BASELINE,
-    CONCISE,
-+   BASIC     // New variant for single-agent mode
-}
-```
-
----
-
-### Phase 2: Prompt Layer
-
-#### 2.1 Create `BasicAgentPromptTemplate`
-
-**File**: `agent/cognition/prompt/BasicAgentPromptTemplate.kt` (NEW)
+并在 `SessionConfig` 增加字段（默认 `PRO`，保持兼容）：
 
 ```kotlin
-internal object BasicAgentPromptTemplate {
-    val systemPrompt: String = """
-        You are an Android automation agent.
-        
-        ## Your Job
-        Execute the user's task by interacting with the Android device.
-        You have direct access to UI actions - use them to accomplish goals efficiently.
-        
-        ## Core Loop
-        1. Observe the current screen state (JSON element list)
-        2. Decide what action to take
-        3. Execute UI action via mobile_action
-        4. Observe result and continue until goal achieved
-        5. Call complete_task when done
-        
-        ## Available Tools
-        - mobile_action: UI interactions (tap, type, swipe, back, home)
-        - app_control: Open apps, list installed apps
-        - scratchpad: Store data for later use
-        - write_todos: Track progress on multi-step tasks
-        - complete_task: Signal task completion
-        
-        ## Action Guidelines
-        
-        ### Tapping
-        mobile_action(action="click", element_index=N)
-        - Use element_index from the screen JSON
-        - Prefer resource_id or text over index when available
-        
-        ### Typing
-        mobile_action(action="type", text="...", element_index=N)
-        - Target editable fields
-        
-        ### Scrolling
-        mobile_action(action="swipe", direction="up")  // Scroll DOWN
-        mobile_action(action="swipe", direction="down") // Scroll UP
-        
-        ### Navigation
-        mobile_action(action="system_button", button="back")
-        mobile_action(action="system_button", button="home")
-        
-        ## Efficiency Tips
-        - One action per turn when possible
-        - Use scratchpad for multi-step data extraction
-        - For complex tasks, use write_todos to track progress
-        - Complete promptly when goal is achieved
-        
-        ## Element Selection Priority
-        1. resource_id (most reliable)
-        2. text content (for buttons/labels)
-        3. element_index (fallback)
-        4. coordinates (last resort)
-    """.trimIndent()
-}
+val agentMode: AgentMode = AgentMode.PRO
 ```
 
-#### 2.2 Update `PromptAssembler`
+### 4.2 Unified `definition` Design (All Differences Live Here)
 
-**File**: `agent/cognition/prompt/PromptAssembler.kt`
+你提的方向作为主设计：**每个 agent 一个定义文件，集中放 prompt + allowedTools**，其余运行时代码不再写角色差异 if-else。
 
-```diff
-fun buildSystemPrompt(role: AgentRole): String {
-    return when (role) {
-        AgentRole.PLANNER -> {
-            when (profile.promptVariant) {
-                PromptVariant.BASELINE -> PlannerPromptTemplate.defaultSystemPrompt
-                PromptVariant.CONCISE -> PlannerPromptTemplate.conciseSystemPrompt
-+               PromptVariant.BASIC -> BasicAgentPromptTemplate.systemPrompt
-            }
-        }
-        AgentRole.EXECUTOR -> ExecutorPromptTemplate.systemPrompt
-    }
-}
-```
+建议新增目录：
 
----
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/`
 
-### Phase 3: Session Layer Changes
+建议结构：
 
-#### 3.1 Update `SessionAgentRunner`
+- `AgentDef.kt`：抽象基类（或 sealed interface）
+- `PlannerAgentDef.kt`
+- `StandaloneAgentDef.kt`
+- `ExecutorAgentDef.kt`
+- `AgentDefRegistry.kt`：mode -> main agent def，及 delegated executor def
 
-**File**: `session/SessionAgentRunner.kt`
-
-```diff
-internal class SessionAgentRunner(...) {
-    companion object {
-        private const val TAG = "SessionAgentRunner"
-+       
-+       private val BASIC_MODE_TOOLS = setOf(
-+           "mobile_action",
-+           "app_control",
-+           "scratchpad",
-+           "write_todos",
-+           "complete_task"
-+       )
-+       
-        private val PLANNER_ALLOWED_TOOLS = setOf(
-            "app_control",
-            "write_todos",
-            "scratchpad",
-            "delegate_task",
-            "complete_task"
-        )
-    }
-
-    fun start(taskInput: String, taskId: String) {
-+       val isProMode = config.agentMode == AgentMode.PRO
-+       
-+       if (isProMode) {
-            ensureDelegationToolRegistered()
-+       }
-        
-        val signal = CompletableDeferred<AgentStopReason>()
-        cancellationSignal = signal
-
-        val agentConfig = AgentConfig(
-            goal = taskInput,
-            sessionId = sessionId,
-            taskId = taskId,
--           maxTurns = config.maxTurns,
-+           maxTurns = if (isProMode) config.maxTurns else 30,
-            uiSettleDelayMs = config.actionDelayMs,
-            debugMode = config.debugMode,
--           allowedToolNames = PLANNER_ALLOWED_TOOLS,
-+           allowedToolNames = if (isProMode) PLANNER_ALLOWED_TOOLS else BASIC_MODE_TOOLS,
--           cognitionProfileId = config.cognitionProfileId,
-+           cognitionProfileId = selectCognitionProfile(isProMode),
-            agentId = sessionId.value,
--           agentRole = AgentExecutionRole.PLANNER
-+           agentRole = if (isProMode) AgentExecutionRole.PLANNER else AgentExecutionRole.STANDALONE
-        )
-        // ... rest unchanged
-    }
-    
-+   private fun selectCognitionProfile(isProMode: Boolean): String {
-+       // Allow explicit override from config
-+       config.cognitionProfileId?.let { return it }
-+       
-+       return if (isProMode) {
-+           BuiltinCognitionProfiles.BASELINE_ID
-+       } else {
-+           BuiltinCognitionProfiles.BASIC_ID
-+       }
-+   }
-}
-```
-
----
-
-### Phase 4: Cognition Profile Registration
-
-#### 4.1 Add Basic Profile
-
-**File**: `agent/cognition/profile/BuiltinCognitionProfiles.kt`
-
-```diff
-object BuiltinCognitionProfiles {
-    const val BASELINE_ID: String = "baseline"
-    private const val CONCISE_ID: String = "concise"
-+   const val BASIC_ID: String = "basic"
-
-+   val basic: CognitionProfile =
-+       CognitionProfile(
-+           id = BASIC_ID,
-+           promptVariant = PromptVariant.BASIC,
-+           contextPolicy = ContextPolicy.STANDARD,
-+           retryPolicy = RetryPolicy(allowTransientNetworkRetry = true),
-+           turnPolicyMode = TurnPolicyMode.PREFER_NON_COMPLETION_SINGLE_TOOL,
-+           delegationEnabled = false,
-+           maxTurns = 30  // Lower budget for single agent
-+       )
-
-    val baseline: CognitionProfile = ...
-    val concise: CognitionProfile = ...
-
--   fun all(): List<CognitionProfile> = listOf(baseline, concise)
-+   fun all(): List<CognitionProfile> = listOf(basic, baseline, concise)
-}
-```
-
----
-
-### Phase 5: UI Integration
-
-#### 5.1 Add Mode Selector to Chat UI
-
-**File**: `ui/chat/ChatScreen.kt`
-
-Add a toggle or segmented control for mode selection before task submission:
-
-```
-┌─────────────────────────────────────────────┐
-│  Mode: [Basic ⚡] [Pro 🧠]                   │
-├─────────────────────────────────────────────┤
-│                                             │
-│   Enter your task...                        │
-│                                             │
-│   [Send]                                    │
-└─────────────────────────────────────────────┘
-```
-
-**UI Guidelines**:
-- Basic: Lightning bolt icon, labeled "Basic ⚡" or "Fast"
-- Pro: Brain icon, labeled "Pro 🧠" or "Smart"
-- Default: Pro (maintains backward compatibility)
-- Persist selection in user preferences
-
-#### 5.2 Update Settings/Preferences
-
-**File**: `settings/UserPreferences.kt`
+建议抽象（示意）：
 
 ```kotlin
-data class UserPreferences(
-    // ... existing
-    val defaultAgentMode: AgentMode = AgentMode.PRO
-)
+internal abstract class AgentDef {
+    abstract val id: String
+    abstract val executionRole: AgentExecutionRole
+    abstract val systemPrompt: String
+    abstract val allowedTools: Set<String>
+    abstract val requiresDelegationToolRegistration: Boolean
+}
 ```
 
----
+说明：
+- 除了 `prompt`、`allowedTools`，至少还需要 `executionRole`（trace/分类）和 `requiresDelegationToolRegistration`（是否要注册 `delegate_task`）。
+- 这些也属于“agent 差异”，应跟前两项一起放进 `definition`，避免散落。
 
-## File Changes Summary
+#### 4.2.1 AgentDef Matrix
 
-| File | Change Type | Description |
-|------|-------------|-------------|
-| `protocol/SessionConfig.kt` | MODIFY | Add `AgentMode` enum and field |
-| `agent/cognition/profile/CognitionProfile.kt` | MODIFY | Add `delegationEnabled`, `BASIC` variant |
-| `agent/cognition/profile/BuiltinCognitionProfiles.kt` | MODIFY | Add `basic` profile |
-| `agent/cognition/prompt/BasicAgentPromptTemplate.kt` | NEW | Single-agent prompt |
-| `agent/cognition/prompt/PromptAssembler.kt` | MODIFY | Handle `BASIC` variant |
-| `session/SessionAgentRunner.kt` | MODIFY | Mode-based tool/config selection |
-| `ui/chat/ChatScreen.kt` | MODIFY | Add mode toggle UI |
-| `settings/UserPreferences.kt` | MODIFY | Persist mode preference |
+| AgentDef | Execution Role | Prompt Owner | Allowed Tools | requiresDelegationToolRegistration | Used By |
+|---|---|---|---|---|---|
+| `StandaloneAgentDef` | `STANDALONE` | `StandaloneAgentDef` | `mobile_action`, `app_control`, `scratchpad`, `write_todos`, `complete_task` | `false` | Basic 主 Agent |
+| `PlannerAgentDef` | `PLANNER` | `PlannerAgentDef` | `app_control`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task` | `true` | Pro 主 Agent |
+| `ExecutorAgentDef` | `EXECUTOR` | `ExecutorAgentDef` | `mobile_action`, `app_control`, `scratchpad`, `complete_task` | `false` | `delegate_task` 子 Agent |
 
----
+#### 4.2.2 Runtime Boundary (No Behavior If-Else Outside `definition`)
 
-## Verification Plan
+`SessionAgentRunner` 只做：
 
-### Unit Tests
+1. `AgentDefRegistry.mainFor(config.agentMode)` 取 main def  
+2. 按 def 的 `requiresDelegationToolRegistration` 决定是否注册 `delegate_task`  
+3. 把 def 的 `systemPrompt/allowedTools/executionRole` 注入 `AgentExecutionConfig`  
 
-1. **Profile Resolution**: `BasicCognitionProfileTest`
-   - Verify `BASIC_ID` resolves correctly
-   - Verify `delegationEnabled = false` for basic profile
+`SubAgentRunner` 只做：
 
-2. **Tool Filtering**: `SessionAgentRunnerTest`
-   - Basic mode: `mobile_action` present, `delegate_task` absent
-   - Pro mode: `delegate_task` present, `mobile_action` absent (for planner)
+1. `AgentDefRegistry.executor()` 取 executor def  
+2. 用 def 的 `systemPrompt/allowedTools/executionRole` 构建子 agent  
 
-3. **Prompt Assembly**: `PromptAssemblerTest`
-   - `BASIC` variant returns `BasicAgentPromptTemplate.systemPrompt`
+除了 registry 选型点，业务代码不再出现“planner/standalone/executor 差异分支”。
 
-### Integration Tests
+### 4.3 Prompt Ownership
 
-1. **Basic Mode E2E**:
-   - Simple task: "Tap the Home button"
-   - Verify single-agent execution (no delegate_task calls)
-   - Verify completion in fewer LLM turns than Pro mode
+Prompt 不再由独立 `PromptTemplate + role switch` 组合，改为“由各自 `AgentDef` 拥有”：
 
-2. **Pro Mode E2E**:
-   - Complex task: "Open Gmail, read first 3 emails, summarize"
-   - Verify Planner-Executor delegation flow
-
-### Manual Testing
-
-- UI toggle persists state
-- Mode selection reflected in execution logs
-- Speed comparison on simple tasks
+- `PlannerAgentDef.systemPrompt`
+- `StandaloneAgentDef.systemPrompt`
+- `ExecutorAgentDef.systemPrompt`
 
 ---
 
-## Migration Notes
+## 5. Implementation Plan
 
-> [!IMPORTANT]
-> Default behavior is `PRO` mode to maintain backward compatibility.
-> Existing users will see no change unless they explicitly select Basic mode.
+### Phase 0: One-shot Refactor Policy (Hard Rule)
+
+- 本改造采用一次性改造（big-bang），**不做渐进式迁移**。
+- 不引入 `@Deprecated`、`typealias`、compat shim、双写逻辑。
+- `AgentConfig` 直接重命名为 `AgentExecutionConfig`，并一次性全量替换引用。
+- 若同一次 PR 无法完成全链路替换，则不合并。
+
+### Phase 1: Protocol + Settings State
+
+#### Files
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/Op.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsState.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/app/MainActivityIntentPayload.kt` (optional but recommended)
+
+#### Changes
+- 在 `SessionConfig` 增加 `agentMode`。
+- 在 `AppSettings` 增加 `agentMode` 持久化（新 key: `agent_mode`，默认 `PRO`）。
+- `MainActivity.ensureSessionAndSend(...)` 创建 `SessionConfig` 时传入 `settingsState.agentMode`。
+- 可选：增加 intent extra `agent_mode`（便于 `scripts/dev.sh` / `scripts/debug-run.sh` 指定模式）。
 
 ---
 
-## Future Considerations
+### Phase 2: `definition` Layer (Prompt + Tools + Role in one place)
 
-### Auto-Select Mode (Not in Scope)
+#### Files
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/AgentDef.kt` (NEW)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/PlannerAgentDef.kt` (NEW)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/StandaloneAgentDef.kt` (NEW)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/ExecutorAgentDef.kt` (NEW)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/AgentDefRegistry.kt` (NEW)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/prompt/PromptUtils.kt` (REMOVE role-based system prompt builder)
 
-A future enhancement could auto-detect task complexity and suggest/select mode:
-- Simple intent detection: single-action keywords → suggest Basic
-- Multi-step detection: "and then", "after that" → suggest Pro
-
-Not included in this design to keep scope minimal.
-
-### Hybrid Mode (Not in Scope)
-
-A more advanced mode could start in Basic and escalate to Pro if the agent gets stuck or detects multi-step needs. Deferred for future investigation.
+#### Changes
+- 新建三份 `AgentDef` 实现，每份文件里同时定义该 agent 的：
+  - `systemPrompt`
+  - `allowedTools`
+  - `executionRole`
+  - `requiresDelegationToolRegistration`
+- `AgentDefRegistry` 统一维护 mode 到 definition 的映射。
+- 主流程只走 `AgentDef.systemPrompt`，不保留 role-based fallback。
 
 ---
 
-## References
+### Phase 3: Session Runtime Branching (Definition-driven)
 
-- [Agent Overview](../../main/agent/overview.md)
-- [Multi-Agent System](../../main/agent/multiagent.md)
-- [Agent Loop](../../main/agent/loop.md)
-- [Cognition Profiles](../../main/agent/planning.md)
-- [Final Multi-Agent Design](../agent_infra_reconcile/final_design_claude.md)
+#### Files
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/AgentDefRegistry.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentExecutionConfig.kt` (rename from `AgentConfig.kt`)
+
+#### Changes
+- `SessionAgentRunner.start(...)` 通过 `AgentDefRegistry.mainFor(config.agentMode)` 获取 definition：
+  - 仅根据 definition 判断是否注册 `delegate_task`
+  - 直接把 definition 的 prompt/tools/role 注入 `AgentExecutionConfig`
+- `SubAgentRunner` 使用 `AgentDefRegistry.executor()`，不再内嵌 executor tools/prompt 常量。
+- 结果：运行时代码不再维护“agent 差异配置”，差异收敛在 `definition/`。
+
+---
+
+### Phase 4: UI Exposure
+
+#### Files
+- `app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsSheet.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdowns.kt` (recommended)
+- `app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsState.kt`
+
+#### Changes
+- 在 Settings 增加 `Execution Mode` 选择器（Basic / Pro）。
+- 选择值写入 `AppSettingsStore`，作为后续会话默认模式。
+
+MVP 取舍：
+- 本阶段先做 Settings 入口，保证可用且改动最小。
+- Chat 输入框旁的每条消息临时切换（quick toggle）不在本次范围。
+
+---
+
+## 6. Prompt Content Boundaries
+
+### Planner Prompt
+- 不做低层 UI grounding。
+- 使用 `delegate_task` 驱动 executor。
+- 负责任务分解、进度与失败恢复策略。
+
+### Executor Prompt
+- 接受单条 delegated query。
+- 一次原子动作后尽快 `complete_task`。
+- 不进行跨步骤规划。
+
+### Standalone Prompt
+- 直接面向用户目标，端到端推进。
+- 可直接调用 `mobile_action` 与 `app_control`。
+- 多步任务可用 `write_todos`，但不使用 `delegate_task`。
+
+---
+
+## 7. Verification Plan
+
+### Unit Tests (required)
+
+1. `app/src/test/kotlin/com/moonkey/androidagent/agent/cognition/prompt/PromptUtilsTest.kt`
+- 删除/重写 `buildSystemPrompt(role)` 相关测试（该分支将被移除）。
+
+2. `app/src/test/kotlin/com/moonkey/androidagent/agent/definition/AgentDefRegistryTest.kt` (NEW)
+- `BASIC -> StandaloneAgentDef`。
+- `PRO -> PlannerAgentDef`。
+
+3. `app/src/test/kotlin/com/moonkey/androidagent/agent/definition/AgentDefTest.kt` (NEW)
+- `StandaloneAgentDef` prompt/tools/role 正确。
+- `PlannerAgentDef` prompt/tools/role 正确。
+- `ExecutorAgentDef` prompt/tools/role 正确。
+
+4. `app/src/test/kotlin/com/moonkey/androidagent/session/AgentSessionTest.kt`
+- 覆盖 `SessionConfig(agentMode=...)` 不破坏既有 session 生命周期。
+
+### Manual Tests (required)
+
+1. Basic 模式下执行“tap/send/open app”类简单任务：
+- trace 中主 Agent role 为 `standalone`
+- 不出现 `delegate_task` 调用
+
+2. Pro 模式下执行多步任务：
+- 仍出现 planner -> executor delegation
+- `SubAgentActivity` 事件正常
+
+3. 重启 App 后模式持久化正确。
+
+---
+
+## 8. Rollout and Compatibility
+
+- 默认仍为 `PRO`，旧用户行为不变。
+- `agentMode` 新字段有默认值，不影响旧调用方。
+- 若增加 intent extra `agent_mode`，未知值回退到 `PRO`。
+- 不保留 deprecated API / compatibility shim（仅行为兼容，不做代码层双轨）。
+
+---
+
+## 9. Non-Goals (this iteration)
+
+- 自动任务复杂度识别并自动切 mode
+- Basic 卡住后自动升级到 Pro
+- 引入 `CognitionProfile`/`PromptVariant` 框架
+- 每条消息级别的 mode 临时切换 UI
+
+---
+
+## 10. File Change Checklist
+
+### Must Change
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/Op.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/AgentDef.kt` (new)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/PlannerAgentDef.kt` (new)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/StandaloneAgentDef.kt` (new)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/ExecutorAgentDef.kt` (new)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/AgentDefRegistry.kt` (new)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentExecutionConfig.kt` (rename target)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/prompt/PromptUtils.kt` (remove role-based system prompt path)
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsState.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsSheet.kt`
+
+### Should Change
+- `app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdowns.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/app/MainActivityIntentPayload.kt`
+- `scripts/dev.sh`
+- `scripts/debug-run.sh`
+
+### Tests
+- `app/src/test/kotlin/com/moonkey/androidagent/agent/cognition/prompt/PromptUtilsTest.kt`
+- `app/src/test/kotlin/com/moonkey/androidagent/agent/definition/AgentDefRegistryTest.kt` (new)
+- `app/src/test/kotlin/com/moonkey/androidagent/agent/definition/AgentDefTest.kt` (new)
+- `app/src/test/kotlin/com/moonkey/androidagent/session/AgentSessionTest.kt`
+
+---
+
+## 11. Definition of Done
+
+满足以下条件即视为可合并：
+
+- `./gradlew test` 通过（包含新增测试）。
+- Basic/Pro 在 Settings 可切换且可持久化。
+- Basic 主 Agent 不调用 `delegate_task`。
+- Pro 路径行为与当前基线一致。
+- `AgentConfig.kt` 不再存在，统一为 `AgentExecutionConfig.kt`，且无 `@Deprecated`/`typealias` 兼容层。
+- 三个 `AgentDef` 在 `agent/definition/` 并列存在，且 prompt/tools/role 差异仅在 `definition` 内定义。
+- `SessionAgentRunner` 与 `SubAgentRunner` 不再内嵌 agent 差异 if-else（只保留 registry 选型）。

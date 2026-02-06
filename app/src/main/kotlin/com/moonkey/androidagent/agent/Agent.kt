@@ -17,7 +17,7 @@ import kotlinx.coroutines.sync.withLock
 
 /** Agent - Public entry point for running a single ReAct agent session. */
 class Agent(
-        private val config: AgentConfig,
+        private val config: AgentExecutionConfig,
         private val services: SessionServices,
         private val eventEmitter: suspend (AgentEvent) -> Unit,
         private val cancellationSignal: CompletableDeferred<AgentStopReason>

@@ -3,6 +3,7 @@ package com.moonkey.androidagent.app
 import android.content.Context
 import android.os.Environment
 import android.util.Log
+import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import java.io.File
 
@@ -12,6 +13,7 @@ data class AppSettings(
     val maxTurns: Int,
     val debugMode: Boolean,
     val enableScreenshotInput: Boolean,
+    val agentMode: AgentMode,
     val llmBackend: LLMBackendType,
     val localModelId: String,
     val localModelSlug: String,
@@ -28,6 +30,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_MAX_TURNS = "max_turns"
         private const val KEY_DEBUG_MODE = "debug_mode"
         private const val KEY_SCREENSHOT_INPUT = "screenshot_input"
+        private const val KEY_AGENT_MODE = "agent_mode"
         private const val KEY_LLM_BACKEND = "llm_backend"
         private const val KEY_LOCAL_MODEL_ID = "local_model_id"
         private const val KEY_LOCAL_MODEL_SLUG = "local_model_slug"
@@ -38,6 +41,7 @@ class AppSettingsStore(private val context: Context) {
         const val DEFAULT_MAX_TURNS = 20
         const val DEFAULT_DEBUG_MODE = false
         const val DEFAULT_SCREENSHOT_INPUT = false
+        val DEFAULT_AGENT_MODE = AgentMode.PRO
         val DEFAULT_LLM_BACKEND = LLMBackendType.OPENAI
         const val DEFAULT_LOCAL_MODEL_ID = "LFM2.5-1.2B-Instruct"
         const val DEFAULT_LOCAL_MODEL_SLUG = "LFM2.5-1.2B-Instruct"
@@ -59,6 +63,13 @@ class AppSettingsStore(private val context: Context) {
         val maxTurns = prefs.getInt(KEY_MAX_TURNS, DEFAULT_MAX_TURNS)
         val debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
         val enableScreenshotInput = prefs.getBoolean(KEY_SCREENSHOT_INPUT, DEFAULT_SCREENSHOT_INPUT)
+        val agentModeName = prefs.getString(KEY_AGENT_MODE, DEFAULT_AGENT_MODE.name)
+            ?: DEFAULT_AGENT_MODE.name
+        val agentMode = try {
+            AgentMode.valueOf(agentModeName)
+        } catch (_: Exception) {
+            DEFAULT_AGENT_MODE
+        }
 
         val backendName = prefs.getString(KEY_LLM_BACKEND, DEFAULT_LLM_BACKEND.name)
             ?: DEFAULT_LLM_BACKEND.name
@@ -78,6 +89,7 @@ class AppSettingsStore(private val context: Context) {
             maxTurns = maxTurns,
             debugMode = debugMode,
             enableScreenshotInput = enableScreenshotInput,
+            agentMode = agentMode,
             llmBackend = llmBackend,
             localModelId = localModelId,
             localModelSlug = localModelSlug,
@@ -103,6 +115,10 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveScreenshotInputEnabled(value: Boolean) {
         prefs().edit().putBoolean(KEY_SCREENSHOT_INPUT, value).apply()
+    }
+
+    fun saveAgentMode(value: AgentMode) {
+        prefs().edit().putString(KEY_AGENT_MODE, value.name).apply()
     }
 
     fun saveBackend(value: LLMBackendType) {

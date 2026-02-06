@@ -39,7 +39,7 @@ import kotlinx.coroutines.delay
  * persist history/trace
  */
 internal class AgentTurnRunner(
-        private val config: AgentConfig,
+        private val config: AgentExecutionConfig,
         private val services: SessionServices,
         private val eventDispatcher: AgentEventDispatcher,
         private val eventEmitter: suspend (AgentEvent) -> Unit,
@@ -227,8 +227,7 @@ internal class AgentTurnRunner(
                         )
                 val systemPrompt =
                         PromptUtils.buildSystemPrompt(
-                                basePrompt = config.systemPrompt,
-                                role = config.agentRole
+                                basePrompt = config.systemPrompt
                         )
                 val promptContext = buildPromptContext(snapshot, loopWarning, stepReminder)
                 val userMessage = PromptUtils.buildUserMessage(promptContext)

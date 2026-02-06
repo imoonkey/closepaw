@@ -7,6 +7,7 @@ import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.ResponsesResult
 import com.moonkey.androidagent.protocol.AgentEvent
+import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
@@ -53,19 +54,46 @@ class AgentSessionTest {
 
         job.cancel()
     }
+
+    @Test
+    fun `session lifecycle remains stable for all agent modes`() = runTest {
+        listOf(AgentMode.BASIC, AgentMode.PRO).forEach { mode ->
+            val session = buildSession(
+                scope = this,
+                captureDelayMs = 1_000L,
+                llmDelayMs = 0L,
+                agentMode = mode
+            )
+            val events = mutableListOf<AgentEvent>()
+            val job = launch { session.events.collect { events.add(it) } }
+
+            session.submit(Op.UserInput("goal-$mode"))
+            assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+            session.submit(Op.Shutdown)
+            advanceUntilIdle()
+
+            assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+            val completed = events.filterIsInstance<AgentEvent.SessionCompleted>().single()
+            assertThat(completed.reason).isEqualTo(CompletionReason.USER_STOPPED)
+
+            job.cancel()
+        }
+    }
 }
 
 private fun buildSession(
     scope: kotlinx.coroutines.CoroutineScope,
     captureDelayMs: Long,
     llmDelayMs: Long,
-    maxTurns: Int = 2
+    maxTurns: Int = 2,
+    agentMode: AgentMode = AgentMode.PRO
 ): AgentSession {
     val toolRegistry = ToolRegistry()
     val policyEngine = PolicyEngine()
     val toolRouter = ToolRouter(toolRegistry, policyEngine)
     val platform = FakeAndroidPlatform(captureDelayMs = captureDelayMs)
-    val config = SessionConfig(maxTurns = maxTurns, actionDelayMs = 0)
+    val config = SessionConfig(maxTurns = maxTurns, actionDelayMs = 0, agentMode = agentMode)
     val services = SessionServices(
         toolRegistry = toolRegistry,
         toolRouter = toolRouter,

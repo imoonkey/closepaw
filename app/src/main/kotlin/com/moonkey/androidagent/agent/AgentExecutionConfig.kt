@@ -20,7 +20,7 @@ enum class AgentExecutionRole {
     STANDALONE
 }
 
-data class AgentConfig(
+data class AgentExecutionConfig(
     /** The user's goal (or task input) */
     val goal: String,
     

@@ -5,9 +5,12 @@
 # Usage: 
 #   ./scripts/debug-run.sh "goal"              # Run with OpenAI backend
 #   ./scripts/debug-run.sh --local "goal"      # Run with local LLM backend
+#   ./scripts/debug-run.sh --basic "goal"      # Run in Basic (standalone) execution mode
+#   ./scripts/debug-run.sh --pro "goal"        # Run in Pro (planner+executor) execution mode
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
+#   AGENT_MODE: "pro" (default) or "basic" - selects execution mode
 #   SCREENSHOT_INPUT: "true"/"false" - whether to send screenshots to the LLM (default: false)
 #
 
@@ -21,11 +24,20 @@ DEBUG_DIR="$PROJECT_ROOT/debug-output/run_${RUN_ID}"
 
 # Parse arguments
 USE_LOCAL=false
+FORCED_AGENT_MODE=""
 GOAL=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --local|-l)
             USE_LOCAL=true
+            shift
+            ;;
+        --basic)
+            FORCED_AGENT_MODE="basic"
+            shift
+            ;;
+        --pro)
+            FORCED_AGENT_MODE="pro"
             shift
             ;;
         *)
@@ -59,6 +71,14 @@ normalize_bool() {
     esac
 }
 
+normalize_agent_mode() {
+    case "$1" in
+        basic|BASIC|Basic) echo "basic" ;;
+        pro|PRO|Pro|"") echo "pro" ;;
+        *) echo "pro" ;;
+    esac
+}
+
 # Create debug output directory
 mkdir -p "$DEBUG_DIR"
 log "Debug output: $DEBUG_DIR"
@@ -73,6 +93,13 @@ LLM_BACKEND="${LLM_BACKEND:-openai}"
 if [[ "$USE_LOCAL" == "true" ]]; then
     LLM_BACKEND="local"
 fi
+
+# Determine execution mode
+AGENT_MODE="${AGENT_MODE:-pro}"
+if [[ -n "$FORCED_AGENT_MODE" ]]; then
+    AGENT_MODE="$FORCED_AGENT_MODE"
+fi
+AGENT_MODE=$(normalize_agent_mode "$AGENT_MODE")
 
 # Default debug mode on for debug-run unless explicitly set
 if [[ -z "${DEBUG_MODE+x}" ]]; then
@@ -93,6 +120,7 @@ if [[ "$LLM_BACKEND" == "openai" && -z "$OPENAI_API_KEY" ]]; then
 fi
 
 log "Using LLM backend: $LLM_BACKEND"
+log "Using execution mode: $AGENT_MODE"
 
 # Ensure device connected
 if ! adb devices | grep -q "device$"; then
@@ -115,8 +143,9 @@ SAFE_GOAL=$(escape_shell_arg "$GOAL")
 SAFE_BACKEND=$(escape_shell_arg "$LLM_BACKEND")
 SAFE_API_KEY=$(escape_shell_arg "${OPENAI_API_KEY:-}")
 SAFE_RUN_ID=$(escape_shell_arg "$RUN_ID")
+SAFE_AGENT_MODE=$(escape_shell_arg "$AGENT_MODE")
 
-INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
+INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --es agent_mode '$SAFE_AGENT_MODE' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
 if [[ "$LLM_BACKEND" == "openai" ]]; then
     INTENT_EXTRAS="--es api_key '$SAFE_API_KEY' $INTENT_EXTRAS"
 fi

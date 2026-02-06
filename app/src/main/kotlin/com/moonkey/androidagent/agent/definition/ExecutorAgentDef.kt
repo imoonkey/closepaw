@@ -1,7 +1,20 @@
-package com.moonkey.androidagent.agent.cognition.prompt
+package com.moonkey.androidagent.agent.definition
 
-internal object ExecutorPromptTemplate {
-    val systemPrompt: String =
+import com.moonkey.androidagent.agent.AgentExecutionRole
+
+internal object ExecutorAgentDef : AgentDef() {
+    override val id: String = "executor"
+    override val executionRole: AgentExecutionRole = AgentExecutionRole.EXECUTOR
+    override val allowedTools: Set<String> =
+        setOf(
+            "mobile_action",
+            "app_control",
+            "scratchpad",
+            "complete_task"
+        )
+    override val requiresDelegationToolRegistration: Boolean = false
+
+    override val systemPrompt: String =
         """
         You are an Executor agent. You execute ONE atomic UI action per delegation.
 

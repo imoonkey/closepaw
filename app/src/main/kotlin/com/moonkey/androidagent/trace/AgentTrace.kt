@@ -1,6 +1,6 @@
 package com.moonkey.androidagent.trace
 
-import com.moonkey.androidagent.agent.AgentConfig
+import com.moonkey.androidagent.agent.AgentExecutionConfig
 import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.agent.ToolCallRequest
 import com.moonkey.androidagent.agent.TurnResult
@@ -34,7 +34,7 @@ internal class AgentTrace(
     private val runMetrics = RunMetrics()
 
     /** Emits initial session metadata. */
-    fun sessionStarted(config: AgentConfig) {
+    fun sessionStarted(config: AgentExecutionConfig) {
         sessionStartedAtMs = System.currentTimeMillis()
         trace.emit(
             sessionId = sessionId.value,

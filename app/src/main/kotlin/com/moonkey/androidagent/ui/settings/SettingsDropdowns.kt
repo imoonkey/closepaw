@@ -13,6 +13,7 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Repeat
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -31,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 
 /**
@@ -301,6 +303,77 @@ internal fun MaxTurnsDropdown(
                         expanded = false
                     },
                     leadingIcon = if (turns == maxTurns) {
+                        {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary)
+                            )
+                        }
+                    } else null
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Agent execution mode selector.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun AgentModeDropdown(
+    agentMode: AgentMode,
+    onAgentModeChange: (AgentMode) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val modeItems = listOf(
+        AgentMode.BASIC to "Basic (Standalone)",
+        AgentMode.PRO to "Pro (Planner + Executor)"
+    )
+    val selectedDisplayName = modeItems.find { it.first == agentMode }?.second ?: agentMode.name
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = selectedDisplayName,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Execution Mode") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.Speed,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+            )
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            modeItems.forEach { (mode, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onAgentModeChange(mode)
+                        expanded = false
+                    },
+                    leadingIcon = if (mode == agentMode) {
                         {
                             Box(
                                 modifier = Modifier
