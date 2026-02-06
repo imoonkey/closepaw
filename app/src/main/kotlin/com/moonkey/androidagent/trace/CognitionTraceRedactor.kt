@@ -1,4 +1,4 @@
-package com.moonkey.androidagent.agent.cognition.trace
+package com.moonkey.androidagent.trace
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement

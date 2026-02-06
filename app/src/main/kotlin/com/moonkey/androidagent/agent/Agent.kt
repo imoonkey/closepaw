@@ -2,6 +2,7 @@ package com.moonkey.androidagent.agent
 
 import android.util.Log
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
+import com.moonkey.androidagent.trace.AgentTrace
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.TurnPhase

@@ -9,9 +9,10 @@ import com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
 import com.moonkey.androidagent.agent.cognition.prompt.PromptContext
 import com.moonkey.androidagent.agent.cognition.prompt.PromptUtils
-import com.moonkey.androidagent.agent.cognition.trace.ArbitrationDecision
-import com.moonkey.androidagent.agent.cognition.trace.DropReason
-import com.moonkey.androidagent.agent.cognition.trace.DroppedToolCall
+import com.moonkey.androidagent.trace.AgentTrace
+import com.moonkey.androidagent.trace.ArbitrationDecision
+import com.moonkey.androidagent.trace.DropReason
+import com.moonkey.androidagent.trace.DroppedToolCall
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor

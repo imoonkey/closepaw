@@ -15,6 +15,7 @@ import com.moonkey.androidagent.test.FakeAndroidPlatform
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
+import com.moonkey.androidagent.trace.AgentTrace
 import com.moonkey.androidagent.trace.TraceArtifactRef
 import com.moonkey.androidagent.trace.TraceEventRecord
 import com.moonkey.androidagent.trace.TraceRecorder
