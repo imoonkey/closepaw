@@ -1,4 +1,4 @@
-package com.moonkey.androidagent.app
+package com.moonkey.androidagent.ui.settings
 
 import android.content.Context
 import android.os.Environment

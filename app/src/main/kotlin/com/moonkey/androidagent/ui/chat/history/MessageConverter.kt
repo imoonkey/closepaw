@@ -1,5 +1,7 @@
-package com.moonkey.androidagent.history.model
+package com.moonkey.androidagent.ui.chat.history
 
+import com.moonkey.androidagent.history.model.ContentBlockRecord
+import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.ui.chat.model.ActionCardData
 import com.moonkey.androidagent.ui.chat.model.ActionState
 import com.moonkey.androidagent.ui.chat.model.AgentMessageState
@@ -12,7 +14,7 @@ import com.moonkey.androidagent.ui.common.getToolIcon
  * Utility functions for converting between ChatMessage (UI) and MessageRecord (persistence).
  */
 object MessageConverter {
-    
+
     /**
      * Convert a ChatMessage to MessageRecord for persistence.
      */
@@ -42,7 +44,7 @@ object MessageConverter {
             )
         }
     }
-    
+
     /**
      * Convert a MessageRecord to ChatMessage for UI display.
      */
@@ -75,23 +77,21 @@ object MessageConverter {
             )
         }
     }
-    
+
     /**
      * Convert a list of MessageRecords to ChatMessages.
      */
     fun fromRecords(records: List<MessageRecord>): List<ChatMessage> {
         return records.map { fromRecord(it) }
     }
-    
+
     /**
      * Convert a list of ChatMessages to MessageRecords.
      */
     fun toRecords(messages: List<ChatMessage>): List<MessageRecord> {
         return messages.map { toRecord(it) }
     }
-    
-    // ===== Private Helpers =====
-    
+
     private fun parseActionState(state: String): ActionState {
         return when (state.lowercase()) {
             "proposed" -> ActionState.Proposed

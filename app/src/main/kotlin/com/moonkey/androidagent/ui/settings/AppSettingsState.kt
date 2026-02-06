@@ -1,12 +1,10 @@
-package com.moonkey.androidagent.app
+package com.moonkey.androidagent.ui.settings
 
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.moonkey.androidagent.protocol.LLMBackendType
-import com.moonkey.androidagent.ui.settings.LocalModelOption
-import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
 
 /**
  * UI-backed settings state that persists to AppSettingsStore.
