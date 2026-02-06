@@ -37,7 +37,7 @@
 | policy/RetryPolicy.kt | **5** | **只有一个 Boolean 字段的 data class** |
 | policy/ExecutorStepPolicy.kt | 77 | 合理 |
 | policy/LoopDetectionPolicy.kt | 52 | 合理 |
-| policy/TurnPolicyEngine.kt | 80 | interface + default impl，但只有一个实现 |
+| policy/TurnToolPolicy.kt | 80 | interface + default impl，但只有一个实现 |
 | profile/CognitionProfile.kt | 25 | 合理 |
 | profile/CognitionProfileRegistry.kt | 18 | interface + default impl，但只有一个实现且逻辑极简 |
 | profile/BuiltinCognitionProfiles.kt | 19 | 合理 |
@@ -122,7 +122,7 @@ sealed class ToolObservation {
 | `RetryPolicy` data class | 仅一个 `Boolean` 字段 | 删除，用 Boolean 参数 |
 | `interface PromptAssembler` | 仅 `DefaultPromptAssembler` | 合并为普通类或函数 |
 | `interface ContextPackager` | 仅 `DefaultContextPackager` | 合并为普通类或函数 |
-| `interface TurnPolicyEngine` | 仅 `DefaultTurnPolicyEngine` | 合并为普通类或函数 |
+| `interface TurnToolPolicy` | 仅 `DefaultTurnToolPolicy` | 合并为普通类或函数 |
 | `interface CognitionProfileRegistry` | 仅 `DefaultCognitionProfileRegistry` | 合并为 companion/top-level 函数 |
 
 ### 问题 5：双重角色枚举

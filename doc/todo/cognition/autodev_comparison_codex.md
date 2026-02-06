@@ -49,7 +49,7 @@ AutoDev 的优势在于“任务成功导向的战术细节密度”很高（大
 | 循环形态 | `AgentRuntime` + `AgentTurnRunner` + `Turn`，单轮单仲裁 | Planner step + 内嵌 executor 多步循环（`MAX_EXECUTOR_STEPS=10`） | AutoDev 执行层更“长回路” |
 | Prompt治理 | `PromptAssembler` + profile variant | 超大 prompt 文本（大量规则内嵌） | 你可维护性更高 |
 | Profile实验 | `CognitionProfileRegistry` + `cognitionProfileId` | 无等价 profile registry（更多靠 prompt/模型硬编码） | 你更适合 A/B |
-| Policy解耦 | `TurnPolicyEngine` 已抽离 | 仲裁逻辑散布在 agent 主循环与 prompt 指令 | 你更可测 |
+| Policy解耦 | `TurnToolPolicy` 已抽离 | 仲裁逻辑散布在 agent 主循环与 prompt 指令 | 你更可测 |
 | Context打包 | `ContextPackager` 接口已立 | 主要直接拼 user message + 可选 transcription | 你有扩展槽，当前能力还浅 |
 | 观测性 | trace artifacts + redaction + run_summary | 强步骤日志 + screenshots + timeline + summary | AutoDev 的“人类调试可读性”更强 |
 | 安全 | trace redaction（email/token/jwt/敏感key） | 未见等价 redaction 层 | 你更安全 |
@@ -64,12 +64,12 @@ AutoDev 的优势在于“任务成功导向的战术细节密度”很高（大
 
 ### 你的实现
 - 主循环是固定 `Perceive -> Think -> Act -> Observe`。
-- LLM 每 turn 输出后，`TurnPolicyEngine` 仲裁只执行一个 tool（优先非 `complete_task`）。
+- LLM 每 turn 输出后，`TurnToolPolicy` 仲裁只执行一个 tool（优先非 `complete_task`）。
 - 执行完成后回到下一 turn。
 
 关键文件：
 - `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt`
-- `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/policy/TurnPolicyEngine.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/policy/TurnToolPolicy.kt`
 
 ### AutoDev
 - Planner 先产出 tool calls；若是执行类 tool，会进入 `execute_step()`。
@@ -226,7 +226,7 @@ AutoDev 的优势在于“任务成功导向的战术细节密度”很高（大
 ## 4.9 测试与可演进性
 
 ### 你的实现
-- `TurnPolicyEngineTest`、`CognitionProfileRegistryTest`、`AgentTraceObservabilityTest`、`ContextPackagerTest` 已覆盖核心认知边界。
+- `TurnToolPolicyTest`、`CognitionProfileRegistryTest`、`AgentTraceObservabilityTest`、`ContextPackagerTest` 已覆盖核心认知边界。
 
 ### AutoDev
 - 其策略多依赖 prompt 行为与实跑结果，单元化程度较弱。

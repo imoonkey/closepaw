@@ -8,14 +8,14 @@
 已完成：
 
 1. 去掉 profile/A-B test 配置链（`SessionConfig`/`AgentConfig`/`Agent`/`AgentTurnRunner`/`SessionAgentRunner` 全链路）。
-2. `TurnPolicyEngine` 改成固定单策略，不再通过 profile mode 分支。
+2. `TurnToolPolicy` 改成固定单策略，不再通过 profile mode 分支。
 3. prompt user-context 构建去除 profile 参数。
 4. 移除 profile 注册相关文件和测试。
 
 剩余建议（继续奥卡姆剃刀）：
 
 1. 把 `AgentRegistry` 退化为“单 executor 常量 + 查找函数”（当前只有一个 sub-agent，registry 抽象收益低）。
-2. 评估把 `TurnPolicyEngine` 内联进 `AgentTurnRunner`（若后续仍只有一套策略）。
+2. 评估把 `TurnToolPolicy` 内联进 `AgentTurnRunner`（若后续仍只有一套策略）。
 3. 评估把 `ArbitrationTrace` 的几个短 model 并入 `AgentTrace`（减少跨文件跳转）。
 
 ## 执行原则
@@ -54,13 +54,13 @@
 
 ### 2.1 单实现接口改为具体类
 - 变更：
-  - `PromptAssembler`、`ContextPackager`、`TurnPolicyEngine`、`CognitionProfileRegistry` 先去接口化。
+  - `PromptAssembler`、`ContextPackager`、`TurnToolPolicy`、`CognitionProfileRegistry` 先去接口化。
   - 命名从 `DefaultXxx` 收敛为 `Xxx`。
 - 影响文件：
   - `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentRuntime.kt`
   - `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/**/*.kt`
 - 验证：
-  - `./gradlew test --tests "*TurnPolicyEngineTest" --tests "*ContextPackagerTest" --tests "*CognitionProfileRegistryTest"`
+  - `./gradlew test --tests "*TurnToolPolicyTest" --tests "*ContextPackagerTest" --tests "*CognitionProfileRegistryTest"`
 
 ### 2.2 统一观察模型
 - 变更：

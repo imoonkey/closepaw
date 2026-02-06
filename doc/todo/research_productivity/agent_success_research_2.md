@@ -48,7 +48,7 @@ app/src/main/kotlin/com/moonkey/androidagent/agent/success/
 │   ├── ContextPackager.kt
 │   └── ContextPolicy.kt
 ├── policy/
-│   ├── TurnPolicyEngine.kt
+│   ├── TurnToolPolicy.kt
 │   └── RetryPolicy.kt
 └── metrics/
     ├── RunMetrics.kt
@@ -57,7 +57,7 @@ app/src/main/kotlin/com/moonkey/androidagent/agent/success/
 
 核心思路：
 - `PromptAssembler.build(role, context, visibleTools, profile)` 成为唯一 prompt 出口。
-- `TurnPolicyEngine` 托管 success 关键决策（如多工具冲突、completion gate）。
+- `TurnToolPolicy` 托管 success 关键决策（如多工具冲突、completion gate）。
 - `SuccessProfile` 把“实验参数”集中，不再散落在 runtime 常量中。
 
 ## 4. 关键设计细节
@@ -101,7 +101,7 @@ interface PromptAssembler {
 
 ### 4.3 Turn 成功策略可配置
 
-把现在硬编码在 `AgentTurnRunner` 的关键逻辑抽成 `TurnPolicyEngine`：
+把现在硬编码在 `AgentTurnRunner` 的关键逻辑抽成 `TurnToolPolicy`：
 - 多 tool call 冲突时的仲裁
 - `complete_task` 与 action 同时出现时的处理
 - stuck/重复动作策略（后续可加）
@@ -142,7 +142,7 @@ data class SuccessProfile(
 | 改动点 | 接入方式 |
 |---|---|
 | `AgentRuntime` | 构造 `SuccessProfile` + `PromptAssembler` + `ContextPackager` |
-| `AgentTurnRunner` | 用 `ContextPackager` 产出输入；用 `TurnPolicyEngine` 做结果仲裁 |
+| `AgentTurnRunner` | 用 `ContextPackager` 产出输入；用 `TurnToolPolicy` 做结果仲裁 |
 | `Turn` | 删除 `buildSystemPrompt()`，只接收已构造 prompt |
 | `ExecutorAgent` | prompt 来源改为 Success Hub 模板 |
 | `AgentTrace` | 增加 full prompt / input items / run summary artifact |
@@ -162,7 +162,7 @@ data class SuccessProfile(
 - 行为保持 100% 不变
 
 ### Phase B（1 天，中低风险）
-- `TurnPolicyEngine` 抽离
+- `TurnToolPolicy` 抽离
 - 默认策略与现状一致
 
 ### Phase C（1 天，高收益）

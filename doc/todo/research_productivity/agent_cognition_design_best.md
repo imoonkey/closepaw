@@ -67,7 +67,7 @@ app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/
 │   ├── ContextPackager.kt
 │   └── ContextPolicy.kt
 ├── policy/
-│   ├── TurnPolicyEngine.kt
+│   ├── TurnToolPolicy.kt
 │   └── RetryPolicy.kt
 ├── trace/
 │   └── CognitionTracer.kt
@@ -113,7 +113,7 @@ interface ContextPackager {
 ```
 
 ```kotlin
-interface TurnPolicyEngine {
+interface TurnToolPolicy {
     fun arbitrateToolCalls(
         toolCalls: List<ToolCallRequest>,
         profile: CognitionProfile
@@ -129,7 +129,7 @@ interface TurnPolicyEngine {
    负责装配 `CognitionProfile`、`PromptAssembler`、`ContextPackager`。
 
 2. `AgentTurnRunner.kt`  
-   用 `ContextPackager` 产出输入；用 `TurnPolicyEngine` 处理多 tool 冲突/完成条件。
+   用 `ContextPackager` 产出输入；用 `TurnToolPolicy` 处理多 tool 冲突/完成条件。
 
 3. `Turn.kt`  
    删除角色规则拼接逻辑，改为接收已构建 `systemPrompt`。
@@ -163,7 +163,7 @@ Prompt 集中化 + `PromptAssembler`，行为不变。
 引入 `CognitionProfile` 与 registry，支持 `cognitionProfileId` 切换。
 
 ### Phase D（策略解耦） ✅ Completed
-抽离 `TurnPolicyEngine`，把关键裁决逻辑从 runner 中移出并可配置化。
+抽离 `TurnToolPolicy`，把关键裁决逻辑从 runner 中移出并可配置化。
 
 ### Phase E（可选） ⏳ Pending
 评测基线任务集与 profile 对比报表。
@@ -246,7 +246,7 @@ Risk: Medium
 Risk: Medium
 
 #### Phase 4: 策略解耦（第四步）
-1. 抽离 `TurnPolicyEngine`，承接 `AgentTurnRunner` 里的多 tool 仲裁与完成条件裁决。
+1. 抽离 `TurnToolPolicy`，承接 `AgentTurnRunner` 里的多 tool 仲裁与完成条件裁决。
 2. 增加行为回归测试矩阵（单 tool、多 tool、`complete_task` 混合）。  
 Risk: Medium-High
 
@@ -258,7 +258,7 @@ Risk: Medium-High
 ### Testing Strategy
 - Unit:
   - `PromptAssembler` 组装结果（planner/executor/local backend）
-  - `TurnPolicyEngine` 仲裁规则
+  - `TurnToolPolicy` 仲裁规则
   - `CognitionProfileRegistry` 解析与默认回退
 - Regression:
   - `TurnToolFilteringTest`
@@ -291,7 +291,7 @@ Risk: Medium-High
    - commit: `27b5c2c`
 
 4. **Phase 4: 策略解耦（完成）**
-   - 新增 `TurnPolicyEngine` + `ToolArbitrationResult` + `CompletionDecision`。
+   - 新增 `TurnToolPolicy` + `ToolArbitrationResult` + `CompletionDecision`。
    - 多 tool 仲裁与完成条件判断从 `AgentTurnRunner` 抽离到 policy 层。
    - commit: `19257ed`
 
@@ -303,7 +303,7 @@ Risk: Medium-High
 - `profile/`: 已落地
 - `prompt/`: 已落地
 - `context/`: 已落地（`ContextPackager` + `ContextPolicy`）
-- `policy/`: 已落地（`RetryPolicy` + `TurnPolicyEngine`）
+- `policy/`: 已落地（`RetryPolicy` + `TurnToolPolicy`）
 - `trace/`: 已落地（redaction + input artifacts）
 - `metrics/`: 已落地（`RunMetrics`）
 

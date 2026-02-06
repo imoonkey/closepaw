@@ -287,7 +287,7 @@ class Scratchpad:
 ### AndroidAgent: Current State
 
 ```kotlin
-// TurnPolicyEngine.kt
+// TurnToolPolicy.kt
 data class RetryPolicy(
     val allowTransientNetworkRetry: Boolean = false
 )

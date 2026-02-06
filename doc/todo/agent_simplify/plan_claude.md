@@ -101,7 +101,7 @@
 |-----------|-------------|------|
 | `PromptAssembler` | `DefaultPromptAssembler` | 删除 interface，重命名 Default 为 `PromptAssembler`（普通 class） |
 | `ContextPackager` | `DefaultContextPackager` | 删除 interface，重命名 Default 为 `ContextPackager`（普通 class） |
-| `TurnPolicyEngine` | `DefaultTurnPolicyEngine` | 删除 interface，重命名 Default 为 `TurnPolicyEngine`（普通 class） |
+| `TurnToolPolicy` | `DefaultTurnToolPolicy` | 删除 interface，重命名 Default 为 `TurnToolPolicy`（普通 class） |
 | `CognitionProfileRegistry` | `DefaultCognitionProfileRegistry` | 删除 interface，改为 companion `fun resolve()` 或 top-level 函数 |
 
 ### 2.3 消除 Observation 重复

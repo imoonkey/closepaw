@@ -40,7 +40,7 @@
 
 **Weaknesses**:
 - Missing error/edge case handling
-- `TurnPolicyEngine` needs more implementation detail
+- `TurnToolPolicy` needs more implementation detail
 - Bilingual (Chinese/English) may cause confusion
 
 ---

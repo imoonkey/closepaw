@@ -68,7 +68,7 @@ The brain of the system. Executes the ReAct loop until goal achieved or stopped.
 - `AgentPromptBuilder` builds system prompt + user context
 - `agent/cognition/prompt/PromptAssembler` assembles role/profile aware prompts
 - `agent/cognition/context/ContextPackager` packages per-turn input context
-- `agent/cognition/policy/TurnPolicyEngine` arbitrates tool calls + completion
+- `agent/cognition/policy/TurnToolPolicy` arbitrates tool calls + completion
 - `ActionDescriptionFormatter` formats tool action descriptions
 - `AgentEventDispatcher` emits `AgentEvent` with timestamps
 - `AgentObservation` converts tool observations into agent observations

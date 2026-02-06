@@ -51,7 +51,7 @@
 ### Findings
 
 - High: Large initial scope may overload first rollout (prompt + context + policy + metrics); needs an explicitly minimal slice for first PR.
-- Medium: `TurnPolicyEngine` behavior boundaries are stated but not formalized as contract/test matrix (`agent_success_research_2.md:104`).
+- Medium: `TurnToolPolicy` behavior boundaries are stated but not formalized as contract/test matrix (`agent_success_research_2.md:104`).
 - Medium: Mixed Chinese/English language is readable but may reduce team-wide doc consistency.
 - Low: Trace artifact design should explicitly mention PII/redaction policy for prompt and context dumps (`agent_success_research_2.md:133`).
 
@@ -88,4 +88,4 @@
 1. Phase A: Prompt centralization + `PromptAssembler` only, behavior unchanged.
 2. Phase B: Full trace artifacts (`full_prompt`, `llm_input_items`) with redaction guard.
 3. Phase C: Introduce `SuccessProfile` and runtime selection.
-4. Phase D: Extract `TurnPolicyEngine` with regression tests for baseline parity.
+4. Phase D: Extract `TurnToolPolicy` with regression tests for baseline parity.

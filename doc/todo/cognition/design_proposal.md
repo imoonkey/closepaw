@@ -45,7 +45,7 @@
 | Strength | Evidence | Action |
 |----------|----------|--------|
 | **Modular Architecture** | `cognition/{context,policy,profile,prompt,trace,metrics}` | Keep separation |
-| **Testable Policy Layer** | `TurnPolicyEngine` + tests | Extend with new policies |
+| **Testable Policy Layer** | `TurnToolPolicy` + tests | Extend with new policies |
 | **Profile-Based Config** | `CognitionProfileRegistry` | Add cognition features to profile |
 | **Trace Redaction** | `CognitionTraceRedactor` | Maintain security |
 | **Unified Tool Registry** | `ToolRegistry` + `ToolRouter` | Add tools through registry |
@@ -73,7 +73,7 @@ agent/cognition/
 │   ├── ContextPackager.kt          [DONE] System reminders (loop/step/todo/scratchpad)
 │   └── NavigationState.kt          [DONE] Screen signatures + action history
 ├── policy/
-│   ├── TurnPolicyEngine.kt         [UNCHANGED] Arbitration/completion kept separate
+│   ├── TurnToolPolicy.kt         [UNCHANGED] Arbitration/completion kept separate
 │   ├── LoopDetectionPolicy.kt      [DONE] Screen/action repetition detection
 │   └── ExecutorStepPolicy.kt       [DONE] Step-limit warning + narrative summary
 ├── profile/
@@ -109,7 +109,7 @@ graph TB
     end
     
     subgraph Executor["Executor Session"]
-        I --> J[TurnPolicyEngine]
+        I --> J[TurnToolPolicy]
         J --> K{Steps > MAX?}
         K -->|Yes| L[Generate Narrative Summary]
         K -->|No| M[Execute Tool]
@@ -459,7 +459,7 @@ enum class DropReason {
 | `ContextPackager.kt` | Reminder + warning injection | DONE |
 | `PromptAssembler.kt` | Inject recovery/rules sections | DONE |
 | `AgentTurnRunner.kt` | Integrate navigation state + step warnings | DONE |
-| `TurnPolicyEngine.kt` | Loop detection policy evaluation | SKIPPED (kept in runner) |
+| `TurnToolPolicy.kt` | Loop detection policy evaluation | SKIPPED (kept in runner) |
 | `AgentTrace.kt` | Add arbitration decision logging | DONE |
 | `AgentRuntime.kt` | Carry runner state across turns | DONE |
 
@@ -485,7 +485,7 @@ enum class DropReason {
 Status: COMPLETED (with minor architecture adaptation)
 
 1. ✅ Implement `NavigationState` with signature-based matching
-2. ✅ Add `LoopDetectionPolicy` (integrated in `AgentTurnRunner`, not `TurnPolicyEngine`)
+2. ✅ Add `LoopDetectionPolicy` (integrated in `AgentTurnRunner`, not `TurnToolPolicy`)
 3. ✅ Inject loop warnings via `ContextPackager`
 4. ✅ Implement executor step limit with narrative summary
 5. ✅ Add failure recovery rules to prompts
@@ -568,6 +568,6 @@ If continuing this work, start with Phase 2 unfinished items:
 ### AndroidAgent Target Files
 - Profile: `agent/cognition/profile/CognitionProfile.kt`
 - Context: `agent/cognition/context/ContextPackager.kt`
-- Policy: `agent/cognition/policy/TurnPolicyEngine.kt`
+- Policy: `agent/cognition/policy/TurnToolPolicy.kt`
 - Prompt: `agent/cognition/prompt/PromptAssembler.kt`
 - Trace: `agent/AgentTrace.kt`

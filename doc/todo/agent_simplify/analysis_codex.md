@@ -74,7 +74,7 @@
 - 位置：
   - `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/prompt/PromptAssembler.kt:11`
   - `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/context/ContextPackager.kt:20`
-  - `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/policy/TurnPolicyEngine.kt:23`
+  - `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/policy/TurnToolPolicy.kt:23`
   - `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/profile/CognitionProfileRegistry.kt:3`
 - 现状：当前都只有默认实现在用。
 - 影响：文件和类型数量增加，调试跳转路径变长。
