@@ -24,6 +24,7 @@ doc/main/
 ├── agent/             # Core agent intelligence
 │   ├── overview.md    # Design principles, architecture, package structure
 │   ├── loop.md        # ReAct loop, Turn, streaming execution
+│   ├── turn_prompt_anatomy.md # Per-turn OpenAI prompt/input/tools breakdown
 │   ├── multiagent.md  # Sub-agent system, delegation, registry
 │   └── planning.md    # TodoState, ScratchpadState, context hygiene
 │
@@ -134,13 +135,14 @@ app/src/main/kotlin/com/moonkey/androidagent/
 
 1. [agent/overview.md](agent/overview.md) - Architecture and design principles
 2. [agent/loop.md](agent/loop.md) - How the agent executes
-3. [protocol/protocol.md](protocol/protocol.md) - How UI and agent communicate
+3. [agent/turn_prompt_anatomy.md](agent/turn_prompt_anatomy.md) - What is sent to OpenAI each turn
+4. [protocol/protocol.md](protocol/protocol.md) - How UI and agent communicate
 
 ### Working on specific areas?
 
 | Area | Start With |
 |------|------------|
-| Agent behavior | [agent/loop.md](agent/loop.md), [agent/planning.md](agent/planning.md) |
+| Agent behavior | [agent/loop.md](agent/loop.md), [agent/turn_prompt_anatomy.md](agent/turn_prompt_anatomy.md), [agent/planning.md](agent/planning.md) |
 | Multi-agent | [agent/multiagent.md](agent/multiagent.md) |
 | Adding tools | [infra/tools.md](infra/tools.md) |
 | Session lifecycle | [infra/session.md](infra/session.md) |
