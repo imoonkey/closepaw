@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-02-06
+> Last updated: 2026-02-04
 
 ## Overview
 
@@ -91,8 +91,6 @@ The settings sheet is a modal bottom sheet with:
 
 ```
 ui/settings/
-├── AppSettingsState.kt      # Mutable UI-backed settings state
-├── AppSettingsStore.kt      # SharedPreferences persistence
 ├── SettingsSheet.kt         # Main composable
 ├── SettingsModels.kt        # Data models + defaults
 ├── SettingsDropdowns.kt     # Model/backend dropdowns

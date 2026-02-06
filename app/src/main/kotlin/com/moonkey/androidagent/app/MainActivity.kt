@@ -26,8 +26,6 @@ import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
-import com.moonkey.androidagent.ui.settings.AppSettingsState
-import com.moonkey.androidagent.ui.settings.AppSettingsStore
 import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
 import com.moonkey.androidagent.ui.chat.ChatScreen
 import com.moonkey.androidagent.ui.chat.ChatViewModel

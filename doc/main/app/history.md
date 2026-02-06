@@ -1,7 +1,7 @@
 # Session History Persistence
 
 > Session recording, storage, and resume functionality.
-> Last updated: 2026-02-06
+> Last updated: 2026-02-04
 
 ## Overview
 
@@ -237,12 +237,10 @@ history/
 ├── model/
 │   ├── SessionRecord.kt        # Complete session data
 │   ├── MessageRecord.kt        # Message types
-│   └── SessionInfo.kt          # Lightweight summary
+│   ├── SessionInfo.kt          # Lightweight summary
+│   └── MessageConverter.kt     # ChatMessage ↔ MessageRecord
 └── storage/
     └── SessionStorage.kt       # File I/O operations
-
-ui/chat/history/
-└── MessageConverter.kt         # MessageRecord ↔ ChatMessage (UI mapping)
 ```
 
 ---

@@ -3,8 +3,8 @@ package com.moonkey.androidagent.ui.chat
 import android.util.Log
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.moonkey.androidagent.history.SessionHistoryManager
+import com.moonkey.androidagent.history.model.MessageConverter
 import com.moonkey.androidagent.history.model.SessionInfo
-import com.moonkey.androidagent.ui.chat.history.MessageConverter
 import com.moonkey.androidagent.ui.chat.model.ChatMessage
 import com.moonkey.androidagent.ui.chat.model.ChatUiState
 import com.moonkey.androidagent.ui.chat.model.TaskBannerState
