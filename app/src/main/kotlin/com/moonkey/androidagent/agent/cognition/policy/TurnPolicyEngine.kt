@@ -37,16 +37,13 @@ internal class TurnPolicyEngine {
      * - Prefer a non-`complete_task` action.
      * - Fallback to first tool call when completion is the only call.
      */
-    fun arbitrateToolCalls(
-        toolCalls: List<ToolCallRequest>
-    ): ToolArbitrationResult {
+    fun arbitrateToolCalls(toolCalls: List<ToolCallRequest>): ToolArbitrationResult {
         val hasCompletionTool = toolCalls.any { it.name == COMPLETE_TASK_TOOL }
         val hasNonCompletionTool = toolCalls.any { it.name != COMPLETE_TASK_TOOL }
-        val selectedTool =
-            toolCalls.firstOrNull { it.name != COMPLETE_TASK_TOOL }
-                ?: toolCalls.firstOrNull()
+        val selectedTool = toolCalls.firstOrNull { it.name != COMPLETE_TASK_TOOL }
+            ?: toolCalls.firstOrNull()
         val selectedToolCalls = selectedTool?.let(::listOf) ?: emptyList()
-        val droppedToolCalls = toolCalls.filterNot { call -> selectedToolCalls.contains(call) }
+        val droppedToolCalls = toolCalls.filterNot { it in selectedToolCalls }
         return ToolArbitrationResult(
             selectedToolCalls = selectedToolCalls,
             selectedTool = selectedTool,
@@ -69,11 +66,10 @@ internal class TurnPolicyEngine {
             return CompletionDecision(shouldComplete = false, summary = null)
         }
         val completeTaskCall = turnResult.toolCalls.find { it.name == COMPLETE_TASK_TOOL }
-        val summary =
-            completeTaskCall?.arguments?.optString("answer")?.takeIf { it.isNotBlank() }
-                ?: completeTaskCall?.arguments?.optString("summary")
-                ?: turnResult.content
-                ?: "Goal achieved"
+        val summary = completeTaskCall?.arguments?.optString("answer")?.takeIf { it.isNotBlank() }
+            ?: completeTaskCall?.arguments?.optString("summary")
+            ?: turnResult.content
+            ?: "Goal achieved"
         return CompletionDecision(shouldComplete = true, summary = summary)
     }
 }

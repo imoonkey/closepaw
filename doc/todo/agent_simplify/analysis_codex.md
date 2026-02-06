@@ -3,6 +3,40 @@
 日期：2026-02-05
 范围：`app/src/main/kotlin/com/moonkey/androidagent/agent`
 
+## 2026-02-05 进展更新（single-path 化）
+
+已完成一轮“减少实体 + 去可选配置”落地，核心变化：
+
+1. 删除 cognition profile / A-B test 路径
+- 删除：`app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/profile/CognitionProfiles.kt`
+- 删除测试：`app/src/test/kotlin/com/moonkey/androidagent/agent/cognition/profile/CognitionProfileRegistryTest.kt`
+- 去除配置字段：
+  - `SessionConfig.cognitionProfileId`
+  - `AgentConfig.cognitionProfileId`
+
+2. 主循环变成固定策略（无 profile 分支）
+- `AgentTurnRunner` 不再注入 `CognitionProfile`。
+- Loop detection 使用默认策略直接启用。
+- tool arbitration 固定为“优先非 complete_task 的单工具执行”。
+- transient network recoverable 判定不再依赖 profile 开关。
+
+3. 简化上下文构建 API
+- `AgentPromptBuilder.buildUserContext(...)` 去掉 `profile` 参数。
+- todo/scratchpad reminder 逻辑直接按会话状态决定，不再走 profile 开关。
+
+4. trace 去掉 profile/mode 噪音字段
+- `session_started` 不再写 `cognition_profile_id`。
+- arbitration trace 不再写 `policy_mode`。
+
+5. 保留 prompt 文件分离
+- 按当前约束，`planner/executor` prompt 继续独立存放在：
+  - `agent/cognition/prompt/PlannerPromptTemplate.kt`
+  - `agent/cognition/prompt/ExecutorPromptTemplate.kt`
+
+验证：
+- `./gradlew :app:testDebugUnitTest` 通过
+- `./gradlew :app:assembleDebug` 通过
+
 ## 概览
 
 - 文件数：36

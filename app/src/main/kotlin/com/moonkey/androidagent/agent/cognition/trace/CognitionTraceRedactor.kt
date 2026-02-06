@@ -33,7 +33,7 @@ internal object CognitionTraceRedactor {
             .let { jwtPattern.replace(it, "[REDACTED_JWT]") }
             .let { longTokenPattern.replace(it) { match ->
                 val value = match.value
-                if (value.any { ch -> ch.isDigit() } && value.any { ch -> ch.isLetter() }) {
+                if (value.any(Char::isDigit) && value.any(Char::isLetter)) {
                     "[REDACTED_TOKEN]"
                 } else {
                     value
@@ -54,10 +54,7 @@ internal object CognitionTraceRedactor {
         return JsonObject(
             obj.mapValues { (key, value) ->
                 if (isSensitiveKey(key)) {
-                    when (value) {
-                        is JsonNull -> JsonNull
-                        else -> JsonPrimitive("[REDACTED]")
-                    }
+                    if (value is JsonNull) JsonNull else JsonPrimitive("[REDACTED]")
                 } else {
                     redactJson(value)
                 }

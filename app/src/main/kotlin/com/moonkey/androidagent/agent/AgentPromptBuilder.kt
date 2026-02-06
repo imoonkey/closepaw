@@ -56,17 +56,18 @@ class AgentPromptBuilder(
         systemReminders: List<String> = emptyList()
     ): UserContext {
         val baseContext = buildBaseUserContext(snapshot)
-        val reminders =
-            buildList {
-                loopWarning?.let { add(formatLoopWarning(it)) }
-                systemReminders.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(it) }
-                buildTodoReminder()?.let { add(it) }
-                buildScratchpadReminder()?.let { add(it) }
-            }
-        if (reminders.isEmpty()) {
-            return baseContext
+        val reminders = buildList {
+            loopWarning?.let { add(formatLoopWarning(it)) }
+            systemReminders.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(it) }
+            buildTodoReminder()?.let { add(it) }
+            buildScratchpadReminder()?.let { add(it) }
         }
-        return baseContext.copy(text = "${baseContext.text}\n\n${reminders.joinToString(separator = "\n\n")}")
+        
+        return if (reminders.isEmpty()) {
+            baseContext
+        } else {
+            baseContext.copy(text = "${baseContext.text}\n\n${reminders.joinToString(separator = "\n\n")}")
+        }
     }
 
     private fun buildBaseUserContext(snapshot: ScreenSnapshot): UserContext {
@@ -104,7 +105,7 @@ class AgentPromptBuilder(
     private fun isExecutorRole(toolNames: Set<String>): Boolean {
         val hasDelegate = "delegate_task" in toolNames
         val hasMobileAction = "mobile_action" in toolNames
-        return !(hasDelegate && !hasMobileAction)
+        return !hasDelegate || hasMobileAction
     }
 
     private fun formatLoopWarning(loopWarning: LoopWarning): String {

@@ -86,7 +86,6 @@ class Agent(
             }
 
             if (!shouldContinue()) {
-                eventDispatcher.status("🛑 Cancelled")
                 stopReason = AgentStopReason.UserRequested
                 break
             }
@@ -149,13 +148,10 @@ class Agent(
             }
         }
 
-        val finalReason =
-            stopReason
-                ?: when {
-                    stopRequested.get() -> AgentStopReason.UserRequested
-                    cancellationSignal.isCompleted -> AgentStopReason.UserRequested
-                    else -> AgentStopReason.GoalAchieved
-                }
+        val finalReason = stopReason ?: when {
+            stopRequested.get() || cancellationSignal.isCompleted -> AgentStopReason.UserRequested
+            else -> AgentStopReason.GoalAchieved
+        }
 
         trace.sessionStopped(finalReason, turnCount)
         return finalReason

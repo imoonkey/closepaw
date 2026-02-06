@@ -208,17 +208,12 @@ internal class AgentTurnRunner(
                     )
                     val toolCallsToExecute = arbitration.selectedToolCalls
                     if (result.toolCalls.size > 1 && arbitration.selectedTool != null) {
-                        Log.w(
-                            TAG,
-                            "Turn $turnNumber: Multiple tool calls returned: ${result.toolCalls.map { it.name }}, executing: ${arbitration.selectedTool.name}"
-                        )
+                        val toolNames = result.toolCalls.map { it.name }
+                        Log.w(TAG, "Turn $turnNumber: Multiple tool calls returned: $toolNames, executing: ${arbitration.selectedTool.name}")
                         eventDispatcher.status("⚠️ Multiple actions returned; executing ${arbitration.selectedTool.name} only")
                     }
                     if (arbitration.hasCompletionTool && arbitration.hasNonCompletionTool) {
-                        Log.w(
-                            TAG,
-                            "Turn $turnNumber: complete_task returned alongside other tools; completion deferred"
-                        )
+                        Log.w(TAG, "Turn $turnNumber: complete_task returned alongside other tools; completion deferred")
                         eventDispatcher.status("⚠️ Completion returned with other actions; executing action first")
                     }
 
@@ -233,7 +228,6 @@ internal class AgentTurnRunner(
                         Log.d(TAG, "Using turn snapshot for actions: ${currentSnapshot.elements.size} elements")
 
                         for (toolCall in toolCallsToExecute) {
-                            // Tracks the most recent action. Arbitration currently executes at most one tool.
                             actionForNextTurn = classifyAction(toolCall)
                             Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
                             trace.toolCall(turnId, turnNumber, toolCall)
@@ -283,34 +277,21 @@ internal class AgentTurnRunner(
 
                             emitPlanningEvents(toolCall, toolResult)
 
-                            var observation: ToolObservation = ToolObservation.TextOutput("No observation captured.")
-                            var observedSnapshot: ScreenSnapshot? = null
-                            var hasObservation = false
-
-                            if (toolResult is ToolCallResult.Success) {
-                                when (val toolObs = toolResult.observation) {
-                                    is ToolObservation.ScreenState -> {
-                                        observation = toolObs
-                                        observedSnapshot = toolObs.snapshot
-                                        hasObservation = true
+                            val (observation, observedSnapshot) = when {
+                                toolResult is ToolCallResult.Success && toolResult.observation != null -> {
+                                    val obs = toolResult.observation
+                                    when (obs) {
+                                        is ToolObservation.ScreenState -> obs to obs.snapshot
+                                        is ToolObservation.TextOutput -> obs to null
                                     }
-                                    is ToolObservation.TextOutput -> {
-                                        observation = toolObs
-                                        hasObservation = true
-                                    }
-                                    null -> Unit
                                 }
-                            }
-
-                            if (!hasObservation) {
-                                if (toolCall.name == "complete_task") {
-                                    // Intentional: completion does not require a fresh capture, so no POST_ACTION screen event.
-                                    observation = ToolObservation.TextOutput("Completion acknowledged; no screen captured.")
+                                toolCall.name == "complete_task" -> {
                                     Log.d(TAG, "Skipping post-action capture for complete_task")
-                                } else {
+                                    ToolObservation.TextOutput("Completion acknowledged; no screen captured.") to null
+                                }
+                                else -> {
                                     val capture = captureObservationWithSnapshot()
-                                    observation = capture.observation
-                                    observedSnapshot = capture.snapshot
+                                    capture.observation to capture.snapshot
                                 }
                             }
 
@@ -386,32 +367,26 @@ internal class AgentTurnRunner(
                     }
                 }
 
-                val isDnsFailure =
-                    causes.any { it is java.net.UnknownHostException } ||
-                        anyMessageContains("Unable to resolve host") ||
-                        anyMessageContains("No address associated")
+                val isDnsFailure = causes.any { it is java.net.UnknownHostException } ||
+                    anyMessageContains("Unable to resolve host") ||
+                    anyMessageContains("No address associated")
 
-                val isTransientNetworkError =
-                    !isDnsFailure &&
-                        (causes.any { it is java.net.SocketTimeoutException } ||
-                            anyMessageContains("timeout") ||
-                            anyMessageContains("connection refused") ||
-                            anyMessageContains("connection reset"))
+                val isContextLimit = anyMessageContains("context length") ||
+                    anyMessageContains("maximum context") ||
+                    anyMessageContains("context window") ||
+                    anyMessageContains("too many tokens") ||
+                    anyMessageContains("max tokens")
 
-                val isContextLimit =
-                    anyMessageContains("context length") ||
-                        anyMessageContains("maximum context") ||
-                        anyMessageContains("context window") ||
-                        anyMessageContains("too many tokens") ||
-                        anyMessageContains("max tokens")
+                val isTransientNetworkError = !isDnsFailure && !isContextLimit &&
+                    (causes.any { it is java.net.SocketTimeoutException } ||
+                        anyMessageContains("timeout") ||
+                        anyMessageContains("connection refused") ||
+                        anyMessageContains("connection reset"))
 
-                    TurnOutcome.Error(
-                        message = message.ifEmpty { "Unknown error" },
-                        recoverable =
-                            !isDnsFailure &&
-                            !isContextLimit &&
-                            isTransientNetworkError
-                    )
+                TurnOutcome.Error(
+                    message = message.ifEmpty { "Unknown error" },
+                    recoverable = isTransientNetworkError
+                )
             } finally {
                 eventDispatcher.turnCompleted(turnId, turnNumber)
                 trace.turnCompleted(turnId, turnNumber)

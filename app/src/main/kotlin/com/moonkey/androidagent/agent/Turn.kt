@@ -21,20 +21,10 @@ import org.json.JSONObject
 
 
 /**
- * Turn - Encapsulates a single ReAct iteration (LLM call + response parsing).
+ * Encapsulates a single ReAct iteration (LLM call + response parsing).
  * 
- * Reference: labmat's Turn class (turn.py)
- * 
- * A Turn handles:
- * 1. Building input items from history + current context
- * 2. Calling the LLM with tools via the Responses API
- * 3. Processing the structured response (text and/or tool calls)
- * 
- * Supports both streaming and non-streaming modes:
- * - `run()`: Non-streaming, returns complete TurnResult
- * - `runStreaming()`: Streaming, emits TurnStreamEvent as they arrive
- * 
- * Uses OpenAI's official tool calling interface via the Responses API.
+ * Handles building input items from history + current context, calling the LLM with tools,
+ * and processing the structured response. Supports both streaming and non-streaming modes.
  */
 class Turn(
     private val historyManager: HistoryManager,
@@ -47,9 +37,6 @@ class Turn(
         private const val COMPLETE_TASK_TOOL = "complete_task"
     }
 
-    /**
-     * Builds Responses API input items from persisted history plus current user context.
-     */
     fun buildInputItems(userContext: AgentPromptBuilder.UserContext): List<ResponseInputItem> {
         val estimatedTokens = historyManager.estimateTokenCount()
         if (estimatedTokens > 20_000) {
@@ -106,21 +93,12 @@ class Turn(
         return items
     }
 
-    /** Internal request bundle shared by streaming and non-streaming paths. */
     private data class TurnRequest(
         val inputItems: List<ResponseInputItem>,
         val tools: List<FunctionTool>,
         val model: ChatModel
     )
     
-    /**
-     * Execute one turn of the ReAct loop (non-streaming).
-     * 
-     * @param systemPrompt System prompt for the agent
-     * @param userContext Current context (screen state, goal, etc.)
-     * @param modelName Model name to use
-     * @return TurnResult with content and/or tool calls
-     */
     suspend fun run(
         systemPrompt: String,
         userContext: AgentPromptBuilder.UserContext,
@@ -139,26 +117,9 @@ class Turn(
         )
         
         Log.d(TAG, "LLM response: text=${response.textContent?.take(200)}, toolCalls=${response.toolCalls.size}")
-        
-        // 6. Process response
         return processResponse(response.textContent, response.toolCalls)
     }
     
-    /**
-     * Execute one turn of the ReAct loop with streaming.
-     * 
-     * Uses OpenAI's native streaming via ResponseStreamEvent.
-     * Emits TurnStreamEvent as the response is generated:
-     * - TextDelta: Incremental text from the LLM
-     * - ToolCallReceived: A complete tool call has been parsed
-     * - Complete: Stream finished, final TurnResult available
-     * - Error: An error occurred
-     * 
-     * @param systemPrompt System prompt for the agent
-     * @param userContext Current context (screen state, goal, etc.)
-     * @param modelName Model name to use
-     * @return Flow of TurnStreamEvent
-     */
     fun runStreaming(
         systemPrompt: String,
         userContext: AgentPromptBuilder.UserContext,
@@ -171,11 +132,9 @@ class Turn(
             val request = prepareRequest(userContext, modelName, inputItemsOverride)
             Log.d(TAG, "Streaming turn with ${request.inputItems.size} input items")
 
-            // 4. Accumulate text and tool calls locally for building final result
             val textAccumulator = StringBuilder()
             val toolCalls = mutableListOf<LLMToolCall>()
 
-            // 5. Stream response using LLMStreamEvent (works with both OpenAI and local models)
             llmClient.chatWithToolsStreaming(
                 systemPrompt = systemPrompt,
                 inputItems = request.inputItems,
@@ -214,7 +173,6 @@ class Turn(
                 }
             }
             
-            // 6. Build final result from accumulated data
             val textContent = textAccumulator.toString().takeIf { it.isNotEmpty() }
             val result = processResponse(textContent, toolCalls)
             
@@ -227,9 +185,6 @@ class Turn(
         }
     }
     
-    /**
-     * Convert LLMToolCall to ToolCallRequest.
-     */
     private fun convertToToolCallRequest(llmToolCall: LLMToolCall): ToolCallRequest {
         val argsJson = try {
             JSONObject(llmToolCall.arguments)
@@ -245,9 +200,6 @@ class Turn(
         )
     }
 
-    /**
-     * Resolves model/tools/input once per turn execution mode.
-     */
     private fun prepareRequest(
         userContext: AgentPromptBuilder.UserContext,
         modelName: String,
@@ -293,10 +245,6 @@ class Turn(
         return ResponseInputItem.ofEasyInputMessage(builder.build())
     }
     
-    /**
-     * Convert model name string to ChatModel enum.
-     * Falls back to GPT_5_2 if model name is not recognized.
-     */
     private fun modelNameToChatModel(modelName: String): ChatModel {
         return when (modelName.lowercase()) {
             "gpt-5.2" -> ChatModel.GPT_5_2
@@ -317,29 +265,19 @@ class Turn(
         }
     }
     
-    /**
-     * Process the LLM response into a TurnResult.
-     */
     private fun processResponse(
         textContent: String?,
         llmToolCalls: List<LLMToolCall>
     ): TurnResult {
-        // Convert LLM tool calls to our format
-        val allToolCalls = llmToolCalls.map { call ->
-            convertToToolCallRequest(call)
-        }
-        val toolCalls = allToolCalls.filter { call ->
-            allowedToolNames?.contains(call.name) != false
-        }
+        val allToolCalls = llmToolCalls.map { convertToToolCallRequest(it) }
+        val toolCalls = allToolCalls.filter { allowedToolNames?.contains(it.name) != false }
+        
         if (toolCalls.size != allToolCalls.size) {
             val acceptedNames = toolCalls.map { it.name }.toSet()
-            val dropped = allToolCalls.map { it.name }.filter { name -> name !in acceptedNames }
+            val dropped = allToolCalls.map { it.name }.filter { it !in acceptedNames }
             Log.w(TAG, "Dropped disallowed tool calls: $dropped")
         }
         
-        // Check for completion:
-        // 1. complete_task tool was called, OR
-        // 2. No tool calls and there's text content (agent is done, just without using the tool)
         val completeTaskCall = toolCalls.find { it.name == COMPLETE_TASK_TOOL }
         val isComplete = completeTaskCall != null || (toolCalls.isEmpty() && textContent != null)
         
@@ -353,44 +291,20 @@ class Turn(
     }
 }
 
-/**
- * Events emitted during a streaming turn.
- */
 sealed interface TurnStreamEvent {
-    /** Incremental text delta from the LLM */
     data class TextDelta(val text: String) : TurnStreamEvent
-    
-    /** A complete tool call has been received */
     data class ToolCallReceived(val toolCall: ToolCallRequest) : TurnStreamEvent
-    
-    /** Stream completed, final result available */
     data class Complete(val result: TurnResult) : TurnStreamEvent
-    
-    /** An error occurred during the turn */
     data class Error(val error: Throwable) : TurnStreamEvent
 }
 
-/**
- * Result of a Turn execution.
- */
 data class TurnResult(
-    /** Text content from the LLM */
     val content: String?,
-    
-    /** Tool calls requested by the LLM */
     val toolCalls: List<ToolCallRequest>,
-    
-    /** Whether the agent considers the task complete */
     val isComplete: Boolean
 )
 
-/**
- * A tool call request from the LLM.
- * 
- * The id is provided by OpenAI's Responses API (call_id).
- */
 data class ToolCallRequest(
-    /** The call ID from OpenAI - use this for tool result correlation */
     val id: String,
     val name: String,
     val arguments: JSONObject

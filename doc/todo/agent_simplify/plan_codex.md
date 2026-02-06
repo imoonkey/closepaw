@@ -3,6 +3,21 @@
 日期：2026-02-05
 目标：在不改变外部行为的前提下，降低 `agent/` 的结构复杂度与维护成本。
 
+## 当前状态（2026-02-05）
+
+已完成：
+
+1. 去掉 profile/A-B test 配置链（`SessionConfig`/`AgentConfig`/`Agent`/`AgentTurnRunner`/`SessionAgentRunner` 全链路）。
+2. `TurnPolicyEngine` 改成固定单策略，不再通过 profile mode 分支。
+3. prompt user-context 构建去除 profile 参数。
+4. 移除 profile 注册相关文件和测试。
+
+剩余建议（继续奥卡姆剃刀）：
+
+1. 把 `AgentRegistry` 退化为“单 executor 常量 + 查找函数”（当前只有一个 sub-agent，registry 抽象收益低）。
+2. 评估把 `TurnPolicyEngine` 内联进 `AgentTurnRunner`（若后续仍只有一套策略）。
+3. 评估把 `ArbitrationTrace` 的几个短 model 并入 `AgentTrace`（减少跨文件跳转）。
+
 ## 执行原则
 
 1. 小步提交，每步可编译、可测试。

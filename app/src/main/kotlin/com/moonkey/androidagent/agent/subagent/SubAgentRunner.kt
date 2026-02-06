@@ -170,27 +170,21 @@ class IsolatedSubAgentRunner(
                 }
             }
             AgentStopReason.MaxTurnsReached -> {
-                val stepLimitNarrative =
-                    when (
-                        val stepDecision =
-                            ExecutorStepPolicy(
-                                definition.maxTurns,
-                                definition.narrativeSummaryOnLimit
-                            ).evaluate(
-                                stepCount = definition.maxTurns,
-                                delegatedQuery = request.query,
-                                history = childServices.historyManager.getAll()
-                            )
-                    ) {
-                        is ExecutorStepDecision.ForceStop -> stepDecision.narrativeSummary
-                        else -> null
-                    }
+                val stepDecision = ExecutorStepPolicy(
+                    definition.maxTurns,
+                    definition.narrativeSummaryOnLimit
+                ).evaluate(
+                    stepCount = definition.maxTurns,
+                    delegatedQuery = request.query,
+                    history = childServices.historyManager.getAll()
+                )
+                val stepLimitNarrative = (stepDecision as? ExecutorStepDecision.ForceStop)?.narrativeSummary
+                
                 SubAgentResult(
                     success = false,
-                    message =
-                        completion?.toFailureMessage(definition.name)
-                            ?: stepLimitNarrative
-                            ?: "Sub-agent reached max turns."
+                    message = completion?.toFailureMessage(definition.name)
+                        ?: stepLimitNarrative
+                        ?: "Sub-agent reached max turns."
                 )
             }
             AgentStopReason.UserRequested -> {
@@ -213,8 +207,8 @@ class IsolatedSubAgentRunner(
                 "executed ${event.toolName}: $state"
             }
             is AgentEvent.SessionError -> "error: ${event.error.message}"
-            else -> null
-        } ?: return
+            else -> return
+        }
 
         eventEmitter(
             AgentEvent.SubAgentActivity(

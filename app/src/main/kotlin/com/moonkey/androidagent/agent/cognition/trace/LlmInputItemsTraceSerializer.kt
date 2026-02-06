@@ -23,39 +23,36 @@ internal object LlmInputItemsTraceSerializer {
                 val msg = item.asEasyInputMessage()
                 val content = extractMessageContent(msg.content())
                 buildJsonObject {
-                    put("index", JsonPrimitive(index))
-                    put("type", JsonPrimitive("message"))
-                    put("role", JsonPrimitive(msg.role().toString().lowercase()))
-                    put("content", JsonPrimitive(content))
+                    put("index", index)
+                    put("type", "message")
+                    put("role", msg.role().toString().lowercase())
+                    put("content", content)
                 }
             }
-
             item.isFunctionCall() -> {
                 val call = item.asFunctionCall()
                 buildJsonObject {
-                    put("index", JsonPrimitive(index))
-                    put("type", JsonPrimitive("function_call"))
-                    put("call_id", JsonPrimitive(call.callId()))
-                    put("name", JsonPrimitive(call.name()))
-                    put("arguments_json", JsonPrimitive(call.arguments()))
+                    put("index", index)
+                    put("type", "function_call")
+                    put("call_id", call.callId())
+                    put("name", call.name())
+                    put("arguments_json", call.arguments())
                 }
             }
-
             item.isFunctionCallOutput() -> {
                 val output = item.asFunctionCallOutput()
                 buildJsonObject {
-                    put("index", JsonPrimitive(index))
-                    put("type", JsonPrimitive("function_call_output"))
-                    put("call_id", JsonPrimitive(output.callId()))
-                    put("output", JsonPrimitive(output.output().toString()))
+                    put("index", index)
+                    put("type", "function_call_output")
+                    put("call_id", output.callId())
+                    put("output", output.output().toString())
                 }
             }
-
             else -> {
                 buildJsonObject {
-                    put("index", JsonPrimitive(index))
-                    put("type", JsonPrimitive("unknown"))
-                    put("raw", JsonPrimitive(item.toString()))
+                    put("index", index)
+                    put("type", "unknown")
+                    put("raw", item.toString())
                 }
             }
         }
