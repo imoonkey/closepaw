@@ -5,9 +5,7 @@ import com.moonkey.androidagent.agent.Agent
 import com.moonkey.androidagent.agent.AgentConfig
 import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.AgentStopReason
-import com.moonkey.androidagent.agent.cognition.profile.resolveCognitionProfile
 import com.moonkey.androidagent.agent.subagent.AgentRegistry
-import com.moonkey.androidagent.agent.subagent.ExecutorAgent
 import com.moonkey.androidagent.agent.subagent.IsolatedSubAgentRunner
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.SessionId
@@ -57,7 +55,6 @@ internal class SessionAgentRunner(
             uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode,
             allowedToolNames = PLANNER_ALLOWED_TOOLS,
-            cognitionProfileId = config.cognitionProfileId,
             agentId = sessionId.value,
             agentRole = AgentExecutionRole.PLANNER
         )
@@ -89,20 +86,7 @@ internal class SessionAgentRunner(
     private fun ensureDelegationToolRegistered() {
         if (services.toolRegistry.contains("delegate_task")) return
 
-        val profile = resolveCognitionProfile(config.cognitionProfileId)
-        val registry = AgentRegistry()
-        AgentRegistry.createDefault().getAll().forEach { definition ->
-            val tunedDefinition =
-                if (definition.name == ExecutorAgent.definition.name) {
-                    definition.copy(
-                        maxTurns = profile.maxExecutorSteps,
-                        narrativeSummaryOnLimit = profile.narrativeSummaryOnExecutorLimit
-                    )
-                } else {
-                    definition
-                }
-            registry.register(tunedDefinition)
-        }
+        val registry = AgentRegistry.createDefault()
         val delegateTool = DelegateTaskTool(
             sessionId = sessionId,
             registry = registry,

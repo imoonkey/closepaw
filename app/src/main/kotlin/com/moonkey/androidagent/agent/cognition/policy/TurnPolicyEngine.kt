@@ -2,11 +2,14 @@ package com.moonkey.androidagent.agent.cognition.policy
 
 import com.moonkey.androidagent.agent.ToolCallRequest
 import com.moonkey.androidagent.agent.TurnResult
-import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
-import com.moonkey.androidagent.agent.cognition.profile.TurnPolicyMode
 
 private const val COMPLETE_TASK_TOOL = "complete_task"
 
+/**
+ * Result of choosing which tool calls from one LLM turn should actually execute.
+ *
+ * The runtime currently executes at most one tool call per turn.
+ */
 internal data class ToolArbitrationResult(
     val selectedToolCalls: List<ToolCallRequest>,
     val selectedTool: ToolCallRequest?,
@@ -15,26 +18,33 @@ internal data class ToolArbitrationResult(
     val droppedToolCalls: List<ToolCallRequest>
 )
 
+/**
+ * Result of deciding whether the current turn should end the whole task.
+ */
 internal data class CompletionDecision(
     val shouldComplete: Boolean,
     val summary: String?
 )
 
+/**
+ * Turn-level policy for two questions:
+ * 1) If the model returned multiple tool calls, which one do we execute?
+ * 2) Should this turn be treated as task completion?
+ */
 internal class TurnPolicyEngine {
+    /**
+     * Arbitration rule:
+     * - Prefer a non-`complete_task` action.
+     * - Fallback to first tool call when completion is the only call.
+     */
     fun arbitrateToolCalls(
-        toolCalls: List<ToolCallRequest>,
-        profile: CognitionProfile
+        toolCalls: List<ToolCallRequest>
     ): ToolArbitrationResult {
         val hasCompletionTool = toolCalls.any { it.name == COMPLETE_TASK_TOOL }
         val hasNonCompletionTool = toolCalls.any { it.name != COMPLETE_TASK_TOOL }
         val selectedTool =
-            when (profile.turnPolicyMode) {
-                TurnPolicyMode.BASELINE,
-                TurnPolicyMode.PREFER_NON_COMPLETION_SINGLE_TOOL -> {
-                    toolCalls.firstOrNull { it.name != COMPLETE_TASK_TOOL }
-                        ?: toolCalls.firstOrNull()
-                }
-            }
+            toolCalls.firstOrNull { it.name != COMPLETE_TASK_TOOL }
+                ?: toolCalls.firstOrNull()
         val selectedToolCalls = selectedTool?.let(::listOf) ?: emptyList()
         val droppedToolCalls = toolCalls.filterNot { call -> selectedToolCalls.contains(call) }
         return ToolArbitrationResult(
@@ -46,6 +56,10 @@ internal class TurnPolicyEngine {
         )
     }
 
+    /**
+     * Completion rule:
+     * - Only complete when model says complete AND there is no remaining non-completion action.
+     */
     fun decideCompletion(
         turnResult: TurnResult,
         arbitration: ToolArbitrationResult

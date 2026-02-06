@@ -48,11 +48,6 @@ data class AgentConfig(
     val allowedToolNames: Set<String>? = null,
 
     /**
-     * Cognition profile id to select prompt/context/policy behavior.
-     */
-    val cognitionProfileId: String? = null,
-
-    /**
      * Stable id used for trace grouping in multi-agent runs.
      *
      * Defaults to session id (one agent per session) for Phase 1.

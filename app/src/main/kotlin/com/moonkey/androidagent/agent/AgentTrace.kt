@@ -20,6 +20,14 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 
+/**
+ * Writes structured trace events and artifacts for one agent session.
+ *
+ * This class is the single bridge between runtime events and trace recorder output:
+ * - emits timeline events (turn/llm/tool/session)
+ * - stores redacted text/json artifacts
+ * - tracks lightweight run counters for final summary
+ */
 internal class AgentTrace(
     private val sessionId: SessionId,
     private val services: SessionServices
@@ -28,6 +36,7 @@ internal class AgentTrace(
     private var sessionStartedAtMs: Long = 0L
     private val runMetrics = RunMetrics()
 
+    /** Emits initial session metadata. */
     fun sessionStarted(config: AgentConfig) {
         sessionStartedAtMs = System.currentTimeMillis()
         trace.emit(
@@ -48,11 +57,11 @@ internal class AgentTrace(
                     put("approval_mode", JsonPrimitive(services.config.approvalMode.name))
                     put("debug_mode", JsonPrimitive(services.config.debugMode))
                     put("trace_enabled", JsonPrimitive(services.config.traceEnabled))
-                    put("cognition_profile_id", JsonPrimitive(config.cognitionProfileId ?: "baseline"))
                 }
         )
     }
 
+    /** Emits final session event and writes run summary artifact. */
     fun sessionStopped(reason: AgentStopReason, turnsExecuted: Int) {
         val summaryArtifact = writeRunSummary(reason, turnsExecuted)
         trace.emit(
@@ -130,6 +139,7 @@ internal class AgentTrace(
         )
     }
 
+    /** Emits LLM request event with prompt/history artifacts. */
     fun llmRequest(
         turnId: String,
         turnNumber: Int,
@@ -226,6 +236,7 @@ internal class AgentTrace(
         )
     }
 
+    /** Emits LLM response event and tool-call/text artifacts. */
     fun llmResponse(turnId: String, turnNumber: Int, result: TurnResult) {
         if (!trace.enabled) return
         runMetrics.llmResponses++
@@ -276,6 +287,7 @@ internal class AgentTrace(
         )
     }
 
+    /** Emits per-turn arbitration details (selected tool vs dropped tools). */
     fun arbitrationDecision(turnId: String, turnNumber: Int, decision: ArbitrationDecision) {
         if (!trace.enabled) return
         trace.emit(
@@ -285,7 +297,6 @@ internal class AgentTrace(
             turnNumber = turnNumber,
             data =
                 buildJsonObject {
-                    put("policy_mode", JsonPrimitive(decision.policyMode.name))
                     put("original_tool_count", JsonPrimitive(decision.originalToolCount))
                     put("selected_tool_count", JsonPrimitive(decision.selectedToolCount))
                     put("selected_tool", JsonPrimitive(decision.selectedTool?.name ?: "none"))

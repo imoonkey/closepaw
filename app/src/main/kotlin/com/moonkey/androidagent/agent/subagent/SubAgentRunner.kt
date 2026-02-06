@@ -18,6 +18,13 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
+ * Sub-agent primitives used by `delegate_task`.
+ *
+ * The parent planner delegates one atomic instruction to an isolated child agent,
+ * then receives a normalized success/failure message.
+ */
+
+/**
  * Defines a sub-agent that can be invoked through delegate_task.
  */
 data class AgentDefinition(
@@ -92,6 +99,7 @@ class AgentRegistry {
 }
 
 fun interface SubAgentRunner {
+    /** Runs a delegated task and returns a compact result for the parent planner. */
     suspend fun run(request: SubAgentRequest): SubAgentResult
 }
 
@@ -105,6 +113,9 @@ class IsolatedSubAgentRunner(
     private val eventEmitter: suspend (AgentEvent) -> Unit
 ) : SubAgentRunner {
 
+    /**
+     * Spins up a temporary child agent with filtered tools and shared scratchpad.
+     */
     override suspend fun run(request: SubAgentRequest): SubAgentResult {
         val childTaskId = "sub-${definition.name}-${System.currentTimeMillis()}"
         val childSessionId = SessionId("${parentSessionId.value}::$childTaskId")
@@ -133,7 +144,6 @@ class IsolatedSubAgentRunner(
                 debugMode = parentServices.config.debugMode,
                 systemPrompt = definition.systemPrompt,
                 allowedToolNames = definition.toolNames.toSet(),
-                cognitionProfileId = parentServices.config.cognitionProfileId,
                 agentId = childSessionId.value,
                 agentRole = definition.executionRole ?: AgentExecutionRole.EXECUTOR,
                 parentSessionId = parentSessionId,
@@ -222,6 +232,7 @@ private data class CompletionPayload(
     val answer: String
 )
 
+/** Extracts the latest `complete_task` payload from child history, if present. */
 private fun extractCompletion(historyManager: HistoryManager): CompletionPayload? {
     val completionCall = historyManager.getAll()
         .asReversed()
@@ -254,6 +265,7 @@ private fun CompletionPayload.toFailureMessage(agentName: String): String {
     }
 }
 
+/** Converts structured delegation fields into the child agent goal text. */
 private fun SubAgentRequest.toGoal(): String {
     val cleanedNotes = importantNotes.map { it.trim() }.filter { it.isNotEmpty() }
 

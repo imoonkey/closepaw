@@ -3,7 +3,6 @@ package com.moonkey.androidagent.agent
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.agent.cognition.context.LoopWarning
 import com.moonkey.androidagent.agent.cognition.context.LoopWarningSeverity
-import com.moonkey.androidagent.agent.cognition.profile.BuiltinCognitionProfiles
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.Todo
@@ -37,8 +36,7 @@ class AgentPromptBuilderContextTest {
             )
         val userContext =
             promptBuilder.buildUserContext(
-                snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()),
-                profile = BuiltinCognitionProfiles.baseline
+                snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList())
             )
 
         assertThat(userContext.text).contains("Current screen state (0 elements):")
@@ -73,7 +71,6 @@ class AgentPromptBuilderContextTest {
         val userContext =
             promptBuilder.buildUserContext(
                 snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()),
-                profile = BuiltinCognitionProfiles.baseline,
                 loopWarning =
                     LoopWarning(
                         message = "Screen unchanged for 3 turns.",
@@ -110,8 +107,7 @@ class AgentPromptBuilderContextTest {
             )
         val userContext =
             promptBuilder.buildUserContext(
-                snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()),
-                profile = BuiltinCognitionProfiles.baseline
+                snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList())
             )
 
         assertThat(userContext.text).doesNotContain("Todo status:")

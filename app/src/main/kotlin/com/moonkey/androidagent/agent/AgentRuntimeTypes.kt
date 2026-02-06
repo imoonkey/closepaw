@@ -18,11 +18,23 @@ sealed class TurnOutcome {
     data object Cancelled : TurnOutcome()
 }
 
+/**
+ * Mutable runtime state carried across turns.
+ *
+ * This is intentionally small:
+ * - `navigationState` powers loop detection heuristics
+ * - `previousActionSignature` helps detect repeated actions
+ */
 internal data class TurnRunnerState(
     val navigationState: NavigationState = NavigationState(),
     val previousActionSignature: String? = null
 )
 
+/**
+ * Full output of one `AgentTurnRunner.executeTurn()` call:
+ * - `outcome`: control decision for the outer Agent loop
+ * - `nextState`: state to feed into the next turn
+ */
 internal data class TurnExecutionResult(
     val outcome: TurnOutcome,
     val nextState: TurnRunnerState

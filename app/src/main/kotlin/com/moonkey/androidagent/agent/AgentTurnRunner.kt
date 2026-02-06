@@ -3,10 +3,8 @@ package com.moonkey.androidagent.agent
 import android.util.Log
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
-import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionConfig
 import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionPolicy
 import com.moonkey.androidagent.agent.cognition.policy.TurnPolicyEngine
-import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
 import com.moonkey.androidagent.agent.cognition.trace.ArbitrationDecision
 import com.moonkey.androidagent.agent.cognition.trace.DropReason
 import com.moonkey.androidagent.agent.cognition.trace.DroppedToolCall
@@ -27,6 +25,14 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * Executes one full agent turn and returns the next-loop decision.
+ *
+ * Turn pipeline:
+ * 1) PERCEPTION: capture screen and update navigation state
+ * 2) THINKING: build prompt/input and get LLM tool calls
+ * 3) ACTION: execute selected tools, collect observations, persist history/trace
+ */
 internal class AgentTurnRunner(
     private val config: AgentConfig,
     private val services: SessionServices,
@@ -36,20 +42,24 @@ internal class AgentTurnRunner(
     private val stopRequested: AtomicBoolean,
     private val promptBuilder: AgentPromptBuilder,
     private val trace: AgentTrace,
-    private val turnPolicyEngine: TurnPolicyEngine,
-    private val cognitionProfile: CognitionProfile
+    private val turnPolicyEngine: TurnPolicyEngine
 ) {
     companion object {
         private const val TAG = "AgentTurnRunner"
     }
-    private val loopDetectionPolicy by lazy { createLoopDetectionPolicy() }
+    private val loopDetectionPolicy by lazy { LoopDetectionPolicy() }
     private val executorStepPolicy by lazy {
         ExecutorStepPolicy(
             maxSteps = config.maxTurns,
-            narrativeSummaryOnLimit = cognitionProfile.narrativeSummaryOnExecutorLimit
+            narrativeSummaryOnLimit = true
         )
     }
 
+    /**
+     * Runs one turn and never mutates outer `Agent` state directly.
+     *
+     * All cross-turn state is passed in/out via [TurnRunnerState].
+     */
     suspend fun executeTurn(
         turnId: String,
         turnNumber: Int,
@@ -103,12 +113,7 @@ internal class AgentTurnRunner(
                         )
                     nextState = nextState.copy(navigationState = navigationState)
 
-                    val loopWarning =
-                        if (cognitionProfile.loopDetectionEnabled) {
-                            loopDetectionPolicy.detect(navigationState)
-                        } else {
-                            null
-                        }
+                    val loopWarning = loopDetectionPolicy.detect(navigationState)
                     if (loopWarning != null) {
                         Log.w(TAG, "Turn $turnNumber loop warning: ${loopWarning.message}")
                         eventDispatcher.status("⚠️ ${loopWarning.message}")
@@ -139,7 +144,6 @@ internal class AgentTurnRunner(
                     val userContext =
                         promptBuilder.buildUserContext(
                             snapshot = snapshot,
-                            profile = cognitionProfile,
                             loopWarning = loopWarning,
                             systemReminders = listOfNotNull(stepReminder)
                         )
@@ -196,7 +200,7 @@ internal class AgentTurnRunner(
                         )
                     }
 
-                    val arbitration = turnPolicyEngine.arbitrateToolCalls(result.toolCalls, cognitionProfile)
+                    val arbitration = turnPolicyEngine.arbitrateToolCalls(result.toolCalls)
                     trace.arbitrationDecision(
                         turnId = turnId,
                         turnNumber = turnNumber,
@@ -401,14 +405,13 @@ internal class AgentTurnRunner(
                         anyMessageContains("too many tokens") ||
                         anyMessageContains("max tokens")
 
-                TurnOutcome.Error(
-                    message = message.ifEmpty { "Unknown error" },
-                    recoverable =
-                        cognitionProfile.allowTransientNetworkRetry &&
+                    TurnOutcome.Error(
+                        message = message.ifEmpty { "Unknown error" },
+                        recoverable =
                             !isDnsFailure &&
                             !isContextLimit &&
                             isTransientNetworkError
-                )
+                    )
             } finally {
                 eventDispatcher.turnCompleted(turnId, turnNumber)
                 trace.turnCompleted(turnId, turnNumber)
@@ -425,6 +428,9 @@ internal class AgentTurnRunner(
         val snapshot: ScreenSnapshot?
     )
 
+    /**
+     * Captures a fresh post-action screen snapshot and wraps it as a screen observation.
+     */
     private suspend fun captureObservationWithSnapshot(): ObservationCapture {
         delay(500)
         val snapshot = services.platform.captureScreen()
@@ -474,17 +480,6 @@ internal class AgentTurnRunner(
             }
 
         return "$resultText\n\n$observationText"
-    }
-
-    private fun createLoopDetectionPolicy(): LoopDetectionPolicy {
-        return LoopDetectionPolicy(
-            LoopDetectionConfig(
-                similarityThreshold = cognitionProfile.loopSimilarityThreshold,
-                repeatedScreenWindow = cognitionProfile.loopRepeatedScreenWindow,
-                repeatedActionWindow = cognitionProfile.loopRepeatedActionWindow,
-                maxConsecutiveScrollActions = cognitionProfile.maxConsecutiveScrollActions
-            )
-        )
     }
 
     private fun buildStepReminder(turnNumber: Int, stepDecision: ExecutorStepDecision): String? {
@@ -549,7 +544,6 @@ internal class AgentTurnRunner(
         return ArbitrationDecision(
             selectedTool = arbitration.selectedTool,
             droppedToolCalls = dropped,
-            policyMode = cognitionProfile.turnPolicyMode,
             selectedToolCount = arbitration.selectedToolCalls.size,
             originalToolCount = originalCalls.size
         )

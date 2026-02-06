@@ -47,6 +47,9 @@ class Turn(
         private const val COMPLETE_TASK_TOOL = "complete_task"
     }
 
+    /**
+     * Builds Responses API input items from persisted history plus current user context.
+     */
     fun buildInputItems(userContext: AgentPromptBuilder.UserContext): List<ResponseInputItem> {
         val estimatedTokens = historyManager.estimateTokenCount()
         if (estimatedTokens > 20_000) {
@@ -103,6 +106,7 @@ class Turn(
         return items
     }
 
+    /** Internal request bundle shared by streaming and non-streaming paths. */
     private data class TurnRequest(
         val inputItems: List<ResponseInputItem>,
         val tools: List<FunctionTool>,
@@ -241,6 +245,9 @@ class Turn(
         )
     }
 
+    /**
+     * Resolves model/tools/input once per turn execution mode.
+     */
     private fun prepareRequest(
         userContext: AgentPromptBuilder.UserContext,
         modelName: String,

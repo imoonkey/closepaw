@@ -2,7 +2,6 @@ package com.moonkey.androidagent.agent
 
 import android.util.Log
 import com.moonkey.androidagent.agent.cognition.policy.TurnPolicyEngine
-import com.moonkey.androidagent.agent.cognition.profile.resolveCognitionProfile
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
@@ -33,7 +32,6 @@ class Agent(
     private val pauseState = MutableStateFlow(false)
     private val stopRequested = AtomicBoolean(false)
     private val lifecycleMutex = Mutex()
-    private val cognitionProfile = resolveCognitionProfile(config.cognitionProfileId)
 
     private val promptBuilder =
         AgentPromptBuilder(
@@ -62,8 +60,7 @@ class Agent(
             stopRequested = stopRequested,
             promptBuilder = promptBuilder,
             trace = trace,
-            turnPolicyEngine = TurnPolicyEngine(),
-            cognitionProfile = cognitionProfile
+            turnPolicyEngine = TurnPolicyEngine()
         )
 
     suspend fun run(): AgentStopReason {
@@ -126,12 +123,7 @@ class Agent(
                         break
                     }
 
-                    val retryLimit =
-                        if (cognitionProfile.allowTransientNetworkRetry) {
-                            MAX_RECOVERABLE_RETRIES
-                        } else {
-                            0
-                        }
+                    val retryLimit = MAX_RECOVERABLE_RETRIES
                     val hasRemainingTurns = turnCount < config.maxTurns
                     val canRetry =
                         hasRemainingTurns &&

@@ -2,7 +2,6 @@ package com.moonkey.androidagent.agent
 
 import com.moonkey.androidagent.agent.cognition.context.LoopWarning
 import com.moonkey.androidagent.agent.cognition.context.LoopWarningSeverity
-import com.moonkey.androidagent.agent.cognition.profile.CognitionProfile
 import com.moonkey.androidagent.agent.cognition.prompt.ExecutorPromptTemplate
 import com.moonkey.androidagent.agent.cognition.prompt.PlannerPromptTemplate
 import com.moonkey.androidagent.model.ScreenImage
@@ -53,7 +52,6 @@ class AgentPromptBuilder(
 
     internal fun buildUserContext(
         snapshot: ScreenSnapshot,
-        profile: CognitionProfile,
         loopWarning: LoopWarning? = null,
         systemReminders: List<String> = emptyList()
     ): UserContext {
@@ -62,9 +60,7 @@ class AgentPromptBuilder(
             buildList {
                 loopWarning?.let { add(formatLoopWarning(it)) }
                 systemReminders.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(it) }
-                if (profile.todoListEnabled) {
-                    buildTodoReminder()?.let { add(it) }
-                }
+                buildTodoReminder()?.let { add(it) }
                 buildScratchpadReminder()?.let { add(it) }
             }
         if (reminders.isEmpty()) {

@@ -2,20 +2,34 @@ package com.moonkey.androidagent.agent.cognition.policy
 
 import com.moonkey.androidagent.history.ResponseItem
 
+/**
+ * Step-budget decision for delegated executor runs.
+ */
 internal sealed interface ExecutorStepDecision {
+    /** Keep running normally. */
     data object Continue : ExecutorStepDecision
 
+    /** Approaching limit; add reminder to bias toward decisive actions. */
     data object WarnApproaching : ExecutorStepDecision
 
+    /** Stop due to limit and provide a narrative summary for the parent planner. */
     data class ForceStop(
         val narrativeSummary: String
     ) : ExecutorStepDecision
 }
 
+/**
+ * Converts executor step count + history into a simple budget decision.
+ */
 internal class ExecutorStepPolicy(
     private val maxSteps: Int,
     private val narrativeSummaryOnLimit: Boolean
 ) {
+    /**
+     * Two-stage budget behavior:
+     * - near limit: warning
+     * - at limit: optional force-stop summary
+     */
     fun evaluate(stepCount: Int, delegatedQuery: String, history: List<ResponseItem>): ExecutorStepDecision {
         val warningThreshold = (maxSteps - 2).coerceAtLeast(1)
         return when {

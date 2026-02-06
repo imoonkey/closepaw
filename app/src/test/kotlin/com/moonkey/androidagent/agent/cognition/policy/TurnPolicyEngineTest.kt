@@ -3,7 +3,6 @@ package com.moonkey.androidagent.agent.cognition.policy
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.agent.ToolCallRequest
 import com.moonkey.androidagent.agent.TurnResult
-import com.moonkey.androidagent.agent.cognition.profile.BuiltinCognitionProfiles
 import org.json.JSONObject
 import org.junit.Test
 
@@ -18,7 +17,7 @@ class TurnPolicyEngineTest {
                 toolCall(name = "delegate_task")
             )
 
-        val result = engine.arbitrateToolCalls(calls, BuiltinCognitionProfiles.baseline)
+        val result = engine.arbitrateToolCalls(calls)
 
         assertThat(result.selectedToolCalls).hasSize(1)
         assertThat(result.selectedToolCalls.first().name).isEqualTo("delegate_task")
@@ -31,7 +30,7 @@ class TurnPolicyEngineTest {
     fun `arbitrateToolCalls keeps completion when it is only call`() {
         val calls = listOf(toolCall(name = "complete_task"))
 
-        val result = engine.arbitrateToolCalls(calls, BuiltinCognitionProfiles.baseline)
+        val result = engine.arbitrateToolCalls(calls)
 
         assertThat(result.selectedToolCalls).hasSize(1)
         assertThat(result.selectedToolCalls.first().name).isEqualTo("complete_task")
@@ -47,7 +46,7 @@ class TurnPolicyEngineTest {
                 toolCall(name = "delegate_task")
             )
         val turnResult = TurnResult(content = "text", toolCalls = calls, isComplete = true)
-        val arbitration = engine.arbitrateToolCalls(calls, BuiltinCognitionProfiles.baseline)
+        val arbitration = engine.arbitrateToolCalls(calls)
 
         val decision = engine.decideCompletion(turnResult, arbitration)
 
@@ -62,7 +61,7 @@ class TurnPolicyEngineTest {
                 toolCall(name = "complete_task", arguments = JSONObject("""{"answer":"final answer"}"""))
             )
         val turnResult = TurnResult(content = "fallback", toolCalls = calls, isComplete = true)
-        val arbitration = engine.arbitrateToolCalls(calls, BuiltinCognitionProfiles.baseline)
+        val arbitration = engine.arbitrateToolCalls(calls)
 
         val decision = engine.decideCompletion(turnResult, arbitration)
 
