@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionServices, and session lifecycle.
-> Last updated: 2026-02-06
+> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
 
 ## AgentSession
 
@@ -61,19 +61,31 @@ Dependency-injection container for all session-scoped services.
 val services = SessionServices.create(config, platform, apiKey, context, traceRecorder)
 ```
 
+Built-in tool registration includes:
+- `mobile_action`, `open_app`, `system_button`, `wait`
+- `write_todos`, `scratchpad`, `complete_task`
+
+`delegate_task` is not part of static built-in registration. It is attached lazily by `SessionAgentRunner` when required.
+
 ---
 
 ## SessionAgentRunner
 
 → See: `session/SessionAgentRunner.kt`
 
-Bridges `AgentSession` and the runtime `Agent`:
-- Creates planner `Agent` per task
+Bridges `AgentSession` and runtime `Agent`:
+- Chooses main agent definition via `AgentDefRegistry.mainFor(config.agentMode)`
+- Builds `AgentExecutionConfig` from selected definition (prompt + allowed tools + execution role)
+- Registers `delegate_task` only when selected definition requires delegation
 - Handles lifecycle (`start`, `pause`, `resume`, `stop`, `shutdown`)
-- Registers `delegate_task` lazily when missing
-- Wires `AgentRegistry` + `IsolatedSubAgentRunner` for delegation
+- Wires `AgentRegistry` + `IsolatedSubAgentRunner` when delegation is enabled
 
-Planner tool allowlist is defined in `SessionAgentRunner` (`app_control`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task`).
+### Execution Modes
+
+| Mode | Main Agent Definition | Delegation |
+|------|------------------------|------------|
+| `BASIC` | `StandaloneAgentDef` | Off |
+| `PRO` | `PlannerAgentDef` | On (`delegate_task` registered) |
 
 ---
 

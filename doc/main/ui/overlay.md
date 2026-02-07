@@ -1,7 +1,7 @@
 # Overlay System
 
 > Smart Capsule, Edge Glow, and Action Visualizer.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-04 (commit: da83b53ba4e849e52b45158a3485261d7399facb)
 
 ## Overview
 

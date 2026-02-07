@@ -1,11 +1,11 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-05 (commit: af73f8a3ac945a077707b2774adc8f6ac8221c5e)
 
 ## Overview
 
-The app manages user preferences through Android's SharedPreferences with type-safe accessors. Settings are organized into categories matching the Settings UI.
+The app manages user preferences through `AppSettingsState` + `AppSettingsStore` (SharedPreferences-backed), and compiles them into immutable `SessionConfig` when starting a task.
 
 ---
 
@@ -17,16 +17,16 @@ The app manages user preferences through Android's SharedPreferences with type-s
 |---------|------|---------|-------------|
 | `llmBackend` | `LLMBackendType` | `OPENAI` | Cloud or local inference |
 | `model` | `String` | `"gpt-5.2"` | Cloud model name |
-| `localModel` | `String` | `"lfm-1.2b"` | Local model selection |
-| `apiKey` | `String` | `""` | OpenAI API key (encrypted) |
+| `localModel` | `String` | `"LFM2.5-1.2B-Instruct"` | Local model selection |
+| `apiKey` | `String` | `""` | OpenAI API key |
 
-### Agent Behavior
+### Execution
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `maxTurns` | `Int` | `50` | Maximum turns per task |
-| `actionDelayMs` | `Long` | `2000` | Delay after actions (UI settle) |
-| `approvalMode` | `ApprovalMode` | `SMART` | Tool approval strategy |
+| `agentMode` | `AgentMode` | `PRO` | Main-agent orchestration mode (`BASIC` or `PRO`) |
+| `maxTurns` | `Int` | `20` | Max turns per task (UI setting default) |
+| `debugMode` | `Boolean` | `false` | Verbose logging + debug artifacts |
 
 ### Perception
 
@@ -35,12 +35,6 @@ The app manages user preferences through Android's SharedPreferences with type-s
 | `enableScreenshotInput` | `Boolean` | `false` | Attach screenshots to perception |
 | `screenshotMaxDimension` | `Int` | `1024` | Max long edge dimension |
 | `screenshotJpegQuality` | `Int` | `70` | JPEG quality (0-100) |
-
-### Debug
-
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `debugMode` | `Boolean` | `false` | Verbose logging |
 
 ---
 
@@ -57,6 +51,7 @@ data class SessionConfig(
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     val model: String = "gpt-5.2",
     val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
+    val agentMode: AgentMode = AgentMode.PRO,
     val localLLMConfig: LocalLLMConfig? = null,
     val debugMode: Boolean = false,
     val enableScreenshotInput: Boolean = false,
@@ -65,15 +60,21 @@ data class SessionConfig(
 )
 ```
 
+`SessionConfig.maxTurns` has a protocol default of `50`, while UI settings currently initialize the user-facing value to `20`.
+
 ---
 
-## Approval Modes
+## Agent Modes
 
 | Mode | Behavior |
 |------|----------|
-| `ALWAYS_ASK` | Prompt user before every tool |
-| `AUTO_APPROVE` | Auto-approve all tools |
-| `SMART` | Auto-approve low-risk, ask for high-risk |
+| `BASIC` | Standalone main agent executes UI tools directly |
+| `PRO` | Planner main agent delegates grounded steps to executor via `delegate_task` |
+
+Mode can be set from:
+- Settings UI (`Execution Mode` dropdown)
+- Activity intent extra `agent_mode`
+- Dev scripts (`--basic` / `--pro`, or `AGENT_MODE` env var)
 
 ---
 
@@ -82,10 +83,12 @@ data class SessionConfig(
 → See: `ui/settings/SettingsSheet.kt`
 
 The settings sheet is a modal bottom sheet with:
-- Custom header (title + close button, no drag handle)
-- Sectioned layout (LLM, Behavior, Perception, Debug, Permissions)
-- Real-time validation (API key format, model availability)
-- Permission status indicators (Accessibility, Overlay)
+- sectioned layout (LLM, Execution, Perception, Debug, Permissions)
+- backend/model selectors
+- execution mode selector (`AgentModeDropdown`)
+- max-turn selector
+- screenshot input and debug toggles
+- permission status indicators (Accessibility, Overlay)
 
 ### Settings Files
 
@@ -93,7 +96,7 @@ The settings sheet is a modal bottom sheet with:
 ui/settings/
 ├── SettingsSheet.kt         # Main composable
 ├── SettingsModels.kt        # Data models + defaults
-├── SettingsDropdowns.kt     # Model/backend dropdowns
+├── SettingsDropdowns.kt     # Backend/model/mode dropdowns
 └── SettingsWidgets.kt       # Shared UI widgets
 ```
 
@@ -101,23 +104,19 @@ ui/settings/
 
 ## Persistence
 
-Settings are persisted using Android SharedPreferences:
+Settings are persisted in SharedPreferences via `AppSettingsStore`.
 
-```kotlin
-// In MainActivity or SettingsManager
-private val prefs = context.getSharedPreferences("agent_settings", Context.MODE_PRIVATE)
-
-// Read
-val maxTurns = prefs.getInt("max_turns", 50)
-
-// Write
-prefs.edit { putInt("max_turns", newValue) }
-```
+Key examples:
+- `agent_mode`
+- `llm_backend`
+- `max_turns`
+- `debug_mode`
+- `screenshot_input`
 
 ### Security
 
-- API key stored with Android EncryptedSharedPreferences
-- No sensitive data in logs when `debugMode = false`
+- API key is stored using encrypted preference handling in app code paths.
+- Avoid logging secrets; keep sensitive output out of debug logs.
 
 ---
 
@@ -138,6 +137,6 @@ When `llmBackend = LOCAL`:
 
 ## Related Docs
 
-- [Protocol](../protocol/protocol.md) - SessionConfig in session creation
-- [LLM](../infra/llm.md) - LLM backend details
+- [Protocol](../protocol/protocol.md) - `SessionConfig` contract
+- [Session](../infra/session.md) - Runtime wiring of config
 - [UI Tech Design](../ui/tech_design.md) - Settings UI components

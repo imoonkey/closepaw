@@ -42,6 +42,7 @@ git diff --name-only <base_commit>..HEAD
 | Code Change | Doc to Update |
 |-------------|---------------|
 | `agent/Agent.kt`, `agent/AgentTurnRunner.kt`, `agent/Turn.kt`, `agent/AgentRuntimeTypes.kt` | `doc/main/agent/loop.md` |
+| `agent/definition/` | `doc/main/agent/overview.md`, `doc/main/agent/multiagent.md`, `doc/main/infra/session.md` |
 | `agent/subagent/` | `doc/main/agent/multiagent.md` |
 | `agent/cognition/`, `session/TodoState.kt`, `session/ScratchpadState.kt`, `perception/ScreenSummary.kt` | `doc/main/agent/planning.md` |
 | `session/AgentSession.kt`, `session/SessionAgentRunner.kt`, `session/SessionServices.kt` | `doc/main/infra/session.md` |
@@ -55,7 +56,7 @@ git diff --name-only <base_commit>..HEAD
 | `ui/chat/`, `ui/navigation/`, `ui/settings/` | `doc/main/ui/tech_design.md`, `doc/main/ui/user_interaction.md` |
 | `ui/overlay/` | `doc/main/ui/overlay.md` |
 | `trace/` | `doc/main/agent/turn_prompt_anatomy.md` and related sections in `doc/main/agent/loop.md` |
-| Build/gradle | `doc/dev/development.md` |
+| Build/gradle/scripts | `doc/dev/development.md` |
 
 ### 3. Update Principles
 

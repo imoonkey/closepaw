@@ -18,9 +18,15 @@ Run tests (Local LLM backend):
     ./scripts/dev.sh run --local            # Run with local model
     LLM_BACKEND=local ./scripts/dev.sh run  # Same via env var
 
+Execution mode:
+    ./scripts/dev.sh run --basic            # Standalone mode
+    ./scripts/dev.sh run --pro              # Planner+executor mode
+    AGENT_MODE=basic ./scripts/dev.sh run   # Same via env var
+
 Debug issues:
     ./scripts/debug-run.sh "goal"           # With OpenAI
     ./scripts/debug-run.sh --local "goal"   # With local LLM
+    ./scripts/debug-run.sh --basic "goal"   # Standalone mode
 ```
 
 ## Scripts
@@ -58,6 +64,11 @@ Run agent tests and view logs. Assumes app is already installed via `setup.sh`.
 ./scripts/dev.sh run --local "Open Chrome" # Custom goal with local model
 LLM_BACKEND=local ./scripts/dev.sh run     # Same via env var
 
+# Execution mode
+./scripts/dev.sh run --basic               # Standalone mode
+./scripts/dev.sh run --pro                 # Planner+executor mode
+AGENT_MODE=basic ./scripts/dev.sh run      # Same via env var
+
 # Logs and status
 ./scripts/dev.sh logs                      # View all agent logs
 ./scripts/dev.sh logs orch                 # Orchestration logs only
@@ -67,9 +78,12 @@ LLM_BACKEND=local ./scripts/dev.sh run     # Same via env var
 
 Options:
 - `--local`, `-l`: Use local LLM backend instead of OpenAI
+- `--basic`: Force basic standalone execution mode
+- `--pro`: Force pro planner+executor mode
 
 Environment variables:
 - `LLM_BACKEND`: `openai` (default) or `local`
+- `AGENT_MODE`: `pro` (default) or `basic`
 
 Log filter options:
 | filter | content |
@@ -108,10 +122,14 @@ Capture screenshots at each turn for debugging agent behavior.
 ```bash
 ./scripts/debug-run.sh "Open Chrome"              # With OpenAI
 ./scripts/debug-run.sh --local "Open Chrome"      # With local LLM
+./scripts/debug-run.sh --basic "Open Chrome"      # Standalone mode
+./scripts/debug-run.sh --pro "Open Chrome"        # Planner+executor mode
 ```
 
 Options:
 - `--local`, `-l`: Use local LLM backend instead of OpenAI
+- `--basic`: Force basic standalone execution mode
+- `--pro`: Force pro planner+executor mode
 
 Output in `debug-output/`:
 - `turn_N.png` - Screenshot at each turn

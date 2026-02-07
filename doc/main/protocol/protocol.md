@@ -1,7 +1,7 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-06
+> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
 
 ## Overview
 
@@ -203,6 +203,7 @@ data class SessionConfig(
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     val model: String = "gpt-5.2",
     val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
+    val agentMode: AgentMode = AgentMode.PRO,
     val localLLMConfig: LocalLLMConfig? = null,
     val debugMode: Boolean = false,
     val traceEnabled: Boolean = false,
@@ -220,12 +221,20 @@ data class SessionConfig(
 | `approvalMode` | `ALWAYS_ASK`, `AUTO_APPROVE`, or `SMART` |
 | `model` | Cloud model name |
 | `llmBackend` | `OPENAI` or `LOCAL` |
+| `agentMode` | `BASIC` (standalone) or `PRO` (planner + executor) |
 | `localLLMConfig` | Local model backend config |
 | `traceEnabled` | Persist full trace events/artifacts |
 | `traceRunId` | Explicit trace folder/run id |
 | `enableScreenshotInput` | Attach screenshots to prompts |
 | `screenshotMaxDimension` | Screenshot long-edge cap |
 | `screenshotJpegQuality` | JPEG compression quality |
+
+### AgentMode
+
+| Mode | Runtime Behavior |
+|------|------------------|
+| `BASIC` | One standalone main agent with direct UI tools |
+| `PRO` | Planner main agent with delegated executor via `delegate_task` |
 
 ---
 

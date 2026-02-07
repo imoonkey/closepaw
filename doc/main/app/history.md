@@ -1,7 +1,7 @@
 # Session History Persistence
 
 > Session recording, storage, and resume functionality.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-05 (commit: af73f8a3ac945a077707b2774adc8f6ac8221c5e)
 
 ## Overview
 

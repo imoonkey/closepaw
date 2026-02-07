@@ -1,7 +1,7 @@
 # UI Tech Design
 
 > Technical implementation: tech stack, code structure, state management.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-04 (commit: da83b53ba4e849e52b45158a3485261d7399facb)
 
 ## Tech Stack
 
@@ -73,7 +73,7 @@ ui/
 └── settings/
     ├── SettingsSheet.kt         # Configuration sheet
     ├── SettingsModels.kt        # Settings data
-    ├── SettingsDropdowns.kt     # Model dropdowns
+    ├── SettingsDropdowns.kt     # Backend/model/execution-mode dropdowns
     └── SettingsWidgets.kt       # Shared widgets
 ```
 

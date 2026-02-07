@@ -1,7 +1,7 @@
 # Platform Abstraction
 
 > AndroidPlatform, Perceptor, and screen perception.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-04 (commit: da83b53ba4e849e52b45158a3485261d7399facb)
 
 ## AndroidPlatform
 
@@ -15,8 +15,10 @@ Abstraction for Android-specific operations.
 interface AndroidPlatform {
     suspend fun captureScreen(): ScreenSnapshot
     suspend fun performAction(action: UIAction, snapshot: ScreenSnapshot): ActionResult
+    suspend fun launchApp(packageName: String): ActionResult
+    suspend fun getInstalledApps(): List<AppInfo>
     fun hasRequiredPermissions(): Boolean
-    fun getCurrentPackageName(): String
+    fun getCurrentPackageName(): String?
     fun getDisplayInfo(): DisplayInfo
 }
 ```
@@ -25,8 +27,10 @@ interface AndroidPlatform {
 
 | Method | Purpose |
 |--------|---------|
-| `captureScreen()` | Get current UI state as ScreenSnapshot |
+| `captureScreen()` | Get current UI state as `ScreenSnapshot` |
 | `performAction()` | Execute UI actions |
+| `launchApp()` | Launch app by package name |
+| `getInstalledApps()` | Query launchable apps |
 | `hasRequiredPermissions()` | Check accessibility permission |
 | `getCurrentPackageName()` | Get foreground app |
 | `getDisplayInfo()` | Screen dimensions |
@@ -49,12 +53,12 @@ class AccessibilityPlatform(
     private val visualizer: ActionVisualizerManager? = null
 ) {
     private suspend fun performTap(x: Float, y: Float): ActionResult {
-        visualizer?.showClick(x, y)  // Show ripple before action
+        visualizer?.showClick(x, y)
         // ... dispatch gesture
     }
-    
+
     private suspend fun performSwipe(...): ActionResult {
-        visualizer?.showSwipe(...)   // Show trail during swipe
+        visualizer?.showSwipe(...)
         // ... dispatch gesture
     }
 }
@@ -66,33 +70,27 @@ class AccessibilityPlatform(
 
 → See: `perception/Perceptor.kt`
 
-Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
+Converts raw AccessibilityNodeInfo tree into semantic `ScreenSnapshot`.
 
 ### Responsibilities
 
 - Traverse accessibility tree with proper node recycling
 - Extract element data (bounds, text, class) without storing raw nodes
-- Filter off-screen elements and elements below minimum size (5px)
+- Filter off-screen elements and tiny elements
 - Filter keyboard/IME nodes (Gboard, Samsung, SwiftKey)
-- Clip element bounds to screen dimensions
-- Limit to MAX_ELEMENTS (80) for token budget
+- Clip bounds to screen dimensions
+- Limit to `MAX_ELEMENTS` for token budget
 - Generate JSON for LLM prompts via `toPromptJson()`
 
-### Output Element Example
+### Prompt JSON Example
 
 ```json
 {
   "index": 0,
   "text": "Settings",
-  "resource_id": "com.android.settings:id/title",
-  "resource_id_index": 0,
   "text_index": 0,
-  "class": "TextView",
-  "desc": "",
+  "class": "android.widget.TextView",
   "clickable": true,
-  "editable": false,
-  "scrollable": false,
-  "enabled": true,
   "focused": false,
   "long_clickable": false,
   "bounds": [0, 100, 1080, 150],
@@ -100,9 +98,10 @@ Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
 }
 ```
 
-### Occurrence Indices
-
-- `resource_id_index`, `text_index`, `desc_index` - 0-based occurrence count for disambiguation when multiple elements share the same identifier
+Notes:
+- `text` is merged text (`element.text` fallback to `element.description`).
+- `text_index` is emitted only when repeated visible labels need disambiguation.
+- Boolean fields like `clickable`/`editable`/`scrollable` are emitted only when true.
 
 ---
 
@@ -117,6 +116,7 @@ Converts raw AccessibilityNodeInfo tree into semantic ScreenSnapshot.
 | `Type` | Text input |
 | `Swipe` | Gesture with start/end coordinates |
 | `SystemButton` | Back, home, enter, recents |
+| `Wait` | Pause execution |
 
 ---
 
@@ -141,7 +141,6 @@ Helper for finding nodes in accessibility tree:
 - Search by resource ID
 - Search by text
 - Search by element index
-- Handle occurrence indices for disambiguation
 
 ---
 
@@ -154,7 +153,7 @@ data class ScreenSnapshot(
     val packageName: String,
     val activityName: String?,
     val elements: List<PerceptionElement>,
-    val image: ByteArray? = null  // Compressed JPEG
+    val image: ByteArray? = null
 )
 ```
 
@@ -169,15 +168,15 @@ Configuration:
 
 ```
 platform/
-├── AndroidPlatform.kt        # Interface
-├── AccessibilityPlatform.kt  # Implementation
+├── AndroidPlatform.kt         # Interface
+├── AccessibilityPlatform.kt   # Implementation
 ├── AccessibilityNodeFinder.kt # Node search helpers
-├── UIAction.kt               # Action types
-└── ActionResult.kt           # Result types
+├── UIAction.kt                # Action types
+└── ActionResult.kt            # Result types
 
 perception/
-├── Perceptor.kt              # A11y tree → ScreenSnapshot
-└── ScreenSummary.kt          # Text summary for history
+├── Perceptor.kt               # A11y tree → ScreenSnapshot
+└── ScreenSummary.kt           # Text summary for history
 ```
 
 ---

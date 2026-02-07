@@ -1,7 +1,7 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-02-06
+> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
 
 ## Quick Start
 
@@ -63,20 +63,18 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   ├── Agent.kt                  # Top-level turn loop controller
 │   ├── AgentTurnRunner.kt        # Single turn execution
 │   ├── AgentRuntimeTypes.kt      # AgentStopReason, TurnOutcome, TurnRunnerState
-│   ├── AgentConfig.kt            # Agent runtime configuration
+│   ├── AgentExecutionConfig.kt   # Agent runtime configuration
 │   ├── AgentEventDispatcher.kt   # AgentEvent emission helpers
 │   ├── ActionDescriptionFormatter.kt # Tool action descriptions
 │   ├── Turn.kt                   # LLM call wrapper (OpenAI Responses API)
-│   ├── cognition/                # Prompt and policy helpers
-│   │   ├── prompt/               # Planner/Executor templates + PromptUtils
-│   │   ├── context/              # NavigationState loop memory
-│   │   └── policy/               # TurnToolPolicy, loop detection, step budget
+│   ├── definition/               # Planner/Executor/Standalone definitions
+│   ├── cognition/                # Prompt/context/policy helpers
 │   └── subagent/
 │       └── SubAgentRunner.kt     # AgentDefinition/Registry + runner + executor preset
 │
 ├── session/                      # Session management
 │   ├── AgentSession.kt           # Lifecycle manager
-│   ├── SessionAgentRunner.kt     # Planner runner + delegate tool wiring
+│   ├── SessionAgentRunner.kt     # Mode-based main-agent runner + delegate tool wiring
 │   ├── SessionServices.kt        # Dependency injection
 │   ├── AgentSessionState.kt      # Shared state container
 │   ├── TodoState.kt              # Planning state
@@ -89,7 +87,9 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   ├── PolicyEngine.kt           # Approval logic
 │   └── impl/                     # Tool implementations
 │       ├── MobileActionTool.kt
-│       ├── AppControlTool.kt
+│       ├── OpenAppTool.kt
+│       ├── SystemButtonTool.kt
+│       ├── WaitTool.kt
 │       ├── CompleteTaskTool.kt
 │       ├── WriteTodosTool.kt
 │       ├── ScratchpadTool.kt

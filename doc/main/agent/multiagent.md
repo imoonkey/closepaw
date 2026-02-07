@@ -1,11 +1,11 @@
 # Multi-Agent System
 
 > Sub-agent delegation, executor agents, and orchestration.
-> Last updated: 2026-02-06
+> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
 
 ## Planner-Executor Pattern
 
-The Android Agent uses delegation where the main agent is a **planner** and delegates atomic UI actions to an **executor** sub-agent.
+In `AgentMode.PRO`, the main agent is a **planner** and delegates atomic UI actions to an **executor** sub-agent.
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
@@ -25,9 +25,23 @@ The Android Agent uses delegation where the main agent is a **planner** and dele
 └────────────────────────────────────────────────────────────────┘
 ```
 
+In `AgentMode.BASIC`, delegation is disabled and the standalone main agent executes UI tools directly.
+
 ---
 
 ## Core Components
+
+### AgentDef + AgentDefRegistry
+
+→ See: `agent/definition/AgentDef.kt` and `agent/definition/AgentDefRegistry.kt`
+
+Static role definitions centralize:
+- system prompt text
+- allowed tool set
+- execution role
+- whether delegation tooling must be wired
+
+Main-agent selection is mode-based (`BASIC` -> standalone, `PRO` -> planner), and executor definition is reused by sub-agent wiring.
 
 ### AgentDefinition
 
@@ -71,8 +85,8 @@ class AgentRegistry {
 
 → See: `agent/subagent/SubAgentRunner.kt`
 
-Executes one delegated sub-agent request with isolated runtime state:
-- Creates a child `Agent` with filtered tools
+Executes one delegated request with isolated runtime state:
+- Creates child `Agent` with filtered tools
 - Uses child history (no parent history access)
 - Shares parent scratchpad intentionally for handoff
 - Emits bridged activity events to parent session
@@ -111,15 +125,15 @@ Do not pass full history/screenshots/raw tree dumps. Executor captures fresh scr
 
 | Agent | Description | Tools |
 |-------|-------------|-------|
-| `executor` | UI grounding and atomic action execution | `mobile_action`, `app_control`, `scratchpad`, `complete_task` |
+| `executor` | UI grounding and atomic action execution | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task` |
 
 ### Executor Agent
 
-→ See: `agent/subagent/SubAgentRunner.kt`
+→ See: `agent/subagent/SubAgentRunner.kt` and `agent/definition/ExecutorAgentDef.kt`
 
 `ExecutorAgent.definition` includes:
 - Name: `executor`
-- Prompt: `ExecutorPromptTemplate.systemPrompt`
+- Prompt: `AgentDefRegistry.executor().systemPrompt`
 - Max turns: `5`
 - Timeout: `30_000ms`
 - Role: `AgentExecutionRole.EXECUTOR`
@@ -130,7 +144,9 @@ Do not pass full history/screenshots/raw tree dumps. Executor captures fresh scr
 
 → See: `session/SessionAgentRunner.kt`
 
-`SessionAgentRunner` lazily registers `DelegateTaskTool` and creates a default `AgentRegistry` (`executor` included) when delegation is first needed.
+`SessionAgentRunner` lazily registers `delegate_task` only when the active main-agent definition requires it (currently `AgentMode.PRO`).
+
+When enabled, it creates a default `AgentRegistry` (`executor` included) and connects it to `IsolatedSubAgentRunner`.
 
 ---
 
@@ -148,9 +164,10 @@ Do not pass full history/screenshots/raw tree dumps. Executor captures fresh scr
 
 ## Adding New Sub-Agents
 
-1. Add a new `AgentDefinition` and register it in `AgentRegistry` creation.
-2. Ensure the prompt + tool list are scoped to that agent's responsibility.
-3. Expose it through `DelegateTaskTool` registry wiring in `SessionAgentRunner`.
+1. Add a new `AgentDef` (if needed) and/or `AgentDefinition`.
+2. Register it in `AgentRegistry` creation.
+3. Keep prompt + tool list tightly scoped.
+4. Ensure `SessionAgentRunner` wiring and mode constraints remain explicit.
 
 ---
 

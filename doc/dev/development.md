@@ -1,5 +1,7 @@
 # Development Guide
 
+> Last updated: 2026-02-02 (commit: 4ea5d290215a7e9f2a54680fcd670d2533655cb0)
+
 This guide covers the development workflow for Android Agent - building, testing, and debugging.
 
 ## Prerequisites
@@ -75,6 +77,8 @@ Run the agent with a goal:
 ./scripts/dev.sh run                    # Default: "Open Settings"
 ./scripts/dev.sh run "Open Chrome"      # Custom goal
 ./scripts/dev.sh run --local "Open Settings"  # Use local LLM
+./scripts/dev.sh run --basic "Open Chrome"    # Standalone execution mode
+./scripts/dev.sh run --pro "Open Chrome"      # Planner+executor mode
 SCREENSHOT_INPUT=true ./scripts/dev.sh run "Open Chrome"  # Send screenshots to LLM
 ```
 
@@ -96,6 +100,8 @@ For deeper investigation, use visual debugging to capture screenshots at each tu
 ```bash
 ./scripts/debug-run.sh "Open Chrome"              # With OpenAI
 ./scripts/debug-run.sh --local "Open Chrome"      # With local LLM
+./scripts/debug-run.sh --basic "Open Chrome"      # Standalone mode trace
+./scripts/debug-run.sh --pro "Open Chrome"        # Planner+executor trace
 ```
 
 Output in `debug-output/`:
@@ -138,6 +144,24 @@ LLM_BACKEND=local ./scripts/dev.sh run
 |---------|------|------|
 | `openai` | Better quality, tool-calling | Requires API key, network latency |
 | `local` | Offline, no cost, fast | Lower quality, ~800MB model download |
+
+### Agent Execution Mode
+
+Select runtime orchestration mode with either flags or env var:
+
+```bash
+# one-off
+./scripts/dev.sh run --basic "Open Settings"
+./scripts/debug-run.sh --pro "Check notifications"
+
+# persistent default
+echo 'AGENT_MODE=basic' >> .env
+```
+
+| Mode | Behavior |
+|------|----------|
+| `pro` (default) | Planner main agent + delegated executor |
+| `basic` | Standalone main agent executes UI actions directly |
 
 ### Screenshot Input (Optional)
 

@@ -1,7 +1,7 @@
 # Agent Loop Execution
 
 > ReAct loop, Turn mechanics, and streaming execution.
-> Last updated: 2026-02-06
+> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
 
 ## ReAct Loop
 
@@ -105,7 +105,7 @@ Defines runtime control/result types:
 
 → See: `agent/cognition/`
 
-- **Prompt layer**: `PromptUtils` + Planner/Executor templates generate system/user prompt text
+- **Prompt layer**: `PromptUtils` builds user context; system prompts are provided by `AgentDef`
 - **Context layer**: `NavigationState` tracks recent screens/actions for loop detection
 - **Policy layer**: `TurnToolPolicy` arbitrates tool calls and completion
 - **Loop guard**: `LoopDetectionPolicy` emits reminders for repeated screens/actions/scroll loops

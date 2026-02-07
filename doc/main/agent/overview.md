@@ -1,14 +1,14 @@
 # Agent Core Overview
 
 > Design principles, architecture, and package structure for the Android Agent.
-> Last updated: 2026-02-06
+> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
 
 ## Design Principles
 
 | Principle | Description |
 |-----------|-------------|
 | **Task-Based Model** | Session > Task > Turn hierarchy. Multi-round interaction via `Idle` state. |
-| **Planner-Executor Pattern** | Main planner agent delegates atomic UI actions to executor sub-agents. |
+| **Mode-Selectable Runtime** | Main runtime can be `BASIC` (standalone) or `PRO` (planner + executor). |
 | **Streaming Responses** | Native OpenAI streaming with `MessageDelta` events for real-time UI updates. |
 | **Thin Session Layer** | Session manages lifecycle only. Intelligence lives under `agent/`. |
 | **Tools with Observation** | Tool execution captures post-action context for grounding. |
@@ -56,12 +56,13 @@ com.moonkey.androidagent/
 │   ├── Agent.kt                  # Top-level task/turn loop controller
 │   ├── AgentTurnRunner.kt        # Per-turn pipeline executor
 │   ├── AgentRuntimeTypes.kt      # Stop reasons + turn outcomes + turn state
-│   ├── AgentConfig.kt            # Runtime configuration
+│   ├── AgentExecutionConfig.kt   # Runtime configuration
 │   ├── AgentEventDispatcher.kt   # Event emission helpers
 │   ├── ActionDescriptionFormatter.kt # Tool action descriptions
 │   ├── Turn.kt                   # LLM call wrapper (Responses API)
+│   ├── definition/               # AgentDef, Planner/Executor/Standalone defs
 │   ├── cognition/
-│   │   ├── prompt/               # Planner/Executor templates + PromptUtils
+│   │   ├── prompt/               # PromptUtils
 │   │   ├── context/              # NavigationState + screen signatures
 │   │   └── policy/               # TurnToolPolicy, loop detection, step budget
 │   └── subagent/
@@ -69,7 +70,7 @@ com.moonkey.androidagent/
 │
 ├── session/                      # Session management
 │   ├── AgentSession.kt           # Lifecycle manager
-│   ├── SessionAgentRunner.kt     # Starts planner and wires delegation tool
+│   ├── SessionAgentRunner.kt     # Starts selected main agent and wires delegation
 │   ├── SessionServices.kt        # Dependency injection
 │   ├── AgentSessionState.kt      # Shared state container
 │   ├── TodoState.kt              # Todo list state
@@ -111,7 +112,7 @@ com.moonkey.androidagent/
 ## Related Docs
 
 - [Loop Execution](loop.md) - ReAct loop, Turn, streaming
-- [Multi-Agent](multiagent.md) - Sub-agent system, delegation
+- [Multi-Agent](multiagent.md) - Sub-agent system and delegation
 - [Planning State](planning.md) - Todos, scratchpad, context hygiene
 - [Session Infrastructure](../infra/session.md) - AgentSession lifecycle
 - [Protocol](../protocol/protocol.md) - Op/Event communication

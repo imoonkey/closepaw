@@ -1,7 +1,7 @@
 # UI User Interaction
 
 > Pages, components, and user interaction flows.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-04 (commit: da83b53ba4e849e52b45158a3485261d7399facb)
 
 ## Overview
 
@@ -64,6 +64,7 @@ Modal bottom sheet with custom header (no drag handle).
 - LLM backend (Cloud/OpenAI vs Local)
 - Cloud model selection (GPT-5.2, GPT-5.2 Pro)
 - Local model selection with download status
+- Execution mode (`Basic` standalone or `Pro` planner+executor)
 - Screenshot input toggle
 - API key (cloud only)
 - Max turns (10, 20, 50)

@@ -1,11 +1,11 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-02-04
+> Last updated: 2026-02-04 (commit: 767f577844825c4db4d8d30dc2084b94d44737a2)
 
 ## Overview
 
-Tools are the agent's interface to the Android device. Every tool execution follows a state machine lifecycle with validation, policy checking, and observation capture.
+Tools are the agent's interface to the Android device. Every tool execution follows a state machine lifecycle with validation, policy checks, and observation capture.
 
 ---
 
@@ -61,7 +61,7 @@ class ToolRegistry {
 
 → See: `tool/ToolRouter.kt`
 
-Executes tool calls with state machine lifecycle:
+Executes tool calls with lifecycle handling:
 - Validates tool exists and parameters are correct
 - Checks policy for approval requirements
 - Waits for user approval if needed (60s timeout)
@@ -71,7 +71,7 @@ Executes tool calls with state machine lifecycle:
 
 → See: `tool/PolicyEngine.kt`
 
-Determines whether tools need user approval:
+Determines whether tools need user approval.
 
 | Mode | Behavior |
 |------|----------|
@@ -85,31 +85,35 @@ Determines whether tools need user approval:
 
 | Tool | Description | Key Parameters |
 |------|-------------|----------------|
-| `mobile_action` | UI interactions | `action`, `element_index`, `resource_id`, `text`, `x`, `y`, `direction` |
-| `app_control` | App discovery/launch | `action` (`list_apps`, `open_app`), `package_name` |
+| `mobile_action` | Screen-targeted touch interactions | `action`, selectors (`element_index`, `text`, bounds, coordinates) |
+| `open_app` | Launch app by name | `app_name` |
+| `system_button` | Press Android system key | `button` (`back`, `home`, `enter`, `recents`) |
+| `wait` | Pause for UI settle | `duration_ms` |
 | `complete_task` | Signal completion | `status`, `answer` |
 | `write_todos` | Todo list management | `todos` array |
 | `scratchpad` | Key-value memory | `action`, `key`, `value` |
-| `delegate_task` | Sub-agent delegation | `agent_name`, `query` |
+| `delegate_task` | Sub-agent delegation (PRO mode) | `agent_name`, `query` |
+
+`delegate_task` is registered lazily only when the selected agent definition requires delegation.
 
 ### mobile_action Actions
 
 | Action | Description |
 |--------|-------------|
-| `click` | Tap on element |
-| `long_press` | Long tap |
-| `type` | Input text |
-| `swipe` | Direction or coordinate-based swipe |
-| `system_button` | back, home, enter, recents |
-| `wait` | Pause execution |
+| `click` | Tap target |
+| `long_press` | Long tap target |
+| `type` | Type into focused or targeted field (`input_text`) |
+| `swipe` | Directional or coordinate swipe |
 
-### Targeting
+### Targeting Order
 
-Tools use multi-selector fallback for targeting:
-1. Bounds (x, y coordinates)
-2. `resource_id` + `resource_id_index`
-3. `text` + `text_index`
-4. `element_index`
+For `click`, `long_press`, and `type`, fallback order is:
+1. Bounds (`x1`, `y1`, `x2`, `y2`)
+2. Coordinates (`x`, `y`)
+3. Text selector (`text` + optional `text_index`)
+4. Element selector (`element_index`)
+
+→ See: `tool/handlers/MultiSelectorTargeting.kt`
 
 ---
 
@@ -128,17 +132,16 @@ ToolSpec (interface)
 |------|---------|
 | `UIActionInvocation` | UIAction-backed tool invocation |
 | `ClickTargetInvocation` | Click with multi-selector fallback |
-| `SwipeTargetInvocation` | Direction-based swipe with targeting |
-| `DataQueryInvocation` | Data-only (no UI action) |
+| `SwipeTargetInvocation` | Direction-based swipe with optional selector grounding |
+| `TypeTargetInvocation` | Type with optional focus targeting |
 
 ---
 
 ## Tool Observation
 
-Every successful tool execution captures post-action screen state:
+Successful tool execution can include post-action screen context:
 
 ```kotlin
-// 300ms delay for UI settle, then capture
 private suspend fun capturePostActionObservation(context: ToolExecutionContext): ToolObservation? {
     delay(UI_SETTLE_DELAY_MS)
     val snapshot = context.platform.captureScreen()
@@ -159,31 +162,7 @@ private suspend fun capturePostActionObservation(context: ToolExecutionContext):
    - `name`, `description`, `parameterSchema`
    - `validate(params)`, `createInvocation(params)`
 
-3. Register in `SessionServices.registerBuiltInTools()`
-
-### Example
-
-```kotlin
-class PingTool : ToolSpec {
-    override val name = "ping"
-    override val description = "Return a health-check response"
-    override val parameterSchema = JSONObject().apply {
-        put("type", "object")
-        put("properties", JSONObject())
-        put("required", JSONArray())
-    }
-
-    override fun validate(params: JSONObject) = ValidationResult.Valid
-
-    override fun createInvocation(params: JSONObject) = object : ToolInvocation {
-        override val toolName = name
-        override val params = params
-        override fun getDescription() = "Health check"
-        override suspend fun execute(context: ToolExecutionContext) =
-            ToolExecutionResult.Success(output = "pong")
-    }
-}
-```
+3. Register in `SessionServices.registerBuiltInTools()` (or conditional runtime wiring)
 
 ---
 
@@ -203,11 +182,13 @@ tool/
 │   ├── ActionHandler.kt
 │   ├── ClickTargetInvocation.kt
 │   ├── SwipeTargetInvocation.kt
-│   ├── UIActionInvocation.kt
-│   └── DataQueryInvocation.kt
+│   ├── TypeTargetInvocation.kt
+│   └── UIActionInvocation.kt
 └── impl/
     ├── MobileActionTool.kt
-    ├── AppControlTool.kt
+    ├── OpenAppTool.kt
+    ├── SystemButtonTool.kt
+    ├── WaitTool.kt
     ├── CompleteTaskTool.kt
     ├── WriteTodosTool.kt
     ├── ScratchpadTool.kt
