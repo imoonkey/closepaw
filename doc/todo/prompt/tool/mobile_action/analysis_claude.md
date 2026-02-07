@@ -293,101 +293,153 @@ Most reference repos have `scroll(direction)` as a higher-level concept. We only
 
 ## 5. Improvement Plan
 
-### 5.1 Restructure Description with Compact Examples (HIGH priority, +~80 tokens)
+> **User Decision (2026-02-07)**: Based on user feedback, the following changes are adopted:
+> - Split non-screen operations (`wait`, `system_button`) out of `mobile_action`
+> - `mobile_action` (可更名为 `screen_action`) 只包含需要 targeting/grounding 的操作
+> - Rename `text` → `input_text` for type action to resolve parameter conflict
+> - Defer `double-click` and `drag` implementation (low usage, easy to add later)
 
-**Current** (~149 tokens):
+### 5.0 Split Actions by Targeting Requirement (HIGH priority) ✅ USER APPROVED
+
+**Rationale**: Separate deterministic actions from screen-targeting actions.
+
+| Category | Actions | Characteristics |
+|----------|---------|-----------------|
+| **Screen Actions** (`mobile_action` or `screen_action`) | `click`, `long_press`, `type`, `swipe` | Require targeting/grounding capability |
+| **System Actions** (separate tools or simple functions) | `wait`, `system_button` | Deterministic, no targeting needed |
+
+**Benefits**:
+- Cleaner mental model: screen actions = need to locate element
+- Simpler schema for each category
+- System actions don't need selector params
+
+```mermaid
+flowchart TD
+  subgraph SA[screen_action]
+    direction TB
+    subgraph Tap[点击类]
+      click[click]
+      lpress[long_press]
+    end
+    subgraph Input[输入类]
+      type[type]
+    end
+    subgraph Gesture[滑动类]
+      swipe[swipe]
+    end
+  end
+
+  wait[wait] 
+  sysbtn[system_button]
+
+  subgraph T[Target Selectors]
+    elementIndex["element_index"]
+    coord["coordinate [x, y]"]
+    txt["text"]
+    txtidx["text_index"]
+  end
+
+  click --> T
+  lpress --> T
+  type --> T
+  swipe -.optional.-> T
 ```
-Perform touch interactions on the mobile device screen.
 
-Actions:
-- click: Tap using one of element_index, resource_id, text, bounds (x1,y1,x2,y2), or coordinates (x,y).
-- long_press: Long press using bounds, coordinates (x,y), resource_id, text, or element_index (duration_ms optional)
-- type: Input into field (text required, clear optional). To focus first, use resource_id, target_text, bounds, x/y, or element_index.
-- swipe: Swipe gesture using either explicit start/end coords or direction (up/down/left/right) with optional distance (short/medium/long) and target selectors.
-- system_button: Press system button (button required: back/home/enter/recents)
-- wait: Wait for UI updates (duration_ms optional, default 1000ms)
+> **Note**: `resource_id` and `element_index` reliability TBD — need to analyze actual a11y tree data to decide if they should be kept.
+
+### 5.1 Restructure Description with Targeting Section (HIGH priority) ✅ USER APPROVED
+
+**Key Changes**:
+1. **Top section**: General targeting explanation (element_index, text, coordinate, etc.) — shared by all screen actions
+2. **Per-action section**: Only unique parameters, minimal repetition
+3. **Examples**: Mix different targeting methods across examples
+
+**Proposed Structure**:
 ```
+Perform a screen action on the Android device.
 
-**Proposed** (~230 tokens):
-```
-Perform a UI action on the Android device.
+## Targeting (required for all screen actions)
+Specify ONE of the following to identify the target element:
+- element_index: Index from screen state (when a11y tree available, preferred)
+- text + text_index: Match by visible text content (text_index for disambiguation)
+- coordinate [x, y]: Absolute screen coordinates
 
-Actions and examples:
-- click: Tap an element. {"action":"click","element_index":3} or {"action":"click","resource_id":"com.app:id/btn"} or {"action":"click","text":"Submit"} or {"action":"click","x":540,"y":800}
-- long_press: Long press an element (same selectors as click). {"action":"long_press","element_index":5,"duration_ms":1500}
-- type: Type text into a field. Focus target first if not focused. {"action":"type","text":"hello","element_index":2} or {"action":"type","text":"hello","clear":true}
-- swipe: Scroll or swipe. direction="up" scrolls content DOWN. {"action":"swipe","direction":"up"} or {"action":"swipe","direction":"left","distance":"long"} or {"action":"swipe","start":[270,800],"end":[270,300]}
-- system_button: Press system key. {"action":"system_button","button":"back"}
-- wait: Pause for UI to settle. {"action":"wait","duration_ms":2000}
+Priority: element_index > text > coordinate (use highest available)
 
-Target selectors (click/long_press/type focus): element_index (preferred) > resource_id > text > bounds(x1,y1,x2,y2) > coordinates(x,y).
+## Actions
+- click: Tap target. {"action":"click","element_index":3}
+- long_press: Long press target. {"action":"long_press","text":"Delete","duration_ms":1500}
+- type: Input text into target field. {"action":"type","input_text":"hello","coordinate":[540,800],"clear":true}
+- swipe: Scroll/swipe gesture. {"action":"swipe","direction":"up"} or {"action":"swipe","start":[270,800],"end":[270,300]}
+
+## swipe-specific params
+- direction: up/down/left/right (direction="up" scrolls content DOWN)
+- distance: short/medium/long (default: medium)
+- start/end: Explicit coordinates [x,y] (mutually exclusive with direction)
 ```
 
 **Rationale**:
-- Adds inline JSON examples (like DroidRun/MobileAgent V3) — immediately shows exact format
-- Clarifies swipe direction semantics inline ("direction='up' scrolls content DOWN")
-- Adds selector priority directly in tool description
-- Distinguishes `type`'s `text` (input) from `click`'s `text` (selector) by example
-- Cost: +~80 tokens. Worthwhile for clarity. Still far cheaper than separate tools (~1500+).
+- Targeting logic explained once, then referenced by each action
+- Each action shows one example with different targeting method (mixed coverage)
+- Reduces repetition while ensuring coverage
 
-### 5.2 Rename `text` to Reduce Overloading (HIGH priority, 0 tokens)
+### 5.2 Rename `text` → `input_text` for Type Action (HIGH priority) ✅ USER APPROVED
 
-The `text` parameter is the biggest source of confusion. Consider:
+**Problem**: `text` parameter is overloaded:
+- For `type`: the string to input
+- For `click`/`long_press`: a target selector
 
-**Option A (minimal change — recommended)**: Improve parameter descriptions only
-- For `text`: Change description from `"Text to input for type action, or text selector for click/long_press/swipe"` to `"For type: text to input. For click/long_press/swipe: text content of the target element to match."`
-- This is clearer but doesn't change the schema.
+**Solution (adopted)**: Rename the type input parameter to `input_text`
+- `text` field now ONLY means targeting (consistent across all actions)
+- `input_text` is the text to type
 
-**Option B (breaking change — consider later)**: Rename params
-- `text` → `input_text` (for type action) + `match_text` (for selectors)
-- Breaks existing agent behavior, requires schema migration and system prompt updates.
-- Higher risk, higher clarity.
+```diff
+# Before (confusing)
+{"action":"type", "text":"hello", "target_text":"Search"}
 
-**Recommendation**: Option A now, Option B as future work if error analysis shows text-related misuse.
-
-### 5.3 Improve Parameter Descriptions (MEDIUM priority, ~+30 tokens net)
-
-Several parameters have terse descriptions that can be improved:
-
-| Parameter | Current | Proposed |
-|-----------|---------|----------|
-| `element_index` | "Element index for click, long_press, or type (to focus first)" | "Index from the screen state JSON. Preferred selector for click/long_press/type." |
-| `text` | "Text to input for type action, or text selector for click/long_press/swipe" | "For type: the string to input. For click/long_press/swipe: match element by visible text." |
-| `direction` | "Direction for swipe (up, down, left, right). Mutually exclusive with start/end." | "Swipe direction. up/down = vertical scroll (up scrolls content down). Mutually exclusive with start/end." |
-| `distance` | "Distance for directional swipe (short, medium, long). Default medium." | "Swipe travel distance. short=¼ screen, medium=½ screen (default), long=¾ screen." |
-| `clear` | "Clear existing text before typing (default false)" | "Clear field before typing. Use true when replacing text (default false)." |
-| `duration_ms` | "Duration in ms for wait (default 1000) or long_press (default 1000)" | "Duration in ms. For wait: pause time (default 1000). For long_press: hold time (default 1000, use 500 for quick, 2000+ for context menu)." |
-
-### 5.4 Add Swipe Direction Clarification to Schema (MEDIUM priority, 0 extra tokens)
-
-In the `direction` parameter description, explicitly note the scroll semantics:
-
-```
-"Swipe direction. up/down = vertical scroll (up scrolls content down). Mutually exclusive with start/end."
+# After (clear)
+{"action":"type", "input_text":"hello", "text":"Search"}
 ```
 
-This is the single highest-confusion point observed in mobile agents. Minitap dedicates an entire "Swipe Physics" section to it.
+**Alternative considered but rejected**: Nested JSON `target` object
+- Pro: Groups all target params together
+- Con: Adds nesting complexity, unclear if LLM success rate improves
+- Decision: Flat with renamed `input_text` is simpler
 
-### 5.5 Consider Adding `scroll` as Action Alias (LOW priority)
+### 5.3 Improve Parameter Descriptions (MEDIUM priority)
 
-Multiple reference repos distinguish `scroll` from `swipe`:
-- Android World M3A: `scroll(direction, index?)` — can target a specific scrollable container
-- AutoDev: separate `scroll(direction)` and `swipe(direction)` with different semantics
+Align with 5.1/5.2 changes:
 
-**Option**: Add `scroll` as a 7th action that is syntactic sugar for `swipe(direction=...)` but with:
-- More intuitive naming (matches what system prompts say: "scroll down")
-- Optional `element_index` to scroll a specific scrollable container
-- Direction semantics: `scroll(direction="down")` = content moves up (natural scroll)
+| Parameter | Proposed Description |
+|-----------|---------------------|
+| `element_index` | "Index from screen state JSON. Preferred selector when a11y tree is available." |
+| `text` | "Target element by visible text content. Use text_index if multiple matches." |
+| `text_index` | "0-based index when multiple elements match the text." |
+| `input_text` | "Text to type (for type action only)." |
+| `coordinate` | "Target location as [x, y] array. Fallback when element_index/text unavailable." |
+| `direction` | "Swipe direction. up/down scrolls content opposite direction. Mutually exclusive with start/end." |
+| `distance` | "Swipe travel: short=¼, medium=½ (default), long=¾ screen." |
+| `clear` | "Clear field before typing (default false)." |
+| `duration_ms` | "Hold time for long_press (default 1000, 500=quick, 2000+=context menu)." |
 
-**Decision**: Defer. The current swipe-with-direction covers this. Adding it would increase the action enum and add confusion about when to use scroll vs swipe. Better to clarify swipe direction semantics instead.
+### 5.4 Swipe Direction Clarification (MEDIUM priority)
 
-### 5.6 Do NOT Split into Separate Tools (ANTI-recommendation)
+Keep inline in section 5.1 structure — no separate section needed since targeting section format already accommodates this.
 
-Despite most reference repos using separate tools, our consolidated approach is better because:
-1. **Token efficiency**: 1 tool schema (~450 tokens) vs 6-17 tool schemas (~1200-2500 tokens)
-2. **Simpler tool arbitration**: Always 1 tool for UI, no ambiguity about which to call
-3. **OpenAI/Anthropic function calling handles it**: The `action` enum clearly dispatches
-4. **Consistent `agent_thought` and selectors** across actions
+### 5.5 Do NOT Add `scroll` Alias ✅ USER CONFIRMED
+
+Defer. Swipe with direction covers this use case.
+
+### 5.6 Do NOT Split Screen Actions into Separate Tools ✅ USER CONFIRMED
+
+Consolidated approach is better for token efficiency.
+
+### 5.7 Defer `double-click` and `drag` ✅ USER DECISION
+
+**Rationale**:
+- Low usage frequency
+- Easy to add later when needed
+- Reduces action space complexity for now
 
 ---
 
@@ -425,15 +477,15 @@ For comparison, splitting into separate tools would cost +600-1900 tokens with n
 
 ---
 
-## 7. What NOT to Change
+## 7. What NOT to Change (Updated per User Decisions)
 
-1. **Don't add `double_tap`** — Rare use case, not worth the action space expansion
-2. **Don't add `drag`** — Niche (sliders, drag-drop), can be done with swipe coordinates
+1. **Defer `double_tap`** — Rare use case, easy to add later ✅
+2. **Defer `drag`** — Niche (sliders, drag-drop), easy to add later ✅
 3. **Don't add percentage-based swipe** — Screen resolution is known, pixel coords are fine
-4. **Don't split tools** — Consolidated is the right design (see §5.6)
+4. **Don't split screen action tools** — Consolidated is the right design (see §5.6) ✅
 5. **Don't add `transcribe_screen`** — We have screen state JSON which serves this purpose
-6. **Don't add `scroll` alias** — Swipe with direction covers this (see §5.5)
-7. **Don't remove any selectors** — Multi-selector is our strength; just improve descriptions
+6. **Don't add `scroll` alias** — Swipe with direction covers this (see §5.5) ✅
+7. **Pending: Evaluate `resource_id` and `element_index`** — Analyze actual a11y tree data to determine if these selectors are useful or should be removed (see §5.0 note)
 
 ---
 
