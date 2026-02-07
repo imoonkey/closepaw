@@ -38,7 +38,7 @@ class TurnToolFilteringTest {
         val registry =
                 ToolRegistry().apply {
                     register(TestTurnTool("mobile_action"))
-                    register(TestTurnTool("app_control"))
+                    register(TestTurnTool("open_app"))
                     register(TestTurnTool("delegate_task"))
                     register(TestTurnTool("complete_task"))
                     register(TestTurnTool("write_todos"))

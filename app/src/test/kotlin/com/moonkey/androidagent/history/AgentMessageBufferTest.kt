@@ -62,7 +62,7 @@ class AgentMessageBufferTest {
         buffer.recordAction(
             ContentBlockRecord.Action(
                 id = "a2",
-                toolName = "app_control",
+                toolName = "open_app",
                 description = "Open app",
                 state = "executing",
                 resultSummary = null
@@ -75,7 +75,7 @@ class AgentMessageBufferTest {
         assertThat(snapshot?.blocks).containsExactly(
             ContentBlockRecord.Action(
                 id = "a2",
-                toolName = "app_control",
+                toolName = "open_app",
                 description = "Open app",
                 state = "success",
                 resultSummary = "ok"

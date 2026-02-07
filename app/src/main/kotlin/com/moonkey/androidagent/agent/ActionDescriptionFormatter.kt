@@ -11,7 +11,7 @@ object ActionDescriptionFormatter {
             "mobile_action" -> formatMobileAction(toolCall.arguments)
             "wait" -> "Wait ${toolCall.arguments.optLong("duration_ms", 1000)}ms"
             "system_button" -> "Press ${toolCall.arguments.optString("button", "")} button"
-            "app_control" -> formatAppControl(toolCall.arguments)
+            "open_app" -> formatOpenApp(toolCall.arguments)
             "complete_task" -> formatCompleteTask(toolCall.arguments)
             else -> "Execute ${toolCall.name}"
         }
@@ -78,20 +78,9 @@ object ActionDescriptionFormatter {
         }
     }
 
-    private fun formatAppControl(args: JSONObject): String {
-        val action = args.optString("action", "")
-        return when (action) {
-            "list_apps" -> {
-                val filter = args.optString("filter", "")
-                if (filter.isNotEmpty()) "List apps matching '$filter'" else "List all apps"
-            }
-            "open_app" -> {
-                val name = args.optString("app_name", "")
-                val pkg = args.optString("package_name", "")
-                "Open app: ${name.ifEmpty { pkg }}"
-            }
-            else -> "App control: $action"
-        }
+    private fun formatOpenApp(args: JSONObject): String {
+        val name = args.optString("app_name", "")
+        return if (name.isNotEmpty()) "Open app: $name" else "Open app"
     }
 
     private fun formatSwipeAction(args: JSONObject): String {

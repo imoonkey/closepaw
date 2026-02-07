@@ -15,10 +15,10 @@ sealed class ToolName(
         canonical = "mobile_action",
         displayName = "Mobile action"
     )
-    data object AppControl : ToolName(
-        raw = "app_control",
-        canonical = "app_control",
-        displayName = "App control"
+    data object OpenApp : ToolName(
+        raw = "open_app",
+        canonical = "open_app",
+        displayName = "Open app"
     )
     data object Wait : ToolName(
         raw = "wait",
@@ -60,7 +60,7 @@ sealed class ToolName(
         fun from(raw: String): ToolName {
             return when (normalizeName(raw)) {
                 MobileAction.canonical -> MobileAction
-                AppControl.canonical -> AppControl
+                OpenApp.canonical -> OpenApp
                 Wait.canonical -> Wait
                 SystemButton.canonical -> SystemButton
                 CompleteTask.canonical -> CompleteTask

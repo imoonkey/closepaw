@@ -32,7 +32,7 @@ class PolicyEngine(
             ToolName.MobileAction.canonical to RiskLevel.MEDIUM,
             ToolName.SystemButton.canonical to RiskLevel.MEDIUM,
             ToolName.Wait.canonical to RiskLevel.LOW,
-            ToolName.AppControl.canonical to RiskLevel.MEDIUM,
+            ToolName.OpenApp.canonical to RiskLevel.MEDIUM,
             ToolName.CompleteTask.canonical to RiskLevel.MEDIUM,
             ToolName.WriteTodos.canonical to RiskLevel.LOW,
             ToolName.Scratchpad.canonical to RiskLevel.LOW,

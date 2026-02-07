@@ -10,7 +10,7 @@ internal object ExecutorAgentDef : AgentDef() {
             "mobile_action",
             "system_button",
             "wait",
-            "app_control",
+            "open_app",
             "scratchpad",
             "complete_task"
         )
@@ -69,6 +69,10 @@ internal object ExecutorAgentDef : AgentDef() {
         ### BACK queries ("Go back", "Return to inbox")
         1. system_button(button="back")
         2. complete_task(status="success", answer="Pressed back")
+
+        ### OPEN APP queries ("Open Gmail", "Launch Settings")
+        1. open_app(app_name="Gmail") — always use this, do NOT navigate the app drawer manually
+        2. complete_task(status="success", answer="Opened Gmail")
 
         ## Scratchpad (Shared with Planner)
         Use scratchpad to store extracted data so the Planner can access it:

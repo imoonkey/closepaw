@@ -14,7 +14,7 @@ class AgentDefTest {
                 "mobile_action",
                 "system_button",
                 "wait",
-                "app_control",
+                "open_app",
                 "scratchpad",
                 "write_todos",
                 "complete_task"
@@ -28,7 +28,7 @@ class AgentDefTest {
         assertThat(PlannerAgentDef.executionRole).isEqualTo(AgentExecutionRole.PLANNER)
         assertThat(PlannerAgentDef.allowedTools)
             .containsExactly(
-                "app_control",
+                "open_app",
                 "write_todos",
                 "scratchpad",
                 "delegate_task",
@@ -46,7 +46,7 @@ class AgentDefTest {
                 "mobile_action",
                 "system_button",
                 "wait",
-                "app_control",
+                "open_app",
                 "scratchpad",
                 "complete_task"
             )

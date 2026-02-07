@@ -10,7 +10,7 @@ internal object StandaloneAgentDef : AgentDef() {
             "mobile_action",
             "system_button",
             "wait",
-            "app_control",
+            "open_app",
             "scratchpad",
             "write_todos",
             "complete_task"
@@ -41,6 +41,7 @@ internal object StandaloneAgentDef : AgentDef() {
         5. Complete the task promptly when done
 
         Common actions:
+        - Open app: open_app(app_name="Gmail") — always use this, do NOT navigate the app drawer
         - Tap: mobile_action(action="click", element_index=N)
         - Type: mobile_action(action="type", input_text="...", element_index=N)
         - Scroll down: mobile_action(action="swipe", direction="up")

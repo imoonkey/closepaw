@@ -35,7 +35,7 @@ class PolicyEngineTest {
     fun `always ask mode requests approval`() {
         val engine = PolicyEngine(ApprovalMode.ALWAYS_ASK)
 
-        val decision = engine.check("app_control", JSONObject())
+        val decision = engine.check("open_app", JSONObject())
 
         assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
     }
@@ -44,7 +44,7 @@ class PolicyEngineTest {
     fun `auto approve mode allows tools`() {
         val engine = PolicyEngine(ApprovalMode.AUTO_APPROVE)
 
-        val decision = engine.check("app_control", JSONObject())
+        val decision = engine.check("open_app", JSONObject())
 
         assertThat(decision).isEqualTo(PolicyDecision.Allow)
     }

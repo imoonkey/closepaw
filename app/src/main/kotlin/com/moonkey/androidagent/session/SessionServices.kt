@@ -15,7 +15,7 @@ import com.moonkey.androidagent.tool.ToolRouter
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
-import com.moonkey.androidagent.tool.impl.AppControlTool
+import com.moonkey.androidagent.tool.impl.OpenAppTool
 import com.moonkey.androidagent.tool.impl.CompleteTaskTool
 import com.moonkey.androidagent.tool.impl.MobileActionTool
 import com.moonkey.androidagent.tool.impl.SystemButtonTool
@@ -153,7 +153,7 @@ data class SessionServices(
          * - mobile_action: Screen-targeted UI interactions (click, type, swipe, long_press)
          * - system_button: Deterministic system key actions (back/home/enter/recents)
          * - wait: Deterministic pause to let UI settle
-         * - app_control: App discovery and launching (list_apps, open_app)
+         * - open_app: Launch apps by name
          */
         private fun ToolRegistry.registerBuiltInTools(sessionState: AgentSessionState) {
             // P0: Agent metatool
@@ -164,8 +164,8 @@ data class SessionServices(
             register(SystemButtonTool())
             register(WaitTool())
 
-            // P0: App control (list_apps, open_app)
-            register(AppControlTool())
+            // P0: App launching
+            register(OpenAppTool())
 
             // P0: Planning state tools
             register(WriteTodosTool(sessionState.todos))

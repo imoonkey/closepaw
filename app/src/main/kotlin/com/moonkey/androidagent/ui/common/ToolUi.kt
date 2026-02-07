@@ -33,7 +33,7 @@ private fun resolveToolDisplay(toolName: String): ToolDisplay {
 
     return when (val tool = ToolName.from(toolName)) {
         ToolName.MobileAction -> ToolDisplay(tool.displayName, Icons.Rounded.TouchApp)
-        ToolName.AppControl -> ToolDisplay(tool.displayName, Icons.Rounded.Apps)
+        ToolName.OpenApp -> ToolDisplay(tool.displayName, Icons.Rounded.Apps)
         ToolName.Wait -> ToolDisplay(tool.displayName, Icons.Rounded.HourglassEmpty)
         ToolName.SystemButton -> ToolDisplay(tool.displayName, Icons.Rounded.TouchApp)
         ToolName.CompleteTask -> ToolDisplay(tool.displayName, Icons.Rounded.CheckCircle)

@@ -7,7 +7,7 @@ internal object PlannerAgentDef : AgentDef() {
     override val executionRole: AgentExecutionRole = AgentExecutionRole.PLANNER
     override val allowedTools: Set<String> =
         setOf(
-            "app_control",
+            "open_app",
             "write_todos",
             "scratchpad",
             "delegate_task",
@@ -24,7 +24,8 @@ internal object PlannerAgentDef : AgentDef() {
 
         ## Tool Calling
         - Use function calling tools only; do NOT emit raw JSON or <action> tags.
-        - Call exactly one execution tool per turn (`delegate_task` or `app_control`), then wait.
+        - Call exactly one execution tool per turn (`delegate_task` or `open_app`), then wait.
+        - Use `open_app` to launch apps directly — do NOT delegate app-opening to the executor or navigate the app drawer.
         - Use `write_todos` and `scratchpad` to track progress and facts.
         - When the overall goal is achieved, call complete_task(status="success", answer="...").
         - If blocked, call complete_task(status="failure", answer="...") with partial progress.
