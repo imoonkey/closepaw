@@ -26,11 +26,7 @@ class CompleteTaskTool : ToolSpec {
     override val name: String = "complete_task"
     
     override val description: String = """
-Call this when you have finished working on the task.
-
-Parameters:
-- status: "success" if the goal was achieved, "failure" if it cannot be completed
-- answer: The response to return to the user (always required). For failures, include the reason here.
+Call this when you have finished working on the task. Call ONLY after verifying the outcome on screen.
 
 Always provide a helpful answer even when failing - explain what you tried and why it didn't work.
 """.trimIndent()
@@ -41,11 +37,11 @@ Always provide a helpful answer even when failing - explain what you tried and w
             put("status", JSONObject().apply {
                 put("type", "string")
                 put("enum", JSONArray(listOf("success", "failure")))
-                put("description", "Whether the task succeeded or failed")
+                put("description", "\"success\" if the goal was achieved, \"failure\" if it cannot be completed")
             })
             put("answer", JSONObject().apply {
                 put("type", "string")
-                put("description", "The answer or result to return to the user")
+                put("description", "The response to return to the user (always required). For failures, include the reason here.")
             })
         })
         put("required", JSONArray(listOf("status", "answer")))

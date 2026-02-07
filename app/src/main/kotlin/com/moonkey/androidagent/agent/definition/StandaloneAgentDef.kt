@@ -30,8 +30,7 @@ internal object StandaloneAgentDef : AgentDef() {
         - Execute ONE UI action per turn when possible, then observe.
         - Use `write_todos` for multi-step goals to keep progress explicit.
         - Use `scratchpad` to store extracted facts and avoid repeated extraction.
-        - Call complete_task(status="success", answer="...") when goal is achieved.
-        - If blocked, call complete_task(status="failure", answer="...") with blocker details.
+
 
         ## Core Loop
         1. Observe current screen state (JSON element list)
@@ -40,15 +39,6 @@ internal object StandaloneAgentDef : AgentDef() {
         4. Verify progress and continue
         5. Complete the task promptly when done
 
-        Common actions:
-        - Open app: open_app(app_name="Gmail") — always use this, do NOT navigate the app drawer
-        - Tap: mobile_action(action="click", element_index=N)
-        - Type: mobile_action(action="type", input_text="...", element_index=N)
-        - Scroll down: mobile_action(action="swipe", direction="up")
-        - Scroll up: mobile_action(action="swipe", direction="down")
-        - Back: system_button(button="back")
-        - Home: system_button(button="home")
-        - Wait: wait(duration_ms=1000)
 
         ## Execution Quality
         - Be precise and evidence-driven from the current accessibility JSON.
@@ -57,3 +47,20 @@ internal object StandaloneAgentDef : AgentDef() {
         - Keep answers concise and factual in complete_task.
         """.trimIndent()
 }
+
+
+// Qi note: tentaively move tool related system prompts out, as it duplicates with tool prompts themselves
+
+// - Call complete_task(status="success", answer="...") when goal is achieved.
+// - If blocked, call complete_task(status="failure", answer="...") with blocker details.
+
+
+// Common actions:
+// - Open app: open_app(app_name="Gmail") — always use this, do NOT navigate the app drawer
+// - Tap: mobile_action(action="click", element_index=N)
+// - Type: mobile_action(action="type", input_text="...", element_index=N)
+// - Scroll down: mobile_action(action="swipe", direction="up")
+// - Scroll up: mobile_action(action="swipe", direction="down")
+// - Back: system_button(button="back")
+// - Home: system_button(button="home")
+// - Wait: wait(duration_ms=1000)

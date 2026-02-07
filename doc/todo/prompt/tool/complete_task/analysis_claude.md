@@ -1,3 +1,5 @@
+Qi Note: done manually, did not follow suggestion. Worked on prompt simplification instead. This tool is simple.
+
 # `complete_task` Tool — Cross-Reference Analysis & Improvement Plan
 
 > Analyst: Claude (Opus)
