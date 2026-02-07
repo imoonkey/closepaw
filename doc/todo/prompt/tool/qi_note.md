@@ -1,0 +1,1 @@
+transcribe_screen()  怎么实现的 (a11y or OCR)？什么时候用？ 
