@@ -19,8 +19,6 @@ class MultiSelectorTargetingTest {
             put("y2", 110)
             put("x", 5)
             put("y", 6)
-            put("resource_id", "com.app:id/button")
-            put("resource_id_index", 1)
             put("text", "OK")
             put("text_index", 2)
             put("element_index", 3)
@@ -36,19 +34,17 @@ class MultiSelectorTargetingTest {
         assertThat(attempts.map { it.selector::class.simpleName }).containsExactly(
             "Bounds",
             "Point",
-            "ResourceId",
             "Text",
             "ElementIndex"
         ).inOrder()
         assertThat(attempts.first().label).contains("bounds center")
         assertThat(attempts[1].label).contains("coordinates")
-        assertThat(attempts[2].label).contains("resource_id=")
-        assertThat(attempts[3].label).contains("text=")
-        assertThat(attempts[4].label).contains("element_index")
+        assertThat(attempts[2].label).contains("text=")
+        assertThat(attempts[3].label).contains("element_index")
     }
 
     @Test
-    fun `filterTypeAttemptsByResourceIdTextMismatch drops resource id attempt`() {
+    fun `findElementIndexByTextOrDescription matches text and description`() {
         val snapshot = ScreenSnapshot(
             timestamp = 0L,
             elements = listOf(
@@ -60,39 +56,25 @@ class MultiSelectorTargetingTest {
                 element(
                     index = 1,
                     resourceId = "com.app:id/search",
-                    text = "Search"
+                    text = "",
+                    description = "Search"
                 )
             )
         )
 
-        val params = JSONObject().apply {
-            put("resource_id", "com.app:id/input")
-            put("resource_id_index", 0)
-            put("text", "Search")
-            put("text_index", 0)
-        }
-
-        val rawAttempts = listOf(
-            MultiSelectorTargeting.Attempt(
-                selector = MultiSelectorTargeting.Selector.ResourceId("com.app:id/input", 0),
-                label = "resource_id='com.app:id/input' index 0"
-            ),
-            MultiSelectorTargeting.Attempt(
-                selector = MultiSelectorTargeting.Selector.Text("Search", 0),
-                label = "text=\"Search\" index 0"
-            )
-        )
-
-        val filtered = MultiSelectorTargeting.filterTypeAttemptsByResourceIdTextMismatch(
-            params = params,
+        val textIndex = MultiSelectorTargeting.findElementIndexByTextOrDescription(
             snapshot = snapshot,
-            attempts = rawAttempts
+            text = "Email",
+            index = 0
+        )
+        val descriptionIndex = MultiSelectorTargeting.findElementIndexByTextOrDescription(
+            snapshot = snapshot,
+            text = "Search",
+            index = 0
         )
 
-        assertThat(filtered.attempts).hasSize(1)
-        assertThat(filtered.attempts.first().selector).isInstanceOf(MultiSelectorTargeting.Selector.Text::class.java)
-        assertThat(filtered.warnings).hasSize(1)
-        assertThat(filtered.warnings.first()).contains("ignored")
+        assertThat(textIndex).isEqualTo(0)
+        assertThat(descriptionIndex).isEqualTo(1)
     }
 
     private fun element(

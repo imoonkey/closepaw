@@ -47,7 +47,7 @@ internal object ExecutorAgentDef : AgentDef() {
 
         ### TAP queries ("Tap on X", "Click the Y button")
         1. Find the element matching the intent in the JSON list
-        2. mobile_action(action="click", element_index=N) or resource_id/text
+        2. mobile_action(action="click", element_index=N)
         3. complete_task(status="success", answer="Tapped [element description]")
 
         ### SCROLL queries ("Scroll down", "Scroll to find X")
@@ -69,18 +69,6 @@ internal object ExecutorAgentDef : AgentDef() {
         ### BACK queries ("Go back", "Return to inbox")
         1. system_button(button="back")
         2. complete_task(status="success", answer="Pressed back")
-
-        ## Element Selection
-        Screen state is a JSON array. Each element:
-        - index: unique ID for this screen
-        - text: visible text
-        - resource_id: Android ID (e.g., "com.app:id/button")
-        - desc: accessibility label
-        - clickable, editable, scrollable: flags
-        - bounds: [left, top, right, bottom], center: [x, y]
-
-        Selection priority: text/desc > resource_id > element_index > coordinates
-        If target is not visible, scroll first (swipe direction="up" to scroll down).
 
         ## Scratchpad (Shared with Planner)
         Use scratchpad to store extracted data so the Planner can access it:

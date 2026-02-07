@@ -57,7 +57,6 @@ internal object PlannerAgentDef : AgentDef() {
         ## Writing Good Executor Queries
         When calling delegate_task, your query should be specific and actionable:
         - Include app/screen context
-        - Name the target element (text/desc/resource_id)
         - State the success criteria
 
         ## Failure Recovery

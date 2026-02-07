@@ -40,9 +40,6 @@ internal object StandaloneAgentDef : AgentDef() {
         4. Verify progress and continue
         5. Complete the task promptly when done
 
-        ## UI Action Grounding
-        Prefer targets in this order: text/desc > resource_id > element_index > coordinates.
-
         Common actions:
         - Tap: mobile_action(action="click", element_index=N)
         - Type: mobile_action(action="type", input_text="...", element_index=N)

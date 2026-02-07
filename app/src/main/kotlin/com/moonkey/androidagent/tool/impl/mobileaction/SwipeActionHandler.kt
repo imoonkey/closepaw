@@ -123,10 +123,6 @@ class SwipeActionHandler : ActionHandler {
         }
 
         val target = when {
-            params.optString("resource_id", "").trim().isNotEmpty() -> {
-                val resourceId = params.optString("resource_id", "").trim()
-                "resource_id '$resourceId' (index ${params.optInt("resource_id_index", 0)})"
-            }
             params.optString("text", "").trim().isNotEmpty() -> {
                 val text = params.optString("text", "").trim()
                 "text \"$text\" (index ${params.optInt("text_index", 0)})"

@@ -78,40 +78,24 @@ object Perceptor {
     /** Convert Snapshot to JSON string for LLM Prompting */
     fun toPromptJson(snapshot: ScreenSnapshot): String {
         val jsonArray = JSONArray()
-        val resourceIdCounts = mutableMapOf<String, Int>()
         val textCounts = mutableMapOf<String, Int>()
-        val descCounts = mutableMapOf<String, Int>()
         for (elem in snapshot.elements) {
-            val resourceIdIndex = getOccurrenceIndex(
-                value = elem.resourceId,
-                counts = resourceIdCounts,
-                normalize = { it }
-            )
+            val mergedText = elem.text.ifBlank { elem.description }
             val textIndex = getOccurrenceIndex(
-                value = elem.text,
+                value = mergedText,
                 counts = textCounts,
-                normalize = { it.trim().lowercase() }
-            )
-            val descIndex = getOccurrenceIndex(
-                value = elem.description,
-                counts = descCounts,
                 normalize = { it.trim().lowercase() }
             )
 
             val obj =
                     JSONObject().apply {
                         put("index", elem.index)
-                        put("text", elem.text)
-                        put("resource_id", elem.resourceId)
-                        if (resourceIdIndex != null) put("resource_id_index", resourceIdIndex)
+                        put("text", mergedText)
                         if (textIndex != null) put("text_index", textIndex)
-                        if (descIndex != null) put("desc_index", descIndex)
                         put("class", elem.className)
-                        put("desc", elem.description)
-                        put("clickable", elem.isClickable)
-                        put("editable", elem.isEditable)
-                        put("scrollable", elem.isScrollable)
-                        put("enabled", elem.isEnabled)
+                        if (elem.isClickable) put("clickable", true)
+                        if (elem.isEditable) put("editable", true)
+                        if (elem.isScrollable) put("scrollable", true)
                         put("focused", elem.isFocused)
                         put("long_clickable", elem.isLongClickable)
                         put("bounds", JSONArray(listOf(elem.bounds.left, elem.bounds.top, elem.bounds.right, elem.bounds.bottom)))

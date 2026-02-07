@@ -231,49 +231,6 @@ class SwipeTargetInvocation(override val params: JSONObject, private val descrip
                             )
                     if (pointResolved != null) return pointResolved
                 }
-                is MultiSelectorTargeting.Selector.ResourceId -> {
-                    if (snapshot == null) {
-                        attemptErrors.add("$label: Snapshot required for resource_id lookup")
-                        continue
-                    }
-                    val elementIndex =
-                            MultiSelectorTargeting.findElementIndexByResourceId(
-                                    snapshot = snapshot,
-                                    resourceId = selector.resourceId,
-                                    index = selector.index
-                            )
-                    if (elementIndex == null) {
-                        val count =
-                                MultiSelectorTargeting.matchCountByResourceId(
-                                        snapshot,
-                                        selector.resourceId
-                                )
-                        attemptErrors.add(
-                                "resource_id='${selector.resourceId}' index ${selector.index} out of range (found $count)"
-                        )
-                        continue
-                    }
-                    val element = snapshot.elements.firstOrNull { it.index == elementIndex }
-                    if (element == null) {
-                        attemptErrors.add(
-                                "resource_id='${selector.resourceId}' resolved to missing element index $elementIndex"
-                        )
-                        continue
-                    }
-                    if (!element.isScrollable) {
-                        warnings.add("Target element is not marked scrollable")
-                    }
-                    val resolved =
-                            resolveFromBounds(
-                                    bounds = element.bounds,
-                                    screenRect = screenRect,
-                                    safeRect = safeRect,
-                                    label = label,
-                                    warnings = warnings,
-                                    attemptErrors = attemptErrors
-                            )
-                    if (resolved != null) return resolved
-                }
                 is MultiSelectorTargeting.Selector.Text -> {
                     if (snapshot == null) {
                         attemptErrors.add("$label: Snapshot required for text lookup")

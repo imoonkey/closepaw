@@ -16,12 +16,11 @@ class ClickActionHandler : ActionHandler {
         val hasBounds = params.has("x1") || params.has("y1") || params.has("x2") || params.has("y2")
         val hasPoint = params.has("x") || params.has("y")
         val hasElementIndex = params.has("element_index")
-        val resourceId = params.optString("resource_id", "").trim()
         val text = params.optString("text", "").trim()
 
-        if (!hasBounds && !hasPoint && !hasElementIndex && resourceId.isEmpty() && text.isEmpty()) {
+        if (!hasBounds && !hasPoint && !hasElementIndex && text.isEmpty()) {
             return ValidationResult.Invalid(
-                "click action requires one of: bounds (x1,y1,x2,y2), x/y, resource_id, text, or element_index"
+                "click action requires one of: bounds (x1,y1,x2,y2), x/y, text, or element_index"
             )
         }
 
@@ -61,10 +60,6 @@ class ClickActionHandler : ActionHandler {
             }
         }
 
-        if (params.has("resource_id_index") && resourceId.isEmpty()) {
-            return ValidationResult.Invalid("resource_id_index requires resource_id")
-        }
-
         if (params.has("text_index") && text.isEmpty()) {
             return ValidationResult.Invalid("text_index requires text")
         }
@@ -82,12 +77,10 @@ class ClickActionHandler : ActionHandler {
 }
 
 internal fun buildClickDescription(params: JSONObject): String {
-    val resourceId = params.optString("resource_id", "").trim()
     val text = params.optString("text", "").trim()
     val hasBounds = params.has("x1") && params.has("y1") && params.has("x2") && params.has("y2")
     val hasPoint = params.has("x") && params.has("y")
     return when {
-        resourceId.isNotEmpty() -> "Click resource_id '$resourceId' (index ${params.optInt("resource_id_index", 0)})"
         text.isNotEmpty() -> "Click text \"$text\" (index ${params.optInt("text_index", 0)})"
         hasBounds -> {
             val x1 = params.optInt("x1", -1)
@@ -100,4 +93,3 @@ internal fun buildClickDescription(params: JSONObject): String {
         else -> "Click element ${params.optInt("element_index", -1)}"
     }
 }
-

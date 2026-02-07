@@ -106,14 +106,7 @@ class TypeTargetInvocation(
             textIndexKey = "text_index",
             textLabel = "text"
         )
-
-        val filtered = MultiSelectorTargeting.filterTypeAttemptsByResourceIdTextMismatch(
-            params = params,
-            snapshot = snapshot,
-            attempts = selectorAttempts
-        )
-        attempts.addAll(filtered.warnings)
-        val effectiveAttempts = filtered.attempts
+        val effectiveAttempts = selectorAttempts
 
         if (effectiveAttempts.isEmpty()) {
             val result = attemptType(
@@ -144,33 +137,6 @@ class TypeTargetInvocation(
                         typeAction = UIAction.Type(textToType, elementIndex = null, clear = clear),
                         snapshotForType = snapshot
                     )
-                    is MultiSelectorTargeting.Selector.ResourceId -> {
-                        val snap = snapshot
-                        if (snap == null) {
-                            attempts.add("$label: Snapshot required for resource_id lookup")
-                            null
-                        } else {
-                            val elementIndex = MultiSelectorTargeting.findElementIndexByResourceId(
-                                snapshot = snap,
-                                resourceId = selector.resourceId,
-                                index = selector.index
-                            )
-                            if (elementIndex == null) {
-                                val count = MultiSelectorTargeting.matchCountByResourceId(snap, selector.resourceId)
-                                attempts.add(
-                                    "resource_id='${selector.resourceId}' index ${selector.index} out of range (found $count)"
-                                )
-                                null
-                            } else {
-                                attemptType(
-                                    label = label,
-                                    focusAction = null,
-                                    typeAction = UIAction.Type(textToType, elementIndex = elementIndex, clear = clear),
-                                    snapshotForType = snap
-                                )
-                            }
-                        }
-                    }
                     is MultiSelectorTargeting.Selector.Text -> {
                         val snap = snapshot
                         if (snap == null) {

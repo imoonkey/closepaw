@@ -31,12 +31,11 @@ Perform touch interactions on the mobile device screen.
 
 Targeting (for click, long_press, type):
 - element_index: index from current screen state
-- resource_id + resource_id_index: Android resource id selector
 - text + text_index: visible text selector
 - bounds (x1,y1,x2,y2): center point is used
 - coordinates (x,y): absolute fallback
 
-When multiple selectors are provided, fallback order is: bounds -> coordinates -> resource_id -> text -> element_index.
+When multiple selectors are provided, fallback order is: bounds -> coordinates -> text -> element_index.
 
 Actions:
 - click: Tap target. Example: {"action":"click","element_index":3}
@@ -68,14 +67,6 @@ Swipe notes:
                 "element_index" to PropertySpec(
                     type = "integer",
                     description = "Index from current screen state. Preferred selector when available."
-                ),
-                "resource_id" to PropertySpec(
-                    type = "string",
-                    description = "Target element by Android resource id (e.g., 'com.app:id/button')"
-                ),
-                "resource_id_index" to PropertySpec(
-                    type = "integer",
-                    description = "Zero-based index when multiple elements match resource_id (default 0)"
                 ),
                 "text_index" to PropertySpec(
                     type = "integer",

@@ -86,28 +86,6 @@ class ClickTargetInvocation(
                     UIAction.ClickAt(selector.x, selector.y),
                     snapshotForAction = null
                 )
-                is MultiSelectorTargeting.Selector.ResourceId -> {
-                    val snap = snapshot
-                    if (snap == null) {
-                        attempts.add("$label: Snapshot required for resource_id lookup")
-                        null
-                    } else {
-                        val elementIndex = MultiSelectorTargeting.findElementIndexByResourceId(
-                            snapshot = snap,
-                            resourceId = selector.resourceId,
-                            index = selector.index
-                        )
-                        if (elementIndex == null) {
-                            val count = MultiSelectorTargeting.matchCountByResourceId(snap, selector.resourceId)
-                            attempts.add(
-                                "resource_id='${selector.resourceId}' index ${selector.index} out of range (found $count)"
-                            )
-                            null
-                        } else {
-                            attempt(label, UIAction.Click(elementIndex), snapshotForAction = snap)
-                        }
-                    }
-                }
                 is MultiSelectorTargeting.Selector.Text -> {
                     val snap = snapshot
                     if (snap == null) {

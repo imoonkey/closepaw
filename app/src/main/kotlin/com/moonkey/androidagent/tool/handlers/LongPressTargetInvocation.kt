@@ -92,32 +92,6 @@ class LongPressTargetInvocation(
                     action = UIAction.LongClickAt(selector.x, selector.y, durationMs),
                     snapshotForAction = null
                 )
-                is MultiSelectorTargeting.Selector.ResourceId -> {
-                    val snap = snapshot
-                    if (snap == null) {
-                        attempts.add("$label: Snapshot required for resource_id lookup")
-                        null
-                    } else {
-                        val elementIndex = MultiSelectorTargeting.findElementIndexByResourceId(
-                            snapshot = snap,
-                            resourceId = selector.resourceId,
-                            index = selector.index
-                        )
-                        if (elementIndex == null) {
-                            val count = MultiSelectorTargeting.matchCountByResourceId(snap, selector.resourceId)
-                            attempts.add(
-                                "resource_id='${selector.resourceId}' index ${selector.index} out of range (found $count)"
-                            )
-                            null
-                        } else {
-                            attempt(
-                                label = label,
-                                action = UIAction.LongClick(elementIndex, durationMs),
-                                snapshotForAction = snap
-                            )
-                        }
-                    }
-                }
                 is MultiSelectorTargeting.Selector.Text -> {
                     val snap = snapshot
                     if (snap == null) {

@@ -7,7 +7,7 @@ import org.json.JSONObject
  * Shared multi-selector targeting utilities for mobile actions.
  *
  * Fallback order (mirrors Minitap + our click implementation):
- * bounds -> coordinates -> resource_id -> text -> element_index
+ * bounds -> coordinates -> text -> element_index
  */
 internal object MultiSelectorTargeting {
 
@@ -17,7 +17,6 @@ internal object MultiSelectorTargeting {
         }
 
         data class Point(val x: Int, val y: Int) : Selector
-        data class ResourceId(val resourceId: String, val index: Int) : Selector
         data class Text(val text: String, val index: Int) : Selector
         data class ElementIndex(val elementIndex: Int) : Selector
     }
@@ -25,11 +24,6 @@ internal object MultiSelectorTargeting {
     data class Attempt(
         val selector: Selector,
         val label: String
-    )
-
-    data class FilterResult(
-        val attempts: List<Attempt>,
-        val warnings: List<String>
     )
 
     fun attemptsFromParams(
@@ -67,17 +61,6 @@ internal object MultiSelectorTargeting {
             )
         }
 
-        val resourceId = params.optString("resource_id", "").trim()
-        if (resourceId.isNotEmpty()) {
-            val index = params.optInt("resource_id_index", 0)
-            attempts.add(
-                Attempt(
-                    selector = Selector.ResourceId(resourceId, index),
-                    label = "resource_id='$resourceId' index $index"
-                )
-            )
-        }
-
         val text = params.optString(textKey, "").trim()
         if (text.isNotEmpty()) {
             val index = params.optInt(textIndexKey, 0)
@@ -104,51 +87,6 @@ internal object MultiSelectorTargeting {
         return attempts
     }
 
-    fun filterTypeAttemptsByResourceIdTextMismatch(
-        params: JSONObject,
-        snapshot: ScreenSnapshot?,
-        attempts: List<Attempt>
-    ): FilterResult {
-        val resourceId = params.optString("resource_id", "").trim()
-        val targetText = params.optString("text", "").trim()
-        if (resourceId.isEmpty() || targetText.isEmpty() || snapshot == null) {
-            return FilterResult(attempts = attempts, warnings = emptyList())
-        }
-
-        val resourceIdAttempt = attempts.firstOrNull { it.selector is Selector.ResourceId }
-            ?: return FilterResult(attempts = attempts, warnings = emptyList())
-
-        val elementIndex = findElementIndexByResourceId(
-            snapshot = snapshot,
-            resourceId = resourceId,
-            index = params.optInt("resource_id_index", 0)
-        ) ?: return FilterResult(attempts = attempts, warnings = emptyList())
-
-        val element = snapshot.elements.firstOrNull { it.index == elementIndex }
-            ?: return FilterResult(attempts = attempts, warnings = emptyList())
-
-        val elementLabel = element.text.ifBlank { element.description }.trim()
-        if (elementLabel.isNotEmpty() && !elementLabel.equals(targetText, ignoreCase = true)) {
-            val warning =
-                "resource_id='$resourceId' ignored: text=\"$targetText\" does not match resolved element text/description \"$elementLabel\""
-            return FilterResult(
-                attempts = attempts.filterNot { it === resourceIdAttempt },
-                warnings = listOf(warning)
-            )
-        }
-
-        return FilterResult(attempts = attempts, warnings = emptyList())
-    }
-
-    fun findElementIndexByResourceId(
-        snapshot: ScreenSnapshot,
-        resourceId: String,
-        index: Int
-    ): Int? {
-        val matches = snapshot.elements.filter { it.resourceId == resourceId }
-        return matches.getOrNull(index)?.index
-    }
-
     fun findElementIndexByTextOrDescription(
         snapshot: ScreenSnapshot,
         text: String,
@@ -159,10 +97,6 @@ internal object MultiSelectorTargeting {
                 it.description.equals(text, ignoreCase = true)
         }
         return matches.getOrNull(index)?.index
-    }
-
-    fun matchCountByResourceId(snapshot: ScreenSnapshot, resourceId: String): Int {
-        return snapshot.elements.count { it.resourceId == resourceId }
     }
 
     fun matchCountByTextOrDescription(snapshot: ScreenSnapshot, text: String): Int {

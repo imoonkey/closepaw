@@ -18,14 +18,11 @@ object ActionDescriptionFormatter {
     }
 
     private fun formatClickAction(args: JSONObject, prefix: String): String {
-        val resourceId = args.optString("resource_id", "").trim()
         val text = args.optString("text", "").trim()
         val hasBounds = args.has("x1") && args.has("y1") && args.has("x2") && args.has("y2")
         val hasPoint = args.has("x") && args.has("y")
         
         return when {
-            resourceId.isNotEmpty() ->
-                "$prefix resource_id '$resourceId' (index ${args.optInt("resource_id_index", 0)})"
             text.isNotEmpty() ->
                 "$prefix text \"$text\" (index ${args.optInt("text_index", 0)})"
             hasBounds -> {
@@ -52,7 +49,6 @@ object ActionDescriptionFormatter {
                 val hasInputText = args.has("input_text")
                 val text = args.optString(if (hasInputText) "input_text" else "text", "").take(30)
                 val clear = args.optBoolean("clear", false)
-                val resourceId = args.optString("resource_id", "").trim()
                 val targetText = if (hasInputText) {
                     args.optString("text", "").trim()
                 } else {
@@ -62,8 +58,6 @@ object ActionDescriptionFormatter {
                 val hasPoint = args.has("x") && args.has("y")
                 val hasElementIndex = args.has("element_index") && args.optInt("element_index", -1) >= 0
                 val target = when {
-                    resourceId.isNotEmpty() ->
-                        "resource_id '$resourceId' (index ${args.optInt("resource_id_index", 0)})"
                     targetText.isNotEmpty() ->
                         "text \"$targetText\" (index ${args.optInt("text_index", args.optInt("target_text_index", 0))})"
                     hasBounds -> {
@@ -114,14 +108,11 @@ object ActionDescriptionFormatter {
         }
         
         val distance = args.optString("distance", "medium").trim().ifEmpty { "medium" }
-        val resourceId = args.optString("resource_id", "").trim()
         val text = args.optString("text", "").trim()
         val hasBounds = args.has("x1") && args.has("y1") && args.has("x2") && args.has("y2")
         val hasPoint = args.has("x") && args.has("y")
         
         val target = when {
-            resourceId.isNotEmpty() ->
-                "resource_id '$resourceId' (index ${args.optInt("resource_id_index", 0)})"
             text.isNotEmpty() ->
                 "text \"$text\" (index ${args.optInt("text_index", 0)})"
             hasBounds -> {

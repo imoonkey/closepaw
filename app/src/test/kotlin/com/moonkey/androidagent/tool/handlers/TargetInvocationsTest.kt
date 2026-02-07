@@ -66,8 +66,6 @@ class TargetInvocationsTest {
             put("y2", 110)
             put("x", 5)
             put("y", 6)
-            put("resource_id", "com.app:id/two")
-            put("resource_id_index", 0)
             put("text", "Third")
             put("text_index", 0)
             put("element_index", 0)
@@ -78,14 +76,13 @@ class TargetInvocationsTest {
         assertThat(platform.performedActions).containsExactly(
             UIAction.ClickAt(50, 60), // bounds center
             UIAction.ClickAt(5, 6),
-            UIAction.Click(1), // resource_id -> element 1
             UIAction.Click(2), // text -> element 2
             UIAction.Click(0)  // element_index
         ).inOrder()
     }
 
     @Test
-    fun `type uses text selector when resource_id mismatches`() = runTest {
+    fun `type uses text selector`() = runTest {
         val snapshot = ScreenSnapshot(
             timestamp = 0L,
             elements = listOf(
@@ -99,8 +96,6 @@ class TargetInvocationsTest {
 
         val params = JSONObject().apply {
             put("input_text", "hello")
-            put("resource_id", "com.app:id/input")
-            put("resource_id_index", 0)
             put("text", "Search")
             put("text_index", 0)
         }

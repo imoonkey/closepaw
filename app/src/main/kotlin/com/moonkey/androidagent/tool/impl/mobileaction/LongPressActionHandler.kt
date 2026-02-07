@@ -21,12 +21,11 @@ class LongPressActionHandler : ActionHandler {
         val hasBounds = params.has("x1") || params.has("y1") || params.has("x2") || params.has("y2")
         val hasPoint = params.has("x") || params.has("y")
         val hasElementIndex = params.has("element_index")
-        val resourceId = params.optString("resource_id", "").trim()
         val text = params.optString("text", "").trim()
 
-        if (!hasBounds && !hasPoint && !hasElementIndex && resourceId.isEmpty() && text.isEmpty()) {
+        if (!hasBounds && !hasPoint && !hasElementIndex && text.isEmpty()) {
             return ValidationResult.Invalid(
-                "long_press action requires one of: bounds (x1,y1,x2,y2), x/y, resource_id, text, or element_index"
+                "long_press action requires one of: bounds (x1,y1,x2,y2), x/y, text, or element_index"
             )
         }
 
@@ -66,10 +65,6 @@ class LongPressActionHandler : ActionHandler {
             }
         }
 
-        if (params.has("resource_id_index") && resourceId.isEmpty()) {
-            return ValidationResult.Invalid("resource_id_index requires resource_id")
-        }
-
         if (params.has("text_index") && text.isEmpty()) {
             return ValidationResult.Invalid("text_index requires text")
         }
@@ -96,13 +91,10 @@ class LongPressActionHandler : ActionHandler {
 }
 
 internal fun buildLongPressDescription(params: JSONObject, durationMs: Long): String {
-    val resourceId = params.optString("resource_id", "").trim()
     val text = params.optString("text", "").trim()
     val hasBounds = params.has("x1") && params.has("y1") && params.has("x2") && params.has("y2")
     val hasPoint = params.has("x") && params.has("y")
     return when {
-        resourceId.isNotEmpty() ->
-            "Long press resource_id '$resourceId' (index ${params.optInt("resource_id_index", 0)}) for ${durationMs}ms"
         text.isNotEmpty() ->
             "Long press text \"$text\" (index ${params.optInt("text_index", 0)}) for ${durationMs}ms"
         hasBounds -> {
@@ -116,4 +108,3 @@ internal fun buildLongPressDescription(params: JSONObject, durationMs: Long): St
         else -> "Long press element ${params.optInt("element_index", -1)} for ${durationMs}ms"
     }
 }
-
