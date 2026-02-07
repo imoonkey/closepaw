@@ -1,31 +1,31 @@
 # `write_todos` Tool — Cross-Implementation Analysis
 
 > Analyst: Claude | Date: 2026-02-06
-> References: gemini-cli `write_todos`, codex `update_plan`, Android Agent `write_todos`
+> References: gemini-cli `write_todos`, codex `update_plan`, AutoDev `update_todos`, DroidRun (prompt-driven `<plan>`), Minitap (subgoal system), MobileAgent-v3 (InfoPool planning), Android Agent `write_todos`
 
 ---
 
 ## 1. Implementation Comparison
 
-### 1.1 Overview Table
+### 1.1 Master Overview Table
 
-| Dimension | Android Agent (`write_todos`) | Gemini CLI (`write_todos`) | Codex (`update_plan`) |
-|-----------|-------------------------------|----------------------------|-----------------------|
-| **Description token cost** | ~170 tokens | ~500 tokens | ~30 tokens (bulk in system prompt) |
-| **Status values** | 4: pending, in_progress, completed, cancelled | 4: same | 3: pending, in_progress, completed |
-| **Item field name** | `description` | `description` | `step` |
-| **Extra params** | `agent_thought` | none | `explanation` |
-| **Output to LLM** | JSON `{todos: [...], count: N}` | `"Successfully updated the todo list. The current list is now:\n1. [status] desc"` | `"Plan updated"` |
-| **Step length guidance** | None | None | "5-7 words each" in system prompt |
-| **"Don't repeat" rule** | No | No | Yes: "Do not repeat the full contents of the plan after an update_plan call" |
-| **Quality examples** | None | When-to-use/not-use examples in description | High/low quality step examples in system prompt |
-| **Methodology** | None | 7-step methodology in description | Behavioral rules in system prompt |
-| **System prompt integration** | Brief mention: "Use write_todos to track progress" | Integrated into "Plan" workflow step | Dedicated `## Planning` section + `## update_plan` section |
-| **Context injection** | Full todo list in user message + summary reminder in `<system_reminder>` | Todo list rendered in UI, not re-injected into context | Harness renders; not re-injected |
+| Dimension | Android Agent | Gemini CLI | Codex | AutoDev | DroidRun | Minitap | MobileAgent-v3 |
+|-----------|--------------|------------|-------|---------|----------|---------|----------------|
+| **Tool name** | `write_todos` | `write_todos` | `update_plan` | `update_todos` | *(no tool)* | *(no tool)* | *(no tool)* |
+| **Mechanism** | Structured tool | Structured tool | Structured tool | Structured tool | XML tags in LLM output | Agent-internal subgoal model | Shared InfoPool + free-text plan |
+| **Desc tokens** | ~170 | ~500 | ~30 | ~300 | 0 (prompt-driven) | 0 (agent-internal) | 0 (prompt-driven) |
+| **Statuses** | 4: pending, in_progress, completed, cancelled | 4: same | 3: no cancelled | 3: pending, in_progress, completed | N/A (text) | 4: NOT_STARTED, PENDING, SUCCESS, FAILURE | N/A (numbered list) |
+| **Item fields** | description, status | description, status | step, status | content, status, **priority**, **id** | free text | id, description, status, completion_reason, timestamps | numbered text |
+| **Extra params** | agent_thought | none | explanation | none | N/A | N/A | N/A |
+| **Output to LLM** | JSON `{todos:[], count}` | Human-readable list | `"Plan updated"` | *(not found)* | parsed from response | not returned to LLM | parsed from response |
+| **Who has it** | Planner + Standalone | All agents | All agents | Planner only | Manager agent | Planner agent (internal) | Manager agent |
+| **Step length guidance** | None | None | "5-7 words" | None | None | "purpose-driven, not too granular" | None |
 
-### 1.2 Gemini CLI — Detailed Analysis
+### 1.2 Code Agent Implementations (Gemini CLI, Codex)
 
-**File:** `packages/core/src/tools/write-todos.ts`
+#### 1.2.1 Gemini CLI (`write_todos`)
+
+**File:** `.reference/code_agent/gemini-cli/packages/core/src/tools/write-todos.ts`
 
 **Schema sent to LLM:**
 ```json
@@ -54,33 +54,17 @@
 
 **Key design decisions:**
 
-1. **Very verbose description** (~500 tokens): includes a full "Methodology for using this tool" (7 steps), "Task state definitions" section, positive example (React logo creator with 8 steps + reasoning), and negative example (test loop without todo). This is sent with **every** API call since tool schemas are part of the request.
+1. **Very verbose description** (~500 tokens): 7-step methodology, "Task state definitions", positive example (React logo creator with 8 steps + reasoning), negative example (test loop). Sent **every** API call.
+2. **No extra parameters**: no `agent_thought` or `explanation` — model writes thought inline.
+3. **Human-readable output**: Returns `"Successfully updated the todo list. The current list is now:\n1. [pending] ..."` — friendly but adds history tokens.
+4. **System prompt integration**: Mentioned in "Plan" workflow step: "use the `write_todos` tool to track your progress."
 
-2. **No extra parameters**: no `agent_thought` or `explanation` field — the model writes thought inline in its response text.
+**Pros:** Exhaustive description steers model; positive/negative examples; prescriptive methodology; `cancelled` status.
+**Cons:** ~500 token/turn cost; redundant with system prompt; no `explanation` field; no step length guidance.
 
-3. **Human-readable output**: Returns `"Successfully updated the todo list. The current list is now:\n1. [pending] Initialize React project\n..."` — this is friendly but adds tokens to every subsequent turn via history.
+#### 1.2.2 Codex (`update_plan`)
 
-4. **System prompt integration**: The system prompt mentions `write_todos` in the "Plan" workflow step:
-   > "For complex tasks, break them down into smaller, manageable subtasks and use the `write_todos` tool to track your progress."
-
-5. **UI rendering**: The current `in_progress` task is shown above the input box. Full list toggleable via `Ctrl+T`. The tool is an optional feature (`useWriteTodos` config flag).
-
-**Pros:**
-- Exhaustive description ensures model knows when/how to use tool even without system prompt reinforcement
-- Positive and negative examples in description directly steer model behavior
-- 7-step methodology is prescriptive
-- `cancelled` status supports dynamic replanning
-
-**Cons:**
-- ~500 token description = significant cost per turn (description is sent every turn)
-- Redundancy: the description duplicates guidance that could be in the system prompt (and is less expensive there since system prompt is cached in many APIs)
-- Human-readable output adds token overhead to history
-- No `explanation` field — model can't communicate *why* the plan changed structurally
-- No step length guidance — can lead to verbose, paragraph-length todo items
-
-### 1.3 Codex — Detailed Analysis
-
-**Files:** `codex-rs/core/src/tools/handlers/plan.rs`, `codex-rs/core/prompt.md`
+**Files:** `.reference/code_agent/codex/codex-rs/core/src/tools/handlers/plan.rs`, `prompt.md`
 
 **Schema sent to LLM:**
 ```json
@@ -110,67 +94,339 @@
 
 **Key design decisions:**
 
-1. **Ultra-minimal description** (~30 tokens): just states what the tool does and the one-in_progress constraint. All behavioral guidance lives in the **system prompt**.
+1. **Ultra-minimal description** (~30 tokens). All guidance in system prompt (cacheable).
+2. **`explanation` parameter**: Structured rationale for plan changes.
+3. **Minimal output**: `"Plan updated"`. System prompt: "Do not repeat the full contents of the plan after an update_plan call."
+4. **Only 3 statuses**: No `cancelled`.
+5. **Step length constraint** in system prompt: "1-sentence steps (no more than 5-7 words each)".
+6. **Quality examples**: 3 high-quality + 3 low-quality plan examples in system prompt.
+7. **Behavioral rules** in system prompt: mark step completed before moving on; `explanation` when changing plan; always exactly one `in_progress`.
 
-2. **`explanation` parameter**: Optional string for rationale when changing the plan. The code comment says: "it gives the model a structured way to record its plan that clients can read and render. So it's the _inputs_ to this function that are useful to clients."
-
-3. **Minimal output**: Returns just `"Plan updated"` — the harness already displays the plan. The system prompt explicitly says: "Do not repeat the full contents of the plan after an `update_plan` call — the harness already displays it."
-
-4. **Only 3 statuses**: No `cancelled`. Simplifies schema and reduces model choice space.
-
-5. **Step length constraint** in system prompt: "1-sentence steps (no more than 5-7 words each)" — critical for controlling token costs of plan items.
-
-6. **Quality examples** in system prompt: 3 high-quality examples and 3 low-quality examples showing the contrast. High quality plans have specific, actionable 5-7 word steps. Low quality plans are too vague.
-
-7. **Behavioral rules** in system prompt:
-   - "Before running a command, consider whether or not you have completed the previous step, and make sure to mark it as completed before moving on to the next step."
-   - "Sometimes, you may need to change plans in the middle of a task: call `update_plan` with the updated plan and make sure to provide an `explanation` of the rationale when doing so."
-   - "There should always be exactly one `in_progress` step until everything is done."
-   - When to use list (6 criteria)
-
-8. **Explicit separation from Plan Mode**: "Plan Mode is a collaboration mode... Separately, `update_plan` is a checklist/progress/TODOs tool."
-
-**Pros:**
-- ~30 token description = minimal per-turn cost (system prompt is often cached by API providers)
-- `explanation` field provides structured change rationale
-- "5-7 words per step" constraint keeps token costs low
-- "Don't repeat plan" instruction prevents token waste
-- High/low quality examples calibrate model behavior
-- Output is just "Plan updated" — minimal history bloat
-
-**Cons:**
-- No `cancelled` status — less flexible for dynamic replanning
-- Relies heavily on system prompt — if system prompt is truncated, guidance is lost
-- `step` field name is less descriptive than `description` for mobile UI actions
-- No when-to-use examples in the description itself
+**Pros:** Minimal per-turn cost; `explanation` field; step length constraint; quality examples; "don't repeat" rule.
+**Cons:** No `cancelled` status; relies on system prompt caching.
 
 ---
 
-## 2. Current Android Agent Implementation Assessment
+### 1.3 Mobile Agent Implementations
 
-### 2.1 What's Working Well
+#### 1.3.1 AutoDev / android_world (`update_todos`)
+
+**File:** `.reference/mobile_agent/autodevice_android_world/android_world/agents/autodev/todo_list.py`
+
+**The only mobile agent with an explicit todo tool.** Schema:
+
+```json
+{
+  "name": "update_todos",
+  "description": "<~300 token description>",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "todos": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "content": { "type": "string", "minLength": 1 },
+            "id": { "type": "string" },
+            "priority": { "type": "string", "enum": ["high", "medium", "low"] },
+            "status": { "type": "string", "enum": ["pending", "in_progress", "completed"] }
+          },
+          "required": ["content", "status", "priority", "id"]
+        }
+      }
+    },
+    "required": ["todos"]
+  }
+}
+```
+
+**Tool description (full text from `TODO_LIST_DESCRIPTION`):**
+```
+Use this tool to create and manage a structured task list for your current task session.
+This helps you track progress, organize complex tasks, and demonstrate thoroughness to the user.
+Without this, you will run into endless loops.
+
+## When to Use This Tool
+Use this tool proactively in these scenarios:
+1. Complex multi-step tasks - When a task requires 3 or more distinct steps or actions
+2. Non-trivial and complex tasks - Tasks that require careful planning or multiple operations
+3. User explicitly requests todo list
+4. User provides multiple tasks (numbered or comma-separated)
+5. After receiving new instructions - Immediately capture user requirements as todos
+6. When you start working on a task - Mark it as in_progress BEFORE beginning work.
+   Ideally you should only have one todo as in_progress at a time
+7. After completing a task - Mark it as completed and add any new follow-up tasks
+
+## When NOT to Use This Tool
+Skip using this tool when:
+1. There is only a single, straightforward task
+2. The task is trivial and tracking it provides no organizational benefit
+3. The task can be completed in less than 3 trivial steps
+4. The task is purely conversational or informational
+```
+
+**System prompt planning section** (from `prompts.py:30-45`):
+```
+2. **PLAN**: Create a todo list using update_todos() for any task with:
+   - Multiple items or steps
+   - Sequential operations
+   - Data extraction and reuse
+   - Multi-app workflows
+
+=== PLANNING STRATEGY ===
+- Break complex tasks into atomic subgoals
+- For multi-item tasks: list each item separately
+- For sequential workflows: list steps in order
+- Include specific values (names, dates, amounts) in todo descriptions
+- Mark todos complete only after verifying in screenshot/result
+- Update todos as you discover new requirements
+```
+
+**Unique features:**
+- **`priority` field** (high/medium/low): Allows ordering execution by importance.
+- **`id` field**: Each item has a unique identifier for tracking across updates.
+- **"Without this, you will run into endless loops"**: Strong behavioral nudge to always use the tool for complex tasks.
+- **Completion verification requirement**: "Mark todos complete only after verifying in screenshot/result" — critical for mobile agents where UI state must be visually confirmed.
+- **Planner-only**: Executor doesn't have the tool — consistent with planning being a planner responsibility.
+
+**Pros:**
+- `priority` field enables strategic execution ordering (do high-priority items first)
+- `id` field enables stable tracking across plan updates
+- Strong nudge ("endless loops") ensures model uses the tool
+- Verification requirement aligns with mobile agent reality
+- Detailed when-to-use/not-use guidance
+
+**Cons:**
+- ~300 token description per turn (expensive)
+- 4 required fields per item (`content`, `status`, `priority`, `id`) = more output tokens per item than competitors
+- No `cancelled` status — only 3 states
+- No step length guidance
+
+#### 1.3.2 DroidRun (Prompt-Driven `<plan>` Tags)
+
+**Files:** `.reference/mobile_agent/droidrun/droidrun/config/prompts/manager/system.jinja2`, `agent/manager/prompts.py`
+
+**No explicit todo tool.** Planning is handled via XML tags in the ManagerAgent's LLM output:
+
+```xml
+<thought>Reasoning about what to do next</thought>
+<plan>
+1. first subgoal
+2. second subgoal
+...
+</plan>
+<add_memory>Important information to remember</add_memory>
+<progress_summary>Cumulative progress description</progress_summary>
+```
+
+**State tracking** (from `state.py`):
+```python
+plan: str = ""              # Current plan (free text)
+current_subgoal: str = ""   # First line of plan
+previous_plan: str = ""     # For comparison
+progress_summary: str = ""  # Cumulative progress
+memory: str = ""            # Append-only facts
+```
+
+**Planning prompt instruction:**
+> "Please update or copy the existing plan according to the current page and progress. Please pay close attention to the historical operations. Please do not repeat the plan of completed content unless you can judge from the screen status that a subgoal is indeed not completed."
+
+**Key pattern:** The manager's LLM response is **parsed** for XML tags — `parse_manager_response()` extracts thought, plan, memory, current_subgoal. The first line of `<plan>` becomes `current_subgoal`.
+
+**Pros:**
+- Zero tool schema overhead — no tool tokens at all
+- Free-form plan allows rich context in each step
+- `<progress_summary>` enables stateless mode (no conversation history needed)
+- `<add_memory>` separates factual memory from plan tracking
+
+**Cons:**
+- No structured status tracking — plan is just numbered text
+- Parsing XML from LLM output is fragile (regex-based)
+- No explicit "completed" marking — relies on LLM to remove finished steps
+- No validation of plan format
+- Planner can't easily be "reminded" of its plan since it's just text
+
+#### 1.3.3 Minitap / mobile-use (Subgoal System)
+
+**Files:** `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/planner/types.py`, `agents/planner/planner.py`, `agents/orchestrator/orchestrator.py`
+
+**No explicit todo tool.** Uses an agent-internal subgoal model:
+
+```python
+class Subgoal(BaseModel):
+    id: str                      # Unique identifier
+    description: str             # What to do
+    completion_reason: str|None  # Why it was completed
+    status: SubgoalStatus        # NOT_STARTED, PENDING, SUCCESS, FAILURE
+    started_at: datetime|None    # When started
+    ended_at: datetime|None      # When ended
+```
+
+**Multi-agent architecture:**
+1. **Planner** → Creates initial subgoal list with structured output
+2. **Orchestrator** → Tracks completion, transitions between subgoals, triggers replanning
+3. **Cortex** → Analyzes screen, marks subgoals complete based on visual evidence (`complete_subgoals_by_ids`)
+4. **Executor** → Performs actions
+
+**Planner system prompt guidelines** (from `planner.md`):
+```
+Guidelines for subgoals:
+- Purpose-driven — each subgoal should have a clear purpose
+- Sequential — subgoals are executed in order
+- Not too granular — avoid splitting into too many tiny steps
+- No loops — don't create subgoals that require iteration
+```
+
+**Replanning:**
+- On failures, Planner revises plan while keeping completed subgoals intact
+- Orchestrator sets `needs_replanning` flag if plan is unworkable
+
+**Scratchpad tools** (`tools/scratchpad.py`): `save_note`, `read_note`, `list_notes` for persistent key-value memory.
+
+**Pros:**
+- Rich status model: NOT_STARTED → PENDING → SUCCESS/FAILURE with timestamps and completion_reason
+- `completion_reason` provides auditability
+- Timestamps enable performance analysis
+- FAILURE status (not just "not completed") enables targeted error recovery
+- Multi-agent verification: Cortex marks completion based on **visual evidence**, not just agent self-report
+- Replanning preserves completed work
+
+**Cons:**
+- Not a tool — the LLM can't directly update the plan
+- Adds architectural complexity (4 agents)
+- Subgoal model is agent-internal, not in prompt context
+- "Not too granular" guidance is vague
+
+#### 1.3.4 MobileAgent-v3 (InfoPool Planning)
+
+**File:** `.reference/mobile_agent/MobileAgent/Mobile-Agent-v3/mobile_v3/utils/mobile_agent_e.py`
+
+**No explicit todo tool.** Uses a shared `InfoPool` dataclass:
+
+```python
+@dataclass
+class InfoPool:
+    plan: str = ""                   # Current plan (numbered subgoals)
+    completed_plan: str = ""         # Completed subgoals / historical operations
+    progress_status: str = ""        # Current progress description
+    current_subgoal: str = ""        # What to do now
+    important_notes: str = ""        # Accumulated important info
+    future_tasks: list = field(...)  # Deferred tasks
+```
+
+**Planning pattern:** Manager generates/updates a numbered plan:
+```
+### Plan ###
+1. first subgoal
+2. second subgoal
+...
+```
+
+**Critical planning prompt instructions:**
+> "If the first subgoal in plan has been completed, please update the plan in time according to the screenshot and progress to ensure that the next subgoal is always the first item in the plan."
+> "Please do not repeat the plan of completed content unless you can judge from the screen status that a subgoal is indeed not completed."
+
+**Completed operations tracking:**
+```
+### Historical Operations ###
+Try to add the most recently completed subgoal on top of the existing historical operations.
+Please do not delete any existing historical operation.
+```
+
+**Multi-agent coordination:**
+- **Manager** → Creates/updates plan in `info_pool.plan`, moves completed items to `info_pool.completed_plan`
+- **Executor** → Reads `info_pool.plan` + `info_pool.current_subgoal`, selects action
+- **Reflector** → Evaluates action outcome, updates `info_pool.progress_status`
+- **Notetaker** → Updates `info_pool.important_notes`
+
+**Pros:**
+- Dual-list pattern: active plan + completed history — avoids re-listing completed items
+- `progress_status` tracked by a separate Reflector agent — independent assessment
+- `important_notes` from Notetaker — separates knowledge from planning
+- Error escalation: after N consecutive failures, Manager revises plan
+
+**Cons:**
+- Free-form text planning — no structured validation
+- Response parsing (regex-based) is fragile
+- No explicit status tracking per item — relies on positional semantics (first = current)
+- Heavy prompt overhead for the plan update instruction
+
+---
+
+## 2. Cross-Cutting Analysis: What Mobile Agents Teach Us
+
+### 2.1 The Planning Spectrum
+
+Mobile agent implementations span a spectrum from **no-tool prompt-driven** to **structured tool-driven**:
+
+```
+More structured ◄─────────────────────────────────────────────► Less structured
+
+AutoDev         Our Agent     Gemini CLI   Codex      Minitap       DroidRun    MobileAgent-v3
+update_todos    write_todos   write_todos  update_plan (subgoal     (<plan>     (InfoPool
+w/ priority,    w/ status     w/ status    w/ step,    model,       XML tags)   free text)
+id fields       field         field        explanation  internal)
+```
+
+**Key insight:** Only 1 out of 4 mobile agents uses an explicit tool (AutoDev). The other 3 use prompt-driven or agent-internal planning. This suggests the mobile domain is split on whether a structured tool is worth the token overhead.
+
+### 2.2 Unique Mobile Agent Insights (Not Found in Code Agents)
+
+| Insight | Source | Relevance to Our Agent |
+|---------|--------|----------------------|
+| **`priority` field** (high/medium/low) | AutoDev | Could help prioritize steps when budget is tight, but adds token overhead per item. **Not recommended** — our turn budget already enforces urgency. |
+| **`id` field** per item | AutoDev, Minitap | Enables stable tracking across updates. **Not recommended** for now — full replacement semantics makes IDs unnecessary since the LLM re-emits the whole list. Would matter if we add merge semantics. |
+| **Verification before marking complete** | AutoDev | "Mark todos complete only after verifying in screenshot/result" — **should adopt**. Mobile-specific: UI state must be visually confirmed, not assumed. |
+| **Dual-list: active + completed** | MobileAgent-v3 | Separates active plan from history. **Interesting but complex** — our current approach (single list with status) is simpler and the `<system_reminder>` already summarizes only actionable items. |
+| **`completion_reason` field** | Minitap | Explains why a subgoal was marked complete. **Nice for debugging** but adds token cost. Could be folded into `agent_thought`. |
+| **FAILURE status** (distinct from incomplete) | Minitap | Explicit failure marking enables targeted recovery. **Worth considering** — but our `cancelled` status partially covers this, and the agent can explain failure in `agent_thought`. |
+| **"Endless loops" warning** | AutoDev | "Without this, you will run into endless loops" — strong behavioral nudge. **Should adopt** a softer version in our system prompt. |
+| **Separate Reflector agent** for progress assessment | MobileAgent-v3 | Independent verification of progress. **Not applicable** — our agent is the one assessing its own progress. But the principle of verification-before-marking-complete is valid. |
+| **"Not too granular" guidance** | Minitap | Prevents over-decomposition. **Should adopt** — aligns with step length guidance from Codex. |
+
+### 2.3 Action Space Patterns
+
+Across all mobile agents, the todo/plan tool is always **planner-side only**:
+
+| Agent | Who has the planning tool | Who does UI actions |
+|-------|--------------------------|-------------------|
+| AutoDev | Planner | Executor |
+| DroidRun | Manager (via prompt) | Executor |
+| Minitap | Planner (internal) | Executor |
+| MobileAgent-v3 | Manager (via prompt) | Executor |
+| **Our Agent** | **Planner + Standalone** | **Executor** |
+
+This is consistent with our design. The Executor never needs to plan — it only executes atomic actions.
+
+---
+
+## 3. Current Android Agent Implementation Assessment
+
+### 3.1 What's Working Well
 
 1. **`agent_thought` parameter** — consistent with all other tools, supports reasoning traces
-2. **`cancelled` status** — valuable for mobile tasks where plans change frequently
+2. **`cancelled` status** — only shared with Gemini CLI; valuable for mobile tasks where plans change frequently
 3. **Validation** — proper in_progress count enforcement
 4. **Todo reminder** in `<system_reminder>` — summarizes actionable items without full list repetition
 5. **Full todo list in user message** — necessary since our model doesn't have a separate rendering channel
+6. **Planner + Standalone only** — correctly excludes Executor, matching all mobile agent patterns
 
-### 2.2 Current Issues
+### 3.2 Current Issues
 
-1. **Description is mid-weight (~170 tokens) but lacks key behavioral guidance**: no step length constraint, no quality examples, no methodology. It's a middle ground that gets neither the token efficiency of Codex nor the behavioral richness of Gemini.
+1. **Description is mid-weight (~170 tokens) but lacks key behavioral guidance**: no step length constraint, no quality examples, no methodology, no verification requirement. It's a middle ground that gets neither the token efficiency of Codex nor the behavioral richness of Gemini/AutoDev.
 
-2. **JSON output adds unnecessary tokens to history**: Returning `{"todos":[...],"count":3}` means the full todo state is stored in history as a function_call_output. Since we also inject todos into the user message each turn, this is redundant.
+2. **JSON output adds unnecessary tokens to history**: Returning `{"todos":[...],"count":3}` means the full todo state is stored in history as a function_call_output. Since we also inject todos into the user message each turn, this is redundant. (Codex returns just "Plan updated"; Gemini returns human-readable text.)
 
-3. **No "don't repeat plan" instruction**: The model may echo the full todo list after updating it, wasting tokens.
+3. **No "don't repeat plan" instruction**: The model may echo the full todo list after updating it, wasting tokens. (Codex explicitly prevents this; MobileAgent-v3 says "do not repeat the plan of completed content".)
 
-4. **No step length guidance**: Steps can become verbose paragraphs, costing tokens in both the todo context block and reminder.
+4. **No step length guidance**: Steps can become verbose paragraphs. (Codex: "5-7 words"; Minitap: "not too granular".)
 
-5. **System prompt mentions are too brief**: Just "Use `write_todos` and `scratchpad` to track progress" — no guidance on when to use, how to write good steps, or behavioral constraints.
+5. **System prompt mentions are too brief**: Just "Use `write_todos` and `scratchpad` to track progress" — no guidance on when to use, how to write good steps, or verification. (AutoDev has detailed `=== PLANNING STRATEGY ===`; Codex has `## Planning` with examples.)
 
-6. **Missing `explanation` parameter**: When the plan changes mid-task, there's no structured way to record why (unlike Codex).
+6. **No verification-before-completion guidance**: Mobile-specific gap. AutoDev says "Mark todos complete only after verifying in screenshot/result." Our agent could mark steps complete without visual confirmation.
 
-### 2.3 Token Budget Analysis
+### 3.3 Token Budget Analysis
 
 Per turn, the `write_todos` tool costs:
 - **Tool description** (in tools array): ~170 tokens (every turn)
@@ -178,15 +434,15 @@ Per turn, the `write_todos` tool costs:
 - **Todo reminder** (in `<system_reminder>`): ~30-50 tokens
 - **Function call output** (in history): ~10-20 tokens per item (from JSON output)
 
-With 5 todo items, that's roughly **170 + 50 + 40 + 75 = ~335 tokens per turn** attributable to todos. Over 20 turns, that's ~6,700 tokens.
+With 5 todo items, that's roughly **170 + 50 + 40 + 75 = ~335 tokens per turn**. Over 20 turns = ~6,700 tokens.
 
-If we reduce description to ~50 tokens and output to ~10 tokens, we save ~130 tokens/turn = ~2,600 tokens over 20 turns (a ~39% reduction in todo-related token cost).
+If we reduce description to ~50 tokens and output to ~10 tokens, we save ~130 tokens/turn = ~2,600 tokens over 20 turns (**~39% reduction** in todo-related token cost).
 
 ---
 
-## 3. Improvement Plan
+## 4. Improvement Plan
 
-### 3.1 Slim the Tool Description (HIGH IMPACT)
+### 4.1 Slim the Tool Description (HIGH IMPACT)
 
 **Current** (~170 tokens):
 ```
@@ -216,29 +472,20 @@ Update the task plan. Pass the FULL list (replaces previous). Each item has a de
 
 **Rationale**: Follow the Codex pattern — move behavioral details to the system prompt where they benefit from prompt caching. Keep the description to the essential contract (replacement semantics, one-in_progress constraint, when not to use).
 
-### 3.2 Add `explanation` Parameter
+### 4.2 Enhance `agent_thought` for Plan Change Rationale
 
-Add an optional `explanation` string parameter (like Codex) in addition to keeping `agent_thought`.
+Rather than adding a separate `explanation` parameter (like Codex), repurpose `agent_thought` to serve double duty. Update its schema description:
 
-```json
-"explanation": {
-  "type": "string",
-  "description": "Rationale when changing the plan (e.g., adding/removing/reordering steps)"
-}
-```
+**Current:** `"Brief reason for why this update is being performed"`
+**Proposed:** `"Brief reason for this update. When changing the plan, explain what changed and why."`
 
-**Rationale**: `agent_thought` is a brief per-call reasoning trace. `explanation` is specifically for plan change rationale and is useful for:
-- Debugging plan evolution
-- Context for the model when it reviews its own history
-- User visibility into why the plan changed
+**Rationale**: Avoids schema bloat while capturing the Codex `explanation` use case. Consistent with all other tools using `agent_thought`.
 
-**Alternative**: Repurpose `agent_thought` for this, noting in the description that it should explain plan changes. This avoids schema bloat. **Recommended: go with this alternative** — just update the `agent_thought` description to: "Brief reason for this update. When changing the plan, explain what changed and why."
+### 4.3 Minimize Tool Output (HIGH IMPACT)
 
-### 3.3 Minimize Tool Output (HIGH IMPACT)
+**Current**: Returns full JSON `{"todos":[...],"count":N}`.
 
-**Current**: Returns full JSON `{"todos":[...],"count":N}` — redundant since todos are injected into context each turn.
-
-**Proposed**: Return just `"Plan updated (N items)."` (like Codex's `"Plan updated"`).
+**Proposed**: Return `"Plan updated (N items)."` (like Codex's `"Plan updated"`).
 
 **Rationale**: The full todo list is already:
 1. Injected into the user message context block
@@ -246,52 +493,74 @@ Add an optional `explanation` string parameter (like Codex) in addition to keepi
 
 Repeating it in the function_call_output is pure waste. Saves ~5-15 tokens per item per turn in history.
 
-### 3.4 Add Step Quality Guidance to System Prompt (HIGH IMPACT)
+### 4.4 Add Planning Guidance to System Prompt (HIGH IMPACT)
 
-Add to both Planner and Standalone system prompts:
+Add to both Planner and Standalone system prompts. Synthesizes best practices from Codex (step quality + "don't repeat"), AutoDev (verification + planning strategy), and Minitap ("not too granular"):
 
 ```
-## Todo List (write_todos)
-Use write_todos for multi-step tasks to track progress. Keep each item to ONE short sentence.
-Do not repeat the full todo list after updating it — it is already shown in context.
-Mark the current step in_progress before starting it. Mark it completed when done before moving on.
-
-Good steps: "Open Gmail app", "Extract sender from first email", "Navigate back to inbox"
-Bad steps: "Open the Gmail application on the device and wait for it to load completely" (too verbose)
+## Planning with write_todos
+- Use write_todos to break multi-step tasks into short, actionable items.
+- Keep each item to ONE short sentence (e.g., "Open Gmail app", "Extract sender info").
+- Do NOT repeat the full todo list after updating — it is already shown in your context.
+- Mark the current step in_progress before working on it.
+- Verify a step is done on screen before marking it completed.
+- When the plan changes, use agent_thought to explain what changed and why.
+- Update todos as you discover new requirements during execution.
+- Do not use write_todos for tasks that need only 1-2 actions.
 ```
 
-**Rationale**: Codex's system prompt has extensive planning guidance (high/low quality examples, behavioral rules, "don't repeat" instruction). Our system prompt says almost nothing about how to use todos well. This is the highest-leverage change: it steers model behavior without adding per-turn schema cost.
+**Sources for each line:**
+| Guidance | Source |
+|----------|--------|
+| "short, actionable items" | Codex "5-7 words"; Minitap "not too granular" |
+| "ONE short sentence" | Codex step length constraint |
+| "Don't repeat" | Codex "Do not repeat the full contents" |
+| "Mark in_progress before working" | AutoDev methodology step 3; Codex "exactly one in_progress" |
+| "Verify on screen before completed" | AutoDev "Mark todos complete only after verifying in screenshot/result" |
+| "agent_thought for changes" | Codex `explanation` parameter |
+| "Update as you discover" | AutoDev "Update todos as you discover new requirements"; Gemini methodology step 4 |
+| "Don't use for 1-2 actions" | Gemini "less than 2 steps"; AutoDev "less than 3 trivial steps" |
 
-### 3.5 Keep `cancelled` Status
+### 4.5 Keep `cancelled` Status
 
-Unlike Codex (3 statuses), keep all 4 statuses. Mobile tasks are more dynamic — the agent frequently discovers that planned UI paths are unavailable (app changed, element not found, etc.), and `cancelled` communicates this clearly vs. silently dropping items.
+Unlike Codex (3 statuses) and AutoDev (3 statuses), keep all 4. Mobile tasks are highly dynamic — the agent frequently discovers that planned UI paths are unavailable (app layout changed, element not found, dialog appeared), and `cancelled` communicates this clearly vs. silently dropping items.
 
-### 3.6 Optional: Add Merge Semantics
+Minitap's FAILURE status is an interesting alternative, but `cancelled` is broader (covers both "failed" and "no longer needed").
 
-Currently both our implementation and all references use full-replacement semantics. This means to update one item's status, the model must re-emit the entire list. With 5+ items, this is wasteful.
+### 4.6 Do NOT Add `priority` or `id` Fields
 
-**Option A (conservative)**: Keep full replacement. Simpler, matches all references.
-**Option B (incremental)**: Add an optional `updates` parameter for partial updates by index.
+AutoDev's `priority` (high/medium/low) and `id` fields add 4 required fields per item. Analysis:
 
-**Recommendation**: Keep Option A for now. Full replacement is what all references use and keeps the contract simple. If profiling shows the model generating >7 items frequently, revisit.
+- **`priority`**: Our agent executes steps sequentially (not choosing between priorities), and the turn budget already creates urgency. Adding priority would add ~10 tokens per item with minimal behavioral benefit.
+- **`id`**: Only useful for merge/incremental updates. With full-replacement semantics, the LLM re-emits the whole list anyway.
+
+### 4.7 Optional Future: Add Merge Semantics
+
+Currently all structured implementations (ours, Gemini, Codex, AutoDev) use full-replacement. This means updating one item's status re-emits the entire list. 
+
+**Option A (keep)**: Full replacement. Simpler. All references use this.
+**Option B (future)**: Add optional merge mode with `id`-based updates.
+
+**Recommendation**: Keep Option A. If profiling shows >7 items frequently, revisit with Option B (and then `id` becomes necessary).
 
 ---
 
-## 4. Summary of Changes
+## 5. Summary of Changes
 
-| Change | Type | Token Impact | Effort |
-|--------|------|-------------|--------|
-| Slim tool description (~170→~65 tokens) | Tool schema | -105 tokens/turn | Low |
-| Minimize output ("Plan updated (N items).") | Tool handler | -30-100 tokens/turn (in history) | Low |
-| Enhance `agent_thought` description for plan change rationale | Tool schema | +5 tokens (one-time) | Low |
-| Add planning guidance to system prompts | System prompt | +80 tokens (cached by API) | Medium |
-| Keep `cancelled` status | No change | 0 | None |
+| Change | Type | Token Impact | Effort | Source |
+|--------|------|-------------|--------|--------|
+| Slim tool description (~170→~65 tokens) | Tool schema | **-105 tokens/turn** | Low | Codex pattern |
+| Minimize output ("Plan updated (N items).") | Tool handler | **-30-100 tokens/turn** (in history) | Low | Codex pattern |
+| Enhance `agent_thought` for plan change rationale | Tool schema | +5 tokens (one-time) | Low | Codex `explanation` |
+| Add planning guidance to system prompts | System prompt | +100 tokens (cached by API) | Medium | Codex + AutoDev + Minitap |
+| Keep `cancelled` status | No change | 0 | None | Mobile agent flexibility |
+| Do NOT add `priority`/`id` fields | No change | 0 | None | Avoid AutoDev token bloat |
 
-**Estimated net savings**: ~135-205 tokens/turn → ~2,700-4,100 tokens over 20 turns
+**Estimated net savings**: ~135-205 tokens/turn → **~2,700-4,100 tokens over 20 turns**
 
 ---
 
-## 5. Proposed New Tool Description
+## 6. Proposed New Tool Description
 
 ```
 Update the task plan. Pass the FULL list (replaces previous).
@@ -301,31 +570,60 @@ Do not use for simple single-action tasks.
 Statuses: pending, in_progress, completed, cancelled.
 ```
 
-## 6. Proposed System Prompt Addition (for Planner and Standalone)
+## 7. Proposed System Prompt Addition (for Planner and Standalone)
 
 ```
 ## Planning with write_todos
 - Use write_todos to break multi-step tasks into short, actionable items.
 - Keep each item to ONE short sentence (e.g., "Open Gmail app", "Extract sender info").
 - Do NOT repeat the full todo list after updating — it is already shown in your context.
-- Mark the current step in_progress before working on it. Mark it completed when done.
+- Mark the current step in_progress before working on it.
+- Verify a step is done on screen before marking it completed.
 - When the plan changes, use agent_thought to explain what changed and why.
+- Update todos as you discover new requirements during execution.
 - Do not use write_todos for tasks that need only 1-2 actions.
 ```
 
-## 7. Code Evidence Locations
+---
+
+## 8. Code Evidence Locations
+
+### Code Agent References
 
 | Reference | File | Key Content |
 |-----------|------|-------------|
-| **Gemini CLI tool** | `.reference/code_agent/gemini-cli/packages/core/src/tools/write-todos.ts` | Full tool class + WRITE_TODOS_DESCRIPTION constant |
-| **Gemini CLI system prompt** | `.reference/code_agent/gemini-cli/packages/core/src/prompts/snippets.ts:403-410` | "use the `write_todos` tool to track your progress" |
+| **Gemini CLI tool** | `.reference/code_agent/gemini-cli/packages/core/src/tools/write-todos.ts` | Full tool class + WRITE_TODOS_DESCRIPTION |
+| **Gemini CLI system prompt** | `.reference/code_agent/gemini-cli/packages/core/src/prompts/snippets.ts:403-410` | write_todos in "Plan" workflow step |
 | **Gemini CLI docs** | `.reference/code_agent/gemini-cli/docs/tools/todos.md` | User-facing documentation |
 | **Codex tool handler** | `.reference/code_agent/codex/codex-rs/core/src/tools/handlers/plan.rs` | `handle_update_plan()`, returns "Plan updated" |
 | **Codex tool schema** | `.reference/code_agent/codex/codex-rs/core/src/tools/handlers/plan.rs` | `PLAN_TOOL` LazyLock static |
-| **Codex system prompt** | `.reference/code_agent/codex/codex-rs/core/prompt.md:52-121` | `## Planning` section + high/low quality examples |
-| **Codex system prompt** | `.reference/code_agent/codex/codex-rs/core/prompt.md:267-275` | `## update_plan` section |
+| **Codex system prompt (planning)** | `.reference/code_agent/codex/codex-rs/core/prompt.md:52-121` | `## Planning` + high/low quality examples |
+| **Codex system prompt (tool)** | `.reference/code_agent/codex/codex-rs/core/prompt.md:267-275` | `## update_plan` usage rules |
 | **Codex plan mode separation** | `.reference/code_agent/codex/codex-rs/core/templates/collaboration_mode/plan.md:11-15` | "update_plan is a checklist/progress/TODOs tool" |
 | **Codex protocol types** | `.reference/code_agent/codex/codex-rs/protocol/src/plan_tool.rs` | `UpdatePlanArgs`, `PlanItemArg`, `StepStatus` |
-| **My tool impl** | `app/src/main/kotlin/.../tool/impl/WriteTodosTool.kt` | Current tool spec + handler |
-| **My state** | `app/src/main/kotlin/.../session/TodoState.kt` | `TodoState`, `toPromptContext()` |
-| **My context injection** | `app/src/main/kotlin/.../agent/cognition/prompt/PromptUtils.kt:107-133` | `buildTodoReminder()` |
+
+### Mobile Agent References
+
+| Reference | File | Key Content |
+|-----------|------|-------------|
+| **AutoDev todo tool** | `.reference/mobile_agent/autodevice_android_world/android_world/agents/autodev/todo_list.py` | `update_todos` tool + `TodoList` class + TODO_LIST_DESCRIPTION |
+| **AutoDev planning prompt** | `.reference/mobile_agent/autodevice_android_world/android_world/agents/autodev/prompts.py:30-45` | `=== PLANNING STRATEGY ===` section |
+| **AutoDev agent integration** | `.reference/mobile_agent/autodevice_android_world/android_world/agents/autodev/autodev_agent.py:472-479` | `update_todos` tool call handling |
+| **DroidRun manager prompt** | `.reference/mobile_agent/droidrun/droidrun/config/prompts/manager/system.jinja2` | `<plan>` XML tag instructions |
+| **DroidRun response parser** | `.reference/mobile_agent/droidrun/droidrun/agent/manager/prompts.py:8-106` | `parse_manager_response()` — extracts plan, thought, memory |
+| **DroidRun state** | `.reference/mobile_agent/droidrun/droidrun/agent/droid/state.py:42-54` | `plan`, `current_subgoal`, `progress_summary` fields |
+| **Minitap subgoal model** | `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/planner/types.py` | `Subgoal` class with status, timestamps, completion_reason |
+| **Minitap planner prompt** | `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/planner/planner.md` | Subgoal guidelines: "purpose-driven, sequential, not too granular" |
+| **Minitap orchestrator** | `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/agents/orchestrator/orchestrator.py` | Subgoal completion tracking + replanning trigger |
+| **Minitap scratchpad** | `.reference/mobile_agent/minitap-mobile-use/minitap/mobile_use/tools/scratchpad.py` | `save_note`, `read_note`, `list_notes` |
+| **MobileAgent-v3 InfoPool** | `.reference/mobile_agent/MobileAgent/Mobile-Agent-v3/mobile_v3/utils/mobile_agent_e.py:6-46` | `InfoPool` dataclass (plan, completed_plan, progress_status) |
+| **MobileAgent-v3 Manager** | `.reference/mobile_agent/MobileAgent/Mobile-Agent-v3/mobile_v3/utils/mobile_agent_e.py:56-154` | Plan creation/update prompts + response parsing |
+| **MobileAgent-v3 Executor** | `.reference/mobile_agent/MobileAgent/Mobile-Agent-v3/mobile_v3/utils/mobile_agent_e.py:187-272` | Uses `plan` + `current_subgoal` from InfoPool |
+
+### Our Implementation
+
+| Reference | File | Key Content |
+|-----------|------|-------------|
+| **Tool impl** | `app/src/main/kotlin/.../tool/impl/WriteTodosTool.kt` | Current tool spec + handler |
+| **State** | `app/src/main/kotlin/.../session/TodoState.kt` | `TodoState`, `toPromptContext()` |
+| **Context injection** | `app/src/main/kotlin/.../agent/cognition/prompt/PromptUtils.kt:107-133` | `buildTodoReminder()` |
