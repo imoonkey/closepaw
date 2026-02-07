@@ -30,6 +30,8 @@ class PolicyEngine(
         // Default risk levels for core tools (mobile actions are resolved per action).
         private val DEFAULT_RISK_LEVELS = mapOf(
             ToolName.MobileAction.canonical to RiskLevel.MEDIUM,
+            ToolName.SystemButton.canonical to RiskLevel.MEDIUM,
+            ToolName.Wait.canonical to RiskLevel.LOW,
             ToolName.AppControl.canonical to RiskLevel.MEDIUM,
             ToolName.CompleteTask.canonical to RiskLevel.MEDIUM,
             ToolName.WriteTodos.canonical to RiskLevel.LOW,

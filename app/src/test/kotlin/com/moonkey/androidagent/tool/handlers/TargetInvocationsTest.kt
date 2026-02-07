@@ -85,7 +85,7 @@ class TargetInvocationsTest {
     }
 
     @Test
-    fun `type uses target_text when resource_id mismatches`() = runTest {
+    fun `type uses text selector when resource_id mismatches`() = runTest {
         val snapshot = ScreenSnapshot(
             timestamp = 0L,
             elements = listOf(
@@ -98,11 +98,11 @@ class TargetInvocationsTest {
         val context = TestToolExecutionContext(platform = platform, snapshot = snapshot)
 
         val params = JSONObject().apply {
-            put("text", "hello")
+            put("input_text", "hello")
             put("resource_id", "com.app:id/input")
             put("resource_id_index", 0)
-            put("target_text", "Search")
-            put("target_text_index", 0)
+            put("text", "Search")
+            put("text_index", 0)
         }
 
         val result = TypeTargetInvocation(params = params, description = "type").execute(context)

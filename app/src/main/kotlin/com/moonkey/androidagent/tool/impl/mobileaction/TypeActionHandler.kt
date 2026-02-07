@@ -13,14 +13,14 @@ class TypeActionHandler : ActionHandler {
     override val actionName = "type"
 
     override fun validate(params: JSONObject): ValidationResult {
-        if (!params.has("text")) {
-            return ValidationResult.Invalid("type action requires text")
+        if (!params.has("input_text")) {
+            return ValidationResult.Invalid("type action requires input_text")
         }
 
         val hasBounds = params.has("x1") || params.has("y1") || params.has("x2") || params.has("y2")
         val hasPoint = params.has("x") || params.has("y")
         val resourceId = params.optString("resource_id", "").trim()
-        val targetText = params.optString("target_text", "").trim()
+        val targetText = params.optString("text", "").trim()
 
         // element_index is optional (can type into currently focused field)
         if (params.has("element_index")) {
@@ -63,8 +63,8 @@ class TypeActionHandler : ActionHandler {
             return ValidationResult.Invalid("resource_id_index requires resource_id")
         }
 
-        if (params.has("target_text_index") && targetText.isEmpty()) {
-            return ValidationResult.Invalid("target_text_index requires target_text")
+        if (params.has("text_index") && targetText.isEmpty()) {
+            return ValidationResult.Invalid("text_index requires text")
         }
 
         return ValidationResult.Valid
@@ -80,10 +80,10 @@ class TypeActionHandler : ActionHandler {
 }
 
 internal fun buildTypeDescription(params: JSONObject): String {
-    val input = params.optString("text", "")
+    val input = params.optString("input_text", "")
     val clear = params.optBoolean("clear", false)
     val resourceId = params.optString("resource_id", "").trim()
-    val targetText = params.optString("target_text", "").trim()
+    val targetText = params.optString("text", "").trim()
     val hasBounds = params.has("x1") && params.has("y1") && params.has("x2") && params.has("y2")
     val hasPoint = params.has("x") && params.has("y")
     val hasElementIndex = params.has("element_index") && params.optInt("element_index", -1) >= 0
@@ -93,7 +93,7 @@ internal fun buildTypeDescription(params: JSONObject): String {
         resourceId.isNotEmpty() ->
             "resource_id '$resourceId' (index ${params.optInt("resource_id_index", 0)})"
         targetText.isNotEmpty() ->
-            "target_text \"$targetText\" (index ${params.optInt("target_text_index", params.optInt("text_index", 0))})"
+            "text \"$targetText\" (index ${params.optInt("text_index", 0)})"
         hasBounds -> {
             val x1 = params.optInt("x1", -1)
             val y1 = params.optInt("y1", -1)
@@ -108,4 +108,3 @@ internal fun buildTypeDescription(params: JSONObject): String {
 
     return "Type \"$inputPreview\" into $target${if (clear) " (clear first)" else ""}"
 }
-

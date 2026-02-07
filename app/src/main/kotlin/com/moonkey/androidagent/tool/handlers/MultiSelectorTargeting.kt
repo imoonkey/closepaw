@@ -32,14 +32,6 @@ internal object MultiSelectorTargeting {
         val warnings: List<String>
     )
 
-    /**
-     * For type targeting, accept `text_index` as a compatibility alias when `target_text_index`
-     * is omitted. This helps recover from occasional LLM parameter drift.
-     */
-    fun targetTextIndexKey(params: JSONObject): String {
-        return if (params.has("target_text_index")) "target_text_index" else "text_index"
-    }
-
     fun attemptsFromParams(
         params: JSONObject,
         textKey: String,
@@ -112,17 +104,13 @@ internal object MultiSelectorTargeting {
         return attempts
     }
 
-    /**
-     * Minitap-inspired defensive check for type targeting: if both resource_id and target_text
-     * are present but they appear to point at different elements, ignore the resource_id attempt.
-     */
-    fun filterTypeAttemptsByResourceIdTargetTextMismatch(
+    fun filterTypeAttemptsByResourceIdTextMismatch(
         params: JSONObject,
         snapshot: ScreenSnapshot?,
         attempts: List<Attempt>
     ): FilterResult {
         val resourceId = params.optString("resource_id", "").trim()
-        val targetText = params.optString("target_text", "").trim()
+        val targetText = params.optString("text", "").trim()
         if (resourceId.isEmpty() || targetText.isEmpty() || snapshot == null) {
             return FilterResult(attempts = attempts, warnings = emptyList())
         }
@@ -142,7 +130,7 @@ internal object MultiSelectorTargeting {
         val elementLabel = element.text.ifBlank { element.description }.trim()
         if (elementLabel.isNotEmpty() && !elementLabel.equals(targetText, ignoreCase = true)) {
             val warning =
-                "resource_id='$resourceId' ignored: target_text=\"$targetText\" does not match resolved element text/description \"$elementLabel\""
+                "resource_id='$resourceId' ignored: text=\"$targetText\" does not match resolved element text/description \"$elementLabel\""
             return FilterResult(
                 attempts = attempts.filterNot { it === resourceIdAttempt },
                 warnings = listOf(warning)

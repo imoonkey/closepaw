@@ -54,10 +54,20 @@ class MobileActionToolTest {
         val tool = MobileActionTool()
         val params = JSONObject()
             .put("action", "type")
-            .put("text", "hello")
+            .put("input_text", "hello")
 
         val result = tool.validate(params)
 
         assertThat(result).isEqualTo(ValidationResult.Valid)
+    }
+
+    @Test
+    fun `wait is no longer a mobile_action action`() {
+        val tool = MobileActionTool()
+        val params = JSONObject().put("action", "wait")
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
     }
 }

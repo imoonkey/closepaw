@@ -8,6 +8,8 @@ internal object StandaloneAgentDef : AgentDef() {
     override val allowedTools: Set<String> =
         setOf(
             "mobile_action",
+            "system_button",
+            "wait",
             "app_control",
             "scratchpad",
             "write_todos",
@@ -43,11 +45,12 @@ internal object StandaloneAgentDef : AgentDef() {
 
         Common actions:
         - Tap: mobile_action(action="click", element_index=N)
-        - Type: mobile_action(action="type", text="...", element_index=N)
+        - Type: mobile_action(action="type", input_text="...", element_index=N)
         - Scroll down: mobile_action(action="swipe", direction="up")
         - Scroll up: mobile_action(action="swipe", direction="down")
-        - Back: mobile_action(action="system_button", button="back")
-        - Home: mobile_action(action="system_button", button="home")
+        - Back: system_button(button="back")
+        - Home: system_button(button="home")
+        - Wait: wait(duration_ms=1000)
 
         ## Execution Quality
         - Be precise and evidence-driven from the current accessibility JSON.

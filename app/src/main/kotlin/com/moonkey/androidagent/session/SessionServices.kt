@@ -18,7 +18,9 @@ import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.tool.impl.AppControlTool
 import com.moonkey.androidagent.tool.impl.CompleteTaskTool
 import com.moonkey.androidagent.tool.impl.MobileActionTool
+import com.moonkey.androidagent.tool.impl.SystemButtonTool
 import com.moonkey.androidagent.tool.impl.ScratchpadTool
+import com.moonkey.androidagent.tool.impl.WaitTool
 import com.moonkey.androidagent.tool.impl.WriteTodosTool
 import com.moonkey.androidagent.trace.TraceRecorder
 
@@ -148,15 +150,19 @@ data class SessionServices(
          * 
          * Uses the consolidated tool pattern from pragmatic_tool_design.md:
          * - complete_task: Agent metatool for finishing tasks
-         * - mobile_action: All UI interactions (click, type, swipe, system_button, wait)
+         * - mobile_action: Screen-targeted UI interactions (click, type, swipe, long_press)
+         * - system_button: Deterministic system key actions (back/home/enter/recents)
+         * - wait: Deterministic pause to let UI settle
          * - app_control: App discovery and launching (list_apps, open_app)
          */
         private fun ToolRegistry.registerBuiltInTools(sessionState: AgentSessionState) {
             // P0: Agent metatool
             register(CompleteTaskTool())
 
-            // P0: Consolidated UI interactions (replaces click, type, swipe, scroll, back, home, wait)
+            // P0: Screen-targeted UI interactions
             register(MobileActionTool())
+            register(SystemButtonTool())
+            register(WaitTool())
 
             // P0: App control (list_apps, open_app)
             register(AppControlTool())

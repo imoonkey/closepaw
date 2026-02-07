@@ -9,6 +9,8 @@ object ActionDescriptionFormatter {
     fun format(toolCall: ToolCallRequest): String {
         return when (toolCall.name.lowercase()) {
             "mobile_action" -> formatMobileAction(toolCall.arguments)
+            "wait" -> "Wait ${toolCall.arguments.optLong("duration_ms", 1000)}ms"
+            "system_button" -> "Press ${toolCall.arguments.optString("button", "")} button"
             "app_control" -> formatAppControl(toolCall.arguments)
             "complete_task" -> formatCompleteTask(toolCall.arguments)
             else -> "Execute ${toolCall.name}"
@@ -47,10 +49,15 @@ object ActionDescriptionFormatter {
                 formatClickAction(args, "Long press") + " for ${durationMs}ms"
             }
             "type" -> {
-                val text = args.optString("text", "").take(30)
+                val hasInputText = args.has("input_text")
+                val text = args.optString(if (hasInputText) "input_text" else "text", "").take(30)
                 val clear = args.optBoolean("clear", false)
                 val resourceId = args.optString("resource_id", "").trim()
-                val targetText = args.optString("target_text", "").trim()
+                val targetText = if (hasInputText) {
+                    args.optString("text", "").trim()
+                } else {
+                    args.optString("target_text", "").trim()
+                }
                 val hasBounds = args.has("x1") && args.has("y1") && args.has("x2") && args.has("y2")
                 val hasPoint = args.has("x") && args.has("y")
                 val hasElementIndex = args.has("element_index") && args.optInt("element_index", -1) >= 0
@@ -58,7 +65,7 @@ object ActionDescriptionFormatter {
                     resourceId.isNotEmpty() ->
                         "resource_id '$resourceId' (index ${args.optInt("resource_id_index", 0)})"
                     targetText.isNotEmpty() ->
-                        "target_text \"$targetText\" (index ${args.optInt("target_text_index", args.optInt("text_index", 0))})"
+                        "text \"$targetText\" (index ${args.optInt("text_index", args.optInt("target_text_index", 0))})"
                     hasBounds -> {
                         val x1 = args.optInt("x1", -1)
                         val y1 = args.optInt("y1", -1)
@@ -73,8 +80,6 @@ object ActionDescriptionFormatter {
                 "Type \"${text}\" into $target${if (clear) " (clear first)" else ""}"
             }
             "swipe" -> formatSwipeAction(args)
-            "system_button" -> "Press ${args.optString("button", "")} button"
-            "wait" -> "Wait ${args.optLong("duration_ms", 1000)}ms"
             else -> "Mobile action: $action"
         }
     }

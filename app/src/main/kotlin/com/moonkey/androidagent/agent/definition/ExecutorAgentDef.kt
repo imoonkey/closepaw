@@ -8,6 +8,8 @@ internal object ExecutorAgentDef : AgentDef() {
     override val allowedTools: Set<String> =
         setOf(
             "mobile_action",
+            "system_button",
+            "wait",
             "app_control",
             "scratchpad",
             "complete_task"
@@ -61,11 +63,11 @@ internal object ExecutorAgentDef : AgentDef() {
 
         ### TYPE queries ("Type 'hello' into search")
         1. Find the input field (editable=true)
-        2. mobile_action(action="type", text="hello", element_index=N)
+        2. mobile_action(action="type", input_text="hello", element_index=N)
         3. complete_task(status="success", answer="Typed '[text]' into [field]")
 
         ### BACK queries ("Go back", "Return to inbox")
-        1. mobile_action(action="system_button", button="back")
+        1. system_button(button="back")
         2. complete_task(status="success", answer="Pressed back")
 
         ## Element Selection

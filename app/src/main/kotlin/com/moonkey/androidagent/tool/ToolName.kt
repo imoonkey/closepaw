@@ -20,6 +20,16 @@ sealed class ToolName(
         canonical = "app_control",
         displayName = "App control"
     )
+    data object Wait : ToolName(
+        raw = "wait",
+        canonical = "wait",
+        displayName = "Wait"
+    )
+    data object SystemButton : ToolName(
+        raw = "system_button",
+        canonical = "system_button",
+        displayName = "System button"
+    )
     data object CompleteTask : ToolName(
         raw = "complete_task",
         canonical = "complete_task",
@@ -51,6 +61,8 @@ sealed class ToolName(
             return when (normalizeName(raw)) {
                 MobileAction.canonical -> MobileAction
                 AppControl.canonical -> AppControl
+                Wait.canonical -> Wait
+                SystemButton.canonical -> SystemButton
                 CompleteTask.canonical -> CompleteTask
                 WriteTodos.canonical -> WriteTodos
                 Scratchpad.canonical -> Scratchpad
@@ -62,7 +74,7 @@ sealed class ToolName(
 }
 
 /**
- * Known action names for the mobile_action tool (plus legacy action-only tool names).
+ * Known action names for mobile_action and standalone action tools.
  */
 sealed class MobileActionName(
     val raw: String,

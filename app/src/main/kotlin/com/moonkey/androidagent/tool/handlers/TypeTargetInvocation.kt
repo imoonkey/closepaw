@@ -12,8 +12,7 @@ import org.json.JSONObject
 /**
  * Invocation for type action using multi-selector fallback to focus a field.
  *
- * Unlike click/long_press, the payload text lives in params["text"], so this
- * uses params["target_text"] (+ target_text_index) for text-based targeting.
+ * Payload text lives in params["input_text"], while params["text"] is the text selector.
  */
 class TypeTargetInvocation(
     override val params: JSONObject,
@@ -41,7 +40,7 @@ class TypeTargetInvocation(
             return ToolExecutionResult.Cancelled("Cancelled before execution")
         }
 
-        val textToType = params.getString("text")
+        val textToType = params.getString("input_text")
         val clear = params.optBoolean("clear", false)
         val snapshot = context.currentSnapshot
 
@@ -103,12 +102,12 @@ class TypeTargetInvocation(
 
         val selectorAttempts = MultiSelectorTargeting.attemptsFromParams(
             params = params,
-            textKey = "target_text",
-            textIndexKey = MultiSelectorTargeting.targetTextIndexKey(params),
-            textLabel = "target_text"
+            textKey = "text",
+            textIndexKey = "text_index",
+            textLabel = "text"
         )
 
-        val filtered = MultiSelectorTargeting.filterTypeAttemptsByResourceIdTargetTextMismatch(
+        val filtered = MultiSelectorTargeting.filterTypeAttemptsByResourceIdTextMismatch(
             params = params,
             snapshot = snapshot,
             attempts = selectorAttempts
@@ -175,7 +174,7 @@ class TypeTargetInvocation(
                     is MultiSelectorTargeting.Selector.Text -> {
                         val snap = snapshot
                         if (snap == null) {
-                            attempts.add("$label: Snapshot required for target_text lookup")
+                            attempts.add("$label: Snapshot required for text lookup")
                             null
                         } else {
                             val elementIndex = MultiSelectorTargeting.findElementIndexByTextOrDescription(
@@ -186,7 +185,7 @@ class TypeTargetInvocation(
                             if (elementIndex == null) {
                                 val count = MultiSelectorTargeting.matchCountByTextOrDescription(snap, selector.text)
                                 attempts.add(
-                                    "target_text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
+                                    "text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
                                 )
                                 null
                             } else {

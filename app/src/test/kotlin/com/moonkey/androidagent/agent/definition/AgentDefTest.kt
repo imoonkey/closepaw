@@ -12,6 +12,8 @@ class AgentDefTest {
         assertThat(StandaloneAgentDef.allowedTools)
             .containsExactly(
                 "mobile_action",
+                "system_button",
+                "wait",
                 "app_control",
                 "scratchpad",
                 "write_todos",
@@ -42,6 +44,8 @@ class AgentDefTest {
         assertThat(ExecutorAgentDef.allowedTools)
             .containsExactly(
                 "mobile_action",
+                "system_button",
+                "wait",
                 "app_control",
                 "scratchpad",
                 "complete_task"

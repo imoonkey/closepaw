@@ -672,6 +672,12 @@ internal class AgentTurnRunner(
         }
 
         private fun classifyAction(toolCall: ToolCallRequest): String {
+                when (ToolName.from(toolCall.name)) {
+                        ToolName.Wait -> return "mobile_action:wait"
+                        ToolName.SystemButton -> return "mobile_action:system_button"
+                        else -> Unit
+                }
+
                 if (toolCall.name != ToolName.MobileAction.raw) {
                         return toolCall.name.lowercase()
                 }

@@ -48,7 +48,7 @@ class MultiSelectorTargetingTest {
     }
 
     @Test
-    fun `filterTypeAttemptsByResourceIdTargetTextMismatch drops resource id attempt`() {
+    fun `filterTypeAttemptsByResourceIdTextMismatch drops resource id attempt`() {
         val snapshot = ScreenSnapshot(
             timestamp = 0L,
             elements = listOf(
@@ -68,8 +68,8 @@ class MultiSelectorTargetingTest {
         val params = JSONObject().apply {
             put("resource_id", "com.app:id/input")
             put("resource_id_index", 0)
-            put("target_text", "Search")
-            put("target_text_index", 0)
+            put("text", "Search")
+            put("text_index", 0)
         }
 
         val rawAttempts = listOf(
@@ -79,11 +79,11 @@ class MultiSelectorTargetingTest {
             ),
             MultiSelectorTargeting.Attempt(
                 selector = MultiSelectorTargeting.Selector.Text("Search", 0),
-                label = "target_text=\"Search\" index 0"
+                label = "text=\"Search\" index 0"
             )
         )
 
-        val filtered = MultiSelectorTargeting.filterTypeAttemptsByResourceIdTargetTextMismatch(
+        val filtered = MultiSelectorTargeting.filterTypeAttemptsByResourceIdTextMismatch(
             params = params,
             snapshot = snapshot,
             attempts = rawAttempts
