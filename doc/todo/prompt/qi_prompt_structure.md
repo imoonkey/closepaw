@@ -47,3 +47,5 @@ allowed tools spec
     - message (user): [full screen status, with at least one of a11y tree and image]
     input_text: general prompt + a11y tree
     input_image: screenshot image (optionally compressed)
+
+TODO:是不是该保留last n=3 full_screen_state，而不是只保留最后一次？
