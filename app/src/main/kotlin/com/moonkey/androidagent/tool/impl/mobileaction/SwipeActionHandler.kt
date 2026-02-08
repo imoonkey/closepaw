@@ -25,6 +25,14 @@ class SwipeActionHandler : ActionHandler {
         val hasEnd = params.has("end")
         val direction = params.optString("direction", "").trim().lowercase()
         val hasDirection = direction.isNotEmpty()
+        val hasBounds =
+            params.has("x1") || params.has("y1") || params.has("x2") || params.has("y2")
+
+        if (hasBounds) {
+            return ValidationResult.Invalid(
+                "swipe action no longer accepts bounds (x1,y1,x2,y2); use start/end, direction with x/y, text, or element_index"
+            )
+        }
 
         if ((hasStart || hasEnd) && hasDirection) {
             return ValidationResult.Invalid("Provide either start/end or direction, not both")
@@ -126,13 +134,6 @@ class SwipeActionHandler : ActionHandler {
             params.optString("text", "").trim().isNotEmpty() -> {
                 val text = params.optString("text", "").trim()
                 "text \"$text\" (index ${params.optInt("text_index", 0)})"
-            }
-            params.has("x1") && params.has("y1") && params.has("x2") && params.has("y2") -> {
-                val x1 = params.optInt("x1", -1)
-                val y1 = params.optInt("y1", -1)
-                val x2 = params.optInt("x2", -1)
-                val y2 = params.optInt("y2", -1)
-                "bounds ($x1,$y1)-($x2,$y2)"
             }
             params.has("x") && params.has("y") -> {
                 "coordinates (${params.optInt("x", -1)},${params.optInt("y", -1)})"

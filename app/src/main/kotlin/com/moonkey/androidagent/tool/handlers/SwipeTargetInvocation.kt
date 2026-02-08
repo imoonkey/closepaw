@@ -205,19 +205,6 @@ class SwipeTargetInvocation(override val params: JSONObject, private val descrip
             val selector = attempt.selector
             val label = attempt.label
             when (selector) {
-                is MultiSelectorTargeting.Selector.Bounds -> {
-                    val rect = rectFromBounds(selector.x1, selector.y1, selector.x2, selector.y2)
-                    val resolved =
-                            resolveFromRect(
-                                    rect = rect,
-                                    screenRect = screenRect,
-                                    safeRect = safeRect,
-                                    label = label,
-                                    warnings = warnings,
-                                    attemptErrors = attemptErrors
-                            )
-                    if (resolved != null) return resolved
-                }
                 is MultiSelectorTargeting.Selector.Point -> {
                     val pointResolved =
                             resolveFromPoint(
@@ -390,14 +377,10 @@ class SwipeTargetInvocation(override val params: JSONObject, private val descrip
     }
 
     private fun rectFromBounds(bounds: Bounds): Rect {
-        return rectFromBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
-    }
-
-    private fun rectFromBounds(x1: Int, y1: Int, x2: Int, y2: Int): Rect {
-        val left = min(x1, x2)
-        val right = max(x1, x2)
-        val top = min(y1, y2)
-        val bottom = max(y1, y2)
+        val left = min(bounds.left, bounds.right)
+        val right = max(bounds.left, bounds.right)
+        val top = min(bounds.top, bounds.bottom)
+        val bottom = max(bounds.top, bounds.bottom)
         return Rect(left, top, right, bottom)
     }
 

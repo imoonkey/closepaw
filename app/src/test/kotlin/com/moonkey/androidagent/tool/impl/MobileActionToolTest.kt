@@ -54,6 +54,56 @@ class MobileActionToolTest {
     }
 
     @Test
+    fun `long press rejects bounds selector`() {
+        val tool = MobileActionTool()
+        val params =
+            JSONObject()
+                .put("action", "long_press")
+                .put("x1", 0)
+                .put("y1", 0)
+                .put("x2", 10)
+                .put("y2", 10)
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
+    fun `type rejects bounds selector`() {
+        val tool = MobileActionTool()
+        val params =
+            JSONObject()
+                .put("action", "type")
+                .put("input_text", "hello")
+                .put("x1", 0)
+                .put("y1", 0)
+                .put("x2", 10)
+                .put("y2", 10)
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
+    fun `swipe rejects bounds selector`() {
+        val tool = MobileActionTool()
+        val params =
+            JSONObject()
+                .put("action", "swipe")
+                .put("direction", "up")
+                .put("x1", 0)
+                .put("y1", 0)
+                .put("x2", 10)
+                .put("y2", 10)
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
     fun `swipe requires start and end`() {
         val tool = MobileActionTool()
         val params = JSONObject()

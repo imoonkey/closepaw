@@ -73,8 +73,7 @@ If all attempts fail or stay unchanged, return `Failure` with attempt trail.
 3. Keeps logic local to click invocation rather than hidden in platform fallback chains.
 
 ## Compatibility
-- `click` validation no longer accepts bounds (`x1,y1,x2,y2`).
-- `mobile_action` global schema keeps bounds fields because they are still used by `long_press` / directional `swipe` targeting.
+- `mobile_action` targeting no longer accepts bounds (`x1,y1,x2,y2`) for click/long_press/type/swipe.
 
 ## Tests
 Update and add unit tests in `app/src/test/kotlin/com/moonkey/androidagent/tool/handlers/TargetInvocationsTest.kt`:

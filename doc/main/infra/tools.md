@@ -85,7 +85,7 @@ Determines whether tools need user approval.
 
 | Tool | Description | Key Parameters |
 |------|-------------|----------------|
-| `mobile_action` | Screen-targeted touch interactions | `action`, selectors (`element_index`, `text`, bounds, coordinates) |
+| `mobile_action` | Screen-targeted touch interactions | `action`, selectors (`element_index`, `text`, coordinates) |
 | `open_app` | Launch app by name | `app_name` |
 | `system_button` | Press Android system key | `button` (`back`, `home`, `enter`, `recents`) |
 | `wait` | Pause for UI settle | `duration_ms` |
@@ -107,11 +107,15 @@ Determines whether tools need user approval.
 
 ### Targeting Order
 
-For `click`, `long_press`, and `type`, fallback order is:
-1. Bounds (`x1`, `y1`, `x2`, `y2`)
-2. Coordinates (`x`, `y`)
-3. Text selector (`text` + optional `text_index`)
-4. Element selector (`element_index`)
+For `long_press` and `type`, fallback order is:
+1. Coordinates (`x`, `y`)
+2. Text selector (`text` + optional `text_index`)
+3. Element selector (`element_index`)
+
+For `click`, fallback order is:
+1. Element selector (`element_index`)
+2. Text selector (`text` + optional `text_index`)
+3. Coordinates (`x`, `y`)
 
 → See: `tool/handlers/MultiSelectorTargeting.kt`
 

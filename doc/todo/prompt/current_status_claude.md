@@ -490,7 +490,7 @@ ToolSpec.parameterSchema (JSONObject)
 {
   "type": "function",
   "name": "mobile_action",
-  "description": "Perform touch interactions on the mobile device screen.\n\nActions:\n- click: Tap using one of element_index, resource_id, text, bounds (x1,y1,x2,y2), or coordinates (x,y).\n- long_press: Long press using bounds, coordinates (x,y), resource_id, text, or element_index (duration_ms optional)\n- type: Input into field (text required, clear optional). To focus first, use resource_id, target_text, bounds, x/y, or element_index.\n- swipe: Swipe gesture using either explicit start/end coords or direction (up/down/left/right) with optional distance (short/medium/long) and target selectors.\n- system_button: Press system button (button required: back/home/enter/recents)\n- wait: Wait for UI updates (duration_ms optional, default 1000ms)",
+  "description": "Perform touch interactions on the mobile device screen.\n\nActions:\n- click: Tap using one of element_index, resource_id, text, or coordinates (x,y).\n- long_press: Long press using coordinates (x,y), resource_id, text, or element_index (duration_ms optional)\n- type: Input into field (text required, clear optional). To focus first, use resource_id, target_text, x/y, or element_index.\n- swipe: Swipe gesture using either explicit start/end coords or direction (up/down/left/right) with optional distance (short/medium/long) and target selectors.\n- system_button: Press system button (button required: back/home/enter/recents)\n- wait: Wait for UI updates (duration_ms optional, default 1000ms)",
   "parameters": {
     "type": "object",
     "properties": {
@@ -534,22 +534,6 @@ ToolSpec.parameterSchema (JSONObject)
       "y": {
         "type": "integer",
         "description": "Y coordinate in pixels for click/long_press, or for focusing before type"
-      },
-      "x1": {
-        "type": "integer",
-        "description": "Left X coordinate in pixels for bounds targeting (center is used)"
-      },
-      "y1": {
-        "type": "integer",
-        "description": "Top Y coordinate in pixels for bounds targeting (center is used)"
-      },
-      "x2": {
-        "type": "integer",
-        "description": "Right X coordinate in pixels for bounds targeting (center is used)"
-      },
-      "y2": {
-        "type": "integer",
-        "description": "Bottom Y coordinate in pixels for bounds targeting (center is used)"
       },
       "text": {
         "type": "string",
@@ -600,9 +584,9 @@ ToolSpec.parameterSchema (JSONObject)
 
 | Action | 必须参数 | 可选参数 | Target 选择器 |
 |--------|----------|----------|---------------|
-| `click` | (至少一个 target) | `agent_thought` | `element_index` / `resource_id` / `text` / bounds(`x1,y1,x2,y2`) / coords(`x,y`) |
+| `click` | (至少一个 target) | `agent_thought` | `element_index` / `resource_id` / `text` / coords(`x,y`) |
 | `long_press` | (至少一个 target) | `duration_ms`, `agent_thought` | 同 click |
-| `type` | `text` | `clear`, `agent_thought`, (target for focus) | `element_index` / `resource_id` / `target_text` / bounds / coords |
+| `type` | `text` | `clear`, `agent_thought`, (target for focus) | `element_index` / `resource_id` / `target_text` / coords |
 | `swipe` | `start`+`end` 或 `direction` | `distance`, `agent_thought`, target selectors | `resource_id` / `text` / `element_index` |
 | `system_button` | `button` | `agent_thought` | N/A |
 | `wait` | (无) | `duration_ms`, `agent_thought` | N/A |
@@ -895,7 +879,7 @@ LLM 可能在一次回复中返回多个 tool call。`TurnToolPolicy` 会仲裁�
 
 ### Action Space 特征
 - **Consolidated tool design**：`mobile_action` 合并 6 种动作，减少 prefill context（参考 Mobile-Agent-v3）
-- **Multi-selector targeting**：同一动作支持多种目标选择方式 (index/resource_id/text/bounds/coords)
+- **Multi-selector targeting**：同一动作支持多种目标选择方式 (index/resource_id/text/coords)
 - **Disambiguation indices**：`resource_id_index`, `text_index`, `desc_index` 解决同名元素问题
 - **agent_thought 参数**：所有工具都支持，鼓励 LLM 输出推理过程
 

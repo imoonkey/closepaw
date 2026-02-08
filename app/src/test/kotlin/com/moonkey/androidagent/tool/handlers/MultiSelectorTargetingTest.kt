@@ -13,10 +13,6 @@ class MultiSelectorTargetingTest {
     @Test
     fun `attemptsFromParams orders selectors in fallback order`() {
         val params = JSONObject().apply {
-            put("x1", 0)
-            put("y1", 10)
-            put("x2", 100)
-            put("y2", 110)
             put("x", 5)
             put("y", 6)
             put("text", "OK")
@@ -32,15 +28,13 @@ class MultiSelectorTargetingTest {
         )
 
         assertThat(attempts.map { it.selector::class.simpleName }).containsExactly(
-            "Bounds",
             "Point",
             "Text",
             "ElementIndex"
         ).inOrder()
-        assertThat(attempts.first().label).contains("bounds center")
-        assertThat(attempts[1].label).contains("coordinates")
-        assertThat(attempts[2].label).contains("text=")
-        assertThat(attempts[3].label).contains("element_index")
+        assertThat(attempts.first().label).contains("coordinates")
+        assertThat(attempts[1].label).contains("text=")
+        assertThat(attempts[2].label).contains("element_index")
     }
 
     @Test

@@ -122,15 +122,6 @@ class TypeTargetInvocation(
                 val label = selectorAttempt.label
 
                 val result = when (selector) {
-                    is MultiSelectorTargeting.Selector.Bounds -> {
-                        val (cx, cy) = selector.center()
-                        attemptType(
-                            label = label,
-                            focusAction = UIAction.ClickAt(cx, cy),
-                            typeAction = UIAction.Type(textToType, elementIndex = null, clear = clear),
-                            snapshotForType = snapshot
-                        )
-                    }
                     is MultiSelectorTargeting.Selector.Point -> attemptType(
                         label = label,
                         focusAction = UIAction.ClickAt(selector.x, selector.y),

@@ -79,14 +79,6 @@ class LongPressTargetInvocation(
             val label = selectorAttempt.label
 
             val result = when (selector) {
-                is MultiSelectorTargeting.Selector.Bounds -> {
-                    val (cx, cy) = selector.center()
-                    attempt(
-                        label = label,
-                        action = UIAction.LongClickAt(cx, cy, durationMs),
-                        snapshotForAction = null
-                    )
-                }
                 is MultiSelectorTargeting.Selector.Point -> attempt(
                     label = label,
                     action = UIAction.LongClickAt(selector.x, selector.y, durationMs),
