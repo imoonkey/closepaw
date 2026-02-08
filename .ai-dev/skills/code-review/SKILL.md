@@ -39,6 +39,7 @@ High standards like kernel code. Find:
 - Data loss: state corruption, race conditions
 
 ### High (Should Fix)
+- Spaghetti code, confusing logic
 - Memory leaks
 - Threading violations
 - Missing validation
@@ -46,6 +47,7 @@ High standards like kernel code. Find:
 
 ### Medium (Consider)
 - Code duplication
+- Hard to read logic
 - Missing tests
 - Large files/functions
 - Poor naming
