@@ -32,10 +32,12 @@ Perform touch interactions on the mobile device screen.
 Targeting (for click, long_press, type):
 - element_index: index from current screen state
 - text + text_index: visible text selector
-- bounds (x1,y1,x2,y2): center point is used
 - coordinates (x,y): absolute fallback
+- bounds (x1,y1,x2,y2): center point is used (long_press / swipe only)
 
-When multiple selectors are provided, fallback order is: bounds -> coordinates -> text -> element_index.
+Selector fallback:
+- click: element_index -> text -> coordinates
+- long_press/type: bounds -> coordinates -> text -> element_index
 
 Actions:
 - click: Tap target. Example: {"action":"click","element_index":3}
@@ -82,19 +84,19 @@ Swipe notes:
                 ),
                 "x1" to PropertySpec(
                     type = "integer",
-                    description = "Bounds left X in pixels (center used as tap point)"
+                    description = "Bounds left X in pixels (center used for long_press/swipe targeting)"
                 ),
                 "y1" to PropertySpec(
                     type = "integer",
-                    description = "Bounds top Y in pixels (center used as tap point)"
+                    description = "Bounds top Y in pixels (center used for long_press/swipe targeting)"
                 ),
                 "x2" to PropertySpec(
                     type = "integer",
-                    description = "Bounds right X in pixels (center used as tap point)"
+                    description = "Bounds right X in pixels (center used for long_press/swipe targeting)"
                 ),
                 "y2" to PropertySpec(
                     type = "integer",
-                    description = "Bounds bottom Y in pixels (center used as tap point)"
+                    description = "Bounds bottom Y in pixels (center used for long_press/swipe targeting)"
                 ),
                 "text" to PropertySpec(
                     type = "string",

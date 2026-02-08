@@ -11,6 +11,7 @@ import com.moonkey.androidagent.platform.AppInfo
 import com.moonkey.androidagent.platform.DisplayInfo
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.tool.ToolExecutionContext
+import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ValidationResult
 import com.moonkey.androidagent.tool.impl.mobileaction.SwipeActionHandler
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -33,8 +34,8 @@ class TargetInvocationsTest {
 
         val result = ClickTargetInvocation(params = params, description = "click").execute(context)
 
-        assertThat(result).isInstanceOf(com.moonkey.androidagent.tool.ToolExecutionResult.Success::class.java)
-        assertThat(platform.performedActions).containsExactly(UIAction.ClickAt(12, 34))
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
+        assertThat(platform.performedActions).containsExactly(UIAction.ClickNodeAt(12, 34))
     }
 
     @Test
@@ -46,22 +47,22 @@ class TargetInvocationsTest {
                     index = 0,
                     resourceId = "com.app:id/one",
                     text = "First",
-                    bounds = Bounds(left = 0, top = 0, right = 200, bottom = 200),
-                    center = Point(x = 100, y = 100)
+                    bounds = Bounds(left = 0, top = 0, right = 40, bottom = 40),
+                    center = Point(x = 20, y = 20)
                 ),
                 element(
                     index = 1,
                     resourceId = "com.app:id/two",
                     text = "Second",
-                    bounds = Bounds(left = 0, top = 0, right = 200, bottom = 200),
-                    center = Point(x = 100, y = 100)
+                    bounds = Bounds(left = 50, top = 50, right = 90, bottom = 90),
+                    center = Point(x = 70, y = 70)
                 ),
                 element(
                     index = 2,
                     resourceId = "com.app:id/three",
                     text = "Third",
-                    bounds = Bounds(left = 0, top = 0, right = 200, bottom = 200),
-                    center = Point(x = 100, y = 100)
+                    bounds = Bounds(left = 100, top = 100, right = 160, bottom = 160),
+                    center = Point(x = 130, y = 130)
                 )
             )
         )
@@ -72,16 +73,13 @@ class TargetInvocationsTest {
                 ActionResult.Failure("fail 2"),
                 ActionResult.Failure("fail 3"),
                 ActionResult.Failure("fail 4"),
-                ActionResult.Failure("fail 5")
+                ActionResult.Failure("fail 5"),
+                ActionResult.Failure("fail 6")
             )
         )
         val context = TestToolExecutionContext(platform = platform, snapshot = snapshot)
 
         val params = JSONObject().apply {
-            put("x1", 0)
-            put("y1", 10)
-            put("x2", 100)
-            put("y2", 110)
             put("x", 5)
             put("y", 6)
             put("text", "Third")
@@ -92,29 +90,70 @@ class TargetInvocationsTest {
         ClickTargetInvocation(params = params, description = "click").execute(context)
 
         assertThat(platform.performedActions).containsExactly(
-            UIAction.ClickAt(50, 60), // bounds center
-            UIAction.ClickAt(5, 6),
-            UIAction.Click(2), // text -> element 2
-            UIAction.Click(0)  // element_index
+            UIAction.ClickNodeAt(20, 20),
+            UIAction.TapAt(20, 20),
+            UIAction.ClickNodeAt(130, 130),
+            UIAction.TapAt(130, 130),
+            UIAction.ClickNodeAt(5, 6),
+            UIAction.TapAt(5, 6)
         ).inOrder()
     }
 
     @Test
-    fun `click skips non actionable coordinate and falls back to semantic selector`() = runTest {
-        val snapshot = ScreenSnapshot(
+    fun `click retries after unchanged screen and succeeds after later change`() = runTest {
+        val preSnapshot = ScreenSnapshot(
             timestamp = 0L,
             elements = listOf(
                 element(
                     index = 0,
-                    resourceId = "com.app:id/plain",
-                    text = "Container",
-                    isClickable = false,
-                    isEditable = false,
-                    bounds = Bounds(left = 0, top = 0, right = 20, bottom = 20),
-                    center = Point(x = 10, y = 10)
-                ),
+                    resourceId = "com.app:id/submit",
+                    text = "Submit",
+                    bounds = Bounds(left = 30, top = 30, right = 60, bottom = 60),
+                    center = Point(x = 45, y = 45)
+                )
+            )
+        )
+        val changedSnapshot = preSnapshot.copy(
+            timestamp = 1L,
+            elements = listOf(
                 element(
-                    index = 1,
+                    index = 0,
+                    resourceId = "com.app:id/submit",
+                    text = "Submitting...",
+                    bounds = Bounds(left = 30, top = 30, right = 60, bottom = 60),
+                    center = Point(x = 45, y = 45)
+                )
+            )
+        )
+
+        val platform = RecordingAndroidPlatform(
+            results = listOf(
+                ActionResult.Success("action_click ok"),
+                ActionResult.Success("tap ok")
+            ),
+            capturedSnapshots = listOf(preSnapshot, changedSnapshot)
+        )
+        val context = TestToolExecutionContext(platform = platform, snapshot = preSnapshot)
+        val params = JSONObject().apply {
+            put("element_index", 0)
+        }
+
+        val result = ClickTargetInvocation(params = params, description = "click").execute(context)
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
+        assertThat(platform.performedActions).containsExactly(
+            UIAction.ClickNodeAt(45, 45),
+            UIAction.TapAt(45, 45)
+        ).inOrder()
+    }
+
+    @Test
+    fun `click fails when all successful dispatches produce unchanged screen`() = runTest {
+        val preSnapshot = ScreenSnapshot(
+            timestamp = 0L,
+            elements = listOf(
+                element(
+                    index = 0,
                     resourceId = "com.app:id/submit",
                     text = "Submit",
                     bounds = Bounds(left = 30, top = 30, right = 60, bottom = 60),
@@ -123,18 +162,26 @@ class TargetInvocationsTest {
             )
         )
 
-        val platform = RecordingAndroidPlatform(results = listOf(ActionResult.Success("ok")))
-        val context = TestToolExecutionContext(platform = platform, snapshot = snapshot)
+        val platform = RecordingAndroidPlatform(
+            results = listOf(
+                ActionResult.Success("action_click ok"),
+                ActionResult.Success("tap ok")
+            ),
+            capturedSnapshots = listOf(preSnapshot, preSnapshot)
+        )
+        val context = TestToolExecutionContext(platform = platform, snapshot = preSnapshot)
         val params = JSONObject().apply {
-            put("x", 10)
-            put("y", 10)
-            put("text", "Submit")
+            put("x", 45)
+            put("y", 45)
         }
 
         val result = ClickTargetInvocation(params = params, description = "click").execute(context)
 
-        assertThat(result).isInstanceOf(com.moonkey.androidagent.tool.ToolExecutionResult.Success::class.java)
-        assertThat(platform.performedActions).containsExactly(UIAction.Click(1))
+        assertThat(result).isInstanceOf(ToolExecutionResult.Failure::class.java)
+        assertThat(platform.performedActions).containsExactly(
+            UIAction.ClickNodeAt(45, 45),
+            UIAction.TapAt(45, 45)
+        ).inOrder()
     }
 
     @Test
@@ -158,7 +205,7 @@ class TargetInvocationsTest {
 
         val result = TypeTargetInvocation(params = params, description = "type").execute(context)
 
-        assertThat(result).isInstanceOf(com.moonkey.androidagent.tool.ToolExecutionResult.Success::class.java)
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
         assertThat(platform.performedActions).containsExactly(
             UIAction.Type(text = "hello", elementIndex = 1, clear = false)
         )
@@ -175,7 +222,7 @@ class TargetInvocationsTest {
 
         val result = SwipeTargetInvocation(params = params, description = "swipe").execute(context)
 
-        assertThat(result).isInstanceOf(com.moonkey.androidagent.tool.ToolExecutionResult.Success::class.java)
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
         val action = platform.performedActions.single() as UIAction.Swipe
         // "swipe down" = finger moves down = start high (smaller Y), end low (larger Y)
         assertThat(action.startY).isLessThan(action.endY)
@@ -204,14 +251,20 @@ class TargetInvocationsTest {
     }
 
     private class RecordingAndroidPlatform(
-        results: List<ActionResult>
+        results: List<ActionResult>,
+        capturedSnapshots: List<ScreenSnapshot> = emptyList()
     ) : AndroidPlatform {
         private val remainingResults = ArrayDeque(results)
+        private val remainingSnapshots = ArrayDeque(capturedSnapshots)
 
         val performedActions = mutableListOf<UIAction>()
 
         override suspend fun captureScreen(): ScreenSnapshot {
-            return ScreenSnapshot(timestamp = 0L, elements = emptyList())
+            return if (remainingSnapshots.isNotEmpty()) {
+                remainingSnapshots.removeFirst()
+            } else {
+                ScreenSnapshot(timestamp = 0L, elements = emptyList())
+            }
         }
 
         override suspend fun performAction(action: UIAction, snapshot: ScreenSnapshot?): ActionResult {

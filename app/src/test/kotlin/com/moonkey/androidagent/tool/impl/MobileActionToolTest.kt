@@ -38,6 +38,22 @@ class MobileActionToolTest {
     }
 
     @Test
+    fun `click rejects bounds selector`() {
+        val tool = MobileActionTool()
+        val params =
+            JSONObject()
+                .put("action", "click")
+                .put("x1", 0)
+                .put("y1", 0)
+                .put("x2", 10)
+                .put("y2", 10)
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
     fun `swipe requires start and end`() {
         val tool = MobileActionTool()
         val params = JSONObject()

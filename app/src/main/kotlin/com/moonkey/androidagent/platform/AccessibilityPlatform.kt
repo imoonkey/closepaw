@@ -288,6 +288,8 @@ class AccessibilityPlatform(
         return when (action) {
             is UIAction.Click -> performClick(action, snapshot)
             is UIAction.ClickAt -> performClickAt(action.x, action.y)
+            is UIAction.ClickNodeAt -> performNodeClickAt(action.x, action.y)
+            is UIAction.TapAt -> performTapAt(action.x, action.y)
             is UIAction.LongClick -> performLongClick(action, snapshot)
             is UIAction.LongClickAt -> performLongClickAt(action)
             is UIAction.Type -> performType(action, snapshot)
@@ -352,36 +354,7 @@ class AccessibilityPlatform(
 
         // Strategy 1: Try ACTION_CLICK on the accessibility node first
         // This is more reliable for apps with complex ViewGroups like YouTube
-        val actionClickResult = withContext(Dispatchers.Main) {
-            val root = service.rootInActiveWindow
-            if (root != null) {
-                val clickableNode = AccessibilityNodeFinder.findClickableNodeAtLocation(root, centerX, centerY)
-                if (clickableNode != null) {
-                    Log.d(TAG, "Trying ACTION_CLICK on node at ($centerX, $centerY)")
-                    visualizer?.showClick(centerX.toFloat(), centerY.toFloat())
-                    
-                    val success = clickableNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                    clickableNode.recycle()
-                    
-                    if (success) {
-                        Log.d(TAG, "ACTION_CLICK succeeded")
-                        return@withContext ActionResult.Success(
-                            if (element.isEditable) {
-                                "Clicked editable element ${action.elementIndex}"
-                            } else {
-                                "Clicked element ${action.elementIndex}"
-                            }
-                        )
-                    }
-                    Log.d(TAG, "ACTION_CLICK returned false")
-                } else {
-                    Log.d(TAG, "No clickable node found at ($centerX, $centerY)")
-                }
-            } else {
-                Log.d(TAG, "Root is null, cannot try ACTION_CLICK")
-            }
-            null // ACTION_CLICK didn't work
-        }
+        val actionClickResult = performNodeClickAt(centerX, centerY)
         
         if (actionClickResult is ActionResult.Success) {
             return actionClickResult
@@ -389,7 +362,7 @@ class AccessibilityPlatform(
 
         // Strategy 2: Fall back to gesture-based tap
         Log.d(TAG, "ACTION_CLICK failed or unavailable, falling back to gesture tap at ($centerX, $centerY)")
-        val tapResult = performClickAt(centerX, centerY)
+        val tapResult = performTapAt(centerX, centerY)
         if (tapResult is ActionResult.Success) {
             return ActionResult.Success(
                 if (element.isEditable) {
@@ -404,6 +377,41 @@ class AccessibilityPlatform(
     }
     
     private suspend fun performClickAt(x: Int, y: Int): ActionResult {
+        return performTapAt(x, y)
+    }
+
+    private suspend fun performNodeClickAt(x: Int, y: Int): ActionResult {
+        return withContext(Dispatchers.Main) {
+            val root = service.rootInActiveWindow
+            if (root == null) {
+                Log.d(TAG, "Root is null, cannot try ACTION_CLICK")
+                return@withContext ActionResult.Failure("Cannot access active window for ACTION_CLICK")
+            }
+
+            val clickableNode = AccessibilityNodeFinder.findClickableNodeAtLocation(root, x, y)
+            if (clickableNode == null) {
+                Log.d(TAG, "No clickable node found at ($x, $y)")
+                return@withContext ActionResult.Failure("No clickable node found at ($x,$y)")
+            }
+
+            try {
+                Log.d(TAG, "Trying ACTION_CLICK on node at ($x, $y)")
+                visualizer?.showClick(x.toFloat(), y.toFloat())
+                val success = clickableNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                if (success) {
+                    Log.d(TAG, "ACTION_CLICK succeeded at ($x, $y)")
+                    ActionResult.Success("ACTION_CLICK succeeded at ($x,$y)")
+                } else {
+                    Log.d(TAG, "ACTION_CLICK returned false at ($x, $y)")
+                    ActionResult.Failure("ACTION_CLICK returned false at ($x,$y)")
+                }
+            } finally {
+                clickableNode.recycle()
+            }
+        }
+    }
+
+    private suspend fun performTapAt(x: Int, y: Int): ActionResult {
         return performTap(x.toFloat(), y.toFloat())
     }
     

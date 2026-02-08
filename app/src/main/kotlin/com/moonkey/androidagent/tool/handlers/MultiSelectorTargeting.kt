@@ -6,7 +6,7 @@ import org.json.JSONObject
 /**
  * Shared multi-selector targeting utilities for mobile actions.
  *
- * Fallback order (mirrors Minitap + our click implementation):
+ * Default fallback order used by long_press/type/swipe handlers:
  * bounds -> coordinates -> text -> element_index
  */
 internal object MultiSelectorTargeting {

@@ -11,6 +11,11 @@ import kotlinx.coroutines.delay
 internal object TargetingInvocationUtils {
     private const val DEFAULT_UI_SETTLE_DELAY_MS = 300L
 
+    data class UiChangeDetection(
+        val changed: Boolean,
+        val reason: String
+    )
+
     fun buildElementNotFoundMessage(index: Int, snapshot: ScreenSnapshot): String {
         val available = snapshot.elements.map { it.index }
         val preview = available.take(20).joinToString(", ")
@@ -41,6 +46,55 @@ internal object TargetingInvocationUtils {
             Log.w(logTag, "Failed to capture post-action observation: ${e.message}")
             null
         }
+    }
+
+    fun detectUiChange(
+            preSnapshot: ScreenSnapshot?,
+            postObservation: ToolObservation?
+    ): UiChangeDetection {
+        if (preSnapshot == null) {
+            return UiChangeDetection(
+                    changed = true,
+                    reason = "Pre-action snapshot unavailable; treating as unverifiable success"
+            )
+        }
+
+        val postSnapshot =
+                (postObservation as? ToolObservation.ScreenState)?.snapshot
+                        ?: return UiChangeDetection(
+                                changed = true,
+                                reason = "Post-action snapshot unavailable; treating as unverifiable success"
+                        )
+
+        val preFingerprint = snapshotFingerprint(preSnapshot)
+        val postFingerprint = snapshotFingerprint(postSnapshot)
+        return if (preFingerprint != postFingerprint) {
+            UiChangeDetection(changed = true, reason = "Observable UI change detected")
+        } else {
+            UiChangeDetection(changed = false, reason = "No observable UI change after action")
+        }
+    }
+
+    private fun snapshotFingerprint(snapshot: ScreenSnapshot): List<String> {
+        return snapshot
+                .elements
+                .sortedBy { it.index }
+                .map { element ->
+                    listOf(
+                                    element.index.toString(),
+                                    element.resourceId,
+                                    element.className,
+                                    element.text,
+                                    element.description,
+                                    element.bounds.left.toString(),
+                                    element.bounds.top.toString(),
+                                    element.bounds.right.toString(),
+                                    element.bounds.bottom.toString(),
+                                    element.isFocused.toString(),
+                                    element.isEnabled.toString()
+                            )
+                            .joinToString("|")
+                }
     }
 
     /**
