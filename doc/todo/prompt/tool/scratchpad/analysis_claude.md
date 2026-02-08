@@ -469,9 +469,53 @@ Write actual content, not references. Delete keys when no longer needed.
 
 | Repo | Key Files |
 |------|-----------|
-| **Android Agent** | `tool/impl/ScratchpadTool.kt`, `session/ScratchpadState.kt`, `agent/cognition/prompt/PromptUtils.kt:136`, `agent/AgentTurnRunner.kt:318-332` |
+| **Android Agent** | `tool/impl/ScratchpadTool.kt`, `session/ScratchpadState.kt`, `agent/cognition/prompt/PromptUtils.kt`, `agent/AgentTurnRunner.kt` |
 | **AutoDev** | `autodev/scratchpad.py` (tool defs + state + reminders), `autodev/prompts.py:106,345` (system prompt mentions) |
 | **DroidRun** | `tools/android/adb.py:783-817` (remember tool), `agent/droid/state.py:69` (shared state), `config/prompts/manager/system.jinja2:40-63` (guidelines), `agent/manager/manager_agent.py:248-253,505-511` (injection + parsing) |
 | **Minitap** | `tools/scratchpad.py` (3 tools), `graph/state.py:61-66` (state), `agents/planner/planner.md:107-116` (example) |
 | **MobileAgent V3** | `utils/mobile_agent_e.py:317-351` (Notetaker agent), `run_mobileagentv3.py:282-299` (integration loop) |
 | **Eval repos** | No scratchpad tools. `agents/t3a.py:156-183` (step summaries as implicit memory) |
+
+---
+
+## 9. Qi Note Revisions (2026-02-07)
+
+These decisions supersede conflicting recommendations above.
+
+### Final Decisions
+
+1. **Reverse Proposal A direction**:
+   - Keep `read` (needed when prompt only shows keys)
+   - Remove `list` action
+   - Change prompt rendering to **keys-only** (no values) to reduce per-turn context cost
+
+2. **Accept Proposal B**:
+   - Keep `write` output minimal (do not echo full stored value)
+
+3. **Proposal C superseded by keys-only rendering**:
+   - No value truncation needed in prompt context because values are not rendered there
+
+4. **Proposal D partially accept (concise version)**:
+   - Add short, actionable guidance in tool description
+   - Keep description compact to avoid schema bloat
+
+5. **Reject Proposal E for now**:
+   - Keep `MAX_VALUE_LENGTH = 2048`
+
+6. **Reject separate scratchpad `<system_reminder>` path (Proposal F style)**:
+   - No dedicated reminder block
+   - If needed, show empty-state nudge directly in `## Scratchpad` context section
+
+### Rationale Snapshot
+
+- Keys-only scratchpad context delivers the largest prompt-token reduction while preserving memory discoverability.
+- Keeping `read` preserves access to full value only when needed (targeted retrieval).
+- Removing `list` avoids redundant tool surface because keys are already visible in context.
+- Minimal `write` output prevents duplicate value propagation into history.
+
+### Updated Target Tool Surface
+
+- `write(key, value[, agent_thought])`
+- `read(key[, agent_thought])`
+- `delete(key[, agent_thought])`
+- **Removed**: `list`

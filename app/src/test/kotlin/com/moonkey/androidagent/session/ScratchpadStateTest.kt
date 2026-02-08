@@ -22,14 +22,24 @@ class ScratchpadStateTest {
     }
 
     @Test
-    fun `toPromptContext renders sorted entries`() {
+    fun `toPromptContext renders sorted keys only`() {
         val state = ScratchpadState()
         state.write("b", "2")
         state.write("a", "1")
 
         val context = state.toPromptContext()
 
-        assertThat(context).isEqualTo("- a: 1\n- b: 2")
+        assertThat(context).isEqualTo("- a\n- b")
+    }
+
+    @Test
+    fun `toPromptContext includes empty guidance`() {
+        val state = ScratchpadState()
+
+        val context = state.toPromptContext()
+
+        assertThat(context).contains("(empty)")
+        assertThat(context).contains("scratchpad(action=\"write\"")
     }
 
     @Test

@@ -75,6 +75,7 @@ class ScratchpadToolTest {
 
         assertThat(writeResult).isInstanceOf(ToolExecutionResult.Success::class.java)
         assertThat(state.read("k")).isEqualTo("v")
+        assertThat((writeResult as ToolExecutionResult.Success).output).isEqualTo("Stored 'k' (1 chars).")
 
         val readParams = JSONObject()
             .put("action", "read")
@@ -83,6 +84,16 @@ class ScratchpadToolTest {
         val readResult = readInvocation.execute(buildContext())
 
         assertThat(readResult).isInstanceOf(ToolExecutionResult.Success::class.java)
+    }
+
+    @Test
+    fun `list action is invalid`() {
+        val tool = ScratchpadTool(ScratchpadState())
+        val params = JSONObject().put("action", "list")
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
     }
 
     private fun buildContext(): ToolExecutionContext {

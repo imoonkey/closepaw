@@ -17,18 +17,20 @@ class ScratchpadTool(
 
     override val description: String =
         """
-        Store and retrieve key-value data for multi-step tasks.
+        Store key-value data for multi-step tasks and cross-app handoffs.
 
-        Use cases:
-        - Store extracted info (e.g., contact list from one screen to use in another)
-        - Remember values across navigation
-        - Track intermediate results
+        Scratchpad keys are always shown in context every turn.
+        Use read only when you need the full value for a specific key.
+
+        Good usage:
+        - Write facts before navigating away from the current screen
+        - Store actual extracted content (not vague references)
+        - Use short semantic keys (email_1_subject, total_price)
 
         Actions:
         - write: Store key=value
         - read: Get value for key
         - delete: Remove key
-        - list: Show all keys
 
         Limits:
         - Max keys: ${ScratchpadState.MAX_ENTRIES}
@@ -42,7 +44,7 @@ class ScratchpadTool(
             put("properties", JSONObject().apply {
                 put("action", JSONObject().apply {
                     put("type", "string")
-                    put("enum", JSONArray(listOf("write", "read", "delete", "list")))
+                    put("enum", JSONArray(listOf("write", "read", "delete")))
                     put("description", "Action to perform")
                 })
                 put("key", JSONObject().apply {
@@ -92,8 +94,7 @@ class ScratchpadTool(
                 val key = params.optString("key", "").trim()
                 if (key.isEmpty()) errors.add("Missing required parameter: key")
             }
-            "list" -> Unit
-            else -> errors.add("Unknown action: '$action'. Valid actions: write, read, delete, list")
+            else -> errors.add("Unknown action: '$action'. Valid actions: write, read, delete")
         }
 
         return if (errors.isEmpty()) ValidationResult.Valid else ValidationResult.Invalid(errors)
@@ -120,7 +121,6 @@ class ScratchpadTool(
             "write" -> "Write scratchpad key '$key'"
             "read" -> "Read scratchpad key '$key'"
             "delete" -> "Delete scratchpad key '$key'"
-            "list" -> "List scratchpad keys"
             else -> "Scratchpad action '$action'"
         }
         return if (agentThought.isNotEmpty()) "$base (reason: $agentThought)" else base
@@ -148,11 +148,7 @@ private class ScratchpadInvocation(
             val output = when (action) {
                 "write" -> {
                     state.write(key, value)
-                    JSONObject().apply {
-                        put("action", "write")
-                        put("key", key)
-                        put("value", value)
-                    }.toString()
+                    "Stored '$key' (${value.length} chars)."
                 }
                 "read" -> {
                     val readValue = state.read(key)
@@ -172,14 +168,6 @@ private class ScratchpadInvocation(
                         put("action", "delete")
                         put("key", key)
                         put("removed", removed)
-                    }.toString()
-                }
-                "list" -> {
-                    val keys = state.list()
-                    JSONObject().apply {
-                        put("action", "list")
-                        put("keys", JSONArray(keys))
-                        put("count", keys.size)
                     }.toString()
                 }
                 else -> JSONObject().apply {

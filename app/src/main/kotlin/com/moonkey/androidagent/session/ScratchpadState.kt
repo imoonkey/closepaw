@@ -43,10 +43,10 @@ class ScratchpadState(
     }
 
     fun toPromptContext(): String {
-        val snapshot = synchronized(lock) { data.toMap() }
-        if (snapshot.isEmpty()) return ""
-        return snapshot.entries
-            .sortedBy { it.key }
-            .joinToString("\n") { "- ${it.key}: ${it.value}" }
+        val keys = synchronized(lock) { data.keys.sorted() }
+        if (keys.isEmpty()) {
+            return "- (empty) Store important facts with scratchpad(action=\"write\", key=\"...\", value=\"...\") before navigating away."
+        }
+        return keys.joinToString("\n") { "- $it" }
     }
 }

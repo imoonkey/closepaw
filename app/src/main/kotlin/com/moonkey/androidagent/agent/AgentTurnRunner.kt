@@ -315,7 +315,6 @@ internal class AgentTurnRunner(
                         loopWarning = loopWarning,
                         systemReminders = listOfNotNull(stepReminder),
                         todos = services.sessionState.todos.get(),
-                        scratchpadKeys = services.sessionState.scratchpad.list(),
                         additionalContextBlocks = buildAdditionalContextBlocks()
                 )
         }
@@ -328,9 +327,7 @@ internal class AgentTurnRunner(
                         }
 
                         val scratchpadContext = services.sessionState.scratchpad.toPromptContext()
-                        if (scratchpadContext.isNotEmpty()) {
-                                add("## Scratchpad\n$scratchpadContext")
-                        }
+                        add("## Scratchpad\n$scratchpadContext")
                 }
         }
 

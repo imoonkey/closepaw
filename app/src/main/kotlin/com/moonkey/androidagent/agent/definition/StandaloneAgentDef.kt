@@ -30,6 +30,7 @@ internal object StandaloneAgentDef : AgentDef() {
         - Execute ONE UI action per turn when possible, then observe.
         - Use `write_todos` for multi-step goals to keep progress explicit.
         - Use `scratchpad` to store extracted facts and avoid repeated extraction.
+        - Scratchpad context shows keys only; use `scratchpad(action="read", key="...")` when value is needed.
 
 
         ## Core Loop

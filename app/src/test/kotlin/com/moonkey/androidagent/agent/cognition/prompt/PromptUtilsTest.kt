@@ -80,13 +80,12 @@ class PromptUtilsTest {
     }
 
     @Test
-    fun `buildUserMessage appends loop and memory reminders`() {
+    fun `buildUserMessage appends loop and todo reminders`() {
         val todos =
                 listOf(
                         Todo(description = "Open Gmail", status = TodoStatus.IN_PROGRESS),
                         Todo(description = "Count unread emails", status = TodoStatus.PENDING)
                 )
-        val scratchpadKeys = listOf("email_count")
 
         val loopWarning =
                 LoopWarning(
@@ -100,15 +99,14 @@ class PromptUtilsTest {
                         visibleToolNames = setOf("delegate_task", "write_todos", "scratchpad"),
                         llmBackend = LLMBackendType.OPENAI,
                         loopWarning = loopWarning,
-                        todos = todos,
-                        scratchpadKeys = scratchpadKeys
+                        todos = todos
                 )
 
         val userMessage = PromptUtils.buildUserMessage(context)
 
         assertThat(userMessage.text).contains("LOOP WARNING")
         assertThat(userMessage.text).contains("Todo status")
-        assertThat(userMessage.text).contains("Scratchpad has 1 key")
+        assertThat(userMessage.text).doesNotContain("Scratchpad has")
     }
 
     @Test

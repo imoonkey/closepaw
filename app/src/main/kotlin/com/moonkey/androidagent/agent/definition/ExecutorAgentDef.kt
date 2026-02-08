@@ -76,6 +76,7 @@ internal object ExecutorAgentDef : AgentDef() {
 
         ## Scratchpad (Shared with Planner)
         Use scratchpad to store extracted data so the Planner can access it:
+        - Scratchpad context shows keys only. Use read when you need a stored value.
         - scratchpad(action="write", key="email_1_sender", value="John Doe")
         - scratchpad(action="read", key="...")
 

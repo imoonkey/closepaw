@@ -19,7 +19,6 @@ internal data class PromptContext(
         val systemReminders: List<String> = emptyList(),
         // Data required for dynamic reminders and context blocks
         val todos: List<Todo> = emptyList(),
-        val scratchpadKeys: List<String> = emptyList(),
         // Pre-formatted markdown context blocks
         val additionalContextBlocks: List<String> = emptyList()
 )
@@ -90,7 +89,6 @@ internal object PromptUtils {
             context.loopWarning?.let { add(formatLoopWarning(it)) }
             context.systemReminders.map { it.trim() }.filter { it.isNotEmpty() }.forEach { add(it) }
             buildTodoReminder(context.todos)?.let { add(it) }
-            buildScratchpadReminder(context.scratchpadKeys)?.let { add(it) }
         }
     }
 
@@ -133,13 +131,4 @@ internal object PromptUtils {
         """.trimIndent()
     }
 
-    private fun buildScratchpadReminder(keys: List<String>): String? {
-        if (keys.isEmpty()) return null
-        val preview = keys.take(4).joinToString(separator = ", ")
-        return """
-            <system_reminder>
-            Scratchpad has ${keys.size} key(s). Reuse stored facts before repeating extraction. Keys: $preview
-            </system_reminder>
-        """.trimIndent()
-    }
 }
