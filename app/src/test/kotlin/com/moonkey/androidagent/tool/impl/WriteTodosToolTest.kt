@@ -80,6 +80,42 @@ class WriteTodosToolTest {
         assertThat(state.get().single().status).isEqualTo(TodoStatus.PENDING)
     }
 
+    @Test
+    fun `execute returns compact plan updated output`() = runTest {
+        val tool = WriteTodosTool(TodoState())
+        val params = JSONObject().put("todos", JSONArray().apply {
+            put(JSONObject().put("description", "task a").put("status", "pending"))
+            put(JSONObject().put("description", "task b").put("status", "completed"))
+        })
+
+        val invocation = tool.createInvocation(params)
+        val result = invocation.execute(buildContext())
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
+        val success = result as ToolExecutionResult.Success
+        assertThat(success.output).isEqualTo("Plan updated (2 items).")
+    }
+
+    @Test
+    fun `schema documents agent thought plan change rationale`() {
+        val tool = WriteTodosTool(TodoState())
+
+        val description = tool.parameterSchema
+            .getJSONObject("properties")
+            .getJSONObject("agent_thought")
+            .getString("description")
+
+        assertThat(description).contains("changing the plan")
+    }
+
+    @Test
+    fun `description includes discovery and small task guidance`() {
+        val tool = WriteTodosTool(TodoState())
+
+        assertThat(tool.description).contains("new requirements")
+        assertThat(tool.description).contains("1-2 actions")
+    }
+
     private fun buildContext(): ToolExecutionContext {
         return object : ToolExecutionContext {
             override val platform = FakeAndroidPlatform()

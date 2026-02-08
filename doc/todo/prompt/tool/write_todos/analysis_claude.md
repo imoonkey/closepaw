@@ -465,12 +465,16 @@ Statuses:
 Always pass the FULL list. This replaces the previous list.
 ```
 
-**Proposed** (~65 tokens):
+**Proposed** (~85 tokens):
 ```
-Update the task plan. Pass the FULL list (replaces previous). Each item has a description and status. At most one item can be in_progress at a time. Do not use for simple single-action tasks.
+Update the task plan. Pass the FULL list (replaces previous).
+Each item has description + status (pending, in_progress, completed, cancelled).
+At most one item can be in_progress at a time.
+Update todos when new requirements appear during execution.
+Do not use for tasks that need only 1-2 actions.
 ```
 
-**Rationale**: Follow the Codex pattern — move behavioral details to the system prompt where they benefit from prompt caching. Keep the description to the essential contract (replacement semantics, one-in_progress constraint, when not to use).
+**Rationale**: Keep the description compact but include two high-value behavior rules directly in the tool schema ("update as you discover", "skip 1-2 action tasks"). This avoids adding a large planning block to system prompts while still improving behavior.
 
 ### 4.2 Enhance `agent_thought` for Plan Change Rationale
 
@@ -493,39 +497,19 @@ Rather than adding a separate `explanation` parameter (like Codex), repurpose `a
 
 Repeating it in the function_call_output is pure waste. Saves ~5-15 tokens per item per turn in history.
 
-### 4.4 Add Planning Guidance to System Prompt (HIGH IMPACT)
+### 4.4 Do NOT Add Large Planning Guidance to System Prompt
 
-Add to both Planner and Standalone system prompts. Synthesizes best practices from Codex (step quality + "don't repeat"), AutoDev (verification + planning strategy), and Minitap ("not too granular"):
+Do not add a new long `## Planning with write_todos` block to Planner/Standalone prompts. The extra prompt text offsets the token savings from section 4.1.
 
-```
-## Planning with write_todos
-- Use write_todos to break multi-step tasks into short, actionable items.
-- Keep each item to ONE short sentence (e.g., "Open Gmail app", "Extract sender info").
-- Do NOT repeat the full todo list after updating — it is already shown in your context.
-- Mark the current step in_progress before working on it.
-- Verify a step is done on screen before marking it completed.
-- When the plan changes, use agent_thought to explain what changed and why.
+Instead, keep guidance minimal and put only the two highest-impact rules in the tool description itself:
 - Update todos as you discover new requirements during execution.
-- Do not use write_todos for tasks that need only 1-2 actions.
-```
+- Do not use `write_todos` for tasks that need only 1-2 actions.
 
-**Sources for each line:**
-| Guidance | Source |
-|----------|--------|
-| "short, actionable items" | Codex "5-7 words"; Minitap "not too granular" |
-| "ONE short sentence" | Codex step length constraint |
-| "Don't repeat" | Codex "Do not repeat the full contents" |
-| "Mark in_progress before working" | AutoDev methodology step 3; Codex "exactly one in_progress" |
-| "Verify on screen before completed" | AutoDev "Mark todos complete only after verifying in screenshot/result" |
-| "agent_thought for changes" | Codex `explanation` parameter |
-| "Update as you discover" | AutoDev "Update todos as you discover new requirements"; Gemini methodology step 4 |
-| "Don't use for 1-2 actions" | Gemini "less than 2 steps"; AutoDev "less than 3 trivial steps" |
+### 4.5 Keep `cancelled` Status (for now)
 
-### 4.5 Keep `cancelled` Status
+Unlike Codex (3 statuses) and AutoDev (3 statuses), keep all 4. Mobile tasks are dynamic; the agent often discovers dead-end paths (layout changed, element missing, unexpected dialog). `cancelled` preserves this as explicit state instead of silently removing items.
 
-Unlike Codex (3 statuses) and AutoDev (3 statuses), keep all 4. Mobile tasks are highly dynamic — the agent frequently discovers that planned UI paths are unavailable (app layout changed, element not found, dialog appeared), and `cancelled` communicates this clearly vs. silently dropping items.
-
-Minitap's FAILURE status is an interesting alternative, but `cancelled` is broader (covers both "failed" and "no longer needed").
+Open naming question: if we later want stricter semantics, `failed` might be clearer than `cancelled`. For now, keep `cancelled` unchanged.
 
 ### 4.6 Do NOT Add `priority` or `id` Fields
 
@@ -534,14 +518,14 @@ AutoDev's `priority` (high/medium/low) and `id` fields add 4 required fields per
 - **`priority`**: Our agent executes steps sequentially (not choosing between priorities), and the turn budget already creates urgency. Adding priority would add ~10 tokens per item with minimal behavioral benefit.
 - **`id`**: Only useful for merge/incremental updates. With full-replacement semantics, the LLM re-emits the whole list anyway.
 
-### 4.7 Optional Future: Add Merge Semantics
+### 4.7 Defer Merge Semantics
 
 Currently all structured implementations (ours, Gemini, Codex, AutoDev) use full-replacement. This means updating one item's status re-emits the entire list. 
 
 **Option A (keep)**: Full replacement. Simpler. All references use this.
 **Option B (future)**: Add optional merge mode with `id`-based updates.
 
-**Recommendation**: Keep Option A. If profiling shows >7 items frequently, revisit with Option B (and then `id` becomes necessary).
+**Recommendation**: Keep Option A now; do not add merge semantics in this iteration.
 
 ---
 
@@ -549,14 +533,14 @@ Currently all structured implementations (ours, Gemini, Codex, AutoDev) use full
 
 | Change | Type | Token Impact | Effort | Source |
 |--------|------|-------------|--------|--------|
-| Slim tool description (~170→~65 tokens) | Tool schema | **-105 tokens/turn** | Low | Codex pattern |
+| Slim tool description (~170→~85 tokens) | Tool schema | **-85 tokens/turn** | Low | Codex pattern |
 | Minimize output ("Plan updated (N items).") | Tool handler | **-30-100 tokens/turn** (in history) | Low | Codex pattern |
 | Enhance `agent_thought` for plan change rationale | Tool schema | +5 tokens (one-time) | Low | Codex `explanation` |
-| Add planning guidance to system prompts | System prompt | +100 tokens (cached by API) | Medium | Codex + AutoDev + Minitap |
+| Fold minimal behavior guidance into tool description (2 lines) | Tool schema | +20 tokens/turn (vs ultra-minimal) | Low | Qi note decision |
 | Keep `cancelled` status | No change | 0 | None | Mobile agent flexibility |
 | Do NOT add `priority`/`id` fields | No change | 0 | None | Avoid AutoDev token bloat |
 
-**Estimated net savings**: ~135-205 tokens/turn → **~2,700-4,100 tokens over 20 turns**
+**Estimated net savings**: ~110-180 tokens/turn → **~2,200-3,600 tokens over 20 turns**
 
 ---
 
@@ -564,25 +548,16 @@ Currently all structured implementations (ours, Gemini, Codex, AutoDev) use full
 
 ```
 Update the task plan. Pass the FULL list (replaces previous).
+Each item has description + status (pending, in_progress, completed, cancelled).
 At most one item can be in_progress at a time.
-Do not use for simple single-action tasks.
-
-Statuses: pending, in_progress, completed, cancelled.
+Update todos when new requirements appear during execution.
+Do not use for tasks that need only 1-2 actions.
 ```
 
-## 7. Proposed System Prompt Addition (for Planner and Standalone)
+## 7. System Prompt Decision
 
-```
-## Planning with write_todos
-- Use write_todos to break multi-step tasks into short, actionable items.
-- Keep each item to ONE short sentence (e.g., "Open Gmail app", "Extract sender info").
-- Do NOT repeat the full todo list after updating — it is already shown in your context.
-- Mark the current step in_progress before working on it.
-- Verify a step is done on screen before marking it completed.
-- When the plan changes, use agent_thought to explain what changed and why.
-- Update todos as you discover new requirements during execution.
-- Do not use write_todos for tasks that need only 1-2 actions.
-```
+No large `write_todos` planning block will be added to system prompts in this iteration.
+Keep existing prompt text and rely on the tightened tool description + output minimization.
 
 ---
 

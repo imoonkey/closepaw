@@ -19,23 +19,11 @@ class WriteTodosTool(
 
     override val description: String =
         """
-        Manage a todo list for tracking progress on complex tasks.
-
-        Use this when:
-        - Task requires multiple steps
-        - You need to track progress
-
-        Do NOT use for:
-        - Simple single-step tasks
-        - Q&A queries
-
-        Statuses:
-        - pending: Not started
-        - in_progress: Currently working (only ONE at a time)
-        - completed: Successfully done
-        - cancelled: No longer needed
-
-        Always pass the FULL list. This replaces the previous list.
+        Update the task plan. Pass the FULL list (replaces previous).
+        Each item has description + status (pending, in_progress, completed, cancelled).
+        At most one item can be in_progress at a time.
+        Update todos when new requirements appear during execution.
+        Do not use for tasks that need only 1-2 actions.
         """.trimIndent()
 
     override val parameterSchema: JSONObject =
@@ -64,7 +52,7 @@ class WriteTodosTool(
                 })
                 put("agent_thought", JSONObject().apply {
                     put("type", "string")
-                    put("description", "Brief reason for why this update is being performed")
+                    put("description", "Brief reason for this update. When changing the plan, explain what changed and why.")
                 })
             })
             put("required", JSONArray(listOf("todos")))
@@ -170,17 +158,5 @@ private class WriteTodosInvocation(
         }
     }
 
-    private fun buildOutput(todos: List<Todo>): String {
-        return JSONObject().apply {
-            put("todos", JSONArray().apply {
-                todos.forEach { todo ->
-                    put(JSONObject().apply {
-                        put("description", todo.description)
-                        put("status", todo.status.name.lowercase())
-                    })
-                }
-            })
-            put("count", todos.size)
-        }.toString()
-    }
+    private fun buildOutput(todos: List<Todo>): String = "Plan updated (${todos.size} items)."
 }
