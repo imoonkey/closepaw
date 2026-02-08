@@ -572,28 +572,38 @@ class AccessibilityPlatform(
     @Suppress("DEPRECATION")
     private fun performEnterKey(): ActionResult {
         val root = service.rootInActiveWindow ?: return ActionResult.Failure("No active window")
-        
-        // Find the focused element
-        val focused = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        if (focused != null) {
-            // Try ACTION_IME_ENTER first (API 30+) - properly triggers IME actions like Done/Go/Search
-            val imeResult = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                // ACTION_IME_ENTER is available via AccessibilityAction on API 30+
-                focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
-            } else {
-                // Fallback for older devices: try ACTION_CLICK which sometimes works for submit
-                focused.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+
+        // Prefer a focused editable node. root.findFocus(FOCUS_INPUT) can point to
+        // a focused WebView container and report success without submitting input.
+        val focusedEditable =
+            AccessibilityNodeFinder.findFocusedEditableNode(root)
+                ?: return ActionResult.Failure(
+                    "No focused editable element to send Enter to"
+                )
+
+        try {
+            val imeResult =
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    focusedEditable.performAction(
+                        AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id
+                    )
+                } else {
+                    false
+                }
+
+            if (imeResult) {
+                return ActionResult.Success("Enter key pressed")
             }
-            focused.recycle()
-            
-            return if (imeResult) {
-                ActionResult.Success("Enter key pressed")
+
+            val clickFallbackResult = focusedEditable.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            return if (clickFallbackResult) {
+                ActionResult.Success("Enter key pressed (click fallback)")
             } else {
-                ActionResult.Failure("Failed to perform Enter action")
+                ActionResult.Failure("Failed to perform Enter action on focused editable element")
             }
+        } finally {
+            focusedEditable.recycle()
         }
-        
-        return ActionResult.Failure("No focused element to send Enter to")
     }
     
     private suspend fun performWait(action: UIAction.Wait): ActionResult {

@@ -42,6 +42,8 @@ internal object ExecutorAgentDef : AgentDef() {
         2. Ground decisions on the CURRENT screen state (JSON element list).
         3. Execute ONE action, verify result, then complete_task.
         4. Include `agent_thought` in tool calls to explain WHY you chose the target.
+        5. Prefer semantic selectors (`element_index`, `text`) over raw coordinates.
+        6. Use coordinate taps only as a last resort and never on blank/unlabeled regions.
 
         ## Query Types & How to Handle
 

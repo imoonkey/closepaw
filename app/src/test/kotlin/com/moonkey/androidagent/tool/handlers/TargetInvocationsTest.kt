@@ -42,9 +42,27 @@ class TargetInvocationsTest {
         val snapshot = ScreenSnapshot(
             timestamp = 0L,
             elements = listOf(
-                element(index = 0, resourceId = "com.app:id/one", text = "First"),
-                element(index = 1, resourceId = "com.app:id/two", text = "Second"),
-                element(index = 2, resourceId = "com.app:id/three", text = "Third")
+                element(
+                    index = 0,
+                    resourceId = "com.app:id/one",
+                    text = "First",
+                    bounds = Bounds(left = 0, top = 0, right = 200, bottom = 200),
+                    center = Point(x = 100, y = 100)
+                ),
+                element(
+                    index = 1,
+                    resourceId = "com.app:id/two",
+                    text = "Second",
+                    bounds = Bounds(left = 0, top = 0, right = 200, bottom = 200),
+                    center = Point(x = 100, y = 100)
+                ),
+                element(
+                    index = 2,
+                    resourceId = "com.app:id/three",
+                    text = "Third",
+                    bounds = Bounds(left = 0, top = 0, right = 200, bottom = 200),
+                    center = Point(x = 100, y = 100)
+                )
             )
         )
 
@@ -79,6 +97,44 @@ class TargetInvocationsTest {
             UIAction.Click(2), // text -> element 2
             UIAction.Click(0)  // element_index
         ).inOrder()
+    }
+
+    @Test
+    fun `click skips non actionable coordinate and falls back to semantic selector`() = runTest {
+        val snapshot = ScreenSnapshot(
+            timestamp = 0L,
+            elements = listOf(
+                element(
+                    index = 0,
+                    resourceId = "com.app:id/plain",
+                    text = "Container",
+                    isClickable = false,
+                    isEditable = false,
+                    bounds = Bounds(left = 0, top = 0, right = 20, bottom = 20),
+                    center = Point(x = 10, y = 10)
+                ),
+                element(
+                    index = 1,
+                    resourceId = "com.app:id/submit",
+                    text = "Submit",
+                    bounds = Bounds(left = 30, top = 30, right = 60, bottom = 60),
+                    center = Point(x = 45, y = 45)
+                )
+            )
+        )
+
+        val platform = RecordingAndroidPlatform(results = listOf(ActionResult.Success("ok")))
+        val context = TestToolExecutionContext(platform = platform, snapshot = snapshot)
+        val params = JSONObject().apply {
+            put("x", 10)
+            put("y", 10)
+            put("text", "Submit")
+        }
+
+        val result = ClickTargetInvocation(params = params, description = "click").execute(context)
+
+        assertThat(result).isInstanceOf(com.moonkey.androidagent.tool.ToolExecutionResult.Success::class.java)
+        assertThat(platform.performedActions).containsExactly(UIAction.Click(1))
     }
 
     @Test
@@ -182,7 +238,11 @@ class TargetInvocationsTest {
         index: Int,
         resourceId: String,
         text: String = "",
-        description: String = ""
+        description: String = "",
+        isClickable: Boolean = true,
+        isEditable: Boolean = true,
+        bounds: Bounds = Bounds(left = 0, top = 0, right = 10, bottom = 10),
+        center: Point = Point(x = 5, y = 5)
     ): PerceptionElement {
         return PerceptionElement(
             index = index,
@@ -190,14 +250,14 @@ class TargetInvocationsTest {
             resourceId = resourceId,
             className = "View",
             description = description,
-            isClickable = true,
-            isEditable = true,
+            isClickable = isClickable,
+            isEditable = isEditable,
             isScrollable = false,
             isEnabled = true,
             isFocused = false,
             isLongClickable = false,
-            bounds = Bounds(left = 0, top = 0, right = 10, bottom = 10),
-            center = Point(x = 5, y = 5)
+            bounds = bounds,
+            center = center
         )
     }
 }

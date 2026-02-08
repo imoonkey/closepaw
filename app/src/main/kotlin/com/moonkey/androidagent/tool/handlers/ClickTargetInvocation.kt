@@ -79,13 +79,27 @@ class ClickTargetInvocation(
             val result = when (selector) {
                 is MultiSelectorTargeting.Selector.Bounds -> {
                     val (cx, cy) = selector.center()
-                    attempt(label, UIAction.ClickAt(cx, cy), snapshotForAction = null)
+                    val snap = snapshot
+                    if (snap != null && !MultiSelectorTargeting.hasActionableElementAt(snap, cx, cy)) {
+                        attempts.add("$label: No actionable element at coordinates")
+                        null
+                    } else {
+                        attempt(label, UIAction.ClickAt(cx, cy), snapshotForAction = null)
+                    }
                 }
-                is MultiSelectorTargeting.Selector.Point -> attempt(
-                    label,
-                    UIAction.ClickAt(selector.x, selector.y),
-                    snapshotForAction = null
-                )
+                is MultiSelectorTargeting.Selector.Point -> {
+                    val snap = snapshot
+                    if (snap != null && !MultiSelectorTargeting.hasActionableElementAt(snap, selector.x, selector.y)) {
+                        attempts.add("$label: No actionable element at coordinates")
+                        null
+                    } else {
+                        attempt(
+                            label,
+                            UIAction.ClickAt(selector.x, selector.y),
+                            snapshotForAction = null
+                        )
+                    }
+                }
                 is MultiSelectorTargeting.Selector.Text -> {
                     val snap = snapshot
                     if (snap == null) {

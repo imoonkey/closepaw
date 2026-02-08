@@ -25,7 +25,7 @@ Press an Android system button. This does not require element targeting.
 Buttons:
 - back
 - home
-- enter
+- enter (sends IME enter to the currently focused editable field)
 - recents
 
 Examples:

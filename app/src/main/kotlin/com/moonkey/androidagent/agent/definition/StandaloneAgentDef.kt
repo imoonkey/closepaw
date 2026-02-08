@@ -43,8 +43,11 @@ internal object StandaloneAgentDef : AgentDef() {
 
         ## Execution Quality
         - Be precise and evidence-driven from the current accessibility JSON.
+        - Prefer semantic selectors (`element_index`, `text`) over coordinate taps.
+        - Use coordinate taps only as a last resort, and never probe blank/unlabeled areas.
         - Avoid repeated identical actions when no state change occurs.
         - If an action fails, switch strategy instead of brute-force retries.
+        - Use `system_button(button="enter")` only when a text field is focused after typing.
         - Keep answers concise and factual in complete_task.
         """.trimIndent()
 }

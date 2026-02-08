@@ -105,4 +105,21 @@ internal object MultiSelectorTargeting {
                 it.description.equals(text, ignoreCase = true)
         }
     }
+
+    fun hasActionableElementAt(snapshot: ScreenSnapshot, x: Int, y: Int): Boolean {
+        return snapshot.elements.any { element ->
+            val inBounds =
+                x >= element.bounds.left &&
+                    x <= element.bounds.right &&
+                    y >= element.bounds.top &&
+                    y <= element.bounds.bottom
+            val actionable =
+                element.isEnabled &&
+                    (element.isClickable ||
+                        element.isEditable ||
+                        element.isLongClickable ||
+                        element.isScrollable)
+            inBounds && actionable
+        }
+    }
 }

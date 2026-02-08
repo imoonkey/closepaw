@@ -77,11 +77,42 @@ class MultiSelectorTargetingTest {
         assertThat(descriptionIndex).isEqualTo(1)
     }
 
+    @Test
+    fun `hasActionableElementAt returns true only for actionable bounds`() {
+        val snapshot = ScreenSnapshot(
+            timestamp = 0L,
+            elements = listOf(
+                element(
+                    index = 0,
+                    resourceId = "com.app:id/plain",
+                    text = "Container",
+                    isClickable = false,
+                    isEditable = false
+                ),
+                element(
+                    index = 1,
+                    resourceId = "com.app:id/button",
+                    text = "Buy",
+                    isClickable = true,
+                    bounds = Bounds(left = 20, top = 20, right = 60, bottom = 60),
+                    center = Point(x = 40, y = 40)
+                )
+            )
+        )
+
+        assertThat(MultiSelectorTargeting.hasActionableElementAt(snapshot, 5, 5)).isFalse()
+        assertThat(MultiSelectorTargeting.hasActionableElementAt(snapshot, 40, 40)).isTrue()
+    }
+
     private fun element(
         index: Int,
         resourceId: String,
         text: String = "",
-        description: String = ""
+        description: String = "",
+        isClickable: Boolean = true,
+        isEditable: Boolean = true,
+        bounds: Bounds = Bounds(left = 0, top = 0, right = 10, bottom = 10),
+        center: Point = Point(x = 5, y = 5)
     ): PerceptionElement {
         return PerceptionElement(
             index = index,
@@ -89,14 +120,14 @@ class MultiSelectorTargetingTest {
             resourceId = resourceId,
             className = "View",
             description = description,
-            isClickable = true,
-            isEditable = true,
+            isClickable = isClickable,
+            isEditable = isEditable,
             isScrollable = false,
             isEnabled = true,
             isFocused = false,
             isLongClickable = false,
-            bounds = Bounds(left = 0, top = 0, right = 10, bottom = 10),
-            center = Point(x = 5, y = 5)
+            bounds = bounds,
+            center = center
         )
     }
 }
