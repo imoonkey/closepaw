@@ -62,6 +62,48 @@ internal object AccessibilityNodeFinder {
     }
 
     /**
+     * Find the smallest long-clickable node at the given coordinates.
+     * Mirrors findClickableNodeAtLocation but checks isLongClickable.
+     */
+    fun findLongClickableNodeAtLocation(root: AccessibilityNodeInfo, x: Int, y: Int): AccessibilityNodeInfo? {
+        val bounds = Rect()
+        var bestNode: AccessibilityNodeInfo? = null
+        var bestArea = Long.MAX_VALUE
+
+        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean) {
+            node.getBoundsInScreen(bounds)
+            if (!bounds.contains(x, y)) {
+                if (shouldRecycle) node.recycle()
+                return
+            }
+
+            if (node.isLongClickable) {
+                val area = bounds.width().toLong() * bounds.height().toLong()
+                if (area < bestArea) {
+                    bestNode?.recycle()
+                    bestNode = node
+                    bestArea = area
+                } else if (shouldRecycle) {
+                    node.recycle()
+                    return
+                }
+            }
+
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                search(child, shouldRecycle = true)
+            }
+
+            if (!node.isLongClickable && shouldRecycle) {
+                node.recycle()
+            }
+        }
+
+        search(root, shouldRecycle = false)
+        return bestNode
+    }
+
+    /**
      * Find a focused editable node in the tree.
      * Used when typing into the currently focused field.
      */

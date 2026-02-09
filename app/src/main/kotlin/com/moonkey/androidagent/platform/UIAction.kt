@@ -61,6 +61,28 @@ sealed interface UIAction {
         val elementIndex: Int? = null,
         val clear: Boolean = false
     ) : UIAction
+
+    // --- New atomic variants (Phase 1) ---
+
+    /** Find node at (x,y), perform ACTION_LONG_CLICK */
+    data class LongClickNodeAt(val x: Int, val y: Int) : UIAction
+
+    /** Find node at (x,y), perform ACTION_SET_TEXT */
+    data class SetTextOnNodeAt(
+        val x: Int, val y: Int,
+        val text: String, val clear: Boolean = false
+    ) : UIAction
+
+    /** Find focused editable node, perform ACTION_SET_TEXT */
+    data class SetTextOnFocused(
+        val text: String, val clear: Boolean = false
+    ) : UIAction
+
+    /** Gesture long press (hold) at coordinates for duration */
+    data class LongPressAt(
+        val x: Int, val y: Int,
+        val durationMs: Long
+    ) : UIAction
     
     /**
      * Swipe from one point to another.

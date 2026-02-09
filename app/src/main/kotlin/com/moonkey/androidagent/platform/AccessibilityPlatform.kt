@@ -290,7 +290,11 @@ class AccessibilityPlatform(
             is UIAction.TapAt -> performTapAt(action.x, action.y)
             is UIAction.LongClick -> performLongClick(action, snapshot)
             is UIAction.LongClickAt -> performLongClickAt(action)
+            is UIAction.LongClickNodeAt -> performNodeLongClickAt(action.x, action.y)
+            is UIAction.LongPressAt -> performLongPressGesture(action.x.toFloat(), action.y.toFloat(), action.durationMs)
             is UIAction.Type -> performType(action, snapshot)
+            is UIAction.SetTextOnNodeAt -> performSetTextOnNodeAt(action.x, action.y, action.text, action.clear)
+            is UIAction.SetTextOnFocused -> performSetTextOnFocused(action.text, action.clear)
             is UIAction.Swipe -> performSwipe(action)
             is UIAction.SystemButton -> performSystemButton(action)
             is UIAction.Wait -> performWait(action)
@@ -634,7 +638,98 @@ class AccessibilityPlatform(
         } ?: ActionResult.Failure("Gesture timed out after ${GESTURE_TIMEOUT_MS}ms")
     }
     
-    // ===== Long Click Implementation =====
+    // ===== New Atomic Implementations =====
+
+    /** ACTION_LONG_CLICK on the long-clickable node at coordinates. */
+    @Suppress("DEPRECATION")
+    private suspend fun performNodeLongClickAt(x: Int, y: Int): ActionResult {
+        return withContext(Dispatchers.Main) {
+            val root = service.rootInActiveWindow
+                ?: return@withContext ActionResult.Failure("Cannot access active window for ACTION_LONG_CLICK")
+
+            val targetNode = AccessibilityNodeFinder.findLongClickableNodeAtLocation(root, x, y)
+                ?: return@withContext ActionResult.Failure("No long-clickable node found at ($x,$y)")
+
+            try {
+                visualizer?.showClick(x.toFloat(), y.toFloat(), longPress = true)
+                val success = targetNode.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
+                if (success) {
+                    ActionResult.Success("ACTION_LONG_CLICK succeeded at ($x,$y)")
+                } else {
+                    ActionResult.Failure("ACTION_LONG_CLICK returned false at ($x,$y)")
+                }
+            } finally {
+                targetNode.recycle()
+            }
+        }
+    }
+
+    /** ACTION_SET_TEXT on the text-input node found at coordinates. */
+    private suspend fun performSetTextOnNodeAt(x: Int, y: Int, text: String, clear: Boolean): ActionResult {
+        return withContext(Dispatchers.Main) {
+            val root = service.rootInActiveWindow
+                ?: return@withContext ActionResult.Failure("Cannot access active window for SET_TEXT")
+
+            val node = AccessibilityNodeFinder.findNodeAtLocation(root, x, y)
+                ?: return@withContext ActionResult.Failure("No text-input node found at ($x,$y)")
+
+            try {
+                setTextOnNode(node, text, clear)
+            } finally {
+                if (node !== root) node.recycle()
+            }
+        }
+    }
+
+    /** ACTION_SET_TEXT on the currently focused editable node. */
+    private suspend fun performSetTextOnFocused(text: String, clear: Boolean): ActionResult {
+        return withContext(Dispatchers.Main) {
+            val root = service.rootInActiveWindow
+                ?: return@withContext ActionResult.Failure("Cannot access active window for SET_TEXT")
+
+            val node = AccessibilityNodeFinder.findFocusedEditableNode(root)
+                ?: return@withContext ActionResult.Failure(
+                    "No focused editable element found. Specify element_index to focus a field first."
+                )
+
+            try {
+                setTextOnNode(node, text, clear)
+            } finally {
+                node.recycle()
+            }
+        }
+    }
+
+    /** Shared text-setting logic for both SetTextOnNodeAt and SetTextOnFocused. */
+    private fun setTextOnNode(node: AccessibilityNodeInfo, text: String, clear: Boolean): ActionResult {
+        if (clear) {
+            val clearArgs = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "")
+            }
+            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, clearArgs)
+        }
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        val result = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+        return if (result) {
+            ActionResult.Success("Text entered: $text")
+        } else {
+            ActionResult.Failure("ACTION_SET_TEXT failed")
+        }
+    }
+
+    /** Gesture-based long press at coordinates for a given duration. */
+    private suspend fun performLongPressGesture(x: Float, y: Float, durationMs: Long): ActionResult {
+        visualizer?.showClick(x, y, longPress = true)
+        val path = Path().apply { moveTo(x, y) }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs))
+            .build()
+        return dispatchGesture(gesture)
+    }
+
+    // ===== Legacy Long Click Implementation =====
     
     /**
      * Perform long press using gesture with extended duration.
