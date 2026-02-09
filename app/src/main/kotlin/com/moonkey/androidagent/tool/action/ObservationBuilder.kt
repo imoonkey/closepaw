@@ -9,13 +9,17 @@ import com.moonkey.androidagent.tool.ToolObservation
 
 private const val TAG = "ObservationBuilder"
 
-/** Build a ToolObservation from a post-action snapshot. */
+/** Build a ToolObservation from a post-action snapshot. Mode-aware for screenshot-only. */
 internal fun buildObservation(
     snapshot: ScreenSnapshot,
     platform: AndroidPlatform
 ): ToolObservation.ScreenState? {
     return try {
-        val tree = Perceptor.toPromptJson(snapshot)
+        val tree = if (snapshot.hasAccessibility) {
+            Perceptor.toPromptJson(snapshot)
+        } else {
+            "No accessibility data (screenshot-only mode)"
+        }
         ToolObservation.ScreenState(
             accessibilityTree = tree,
             elementCount = snapshot.elements.orEmpty().size,

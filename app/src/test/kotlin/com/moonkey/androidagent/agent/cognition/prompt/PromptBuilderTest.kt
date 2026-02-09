@@ -3,6 +3,9 @@ package com.moonkey.androidagent.agent.cognition.prompt
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
+import com.moonkey.androidagent.model.Bounds
+import com.moonkey.androidagent.model.PerceptionElement
+import com.moonkey.androidagent.model.Point
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.Todo
@@ -14,6 +17,28 @@ import org.junit.Test
 class PromptBuilderTest {
 
     private val emptySnapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList())
+
+    /** Snapshot with accessibility data for mode-aware tests. */
+    private val snapshotWithElements = ScreenSnapshot(
+        timestamp = 1L,
+        elements = listOf(
+            PerceptionElement(
+                index = 0,
+                text = "Button",
+                resourceId = "",
+                className = "TextView",
+                description = "",
+                isClickable = true,
+                isEditable = false,
+                isScrollable = false,
+                isEnabled = true,
+                isFocused = false,
+                isLongClickable = false,
+                bounds = Bounds(0, 0, 100, 50),
+                center = Point(50, 25)
+            )
+        )
+    )
 
     // ── Screen Compression ──────────────────────────────────────────────
 
@@ -91,7 +116,16 @@ class PromptBuilderTest {
     fun `compressScreenContent handles missing element count`() {
         val builder = createBuilder()
         val result = builder.compressScreenContent("some text without element count")
-        assertThat(result).isEqualTo("Screen: ? elements (compressed)")
+        assertThat(result).isEqualTo("Screen: unknown (compressed)")
+    }
+
+    @Test
+    fun `compressScreenContent handles screenshot-only format`() {
+        val builder = createBuilder()
+        val result = builder.compressScreenContent(
+            "No accessibility tree available for this screen.\nUse coordinate-based actions (x, y)"
+        )
+        assertThat(result).isEqualTo("Screen: screenshot only (compressed)")
     }
 
     // ── Memory Section ──────────────────────────────────────────────────
@@ -155,12 +189,21 @@ class PromptBuilderTest {
     // ── Observation Section ─────────────────────────────────────────────
 
     @Test
-    fun `buildObservationText includes screen state`() {
+    fun `buildObservationText includes screen state when accessibility available`() {
+        val builder = createBuilder()
+        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
+
+        assertThat(text).contains("Screen state (1 elements):")
+        assertThat(text).contains("```json")
+    }
+
+    @Test
+    fun `buildObservationText shows screenshot-only guidance when no accessibility`() {
         val builder = createBuilder()
         val text = builder.buildObservationText(emptySnapshot, null, emptyList())
 
-        assertThat(text).contains("Screen state (0 elements):")
-        assertThat(text).contains("```json")
+        assertThat(text).contains("No accessibility tree available for this screen.")
+        assertThat(text).contains("Use coordinate-based actions (x, y)")
     }
 
     @Test
@@ -170,7 +213,7 @@ class PromptBuilderTest {
             "⚠️ Screen unchanged for 3 turns.",
             "🛑 FINAL TURN (10). Complete now."
         )
-        val text = builder.buildObservationText(emptySnapshot, null, warnings)
+        val text = builder.buildObservationText(snapshotWithElements, null, warnings)
 
         val warningIdx = text.indexOf("⚠️ Screen unchanged")
         val screenIdx = text.indexOf("Screen state")
@@ -181,7 +224,7 @@ class PromptBuilderTest {
     @Test
     fun `buildObservationText has no warnings when list empty`() {
         val builder = createBuilder()
-        val text = builder.buildObservationText(emptySnapshot, null, emptyList())
+        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
 
         assertThat(text).doesNotContain("⚠️")
         assertThat(text).startsWith("Screen state")
@@ -190,7 +233,7 @@ class PromptBuilderTest {
     @Test
     fun `buildObservationText excludes screenshot hint for non-OpenAI`() {
         val builder = createBuilder(llmBackend = LLMBackendType.LOCAL)
-        val text = builder.buildObservationText(emptySnapshot, null, emptyList())
+        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
 
         assertThat(text).doesNotContain("Screenshot attached")
     }
@@ -198,7 +241,7 @@ class PromptBuilderTest {
     @Test
     fun `buildObservationText has no Available tools line`() {
         val builder = createBuilder()
-        val text = builder.buildObservationText(emptySnapshot, null, emptyList())
+        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
 
         assertThat(text).doesNotContain("Available tools:")
     }
@@ -206,7 +249,7 @@ class PromptBuilderTest {
     @Test
     fun `buildObservationText has no What action prompt`() {
         val builder = createBuilder()
-        val text = builder.buildObservationText(emptySnapshot, null, emptyList())
+        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
 
         assertThat(text).doesNotContain("What action should I take")
     }
@@ -215,7 +258,7 @@ class PromptBuilderTest {
     fun `buildObservationText has no system_reminder XML tags`() {
         val builder = createBuilder()
         val warnings = listOf("⚠️ Some warning")
-        val text = builder.buildObservationText(emptySnapshot, null, warnings)
+        val text = builder.buildObservationText(snapshotWithElements, null, warnings)
 
         assertThat(text).doesNotContain("<system_reminder>")
         assertThat(text).doesNotContain("</system_reminder>")

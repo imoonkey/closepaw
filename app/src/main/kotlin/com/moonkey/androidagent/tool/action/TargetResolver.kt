@@ -24,6 +24,8 @@ object TargetResolver {
         is Target.ElementIndex -> {
             if (snapshot == null) {
                 "Cannot resolve element_index ${target.index}: no snapshot available"
+            } else if (!snapshot.hasAccessibility) {
+                "Cannot use element_index in screenshot-only mode. Use coordinate (x, y) instead."
             } else {
                 val available = snapshot.elements.orEmpty().map { it.index }
                 val preview = available.take(20).joinToString(", ")
@@ -39,6 +41,8 @@ object TargetResolver {
         is Target.Text -> {
             if (snapshot == null) {
                 "Cannot resolve text \"${target.text}\": no snapshot available"
+            } else if (!snapshot.hasAccessibility) {
+                "Cannot use text targeting in screenshot-only mode. Use coordinate (x, y) instead."
             } else {
                 val count = matchCount(snapshot, target.text)
                 "Text \"${target.text}\" index ${target.textIndex} not found (matched $count elements)"

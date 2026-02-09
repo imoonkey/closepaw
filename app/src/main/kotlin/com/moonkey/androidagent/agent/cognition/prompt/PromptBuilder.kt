@@ -112,6 +112,7 @@ internal class PromptBuilder(
 
     /**
      * Produces the text body for the current-observation message.
+     * Mode-aware: accessibility-only, screenshot-only, or hybrid.
      * Package-visible for testing.
      */
     internal fun buildObservationText(
@@ -119,7 +120,6 @@ internal class PromptBuilder(
         image: ScreenImage?,
         warnings: List<String>
     ): String {
-        val screenJson = Perceptor.toPromptJson(snapshot)
         return buildString {
             // Warnings first — prime interpretation before JSON
             for (warning in warnings) {
@@ -127,15 +127,23 @@ internal class PromptBuilder(
             }
             if (warnings.isNotEmpty()) appendLine()
 
-            appendLine("Screen state (${snapshot.elements.orEmpty().size} elements):")
-            appendLine("```json")
-            appendLine(screenJson)
-            append("```")
+            // Accessibility section
+            if (snapshot.hasAccessibility) {
+                val screenJson = Perceptor.toPromptJson(snapshot)
+                appendLine("Screen state (${snapshot.elements!!.size} elements):")
+                appendLine("```json")
+                appendLine(screenJson)
+                append("```")
+            } else {
+                appendLine("No accessibility tree available for this screen.")
+                append("Use coordinate-based actions (x, y) or analyze the screenshot visually.")
+            }
 
+            // Screenshot section
             if (image != null && llmBackend == LLMBackendType.OPENAI) {
+                if (snapshot.hasAccessibility) appendLine()
                 appendLine()
-                appendLine()
-                append("Screenshot attached (compressed).")
+                append("Screenshot attached (analyze visually if needed).")
             }
         }.trim()
     }
@@ -171,12 +179,18 @@ internal class PromptBuilder(
 
     /**
      * Distill a full screen-state message to a compact summary.
+     * Handles both accessibility JSON format and screenshot-only format.
      * Package-visible for testing.
      */
     internal fun compressScreenContent(fullContent: String): String {
-        val count = ELEMENT_COUNT_REGEX.find(fullContent)
-            ?.groupValues?.get(1) ?: "?"
-        return "Screen: $count elements (compressed)"
+        val count = ELEMENT_COUNT_REGEX.find(fullContent)?.groupValues?.get(1)
+        return if (count != null) {
+            "Screen: $count elements (compressed)"
+        } else if (fullContent.contains("No accessibility tree")) {
+            "Screen: screenshot only (compressed)"
+        } else {
+            "Screen: unknown (compressed)"
+        }
     }
 
     // ── ResponseItem → ResponseInputItem ────────────────────────────────
