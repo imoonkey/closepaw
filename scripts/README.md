@@ -23,6 +23,12 @@ Execution mode:
     ./scripts/dev.sh run --pro              # Planner+executor mode
     AGENT_MODE=basic ./scripts/dev.sh run   # Same via env var
 
+Perception mode:
+    ./scripts/dev.sh run --accessibility-only
+    ./scripts/dev.sh run --screenshot-only
+    ./scripts/dev.sh run --hybrid
+    PERCEPTION_MODE=hybrid ./scripts/dev.sh run
+
 Debug issues:
     ./scripts/debug-run.sh "goal"           # With OpenAI
     ./scripts/debug-run.sh --local "goal"   # With local LLM
@@ -69,6 +75,12 @@ LLM_BACKEND=local ./scripts/dev.sh run     # Same via env var
 ./scripts/dev.sh run --pro                 # Planner+executor mode
 AGENT_MODE=basic ./scripts/dev.sh run      # Same via env var
 
+# Perception mode
+./scripts/dev.sh run --accessibility-only  # A11y only
+./scripts/dev.sh run --screenshot-only     # Screenshot only
+./scripts/dev.sh run --hybrid              # A11y + screenshot
+PERCEPTION_MODE=hybrid ./scripts/dev.sh run
+
 # Logs and status
 ./scripts/dev.sh logs                      # View all agent logs
 ./scripts/dev.sh logs orch                 # Orchestration logs only
@@ -80,10 +92,15 @@ Options:
 - `--local`, `-l`: Use local LLM backend instead of OpenAI
 - `--basic`: Force basic standalone execution mode
 - `--pro`: Force pro planner+executor mode
+- `--accessibility-only`, `--a11y-only`: Force accessibility-only perception
+- `--screenshot-only`: Force screenshot-only perception
+- `--hybrid`: Force hybrid perception
+- `--perception <mode>`: Set perception mode explicitly (`accessibility_only`, `screenshot_only`, `hybrid`)
 
 Environment variables:
 - `LLM_BACKEND`: `openai` (default) or `local`
 - `AGENT_MODE`: `pro` (default) or `basic`
+- `PERCEPTION_MODE`: `accessibility_only` (default), `screenshot_only`, or `hybrid`
 
 Log filter options:
 | filter | content |
@@ -124,12 +141,19 @@ Capture screenshots at each turn for debugging agent behavior.
 ./scripts/debug-run.sh --local "Open Chrome"      # With local LLM
 ./scripts/debug-run.sh --basic "Open Chrome"      # Standalone mode
 ./scripts/debug-run.sh --pro "Open Chrome"        # Planner+executor mode
+./scripts/debug-run.sh --accessibility-only "Open Chrome"  # A11y only
+./scripts/debug-run.sh --screenshot-only "Open Chrome"     # Screenshot only
+./scripts/debug-run.sh --hybrid "Open Chrome"              # A11y + screenshot
 ```
 
 Options:
 - `--local`, `-l`: Use local LLM backend instead of OpenAI
 - `--basic`: Force basic standalone execution mode
 - `--pro`: Force pro planner+executor mode
+- `--accessibility-only`, `--a11y-only`: Force accessibility-only perception
+- `--screenshot-only`: Force screenshot-only perception
+- `--hybrid`: Force hybrid perception
+- `--perception <mode>`: Set perception mode explicitly (`accessibility_only`, `screenshot_only`, `hybrid`)
 
 Output in `debug-output/`:
 - `turn_N.png` - Screenshot at each turn

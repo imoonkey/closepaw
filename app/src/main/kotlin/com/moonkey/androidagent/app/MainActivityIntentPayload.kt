@@ -8,10 +8,10 @@ data class MainActivityIntentPayload(
     val apiKey: String?,
     val backendType: LLMBackendType?,
     val agentMode: AgentMode?,
+    val perceptionMode: String?,
     val goalText: String?,
     val freshSession: Boolean,
     val autoStart: Boolean,
-    val screenshotInputEnabled: Boolean?,
     val debugMode: Boolean?,
     val traceEnabled: Boolean?,
     val traceRunId: String?
@@ -43,11 +43,10 @@ data class MainActivityIntentPayload(
                     }
                 }
 
-            val screenshotInputEnabled = if (intent.hasExtra(MainActivity.EXTRA_SCREENSHOT_INPUT)) {
-                intent.getBooleanExtra(MainActivity.EXTRA_SCREENSHOT_INPUT, false)
-            } else {
-                null
-            }
+            val perceptionMode = normalizePerceptionMode(
+                intent.getStringExtra(MainActivity.EXTRA_PERCEPTION_MODE)
+            )
+
             val debugMode = if (intent.hasExtra(MainActivity.EXTRA_DEBUG_MODE)) {
                 intent.getBooleanExtra(MainActivity.EXTRA_DEBUG_MODE, false)
             } else {
@@ -67,14 +66,23 @@ data class MainActivityIntentPayload(
                 apiKey = apiKey,
                 backendType = backendType,
                 agentMode = agentMode,
+                perceptionMode = perceptionMode,
                 goalText = goalText,
                 freshSession = intent.getBooleanExtra(MainActivity.EXTRA_FRESH_SESSION, false),
                 autoStart = intent.getBooleanExtra(MainActivity.EXTRA_AUTO_START, false),
-                screenshotInputEnabled = screenshotInputEnabled,
                 debugMode = debugMode,
                 traceEnabled = traceEnabled,
                 traceRunId = traceRunId
             )
+        }
+
+        private fun normalizePerceptionMode(raw: String?): String? {
+            return when (raw?.trim()?.lowercase()) {
+                "accessibility_only", "accessibility-only", "accessibility", "a11y_only", "a11y-only", "a11y" -> "accessibility_only"
+                "hybrid" -> "hybrid"
+                "screenshot_only", "screenshot-only", "screenshot" -> "screenshot_only"
+                else -> null
+            }
         }
     }
 }

@@ -37,11 +37,18 @@ Debug Android Agent using visual inspection + log analysis.
 # With Local LLM backend (on-device)
 ./scripts/debug-run.sh --local "Goal here"
 
-# Optional: send screenshots to the LLM (default: off)
-SCREENSHOT_INPUT=true ./scripts/debug-run.sh "Goal here"
+# Perception mode (pick one)
+./scripts/debug-run.sh --accessibility-only "Goal here"
+./scripts/debug-run.sh --screenshot-only "Goal here"
+./scripts/debug-run.sh --hybrid "Goal here"
 ```
 
 Creates `debug-output/` with `turn_N.png`, `turn_N_log.txt`, logs.
+
+Perception mode can also be set via env var:
+```bash
+PERCEPTION_MODE=hybrid ./scripts/debug-run.sh "Goal here"
+```
 
 **Local model debugging tips:**
 - First model run downloads ~800MB (lfm2-350m) or ~730MB (LFM2.5-1.2B Q4_K_M)

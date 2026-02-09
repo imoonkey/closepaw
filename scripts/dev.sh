@@ -9,13 +9,16 @@
 #   ./scripts/dev.sh run --local [goal]      # Run with local LLM backend
 #   ./scripts/dev.sh run --basic [goal]      # Run in Basic (standalone) execution mode
 #   ./scripts/dev.sh run --pro [goal]        # Run in Pro (planner+executor) execution mode
+#   ./scripts/dev.sh run --accessibility-only [goal]  # A11y tree only
+#   ./scripts/dev.sh run --screenshot-only [goal]     # Screenshot only
+#   ./scripts/dev.sh run --hybrid [goal]              # A11y + screenshot
 #   ./scripts/dev.sh logs [filter]           # View logs
 #   ./scripts/dev.sh status                  # Check device and service status
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
 #   AGENT_MODE: "pro" (default) or "basic" - selects execution mode
-#   SCREENSHOT_INPUT: "true"/"false" - whether to send screenshots to the LLM (default: false)
+#   PERCEPTION_MODE: "accessibility_only" (default), "screenshot_only", or "hybrid"
 #
 # Note: Run ./scripts/setup.sh first to build, install and configure permissions
 #
@@ -43,19 +46,30 @@ escape_shell_arg() {
     printf "%s" "$1" | sed "s/'/'\\\\''/g"
 }
 
-normalize_bool() {
-    case "$1" in
-        true|TRUE|True|1|yes|YES|Yes|y|Y) echo "true" ;;
-        false|FALSE|False|0|no|NO|No|n|N|"") echo "false" ;;
-        *) echo "false" ;;
-    esac
-}
-
 normalize_agent_mode() {
     case "$1" in
         basic|BASIC|Basic) echo "basic" ;;
         pro|PRO|Pro|"") echo "pro" ;;
         *) echo "pro" ;;
+    esac
+}
+
+normalize_perception_mode() {
+    local raw="${1:-}"
+    raw="${raw,,}"
+    case "$raw" in
+        accessibility_only|accessibility-only|accessibility|a11y_only|a11y-only|a11y|"")
+            echo "accessibility_only"
+            ;;
+        screenshot_only|screenshot-only|screenshot)
+            echo "screenshot_only"
+            ;;
+        hybrid)
+            echo "hybrid"
+            ;;
+        *)
+            echo "accessibility_only"
+            ;;
     esac
 }
 
@@ -112,6 +126,7 @@ cmd_run() {
     local goal=""
     local use_local=false
     local forced_agent_mode=""
+    local forced_perception_mode=""
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -127,6 +142,26 @@ cmd_run() {
             --pro)
                 forced_agent_mode="pro"
                 shift
+                ;;
+            --accessibility-only|--a11y-only)
+                forced_perception_mode="accessibility_only"
+                shift
+                ;;
+            --screenshot-only)
+                forced_perception_mode="screenshot_only"
+                shift
+                ;;
+            --hybrid)
+                forced_perception_mode="hybrid"
+                shift
+                ;;
+            --perception|-p)
+                if [[ $# -lt 2 ]]; then
+                    err "Missing value for --perception. Use accessibility_only|screenshot_only|hybrid"
+                    exit 1
+                fi
+                forced_perception_mode="$2"
+                shift 2
                 ;;
             *)
                 goal="$1"
@@ -154,16 +189,16 @@ cmd_run() {
     fi
     AGENT_MODE=$(normalize_agent_mode "$AGENT_MODE")
 
-    # Default screenshot input OFF unless explicitly set
-    if [[ -z "${SCREENSHOT_INPUT+x}" ]]; then
-        SCREENSHOT_INPUT=false
+    # Set perception mode from env or explicit flag
+    if [[ -n "$forced_perception_mode" ]]; then
+        PERCEPTION_MODE="$forced_perception_mode"
     fi
-
-    SCREENSHOT_INPUT=$(normalize_bool "$SCREENSHOT_INPUT")
+    PERCEPTION_MODE="${PERCEPTION_MODE:-accessibility_only}"
+    PERCEPTION_MODE=$(normalize_perception_mode "$PERCEPTION_MODE")
     
     check_api_key
     
-    log "Running agent with goal: $goal (backend: $LLM_BACKEND, mode: $AGENT_MODE)"
+    log "Running agent with goal: $goal (backend: $LLM_BACKEND, mode: $AGENT_MODE, perception: $PERCEPTION_MODE)"
     
     # Set up cleanup trap to stop agent when interrupted (Ctrl+C only)
     # Don't use EXIT - it fires on normal completion too
@@ -182,8 +217,10 @@ cmd_run() {
     safe_api_key=$(escape_shell_arg "${OPENAI_API_KEY:-}")
     local safe_agent_mode
     safe_agent_mode=$(escape_shell_arg "$AGENT_MODE")
+    local safe_perception_mode
+    safe_perception_mode=$(escape_shell_arg "$PERCEPTION_MODE")
 
-    local intent_extras="--es goal '$safe_goal' --es llm_backend '$safe_backend' --es agent_mode '$safe_agent_mode' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT"
+    local intent_extras="--es goal '$safe_goal' --es llm_backend '$safe_backend' --es agent_mode '$safe_agent_mode' --es perception_mode '$safe_perception_mode' --ez auto_start true --ez fresh_session true"
     if [[ "$LLM_BACKEND" == "openai" ]]; then
         intent_extras="--es api_key '$safe_api_key' $intent_extras"
     fi
@@ -352,20 +389,25 @@ show_help() {
     echo "Commands:"
     echo "  run [--local] [goal]   Run agent test (default: 'Open Settings')"
     echo "                         --local: Use local LLM backend instead of OpenAI"
+    echo "                         --basic/--pro: Force agent execution mode"
+    echo "                         --accessibility-only/--screenshot-only/--hybrid: Perception mode"
+    echo "                         --perception <mode>: Same as above"
     echo "  logs [filter]          View logs"
     echo "                         filter: default, orch, llm, session, action, all"
     echo "  status                 Check device and service status"
     echo ""
     echo "Environment Variables:"
     echo "  LLM_BACKEND            'openai' (default) or 'local'"
-    echo "  SCREENSHOT_INPUT       'true' to send screenshots to the LLM (default: false)"
+    echo "  AGENT_MODE             'pro' (default) or 'basic'"
+    echo "  PERCEPTION_MODE        'accessibility_only' (default), 'screenshot_only', or 'hybrid'"
     echo ""
     echo "Examples:"
     echo "  ./scripts/dev.sh run"
     echo "  ./scripts/dev.sh run 'Open Chrome'"
     echo "  ./scripts/dev.sh run --local 'Open Settings'    # Use local LLM"
     echo "  LLM_BACKEND=local ./scripts/dev.sh run          # Same as --local"
-    echo "  SCREENSHOT_INPUT=true ./scripts/dev.sh run      # Enable screenshot input"
+    echo "  ./scripts/dev.sh run --hybrid 'Open Chrome'     # A11y + screenshot"
+    echo "  PERCEPTION_MODE=screenshot_only ./scripts/dev.sh run"
     echo "  ./scripts/dev.sh logs orch"
     echo "  ./scripts/dev.sh status"
     echo ""

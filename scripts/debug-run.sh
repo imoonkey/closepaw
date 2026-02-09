@@ -7,11 +7,14 @@
 #   ./scripts/debug-run.sh --local "goal"      # Run with local LLM backend
 #   ./scripts/debug-run.sh --basic "goal"      # Run in Basic (standalone) execution mode
 #   ./scripts/debug-run.sh --pro "goal"        # Run in Pro (planner+executor) execution mode
+#   ./scripts/debug-run.sh --accessibility-only "goal"  # A11y tree only
+#   ./scripts/debug-run.sh --screenshot-only "goal"     # Screenshot only
+#   ./scripts/debug-run.sh --hybrid "goal"              # A11y + screenshot
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
 #   AGENT_MODE: "pro" (default) or "basic" - selects execution mode
-#   SCREENSHOT_INPUT: "true"/"false" - whether to send screenshots to the LLM (default: false)
+#   PERCEPTION_MODE: "accessibility_only" (default), "screenshot_only", or "hybrid"
 #
 
 set -e
@@ -25,6 +28,7 @@ DEBUG_DIR="$PROJECT_ROOT/debug-output/run_${RUN_ID}"
 # Parse arguments
 USE_LOCAL=false
 FORCED_AGENT_MODE=""
+FORCED_PERCEPTION_MODE=""
 GOAL=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -39,6 +43,26 @@ while [[ $# -gt 0 ]]; do
         --pro)
             FORCED_AGENT_MODE="pro"
             shift
+            ;;
+        --accessibility-only|--a11y-only)
+            FORCED_PERCEPTION_MODE="accessibility_only"
+            shift
+            ;;
+        --screenshot-only)
+            FORCED_PERCEPTION_MODE="screenshot_only"
+            shift
+            ;;
+        --hybrid)
+            FORCED_PERCEPTION_MODE="hybrid"
+            shift
+            ;;
+        --perception|-p)
+            if [[ $# -lt 2 ]]; then
+                echo "Missing value for --perception. Use accessibility_only|screenshot_only|hybrid"
+                exit 1
+            fi
+            FORCED_PERCEPTION_MODE="$2"
+            shift 2
             ;;
         *)
             GOAL="$1"
@@ -79,6 +103,25 @@ normalize_agent_mode() {
     esac
 }
 
+normalize_perception_mode() {
+    local raw="${1:-}"
+    raw=$(echo "$raw" | tr '[:upper:]' '[:lower:]')
+    case "$raw" in
+        accessibility_only|accessibility-only|accessibility|a11y_only|a11y-only|a11y|"")
+            echo "accessibility_only"
+            ;;
+        screenshot_only|screenshot-only|screenshot)
+            echo "screenshot_only"
+            ;;
+        hybrid)
+            echo "hybrid"
+            ;;
+        *)
+            echo "accessibility_only"
+            ;;
+    esac
+}
+
 # Create debug output directory
 mkdir -p "$DEBUG_DIR"
 log "Debug output: $DEBUG_DIR"
@@ -106,12 +149,12 @@ if [[ -z "${DEBUG_MODE+x}" ]]; then
     DEBUG_MODE=true
 fi
 
-# Default screenshot input OFF unless explicitly set
-if [[ -z "${SCREENSHOT_INPUT+x}" ]]; then
-    SCREENSHOT_INPUT=false
+# Determine perception mode
+if [[ -n "$FORCED_PERCEPTION_MODE" ]]; then
+    PERCEPTION_MODE="$FORCED_PERCEPTION_MODE"
 fi
-
-SCREENSHOT_INPUT=$(normalize_bool "$SCREENSHOT_INPUT")
+PERCEPTION_MODE="${PERCEPTION_MODE:-accessibility_only}"
+PERCEPTION_MODE=$(normalize_perception_mode "$PERCEPTION_MODE")
 DEBUG_MODE=$(normalize_bool "$DEBUG_MODE")
 
 # Check API key for OpenAI backend
@@ -121,6 +164,7 @@ fi
 
 log "Using LLM backend: $LLM_BACKEND"
 log "Using execution mode: $AGENT_MODE"
+log "Using perception mode: $PERCEPTION_MODE"
 
 # Ensure device connected
 if ! adb devices | grep -q "device$"; then
@@ -144,8 +188,9 @@ SAFE_BACKEND=$(escape_shell_arg "$LLM_BACKEND")
 SAFE_API_KEY=$(escape_shell_arg "${OPENAI_API_KEY:-}")
 SAFE_RUN_ID=$(escape_shell_arg "$RUN_ID")
 SAFE_AGENT_MODE=$(escape_shell_arg "$AGENT_MODE")
+SAFE_PERCEPTION_MODE=$(escape_shell_arg "$PERCEPTION_MODE")
 
-INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --es agent_mode '$SAFE_AGENT_MODE' --ez auto_start true --ez fresh_session true --ez screenshot_input $SCREENSHOT_INPUT --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
+INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --es agent_mode '$SAFE_AGENT_MODE' --es perception_mode '$SAFE_PERCEPTION_MODE' --ez auto_start true --ez fresh_session true --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
 if [[ "$LLM_BACKEND" == "openai" ]]; then
     INTENT_EXTRAS="--es api_key '$SAFE_API_KEY' $INTENT_EXTRAS"
 fi

@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_AUTO_START = "auto_start"
         const val EXTRA_FRESH_SESSION = "fresh_session"
         const val EXTRA_LLM_BACKEND = "llm_backend"  // "openai" or "local"
-        const val EXTRA_SCREENSHOT_INPUT = "screenshot_input"
+        const val EXTRA_PERCEPTION_MODE = "perception_mode"
         const val EXTRA_DEBUG_MODE = "debug_mode"
         const val EXTRA_TRACE_ENABLED = "trace_enabled"
         const val EXTRA_TRACE_RUN_ID = "trace_run_id"
@@ -221,9 +221,9 @@ class MainActivity : ComponentActivity() {
             Log.d(TAG, "Agent mode set from intent: $it")
         }
 
-        payload.screenshotInputEnabled?.let { enabled ->
-            settingsState.updatePerceptionMode(if (enabled) "hybrid" else "accessibility_only")
-            Log.d(TAG, "Perception mode set from intent (screenshot_input=$enabled): ${if (enabled) "hybrid" else "accessibility_only"}")
+        payload.perceptionMode?.let { mode ->
+            settingsState.updatePerceptionMode(mode)
+            Log.d(TAG, "Perception mode set from intent: $mode")
         }
 
         payload.debugMode?.let { enabled ->

@@ -1,6 +1,6 @@
 # Development Guide
 
-> Last updated: 2026-02-02 (commit: 4ea5d290215a7e9f2a54680fcd670d2533655cb0)
+> Last updated: 2026-02-09 (commit: 20b72144e48182d50229fada5ec9c491ffd074f0)
 
 This guide covers the development workflow for Android Agent - building, testing, and debugging.
 
@@ -79,7 +79,9 @@ Run the agent with a goal:
 ./scripts/dev.sh run --local "Open Settings"  # Use local LLM
 ./scripts/dev.sh run --basic "Open Chrome"    # Standalone execution mode
 ./scripts/dev.sh run --pro "Open Chrome"      # Planner+executor mode
-SCREENSHOT_INPUT=true ./scripts/dev.sh run "Open Chrome"  # Send screenshots to LLM
+./scripts/dev.sh run --accessibility-only "Open Chrome"  # A11y only
+./scripts/dev.sh run --screenshot-only "Open Chrome"     # Screenshot only
+./scripts/dev.sh run --hybrid "Open Chrome"              # A11y + screenshot
 ```
 
 ### 4. View Logs
@@ -102,6 +104,9 @@ For deeper investigation, use visual debugging to capture screenshots at each tu
 ./scripts/debug-run.sh --local "Open Chrome"      # With local LLM
 ./scripts/debug-run.sh --basic "Open Chrome"      # Standalone mode trace
 ./scripts/debug-run.sh --pro "Open Chrome"        # Planner+executor trace
+./scripts/debug-run.sh --accessibility-only "Open Chrome"  # A11y only
+./scripts/debug-run.sh --screenshot-only "Open Chrome"     # Screenshot only
+./scripts/debug-run.sh --hybrid "Open Chrome"              # A11y + screenshot
 ```
 
 Output in `debug-output/`:
@@ -163,14 +168,31 @@ echo 'AGENT_MODE=basic' >> .env
 | `pro` (default) | Planner main agent + delegated executor |
 | `basic` | Standalone main agent executes UI actions directly |
 
-### Screenshot Input (Optional)
+### Perception Mode
 
-By default, `./scripts/dev.sh` and `./scripts/debug-run.sh` do **not** send screenshots to the LLM (`screenshot_input=false`). To enable screenshot input for a run:
+Both `dev.sh run` and `debug-run.sh` support explicit perception mode switching:
 
 ```bash
-SCREENSHOT_INPUT=true ./scripts/dev.sh run "Open Settings"
-SCREENSHOT_INPUT=true ./scripts/debug-run.sh "Open Chrome"
+# one-off
+./scripts/dev.sh run --accessibility-only "Open Settings"
+./scripts/dev.sh run --screenshot-only "Open Settings"
+./scripts/dev.sh run --hybrid "Open Settings"
+./scripts/dev.sh run --perception screenshot_only "Open Settings"
+
+./scripts/debug-run.sh --accessibility-only "Open Settings"
+./scripts/debug-run.sh --screenshot-only "Open Settings"
+./scripts/debug-run.sh --hybrid "Open Settings"
+./scripts/debug-run.sh --perception screenshot_only "Open Settings"
+
+# persistent default
+echo 'PERCEPTION_MODE=hybrid' >> .env
 ```
+
+| Mode | Behavior |
+|------|----------|
+| `accessibility_only` (default) | Accessibility tree only |
+| `hybrid` | Accessibility tree + screenshot |
+| `screenshot_only` | Screenshot only |
 
 ### Device Status
 
