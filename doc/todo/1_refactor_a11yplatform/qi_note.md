@@ -1,0 +1,1 @@
+AccessibilityPlatform code是屎山，需要重构。

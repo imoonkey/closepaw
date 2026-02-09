@@ -1,140 +1,127 @@
 # Turn Prompt Anatomy
 
-> What each turn sends to the LLM: system prompt, input items, and tool schemas.
-> Last updated: 2026-02-08 (commit: 0d3864e3fa9d30dfa8db6b66b8ec89901e6f5ebd)
+> What each turn sends to the LLM: instructions, input items, and filtered tools.
+> Last updated: 2026-02-09 (commit: e2e2f8cde08b4b5fb225d1f09a616b6630db1695)
 
 ## Overview
 
-Each turn request is assembled from three parts:
+Each turn request is assembled by three runtime pieces:
 
-1. `instructions` (system prompt)
-2. `input` (history + current user context)
-3. `tools` (function schemas filtered by active agent definition)
+1. `AgentTurnRunner` chooses warnings and system prompt
+2. `PromptBuilder` constructs `input` items
+3. `Turn` sends `instructions/input/tools` to the selected model and parses response
 
 Primary wiring:
 - `agent/AgentTurnRunner.kt`
+- `agent/cognition/prompt/PromptBuilder.kt`
 - `agent/Turn.kt`
-- `agent/cognition/prompt/PromptUtils.kt`
 
 ---
 
 ## 1. System Prompt (Instructions)
 
-The system prompt defines the agent's role and behavioral guidelines. It comes from `AgentDef` selected by runtime mode:
+System prompt text is sourced from the active `AgentDef` and passed unchanged to `Turn`.
 
 - Main agent (`SessionAgentRunner`):
-  - `AgentMode.BASIC` → `StandaloneAgentDef.systemPrompt`
-  - `AgentMode.PRO` → `PlannerAgentDef.systemPrompt`
-- Sub-agent executor (`IsolatedSubAgentRunner`):
+  - `AgentMode.BASIC` -> `StandaloneAgentDef.systemPrompt`
+  - `AgentMode.PRO` -> `PlannerAgentDef.systemPrompt`
+- Sub-agent executor:
   - `ExecutorAgentDef.systemPrompt`
 
-### Standalone Agent System Prompt Structure
+`AgentTurnRunner` now enforces prompt presence with `requireNotNull(config.systemPrompt)`.
 
-From actual runs (standalone mode), the system prompt contains:
-
-```
-You are a standalone Android automation agent.
-
-## Your Job
-Complete the user's goal end-to-end by directly interacting with the Android UI.
-You are not a planner-only role and should execute grounded actions yourself.
-
-## Tool Calling
-- Use function calling tools only; do NOT emit raw JSON or <action> tags.
-- Execute ONE UI action per turn when possible, then observe.
-- Use `write_todos` for multi-step goals to keep progress explicit.
-- Use `scratchpad` to store extracted facts and avoid repeated extraction.
-- Scratchpad context shows keys only; use `scratchpad(action="read", key="...")` when value is needed.
-
-## Core Loop
-1. Observe current screen state (JSON element list)
-2. Pick the best next action
-3. Execute one tool action
-4. Verify progress and continue
-5. Complete the task promptly when done
-
-## Execution Quality
-- Be precise and evidence-driven from the current accessibility JSON.
-- Prefer semantic selectors (`element_index`, `text`) over coordinate taps.
-- Use coordinate taps only as a last resort, and never probe blank/unlabeled areas.
-- Avoid repeated identical actions when no state change occurs.
-- If an action fails, switch strategy instead of brute-force retries.
-- Use `system_button(button="enter")` only when a text field is focused after typing.
-- Keep answers concise and factual in complete_task.
-```
-
-→ See: `agent/definition/AgentDefRegistry.kt`
+-> See: `agent/definition/AgentDefRegistry.kt`, `agent/AgentTurnRunner.kt`
 
 ---
 
 ## 2. Input Items Composition
 
-`Turn.buildInputItems()` constructs request input in order:
+`PromptBuilder.buildInputItems(snapshot, image, warnings)` constructs the full `input` list in fixed order:
 
-1. **Goal message** (first turn only): `{"role": "user", "content": "Goal: ..."}`
-2. **Historical function calls**: `{"type": "function_call", "id": "...", "name": "...", "arguments_json": "..."}`
-3. **Historical function outputs**: `{"type": "function_call_output", "call_id": "...", "success": true, "content": "..."}`
-4. **Current turn user-context message**: Screen state + dynamic context
+1. **History section** (`HistoryManager.forPrompt()`, normalized)
+2. **Memory section** (optional single user message)
+3. **Current observation section** (screen JSON + optional screenshot)
 
-### User Context Message Structure
+### 2.1 History Section
 
-The current user-context message (built by `PromptUtils.buildUserMessage(...)`) contains:
+History items are converted from `ResponseItem` to Responses API `ResponseInputItem`:
 
+- `ResponseItem.Message` -> `easy_input_message`
+- `ResponseItem.FunctionCall` -> `function_call`
+- `ResponseItem.FunctionCallOutput` -> `function_call_output`
+
+Screen observations are tagged by `ResponseItem.Message(isScreenObservation = true)`.  
+To control growth, `PromptBuilder` keeps only recent full screen observations and compresses older ones to:
+
+`Screen: {N} elements (compressed)`
+
+Default retained full observations: `recentFullScreenTurns = 3`.
+
+### 2.2 Memory Section (Optional)
+
+When todos or scratchpad keys exist, a single user message is inserted:
+
+```text
+## Working Memory
+
+### Todo List
+1. [IN_PROGRESS] ...
+
+### Scratchpad
+- key_a
+- key_b
 ```
-Current screen state (N elements):
+
+- Omitted when both todo list and scratchpad are empty.
+- Scratchpad exposes keys only (not values).
+
+### 2.3 Observation Section
+
+Final user message always includes current screen JSON:
+
+```text
+⚠️ ...optional warning...
+🛑 ...optional final-turn warning...
+
+Screen state (N elements):
 ```json
-[
-  {
-    "index": 0,
-    "text": "...",
-    "class": "View",
-    "clickable": true,
-    "focused": false,
-    "long_clickable": false,
-    "bounds": [x1, y1, x2, y2],
-    "center": [cx, cy]
-  },
-  ...
-]
+...
+```
 ```
 
-Available tools: complete_task, mobile_action, open_app, scratchpad, system_button, wait, write_todos
+If screenshot input is available and backend is OpenAI, the message also attaches image content and appends:
 
-## Current Todos
-1. [IN_PROGRESS] First task...
-2. [PENDING] Second task...
+`Screenshot attached (compressed).`
 
-## Scratchpad
-- key1 (use scratchpad(action="read", key="key1") to retrieve value)
-- (empty) Store important facts with scratchpad(action="write", key="...", value="...")...
+### Warnings Included
 
-What action should I take next to achieve the goal?
+Warnings are prepared in `AgentTurnRunner.buildWarnings(...)`:
+- Loop warning from `LoopDetectionPolicy` (`⚠️` or `🚨`)
+- Final-turn warning when step policy enters `ForceStop` (`🛑 FINAL TURN (...)`)
 
-<system_reminder>
-Todo status: N actionable item(s). In progress: ... Next: ...
-</system_reminder>
-```
-
-### Dynamic Context Sections
-
-- **Current Todos**: Shows todo items when `write_todos` has been used, with status markers (`[IN_PROGRESS]`, `[PENDING]`, `[DONE]`)
-- **Scratchpad**: Shows stored keys (not values) when scratchpad has entries; hints how to read/write
-- **System Reminder**: XML-tagged block with todo status summary; added when todos exist
-
-If screenshot input is enabled, the final user item includes both text and image content.
-
-→ See: `agent/Turn.kt`, `agent/cognition/prompt/PromptUtils.kt`
+No XML `<system_reminder>` block and no "available tools" line are injected anymore.
 
 ---
 
-## 3. Tool Schema Set
+## 3. Screen Observation Recording
 
-Tools are generated from `ToolRegistry` and filtered by `allowedToolNames` from `AgentExecutionConfig`.
+After input items are built (so current turn does not duplicate itself), `AgentTurnRunner` records the current screen into history as:
 
-From actual runs, standalone agent uses:
-- `complete_task`, `mobile_action`, `open_app`, `scratchpad`, `system_button`, `wait`, `write_todos`
+- `role = "user"`
+- `isScreenObservation = true`
+- content format: `Screen state (N elements):` + fenced JSON block
 
-Mode-specific tool sets:
+This makes the next turn history-aware while still keeping the current prompt deterministic.
+
+-> See: `agent/AgentTurnRunner.kt`, `history/HistoryManager.kt`
+
+---
+
+## 4. Tool Schema Set
+
+`Turn` generates tool schemas from `ToolRegistry` and applies `allowedToolNames` filtering.
+
+Mode-level allowlists are still defined by session/agent wiring:
 
 | Mode | Available Tools |
 |------|-----------------|
@@ -142,23 +129,26 @@ Mode-specific tool sets:
 | Planner (`PRO` main) | `open_app`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task` |
 | Executor (delegated) | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task` |
 
-→ See: `session/SessionAgentRunner.kt`
+Tool calls returned by the model but outside the allowlist are dropped before completion checks.
+
+-> See: `agent/Turn.kt`, `session/SessionAgentRunner.kt`
 
 ---
 
-## 4. Request Skeleton
+## 5. Request Skeleton
 
-Conceptual shape of a turn request:
+Conceptual shape of one request:
 
 ```json
 {
   "model": "gpt-5.2",
   "instructions": "You are a standalone Android automation agent...",
   "input": [
-    {"role": "user", "content": "Goal: I want to buy..."},
-    {"type": "function_call", "id": "...", "name": "write_todos", "arguments_json": "{...}"},
-    {"type": "function_call_output", "call_id": "...", "success": true, "content": "Plan updated (3 items)."},
-    {"role": "user", "content": "Current screen state (16 elements):\n```json\n[...]```\n\nAvailable tools: ...\n\n## Current Todos\n..."}
+    {"role": "user", "content": "Goal: ..."},
+    {"type": "function_call", "id": "...", "name": "write_todos", "arguments": "{...}"},
+    {"type": "function_call_output", "call_id": "...", "output": "Success: ..."},
+    {"role": "user", "content": "## Working Memory\n..."},
+    {"role": "user", "content": "⚠️ ...\n\nScreen state (16 elements):\n```json\n...\n```"}
   ],
   "tools": [
     {"type": "function", "name": "mobile_action", "parameters": {...}},
@@ -169,45 +159,38 @@ Conceptual shape of a turn request:
 
 ---
 
-## 5. Turn Completion Semantics
+## 6. Turn Completion Semantics
 
-`Turn.processResponse(...)` marks a turn complete when either:
+`Turn.processResponse(...)` marks completion when either:
 
-- a `complete_task` tool call appears, or
-- the response has assistant text and no tool calls
+- a `complete_task` call exists, or
+- there are no tool calls and assistant text is present
 
-Tool calls not in the current allowlist are dropped before completion analysis.
+`AgentTurnRunner` then applies `TurnToolPolicy` arbitration for one-tool-per-turn execution and completion deferral rules.
 
 ---
 
-## 6. Trace Artifacts
+## 7. Trace Artifacts
 
-When trace is enabled, each LLM request/response writes artifacts to `trace/artifacts/`:
+When trace is enabled, request/response artifacts are written under `trace/artifacts/`:
 
 | Artifact Folder | Content |
 |-----------------|---------|
-| `llm_system_prompt/` | `{seq}_turn_{n}_system.txt` - System prompt text |
-| `llm_user_context/` | `{seq}_turn_{n}_user_context.txt` - User context message |
-| `llm_full_prompt/` | `{seq}_turn_{n}_full_prompt.txt` - Combined system + user prompt |
-| `llm_input_items/` | `{seq}_turn_{n}_llm_input_items.json` - Full input array as JSON |
-| `llm_history/` | `{seq}_turn_{n}_history.json` - Conversation history |
-| `llm_tool_calls/` | `{seq}_turn_{n}_tool_calls.json` - Tool calls from LLM response |
+| `llm_system_prompt/` | `{seq}_turn_{n}_system.txt` |
+| `llm_user_context/` | `{seq}_turn_{n}_user_context.txt` |
+| `llm_full_prompt/` | `{seq}_turn_{n}_full_prompt.txt` |
+| `llm_input_items/` | `{seq}_turn_{n}_llm_input_items.json` |
+| `llm_history/` | `{seq}_turn_{n}_history.json` |
+| `llm_tool_calls/` | `{seq}_turn_{n}_tool_calls.json` |
 
-Additional artifacts:
-- `raw_a11y_tree/` - Raw accessibility tree data
-- `sanitized_a11y_tree/` - Processed accessibility tree
-- `screenshot/` - Screen captures
-- `tool_call_args/` - Tool call arguments
-- `tool_result/` - Tool execution results
-- `tool_observation_text/` - Text observations after tool execution
-- `tool_observation_screen/` - Screen state after tool execution
+Additional artifacts include raw/sanitized a11y trees, screenshots, tool args/results, and post-action observation records.
 
-→ See: `trace/AgentTrace.kt`
+-> See: `trace/AgentTrace.kt`
 
 ---
 
 ## Related Docs
 
-- [Loop Execution](loop.md) - Turn orchestration and stop conditions
-- [Multi-Agent](multiagent.md) - Planner/executor delegation model
-- [Session](../infra/session.md) - Runtime mode selection and wiring
+- [Loop Execution](loop.md) - turn orchestration and stop conditions
+- [Planning State](planning.md) - memory/todo/scratchpad behavior
+- [Session](../infra/session.md) - runtime mode selection and wiring
