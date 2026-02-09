@@ -23,7 +23,7 @@ sealed class PerceptionConfig {
         val jpegQuality: Int = DEFAULT_JPEG_QUALITY
     ) : PerceptionConfig()
 
-    /** Whether this config captures accessibility data */
+    /** Whether this config exposes accessibility data to the LLM prompt */
     val capturesAccessibility: Boolean get() = this !is ScreenshotOnly
 
     /** Whether this config captures screenshots */

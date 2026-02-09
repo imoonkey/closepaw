@@ -41,18 +41,12 @@ data class Point(
  */
 data class ScreenSnapshot(
     val timestamp: Long,
-    val elements: List<PerceptionElement>?,  // Nullable: absent in screenshot-only mode
+    val elements: List<PerceptionElement>,   // Always present (may be empty)
     val image: ScreenImage? = null,
     val debug: ScreenSnapshotDebug? = null
 ) {
-    init {
-        require(elements != null || image != null) {
-            "ScreenSnapshot must have at least one perception modality"
-        }
-    }
-
-    /** True when accessibility tree data is available */
-    val hasAccessibility: Boolean get() = !elements.isNullOrEmpty()
+    /** True when accessibility elements were found */
+    val hasElements: Boolean get() = elements.isNotEmpty()
 
     /** True when a screenshot is available */
     val hasScreenshot: Boolean get() = image != null

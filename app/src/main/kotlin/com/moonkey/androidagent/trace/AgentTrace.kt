@@ -129,7 +129,7 @@ internal class AgentTrace(
             turnNumber = turnNumber,
             data =
                 buildJsonObject {
-                    put("elements", JsonPrimitive(snapshot.elements.orEmpty().size))
+                    put("elements", JsonPrimitive(snapshot.elements.size))
                     packageName?.let { put("package", JsonPrimitive(it)) }
                 },
             artifacts = artifacts

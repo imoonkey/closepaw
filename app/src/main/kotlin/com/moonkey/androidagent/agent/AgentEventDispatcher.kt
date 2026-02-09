@@ -86,7 +86,7 @@ class AgentEventDispatcher(
         eventEmitter(AgentEvent.ScreenCaptured(
             sessionId = sessionId,
             timestamp = now(),
-            elementCount = snapshot.elements.orEmpty().size,
+            elementCount = snapshot.elements.size,
             packageName = packageName,
             activityName = activityName,
             turnId = turnId,

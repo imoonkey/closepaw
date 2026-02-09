@@ -81,7 +81,7 @@ class UIActionInvocation(
             val tree = Perceptor.toPromptJson(snapshot)
             ToolObservation.ScreenState(
                 accessibilityTree = tree,
-                elementCount = snapshot.elements.orEmpty().size,
+                elementCount = snapshot.elements.size,
                 summary = snapshot.toSummary(context.platform.getCurrentPackageName()),
                 snapshot = snapshot
             )
@@ -99,12 +99,12 @@ class UIActionInvocation(
         val postSnapshot =
             (postObservation as? ToolObservation.ScreenState)?.snapshot ?: return null
 
-        val preTexts = preSnapshot.elements.orEmpty()
+        val preTexts = preSnapshot.elements
             .filter { it.text.isNotBlank() || it.description.isNotBlank() }
             .map { "${it.text}|${it.description}|${it.bounds}" }
             .sorted()
 
-        val postTexts = postSnapshot.elements.orEmpty()
+        val postTexts = postSnapshot.elements
             .filter { it.text.isNotBlank() || it.description.isNotBlank() }
             .map { "${it.text}|${it.description}|${it.bounds}" }
             .sorted()

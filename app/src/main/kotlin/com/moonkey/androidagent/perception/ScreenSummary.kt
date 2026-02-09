@@ -13,7 +13,7 @@ private const val MAX_LABEL_LENGTH = 40
 private const val MIN_LABEL_LENGTH = 3
 
 fun ScreenSnapshot.toSummary(packageName: String? = null): String {
-    val els = elements.orEmpty()
+    val els = elements
     val total = els.size
     val clickable = els.count { it.isClickable }
     val editable = els.count { it.isEditable }

@@ -128,9 +128,9 @@ internal class PromptBuilder(
             if (warnings.isNotEmpty()) appendLine()
 
             // Accessibility section
-            if (snapshot.hasAccessibility) {
+            if (snapshot.hasElements) {
                 val screenJson = Perceptor.toPromptJson(snapshot)
-                appendLine("Screen state (${snapshot.elements!!.size} elements):")
+                appendLine("Screen state (${snapshot.elements.size} elements):")
                 appendLine("```json")
                 appendLine(screenJson)
                 append("```")
@@ -141,7 +141,7 @@ internal class PromptBuilder(
 
             // Screenshot section
             if (image != null && llmBackend == LLMBackendType.OPENAI) {
-                if (snapshot.hasAccessibility) appendLine()
+                if (snapshot.hasElements) appendLine()
                 appendLine()
                 append("Screenshot attached (analyze visually if needed).")
             }

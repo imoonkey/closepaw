@@ -24,25 +24,21 @@ object TargetResolver {
         is Target.ElementIndex -> {
             if (snapshot == null) {
                 "Cannot resolve element_index ${target.index}: no snapshot available"
-            } else if (!snapshot.hasAccessibility) {
-                "Cannot use element_index in screenshot-only mode. Use coordinate (x, y) instead."
+            } else if (!snapshot.hasElements) {
+                "Cannot use element_index: no elements on screen. Use coordinate (x, y) instead."
             } else {
-                val available = snapshot.elements.orEmpty().map { it.index }
+                val available = snapshot.elements.map { it.index }
                 val preview = available.take(20).joinToString(", ")
                 val more = if (available.size > 20) " ... and ${available.size - 20} more" else ""
-                if (available.isNotEmpty()) {
-                    "Element not found: index ${target.index}. Available: $preview$more"
-                } else {
-                    "Element not found: index ${target.index}. No elements on screen."
-                }
+                "Element not found: index ${target.index}. Available: $preview$more"
             }
         }
 
         is Target.Text -> {
             if (snapshot == null) {
                 "Cannot resolve text \"${target.text}\": no snapshot available"
-            } else if (!snapshot.hasAccessibility) {
-                "Cannot use text targeting in screenshot-only mode. Use coordinate (x, y) instead."
+            } else if (!snapshot.hasElements) {
+                "Cannot use text targeting: no elements on screen. Use coordinate (x, y) instead."
             } else {
                 val count = matchCount(snapshot, target.text)
                 "Text \"${target.text}\" index ${target.textIndex} not found (matched $count elements)"
@@ -56,7 +52,7 @@ object TargetResolver {
 
     private fun resolveText(text: String, textIndex: Int, snapshot: ScreenSnapshot?): Point? {
         if (snapshot == null) return null
-        val matches = snapshot.elements.orEmpty().filter {
+        val matches = snapshot.elements.filter {
             it.text.equals(text, ignoreCase = true) ||
                 it.description.equals(text, ignoreCase = true)
         }
@@ -64,7 +60,7 @@ object TargetResolver {
     }
 
     private fun matchCount(snapshot: ScreenSnapshot, text: String): Int {
-        return snapshot.elements.orEmpty().count {
+        return snapshot.elements.count {
             it.text.equals(text, ignoreCase = true) ||
                 it.description.equals(text, ignoreCase = true)
         }

@@ -15,14 +15,14 @@ internal fun buildObservation(
     platform: AndroidPlatform
 ): ToolObservation.ScreenState? {
     return try {
-        val tree = if (snapshot.hasAccessibility) {
+        val tree = if (snapshot.hasElements) {
             Perceptor.toPromptJson(snapshot)
         } else {
             "No accessibility data (screenshot-only mode)"
         }
         ToolObservation.ScreenState(
             accessibilityTree = tree,
-            elementCount = snapshot.elements.orEmpty().size,
+            elementCount = snapshot.elements.size,
             summary = snapshot.toSummary(platform.getCurrentPackageName()),
             snapshot = snapshot
         )

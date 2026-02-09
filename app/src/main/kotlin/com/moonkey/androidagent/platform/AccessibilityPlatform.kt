@@ -65,15 +65,12 @@ class AccessibilityPlatform(
         val pc = config.perceptionConfig
         val timestamp = System.currentTimeMillis()
 
-        // 1. Accessibility capture (only when config requires it)
-        val a11yResult: A11yCaptureResult? =
-                if (pc.capturesAccessibility) {
-                    captureAccessibilityTree()
-                } else null
+        // 1. Always capture accessibility tree (for change detection, node finding, trace)
+        val a11yResult = captureAccessibilityTree()
 
         // 2. Screenshot capture (when config requires it OR trace is enabled for debugging)
         val shouldCaptureScreenshot = pc.capturesScreenshot || traceRecorder.enabled
-        val windowId = a11yResult?.windowId
+        val windowId = a11yResult.windowId
         val screenshotCapture =
                 captureScreenshotIfEnabled(windowId, enabled = shouldCaptureScreenshot)
 
@@ -84,18 +81,18 @@ class AccessibilityPlatform(
         val debug =
                 if (traceRecorder.enabled) {
                     ScreenSnapshotDebug(
-                            rawA11yTreePath = a11yResult?.rawTreeArtifactPath,
-                            sanitizedA11yTreePath = a11yResult?.sanitizedTreeArtifactPath,
+                            rawA11yTreePath = a11yResult.rawTreeArtifactPath,
+                            sanitizedA11yTreePath = a11yResult.sanitizedTreeArtifactPath,
                             screenshotPath = screenshotCapture?.tracePath
                     )
                 } else {
                     null
                 }
 
-        val elements = a11yResult?.elements
+        val elements = a11yResult.elements
         Log.d(
                 TAG,
-                "Captured screen [${pc::class.simpleName}]: ${elements.orEmpty().size} elements, screenshot=${image != null}"
+                "Captured screen [${pc::class.simpleName}]: ${elements.size} elements, screenshot=${image != null}"
         )
 
         return ScreenSnapshot(
@@ -143,7 +140,7 @@ class AccessibilityPlatform(
                 } else null
 
         return A11yCaptureResult(
-                elements = snapshot.elements.orEmpty(),
+                elements = snapshot.elements,
                 windowId = windowId,
                 rawTreeArtifactPath = rawTreeArtifactPath,
                 sanitizedTreeArtifactPath = sanitizedTreeArtifactPath
