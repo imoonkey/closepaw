@@ -1,3 +1,5 @@
 1. 我想实现的是一个类似MAI-UI里面的那个Agentic Mode, 用一个state of art的模型,像GPT或者Cloud来做Planner Agent, 然后用一个有Grounding Capability的Agent来做Executor Agent。 像UI-Ins这样的模型,或者是类似的小一点的specialized模型(AutoGLM-Phone, UI-Tars等等)。 
+    - 你可以看.reference/mobile_agent/MAI-UI里有没有好的reference code来上层用general LLM-底层用specialized grounding-LLM。
+    - 我不清楚是不是要把grounding-llm只做mobile-action类动作(i.e.,有targeting/grouding需求的)，像system_button都不需要。另一种设计思路，就是可以让他executor多跑几步，granularity更高一点。你来评估一下哪种设计更好。这个也不是binary的，任务的复杂度是个连续值。
 2. 这个主要解决的是high-level thinking跟low-level manipulation之间的区别,用分别的模型来处理不同层次的任务。
     - 当然,如果我们要在这个agent里面想处理long horizon task,可以在上面这一层,就是用GPT Cloud Gemini这种通用VLM的模型里面做更dynamic的multi-agent,这种就像general的coding agent或者像Cloud Code最新出的Agent Team之类的这种模式来执行。但是这是另一个层面的问题,跟我们现在讨论的planner executor multi-agent的framework不是在解决同一个问题。

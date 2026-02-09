@@ -1,0 +1,2 @@
+1. LLMClient该是哪个层次的config？是不是可以作为agent runtime的一部分？就是agent config会指定model name之类的，然后runtime的时候会initialize对应的client。不需要centralized registry和管理？这样合理吗？
+2. LLMClient内部API层面，有一些开源模型的serving平台，提供openai api，但是我不确定他们是只支持旧的ChatCompletion API，还是也支持新的Response API (我现在的OpenAI Client实现)。这个可能要再开始design前测一测，再决定下面怎么走。
