@@ -12,7 +12,7 @@ data class AppSettings(
     val selectedModel: String,
     val maxTurns: Int,
     val debugMode: Boolean,
-    val enableScreenshotInput: Boolean,
+    val perceptionMode: String,
     val agentMode: AgentMode,
     val llmBackend: LLMBackendType,
     val localModelId: String,
@@ -29,7 +29,8 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_MODEL = "model"
         private const val KEY_MAX_TURNS = "max_turns"
         private const val KEY_DEBUG_MODE = "debug_mode"
-        private const val KEY_SCREENSHOT_INPUT = "screenshot_input"
+        private const val KEY_SCREENSHOT_INPUT = "screenshot_input"  // kept for migration
+        private const val KEY_PERCEPTION_MODE = "perception_mode"
         private const val KEY_AGENT_MODE = "agent_mode"
         private const val KEY_LLM_BACKEND = "llm_backend"
         private const val KEY_LOCAL_MODEL_ID = "local_model_id"
@@ -40,7 +41,7 @@ class AppSettingsStore(private val context: Context) {
         // UI default intentionally differs from SessionConfig's default (50).
         const val DEFAULT_MAX_TURNS = 20
         const val DEFAULT_DEBUG_MODE = false
-        const val DEFAULT_SCREENSHOT_INPUT = false
+        const val DEFAULT_PERCEPTION_MODE = "accessibility_only"
         val DEFAULT_AGENT_MODE = AgentMode.PRO
         val DEFAULT_LLM_BACKEND = LLMBackendType.OPENAI
         const val DEFAULT_LOCAL_MODEL_ID = "LFM2.5-1.2B-Instruct"
@@ -62,7 +63,9 @@ class AppSettingsStore(private val context: Context) {
         }
         val maxTurns = prefs.getInt(KEY_MAX_TURNS, DEFAULT_MAX_TURNS)
         val debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
-        val enableScreenshotInput = prefs.getBoolean(KEY_SCREENSHOT_INPUT, DEFAULT_SCREENSHOT_INPUT)
+        // Migration: read old boolean, convert to new string
+        val perceptionMode = prefs.getString(KEY_PERCEPTION_MODE, null)
+            ?: if (prefs.getBoolean(KEY_SCREENSHOT_INPUT, false)) "hybrid" else DEFAULT_PERCEPTION_MODE
         val agentModeName = prefs.getString(KEY_AGENT_MODE, DEFAULT_AGENT_MODE.name)
             ?: DEFAULT_AGENT_MODE.name
         val agentMode = try {
@@ -88,7 +91,7 @@ class AppSettingsStore(private val context: Context) {
             selectedModel = selectedModel,
             maxTurns = maxTurns,
             debugMode = debugMode,
-            enableScreenshotInput = enableScreenshotInput,
+            perceptionMode = perceptionMode,
             agentMode = agentMode,
             llmBackend = llmBackend,
             localModelId = localModelId,
@@ -113,8 +116,8 @@ class AppSettingsStore(private val context: Context) {
         prefs().edit().putBoolean(KEY_DEBUG_MODE, value).apply()
     }
 
-    fun saveScreenshotInputEnabled(value: Boolean) {
-        prefs().edit().putBoolean(KEY_SCREENSHOT_INPUT, value).apply()
+    fun savePerceptionMode(value: String) {
+        prefs().edit().putString(KEY_PERCEPTION_MODE, value).apply()
     }
 
     fun saveAgentMode(value: AgentMode) {

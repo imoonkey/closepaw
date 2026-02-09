@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -84,8 +85,8 @@ fun SettingsSheet(
     onMaxTurnsChange: (Int) -> Unit,
     agentMode: AgentMode,
     onAgentModeChange: (AgentMode) -> Unit,
-    screenshotInputEnabled: Boolean,
-    onScreenshotInputChange: (Boolean) -> Unit,
+    perceptionMode: String,
+    onPerceptionModeChange: (String) -> Unit,
     debugMode: Boolean,
     onDebugModeChange: (Boolean) -> Unit,
     isAccessibilityEnabled: Boolean,
@@ -170,43 +171,10 @@ fun SettingsSheet(
             Spacer(modifier = Modifier.height(20.dp))
 
             SettingsSection(title = "Perception") {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Image,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Screenshot Input",
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                            Text(
-                                text = "Send compressed screenshots to the model",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = screenshotInputEnabled,
-                            onCheckedChange = onScreenshotInputChange,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                            )
-                        )
-                    }
-                }
+                PerceptionModeSelector(
+                    selectedMode = perceptionMode,
+                    onModeChange = onPerceptionModeChange
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -363,6 +331,84 @@ fun SettingsSheet(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun PerceptionModeSelector(
+    selectedMode: String,
+    onModeChange: (String) -> Unit
+) {
+    val modes = listOf(
+        "accessibility_only" to "Accessibility Only",
+        "hybrid" to "Hybrid (A11y + Screenshot)",
+        "screenshot_only" to "Screenshot Only"
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Image,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Perception Mode",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = "How the agent perceives the screen",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                modes.forEach { (value, label) ->
+                    val isSelected = selectedMode == value
+                    Surface(
+                        onClick = { onModeChange(value) },
+                        modifier = Modifier.weight(1f),
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        tonalElevation = if (isSelected) 2.dp else 0.dp
+                    ) {
+                        Text(
+                            text = label,
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isSelected) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
         }
     }
 }

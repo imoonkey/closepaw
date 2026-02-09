@@ -27,7 +27,7 @@ class AppSettingsState(
         private set
     var debugMode by mutableStateOf(AppSettingsStore.DEFAULT_DEBUG_MODE)
         private set
-    var enableScreenshotInput by mutableStateOf(AppSettingsStore.DEFAULT_SCREENSHOT_INPUT)
+    var perceptionMode by mutableStateOf(AppSettingsStore.DEFAULT_PERCEPTION_MODE)
         private set
     var agentMode by mutableStateOf(AppSettingsStore.DEFAULT_AGENT_MODE)
         private set
@@ -48,7 +48,7 @@ class AppSettingsState(
         selectedModel = settings.selectedModel
         maxTurns = settings.maxTurns
         debugMode = settings.debugMode
-        enableScreenshotInput = settings.enableScreenshotInput
+        perceptionMode = settings.perceptionMode
         agentMode = settings.agentMode
         llmBackend = settings.llmBackend
         selectedLocalModelId = settings.localModelId
@@ -57,7 +57,7 @@ class AppSettingsState(
 
         Log.d(
             TAG,
-            "Settings loaded: backend=$llmBackend, model=$selectedModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, screenshotInput=$enableScreenshotInput, agentMode=$agentMode"
+            "Settings loaded: backend=$llmBackend, model=$selectedModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, agentMode=$agentMode"
         )
     }
 
@@ -95,9 +95,9 @@ class AppSettingsState(
         store.saveDebugMode(value)
     }
 
-    fun updateScreenshotInputEnabled(value: Boolean) {
-        enableScreenshotInput = value
-        store.saveScreenshotInputEnabled(value)
+    fun updatePerceptionMode(value: String) {
+        perceptionMode = value
+        store.savePerceptionMode(value)
     }
 
     fun updateAgentMode(value: AgentMode) {

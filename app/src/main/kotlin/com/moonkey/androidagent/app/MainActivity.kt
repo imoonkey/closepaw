@@ -173,8 +173,8 @@ class MainActivity : ComponentActivity() {
                             onMaxTurnsChange = settingsState::updateMaxTurns,
                             agentMode = settingsState.agentMode,
                             onAgentModeChange = settingsState::updateAgentMode,
-                            screenshotInputEnabled = settingsState.enableScreenshotInput,
-                            onScreenshotInputChange = settingsState::updateScreenshotInputEnabled,
+                            perceptionMode = settingsState.perceptionMode,
+                            onPerceptionModeChange = settingsState::updatePerceptionMode,
                             debugMode = settingsState.debugMode,
                             onDebugModeChange = settingsState::updateDebugMode,
                             isAccessibilityEnabled = AgentService.instance != null,
@@ -222,8 +222,8 @@ class MainActivity : ComponentActivity() {
         }
 
         payload.screenshotInputEnabled?.let { enabled ->
-            settingsState.updateScreenshotInputEnabled(enabled)
-            Log.d(TAG, "Screenshot input set from intent: $enabled")
+            settingsState.updatePerceptionMode(if (enabled) "hybrid" else "accessibility_only")
+            Log.d(TAG, "Perception mode set from intent (screenshot_input=$enabled): ${if (enabled) "hybrid" else "accessibility_only"}")
         }
 
         payload.debugMode?.let { enabled ->
@@ -352,12 +352,10 @@ class MainActivity : ComponentActivity() {
                             llmBackend = settingsState.llmBackend,
                             localLLMConfig = localConfig,
                             agentMode = settingsState.agentMode,
-                            perceptionConfig = if (settingsState.enableScreenshotInput &&
-                                settingsState.llmBackend == LLMBackendType.OPENAI
-                            ) {
-                                PerceptionConfig.Hybrid()
-                            } else {
-                                PerceptionConfig.DEFAULT
+                            perceptionConfig = when (settingsState.perceptionMode) {
+                                "screenshot_only" -> PerceptionConfig.ScreenshotOnly()
+                                "hybrid" -> PerceptionConfig.Hybrid()
+                                else -> PerceptionConfig.AccessibilityOnly
                             }
                         ),
                         service = service,
