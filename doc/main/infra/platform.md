@@ -1,7 +1,7 @@
 # Platform Abstraction
 
 > AndroidPlatform, Perceptor, and screen perception.
-> Last updated: 2026-02-08 (commit: a475ef9aacefa7da5ac84bfb0a09a48ce29776d9)
+> Last updated: 2026-02-09 (commit: 5fbeec1)
 
 ## AndroidPlatform
 
@@ -186,23 +186,54 @@ Notes:
 
 ---
 
-## Screenshot Support
+## PerceptionConfig
 
-When enabled, `AccessibilityPlatform` can attach a compressed screenshot to `ScreenSnapshot.image`:
+→ See: `perception/PerceptionConfig.kt`
+
+Controls which perception modalities the agent captures each turn. Replaces the boolean `enableScreenshotInput` in `SessionConfig`.
+
+| Variant | Description |
+|---------|--------------|
+| `AccessibilityOnly` | A11y tree only. Current production default. |
+| `ScreenshotOnly(maxDimension, jpegQuality)` | Screenshot only. For apps with poor a11y support. |
+| `Hybrid(maxDimension, jpegQuality)` | Both modalities. Richest perception, highest token cost. |
+
+Properties: `capturesAccessibility`, `capturesScreenshot`, `screenshotMaxDimension`, `screenshotJpegQuality` (with defaults when not capturing screenshots).
+
+---
+
+## ScreenSnapshot
+
+→ See: `model/Models.kt`
+
+`elements` is now nullable (`List<PerceptionElement>?`). At least one modality must be present:
 
 ```kotlin
 data class ScreenSnapshot(
-    val packageName: String,
-    val activityName: String?,
-    val elements: List<PerceptionElement>,
-    val image: ByteArray? = null
-)
+    val timestamp: Long,
+    val elements: List<PerceptionElement>?,  // null in screenshot-only mode
+    val image: ScreenImage? = null,
+    val debug: ScreenSnapshotDebug? = null
+) {
+    init { require(elements != null || image != null) { "..." } }
+    val hasAccessibility: Boolean get() = !elements.isNullOrEmpty()
+    val hasScreenshot: Boolean get() = image != null
+}
 ```
 
-Configuration:
-- `enableScreenshotInput` - Enable/disable
-- `screenshotMaxDimension` - Long edge max (default: 1024)
-- `screenshotJpegQuality` - 0-100 (default: 70)
+---
+
+## Conditional Capture
+
+`AccessibilityPlatform.captureScreen()` conditionally captures based on `PerceptionConfig`:
+
+| Config | A11y tree | Screenshot |
+|--------|-----------|------------|
+| `AccessibilityOnly` | Yes | No |
+| `ScreenshotOnly` | No | Yes |
+| `Hybrid` | Yes | Yes |
+
+Trace recording may capture screenshots for debugging even when `capturesScreenshot` is false.
 
 ---
 
@@ -217,6 +248,7 @@ platform/
 └── ActionResult.kt            # Result types
 
 perception/
+├── PerceptionConfig.kt        # Capture mode (AccessibilityOnly, ScreenshotOnly, Hybrid)
 ├── Perceptor.kt               # A11y tree → ScreenSnapshot
 └── ScreenSummary.kt           # Text summary for history
 ```

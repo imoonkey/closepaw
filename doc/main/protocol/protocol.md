@@ -1,7 +1,7 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
+> Last updated: 2026-02-09 (commit: 5fbeec1)
 
 ## Overview
 
@@ -208,9 +208,7 @@ data class SessionConfig(
     val debugMode: Boolean = false,
     val traceEnabled: Boolean = false,
     val traceRunId: String? = null,
-    val enableScreenshotInput: Boolean = false,
-    val screenshotMaxDimension: Int = 1024,
-    val screenshotJpegQuality: Int = 70
+    val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT
 )
 ```
 
@@ -225,9 +223,7 @@ data class SessionConfig(
 | `localLLMConfig` | Local model backend config |
 | `traceEnabled` | Persist full trace events/artifacts |
 | `traceRunId` | Explicit trace folder/run id |
-| `enableScreenshotInput` | Attach screenshots to prompts |
-| `screenshotMaxDimension` | Screenshot long-edge cap |
-| `screenshotJpegQuality` | JPEG compression quality |
+| `perceptionConfig` | Perception mode: `AccessibilityOnly`, `ScreenshotOnly`, or `Hybrid` — see [platform.md](../infra/platform.md) |
 
 ### AgentMode
 

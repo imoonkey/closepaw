@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-02-05 (commit: af73f8a3ac945a077707b2774adc8f6ac8221c5e)
+> Last updated: 2026-02-09 (commit: 5fbeec1)
 
 ## Overview
 
@@ -32,9 +32,9 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `enableScreenshotInput` | `Boolean` | `false` | Attach screenshots to perception |
-| `screenshotMaxDimension` | `Int` | `1024` | Max long edge dimension |
-| `screenshotJpegQuality` | `Int` | `70` | JPEG quality (0-100) |
+| `perceptionMode` | `String` | `"accessibility_only"` | One of: `accessibility_only`, `screenshot_only`, `hybrid` |
+
+→ See: [infra/platform.md](../infra/platform.md) for `PerceptionConfig` variants and capture behavior.
 
 ---
 
@@ -46,21 +46,12 @@ Settings are compiled into `SessionConfig` when creating a session:
 
 ```kotlin
 data class SessionConfig(
-    val maxTurns: Int = 50,
-    val actionDelayMs: Long = 2000,
-    val approvalMode: ApprovalMode = ApprovalMode.SMART,
-    val model: String = "gpt-5.2",
-    val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
-    val agentMode: AgentMode = AgentMode.PRO,
-    val localLLMConfig: LocalLLMConfig? = null,
-    val debugMode: Boolean = false,
-    val enableScreenshotInput: Boolean = false,
-    val screenshotMaxDimension: Int = 1024,
-    val screenshotJpegQuality: Int = 70
+    // ...
+    val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT
 )
 ```
 
-`SessionConfig.maxTurns` has a protocol default of `50`, while UI settings currently initialize the user-facing value to `20`.
+`SessionConfig.maxTurns` has a protocol default of `50`, while UI settings currently initialize the user-facing value to `20`. `perceptionConfig` is built from `perceptionMode` when creating a session (`accessibility_only` → `AccessibilityOnly`, etc.).
 
 ---
 
@@ -87,7 +78,8 @@ The settings sheet is a modal bottom sheet with:
 - backend/model selectors
 - execution mode selector (`AgentModeDropdown`)
 - max-turn selector
-- screenshot input and debug toggles
+- perception mode selector (`PerceptionModeSelector`): Accessibility Only, Screenshot Only, Hybrid (A11y + Screenshot)
+- debug toggle
 - permission status indicators (Accessibility, Overlay)
 
 ### Settings Files
@@ -111,7 +103,7 @@ Key examples:
 - `llm_backend`
 - `max_turns`
 - `debug_mode`
-- `screenshot_input`
+- `perception_mode` (values: `accessibility_only`, `screenshot_only`, `hybrid`; migrated from legacy `screenshot_input` boolean)
 
 ### Security
 
