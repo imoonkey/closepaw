@@ -2,13 +2,13 @@ package com.moonkey.androidagent.agent
 
 import android.util.Log
 import com.moonkey.androidagent.agent.cognition.context.LoopWarning
+import com.moonkey.androidagent.agent.cognition.context.LoopWarningSeverity
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
 import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionPolicy
 import com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
-import com.moonkey.androidagent.agent.cognition.prompt.PromptContext
-import com.moonkey.androidagent.agent.cognition.prompt.PromptUtils
+import com.moonkey.androidagent.agent.cognition.prompt.PromptBuilder
 import com.moonkey.androidagent.trace.AgentTrace
 import com.moonkey.androidagent.trace.ArbitrationDecision
 import com.moonkey.androidagent.trace.DropReason
@@ -84,8 +84,7 @@ internal class AgentTurnRunner(
                                                         turnId = turnId,
                                                         turnNumber = turnNumber,
                                                         snapshot = snapshot,
-                                                        loopWarning = preparedTurn.loopWarning,
-                                                        stepReminder = preparedTurn.stepReminder
+                                                        warnings = preparedTurn.warnings
                                                 )
 
                                         val actionForNextTurn =
@@ -121,7 +120,7 @@ internal class AgentTurnRunner(
         private data class PreparedTurn(
                 val nextState: TurnRunnerState,
                 val loopWarning: LoopWarning?,
-                val stepReminder: String?
+                val warnings: List<String>
         )
 
         private data class PlanningPhaseResult(
@@ -196,15 +195,12 @@ internal class AgentTurnRunner(
                                 delegatedQuery = config.goal,
                                 history = services.historyManager.getAll()
                         )
-                val stepReminder = buildStepReminder(turnNumber, stepDecision)
-                if (stepReminder != null) {
-                        eventDispatcher.status("⚠️ Turn budget warning: approaching limit")
-                }
+                val warnings = buildWarnings(loopWarning, stepDecision)
 
                 return PreparedTurn(
                         nextState = nextState,
                         loopWarning = loopWarning,
-                        stepReminder = stepReminder
+                        warnings = warnings
                 )
         }
 
@@ -212,33 +208,40 @@ internal class AgentTurnRunner(
                 turnId: String,
                 turnNumber: Int,
                 snapshot: ScreenSnapshot,
-                loopWarning: LoopWarning?,
-                stepReminder: String?
+                warnings: List<String>
         ): PlanningPhaseResult {
                 eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PLANNING)
                 eventDispatcher.status("🧠 Thinking...")
 
                 val turn =
                         Turn(
-                                historyManager = services.historyManager,
                                 toolRegistry = services.toolRegistry,
                                 llmClient = services.llmClient,
                                 allowedToolNames = config.allowedToolNames
                         )
-                val systemPrompt =
-                        PromptUtils.buildSystemPrompt(
-                                basePrompt = config.systemPrompt
-                        )
-                val promptContext = buildPromptContext(snapshot, loopWarning, stepReminder)
-                val userMessage = PromptUtils.buildUserMessage(promptContext)
-                val inputItems = turn.buildInputItems(userMessage)
+                val systemPrompt = requireNotNull(config.systemPrompt) {
+                        "System prompt must be provided by AgentDef."
+                }
+                val promptBuilder = PromptBuilder(
+                        historyManager = services.historyManager,
+                        sessionState = services.sessionState,
+                        llmBackend = services.config.llmBackend
+                )
+                val inputItems = promptBuilder.buildInputItems(
+                        snapshot = snapshot,
+                        image = snapshot.image,
+                        warnings = warnings
+                )
+
+                // Record screen observation for future turns (after prompt built)
+                recordScreenObservation(snapshot)
 
                 trace.llmRequest(
                         turnId = turnId,
                         turnNumber = turnNumber,
                         snapshot = snapshot,
                         systemPrompt = systemPrompt,
-                        userContextText = userMessage.text,
+                        userContextText = "(built by PromptBuilder)",
                         history = services.historyManager.forPrompt(),
                         inputItems = inputItems
                 )
@@ -247,9 +250,8 @@ internal class AgentTurnRunner(
                 var streamError: Throwable? = null
                 turn.runStreaming(
                                 systemPrompt = systemPrompt,
-                                userMessage = userMessage,
-                                modelName = services.config.model,
-                                inputItemsOverride = inputItems
+                                inputItems = inputItems,
+                                modelName = services.config.model
                         )
                         .collect { event ->
                                 when (event) {
@@ -302,33 +304,45 @@ internal class AgentTurnRunner(
                 return PlanningPhaseResult(turnResult = result, arbitration = arbitration)
         }
 
-        private fun buildPromptContext(
-                snapshot: ScreenSnapshot,
+        /**
+         * Build plain-text warning strings for the current observation.
+         *
+         * Per review: only loop warnings and final-turn warning.
+         * Turn budget approaching warnings are intentionally omitted (less noise).
+         */
+        private fun buildWarnings(
                 loopWarning: LoopWarning?,
-                stepReminder: String?
-        ): PromptContext {
-                return PromptContext(
-                        snapshot = snapshot,
-                        visibleToolNames =
-                                config.allowedToolNames ?: services.toolRegistry.getNames(),
-                        llmBackend = services.config.llmBackend,
-                        loopWarning = loopWarning,
-                        systemReminders = listOfNotNull(stepReminder),
-                        todos = services.sessionState.todos.get(),
-                        additionalContextBlocks = buildAdditionalContextBlocks()
-                )
+                stepDecision: ExecutorStepDecision
+        ): List<String> = buildList {
+                loopWarning?.let {
+                        val emoji = if (it.severity == LoopWarningSeverity.CRITICAL) "🚨" else "⚠️"
+                        add("$emoji ${it.message}")
+                }
+                if (stepDecision is ExecutorStepDecision.ForceStop) {
+                        add("🛑 FINAL TURN (${config.maxTurns}). Complete now or report progress.")
+                }
         }
 
-        private fun buildAdditionalContextBlocks(): List<String> {
-                return buildList {
-                        val todoContext = services.sessionState.todos.toPromptContext()
-                        if (todoContext.isNotEmpty()) {
-                                add("## Current Todos\n$todoContext")
-                        }
-
-                        val scratchpadContext = services.sessionState.scratchpad.toPromptContext()
-                        add("## Scratchpad\n$scratchpadContext")
+        /**
+         * Record the current screen observation into history so future turns
+         * can see what this turn saw. Called after prompt is built but before
+         * the LLM call, so the prompt doesn't duplicate the current screen.
+         */
+        private fun recordScreenObservation(snapshot: ScreenSnapshot) {
+                val screenJson = Perceptor.toPromptJson(snapshot)
+                val text = buildString {
+                        appendLine("Screen state (${snapshot.elements.size} elements):")
+                        appendLine("```json")
+                        appendLine(screenJson)
+                        append("```")
                 }
+                services.historyManager.addItem(
+                        ResponseItem.Message(
+                                role = "user",
+                                content = text.trim(),
+                                isScreenObservation = true
+                        )
+                )
         }
 
         private suspend fun emitArbitrationWarnings(
@@ -448,7 +462,7 @@ internal class AgentTurnRunner(
                         )
                 }
 
-                val formatted = formatToolResult(toolResult, observation)
+                val formatted = formatToolResult(toolResult)
                 services.historyManager.addItem(
                         ResponseItem.FunctionCallOutput(
                                 callId = toolCall.id,
@@ -628,44 +642,11 @@ internal class AgentTurnRunner(
                 }
         }
 
-        private fun formatToolResult(result: ToolCallResult, observation: ToolObservation): String {
-                val resultText =
-                        when (result) {
-                                is ToolCallResult.Success -> "Success: ${result.output}"
-                                is ToolCallResult.Error -> "Error: ${result.error}"
-                                is ToolCallResult.Cancelled -> "Cancelled: ${result.reason}"
-                        }
-
-                val observationText =
-                        when (observation) {
-                                is ToolObservation.ScreenState ->
-                                        "Screen after action: ${observation.summary}"
-                                is ToolObservation.TextOutput -> observation.content
-                        }
-
-                return "$resultText\n\n$observationText"
-        }
-
-        private fun buildStepReminder(
-                turnNumber: Int,
-                stepDecision: ExecutorStepDecision
-        ): String? {
-                return when (stepDecision) {
-                        ExecutorStepDecision.Continue -> null
-                        ExecutorStepDecision.WarnApproaching ->
-                                """
-                <system_reminder>
-                TURN BUDGET WARNING: turn $turnNumber of ${config.maxTurns}. Prioritize decisive action and avoid repeating failed attempts.
-                </system_reminder>
-                """.trimIndent()
-                        is ExecutorStepDecision.ForceStop ->
-                                """
-                <system_reminder>
-                FINAL TURN WARNING: this turn is at configured limit (${config.maxTurns}).
-                ${stepDecision.narrativeSummary}
-                </system_reminder>
-                """.trimIndent()
-                }
+        /** Meta-only: no screen state in tool results. */
+        private fun formatToolResult(result: ToolCallResult): String = when (result) {
+                is ToolCallResult.Success -> "Success: ${result.output}"
+                is ToolCallResult.Error -> "Error: ${result.error}"
+                is ToolCallResult.Cancelled -> "Cancelled: ${result.reason}"
         }
 
         private fun classifyAction(toolCall: ToolCallRequest): String {

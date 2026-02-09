@@ -326,7 +326,7 @@ data class HistoryConfig(
 /**
  * TruncationPolicy - Controls how much of tool outputs to keep.
  * 
-NONE uses -1 as sentinel value (handled specially in truncateOutput).
+ * NONE uses -1 as sentinel value (handled specially in truncateOutput).
  */
 enum class TruncationPolicy(val maxTokens: Int) {
     /** Keep everything (for debugging) - sentinel value, handled specially */
@@ -362,7 +362,8 @@ sealed class ResponseItem {
     data class Message(
         val role: String,  // "system", "user", "assistant"
         val content: String,
-        val name: String? = null  // Optional name for multi-agent
+        val name: String? = null,  // Optional name for multi-agent
+        val isScreenObservation: Boolean = false  // Screen state captured at turn start
     ) : ResponseItem() {
         override fun estimateTokens(): Long = (content.length * 0.25f).toLong() + 4 // +4 for role tokens
     }

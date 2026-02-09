@@ -1,33 +1,24 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
-import com.moonkey.androidagent.agent.cognition.prompt.UserMessage
-import com.moonkey.androidagent.history.HistoryManager
-import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.LLMToolCall
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.openai.models.ChatModel
-import com.openai.models.responses.EasyInputMessage
 import com.openai.models.responses.FunctionTool
-import com.openai.models.responses.ResponseFunctionToolCall
-import com.openai.models.responses.ResponseInputContent
-import com.openai.models.responses.ResponseInputImage
 import com.openai.models.responses.ResponseInputItem
-import com.openai.models.responses.ResponseInputText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.json.JSONObject
 
 /**
- * Encapsulates a single ReAct iteration (LLM call + response parsing).
+ * Encapsulates a single ReAct iteration: LLM call → response parsing.
  *
- * Handles building input items from history + current context, calling the LLM with tools, and
- * processing the structured response. Supports both streaming and non-streaming modes.
+ * Pure LLM-calling wrapper. All input construction is handled by PromptBuilder;
+ * Turn only cares about sending items to the model and interpreting the response.
  */
 class Turn(
-        private val historyManager: HistoryManager,
         private val toolRegistry: ToolRegistry,
         private val llmClient: LLMClient,
         private val allowedToolNames: Set<String>? = null
@@ -35,62 +26,6 @@ class Turn(
     companion object {
         private const val TAG = "Turn"
         private const val COMPLETE_TASK_TOOL = "complete_task"
-    }
-
-    fun buildInputItems(userMessage: UserMessage): List<ResponseInputItem> {
-        val estimatedTokens = historyManager.estimateTokenCount()
-        if (estimatedTokens > 20_000) {
-            Log.w(TAG, "History approaching token limit ($estimatedTokens tokens), compressing...")
-            historyManager.compress(15_000)
-            Log.d(TAG, "After compression: ${historyManager.estimateTokenCount()} tokens")
-        }
-
-        val items = mutableListOf<ResponseInputItem>()
-        historyManager.forPrompt().forEach { item ->
-            when (item) {
-                is ResponseItem.Message -> {
-                    val role =
-                            when (item.role) {
-                                "user" -> EasyInputMessage.Role.USER
-                                "assistant" -> EasyInputMessage.Role.ASSISTANT
-                                else -> null
-                            }
-                    if (role != null) {
-                        items.add(
-                                ResponseInputItem.ofEasyInputMessage(
-                                        EasyInputMessage.builder()
-                                                .role(role)
-                                                .content(item.content)
-                                                .build()
-                                )
-                        )
-                    }
-                }
-                is ResponseItem.FunctionCall -> {
-                    items.add(
-                            ResponseInputItem.ofFunctionCall(
-                                    ResponseFunctionToolCall.builder()
-                                            .callId(item.id)
-                                            .name(item.name)
-                                            .arguments(item.arguments.toString())
-                                            .build()
-                            )
-                    )
-                }
-                is ResponseItem.FunctionCallOutput -> {
-                    items.add(
-                            ResponseInputItem.ofFunctionCallOutput(
-                                    ResponseInputItem.FunctionCallOutput.builder()
-                                            .callId(item.callId)
-                                            .output(item.content)
-                                            .build()
-                            )
-                    )
-                }
-            }
-        }
-        items.add(buildUserContextItem(userMessage))
-        return items
     }
 
     private data class TurnRequest(
@@ -101,11 +36,10 @@ class Turn(
 
     suspend fun run(
             systemPrompt: String,
-            userMessage: UserMessage,
-            modelName: String = "gpt-5.2",
-            inputItemsOverride: List<ResponseInputItem>? = null
+            inputItems: List<ResponseInputItem>,
+            modelName: String = "gpt-5.2"
     ): TurnResult {
-        val request = prepareRequest(userMessage, modelName, inputItemsOverride)
+        val request = prepareRequest(inputItems, modelName)
         Log.d(TAG, "Running turn with ${request.inputItems.size} input items, model=$modelName")
         Log.d(TAG, "Using ${request.tools.size} tools: ${request.tools.map { it.name() }}")
 
@@ -126,14 +60,13 @@ class Turn(
 
     fun runStreaming(
             systemPrompt: String,
-            userMessage: UserMessage,
-            modelName: String = "gpt-5.2",
-            inputItemsOverride: List<ResponseInputItem>? = null
+            inputItems: List<ResponseInputItem>,
+            modelName: String = "gpt-5.2"
     ): Flow<TurnStreamEvent> = flow {
         Log.d(TAG, "Running streaming turn with LLM streaming, model=$modelName")
 
         try {
-            val request = prepareRequest(userMessage, modelName, inputItemsOverride)
+            val request = prepareRequest(inputItems, modelName)
             Log.d(TAG, "Streaming turn with ${request.inputItems.size} input items")
 
             val textAccumulator = StringBuilder()
@@ -163,7 +96,6 @@ class Turn(
                                         "Received tool call: ${llmToolCall.name} with id ${llmToolCall.callId}"
                                 )
 
-                                // Convert to ToolCallRequest and emit
                                 val toolCallRequest = convertToToolCallRequest(llmToolCall)
                                 emit(TurnStreamEvent.ToolCallReceived(toolCallRequest))
                             }
@@ -212,41 +144,15 @@ class Turn(
     }
 
     private fun prepareRequest(
-            userMessage: UserMessage,
-            modelName: String,
-            inputItemsOverride: List<ResponseInputItem>?
+            inputItems: List<ResponseInputItem>,
+            modelName: String
     ): TurnRequest {
-        val inputItems = inputItemsOverride ?: buildInputItems(userMessage)
         val tools =
                 toolRegistry.generateResponsesApiTools { spec ->
                     allowedToolNames?.contains(spec.name) != false
                 }
         val model = modelNameToChatModel(modelName)
         return TurnRequest(inputItems = inputItems, tools = tools, model = model)
-    }
-
-    private fun buildUserContextItem(userMessage: UserMessage): ResponseInputItem {
-        val builder = EasyInputMessage.builder().role(EasyInputMessage.Role.USER)
-
-        val image = userMessage.image
-        if (image == null) {
-            builder.content(userMessage.text)
-        } else {
-            val contentItems =
-                    listOf(
-                            ResponseInputContent.ofInputText(
-                                    ResponseInputText.builder().text(userMessage.text).build()
-                            ),
-                            ResponseInputContent.ofInputImage(
-                                    ResponseInputImage.builder()
-                                            .detail(ResponseInputImage.Detail.AUTO)
-                                            .imageUrl(image.toDataUrl())
-                                            .build()
-                            )
-                    )
-            builder.contentOfResponseInputMessageContentList(contentItems)
-        }
-        return ResponseInputItem.ofEasyInputMessage(builder.build())
     }
 
     private fun modelNameToChatModel(modelName: String): ChatModel {

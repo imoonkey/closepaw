@@ -1,8 +1,6 @@
 package com.moonkey.androidagent.agent
 
 import com.google.common.truth.Truth.assertThat
-import com.moonkey.androidagent.agent.cognition.prompt.UserMessage
-import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.LLMToolCall
@@ -13,6 +11,7 @@ import com.moonkey.androidagent.tool.ToolInvocation
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolSpec
 import com.moonkey.androidagent.tool.ValidationResult
+import com.openai.models.responses.EasyInputMessage
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +22,15 @@ import org.json.JSONObject
 import org.junit.Test
 
 class TurnToolFilteringTest {
+
+    private val minimalInputItems = listOf(
+        ResponseInputItem.ofEasyInputMessage(
+            EasyInputMessage.builder()
+                .role(EasyInputMessage.Role.USER)
+                .content("Screen state (0 elements):\n```json\n[]\n```")
+                .build()
+        )
+    )
 
     @Test
     fun `run exposes only allowed tools to llm`() = runTest {
@@ -46,7 +54,6 @@ class TurnToolFilteringTest {
 
         val turn =
                 Turn(
-                        historyManager = HistoryManager(),
                         toolRegistry = registry,
                         llmClient = llm,
                         allowedToolNames = setOf("delegate_task", "complete_task", "write_todos")
@@ -55,11 +62,7 @@ class TurnToolFilteringTest {
         val result =
                 turn.run(
                         systemPrompt = "planner",
-                        userMessage =
-                                UserMessage(
-                                        text = "Current screen state (0 elements): []",
-                                        image = null
-                                )
+                        inputItems = minimalInputItems
                 )
 
         assertThat(result.toolCalls).isEmpty()
@@ -93,7 +96,6 @@ class TurnToolFilteringTest {
 
         val turn =
                 Turn(
-                        historyManager = HistoryManager(),
                         toolRegistry = registry,
                         llmClient = llm,
                         allowedToolNames = setOf("delegate_task")
@@ -102,11 +104,7 @@ class TurnToolFilteringTest {
         val result =
                 turn.run(
                         systemPrompt = "planner",
-                        userMessage =
-                                UserMessage(
-                                        text = "Current screen state (0 elements): []",
-                                        image = null
-                                )
+                        inputItems = minimalInputItems
                 )
 
         assertThat(result.toolCalls).isEmpty()
