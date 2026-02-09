@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.protocol
 
 import com.moonkey.androidagent.llm.LocalLLMConfig
+import com.moonkey.androidagent.perception.PerceptionConfig
 
 /**
  * Op - Operations sent from the UI layer to the agent session.
@@ -132,14 +133,8 @@ data class SessionConfig(
     /** Trace run id (folder name) for correlating host/device artifacts */
     val traceRunId: String? = null,
 
-    /** Enable screenshot input for multimodal prompts */
-    val enableScreenshotInput: Boolean = false,
-
-    /** Maximum screenshot dimension (long edge) */
-    val screenshotMaxDimension: Int = 1024,
-
-    /** JPEG quality for screenshot upload (0-100) */
-    val screenshotJpegQuality: Int = 70
+    /** Controls which perception modalities (a11y tree, screenshot, both) are active */
+    val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT
 )
 
 /**

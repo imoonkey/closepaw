@@ -13,17 +13,18 @@ private const val MAX_LABEL_LENGTH = 40
 private const val MIN_LABEL_LENGTH = 3
 
 fun ScreenSnapshot.toSummary(packageName: String? = null): String {
-    val total = elements.size
-    val clickable = elements.count { it.isClickable }
-    val editable = elements.count { it.isEditable }
+    val els = elements.orEmpty()
+    val total = els.size
+    val clickable = els.count { it.isClickable }
+    val editable = els.count { it.isEditable }
     val focusedLabel =
-        elements.firstOrNull { it.isFocused }
+        els.firstOrNull { it.isFocused }
             ?.let { it.text.ifBlank { it.description } }
             ?.trim()
             ?.takeIf { it.isNotBlank() }
             ?.truncate(MAX_LABEL_LENGTH)
 
-    val labels = buildLabels(elements)
+    val labels = buildLabels(els)
 
     val appName = packageName?.takeIf { it.isNotBlank() } ?: "unknown app"
     val labelsText = if (labels.isNotEmpty()) labels.joinToString(", ") else "none"

@@ -35,7 +35,7 @@ class ModelsTest {
         val snapshot = ScreenSnapshot(timestamp = 123L, elements = listOf(element))
 
         assertThat(snapshot.elements).hasSize(1)
-        assertThat(snapshot.elements.first().index).isEqualTo(0)
+        assertThat(snapshot.elements?.first()?.index).isEqualTo(0)
         assertThat(snapshot.timestamp).isEqualTo(123L)
     }
 }

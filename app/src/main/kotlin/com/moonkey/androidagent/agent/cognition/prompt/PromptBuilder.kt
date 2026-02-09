@@ -127,7 +127,7 @@ internal class PromptBuilder(
             }
             if (warnings.isNotEmpty()) appendLine()
 
-            appendLine("Screen state (${snapshot.elements.size} elements):")
+            appendLine("Screen state (${snapshot.elements.orEmpty().size} elements):")
             appendLine("```json")
             appendLine(screenJson)
             append("```")

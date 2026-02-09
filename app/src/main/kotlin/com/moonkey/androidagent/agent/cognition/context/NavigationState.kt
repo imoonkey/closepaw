@@ -61,7 +61,7 @@ internal data class LoopWarning(val message: String, val severity: LoopWarningSe
 
 private fun ScreenSnapshot.toSignature(): ScreenSignature {
     val tokens =
-            elements.asSequence()
+            elements.orEmpty().asSequence()
                     .map { it.toSignatureToken() }
                     .filter { it.isNotBlank() }
                     .take(MAX_SIGNATURE_ELEMENTS)

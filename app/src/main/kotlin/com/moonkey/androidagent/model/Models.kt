@@ -40,11 +40,23 @@ data class Point(
  * - Re-querying accessibility tree for text input when needed
  */
 data class ScreenSnapshot(
-        val timestamp: Long,
-        val elements: List<PerceptionElement>, // For LLM and action execution
-        val image: ScreenImage? = null,
-        val debug: ScreenSnapshotDebug? = null
-)
+    val timestamp: Long,
+    val elements: List<PerceptionElement>?,  // Nullable: absent in screenshot-only mode
+    val image: ScreenImage? = null,
+    val debug: ScreenSnapshotDebug? = null
+) {
+    init {
+        require(elements != null || image != null) {
+            "ScreenSnapshot must have at least one perception modality"
+        }
+    }
+
+    /** True when accessibility tree data is available */
+    val hasAccessibility: Boolean get() = !elements.isNullOrEmpty()
+
+    /** True when a screenshot is available */
+    val hasScreenshot: Boolean get() = image != null
+}
 
 data class ScreenSnapshotDebug(
         /** Relative path (within trace run folder) to raw accessibility tree JSON */

@@ -23,6 +23,7 @@ import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.llm.LocalLLMConfig
+import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
@@ -351,8 +352,13 @@ class MainActivity : ComponentActivity() {
                             llmBackend = settingsState.llmBackend,
                             localLLMConfig = localConfig,
                             agentMode = settingsState.agentMode,
-                            enableScreenshotInput = settingsState.enableScreenshotInput &&
+                            perceptionConfig = if (settingsState.enableScreenshotInput &&
                                 settingsState.llmBackend == LLMBackendType.OPENAI
+                            ) {
+                                PerceptionConfig.Hybrid()
+                            } else {
+                                PerceptionConfig.DEFAULT
+                            }
                         ),
                         service = service,
                         scope = sessionScope,

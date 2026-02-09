@@ -77,9 +77,11 @@ object Perceptor {
 
     /** Convert Snapshot to JSON string for LLM Prompting */
     fun toPromptJson(snapshot: ScreenSnapshot): String {
+        val elements = snapshot.elements.orEmpty()
+        if (elements.isEmpty()) return "[]"
         val jsonArray = JSONArray()
         val textCounts = mutableMapOf<String, Int>()
-        for (elem in snapshot.elements) {
+        for (elem in elements) {
             val mergedText = elem.text.ifBlank { elem.description }
             val textIndex = getOccurrenceIndex(
                 value = mergedText,

@@ -25,7 +25,7 @@ object TargetResolver {
             if (snapshot == null) {
                 "Cannot resolve element_index ${target.index}: no snapshot available"
             } else {
-                val available = snapshot.elements.map { it.index }
+                val available = snapshot.elements.orEmpty().map { it.index }
                 val preview = available.take(20).joinToString(", ")
                 val more = if (available.size > 20) " ... and ${available.size - 20} more" else ""
                 if (available.isNotEmpty()) {
@@ -52,7 +52,7 @@ object TargetResolver {
 
     private fun resolveText(text: String, textIndex: Int, snapshot: ScreenSnapshot?): Point? {
         if (snapshot == null) return null
-        val matches = snapshot.elements.filter {
+        val matches = snapshot.elements.orEmpty().filter {
             it.text.equals(text, ignoreCase = true) ||
                 it.description.equals(text, ignoreCase = true)
         }
@@ -60,7 +60,7 @@ object TargetResolver {
     }
 
     private fun matchCount(snapshot: ScreenSnapshot, text: String): Int {
-        return snapshot.elements.count {
+        return snapshot.elements.orEmpty().count {
             it.text.equals(text, ignoreCase = true) ||
                 it.description.equals(text, ignoreCase = true)
         }

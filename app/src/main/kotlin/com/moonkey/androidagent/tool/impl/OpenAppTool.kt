@@ -211,7 +211,7 @@ private class OpenAppInvocation(
                     val tree = com.moonkey.androidagent.perception.Perceptor.toPromptJson(it)
                     ToolObservation.ScreenState(
                         accessibilityTree = tree,
-                        elementCount = it.elements.size,
+                        elementCount = it.elements.orEmpty().size,
                         summary = it.toSummary(context.platform.getCurrentPackageName()),
                         snapshot = it
                     )

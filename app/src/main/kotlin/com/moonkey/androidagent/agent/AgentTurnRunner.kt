@@ -150,10 +150,10 @@ internal class AgentTurnRunner(
         }
 
         private fun logSnapshotElements(turnNumber: Int, snapshot: ScreenSnapshot) {
-                Log.d(TAG, "Turn $turnNumber: Screen has ${snapshot.elements.size} elements")
+                Log.d(TAG, "Turn $turnNumber: Screen has ${snapshot.elements.orEmpty().size} elements")
                 if (!config.debugMode) return
                 Log.d(TAG, "Turn $turnNumber: Elements (first 20):")
-                snapshot.elements.take(20).forEach { elem ->
+                snapshot.elements.orEmpty().take(20).forEach { elem ->
                         val text = elem.text.ifEmpty { elem.description }.take(25)
                         val flags = buildString {
                                 if (elem.isClickable) append("C")
@@ -331,7 +331,7 @@ internal class AgentTurnRunner(
         private fun recordScreenObservation(snapshot: ScreenSnapshot) {
                 val screenJson = Perceptor.toPromptJson(snapshot)
                 val text = buildString {
-                        appendLine("Screen state (${snapshot.elements.size} elements):")
+                        appendLine("Screen state (${snapshot.elements.orEmpty().size} elements):")
                         appendLine("```json")
                         appendLine(screenJson)
                         append("```")
@@ -387,7 +387,7 @@ internal class AgentTurnRunner(
                 var actionForNextTurn: String? = null
                 Log.d(
                         TAG,
-                        "Using turn snapshot for actions: ${currentSnapshot.elements.size} elements"
+                        "Using turn snapshot for actions: ${currentSnapshot.elements.orEmpty().size} elements"
                 )
 
                 for (toolCall in toolCallsToExecute) {
@@ -449,7 +449,7 @@ internal class AgentTurnRunner(
                 if (observedSnapshot != null) {
                         Log.d(
                                 TAG,
-                                "Updated snapshot for subsequent tools: ${observedSnapshot.elements.size} elements"
+                                "Updated snapshot for subsequent tools: ${observedSnapshot.elements.orEmpty().size} elements"
                         )
                         eventDispatcher.screenCaptured(
                                 snapshot = observedSnapshot,
@@ -609,7 +609,7 @@ internal class AgentTurnRunner(
                         observation =
                                 ToolObservation.ScreenState(
                                         accessibilityTree = accessibilityTree,
-                                        elementCount = snapshot.elements.size,
+                                        elementCount = snapshot.elements.orEmpty().size,
                                         summary =
                                                 snapshot.toSummary(
                                                         services.platform.getCurrentPackageName()

@@ -18,7 +18,7 @@ internal fun buildObservation(
         val tree = Perceptor.toPromptJson(snapshot)
         ToolObservation.ScreenState(
             accessibilityTree = tree,
-            elementCount = snapshot.elements.size,
+            elementCount = snapshot.elements.orEmpty().size,
             summary = snapshot.toSummary(platform.getCurrentPackageName()),
             snapshot = snapshot
         )

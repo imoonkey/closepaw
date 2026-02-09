@@ -23,12 +23,12 @@ object UiChangeDetector {
     fun detectScrollBoundary(pre: ScreenSnapshot?, post: ScreenSnapshot?): String? {
         if (pre == null || post == null) return null
 
-        val preTexts = pre.elements
+        val preTexts = pre.elements.orEmpty()
             .filter { it.text.isNotBlank() || it.description.isNotBlank() }
             .map { "${it.text}|${it.description}|${it.bounds}" }
             .sorted()
 
-        val postTexts = post.elements
+        val postTexts = post.elements.orEmpty()
             .filter { it.text.isNotBlank() || it.description.isNotBlank() }
             .map { "${it.text}|${it.description}|${it.bounds}" }
             .sorted()
@@ -46,7 +46,7 @@ object UiChangeDetector {
      */
     private fun fingerprint(snapshot: ScreenSnapshot): Long {
         var hash = 1469598103934665603L // FNV offset basis
-        for (element in snapshot.elements.sortedBy { it.index }) {
+        for (element in snapshot.elements.orEmpty().sortedBy { it.index }) {
             hash = mix(hash, element.index.toLong())
             hash = mix(hash, element.resourceId.hashCode().toLong())
             hash = mix(hash, element.className.hashCode().toLong())

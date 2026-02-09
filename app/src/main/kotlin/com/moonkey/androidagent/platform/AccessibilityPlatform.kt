@@ -16,7 +16,10 @@ import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenImageSource
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.model.ScreenSnapshotDebug
+import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.perception.Perceptor
+import com.moonkey.androidagent.perception.screenshotJpegQuality
+import com.moonkey.androidagent.perception.screenshotMaxDimension
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.trace.A11yTreeDumper
 import com.moonkey.androidagent.trace.NoopTraceRecorder
@@ -90,13 +93,13 @@ class AccessibilityPlatform(
                     null
                 }
 
-        val shouldCaptureScreenshot = config.enableScreenshotInput || traceRecorder.enabled
+        val shouldCaptureScreenshot = config.perceptionConfig.capturesScreenshot || traceRecorder.enabled
         val screenshotCapture =
                 captureScreenshotIfEnabled(windowId, enabled = shouldCaptureScreenshot)
-        val image = if (config.enableScreenshotInput) screenshotCapture?.image else null
+        val image = if (config.perceptionConfig.capturesScreenshot) screenshotCapture?.image else null
         Log.d(
                 TAG,
-                "Captured screen: ${snapshot.elements.size} elements, package: ${root?.packageName}"
+                "Captured screen: ${snapshot.elements.orEmpty().size} elements, package: ${root?.packageName}"
         )
         val debug =
                 if (traceRecorder.enabled) {
@@ -221,11 +224,11 @@ class AccessibilityPlatform(
                     }
 
                     val scaledBitmap =
-                            scaleBitmapIfNeeded(softwareBitmap, config.screenshotMaxDimension)
+                            scaleBitmapIfNeeded(softwareBitmap, config.perceptionConfig.screenshotMaxDimension)
                     val width = scaledBitmap.width
                     val height = scaledBitmap.height
 
-                    val jpegBytes = compressJpeg(scaledBitmap, config.screenshotJpegQuality)
+                    val jpegBytes = compressJpeg(scaledBitmap, config.perceptionConfig.screenshotJpegQuality)
 
                     if (scaledBitmap !== softwareBitmap) {
                         softwareBitmap.recycle()
