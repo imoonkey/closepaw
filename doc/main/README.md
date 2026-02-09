@@ -1,7 +1,7 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
+> Last updated: 2026-02-08 (commit: a475ef9aacefa7da5ac84bfb0a09a48ce29776d9)
 
 ## Quick Start
 
@@ -85,8 +85,19 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   ├── ToolRegistry.kt           # Discovery/registration
 │   ├── ToolRouter.kt             # Execution state machine
 │   ├── PolicyEngine.kt           # Approval logic
+│   ├── action/                   # Executor layer (mobile_action)
+│   │   ├── ClickExecutor.kt      # Click fallback chain
+│   │   ├── LongPressExecutor.kt  # Long press fallback chain
+│   │   ├── TypeExecutor.kt       # Type with focus management
+│   │   ├── SwipeExecutor.kt      # Swipe direction/distance
+│   │   ├── TargetResolver.kt     # Target → coordinates
+│   │   ├── UiChangeDetector.kt   # Snapshot fingerprinting
+│   │   └── ObservationBuilder.kt # Post-action observation
+│   ├── handlers/
+│   │   └── UIActionInvocation.kt # For SystemButton/Wait tools
 │   └── impl/                     # Tool implementations
 │       ├── MobileActionTool.kt
+│       ├── MobileActionInvocation.kt
 │       ├── OpenAppTool.kt
 │       ├── SystemButtonTool.kt
 │       ├── WaitTool.kt
@@ -106,10 +117,12 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   ├── SessionState.kt           # State machine
 │   └── AgentError.kt             # Error types
 │
-├── platform/                     # Android platform
+├── platform/                     # Android platform (atomic operations)
 │   ├── AndroidPlatform.kt        # Interface
 │   ├── AccessibilityPlatform.kt  # Implementation
-│   └── UIAction.kt               # Action types
+│   ├── AccessibilityNodeFinder.kt # Node search helpers
+│   ├── UIAction.kt               # Atomic action types
+│   └── ActionResult.kt           # Result types
 │
 ├── perception/                   # Screen perception
 │   ├── Perceptor.kt              # A11y tree → ScreenSnapshot

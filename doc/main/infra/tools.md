@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-02-04 (commit: 767f577844825c4db4d8d30dc2084b94d44737a2)
+> Last updated: 2026-02-08 (commit: a475ef9aacefa7da5ac84bfb0a09a48ce29776d9)
 
 ## Overview
 
@@ -85,7 +85,7 @@ Determines whether tools need user approval.
 
 | Tool | Description | Key Parameters |
 |------|-------------|----------------|
-| `mobile_action` | Screen-targeted touch interactions | `action`, selectors (`element_index`, `text`, coordinates) |
+| `mobile_action` | Screen-targeted touch interactions | `action`, targeting (`element_index`, `text`, coordinates) |
 | `open_app` | Launch app by name | `app_name` |
 | `system_button` | Press Android system key | `button` (`back`, `home`, `enter`, `recents`) |
 | `wait` | Pause for UI settle | `duration_ms` |
@@ -105,39 +105,104 @@ Determines whether tools need user approval.
 | `type` | Type into focused or targeted field (`input_text`) |
 | `swipe` | Directional or coordinate swipe |
 
-### Targeting Order
+### Single Targeting Constraint
 
-For `long_press` and `type`, fallback order is:
-1. Coordinates (`x`, `y`)
-2. Text selector (`text` + optional `text_index`)
-3. Element selector (`element_index`)
+Each `mobile_action` call accepts **exactly one** targeting method:
+- `element_index` — index from current screen state (preferred)
+- `text` + optional `text_index` — visible text on screen
+- `x`, `y` — absolute pixel coordinates (last resort)
 
-For `click`, fallback order is:
-1. Element selector (`element_index`)
-2. Text selector (`text` + optional `text_index`)
-3. Coordinates (`x`, `y`)
+Multiple targeting methods in a single call → validation error. No implicit priority or cross-target fallback.
 
-→ See: `tool/handlers/MultiSelectorTargeting.kt`
+`type` allows no target (types into the currently focused field).
 
 ---
 
-## Tool Abstraction Hierarchy
+## mobile_action Architecture
 
 ```
-ToolSpec (interface)
-├── BaseTool (abstract) - Single-action UI tools
-└── MultiActionTool (abstract) - Action dispatch
-    └── ActionHandler - Per-action validation + invocation
+┌──────────────────────────────────────────────────────────────┐
+│  Layer 1: TOOL CONTRACT                                       │
+│                                                               │
+│  MobileActionTool.kt  — ToolSpec, validation, target parsing  │
+│  MobileActionInvocation.kt — thin glue: routes to executor,   │
+│    maps ActionOutcome → ToolExecutionResult                   │
+└───────────────────────────────┬──────────────────────────────┘
+                                │
+┌───────────────────────────────▼──────────────────────────────┐
+│  Layer 2: ACTION EXECUTORS (the single smart layer)           │
+│                                                               │
+│  ClickExecutor       — ACTION_CLICK → gesture_tap fallback    │
+│  LongPressExecutor   — ACTION_LONG_CLICK → gesture hold       │
+│  TypeExecutor        — SetTextOnNodeAt → tap-to-focus fallback│
+│  SwipeExecutor       — direction/distance computation         │
+│  TargetResolver      — Target → Point resolution              │
+│  UiChangeDetector    — snapshot fingerprinting                │
+│  ObservationBuilder  — post-action ToolObservation builder    │
+└───────────────────────────────┬──────────────────────────────┘
+                                │
+┌───────────────────────────────▼──────────────────────────────┐
+│  Layer 3: ATOMIC PLATFORM                                     │
+│                                                               │
+│  AccessibilityPlatform — each UIAction = one Android API call │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-### Tool Invocation Types
+**Key properties:**
+- Platform is pure mechanism (no fallback, no target resolution)
+- Executors are the single smart layer (fallback chains, UI change verification)
+- MobileActionInvocation is thin glue (~60 lines)
+- Each executor ~80-130 lines, linear and testable
 
-| Type | Purpose |
+### Executor Fallback Chains
+
+| Action | Attempt 1 | Attempt 2 | On All Fail |
+|--------|-----------|-----------|-------------|
+| click | `ClickNodeAt(x,y)` | `TapAt(x,y)` | Failed with trail |
+| long_press | `LongClickNodeAt(x,y)` | `LongPressAt(x,y,ms)` | Failed with trail |
+| type (with target) | `SetTextOnNodeAt(x,y)` | `TapAt` → `SetTextOnFocused` | Failed with trail |
+| type (no target) | `SetTextOnFocused` | — | Failed |
+| swipe | `Swipe(start,end)` | — | Failed |
+
+Each attempt: dispatch → settle delay (300ms) → verify UI change via `UiChangeDetector`.
+
+### ActionOutcome
+
+→ See: `tool/action/ActionOutcome.kt`
+
+Executor return type, richer than `ActionResult`:
+
+| Outcome | Meaning |
+|---------|---------|
+| `Success(verified=true)` | UI change confirmed |
+| `Success(verified=false)` | Dispatched but snapshot unavailable |
+| `Failed(attemptTrail)` | All attempts exhausted |
+| `Cancelled` | Cancelled between attempts |
+
+---
+
+## Tool Abstraction
+
+All tools implement `ToolSpec` directly:
+
+```kotlin
+interface ToolSpec {
+    val name: String
+    val description: String
+    val parameterSchema: JSONObject
+    fun validate(params: JSONObject): ValidationResult
+    fun createInvocation(params: JSONObject): ToolInvocation
+}
+```
+
+### Invocation Types
+
+| Type | Used By |
 |------|---------|
-| `UIActionInvocation` | UIAction-backed tool invocation |
-| `ClickTargetInvocation` | Click with multi-selector fallback |
-| `SwipeTargetInvocation` | Direction-based swipe with optional selector grounding |
-| `TypeTargetInvocation` | Type with optional focus targeting |
+| `MobileActionInvocation` | `MobileActionTool` — routes to executors |
+| `UIActionInvocation` | `SystemButtonTool`, `WaitTool` — direct UIAction execution |
+| `DataQueryInvocation` | Data query tools |
+| Custom invocations | `OpenAppTool`, `WriteTodosTool`, `ScratchpadTool`, etc. |
 
 ---
 
@@ -145,27 +210,24 @@ ToolSpec (interface)
 
 Successful tool execution can include post-action screen context:
 
+→ See: `tool/action/ObservationBuilder.kt`
+
 ```kotlin
-private suspend fun capturePostActionObservation(context: ToolExecutionContext): ToolObservation? {
-    delay(UI_SETTLE_DELAY_MS)
-    val snapshot = context.platform.captureScreen()
-    val tree = Perceptor.toPromptJson(snapshot)
-    return ToolObservation.ScreenState(tree, snapshot.elements.size, snapshot)
-}
+internal suspend fun buildObservation(
+    snapshot: ScreenSnapshot, platform: AndroidPlatform
+): ToolObservation.ScreenState
 ```
+
+Used by executors (ClickExecutor, LongPressExecutor, TypeExecutor, SwipeExecutor) to capture post-action screen state for the LLM.
 
 ---
 
 ## Adding New Tools
 
 1. Implement `ToolSpec` in `tool/impl/`
-   - For single UI actions: extend `BaseTool`
-   - For grouped actions: extend `MultiActionTool`
-
 2. Implement required members:
    - `name`, `description`, `parameterSchema`
    - `validate(params)`, `createInvocation(params)`
-
 3. Register in `SessionServices.registerBuiltInTools()` (or conditional runtime wiring)
 
 ---
@@ -177,19 +239,26 @@ tool/
 ├── ToolSpec.kt               # Tool interface + types
 ├── ToolCallState.kt          # State definitions
 ├── ToolCallResult.kt         # Result types
-├── BaseTool.kt               # Single-action UI tools
-├── MultiActionTool.kt        # Action dispatch
+├── ToolName.kt               # Canonical tool/action names
 ├── ToolRegistry.kt           # Discovery/registration
 ├── ToolRouter.kt             # Execution state machine
 ├── PolicyEngine.kt           # Approval logic
+├── action/                   # Executor layer (mobile_action)
+│   ├── Target.kt             # Targeting sealed interface
+│   ├── ActionOutcome.kt      # Executor result type
+│   ├── ClickExecutor.kt      # Click fallback chain
+│   ├── LongPressExecutor.kt  # Long press fallback chain
+│   ├── TypeExecutor.kt       # Focus-then-type flow
+│   ├── SwipeExecutor.kt      # Direction/distance computation
+│   ├── TargetResolver.kt     # Target → Point resolution
+│   ├── UiChangeDetector.kt   # Snapshot fingerprinting
+│   └── ObservationBuilder.kt # Post-action observation
 ├── handlers/
-│   ├── ActionHandler.kt
-│   ├── ClickTargetInvocation.kt
-│   ├── SwipeTargetInvocation.kt
-│   ├── TypeTargetInvocation.kt
-│   └── UIActionInvocation.kt
+│   ├── UIActionInvocation.kt # Used by SystemButtonTool, WaitTool
+│   └── DataQueryInvocation.kt
 └── impl/
     ├── MobileActionTool.kt
+    ├── MobileActionInvocation.kt
     ├── OpenAppTool.kt
     ├── SystemButtonTool.kt
     ├── WaitTool.kt

@@ -1,7 +1,7 @@
 # Platform Abstraction
 
 > AndroidPlatform, Perceptor, and screen perception.
-> Last updated: 2026-02-04 (commit: da83b53ba4e849e52b45158a3485261d7399facb)
+> Last updated: 2026-02-08 (commit: a475ef9aacefa7da5ac84bfb0a09a48ce29776d9)
 
 ## AndroidPlatform
 
@@ -14,7 +14,7 @@ Abstraction for Android-specific operations.
 ```kotlin
 interface AndroidPlatform {
     suspend fun captureScreen(): ScreenSnapshot
-    suspend fun performAction(action: UIAction, snapshot: ScreenSnapshot): ActionResult
+    suspend fun performAction(action: UIAction): ActionResult
     suspend fun launchApp(packageName: String): ActionResult
     suspend fun getInstalledApps(): List<AppInfo>
     fun hasRequiredPermissions(): Boolean
@@ -23,12 +23,14 @@ interface AndroidPlatform {
 }
 ```
 
+Note: `performAction` takes only a `UIAction` — no snapshot parameter. All atomic actions work with coordinates or focused state; element resolution happens in the executor layer.
+
 ### Operations
 
 | Method | Purpose |
 |--------|---------|
 | `captureScreen()` | Get current UI state as `ScreenSnapshot` |
-| `performAction()` | Execute UI actions |
+| `performAction()` | Execute a single atomic UI action |
 | `launchApp()` | Launch app by package name |
 | `getInstalledApps()` | Query launchable apps |
 | `hasRequiredPermissions()` | Check accessibility permission |
@@ -43,6 +45,28 @@ interface AndroidPlatform {
 
 Implementation of `AndroidPlatform` using Android Accessibility APIs.
 
+### Atomic Platform Principle
+
+Each `UIAction` variant maps to **exactly one** Android API call. The platform has zero strategy — no fallback, no target resolution, no UI change detection. Those responsibilities live in the executor layer.
+
+→ See: [tools.md](tools.md) for the executor architecture.
+
+### Action Dispatch
+
+```kotlin
+override suspend fun performAction(action: UIAction): ActionResult = when (action) {
+    is UIAction.ClickNodeAt     -> performNodeClickAt(action.x, action.y)
+    is UIAction.TapAt           -> performTap(...)
+    is UIAction.LongClickNodeAt -> performNodeLongClickAt(action.x, action.y)
+    is UIAction.LongPressAt     -> performLongPressGesture(...)
+    is UIAction.SetTextOnNodeAt -> performSetTextOnNodeAt(...)
+    is UIAction.SetTextOnFocused -> performSetTextOnFocused(...)
+    is UIAction.Swipe           -> performSwipe(action)
+    is UIAction.SystemButton    -> performSystemButton(action)
+    is UIAction.Wait            -> performWait(action)
+}
+```
+
 ### Action Visualization Integration
 
 Can integrate with `ActionVisualizerManager` to show visual feedback:
@@ -56,13 +80,70 @@ class AccessibilityPlatform(
         visualizer?.showClick(x, y)
         // ... dispatch gesture
     }
-
-    private suspend fun performSwipe(...): ActionResult {
-        visualizer?.showSwipe(...)
-        // ... dispatch gesture
-    }
 }
 ```
+
+---
+
+## UIAction Types
+
+→ See: `platform/UIAction.kt`
+
+Atomic platform operations. Each variant maps to exactly one Android API call.
+
+**Naming convention:**
+- `*NodeAt` — accessibility node operation at coordinates (`ACTION_*`)
+- `*At` — gesture operation at coordinates (`dispatchGesture`)
+- `*OnFocused` — operation on currently focused node
+
+| Action | Type | Description |
+|--------|------|-------------|
+| `ClickNodeAt(x, y)` | Node | Find clickable node at coords → `ACTION_CLICK` |
+| `TapAt(x, y)` | Gesture | Gesture tap at coordinates |
+| `LongClickNodeAt(x, y)` | Node | Find node at coords → `ACTION_LONG_CLICK` |
+| `LongPressAt(x, y, durationMs)` | Gesture | Gesture hold at coordinates |
+| `SetTextOnNodeAt(x, y, text, clear)` | Node | Find node at coords → `ACTION_SET_TEXT` |
+| `SetTextOnFocused(text, clear)` | Node | Find focused editable → `ACTION_SET_TEXT` |
+| `Swipe(startX, startY, endX, endY, durationMs)` | Gesture | Gesture swipe |
+| `SystemButton(button)` | System | Global action (back, home, recents, enter) |
+| `Wait(durationMs)` | System | Pause execution |
+
+---
+
+## ActionResult
+
+→ See: `platform/ActionResult.kt`
+
+Simple result of executing an atomic `UIAction`:
+
+```kotlin
+sealed interface ActionResult {
+    data class Success(val message: String) : ActionResult
+    data class Failure(val reason: String) : ActionResult
+    data class Cancelled(val reason: String = "Action cancelled") : ActionResult
+
+    fun isSuccess(): Boolean = this is Success
+}
+```
+
+No `ElementNotFound` — platform doesn't know about elements, returns `Failure("No clickable node at (x,y)")`. No `exception` field — exceptions are logged at source.
+
+---
+
+## AccessibilityNodeFinder
+
+→ See: `platform/AccessibilityNodeFinder.kt`
+
+Internal helper for finding accessibility nodes in the a11y tree:
+
+| Method | Purpose |
+|--------|---------|
+| `findClickableNodeAtLocation(x, y)` | Smallest clickable node at coordinates |
+| `findLongClickableNodeAtLocation(x, y)` | Smallest long-clickable node at coordinates |
+| `findFocusedEditableNode()` | Currently focused editable node |
+| `findNodeAtLocation(x, y)` | Text-input capable node at coordinates |
+
+All methods check `isVisibleToUser` to avoid clicking invisible nodes. Properly recycles `AccessibilityNodeInfo` objects.
 
 ---
 
@@ -105,45 +186,6 @@ Notes:
 
 ---
 
-## UIAction Types
-
-→ See: `platform/UIAction.kt`
-
-| Action | Description |
-|--------|-------------|
-| `Click` | Single tap at coordinates or element |
-| `LongClick` | Long press |
-| `Type` | Text input |
-| `Swipe` | Gesture with start/end coordinates |
-| `SystemButton` | Back, home, enter, recents |
-| `Wait` | Pause execution |
-
----
-
-## ActionResult
-
-→ See: `platform/ActionResult.kt`
-
-```kotlin
-sealed class ActionResult {
-    data class Success(val message: String?) : ActionResult()
-    data class Failure(val reason: String) : ActionResult()
-}
-```
-
----
-
-## AccessibilityNodeFinder
-
-→ See: `platform/AccessibilityNodeFinder.kt`
-
-Helper for finding nodes in accessibility tree:
-- Search by resource ID
-- Search by text
-- Search by element index
-
----
-
 ## Screenshot Support
 
 When enabled, `AccessibilityPlatform` can attach a compressed screenshot to `ScreenSnapshot.image`:
@@ -169,9 +211,9 @@ Configuration:
 ```
 platform/
 ├── AndroidPlatform.kt         # Interface
-├── AccessibilityPlatform.kt   # Implementation
+├── AccessibilityPlatform.kt   # Implementation (atomic operations only)
 ├── AccessibilityNodeFinder.kt # Node search helpers
-├── UIAction.kt                # Action types
+├── UIAction.kt                # Atomic action types
 └── ActionResult.kt            # Result types
 
 perception/
@@ -183,6 +225,6 @@ perception/
 
 ## Related Docs
 
-- [Tools](tools.md) - Tool execution uses platform
+- [Tools](tools.md) - Tool execution and executor architecture
 - [Loop](../agent/loop.md) - Perception in ReAct loop
 - [Planning](../agent/planning.md) - Context hygiene
