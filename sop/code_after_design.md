@@ -18,3 +18,4 @@ At each phase of the execution, repeat the following:
     - Ideally, for every todo item, the separation is clear, you work on it with a new subagent, so previous todo item's history does not contaminate the context window. 
     - If you have tools to compact your context, try to find a point to use it when you have used 50% of your context window.
 
+- Always start your subagent with Claude Opus 4.6 model!!!!!!!!!! Only start your agent with this model!!!!
