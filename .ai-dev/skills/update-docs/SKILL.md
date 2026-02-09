@@ -31,8 +31,9 @@ Keep documentation in sync with code changes.
 
 ### 1. Analyze Changes
 
+Docs under doc/main has its last update commit hash, use it for the diff
 ```bash
-git diff --name-only main...HEAD
+git diff --name-only <doc_last_update_commit>..HEAD
 # or, if a commit baseline is provided:
 git diff --name-only <base_commit>..HEAD
 ```
