@@ -269,7 +269,7 @@ class MainActivity : ComponentActivity() {
     
     /**
      * Clear the current session and conversation state.
-     * Used when starting a fresh session from intents (e.g., dev.sh, debug-run.sh).
+     * Used when starting a fresh session from intents (e.g., debug-run.sh).
      * 
      * This is a suspending function to ensure proper ordering - the old session
      * must be shutdown before clearing state to avoid race conditions.

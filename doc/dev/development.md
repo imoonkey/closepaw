@@ -22,7 +22,7 @@ echo 'OPENAI_API_KEY=sk-your-key' > .env
 ./scripts/setup.sh
 
 # 3. Run a test
-./scripts/dev.sh run "Open Settings"
+./scripts/debug-run.sh --basic "Open Settings"
 ```
 
 ### Using Local LLM (On-Device)
@@ -32,7 +32,7 @@ echo 'OPENAI_API_KEY=sk-your-key' > .env
 LLM_BACKEND=local ./scripts/setup.sh
 
 # 2. Run a test with local model
-./scripts/dev.sh run --local "Open Settings"
+./scripts/debug-run.sh --local "Open Settings"
 ```
 
 The local backend uses LiquidAI's Leap SDK to run LFM models on-device. The model is downloaded automatically on first use and is a relatively large download.
@@ -42,7 +42,7 @@ The local backend uses LiquidAI's Leap SDK to run LFM models on-device. The mode
 The typical development loop:
 
 ```
-Code change → Build & Deploy → Unit Tests → Device Test → View Logs → Debug (if needed)
+Code change → Build & Deploy → Unit Tests → Device Test → View Logs → Debug
 ```
 
 ### 1. Build & Deploy
@@ -71,50 +71,36 @@ For faster iteration, run a single test class:
 
 ### 3. Device Test
 
-Run the agent with a goal:
+Run the agent with a goal. `debug-run.sh` captures screenshots at each turn, records trace artifacts, and saves comprehensive logs for post-run analysis. Press Ctrl+C to gracefully stop the agent.
 
 ```bash
-./scripts/dev.sh run                    # Default: "Open Settings"
-./scripts/dev.sh run "Open Chrome"      # Custom goal
-./scripts/dev.sh run --local "Open Settings"  # Use local LLM
-./scripts/dev.sh run --basic "Open Chrome"    # Standalone execution mode
-./scripts/dev.sh run --pro "Open Chrome"      # Planner+executor mode
-./scripts/dev.sh run --accessibility-only "Open Chrome"  # A11y only
-./scripts/dev.sh run --screenshot-only "Open Chrome"     # Screenshot only
-./scripts/dev.sh run --hybrid "Open Chrome"              # A11y + screenshot
+./scripts/debug-run.sh "Open Settings"                        # Default OpenAI backend
+./scripts/debug-run.sh --local "Open Settings"                # Use local LLM
+./scripts/debug-run.sh --basic "Open Chrome"                  # Standalone execution mode
+./scripts/debug-run.sh --pro "Open Chrome"                    # Planner+executor mode
+./scripts/debug-run.sh --accessibility-only "Open Chrome"     # A11y only
+./scripts/debug-run.sh --screenshot-only "Open Chrome"        # Screenshot only
+./scripts/debug-run.sh --hybrid "Open Chrome"                 # A11y + screenshot
 ```
+
+Output in `debug-output/run_<timestamp>/`:
+- `turn_N.png` - Screenshot at each turn
+- `turn_N_log.txt` - Log excerpt per turn
+- `agent.log` - Full agent log
+- `trace/` - JSONL trace + replay artifacts
+
+See [Visual Debugging Guide](../../scripts/agent_process_visual_debug.md) for systematic debugging workflow.
 
 ### 4. View Logs
 
 Monitor agent behavior through filtered logs:
 
 ```bash
-./scripts/dev.sh logs           # All agent logs
-./scripts/dev.sh logs orch      # Orchestration flow
-./scripts/dev.sh logs llm       # LLM API calls
-./scripts/dev.sh logs action    # Action execution
+./scripts/logs.sh                # All agent logs
+./scripts/logs.sh orch           # Orchestration flow
+./scripts/logs.sh llm            # LLM API calls
+./scripts/logs.sh action         # Action execution
 ```
-
-### 5. Debug
-
-For deeper investigation, use visual debugging to capture screenshots at each turn:
-
-```bash
-./scripts/debug-run.sh "Open Chrome"              # With OpenAI
-./scripts/debug-run.sh --local "Open Chrome"      # With local LLM
-./scripts/debug-run.sh --basic "Open Chrome"      # Standalone mode trace
-./scripts/debug-run.sh --pro "Open Chrome"        # Planner+executor trace
-./scripts/debug-run.sh --accessibility-only "Open Chrome"  # A11y only
-./scripts/debug-run.sh --screenshot-only "Open Chrome"     # Screenshot only
-./scripts/debug-run.sh --hybrid "Open Chrome"              # A11y + screenshot
-```
-
-Output in `debug-output/`:
-- `turn_N.png` - Screenshot at each turn
-- `turn_N_log.txt` - Log excerpt per turn  
-- `agent.log` - Full agent log
-
-See [Visual Debugging Guide](../../scripts/agent_process_visual_debug.md) for systematic debugging workflow.
 
 ## Configuration
 
@@ -136,13 +122,12 @@ You can choose between cloud (OpenAI) and local (on-device) LLM backends:
 echo 'LLM_BACKEND=local' >> .env
 
 # Or use inline for one-off runs
-LLM_BACKEND=local ./scripts/dev.sh run
+LLM_BACKEND=local ./scripts/debug-run.sh "Open Settings"
 ```
 
 **Via command-line flag:**
 ```bash
-./scripts/dev.sh run --local "Open Settings"
-./scripts/debug-run.sh --local "Open Chrome"
+./scripts/debug-run.sh --local "Open Settings"
 ```
 
 | Backend | Pros | Cons |
@@ -156,7 +141,7 @@ Select runtime orchestration mode with either flags or env var:
 
 ```bash
 # one-off
-./scripts/dev.sh run --basic "Open Settings"
+./scripts/debug-run.sh --basic "Open Settings"
 ./scripts/debug-run.sh --pro "Check notifications"
 
 # persistent default
@@ -170,15 +155,8 @@ echo 'AGENT_MODE=basic' >> .env
 
 ### Perception Mode
 
-Both `dev.sh run` and `debug-run.sh` support explicit perception mode switching:
-
 ```bash
 # one-off
-./scripts/dev.sh run --accessibility-only "Open Settings"
-./scripts/dev.sh run --screenshot-only "Open Settings"
-./scripts/dev.sh run --hybrid "Open Settings"
-./scripts/dev.sh run --perception screenshot_only "Open Settings"
-
 ./scripts/debug-run.sh --accessibility-only "Open Settings"
 ./scripts/debug-run.sh --screenshot-only "Open Settings"
 ./scripts/debug-run.sh --hybrid "Open Settings"
@@ -194,14 +172,6 @@ echo 'PERCEPTION_MODE=hybrid' >> .env
 | `hybrid` | Accessibility tree + screenshot |
 | `screenshot_only` | Screenshot only |
 
-### Device Status
-
-Check if everything is configured correctly:
-
-```bash
-./scripts/dev.sh status
-```
-
 ## Troubleshooting
 
 | Issue | Solution |
@@ -209,7 +179,7 @@ Check if everything is configured correctly:
 | "App not installed" | Run `./scripts/setup.sh` |
 | "Accessibility service not enabled" | Run `./scripts/setup.sh`, or enable manually in Settings |
 | "No device detected" | Check USB debugging, run `adb devices` |
-| Agent not responding | Run `./scripts/dev.sh status`, then `./scripts/setup.sh` |
+| Agent not responding | Run `./scripts/setup.sh`, then check `./scripts/logs.sh` |
 
 ## Detailed Documentation
 

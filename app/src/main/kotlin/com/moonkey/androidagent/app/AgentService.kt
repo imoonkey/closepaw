@@ -38,7 +38,7 @@ class AgentService : AccessibilityService() {
     companion object {
         private const val TAG = "AgentService"
         
-        /** Broadcast action to stop the agent remotely (from dev.sh script) */
+        /** Broadcast action to stop the agent remotely (from scripts) */
         const val ACTION_STOP_AGENT = "com.moonkey.androidagent.STOP_AGENT"
         
         /** Our package name for detecting when app is in foreground */
@@ -84,7 +84,7 @@ class AgentService : AccessibilityService() {
         observeSession(externalSession)
     }
     
-    /** BroadcastReceiver to handle remote stop commands (from dev.sh script) */
+    /** BroadcastReceiver to handle remote stop commands (from debug-run.sh script) */
     private val stopReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == ACTION_STOP_AGENT) {
@@ -119,7 +119,7 @@ class AgentService : AccessibilityService() {
         actionVisualizer = ActionVisualizerManager(this)
         Log.i(TAG, "ActionVisualizerManager initialized")
         
-        // Register broadcast receiver for remote stop commands (from adb/dev.sh)
+        // Register broadcast receiver for remote stop commands (from adb/debug-run.sh)
         // Only in debug builds - security risk if exposed in production
         if (BuildConfig.DEBUG) {
             val filter = IntentFilter(ACTION_STOP_AGENT)

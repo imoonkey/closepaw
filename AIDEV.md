@@ -7,6 +7,8 @@ AI-powered Android automation using accessibility services to operate apps. Kotl
 **Build**: `./gradlew assembleDebug`  
 **Test**: `./gradlew test`  
 **Lint**: `./gradlew lint`  
+**Run**: `./scripts/debug-run.sh "Open Settings"`  
+**Logs**: `./scripts/logs.sh`  
 **Full Check**: `./gradlew clean assembleDebug lint test`
 
 **Architecture Docs**: `doc/main/`  

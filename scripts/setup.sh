@@ -17,7 +17,7 @@
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
 #                Set to "local" to skip API key requirement
 #
-# Note: Run this after code changes before using dev.sh
+# Note: Run this after code changes before using debug-run.sh
 #
 
 set -e
@@ -116,8 +116,7 @@ echo ""
 echo -e "${GREEN}==============================================================${NC}"
 echo -e "${GREEN}✓ Setup complete!${NC}"
 echo ""
-echo "Now use dev.sh to run tests:"
-echo "  ./scripts/dev.sh run              # Run with default goal"
-echo "  ./scripts/dev.sh run 'Open Chrome' # Run with custom goal"
-echo "  ./scripts/dev.sh logs             # View logs"
+echo "Next steps:"
+echo "  ./scripts/debug-run.sh --basic \"Open Settings\"   # Run agent"
+echo "  ./scripts/logs.sh                                # View logs"
 echo -e "${GREEN}==============================================================${NC}"

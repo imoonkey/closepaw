@@ -87,6 +87,11 @@ escape_shell_arg() {
     printf "%s" "$1" | sed "s/'/'\\\\''/g"
 }
 
+# Stop the agent on the device
+stop_agent() {
+    adb shell "am broadcast -a $PACKAGE.STOP_AGENT -p $PACKAGE" >/dev/null 2>&1 || true
+}
+
 normalize_bool() {
     case "$1" in
         true|TRUE|True|1|yes|YES|Yes|y|Y) echo "true" ;;
@@ -176,7 +181,11 @@ fi
 adb logcat -c
 adb logcat -v threadtime > "$DEBUG_DIR/logcat_full.log" 2>&1 &
 LOGCAT_PID=$!
-trap 'kill "$LOGCAT_PID" >/dev/null 2>&1 || true' EXIT
+cleanup() {
+    kill "$LOGCAT_PID" >/dev/null 2>&1 || true
+}
+trap 'echo ""; warn "Interrupted, stopping agent..."; stop_agent; cleanup; exit 0' INT TERM
+trap 'cleanup' EXIT
 
 # Capture basic device/app info
 adb shell getprop > "$DEBUG_DIR/device_getprop.txt" 2>/dev/null || true
