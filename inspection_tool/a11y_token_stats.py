@@ -134,12 +134,18 @@ def collect_stats(run_dir: Path, tokenizer: Tokenizer) -> List[TokenStats]:
     stats: List[TokenStats] = []
 
     for step in steps:
-        mind = step.get("mind") or {}
-        llm_request = mind.get("llm_request") or {}
-        artifacts = llm_request.get("artifacts") or []
-
-        raw_path = artifact_path(artifacts, "raw_a11y_tree", trace_dir)
-        sanitized_path = artifact_path(artifacts, "sanitized_a11y_tree", trace_dir)
+        # a11y tree artifacts are in world.pre, not mind.llm_request
+        world = step.get("world") or {}
+        pre = world.get("pre") or {}
+        
+        raw_artifact = pre.get("raw_a11y_tree") or {}
+        sanitized_artifact = pre.get("sanitized_a11y_tree") or {}
+        
+        raw_rel = raw_artifact.get("path")
+        sanitized_rel = sanitized_artifact.get("path")
+        
+        raw_path = trace_dir / raw_rel if raw_rel else None
+        sanitized_path = trace_dir / sanitized_rel if sanitized_rel else None
 
         raw_text = read_text(raw_path)
         sanitized_text = read_text(sanitized_path)
