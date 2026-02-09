@@ -7,7 +7,7 @@ import com.moonkey.androidagent.tool.handlers.ClickTargetInvocation
 import org.json.JSONObject
 
 /**
- * Click action - tap using multi-selector targeting with fallback order.
+ * Click action with explicit selector and API fallback.
  */
 class ClickActionHandler : ActionHandler {
     override val actionName = "click"

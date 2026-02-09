@@ -39,6 +39,72 @@ class TargetInvocationsTest {
     }
 
     @Test
+    fun `click with text-only selector resolves and executes click plan`() = runTest {
+        val snapshot = ScreenSnapshot(
+            timestamp = 0L,
+            elements = listOf(
+                element(
+                    index = 7,
+                    resourceId = "com.app:id/confirm",
+                    text = "Confirm",
+                    bounds = Bounds(left = 80, top = 120, right = 160, bottom = 200),
+                    center = Point(x = 120, y = 160)
+                )
+            )
+        )
+        val changedSnapshot = snapshot.copy(
+            timestamp = 1L,
+            elements = listOf(
+                element(
+                    index = 7,
+                    resourceId = "com.app:id/confirm",
+                    text = "Confirmed",
+                    bounds = Bounds(left = 80, top = 120, right = 160, bottom = 200),
+                    center = Point(x = 120, y = 160)
+                )
+            )
+        )
+
+        val platform = RecordingAndroidPlatform(
+            results = listOf(ActionResult.Success("action_click ok")),
+            capturedSnapshots = listOf(changedSnapshot)
+        )
+        val context = TestToolExecutionContext(platform = platform, snapshot = snapshot)
+        val params = JSONObject().apply {
+            put("text", "Confirm")
+            put("text_index", 0)
+        }
+
+        val result = ClickTargetInvocation(params = params, description = "click").execute(context)
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
+        assertThat(platform.performedActions).containsExactly(UIAction.ClickNodeAt(120, 160))
+    }
+
+    @Test
+    fun `click element index uses element index lookup not list position`() = runTest {
+        val snapshot = ScreenSnapshot(
+            timestamp = 0L,
+            elements = listOf(
+                element(index = 0, resourceId = "com.app:id/zero"),
+                element(index = 3, resourceId = "com.app:id/three"),
+                element(index = 7, resourceId = "com.app:id/seven")
+            )
+        )
+
+        val platform = RecordingAndroidPlatform(results = emptyList())
+        val context = TestToolExecutionContext(platform = platform, snapshot = snapshot)
+        val params = JSONObject().apply {
+            put("element_index", 1)
+        }
+
+        val result = ClickTargetInvocation(params = params, description = "click").execute(context)
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Failure::class.java)
+        assertThat(platform.performedActions).isEmpty()
+    }
+
+    @Test
     fun `click attempts selectors in fallback order`() = runTest {
         val snapshot = ScreenSnapshot(
             timestamp = 0L,
@@ -209,6 +275,35 @@ class TargetInvocationsTest {
         assertThat(platform.performedActions).containsExactly(
             UIAction.Type(text = "hello", elementIndex = 1, clear = false)
         )
+    }
+
+    @Test
+    fun `long press requires ui change when snapshot is available`() = runTest {
+        val snapshot = ScreenSnapshot(
+            timestamp = 0L,
+            elements = listOf(
+                element(
+                    index = 0,
+                    resourceId = "com.app:id/item",
+                    text = "Item",
+                    bounds = Bounds(left = 10, top = 10, right = 50, bottom = 50),
+                    center = Point(x = 30, y = 30)
+                )
+            )
+        )
+
+        val platform = RecordingAndroidPlatform(
+            results = listOf(ActionResult.Success("long click ok")),
+            capturedSnapshots = listOf(snapshot)
+        )
+        val context = TestToolExecutionContext(platform = platform, snapshot = snapshot)
+        val params = JSONObject().apply {
+            put("element_index", 0)
+        }
+
+        val result = LongPressTargetInvocation(params = params, description = "long press").execute(context)
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Failure::class.java)
     }
 
     @Test

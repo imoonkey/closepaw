@@ -1,5 +1,16 @@
 # Click Reliability Redesign (Codex)
 
+## Status
+- Implemented:
+  - Atomic click APIs (`ClickNodeAt`, `TapAt`) and invocation-managed fallback
+  - Selector fallback order `element_index -> text -> coordinates`
+  - Shared post-action UI change detection in `TargetingInvocationUtils`
+  - Bounds selector removal across `click` / `long_press` / `type` / `swipe`
+  - Long-press migrated to the same post-action change contract
+- Deferred:
+  - Optional per-action settle timeout tuning for slower apps
+  - Swipe success contract upgrade beyond current scroll-boundary warning
+
 ## Background
 Current `click` can return `success` when Android API reports dispatch success (`ACTION_CLICK=true` or gesture callback completed), but the UI may not actually change. This creates false-positive tool outcomes and wastes turns.
 

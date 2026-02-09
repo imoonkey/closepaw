@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.tool.handlers
 
 import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
@@ -9,7 +8,7 @@ import com.moonkey.androidagent.tool.ToolInvocation
 import org.json.JSONObject
 
 /**
- * Invocation for long_press action using multi-selector fallback.
+ * Invocation for long_press action with selector fallback.
  */
 class LongPressTargetInvocation(
     override val params: JSONObject,
@@ -39,97 +38,131 @@ class LongPressTargetInvocation(
 
         val durationMs = params.optLong("duration_ms", DEFAULT_DURATION_MS)
         val snapshot = context.currentSnapshot
+        val attemptLogs = mutableListOf<String>()
 
-        val attempts = mutableListOf<String>()
-
-        suspend fun attempt(label: String, action: UIAction, snapshotForAction: ScreenSnapshot?): ToolExecutionResult? {
-            val result = context.platform.performAction(action, snapshotForAction)
-            return when (result) {
-                is ActionResult.Success -> ToolExecutionResult.Success(
-                    output = result.message,
-                    observation = TargetingInvocationUtils.capturePostActionObservation(context, TAG)
-                )
-                is ActionResult.Failure -> {
-                    attempts.add("$label: ${result.reason}")
+        suspend fun attempt(
+            label: String,
+            action: UIAction,
+            snapshotForAction: ScreenSnapshot?,
+            snapshotForUiChange: ScreenSnapshot?
+        ): ToolExecutionResult? {
+            return when (
+                val outcome =
+                    TargetingInvocationUtils.executeAttempt(
+                        context = context,
+                        action = action,
+                        snapshotForAction = snapshotForAction,
+                        snapshotForUiChange = snapshotForUiChange,
+                        requireUiChange = true,
+                        logTag = TAG
+                    )
+            ) {
+                is TargetingInvocationUtils.AttemptOutcome.Success -> {
+                    ToolExecutionResult.Success(
+                        output = outcome.message,
+                        observation = outcome.observation
+                    )
+                }
+                is TargetingInvocationUtils.AttemptOutcome.Retry -> {
+                    attemptLogs.add("$label: ${outcome.reason}")
                     null
                 }
-                is ActionResult.ElementNotFound -> {
-                    val snap = snapshotForAction
-                    val reason = if (snap != null) {
-                        TargetingInvocationUtils.buildElementNotFoundMessage(result.elementIndex, snap)
-                    } else {
-                        "Element not found: index ${result.elementIndex} (no snapshot available)"
-                    }
-                    attempts.add("$label: $reason")
-                    null
+                is TargetingInvocationUtils.AttemptOutcome.Cancelled -> {
+                    ToolExecutionResult.Cancelled(outcome.reason)
                 }
-                is ActionResult.Cancelled -> ToolExecutionResult.Cancelled(result.reason)
             }
         }
 
-        val selectorAttempts = MultiSelectorTargeting.attemptsFromParams(
-            params = params,
-            textKey = "text",
-            textIndexKey = "text_index",
-            textLabel = "text"
-        )
+        val selectorAttempts =
+            MultiSelectorTargeting.attemptsFromParams(
+                params = params,
+                textKey = "text",
+                textIndexKey = "text_index",
+                textLabel = "text"
+            )
 
         for (selectorAttempt in selectorAttempts) {
             val selector = selectorAttempt.selector
             val label = selectorAttempt.label
 
-            val result = when (selector) {
-                is MultiSelectorTargeting.Selector.Point -> attempt(
-                    label = label,
-                    action = UIAction.LongClickAt(selector.x, selector.y, durationMs),
-                    snapshotForAction = null
-                )
-                is MultiSelectorTargeting.Selector.Text -> {
-                    val snap = snapshot
-                    if (snap == null) {
-                        attempts.add("$label: Snapshot required for text lookup")
-                        null
-                    } else {
-                        val elementIndex = MultiSelectorTargeting.findElementIndexByTextOrDescription(
-                            snapshot = snap,
-                            text = selector.text,
-                            index = selector.index
+            val result =
+                when (selector) {
+                    is MultiSelectorTargeting.Selector.Point -> {
+                        attempt(
+                            label = label,
+                            action = UIAction.LongClickAt(selector.x, selector.y, durationMs),
+                            snapshotForAction = null,
+                            snapshotForUiChange = snapshot
                         )
-                        if (elementIndex == null) {
-                            val count = MultiSelectorTargeting.matchCountByTextOrDescription(snap, selector.text)
-                            attempts.add(
-                                "text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
-                            )
+                    }
+                    is MultiSelectorTargeting.Selector.Text -> {
+                        if (snapshot == null) {
+                            attemptLogs.add("$label: Snapshot required for text lookup")
                             null
                         } else {
-                            attempt(
-                                label = label,
-                                action = UIAction.LongClick(elementIndex, durationMs),
-                                snapshotForAction = snap
-                            )
+                            val element =
+                                MultiSelectorTargeting.resolveElementByTextOrDescription(
+                                    snapshot = snapshot,
+                                    text = selector.text,
+                                    index = selector.index
+                                )
+                            if (element == null) {
+                                val count =
+                                    MultiSelectorTargeting.matchCountByTextOrDescription(
+                                        snapshot,
+                                        selector.text
+                                    )
+                                attemptLogs.add(
+                                    "text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
+                                )
+                                null
+                            } else {
+                                attempt(
+                                    label = label,
+                                    action = UIAction.LongClick(element.index, durationMs),
+                                    snapshotForAction = snapshot,
+                                    snapshotForUiChange = snapshot
+                                )
+                            }
+                        }
+                    }
+                    is MultiSelectorTargeting.Selector.ElementIndex -> {
+                        if (snapshot == null) {
+                            attemptLogs.add("$label: Snapshot required for element_index long press")
+                            null
+                        } else {
+                            val element =
+                                MultiSelectorTargeting.resolveElement(
+                                    snapshot,
+                                    selector.elementIndex
+                                )
+                            if (element == null) {
+                                attemptLogs.add(
+                                    TargetingInvocationUtils.buildElementNotFoundMessage(
+                                        selector.elementIndex,
+                                        snapshot
+                                    )
+                                )
+                                null
+                            } else {
+                                attempt(
+                                    label = label,
+                                    action = UIAction.LongClick(element.index, durationMs),
+                                    snapshotForAction = snapshot,
+                                    snapshotForUiChange = snapshot
+                                )
+                            }
                         }
                     }
                 }
-                is MultiSelectorTargeting.Selector.ElementIndex -> {
-                    val snap = snapshot
-                    if (snap == null) {
-                        attempts.add("$label: Snapshot required for element_index long press")
-                        null
-                    } else {
-                        attempt(
-                            label = label,
-                            action = UIAction.LongClick(selector.elementIndex, durationMs),
-                            snapshotForAction = snap
-                        )
-                    }
-                }
-            }
 
-            if (result != null) return result
+            if (result != null) {
+                return result
+            }
         }
 
-        val details = if (attempts.isNotEmpty()) {
-            " Attempts: ${attempts.joinToString("; ")}"
+        val details = if (attemptLogs.isNotEmpty()) {
+            " Attempts: ${attemptLogs.joinToString("; ")}"
         } else {
             ""
         }

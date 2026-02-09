@@ -286,8 +286,6 @@ class AccessibilityPlatform(
     
     override suspend fun performAction(action: UIAction, snapshot: ScreenSnapshot?): ActionResult {
         return when (action) {
-            is UIAction.Click -> performClick(action, snapshot)
-            is UIAction.ClickAt -> performClickAt(action.x, action.y)
             is UIAction.ClickNodeAt -> performNodeClickAt(action.x, action.y)
             is UIAction.TapAt -> performTapAt(action.x, action.y)
             is UIAction.LongClick -> performLongClick(action, snapshot)
@@ -325,60 +323,6 @@ class AccessibilityPlatform(
     }
     
     // ===== Action Implementations =====
-    
-    /**
-     * Perform click action using multiple strategies.
-     * 
-     * Strategy 1: Try ACTION_CLICK on the accessibility node first (most reliable for complex apps)
-     * Strategy 2: Fall back to gesture-based tap if ACTION_CLICK fails
-     * 
-     * ACTION_CLICK is preferred because:
-     * - It's more reliable for apps with complex ViewGroups (YouTube, Notion, Flutter apps)
-     * - The accessibility framework routes the click to the correct target
-     * - Gesture taps can report "success" even when the UI doesn't respond
-     * 
-     * Gesture tap is used as fallback for apps that don't handle ACTION_CLICK well.
-     */
-    private suspend fun performClick(action: UIAction.Click, snapshot: ScreenSnapshot?): ActionResult {
-        if (snapshot == null) {
-            return ActionResult.Failure("Snapshot required for element-based click")
-        }
-        
-        val element = snapshot.elements.getOrNull(action.elementIndex)
-            ?: return ActionResult.ElementNotFound(action.elementIndex)
-        
-        val centerX = element.center.x
-        val centerY = element.center.y
-        
-        Log.d(TAG, "Clicking element ${action.elementIndex} at ($centerX, $centerY)")
-
-        // Strategy 1: Try ACTION_CLICK on the accessibility node first
-        // This is more reliable for apps with complex ViewGroups like YouTube
-        val actionClickResult = performNodeClickAt(centerX, centerY)
-        
-        if (actionClickResult is ActionResult.Success) {
-            return actionClickResult
-        }
-
-        // Strategy 2: Fall back to gesture-based tap
-        Log.d(TAG, "ACTION_CLICK failed or unavailable, falling back to gesture tap at ($centerX, $centerY)")
-        val tapResult = performTapAt(centerX, centerY)
-        if (tapResult is ActionResult.Success) {
-            return ActionResult.Success(
-                if (element.isEditable) {
-                    "Tapped editable element ${action.elementIndex}"
-                } else {
-                    "Tapped element ${action.elementIndex}"
-                }
-            )
-        }
-        
-        return tapResult
-    }
-    
-    private suspend fun performClickAt(x: Int, y: Int): ActionResult {
-        return performTapAt(x, y)
-    }
 
     private suspend fun performNodeClickAt(x: Int, y: Int): ActionResult {
         return withContext(Dispatchers.Main) {
@@ -439,7 +383,7 @@ class AccessibilityPlatform(
                     return@withContext ActionResult.Failure("Snapshot required when element_index is provided")
                 }
                 
-                val element = snapshot.elements.getOrNull(action.elementIndex)
+                val element = snapshot.elements.firstOrNull { it.index == action.elementIndex }
                 if (element == null) {
                     Log.e(TAG, "performType: Element ${action.elementIndex} not found (snapshot has ${snapshot.elements.size} elements)")
                     return@withContext ActionResult.ElementNotFound(action.elementIndex)
@@ -450,7 +394,7 @@ class AccessibilityPlatform(
                 Log.d(TAG, "performType: Tapping element ${action.elementIndex} at ($centerX, $centerY) to focus")
                 
                 // Tap to focus the element
-                val tapResult = performClickAt(centerX, centerY)
+                val tapResult = performTapAt(centerX, centerY)
                 if (tapResult is ActionResult.Failure) {
                     Log.e(TAG, "performType: Tap to focus failed: ${tapResult.reason}")
                     return@withContext tapResult
@@ -700,7 +644,7 @@ class AccessibilityPlatform(
             return ActionResult.Failure("Snapshot required for element-based long click")
         }
         
-        val element = snapshot.elements.getOrNull(action.elementIndex)
+        val element = snapshot.elements.firstOrNull { it.index == action.elementIndex }
             ?: return ActionResult.ElementNotFound(action.elementIndex)
         
         val x = element.center.x.toFloat()

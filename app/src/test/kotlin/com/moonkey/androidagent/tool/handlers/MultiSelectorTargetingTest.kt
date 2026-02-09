@@ -38,6 +38,31 @@ class MultiSelectorTargetingTest {
     }
 
     @Test
+    fun `attemptsFromParams supports click selector order`() {
+        val params = JSONObject().apply {
+            put("x", 5)
+            put("y", 6)
+            put("text", "OK")
+            put("text_index", 2)
+            put("element_index", 3)
+        }
+
+        val attempts = MultiSelectorTargeting.attemptsFromParams(
+            params = params,
+            textKey = "text",
+            textIndexKey = "text_index",
+            textLabel = "text",
+            selectorOrder = MultiSelectorTargeting.CLICK_FALLBACK_ORDER
+        )
+
+        assertThat(attempts.map { it.selector::class.simpleName }).containsExactly(
+            "ElementIndex",
+            "Text",
+            "Point"
+        ).inOrder()
+    }
+
+    @Test
     fun `findElementIndexByTextOrDescription matches text and description`() {
         val snapshot = ScreenSnapshot(
             timestamp = 0L,
@@ -69,33 +94,6 @@ class MultiSelectorTargetingTest {
 
         assertThat(textIndex).isEqualTo(0)
         assertThat(descriptionIndex).isEqualTo(1)
-    }
-
-    @Test
-    fun `hasActionableElementAt returns true only for actionable bounds`() {
-        val snapshot = ScreenSnapshot(
-            timestamp = 0L,
-            elements = listOf(
-                element(
-                    index = 0,
-                    resourceId = "com.app:id/plain",
-                    text = "Container",
-                    isClickable = false,
-                    isEditable = false
-                ),
-                element(
-                    index = 1,
-                    resourceId = "com.app:id/button",
-                    text = "Buy",
-                    isClickable = true,
-                    bounds = Bounds(left = 20, top = 20, right = 60, bottom = 60),
-                    center = Point(x = 40, y = 40)
-                )
-            )
-        )
-
-        assertThat(MultiSelectorTargeting.hasActionableElementAt(snapshot, 5, 5)).isFalse()
-        assertThat(MultiSelectorTargeting.hasActionableElementAt(snapshot, 40, 40)).isTrue()
     }
 
     private fun element(

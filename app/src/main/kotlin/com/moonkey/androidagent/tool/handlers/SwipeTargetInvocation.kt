@@ -223,13 +223,13 @@ class SwipeTargetInvocation(override val params: JSONObject, private val descrip
                         attemptErrors.add("$label: Snapshot required for text lookup")
                         continue
                     }
-                    val elementIndex =
-                            MultiSelectorTargeting.findElementIndexByTextOrDescription(
+                    val element =
+                            MultiSelectorTargeting.resolveElementByTextOrDescription(
                                     snapshot = snapshot,
                                     text = selector.text,
                                     index = selector.index
                             )
-                    if (elementIndex == null) {
+                    if (element == null) {
                         val count =
                                 MultiSelectorTargeting.matchCountByTextOrDescription(
                                         snapshot,
@@ -237,13 +237,6 @@ class SwipeTargetInvocation(override val params: JSONObject, private val descrip
                                 )
                         attemptErrors.add(
                                 "text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
-                        )
-                        continue
-                    }
-                    val element = snapshot.elements.firstOrNull { it.index == elementIndex }
-                    if (element == null) {
-                        attemptErrors.add(
-                                "text=\"${selector.text}\" resolved to missing element index $elementIndex"
                         )
                         continue
                     }
@@ -267,7 +260,7 @@ class SwipeTargetInvocation(override val params: JSONObject, private val descrip
                         continue
                     }
                     val element =
-                            snapshot.elements.firstOrNull { it.index == selector.elementIndex }
+                            MultiSelectorTargeting.resolveElement(snapshot, selector.elementIndex)
                     if (element == null) {
                         attemptErrors.add(
                                 TargetingInvocationUtils.buildElementNotFoundMessage(

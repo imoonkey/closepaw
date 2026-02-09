@@ -1,8 +1,6 @@
 package com.moonkey.androidagent.tool.handlers
 
-import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
@@ -23,12 +21,6 @@ class ClickTargetInvocation(
 
     companion object {
         private const val TAG = "ClickTargetInvocation"
-    }
-
-    private sealed interface AttemptOutcome {
-        data class Success(val result: ToolExecutionResult.Success) : AttemptOutcome
-        data class Retry(val reason: String) : AttemptOutcome
-        data class Cancelled(val reason: String) : AttemptOutcome
     }
 
     private data class ClickAttempt(
@@ -58,10 +50,29 @@ class ClickTargetInvocation(
         val attempts = buildAttemptPlan(snapshot, attemptLogs)
 
         for (attempt in attempts) {
-            when (val outcome = executeAttempt(context, attempt)) {
-                is AttemptOutcome.Success -> return outcome.result
-                is AttemptOutcome.Retry -> attemptLogs.add("${attempt.label}: ${outcome.reason}")
-                is AttemptOutcome.Cancelled -> return ToolExecutionResult.Cancelled(outcome.reason)
+            when (
+                val outcome =
+                    TargetingInvocationUtils.executeAttempt(
+                        context = context,
+                        action = attempt.action,
+                        snapshotForAction = null,
+                        snapshotForUiChange = attempt.preSnapshotForChange,
+                        requireUiChange = true,
+                        logTag = TAG
+                    )
+            ) {
+                is TargetingInvocationUtils.AttemptOutcome.Success -> {
+                    return ToolExecutionResult.Success(
+                        output = "${outcome.message} via ${attempt.label}",
+                        observation = outcome.observation
+                    )
+                }
+                is TargetingInvocationUtils.AttemptOutcome.Retry -> {
+                    attemptLogs.add("${attempt.label}: ${outcome.reason}")
+                }
+                is TargetingInvocationUtils.AttemptOutcome.Cancelled -> {
+                    return ToolExecutionResult.Cancelled(outcome.reason)
+                }
             }
         }
 
@@ -79,114 +90,93 @@ class ClickTargetInvocation(
     ): List<ClickAttempt> {
         val attempts = mutableListOf<ClickAttempt>()
         val dedupe = mutableSetOf<String>()
+        val selectorAttempts =
+            MultiSelectorTargeting.attemptsFromParams(
+                params = params,
+                textKey = "text",
+                textIndexKey = "text_index",
+                textLabel = "text",
+                selectorOrder = MultiSelectorTargeting.CLICK_FALLBACK_ORDER
+            )
 
-        val elementIndex = if (params.has("element_index")) params.optInt("element_index", -1) else null
-        if (elementIndex != null) {
-            if (elementIndex < 0) {
-                attemptLogs.add("element_index must be >= 0")
-            } else {
-                val element = resolveElement(snapshot, elementIndex)
-                if (element == null) {
-                    if (snapshot != null) {
-                        attemptLogs.add(TargetingInvocationUtils.buildElementNotFoundMessage(elementIndex, snapshot))
-                    } else {
-                        attemptLogs.add("element_index $elementIndex requires snapshot")
+        for (selectorAttempt in selectorAttempts) {
+            val selector = selectorAttempt.selector
+            val label = selectorAttempt.label
+            when (selector) {
+                is MultiSelectorTargeting.Selector.Point -> {
+                    addCoordinateAttempts(
+                        attempts = attempts,
+                        dedupe = dedupe,
+                        x = selector.x,
+                        y = selector.y,
+                        label = label,
+                        preSnapshotForChange = snapshot
+                    )
+                }
+                is MultiSelectorTargeting.Selector.Text -> {
+                    if (snapshot == null) {
+                        attemptLogs.add("$label: Snapshot required for text lookup")
+                        continue
                     }
-                } else {
+
+                    val element =
+                        MultiSelectorTargeting.resolveElementByTextOrDescription(
+                            snapshot = snapshot,
+                            text = selector.text,
+                            index = selector.index
+                        )
+                    if (element == null) {
+                        val count =
+                            MultiSelectorTargeting.matchCountByTextOrDescription(
+                                snapshot,
+                                selector.text
+                            )
+                        attemptLogs.add(
+                            "text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
+                        )
+                        continue
+                    }
+
                     addCoordinateAttempts(
                         attempts = attempts,
                         dedupe = dedupe,
                         x = element.center.x,
                         y = element.center.y,
-                        label = "element_index $elementIndex",
+                        label = label,
+                        preSnapshotForChange = snapshot
+                    )
+                }
+                is MultiSelectorTargeting.Selector.ElementIndex -> {
+                    if (snapshot == null) {
+                        attemptLogs.add("$label: Snapshot required for element_index click")
+                        continue
+                    }
+
+                    val element =
+                        MultiSelectorTargeting.resolveElement(snapshot, selector.elementIndex)
+                    if (element == null) {
+                        attemptLogs.add(
+                            TargetingInvocationUtils.buildElementNotFoundMessage(
+                                selector.elementIndex,
+                                snapshot
+                            )
+                        )
+                        continue
+                    }
+
+                    addCoordinateAttempts(
+                        attempts = attempts,
+                        dedupe = dedupe,
+                        x = element.center.x,
+                        y = element.center.y,
+                        label = label,
                         preSnapshotForChange = snapshot
                     )
                 }
             }
         }
 
-        val text = params.optString("text", "").trim()
-        if (text.isNotEmpty()) {
-            if (snapshot == null) {
-                attemptLogs.add("text=\"$text\": Snapshot required for text lookup")
-            } else {
-                val textIndex = params.optInt("text_index", 0)
-                val resolvedIndex =
-                    MultiSelectorTargeting.findElementIndexByTextOrDescription(
-                        snapshot = snapshot,
-                        text = text,
-                        index = textIndex
-                    )
-                if (resolvedIndex == null) {
-                    val count = MultiSelectorTargeting.matchCountByTextOrDescription(snapshot, text)
-                    attemptLogs.add("text=\"$text\" index $textIndex out of range (found $count)")
-                } else {
-                    val element = resolveElement(snapshot, resolvedIndex)
-                    if (element == null) {
-                        attemptLogs.add("text=\"$text\" resolved to missing element index $resolvedIndex")
-                    } else {
-                        addCoordinateAttempts(
-                            attempts = attempts,
-                            dedupe = dedupe,
-                            x = element.center.x,
-                            y = element.center.y,
-                            label = "text=\"$text\" index $textIndex",
-                            preSnapshotForChange = snapshot
-                        )
-                    }
-                }
-            }
-        }
-
-        val hasPoint = params.has("x") && params.has("y")
-        if (hasPoint) {
-            val x = params.optInt("x", -1)
-            val y = params.optInt("y", -1)
-            addCoordinateAttempts(
-                attempts = attempts,
-                dedupe = dedupe,
-                x = x,
-                y = y,
-                label = "coordinates ($x,$y)",
-                preSnapshotForChange = snapshot
-            )
-        }
-
         return attempts
-    }
-
-    private suspend fun executeAttempt(
-        context: ToolExecutionContext,
-        attempt: ClickAttempt
-    ): AttemptOutcome {
-        val result = context.platform.performAction(attempt.action, snapshot = null)
-        return when (result) {
-            is ActionResult.Success -> {
-                val observation = TargetingInvocationUtils.capturePostActionObservation(context, TAG)
-                val uiChange = TargetingInvocationUtils.detectUiChange(attempt.preSnapshotForChange, observation)
-                if (!uiChange.changed) {
-                    AttemptOutcome.Retry(uiChange.reason)
-                } else {
-                    AttemptOutcome.Success(
-                        ToolExecutionResult.Success(
-                            output = "${result.message} via ${attempt.label}",
-                            observation = observation
-                        )
-                    )
-                }
-            }
-            is ActionResult.Failure -> AttemptOutcome.Retry(result.reason)
-            is ActionResult.ElementNotFound -> {
-                val snap = attempt.preSnapshotForChange
-                val reason = if (snap != null) {
-                    TargetingInvocationUtils.buildElementNotFoundMessage(result.elementIndex, snap)
-                } else {
-                    "Element not found: index ${result.elementIndex} (no snapshot available)"
-                }
-                AttemptOutcome.Retry(reason)
-            }
-            is ActionResult.Cancelled -> AttemptOutcome.Cancelled(result.reason)
-        }
     }
 
     private fun addCoordinateAttempts(
@@ -197,20 +187,20 @@ class ClickTargetInvocation(
         label: String,
         preSnapshotForChange: ScreenSnapshot?
     ) {
-        val actionClick = UIAction.ClickNodeAt(x = x, y = y)
         addAttemptIfNew(
             attempts = attempts,
             dedupe = dedupe,
-            action = actionClick,
+            dedupeKey = "ClickNodeAt:$x,$y",
+            action = UIAction.ClickNodeAt(x = x, y = y),
             label = "$label -> ACTION_CLICK",
             preSnapshotForChange = preSnapshotForChange
         )
 
-        val gestureTap = UIAction.TapAt(x = x, y = y)
         addAttemptIfNew(
             attempts = attempts,
             dedupe = dedupe,
-            action = gestureTap,
+            dedupeKey = "TapAt:$x,$y",
+            action = UIAction.TapAt(x = x, y = y),
             label = "$label -> gesture tap",
             preSnapshotForChange = preSnapshotForChange
         )
@@ -219,16 +209,12 @@ class ClickTargetInvocation(
     private fun addAttemptIfNew(
         attempts: MutableList<ClickAttempt>,
         dedupe: MutableSet<String>,
+        dedupeKey: String,
         action: UIAction,
         label: String,
         preSnapshotForChange: ScreenSnapshot?
     ) {
-        val key = when (action) {
-            is UIAction.ClickNodeAt -> "ClickNodeAt:${action.x},${action.y}"
-            is UIAction.TapAt -> "TapAt:${action.x},${action.y}"
-            else -> return
-        }
-        if (dedupe.add(key)) {
+        if (dedupe.add(dedupeKey)) {
             attempts.add(
                 ClickAttempt(
                     label = label,
@@ -237,11 +223,5 @@ class ClickTargetInvocation(
                 )
             )
         }
-    }
-
-    private fun resolveElement(snapshot: ScreenSnapshot?, index: Int): PerceptionElement? {
-        if (snapshot == null) return null
-        return snapshot.elements.firstOrNull { it.index == index }
-            ?: snapshot.elements.getOrNull(index)
     }
 }

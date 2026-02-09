@@ -7,26 +7,11 @@ package com.moonkey.androidagent.platform
  * whether real (AccessibilityPlatform) or mock (MockPlatform).
  */
 sealed interface UIAction {
-    
-    /**
-     * Click on an element by its index in the screen snapshot.
-     */
-    data class Click(
-        val elementIndex: Int
-    ) : UIAction
-    
-    /**
-     * Click at specific screen coordinates.
-     */
-    data class ClickAt(
-        val x: Int,
-        val y: Int
-    ) : UIAction
 
     /**
      * Perform ACTION_CLICK on the clickable accessibility node at coordinates.
      *
-     * Unlike [Click], this does not include any gesture fallback. Invocation code
+     * This does not include any gesture fallback. Invocation code
      * can compose retry/fallback policies explicitly.
      */
     data class ClickNodeAt(
@@ -37,8 +22,8 @@ sealed interface UIAction {
     /**
      * Perform a gesture tap at coordinates.
      *
-     * Unlike [ClickAt], this is an explicit atomic tap action used when callers
-     * need strict API-level fallback orchestration.
+     * This is an explicit atomic tap action used when callers need strict
+     * API-level fallback orchestration.
      */
     data class TapAt(
         val x: Int,

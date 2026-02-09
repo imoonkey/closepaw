@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.tool.handlers
 
 import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
@@ -43,140 +42,177 @@ class TypeTargetInvocation(
         val textToType = params.getString("input_text")
         val clear = params.optBoolean("clear", false)
         val snapshot = context.currentSnapshot
-
-        val attempts = mutableListOf<String>()
+        val attemptLogs = mutableListOf<String>()
 
         suspend fun attemptType(
             label: String,
             focusAction: UIAction?,
-            typeAction: UIAction,
+            typeAction: UIAction.Type,
             snapshotForType: ScreenSnapshot?
         ): ToolExecutionResult? {
             if (focusAction != null) {
-                val focusResult = context.platform.performAction(focusAction, snapshotForType)
-                when (focusResult) {
-                    is ActionResult.Success -> Unit
-                    is ActionResult.Failure -> {
-                        attempts.add("$label: focus failed: ${focusResult.reason}")
+                when (
+                    val focusOutcome =
+                        TargetingInvocationUtils.executeAttempt(
+                            context = context,
+                            action = focusAction,
+                            snapshotForAction = snapshotForType,
+                            captureObservationOnSuccess = false,
+                            logTag = TAG
+                        )
+                ) {
+                    is TargetingInvocationUtils.AttemptOutcome.Success -> Unit
+                    is TargetingInvocationUtils.AttemptOutcome.Retry -> {
+                        attemptLogs.add("$label: focus failed: ${focusOutcome.reason}")
                         return null
                     }
-                    is ActionResult.ElementNotFound -> {
-                        val snap = snapshotForType
-                        val reason = if (snap != null) {
-                            TargetingInvocationUtils.buildElementNotFoundMessage(focusResult.elementIndex, snap)
-                        } else {
-                            "Element not found: index ${focusResult.elementIndex} (no snapshot available)"
-                        }
-                        attempts.add("$label: focus failed: $reason")
-                        return null
+                    is TargetingInvocationUtils.AttemptOutcome.Cancelled -> {
+                        return ToolExecutionResult.Cancelled(focusOutcome.reason)
                     }
-                    is ActionResult.Cancelled -> return ToolExecutionResult.Cancelled(focusResult.reason)
                 }
 
                 delay(FOCUS_DELAY_MS)
             }
 
-            val result = context.platform.performAction(typeAction, snapshotForType)
-            return when (result) {
-                is ActionResult.Success -> ToolExecutionResult.Success(
-                    output = result.message,
-                    observation = TargetingInvocationUtils.capturePostActionObservation(context, TAG)
-                )
-                is ActionResult.Failure -> {
-                    attempts.add("$label: ${result.reason}")
+            return when (
+                val typeOutcome =
+                    TargetingInvocationUtils.executeAttempt(
+                        context = context,
+                        action = typeAction,
+                        snapshotForAction = snapshotForType,
+                        logTag = TAG
+                    )
+            ) {
+                is TargetingInvocationUtils.AttemptOutcome.Success -> {
+                    ToolExecutionResult.Success(
+                        output = typeOutcome.message,
+                        observation = typeOutcome.observation
+                    )
+                }
+                is TargetingInvocationUtils.AttemptOutcome.Retry -> {
+                    attemptLogs.add("$label: ${typeOutcome.reason}")
                     null
                 }
-                is ActionResult.ElementNotFound -> {
-                    val snap = snapshotForType
-                    val reason = if (snap != null) {
-                        TargetingInvocationUtils.buildElementNotFoundMessage(result.elementIndex, snap)
-                    } else {
-                        "Element not found: index ${result.elementIndex} (no snapshot available)"
-                    }
-                    attempts.add("$label: $reason")
-                    null
+                is TargetingInvocationUtils.AttemptOutcome.Cancelled -> {
+                    ToolExecutionResult.Cancelled(typeOutcome.reason)
                 }
-                is ActionResult.Cancelled -> ToolExecutionResult.Cancelled(result.reason)
             }
         }
 
-        val selectorAttempts = MultiSelectorTargeting.attemptsFromParams(
-            params = params,
-            textKey = "text",
-            textIndexKey = "text_index",
-            textLabel = "text"
-        )
-        val effectiveAttempts = selectorAttempts
-
-        if (effectiveAttempts.isEmpty()) {
-            val result = attemptType(
-                label = "focused field",
-                focusAction = null,
-                typeAction = UIAction.Type(textToType, elementIndex = null, clear = clear),
-                snapshotForType = snapshot
+        val selectorAttempts =
+            MultiSelectorTargeting.attemptsFromParams(
+                params = params,
+                textKey = "text",
+                textIndexKey = "text_index",
+                textLabel = "text"
             )
-            if (result != null) return result
+
+        if (selectorAttempts.isEmpty()) {
+            val result =
+                attemptType(
+                    label = "focused field",
+                    focusAction = null,
+                    typeAction = UIAction.Type(textToType, elementIndex = null, clear = clear),
+                    snapshotForType = snapshot
+                )
+            if (result != null) {
+                return result
+            }
         } else {
-            for (selectorAttempt in effectiveAttempts) {
+            for (selectorAttempt in selectorAttempts) {
                 val selector = selectorAttempt.selector
                 val label = selectorAttempt.label
 
-                val result = when (selector) {
-                    is MultiSelectorTargeting.Selector.Point -> attemptType(
-                        label = label,
-                        focusAction = UIAction.ClickAt(selector.x, selector.y),
-                        typeAction = UIAction.Type(textToType, elementIndex = null, clear = clear),
-                        snapshotForType = snapshot
-                    )
-                    is MultiSelectorTargeting.Selector.Text -> {
-                        val snap = snapshot
-                        if (snap == null) {
-                            attempts.add("$label: Snapshot required for text lookup")
-                            null
-                        } else {
-                            val elementIndex = MultiSelectorTargeting.findElementIndexByTextOrDescription(
-                                snapshot = snap,
-                                text = selector.text,
-                                index = selector.index
+                val result =
+                    when (selector) {
+                        is MultiSelectorTargeting.Selector.Point -> {
+                            attemptType(
+                                label = label,
+                                focusAction = UIAction.TapAt(selector.x, selector.y),
+                                typeAction =
+                                    UIAction.Type(textToType, elementIndex = null, clear = clear),
+                                snapshotForType = snapshot
                             )
-                            if (elementIndex == null) {
-                                val count = MultiSelectorTargeting.matchCountByTextOrDescription(snap, selector.text)
-                                attempts.add(
-                                    "text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
-                                )
+                        }
+                        is MultiSelectorTargeting.Selector.Text -> {
+                            if (snapshot == null) {
+                                attemptLogs.add("$label: Snapshot required for text lookup")
                                 null
                             } else {
-                                attemptType(
-                                    label = label,
-                                    focusAction = null,
-                                    typeAction = UIAction.Type(textToType, elementIndex = elementIndex, clear = clear),
-                                    snapshotForType = snap
-                                )
+                                val element =
+                                    MultiSelectorTargeting.resolveElementByTextOrDescription(
+                                        snapshot = snapshot,
+                                        text = selector.text,
+                                        index = selector.index
+                                    )
+                                if (element == null) {
+                                    val count =
+                                        MultiSelectorTargeting.matchCountByTextOrDescription(
+                                            snapshot,
+                                            selector.text
+                                        )
+                                    attemptLogs.add(
+                                        "text=\"${selector.text}\" index ${selector.index} out of range (found $count)"
+                                    )
+                                    null
+                                } else {
+                                    attemptType(
+                                        label = label,
+                                        focusAction = null,
+                                        typeAction =
+                                            UIAction.Type(
+                                                textToType,
+                                                elementIndex = element.index,
+                                                clear = clear
+                                            ),
+                                        snapshotForType = snapshot
+                                    )
+                                }
+                            }
+                        }
+                        is MultiSelectorTargeting.Selector.ElementIndex -> {
+                            if (snapshot == null) {
+                                attemptLogs.add("$label: Snapshot required for element_index focus")
+                                null
+                            } else {
+                                val element =
+                                    MultiSelectorTargeting.resolveElement(
+                                        snapshot,
+                                        selector.elementIndex
+                                    )
+                                if (element == null) {
+                                    attemptLogs.add(
+                                        TargetingInvocationUtils.buildElementNotFoundMessage(
+                                            selector.elementIndex,
+                                            snapshot
+                                        )
+                                    )
+                                    null
+                                } else {
+                                    attemptType(
+                                        label = label,
+                                        focusAction = null,
+                                        typeAction =
+                                            UIAction.Type(
+                                                textToType,
+                                                elementIndex = element.index,
+                                                clear = clear
+                                            ),
+                                        snapshotForType = snapshot
+                                    )
+                                }
                             }
                         }
                     }
-                    is MultiSelectorTargeting.Selector.ElementIndex -> {
-                        val snap = snapshot
-                        if (snap == null) {
-                            attempts.add("$label: Snapshot required for element_index focus")
-                            null
-                        } else {
-                            attemptType(
-                                label = label,
-                                focusAction = null,
-                                typeAction = UIAction.Type(textToType, elementIndex = selector.elementIndex, clear = clear),
-                                snapshotForType = snap
-                            )
-                        }
-                    }
-                }
 
-                if (result != null) return result
+                if (result != null) {
+                    return result
+                }
             }
         }
 
-        val details = if (attempts.isNotEmpty()) {
-            " Attempts: ${attempts.joinToString("; ")}"
+        val details = if (attemptLogs.isNotEmpty()) {
+            " Attempts: ${attemptLogs.joinToString("; ")}"
         } else {
             ""
         }
