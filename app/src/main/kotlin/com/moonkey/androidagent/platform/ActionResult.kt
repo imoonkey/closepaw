@@ -1,42 +1,22 @@
 package com.moonkey.androidagent.platform
 
 /**
- * ActionResult - Result of executing a UIAction.
+ * ActionResult — result of executing an atomic UIAction.
+ *
+ * Simplified: no ElementNotFound (platform doesn't know about elements,
+ * returns Failure with descriptive reason). No exception field (log at source,
+ * don't carry through layers).
  */
 sealed interface ActionResult {
-    
-    /**
-     * Action executed successfully.
-     */
-    data class Success(
-        val message: String = "Action completed"
-    ) : ActionResult
-    
-    /**
-     * Action failed to execute.
-     */
-    data class Failure(
-        val reason: String,
-        val exception: Throwable? = null
-    ) : ActionResult
-    
-    /**
-     * Element not found (for actions targeting specific elements).
-     */
-    data class ElementNotFound(
-        val elementIndex: Int
-    ) : ActionResult
-    
-    /**
-     * Action was cancelled before completion.
-     */
-    data class Cancelled(
-        val reason: String = "Action cancelled"
-    ) : ActionResult
-    
-    /**
-     * Check if the result indicates success.
-     */
+
+    /** Action executed successfully. */
+    data class Success(val message: String = "Action completed") : ActionResult
+
+    /** Action failed to execute. */
+    data class Failure(val reason: String) : ActionResult
+
+    /** Action was cancelled before completion. */
+    data class Cancelled(val reason: String = "Action cancelled") : ActionResult
+
     fun isSuccess(): Boolean = this is Success
 }
-

@@ -22,13 +22,15 @@ interface AndroidPlatform {
     suspend fun captureScreen(): ScreenSnapshot
     
     /**
-     * Perform a UI action on the device.
-     * 
-     * @param action The action to perform
-     * @param snapshot Optional snapshot for element lookup (required for element-based actions)
+     * Perform an atomic UI action on the device.
+     *
+     * Each UIAction variant maps to exactly one Android API call.
+     * No fallback, no target resolution, no UI change detection.
+     *
+     * @param action The atomic action to perform
      * @return ActionResult indicating success or failure
      */
-    suspend fun performAction(action: UIAction, snapshot: ScreenSnapshot? = null): ActionResult
+    suspend fun performAction(action: UIAction): ActionResult
     
     /**
      * Check if the platform has all required permissions.

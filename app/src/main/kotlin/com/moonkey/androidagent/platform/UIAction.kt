@@ -30,39 +30,7 @@ sealed interface UIAction {
         val y: Int
     ) : UIAction
     
-    /**
-     * Long press on an element by its index.
-     */
-    data class LongClick(
-        val elementIndex: Int,
-        val durationMs: Long = 1000
-    ) : UIAction
-
-    /**
-     * Long press at specific screen coordinates.
-     *
-     * This is useful as a defensive fallback when element indices are stale or
-     * when the accessibility tree cannot reliably identify the target element.
-     */
-    data class LongClickAt(
-        val x: Int,
-        val y: Int,
-        val durationMs: Long = 1000
-    ) : UIAction
-    
-    /**
-     * Type text into a field.
-     * 
-     * @param text The text to type
-     * @param elementIndex Optional element to focus first. If null, types into current focus.
-     */
-    data class Type(
-        val text: String,
-        val elementIndex: Int? = null,
-        val clear: Boolean = false
-    ) : UIAction
-
-    // --- New atomic variants (Phase 1) ---
+    // --- Node-based (AccessibilityNodeInfo.performAction) ---
 
     /** Find node at (x,y), perform ACTION_LONG_CLICK */
     data class LongClickNodeAt(val x: Int, val y: Int) : UIAction
@@ -77,6 +45,8 @@ sealed interface UIAction {
     data class SetTextOnFocused(
         val text: String, val clear: Boolean = false
     ) : UIAction
+
+    // --- Gesture-based (AccessibilityService.dispatchGesture) ---
 
     /** Gesture long press (hold) at coordinates for duration */
     data class LongPressAt(

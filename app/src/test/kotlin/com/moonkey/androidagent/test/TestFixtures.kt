@@ -37,7 +37,7 @@ class FakeAndroidPlatform(
         return ScreenSnapshot(timestamp = timestampProvider(), elements = emptyList())
     }
 
-    override suspend fun performAction(action: UIAction, snapshot: ScreenSnapshot?): ActionResult {
+    override suspend fun performAction(action: UIAction): ActionResult {
         return ActionResult.Success()
     }
 

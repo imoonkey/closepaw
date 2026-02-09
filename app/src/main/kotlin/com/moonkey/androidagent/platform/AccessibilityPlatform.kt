@@ -284,15 +284,12 @@ class AccessibilityPlatform(
         }
     }
     
-    override suspend fun performAction(action: UIAction, snapshot: ScreenSnapshot?): ActionResult {
+    override suspend fun performAction(action: UIAction): ActionResult {
         return when (action) {
             is UIAction.ClickNodeAt -> performNodeClickAt(action.x, action.y)
             is UIAction.TapAt -> performTapAt(action.x, action.y)
-            is UIAction.LongClick -> performLongClick(action, snapshot)
-            is UIAction.LongClickAt -> performLongClickAt(action)
             is UIAction.LongClickNodeAt -> performNodeLongClickAt(action.x, action.y)
             is UIAction.LongPressAt -> performLongPressGesture(action.x.toFloat(), action.y.toFloat(), action.durationMs)
-            is UIAction.Type -> performType(action, snapshot)
             is UIAction.SetTextOnNodeAt -> performSetTextOnNodeAt(action.x, action.y, action.text, action.clear)
             is UIAction.SetTextOnFocused -> performSetTextOnFocused(action.text, action.clear)
             is UIAction.Swipe -> performSwipe(action)
@@ -363,112 +360,7 @@ class AccessibilityPlatform(
         return performTap(x.toFloat(), y.toFloat())
     }
     
-    /**
-     * Perform type action by re-querying the accessibility tree.
-     * 
-     * Re-queries the tree to find a fresh node at the target location,
-     * avoiding stale AccessibilityNodeInfo references.
-     */
-    private suspend fun performType(action: UIAction.Type, snapshot: ScreenSnapshot?): ActionResult {
-        Log.d(TAG, "performType: text='${action.text}', elementIndex=${action.elementIndex}, clear=${action.clear}")
-        
-        return withContext(Dispatchers.Main) {
-            val root = service.rootInActiveWindow
-            if (root == null) {
-                Log.e(TAG, "performType: Cannot access screen (root is null)")
-                return@withContext ActionResult.Failure("Cannot access screen for text input")
-            }
-            
-            // Determine target location - either from element or use currently focused
-            val targetNode: AccessibilityNodeInfo? = if (action.elementIndex != null) {
-                // Element index provided - tap to focus first
-                if (snapshot == null) {
-                    Log.e(TAG, "performType: Snapshot is null but element_index provided")
-                    return@withContext ActionResult.Failure("Snapshot required when element_index is provided")
-                }
-                
-                val element = snapshot.elements.firstOrNull { it.index == action.elementIndex }
-                if (element == null) {
-                    Log.e(TAG, "performType: Element ${action.elementIndex} not found (snapshot has ${snapshot.elements.size} elements)")
-                    return@withContext ActionResult.ElementNotFound(action.elementIndex)
-                }
-                
-                val centerX = element.center.x
-                val centerY = element.center.y
-                Log.d(TAG, "performType: Tapping element ${action.elementIndex} at ($centerX, $centerY) to focus")
-                
-                // Tap to focus the element
-                val tapResult = performTapAt(centerX, centerY)
-                if (tapResult is ActionResult.Failure) {
-                    Log.e(TAG, "performType: Tap to focus failed: ${tapResult.reason}")
-                    return@withContext tapResult
-                }
-                
-                // Brief delay for focus to take effect
-                kotlinx.coroutines.delay(100)
-                
-                // Re-query tree and find node at location
-                val freshRoot = service.rootInActiveWindow
-                if (freshRoot == null) {
-                    Log.e(TAG, "performType: Lost screen access after tap")
-                    return@withContext ActionResult.Failure("Lost screen access after tap")
-                }
-                
-                val node = AccessibilityNodeFinder.findNodeAtLocation(freshRoot, centerX, centerY)
-                Log.d(TAG, "performType: findNodeAtLocation returned ${if (node != null) "a node" else "null"}")
-                node
-            } else {
-                // No element index - find currently focused node
-                Log.d(TAG, "performType: No element_index, finding focused editable node")
-                AccessibilityNodeFinder.findFocusedEditableNode(root)
-            }
-            
-            if (targetNode != null) {
-                Log.d(TAG, "performType: Found target node, setting text (clear=${action.clear})")
-                if (action.clear) {
-                    val clearArgs = Bundle().apply {
-                        putCharSequence(
-                            AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                            ""
-                        )
-                    }
-                    val clearResult = targetNode.performAction(
-                        AccessibilityNodeInfo.ACTION_SET_TEXT,
-                        clearArgs
-                    )
-                    Log.d(TAG, "performType: Clear result=$clearResult")
-                }
-                val args = Bundle().apply {
-                    putCharSequence(
-                        AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                        action.text
-                    )
-                }
-                val result = targetNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-                
-                // Recycle the node after use (don't recycle root - owned by service)
-                if (targetNode !== root) {
-                    targetNode.recycle()
-                }
-                
-                if (result) {
-                    Log.d(TAG, "performType: Text entered successfully")
-                    ActionResult.Success("Text entered: ${action.text}")
-                } else {
-                    Log.e(TAG, "performType: ACTION_SET_TEXT failed")
-                    ActionResult.Failure("Failed to set text on element (ACTION_SET_TEXT failed)")
-                }
-            } else {
-                val msg = if (action.elementIndex != null) {
-                    "Could not find text-input element at specified location"
-                } else {
-                    "No focused editable element found. Specify element_index to focus a field first."
-                }
-                Log.e(TAG, "performType: $msg")
-                ActionResult.Failure(msg)
-            }
-        }
-    }
+    // (Legacy performType removed — replaced by atomic SetTextOnNodeAt + SetTextOnFocused)
     
     private suspend fun performSwipe(action: UIAction.Swipe): ActionResult {
         val display = getDisplayInfo()
@@ -729,54 +621,7 @@ class AccessibilityPlatform(
         return dispatchGesture(gesture)
     }
 
-    // ===== Legacy Long Click Implementation =====
-    
-    /**
-     * Perform long press using gesture with extended duration.
-     */
-    private suspend fun performLongClick(action: UIAction.LongClick, snapshot: ScreenSnapshot?): ActionResult {
-        if (snapshot == null) {
-            return ActionResult.Failure("Snapshot required for element-based long click")
-        }
-        
-        val element = snapshot.elements.firstOrNull { it.index == action.elementIndex }
-            ?: return ActionResult.ElementNotFound(action.elementIndex)
-        
-        val x = element.center.x.toFloat()
-        val y = element.center.y.toFloat()
-        
-        Log.d(TAG, "Long click element ${action.elementIndex} at ($x, $y) for ${action.durationMs}ms")
-        
-        // Show visualization (longPress ripple effect)
-        visualizer?.showClick(x, y, longPress = true)
-        
-        // Long press is a stationary gesture held for duration
-        val path = Path().apply {
-            moveTo(x, y)
-        }
-        
-        val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, action.durationMs))
-            .build()
-        
-        return dispatchGesture(gesture)
-    }
-
-    private suspend fun performLongClickAt(action: UIAction.LongClickAt): ActionResult {
-        val x = action.x.toFloat()
-        val y = action.y.toFloat()
-
-        Log.d(TAG, "Long click at ($x, $y) for ${action.durationMs}ms")
-
-        visualizer?.showClick(x, y, longPress = true)
-
-        val path = Path().apply { moveTo(x, y) }
-        val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, action.durationMs))
-            .build()
-
-        return dispatchGesture(gesture)
-    }
+    // (Legacy performLongClick, performLongClickAt removed — replaced by atomic variants)
     
     // ===== App Management Implementation =====
     
@@ -840,7 +685,7 @@ class AccessibilityPlatform(
                 ActionResult.Success("Launched $packageName")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to launch app: $packageName", e)
-                ActionResult.Failure("Failed to launch $packageName: ${e.message}", e)
+                ActionResult.Failure("Failed to launch $packageName: ${e.message}")
             }
         }
     }
