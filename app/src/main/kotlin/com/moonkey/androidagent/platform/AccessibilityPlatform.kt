@@ -12,6 +12,7 @@ import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.RequiresApi
+import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenImageSource
 import com.moonkey.androidagent.model.ScreenSnapshot
@@ -61,10 +62,62 @@ class AccessibilityPlatform(
     }
 
     override suspend fun captureScreen(): ScreenSnapshot {
+        val pc = config.perceptionConfig
+        val timestamp = System.currentTimeMillis()
+
+        // 1. Accessibility capture (only when config requires it)
+        val a11yResult: A11yCaptureResult? =
+                if (pc.capturesAccessibility) {
+                    captureAccessibilityTree()
+                } else null
+
+        // 2. Screenshot capture (when config requires it OR trace is enabled for debugging)
+        val shouldCaptureScreenshot = pc.capturesScreenshot || traceRecorder.enabled
+        val windowId = a11yResult?.windowId
+        val screenshotCapture =
+                captureScreenshotIfEnabled(windowId, enabled = shouldCaptureScreenshot)
+
+        // 3. Only include screenshot in the snapshot if the perception config wants it
+        val image = if (pc.capturesScreenshot) screenshotCapture?.image else null
+
+        // 4. Build debug info
+        val debug =
+                if (traceRecorder.enabled) {
+                    ScreenSnapshotDebug(
+                            rawA11yTreePath = a11yResult?.rawTreeArtifactPath,
+                            sanitizedA11yTreePath = a11yResult?.sanitizedTreeArtifactPath,
+                            screenshotPath = screenshotCapture?.tracePath
+                    )
+                } else {
+                    null
+                }
+
+        val elements = a11yResult?.elements
+        Log.d(
+                TAG,
+                "Captured screen [${pc::class.simpleName}]: ${elements.orEmpty().size} elements, screenshot=${image != null}"
+        )
+
+        return ScreenSnapshot(
+                timestamp = timestamp,
+                elements = elements,
+                image = image,
+                debug = debug
+        )
+    }
+
+    private data class A11yCaptureResult(
+            val elements: List<PerceptionElement>,
+            val windowId: Int?,
+            val rawTreeArtifactPath: String?,
+            val sanitizedTreeArtifactPath: String?
+    )
+
+    private suspend fun captureAccessibilityTree(): A11yCaptureResult {
         val root = withContext(Dispatchers.Main) { service.rootInActiveWindow }
         val windowId = root?.windowId
 
-        val rawTreeArtifact =
+        val rawTreeArtifactPath =
                 if (traceRecorder.enabled) {
                     val dump = withContext(Dispatchers.Default) { A11yTreeDumper.dump(root) }
                     val json = TraceJson.instance.encodeToString(dump)
@@ -73,14 +126,12 @@ class AccessibilityPlatform(
                             filenameHint = "raw_${System.currentTimeMillis()}.json",
                             content = json,
                             mimeType = "application/json"
-                    )
-                } else {
-                    null
-                }
+                    )?.path
+                } else null
 
         val snapshot = Perceptor.snapshot(root)
 
-        val sanitizedTreeArtifact =
+        val sanitizedTreeArtifactPath =
                 if (traceRecorder.enabled) {
                     val json = Perceptor.toPromptJson(snapshot)
                     traceRecorder.storeText(
@@ -88,31 +139,15 @@ class AccessibilityPlatform(
                             filenameHint = "sanitized_${snapshot.timestamp}.json",
                             content = json,
                             mimeType = "application/json"
-                    )
-                } else {
-                    null
-                }
+                    )?.path
+                } else null
 
-        val shouldCaptureScreenshot = config.perceptionConfig.capturesScreenshot || traceRecorder.enabled
-        val screenshotCapture =
-                captureScreenshotIfEnabled(windowId, enabled = shouldCaptureScreenshot)
-        val image = if (config.perceptionConfig.capturesScreenshot) screenshotCapture?.image else null
-        Log.d(
-                TAG,
-                "Captured screen: ${snapshot.elements.orEmpty().size} elements, package: ${root?.packageName}"
+        return A11yCaptureResult(
+                elements = snapshot.elements.orEmpty(),
+                windowId = windowId,
+                rawTreeArtifactPath = rawTreeArtifactPath,
+                sanitizedTreeArtifactPath = sanitizedTreeArtifactPath
         )
-        val debug =
-                if (traceRecorder.enabled) {
-                    ScreenSnapshotDebug(
-                            rawA11yTreePath = rawTreeArtifact?.path,
-                            sanitizedA11yTreePath = sanitizedTreeArtifact?.path,
-                            screenshotPath = screenshotCapture?.tracePath
-                    )
-                } else {
-                    null
-                }
-
-        return snapshot.copy(image = image, debug = debug)
     }
 
     private data class ScreenshotCapture(val image: ScreenImage, val tracePath: String?)
