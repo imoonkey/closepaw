@@ -1,7 +1,7 @@
 # Agent Loop Execution
 
 > ReAct loop, Turn mechanics, and streaming execution.
-> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
+> Last updated: 2026-02-09 (commit: e2e2f8cde08b4b5fb225d1f09a616b6630db1695)
 
 ## ReAct Loop
 
@@ -72,9 +72,10 @@ Executes one full turn.
 
 **Responsibilities:**
 - Capture pre-turn snapshot and emit perception events
-- Build prompt context and stream LLM response via `Turn`
+- Build warnings + prompt input via `PromptBuilder`, then stream LLM response via `Turn`
 - Apply `TurnToolPolicy` to choose executable tool calls
 - Execute selected tools and persist outputs/observations
+- Record the current screen observation into history for future turns
 - Decide turn outcome (`Continue`, `Complete`, `Error`, `Cancelled`)
 
 ### Turn
@@ -84,7 +85,7 @@ Executes one full turn.
 Encapsulates a single Responses API call with streaming.
 
 **Responsibilities:**
-- Build input items from history + current user context
+- Execute the Responses API call with prebuilt `inputItems`
 - Generate tool schemas from `ToolRegistry`
 - Stream text and tool calls via `runStreaming()`
 - Mark completion when `complete_task` is present, or text-only response has no tool calls
@@ -105,11 +106,11 @@ Defines runtime control/result types:
 
 → See: `agent/cognition/`
 
-- **Prompt layer**: `PromptUtils` builds user context; system prompts are provided by `AgentDef`
+- **Prompt layer**: `PromptBuilder` assembles History -> Working Memory -> Current Observation input items
 - **Context layer**: `NavigationState` tracks recent screens/actions for loop detection
 - **Policy layer**: `TurnToolPolicy` arbitrates tool calls and completion
-- **Loop guard**: `LoopDetectionPolicy` emits reminders for repeated screens/actions/scroll loops
-- **Step guard**: `ExecutorStepPolicy` injects turn-budget reminders and final-turn narrative summary
+- **Loop guard**: `LoopDetectionPolicy` emits warnings for repeated screens/actions/scroll loops
+- **Step guard**: `ExecutorStepPolicy` contributes final-turn warning text when limit is reached
 
 ---
 

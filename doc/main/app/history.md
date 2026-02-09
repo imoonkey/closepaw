@@ -1,7 +1,7 @@
 # Session History Persistence
 
 > Session recording, storage, and resume functionality.
-> Last updated: 2026-02-05 (commit: af73f8a3ac945a077707b2774adc8f6ac8221c5e)
+> Last updated: 2026-02-09 (commit: e2e2f8cde08b4b5fb225d1f09a616b6630db1695)
 
 ## Overview
 
@@ -99,6 +99,24 @@ class SessionStorage(context) {
 **Storage Location:** `/data/data/{package}/files/sessions/`
 
 **File Naming:** `session-{timestamp}-{uuid}.json`
+
+---
+
+## Runtime Prompt History
+
+In addition to persisted UI session history, runtime prompt history is managed in-memory by `HistoryManager` for each active agent session.
+
+-> See: `history/HistoryManager.kt`
+
+Key runtime behavior:
+- Stores message/function-call/function-output items used for LLM `input`
+- Tags turn-start screen messages with `isScreenObservation=true`
+- Normalizes call/output pairs before prompt send (`forPrompt()`)
+- Applies token-budget management and output truncation policies
+
+Screen observations are later compressed by `PromptBuilder` when preparing prompt input.
+
+-> See: `agent/cognition/prompt/PromptBuilder.kt`
 
 ---
 

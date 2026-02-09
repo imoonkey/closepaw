@@ -1,7 +1,7 @@
 # Agent Core Overview
 
 > Design principles, architecture, and package structure for the Android Agent.
-> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
+> Last updated: 2026-02-09 (commit: e2e2f8cde08b4b5fb225d1f09a616b6630db1695)
 
 ## Design Principles
 
@@ -62,7 +62,7 @@ com.moonkey.androidagent/
 │   ├── Turn.kt                   # LLM call wrapper (Responses API)
 │   ├── definition/               # AgentDef, Planner/Executor/Standalone defs
 │   ├── cognition/
-│   │   ├── prompt/               # PromptUtils
+│   │   ├── prompt/               # PromptBuilder
 │   │   ├── context/              # NavigationState + screen signatures
 │   │   └── policy/               # TurnToolPolicy, loop detection, step budget
 │   └── subagent/

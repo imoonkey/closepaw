@@ -79,7 +79,7 @@ When todos or scratchpad keys exist, a single user message is inserted:
 
 Final user message always includes current screen JSON:
 
-```text
+````text
 ⚠️ ...optional warning...
 🛑 ...optional final-turn warning...
 
@@ -87,7 +87,7 @@ Screen state (N elements):
 ```json
 ...
 ```
-```
+````
 
 If screenshot input is available and backend is OpenAI, the message also attaches image content and appends:
 

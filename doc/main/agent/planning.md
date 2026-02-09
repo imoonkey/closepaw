@@ -1,24 +1,26 @@
 # Planning State & Context Hygiene
 
-> TodoState, ScratchpadState, and history compression strategies.
-> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
+> TodoState, ScratchpadState, and context-compression strategies.
+> Last updated: 2026-02-09 (commit: e2e2f8cde08b4b5fb225d1f09a616b6630db1695)
 
 ## Planning State System
 
 The agent uses planning-state tools to track progress and share data between planner and executor.
 
-`PromptUtils` injects dynamic reminders based on planning/context state:
-- Todo reminder only when actionable items exist
-- Scratchpad reminder with key count + key preview
-- Loop and turn-budget reminders from cognition policies
+`PromptBuilder` injects planning context as a dedicated memory message:
+- Includes todos when todo list is non-empty
+- Includes scratchpad keys when scratchpad is non-empty
+- Omits memory section entirely when both are empty
 
-→ See: `agent/cognition/prompt/PromptUtils.kt`
+Runtime warning text (loop warning / final-turn warning) is injected in the observation section by `AgentTurnRunner.buildWarnings(...)`.
+
+-> See: `agent/cognition/prompt/PromptBuilder.kt`, `agent/AgentTurnRunner.kt`
 
 ---
 
 ## TodoState
 
-→ See: `session/TodoState.kt`
+-> See: `session/TodoState.kt`
 
 Thread-safe todo list for tracking subgoals:
 
@@ -46,7 +48,7 @@ data class Todo(
 
 ### write_todos Tool
 
-→ See: `tool/impl/WriteTodosTool.kt`
+-> See: `tool/impl/WriteTodosTool.kt`
 
 ```kotlin
 write_todos(
@@ -62,7 +64,7 @@ write_todos(
 
 ## ScratchpadState
 
-→ See: `session/ScratchpadState.kt`
+-> See: `session/ScratchpadState.kt`
 
 Thread-safe key-value store for intermediate data:
 
@@ -90,7 +92,7 @@ class ScratchpadState {
 
 ### scratchpad Tool
 
-→ See: `tool/impl/ScratchpadTool.kt`
+-> See: `tool/impl/ScratchpadTool.kt`
 
 ```kotlin
 // Write
@@ -110,41 +112,40 @@ scratchpad(action = "list")
 
 ## Context Hygiene (History Compression)
 
-To control token usage, the runtime keeps history text-first and injects fresh screen context every turn.
+To control token usage, runtime history is kept text-first while preserving recent full screen observations.
 
 ### Key Design Decisions
 
 | Aspect | Approach |
 |--------|----------|
-| **History** | Messages + tool calls/outputs (no full raw screen JSON history growth) |
-| **Screen State** | Fresh snapshot injected each turn via prompt context |
-| **Observations** | Compact summary strings (`ScreenSnapshot.toSummary`) |
-| **Compression** | `HistoryManager` auto-compresses near budget |
+| **History** | User/assistant messages + function calls + function outputs |
+| **Current Screen** | Current turn always includes full screen JSON in observation section |
+| **Screen History** | Each turn records screen JSON as `ResponseItem.Message(isScreenObservation=true)` |
+| **Screen Compression** | `PromptBuilder` keeps recent full screen turns and compresses older ones |
+| **Token Budget** | `HistoryManager` truncates long outputs and auto-compresses by token threshold |
 
-### Screen Summary
+### Screen Compression Output
 
-→ See: `perception/ScreenSummary.kt`
+Older recorded screen observations are compressed to one line:
 
-`ScreenSnapshot.toSummary(packageName)` generates a compact observation string, for example:
-
-`com.google.android.gm | elements=42, clickable=18, editable=1, focused=Search mail, labels=Inbox, Promotions, Social`
+`Screen: {N} elements (compressed)`
 
 ### Data Flow
 
 ```
 Turn N                                  Turn N+1
-  │                                       │
-  ├─ Perceive: capture screen            ├─ Perceive: capture screen
-  │                                       │
-  ├─ Think: LLM with                     ├─ Think: LLM with
-  │   - History (text/tool outputs)      │   - History (text/tool outputs)
-  │   - Latest screen (prompt JSON)      │   - Latest screen (prompt JSON)
-  │   - Todos + scratchpad               │   - Todos + scratchpad
-  │                                       │
-  ├─ Act: execute tool                   ├─ Act: execute tool
-  │                                       │
-  └─ Observe: append compact summary     └─ Observe: append compact summary
-      (not full raw tree)                    (not full raw tree)
+  |                                       |
+  |- Perceive: capture screen             |- Perceive: capture screen
+  |                                       |
+  |- Think: LLM with                      |- Think: LLM with
+  |  - History (including older screens)  |  - History (older screens compressed)
+  |  - Working Memory (todos/scratchpad)  |  - Working Memory (todos/scratchpad)
+  |  - Current observation JSON           |  - Current observation JSON
+  |                                       |
+  |- Act: execute tool                    |- Act: execute tool
+  |                                       |
+  '- Observe: record full screen JSON     '- Observe: record full screen JSON
+     in history (screen marker=true)         in history (screen marker=true)
 ```
 
 ---
@@ -153,9 +154,9 @@ Turn N                                  Turn N+1
 
 | Problem | Solution |
 |---------|----------|
-| Token explosion from full a11y trees | Fresh-turn injection + compact summaries |
-| Stale screen-state confusion | Re-capture screen every turn |
-| History bloat | History compression near budget |
+| Token explosion from full a11y trees | Keep only recent full observations and compress older ones |
+| Stale screen-state confusion | Re-capture every turn and place current observation at input tail |
+| History bloat | Dual strategy: `HistoryManager` budget compression + `PromptBuilder` screen compression |
 | Cross-turn data loss | Explicit persistence via scratchpad/todos |
 
 ---
@@ -167,12 +168,13 @@ Turn N                                  Turn N+1
 | `TodosUpdated` | Emitted when todos change |
 | `ScratchpadUpdated` | Emitted on write/delete |
 
-→ See: [Protocol Events](../protocol/protocol.md#planning-state-events)
+-> See: [Protocol Events](../protocol/protocol.md#planning-state-events)
 
 ---
 
 ## Related Docs
 
-- [Loop Execution](loop.md) - How planning state is injected
-- [Multi-Agent](multiagent.md) - Scratchpad for cross-agent data
-- [Tools](../infra/tools.md) - Tool implementations
+- [Loop Execution](loop.md) - how planning state is injected
+- [Turn Prompt Anatomy](turn_prompt_anatomy.md) - exact prompt/input composition
+- [Multi-Agent](multiagent.md) - scratchpad for cross-agent data
+- [Tools](../infra/tools.md) - tool implementations
