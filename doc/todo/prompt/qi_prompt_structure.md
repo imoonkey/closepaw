@@ -37,15 +37,21 @@ allowed tools spec
 
     {% todo list, as a user message %}
     Todo list general prompt
-    A ... done
-    B ... in-progress
-    C ... not_started
+    1. ... done
+    2. ... in-progress
+    3. ... not_started
 
-    Current_subgoal: B ...
+    Current_subgoal: 3 ...
 
 {% current turn: %}
-    - message (user): [full screen status, with at least one of a11y tree and image]
-    input_text: general prompt + a11y tree
-    input_image: screenshot image (optionally compressed)
+    message (user): 
+    - [full screen status, with at least one of a11y tree and image]
+    - input_text: general prompt + a11y tree
+    - input_image: screenshot image (optionally compressed)
 
-TODO:是不是该保留last n=3 full_screen_state，而不是只保留最后一次？
+
+
+1. 我的prompt building现在有很多spaghetti code，乱的要死，都是屎山。给我重新按上面的顺序要实现一下。
+2. system reminder 要删一删，
+3. tool不用返回screen state了，每个turn开始capture一下，放到user message就行了。tool return它本来就要return的一些meta的东西，不再做屏幕观测。tool observation里面也有screen state，这个以后是不是不用返回，就不需要了？
+4. 是不是该保留last N(现在可以先hardcode到3)个turn的full_screen_state，而不是只保留最后一次。

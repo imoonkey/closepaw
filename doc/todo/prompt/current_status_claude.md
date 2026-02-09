@@ -1,6 +1,6 @@
 # Android Agent Prompt & Behavior 全景图
 
-> Last updated: 2026-02-06
+> Last updated: 2026-02-09
 > 目标读者：Agent researcher — 快速了解所有决定 agent behavior 的部分：prompt 结构、action space、state representation、context packing
 
 ---
@@ -25,7 +25,7 @@ Request {
 | 请求组装 | `llm/OpenAILLMClient.kt:303` | `buildResponseParams()` |
 | Turn 输入构建 | `agent/Turn.kt:40` | `buildInputItems()` |
 | Prompt 构建调度 | `agent/AgentTurnRunner.kt:211` | `runPlanningPhase()` |
-| User message 构建 | `agent/cognition/prompt/PromptUtils.kt:37` | `buildUserMessage()` |
+| User message 构建 | `agent/cognition/prompt/PromptUtils.kt:36` | `buildUserMessage()` |
 | Screen JSON 生成 | `perception/Perceptor.kt:79` | `toPromptJson()` |
 
 > 所有文件路径相对于 `app/src/main/kotlin/com/moonkey/androidagent/`
@@ -40,9 +40,9 @@ System prompt 由 AgentDef 子类提供，根据 agent 角色不同而不同。
 
 | Agent | 文件 | ID | 角色 | 允许工具 |
 |-------|------|----|------|----------|
-| **Planner** | `agent/definition/PlannerAgentDef.kt` | `planner` | 主代理，规划+委托 | `app_control`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task` |
-| **Executor** | `agent/definition/ExecutorAgentDef.kt` | `executor` | 子代理，执行原子 UI 动作 | `mobile_action`, `app_control`, `scratchpad`, `complete_task` |
-| **Standalone** | `agent/definition/StandaloneAgentDef.kt` | `standalone` | 单体模式，直接执行 | `mobile_action`, `app_control`, `scratchpad`, `write_todos`, `complete_task` |
+| **Planner** | `agent/definition/PlannerAgentDef.kt` | `planner` | 主代理，规划+委托 | `open_app`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task` |
+| **Executor** | `agent/definition/ExecutorAgentDef.kt` | `executor` | 子代理，执行原子 UI 动作 | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task` |
+| **Standalone** | `agent/definition/StandaloneAgentDef.kt` | `standalone` | 单体模式，直接执行 | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `write_todos`, `complete_task` |
 
 ### 2.2 Planner System Prompt (完整)
 
@@ -54,7 +54,8 @@ Delegate all grounded UI execution to the executor agent via delegate_task.
 
 ## Tool Calling
 - Use function calling tools only; do NOT emit raw JSON or <action> tags.
-- Call exactly one execution tool per turn (`delegate_task` or `app_control`), then wait.
+- Call exactly one execution tool per turn (`delegate_task` or `open_app`), then wait.
+- Use `open_app` to launch apps directly — do NOT delegate app-opening to the executor or navigate the app drawer.
 - Use `write_todos` and `scratchpad` to track progress and facts.
 - When the overall goal is achieved, call complete_task(status="success", answer="...").
 - If blocked, call complete_task(status="failure", answer="...") with partial progress.
@@ -87,7 +88,6 @@ GOOD (atomic):
 ## Writing Good Executor Queries
 When calling delegate_task, your query should be specific and actionable:
 - Include app/screen context
-- Name the target element (text/desc/resource_id)
 - State the success criteria
 
 ## Failure Recovery
@@ -98,8 +98,11 @@ When executor reports failure or step-limit summary:
 
 ## Scratchpad (Shared with Executor)
 Use scratchpad to store extracted data and progress so the Executor can read/write it:
+- Scratchpad context shows keys only. Read values explicitly when needed.
+- Write facts before navigation when data may disappear.
 - scratchpad(action="write", key="email_1", value="From: X, Subject: Y")
 - scratchpad(action="write", key="emails_read", value="3")
+- scratchpad(action="read", key="email_1")
 ```
 
 ### 2.3 Executor System Prompt (完整)
@@ -129,12 +132,14 @@ You ground that intent to a specific UI action using the screen state, execute i
 2. Ground decisions on the CURRENT screen state (JSON element list).
 3. Execute ONE action, verify result, then complete_task.
 4. Include `agent_thought` in tool calls to explain WHY you chose the target.
+5. Prefer semantic selectors (`element_index`, `text`) over raw coordinates.
+6. Use coordinate taps only as a last resort and never on blank/unlabeled regions.
 
 ## Query Types & How to Handle
 
 ### TAP queries ("Tap on X", "Click the Y button")
 1. Find the element matching the intent in the JSON list
-2. mobile_action(action="click", element_index=N) or resource_id/text
+2. mobile_action(action="click", element_index=N)
 3. complete_task(status="success", answer="Tapped [element description]")
 
 ### SCROLL queries ("Scroll down", "Scroll to find X")
@@ -150,27 +155,20 @@ You ground that intent to a specific UI action using the screen state, execute i
 
 ### TYPE queries ("Type 'hello' into search")
 1. Find the input field (editable=true)
-2. mobile_action(action="type", text="hello", element_index=N)
+2. mobile_action(action="type", input_text="hello", element_index=N)
 3. complete_task(status="success", answer="Typed '[text]' into [field]")
 
 ### BACK queries ("Go back", "Return to inbox")
-1. mobile_action(action="system_button", button="back")
+1. system_button(button="back")
 2. complete_task(status="success", answer="Pressed back")
 
-## Element Selection
-Screen state is a JSON array. Each element:
-- index: unique ID for this screen
-- text: visible text
-- resource_id: Android ID (e.g., "com.app:id/button")
-- desc: accessibility label
-- clickable, editable, scrollable: flags
-- bounds: [left, top, right, bottom], center: [x, y]
-
-Selection priority: text/desc > resource_id > element_index > coordinates
-If target is not visible, scroll first (swipe direction="up" to scroll down).
+### OPEN APP queries ("Open Gmail", "Launch Settings")
+1. open_app(app_name="Gmail") — always use this, do NOT navigate the app drawer manually
+2. complete_task(status="success", answer="Opened Gmail")
 
 ## Scratchpad (Shared with Planner)
 Use scratchpad to store extracted data so the Planner can access it:
+- Scratchpad context shows keys only. Use read when you need a stored value.
 - scratchpad(action="write", key="email_1_sender", value="John Doe")
 - scratchpad(action="read", key="...")
 
@@ -201,8 +199,8 @@ You are not a planner-only role and should execute grounded actions yourself.
 - Execute ONE UI action per turn when possible, then observe.
 - Use `write_todos` for multi-step goals to keep progress explicit.
 - Use `scratchpad` to store extracted facts and avoid repeated extraction.
-- Call complete_task(status="success", answer="...") when goal is achieved.
-- If blocked, call complete_task(status="failure", answer="...") with blocker details.
+- Scratchpad context shows keys only; use `scratchpad(action="read", key="...")` when value is needed.
+
 
 ## Core Loop
 1. Observe current screen state (JSON element list)
@@ -211,21 +209,14 @@ You are not a planner-only role and should execute grounded actions yourself.
 4. Verify progress and continue
 5. Complete the task promptly when done
 
-## UI Action Grounding
-Prefer targets in this order: text/desc > resource_id > element_index > coordinates.
-
-Common actions:
-- Tap: mobile_action(action="click", element_index=N)
-- Type: mobile_action(action="type", text="...", element_index=N)
-- Scroll down: mobile_action(action="swipe", direction="up")
-- Scroll up: mobile_action(action="swipe", direction="down")
-- Back: mobile_action(action="system_button", button="back")
-- Home: mobile_action(action="system_button", button="home")
 
 ## Execution Quality
 - Be precise and evidence-driven from the current accessibility JSON.
+- Prefer semantic selectors (`element_index`, `text`) over coordinate taps.
+- Use coordinate taps only as a last resort, and never probe blank/unlabeled areas.
 - Avoid repeated identical actions when no state change occurs.
 - If an action fails, switch strategy instead of brute-force retries.
+- Use `system_button(button="enter")` only when a text field is focused after typing.
 - Keep answers concise and factual in complete_task.
 ```
 
@@ -273,7 +264,7 @@ input_items = [
 
 ```
 Current screen state (N elements):
-
+```json
 [
   {
     "index": 0,
@@ -294,9 +285,9 @@ Current screen state (N elements):
   },
   ...
 ]
+```
 
-
-Available tools: app_control, complete_task, delegate_task, scratchpad, write_todos
+Available tools: complete_task, mobile_action, open_app, scratchpad, system_button, wait, write_todos
 
 Current Todos
 1. [IN_PROGRESS] Open Gmail app
@@ -318,14 +309,6 @@ LOOP WARNING (HIGH): Screen unchanged after 3 identical actions. Try a different
 <system_reminder>
 Todo status: 3 actionable item(s) (3 total tracked). In progress: Open Gmail app. Next: Read first email; Extract sender info.
 </system_reminder>
-
-<system_reminder>
-Scratchpad has 2 key(s). Reuse stored facts before repeating extraction. Keys: current_app, email_count
-</system_reminder>
-
-<system_reminder>
-TURN BUDGET WARNING: turn 8 of 10. Prioritize decisive action and avoid repeating failed attempts.
-</system_reminder>
 ```
 
 **关键代码位置：**
@@ -333,12 +316,14 @@ TURN BUDGET WARNING: turn 8 of 10. Prioritize decisive action and avoid repeatin
 | 组件 | 文件 | 说明 |
 |------|------|------|
 | Screen JSON | `perception/Perceptor.kt:79` `toPromptJson()` | 最多 80 个元素，优先交互元素 |
-| Tool 名称列表 | `PromptUtils.kt:59` | 按字母排序 |
+| Tool 名称列表 | `PromptUtils.kt:58` | 按字母排序 |
 | Todo 上下文 | `session/TodoState.kt:32` `toPromptContext()` | 格式：`N. [STATUS] description` |
-| Scratchpad 上下文 | `session/ScratchpadState.kt:45` `toPromptContext()` | 格式：`- key: value` |
+| Scratchpad 上下文 | `session/ScratchpadState.kt:45` `toPromptContext()` | 格式：`- key: value` (keys only, values not shown in context) |
 | Loop warning | `agent/cognition/policy/LoopDetectionPolicy.kt` | 检测屏幕不变/动作重复 |
 | Step budget warning | `agent/cognition/policy/ExecutorStepPolicy.kt` | 接近 maxTurns 时触发 |
-| Screenshot (可选) | `PromptUtils.kt:51` | 仅 OpenAI backend 时附加 |
+| Screenshot (可选) | `PromptUtils.kt:50-52` | 仅 OpenAI backend 时附加 |
+
+> **Note:** Scratchpad reminder was removed from PromptUtils. Context now shows only keys, requiring explicit `scratchpad(action="read")` to get values.
 
 ### 3.4 Executor 子代理的 Goal 不同
 
@@ -365,17 +350,18 @@ Important notes:                     (可选)
 | **Loop Warning** | 屏幕不变/动作重复 | user message 尾部 | `LoopDetectionPolicy.kt` |
 | **Turn Budget Warning** | 接近 maxTurns (75%) | user message 尾部 | `ExecutorStepPolicy.kt` |
 | **Final Turn Warning** | 达到 maxTurns | user message 尾部 | `AgentTurnRunner.kt:656` |
-| **Todo Reminder** | 有未完成 todo | user message 尾部 | `PromptUtils.kt:107` |
-| **Scratchpad Reminder** | scratchpad 非空 | user message 尾部 | `PromptUtils.kt:136` |
+| **Todo Reminder** | 有未完成 todo | user message 尾部 | `PromptUtils.kt:105-131` |
+
+> **Note:** Scratchpad reminder has been removed. Scratchpad keys are shown in context, but values require explicit read.
 
 ### 4.2 注入流程
 
 ```
 AgentTurnRunner.buildPromptContext()
-  → PromptContext(loopWarning, systemReminders, todos, scratchpadKeys, additionalContextBlocks)
+  → PromptContext(loopWarning, systemReminders, todos, additionalContextBlocks)
   → PromptUtils.buildUserMessage(context)
     → buildBaseText()    // screen JSON + tools + context blocks
-    → buildReminders()   // loop + budget + todo + scratchpad reminders
+    → buildReminders()   // loop + budget + todo reminders
     → finalText = baseText + reminders
 ```
 
@@ -428,14 +414,17 @@ AgentTurnRunner.buildPromptContext()
 | 工具 | 类型 | Planner | Executor | Standalone | 文件 |
 |------|------|---------|----------|------------|------|
 | `mobile_action` | UI 交互 | ✗ | ✓ | ✓ | `tool/impl/MobileActionTool.kt` |
-| `app_control` | App 管理 | ✓ | ✓ | ✓ | `tool/impl/AppControlTool.kt` |
+| `system_button` | 系统按键 | ✗ | ✓ | ✓ | `tool/impl/SystemButtonTool.kt` |
+| `wait` | 等待 | ✗ | ✓ | ✓ | `tool/impl/WaitTool.kt` |
+| `open_app` | App 启动 | ✓ | ✓ | ✓ | `tool/impl/OpenAppTool.kt` |
 | `write_todos` | 规划状态 | ✓ | ✗ | ✓ | `tool/impl/WriteTodosTool.kt` |
 | `scratchpad` | 记忆存储 | ✓ | ✓ | ✓ | `tool/impl/ScratchpadTool.kt` |
 | `delegate_task` | 子代理委托 | ✓ | ✗ | ✗ | `tool/impl/DelegateTaskTool.kt` |
 | `complete_task` | 任务终止 | ✓ | ✓ | ✓ | `tool/impl/CompleteTaskTool.kt` |
 
+> **Major change:** Former `app_control` tool has been split into separate `open_app`, `system_button`, and `wait` tools. The `list_apps` action and `filter` parameter are no longer exposed to the agent.
+
 **注册入口**：`session/SessionServices.kt` → `registerBuiltInTools()`
-- 5 个工具始终注册
 - `delegate_task` 由 `SessionAgentRunner.ensureDelegationToolRegistered()` 按需注册
 
 ### 6.2 工具 Schema 如何转为 JSON
@@ -463,18 +452,18 @@ ToolSpec.parameterSchema (JSONObject)
 {
   "type": "function",
   "name": "complete_task",
-  "description": "Call this when you have finished working on the task.\n\nParameters:\n- status: \"success\" if the goal was achieved, \"failure\" if it cannot be completed\n- answer: The response to return to the user (always required). For failures, include the reason here.\n\nAlways provide a helpful answer even when failing - explain what you tried and why it didn't work.",
+  "description": "Call this when you have finished working on the task. Call ONLY after verifying the outcome on screen.\n\nAlways provide a helpful answer even when failing - explain what you tried and why it didn't work.",
   "parameters": {
     "type": "object",
     "properties": {
       "status": {
         "type": "string",
         "enum": ["success", "failure"],
-        "description": "Whether the task succeeded or failed"
+        "description": "\"success\" if the goal was achieved, \"failure\" if it cannot be completed"
       },
       "answer": {
         "type": "string",
-        "description": "The answer or result to return to the user"
+        "description": "The response to return to the user (always required). For failures, include the reason here."
       }
     },
     "required": ["status", "answer"],
@@ -490,13 +479,13 @@ ToolSpec.parameterSchema (JSONObject)
 {
   "type": "function",
   "name": "mobile_action",
-  "description": "Perform touch interactions on the mobile device screen.\n\nActions:\n- click: Tap using one of element_index, resource_id, text, or coordinates (x,y).\n- long_press: Long press using coordinates (x,y), resource_id, text, or element_index (duration_ms optional)\n- type: Input into field (text required, clear optional). To focus first, use resource_id, target_text, x/y, or element_index.\n- swipe: Swipe gesture using either explicit start/end coords or direction (up/down/left/right) with optional distance (short/medium/long) and target selectors.\n- system_button: Press system button (button required: back/home/enter/recents)\n- wait: Wait for UI updates (duration_ms optional, default 1000ms)",
+  "description": "Perform touch interactions on the mobile device screen.\n\nTargeting (for click, long_press, type):\nSpecify EXACTLY ONE targeting method per action:\n- element_index: index from current screen state (preferred)\n- text + text_index: visible text on screen\n- x, y: absolute pixel coordinates (last resort)\n\nActions:\n- click: Tap target. Example: {\"action\":\"click\",\"element_index\":3}\n- long_press: Long press target. Example: {\"action\":\"long_press\",\"text\":\"Delete\"}\n- type: Type text. Example: {\"action\":\"type\",\"input_text\":\"hello\",\"element_index\":5}\n- swipe: Swipe gesture. Example: {\"action\":\"swipe\",\"direction\":\"up\"}",
   "parameters": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
-        "enum": ["click", "long_press", "swipe", "system_button", "type", "wait"],
+        "enum": ["click", "long_press", "swipe", "type"],
         "description": "The action to perform"
       },
       "agent_thought": {
@@ -505,72 +494,55 @@ ToolSpec.parameterSchema (JSONObject)
       },
       "element_index": {
         "type": "integer",
-        "description": "Element index for click, long_press, or type (to focus first)"
-      },
-      "resource_id": {
-        "type": "string",
-        "description": "Resource id selector for click/long_press/type/swipe (e.g., 'com.app:id/button')"
-      },
-      "resource_id_index": {
-        "type": "integer",
-        "description": "Zero-based index when multiple elements share the same resource_id (default 0)"
-      },
-      "text_index": {
-        "type": "integer",
-        "description": "Zero-based index when multiple elements share the same text (click/long_press/swipe; default 0). For type with target_text, prefer target_text_index."
-      },
-      "target_text": {
-        "type": "string",
-        "description": "Text selector for type action targeting (matches element text or content-desc)"
-      },
-      "target_text_index": {
-        "type": "integer",
-        "description": "Zero-based index when multiple elements share the same target_text (default 0). Compatibility: text_index is accepted as an alias if target_text_index is omitted."
-      },
-      "x": {
-        "type": "integer",
-        "description": "X coordinate in pixels for click/long_press, or for focusing before type"
-      },
-      "y": {
-        "type": "integer",
-        "description": "Y coordinate in pixels for click/long_press, or for focusing before type"
+        "description": "Index from current screen state. Preferred selector when available."
       },
       "text": {
         "type": "string",
-        "description": "Text to input for type action, or text selector for click/long_press/swipe"
+        "description": "Target element by visible text. Use text_index for disambiguation."
+      },
+      "text_index": {
+        "type": "integer",
+        "description": "Zero-based index when multiple elements match text (default 0)"
+      },
+      "x": {
+        "type": "integer",
+        "description": "Target X coordinate in pixels"
+      },
+      "y": {
+        "type": "integer",
+        "description": "Target Y coordinate in pixels"
+      },
+      "input_text": {
+        "type": "string",
+        "description": "Text to type (type action only)"
       },
       "clear": {
         "type": "boolean",
-        "description": "Clear existing text before typing (default false)"
+        "description": "Clear field before typing (type action, default false)"
       },
       "start": {
         "type": "array",
-        "description": "[x, y] start coordinates in pixels for swipe",
+        "description": "Swipe start coordinate [x, y] in pixels",
         "items": {"type": "integer"}
       },
       "end": {
         "type": "array",
-        "description": "[x, y] end coordinates in pixels for swipe",
+        "description": "Swipe end coordinate [x, y] in pixels",
         "items": {"type": "integer"}
       },
       "direction": {
         "type": "string",
-        "description": "Direction for swipe (up, down, left, right). Mutually exclusive with start/end.",
+        "description": "Swipe direction. up/down scroll content opposite direction.",
         "enum": ["up", "down", "left", "right"]
       },
       "distance": {
         "type": "string",
-        "description": "Distance for directional swipe (short, medium, long). Default medium.",
+        "description": "Directional swipe distance: short=1/4, medium=1/2, long=3/4 screen (default medium)",
         "enum": ["short", "medium", "long"]
-      },
-      "button": {
-        "type": "string",
-        "description": "System button for system_button action",
-        "enum": ["back", "home", "enter", "recents"]
       },
       "duration_ms": {
         "type": "integer",
-        "description": "Duration in ms for wait (default 1000) or long_press (default 1000)"
+        "description": "Hold duration for long_press in milliseconds (default 1000)"
       }
     },
     "required": ["action"],
@@ -584,59 +556,113 @@ ToolSpec.parameterSchema (JSONObject)
 
 | Action | 必须参数 | 可选参数 | Target 选择器 |
 |--------|----------|----------|---------------|
-| `click` | (至少一个 target) | `agent_thought` | `element_index` / `resource_id` / `text` / coords(`x,y`) |
+| `click` | (至少一个 target) | `agent_thought` | `element_index` / `text` / coords(`x,y`) |
 | `long_press` | (至少一个 target) | `duration_ms`, `agent_thought` | 同 click |
-| `type` | `text` | `clear`, `agent_thought`, (target for focus) | `element_index` / `resource_id` / `target_text` / coords |
-| `swipe` | `start`+`end` 或 `direction` | `distance`, `agent_thought`, target selectors | `resource_id` / `text` / `element_index` |
-| `system_button` | `button` | `agent_thought` | N/A |
-| `wait` | (无) | `duration_ms`, `agent_thought` | N/A |
+| `type` | `input_text` | `clear`, `agent_thought`, (target for focus) | `element_index` / `text` / coords (可选) |
+| `swipe` | `start`+`end` 或 `direction` | `distance`, `agent_thought` | N/A (坐标或屏幕中心) |
 
-### 7.3 `app_control`
+> **Major changes from previous version:**
+> - Removed `system_button` and `wait` actions (now separate tools)
+> - Removed `resource_id` and `resource_id_index` selectors (single-target design)
+> - Renamed `text` parameter for type action to `input_text`
+> - Removed `target_text` and `target_text_index` for type focusing
+> - Strict single-target enforcement: only ONE of element_index/text/x,y allowed
+
+### 7.3 `system_button`
 
 ```json
 {
   "type": "function",
-  "name": "app_control",
-  "description": "Control apps on the device.\n\nActions:\n- list_apps: Get list of installed launchable apps. Use filter to search by name.\n- open_app: Launch an app by package_name (e.g., 'com.google.android.gm') or app_name (e.g., 'Gmail'). Package name takes precedence if both provided.",
+  "name": "system_button",
+  "description": "Press an Android system button. This does not require element targeting.\n\nButtons:\n- back\n- home\n- enter (sends IME enter to the currently focused editable field)\n- recents\n\nExamples:\n- system_button(button=\"back\")\n- system_button(button=\"home\")",
   "parameters": {
     "type": "object",
     "properties": {
-      "action": {
-        "type": "string",
-        "enum": ["list_apps", "open_app"],
-        "description": "The action to perform"
-      },
       "agent_thought": {
         "type": "string",
-        "description": "Brief reason for why this action is being performed"
+        "description": "Brief reason for pressing this button"
       },
-      "package_name": {
+      "button": {
         "type": "string",
-        "description": "Package name for open_app (e.g., 'com.google.android.gm' for Gmail)"
-      },
-      "app_name": {
-        "type": "string",
-        "description": "Display name for open_app (e.g., 'Gmail'). Case-insensitive fuzzy match."
-      },
-      "filter": {
-        "type": "string",
-        "description": "Filter for list_apps. Case-insensitive substring match on app name."
+        "enum": ["back", "home", "enter", "recents"],
+        "description": "System button to press"
       }
     },
-    "required": ["action"],
+    "required": ["button"],
     "additionalProperties": false
   },
   "strict": false
 }
 ```
 
-### 7.4 `write_todos`
+### 7.4 `wait`
+
+```json
+{
+  "type": "function",
+  "name": "wait",
+  "description": "Wait for UI updates to settle when transitions, animations, or async loading are in progress.\n\nExample:\n- wait(duration_ms=1500)",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "agent_thought": {
+        "type": "string",
+        "description": "Brief reason for waiting"
+      },
+      "duration_ms": {
+        "type": "integer",
+        "description": "Wait duration in milliseconds (default 1000, max 30000)"
+      }
+    },
+    "required": [],
+    "additionalProperties": false
+  },
+  "strict": false
+}
+```
+
+### 7.5 `open_app`
+
+```json
+{
+  "type": "function",
+  "name": "open_app",
+  "description": "Launch an app by name. Always use this to open apps — do NOT navigate the app drawer or home screen manually.\nIf the app is not found, suggestions will be provided.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "app_name": {
+        "type": "string",
+        "description": "Name of the app to open (e.g., 'Gmail', 'Settings', 'Chrome'). Case-insensitive."
+      },
+      "agent_thought": {
+        "type": "string",
+        "description": "Brief reason for this action"
+      }
+    },
+    "required": ["app_name"],
+    "additionalProperties": false
+  },
+  "strict": false
+}
+```
+
+> **Major changes from previous `app_control`:**
+> - Simplified to single `open_app` tool (was multi-action `app_control`)
+> - Removed `list_apps` action — no longer exposed to agent
+> - Removed `package_name` parameter — name resolution is internal
+> - Removed `filter` parameter
+> - Added well-known alias resolution (e.g., "Gmail" → "com.google.android.gm")
+> - Added foreground check (skips re-launch if app already open)
+> - Added fuzzy suggestions on failure
+
+### 7.6 `write_todos`
 
 ```json
 {
   "type": "function",
   "name": "write_todos",
-  "description": "Manage a todo list for tracking progress on complex tasks.\n\nUse this when:\n- Task requires multiple steps\n- You need to track progress\n\nDo NOT use for:\n- Simple single-step tasks\n- Q&A queries\n\nStatuses:\n- pending: Not started\n- in_progress: Currently working (only ONE at a time)\n- completed: Successfully done\n- cancelled: No longer needed\n\nAlways pass the FULL list. This replaces the previous list.",
+  "description": "Update the task plan. Pass the FULL list (replaces previous).\nEach item has description + status (pending, in_progress, completed, cancelled).\nAt most one item can be in_progress at a time.\nUpdate todos when new requirements appear during execution.\nDo not use for tasks that need only 1-2 actions.",
   "parameters": {
     "type": "object",
     "properties": {
@@ -662,7 +688,7 @@ ToolSpec.parameterSchema (JSONObject)
       },
       "agent_thought": {
         "type": "string",
-        "description": "Brief reason for why this update is being performed"
+        "description": "Brief reason for this update. When changing the plan, explain what changed and why."
       }
     },
     "required": ["todos"],
@@ -672,19 +698,19 @@ ToolSpec.parameterSchema (JSONObject)
 }
 ```
 
-### 7.5 `scratchpad`
+### 7.7 `scratchpad`
 
 ```json
 {
   "type": "function",
   "name": "scratchpad",
-  "description": "Store and retrieve key-value data for multi-step tasks.\n\nUse cases:\n- Store extracted info (e.g., contact list from one screen to use in another)\n- Remember values across navigation\n- Track intermediate results\n\nActions:\n- write: Store key=value\n- read: Get value for key\n- delete: Remove key\n- list: Show all keys\n\nLimits:\n- Max keys: 20\n- Max key length: 100 chars\n- Max value length: 2048 chars",
+  "description": "Store key-value data for multi-step tasks and cross-app handoffs.\n\nScratchpad keys are always shown in context every turn.\nUse read only when you need the full value for a specific key.\n\nGood usage:\n- Write facts before navigating away from the current screen\n- Store actual extracted content (not vague references)\n- Use short semantic keys (email_1_subject, total_price)\n\nActions:\n- write: Store key=value\n- read: Get value for key\n- delete: Remove key\n\nLimits:\n- Max keys: 20\n- Max key length: 100 chars\n- Max value length: 2048 chars",
   "parameters": {
     "type": "object",
     "properties": {
       "action": {
         "type": "string",
-        "enum": ["write", "read", "delete", "list"],
+        "enum": ["write", "read", "delete"],
         "description": "Action to perform"
       },
       "key": {
@@ -707,7 +733,11 @@ ToolSpec.parameterSchema (JSONObject)
 }
 ```
 
-### 7.6 `delegate_task` (仅 Planner 可用)
+> **Changes from previous version:**
+> - Removed `list` action (keys are always shown in context)
+> - Updated description to clarify context-visibility behavior
+
+### 7.8 `delegate_task` (仅 Planner 可用)
 
 ```json
 {
@@ -759,7 +789,7 @@ User Goal
 ┌─────────────────────────────────────┐
 │ PLANNER (主代理)                     │
 │ system: PlannerAgentDef.systemPrompt│
-│ tools: app_control, write_todos,    │
+│ tools: open_app, write_todos,       │
 │        scratchpad, delegate_task,   │
 │        complete_task                │
 │ history: 完整历史 (累积)             │
@@ -769,19 +799,19 @@ User Goal
 │   delegate_task(executor, query)    │
 │                   │                 │
 │                   ▼                 │
-│   ┌───────────────────────────┐     │
-│   │ EXECUTOR (子代理)          │     │
-│   │ system: ExecutorAgentDef  │     │
-│   │ tools: mobile_action,    │     │
-│   │        app_control,      │     │
-│   │        scratchpad,       │     │
-│   │        complete_task     │     │
-│   │ history: 隔离 (仅委托内)  │     │
-│   │ goal: "Tap on ..."       │     │
-│   │                          │     │
-│   │ Turn 1: mobile_action    │     │
-│   │ Turn 2: complete_task    │     │
-│   └───────────────────────────┘     │
+│   ┌───────────────────────────────┐ │
+│   │ EXECUTOR (子代理)              │ │
+│   │ system: ExecutorAgentDef      │ │
+│   │ tools: mobile_action,         │ │
+│   │        system_button, wait,   │ │
+│   │        open_app, scratchpad,  │ │
+│   │        complete_task          │ │
+│   │ history: 隔离 (仅委托内)       │ │
+│   │ goal: "Tap on ..."            │ │
+│   │                               │ │
+│   │ Turn 1: mobile_action         │ │
+│   │ Turn 2: complete_task         │ │
+│   └───────────────────────────────┘ │
 │                   │                 │
 │   ← result (success/failure) ←      │
 │                                     │
@@ -798,7 +828,7 @@ User Goal
 | 目标 | 用户原始请求 | 被委托的原子意图 |
 | History | 累积所有 turn | 隔离，仅委托内 turn |
 | 操作粒度 | 高层规划 | 低层执行 (1-3 turns) |
-| 直接 UI 交互 | ✗ | ✓ (mobile_action) |
+| 直接 UI 交互 | ✗ | ✓ (mobile_action, system_button, wait) |
 | Todo/Planning | ✓ | ✗ |
 | Scratchpad | ✓ (共享) | ✓ (共享) |
 
@@ -836,12 +866,13 @@ LLM 可能在一次回复中返回多个 tool call。`TurnToolPolicy` 会仲裁�
 | 文件 | 说明 |
 |------|------|
 | `tool/ToolSpec.kt` | Tool 接口定义 |
-| `tool/MultiActionTool.kt` | 多动作工具基类 (action dispatch) |
 | `tool/ToolRegistry.kt` | 工具注册 + schema 生成 |
 | `tool/ToolRouter.kt` | 工具执行路由 |
 | `tool/ToolSchemaConverters.kt` | JSON → OpenAI JsonValue 转换 |
-| `tool/impl/MobileActionTool.kt` | UI 交互工具 (6 actions) |
-| `tool/impl/AppControlTool.kt` | App 管理工具 (2 actions) |
+| `tool/impl/MobileActionTool.kt` | UI 交互工具 (4 actions: click, long_press, type, swipe) |
+| `tool/impl/SystemButtonTool.kt` | 系统按键工具 (back, home, enter, recents) |
+| `tool/impl/WaitTool.kt` | 等待工具 |
+| `tool/impl/OpenAppTool.kt` | App 启动工具 |
 | `tool/impl/WriteTodosTool.kt` | Todo 列表工具 |
 | `tool/impl/ScratchpadTool.kt` | 键值存储工具 |
 | `tool/impl/DelegateTaskTool.kt` | 子代理委托工具 |
@@ -878,9 +909,9 @@ LLM 可能在一次回复中返回多个 tool call。`TurnToolPolicy` 会仲裁�
 - **Tool descriptions as behavioral guidance**：工具描述包含使用模式、约束、示例
 
 ### Action Space 特征
-- **Consolidated tool design**：`mobile_action` 合并 6 种动作，减少 prefill context（参考 Mobile-Agent-v3）
-- **Multi-selector targeting**：同一动作支持多种目标选择方式 (index/resource_id/text/coords)
-- **Disambiguation indices**：`resource_id_index`, `text_index`, `desc_index` 解决同名元素问题
+- **Separated tool design**：`mobile_action` 专注 touch interactions，`system_button` 和 `wait` 独立工具
+- **Single-target enforcement**：click/long_press/type 只允许一种 selector (element_index OR text OR x,y)
+- **Disambiguation indices**：`text_index`, `desc_index` 解决同名元素问题
 - **agent_thought 参数**：所有工具都支持，鼓励 LLM 输出推理过程
 
 ### State Representation 特征
@@ -891,6 +922,40 @@ LLM 可能在一次回复中返回多个 tool call。`TurnToolPolicy` 会仲裁�
 
 ### Memory & Planning 特征
 - **Todo list**：全量替换式更新，强制只有一个 in_progress
-- **Scratchpad**：跨屏幕持久化 key-value，Planner/Executor 共享
+- **Scratchpad**：跨屏幕持久化 key-value，Planner/Executor 共享，keys 显示在 context 中
 - **History compression**：超过 20k token 自动压缩到 15k
 - **Isolated executor history**：子代理有独立历史，避免 context 膨胀
+
+---
+
+## Changelog
+
+### 2026-02-09 Update
+
+**Major Tool Refactoring:**
+1. **`app_control` → `open_app` + `system_button` + `wait`**
+   - `open_app`: Simplified app launching tool with name-only interface
+   - `system_button`: Dedicated tool for back/home/enter/recents
+   - `wait`: Dedicated tool for UI settle delays
+   - Removed `list_apps` action from agent interface
+
+2. **`mobile_action` Simplification:**
+   - Reduced from 6 actions to 4: `click`, `long_press`, `type`, `swipe`
+   - Removed `system_button` and `wait` actions (now separate tools)
+   - Removed `resource_id` and `resource_id_index` selectors
+   - Renamed `text` to `input_text` for type action
+   - Strict single-target enforcement (one of element_index/text/x,y only)
+
+3. **`scratchpad` Changes:**
+   - Removed `list` action (keys auto-shown in context)
+   - Updated description to clarify read-for-value pattern
+
+**System Prompt Updates:**
+- Planner: References `open_app` instead of `app_control`
+- Executor: References `system_button`, `wait`, `open_app` as separate tools
+- Executor: Uses `input_text` parameter for type action
+- Standalone: References new tool structure
+
+**Context Building:**
+- Removed scratchpad reminder from PromptUtils
+- Scratchpad keys shown in context; values require explicit read
