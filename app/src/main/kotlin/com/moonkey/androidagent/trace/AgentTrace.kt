@@ -34,7 +34,6 @@ internal class AgentTrace(
     private val runMetrics = RunMetrics()
 
     /** Emits initial session metadata. */
-    @Suppress("DEPRECATION")
     fun sessionStarted(config: AgentExecutionConfig) {
         sessionStartedAtMs = System.currentTimeMillis()
         trace.emit(
@@ -51,7 +50,11 @@ internal class AgentTrace(
                     put("max_turns", JsonPrimitive(config.maxTurns))
                     put("ui_settle_delay_ms", JsonPrimitive(config.uiSettleDelayMs))
                     put("llm_backend", JsonPrimitive(services.config.llmBackend.name))
-                    put("model", JsonPrimitive(services.config.model))
+                    put("model", JsonPrimitive(config.modelName))
+                    put("main_model", JsonPrimitive(services.config.mainModel))
+                    services.config.executorModel?.let {
+                        put("executor_model", JsonPrimitive(it))
+                    }
                     put("approval_mode", JsonPrimitive(services.config.approvalMode.name))
                     put("debug_mode", JsonPrimitive(services.config.debugMode))
                     put("trace_enabled", JsonPrimitive(services.config.traceEnabled))
@@ -145,7 +148,9 @@ internal class AgentTrace(
         systemPrompt: String,
         userContextText: String,
         history: List<ResponseItem>,
-        inputItems: List<ResponseInputItem>
+        inputItems: List<ResponseInputItem>,
+        modelName: String,
+        modelId: String
     ) {
         if (!trace.enabled) return
         runMetrics.llmRequests++
@@ -220,8 +225,8 @@ internal class AgentTrace(
                 buildJsonObject {
                     put("history_items", JsonPrimitive(history.size))
                     put("input_items", JsonPrimitive(inputItems.size))
-                    @Suppress("DEPRECATION")
-                    put("model", JsonPrimitive(services.config.model))
+                    put("model", JsonPrimitive(modelName))
+                    put("model_id", JsonPrimitive(modelId))
                     put("screenshot_attached", JsonPrimitive(snapshot.image != null))
                 },
             artifacts =

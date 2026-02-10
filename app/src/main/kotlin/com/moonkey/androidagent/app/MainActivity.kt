@@ -24,6 +24,7 @@ import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.perception.PerceptionConfig
+import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
@@ -167,8 +168,12 @@ class MainActivity : ComponentActivity() {
                                 selectedLocalModel = settingsState.selectedLocalModelId,
                                 onLocalModelChange = settingsState::updateLocalModel,
                                 modelLoadingStatus = settingsState.modelLoadingStatus,
-                                apiKey = settingsState.apiKey,
-                                onApiKeyChange = settingsState::updateApiKey,
+                                openAiApiKey = settingsState.apiKey,
+                                onOpenAiApiKeyChange = settingsState::updateApiKey,
+                                openRouterApiKey = settingsState.openRouterApiKey,
+                                onOpenRouterApiKeyChange = settingsState::updateOpenRouterApiKey,
+                                novitaApiKey = settingsState.novitaApiKey,
+                                onNovitaApiKeyChange = settingsState::updateNovitaApiKey,
                                 maxTurns = settingsState.maxTurns,
                                 onMaxTurnsChange = settingsState::updateMaxTurns,
                                 agentMode = settingsState.agentMode,
@@ -308,9 +313,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun ensureSessionAndSend(text: String) {
-        if (settingsState.llmBackend == LLMBackendType.OPENAI && settingsState.apiKey.isBlank()) {
-            Toast.makeText(this, "Please set your API key in Settings", Toast.LENGTH_LONG).show()
-            showSettings = true
+        if (!validateCloudKeysForSelectedModels()) {
             return
         }
 
@@ -420,6 +423,41 @@ class MainActivity : ComponentActivity() {
         } else {
             lifecycleScope.launch { currentSession?.submit(Op.UserInput(text)) }
         }
+    }
+
+    private fun validateCloudKeysForSelectedModels(): Boolean {
+        if (settingsState.llmBackend != LLMBackendType.OPENAI) return true
+
+        val apiKeys = settingsState.buildApiKeys()
+        val modelsToValidate = linkedSetOf(settingsState.selectedModel)
+        if (settingsState.agentMode == AgentMode.PRO) {
+            settingsState.executorModel?.let(modelsToValidate::add)
+        }
+
+        val missing = buildList {
+            for (modelName in modelsToValidate) {
+                val entry = modelCatalog.resolveOrNull(modelName)
+                if (entry == null) {
+                    add("Unknown model: $modelName")
+                    continue
+                }
+                val requiredEnv = entry.effectiveApiKeyEnv
+                if (apiKeys[requiredEnv].isNullOrBlank()) {
+                    add("${entry.displayName} requires $requiredEnv")
+                }
+            }
+        }
+
+        if (missing.isEmpty()) return true
+
+        Toast.makeText(
+                        this,
+                        "Missing API key(s): ${missing.joinToString("; ")}",
+                        Toast.LENGTH_LONG
+                )
+                .show()
+        showSettings = true
+        return false
     }
 
     private fun LFMLLMClient.ModelLoadingState.toUiStatus(): ModelLoadingStatus {

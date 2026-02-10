@@ -67,7 +67,9 @@ class AgentTraceObservabilityTest {
                 systemPrompt = "Bearer abcdefghijklmnopqrstuvwxyz123456 user@example.com",
                 userContextText = "Authorization: token=abcdefghijklmnop1234567890",
                 history = emptyList(),
-                inputItems = inputItems
+                inputItems = inputItems,
+                modelName = "gpt-5.2",
+                modelId = "gpt-5.2"
         )
         trace.sessionStopped(AgentStopReason.GoalAchieved, turnsExecuted = 1)
 
@@ -76,6 +78,8 @@ class AgentTraceObservabilityTest {
         val dataJson = Json.parseToJsonElement(sessionStarted!!.data.toString()).jsonObject
         assertThat(dataJson["agent_role"]?.jsonPrimitive?.content).isEqualTo("standalone")
         assertThat(dataJson["agent_id"]?.jsonPrimitive?.content).isEqualTo("session-1")
+        assertThat(dataJson["model"]?.jsonPrimitive?.content).isEqualTo("gpt-5.2")
+        assertThat(dataJson["main_model"]?.jsonPrimitive?.content).isEqualTo("gpt-5.2")
 
         val fullPrompt = recorder.findStored("turn_1_full_prompt.txt")
         val inputItemsJson = recorder.findStored("turn_1_llm_input_items.json")

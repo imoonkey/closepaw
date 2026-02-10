@@ -15,38 +15,24 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.moonkey.androidagent.BuildConfig
 import com.moonkey.androidagent.protocol.AgentMode
@@ -64,8 +50,12 @@ fun SettingsSheet(
     selectedLocalModel: String,
     onLocalModelChange: (LocalModelOption) -> Unit,
     modelLoadingStatus: ModelLoadingStatus,
-    apiKey: String,
-    onApiKeyChange: (String) -> Unit,
+    openAiApiKey: String,
+    onOpenAiApiKeyChange: (String) -> Unit,
+    openRouterApiKey: String,
+    onOpenRouterApiKeyChange: (String) -> Unit,
+    novitaApiKey: String,
+    onNovitaApiKeyChange: (String) -> Unit,
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit,
     agentMode: AgentMode,
@@ -81,7 +71,6 @@ fun SettingsSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var apiKeyVisible by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val isCloudBackend = llmBackend == LLMBackendType.OPENAI
 
@@ -180,55 +169,14 @@ fun SettingsSheet(
 
             AnimatedVisibility(visible = isCloudBackend) {
                 Column {
-                    SettingsSection(title = "API Key") {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = apiKey,
-                                onValueChange = onApiKeyChange,
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = {
-                                    Text(
-                                        "sk-...",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Key,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                },
-                                trailingIcon = {
-                                    IconButton(onClick = { apiKeyVisible = !apiKeyVisible }) {
-                                        Icon(
-                                            imageVector = if (apiKeyVisible) {
-                                                Icons.Outlined.VisibilityOff
-                                            } else {
-                                                Icons.Outlined.Visibility
-                                            },
-                                            contentDescription = if (apiKeyVisible) "Hide" else "Show",
-                                            modifier = Modifier.size(20.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                },
-                                visualTransformation = if (apiKeyVisible) {
-                                    VisualTransformation.None
-                                } else {
-                                    PasswordVisualTransformation()
-                                },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                singleLine = true,
-                                shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                                )
-                            )
-                        }
-                    }
+                    ApiKeysSection(
+                        openAiApiKey = openAiApiKey,
+                        onOpenAiApiKeyChange = onOpenAiApiKeyChange,
+                        openRouterApiKey = openRouterApiKey,
+                        onOpenRouterApiKeyChange = onOpenRouterApiKeyChange,
+                        novitaApiKey = novitaApiKey,
+                        onNovitaApiKeyChange = onNovitaApiKeyChange
+                    )
                     Spacer(modifier = Modifier.height(20.dp))
                 }
             }

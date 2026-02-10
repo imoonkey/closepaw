@@ -10,7 +10,7 @@ import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
-import com.moonkey.androidagent.llm.OpenAIResponseClient
+import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
@@ -90,24 +90,6 @@ data class SessionServices(
             Log.d(TAG, "Creating SessionServices with backend: ${config.llmBackend}...")
             Log.d(TAG, "API keys available for providers: ${apiKeys.keys}")
 
-            val llmClient: LLMClient =
-                    when (config.llmBackend) {
-                        LLMBackendType.OPENAI -> {
-                            val key =
-                                    apiKeys["OPENAI_API_KEY"]
-                                            ?: throw IllegalStateException(
-                                                    "OPENAI_API_KEY required for OpenAI backend"
-                                            )
-                            OpenAIResponseClient(key)
-                        }
-                        LLMBackendType.LOCAL -> {
-                            requireNotNull(context) { "Context is required for local LLM backend" }
-                            val localConfig = config.localLLMConfig ?: LocalLLMConfig()
-                            LFMLLMClient(context, localConfig)
-                        }
-                    }
-            Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
-
             val modelCatalog = loadModelCatalog(context)
             Log.d(
                     TAG,
@@ -120,6 +102,20 @@ data class SessionServices(
                             apiKeyResolver = { envVar -> apiKeys[envVar] }
                     )
             Log.d(TAG, "Created LLMClientFactory")
+
+            val llmClient: LLMClient =
+                    when (config.llmBackend) {
+                        LLMBackendType.OPENAI -> {
+                            ensureRequiredCloudKeys(config, modelCatalog, apiKeys)
+                            llmClientFactory.create(config.mainModel)
+                        }
+                        LLMBackendType.LOCAL -> {
+                            requireNotNull(context) { "Context is required for local LLM backend" }
+                            val localConfig = config.localLLMConfig ?: LocalLLMConfig()
+                            LFMLLMClient(context, localConfig)
+                        }
+                    }
+            Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
 
             val policyEngine = PolicyEngine(config.approvalMode)
             Log.d(TAG, "Created PolicyEngine with mode: ${config.approvalMode}")
@@ -214,6 +210,28 @@ data class SessionServices(
             register(ScratchpadTool(sessionState.scratchpad))
 
             Log.d(TAG, "Registered ${size()} built-in tools: ${getNames().joinToString()}")
+        }
+
+        private fun ensureRequiredCloudKeys(
+                config: SessionConfig,
+                catalog: ModelCatalog,
+                apiKeys: Map<String, String>
+        ) {
+            val requiredModels = linkedSetOf(config.mainModel)
+            if (config.agentMode == AgentMode.PRO) {
+                config.executorModel?.let(requiredModels::add)
+            }
+
+            requiredModels.forEach { modelName ->
+                val entry = catalog.resolve(modelName)
+                val requiredEnv = entry.effectiveApiKeyEnv
+                if (apiKeys[requiredEnv].isNullOrBlank()) {
+                    throw IllegalStateException(
+                            "Missing API key '$requiredEnv' for model '$modelName' " +
+                                    "(provider=${entry.provider}, api=${entry.api})."
+                    )
+                }
+            }
         }
     }
 

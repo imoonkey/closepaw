@@ -15,6 +15,7 @@ import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.perception.toSummary
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.ApprovalDetails
+import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.ScreenStatePhase
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
@@ -30,6 +31,7 @@ import com.moonkey.androidagent.trace.DroppedToolCall
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
+import com.moonkey.androidagent.llm.LLMClient
 
 /**
  * Executes one full agent turn and returns the next-loop decision.
@@ -129,6 +131,12 @@ internal class AgentTurnRunner(
                 val arbitration: ToolArbitrationResult
         )
 
+        private data class ModelResolution(
+                val llmClient: LLMClient,
+                val modelId: String,
+                val supportsVision: Boolean
+        )
+
         private suspend fun capturePreTurnSnapshot(
                 turnId: String,
                 turnNumber: Int
@@ -214,15 +222,12 @@ internal class AgentTurnRunner(
                 eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PLANNING)
                 eventDispatcher.status("🧠 Thinking...")
 
-                val modelEntry = services.modelCatalog.resolve(config.modelName)
-                val llmClient = services.llmClientFactory.create(config.modelName)
-                val modelId = modelEntry.modelId
-                val supportsVision = modelEntry.supportsVision
+                val model = resolveTurnModel()
 
                 val turn =
                         Turn(
                                 toolRegistry = services.toolRegistry,
-                                llmClient = llmClient,
+                                llmClient = model.llmClient,
                                 allowedToolNames = config.allowedToolNames
                         )
                 val systemPrompt =
@@ -233,7 +238,7 @@ internal class AgentTurnRunner(
                         PromptBuilder(
                                 historyManager = services.historyManager,
                                 sessionState = services.sessionState,
-                                supportsVision = supportsVision,
+                                supportsVision = model.supportsVision,
                                 perceptionConfig = services.config.perceptionConfig
                         )
                 val inputItems =
@@ -253,7 +258,9 @@ internal class AgentTurnRunner(
                         systemPrompt = systemPrompt,
                         userContextText = "(built by PromptBuilder)",
                         history = services.historyManager.forPrompt(),
-                        inputItems = inputItems
+                        inputItems = inputItems,
+                        modelName = config.modelName,
+                        modelId = model.modelId
                 )
 
                 var turnResult: TurnResult? = null
@@ -261,7 +268,7 @@ internal class AgentTurnRunner(
                 turn.runStreaming(
                                 systemPrompt = systemPrompt,
                                 inputItems = inputItems,
-                                model = modelId
+                                model = model.modelId
                         )
                         .collect { event ->
                                 when (event) {
@@ -311,6 +318,25 @@ internal class AgentTurnRunner(
                 )
                 emitArbitrationWarnings(turnNumber, result, arbitration)
                 return PlanningPhaseResult(turnResult = result, arbitration = arbitration)
+        }
+
+        private fun resolveTurnModel(): ModelResolution {
+                return when (services.config.llmBackend) {
+                        LLMBackendType.LOCAL ->
+                                ModelResolution(
+                                        llmClient = services.llmClient,
+                                        modelId = config.modelName,
+                                        supportsVision = false
+                                )
+                        LLMBackendType.OPENAI -> {
+                                val modelEntry = services.modelCatalog.resolve(config.modelName)
+                                ModelResolution(
+                                        llmClient = services.llmClientFactory.create(config.modelName),
+                                        modelId = modelEntry.modelId,
+                                        supportsVision = modelEntry.supportsVision
+                                )
+                        }
+                }
         }
 
         /**

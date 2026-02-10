@@ -33,10 +33,11 @@ object TraceRecorderFactory {
                 deviceManufacturer = Build.MANUFACTURER ?: "unknown",
                 deviceSdkInt = Build.VERSION.SDK_INT,
                 config =
-                    @Suppress("DEPRECATION")
                     TraceRunConfig(
                         llmBackend = config.llmBackend.name,
-                        model = config.model,
+                        model = config.mainModel,
+                        mainModel = config.mainModel,
+                        executorModel = config.executorModel,
                         debugMode = config.debugMode,
                         screenshotInput = config.perceptionConfig.capturesScreenshot,
                         maxTurns = config.maxTurns
@@ -47,4 +48,3 @@ object TraceRecorderFactory {
         return recorder
     }
 }
-
