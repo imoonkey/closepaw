@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.moonkey.androidagent.ui.settings
 
 import androidx.compose.foundation.background
@@ -35,10 +37,16 @@ import androidx.compose.ui.unit.dp
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 
-/**
- * Backend selector (Cloud vs Local).
- */
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DropdownSelectedIndicator() {
+    Box(
+        modifier = Modifier
+            .size(8.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary)
+    )
+}
+
 @Composable
 internal fun BackendSelector(
     selectedBackend: LLMBackendType,
@@ -108,17 +116,14 @@ internal fun BackendSelector(
     }
 }
 
-/**
- * Cloud model selection dropdown.
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun CloudModelDropdown(
     selectedModel: String,
+    modelOptions: List<Pair<String, String>>,
     onModelChange: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedDisplayName = AVAILABLE_CLOUD_MODELS.find { it.first == selectedModel }?.second ?: selectedModel
+    val selectedDisplayName = modelOptions.find { it.first == selectedModel }?.second ?: selectedModel
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -152,33 +157,86 @@ internal fun CloudModelDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            AVAILABLE_CLOUD_MODELS.forEach { (modelId, displayName) ->
+            modelOptions.forEach { (modelId, displayName) ->
                 DropdownMenuItem(
                     text = { Text(displayName) },
                     onClick = {
                         onModelChange(modelId)
                         expanded = false
                     },
-                    leadingIcon = if (modelId == selectedModel) {
-                        {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary)
-                            )
-                        }
-                    } else null
+                    leadingIcon = if (modelId == selectedModel) { { DropdownSelectedIndicator() } } else null
                 )
             }
         }
     }
 }
 
-/**
- * Local model selection dropdown.
- */
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ExecutorModelDropdown(
+    selectedModel: String?,
+    modelOptions: List<Pair<String, String>>,
+    onModelChange: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedDisplayName = when {
+        selectedModel == null -> "(Same as Main Model)"
+        else -> modelOptions.find { it.first == selectedModel }?.second ?: selectedModel
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = selectedDisplayName,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Executor Model") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.Psychology,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+            )
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("(Same as Main Model)") },
+                onClick = {
+                    onModelChange(null)
+                    expanded = false
+                },
+                leadingIcon = if (selectedModel == null) { { DropdownSelectedIndicator() } } else null
+            )
+            modelOptions.forEach { (modelId, displayName) ->
+                DropdownMenuItem(
+                    text = { Text(displayName) },
+                    onClick = {
+                        onModelChange(modelId)
+                        expanded = false
+                    },
+                    leadingIcon = if (modelId == selectedModel) { { DropdownSelectedIndicator() } } else null
+                )
+            }
+        }
+    }
+}
+
 @Composable
 internal fun LocalModelDropdown(
     selectedModelId: String,
@@ -236,26 +294,13 @@ internal fun LocalModelDropdown(
                         onModelChange(model)
                         expanded = false
                     },
-                    leadingIcon = if (model.id == selectedModelId) {
-                        {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary)
-                            )
-                        }
-                    } else null
+                    leadingIcon = if (model.id == selectedModelId) { { DropdownSelectedIndicator() } } else null
                 )
             }
         }
     }
 }
 
-/**
- * Max turns selection dropdown.
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MaxTurnsDropdown(
     maxTurns: Int,
@@ -302,26 +347,13 @@ internal fun MaxTurnsDropdown(
                         onMaxTurnsChange(turns)
                         expanded = false
                     },
-                    leadingIcon = if (turns == maxTurns) {
-                        {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary)
-                            )
-                        }
-                    } else null
+                    leadingIcon = if (turns == maxTurns) { { DropdownSelectedIndicator() } } else null
                 )
             }
         }
     }
 }
 
-/**
- * Agent execution mode selector.
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AgentModeDropdown(
     agentMode: AgentMode,
@@ -373,16 +405,7 @@ internal fun AgentModeDropdown(
                         onAgentModeChange(mode)
                         expanded = false
                     },
-                    leadingIcon = if (mode == agentMode) {
-                        {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary)
-                            )
-                        }
-                    } else null
+                    leadingIcon = if (mode == agentMode) { { DropdownSelectedIndicator() } } else null
                 )
             }
         }

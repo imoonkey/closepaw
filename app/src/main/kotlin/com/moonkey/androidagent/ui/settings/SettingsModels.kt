@@ -1,19 +1,12 @@
 package com.moonkey.androidagent.ui.settings
 
-/**
- * Available cloud LLM models for selection.
- */
-internal val AVAILABLE_CLOUD_MODELS = listOf(
-    "gpt-5.2" to "GPT-5.2 (Recommended)",
-    "gpt-5.2-pro" to "GPT-5.2 Pro (Stronger)"
-)
+import com.moonkey.androidagent.llm.ModelEntry
 
-/**
- * Available local LLM models for selection.
- *
- * Note: Only models available in Leap SDK's downloadable model library are listed.
- * Check LeapDownloadableModel.resolve() for available models.
- */
+/** Converts ModelEntry list to (id, displayName) pairs for dropdowns. */
+fun catalogModelOptions(entries: List<ModelEntry>): List<Pair<String, String>> =
+    entries.map { it.name to it.displayName }
+
+/** Local LLM models available in Leap SDK. See LeapDownloadableModel.resolve() for catalog. */
 internal val AVAILABLE_LOCAL_MODELS = listOf(
     LocalModelOption(
         id = "LFM2.5-1.2B-Instruct",
@@ -31,9 +24,6 @@ internal val AVAILABLE_LOCAL_MODELS = listOf(
     )
 )
 
-/**
- * Local model option data.
- */
 data class LocalModelOption(
     val id: String,
     val displayName: String,
@@ -42,9 +32,6 @@ data class LocalModelOption(
     val description: String
 )
 
-/**
- * Model loading state for UI display.
- */
 sealed interface ModelLoadingStatus {
     data object Idle : ModelLoadingStatus
     data class Downloading(val progress: Float) : ModelLoadingStatus
@@ -53,7 +40,4 @@ sealed interface ModelLoadingStatus {
     data class Error(val message: String) : ModelLoadingStatus
 }
 
-/**
- * Available max turns options.
- */
 internal val MAX_TURNS_OPTIONS = listOf(10, 20, 50)

@@ -9,9 +9,6 @@ import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.ui.settings.LocalModelOption
 import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
 
-/**
- * UI-backed settings state that persists to AppSettingsStore.
- */
 class AppSettingsState(
     private val store: AppSettingsStore
 ) {
@@ -41,6 +38,8 @@ class AppSettingsState(
         private set
     var modelLoadingStatus by mutableStateOf<ModelLoadingStatus>(ModelLoadingStatus.Idle)
         private set
+    var executorModel by mutableStateOf<String?>(null)
+        private set
 
     fun load() {
         val settings = store.load()
@@ -54,10 +53,11 @@ class AppSettingsState(
         selectedLocalModelId = settings.localModelId
         localModelSlug = settings.localModelSlug
         localModelQuant = settings.localModelQuant
+        executorModel = settings.executorModel
 
         Log.d(
             TAG,
-            "Settings loaded: backend=$llmBackend, model=$selectedModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, agentMode=$agentMode"
+            "Settings loaded: backend=$llmBackend, model=$selectedModel, executorModel=$executorModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, agentMode=$agentMode"
         )
     }
 
@@ -70,6 +70,11 @@ class AppSettingsState(
     fun updateModel(model: String) {
         selectedModel = model
         store.saveModel(model)
+    }
+
+    fun updateExecutorModel(value: String?) {
+        executorModel = value
+        store.saveExecutorModel(value)
     }
 
     fun updateLocalModel(model: LocalModelOption) {

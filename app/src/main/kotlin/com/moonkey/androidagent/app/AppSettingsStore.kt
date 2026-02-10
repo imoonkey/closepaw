@@ -17,7 +17,8 @@ data class AppSettings(
     val llmBackend: LLMBackendType,
     val localModelId: String,
     val localModelSlug: String,
-    val localModelQuant: String
+    val localModelQuant: String,
+    val executorModel: String?
 )
 
 class AppSettingsStore(private val context: Context) {
@@ -29,16 +30,16 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_MODEL = "model"
         private const val KEY_MAX_TURNS = "max_turns"
         private const val KEY_DEBUG_MODE = "debug_mode"
-        private const val KEY_SCREENSHOT_INPUT = "screenshot_input"  // kept for migration
+        private const val KEY_SCREENSHOT_INPUT = "screenshot_input"
         private const val KEY_PERCEPTION_MODE = "perception_mode"
         private const val KEY_AGENT_MODE = "agent_mode"
         private const val KEY_LLM_BACKEND = "llm_backend"
         private const val KEY_LOCAL_MODEL_ID = "local_model_id"
         private const val KEY_LOCAL_MODEL_SLUG = "local_model_slug"
         private const val KEY_LOCAL_MODEL_QUANT = "local_model_quant"
+        private const val KEY_EXECUTOR_MODEL = "executor_model"
 
         const val DEFAULT_MODEL = "gpt-5.2"
-        // UI default intentionally differs from SessionConfig's default (50).
         const val DEFAULT_MAX_TURNS = 20
         const val DEFAULT_DEBUG_MODE = false
         const val DEFAULT_PERCEPTION_MODE = "accessibility_only"
@@ -63,7 +64,6 @@ class AppSettingsStore(private val context: Context) {
         }
         val maxTurns = prefs.getInt(KEY_MAX_TURNS, DEFAULT_MAX_TURNS)
         val debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
-        // Migration: read old boolean, convert to new string
         val perceptionMode = prefs.getString(KEY_PERCEPTION_MODE, null)
             ?: if (prefs.getBoolean(KEY_SCREENSHOT_INPUT, false)) "hybrid" else DEFAULT_PERCEPTION_MODE
         val agentModeName = prefs.getString(KEY_AGENT_MODE, DEFAULT_AGENT_MODE.name)
@@ -85,6 +85,7 @@ class AppSettingsStore(private val context: Context) {
         val localModelId = prefs.getString(KEY_LOCAL_MODEL_ID, DEFAULT_LOCAL_MODEL_ID) ?: DEFAULT_LOCAL_MODEL_ID
         val localModelSlug = prefs.getString(KEY_LOCAL_MODEL_SLUG, DEFAULT_LOCAL_MODEL_SLUG) ?: DEFAULT_LOCAL_MODEL_SLUG
         val localModelQuant = prefs.getString(KEY_LOCAL_MODEL_QUANT, DEFAULT_LOCAL_MODEL_QUANT) ?: DEFAULT_LOCAL_MODEL_QUANT
+        val executorModel = prefs.getString(KEY_EXECUTOR_MODEL, null)
 
         return AppSettings(
             apiKey = apiKey,
@@ -96,8 +97,17 @@ class AppSettingsStore(private val context: Context) {
             llmBackend = llmBackend,
             localModelId = localModelId,
             localModelSlug = localModelSlug,
-            localModelQuant = localModelQuant
+            localModelQuant = localModelQuant,
+            executorModel = executorModel
         )
+    }
+
+    fun saveExecutorModel(value: String?) {
+        if (value == null) {
+            prefs().edit().remove(KEY_EXECUTOR_MODEL).apply()
+        } else {
+            prefs().edit().putString(KEY_EXECUTOR_MODEL, value).apply()
+        }
     }
 
     fun saveApiKey(value: String) {

@@ -10,11 +10,14 @@
 #   ./scripts/debug-run.sh --accessibility-only "goal"  # A11y tree only
 #   ./scripts/debug-run.sh --screenshot-only "goal"     # Screenshot only
 #   ./scripts/debug-run.sh --hybrid "goal"              # A11y + screenshot
+#   ./scripts/debug-run.sh --main-model gpt-5.2 --executor-model glm-4.7 "goal"
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
 #   AGENT_MODE: "pro" (default) or "basic" - selects execution mode
 #   PERCEPTION_MODE: "accessibility_only" (default), "screenshot_only", or "hybrid"
+#   MAIN_MODEL: Override main model name (key from llm_models.json)
+#   EXECUTOR_MODEL: Override executor model name (key from llm_models.json)
 #
 
 set -e
@@ -29,6 +32,8 @@ DEBUG_DIR="$PROJECT_ROOT/debug-output/run_${RUN_ID}"
 USE_LOCAL=false
 FORCED_AGENT_MODE=""
 FORCED_PERCEPTION_MODE=""
+FORCED_MAIN_MODEL=""
+FORCED_EXECUTOR_MODEL=""
 GOAL=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -62,6 +67,22 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             FORCED_PERCEPTION_MODE="$2"
+            shift 2
+            ;;
+        --main-model)
+            if [[ $# -lt 2 ]]; then
+                echo "Missing value for --main-model"
+                exit 1
+            fi
+            FORCED_MAIN_MODEL="$2"
+            shift 2
+            ;;
+        --executor-model)
+            if [[ $# -lt 2 ]]; then
+                echo "Missing value for --executor-model"
+                exit 1
+            fi
+            FORCED_EXECUTOR_MODEL="$2"
             shift 2
             ;;
         *)
@@ -200,6 +221,23 @@ SAFE_AGENT_MODE=$(escape_shell_arg "$AGENT_MODE")
 SAFE_PERCEPTION_MODE=$(escape_shell_arg "$PERCEPTION_MODE")
 
 INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --es agent_mode '$SAFE_AGENT_MODE' --es perception_mode '$SAFE_PERCEPTION_MODE' --ez auto_start true --ez fresh_session true --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
+
+if [[ -n "$FORCED_MAIN_MODEL" ]]; then
+    SAFE_MAIN_MODEL=$(escape_shell_arg "$FORCED_MAIN_MODEL")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es main_model '$SAFE_MAIN_MODEL'"
+elif [[ -n "$MAIN_MODEL" ]]; then
+    SAFE_MAIN_MODEL=$(escape_shell_arg "$MAIN_MODEL")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es main_model '$SAFE_MAIN_MODEL'"
+fi
+
+if [[ -n "$FORCED_EXECUTOR_MODEL" ]]; then
+    SAFE_EXECUTOR_MODEL=$(escape_shell_arg "$FORCED_EXECUTOR_MODEL")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es executor_model '$SAFE_EXECUTOR_MODEL'"
+elif [[ -n "$EXECUTOR_MODEL" ]]; then
+    SAFE_EXECUTOR_MODEL=$(escape_shell_arg "$EXECUTOR_MODEL")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es executor_model '$SAFE_EXECUTOR_MODEL'"
+fi
+
 if [[ "$LLM_BACKEND" == "openai" ]]; then
     INTENT_EXTRAS="--es api_key '$SAFE_API_KEY' $INTENT_EXTRAS"
 fi

@@ -52,35 +52,20 @@ import com.moonkey.androidagent.BuildConfig
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 
-/**
- * SettingsSheet - Bottom sheet for configuration.
- *
- * Sections:
- * - LLM Backend (Cloud/Local)
- * - Model Selection (cloud or local based on backend)
- * - Max Turns
- * - API Key (cloud only)
- * - Accessibility Service status
- * - Overlay Permission status
- * - About & Debug
- */
 @Composable
 fun SettingsSheet(
-    // Backend selection
     llmBackend: LLMBackendType,
     onBackendChange: (LLMBackendType) -> Unit,
-    // Cloud model selection
     selectedModel: String,
     onModelChange: (String) -> Unit,
-    // Local model selection
+    modelOptions: List<Pair<String, String>>,
+    selectedExecutorModel: String?,
+    onExecutorModelChange: (String?) -> Unit,
     selectedLocalModel: String,
     onLocalModelChange: (LocalModelOption) -> Unit,
-    // Local model loading status
     modelLoadingStatus: ModelLoadingStatus,
-    // API key (cloud only)
     apiKey: String,
     onApiKeyChange: (String) -> Unit,
-    // Other settings
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit,
     agentMode: AgentMode,
@@ -129,7 +114,21 @@ fun SettingsSheet(
                     SettingsSection(title = "Cloud Model") {
                         CloudModelDropdown(
                             selectedModel = selectedModel,
+                            modelOptions = modelOptions,
                             onModelChange = onModelChange
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
+            }
+
+            AnimatedVisibility(visible = isCloudBackend && agentMode == AgentMode.PRO) {
+                Column {
+                    SettingsSection(title = "Executor Model") {
+                        ExecutorModelDropdown(
+                            selectedModel = selectedExecutorModel,
+                            modelOptions = modelOptions,
+                            onModelChange = onExecutorModelChange
                         )
                     }
                     Spacer(modifier = Modifier.height(20.dp))

@@ -9,6 +9,8 @@ data class MainActivityIntentPayload(
     val backendType: LLMBackendType?,
     val agentMode: AgentMode?,
     val perceptionMode: String?,
+    val mainModel: String?,
+    val executorModel: String?,
     val goalText: String?,
     val freshSession: Boolean,
     val autoStart: Boolean,
@@ -47,6 +49,12 @@ data class MainActivityIntentPayload(
                 intent.getStringExtra(MainActivity.EXTRA_PERCEPTION_MODE)
             )
 
+            val mainModel = intent.getStringExtra(MainActivity.EXTRA_MAIN_MODEL)
+                ?.takeIf { it.isNotBlank() }
+
+            val executorModel = intent.getStringExtra(MainActivity.EXTRA_EXECUTOR_MODEL)
+                ?.takeIf { it.isNotBlank() }
+
             val debugMode = if (intent.hasExtra(MainActivity.EXTRA_DEBUG_MODE)) {
                 intent.getBooleanExtra(MainActivity.EXTRA_DEBUG_MODE, false)
             } else {
@@ -67,6 +75,8 @@ data class MainActivityIntentPayload(
                 backendType = backendType,
                 agentMode = agentMode,
                 perceptionMode = perceptionMode,
+                mainModel = mainModel,
+                executorModel = executorModel,
                 goalText = goalText,
                 freshSession = intent.getBooleanExtra(MainActivity.EXTRA_FRESH_SESSION, false),
                 autoStart = intent.getBooleanExtra(MainActivity.EXTRA_AUTO_START, false),
