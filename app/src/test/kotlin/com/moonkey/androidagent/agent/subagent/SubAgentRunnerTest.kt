@@ -196,7 +196,7 @@ private fun buildServices(
         sessionState = AgentSessionState(),
         policyEngine = policyEngine,
         platform = FakeAndroidPlatform(),
-        config = SessionConfig(
+        config = @Suppress("DEPRECATION") SessionConfig(
             maxTurns = 1,
             actionDelayMs = 0,
             llmBackend = LLMBackendType.OPENAI

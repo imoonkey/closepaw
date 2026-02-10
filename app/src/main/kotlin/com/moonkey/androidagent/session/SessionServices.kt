@@ -82,6 +82,7 @@ data class SessionServices(
          * @param context Android context (required for LOCAL backend for model downloading)
          * @return Fully initialized SessionServices
          */
+        @Suppress("DEPRECATION")
         fun create(
             config: SessionConfig,
             platform: AndroidPlatform,

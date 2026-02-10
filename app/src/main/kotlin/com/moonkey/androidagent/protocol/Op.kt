@@ -112,16 +112,25 @@ data class SessionConfig(
     /** Approval mode for tool execution */
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     
-    /** LLM model to use (for cloud backends) — kept for backward compat with UI */
+    /** LLM model to use (for cloud backends) — kept for backward compat with UI.
+     * @deprecated Use [mainModel] instead. Will be removed when UI migrates.
+     */
+    @Deprecated("Use mainModel instead", replaceWith = ReplaceWith("mainModel"))
     val model: String = "gpt-5.2",
-    
-    /** LLM backend type (cloud or local) — kept for backward compat with UI */
+
+    /** LLM backend type (cloud or local) — kept for backward compat with UI.
+     * @deprecated Will be removed when local LLM path migrates to ModelCatalog.
+     */
+    @Deprecated("Will be removed when local models migrate to catalog")
     val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
 
     /** Execution mode for main agent orchestration */
     val agentMode: AgentMode = AgentMode.PRO,
 
-    /** Local LLM configuration (used when llmBackend is LOCAL) — kept for backward compat */
+    /** Local LLM configuration (used when llmBackend is LOCAL) — kept for backward compat.
+     * @deprecated Will be removed when local LLM path migrates to ModelCatalog.
+     */
+    @Deprecated("Will be removed when local models migrate to catalog")
     val localLLMConfig: LocalLLMConfig? = null,
     
     /** Enable verbose debug logging */
@@ -143,6 +152,7 @@ data class SessionConfig(
      * [model], [mainModel] inherits the same value. When constructing configs
      * programmatically, prefer setting [mainModel] directly.
      */
+    @Suppress("DEPRECATION")
     val mainModel: String = model,
 
     /**

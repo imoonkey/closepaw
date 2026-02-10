@@ -325,7 +325,8 @@ class MainActivity : ComponentActivity() {
                     if (settingsState.llmBackend == LLMBackendType.LOCAL) {
                         settingsState.updateModelLoadingStatus(ModelLoadingStatus.Loading)
                     }
-                    
+
+                    @Suppress("DEPRECATION")
                     val session = AgentSession.create(
                         config = SessionConfig(
                             maxTurns = settingsState.maxTurns,

@@ -34,6 +34,7 @@ internal class AgentTrace(
     private val runMetrics = RunMetrics()
 
     /** Emits initial session metadata. */
+    @Suppress("DEPRECATION")
     fun sessionStarted(config: AgentExecutionConfig) {
         sessionStartedAtMs = System.currentTimeMillis()
         trace.emit(
@@ -219,6 +220,7 @@ internal class AgentTrace(
                 buildJsonObject {
                     put("history_items", JsonPrimitive(history.size))
                     put("input_items", JsonPrimitive(inputItems.size))
+                    @Suppress("DEPRECATION")
                     put("model", JsonPrimitive(services.config.model))
                     put("screenshot_attached", JsonPrimitive(snapshot.image != null))
                 },

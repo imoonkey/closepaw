@@ -33,6 +33,7 @@ object TraceRecorderFactory {
                 deviceManufacturer = Build.MANUFACTURER ?: "unknown",
                 deviceSdkInt = Build.VERSION.SDK_INT,
                 config =
+                    @Suppress("DEPRECATION")
                     TraceRunConfig(
                         llmBackend = config.llmBackend.name,
                         model = config.model,

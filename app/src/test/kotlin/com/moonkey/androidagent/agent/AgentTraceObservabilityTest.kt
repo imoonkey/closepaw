@@ -97,6 +97,7 @@ private fun buildServices(traceRecorder: TraceRecorder): SessionServices {
     val policyEngine = PolicyEngine()
     val toolRouter = ToolRouter(toolRegistry, policyEngine)
     val platform = FakeAndroidPlatform()
+    @Suppress("DEPRECATION")
     val config = SessionConfig(
         maxTurns = 1,
         actionDelayMs = 0,
