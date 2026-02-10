@@ -74,8 +74,8 @@ class VirtualDisplayPlatform(
         private const val IMAGE_READER_MAX_IMAGES = 2
     }
 
-    private var displayId: Int = Display.INVALID_DISPLAY
-    private var imageReader: ImageReader? = null
+    @Volatile private var displayId: Int = Display.INVALID_DISPLAY
+    @Volatile private var imageReader: ImageReader? = null
     private var binderDeadListener: Shizuku.OnBinderDeadListener? = null
 
     // ── Lifecycle ────────────────────────────────────────────────
@@ -224,6 +224,7 @@ class VirtualDisplayPlatform(
                 val plane = image.planes[0]
                 val buffer = plane.buffer
                 val pixelStride = plane.pixelStride
+                if (pixelStride == 0) return@withContext null
                 val rowStride = plane.rowStride
                 val rowPadding = rowStride - pixelStride * image.width
 
@@ -312,18 +313,22 @@ class VirtualDisplayPlatform(
                     "No a11y root on display $displayId for click"
                 )
 
-            val node = AccessibilityNodeFinder.findClickableNodeAtLocation(root, x, y)
-                ?: return@withContext ActionResult.Failure("No clickable node at ($x,$y)")
-
             try {
-                val ok = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                if (ok) {
-                    ActionResult.Success("ACTION_CLICK at ($x,$y)")
-                } else {
-                    ActionResult.Failure("ACTION_CLICK returned false at ($x,$y)")
+                val node = AccessibilityNodeFinder.findClickableNodeAtLocation(root, x, y)
+                    ?: return@withContext ActionResult.Failure("No clickable node at ($x,$y)")
+
+                try {
+                    val ok = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    if (ok) {
+                        ActionResult.Success("ACTION_CLICK at ($x,$y)")
+                    } else {
+                        ActionResult.Failure("ACTION_CLICK returned false at ($x,$y)")
+                    }
+                } finally {
+                    node.recycle()
                 }
             } finally {
-                node.recycle()
+                root.recycle()
             }
         }
     }
@@ -336,18 +341,22 @@ class VirtualDisplayPlatform(
                     "No a11y root on display $displayId for long-click"
                 )
 
-            val node = AccessibilityNodeFinder.findLongClickableNodeAtLocation(root, x, y)
-                ?: return@withContext ActionResult.Failure("No long-clickable node at ($x,$y)")
-
             try {
-                val ok = node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
-                if (ok) {
-                    ActionResult.Success("ACTION_LONG_CLICK at ($x,$y)")
-                } else {
-                    ActionResult.Failure("ACTION_LONG_CLICK returned false at ($x,$y)")
+                val node = AccessibilityNodeFinder.findLongClickableNodeAtLocation(root, x, y)
+                    ?: return@withContext ActionResult.Failure("No long-clickable node at ($x,$y)")
+
+                try {
+                    val ok = node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
+                    if (ok) {
+                        ActionResult.Success("ACTION_LONG_CLICK at ($x,$y)")
+                    } else {
+                        ActionResult.Failure("ACTION_LONG_CLICK returned false at ($x,$y)")
+                    }
+                } finally {
+                    node.recycle()
                 }
             } finally {
-                node.recycle()
+                root.recycle()
             }
         }
     }
@@ -361,13 +370,17 @@ class VirtualDisplayPlatform(
                     "No a11y root on display $displayId for set-text"
                 )
 
-            val node = AccessibilityNodeFinder.findNodeAtLocation(root, x, y)
-                ?: return@withContext ActionResult.Failure("No text-input node at ($x,$y)")
-
             try {
-                setTextOnNode(node, text, clear)
+                val node = AccessibilityNodeFinder.findNodeAtLocation(root, x, y)
+                    ?: return@withContext ActionResult.Failure("No text-input node at ($x,$y)")
+
+                try {
+                    setTextOnNode(node, text, clear)
+                } finally {
+                    if (node !== root) node.recycle()
+                }
             } finally {
-                if (node !== root) node.recycle()
+                root.recycle()
             }
         }
     }
@@ -379,15 +392,19 @@ class VirtualDisplayPlatform(
                     "No a11y root on display $displayId for set-text"
                 )
 
-            val node = AccessibilityNodeFinder.findFocusedEditableNode(root)
-                ?: return@withContext ActionResult.Failure(
-                    "No focused editable element on display $displayId"
-                )
-
             try {
-                setTextOnNode(node, text, clear)
+                val node = AccessibilityNodeFinder.findFocusedEditableNode(root)
+                    ?: return@withContext ActionResult.Failure(
+                        "No focused editable element on display $displayId"
+                    )
+
+                try {
+                    setTextOnNode(node, text, clear)
+                } finally {
+                    node.recycle()
+                }
             } finally {
-                node.recycle()
+                root.recycle()
             }
         }
     }
@@ -434,7 +451,7 @@ class VirtualDisplayPlatform(
         }
     }
 
-    private fun injectLongPress(x: Int, y: Int, durationMs: Long): ActionResult {
+    private suspend fun injectLongPress(x: Int, y: Int, durationMs: Long): ActionResult {
         val downTime = SystemClock.uptimeMillis()
         val down = motionEvent(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat())
 
@@ -444,8 +461,8 @@ class VirtualDisplayPlatform(
         }
         down.recycle()
 
-        // Hold for the requested duration.
-        Thread.sleep(durationMs)
+        // Hold for the requested duration (non-blocking).
+        delay(durationMs)
 
         val up = motionEvent(downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x.toFloat(), y.toFloat())
         val ok = shizuku.injectInputEvent(up)
@@ -458,7 +475,7 @@ class VirtualDisplayPlatform(
         }
     }
 
-    private fun injectSwipe(action: UIAction.Swipe): ActionResult {
+    private suspend fun injectSwipe(action: UIAction.Swipe): ActionResult {
         val downTime = SystemClock.uptimeMillis()
         val steps = 20
         val stepMs = (action.durationMs / steps).coerceAtLeast(1)
@@ -474,9 +491,9 @@ class VirtualDisplayPlatform(
         }
         down.recycle()
 
-        // MOVE steps with linear interpolation.
+        // MOVE steps with linear interpolation (non-blocking delay).
         for (i in 1..steps) {
-            Thread.sleep(stepMs)
+            delay(stepMs)
             val t = i.toFloat() / steps
             val x = action.startX + (action.endX - action.startX) * t
             val y = action.startY + (action.endY - action.startY) * t

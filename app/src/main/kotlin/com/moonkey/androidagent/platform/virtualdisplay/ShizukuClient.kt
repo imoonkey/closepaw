@@ -178,18 +178,22 @@ class ShizukuClient {
 
     private fun getDisplayManagerProxy(): Any {
         val binder = SystemServiceHelper.getSystemService("display")
+            ?: throw IllegalStateException("Cannot obtain display service binder")
         val wrapped = ShizukuBinderWrapper(binder)
         val stubClass = Class.forName("android.hardware.display.IDisplayManager\$Stub")
         return stubClass.getMethod("asInterface", IBinder::class.java)
-            .invoke(null, wrapped)!!
+            .invoke(null, wrapped)
+            ?: throw IllegalStateException("IDisplayManager.Stub.asInterface returned null")
     }
 
     private fun getInputManagerProxy(): Any {
         val binder = SystemServiceHelper.getSystemService("input")
+            ?: throw IllegalStateException("Cannot obtain input service binder")
         val wrapped = ShizukuBinderWrapper(binder)
         val stubClass = Class.forName("android.hardware.input.IInputManager\$Stub")
         return stubClass.getMethod("asInterface", IBinder::class.java)
-            .invoke(null, wrapped)!!
+            .invoke(null, wrapped)
+            ?: throw IllegalStateException("IInputManager.Stub.asInterface returned null")
     }
 
     // ── Private: Version-specific Display Creation ──────────────
@@ -217,7 +221,8 @@ class ShizukuClient {
         // Set flags
         builderClass.getMethod("setFlags", Int::class.javaPrimitiveType).invoke(builder, flags)
 
-        val config = builderClass.getMethod("build").invoke(builder)!!
+        val config = builderClass.getMethod("build").invoke(builder)
+            ?: throw IllegalStateException("VirtualDisplayConfig.Builder.build() returned null")
 
         // IVirtualDisplayCallback stub — we don't need callbacks, pass null-safe stub
         val callbackClass = Class.forName("android.hardware.display.IVirtualDisplayCallback")
