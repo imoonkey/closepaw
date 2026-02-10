@@ -13,7 +13,25 @@ import com.moonkey.androidagent.model.ScreenSnapshot
  * - MockPlatform: Test implementation with predefined responses
  */
 interface AndroidPlatform {
-    
+
+    /**
+     * Initialize platform resources.
+     *
+     * Called once before the first captureScreen/performAction.
+     * AccessibilityPlatform: no-op (already ready when service is connected).
+     * VirtualDisplayPlatform: creates the virtual display + ImageReader.
+     */
+    suspend fun start() {}
+
+    /**
+     * Release platform resources.
+     *
+     * Called during session cleanup. Must be idempotent.
+     * AccessibilityPlatform: no-op.
+     * VirtualDisplayPlatform: releases virtual display + ImageReader.
+     */
+    suspend fun stop() {}
+
     /**
      * Capture the current screen state.
      * 

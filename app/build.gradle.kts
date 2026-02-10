@@ -35,6 +35,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        aidl = true  // Required for Shizuku AIDL
     }
 
     packaging {
@@ -99,6 +100,13 @@ dependencies {
     
     // Kotlin Serialization for session persistence
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    
+    // Shizuku — binder forwarding with shell UID for virtual display
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
+    
+    // Hidden API bypass — for InputEvent.setDisplayId(), ServiceManager access, etc.
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
     
     // Testing
     testImplementation("junit:junit:4.13.2")

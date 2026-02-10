@@ -162,8 +162,22 @@ data class SessionConfig(
      * Typical usage: set a cheaper/faster model here while [mainModel] uses a
      * more capable model for planning.
      */
-    val executorModel: String? = null
+    val executorModel: String? = null,
+
+    /** Platform mode: real screen (accessibility) or virtual display (Shizuku) */
+    val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
 )
+
+/**
+ * Platform mode — which display the agent operates on.
+ */
+enum class PlatformMode {
+    /** Agent operates on the real screen via AccessibilityService. */
+    ACCESSIBILITY,
+
+    /** Agent operates on a Shizuku-powered virtual display. */
+    VIRTUAL_DISPLAY
+}
 
 /**
  * Agent execution mode.

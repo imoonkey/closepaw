@@ -97,7 +97,8 @@ data class ScreenImage(
 }
 
 enum class ScreenImageSource {
-    ACCESSIBILITY_SCREENSHOT
+    ACCESSIBILITY_SCREENSHOT,
+    VIRTUAL_DISPLAY_CAPTURE
 }
 
 data class PerceptionElement(

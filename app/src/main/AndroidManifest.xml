@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <!-- Shizuku permission for virtual display operations -->
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23" />
 
     <!-- Package visibility: Allow querying all launchable apps (Android 11+) -->
     <queries>
@@ -42,6 +44,15 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/agent_accessibility_config" />
         </service>
+
+        <!-- Shizuku content provider for binder forwarding -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
     </application>
 
