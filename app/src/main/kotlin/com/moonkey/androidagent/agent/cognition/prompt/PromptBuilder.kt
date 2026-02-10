@@ -4,6 +4,7 @@ import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.session.AgentSessionState
@@ -28,6 +29,7 @@ internal class PromptBuilder(
     private val historyManager: HistoryManager,
     private val sessionState: AgentSessionState,
     private val llmBackend: LLMBackendType,
+    private val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
     private val recentFullScreenTurns: Int = 3
 ) {
 
@@ -113,6 +115,11 @@ internal class PromptBuilder(
     /**
      * Produces the text body for the current-observation message.
      * Mode-aware: accessibility-only, screenshot-only, or hybrid.
+     *
+     * Gating rule: `perceptionConfig.capturesAccessibility` controls whether
+     * the LLM sees the a11y tree. The tree is always *captured* (for change
+     * detection, node finding, trace), but only *shown* when the config allows.
+     *
      * Package-visible for testing.
      */
     internal fun buildObservationText(
@@ -127,8 +134,8 @@ internal class PromptBuilder(
             }
             if (warnings.isNotEmpty()) appendLine()
 
-            // Accessibility section
-            if (snapshot.hasElements) {
+            // Accessibility section — gated by perceptionConfig, not by element presence
+            if (perceptionConfig.capturesAccessibility) {
                 val screenJson = Perceptor.toPromptJson(snapshot)
                 appendLine("Screen state (${snapshot.elements.size} elements):")
                 appendLine("```json")
@@ -141,7 +148,7 @@ internal class PromptBuilder(
 
             // Screenshot section
             if (image != null && llmBackend == LLMBackendType.OPENAI) {
-                if (snapshot.hasElements) appendLine()
+                if (perceptionConfig.capturesAccessibility) appendLine()
                 appendLine()
                 append("Screenshot attached (analyze visually if needed).")
             }
@@ -186,7 +193,8 @@ internal class PromptBuilder(
         val count = ELEMENT_COUNT_REGEX.find(fullContent)?.groupValues?.get(1)
         return if (count != null) {
             "Screen: $count elements (compressed)"
-        } else if (fullContent.contains("No accessibility tree")) {
+        } else if (fullContent.contains("No accessibility tree") ||
+                   fullContent.contains("accessibility tree omitted")) {
             "Screen: screenshot only (compressed)"
         } else {
             "Screen: unknown (compressed)"

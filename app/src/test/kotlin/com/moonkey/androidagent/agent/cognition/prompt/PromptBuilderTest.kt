@@ -7,6 +7,7 @@ import com.moonkey.androidagent.model.Bounds
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.Point
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.Todo
 import com.moonkey.androidagent.protocol.TodoStatus
@@ -198,9 +199,9 @@ class PromptBuilderTest {
     }
 
     @Test
-    fun `buildObservationText shows screenshot-only guidance when no accessibility`() {
-        val builder = createBuilder()
-        val text = builder.buildObservationText(emptySnapshot, null, emptyList())
+    fun `buildObservationText shows screenshot-only guidance when perceptionConfig is ScreenshotOnly`() {
+        val builder = createBuilder(perceptionConfig = PerceptionConfig.ScreenshotOnly())
+        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
 
         assertThat(text).contains("No accessibility tree available for this screen.")
         assertThat(text).contains("Use coordinate-based actions (x, y)")
@@ -343,11 +344,13 @@ class PromptBuilderTest {
         historyManager: HistoryManager = HistoryManager(),
         sessionState: AgentSessionState = AgentSessionState(),
         llmBackend: LLMBackendType = LLMBackendType.OPENAI,
+        perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
         recentFullScreenTurns: Int = 3
     ): PromptBuilder = PromptBuilder(
         historyManager = historyManager,
         sessionState = sessionState,
         llmBackend = llmBackend,
+        perceptionConfig = perceptionConfig,
         recentFullScreenTurns = recentFullScreenTurns
     )
 

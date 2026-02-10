@@ -225,7 +225,8 @@ internal class AgentTurnRunner(
                 val promptBuilder = PromptBuilder(
                         historyManager = services.historyManager,
                         sessionState = services.sessionState,
-                        llmBackend = services.config.llmBackend
+                        llmBackend = services.config.llmBackend,
+                        perceptionConfig = services.config.perceptionConfig
                 )
                 val inputItems = promptBuilder.buildInputItems(
                         snapshot = snapshot,
@@ -327,14 +328,22 @@ internal class AgentTurnRunner(
          * Record the current screen observation into history so future turns
          * can see what this turn saw. Called after prompt is built but before
          * the LLM call, so the prompt doesn't duplicate the current screen.
+         *
+         * In screenshot-only mode the a11y tree is omitted from history to
+         * keep the context consistent with what the LLM actually sees.
          */
         private fun recordScreenObservation(snapshot: ScreenSnapshot) {
-                val screenJson = Perceptor.toPromptJson(snapshot)
-                val text = buildString {
-                        appendLine("Screen state (${snapshot.elements.size} elements):")
-                        appendLine("```json")
-                        appendLine(screenJson)
-                        append("```")
+                val pc = services.config.perceptionConfig
+                val text = if (pc.capturesAccessibility) {
+                        val screenJson = Perceptor.toPromptJson(snapshot)
+                        buildString {
+                                appendLine("Screen state (${snapshot.elements.size} elements):")
+                                appendLine("```json")
+                                appendLine(screenJson)
+                                append("```")
+                        }
+                } else {
+                        "(Screenshot-only mode — accessibility tree omitted from history)"
                 }
                 services.historyManager.addItem(
                         ResponseItem.Message(
