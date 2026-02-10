@@ -2,19 +2,19 @@ package com.moonkey.androidagent.agent.cognition.policy
 
 import com.moonkey.androidagent.agent.ToolCallRequest
 import com.moonkey.androidagent.agent.TurnResult
+import com.moonkey.androidagent.tool.ToolName
 
-private const val COMPLETE_TASK_TOOL = "complete_task"
+private val COMPLETE_TASK_TOOL = ToolName.CompleteTask.raw
 
 /**
  * Result of choosing which tool calls from one LLM turn should actually execute.
  *
- * The runtime currently executes at most one tool call per turn.
+ * The runtime may execute multiple cognitive tools and at most one screen-changing tool per turn.
  */
 internal data class ToolArbitrationResult(
         val selectedToolCalls: List<ToolCallRequest>,
-        val selectedTool: ToolCallRequest?,
         val hasCompletionTool: Boolean,
-        val hasNonCompletionTool: Boolean,
+        val hasScreenAction: Boolean,
         val droppedToolCalls: List<ToolCallRequest>
 )
 
@@ -28,34 +28,61 @@ internal data class CompletionDecision(val shouldComplete: Boolean, val summary:
 internal class TurnToolPolicy {
     /**
      * Arbitration rule:
-     * - Prefer a non-`complete_task` action.
-     * - Fallback to first tool call when completion is the only call.
+     * - Keep all non-screen-changing (cognitive) tools.
+     * - Keep at most one screen-changing tool (first one wins).
+     * - Keep `complete_task` only when no screen-changing tool is selected.
      */
     fun arbitrateToolCalls(toolCalls: List<ToolCallRequest>): ToolArbitrationResult {
+        if (toolCalls.isEmpty()) {
+            return ToolArbitrationResult(
+                selectedToolCalls = emptyList(),
+                hasCompletionTool = false,
+                hasScreenAction = false,
+                droppedToolCalls = emptyList()
+            )
+        }
+
         val hasCompletionTool = toolCalls.any { it.name == COMPLETE_TASK_TOOL }
-        val hasNonCompletionTool = toolCalls.any { it.name != COMPLETE_TASK_TOOL }
-        val selectedTool =
-                toolCalls.firstOrNull { it.name != COMPLETE_TASK_TOOL } ?: toolCalls.firstOrNull()
-        val selectedToolCalls = selectedTool?.let(::listOf) ?: emptyList()
-        val droppedToolCalls = toolCalls.filterNot { it in selectedToolCalls }
+        val completionCall = toolCalls.find { it.name == COMPLETE_TASK_TOOL }
+        val screenCalls =
+                toolCalls.filter { call ->
+                        call.name != COMPLETE_TASK_TOOL && ToolName.from(call.name).isScreenChanging
+                }
+        val cognitiveCalls =
+                toolCalls.filter { call ->
+                        call.name != COMPLETE_TASK_TOOL &&
+                                !ToolName.from(call.name).isScreenChanging
+                }
+
+        val selectedScreen = screenCalls.firstOrNull()
+        val selectedCompletion = if (selectedScreen == null) completionCall else null
+        val selectedToolCalls =
+                buildList {
+                        addAll(cognitiveCalls)
+                        selectedScreen?.let(::add)
+                        selectedCompletion?.let(::add)
+                }
+
+        val selectedToolIds = selectedToolCalls.map { it.id }.toSet()
+        val droppedToolCalls = toolCalls.filterNot { it.id in selectedToolIds }
+
         return ToolArbitrationResult(
                 selectedToolCalls = selectedToolCalls,
-                selectedTool = selectedTool,
                 hasCompletionTool = hasCompletionTool,
-                hasNonCompletionTool = hasNonCompletionTool,
+                hasScreenAction = selectedScreen != null,
                 droppedToolCalls = droppedToolCalls
         )
     }
 
     /**
      * Completion rule:
-     * - Only complete when model says complete AND there is no remaining non-completion action.
+     * - Only complete when model says complete AND no screen action is selected this turn.
      */
     fun decideCompletion(
             turnResult: TurnResult,
             arbitration: ToolArbitrationResult
     ): CompletionDecision {
-        val shouldComplete = turnResult.isComplete && !arbitration.hasNonCompletionTool
+        val shouldComplete = turnResult.isComplete && !arbitration.hasScreenAction
         if (!shouldComplete) {
             return CompletionDecision(shouldComplete = false, summary = null)
         }

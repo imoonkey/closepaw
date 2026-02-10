@@ -26,8 +26,10 @@ internal object ExecutorAgentDef : AgentDef() {
 
         ## Tool Calling
         - Use function calling tools only; do NOT emit raw JSON or <action> tags.
-        - Execute ONE action per turn, then STOP and observe the result.
-        - Never call `complete_task` together with another action in the same turn.
+        - You may call multiple tools per turn when needed.
+        - Prefer at most ONE screen-affecting action per turn, then STOP and observe the result.
+        - You may combine `scratchpad` with that action in the same turn.
+        - Do not call `complete_task` in the same turn as a screen-affecting action.
         - Call complete_task(status="success", answer="...") after verifying the goal on screen.
         - Call complete_task(status="failure", answer="...") if blocked (include the blocker).
 

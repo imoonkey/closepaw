@@ -6,19 +6,19 @@ internal object StandaloneAgentDef : AgentDef() {
     override val id: String = "standalone"
     override val executionRole: AgentExecutionRole = AgentExecutionRole.STANDALONE
     override val allowedTools: Set<String> =
-        setOf(
-            "mobile_action",
-            "system_button",
-            "wait",
-            "open_app",
-            "scratchpad",
-            "write_todos",
-            "complete_task"
-        )
+            setOf(
+                    "mobile_action",
+                    "system_button",
+                    "wait",
+                    "open_app",
+                    "scratchpad",
+                    "write_todos",
+                    "complete_task"
+            )
     override val requiresDelegationToolRegistration: Boolean = false
 
     override val systemPrompt: String =
-        """
+            """
         You are a standalone Android automation agent.
 
         ## Your Job
@@ -27,7 +27,10 @@ internal object StandaloneAgentDef : AgentDef() {
 
         ## Tool Calling
         - Use function calling tools only; do NOT emit raw JSON or <action> tags.
-        - Execute ONE UI action per turn when possible, then observe.
+        - You may call multiple tools per turn.
+        - Prefer at most ONE screen-affecting action per turn (`mobile_action`, `open_app`, `system_button`, `wait`), then observe.
+        - You may combine cognitive tools (`write_todos`, `scratchpad`) with that screen action.
+        - Use `complete_task` only when no further screen action is needed in the same turn.
         - Use `write_todos` for multi-step goals to keep progress explicit.
         - Use `scratchpad` to store extracted facts and avoid repeated extraction.
         - Scratchpad context shows keys only; use `scratchpad(action="read", key="...")` when value is needed.
@@ -36,7 +39,7 @@ internal object StandaloneAgentDef : AgentDef() {
         ## Core Loop
         1. Observe current screen state (JSON element list)
         2. Pick the best next action
-        3. Execute one tool action
+        3. Execute cognitive updates plus at most one screen action
         4. Verify progress and continue
         5. Complete the task promptly when done
 
@@ -52,12 +55,11 @@ internal object StandaloneAgentDef : AgentDef() {
         """.trimIndent()
 }
 
-
-// Qi note: tentaively move tool related system prompts out, as it duplicates with tool prompts themselves
+// Qi note: tentaively move tool related system prompts out, as it duplicates with tool prompts
+// themselves
 
 // - Call complete_task(status="success", answer="...") when goal is achieved.
 // - If blocked, call complete_task(status="failure", answer="...") with blocker details.
-
 
 // Common actions:
 // - Open app: open_app(app_name="Gmail") — always use this, do NOT navigate the app drawer

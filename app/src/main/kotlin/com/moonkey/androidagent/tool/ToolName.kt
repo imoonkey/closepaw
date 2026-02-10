@@ -10,6 +10,14 @@ sealed class ToolName(
     val canonical: String,
     val displayName: String
 ) {
+    val isScreenChanging: Boolean
+        get() =
+            when (this) {
+                MobileAction, OpenApp, Wait, SystemButton, DelegateTask -> true
+                CompleteTask, WriteTodos, Scratchpad -> false
+                is Unknown -> true
+            }
+
     data object MobileAction : ToolName(
         raw = "mobile_action",
         canonical = "mobile_action",

@@ -3,7 +3,7 @@ package com.moonkey.androidagent.trace
 import com.moonkey.androidagent.agent.ToolCallRequest
 
 internal data class ArbitrationDecision(
-    val selectedTool: ToolCallRequest?,
+    val selectedTools: List<ToolCallRequest>,
     val droppedToolCalls: List<DroppedToolCall>,
     val selectedToolCount: Int,
     val originalToolCount: Int

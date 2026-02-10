@@ -396,23 +396,25 @@ internal class AgentTurnRunner(
                 result: TurnResult,
                 arbitration: ToolArbitrationResult
         ) {
-                if (result.toolCalls.size > 1 && arbitration.selectedTool != null) {
-                        val toolNames = result.toolCalls.map { it.name }
+                val droppedCount = arbitration.droppedToolCalls.size
+                if (droppedCount > 0) {
+                        val keptNames = arbitration.selectedToolCalls.map { it.name }
+                        val droppedNames = arbitration.droppedToolCalls.map { it.name }
                         Log.w(
                                 TAG,
-                                "Turn $turnNumber: Multiple tool calls returned: $toolNames, executing: ${arbitration.selectedTool.name}"
+                                "Turn $turnNumber: Kept $keptNames, dropped $droppedNames"
                         )
                         eventDispatcher.status(
-                                "⚠️ Multiple actions returned; executing ${arbitration.selectedTool.name} only"
+                                "⚠️ Dropped $droppedCount tool call(s): $droppedNames"
                         )
                 }
-                if (arbitration.hasCompletionTool && arbitration.hasNonCompletionTool) {
+                if (arbitration.hasCompletionTool && arbitration.hasScreenAction) {
                         Log.w(
                                 TAG,
-                                "Turn $turnNumber: complete_task returned alongside other tools; completion deferred"
+                                "Turn $turnNumber: complete_task returned with screen action; completion deferred"
                         )
                         eventDispatcher.status(
-                                "⚠️ Completion returned with other actions; executing action first"
+                                "⚠️ Completion returned with screen action; executing action first"
                         )
                 }
         }
@@ -734,8 +736,8 @@ internal class AgentTurnRunner(
                         originalCalls.filterNot { it.id in selectedToolIds }.map { call ->
                                 val reason =
                                         when {
-                                                call.name == "complete_task" &&
-                                                        arbitration.hasNonCompletionTool ->
+                                                call.name == ToolName.CompleteTask.raw &&
+                                                        arbitration.hasScreenAction ->
                                                         DropReason.COMPLETE_TASK_DEFERRED
                                                 (originalNameCounts[call.name] ?: 0) > 1 ->
                                                         DropReason.DUPLICATE_TOOL
@@ -747,7 +749,7 @@ internal class AgentTurnRunner(
                         }
 
                 return ArbitrationDecision(
-                        selectedTool = arbitration.selectedTool,
+                        selectedTools = arbitration.selectedToolCalls,
                         droppedToolCalls = dropped,
                         selectedToolCount = arbitration.selectedToolCalls.size,
                         originalToolCount = originalCalls.size

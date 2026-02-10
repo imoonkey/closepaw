@@ -291,7 +291,7 @@ internal class AgentTrace(
         )
     }
 
-    /** Emits per-turn arbitration details (selected tool vs dropped tools). */
+    /** Emits per-turn arbitration details (selected tools vs dropped tools). */
     fun arbitrationDecision(turnId: String, turnNumber: Int, decision: ArbitrationDecision) {
         if (!trace.enabled) return
         trace.emit(
@@ -303,7 +303,14 @@ internal class AgentTrace(
                 buildJsonObject {
                     put("original_tool_count", JsonPrimitive(decision.originalToolCount))
                     put("selected_tool_count", JsonPrimitive(decision.selectedToolCount))
-                    put("selected_tool", JsonPrimitive(decision.selectedTool?.name ?: "none"))
+                    put(
+                        "selected_tools",
+                        buildJsonArray {
+                            decision.selectedTools.forEach { selected ->
+                                add(JsonPrimitive(selected.name))
+                            }
+                        }
+                    )
                     put(
                         "dropped_tools",
                         buildJsonArray {
