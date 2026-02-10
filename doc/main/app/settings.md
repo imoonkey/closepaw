@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-02-09 (commit: 5fbeec1)
+> Last updated: 2026-02-09 (commit: 917ebf7)
 
 ## Overview
 
@@ -15,10 +15,11 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `llmBackend` | `LLMBackendType` | `OPENAI` | Cloud or local inference |
-| `model` | `String` | `"gpt-5.2"` | Cloud model name |
+| `llmBackend` | `LLMBackendType` | `OPENAI` | `OPENAI` (Cloud: OpenAI/OpenRouter/Novita) or `LOCAL` (On-device) |
+| `model` | `String` | `"gpt-5.2"` | Main agent model (cloud) |
+| `executorModel` | `String` | `null` | Executor agent model (cloud, optional override) |
 | `localModel` | `String` | `"LFM2.5-1.2B-Instruct"` | Local model selection |
-| `apiKey` | `String` | `""` | OpenAI API key |
+| `apiKey` | `String` | `""` | API key for the selected provider |
 
 ### Execution
 

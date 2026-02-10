@@ -1,7 +1,7 @@
 # Multi-Agent System
 
 > Sub-agent delegation, executor agents, and orchestration.
-> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
+> Last updated: 2026-02-09 (commit: 917ebf7)
 
 ## Planner-Executor Pattern
 
@@ -129,14 +129,22 @@ Do not pass full history/screenshots/raw tree dumps. Executor captures fresh scr
 
 ### Executor Agent
 
-→ See: `agent/subagent/SubAgentRunner.kt` and `agent/definition/ExecutorAgentDef.kt`
+→ See: `agent/definition/ExecutorAgentDef.kt`
 
-`ExecutorAgent.definition` includes:
+`ExecutorAgentDef` includes:
 - Name: `executor`
-- Prompt: `AgentDefRegistry.executor().systemPrompt`
-- Max turns: `5`
-- Timeout: `30_000ms`
+- Prompt: `ExecutorAgentDef.systemPrompt`
+- Max turns: `5` (implicitly via `AgentDefinition` default or override)
 - Role: `AgentExecutionRole.EXECUTOR`
+
+### Planner Agent
+
+→ See: `agent/definition/PlannerAgentDef.kt`
+
+`PlannerAgentDef` includes:
+- Name: `planner`
+- Tools: `open_app`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task`
+- Role: `AgentExecutionRole.PLANNER`
 
 ---
 
@@ -144,7 +152,7 @@ Do not pass full history/screenshots/raw tree dumps. Executor captures fresh scr
 
 → See: `session/SessionAgentRunner.kt`
 
-`SessionAgentRunner` lazily registers `delegate_task` only when the active main-agent definition requires it (currently `AgentMode.PRO`).
+`SessionAgentRunner` registers `delegate_task` only when the active main-agent definition requires it (via `requiresDelegationToolRegistration`).
 
 When enabled, it creates a default `AgentRegistry` (`executor` included) and connects it to `IsolatedSubAgentRunner`.
 
@@ -164,16 +172,16 @@ When enabled, it creates a default `AgentRegistry` (`executor` included) and con
 
 ## Adding New Sub-Agents
 
-1. Add a new `AgentDef` (if needed) and/or `AgentDefinition`.
+1. Define a new object inheriting `AgentDef` in `agent/definition/`.
 2. Register it in `AgentRegistry` creation.
 3. Keep prompt + tool list tightly scoped.
-4. Ensure `SessionAgentRunner` wiring and mode constraints remain explicit.
+4. Ensure `SessionAgentRunner` wiring handles it.
 
 ---
 
 ## Related Docs
 
 - [Overview](overview.md) - Architecture context
-- [Loop Execution](loop.md) - How delegation fits in ReAct loop
-- [Planning State](planning.md) - Scratchpad for cross-agent data
+- [Loop](loop.md) - How delegation fits in ReAct loop
+- [Planning](planning.md) - Scratchpad for cross-agent data
 - [Protocol](../protocol/protocol.md) - Sub-agent events

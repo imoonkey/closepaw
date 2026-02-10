@@ -1,7 +1,7 @@
 # LLM Integration
 
 > LLM clients, backends, and API configuration.
-> Last updated: 2026-02-04 (commit: da83b53ba4e849e52b45158a3485261d7399facb)
+> Last updated: 2026-02-09 (commit: 917ebf7)
 
 ## Overview
 
@@ -42,14 +42,19 @@ interface LLMClient {
 
 → See: `llm/OpenAILLMClient.kt`
 
-Uses OpenAI Responses API with native tool calling:
-- `callbackFlow` for coroutine compatibility
-- Manual accumulation of text and tool calls
-- Retry logic with exponential backoff
+Uses OpenAI Responses API with native tool calling.
 
 **Models:**
 - `gpt-5.2` (default)
 - `gpt-5.2-pro`
+
+### OpenRouter & Novita AI (Compatible)
+
+Support for third-party providers via OpenAI Chat Completion API shape:
+- **OpenRouter**: Aggregates many models (Claude, Gemini, Llama, etc.)
+- **Novita AI**: Specialized models like `autoglm-phone-9b`
+
+Configuration is driven by `llm_models.json`.
 
 ### Local LFM
 

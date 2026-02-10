@@ -1,6 +1,6 @@
 # Development Guide
 
-> Last updated: 2026-02-09 (commit: 20b72144e48182d50229fada5ec9c491ffd074f0)
+> Last updated: 2026-02-09 (commit: 917ebf7)
 
 This guide covers the development workflow for Android Agent - building, testing, and debugging.
 
@@ -78,6 +78,8 @@ Run the agent with a goal. `debug-run.sh` captures screenshots at each turn, rec
 ./scripts/debug-run.sh --local "Open Settings"                # Use local LLM
 ./scripts/debug-run.sh --basic "Open Chrome"                  # Standalone execution mode
 ./scripts/debug-run.sh --pro "Open Chrome"                    # Planner+executor mode
+./scripts/debug-run.sh --main-model gpt-5.2 --executor-model glm-4.7 "Open Chrome" # Custom models
+./scripts/debug-run.sh --perception accessibility_only "Open Chrome" # Explicit perception mode
 ./scripts/debug-run.sh --accessibility-only "Open Chrome"     # A11y only
 ./scripts/debug-run.sh --screenshot-only "Open Chrome"        # Screenshot only
 ./scripts/debug-run.sh --hybrid "Open Chrome"                 # A11y + screenshot
