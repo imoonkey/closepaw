@@ -25,7 +25,10 @@ import kotlinx.coroutines.withContext
  *
  * This is the cloud-based implementation that connects to OpenAI's API.
  */
-class OpenAIResponseClient(apiKey: String) : LLMClient() {
+class OpenAIResponseClient(
+    apiKey: String,
+    baseUrl: String? = null
+) : LLMClient() {
 
     companion object {
         private const val TAG = "OpenAIResponseClient"
@@ -40,6 +43,7 @@ class OpenAIResponseClient(apiKey: String) : LLMClient() {
         Log.d(TAG, "Creating OpenAIResponseClient")
         client = OpenAIOkHttpClient.builder()
             .apiKey(apiKey)
+            .apply { baseUrl?.let { baseUrl(it) } }
             .build()
         Log.i(TAG, "OpenAIResponseClient created successfully")
     }
