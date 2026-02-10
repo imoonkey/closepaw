@@ -5,8 +5,8 @@ import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
-import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.LLMStreamEvent
+import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.ResponsesResult
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.AgentMode
@@ -14,10 +14,10 @@ import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionState
+import com.moonkey.androidagent.test.FakeAndroidPlatform
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
-import com.moonkey.androidagent.test.FakeAndroidPlatform
 import com.moonkey.androidagent.trace.NoopTraceRecorder
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
@@ -36,11 +36,7 @@ class AgentSessionTest {
 
     @Test
     fun `shutdown from running emits session completed user stopped`() = runTest {
-        val session = buildSession(
-            scope = this,
-            captureDelayMs = 1_000L,
-            llmDelayMs = 0L
-        )
+        val session = buildSession(scope = this, captureDelayMs = 1_000L, llmDelayMs = 0L)
         val events = mutableListOf<AgentEvent>()
         val job = launch { session.events.collect { events.add(it) } }
 
@@ -60,12 +56,13 @@ class AgentSessionTest {
     @Test
     fun `session lifecycle remains stable for all agent modes`() = runTest {
         listOf(AgentMode.BASIC, AgentMode.PRO).forEach { mode ->
-            val session = buildSession(
-                scope = this,
-                captureDelayMs = 1_000L,
-                llmDelayMs = 0L,
-                agentMode = mode
-            )
+            val session =
+                    buildSession(
+                            scope = this,
+                            captureDelayMs = 1_000L,
+                            llmDelayMs = 0L,
+                            agentMode = mode
+                    )
             val events = mutableListOf<AgentEvent>()
             val job = launch { session.events.collect { events.add(it) } }
 
@@ -85,57 +82,60 @@ class AgentSessionTest {
 }
 
 private fun buildSession(
-    scope: kotlinx.coroutines.CoroutineScope,
-    captureDelayMs: Long,
-    llmDelayMs: Long,
-    maxTurns: Int = 2,
-    agentMode: AgentMode = AgentMode.PRO
+        scope: kotlinx.coroutines.CoroutineScope,
+        captureDelayMs: Long,
+        llmDelayMs: Long,
+        maxTurns: Int = 2,
+        agentMode: AgentMode = AgentMode.PRO
 ): AgentSession {
     val toolRegistry = ToolRegistry()
     val policyEngine = PolicyEngine()
     val toolRouter = ToolRouter(toolRegistry, policyEngine)
     val platform = FakeAndroidPlatform(captureDelayMs = captureDelayMs)
     val config = SessionConfig(maxTurns = maxTurns, actionDelayMs = 0, agentMode = agentMode)
-    val testCatalog = ModelCatalog.fromJson("""{"_test-only":{"display_name":"Test","provider":"OPENAI","api":"response","model_id":"test"}}""")
-    val services = SessionServices(
-        toolRegistry = toolRegistry,
-        toolRouter = toolRouter,
-        historyManager = HistoryManager(),
-        sessionState = AgentSessionState(),
-        policyEngine = policyEngine,
-        platform = platform,
-        config = config,
-        llmClient = SessionTestLLMClient(llmDelayMs),
-        modelCatalog = testCatalog,
-        llmClientFactory = LLMClientFactory(testCatalog) { "test-key" },
-        traceRecorder = NoopTraceRecorder
-    )
+    val testCatalog =
+            ModelCatalog.fromJson(
+                    """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+            )
+    val testLlm = SessionTestLLMClient(llmDelayMs)
+    val services =
+            SessionServices(
+                    toolRegistry = toolRegistry,
+                    toolRouter = toolRouter,
+                    historyManager = HistoryManager(),
+                    sessionState = AgentSessionState(),
+                    policyEngine = policyEngine,
+                    platform = platform,
+                    config = config,
+                    llmClient = testLlm,
+                    modelCatalog = testCatalog,
+                    llmClientFactory = LLMClientFactory.forTest(testCatalog, testLlm),
+                    traceRecorder = NoopTraceRecorder
+            )
     val service = mockk<AccessibilityService>(relaxed = true)
     return AgentSession.createWithServices(
-        config = config,
-        service = service,
-        scope = scope,
-        services = services
+            config = config,
+            service = service,
+            scope = scope,
+            services = services
     )
 }
 
-private class SessionTestLLMClient(
-    private val delayMs: Long
-) : LLMClient() {
+private class SessionTestLLMClient(private val delayMs: Long) : LLMClient() {
     override suspend fun chatWithTools(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: String
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            tools: List<FunctionTool>,
+            model: String
     ): ResponsesResult {
         return ResponsesResult(textContent = "done", toolCalls = emptyList(), responseId = "resp")
     }
 
     override fun chatWithToolsStreaming(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: String
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            tools: List<FunctionTool>,
+            model: String
     ): Flow<LLMStreamEvent> = flow {
         if (delayMs > 0) {
             delay(delayMs)

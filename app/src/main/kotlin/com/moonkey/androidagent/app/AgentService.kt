@@ -7,14 +7,14 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.util.Log
-import com.moonkey.androidagent.BuildConfig
-import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import android.view.accessibility.AccessibilityEvent
+import com.moonkey.androidagent.BuildConfig
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
+import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,30 +27,30 @@ import kotlinx.coroutines.launch
 
 /**
  * AgentService - The entry point for the Accessibility Service.
- * 
- * **Phase 2**: Now uses AgentSession with Op/Event protocol.
- * Operations are submitted via Op sealed class, status is received via AgentEvent Flow.
- * 
+ *
+ * **Phase 2**: Now uses AgentSession with Op/Event protocol. Operations are submitted via Op sealed
+ * class, status is received via AgentEvent Flow.
+ *
  * Status updates are exposed via [statusFlow] for lifecycle-aware collection by MainActivity.
  */
 class AgentService : AccessibilityService() {
 
     companion object {
         private const val TAG = "AgentService"
-        
+
         /** Broadcast action to stop the agent remotely (from scripts) */
         const val ACTION_STOP_AGENT = "com.moonkey.androidagent.STOP_AGENT"
-        
+
         /** Our package name for detecting when app is in foreground */
         private const val OUR_PACKAGE = "com.moonkey.androidagent"
 
         @Volatile
         var instance: AgentService? = null
             private set
-        
-        /** 
-         * Status updates exposed as StateFlow for lifecycle-aware collection.
-         * Static so MainActivity can collect even before service instance is available.
+
+        /**
+         * Status updates exposed as StateFlow for lifecycle-aware collection. Static so
+         * MainActivity can collect even before service instance is available.
          */
         private val _statusFlow = MutableStateFlow<String>("")
         val statusFlow: StateFlow<String> = _statusFlow.asStateFlow()
@@ -60,22 +60,22 @@ class AgentService : AccessibilityService() {
     private var session: AgentSession? = null
     private var overlayController: ServiceOverlayController? = null
     private var actionVisualizer: ActionVisualizerManager? = null
-    
+
     /**
-     * Get the action visualizer for use in sessions created by MainActivity.
-     * Returns null if service is not connected or visualizer not initialized.
-     * 
-     * Note: Internal visibility - only for use within the app module.
-     * External code should not depend on this method.
+     * Get the action visualizer for use in sessions created by MainActivity. Returns null if
+     * service is not connected or visualizer not initialized.
+     *
+     * Note: Internal visibility - only for use within the app module. External code should not
+     * depend on this method.
      */
     internal fun getActionVisualizer(): ActionVisualizerManager? = actionVisualizer
-    
+
     /** Job for the current session's event collector, cancelled before starting new session */
     private var eventCollectorJob: Job? = null
-    
+
     /**
-     * Register an external session (created by MainActivity) for capsule observation.
-     * This allows the SmartCapsule to display streaming updates from sessions created outside AgentService.
+     * Register an external session (created by MainActivity) for capsule observation. This allows
+     * the SmartCapsule to display streaming updates from sessions created outside AgentService.
      */
     fun observeExternalSession(externalSession: AgentSession) {
         Log.i(TAG, "Observing external session: ${externalSession.sessionId}")
@@ -83,16 +83,17 @@ class AgentService : AccessibilityService() {
         // Don't show capsule here - it will be shown on TaskStarted if app is not in foreground
         observeSession(externalSession)
     }
-    
+
     /** BroadcastReceiver to handle remote stop commands (from debug-run.sh script) */
-    private val stopReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == ACTION_STOP_AGENT) {
-                Log.i(TAG, "Received STOP_AGENT broadcast")
-                stopAgent()
+    private val stopReceiver =
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    if (intent?.action == ACTION_STOP_AGENT) {
+                        Log.i(TAG, "Received STOP_AGENT broadcast")
+                        stopAgent()
+                    }
+                }
             }
-        }
-    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -100,25 +101,29 @@ class AgentService : AccessibilityService() {
         Log.i(TAG, "AgentService connected")
         updateStatus("Accessibility Service connected")
 
-        overlayController = ServiceOverlayController(
-            context = this,
-            appPackage = OUR_PACKAGE,
-            logTag = TAG,
-            onStop = { submitOp(Op.Shutdown) },
-            onPause = { submitOp(Op.Pause) },
-            onResume = { submitOp(Op.Resume) },
-            onOpenApp = {
-                val intent = Intent(this, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
-                startActivity(intent)
-            }
-        )
-        
+        overlayController =
+                ServiceOverlayController(
+                        context = this,
+                        appPackage = OUR_PACKAGE,
+                        logTag = TAG,
+                        onStop = { submitOp(Op.Shutdown) },
+                        onPause = { submitOp(Op.Pause) },
+                        onResume = { submitOp(Op.Resume) },
+                        onOpenApp = {
+                            val intent =
+                                    Intent(this, MainActivity::class.java).apply {
+                                        flags =
+                                                Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                                    }
+                            startActivity(intent)
+                        }
+                )
+
         // Initialize ActionVisualizerManager for touch action visualization
         actionVisualizer = ActionVisualizerManager(this)
         Log.i(TAG, "ActionVisualizerManager initialized")
-        
+
         // Register broadcast receiver for remote stop commands (from adb/debug-run.sh)
         // Only in debug builds - security risk if exposed in production
         if (BuildConfig.DEBUG) {
@@ -126,8 +131,7 @@ class AgentService : AccessibilityService() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(stopReceiver, filter, Context.RECEIVER_EXPORTED)
             } else {
-                @Suppress("UnspecifiedRegisterReceiverFlag")
-                registerReceiver(stopReceiver, filter)
+                @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(stopReceiver, filter)
             }
         }
     }
@@ -136,8 +140,8 @@ class AgentService : AccessibilityService() {
         // Detect when our app goes to foreground/background to show/hide capsule
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             overlayController?.handleWindowStateChanged(
-                packageName = event.packageName?.toString(),
-                className = event.className?.toString()
+                    packageName = event.packageName?.toString(),
+                    className = event.className?.toString()
             )
         }
     }
@@ -167,21 +171,17 @@ class AgentService : AccessibilityService() {
         scope.cancel()
     }
 
-    /**
-     * Submit an operation to the current session.
-     */
+    /** Submit an operation to the current session. */
     private fun submitOp(op: Op) {
         val currentSession = session
         Log.d(TAG, "submitOp: $op, session=${currentSession?.sessionId}")
-        
+
         if (currentSession == null && op !is Op.Start) {
             Log.w(TAG, "No active session for op: $op")
             return
         }
-        
-        scope.launch {
-            currentSession?.submit(op)
-        }
+
+        scope.launch { currentSession?.submit(op) }
     }
 
     private fun updateStatus(status: String) {
@@ -191,110 +191,96 @@ class AgentService : AccessibilityService() {
     }
 
     /**
-     * Start observing events from the session.
-     * Cancels any previous collector before starting new one.
+     * Start observing events from the session. Cancels any previous collector before starting new
+     * one.
      */
     private fun observeSession(agentSession: AgentSession) {
         // Cancel previous collector if still active
         eventCollectorJob?.cancel()
-        
-        eventCollectorJob = scope.launch {
-            agentSession.events.collect { event ->
-                handleEvent(event)
-            }
-        }
+
+        eventCollectorJob =
+                scope.launch { agentSession.events.collect { event -> handleEvent(event) } }
     }
 
-    /**
-     * Handle events from the session.
-     */
+    /** Handle events from the session. */
     private fun handleEvent(event: AgentEvent) {
         Log.d(TAG, "Received event: ${event::class.simpleName}")
-        
+
         when (event) {
             is AgentEvent.StatusUpdate -> {
-                val displayStatus = if (event.emoji != null) {
-                    "${event.emoji} ${event.status}"
-                } else {
-                    event.status
-                }
+                val displayStatus =
+                        if (event.emoji != null) {
+                            "${event.emoji} ${event.status}"
+                        } else {
+                            event.status
+                        }
                 updateStatus(displayStatus)
             }
-            
             is AgentEvent.SessionStarted -> {
                 Log.i(TAG, "Session started: ${event.sessionId}, goal: ${event.goal}")
             }
-            
+
             // ===== Task Events (for SmartCapsule streaming) =====
-            
+
             is AgentEvent.TaskStarted -> {
                 overlayController?.onTaskStarted(event.taskId, event.input)
             }
-            
             is AgentEvent.MessageDelta -> {
                 overlayController?.onMessageDelta(event.turnId, event.delta)
             }
-            
             is AgentEvent.TurnPhaseChanged -> {
                 overlayController?.onTurnPhaseChanged(event.phase)
             }
-            
             is AgentEvent.ActionExecuted -> {
                 overlayController?.onActionExecuted(event.toolName, event.success)
             }
-
             is AgentEvent.SubAgentStarted -> {
                 updateStatus("🤖 Delegating to ${event.agentName}...")
             }
-
             is AgentEvent.SubAgentActivity -> {
                 // Activity events can be very frequent; keep UI/log noise low.
             }
-
             is AgentEvent.SubAgentCompleted -> {
                 val status = if (event.success) "completed" else "failed"
                 updateStatus("🤖 ${event.agentName} $status")
             }
-            
             is AgentEvent.TaskCompleted -> {
                 overlayController?.onTaskCompleted()
             }
-            
+
             // ===== Session Lifecycle Events =====
-            
+
             is AgentEvent.SessionCompleted -> {
                 Log.i(TAG, "Session completed: ${event.sessionId}, reason: ${event.reason}")
-                
+
                 // Emit a terminal status so MainActivity can detect completion
-                val statusMessage = when (event.reason) {
-                    CompletionReason.GOAL_ACHIEVED -> "✅ Goal achieved!"
-                    CompletionReason.USER_STOPPED -> "🛑 Agent stopped"
-                    CompletionReason.MAX_TURNS -> "⚠️ Max turns reached"
-                    CompletionReason.TASK_IMPOSSIBLE -> "❌ Task cannot be completed"
-                    CompletionReason.ERROR -> "❌ Session ended with error"
-                    CompletionReason.INTERRUPTED -> "🛑 Session interrupted"
-                }
+                val statusMessage =
+                        when (event.reason) {
+                            CompletionReason.GOAL_ACHIEVED -> "✅ Goal achieved!"
+                            CompletionReason.USER_STOPPED -> "🛑 Agent stopped"
+                            CompletionReason.MAX_TURNS -> "⚠️ Max turns reached"
+                            CompletionReason.TASK_IMPOSSIBLE -> "❌ Task cannot be completed"
+                            CompletionReason.ERROR -> "❌ Session ended with error"
+                            CompletionReason.INTERRUPTED -> "🛑 Session interrupted"
+                        }
                 updateStatus(statusMessage)
                 overlayController?.onSessionCompleted(event.reason)
                 session = null
             }
-            
             is AgentEvent.SessionError -> {
                 Log.e(TAG, "Session error: ${event.error.message}")
                 updateStatus("❌ Error: ${event.error.message}")
                 overlayController?.onSessionError(event.error.message)
             }
-            
             is AgentEvent.SessionPaused -> {
                 Log.i(TAG, "Session paused: ${event.sessionId}")
                 overlayController?.onSessionPaused()
             }
-            
             is AgentEvent.SessionResumed -> {
                 Log.i(TAG, "Session resumed: ${event.sessionId}")
                 overlayController?.onSessionResumed()
             }
-            
+
             // Handle other events as needed
             else -> {
                 Log.d(TAG, "Unhandled event type: ${event::class.simpleName}")
@@ -303,7 +289,7 @@ class AgentService : AccessibilityService() {
     }
 
     /** Run the agent loop - called from MainActivity */
-    fun runAgent(goal: String, apiKey: String, maxSteps: Int = 20) {
+    fun runAgent(goal: String, apiKeys: Map<String, String> = emptyMap(), maxSteps: Int = 20) {
         // Stop any existing session before starting new one (prevents concurrent sessions)
         // Cancel collector first to stop receiving events, then shutdown session
         if (session != null) {
@@ -315,7 +301,7 @@ class AgentService : AccessibilityService() {
             scope.launch { session?.submit(Op.Shutdown) }
             session = null
         }
-        
+
         // Show capsule overlay immediately
         overlayController?.showCapsule()
         // Note: Agent.kt emits the "Starting agent" status, don't duplicate here
@@ -323,26 +309,27 @@ class AgentService : AccessibilityService() {
         // Create and run session in coroutine
         scope.launch {
             try {
-                val newSession = AgentSession.create(
-                    config = SessionConfig(
-                        maxTurns = maxSteps,
-                        debugMode = true,
-                        traceEnabled = true
-                    ),
-                    service = this@AgentService,
-                    scope = scope,
-                    apiKey = apiKey,
-                    visualizer = actionVisualizer
-                )
-                
+                val newSession =
+                        AgentSession.create(
+                                config =
+                                        SessionConfig(
+                                                maxTurns = maxSteps,
+                                                debugMode = true,
+                                                traceEnabled = true
+                                        ),
+                                service = this@AgentService,
+                                scope = scope,
+                                apiKeys = apiKeys,
+                                visualizer = actionVisualizer
+                        )
+
                 session = newSession
-                
+
                 // Start observing events
                 observeSession(newSession)
-                
+
                 // Submit start operation
                 newSession.submit(Op.Start(goal = goal))
-                
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create session", e)
                 updateStatus("❌ Failed to start: ${e.message}")

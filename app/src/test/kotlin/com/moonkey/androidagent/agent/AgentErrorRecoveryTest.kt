@@ -4,47 +4,52 @@ import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
-import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.LLMStreamEvent
+import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.ResponsesResult
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionId
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.test.FakeAndroidPlatform
-import com.moonkey.androidagent.trace.NoopTraceRecorder
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
+import com.moonkey.androidagent.trace.NoopTraceRecorder
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AgentErrorRecoveryTest {
 
     @Test
     fun `dns failure is non recoverable`() = runTest {
-        val services = buildServices(AgentErrorTestLLMClient(UnknownHostException("Unable to resolve host")))
-        val agent = Agent(
-            config = AgentExecutionConfig(
-                goal = "goal",
-                sessionId = SessionId.generate(),
-                maxTurns = 1,
-                uiSettleDelayMs = 0,
-                systemPrompt = "test prompt"
-            ),
-            services = services,
-            eventEmitter = { },
-            cancellationSignal = CompletableDeferred()
-        )
+        val services =
+                buildServices(
+                        AgentErrorTestLLMClient(UnknownHostException("Unable to resolve host"))
+                )
+        val agent =
+                Agent(
+                        config =
+                                AgentExecutionConfig(
+                                        goal = "goal",
+                                        sessionId = SessionId.generate(),
+                                        maxTurns = 1,
+                                        uiSettleDelayMs = 0,
+                                        systemPrompt = "test prompt"
+                                ),
+                        services = services,
+                        eventEmitter = {},
+                        cancellationSignal = CompletableDeferred()
+                )
 
         val result = agent.run()
 
@@ -54,18 +59,20 @@ class AgentErrorRecoveryTest {
     @Test
     fun `transient network error stops with error when no retry budget remains`() = runTest {
         val services = buildServices(AgentErrorTestLLMClient(SocketTimeoutException("timeout")))
-        val agent = Agent(
-            config = AgentExecutionConfig(
-                goal = "goal",
-                sessionId = SessionId.generate(),
-                maxTurns = 1,
-                uiSettleDelayMs = 0,
-                systemPrompt = "test prompt"
-            ),
-            services = services,
-            eventEmitter = { },
-            cancellationSignal = CompletableDeferred()
-        )
+        val agent =
+                Agent(
+                        config =
+                                AgentExecutionConfig(
+                                        goal = "goal",
+                                        sessionId = SessionId.generate(),
+                                        maxTurns = 1,
+                                        uiSettleDelayMs = 0,
+                                        systemPrompt = "test prompt"
+                                ),
+                        services = services,
+                        eventEmitter = {},
+                        cancellationSignal = CompletableDeferred()
+                )
 
         val result = agent.run()
 
@@ -74,19 +81,24 @@ class AgentErrorRecoveryTest {
 
     @Test
     fun `context length exceeded is non recoverable`() = runTest {
-        val services = buildServices(AgentErrorTestLLMClient(RuntimeException("maximum context length exceeded")))
-        val agent = Agent(
-            config = AgentExecutionConfig(
-                goal = "goal",
-                sessionId = SessionId.generate(),
-                maxTurns = 1,
-                uiSettleDelayMs = 0,
-                systemPrompt = "test prompt"
-            ),
-            services = services,
-            eventEmitter = { },
-            cancellationSignal = CompletableDeferred()
-        )
+        val services =
+                buildServices(
+                        AgentErrorTestLLMClient(RuntimeException("maximum context length exceeded"))
+                )
+        val agent =
+                Agent(
+                        config =
+                                AgentExecutionConfig(
+                                        goal = "goal",
+                                        sessionId = SessionId.generate(),
+                                        maxTurns = 1,
+                                        uiSettleDelayMs = 0,
+                                        systemPrompt = "test prompt"
+                                ),
+                        services = services,
+                        eventEmitter = {},
+                        cancellationSignal = CompletableDeferred()
+                )
 
         val result = agent.run()
 
@@ -100,45 +112,40 @@ private fun buildServices(llmClient: LLMClient): SessionServices {
     val toolRouter = ToolRouter(toolRegistry, policyEngine)
     val platform = FakeAndroidPlatform()
     @Suppress("DEPRECATION")
-    val config = SessionConfig(
-        maxTurns = 1,
-        actionDelayMs = 0,
-        llmBackend = LLMBackendType.OPENAI
-    )
-    val testCatalog = ModelCatalog.fromJson("""{"_test-only":{"display_name":"Test","provider":"OPENAI","api":"response","model_id":"test"}}""")
+    val config = SessionConfig(maxTurns = 1, actionDelayMs = 0, llmBackend = LLMBackendType.OPENAI)
+    val testCatalog =
+            ModelCatalog.fromJson(
+                    """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+            )
     return SessionServices(
-        toolRegistry = toolRegistry,
-        toolRouter = toolRouter,
-        historyManager = HistoryManager(),
-        sessionState = com.moonkey.androidagent.session.AgentSessionState(),
-        policyEngine = policyEngine,
-        platform = platform,
-        config = config,
-        llmClient = llmClient,
-        modelCatalog = testCatalog,
-        llmClientFactory = LLMClientFactory(testCatalog) { "test-key" },
-        traceRecorder = NoopTraceRecorder
+            toolRegistry = toolRegistry,
+            toolRouter = toolRouter,
+            historyManager = HistoryManager(),
+            sessionState = com.moonkey.androidagent.session.AgentSessionState(),
+            policyEngine = policyEngine,
+            platform = platform,
+            config = config,
+            llmClient = llmClient,
+            modelCatalog = testCatalog,
+            llmClientFactory = LLMClientFactory.forTest(testCatalog, llmClient),
+            traceRecorder = NoopTraceRecorder
     )
 }
 
-private class AgentErrorTestLLMClient(
-    private val throwable: Throwable
-) : LLMClient() {
+private class AgentErrorTestLLMClient(private val throwable: Throwable) : LLMClient() {
     override suspend fun chatWithTools(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: String
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            tools: List<FunctionTool>,
+            model: String
     ): ResponsesResult {
         throw throwable
     }
 
     override fun chatWithToolsStreaming(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: String
-    ): Flow<LLMStreamEvent> = flow {
-        throw throwable
-    }
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            tools: List<FunctionTool>,
+            model: String
+    ): Flow<LLMStreamEvent> = flow { throw throwable }
 }

@@ -21,16 +21,16 @@ import com.moonkey.androidagent.BuildConfig
 import com.moonkey.androidagent.history.SessionHistoryManager
 import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LFMLLMClient
-import com.moonkey.androidagent.llm.ModelCatalog
-import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.llm.LocalLLMConfig
+import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.perception.PerceptionConfig
+import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
-import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
 import com.moonkey.androidagent.ui.chat.ChatScreen
 import com.moonkey.androidagent.ui.chat.ChatViewModel
+import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
 import com.moonkey.androidagent.ui.settings.SettingsSheet
 import com.moonkey.androidagent.ui.settings.catalogModelOptions
 import com.moonkey.androidagent.ui.theme.ChatTheme
@@ -40,14 +40,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    
+
     companion object {
         private const val TAG = "MainActivity"
         const val EXTRA_API_KEY = "api_key"
         const val EXTRA_GOAL = "goal"
         const val EXTRA_AUTO_START = "auto_start"
         const val EXTRA_FRESH_SESSION = "fresh_session"
-        const val EXTRA_LLM_BACKEND = "llm_backend"  // "openai" or "local"
+        const val EXTRA_LLM_BACKEND = "llm_backend" // "openai" or "local"
         const val EXTRA_PERCEPTION_MODE = "perception_mode"
         const val EXTRA_DEBUG_MODE = "debug_mode"
         const val EXTRA_TRACE_ENABLED = "trace_enabled"
@@ -55,14 +55,15 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_AGENT_MODE = "agent_mode"
         const val EXTRA_MAIN_MODEL = "main_model"
         const val EXTRA_EXECUTOR_MODEL = "executor_model"
+        const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
     }
-    
+
     // Session scope - survives configuration changes within activity lifecycle
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    
+
     // Current session
     private var currentSession: AgentSession? = null
-    
+
     // Settings state
     private lateinit var settingsState: AppSettingsState
 
@@ -72,10 +73,10 @@ class MainActivity : ComponentActivity() {
 
     // Session history
     private lateinit var sessionHistoryManager: SessionHistoryManager
-    
+
     // ViewModel
     private lateinit var viewModel: ChatViewModel
-    
+
     // Settings visibility
     private var showSettings by mutableStateOf(false)
 
@@ -85,123 +86,133 @@ class MainActivity : ComponentActivity() {
             ModelCatalog.fromJson(json)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load model catalog for UI", e)
-            ModelCatalog.fromJson("""{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}""")
+            ModelCatalog.fromJson(
+                    """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+            )
         }
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         enableEdgeToEdge()
-        
+
         settingsState = AppSettingsState(AppSettingsStore(applicationContext))
         settingsState.load()
         handleIntent(intent)
-        
+
         val sessionStorage = SessionStorage(applicationContext)
         sessionHistoryManager = SessionHistoryManager.create(sessionStorage, sessionScope)
-        
-        viewModel = ChatViewModel(
-            sessionProvider = { currentSession },
-            sessionHistoryManager = sessionHistoryManager,
-            onSessionNeeded = { text -> ensureSessionAndSend(text) },
-            onTaskCompleted = {
-                sessionHistoryManager.endSession()
-                currentSession = null
-                Log.d(TAG, "Session cleared after task completion")
-            }
-        )
-        
+
+        viewModel =
+                ChatViewModel(
+                        sessionProvider = { currentSession },
+                        sessionHistoryManager = sessionHistoryManager,
+                        onSessionNeeded = { text -> ensureSessionAndSend(text) },
+                        onTaskCompleted = {
+                            sessionHistoryManager.endSession()
+                            currentSession = null
+                            Log.d(TAG, "Session cleared after task completion")
+                        }
+                )
+
         setContent {
             ChatTheme {
                 val sessions by viewModel.sessions.collectAsStateWithLifecycle()
-                
+
                 ChatScreen(
-                    viewModel = viewModel,
-                    sessions = sessions,
-                    currentModel = settingsState.selectedModel,
-                    appVersion = BuildConfig.VERSION_NAME,
-                    onOpenSettings = { showSettings = true },
-                    onSessionSelect = { session ->
-                        viewModel.resumeSession(session) {
-                            sessionHistoryManager.getRecordingService().clearSession()
-                            currentSession = null
-                            Log.d(TAG, "History session resumed for viewing; cleared recording state")
-                        }
-                    },
-                    onNewSession = {
-                        viewModel.startNewSession(settingsState.selectedModel, BuildConfig.VERSION_NAME)
-                    },
-                    onDeleteSession = { session ->
-                        viewModel.deleteSession(session)
-                    },
-                    onLoadSessions = {
-                        viewModel.loadSessions()
-                    }
+                        viewModel = viewModel,
+                        sessions = sessions,
+                        currentModel = settingsState.selectedModel,
+                        appVersion = BuildConfig.VERSION_NAME,
+                        onOpenSettings = { showSettings = true },
+                        onSessionSelect = { session ->
+                            viewModel.resumeSession(session) {
+                                sessionHistoryManager.getRecordingService().clearSession()
+                                currentSession = null
+                                Log.d(
+                                        TAG,
+                                        "History session resumed for viewing; cleared recording state"
+                                )
+                            }
+                        },
+                        onNewSession = {
+                            viewModel.startNewSession(
+                                    settingsState.selectedModel,
+                                    BuildConfig.VERSION_NAME
+                            )
+                        },
+                        onDeleteSession = { session -> viewModel.deleteSession(session) },
+                        onLoadSessions = { viewModel.loadSessions() }
                 )
-                
+
                 if (showSettings) {
                     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-                    
+
                     ModalBottomSheet(
-                        onDismissRequest = { showSettings = false },
-                        sheetState = sheetState,
-                        dragHandle = {}
+                            onDismissRequest = { showSettings = false },
+                            sheetState = sheetState,
+                            dragHandle = {}
                     ) {
                         SettingsSheet(
-                            llmBackend = settingsState.llmBackend,
-                            onBackendChange = settingsState::updateBackend,
-                            selectedModel = settingsState.selectedModel,
-                            onModelChange = settingsState::updateModel,
-                            modelOptions = catalogModelOptions(modelCatalog.all()),
-                            selectedExecutorModel = settingsState.executorModel,
-                            onExecutorModelChange = settingsState::updateExecutorModel,
-                            selectedLocalModel = settingsState.selectedLocalModelId,
-                            onLocalModelChange = settingsState::updateLocalModel,
-                            modelLoadingStatus = settingsState.modelLoadingStatus,
-                            apiKey = settingsState.apiKey,
-                            onApiKeyChange = settingsState::updateApiKey,
-                            maxTurns = settingsState.maxTurns,
-                            onMaxTurnsChange = settingsState::updateMaxTurns,
-                            agentMode = settingsState.agentMode,
-                            onAgentModeChange = settingsState::updateAgentMode,
-                            perceptionMode = settingsState.perceptionMode,
-                            onPerceptionModeChange = settingsState::updatePerceptionMode,
-                            debugMode = settingsState.debugMode,
-                            onDebugModeChange = settingsState::updateDebugMode,
-                            isAccessibilityEnabled = AgentService.instance != null,
-                            isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
-                            onAccessibilityClick = { openAccessibilitySettings() },
-                            onOverlayClick = { openOverlaySettings() },
-                            onDismiss = { showSettings = false }
+                                llmBackend = settingsState.llmBackend,
+                                onBackendChange = settingsState::updateBackend,
+                                selectedModel = settingsState.selectedModel,
+                                onModelChange = settingsState::updateModel,
+                                modelOptions = catalogModelOptions(modelCatalog.all()),
+                                selectedExecutorModel = settingsState.executorModel,
+                                onExecutorModelChange = settingsState::updateExecutorModel,
+                                selectedLocalModel = settingsState.selectedLocalModelId,
+                                onLocalModelChange = settingsState::updateLocalModel,
+                                modelLoadingStatus = settingsState.modelLoadingStatus,
+                                apiKey = settingsState.apiKey,
+                                onApiKeyChange = settingsState::updateApiKey,
+                                maxTurns = settingsState.maxTurns,
+                                onMaxTurnsChange = settingsState::updateMaxTurns,
+                                agentMode = settingsState.agentMode,
+                                onAgentModeChange = settingsState::updateAgentMode,
+                                perceptionMode = settingsState.perceptionMode,
+                                onPerceptionModeChange = settingsState::updatePerceptionMode,
+                                debugMode = settingsState.debugMode,
+                                onDebugModeChange = settingsState::updateDebugMode,
+                                isAccessibilityEnabled = AgentService.instance != null,
+                                isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
+                                onAccessibilityClick = { openAccessibilitySettings() },
+                                onOverlayClick = { openOverlaySettings() },
+                                onDismiss = { showSettings = false }
                         )
                     }
                 }
             }
         }
     }
-    
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Log.d(TAG, "onNewIntent called")
         setIntent(intent)
         handleIntent(intent)
     }
-    
+
     override fun onDestroy() {
         super.onDestroy()
         // Don't shutdown session when activity is destroyed - agent continues in service
         // The session will be cleaned up when task completes or user explicitly stops
         Log.d(TAG, "onDestroy called, session active: ${currentSession != null}")
     }
-    
+
     private fun handleIntent(intent: Intent) {
         val payload = MainActivityIntentPayload.from(intent)
 
         payload.apiKey?.let { key ->
             settingsState.updateApiKey(key)
             Log.d(TAG, "API key set from intent")
+        }
+
+        payload.openRouterApiKey?.let { key ->
+            settingsState.updateOpenRouterApiKey(key)
+            Log.d(TAG, "OpenRouter API key set from intent")
         }
 
         payload.backendType?.let {
@@ -258,9 +269,7 @@ class MainActivity : ComponentActivity() {
             payload.goalText?.let {
                 Log.d(TAG, "Goal set from intent: $it")
                 // Auto-send the goal as first message
-                window.decorView.postDelayed({
-                    ensureSessionAndSend(it)
-                }, 500)
+                window.decorView.postDelayed({ ensureSessionAndSend(it) }, 500)
             }
         }
 
@@ -268,7 +277,7 @@ class MainActivity : ComponentActivity() {
             Log.d(TAG, "Auto-start requested")
         }
     }
-    
+
     private suspend fun clearCurrentSession() {
         currentSession?.let { session ->
             try {
@@ -288,17 +297,17 @@ class MainActivity : ComponentActivity() {
         if (::sessionHistoryManager.isInitialized) {
             sessionHistoryManager.getRecordingService().clearSession()
         }
-        
+
         Log.d(TAG, "Current session cleared")
     }
-    
+
     private fun ensureSessionAndSend(text: String) {
         if (settingsState.llmBackend == LLMBackendType.OPENAI && settingsState.apiKey.isBlank()) {
             Toast.makeText(this, "Please set your API key in Settings", Toast.LENGTH_LONG).show()
             showSettings = true
             return
         }
-        
+
         if (!Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "Please grant Overlay permission", Toast.LENGTH_LONG).show()
             openOverlaySettings()
@@ -307,7 +316,8 @@ class MainActivity : ComponentActivity() {
 
         val service = AgentService.instance
         if (service == null) {
-            Toast.makeText(this, "Please enable the Accessibility Service", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Please enable the Accessibility Service", Toast.LENGTH_LONG)
+                    .show()
             openAccessibilitySettings()
             return
         }
@@ -315,49 +325,56 @@ class MainActivity : ComponentActivity() {
         if (currentSession == null) {
             lifecycleScope.launch {
                 try {
-                    val localConfig = if (settingsState.llmBackend == LLMBackendType.LOCAL) {
-                        LocalLLMConfig(
-                            modelSlug = settingsState.localModelSlug,
-                            quantizationSlug = settingsState.localModelQuant
-                        )
-                    } else null
+                    val localConfig =
+                            if (settingsState.llmBackend == LLMBackendType.LOCAL) {
+                                LocalLLMConfig(
+                                        modelSlug = settingsState.localModelSlug,
+                                        quantizationSlug = settingsState.localModelQuant
+                                )
+                            } else null
 
                     if (settingsState.llmBackend == LLMBackendType.LOCAL) {
                         settingsState.updateModelLoadingStatus(ModelLoadingStatus.Loading)
                     }
 
                     @Suppress("DEPRECATION")
-                    val session = AgentSession.create(
-                        config = SessionConfig(
-                            maxTurns = settingsState.maxTurns,
-                            model = settingsState.selectedModel,
-                            mainModel = settingsState.selectedModel,
-                            executorModel = settingsState.executorModel,
-                            debugMode = settingsState.debugMode,
-                            traceEnabled = pendingTraceEnabled ?: settingsState.debugMode,
-                            traceRunId = pendingTraceRunId,
-                            llmBackend = settingsState.llmBackend,
-                            localLLMConfig = localConfig,
-                            agentMode = settingsState.agentMode,
-                            perceptionConfig = when (settingsState.perceptionMode) {
-                                "screenshot_only" -> PerceptionConfig.ScreenshotOnly()
-                                "hybrid" -> PerceptionConfig.Hybrid()
-                                else -> PerceptionConfig.AccessibilityOnly
-                            }
-                        ),
-                        service = service,
-                        scope = sessionScope,
-                        apiKey = if (settingsState.llmBackend == LLMBackendType.OPENAI) {
-                            settingsState.apiKey
-                        } else null,
-                        visualizer = service.getActionVisualizer()
-                    )
+                    val session =
+                            AgentSession.create(
+                                    config =
+                                            SessionConfig(
+                                                    maxTurns = settingsState.maxTurns,
+                                                    mainModel = settingsState.selectedModel,
+                                                    executorModel = settingsState.executorModel,
+                                                    debugMode = settingsState.debugMode,
+                                                    traceEnabled = pendingTraceEnabled
+                                                                    ?: settingsState.debugMode,
+                                                    traceRunId = pendingTraceRunId,
+                                                    llmBackend = settingsState.llmBackend,
+                                                    localLLMConfig = localConfig,
+                                                    agentMode = settingsState.agentMode,
+                                                    perceptionConfig =
+                                                            when (settingsState.perceptionMode) {
+                                                                "screenshot_only" ->
+                                                                        PerceptionConfig
+                                                                                .ScreenshotOnly()
+                                                                "hybrid" ->
+                                                                        PerceptionConfig.Hybrid()
+                                                                else ->
+                                                                        PerceptionConfig
+                                                                                .AccessibilityOnly
+                                                            }
+                                            ),
+                                    service = service,
+                                    scope = sessionScope,
+                                    apiKeys = settingsState.buildApiKeys(),
+                                    visualizer = service.getActionVisualizer()
+                            )
 
                     if (settingsState.llmBackend == LLMBackendType.LOCAL) {
                         val localClient = session.getServices().llmClient as? LFMLLMClient
                         if (localClient == null) {
                             settingsState.updateModelLoadingStatus(
-                                ModelLoadingStatus.Error("Local LLM client unavailable")
+                                    ModelLoadingStatus.Error("Local LLM client unavailable")
                             )
                         } else {
                             localClient.loadModel { state ->
@@ -374,46 +391,50 @@ class MainActivity : ComponentActivity() {
 
                     service.observeExternalSession(session)
                     session.submit(Op.UserInput(text))
-                    
-                    Log.i(TAG, "Session created with backend=${settingsState.llmBackend} and message sent")
-                    
+
+                    Log.i(
+                            TAG,
+                            "Session created with backend=${settingsState.llmBackend} and message sent"
+                    )
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to create session", e)
                     if (settingsState.llmBackend == LLMBackendType.LOCAL) {
                         settingsState.updateModelLoadingStatus(
-                            ModelLoadingStatus.Error(e.message ?: "Unknown error")
+                                ModelLoadingStatus.Error(e.message ?: "Unknown error")
                         )
                     }
-                    Toast.makeText(this@MainActivity, "Failed to start: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(
+                                    this@MainActivity,
+                                    "Failed to start: ${e.message}",
+                                    Toast.LENGTH_LONG
+                            )
+                            .show()
                 }
             }
         } else {
-            lifecycleScope.launch {
-                currentSession?.submit(Op.UserInput(text))
-            }
+            lifecycleScope.launch { currentSession?.submit(Op.UserInput(text)) }
         }
     }
-    
+
     private fun LFMLLMClient.ModelLoadingState.toUiStatus(): ModelLoadingStatus {
         return when (this) {
             is LFMLLMClient.ModelLoadingState.NotLoaded -> ModelLoadingStatus.Idle
-            is LFMLLMClient.ModelLoadingState.Downloading -> ModelLoadingStatus.Downloading(progress)
+            is LFMLLMClient.ModelLoadingState.Downloading ->
+                    ModelLoadingStatus.Downloading(progress)
             is LFMLLMClient.ModelLoadingState.Loading -> ModelLoadingStatus.Loading
             is LFMLLMClient.ModelLoadingState.Ready -> ModelLoadingStatus.Ready
             is LFMLLMClient.ModelLoadingState.Error -> ModelLoadingStatus.Error(message)
         }
     }
-    
+
     private fun openAccessibilitySettings() {
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         startActivity(intent)
     }
-    
+
     private fun openOverlaySettings() {
-        val intent = Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            Uri.parse("package:$packageName")
-        )
+        val intent =
+                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
         startActivity(intent)
     }
 }

@@ -4,9 +4,9 @@ import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
-import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.LLMToolCall
+import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.ResponsesResult
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.LLMBackendType
@@ -35,19 +35,21 @@ class SubAgentRunnerTest {
     @Test
     fun `runner returns success when child reaches goal`() = runTest {
         val services = buildServices(SubAgentTestLLMClient(delayMs = 0))
-        val runner = IsolatedSubAgentRunner(
-            definition = AgentDefinition(
-                name = "executor",
-                description = "Exec",
-                systemPrompt = "prompt",
-                toolNames = emptyList(),
-                maxTurns = 1,
-                timeoutMs = 5_000
-            ),
-            parentServices = services,
-            parentSessionId = SessionId("session-1"),
-            eventEmitter = { }
-        )
+        val runner =
+                IsolatedSubAgentRunner(
+                        definition =
+                                AgentDefinition(
+                                        name = "executor",
+                                        description = "Exec",
+                                        systemPrompt = "prompt",
+                                        toolNames = emptyList(),
+                                        maxTurns = 1,
+                                        timeoutMs = 5_000
+                                ),
+                        parentServices = services,
+                        parentSessionId = SessionId("session-1"),
+                        eventEmitter = {}
+                )
 
         val result = runner.run(SubAgentRequest(query = "do it"))
 
@@ -58,19 +60,21 @@ class SubAgentRunnerTest {
     fun `runner returns timeout when child exceeds timeout`() = runTest {
         val services = buildServices(SubAgentTestLLMClient(delayMs = 200))
         val events = mutableListOf<AgentEvent>()
-        val runner = IsolatedSubAgentRunner(
-            definition = AgentDefinition(
-                name = "executor",
-                description = "Exec",
-                systemPrompt = "prompt",
-                toolNames = emptyList(),
-                maxTurns = 1,
-                timeoutMs = 10
-            ),
-            parentServices = services,
-            parentSessionId = SessionId("session-1"),
-            eventEmitter = { events.add(it) }
-        )
+        val runner =
+                IsolatedSubAgentRunner(
+                        definition =
+                                AgentDefinition(
+                                        name = "executor",
+                                        description = "Exec",
+                                        systemPrompt = "prompt",
+                                        toolNames = emptyList(),
+                                        maxTurns = 1,
+                                        timeoutMs = 10
+                                ),
+                        parentServices = services,
+                        parentSessionId = SessionId("session-1"),
+                        eventEmitter = { events.add(it) }
+                )
 
         val result = runner.run(SubAgentRequest(query = "do it"))
 
@@ -80,32 +84,37 @@ class SubAgentRunnerTest {
 
     @Test
     fun `runner forwards complete_task success answer`() = runTest {
-        val llm = ScriptedSubAgentLLMClient(
-            events = listOf(
-                LLMStreamEvent.ToolCallDone(
-                    LLMToolCall(
-                        callId = "call-1",
-                        name = "complete_task",
-                        arguments = "{\"status\":\"success\",\"answer\":\"Email summary captured\"}"
-                    )
-                ),
-                LLMStreamEvent.Completed
-            )
-        )
+        val llm =
+                ScriptedSubAgentLLMClient(
+                        events =
+                                listOf(
+                                        LLMStreamEvent.ToolCallDone(
+                                                LLMToolCall(
+                                                        callId = "call-1",
+                                                        name = "complete_task",
+                                                        arguments =
+                                                                "{\"status\":\"success\",\"answer\":\"Email summary captured\"}"
+                                                )
+                                        ),
+                                        LLMStreamEvent.Completed
+                                )
+                )
         val services = buildServices(llm, includeCompleteTask = true)
-        val runner = IsolatedSubAgentRunner(
-            definition = AgentDefinition(
-                name = "executor",
-                description = "Exec",
-                systemPrompt = "prompt",
-                toolNames = listOf("complete_task"),
-                maxTurns = 1,
-                timeoutMs = 5_000
-            ),
-            parentServices = services,
-            parentSessionId = SessionId("session-1"),
-            eventEmitter = { }
-        )
+        val runner =
+                IsolatedSubAgentRunner(
+                        definition =
+                                AgentDefinition(
+                                        name = "executor",
+                                        description = "Exec",
+                                        systemPrompt = "prompt",
+                                        toolNames = listOf("complete_task"),
+                                        maxTurns = 1,
+                                        timeoutMs = 5_000
+                                ),
+                        parentServices = services,
+                        parentSessionId = SessionId("session-1"),
+                        eventEmitter = {}
+                )
 
         val result = runner.run(SubAgentRequest(query = "do it"))
 
@@ -115,32 +124,37 @@ class SubAgentRunnerTest {
 
     @Test
     fun `runner maps complete_task failure status to failed result`() = runTest {
-        val llm = ScriptedSubAgentLLMClient(
-            events = listOf(
-                LLMStreamEvent.ToolCallDone(
-                    LLMToolCall(
-                        callId = "call-1",
-                        name = "complete_task",
-                        arguments = "{\"status\":\"failure\",\"answer\":\"Could not find Notion app: Not installed\"}"
-                    )
-                ),
-                LLMStreamEvent.Completed
-            )
-        )
+        val llm =
+                ScriptedSubAgentLLMClient(
+                        events =
+                                listOf(
+                                        LLMStreamEvent.ToolCallDone(
+                                                LLMToolCall(
+                                                        callId = "call-1",
+                                                        name = "complete_task",
+                                                        arguments =
+                                                                "{\"status\":\"failure\",\"answer\":\"Could not find Notion app: Not installed\"}"
+                                                )
+                                        ),
+                                        LLMStreamEvent.Completed
+                                )
+                )
         val services = buildServices(llm, includeCompleteTask = true)
-        val runner = IsolatedSubAgentRunner(
-            definition = AgentDefinition(
-                name = "executor",
-                description = "Exec",
-                systemPrompt = "prompt",
-                toolNames = listOf("complete_task"),
-                maxTurns = 1,
-                timeoutMs = 5_000
-            ),
-            parentServices = services,
-            parentSessionId = SessionId("session-1"),
-            eventEmitter = { }
-        )
+        val runner =
+                IsolatedSubAgentRunner(
+                        definition =
+                                AgentDefinition(
+                                        name = "executor",
+                                        description = "Exec",
+                                        systemPrompt = "prompt",
+                                        toolNames = listOf("complete_task"),
+                                        maxTurns = 1,
+                                        timeoutMs = 5_000
+                                ),
+                        parentServices = services,
+                        parentSessionId = SessionId("session-1"),
+                        eventEmitter = {}
+                )
 
         val result = runner.run(SubAgentRequest(query = "do it"))
 
@@ -153,21 +167,21 @@ class SubAgentRunnerTest {
         val llm = ScriptedSubAgentLLMClient(events = listOf(LLMStreamEvent.Completed))
         val services = buildServices(llm, includeCompleteTask = false)
         val runner =
-            IsolatedSubAgentRunner(
-                definition =
-                    AgentDefinition(
-                        name = "executor",
-                        description = "Exec",
-                        systemPrompt = "prompt",
-                        toolNames = emptyList(),
-                        maxTurns = 1,
-                        timeoutMs = 5_000,
-                        narrativeSummaryOnLimit = true
-                    ),
-                parentServices = services,
-                parentSessionId = SessionId("session-1"),
-                eventEmitter = { }
-            )
+                IsolatedSubAgentRunner(
+                        definition =
+                                AgentDefinition(
+                                        name = "executor",
+                                        description = "Exec",
+                                        systemPrompt = "prompt",
+                                        toolNames = emptyList(),
+                                        maxTurns = 1,
+                                        timeoutMs = 5_000,
+                                        narrativeSummaryOnLimit = true
+                                ),
+                        parentServices = services,
+                        parentSessionId = SessionId("session-1"),
+                        eventEmitter = {}
+                )
 
         val result = runner.run(SubAgentRequest(query = "Tap search"))
 
@@ -178,57 +192,54 @@ class SubAgentRunnerTest {
 }
 
 private fun buildServices(
-    llmClient: LLMClient,
-    includeCompleteTask: Boolean = false
+        llmClient: LLMClient,
+        includeCompleteTask: Boolean = false
 ): SessionServices {
     val toolRegistry = ToolRegistry()
     if (includeCompleteTask) {
         toolRegistry.register(CompleteTaskTool())
     }
     val policyEngine = PolicyEngine()
-    // Dummy catalog with a model name tests won't request, so AgentTurnRunner
-    // falls back to services.llmClient (the test mock)
-    val testCatalog = ModelCatalog.fromJson("""{"_test-only":{"display_name":"Test","provider":"OPENAI","api":"response","model_id":"test"}}""")
+    val testCatalog =
+            ModelCatalog.fromJson(
+                    """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+            )
     return SessionServices(
-        toolRegistry = toolRegistry,
-        toolRouter = ToolRouter(toolRegistry, policyEngine),
-        historyManager = HistoryManager(),
-        sessionState = AgentSessionState(),
-        policyEngine = policyEngine,
-        platform = FakeAndroidPlatform(),
-        config = @Suppress("DEPRECATION") SessionConfig(
-            maxTurns = 1,
-            actionDelayMs = 0,
-            llmBackend = LLMBackendType.OPENAI
-        ),
-        llmClient = llmClient,
-        modelCatalog = testCatalog,
-        llmClientFactory = LLMClientFactory(testCatalog) { "test-key" },
-        traceRecorder = NoopTraceRecorder
+            toolRegistry = toolRegistry,
+            toolRouter = ToolRouter(toolRegistry, policyEngine),
+            historyManager = HistoryManager(),
+            sessionState = AgentSessionState(),
+            policyEngine = policyEngine,
+            platform = FakeAndroidPlatform(),
+            config =
+                    @Suppress("DEPRECATION")
+                    SessionConfig(
+                            maxTurns = 1,
+                            actionDelayMs = 0,
+                            llmBackend = LLMBackendType.OPENAI
+                    ),
+            llmClient = llmClient,
+            modelCatalog = testCatalog,
+            llmClientFactory = LLMClientFactory.forTest(testCatalog, llmClient),
+            traceRecorder = NoopTraceRecorder
     )
 }
 
-private class SubAgentTestLLMClient(
-    private val delayMs: Long
-) : LLMClient() {
+private class SubAgentTestLLMClient(private val delayMs: Long) : LLMClient() {
     override suspend fun chatWithTools(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: String
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            tools: List<FunctionTool>,
+            model: String
     ): ResponsesResult {
-        return ResponsesResult(
-            textContent = "done",
-            toolCalls = emptyList(),
-            responseId = "resp"
-        )
+        return ResponsesResult(textContent = "done", toolCalls = emptyList(), responseId = "resp")
     }
 
     override fun chatWithToolsStreaming(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: String
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            tools: List<FunctionTool>,
+            model: String
     ): Flow<LLMStreamEvent> = flow {
         if (delayMs > 0) {
             delay(delayMs)
@@ -238,28 +249,20 @@ private class SubAgentTestLLMClient(
     }
 }
 
-private class ScriptedSubAgentLLMClient(
-    private val events: List<LLMStreamEvent>
-) : LLMClient() {
+private class ScriptedSubAgentLLMClient(private val events: List<LLMStreamEvent>) : LLMClient() {
     override suspend fun chatWithTools(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: String
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            tools: List<FunctionTool>,
+            model: String
     ): ResponsesResult {
-        return ResponsesResult(
-            textContent = null,
-            toolCalls = emptyList(),
-            responseId = "resp"
-        )
+        return ResponsesResult(textContent = null, toolCalls = emptyList(), responseId = "resp")
     }
 
     override fun chatWithToolsStreaming(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: String
-    ): Flow<LLMStreamEvent> = flow {
-        events.forEach { emit(it) }
-    }
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            tools: List<FunctionTool>,
+            model: String
+    ): Flow<LLMStreamEvent> = flow { events.forEach { emit(it) } }
 }

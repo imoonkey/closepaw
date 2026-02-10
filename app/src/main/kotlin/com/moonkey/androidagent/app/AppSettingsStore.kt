@@ -8,17 +8,18 @@ import com.moonkey.androidagent.protocol.LLMBackendType
 import java.io.File
 
 data class AppSettings(
-    val apiKey: String,
-    val selectedModel: String,
-    val maxTurns: Int,
-    val debugMode: Boolean,
-    val perceptionMode: String,
-    val agentMode: AgentMode,
-    val llmBackend: LLMBackendType,
-    val localModelId: String,
-    val localModelSlug: String,
-    val localModelQuant: String,
-    val executorModel: String?
+        val apiKey: String,
+        val openRouterApiKey: String,
+        val selectedModel: String,
+        val maxTurns: Int,
+        val debugMode: Boolean,
+        val perceptionMode: String,
+        val agentMode: AgentMode,
+        val llmBackend: LLMBackendType,
+        val localModelId: String,
+        val localModelSlug: String,
+        val localModelQuant: String,
+        val executorModel: String?
 )
 
 class AppSettingsStore(private val context: Context) {
@@ -38,6 +39,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_LOCAL_MODEL_SLUG = "local_model_slug"
         private const val KEY_LOCAL_MODEL_QUANT = "local_model_quant"
         private const val KEY_EXECUTOR_MODEL = "executor_model"
+        private const val KEY_OPENROUTER_API_KEY = "openrouter_api_key"
 
         const val DEFAULT_MODEL = "gpt-5.2"
         const val DEFAULT_MAX_TURNS = 20
@@ -64,41 +66,54 @@ class AppSettingsStore(private val context: Context) {
         }
         val maxTurns = prefs.getInt(KEY_MAX_TURNS, DEFAULT_MAX_TURNS)
         val debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
-        val perceptionMode = prefs.getString(KEY_PERCEPTION_MODE, null)
-            ?: if (prefs.getBoolean(KEY_SCREENSHOT_INPUT, false)) "hybrid" else DEFAULT_PERCEPTION_MODE
-        val agentModeName = prefs.getString(KEY_AGENT_MODE, DEFAULT_AGENT_MODE.name)
-            ?: DEFAULT_AGENT_MODE.name
-        val agentMode = try {
-            AgentMode.valueOf(agentModeName)
-        } catch (_: Exception) {
-            DEFAULT_AGENT_MODE
-        }
+        val perceptionMode =
+                prefs.getString(KEY_PERCEPTION_MODE, null)
+                        ?: if (prefs.getBoolean(KEY_SCREENSHOT_INPUT, false)) "hybrid"
+                        else DEFAULT_PERCEPTION_MODE
+        val agentModeName =
+                prefs.getString(KEY_AGENT_MODE, DEFAULT_AGENT_MODE.name) ?: DEFAULT_AGENT_MODE.name
+        val agentMode =
+                try {
+                    AgentMode.valueOf(agentModeName)
+                } catch (_: Exception) {
+                    DEFAULT_AGENT_MODE
+                }
 
-        val backendName = prefs.getString(KEY_LLM_BACKEND, DEFAULT_LLM_BACKEND.name)
-            ?: DEFAULT_LLM_BACKEND.name
-        val llmBackend = try {
-            LLMBackendType.valueOf(backendName)
-        } catch (e: Exception) {
-            DEFAULT_LLM_BACKEND
-        }
+        val backendName =
+                prefs.getString(KEY_LLM_BACKEND, DEFAULT_LLM_BACKEND.name)
+                        ?: DEFAULT_LLM_BACKEND.name
+        val llmBackend =
+                try {
+                    LLMBackendType.valueOf(backendName)
+                } catch (e: Exception) {
+                    DEFAULT_LLM_BACKEND
+                }
 
-        val localModelId = prefs.getString(KEY_LOCAL_MODEL_ID, DEFAULT_LOCAL_MODEL_ID) ?: DEFAULT_LOCAL_MODEL_ID
-        val localModelSlug = prefs.getString(KEY_LOCAL_MODEL_SLUG, DEFAULT_LOCAL_MODEL_SLUG) ?: DEFAULT_LOCAL_MODEL_SLUG
-        val localModelQuant = prefs.getString(KEY_LOCAL_MODEL_QUANT, DEFAULT_LOCAL_MODEL_QUANT) ?: DEFAULT_LOCAL_MODEL_QUANT
+        val localModelId =
+                prefs.getString(KEY_LOCAL_MODEL_ID, DEFAULT_LOCAL_MODEL_ID)
+                        ?: DEFAULT_LOCAL_MODEL_ID
+        val localModelSlug =
+                prefs.getString(KEY_LOCAL_MODEL_SLUG, DEFAULT_LOCAL_MODEL_SLUG)
+                        ?: DEFAULT_LOCAL_MODEL_SLUG
+        val localModelQuant =
+                prefs.getString(KEY_LOCAL_MODEL_QUANT, DEFAULT_LOCAL_MODEL_QUANT)
+                        ?: DEFAULT_LOCAL_MODEL_QUANT
         val executorModel = prefs.getString(KEY_EXECUTOR_MODEL, null)
+        val openRouterApiKey = prefs.getString(KEY_OPENROUTER_API_KEY, null) ?: ""
 
         return AppSettings(
-            apiKey = apiKey,
-            selectedModel = selectedModel,
-            maxTurns = maxTurns,
-            debugMode = debugMode,
-            perceptionMode = perceptionMode,
-            agentMode = agentMode,
-            llmBackend = llmBackend,
-            localModelId = localModelId,
-            localModelSlug = localModelSlug,
-            localModelQuant = localModelQuant,
-            executorModel = executorModel
+                apiKey = apiKey,
+                openRouterApiKey = openRouterApiKey,
+                selectedModel = selectedModel,
+                maxTurns = maxTurns,
+                debugMode = debugMode,
+                perceptionMode = perceptionMode,
+                agentMode = agentMode,
+                llmBackend = llmBackend,
+                localModelId = localModelId,
+                localModelSlug = localModelSlug,
+                localModelQuant = localModelQuant,
+                executorModel = executorModel
         )
     }
 
@@ -112,6 +127,10 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveApiKey(value: String) {
         prefs().edit().putString(KEY_API_KEY, value).apply()
+    }
+
+    fun saveOpenRouterApiKey(value: String) {
+        prefs().edit().putString(KEY_OPENROUTER_API_KEY, value).apply()
     }
 
     fun saveModel(value: String) {
@@ -140,10 +159,10 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveLocalModel(id: String, slug: String, quantization: String) {
         prefs().edit()
-            .putString(KEY_LOCAL_MODEL_ID, id)
-            .putString(KEY_LOCAL_MODEL_SLUG, slug)
-            .putString(KEY_LOCAL_MODEL_QUANT, quantization)
-            .apply()
+                .putString(KEY_LOCAL_MODEL_ID, id)
+                .putString(KEY_LOCAL_MODEL_SLUG, slug)
+                .putString(KEY_LOCAL_MODEL_QUANT, quantization)
+                .apply()
     }
 
     private fun loadApiKeyFromFile(): String? {

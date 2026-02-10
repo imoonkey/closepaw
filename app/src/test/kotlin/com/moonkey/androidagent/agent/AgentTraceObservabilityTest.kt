@@ -4,8 +4,8 @@ import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
-import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.LLMStreamEvent
+import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.ResponsesResult
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.LLMBackendType
@@ -24,6 +24,7 @@ import com.moonkey.androidagent.trace.TraceRecorder
 import com.openai.models.responses.EasyInputMessage
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
@@ -31,39 +32,42 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Test
-import java.util.concurrent.atomic.AtomicLong
 
 class AgentTraceObservabilityTest {
 
     @Test
     fun `llm request stores full prompt and input items artifacts with redaction`() = runTest {
         val recorder = RecordingTraceRecorder()
-        val trace = AgentTrace(sessionId = SessionId("session-1"), services = buildServices(recorder))
-        val inputItems = listOf(
-            ResponseInputItem.ofEasyInputMessage(
-                EasyInputMessage.builder()
-                    .role(EasyInputMessage.Role.USER)
-                    .content("email me at user@example.com with token sk_live_ABC12345678901234567890")
-                    .build()
-            )
-        )
+        val trace =
+                AgentTrace(sessionId = SessionId("session-1"), services = buildServices(recorder))
+        val inputItems =
+                listOf(
+                        ResponseInputItem.ofEasyInputMessage(
+                                EasyInputMessage.builder()
+                                        .role(EasyInputMessage.Role.USER)
+                                        .content(
+                                                "email me at user@example.com with token sk_live_ABC12345678901234567890"
+                                        )
+                                        .build()
+                        )
+                )
 
         trace.sessionStarted(
-            AgentExecutionConfig(
-                goal = "test",
-                sessionId = SessionId("session-1"),
-                maxTurns = 1,
-                systemPrompt = "test prompt"
-            )
+                AgentExecutionConfig(
+                        goal = "test",
+                        sessionId = SessionId("session-1"),
+                        maxTurns = 1,
+                        systemPrompt = "test prompt"
+                )
         )
         trace.llmRequest(
-            turnId = "turn-1",
-            turnNumber = 1,
-            snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()),
-            systemPrompt = "Bearer abcdefghijklmnopqrstuvwxyz123456 user@example.com",
-            userContextText = "Authorization: token=abcdefghijklmnop1234567890",
-            history = emptyList(),
-            inputItems = inputItems
+                turnId = "turn-1",
+                turnNumber = 1,
+                snapshot = ScreenSnapshot(timestamp = 1L, elements = emptyList()),
+                systemPrompt = "Bearer abcdefghijklmnopqrstuvwxyz123456 user@example.com",
+                userContextText = "Authorization: token=abcdefghijklmnop1234567890",
+                history = emptyList(),
+                inputItems = inputItems
         )
         trace.sessionStopped(AgentStopReason.GoalAchieved, turnsExecuted = 1)
 
@@ -98,24 +102,24 @@ private fun buildServices(traceRecorder: TraceRecorder): SessionServices {
     val toolRouter = ToolRouter(toolRegistry, policyEngine)
     val platform = FakeAndroidPlatform()
     @Suppress("DEPRECATION")
-    val config = SessionConfig(
-        maxTurns = 1,
-        actionDelayMs = 0,
-        llmBackend = LLMBackendType.OPENAI
-    )
-    val testCatalog = ModelCatalog.fromJson("""{"_test-only":{"display_name":"Test","provider":"OPENAI","api":"response","model_id":"test"}}""")
+    val config = SessionConfig(maxTurns = 1, actionDelayMs = 0, llmBackend = LLMBackendType.OPENAI)
+    val testCatalog =
+            ModelCatalog.fromJson(
+                    """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+            )
+    val noopClient = NoopLLMClient()
     return SessionServices(
-        toolRegistry = toolRegistry,
-        toolRouter = toolRouter,
-        historyManager = HistoryManager(),
-        sessionState = AgentSessionState(),
-        policyEngine = policyEngine,
-        platform = platform,
-        config = config,
-        llmClient = NoopLLMClient(),
-        modelCatalog = testCatalog,
-        llmClientFactory = LLMClientFactory(testCatalog) { "test-key" },
-        traceRecorder = traceRecorder
+            toolRegistry = toolRegistry,
+            toolRouter = toolRouter,
+            historyManager = HistoryManager(),
+            sessionState = AgentSessionState(),
+            policyEngine = policyEngine,
+            platform = platform,
+            config = config,
+            llmClient = noopClient,
+            modelCatalog = testCatalog,
+            llmClientFactory = LLMClientFactory.forTest(testCatalog, noopClient),
+            traceRecorder = traceRecorder
     )
 }
 
@@ -134,33 +138,33 @@ private class RecordingTraceRecorder : TraceRecorder {
     }
 
     override fun storeText(
-        kind: String,
-        filenameHint: String,
-        content: String,
-        mimeType: String?,
-        description: String?
+            kind: String,
+            filenameHint: String,
+            content: String,
+            mimeType: String?,
+            description: String?
     ): TraceArtifactRef {
         storedTexts[filenameHint] = content
         return TraceArtifactRef(
-            kind = kind,
-            path = "artifacts/$filenameHint",
-            mimeType = mimeType,
-            description = description
+                kind = kind,
+                path = "artifacts/$filenameHint",
+                mimeType = mimeType,
+                description = description
         )
     }
 
     override fun storeBytes(
-        kind: String,
-        filenameHint: String,
-        bytes: ByteArray,
-        mimeType: String?,
-        description: String?
+            kind: String,
+            filenameHint: String,
+            bytes: ByteArray,
+            mimeType: String?,
+            description: String?
     ): TraceArtifactRef {
         return TraceArtifactRef(
-            kind = kind,
-            path = "artifacts/$filenameHint",
-            mimeType = mimeType,
-            description = description
+                kind = kind,
+                path = "artifacts/$filenameHint",
+                mimeType = mimeType,
+                description = description
         )
     }
 
@@ -175,18 +179,18 @@ private class RecordingTraceRecorder : TraceRecorder {
 
 private class NoopLLMClient : LLMClient() {
     override suspend fun chatWithTools(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: String
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            tools: List<FunctionTool>,
+            model: String
     ): ResponsesResult {
         return ResponsesResult(textContent = "", toolCalls = emptyList(), responseId = "noop")
     }
 
     override fun chatWithToolsStreaming(
-        systemPrompt: String,
-        inputItems: List<ResponseInputItem>,
-        tools: List<FunctionTool>,
-        model: String
+            systemPrompt: String,
+            inputItems: List<ResponseInputItem>,
+            tools: List<FunctionTool>,
+            model: String
     ): Flow<LLMStreamEvent> = emptyFlow()
 }

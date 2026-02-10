@@ -9,10 +9,6 @@ import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionPolicy
 import com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
 import com.moonkey.androidagent.agent.cognition.prompt.PromptBuilder
-import com.moonkey.androidagent.trace.AgentTrace
-import com.moonkey.androidagent.trace.ArbitrationDecision
-import com.moonkey.androidagent.trace.DropReason
-import com.moonkey.androidagent.trace.DroppedToolCall
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
@@ -27,6 +23,10 @@ import com.moonkey.androidagent.tool.SimpleToolRouterContext
 import com.moonkey.androidagent.tool.ToolCallResult
 import com.moonkey.androidagent.tool.ToolName
 import com.moonkey.androidagent.tool.ToolObservation
+import com.moonkey.androidagent.trace.AgentTrace
+import com.moonkey.androidagent.trace.ArbitrationDecision
+import com.moonkey.androidagent.trace.DropReason
+import com.moonkey.androidagent.trace.DroppedToolCall
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
@@ -93,7 +93,8 @@ internal class AgentTurnRunner(
                                                         turnNumber = turnNumber,
                                                         initialSnapshot = snapshot,
                                                         toolCallsToExecute =
-                                                                planningResult.arbitration
+                                                                planningResult
+                                                                        .arbitration
                                                                         .selectedToolCalls
                                                 )
                                         nextState =
@@ -213,15 +214,10 @@ internal class AgentTurnRunner(
                 eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PLANNING)
                 eventDispatcher.status("🧠 Thinking...")
 
-                val modelEntry = services.modelCatalog.resolveOrNull(config.modelName)
-                val llmClient = if (modelEntry != null) {
-                        services.llmClientFactory.create(config.modelName)
-                } else {
-                        Log.w(TAG, "Model '${config.modelName}' not in catalog; using legacy llmClient")
-                        services.llmClient
-                }
-                val modelId = modelEntry?.modelId ?: config.modelName
-                val supportsVision = modelEntry?.supportsVision ?: true
+                val modelEntry = services.modelCatalog.resolve(config.modelName)
+                val llmClient = services.llmClientFactory.create(config.modelName)
+                val modelId = modelEntry.modelId
+                val supportsVision = modelEntry.supportsVision
 
                 val turn =
                         Turn(
@@ -229,20 +225,23 @@ internal class AgentTurnRunner(
                                 llmClient = llmClient,
                                 allowedToolNames = config.allowedToolNames
                         )
-                val systemPrompt = requireNotNull(config.systemPrompt) {
-                        "System prompt must be provided by AgentDef."
-                }
-                val promptBuilder = PromptBuilder(
-                        historyManager = services.historyManager,
-                        sessionState = services.sessionState,
-                        supportsVision = supportsVision,
-                        perceptionConfig = services.config.perceptionConfig
-                )
-                val inputItems = promptBuilder.buildInputItems(
-                        snapshot = snapshot,
-                        image = snapshot.image,
-                        warnings = warnings
-                )
+                val systemPrompt =
+                        requireNotNull(config.systemPrompt) {
+                                "System prompt must be provided by AgentDef."
+                        }
+                val promptBuilder =
+                        PromptBuilder(
+                                historyManager = services.historyManager,
+                                sessionState = services.sessionState,
+                                supportsVision = supportsVision,
+                                perceptionConfig = services.config.perceptionConfig
+                        )
+                val inputItems =
+                        promptBuilder.buildInputItems(
+                                snapshot = snapshot,
+                                image = snapshot.image,
+                                warnings = warnings
+                        )
 
                 // Record screen observation for future turns (after prompt built)
                 recordScreenObservation(snapshot)
@@ -292,8 +291,7 @@ internal class AgentTurnRunner(
                         }
 
                 streamError?.let { throw it }
-                val result =
-                        turnResult ?: throw RuntimeException("Stream completed without result")
+                val result = turnResult ?: throw RuntimeException("Stream completed without result")
 
                 Log.d(TAG, "Turn $turnNumber: LLM response: ${result.content?.take(200)}...")
                 Log.d(TAG, "Turn $turnNumber: Tool calls: ${result.toolCalls.map { it.name }}")
@@ -318,8 +316,8 @@ internal class AgentTurnRunner(
         /**
          * Build plain-text warning strings for the current observation.
          *
-         * Per review: only loop warnings and final-turn warning.
-         * Turn budget approaching warnings are intentionally omitted (less noise).
+         * Per review: only loop warnings and final-turn warning. Turn budget approaching warnings
+         * are intentionally omitted (less noise).
          */
         private fun buildWarnings(
                 loopWarning: LoopWarning?,
@@ -335,26 +333,29 @@ internal class AgentTurnRunner(
         }
 
         /**
-         * Record the current screen observation into history so future turns
-         * can see what this turn saw. Called after prompt is built but before
-         * the LLM call, so the prompt doesn't duplicate the current screen.
+         * Record the current screen observation into history so future turns can see what this turn
+         * saw. Called after prompt is built but before the LLM call, so the prompt doesn't
+         * duplicate the current screen.
          *
-         * In screenshot-only mode the a11y tree is omitted from history to
-         * keep the context consistent with what the LLM actually sees.
+         * In screenshot-only mode the a11y tree is omitted from history to keep the context
+         * consistent with what the LLM actually sees.
          */
         private fun recordScreenObservation(snapshot: ScreenSnapshot) {
                 val pc = services.config.perceptionConfig
-                val text = if (pc.capturesAccessibility) {
-                        val screenJson = Perceptor.toPromptJson(snapshot)
-                        buildString {
-                                appendLine("Screen state (${snapshot.elements.size} elements):")
-                                appendLine("```json")
-                                appendLine(screenJson)
-                                append("```")
+                val text =
+                        if (pc.capturesAccessibility) {
+                                val screenJson = Perceptor.toPromptJson(snapshot)
+                                buildString {
+                                        appendLine(
+                                                "Screen state (${snapshot.elements.size} elements):"
+                                        )
+                                        appendLine("```json")
+                                        appendLine(screenJson)
+                                        append("```")
+                                }
+                        } else {
+                                "(Screenshot-only mode — accessibility tree omitted from history)"
                         }
-                } else {
-                        "(Screenshot-only mode — accessibility tree omitted from history)"
-                }
                 services.historyManager.addItem(
                         ResponseItem.Message(
                                 role = "user",
@@ -539,7 +540,8 @@ internal class AgentTurnRunner(
                         return when (observation) {
                                 is ToolObservation.ScreenState ->
                                         ObservationCapture(observation, observation.snapshot)
-                                is ToolObservation.TextOutput -> ObservationCapture(observation, null)
+                                is ToolObservation.TextOutput ->
+                                        ObservationCapture(observation, null)
                         }
                 }
 
@@ -662,11 +664,12 @@ internal class AgentTurnRunner(
         }
 
         /** Meta-only: no screen state in tool results. */
-        private fun formatToolResult(result: ToolCallResult): String = when (result) {
-                is ToolCallResult.Success -> "Success: ${result.output}"
-                is ToolCallResult.Error -> "Error: ${result.error}"
-                is ToolCallResult.Cancelled -> "Cancelled: ${result.reason}"
-        }
+        private fun formatToolResult(result: ToolCallResult): String =
+                when (result) {
+                        is ToolCallResult.Success -> "Success: ${result.output}"
+                        is ToolCallResult.Error -> "Error: ${result.error}"
+                        is ToolCallResult.Cancelled -> "Cancelled: ${result.reason}"
+                }
 
         private fun classifyAction(toolCall: ToolCallRequest): String {
                 when (ToolName.from(toolCall.name)) {

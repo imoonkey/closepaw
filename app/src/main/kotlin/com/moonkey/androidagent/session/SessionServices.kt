@@ -2,35 +2,35 @@ package com.moonkey.androidagent.session
 
 import android.content.Context
 import android.util.Log
-import com.moonkey.androidagent.llm.LLMClient
-import com.moonkey.androidagent.llm.LLMClientFactory
-import com.moonkey.androidagent.llm.ModelCatalog
-import com.moonkey.androidagent.llm.OpenAIResponseClient
-import com.moonkey.androidagent.llm.LFMLLMClient
-import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.history.HistoryConfig
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.TruncationPolicy
-import com.moonkey.androidagent.tool.PolicyEngine
-import com.moonkey.androidagent.tool.ToolRegistry
-import com.moonkey.androidagent.tool.ToolRouter
+import com.moonkey.androidagent.llm.LFMLLMClient
+import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.llm.LLMClientFactory
+import com.moonkey.androidagent.llm.LocalLLMConfig
+import com.moonkey.androidagent.llm.ModelCatalog
+import com.moonkey.androidagent.llm.OpenAIResponseClient
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
-import com.moonkey.androidagent.tool.impl.OpenAppTool
+import com.moonkey.androidagent.tool.PolicyEngine
+import com.moonkey.androidagent.tool.ToolRegistry
+import com.moonkey.androidagent.tool.ToolRouter
 import com.moonkey.androidagent.tool.impl.CompleteTaskTool
 import com.moonkey.androidagent.tool.impl.MobileActionTool
-import com.moonkey.androidagent.tool.impl.SystemButtonTool
+import com.moonkey.androidagent.tool.impl.OpenAppTool
 import com.moonkey.androidagent.tool.impl.ScratchpadTool
+import com.moonkey.androidagent.tool.impl.SystemButtonTool
 import com.moonkey.androidagent.tool.impl.WaitTool
 import com.moonkey.androidagent.tool.impl.WriteTodosTool
 import com.moonkey.androidagent.trace.TraceRecorder
 
 /**
  * SessionServices - Dependency Injection container for all session-scoped services.
- * 
+ *
  * Pattern from Codex's SessionServices: A single object holding all services needed for a session.
- * 
+ *
  * Each service has ONE clear responsibility:
  * - toolRegistry: Discovery and schema generation for tools
  * - toolRouter: Execution of tools with state machine (includes approval flow)
@@ -44,125 +44,129 @@ import com.moonkey.androidagent.trace.TraceRecorder
  * ```kotlin
  * // For OpenAI backend:
  * val services = SessionServices.create(config, platform, apiKey = "sk-...")
- * 
+ *
  * // For local LLM backend:
  * val localConfig = config.copy(llmBackend = LLMBackendType.LOCAL)
  * val services = SessionServices.create(localConfig, platform, context = context)
  * ```
  */
 data class SessionServices(
-    val toolRegistry: ToolRegistry,
-    val toolRouter: ToolRouter,
-    val historyManager: HistoryManager,
-    val sessionState: AgentSessionState,
-    val policyEngine: PolicyEngine,
-    val platform: AndroidPlatform,
-    val config: SessionConfig,
-    val llmClient: LLMClient,
-    val modelCatalog: ModelCatalog,
-    val llmClientFactory: LLMClientFactory,
-    val traceRecorder: TraceRecorder
+        val toolRegistry: ToolRegistry,
+        val toolRouter: ToolRouter,
+        val historyManager: HistoryManager,
+        val sessionState: AgentSessionState,
+        val policyEngine: PolicyEngine,
+        val platform: AndroidPlatform,
+        val config: SessionConfig,
+        val llmClient: LLMClient,
+        val modelCatalog: ModelCatalog,
+        val llmClientFactory: LLMClientFactory,
+        val traceRecorder: TraceRecorder
 ) {
     companion object {
         private const val TAG = "SessionServices"
-        
+
         /**
          * Create a new SessionServices container with all services initialized.
-         * 
-         * Services are created in dependency order:
-         * 1. LLMClient (depends on config.llmBackend, apiKey, context)
-         * 2. PolicyEngine (no dependencies)
-         * 3. ToolRegistry (no dependencies)
-         * 4. ToolRouter (depends on ToolRegistry, PolicyEngine)
-         * 5. HistoryManager (depends on config)
-         * 
+         *
          * @param config Session configuration
          * @param platform Android platform abstraction
-         * @param apiKey OpenAI API key for LLM client (required for OPENAI backend, optional for LOCAL)
-         * @param context Android context (required for LOCAL backend for model downloading)
+         * @param apiKeys Per-provider API keys, keyed by env var name
+         * ```
+         *               (e.g. "OPENAI_API_KEY" → "sk-...", "OPENROUTER_API_KEY" → "sk-or-...")
+         * @param context
+         * ```
+         * Android context (required for LOCAL backend for model downloading)
          * @return Fully initialized SessionServices
          */
         @Suppress("DEPRECATION")
         fun create(
-            config: SessionConfig,
-            platform: AndroidPlatform,
-            apiKey: String? = null,
-            context: Context? = null,
-            traceRecorder: TraceRecorder
+                config: SessionConfig,
+                platform: AndroidPlatform,
+                apiKeys: Map<String, String> = emptyMap(),
+                context: Context? = null,
+                traceRecorder: TraceRecorder
         ): SessionServices {
             Log.d(TAG, "Creating SessionServices with backend: ${config.llmBackend}...")
+            Log.d(TAG, "API keys available for providers: ${apiKeys.keys}")
 
-            val llmClient: LLMClient = when (config.llmBackend) {
-                LLMBackendType.OPENAI -> {
-                    requireNotNull(apiKey) { "API key is required for OpenAI backend" }
-                    OpenAIResponseClient(apiKey)
-                }
-                LLMBackendType.LOCAL -> {
-                    requireNotNull(context) { "Context is required for local LLM backend" }
-                    val localConfig = config.localLLMConfig ?: LocalLLMConfig()
-                    LFMLLMClient(context, localConfig)
-                }
-            }
+            val llmClient: LLMClient =
+                    when (config.llmBackend) {
+                        LLMBackendType.OPENAI -> {
+                            val key =
+                                    apiKeys["OPENAI_API_KEY"]
+                                            ?: throw IllegalStateException(
+                                                    "OPENAI_API_KEY required for OpenAI backend"
+                                            )
+                            OpenAIResponseClient(key)
+                        }
+                        LLMBackendType.LOCAL -> {
+                            requireNotNull(context) { "Context is required for local LLM backend" }
+                            val localConfig = config.localLLMConfig ?: LocalLLMConfig()
+                            LFMLLMClient(context, localConfig)
+                        }
+                    }
             Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
 
             val modelCatalog = loadModelCatalog(context)
-            Log.d(TAG, "Loaded ModelCatalog with ${modelCatalog.size} models: ${modelCatalog.names()}")
-
-            val llmClientFactory = LLMClientFactory(
-                catalog = modelCatalog,
-                apiKeyResolver = { _ ->
-                    // Primary: use the apiKey passed in (from intent extras / settings).
-                    // For now, all cloud models share the same API key.
-                    apiKey
-                }
+            Log.d(
+                    TAG,
+                    "Loaded ModelCatalog with ${modelCatalog.size} models: ${modelCatalog.names()}"
             )
+
+            val llmClientFactory =
+                    LLMClientFactory(
+                            catalog = modelCatalog,
+                            apiKeyResolver = { envVar -> apiKeys[envVar] }
+                    )
             Log.d(TAG, "Created LLMClientFactory")
 
             val policyEngine = PolicyEngine(config.approvalMode)
             Log.d(TAG, "Created PolicyEngine with mode: ${config.approvalMode}")
 
             val sessionState = AgentSessionState()
-            val toolRegistry = ToolRegistry().apply {
-                registerBuiltInTools(sessionState)
-            }
+            val toolRegistry = ToolRegistry().apply { registerBuiltInTools(sessionState) }
             Log.d(TAG, "Created ToolRegistry with ${toolRegistry.size()} tools")
 
             val toolRouter = ToolRouter(toolRegistry, policyEngine)
             Log.d(TAG, "Created ToolRouter")
 
-            val historyConfig = HistoryConfig(
-                defaultTruncationPolicy = TruncationPolicy.AGGRESSIVE, // 2000 tokens vs 8000
-                autoCompress = true,
-                maxTokenBudget = 18_000 // Leave headroom for tools (~700), screen (~5-10K), and response
-            )
+            val historyConfig =
+                    HistoryConfig(
+                            defaultTruncationPolicy =
+                                    TruncationPolicy.AGGRESSIVE, // 2000 tokens vs 8000
+                            autoCompress = true,
+                            maxTokenBudget =
+                                    18_000 // Leave headroom for tools (~700), screen (~5-10K), and
+                            // response
+                            )
             val historyManager = HistoryManager(historyConfig)
             Log.d(TAG, "Created HistoryManager")
-            
+
             Log.i(TAG, "SessionServices created successfully")
-            
+
             return SessionServices(
-                toolRegistry = toolRegistry,
-                toolRouter = toolRouter,
-                historyManager = historyManager,
-                sessionState = sessionState,
-                policyEngine = policyEngine,
-                platform = platform,
-                config = config,
-                llmClient = llmClient,
-                modelCatalog = modelCatalog,
-                llmClientFactory = llmClientFactory,
-                traceRecorder = traceRecorder
+                    toolRegistry = toolRegistry,
+                    toolRouter = toolRouter,
+                    historyManager = historyManager,
+                    sessionState = sessionState,
+                    policyEngine = policyEngine,
+                    platform = platform,
+                    config = config,
+                    llmClient = llmClient,
+                    modelCatalog = modelCatalog,
+                    llmClientFactory = llmClientFactory,
+                    traceRecorder = traceRecorder
             )
         }
-        
+
         /**
-         * Load ModelCatalog from assets/llm_models.json.
-         * Falls back to a minimal single-model catalog if context is unavailable
-         * or the asset is missing.
+         * Load ModelCatalog from assets/llm_models.json. Falls back to a minimal single-model
+         * catalog if context is unavailable or the asset is missing.
          *
-         * Note: Performs blocking I/O on the calling thread. Callers must ensure
-         * this runs off the main thread (e.g. `Dispatchers.IO`). Asset reads are
-         * typically sub-millisecond, but the guarantee matters.
+         * Note: Performs blocking I/O on the calling thread. Callers must ensure this runs off the
+         * main thread (e.g. `Dispatchers.IO`). Asset reads are typically sub-millisecond, but the
+         * guarantee matters.
          */
         private fun loadModelCatalog(context: Context?): ModelCatalog {
             if (context == null) {
@@ -170,8 +174,10 @@ data class SessionServices(
                 return ModelCatalog.fromJson(FALLBACK_CATALOG_JSON)
             }
             return try {
-                val json = context.assets.open("llm_models.json")
-                    .bufferedReader().use { it.readText() }
+                val json =
+                        context.assets.open("llm_models.json").bufferedReader().use {
+                            it.readText()
+                        }
                 ModelCatalog.fromJson(json)
             } catch (e: java.io.IOException) {
                 Log.w(TAG, "Failed to read llm_models.json from assets; using fallback", e)
@@ -182,7 +188,8 @@ data class SessionServices(
             }
         }
 
-        private const val FALLBACK_CATALOG_JSON = """
+        private const val FALLBACK_CATALOG_JSON =
+                """
         {
           "gpt-5.2": {
             "display_name": "GPT-5.2",
@@ -194,8 +201,8 @@ data class SessionServices(
         """
 
         /**
-         * Registers built-in tools: complete_task, mobile_action, system_button,
-         * wait, open_app, write_todos, scratchpad.
+         * Registers built-in tools: complete_task, mobile_action, system_button, wait, open_app,
+         * write_todos, scratchpad.
          */
         private fun ToolRegistry.registerBuiltInTools(sessionState: AgentSessionState) {
             register(CompleteTaskTool())
@@ -209,18 +216,14 @@ data class SessionServices(
             Log.d(TAG, "Registered ${size()} built-in tools: ${getNames().joinToString()}")
         }
     }
-    
-    /**
-     * Update the approval mode at runtime.
-     */
+
+    /** Update the approval mode at runtime. */
     fun updateApprovalMode(mode: com.moonkey.androidagent.protocol.ApprovalMode) {
         policyEngine.setApprovalMode(mode)
         Log.d(TAG, "Updated approval mode to: $mode")
     }
-    
-    /**
-     * Get a summary of all services for debugging.
-     */
+
+    /** Get a summary of all services for debugging. */
     fun getSummary(): String {
         return buildString {
             appendLine("=== SessionServices Summary ===")
@@ -234,9 +237,7 @@ data class SessionServices(
             appendLine("  Debug Mode: ${config.debugMode}")
             appendLine()
             appendLine("Tools (${toolRegistry.size()}):")
-            toolRegistry.getNames().forEach { name ->
-                appendLine("  - $name")
-            }
+            toolRegistry.getNames().forEach { name -> appendLine("  - $name") }
             appendLine()
             appendLine("History:")
             appendLine("  Items: ${historyManager.size()}")
@@ -247,18 +248,18 @@ data class SessionServices(
             appendLine("  Current Package: ${platform.getCurrentPackageName() ?: "unknown"}")
         }
     }
-    
+
     /**
      * Cleanup all services.
-     * 
+     *
      * Should be called when the session is ending.
      */
     suspend fun cleanup() {
         Log.d(TAG, "Cleaning up SessionServices...")
-        
+
         // Cancel any pending tool calls
         toolRouter.cancelAll()
-        
+
         // Clear history
         historyManager.clear()
 
@@ -268,47 +269,32 @@ data class SessionServices(
 
         // Flush/close trace last so we still capture teardown artifacts if needed
         traceRecorder.close()
-        
+
         Log.i(TAG, "SessionServices cleaned up")
     }
 }
 
-/**
- * Extension for creating SessionServices with additional options.
- */
+/** Extension for creating SessionServices with additional options. */
 object SessionServicesBuilder {
-    
-    /**
-     * Create SessionServices with custom tool configuration.
-     * 
-     * @param config Session configuration
-     * @param platform Android platform
-     * @param apiKey OpenAI API key (required for OPENAI backend)
-     * @param context Android context (required for LOCAL backend)
-     * @param additionalTools Additional tools to register
-     * @param excludeTools Tools to exclude from registration
-     */
+
+    /** Create SessionServices with custom tool configuration. */
     fun createWithCustomTools(
-        config: SessionConfig,
-        platform: AndroidPlatform,
-        apiKey: String? = null,
-        context: Context? = null,
-        traceRecorder: TraceRecorder,
-        additionalTools: List<com.moonkey.androidagent.tool.ToolSpec> = emptyList(),
-        excludeTools: Set<String> = emptySet()
+            config: SessionConfig,
+            platform: AndroidPlatform,
+            apiKeys: Map<String, String> = emptyMap(),
+            context: Context? = null,
+            traceRecorder: TraceRecorder,
+            additionalTools: List<com.moonkey.androidagent.tool.ToolSpec> = emptyList(),
+            excludeTools: Set<String> = emptySet()
     ): SessionServices {
-        val services = SessionServices.create(config, platform, apiKey, context, traceRecorder)
-        
+        val services = SessionServices.create(config, platform, apiKeys, context, traceRecorder)
+
         // Remove excluded tools
-        excludeTools.forEach { name ->
-            services.toolRegistry.unregister(name)
-        }
-        
+        excludeTools.forEach { name -> services.toolRegistry.unregister(name) }
+
         // Add additional tools
-        additionalTools.forEach { tool ->
-            services.toolRegistry.register(tool)
-        }
-        
+        additionalTools.forEach { tool -> services.toolRegistry.register(tool) }
+
         return services
     }
 }

@@ -9,14 +9,14 @@ import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.ui.settings.LocalModelOption
 import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
 
-class AppSettingsState(
-    private val store: AppSettingsStore
-) {
+class AppSettingsState(private val store: AppSettingsStore) {
     companion object {
         private const val TAG = "AppSettingsState"
     }
 
     var apiKey by mutableStateOf("")
+        private set
+    var openRouterApiKey by mutableStateOf("")
         private set
     var selectedModel by mutableStateOf(AppSettingsStore.DEFAULT_MODEL)
         private set
@@ -44,6 +44,7 @@ class AppSettingsState(
     fun load() {
         val settings = store.load()
         apiKey = settings.apiKey
+        openRouterApiKey = settings.openRouterApiKey
         selectedModel = settings.selectedModel
         maxTurns = settings.maxTurns
         debugMode = settings.debugMode
@@ -56,8 +57,8 @@ class AppSettingsState(
         executorModel = settings.executorModel
 
         Log.d(
-            TAG,
-            "Settings loaded: backend=$llmBackend, model=$selectedModel, executorModel=$executorModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, agentMode=$agentMode"
+                TAG,
+                "Settings loaded: backend=$llmBackend, model=$selectedModel, executorModel=$executorModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, agentMode=$agentMode"
         )
     }
 
@@ -88,6 +89,17 @@ class AppSettingsState(
     fun updateApiKey(key: String) {
         apiKey = key
         store.saveApiKey(key)
+    }
+
+    fun updateOpenRouterApiKey(key: String) {
+        openRouterApiKey = key
+        store.saveOpenRouterApiKey(key)
+    }
+
+    /** Build a map of provider env var name → API key for [SessionServices.create]. */
+    fun buildApiKeys(): Map<String, String> = buildMap {
+        if (apiKey.isNotBlank()) put("OPENAI_API_KEY", apiKey)
+        if (openRouterApiKey.isNotBlank()) put("OPENROUTER_API_KEY", openRouterApiKey)
     }
 
     fun updateMaxTurns(value: Int) {

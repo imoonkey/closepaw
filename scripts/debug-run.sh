@@ -238,8 +238,13 @@ elif [[ -n "$EXECUTOR_MODEL" ]]; then
     INTENT_EXTRAS="$INTENT_EXTRAS --es executor_model '$SAFE_EXECUTOR_MODEL'"
 fi
 
-if [[ "$LLM_BACKEND" == "openai" ]]; then
+if [[ -n "${OPENAI_API_KEY:-}" ]]; then
     INTENT_EXTRAS="--es api_key '$SAFE_API_KEY' $INTENT_EXTRAS"
+fi
+
+if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
+    SAFE_OR_KEY=$(escape_shell_arg "$OPENROUTER_API_KEY")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es openrouter_api_key '$SAFE_OR_KEY'"
 fi
 
 # Clear any previous trace folder for this run id (best-effort)
