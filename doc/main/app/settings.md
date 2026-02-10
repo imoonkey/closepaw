@@ -19,7 +19,9 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 | `model` | `String` | `"gpt-5.2"` | Main agent model (cloud) |
 | `executorModel` | `String` | `null` | Executor agent model (cloud, optional override) |
 | `localModel` | `String` | `"LFM2.5-1.2B-Instruct"` | Local model selection |
-| `apiKey` | `String` | `""` | API key for the selected provider |
+| `openAiApiKey` | `String` | `""` | API key for OpenAI |
+| `openRouterApiKey` | `String` | `""` | API key for OpenRouter |
+| `novitaApiKey` | `String` | `""` | API key for Novita |
 
 ### Execution
 

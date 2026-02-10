@@ -10,8 +10,8 @@ import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
-import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.tool.PolicyEngine
@@ -43,7 +43,7 @@ import com.moonkey.androidagent.trace.TraceRecorder
  * Usage:
  * ```kotlin
  * // For OpenAI backend:
- * val services = SessionServices.create(config, platform, apiKey = "sk-...")
+ * val services = SessionServices.create(config, platform, apiKeys = mapOf("OPENAI_API_KEY" to "sk-..."))
  *
  * // For local LLM backend:
  * val localConfig = config.copy(llmBackend = LLMBackendType.LOCAL)

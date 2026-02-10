@@ -58,7 +58,7 @@ Dependency-injection container for all session-scoped services.
 ### Creation
 
 ```kotlin
-val services = SessionServices.create(config, platform, apiKey, context, traceRecorder)
+val services = SessionServices.create(config, platform, apiKeys, context, traceRecorder)
 ```
 
 Built-in tool registration includes:
@@ -118,7 +118,7 @@ Shared state container accessible to agent and tools:
 
 ```kotlin
 // In AgentService
-val session = AgentSession.create(config, accessibilityService, scope, apiKey)
+val session = AgentSession.create(config, accessibilityService, scope, apiKeys)
 
 // Primary entry point
 session.submit(Op.UserInput("Open Settings"))

@@ -77,6 +77,7 @@ Executes one full turn.
 - Execute selected tools and persist outputs/observations
 - Record the current screen observation into history for future turns
 - Decide turn outcome (`Continue`, `Complete`, `Error`, `Cancelled`)
+- **Model Resolution**: Routes `LOCAL` backend to pre-configured LFM client, and `OPENAI` backend (Cloud) to dynamically created clients via `ModelCatalog`.
 
 ### Turn
 
