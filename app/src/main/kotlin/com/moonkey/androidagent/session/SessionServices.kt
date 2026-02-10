@@ -281,6 +281,13 @@ data class SessionServices(
         // Clear history
         historyManager.clear()
 
+        // Release platform resources (VirtualDisplayPlatform releases display here).
+        try {
+            platform.stop()
+        } catch (e: Exception) {
+            Log.w(TAG, "Platform stop failed (non-fatal)", e)
+        }
+
         // Release LLM resources (especially important for local models)
         llmClient.cleanup()
         llmClientFactory.cleanupAll()

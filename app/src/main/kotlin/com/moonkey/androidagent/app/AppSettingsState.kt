@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
+import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.settings.LocalModelOption
 import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
 
@@ -42,6 +43,8 @@ class AppSettingsState(private val store: AppSettingsStore) {
         private set
     var executorModel by mutableStateOf<String?>(null)
         private set
+    var platformMode by mutableStateOf(AppSettingsStore.DEFAULT_PLATFORM_MODE)
+        private set
 
     fun load() {
         val settings = store.load()
@@ -58,6 +61,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
         localModelSlug = settings.localModelSlug
         localModelQuant = settings.localModelQuant
         executorModel = settings.executorModel
+        platformMode = settings.platformMode
 
         Log.d(
                 TAG,
@@ -133,5 +137,10 @@ class AppSettingsState(private val store: AppSettingsStore) {
 
     fun updateModelLoadingStatus(status: ModelLoadingStatus) {
         modelLoadingStatus = status
+    }
+
+    fun updatePlatformMode(value: PlatformMode) {
+        platformMode = value
+        store.savePlatformMode(value)
     }
 }

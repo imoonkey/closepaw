@@ -5,6 +5,7 @@ import android.os.Environment
 import android.util.Log
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
+import com.moonkey.androidagent.protocol.PlatformMode
 import java.io.File
 
 data class AppSettings(
@@ -20,7 +21,8 @@ data class AppSettings(
         val localModelId: String,
         val localModelSlug: String,
         val localModelQuant: String,
-        val executorModel: String?
+        val executorModel: String?,
+        val platformMode: PlatformMode
 )
 
 class AppSettingsStore(private val context: Context) {
@@ -42,6 +44,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_EXECUTOR_MODEL = "executor_model"
         private const val KEY_OPENROUTER_API_KEY = "openrouter_api_key"
         private const val KEY_NOVITA_API_KEY = "novita_api_key"
+        private const val KEY_PLATFORM_MODE = "platform_mode"
 
         const val DEFAULT_MODEL = "gpt-5.2"
         const val DEFAULT_MAX_TURNS = 20
@@ -52,6 +55,7 @@ class AppSettingsStore(private val context: Context) {
         const val DEFAULT_LOCAL_MODEL_ID = "LFM2.5-1.2B-Instruct"
         const val DEFAULT_LOCAL_MODEL_SLUG = "LFM2.5-1.2B-Instruct"
         const val DEFAULT_LOCAL_MODEL_QUANT = "Q4_K_M"
+        val DEFAULT_PLATFORM_MODE = PlatformMode.ACCESSIBILITY
     }
 
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -103,6 +107,13 @@ class AppSettingsStore(private val context: Context) {
         val executorModel = prefs.getString(KEY_EXECUTOR_MODEL, null)
         val openRouterApiKey = prefs.getString(KEY_OPENROUTER_API_KEY, null) ?: ""
         val novitaApiKey = prefs.getString(KEY_NOVITA_API_KEY, null) ?: ""
+        val platformModeName = prefs.getString(KEY_PLATFORM_MODE, DEFAULT_PLATFORM_MODE.name)
+                ?: DEFAULT_PLATFORM_MODE.name
+        val platformMode = try {
+            PlatformMode.valueOf(platformModeName)
+        } catch (_: Exception) {
+            DEFAULT_PLATFORM_MODE
+        }
 
         return AppSettings(
                 apiKey = apiKey,
@@ -117,7 +128,8 @@ class AppSettingsStore(private val context: Context) {
                 localModelId = localModelId,
                 localModelSlug = localModelSlug,
                 localModelQuant = localModelQuant,
-                executorModel = executorModel
+                executorModel = executorModel,
+                platformMode = platformMode
         )
     }
 
@@ -163,6 +175,10 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveBackend(value: LLMBackendType) {
         prefs().edit().putString(KEY_LLM_BACKEND, value.name).apply()
+    }
+
+    fun savePlatformMode(value: PlatformMode) {
+        prefs().edit().putString(KEY_PLATFORM_MODE, value.name).apply()
     }
 
     fun saveLocalModel(id: String, slug: String, quantization: String) {

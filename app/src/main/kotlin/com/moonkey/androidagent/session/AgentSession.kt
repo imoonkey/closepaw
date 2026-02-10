@@ -5,8 +5,8 @@ package com.moonkey.androidagent.session
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import com.moonkey.androidagent.agent.AgentStopReason
-import com.moonkey.androidagent.platform.AccessibilityPlatform
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.platform.PlatformFactory
 import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.trace.TraceRecorderFactory
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
@@ -64,8 +64,12 @@ private constructor(
         ): AgentSession {
             val sessionId = SessionId.generate()
             val traceRecorder = TraceRecorderFactory.create(service, config, sessionId)
-            val platform: AndroidPlatform =
-                    AccessibilityPlatform(service, config, visualizer, traceRecorder)
+            val platform: AndroidPlatform = PlatformFactory.create(
+                    config = config,
+                    service = service,
+                    visualizer = visualizer,
+                    traceRecorder = traceRecorder
+            )
             val services =
                     SessionServices.create(
                             config = config,
@@ -192,6 +196,15 @@ private constructor(
         // SessionStarted is only emitted once when the session first moves from Created
         // to Running. Subsequent tasks (from Idle state) do not re-emit SessionStarted.
         if (_state.value == SessionState.Created) {
+            // Initialize platform resources (VirtualDisplayPlatform creates display here).
+            try {
+                services.platform.start()
+            } catch (e: Exception) {
+                Log.e(TAG, "Platform start failed", e)
+                emitStatus("⚠️ Platform initialization failed: ${e.message}")
+                return
+            }
+
             emit(
                     AgentEvent.SessionStarted(
                             sessionId = sessionId,

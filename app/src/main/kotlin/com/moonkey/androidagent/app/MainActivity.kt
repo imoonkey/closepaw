@@ -371,7 +371,8 @@ class MainActivity : ComponentActivity() {
                                                                 else ->
                                                                         PerceptionConfig
                                                                                 .AccessibilityOnly
-                                                            }
+                                                            },
+                                                    platformMode = settingsState.platformMode
                                             ),
                                     service = service,
                                     scope = sessionScope,
