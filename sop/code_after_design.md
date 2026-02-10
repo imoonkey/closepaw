@@ -12,7 +12,7 @@ At each phase of the execution, repeat the following:
 
 # Important Notes
 
-- /ultra-think ! This is really important piece for my whole project. Write really really well thought code. Like you are Linus Torvalds.
+- /ultra-think ! This is really important piece for my whole project. Write really really well thought code. Write the code like you are Linus Torvalds.
 
 - Manage your context properly with todo/ subagents/ agent-team. So context window removes unnecessary history when needed. 
     - Ideally, for every todo item, the separation is clear, you work on it with a new subagent, so previous todo item's history does not contaminate the context window. 
