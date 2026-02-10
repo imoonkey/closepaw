@@ -3,6 +3,7 @@ package com.moonkey.androidagent.session
 import android.util.Log
 import com.moonkey.androidagent.agent.Agent
 import com.moonkey.androidagent.agent.AgentExecutionConfig
+import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.agent.definition.AgentDefRegistry
 import com.moonkey.androidagent.agent.subagent.AgentRegistry
@@ -42,6 +43,13 @@ internal class SessionAgentRunner(
         val signal = CompletableDeferred<AgentStopReason>()
         cancellationSignal = signal
 
+        // Resolve model name based on agent role
+        val modelName = when (agentDef.executionRole) {
+            AgentExecutionRole.STANDALONE,
+            AgentExecutionRole.PLANNER -> config.mainModel
+            AgentExecutionRole.EXECUTOR -> config.executorModel ?: config.mainModel
+        }
+
         val agentConfig = AgentExecutionConfig(
             goal = taskInput,
             sessionId = sessionId,
@@ -52,7 +60,8 @@ internal class SessionAgentRunner(
             systemPrompt = agentDef.systemPrompt,
             allowedToolNames = agentDef.allowedTools,
             agentId = sessionId.value,
-            agentRole = agentDef.executionRole
+            agentRole = agentDef.executionRole,
+            modelName = modelName
         )
 
         val newAgent = Agent(

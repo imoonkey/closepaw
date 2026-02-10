@@ -3,6 +3,8 @@ package com.moonkey.androidagent.session
 import android.content.Context
 import android.util.Log
 import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.llm.LLMClientFactory
+import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.OpenAIResponseClient
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LocalLLMConfig
@@ -37,11 +39,7 @@ import com.moonkey.androidagent.trace.TraceRecorder
  * - policyEngine: Decides ALLOW/DENY/ASK_USER for tool calls
  * - platform: Android-specific operations
  * - config: Session configuration
- * 
- * V2 Changes:
- * - Removed agentRegistry (no longer needed without multi-agent orchestration)
- * - Added llmClient as instance-based service (not singleton)
- * 
+ *
  * Usage:
  * ```kotlin
  * // For OpenAI backend:
@@ -61,6 +59,8 @@ data class SessionServices(
     val platform: AndroidPlatform,
     val config: SessionConfig,
     val llmClient: LLMClient,
+    val modelCatalog: ModelCatalog,
+    val llmClientFactory: LLMClientFactory,
     val traceRecorder: TraceRecorder
 ) {
     companion object {
@@ -90,8 +90,7 @@ data class SessionServices(
             traceRecorder: TraceRecorder
         ): SessionServices {
             Log.d(TAG, "Creating SessionServices with backend: ${config.llmBackend}...")
-            
-            // 1. Create LLMClient based on backend type
+
             val llmClient: LLMClient = when (config.llmBackend) {
                 LLMBackendType.OPENAI -> {
                     requireNotNull(apiKey) { "API key is required for OpenAI backend" }
@@ -104,24 +103,32 @@ data class SessionServices(
                 }
             }
             Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
-            
-            // 2. Create PolicyEngine with approval mode from config
+
+            val modelCatalog = loadModelCatalog(context)
+            Log.d(TAG, "Loaded ModelCatalog with ${modelCatalog.size} models: ${modelCatalog.names()}")
+
+            val llmClientFactory = LLMClientFactory(
+                catalog = modelCatalog,
+                apiKeyResolver = { _ ->
+                    // Primary: use the apiKey passed in (from intent extras / settings).
+                    // For now, all cloud models share the same API key.
+                    apiKey
+                }
+            )
+            Log.d(TAG, "Created LLMClientFactory")
+
             val policyEngine = PolicyEngine(config.approvalMode)
             Log.d(TAG, "Created PolicyEngine with mode: ${config.approvalMode}")
 
-            // 3. Create and populate ToolRegistry with built-in tools
             val sessionState = AgentSessionState()
             val toolRegistry = ToolRegistry().apply {
                 registerBuiltInTools(sessionState)
             }
             Log.d(TAG, "Created ToolRegistry with ${toolRegistry.size()} tools")
-            
-            // 4. Create ToolRouter (depends on registry and policy engine)
+
             val toolRouter = ToolRouter(toolRegistry, policyEngine)
             Log.d(TAG, "Created ToolRouter")
-            
-            // 5. Create HistoryManager with config-based settings
-            // Use AGGRESSIVE truncation to keep screen observations smaller
+
             val historyConfig = HistoryConfig(
                 defaultTruncationPolicy = TruncationPolicy.AGGRESSIVE, // 2000 tokens vs 8000
                 autoCompress = true,
@@ -141,33 +148,60 @@ data class SessionServices(
                 platform = platform,
                 config = config,
                 llmClient = llmClient,
+                modelCatalog = modelCatalog,
+                llmClientFactory = llmClientFactory,
                 traceRecorder = traceRecorder
             )
         }
         
         /**
-         * Register all built-in tools in the registry.
-         * 
-         * Uses the consolidated tool pattern from pragmatic_tool_design.md:
-         * - complete_task: Agent metatool for finishing tasks
-         * - mobile_action: Screen-targeted UI interactions (click, type, swipe, long_press)
-         * - system_button: Deterministic system key actions (back/home/enter/recents)
-         * - wait: Deterministic pause to let UI settle
-         * - open_app: Launch apps by name
+         * Load ModelCatalog from assets/llm_models.json.
+         * Falls back to a minimal single-model catalog if context is unavailable
+         * or the asset is missing.
+         *
+         * Note: Performs blocking I/O on the calling thread. Callers must ensure
+         * this runs off the main thread (e.g. `Dispatchers.IO`). Asset reads are
+         * typically sub-millisecond, but the guarantee matters.
+         */
+        private fun loadModelCatalog(context: Context?): ModelCatalog {
+            if (context == null) {
+                Log.w(TAG, "No context available; using fallback single-model catalog")
+                return ModelCatalog.fromJson(FALLBACK_CATALOG_JSON)
+            }
+            return try {
+                val json = context.assets.open("llm_models.json")
+                    .bufferedReader().use { it.readText() }
+                ModelCatalog.fromJson(json)
+            } catch (e: java.io.IOException) {
+                Log.w(TAG, "Failed to read llm_models.json from assets; using fallback", e)
+                ModelCatalog.fromJson(FALLBACK_CATALOG_JSON)
+            } catch (e: kotlinx.serialization.SerializationException) {
+                Log.w(TAG, "Failed to parse llm_models.json; using fallback", e)
+                ModelCatalog.fromJson(FALLBACK_CATALOG_JSON)
+            }
+        }
+
+        private const val FALLBACK_CATALOG_JSON = """
+        {
+          "gpt-5.2": {
+            "display_name": "GPT-5.2",
+            "provider": "OPENAI",
+            "api": "response",
+            "model_id": "gpt-5.2"
+          }
+        }
+        """
+
+        /**
+         * Registers built-in tools: complete_task, mobile_action, system_button,
+         * wait, open_app, write_todos, scratchpad.
          */
         private fun ToolRegistry.registerBuiltInTools(sessionState: AgentSessionState) {
-            // P0: Agent metatool
             register(CompleteTaskTool())
-
-            // P0: Screen-targeted UI interactions
             register(MobileActionTool())
             register(SystemButtonTool())
             register(WaitTool())
-
-            // P0: App launching
             register(OpenAppTool())
-
-            // P0: Planning state tools
             register(WriteTodosTool(sessionState.todos))
             register(ScratchpadTool(sessionState.scratchpad))
 
@@ -191,7 +225,8 @@ data class SessionServices(
             appendLine("=== SessionServices Summary ===")
             appendLine()
             appendLine("Config:")
-            appendLine("  Model: ${config.model}")
+            appendLine("  Main Model: ${config.mainModel}")
+            config.executorModel?.let { appendLine("  Executor Model: $it") }
             appendLine("  Approval Mode: ${config.approvalMode}")
             appendLine("  Max Turns: ${config.maxTurns}")
             appendLine("  Action Delay: ${config.actionDelayMs}ms")
@@ -228,6 +263,7 @@ data class SessionServices(
 
         // Release LLM resources (especially important for local models)
         llmClient.cleanup()
+        llmClientFactory.cleanupAll()
 
         // Flush/close trace last so we still capture teardown artifacts if needed
         traceRecorder.close()

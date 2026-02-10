@@ -135,6 +135,10 @@ class IsolatedSubAgentRunner(
             )
         )
 
+        // Sub-agents use executor model when available, otherwise fall back to main model
+        val childModelName = parentServices.config.executorModel
+            ?: parentServices.config.mainModel
+
         val childAgent = Agent(
             config = AgentExecutionConfig(
                 goal = request.toGoal(),
@@ -148,7 +152,8 @@ class IsolatedSubAgentRunner(
                 agentId = childSessionId.value,
                 agentRole = definition.executionRole ?: AgentExecutionRole.EXECUTOR,
                 parentSessionId = parentSessionId,
-                delegationCallId = request.delegationCallId
+                delegationCallId = request.delegationCallId,
+                modelName = childModelName
             ),
             services = childServices,
             eventEmitter = { event -> bridgeEvent(event) },

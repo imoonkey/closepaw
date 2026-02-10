@@ -8,7 +8,6 @@ import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.Point
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.PerceptionConfig
-import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.Todo
 import com.moonkey.androidagent.protocol.TodoStatus
 import com.moonkey.androidagent.session.AgentSessionState
@@ -232,8 +231,8 @@ class PromptBuilderTest {
     }
 
     @Test
-    fun `buildObservationText excludes screenshot hint for non-OpenAI`() {
-        val builder = createBuilder(llmBackend = LLMBackendType.LOCAL)
+    fun `buildObservationText excludes screenshot hint when vision not supported`() {
+        val builder = createBuilder(supportsVision = false)
         val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
 
         assertThat(text).doesNotContain("Screenshot attached")
@@ -281,7 +280,7 @@ class PromptBuilderTest {
         val builder = PromptBuilder(
             historyManager = historyManager,
             sessionState = state,
-            llmBackend = LLMBackendType.OPENAI
+            supportsVision = true
         )
 
         val items = builder.buildInputItems(emptySnapshot, null)
@@ -298,7 +297,7 @@ class PromptBuilderTest {
         val builder = PromptBuilder(
             historyManager = historyManager,
             sessionState = AgentSessionState(),
-            llmBackend = LLMBackendType.OPENAI
+            supportsVision = true
         )
 
         val items = builder.buildInputItems(emptySnapshot, null)
@@ -329,7 +328,7 @@ class PromptBuilderTest {
         val builder = PromptBuilder(
             historyManager = historyManager,
             sessionState = AgentSessionState(),
-            llmBackend = LLMBackendType.OPENAI
+            supportsVision = true
         )
 
         val items = builder.buildInputItems(emptySnapshot, null)
@@ -343,13 +342,13 @@ class PromptBuilderTest {
     private fun createBuilder(
         historyManager: HistoryManager = HistoryManager(),
         sessionState: AgentSessionState = AgentSessionState(),
-        llmBackend: LLMBackendType = LLMBackendType.OPENAI,
+        supportsVision: Boolean = true,
         perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
         recentFullScreenTurns: Int = 3
     ): PromptBuilder = PromptBuilder(
         historyManager = historyManager,
         sessionState = sessionState,
-        llmBackend = llmBackend,
+        supportsVision = supportsVision,
         perceptionConfig = perceptionConfig,
         recentFullScreenTurns = recentFullScreenTurns
     )

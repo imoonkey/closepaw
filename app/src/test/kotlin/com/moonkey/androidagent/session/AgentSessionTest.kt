@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.llm.LLMClientFactory
+import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.ResponsesResult
 import com.moonkey.androidagent.protocol.AgentEvent
@@ -94,6 +96,7 @@ private fun buildSession(
     val toolRouter = ToolRouter(toolRegistry, policyEngine)
     val platform = FakeAndroidPlatform(captureDelayMs = captureDelayMs)
     val config = SessionConfig(maxTurns = maxTurns, actionDelayMs = 0, agentMode = agentMode)
+    val testCatalog = ModelCatalog.fromJson("""{"_test-only":{"display_name":"Test","provider":"OPENAI","api":"response","model_id":"test"}}""")
     val services = SessionServices(
         toolRegistry = toolRegistry,
         toolRouter = toolRouter,
@@ -103,6 +106,8 @@ private fun buildSession(
         platform = platform,
         config = config,
         llmClient = SessionTestLLMClient(llmDelayMs),
+        modelCatalog = testCatalog,
+        llmClientFactory = LLMClientFactory(testCatalog) { "test-key" },
         traceRecorder = NoopTraceRecorder
     )
     val service = mockk<AccessibilityService>(relaxed = true)

@@ -3,6 +3,8 @@ package com.moonkey.androidagent.agent
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.llm.LLMClientFactory
+import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.ResponsesResult
 import com.moonkey.androidagent.protocol.LLMBackendType
@@ -102,6 +104,7 @@ private fun buildServices(llmClient: LLMClient): SessionServices {
         actionDelayMs = 0,
         llmBackend = LLMBackendType.OPENAI
     )
+    val testCatalog = ModelCatalog.fromJson("""{"_test-only":{"display_name":"Test","provider":"OPENAI","api":"response","model_id":"test"}}""")
     return SessionServices(
         toolRegistry = toolRegistry,
         toolRouter = toolRouter,
@@ -111,6 +114,8 @@ private fun buildServices(llmClient: LLMClient): SessionServices {
         platform = platform,
         config = config,
         llmClient = llmClient,
+        modelCatalog = testCatalog,
+        llmClientFactory = LLMClientFactory(testCatalog) { "test-key" },
         traceRecorder = NoopTraceRecorder
     )
 }

@@ -3,6 +3,8 @@ package com.moonkey.androidagent.agent.subagent
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.llm.LLMClient
+import com.moonkey.androidagent.llm.LLMClientFactory
+import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.LLMToolCall
 import com.moonkey.androidagent.llm.ResponsesResult
@@ -184,6 +186,9 @@ private fun buildServices(
         toolRegistry.register(CompleteTaskTool())
     }
     val policyEngine = PolicyEngine()
+    // Dummy catalog with a model name tests won't request, so AgentTurnRunner
+    // falls back to services.llmClient (the test mock)
+    val testCatalog = ModelCatalog.fromJson("""{"_test-only":{"display_name":"Test","provider":"OPENAI","api":"response","model_id":"test"}}""")
     return SessionServices(
         toolRegistry = toolRegistry,
         toolRouter = ToolRouter(toolRegistry, policyEngine),
@@ -197,6 +202,8 @@ private fun buildServices(
             llmBackend = LLMBackendType.OPENAI
         ),
         llmClient = llmClient,
+        modelCatalog = testCatalog,
+        llmClientFactory = LLMClientFactory(testCatalog) { "test-key" },
         traceRecorder = NoopTraceRecorder
     )
 }

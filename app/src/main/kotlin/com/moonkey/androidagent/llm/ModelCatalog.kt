@@ -90,6 +90,11 @@ class ModelCatalog private constructor(
             "Unknown model '$name'. Available: ${entries.keys.sorted()}"
         )
 
+    /**
+     * Resolve a model by name, returning null if not found.
+     */
+    fun resolveOrNull(name: String): ModelEntry? = entries[name]
+
     /** All entries, in insertion order. */
     fun all(): List<ModelEntry> = entries.values.toList()
 

@@ -4,10 +4,7 @@ import com.moonkey.androidagent.protocol.SessionId
 
 /**
  * Configuration for Agent execution.
- * 
- * Simplified from OrchestrationConfig - removes multi-agent specific fields.
  */
-
 /**
  * Execution role used for trace classification and replay grouping.
  */
@@ -50,8 +47,7 @@ data class AgentExecutionConfig(
 
     /**
      * Stable id used for trace grouping in multi-agent runs.
-     *
-     * Defaults to session id (one agent per session) for Phase 1.
+     * Defaults to session id when not in a delegation chain.
      */
     val agentId: String = sessionId.value,
 
@@ -68,5 +64,11 @@ data class AgentExecutionConfig(
     /**
      * Parent delegate tool call id that spawned this agent.
      */
-    val delegationCallId: String? = null
+    val delegationCallId: String? = null,
+
+    /**
+     * Model name (key in llm_models.json) for this agent's LLM calls.
+     * Set by SessionAgentRunner based on agent role.
+     */
+    val modelName: String = "gpt-5.2"
 )

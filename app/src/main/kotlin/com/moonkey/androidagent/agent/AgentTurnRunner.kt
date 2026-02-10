@@ -213,10 +213,20 @@ internal class AgentTurnRunner(
                 eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PLANNING)
                 eventDispatcher.status("🧠 Thinking...")
 
+                val modelEntry = services.modelCatalog.resolveOrNull(config.modelName)
+                val llmClient = if (modelEntry != null) {
+                        services.llmClientFactory.create(config.modelName)
+                } else {
+                        Log.w(TAG, "Model '${config.modelName}' not in catalog; using legacy llmClient")
+                        services.llmClient
+                }
+                val modelId = modelEntry?.modelId ?: config.modelName
+                val supportsVision = modelEntry?.supportsVision ?: true
+
                 val turn =
                         Turn(
                                 toolRegistry = services.toolRegistry,
-                                llmClient = services.llmClient,
+                                llmClient = llmClient,
                                 allowedToolNames = config.allowedToolNames
                         )
                 val systemPrompt = requireNotNull(config.systemPrompt) {
@@ -225,7 +235,7 @@ internal class AgentTurnRunner(
                 val promptBuilder = PromptBuilder(
                         historyManager = services.historyManager,
                         sessionState = services.sessionState,
-                        llmBackend = services.config.llmBackend,
+                        supportsVision = supportsVision,
                         perceptionConfig = services.config.perceptionConfig
                 )
                 val inputItems = promptBuilder.buildInputItems(
@@ -252,7 +262,7 @@ internal class AgentTurnRunner(
                 turn.runStreaming(
                                 systemPrompt = systemPrompt,
                                 inputItems = inputItems,
-                                model = services.config.model
+                                model = modelId
                         )
                         .collect { event ->
                                 when (event) {

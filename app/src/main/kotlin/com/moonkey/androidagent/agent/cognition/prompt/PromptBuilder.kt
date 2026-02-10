@@ -6,7 +6,6 @@ import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.perception.Perceptor
-import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.session.AgentSessionState
 import com.openai.models.responses.EasyInputMessage
 import com.openai.models.responses.ResponseFunctionToolCall
@@ -28,7 +27,7 @@ import com.openai.models.responses.ResponseInputText
 internal class PromptBuilder(
     private val historyManager: HistoryManager,
     private val sessionState: AgentSessionState,
-    private val llmBackend: LLMBackendType,
+    private val supportsVision: Boolean = true,
     private val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
     private val recentFullScreenTurns: Int = 3
 ) {
@@ -105,7 +104,7 @@ internal class PromptBuilder(
         warnings: List<String>
     ): ResponseInputItem {
         val text = buildObservationText(snapshot, image, warnings)
-        return if (image != null && llmBackend == LLMBackendType.OPENAI) {
+        return if (image != null && supportsVision) {
             imageUserMessage(text, image)
         } else {
             textUserMessage(text)
@@ -147,7 +146,7 @@ internal class PromptBuilder(
             }
 
             // Screenshot section
-            if (image != null && llmBackend == LLMBackendType.OPENAI) {
+            if (image != null && supportsVision) {
                 if (perceptionConfig.capturesAccessibility) appendLine()
                 appendLine()
                 append("Screenshot attached (analyze visually if needed).")

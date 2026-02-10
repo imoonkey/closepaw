@@ -112,16 +112,16 @@ data class SessionConfig(
     /** Approval mode for tool execution */
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     
-    /** LLM model to use (for cloud backends) */
+    /** LLM model to use (for cloud backends) — kept for backward compat with UI */
     val model: String = "gpt-5.2",
     
-    /** LLM backend type (cloud or local) */
+    /** LLM backend type (cloud or local) — kept for backward compat with UI */
     val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
 
     /** Execution mode for main agent orchestration */
     val agentMode: AgentMode = AgentMode.PRO,
 
-    /** Local LLM configuration (used when llmBackend is LOCAL) */
+    /** Local LLM configuration (used when llmBackend is LOCAL) — kept for backward compat */
     val localLLMConfig: LocalLLMConfig? = null,
     
     /** Enable verbose debug logging */
@@ -134,7 +134,25 @@ data class SessionConfig(
     val traceRunId: String? = null,
 
     /** Controls which perception modalities (a11y tree, screenshot, both) are active */
-    val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT
+    val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
+
+    /**
+     * Primary model name (key in llm_models.json) for standalone/planner agents.
+     *
+     * Defaults to [model] for backward compatibility: when the UI sets only
+     * [model], [mainModel] inherits the same value. When constructing configs
+     * programmatically, prefer setting [mainModel] directly.
+     */
+    val mainModel: String = model,
+
+    /**
+     * Model name (key in llm_models.json) for executor agents in planner/executor mode.
+     * When null, executor agents fall back to [mainModel].
+     *
+     * Typical usage: set a cheaper/faster model here while [mainModel] uses a
+     * more capable model for planning.
+     */
+    val executorModel: String? = null
 )
 
 /**

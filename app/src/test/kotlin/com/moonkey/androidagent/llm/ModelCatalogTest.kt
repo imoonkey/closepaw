@@ -85,6 +85,20 @@ class ModelCatalogTest {
     }
 
     @Test
+    fun `resolveOrNull returns entry for known model`() {
+        val catalog = ModelCatalog.fromJson(sampleJson)
+        val entry = catalog.resolveOrNull("gpt-5.2")
+        assertNotNull(entry)
+        assertEquals("gpt-5.2", entry!!.modelId)
+    }
+
+    @Test
+    fun `resolveOrNull returns null for unknown model`() {
+        val catalog = ModelCatalog.fromJson(sampleJson)
+        assertNull(catalog.resolveOrNull("nonexistent-model"))
+    }
+
+    @Test
     fun `all returns entries in insertion order`() {
         val catalog = ModelCatalog.fromJson(sampleJson)
         val names = catalog.all().map { it.name }
