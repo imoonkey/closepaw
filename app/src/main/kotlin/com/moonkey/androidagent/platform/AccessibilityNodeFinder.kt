@@ -3,7 +3,7 @@ package com.moonkey.androidagent.platform
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
 
-internal object AccessibilityNodeFinder {
+object AccessibilityNodeFinder {
     /**
      * Find the smallest clickable node at the given coordinates.
      *
