@@ -1,5 +1,5 @@
 # Prework
-1. Read everything under @doc/todo/[TODO]. Coming up with execution plan.
+1. Read the design doc, or if needed under @doc/todo/[TODO]. Coming up with execution plan.
 
 # Execution
 At each phase of the execution, repeat the following:
@@ -18,4 +18,6 @@ At each phase of the execution, repeat the following:
     - Ideally, for every todo item, the separation is clear, you work on it with a new subagent, so previous todo item's history does not contaminate the context window. 
     - If you have tools to compact your context, try to find a point to use it when you have used 50% of your context window.
 
-- Always start your subagent with Claude Opus 4.6 model!!!!!!!!!! Only start your agent with this model!!!!
+- Note that your subagents does not use the same model as you, you can consider it less good at deep thinking than you, but you can delegate reasonably scoped and clearly defined tasks to them.
+
+- each of the `/xxx` mentioned above is a SKILL or AGENT, if you cannot interpret it as skill, read .ai-dev/{skills|agents}/xxx/SKILL.md directly.

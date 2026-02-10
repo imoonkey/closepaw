@@ -11,8 +11,8 @@ Three models that are from startups
 - autodevice: this repo is a fork of android_world evaluation repo, with autodevice agent added on. AutoDev agent uses planner-executor mode.
 These three are building agents, not customizing models, using SoTA LLMs (e.g., GPT, Claude, Gemini etc.). Their primary customers are enterprise mobile developers using them for QA/testing. They all have high score on android_world, but you can see they have heavy prompt engineering, and sophisticated multi-agent framework, which can make it less generalizable for other tasks, and also slow and expensive.
 
-# coding_agent
-As coding agents are general agents, these repos are great resources to learn best agent framework practices. These are battle-tested real-world products from world-class companies and/or well-known open-source projects. Refer to them when you design engineering-heavy parts of your agent, like tool registry, multi-agent framework, execution engine, etc.
+# code_agent
+As code agents are general agents, these repos are great resources to learn best agent framework practices. These are battle-tested real-world products from world-class companies and/or well-known open-source projects. Refer to them when you design engineering-heavy parts of your agent, like tool registry, multi-agent framework, execution engine, etc.
 - Gemini-cli
 - Codex
 - ... 
