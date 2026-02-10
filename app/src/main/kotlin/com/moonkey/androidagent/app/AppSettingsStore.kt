@@ -10,6 +10,7 @@ import java.io.File
 data class AppSettings(
         val apiKey: String,
         val openRouterApiKey: String,
+        val novitaApiKey: String,
         val selectedModel: String,
         val maxTurns: Int,
         val debugMode: Boolean,
@@ -40,6 +41,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_LOCAL_MODEL_QUANT = "local_model_quant"
         private const val KEY_EXECUTOR_MODEL = "executor_model"
         private const val KEY_OPENROUTER_API_KEY = "openrouter_api_key"
+        private const val KEY_NOVITA_API_KEY = "novita_api_key"
 
         const val DEFAULT_MODEL = "gpt-5.2"
         const val DEFAULT_MAX_TURNS = 20
@@ -100,10 +102,12 @@ class AppSettingsStore(private val context: Context) {
                         ?: DEFAULT_LOCAL_MODEL_QUANT
         val executorModel = prefs.getString(KEY_EXECUTOR_MODEL, null)
         val openRouterApiKey = prefs.getString(KEY_OPENROUTER_API_KEY, null) ?: ""
+        val novitaApiKey = prefs.getString(KEY_NOVITA_API_KEY, null) ?: ""
 
         return AppSettings(
                 apiKey = apiKey,
                 openRouterApiKey = openRouterApiKey,
+                novitaApiKey = novitaApiKey,
                 selectedModel = selectedModel,
                 maxTurns = maxTurns,
                 debugMode = debugMode,
@@ -131,6 +135,10 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveOpenRouterApiKey(value: String) {
         prefs().edit().putString(KEY_OPENROUTER_API_KEY, value).apply()
+    }
+
+    fun saveNovitaApiKey(value: String) {
+        prefs().edit().putString(KEY_NOVITA_API_KEY, value).apply()
     }
 
     fun saveModel(value: String) {

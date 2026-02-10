@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_MAIN_MODEL = "main_model"
         const val EXTRA_EXECUTOR_MODEL = "executor_model"
         const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
+        const val EXTRA_NOVITA_API_KEY = "novita_api_key"
     }
 
     // Session scope - survives configuration changes within activity lifecycle
@@ -213,6 +214,11 @@ class MainActivity : ComponentActivity() {
         payload.openRouterApiKey?.let { key ->
             settingsState.updateOpenRouterApiKey(key)
             Log.d(TAG, "OpenRouter API key set from intent")
+        }
+
+        payload.novitaApiKey?.let { key ->
+            settingsState.updateNovitaApiKey(key)
+            Log.d(TAG, "Novita API key set from intent")
         }
 
         payload.backendType?.let {

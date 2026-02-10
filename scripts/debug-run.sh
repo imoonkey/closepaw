@@ -249,6 +249,11 @@ if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
     INTENT_EXTRAS="$INTENT_EXTRAS --es openrouter_api_key '$SAFE_OR_KEY'"
 fi
 
+if [[ -n "${NOVITA_API_KEY:-}" ]]; then
+    SAFE_NOVITA_KEY=$(escape_shell_arg "$NOVITA_API_KEY")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es novita_api_key '$SAFE_NOVITA_KEY'"
+fi
+
 # Clear any previous trace folder for this run id (best-effort)
 DEVICE_TRACE_DIR="/sdcard/Android/data/$PACKAGE/files/inspection-trace/$RUN_ID"
 adb shell "rm -rf '$DEVICE_TRACE_DIR'" >/dev/null 2>&1 || true

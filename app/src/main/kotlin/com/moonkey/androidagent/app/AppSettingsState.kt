@@ -18,6 +18,8 @@ class AppSettingsState(private val store: AppSettingsStore) {
         private set
     var openRouterApiKey by mutableStateOf("")
         private set
+    var novitaApiKey by mutableStateOf("")
+        private set
     var selectedModel by mutableStateOf(AppSettingsStore.DEFAULT_MODEL)
         private set
     var maxTurns by mutableStateOf(AppSettingsStore.DEFAULT_MAX_TURNS)
@@ -45,6 +47,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
         val settings = store.load()
         apiKey = settings.apiKey
         openRouterApiKey = settings.openRouterApiKey
+        novitaApiKey = settings.novitaApiKey
         selectedModel = settings.selectedModel
         maxTurns = settings.maxTurns
         debugMode = settings.debugMode
@@ -96,10 +99,16 @@ class AppSettingsState(private val store: AppSettingsStore) {
         store.saveOpenRouterApiKey(key)
     }
 
+    fun updateNovitaApiKey(key: String) {
+        novitaApiKey = key
+        store.saveNovitaApiKey(key)
+    }
+
     /** Build a map of provider env var name → API key for [SessionServices.create]. */
     fun buildApiKeys(): Map<String, String> = buildMap {
         if (apiKey.isNotBlank()) put("OPENAI_API_KEY", apiKey)
         if (openRouterApiKey.isNotBlank()) put("OPENROUTER_API_KEY", openRouterApiKey)
+        if (novitaApiKey.isNotBlank()) put("NOVITA_API_KEY", novitaApiKey)
     }
 
     fun updateMaxTurns(value: Int) {

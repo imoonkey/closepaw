@@ -46,5 +46,11 @@
     "provider": "OPENROUTER",
     "api": "chat",
     "model_id": "openrouter/aurora-alpha"
+  },
+  "autoglm-phone-9b-multilingual": {
+    "display_name": "AutoGLM Phone 9B Multilingual",
+    "provider": "NOVITA",
+    "api": "chat",
+    "model_id": "zai-org/autoglm-phone-9b-multilingual"
   }
 }
