@@ -21,12 +21,30 @@
     "display_name": "GLM-4.7",
     "provider": "OPENROUTER",
     "api": "chat",
-    "model_id": "zhipu-ai/glm-4.7"
+    "model_id": "z-ai/glm-4.7"
   },
-  "qwen-plus": {
-    "display_name": "Qwen Plus",
+  "kimi-k2.5": {
+    "display_name": "Kimi K2.5",
     "provider": "OPENROUTER",
     "api": "chat",
-    "model_id": "qwen/qwen-plus"
+    "model_id": "moonshotai/kimi-k2.5"
+  },
+  "qwen3-vl-235b-a22b-instruct": {
+    "display_name": "Qwen 3 VL 235B A22B Instruct",
+    "provider": "OPENROUTER",
+    "api": "chat",
+    "model_id": "qwen/qwen3-vl-235b-a22b-instruct"
+  },
+  "pony-alpha": {
+    "display_name": "Pony Alpha",
+    "provider": "OPENROUTER",
+    "api": "chat",
+    "model_id": "openrouter/pony-alpha"
+  },
+  "aurora-alpha": {
+    "display_name": "Aurora Alpha",
+    "provider": "OPENROUTER",
+    "api": "chat",
+    "model_id": "openrouter/aurora-alpha"
   }
 }

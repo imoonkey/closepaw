@@ -157,6 +157,10 @@ if [[ -f "$PROJECT_ROOT/.env" ]]; then
     source "$PROJECT_ROOT/.env"
 fi
 
+# Determine effective models early for logging
+EFFECTIVE_MAIN_MODEL="${FORCED_MAIN_MODEL:-${MAIN_MODEL:-gpt-5.2}}"
+EFFECTIVE_EXECUTOR_MODEL="${FORCED_EXECUTOR_MODEL:-${EXECUTOR_MODEL:-}}"
+
 # Determine LLM backend
 LLM_BACKEND="${LLM_BACKEND:-openai}"
 if [[ "$USE_LOCAL" == "true" ]]; then
@@ -189,6 +193,10 @@ if [[ "$LLM_BACKEND" == "openai" && -z "$OPENAI_API_KEY" ]]; then
 fi
 
 log "Using LLM backend: $LLM_BACKEND"
+log "Using main model: $EFFECTIVE_MAIN_MODEL"
+if [[ -n "$EFFECTIVE_EXECUTOR_MODEL" ]]; then
+    log "Using executor model: $EFFECTIVE_EXECUTOR_MODEL"
+fi
 log "Using execution mode: $AGENT_MODE"
 log "Using perception mode: $PERCEPTION_MODE"
 
@@ -222,19 +230,13 @@ SAFE_PERCEPTION_MODE=$(escape_shell_arg "$PERCEPTION_MODE")
 
 INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --es agent_mode '$SAFE_AGENT_MODE' --es perception_mode '$SAFE_PERCEPTION_MODE' --ez auto_start true --ez fresh_session true --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
 
-if [[ -n "$FORCED_MAIN_MODEL" ]]; then
-    SAFE_MAIN_MODEL=$(escape_shell_arg "$FORCED_MAIN_MODEL")
-    INTENT_EXTRAS="$INTENT_EXTRAS --es main_model '$SAFE_MAIN_MODEL'"
-elif [[ -n "$MAIN_MODEL" ]]; then
-    SAFE_MAIN_MODEL=$(escape_shell_arg "$MAIN_MODEL")
-    INTENT_EXTRAS="$INTENT_EXTRAS --es main_model '$SAFE_MAIN_MODEL'"
-fi
+# Add main model to intent
+SAFE_MAIN_MODEL=$(escape_shell_arg "$EFFECTIVE_MAIN_MODEL")
+INTENT_EXTRAS="$INTENT_EXTRAS --es main_model '$SAFE_MAIN_MODEL'"
 
-if [[ -n "$FORCED_EXECUTOR_MODEL" ]]; then
-    SAFE_EXECUTOR_MODEL=$(escape_shell_arg "$FORCED_EXECUTOR_MODEL")
-    INTENT_EXTRAS="$INTENT_EXTRAS --es executor_model '$SAFE_EXECUTOR_MODEL'"
-elif [[ -n "$EXECUTOR_MODEL" ]]; then
-    SAFE_EXECUTOR_MODEL=$(escape_shell_arg "$EXECUTOR_MODEL")
+# Add executor model to intent if set
+if [[ -n "$EFFECTIVE_EXECUTOR_MODEL" ]]; then
+    SAFE_EXECUTOR_MODEL=$(escape_shell_arg "$EFFECTIVE_EXECUTOR_MODEL")
     INTENT_EXTRAS="$INTENT_EXTRAS --es executor_model '$SAFE_EXECUTOR_MODEL'"
 fi
 
