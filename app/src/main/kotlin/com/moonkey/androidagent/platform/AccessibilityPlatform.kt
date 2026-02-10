@@ -17,7 +17,6 @@ import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenImageSource
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.model.ScreenSnapshotDebug
-import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.perception.screenshotJpegQuality
 import com.moonkey.androidagent.perception.screenshotMaxDimension
@@ -119,11 +118,12 @@ class AccessibilityPlatform(
                     val dump = withContext(Dispatchers.Default) { A11yTreeDumper.dump(root) }
                     val json = TraceJson.instance.encodeToString(dump)
                     traceRecorder.storeText(
-                            kind = "raw_a11y_tree",
-                            filenameHint = "raw_${System.currentTimeMillis()}.json",
-                            content = json,
-                            mimeType = "application/json"
-                    )?.path
+                                    kind = "raw_a11y_tree",
+                                    filenameHint = "raw_${System.currentTimeMillis()}.json",
+                                    content = json,
+                                    mimeType = "application/json"
+                            )
+                            ?.path
                 } else null
 
         val snapshot = Perceptor.snapshot(root)
@@ -132,11 +132,12 @@ class AccessibilityPlatform(
                 if (traceRecorder.enabled) {
                     val json = Perceptor.toPromptJson(snapshot)
                     traceRecorder.storeText(
-                            kind = "sanitized_a11y_tree",
-                            filenameHint = "sanitized_${snapshot.timestamp}.json",
-                            content = json,
-                            mimeType = "application/json"
-                    )?.path
+                                    kind = "sanitized_a11y_tree",
+                                    filenameHint = "sanitized_${snapshot.timestamp}.json",
+                                    content = json,
+                                    mimeType = "application/json"
+                            )
+                            ?.path
                 } else null
 
         return A11yCaptureResult(
@@ -256,11 +257,18 @@ class AccessibilityPlatform(
                     }
 
                     val scaledBitmap =
-                            scaleBitmapIfNeeded(softwareBitmap, config.perceptionConfig.screenshotMaxDimension)
+                            scaleBitmapIfNeeded(
+                                    softwareBitmap,
+                                    config.perceptionConfig.screenshotMaxDimension
+                            )
                     val width = scaledBitmap.width
                     val height = scaledBitmap.height
 
-                    val jpegBytes = compressJpeg(scaledBitmap, config.perceptionConfig.screenshotJpegQuality)
+                    val jpegBytes =
+                            compressJpeg(
+                                    scaledBitmap,
+                                    config.perceptionConfig.screenshotJpegQuality
+                            )
 
                     if (scaledBitmap !== softwareBitmap) {
                         softwareBitmap.recycle()
@@ -504,17 +512,26 @@ class AccessibilityPlatform(
         try {
             val imeResult =
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                        focusedEditable.performAction(
-                                AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id
+                        val result =
+                                focusedEditable.performAction(
+                                        AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER
+                                                .id
+                                )
+                        Log.d(
+                                TAG,
+                                "ACTION_IME_ENTER result: $result on node: ${focusedEditable.viewIdResourceName}"
                         )
+                        result
                     } else {
+                        Log.d(TAG, "Skipping ACTION_IME_ENTER (API < R)")
                         false
                     }
 
             if (imeResult) {
-                return ActionResult.Success("Enter key pressed")
+                return ActionResult.Success("Enter key pressed (IME action)")
             }
 
+            Log.d(TAG, "IME Enter failed or unsupported, falling back to ACTION_CLICK")
             val clickFallbackResult =
                     focusedEditable.performAction(AccessibilityNodeInfo.ACTION_CLICK)
             return if (clickFallbackResult) {

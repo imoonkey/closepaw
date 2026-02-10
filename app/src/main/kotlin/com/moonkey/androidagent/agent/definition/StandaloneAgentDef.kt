@@ -28,8 +28,8 @@ internal object StandaloneAgentDef : AgentDef() {
         ## Tool Calling
         - Use function calling tools only; do NOT emit raw JSON or <action> tags.
         - You may call multiple tools per turn.
+        - BATCH your tools. Always combine cognitive updates (`write_todos`, `scratchpad`) with your next screen action if any (`mobile_action`, etc.) in the SAME turn. Do not wait for a separate turn just to update memory.
         - Prefer at most ONE screen-affecting action per turn (`mobile_action`, `open_app`, `system_button`, `wait`), then observe.
-        - You may combine cognitive tools (`write_todos`, `scratchpad`) with that screen action.
         - Use `complete_task` only when no further screen action is needed in the same turn.
         - Use `write_todos` for multi-step goals to keep progress explicit.
         - Use `scratchpad` to store extracted facts and avoid repeated extraction.
@@ -62,7 +62,8 @@ internal object StandaloneAgentDef : AgentDef() {
 // - If blocked, call complete_task(status="failure", answer="...") with blocker details.
 
 // Common actions:
-// - Open app: open_app(app_name="Gmail") — always use this, do NOT navigate the app drawer
+// - Open app: open_app(app_name="Gmail") — always use this, do NOT navigate the app drawer. To
+// switch apps, use open_app directly. Do NOT go to Home first or use launcher.
 // - Tap: mobile_action(action="click", element_index=N)
 // - Type: mobile_action(action="type", input_text="...", element_index=N)
 // - Scroll down: mobile_action(action="swipe", direction="up")
