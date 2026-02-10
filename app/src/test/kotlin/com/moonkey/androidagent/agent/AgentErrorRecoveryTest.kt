@@ -122,7 +122,7 @@ private class AgentErrorTestLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: com.openai.models.ChatModel
+        model: String
     ): ResponsesResult {
         throw throwable
     }
@@ -131,7 +131,7 @@ private class AgentErrorTestLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: com.openai.models.ChatModel
+        model: String
     ): Flow<LLMStreamEvent> = flow {
         throw throwable
     }

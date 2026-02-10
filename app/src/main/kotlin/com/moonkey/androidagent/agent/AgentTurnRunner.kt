@@ -252,7 +252,7 @@ internal class AgentTurnRunner(
                 turn.runStreaming(
                                 systemPrompt = systemPrompt,
                                 inputItems = inputItems,
-                                modelName = services.config.model
+                                model = services.config.model
                         )
                         .collect { event ->
                                 when (event) {

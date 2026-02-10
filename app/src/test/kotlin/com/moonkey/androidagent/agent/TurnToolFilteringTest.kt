@@ -118,7 +118,7 @@ private class CapturingTurnLLMClient(private val response: ResponsesResult) : LL
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
             tools: List<FunctionTool>,
-            model: com.openai.models.ChatModel
+            model: String
     ): ResponsesResult {
         lastToolNames = tools.map { it.name() }
         return response
@@ -128,7 +128,7 @@ private class CapturingTurnLLMClient(private val response: ResponsesResult) : LL
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
             tools: List<FunctionTool>,
-            model: com.openai.models.ChatModel
+            model: String
     ): Flow<LLMStreamEvent> = flow { emit(LLMStreamEvent.Completed) }
 }
 

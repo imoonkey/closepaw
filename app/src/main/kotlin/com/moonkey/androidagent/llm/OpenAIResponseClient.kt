@@ -15,35 +15,38 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
 
 /**
- * OpenAILLMClient - LLM client using OpenAI Responses API.
- * 
+ * OpenAIResponseClient - LLM client using OpenAI Responses API.
+ *
  * Features:
  * - Native function/tool calling via Responses API
  * - Automatic retry with exponential backoff on rate limits (429)
  * - Proper ResponseInputItem types for conversation history
  * - Native streaming support converted to LLMStreamEvent
- * 
+ *
  * This is the cloud-based implementation that connects to OpenAI's API.
  */
-class OpenAILLMClient(apiKey: String) : LLMClient() {
-    
+class OpenAIResponseClient(apiKey: String) : LLMClient() {
+
     companion object {
-        private const val TAG = "OpenAILLMClient"
+        private const val TAG = "OpenAIResponseClient"
     }
 
     private val client: OpenAIClient
-    
+
+    private fun advanceBackoff(currentMs: Long): Long =
+        (currentMs * LLMClient.BACKOFF_MULTIPLIER).toLong().coerceAtMost(LLMClient.MAX_BACKOFF_MS)
+
     init {
-        Log.d(TAG, "Creating OpenAILLMClient")
+        Log.d(TAG, "Creating OpenAIResponseClient")
         client = OpenAIOkHttpClient.builder()
             .apiKey(apiKey)
             .build()
-        Log.i(TAG, "OpenAILLMClient created successfully")
+        Log.i(TAG, "OpenAIResponseClient created successfully")
     }
-    
+
     /**
      * Call the Responses API with tool/function calling support (non-streaming).
-     * 
+     *
      * Uses proper ResponseInputItem types for conversation history,
      * which enables correct function call/output correlation.
      */
@@ -51,64 +54,60 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel
+        model: String
     ): ResponsesResult {
         return withContext(Dispatchers.IO) {
             var lastException: Exception? = null
             var backoffMs = LLMClient.INITIAL_BACKOFF_MS
-            
+
             for (attempt in 1..LLMClient.MAX_RETRIES) {
                 try {
                     return@withContext executeChatWithTools(systemPrompt, inputItems, tools, model)
                 } catch (e: RateLimitException) {
                     lastException = e
-                    
+
                     if (attempt == LLMClient.MAX_RETRIES) {
                         Log.e(TAG, "Max retries (${LLMClient.MAX_RETRIES}) exceeded for rate limit")
                         throw e
                     }
-                    
+
                     val waitMs = e.retryAfterMs ?: backoffMs
                     Log.w(TAG, "Rate limited (attempt $attempt/${LLMClient.MAX_RETRIES}), waiting ${waitMs}ms...")
-                    
+
                     delay(waitMs)
-                    backoffMs = (backoffMs * LLMClient.BACKOFF_MULTIPLIER)
-                        .toLong()
-                        .coerceAtMost(LLMClient.MAX_BACKOFF_MS)
-                    
+                    backoffMs = advanceBackoff(backoffMs)
+
                 } catch (e: TransientException) {
                     lastException = e
-                    
+
                     if (attempt == LLMClient.MAX_RETRIES) {
                         Log.e(TAG, "Max retries (${LLMClient.MAX_RETRIES}) exceeded for transient error")
                         throw e.cause ?: e
                     }
-                    
+
                     Log.w(
                         TAG,
                         "Transient error (attempt $attempt/${LLMClient.MAX_RETRIES}): ${e.message}, retrying in ${backoffMs}ms..."
                     )
                     delay(backoffMs)
-                    backoffMs = (backoffMs * LLMClient.BACKOFF_MULTIPLIER)
-                        .toLong()
-                        .coerceAtMost(LLMClient.MAX_BACKOFF_MS)
+                    backoffMs = advanceBackoff(backoffMs)
                 }
             }
-            
+
             throw lastException ?: RuntimeException("Unexpected error in retry loop")
         }
     }
-    
+
     /**
      * Streaming version of chatWithTools using the OpenAI SDK's streaming API.
-     * 
+     *
      * Converts OpenAI's ResponseStreamEvent to our unified LLMStreamEvent.
      */
     override fun chatWithToolsStreaming(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel
+        model: String
     ): Flow<LLMStreamEvent> = callbackFlow {
         Log.d(TAG, "Starting native streaming chat with ${inputItems.size} input items")
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
@@ -214,9 +213,7 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
                     }
                     Log.w(TAG, "Retryable stream error (attempt $attempt/${LLMClient.MAX_RETRIES}): ${classified.message}, waiting ${waitMs}ms...")
                     delay(waitMs)
-                    backoffMs = (backoffMs * LLMClient.BACKOFF_MULTIPLIER)
-                        .toLong()
-                        .coerceAtMost(LLMClient.MAX_BACKOFF_MS)
+                    backoffMs = advanceBackoff(backoffMs)
                     continue
                 }
 
@@ -239,7 +236,7 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
             Log.d(TAG, "Streaming flow closed")
         }
     }
-    
+
     /**
      * Execute the Responses API call with tools.
      */
@@ -247,7 +244,7 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel
+        model: String
     ): ResponsesResult {
         Log.d(TAG, "Calling Responses API with ${inputItems.size} input items, ${tools.size} tools")
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
@@ -258,11 +255,11 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
             Log.d(TAG, "Making Responses API call to OpenAI...")
 
             val response = client.responses().create(params)
-            
+
             // Parse output items
             val textContent = StringBuilder()
             val toolCalls = mutableListOf<LLMToolCall>()
-            
+
             for (item in response.output()) {
                 when {
                     item.isFunctionCall() -> {
@@ -284,30 +281,30 @@ class OpenAILLMClient(apiKey: String) : LLMClient() {
                     }
                 }
             }
-            
+
             val result = ResponsesResult(
                 textContent = textContent.toString().takeIf { it.isNotEmpty() },
                 toolCalls = toolCalls,
                 responseId = response.id()
             )
-            
+
             Log.d(TAG, "Responses API result: ${result.textContent?.take(200)}..., ${result.toolCalls.size} tool calls")
             LlmLogger.logOutput(TAG, result)
             return result
-            
+
         } catch (e: Exception) {
             throw OpenAIErrorClassifier.classify(e)
         }
     }
-    
+
     private fun buildResponseParams(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel
+        model: String
     ): ResponseCreateParams {
         val builder = ResponseCreateParams.builder()
-            .model(model)
+            .model(ChatModel.of(model))
             .instructions(systemPrompt)
             .input(ResponseCreateParams.Input.ofResponse(inputItems))
 

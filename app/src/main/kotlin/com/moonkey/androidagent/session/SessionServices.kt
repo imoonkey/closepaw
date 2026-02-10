@@ -3,7 +3,7 @@ package com.moonkey.androidagent.session
 import android.content.Context
 import android.util.Log
 import com.moonkey.androidagent.llm.LLMClient
-import com.moonkey.androidagent.llm.OpenAILLMClient
+import com.moonkey.androidagent.llm.OpenAIResponseClient
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.history.HistoryConfig
@@ -95,7 +95,7 @@ data class SessionServices(
             val llmClient: LLMClient = when (config.llmBackend) {
                 LLMBackendType.OPENAI -> {
                     requireNotNull(apiKey) { "API key is required for OpenAI backend" }
-                    OpenAILLMClient(apiKey)
+                    OpenAIResponseClient(apiKey)
                 }
                 LLMBackendType.LOCAL -> {
                     requireNotNull(context) { "Context is required for local LLM backend" }

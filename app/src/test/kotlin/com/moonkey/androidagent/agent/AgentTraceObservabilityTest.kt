@@ -19,7 +19,6 @@ import com.moonkey.androidagent.trace.AgentTrace
 import com.moonkey.androidagent.trace.TraceArtifactRef
 import com.moonkey.androidagent.trace.TraceEventRecord
 import com.moonkey.androidagent.trace.TraceRecorder
-import com.openai.models.ChatModel
 import com.openai.models.responses.EasyInputMessage
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
@@ -173,7 +172,7 @@ private class NoopLLMClient : LLMClient() {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel
+        model: String
     ): ResponsesResult {
         return ResponsesResult(textContent = "", toolCalls = emptyList(), responseId = "noop")
     }
@@ -182,6 +181,6 @@ private class NoopLLMClient : LLMClient() {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel
+        model: String
     ): Flow<LLMStreamEvent> = emptyFlow()
 }

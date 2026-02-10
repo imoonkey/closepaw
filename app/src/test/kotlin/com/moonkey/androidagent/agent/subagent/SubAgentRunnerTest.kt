@@ -208,7 +208,7 @@ private class SubAgentTestLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: com.openai.models.ChatModel
+        model: String
     ): ResponsesResult {
         return ResponsesResult(
             textContent = "done",
@@ -221,7 +221,7 @@ private class SubAgentTestLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: com.openai.models.ChatModel
+        model: String
     ): Flow<LLMStreamEvent> = flow {
         if (delayMs > 0) {
             delay(delayMs)
@@ -238,7 +238,7 @@ private class ScriptedSubAgentLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: com.openai.models.ChatModel
+        model: String
     ): ResponsesResult {
         return ResponsesResult(
             textContent = null,
@@ -251,7 +251,7 @@ private class ScriptedSubAgentLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: com.openai.models.ChatModel
+        model: String
     ): Flow<LLMStreamEvent> = flow {
         events.forEach { emit(it) }
     }

@@ -1,6 +1,5 @@
 package com.moonkey.androidagent.llm
 
-import com.openai.models.ChatModel
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
  * to minimize changes to callers (Turn.kt, ToolRegistry.kt).
  * 
  * Implementations:
- * - OpenAILLMClient: Cloud-based using OpenAI Responses API
+ * - OpenAIResponseClient: Cloud-based using OpenAI Responses API
  * - LFMLLMClient: Local inference using LiquidAI Leap SDK
  * 
  * Note: We reuse OpenAI types for input but use our own LLMStreamEvent for
@@ -45,7 +44,7 @@ abstract class LLMClient {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel = ChatModel.GPT_5_2
+        model: String = "gpt-5.2"
     ): ResponsesResult
     
     /**
@@ -64,7 +63,7 @@ abstract class LLMClient {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel = ChatModel.GPT_5_2
+        model: String = "gpt-5.2"
     ): Flow<LLMStreamEvent>
     
     /**

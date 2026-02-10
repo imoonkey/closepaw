@@ -11,7 +11,6 @@ import ai.liquid.leap.manifest.LeapDownloaderConfig
 import ai.liquid.leap.message.ChatMessage
 import ai.liquid.leap.message.ChatMessageContent
 import ai.liquid.leap.message.MessageResponse
-import com.openai.models.ChatModel
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
 import kotlinx.coroutines.Dispatchers
@@ -113,7 +112,7 @@ class LFMLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel
+        model: String
     ): ResponsesResult {
         val runner = getOrLoadModel()
         val (conversation, lastMessage) = buildConversation(runner, systemPrompt, inputItems)
@@ -161,7 +160,7 @@ class LFMLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: ChatModel
+        model: String
     ): Flow<LLMStreamEvent> = flow {
         val runner = getOrLoadModel()
         val (conversation, lastMessage) = buildConversation(runner, systemPrompt, inputItems)
@@ -214,11 +213,9 @@ class LFMLLMClient(
     }
 
     private suspend fun getOrLoadModel(): ModelRunner {
-        if (modelRunner != null) {
-            return modelRunner!!
-        }
+        modelRunner?.let { return it }
         loadModel()
-        return modelRunner ?: throw IllegalStateException("Model not loaded")
+        return modelRunner ?: throw IllegalStateException("Model not loaded after loadModel()")
     }
 
     private fun buildConversation(

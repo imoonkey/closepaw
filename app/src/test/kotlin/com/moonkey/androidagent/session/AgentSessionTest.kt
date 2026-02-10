@@ -121,7 +121,7 @@ private class SessionTestLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: com.openai.models.ChatModel
+        model: String
     ): ResponsesResult {
         return ResponsesResult(textContent = "done", toolCalls = emptyList(), responseId = "resp")
     }
@@ -130,7 +130,7 @@ private class SessionTestLLMClient(
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: com.openai.models.ChatModel
+        model: String
     ): Flow<LLMStreamEvent> = flow {
         if (delayMs > 0) {
             delay(delayMs)

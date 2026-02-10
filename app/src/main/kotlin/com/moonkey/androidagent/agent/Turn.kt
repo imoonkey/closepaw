@@ -5,7 +5,6 @@ import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.LLMToolCall
 import com.moonkey.androidagent.tool.ToolRegistry
-import com.openai.models.ChatModel
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
 import kotlinx.coroutines.flow.Flow
@@ -31,16 +30,16 @@ class Turn(
     private data class TurnRequest(
             val inputItems: List<ResponseInputItem>,
             val tools: List<FunctionTool>,
-            val model: ChatModel
+            val model: String
     )
 
     suspend fun run(
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
-            modelName: String = "gpt-5.2"
+            model: String = "gpt-5.2"
     ): TurnResult {
-        val request = prepareRequest(inputItems, modelName)
-        Log.d(TAG, "Running turn with ${request.inputItems.size} input items, model=$modelName")
+        val request = prepareRequest(inputItems, model)
+        Log.d(TAG, "Running turn with ${request.inputItems.size} input items, model=$model")
         Log.d(TAG, "Using ${request.tools.size} tools: ${request.tools.map { it.name() }}")
 
         val response =
@@ -61,12 +60,12 @@ class Turn(
     fun runStreaming(
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
-            modelName: String = "gpt-5.2"
+            model: String = "gpt-5.2"
     ): Flow<TurnStreamEvent> = flow {
-        Log.d(TAG, "Running streaming turn with LLM streaming, model=$modelName")
+        Log.d(TAG, "Running streaming turn with LLM streaming, model=$model")
 
         try {
-            val request = prepareRequest(inputItems, modelName)
+            val request = prepareRequest(inputItems, model)
             Log.d(TAG, "Streaming turn with ${request.inputItems.size} input items")
 
             val textAccumulator = StringBuilder()
@@ -145,34 +144,13 @@ class Turn(
 
     private fun prepareRequest(
             inputItems: List<ResponseInputItem>,
-            modelName: String
+            model: String
     ): TurnRequest {
         val tools =
                 toolRegistry.generateResponsesApiTools { spec ->
                     allowedToolNames?.contains(spec.name) != false
                 }
-        val model = modelNameToChatModel(modelName)
         return TurnRequest(inputItems = inputItems, tools = tools, model = model)
-    }
-
-    private fun modelNameToChatModel(modelName: String): ChatModel {
-        return when (modelName.lowercase()) {
-            "gpt-5.2" -> ChatModel.GPT_5_2
-            "gpt-5.2-pro" -> ChatModel.GPT_5_2_PRO
-            "gpt-5.2-chat-latest" -> ChatModel.GPT_5_2_CHAT_LATEST
-            "gpt-4o" -> ChatModel.GPT_4O
-            "gpt-4o-mini" -> ChatModel.GPT_4O_MINI
-            "gpt-4-turbo" -> ChatModel.GPT_4_TURBO
-            "gpt-4" -> ChatModel.GPT_4
-            "gpt-3.5-turbo" -> ChatModel.GPT_3_5_TURBO
-            "o1" -> ChatModel.O1
-            "o1-mini" -> ChatModel.O1_MINI
-            "o1-preview" -> ChatModel.O1_PREVIEW
-            else -> {
-                Log.w(TAG, "Unknown model name '$modelName', falling back to GPT_5_2")
-                ChatModel.GPT_5_2
-            }
-        }
     }
 
     private fun processResponse(textContent: String?, llmToolCalls: List<LLMToolCall>): TurnResult {
@@ -181,7 +159,7 @@ class Turn(
 
         if (toolCalls.size != allToolCalls.size) {
             val acceptedNames = toolCalls.map { it.name }.toSet()
-            val dropped = allToolCalls.map { it.name }.filter { it !in acceptedNames }
+            val dropped = allToolCalls.map { it.name }.toSet() - acceptedNames
             Log.w(TAG, "Dropped disallowed tool calls: $dropped")
         }
 
