@@ -15,6 +15,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
+import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenImageSource
 import com.moonkey.androidagent.model.ScreenSnapshot
@@ -172,30 +173,11 @@ class VirtualDisplayPlatform(
     /**
      * Capture the a11y tree from our virtual display's windows.
      *
-     * Filters service.windows by displayId, finds the app window,
-     * and passes its root to Perceptor for structured extraction.
+     * Uses getRootOnDisplay() to find the app window root, then passes it
+     * to Perceptor for structured extraction.
      */
-    private fun captureA11yTree(): List<com.moonkey.androidagent.model.PerceptionElement> {
-        if (displayId == Display.INVALID_DISPLAY) return emptyList()
-
-        val windows = try {
-            service.windows?.filter { it.displayId == displayId } ?: emptyList()
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to get windows for display $displayId", e)
-            return emptyList()
-        }
-
-        // Prefer TYPE_APPLICATION; fall back to any window with a root.
-        val appWindow = windows.firstOrNull {
-            it.type == AccessibilityWindowInfo.TYPE_APPLICATION
-        } ?: windows.firstOrNull { it.root != null }
-
-        val root = appWindow?.root
-        if (root == null) {
-            Log.d(TAG, "No a11y root on display $displayId (${windows.size} windows)")
-            return emptyList()
-        }
-
+    private fun captureA11yTree(): List<PerceptionElement> {
+        val root = getRootOnDisplay() ?: return emptyList()
         return try {
             Perceptor.snapshot(root, config.width, config.height).elements
         } catch (e: Exception) {
@@ -218,7 +200,8 @@ class VirtualDisplayPlatform(
             } catch (e: Exception) {
                 Log.w(TAG, "acquireLatestImage failed", e)
                 return@withContext null
-            } ?: return@withContext null
+            }
+            if (image == null) return@withContext null
 
             try {
                 val plane = image.planes[0]
@@ -551,17 +534,8 @@ class VirtualDisplayPlatform(
     }
 
     override fun getCurrentPackageName(): String? {
-        if (displayId == Display.INVALID_DISPLAY) return null
-        return try {
-            val windows = service.windows?.filter { it.displayId == displayId } ?: return null
-            val appWindow = windows.firstOrNull {
-                it.type == AccessibilityWindowInfo.TYPE_APPLICATION
-            }
-            appWindow?.root?.packageName?.toString()
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to get package name for display $displayId", e)
-            null
-        }
+        val appWindow = getAppWindowOnDisplay() ?: return null
+        return appWindow.root?.packageName?.toString()
     }
 
     override fun getDisplayInfo(): DisplayInfo {
@@ -585,7 +559,7 @@ class VirtualDisplayPlatform(
                         val ai = info.activityInfo ?: return@mapNotNull null
                         AppInfo(
                             packageName = ai.packageName,
-                            label = info.loadLabel(pm)?.toString() ?: ai.packageName,
+                            label = info.loadLabel(pm).toString().ifBlank { ai.packageName },
                             isSystemApp = (ai.applicationInfo.flags and
                                 android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
                         )
@@ -619,23 +593,34 @@ class VirtualDisplayPlatform(
     // ── Helpers ──────────────────────────────────────────────────
 
     /**
-     * Get the a11y root node from our virtual display's windows.
-     * Prefer TYPE_APPLICATION; fall back to any window with a root.
+     * Get windows on our virtual display.
+     * Returns empty list if display invalid or windows unavailable.
      */
-    private fun getRootOnDisplay(): AccessibilityNodeInfo? {
-        if (displayId == Display.INVALID_DISPLAY) return null
-        val windows = try {
+    private fun getWindowsOnDisplay(): List<AccessibilityWindowInfo> {
+        if (displayId == Display.INVALID_DISPLAY) return emptyList()
+        return try {
             service.windows?.filter { it.displayId == displayId } ?: emptyList()
         } catch (e: Exception) {
-            return null
+            Log.w(TAG, "Failed to get windows for display $displayId", e)
+            emptyList()
         }
-
-        val appWindow = windows.firstOrNull {
-            it.type == AccessibilityWindowInfo.TYPE_APPLICATION
-        } ?: windows.firstOrNull { it.root != null }
-
-        return appWindow?.root
     }
+
+    /**
+     * Get the app window on our virtual display.
+     * Prefer TYPE_APPLICATION; fall back to any window with a root.
+     */
+    private fun getAppWindowOnDisplay(): AccessibilityWindowInfo? {
+        val windows = getWindowsOnDisplay()
+        return windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            ?: windows.firstOrNull { it.root != null }
+    }
+
+    /**
+     * Get the a11y root node from our virtual display's windows.
+     */
+    private fun getRootOnDisplay(): AccessibilityNodeInfo? =
+        getAppWindowOnDisplay()?.root
 
     /**
      * Create a MotionEvent targeting our virtual display.

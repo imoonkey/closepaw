@@ -1,18 +1,20 @@
 # Platform Abstraction
 
-> AndroidPlatform, Perceptor, and screen perception.
-> Last updated: 2026-02-09 (commit: 5fbeec1)
+> AndroidPlatform, Perceptor, screen perception, and virtual display support.
+> Last updated: 2026-02-10 (commit: 04cecbd)
 
 ## AndroidPlatform
 
 → See: `platform/AndroidPlatform.kt`
 
-Abstraction for Android-specific operations.
+Abstraction for Android-specific operations. Two implementations exist: `AccessibilityPlatform` (default) and `VirtualDisplayPlatform` (Shizuku-based).
 
 ### Interface
 
 ```kotlin
 interface AndroidPlatform {
+    suspend fun start() {}   // Lifecycle: acquire resources (virtual display, ImageReader)
+    suspend fun stop() {}    // Lifecycle: release resources
     suspend fun captureScreen(): ScreenSnapshot
     suspend fun performAction(action: UIAction): ActionResult
     suspend fun launchApp(packageName: String): ActionResult
@@ -23,12 +25,16 @@ interface AndroidPlatform {
 }
 ```
 
+`start()` / `stop()` have default no-op implementations. `AccessibilityPlatform` does not use them. `VirtualDisplayPlatform` creates the virtual display in `start()` and tears it down in `stop()`.
+
 Note: `performAction` takes only a `UIAction` — no snapshot parameter. All atomic actions work with coordinates or focused state; element resolution happens in the executor layer.
 
 ### Operations
 
 | Method | Purpose |
 |--------|---------|
+| `start()` | Acquire platform resources (no-op for accessibility) |
+| `stop()` | Release platform resources (no-op for accessibility) |
 | `captureScreen()` | Get current UI state as `ScreenSnapshot` |
 | `performAction()` | Execute a single atomic UI action |
 | `launchApp()` | Launch app by package name |
@@ -36,6 +42,19 @@ Note: `performAction` takes only a `UIAction` — no snapshot parameter. All ato
 | `hasRequiredPermissions()` | Check accessibility permission |
 | `getCurrentPackageName()` | Get foreground app |
 | `getDisplayInfo()` | Screen dimensions |
+
+### Platform Selection
+
+→ See: `platform/PlatformFactory.kt`
+
+`PlatformFactory.create()` selects the platform implementation based on `SessionConfig.platformMode`:
+
+| Mode | Platform | Fallback |
+|------|----------|----------|
+| `ACCESSIBILITY` | `AccessibilityPlatform` | N/A |
+| `VIRTUAL_DISPLAY` | `VirtualDisplayPlatform` | Falls back to `AccessibilityPlatform` if Shizuku is unavailable |
+
+Shizuku availability is checked at creation time. Fallback is logged but currently not surfaced to the user (planned for UI phase).
 
 ---
 
@@ -82,6 +101,82 @@ class AccessibilityPlatform(
     }
 }
 ```
+
+---
+
+## VirtualDisplayPlatform
+
+→ See: `platform/virtualdisplay/VirtualDisplayPlatform.kt`
+
+Implementation of `AndroidPlatform` that runs apps on a virtual display, isolated from the physical screen.
+
+### Architecture
+
+```
+VirtualDisplayPlatform
+├── ShizukuClient          # Binder access via Shizuku (reflection on framework stubs)
+├── ImageReader            # Screenshot capture from virtual display Surface
+├── AccessibilityService   # A11y tree filtered by displayId
+└── AccessibilityNodeFinder # Reused from AccessibilityPlatform for node actions
+```
+
+### Key Design Decisions
+
+- **A11y tree via `displayId` filtering**: Filters `AccessibilityService.windows` by `window.displayId` to get only the virtual display's UI tree. Reuses `Perceptor.snapshot()` for conversion.
+- **Node-based actions via a11y `performAction()`**: `ClickNodeAt`, `LongClickNodeAt`, `SetTextOnNodeAt` use `AccessibilityNodeFinder` on the filtered root, same as `AccessibilityPlatform`.
+- **Coordinate-based actions via Shizuku input injection**: `TapAt`, `LongPressAt`, `Swipe` inject `MotionEvent` via `IInputManager` with `setDisplayId()` reflection.
+- **Screen capture via `ImageReader`**: `createVirtualDisplay()` renders to an `ImageReader` surface; `captureScreenshot()` acquires the latest image.
+- **Coroutine-friendly**: All blocking waits use `delay()`, not `Thread.sleep()`.
+
+### Lifecycle
+
+| Phase | What Happens |
+|-------|-------------|
+| `start()` | Creates `ImageReader`, calls `ShizukuClient.createVirtualDisplay()`, registers binder death listener |
+| Runtime | Captures a11y tree + screenshot, performs actions on virtual display |
+| `stop()` | Releases `ImageReader`, clears display ID |
+
+### ShizukuClient
+
+→ See: `platform/virtualdisplay/ShizukuClient.kt`
+
+Thin wrapper for privileged Shizuku binder calls using reflection on Android framework stubs.
+
+| Method | Underlying API |
+|--------|---------------|
+| `isAvailable()` | `Shizuku.pingBinder()` + permission check |
+| `createVirtualDisplay(config, surface)` | `IDisplayManager.createVirtualDisplay()` (API 33+ or legacy) |
+| `injectInputEvent(event, mode)` | `IInputManager.injectInputEvent()` |
+| `startActivityOnDisplay(displayId, intent)` | `ActivityOptions.setLaunchDisplayId()` + `am start` |
+| `addBinderDeadListener(callback)` | `Shizuku.addBinderDeadListener()` |
+
+Uses `HiddenApiBypass` for `InputEvent.setDisplayId()` and `ServiceManager` access. All reflection results use safe null checks with descriptive exceptions (no `!!`).
+
+### VirtualDisplayConfig
+
+→ See: `platform/virtualdisplay/VirtualDisplayConfig.kt`
+
+```kotlin
+data class VirtualDisplayConfig(
+    val width: Int, val height: Int,
+    val densityDpi: Int, val density: Float
+) {
+    companion object {
+        fun fromPhysicalDisplay(context: Context): VirtualDisplayConfig
+    }
+}
+```
+
+### BitmapUtils
+
+→ See: `platform/BitmapUtils.kt`
+
+Extracted from `AccessibilityPlatform` for reuse:
+
+| Method | Purpose |
+|--------|---------|
+| `scaleBitmapIfNeeded(bitmap, maxDimension)` | Downscale large bitmaps |
+| `compressJpeg(bitmap, quality)` | JPEG compression for LLM |
 
 ---
 
@@ -241,11 +336,17 @@ Trace recording may capture screenshots for debugging even when `capturesScreens
 
 ```
 platform/
-├── AndroidPlatform.kt         # Interface
-├── AccessibilityPlatform.kt   # Implementation (atomic operations only)
-├── AccessibilityNodeFinder.kt # Node search helpers
+├── AndroidPlatform.kt         # Interface (with start/stop lifecycle)
+├── PlatformFactory.kt         # Platform selection (AccessibilityPlatform or VirtualDisplayPlatform)
+├── AccessibilityPlatform.kt   # Implementation using Accessibility APIs
+├── AccessibilityNodeFinder.kt # Node search helpers (shared by both platforms)
+├── BitmapUtils.kt             # Bitmap scaling + JPEG compression (shared)
 ├── UIAction.kt                # Atomic action types
-└── ActionResult.kt            # Result types
+├── ActionResult.kt            # Result types
+└── virtualdisplay/
+    ├── VirtualDisplayPlatform.kt  # Implementation using Shizuku + virtual display
+    ├── VirtualDisplayConfig.kt    # Display configuration (width, height, density)
+    └── ShizukuClient.kt          # Shizuku binder wrapper (IDisplayManager, IInputManager)
 
 perception/
 ├── PerceptionConfig.kt        # Capture mode (AccessibilityOnly, ScreenshotOnly, Hybrid)

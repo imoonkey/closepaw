@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-02-09 (commit: 917ebf7)
+> Last updated: 2026-02-10 (commit: 04cecbd)
 
 ## Overview
 
@@ -31,6 +31,14 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 | `maxTurns` | `Int` | `20` | Max turns per task (UI setting default) |
 | `debugMode` | `Boolean` | `false` | Verbose logging + debug artifacts |
 
+### Platform
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `platformMode` | `PlatformMode` | `ACCESSIBILITY` | `ACCESSIBILITY` (standard) or `VIRTUAL_DISPLAY` (Shizuku-based, runs apps on a virtual display) |
+
+→ See: [infra/platform.md](../infra/platform.md) for `VirtualDisplayPlatform` and `PlatformFactory` details.
+
 ### Perception
 
 | Setting | Type | Default | Description |
@@ -50,11 +58,12 @@ Settings are compiled into `SessionConfig` when creating a session:
 ```kotlin
 data class SessionConfig(
     // ...
-    val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT
+    val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
+    val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
 )
 ```
 
-`SessionConfig.maxTurns` has a protocol default of `50`, while UI settings currently initialize the user-facing value to `20`. `perceptionConfig` is built from `perceptionMode` when creating a session (`accessibility_only` → `AccessibilityOnly`, etc.).
+`SessionConfig.maxTurns` has a protocol default of `50`, while UI settings currently initialize the user-facing value to `20`. `perceptionConfig` is built from `perceptionMode` when creating a session (`accessibility_only` → `AccessibilityOnly`, etc.). `platformMode` controls which `AndroidPlatform` implementation is used (via `PlatformFactory`).
 
 ---
 
@@ -107,6 +116,7 @@ Key examples:
 - `max_turns`
 - `debug_mode`
 - `perception_mode` (values: `accessibility_only`, `screenshot_only`, `hybrid`; migrated from legacy `screenshot_input` boolean)
+- `platform_mode` (values: `ACCESSIBILITY`, `VIRTUAL_DISPLAY`)
 
 ### Security
 

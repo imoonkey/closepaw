@@ -8,6 +8,7 @@ import android.os.IBinder
 import android.util.Log
 import android.view.InputEvent
 import android.view.Surface
+import java.lang.reflect.Proxy
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
@@ -174,6 +175,15 @@ class ShizukuClient {
         }
     }
 
+    // ── Private: Helpers ────────────────────────────────────────
+
+    private fun createNullCallbackProxy(): Pair<Any, Class<*>> {
+        val callbackClass = Class.forName("android.hardware.display.IVirtualDisplayCallback")
+        val loader = Class.forName("android.hardware.display.IVirtualDisplayCallback\$Stub").classLoader
+        val proxy = Proxy.newProxyInstance(loader, arrayOf(callbackClass)) { _, _, _ -> null }
+        return proxy to callbackClass
+    }
+
     // ── Private: Binder Proxy Acquisition ───────────────────────
 
     private fun getDisplayManagerProxy(): Any {
@@ -224,13 +234,7 @@ class ShizukuClient {
         val config = builderClass.getMethod("build").invoke(builder)
             ?: throw IllegalStateException("VirtualDisplayConfig.Builder.build() returned null")
 
-        // IVirtualDisplayCallback stub — we don't need callbacks, pass null-safe stub
-        val callbackClass = Class.forName("android.hardware.display.IVirtualDisplayCallback")
-        val callbackStubClass = Class.forName("android.hardware.display.IVirtualDisplayCallback\$Stub")
-        val callbackProxy = java.lang.reflect.Proxy.newProxyInstance(
-            callbackStubClass.classLoader,
-            arrayOf(callbackClass)
-        ) { _, _, _ -> null }
+        val (callbackProxy, callbackClass) = createNullCallbackProxy()
 
         val configClass = Class.forName("android.hardware.display.VirtualDisplayConfig")
         val method = proxy.javaClass.getMethod(
@@ -258,14 +262,7 @@ class ShizukuClient {
         surface: Surface,
         flags: Int
     ): Int {
-        // The legacy signature varies. Try the most common one first.
-        val callbackClass = Class.forName("android.hardware.display.IVirtualDisplayCallback")
-        val callbackStubClass = Class.forName("android.hardware.display.IVirtualDisplayCallback\$Stub")
-        val callbackProxy = java.lang.reflect.Proxy.newProxyInstance(
-            callbackStubClass.classLoader,
-            arrayOf(callbackClass)
-        ) { _, _, _ -> null }
-
+        val (callbackProxy, callbackClass) = createNullCallbackProxy()
         val projectionClass = Class.forName("android.media.projection.IMediaProjection")
 
         // Try: createVirtualDisplay(callback, projection, packageName, name, width, height, densityDpi, surface, flags, uniqueId)

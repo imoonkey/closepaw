@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionServices, and session lifecycle.
-> Last updated: 2026-02-05 (commit: 4fa87d8484fddd0862e63fcc08a740646af9a77c)
+> Last updated: 2026-02-10 (commit: 04cecbd)
 
 ## AgentSession
 
@@ -26,13 +26,21 @@ class AgentSession {
 }
 ```
 
+### Platform Lifecycle
+
+On first transition from `Created` → `Running` (first `UserInput`), `AgentSession` calls `platform.start()` to initialize platform resources (e.g., virtual display creation). This is a one-time call per session.
+
+Platform selection is delegated to `PlatformFactory.create()` based on `SessionConfig.platformMode`.
+
+→ See: [Platform](platform.md) for `PlatformFactory` and `VirtualDisplayPlatform` details.
+
 ### State Transitions
 
 ```
-Created ──(UserInput)──► Running ──(TaskCompleted)──► Idle ──(UserInput)──► Running
-                                                       │
-                                                       ▼
-                                                   Shutdown
+Created ──(UserInput + platform.start())──► Running ──(TaskCompleted)──► Idle ──(UserInput)──► Running
+                                                                          │
+                                                                          ▼
+                                                                      Shutdown
 ```
 
 ---
@@ -54,6 +62,10 @@ Dependency-injection container for all session-scoped services.
 | `config` | Session configuration |
 | `llmClient` | LLM client (OpenAI or local LFM) |
 | `traceRecorder` | Trace persistence sink |
+
+### Cleanup
+
+`SessionServices.cleanup()` calls `platform.stop()` to release platform resources (virtual display teardown, `ImageReader` release). Both calls are wrapped in try-catch to ensure cleanup completes even on errors.
 
 ### Creation
 

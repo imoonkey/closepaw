@@ -65,7 +65,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
 
         Log.d(
                 TAG,
-                "Settings loaded: backend=$llmBackend, model=$selectedModel, executorModel=$executorModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, agentMode=$agentMode"
+                "Settings loaded: backend=$llmBackend, model=$selectedModel, executorModel=$executorModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, agentMode=$agentMode, platformMode=$platformMode"
         )
     }
 

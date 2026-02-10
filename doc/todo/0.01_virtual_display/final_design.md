@@ -2,6 +2,9 @@
 
 > Merges Design 1's platform correctness with Design 2's lifecycle/UI design.
 > Reviewed against qi_note, codex review, and gemini review.
+>
+> **Status: IMPLEMENTED** (Phases 1-3 complete, Phase 4 deferred)
+> Implementation commit: 04cecbd (2026-02-10)
 
 ---
 

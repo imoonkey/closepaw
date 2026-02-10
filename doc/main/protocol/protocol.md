@@ -1,7 +1,7 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-09 (commit: 5fbeec1)
+> Last updated: 2026-02-10 (commit: 04cecbd)
 
 ## Overview
 
@@ -208,7 +208,8 @@ data class SessionConfig(
     val debugMode: Boolean = false,
     val traceEnabled: Boolean = false,
     val traceRunId: String? = null,
-    val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT
+    val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
+    val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
 )
 ```
 
@@ -224,6 +225,14 @@ data class SessionConfig(
 | `traceEnabled` | Persist full trace events/artifacts |
 | `traceRunId` | Explicit trace folder/run id |
 | `perceptionConfig` | Perception mode: `AccessibilityOnly`, `ScreenshotOnly`, or `Hybrid` — see [platform.md](../infra/platform.md) |
+| `platformMode` | `ACCESSIBILITY` (default) or `VIRTUAL_DISPLAY` (Shizuku-based) — see [platform.md](../infra/platform.md) |
+
+### PlatformMode
+
+| Mode | Platform | Description |
+|------|----------|-------------|
+| `ACCESSIBILITY` | `AccessibilityPlatform` | Standard mode using Android Accessibility APIs |
+| `VIRTUAL_DISPLAY` | `VirtualDisplayPlatform` | Runs apps on a virtual display via Shizuku, isolated from physical screen |
 
 ### AgentMode
 
