@@ -2,7 +2,6 @@ package com.moonkey.androidagent.platform.virtualdisplay
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.media.ImageReader
@@ -17,9 +16,12 @@ import com.moonkey.androidagent.perception.screenshotJpegQuality
 import com.moonkey.androidagent.perception.screenshotMaxDimension
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.platform.AppManager
 import com.moonkey.androidagent.platform.AppInfo
 import com.moonkey.androidagent.platform.BitmapUtils
 import com.moonkey.androidagent.platform.DisplayInfo
+import com.moonkey.androidagent.platform.NodeActionPerformer
+import com.moonkey.androidagent.platform.SystemButtonType
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.protocol.SessionConfig
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +33,7 @@ import rikka.shizuku.Shizuku
  * VirtualDisplayPlatform — AndroidPlatform running on a Shizuku virtual display.
  *
  * Orchestrator: delegates to VirtualDisplayWindowAccessor (window/root),
- * VirtualDisplayNodeActionPerformer (node actions), and VirtualDisplayInputInjector (input).
+ * NodeActionPerformer (node actions), and VirtualDisplayInputInjector (input).
  *
  * Screen capture: ImageReader (we own the surface). A11y tree: windows filtered by displayId. Node
  * actions: a11y performAction. Coordinate actions: Shizuku injection.
@@ -62,7 +64,7 @@ class VirtualDisplayPlatform(
 
     private val windowAccessor = VirtualDisplayWindowAccessor(service, displayIdProvider)
 
-    private val nodeActionPerformer = VirtualDisplayNodeActionPerformer(windowAccessor)
+    private val nodeActionPerformer = NodeActionPerformer(rootProvider = { windowAccessor.getRootOnDisplay() })
 
     private val inputInjector = VirtualDisplayInputInjector(shizuku, displayIdProvider)
 
@@ -238,7 +240,11 @@ class VirtualDisplayPlatform(
             is UIAction.LongPressAt ->
                     inputInjector.injectLongPress(action.x, action.y, action.durationMs)
             is UIAction.Swipe -> inputInjector.injectSwipe(action)
-            is UIAction.SystemButton -> inputInjector.injectSystemButton(action.button)
+            is UIAction.SystemButton ->
+                    when (action.button) {
+                        SystemButtonType.ENTER -> nodeActionPerformer.performEnterKey()
+                        else -> inputInjector.injectSystemButton(action.button)
+                    }
             is UIAction.Wait -> {
                 delay(action.durationMs)
                 ActionResult.Success("Waited ${action.durationMs}ms")
@@ -270,26 +276,7 @@ class VirtualDisplayPlatform(
     override suspend fun getInstalledApps(): List<AppInfo> {
         return withContext(Dispatchers.IO) {
             try {
-                val pm = service.packageManager
-                val intent =
-                        Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
-                pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-                        .mapNotNull { info ->
-                            val ai = info.activityInfo ?: return@mapNotNull null
-                            AppInfo(
-                                    packageName = ai.packageName,
-                                    label =
-                                            info.loadLabel(pm).toString().ifBlank {
-                                                ai.packageName
-                                            },
-                                    isSystemApp =
-                                            (ai.applicationInfo.flags and
-                                                    android.content.pm.ApplicationInfo
-                                                            .FLAG_SYSTEM) != 0
-                            )
-                        }
-                        .distinctBy { it.packageName }
-                        .sortedBy { it.label.lowercase() }
+                AppManager.getInstalledApps(service.packageManager)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to get installed apps", e)
                 emptyList()
