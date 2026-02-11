@@ -1,10 +1,20 @@
-# Prework
+# General Principles
+- 拥抱KISS principle，keep it simple stupid. 避免过度设计，避免过度工程化。嵌套层数不要太深。
+- 设计和实现high readability的code。
+- 设计和实现的过程，不要考虑代码的backward compatibility，最后把陈旧的历史代码可以直接deprecate，我产品还没有release，不需要考虑任何向后兼容。代码质量高，可读性高，只需要反映最新最优的实现，这对我更重要。
+- 阅读我已有的代码，确保你的设计跟现有的codebase是aligned。
+
+
+# Process 1: Design & Plan
 1. Read the design doc, or if needed under @doc/todo/[TODO]. Coming up with execution plan.
 
 1. Read all the docs under @doc/todo/0.01_virtual_display/  (not the old/ subfolder). Coming up with a final design, write to the same folder, combining strength of design_1 and design_2.
 
+- I have implemented doc/todo/0.01_virtual_display/final_design.md, and did some fix. The code review are under doc/todo/0.01_virtual_display/review*.md (by cursor/codex/gemini)。
+- 阅读review，并总结所有的issue。写到一个新的review_summary.md 的 design/plan doc。
+- 中间有必要的时候查看我的code。其中有些部分(如refactor)，scope较大，需要仔细思考，认真设计。比如AccessibilityPlatform类似 VirtualDisplayPlatform，也很臃肿。可以一起想想怎么做一个结构aligned reorg。这部分如果合适，可以单独写一个的design/plan doc。一起实施。
 
-# Execution
+# Process 2: Phased implementation
 At each phase of the execution, repeat the following:
 
 - 2.1 start executing the phase using a new subagent. use /coding-standards  , /tdd  when necessary. test and verify.
@@ -12,9 +22,15 @@ At each phase of the execution, repeat the following:
 - 2.3 address the issues mentioned in the code review.
 - 2.4 Git commit after every phase finishes.
 
-Once all done:
-3. Start a new subagent to do remove any redundant/legacy/dead code. and do /code-simplifier . Ensure code quality.
-4. /update-docs  . Besides that, update the relevant doc/todo/docs with your implementation details.
+
+# Process 3: Verification and Wrap up
+Once all implementation done:
+3. /visual-debug, run `./scripts/setup.sh && ./scripts/debug-run.sh --basic --vd "play a [fill in some singer] song on youtube"` and check the `debug-output` to make sure it works end to end on at least on case (note sometimes when the run output itself says sucess, it may just failed quitely, check the actual debug-output trace to verify). If the run is not successful, write a review, and go back to Process 2 to implement.
+
+Once visual debug passes:
+4. Start a new subagent to do remove any redundant/legacy/dead code. and do /code-simplifier . Ensure code quality.
+5. /update-docs. Besides that, update the relevant doc/todo/docs with your implementation details.
+
 
 # Important Notes
 
