@@ -192,7 +192,10 @@ class ShizukuClient {
             val exitCode = process.exitValue()
             if (exitCode != 0) {
                 val error = process.errorStream.bufferedReader().use { it.readText() }
-                Log.w(TAG, "Shell command non-zero exit ($exitCode): ${command.joinToString(" ")}\n$error")
+                Log.w(
+                        TAG,
+                        "Shell command non-zero exit ($exitCode): ${command.joinToString(" ")}\n$error"
+                )
             } else {
                 Log.d(TAG, "Shell command success: ${command.joinToString(" ")}")
             }
@@ -211,43 +214,77 @@ class ShizukuClient {
      */
     private fun newProcessViaShizuku(command: Array<String>): Process {
         val shizukuClass = Shizuku::class.java
-        val method = runCatching {
-            shizukuClass.getMethod(
-                "newProcess",
-                Array<String>::class.java,
-                Array<String>::class.java,
-                String::class.java
-            )
-        }.getOrNull() ?: shizukuClass.getDeclaredMethod(
-            "newProcess",
-            Array<String>::class.java,
-            Array<String>::class.java,
-            String::class.java
-        )
+        val method =
+                runCatching {
+                            shizukuClass.getMethod(
+                                    "newProcess",
+                                    Array<String>::class.java,
+                                    Array<String>::class.java,
+                                    String::class.java
+                            )
+                        }
+                        .getOrNull()
+                        ?: shizukuClass.getDeclaredMethod(
+                                "newProcess",
+                                Array<String>::class.java,
+                                Array<String>::class.java,
+                                String::class.java
+                        )
         method.isAccessible = true
         return method.invoke(null, command, null, null) as Process
     }
 
+    // ── Proxy Lifecycle ──────────────────────────────────────────
+
+    /**
+     * Clear cached binder proxies. Call during platform stop/cleanup. Safe to call even if proxies
+     * were never created.
+     */
+    fun clearCachedProxies() {
+        cachedDisplayProxy = null
+        cachedInputProxy = null
+        Log.d(TAG, "Cleared cached binder proxies")
+    }
+
     // ── Private: Binder Proxy Acquisition ───────────────────────
 
+    @Volatile private var cachedDisplayProxy: Any? = null
+    @Volatile private var cachedInputProxy: Any? = null
+
     private fun getDisplayManagerProxy(): Any {
+        cachedDisplayProxy?.let {
+            return it
+        }
         val binder =
                 SystemServiceHelper.getSystemService("display")
                         ?: throw IllegalStateException("Cannot obtain display service binder")
         val wrapped = ShizukuBinderWrapper(binder)
         val stubClass = Class.forName("android.hardware.display.IDisplayManager\$Stub")
-        return stubClass.getMethod("asInterface", IBinder::class.java).invoke(null, wrapped)
-                ?: throw IllegalStateException("IDisplayManager.Stub.asInterface returned null")
+        val proxy =
+                stubClass.getMethod("asInterface", IBinder::class.java).invoke(null, wrapped)
+                        ?: throw IllegalStateException(
+                                "IDisplayManager.Stub.asInterface returned null"
+                        )
+        cachedDisplayProxy = proxy
+        return proxy
     }
 
     private fun getInputManagerProxy(): Any {
+        cachedInputProxy?.let {
+            return it
+        }
         val binder =
                 SystemServiceHelper.getSystemService("input")
                         ?: throw IllegalStateException("Cannot obtain input service binder")
         val wrapped = ShizukuBinderWrapper(binder)
         val stubClass = Class.forName("android.hardware.input.IInputManager\$Stub")
-        return stubClass.getMethod("asInterface", IBinder::class.java).invoke(null, wrapped)
-                ?: throw IllegalStateException("IInputManager.Stub.asInterface returned null")
+        val proxy =
+                stubClass.getMethod("asInterface", IBinder::class.java).invoke(null, wrapped)
+                        ?: throw IllegalStateException(
+                                "IInputManager.Stub.asInterface returned null"
+                        )
+        cachedInputProxy = proxy
+        return proxy
     }
 
     // ── Private: Version-specific Display Creation ──────────────

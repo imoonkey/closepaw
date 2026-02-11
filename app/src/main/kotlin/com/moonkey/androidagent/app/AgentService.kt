@@ -303,7 +303,13 @@ class AgentService : AccessibilityService() {
     }
 
     /** Run the agent loop - called from MainActivity */
-    fun runAgent(goal: String, apiKeys: Map<String, String> = emptyMap(), maxSteps: Int = 20) {
+    fun runAgent(
+            goal: String,
+            apiKeys: Map<String, String> = emptyMap(),
+            maxSteps: Int = 20,
+            platformMode: com.moonkey.androidagent.protocol.PlatformMode =
+                    com.moonkey.androidagent.protocol.PlatformMode.ACCESSIBILITY
+    ) {
         // Stop any existing session before starting new one (prevents concurrent sessions)
         // Cancel collector first to stop receiving events, then shutdown session
         if (session != null) {
@@ -329,7 +335,8 @@ class AgentService : AccessibilityService() {
                                         SessionConfig(
                                                 maxTurns = maxSteps,
                                                 debugMode = true,
-                                                traceEnabled = true
+                                                traceEnabled = true,
+                                                platformMode = platformMode
                                         ),
                                 service = this@AgentService,
                                 scope = scope,

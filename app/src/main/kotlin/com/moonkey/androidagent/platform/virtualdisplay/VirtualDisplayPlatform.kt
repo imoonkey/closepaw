@@ -33,65 +33,61 @@ import rikka.shizuku.Shizuku
  * Orchestrator: delegates to VirtualDisplayWindowAccessor (window/root),
  * VirtualDisplayNodeActionPerformer (node actions), and VirtualDisplayInputInjector (input).
  *
- * Screen capture: ImageReader (we own the surface). A11y tree: windows filtered by displayId.
- * Node actions: a11y performAction. Coordinate actions: Shizuku injection.
+ * Screen capture: ImageReader (we own the surface). A11y tree: windows filtered by displayId. Node
+ * actions: a11y performAction. Coordinate actions: Shizuku injection.
  *
  * Lifecycle: start() → creates virtual display + ImageReader; stop() → releases.
  */
 class VirtualDisplayPlatform(
-    private val service: AccessibilityService,
-    private val shizuku: ShizukuClient,
-    private val config: VirtualDisplayConfig,
-    private val sessionConfig: SessionConfig
+        private val service: AccessibilityService,
+        private val shizuku: ShizukuClient,
+        private val config: VirtualDisplayConfig,
+        private val sessionConfig: SessionConfig
 ) : AndroidPlatform {
 
     companion object {
         private const val TAG = "VirtualDisplayPlatform"
 
-        private const val DISPLAY_FLAGS =
-            0x1 or 0x8 or 0x40 or 0x200 or 0x400 or 0x800
+        private const val DISPLAY_FLAGS = 0x1 or 0x8 or 0x40 or 0x200 or 0x400 or 0x800
 
         private const val SURFACE_READY_DELAY_MS = 200L
         private const val IMAGE_READER_MAX_IMAGES = 2
     }
 
-    @Volatile
-    private var displayId: Int = Display.INVALID_DISPLAY
-    @Volatile
-    private var imageReader: ImageReader? = null
+    @Volatile private var displayId: Int = Display.INVALID_DISPLAY
+    @Volatile private var imageReader: ImageReader? = null
     private var binderDeadListener: Shizuku.OnBinderDeadListener? = null
 
     private val displayIdProvider: () -> Int = { displayId }
 
-    private val windowAccessor =
-        VirtualDisplayWindowAccessor(service, displayIdProvider)
+    private val windowAccessor = VirtualDisplayWindowAccessor(service, displayIdProvider)
 
-    private val nodeActionPerformer =
-        VirtualDisplayNodeActionPerformer(windowAccessor)
+    private val nodeActionPerformer = VirtualDisplayNodeActionPerformer(windowAccessor)
 
-    private val inputInjector =
-        VirtualDisplayInputInjector(shizuku, displayIdProvider)
+    private val inputInjector = VirtualDisplayInputInjector(shizuku, displayIdProvider)
 
     override suspend fun start() {
         check(displayId == Display.INVALID_DISPLAY) { "Already started (displayId=$displayId)" }
 
         shizuku.bypassHiddenApis()
 
-        val reader = ImageReader.newInstance(
-            config.width,
-            config.height,
-            PixelFormat.RGBA_8888,
-            IMAGE_READER_MAX_IMAGES
-        )
+        val reader =
+                ImageReader.newInstance(
+                        config.width,
+                        config.height,
+                        PixelFormat.RGBA_8888,
+                        IMAGE_READER_MAX_IMAGES
+                )
 
-        val id = shizuku.createVirtualDisplay(
-            name = "moonkey_agent_display",
-            width = config.width,
-            height = config.height,
-            densityDpi = config.densityDpi,
-            surface = reader.surface,
-            flags = DISPLAY_FLAGS
-        )
+        val id =
+                shizuku.createVirtualDisplay(
+                        name = "moonkey_agent_display",
+                        width = config.width,
+                        height = config.height,
+                        densityDpi = config.densityDpi,
+                        surface = reader.surface,
+                        flags = DISPLAY_FLAGS
+                )
 
         if (id < 0) {
             reader.close()
@@ -101,16 +97,24 @@ class VirtualDisplayPlatform(
         displayId = id
         imageReader = reader
 
-        binderDeadListener = Shizuku.OnBinderDeadListener {
-            Log.e(TAG, "Shizuku binder died! displayId=$displayId")
-        }
+        binderDeadListener =
+                Shizuku.OnBinderDeadListener {
+                    Log.e(TAG, "Shizuku binder died! displayId=$displayId")
+                }
         shizuku.addBinderDeadListener(binderDeadListener!!)
 
         delay(SURFACE_READY_DELAY_MS)
 
-        Log.i(TAG, "Started: displayId=$displayId, ${config.width}x${config.height}@${config.densityDpi}dpi")
+        Log.i(
+                TAG,
+                "Started: displayId=$displayId, ${config.width}x${config.height}@${config.densityDpi}dpi"
+        )
     }
 
+    /**
+     * Release platform resources. Called during session cleanup AFTER the agent loop has exited.
+     * Must be idempotent. Not safe to call concurrently with captureScreen/performAction.
+     */
     override suspend fun stop() {
         binderDeadListener?.let { shizuku.removeBinderDeadListener(it) }
         binderDeadListener = null
@@ -156,12 +160,13 @@ class VirtualDisplayPlatform(
         val reader = imageReader ?: return null
 
         return withContext(Dispatchers.Default) {
-            val image = try {
-                reader.acquireLatestImage()
-            } catch (e: Exception) {
-                Log.w(TAG, "acquireLatestImage failed", e)
-                return@withContext null
-            }
+            val image =
+                    try {
+                        reader.acquireLatestImage()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "acquireLatestImage failed", e)
+                        return@withContext null
+                    }
             if (image == null) return@withContext null
 
             try {
@@ -171,18 +176,20 @@ class VirtualDisplayPlatform(
                 val rowStride = plane.rowStride
                 val rowPadding = rowStride - pixelStride * image.width
 
-                val bitmap = Bitmap.createBitmap(
-                    image.width + rowPadding / pixelStride,
-                    image.height,
-                    Bitmap.Config.ARGB_8888
-                )
+                val bitmap =
+                        Bitmap.createBitmap(
+                                image.width + rowPadding / pixelStride,
+                                image.height,
+                                Bitmap.Config.ARGB_8888
+                        )
                 bitmap.copyPixelsFromBuffer(plane.buffer)
 
-                val cropped = if (bitmap.width > config.width) {
-                    Bitmap.createBitmap(bitmap, 0, 0, config.width, config.height).also {
-                        if (it !== bitmap) bitmap.recycle()
-                    }
-                } else bitmap
+                val cropped =
+                        if (bitmap.width > config.width) {
+                            Bitmap.createBitmap(bitmap, 0, 0, config.width, config.height).also {
+                                if (it !== bitmap) bitmap.recycle()
+                            }
+                        } else bitmap
 
                 val maxDim = sessionConfig.perceptionConfig.screenshotMaxDimension
                 val quality = sessionConfig.perceptionConfig.screenshotJpegQuality
@@ -196,11 +203,11 @@ class VirtualDisplayPlatform(
 
                 bytes?.let {
                     ScreenImage(
-                        width = width,
-                        height = height,
-                        mimeType = "image/jpeg",
-                        bytes = it,
-                        source = ScreenImageSource.VIRTUAL_DISPLAY_CAPTURE
+                            width = width,
+                            height = height,
+                            mimeType = "image/jpeg",
+                            bytes = it,
+                            source = ScreenImageSource.VIRTUAL_DISPLAY_CAPTURE
                     )
                 }
             } finally {
@@ -216,17 +223,22 @@ class VirtualDisplayPlatform(
 
         return when (action) {
             is UIAction.ClickNodeAt -> nodeActionPerformer.performNodeClickAt(action.x, action.y)
-            is UIAction.LongClickNodeAt -> nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
+            is UIAction.LongClickNodeAt ->
+                    nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
             is UIAction.SetTextOnNodeAt ->
-                nodeActionPerformer.performSetTextOnNodeAt(action.x, action.y, action.text, action.clear)
-            is UIAction.SetTextOnFocused -> nodeActionPerformer.performSetTextOnFocused(action.text, action.clear)
-
+                    nodeActionPerformer.performSetTextOnNodeAt(
+                            action.x,
+                            action.y,
+                            action.text,
+                            action.clear
+                    )
+            is UIAction.SetTextOnFocused ->
+                    nodeActionPerformer.performSetTextOnFocused(action.text, action.clear)
             is UIAction.TapAt -> inputInjector.injectTap(action.x, action.y)
-            is UIAction.LongPressAt -> inputInjector.injectLongPress(action.x, action.y, action.durationMs)
+            is UIAction.LongPressAt ->
+                    inputInjector.injectLongPress(action.x, action.y, action.durationMs)
             is UIAction.Swipe -> inputInjector.injectSwipe(action)
-
             is UIAction.SystemButton -> inputInjector.injectSystemButton(action.button)
-
             is UIAction.Wait -> {
                 delay(action.durationMs)
                 ActionResult.Success("Waited ${action.durationMs}ms")
@@ -249,9 +261,9 @@ class VirtualDisplayPlatform(
 
     override fun getDisplayInfo(): DisplayInfo {
         return DisplayInfo(
-            widthPixels = config.width,
-            heightPixels = config.height,
-            density = config.density
+                widthPixels = config.width,
+                heightPixels = config.height,
+                density = config.density
         )
     }
 
@@ -259,18 +271,25 @@ class VirtualDisplayPlatform(
         return withContext(Dispatchers.IO) {
             try {
                 val pm = service.packageManager
-                val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
+                val intent =
+                        Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_LAUNCHER) }
                 pm.queryIntentActivities(intent, PackageManager.MATCH_ALL)
-                    .mapNotNull { info ->
-                        val ai = info.activityInfo ?: return@mapNotNull null
-                        AppInfo(
-                            packageName = ai.packageName,
-                            label = info.loadLabel(pm).toString().ifBlank { ai.packageName },
-                            isSystemApp = (ai.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
-                        )
-                    }
-                    .distinctBy { it.packageName }
-                    .sortedBy { it.label.lowercase() }
+                        .mapNotNull { info ->
+                            val ai = info.activityInfo ?: return@mapNotNull null
+                            AppInfo(
+                                    packageName = ai.packageName,
+                                    label =
+                                            info.loadLabel(pm).toString().ifBlank {
+                                                ai.packageName
+                                            },
+                                    isSystemApp =
+                                            (ai.applicationInfo.flags and
+                                                    android.content.pm.ApplicationInfo
+                                                            .FLAG_SYSTEM) != 0
+                            )
+                        }
+                        .distinctBy { it.packageName }
+                        .sortedBy { it.label.lowercase() }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to get installed apps", e)
                 emptyList()
@@ -281,8 +300,11 @@ class VirtualDisplayPlatform(
     override suspend fun launchApp(packageName: String): ActionResult {
         return withContext(Dispatchers.IO) {
             try {
-                val launchIntent = service.packageManager.getLaunchIntentForPackage(packageName)
-                    ?: return@withContext ActionResult.Failure("App not found or not launchable: $packageName")
+                val launchIntent =
+                        service.packageManager.getLaunchIntentForPackage(packageName)
+                                ?: return@withContext ActionResult.Failure(
+                                        "App not found or not launchable: $packageName"
+                                )
 
                 val component = launchIntent.component?.flattenToShortString()
                 val shizukuAvailable = shizuku.isAvailable()
@@ -290,16 +312,19 @@ class VirtualDisplayPlatform(
 
                 if (component != null && shizukuAvailable) {
                     Log.d(TAG, "Launching $component on display $displayId via shell")
-                    val cmd = arrayOf("am", "start", "-n", component, "--display", "$displayId", "-W")
+                    val cmd =
+                            arrayOf("am", "start", "-n", component, "--display", "$displayId", "-W")
                     val code = shizuku.executeShellCommand(cmd)
                     if (code == 0) {
-                        return@withContext ActionResult.Success("Launched $component on display $displayId (shell)")
+                        return@withContext ActionResult.Success(
+                                "Launched $component on display $displayId (shell)"
+                        )
                     }
                     Log.w(TAG, "Shell launch failed (code $code), falling back to intent")
                 }
 
                 launchIntent.addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+                        Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
                 )
                 shizuku.launchOnDisplay(service, launchIntent, displayId)
                 ActionResult.Success("Launched $packageName on display $displayId (intent)")

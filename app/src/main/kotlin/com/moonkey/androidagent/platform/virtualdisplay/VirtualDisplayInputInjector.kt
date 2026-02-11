@@ -14,12 +14,12 @@ import kotlinx.coroutines.delay
 /**
  * Input injector for a virtual display via Shizuku.
  *
- * Handles tap, long-press, swipe, and system button injection.
- * Encapsulates MotionEvent/KeyEvent construction and display targeting.
+ * Handles tap, long-press, swipe, and system button injection. Encapsulates MotionEvent/KeyEvent
+ * construction and display targeting.
  */
 class VirtualDisplayInputInjector(
-    private val shizuku: ShizukuClient,
-    private val displayIdProvider: () -> Int
+        private val shizuku: ShizukuClient,
+        private val displayIdProvider: () -> Int
 ) {
     companion object {
         private const val TAG = "VirtualDisplayInputInjector"
@@ -32,14 +32,16 @@ class VirtualDisplayInputInjector(
         }
 
         val downTime = SystemClock.uptimeMillis()
-        val down = motionEvent(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat())
-        val up = motionEvent(
-            downTime,
-            downTime + 50,
-            MotionEvent.ACTION_UP,
-            x.toFloat(),
-            y.toFloat()
-        )
+        val down =
+                motionEvent(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat())
+        val up =
+                motionEvent(
+                        downTime,
+                        downTime + 50,
+                        MotionEvent.ACTION_UP,
+                        x.toFloat(),
+                        y.toFloat()
+                )
 
         val ok = shizuku.injectInputEvent(down) && shizuku.injectInputEvent(up)
         down.recycle()
@@ -56,7 +58,8 @@ class VirtualDisplayInputInjector(
         }
 
         val downTime = SystemClock.uptimeMillis()
-        val down = motionEvent(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat())
+        val down =
+                motionEvent(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat())
 
         if (!shizuku.injectInputEvent(down)) {
             down.recycle()
@@ -66,13 +69,14 @@ class VirtualDisplayInputInjector(
 
         delay(durationMs)
 
-        val up = motionEvent(
-            downTime,
-            SystemClock.uptimeMillis(),
-            MotionEvent.ACTION_UP,
-            x.toFloat(),
-            y.toFloat()
-        )
+        val up =
+                motionEvent(
+                        downTime,
+                        SystemClock.uptimeMillis(),
+                        MotionEvent.ACTION_UP,
+                        x.toFloat(),
+                        y.toFloat()
+                )
         val ok = shizuku.injectInputEvent(up)
         up.recycle()
 
@@ -93,13 +97,14 @@ class VirtualDisplayInputInjector(
         val steps = 20
         val stepMs = (action.durationMs / steps).coerceAtLeast(1)
 
-        val down = motionEvent(
-            downTime,
-            downTime,
-            MotionEvent.ACTION_DOWN,
-            action.startX.toFloat(),
-            action.startY.toFloat()
-        )
+        val down =
+                motionEvent(
+                        downTime,
+                        downTime,
+                        MotionEvent.ACTION_DOWN,
+                        action.startX.toFloat(),
+                        action.startY.toFloat()
+                )
         if (!shizuku.injectInputEvent(down)) {
             down.recycle()
             return ActionResult.Failure("Swipe DOWN inject failed")
@@ -111,24 +116,26 @@ class VirtualDisplayInputInjector(
             val t = i.toFloat() / steps
             val x = action.startX + (action.endX - action.startX) * t
             val y = action.startY + (action.endY - action.startY) * t
-            val move = motionEvent(downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, x, y)
+            val move =
+                    motionEvent(downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, x, y)
             shizuku.injectInputEvent(move)
             move.recycle()
         }
 
-        val up = motionEvent(
-            downTime,
-            SystemClock.uptimeMillis(),
-            MotionEvent.ACTION_UP,
-            action.endX.toFloat(),
-            action.endY.toFloat()
-        )
+        val up =
+                motionEvent(
+                        downTime,
+                        SystemClock.uptimeMillis(),
+                        MotionEvent.ACTION_UP,
+                        action.endX.toFloat(),
+                        action.endY.toFloat()
+                )
         val ok = shizuku.injectInputEvent(up)
         up.recycle()
 
         return if (ok) {
             ActionResult.Success(
-                "Swipe (${action.startX},${action.startY}) → (${action.endX},${action.endY})"
+                    "Swipe (${action.startX},${action.startY}) → (${action.endX},${action.endY})"
             )
         } else {
             ActionResult.Failure("Swipe UP inject failed")
@@ -141,12 +148,13 @@ class VirtualDisplayInputInjector(
             return ActionResult.Failure("Virtual display not started")
         }
 
-        val keyCode = when (button) {
-            SystemButtonType.BACK -> KeyEvent.KEYCODE_BACK
-            SystemButtonType.HOME -> KeyEvent.KEYCODE_HOME
-            SystemButtonType.RECENTS -> KeyEvent.KEYCODE_APP_SWITCH
-            SystemButtonType.ENTER -> KeyEvent.KEYCODE_ENTER
-        }
+        val keyCode =
+                when (button) {
+                    SystemButtonType.BACK -> KeyEvent.KEYCODE_BACK
+                    SystemButtonType.HOME -> KeyEvent.KEYCODE_HOME
+                    SystemButtonType.RECENTS -> KeyEvent.KEYCODE_APP_SWITCH
+                    SystemButtonType.ENTER -> KeyEvent.KEYCODE_ENTER
+                }
 
         val now = SystemClock.uptimeMillis()
         val down = keyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode)
@@ -159,11 +167,11 @@ class VirtualDisplayInputInjector(
     }
 
     private fun motionEvent(
-        downTime: Long,
-        eventTime: Long,
-        action: Int,
-        x: Float,
-        y: Float
+            downTime: Long,
+            eventTime: Long,
+            action: Int,
+            x: Float,
+            y: Float
     ): MotionEvent {
         val event = MotionEvent.obtain(downTime, eventTime, action, x, y, 0)
         event.source = InputDevice.SOURCE_TOUCHSCREEN
@@ -178,16 +186,24 @@ class VirtualDisplayInputInjector(
     }
 
     /**
-     * Set displayId on an InputEvent via reflection. InputEvent.setDisplayId(int) is @hide in AOSP.
+     * Cached reflection handle for InputEvent.setDisplayId(int), which is @hide in AOSP.
      * HiddenApiBypass exemptions must be active (called in VirtualDisplayPlatform.start()).
      */
+    private val setDisplayIdMethod: java.lang.reflect.Method? by lazy {
+        runCatching {
+                    android.view.InputEvent::class.java.getMethod(
+                            "setDisplayId",
+                            Int::class.javaPrimitiveType
+                    )
+                }
+                .onFailure { Log.w(TAG, "InputEvent.setDisplayId not available", it) }
+                .getOrNull()
+    }
+
     private fun setDisplayId(event: android.view.InputEvent, id: Int) {
         try {
-            val method = android.view.InputEvent::class.java.getMethod(
-                "setDisplayId",
-                Int::class.javaPrimitiveType
-            )
-            method.invoke(event, id)
+            setDisplayIdMethod?.invoke(event, id)
+                    ?: Log.w(TAG, "setDisplayId unavailable, cannot set displayId=$id")
         } catch (e: Exception) {
             Log.w(TAG, "Failed to set displayId=$id on ${event.javaClass.simpleName}", e)
         }
