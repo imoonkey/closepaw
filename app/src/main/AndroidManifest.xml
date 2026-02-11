@@ -33,6 +33,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.viewer.VirtualDisplayViewerActivity"
+            android:theme="@style/Theme.AndroidAgent.FullScreen"
+            android:exported="false"
+            android:launchMode="singleTask" />
+
         <service
             android:name=".app.AgentService"
             android:exported="true"
