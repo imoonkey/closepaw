@@ -1,6 +1,6 @@
 # Development Guide
 
-> Last updated: 2026-02-09 (commit: 917ebf7)
+> Last updated: 2026-02-11 (commit: c1cbe68)
 
 This guide covers the development workflow for Android Agent - building, testing, and debugging.
 
@@ -83,6 +83,7 @@ Run the agent with a goal. `debug-run.sh` captures screenshots at each turn, rec
 ./scripts/debug-run.sh --accessibility-only "Open Chrome"     # A11y only
 ./scripts/debug-run.sh --screenshot-only "Open Chrome"        # Screenshot only
 ./scripts/debug-run.sh --hybrid "Open Chrome"                 # A11y + screenshot
+./scripts/debug-run.sh --virtual-display "Open Chrome"        # Run on Shizuku virtual display
 ```
 
 Output in `debug-output/run_<timestamp>/`:
@@ -173,6 +174,24 @@ echo 'PERCEPTION_MODE=hybrid' >> .env
 | `accessibility_only` (default) | Accessibility tree only |
 | `hybrid` | Accessibility tree + screenshot |
 | `screenshot_only` | Screenshot only |
+
+### Platform Mode
+
+Control which platform implementation is used:
+
+```bash
+# one-off
+./scripts/debug-run.sh --virtual-display "Open Settings"
+./scripts/debug-run.sh --vd "Open Settings"
+
+# persistent default
+echo 'PLATFORM_MODE=virtual_display' >> .env
+```
+
+| Mode | Behavior |
+|------|----------|
+| `accessibility` (default) | Standard operation on main display |
+| `virtual_display` | Runs agent on a private virtual display (requires Shizuku) |
 
 ## Troubleshooting
 
