@@ -7,13 +7,17 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.util.Log
+import android.view.SurfaceView
 import android.view.accessibility.AccessibilityEvent
 import com.moonkey.androidagent.BuildConfig
+import com.moonkey.androidagent.platform.virtualdisplay.VirtualDisplayPlatform
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.Op
+import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
+import com.moonkey.androidagent.ui.overlay.StatusIslandManager
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +64,7 @@ class AgentService : AccessibilityService() {
     private var session: AgentSession? = null
     private var overlayController: ServiceOverlayController? = null
     private var actionVisualizer: ActionVisualizerManager? = null
+    private var currentPlatformMode: PlatformMode = PlatformMode.ACCESSIBILITY
 
     /**
      * Get the action visualizer for use in sessions created by MainActivity. Returns null if
@@ -131,7 +136,15 @@ class AgentService : AccessibilityService() {
                                                         Intent.FLAG_ACTIVITY_SINGLE_TOP
                                     }
                             startActivity(intent)
-                        }
+                        },
+                        statusIslandManager = StatusIslandManager(
+                                service = this,
+                                onTap = { openViewer() },
+                                onLongPress = { /* expand handled inside island */ },
+                                onStop = { submitOp(Op.Shutdown) },
+                                onPause = { submitOp(Op.Pause) },
+                                onResume = { submitOp(Op.Resume) }
+                        )
                 )
 
         // Initialize ActionVisualizerManager for touch action visualization
@@ -259,7 +272,13 @@ class AgentService : AccessibilityService() {
                 updateStatus("🤖 ${event.agentName} $status")
             }
             is AgentEvent.TaskCompleted -> {
-                overlayController?.onTaskCompleted()
+                overlayController?.onTaskCompleted(event.reason)
+
+                // Completion handoff: relaunch the VD's last app on the real screen
+                if (event.reason == CompletionReason.GOAL_ACHIEVED &&
+                    currentPlatformMode == PlatformMode.VIRTUAL_DISPLAY) {
+                    performHandoff()
+                }
             }
 
             // ===== Session Lifecycle Events =====
@@ -322,9 +341,12 @@ class AgentService : AccessibilityService() {
             session = null
         }
 
-        // Show capsule overlay immediately
+        // Set platform mode on overlay controller
+        currentPlatformMode = platformMode
+        overlayController?.setPlatformMode(platformMode)
+
+        // Show initial overlay
         overlayController?.showCapsule()
-        // Note: Agent.kt emits the "Starting agent" status, don't duplicate here
 
         // Create and run session in coroutine
         scope.launch {
@@ -363,5 +385,58 @@ class AgentService : AccessibilityService() {
         submitOp(Op.Shutdown)
         overlayController?.hideAll()
         updateStatus("🛑 Agent stopped")
+    }
+
+    // ── Virtual Display Viewer Support ──
+
+    /** Open the VirtualDisplayViewerActivity. Called from StatusIsland tap. */
+    private fun openViewer() {
+        try {
+            val intent = Intent()
+                .setClassName(this, "com.moonkey.androidagent.ui.viewer.VirtualDisplayViewerActivity")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open viewer", e)
+        }
+    }
+
+    /**
+     * Called by VirtualDisplayViewerActivity when its SurfaceView is ready.
+     * Switches the virtual display output to the Viewer for live preview.
+     */
+    fun notifyViewerVisible(surfaceView: SurfaceView) {
+        val platform = session?.getServices()?.platform as? VirtualDisplayPlatform ?: return
+        platform.switchToLivePreview(surfaceView)
+    }
+
+    /**
+     * Called by VirtualDisplayViewerActivity when it's hidden.
+     * Switches back to ImageReader for headless capture.
+     */
+    fun notifyViewerHidden() {
+        val platform = session?.getServices()?.platform as? VirtualDisplayPlatform ?: return
+        platform.switchToImageReader()
+    }
+
+    /**
+     * Completion handoff: relaunch the VD's last active app on the real screen.
+     * Simple relaunch — most apps restore their last state on cold start.
+     */
+    private fun performHandoff() {
+        val platform = session?.getServices()?.platform as? VirtualDisplayPlatform
+        val lastPackage = platform?.getCurrentPackageName()
+        if (lastPackage == null) {
+            Log.w(TAG, "Handoff: no last package to relaunch")
+            return
+        }
+
+        val intent = packageManager.getLaunchIntentForPackage(lastPackage) ?: run {
+            Log.w(TAG, "Handoff: no launch intent for $lastPackage")
+            return
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+        Log.i(TAG, "Handoff: relaunched $lastPackage on default display")
     }
 }
