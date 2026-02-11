@@ -68,7 +68,16 @@ class TypeExecutor(
 
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled between type attempts")
 
-        // Attempt 2: Tap to focus, then SetTextOnFocused
+        // Attempt 2: Tap to focus, then SetTextOnFocused.
+        // Skipped in VD mode — tap triggers IME on the wrong display.
+        if (!platform.allowTapToFocus()) {
+            attemptTrail.add("TapToFocus: skipped (VD mode)")
+            return ActionOutcome.Failed(
+                reason = "SetTextOnNodeAt failed and tap-to-focus disabled in VD mode",
+                attemptTrail = attemptTrail
+            )
+        }
+
         val tapResult = platform.performAction(UIAction.TapAt(point.x, point.y))
         if (tapResult is ActionResult.Failure) {
             attemptTrail.add("TapToFocus: ${tapResult.reason}")

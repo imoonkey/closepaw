@@ -218,12 +218,14 @@ class VirtualDisplayPlatform(
         }
     }
 
+    override fun allowTapToFocus(): Boolean = false
+
     override suspend fun performAction(action: UIAction): ActionResult {
         if (displayId == Display.INVALID_DISPLAY) {
             return ActionResult.Failure("Virtual display not started")
         }
 
-        return when (action) {
+        val result = when (action) {
             is UIAction.ClickNodeAt -> nodeActionPerformer.performNodeClickAt(action.x, action.y)
             is UIAction.LongClickNodeAt ->
                     nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
@@ -249,6 +251,26 @@ class VirtualDisplayPlatform(
                 delay(action.durationMs)
                 ActionResult.Success("Waited ${action.durationMs}ms")
             }
+        }
+
+        // Safety net: dismiss keyboard on main display after text actions.
+        // Even with allowTapToFocus=false, some apps auto-focus fields on window attach.
+        if (action is UIAction.SetTextOnNodeAt || action is UIAction.SetTextOnFocused) {
+            dismissMainDisplayKeyboard()
+        }
+
+        return result
+    }
+
+    /**
+     * Dismiss keyboard on display 0 (real screen).
+     * KEYCODE_BACK on display 0 dismisses IME if showing, benign if not.
+     */
+    private fun dismissMainDisplayKeyboard() {
+        try {
+            shizuku.executeShellCommand(arrayOf("input", "keyevent", "--display", "0", "4"))
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to dismiss main display keyboard", e)
         }
     }
 

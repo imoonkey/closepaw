@@ -72,6 +72,18 @@ interface AndroidPlatform {
     fun getDisplayInfo(): DisplayInfo
     
     // =========================================================================
+    // Platform Capabilities
+    // =========================================================================
+
+    /**
+     * Whether tap-to-focus fallback is safe for text input.
+     *
+     * VD mode returns false: tapping to focus triggers IME on the wrong display.
+     * A11y mode returns true: existing behavior, tap-to-focus works normally.
+     */
+    fun allowTapToFocus(): Boolean = true
+
+    // =========================================================================
     // App Management (P0)
     // =========================================================================
     

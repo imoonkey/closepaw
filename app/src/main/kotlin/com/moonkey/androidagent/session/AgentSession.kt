@@ -249,15 +249,16 @@ private constructor(
         }
 
         val taskId = currentTaskId ?: "unknown"
+        val completionReason = reason.toCompletionReason()
         val resultMessage = if (reason is AgentStopReason.Error) reason.message else null
 
-        // Emit TaskCompleted
         emit(
                 AgentEvent.TaskCompleted(
                         sessionId = sessionId,
                         timestamp = now(),
                         taskId = taskId,
-                        result = resultMessage
+                        result = resultMessage,
+                        reason = completionReason
                 )
         )
 
@@ -266,7 +267,14 @@ private constructor(
         currentTaskId = null
         agentRunner.clear()
 
-        Log.i(TAG, "Task $taskId completed. Session Idle.")
+        Log.i(TAG, "Task $taskId completed (reason=$completionReason). Session Idle.")
+    }
+
+    private fun AgentStopReason.toCompletionReason(): CompletionReason = when (this) {
+        is AgentStopReason.GoalAchieved -> CompletionReason.GOAL_ACHIEVED
+        is AgentStopReason.MaxTurnsReached -> CompletionReason.MAX_TURNS
+        is AgentStopReason.UserRequested -> CompletionReason.USER_STOPPED
+        is AgentStopReason.Error -> CompletionReason.ERROR
     }
 
     private suspend fun handlePause() {

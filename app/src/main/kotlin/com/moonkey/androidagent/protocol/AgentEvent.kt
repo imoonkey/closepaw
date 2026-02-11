@@ -78,12 +78,16 @@ sealed interface AgentEvent {
 
     /**
      * A task has completed.
+     *
+     * [reason] indicates why the task ended — goal achieved, max turns, error, etc.
+     * The handoff (VD → real screen) triggers only on [CompletionReason.GOAL_ACHIEVED].
      */
     data class TaskCompleted(
         override val sessionId: SessionId,
         override val timestamp: Long,
         val taskId: String,
-        val result: String?
+        val result: String?,
+        val reason: CompletionReason
     ) : AgentEvent
 
     // ===== Planning State Events =====

@@ -692,6 +692,76 @@ Nothing in this design blocks this. The `switchToLivePreview()` / `switchToImage
 
 ---
 
+## 17. Addendum — Merged from Codex Design + Review (2026-02-11)
+
+The following improvements are incorporated from `final_system_design_codex.md` and `final_system_design_review_claude.md`.
+
+### 17a. TaskCompleted Event Needs CompletionReason
+
+**Problem**: Current `TaskCompleted` event has no `reason` field. `SessionCompleted` only fires on explicit `Op.Shutdown` (user stop), NOT on normal task completion (goal achieved, max turns, error). So the handoff logic cannot trigger on `SessionCompleted` — it must trigger on `TaskCompleted`.
+
+**Fix**: Add `reason: CompletionReason` to `TaskCompleted`. Map from `AgentStopReason`:
+
+```kotlin
+// AgentEvent.kt
+data class TaskCompleted(
+    override val sessionId: SessionId,
+    override val timestamp: Long,
+    val taskId: String,
+    val result: String?,
+    val reason: CompletionReason   // ← NEW
+) : AgentEvent
+
+// AgentSession.handleAgentComplete():
+val reason = when (stopReason) {
+    is AgentStopReason.GoalAchieved -> CompletionReason.GOAL_ACHIEVED
+    is AgentStopReason.MaxTurnsReached -> CompletionReason.MAX_TURNS
+    is AgentStopReason.UserRequested -> CompletionReason.USER_STOPPED
+    is AgentStopReason.Error -> CompletionReason.ERROR
+}
+```
+
+**Handoff correction**: §7 handoff triggers on `TaskCompleted(reason=GOAL_ACHIEVED)` in `handleEvent()`, not on `SessionCompleted`.
+
+### 17b. PixelCopy Retry Threshold
+
+**Improvement from Codex**: Instead of immediately falling back on first PixelCopy failure, track consecutive failures and degrade after threshold.
+
+```kotlin
+private var pixelCopyFailCount = 0
+private const val PIXEL_COPY_MAX_FAILURES = 2
+
+private suspend fun captureFromPixelCopy(): ScreenImage? {
+    // ... PixelCopy attempt ...
+    if (result != PixelCopy.SUCCESS) {
+        pixelCopyFailCount++
+        if (pixelCopyFailCount >= PIXEL_COPY_MAX_FAILURES) {
+            Log.w(TAG, "PixelCopy failed $pixelCopyFailCount times, reverting to ImageReader")
+            switchToImageReader()
+        }
+        return captureFromImageReader()  // single-shot fallback
+    }
+    pixelCopyFailCount = 0  // reset on success
+    // ...
+}
+```
+
+### 17c. Unit Test Targets (from Codex)
+
+- `TypeExecutor`: When `allowTapToFocus()` returns false, Attempt 2 (tap-to-focus) is skipped entirely
+- `ServiceOverlayController`: In `VIRTUAL_DISPLAY` mode, `EdgeGlowManager` and `SmartCapsuleManager` are never invoked
+- `AgentSession`: `TaskCompleted.reason` correctly maps from `AgentStopReason`
+
+### 17d. Definition of Done (from Codex)
+
+1. VD mode: main screen shows only StatusIsland (no capsule, no glow)
+2. Keyboard crosstalk: zero reproduction cases
+3. Viewer flow: enter/exit stable, agent not interrupted
+4. Hybrid mode: surface switch works, screenshot pipeline unbroken
+5. A11y mode: zero regression — existing overlay behavior identical
+
+---
+
 ## One-Liner
 
 Switch the VirtualDisplay's surface between ImageReader and SurfaceView. That's the whole trick. Everything else is plumbing.
