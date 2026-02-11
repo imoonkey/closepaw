@@ -3,6 +3,7 @@ package com.moonkey.androidagent.app
 import android.content.Intent
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
+import com.moonkey.androidagent.protocol.PlatformMode
 
 data class MainActivityIntentPayload(
         val apiKey: String?,
@@ -11,6 +12,7 @@ data class MainActivityIntentPayload(
         val backendType: LLMBackendType?,
         val agentMode: AgentMode?,
         val perceptionMode: String?,
+        val platformMode: PlatformMode?,
         val mainModel: String?,
         val executorModel: String?,
         val goalText: String?,
@@ -62,6 +64,15 @@ data class MainActivityIntentPayload(
                             intent.getStringExtra(MainActivity.EXTRA_PERCEPTION_MODE)
                     )
 
+            val platformMode =
+                    intent.getStringExtra(MainActivity.EXTRA_PLATFORM_MODE)?.let { raw ->
+                        try {
+                            PlatformMode.valueOf(raw.uppercase())
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+
             val mainModel =
                     intent.getStringExtra(MainActivity.EXTRA_MAIN_MODEL)?.takeIf { it.isNotBlank() }
 
@@ -96,6 +107,7 @@ data class MainActivityIntentPayload(
                     backendType = backendType,
                     agentMode = agentMode,
                     perceptionMode = perceptionMode,
+                    platformMode = platformMode,
                     mainModel = mainModel,
                     executorModel = executorModel,
                     goalText = goalText,

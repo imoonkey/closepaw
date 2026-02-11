@@ -11,6 +11,7 @@
 #   ./scripts/debug-run.sh --screenshot-only "goal"     # Screenshot only
 #   ./scripts/debug-run.sh --hybrid "goal"              # A11y + screenshot
 #   ./scripts/debug-run.sh --main-model gpt-5.2 --executor-model glm-4.7 "goal"
+#   ./scripts/debug-run.sh --virtual-display "goal"     # Run on Shizuku virtual display
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
@@ -18,6 +19,7 @@
 #   PERCEPTION_MODE: "accessibility_only" (default), "screenshot_only", or "hybrid"
 #   MAIN_MODEL: Override main model name (key from llm_models.json)
 #   EXECUTOR_MODEL: Override executor model name (key from llm_models.json)
+#   PLATFORM_MODE: "accessibility" (default) or "virtual_display"
 #
 
 set -e
@@ -34,6 +36,7 @@ FORCED_AGENT_MODE=""
 FORCED_PERCEPTION_MODE=""
 FORCED_MAIN_MODEL=""
 FORCED_EXECUTOR_MODEL=""
+FORCED_PLATFORM_MODE=""
 GOAL=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -84,6 +87,10 @@ while [[ $# -gt 0 ]]; do
             fi
             FORCED_EXECUTOR_MODEL="$2"
             shift 2
+            ;;
+        --virtual-display|--vd)
+            FORCED_PLATFORM_MODE="virtual_display"
+            shift
             ;;
         *)
             GOAL="$1"
@@ -185,6 +192,13 @@ if [[ -n "$FORCED_PERCEPTION_MODE" ]]; then
 fi
 PERCEPTION_MODE="${PERCEPTION_MODE:-accessibility_only}"
 PERCEPTION_MODE=$(normalize_perception_mode "$PERCEPTION_MODE")
+
+# Determine platform mode
+if [[ -n "$FORCED_PLATFORM_MODE" ]]; then
+    PLATFORM_MODE="$FORCED_PLATFORM_MODE"
+fi
+PLATFORM_MODE="${PLATFORM_MODE:-accessibility}"
+
 DEBUG_MODE=$(normalize_bool "$DEBUG_MODE")
 
 # Check API key for OpenAI backend
@@ -199,6 +213,7 @@ if [[ -n "$EFFECTIVE_EXECUTOR_MODEL" ]]; then
 fi
 log "Using execution mode: $AGENT_MODE"
 log "Using perception mode: $PERCEPTION_MODE"
+log "Using platform mode: $PLATFORM_MODE"
 
 # Ensure device connected
 if ! adb devices | grep -q "device$"; then
@@ -227,8 +242,9 @@ SAFE_API_KEY=$(escape_shell_arg "${OPENAI_API_KEY:-}")
 SAFE_RUN_ID=$(escape_shell_arg "$RUN_ID")
 SAFE_AGENT_MODE=$(escape_shell_arg "$AGENT_MODE")
 SAFE_PERCEPTION_MODE=$(escape_shell_arg "$PERCEPTION_MODE")
+SAFE_PLATFORM_MODE=$(escape_shell_arg "$PLATFORM_MODE")
 
-INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --es agent_mode '$SAFE_AGENT_MODE' --es perception_mode '$SAFE_PERCEPTION_MODE' --ez auto_start true --ez fresh_session true --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
+INTENT_EXTRAS="--es goal '$SAFE_GOAL' --es llm_backend '$SAFE_BACKEND' --es agent_mode '$SAFE_AGENT_MODE' --es perception_mode '$SAFE_PERCEPTION_MODE' --es platform_mode '$SAFE_PLATFORM_MODE' --ez auto_start true --ez fresh_session true --ez debug_mode $DEBUG_MODE --ez trace_enabled true --es trace_run_id '$SAFE_RUN_ID'"
 
 # Add main model to intent
 SAFE_MAIN_MODEL=$(escape_shell_arg "$EFFECTIVE_MAIN_MODEL")

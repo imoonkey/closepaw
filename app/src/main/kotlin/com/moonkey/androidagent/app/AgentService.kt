@@ -99,6 +99,20 @@ class AgentService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         Log.i(TAG, "AgentService connected")
+
+        // Ensure we retrieve interactive windows
+        val info = serviceInfo
+        if (info != null) {
+            info.flags =
+                    info.flags or
+                            android.accessibilityservice.AccessibilityServiceInfo
+                                    .FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+            serviceInfo = info
+            Log.i(TAG, "Updated service info flags: ${info.flags}")
+        } else {
+            Log.w(TAG, "Service info was null!")
+        }
+
         updateStatus("Accessibility Service connected")
 
         overlayController =

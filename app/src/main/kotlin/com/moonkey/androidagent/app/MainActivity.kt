@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_AGENT_MODE = "agent_mode"
         const val EXTRA_MAIN_MODEL = "main_model"
         const val EXTRA_EXECUTOR_MODEL = "executor_model"
+        const val EXTRA_PLATFORM_MODE = "platform_mode"
         const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
         const val EXTRA_NOVITA_API_KEY = "novita_api_key"
     }
@@ -239,6 +240,11 @@ class MainActivity : ComponentActivity() {
         payload.perceptionMode?.let { mode ->
             settingsState.updatePerceptionMode(mode)
             Log.d(TAG, "Perception mode set from intent: $mode")
+        }
+
+        payload.platformMode?.let {
+            settingsState.updatePlatformMode(it)
+            Log.d(TAG, "Platform mode set from intent: $it")
         }
 
         payload.mainModel?.let {
@@ -451,11 +457,7 @@ class MainActivity : ComponentActivity() {
 
         if (missing.isEmpty()) return true
 
-        Toast.makeText(
-                        this,
-                        "Missing API key(s): ${missing.joinToString("; ")}",
-                        Toast.LENGTH_LONG
-                )
+        Toast.makeText(this, "Missing API key(s): ${missing.joinToString("; ")}", Toast.LENGTH_LONG)
                 .show()
         showSettings = true
         return false
