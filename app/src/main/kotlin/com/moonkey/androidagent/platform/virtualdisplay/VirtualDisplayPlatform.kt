@@ -181,13 +181,17 @@ class VirtualDisplayPlatform(
      * Uses getRootOnDisplay() to find the app window root, then passes it to Perceptor for
      * structured extraction.
      */
-    private fun captureA11yTree(): List<PerceptionElement> {
-        val root = getRootOnDisplay() ?: return emptyList()
-        return try {
-            Perceptor.snapshot(root, config.width, config.height).elements
-        } catch (e: Exception) {
-            Log.w(TAG, "Perceptor.snapshot failed", e)
-            emptyList()
+    private suspend fun captureA11yTree(): List<PerceptionElement> {
+        return withContext(Dispatchers.Main) {
+            val root = getRootOnDisplay() ?: return@withContext emptyList()
+            try {
+                Perceptor.snapshot(root, config.width, config.height).elements
+            } catch (e: Exception) {
+                Log.w(TAG, "Perceptor.snapshot failed", e)
+                emptyList()
+            } finally {
+                root.recycle()
+            }
         }
     }
 
@@ -440,10 +444,23 @@ class VirtualDisplayPlatform(
                 }
         val ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
         return if (ok) {
+            clearInputFocusAfterSetText(node)
             ActionResult.Success("Text entered: $text")
         } else {
             ActionResult.Failure("ACTION_SET_TEXT failed")
         }
+    }
+
+    /**
+     * Pragmatic IME mitigation after successful ACTION_SET_TEXT.
+     *
+     * Clearing focus avoids keeping IME/input connection active longer than necessary, and is safer
+     * than injecting Enter/Back that may trigger navigation or submit actions.
+     */
+    private fun clearInputFocusAfterSetText(node: AccessibilityNodeInfo) {
+        runCatching {
+            node.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS)
+        }.onFailure { e -> Log.w(TAG, "Failed to clear focus after ACTION_SET_TEXT (non-fatal)", e) }
     }
 
     // ── Coordinate-based Actions (Shizuku Injection) ────────────
@@ -589,7 +606,12 @@ class VirtualDisplayPlatform(
 
     override fun getCurrentPackageName(): String? {
         val appWindow = getAppWindowOnDisplay() ?: return null
-        return appWindow.root?.packageName?.toString()
+        val root = appWindow.root ?: return null
+        return try {
+            root.packageName?.toString()
+        } finally {
+            root.recycle()
+        }
     }
 
     override fun getDisplayInfo(): DisplayInfo {
@@ -687,22 +709,26 @@ class VirtualDisplayPlatform(
                 val allDisplayWindows = service.getWindowsOnAllDisplays()
                 val displayWindows = allDisplayWindows.get(displayId)
                 if (displayWindows != null) {
-                    val windowSummary =
-                            displayWindows.joinToString(", ") {
-                                "Window(id=${it.id}, display=${it.displayId}, title=${it.title}, type=${it.type})"
-                            }
-                    Log.d(TAG, "Windows on display $displayId: $windowSummary")
+                    if (Log.isLoggable(TAG, Log.DEBUG)) {
+                        val windowSummary =
+                                displayWindows.joinToString(", ") {
+                                    "Window(id=${it.id}, display=${it.displayId}, title=${it.title}, type=${it.type})"
+                                }
+                        Log.d(TAG, "Windows on display $displayId: $windowSummary")
+                    }
                 } else {
                     // Log all available display IDs for debugging
-                    val displayIds =
-                            (0 until allDisplayWindows.size()).map { allDisplayWindows.keyAt(it) }
-                    Log.d(TAG, "No windows on display $displayId. Available displays: $displayIds")
+                    if (Log.isLoggable(TAG, Log.DEBUG)) {
+                        val displayIds =
+                                (0 until allDisplayWindows.size()).map { allDisplayWindows.keyAt(it) }
+                        Log.d(TAG, "No windows on display $displayId. Available displays: $displayIds")
+                    }
                 }
                 displayWindows ?: emptyList()
             } else {
                 // Fallback for pre-API 33: filter service.windows by displayId
                 val allWindows = service.windows
-                if (allWindows != null) {
+                if (allWindows != null && Log.isLoggable(TAG, Log.DEBUG)) {
                     val windowSummary =
                             allWindows.joinToString(", ") {
                                 "Window(id=${it.id}, display=${it.displayId}, title=${it.title}, type=${it.type})"

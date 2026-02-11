@@ -341,6 +341,7 @@ while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
     if tail -n 800 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionCompleted\\|AgentService: Session completed\\|AgentService: Task completed"; then
         echo ""
         ok "Agent completed!"
+        stop_agent
         break
     fi
 
@@ -348,6 +349,7 @@ while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
     if tail -n 800 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionError\\|AgentService: Session error\\|Fatal error"; then
         echo ""
         warn "Agent stopped (session error)"
+        stop_agent
         break
     fi
 done
@@ -375,7 +377,7 @@ fi
 # Pull trace (JSONL + artifacts)
 LOCAL_TRACE_DIR="$DEBUG_DIR/trace"
 mkdir -p "$LOCAL_TRACE_DIR"
-if adb shell "ls '$DEVICE_TRACE_DIR' " >/dev/null 2>&1; then
+if adb shell "ls '$DEVICE_TRACE_DIR'" >/dev/null 2>&1; then
     log "Pulling trace artifacts..."
     adb pull "$DEVICE_TRACE_DIR/." "$LOCAL_TRACE_DIR/" >/dev/null 2>&1 || true
     if command -v python3 >/dev/null 2>&1; then

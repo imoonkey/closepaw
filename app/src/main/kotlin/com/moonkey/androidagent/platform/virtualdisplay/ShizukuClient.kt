@@ -9,7 +9,7 @@ import android.os.IBinder
 import android.util.Log
 import android.view.InputEvent
 import android.view.Surface
-import java.lang.reflect.Proxy
+import java.util.concurrent.TimeUnit
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
@@ -182,43 +182,61 @@ class ShizukuClient {
     /**
      * Execute a shell command via Shizuku.
      *
-     * @return Exit code of the command
+     * Prefers Shizuku.newProcess() direct API when available; falls back to reflection for
+     * compatibility. Logs non-zero exit codes and exceptions.
+     *
+     * @return Exit code of the command, or -1 on failure
      */
     fun executeShellCommand(command: Array<String>): Int {
         return try {
-            val shizukuClass = Class.forName("rikka.shizuku.Shizuku")
-            val newProcessMethod =
-                    shizukuClass.getMethod(
-                            "newProcess",
-                            Array<String>::class.java,
-                            Array<String>::class.java,
-                            String::class.java
-                    )
-            val process = newProcessMethod.invoke(null, command, null, null) as Process
-
-            val exitCode = process.waitFor()
+            val process = newProcessViaShizuku(command)
+            if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                process.destroy()
+                Log.e(TAG, "Shell command timed out: ${command.joinToString(" ")}")
+                return -1
+            }
+            val exitCode = process.exitValue()
             if (exitCode != 0) {
-                // Log stderr
                 val error = process.errorStream.bufferedReader().use { it.readText() }
-                Log.e(TAG, "Shell command failed ($exitCode): ${command.joinToString(" ")}\n$error")
+                Log.w(TAG, "Shell command non-zero exit ($exitCode): ${command.joinToString(" ")}\n$error")
             } else {
                 Log.d(TAG, "Shell command success: ${command.joinToString(" ")}")
             }
             exitCode
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to execute shell command", e)
+            Log.e(TAG, "Failed to execute shell command: ${command.joinToString(" ")}", e)
             -1
         }
     }
 
-    // ── Private: Helpers ────────────────────────────────────────
-
-    private fun createNullCallbackProxy(): Pair<Any, Class<*>> {
-        val callbackClass = Class.forName("android.hardware.display.IVirtualDisplayCallback")
-        val loader =
-                Class.forName("android.hardware.display.IVirtualDisplayCallback\$Stub").classLoader
-        val proxy = Proxy.newProxyInstance(loader, arrayOf(callbackClass)) { _, _, _ -> null }
-        return proxy to callbackClass
+    /**
+     * Obtain a Process via Shizuku.
+     *
+     * Some Shizuku versions expose newProcess as a public method, while others keep it private.
+     * Resolve public signature first, then fall back to declared/private method.
+     */
+    private fun newProcessViaShizuku(command: Array<String>): Process {
+        val shizukuClass = Shizuku::class.java
+        val publicMethod =
+                runCatching {
+                            shizukuClass.getMethod(
+                                    "newProcess",
+                                    Array<String>::class.java,
+                                    Array<String>::class.java,
+                                    String::class.java
+                            )
+                        }
+                        .getOrNull()
+        val method =
+                publicMethod
+                        ?: shizukuClass.getDeclaredMethod(
+                        "newProcess",
+                        Array<String>::class.java,
+                        Array<String>::class.java,
+                        String::class.java
+                )
+        method.isAccessible = true
+        return method.invoke(null, command, null, null) as Process
     }
 
     // ── Private: Binder Proxy Acquisition ───────────────────────

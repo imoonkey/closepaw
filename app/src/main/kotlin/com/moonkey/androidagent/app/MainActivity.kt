@@ -115,6 +115,12 @@ class MainActivity : ComponentActivity() {
                         onSessionNeeded = { text -> ensureSessionAndSend(text) },
                         onTaskCompleted = {
                             sessionHistoryManager.endSession()
+                            currentSession?.let { session ->
+                                sessionScope.launch {
+                                    session.submit(Op.Shutdown)
+                                    Log.d(TAG, "Submitted Op.Shutdown for session cleanup on task completion")
+                                }
+                            }
                             currentSession = null
                             Log.d(TAG, "Session cleared after task completion")
                         }
