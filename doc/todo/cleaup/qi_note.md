@@ -1,0 +1,1 @@
+Fix `cd /Users/moonkey/workspace/android-agent-workspace/androidagent && ./gradlew assembleDebug 2>&1 | tail -40` warnings, e..g, about deprecated codes.
