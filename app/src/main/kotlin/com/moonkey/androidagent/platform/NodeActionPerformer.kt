@@ -95,16 +95,16 @@ class NodeActionPerformer(
                                 "No focused editable element to send Enter to"
                         )
                 try {
+                    val imeEnterActionId =
+                            runCatching {
+                                        AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER
+                                                .id
+                                    }
+                                    .getOrNull()
                     val imeResult =
-                            if (sdkIntProvider() >= Build.VERSION_CODES.R) {
-                                AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER
-                                        ?.id
-                                        ?.let { actionId ->
-                                    focusedEditable.performAction(actionId)
-                                } ?: false
-                            } else {
-                                false
-                            }
+                            if (sdkIntProvider() >= Build.VERSION_CODES.R && imeEnterActionId != null)
+                                    focusedEditable.performAction(imeEnterActionId)
+                            else false
                     if (imeResult) {
                         return@withRoot ActionResult.Success("Enter key pressed (IME action)")
                     }

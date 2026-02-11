@@ -17,7 +17,7 @@ class VirtualDisplayWindowAccessor(
     private val displayIdProvider: () -> Int
 ) {
     companion object {
-        private const val TAG = "VirtualDisplayWindowAccessor"
+        private const val TAG = "VDWindowAccessor"
     }
 
     /** Get windows on the virtual display. Returns empty list if display invalid or unavailable. */
