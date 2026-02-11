@@ -10,7 +10,6 @@ import android.os.Looper
 import android.util.Log
 import android.view.Display
 import android.view.PixelCopy
-import android.view.Surface
 import android.view.SurfaceView
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.ScreenImage
@@ -21,26 +20,25 @@ import com.moonkey.androidagent.perception.screenshotJpegQuality
 import com.moonkey.androidagent.perception.screenshotMaxDimension
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
-import com.moonkey.androidagent.platform.AppManager
 import com.moonkey.androidagent.platform.AppInfo
+import com.moonkey.androidagent.platform.AppManager
 import com.moonkey.androidagent.platform.BitmapUtils
 import com.moonkey.androidagent.platform.DisplayInfo
 import com.moonkey.androidagent.platform.NodeActionPerformer
-import com.moonkey.androidagent.platform.SystemButtonType
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.protocol.SessionConfig
+import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
-import kotlin.coroutines.resume
 
 /**
  * VirtualDisplayPlatform — AndroidPlatform running on a Shizuku virtual display.
  *
- * Orchestrator: delegates to VirtualDisplayWindowAccessor (window/root),
- * NodeActionPerformer (node actions), and VirtualDisplayInputInjector (input).
+ * Orchestrator: delegates to VirtualDisplayWindowAccessor (window/root), NodeActionPerformer (node
+ * actions), and VirtualDisplayInputInjector (input).
  *
  * Screen capture: ImageReader (we own the surface). A11y tree: windows filtered by displayId. Node
  * actions: a11y performAction. Coordinate actions: Shizuku injection.
@@ -54,10 +52,11 @@ class VirtualDisplayPlatform(
         private val sessionConfig: SessionConfig
 ) : AndroidPlatform {
 
-    /**
-     * Which surface the VirtualDisplay is currently rendering to.
-     */
-    enum class SurfaceMode { IMAGE_READER, LIVE_PREVIEW }
+    /** Which surface the VirtualDisplay is currently rendering to. */
+    enum class SurfaceMode {
+        IMAGE_READER,
+        LIVE_PREVIEW
+    }
 
     companion object {
         private const val TAG = "VirtualDisplayPlatform"
@@ -84,7 +83,8 @@ class VirtualDisplayPlatform(
 
     private val windowAccessor = VirtualDisplayWindowAccessor(service, displayIdProvider)
 
-    private val nodeActionPerformer = NodeActionPerformer(rootProvider = { windowAccessor.getRootOnDisplay() })
+    private val nodeActionPerformer =
+            NodeActionPerformer(rootProvider = { windowAccessor.getRootOnDisplay() })
 
     private val inputInjector = VirtualDisplayInputInjector(shizuku, displayIdProvider)
 
@@ -158,15 +158,20 @@ class VirtualDisplayPlatform(
     // ── Hybrid Surface Switching ──────────────────────────────────
 
     /**
-     * Switch VirtualDisplay output to the Viewer's SurfaceView for 60fps live preview.
-     * Called when the Viewer Activity becomes visible.
+     * Switch VirtualDisplay output to the Viewer's SurfaceView for 60fps live preview. Called when
+     * the Viewer Activity becomes visible.
      */
     fun switchToLivePreview(surfaceView: SurfaceView) {
         if (surfaceMode == SurfaceMode.LIVE_PREVIEW) return
-        val surface = surfaceView.holder.surface ?: run {
-            Log.w(TAG, "SurfaceView holder has no valid surface, staying on ImageReader")
-            return
-        }
+        val surface =
+                surfaceView.holder.surface
+                        ?: run {
+                            Log.w(
+                                    TAG,
+                                    "SurfaceView holder has no valid surface, staying on ImageReader"
+                            )
+                            return
+                        }
         if (!surface.isValid) {
             Log.w(TAG, "SurfaceView surface is invalid, staying on ImageReader")
             return
@@ -183,8 +188,8 @@ class VirtualDisplayPlatform(
     }
 
     /**
-     * Switch VirtualDisplay output back to the ImageReader for headless capture.
-     * Called when the Viewer Activity is hidden or destroyed.
+     * Switch VirtualDisplay output back to the ImageReader for headless capture. Called when the
+     * Viewer Activity is hidden or destroyed.
      */
     fun switchToImageReader() {
         if (surfaceMode == SurfaceMode.IMAGE_READER) return
@@ -280,8 +285,8 @@ class VirtualDisplayPlatform(
     }
 
     /**
-     * Capture a screenshot via PixelCopy when surface is pointed at the Viewer's SurfaceView.
-     * On consecutive failures, permanently reverts to ImageReader mode.
+     * Capture a screenshot via PixelCopy when surface is pointed at the Viewer's SurfaceView. On
+     * consecutive failures, permanently reverts to ImageReader mode.
      */
     private suspend fun captureFromPixelCopy(): ScreenImage? {
         val sv = liveSurfaceView
@@ -293,13 +298,17 @@ class VirtualDisplayPlatform(
 
         val bitmap = Bitmap.createBitmap(config.width, config.height, Bitmap.Config.ARGB_8888)
 
-        val result = withContext(Dispatchers.Main) {
-            suspendCancellableCoroutine<Int> { cont ->
-                PixelCopy.request(sv, bitmap, { copyResult ->
-                    cont.resume(copyResult)
-                }, Handler(Looper.getMainLooper()))
-            }
-        }
+        val result =
+                withContext(Dispatchers.Main) {
+                    suspendCancellableCoroutine<Int> { cont ->
+                        PixelCopy.request(
+                                sv,
+                                bitmap,
+                                { copyResult -> cont.resume(copyResult) },
+                                Handler(Looper.getMainLooper())
+                        )
+                    }
+                }
 
         if (result != PixelCopy.SUCCESS) {
             bitmap.recycle()
@@ -313,9 +322,7 @@ class VirtualDisplayPlatform(
         }
 
         pixelCopyFailCount = 0
-        return withContext(Dispatchers.Default) {
-            bitmapToScreenImage(bitmap)
-        }
+        return withContext(Dispatchers.Default) { bitmapToScreenImage(bitmap) }
     }
 
     /** Scale, compress, and wrap a Bitmap into a ScreenImage. */
@@ -348,33 +355,31 @@ class VirtualDisplayPlatform(
             return ActionResult.Failure("Virtual display not started")
         }
 
-        val result = when (action) {
-            is UIAction.ClickNodeAt -> nodeActionPerformer.performNodeClickAt(action.x, action.y)
-            is UIAction.LongClickNodeAt ->
-                    nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
-            is UIAction.SetTextOnNodeAt ->
-                    nodeActionPerformer.performSetTextOnNodeAt(
-                            action.x,
-                            action.y,
-                            action.text,
-                            action.clear
-                    )
-            is UIAction.SetTextOnFocused ->
-                    nodeActionPerformer.performSetTextOnFocused(action.text, action.clear)
-            is UIAction.TapAt -> inputInjector.injectTap(action.x, action.y)
-            is UIAction.LongPressAt ->
-                    inputInjector.injectLongPress(action.x, action.y, action.durationMs)
-            is UIAction.Swipe -> inputInjector.injectSwipe(action)
-            is UIAction.SystemButton ->
-                    when (action.button) {
-                        SystemButtonType.ENTER -> nodeActionPerformer.performEnterKey()
-                        else -> inputInjector.injectSystemButton(action.button)
+        val result =
+                when (action) {
+                    is UIAction.ClickNodeAt ->
+                            nodeActionPerformer.performNodeClickAt(action.x, action.y)
+                    is UIAction.LongClickNodeAt ->
+                            nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
+                    is UIAction.SetTextOnNodeAt ->
+                            nodeActionPerformer.performSetTextOnNodeAt(
+                                    action.x,
+                                    action.y,
+                                    action.text,
+                                    action.clear
+                            )
+                    is UIAction.SetTextOnFocused ->
+                            nodeActionPerformer.performSetTextOnFocused(action.text, action.clear)
+                    is UIAction.TapAt -> inputInjector.injectTap(action.x, action.y)
+                    is UIAction.LongPressAt ->
+                            inputInjector.injectLongPress(action.x, action.y, action.durationMs)
+                    is UIAction.Swipe -> inputInjector.injectSwipe(action)
+                    is UIAction.SystemButton -> inputInjector.injectSystemButton(action.button)
+                    is UIAction.Wait -> {
+                        delay(action.durationMs)
+                        ActionResult.Success("Waited ${action.durationMs}ms")
                     }
-            is UIAction.Wait -> {
-                delay(action.durationMs)
-                ActionResult.Success("Waited ${action.durationMs}ms")
-            }
-        }
+                }
 
         // Safety net: dismiss keyboard on main display after text actions.
         // Even with allowTapToFocus=false, some apps auto-focus fields on window attach.
@@ -386,8 +391,8 @@ class VirtualDisplayPlatform(
     }
 
     /**
-     * Dismiss keyboard on display 0 (real screen).
-     * KEYCODE_BACK on display 0 dismisses IME if showing, benign if not.
+     * Dismiss keyboard on display 0 (real screen). KEYCODE_BACK on display 0 dismisses IME if
+     * showing, benign if not.
      */
     private fun dismissMainDisplayKeyboard() {
         try {

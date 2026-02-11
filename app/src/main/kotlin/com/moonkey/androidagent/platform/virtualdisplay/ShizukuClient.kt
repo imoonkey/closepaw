@@ -86,8 +86,8 @@ class ShizukuClient {
     // ── Display Management ──────────────────────────────────────
 
     /**
-     * Stored callbacks from createVirtualDisplay, keyed by displayId.
-     * Required for setVirtualDisplaySurface on ROMs that validate the callback token.
+     * Stored callbacks from createVirtualDisplay, keyed by displayId. Required for
+     * setVirtualDisplaySurface on ROMs that validate the callback token.
      */
     private val displayCallbacks = ConcurrentHashMap<Int, IVirtualDisplayCallback>()
 
@@ -120,8 +120,8 @@ class ShizukuClient {
     /**
      * Switch the surface a virtual display renders to.
      *
-     * Uses IDisplayManager.setVirtualDisplaySurface(callback, displayId, surface).
-     * The callback token must match the one used in createVirtualDisplay.
+     * Uses IDisplayManager.setVirtualDisplaySurface(callback, displayId, surface). The callback
+     * token must match the one used in createVirtualDisplay.
      *
      * @return true if the surface was switched successfully
      */
@@ -130,14 +130,20 @@ class ShizukuClient {
         return try {
             val proxy = getDisplayManagerProxy()
             val callback = displayCallbacks[displayId]
-            val method = proxy.javaClass.getMethod(
-                    "setVirtualDisplaySurface",
-                    IVirtualDisplayCallback::class.java,
-                    Int::class.javaPrimitiveType,
-                    Surface::class.java
-            )
-            method.invoke(proxy, callback, displayId, surface)
-            Log.d(TAG, "Set virtual display $displayId surface (callback=${callback != null})")
+            if (callback == null) {
+                Log.e(TAG, "No callback token for display $displayId")
+                return false
+            }
+            // AIDL: setVirtualDisplaySurface(IVirtualDisplayCallback token, Surface surface)
+            // The display is identified by the callback token, not by displayId.
+            val method =
+                    proxy.javaClass.getMethod(
+                            "setVirtualDisplaySurface",
+                            IVirtualDisplayCallback::class.java,
+                            Surface::class.java
+                    )
+            method.invoke(proxy, callback, surface)
+            Log.d(TAG, "Set virtual display $displayId surface")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to set virtual display $displayId surface", e)
@@ -150,9 +156,18 @@ class ShizukuClient {
         if (displayId < 0) return
         try {
             val proxy = getDisplayManagerProxy()
-            val method =
-                    proxy.javaClass.getMethod("releaseVirtualDisplay", Int::class.javaPrimitiveType)
-            method.invoke(proxy, displayId)
+            val callback = displayCallbacks[displayId]
+            if (callback != null) {
+                // AIDL: releaseVirtualDisplay(IVirtualDisplayCallback token)
+                val method =
+                        proxy.javaClass.getMethod(
+                                "releaseVirtualDisplay",
+                                IVirtualDisplayCallback::class.java
+                        )
+                method.invoke(proxy, callback)
+            } else {
+                Log.w(TAG, "No callback token for display $displayId, skipping release")
+            }
             displayCallbacks.remove(displayId)
             Log.d(TAG, "Released virtual display $displayId")
         } catch (e: Exception) {

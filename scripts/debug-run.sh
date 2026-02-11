@@ -338,7 +338,7 @@ while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
 
     # Check if main session finished.
     # Avoid generic "GoalAchieved" patterns because sub-agents can emit those too.
-    if tail -n 800 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionCompleted\\|AgentService: Session completed\\|AgentService: Task completed"; then
+    if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionCompleted\\|AgentService: Session completed\\|AgentService: Task completed"; then
         echo ""
         ok "Agent completed!"
         stop_agent
@@ -346,7 +346,7 @@ while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
     fi
 
     # Check for terminal errors at session level.
-    if tail -n 800 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionError\\|AgentService: Session error\\|Fatal error"; then
+    if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionError\\|AgentService: Session error\\|Fatal error"; then
         echo ""
         warn "Agent stopped (session error)"
         stop_agent

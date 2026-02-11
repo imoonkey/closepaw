@@ -18,8 +18,8 @@ import android.widget.TextView
 /**
  * StatusIslandManager — Floating pill overlay on the real screen during VD mode.
  *
- * This is the ONLY overlay visible on the real screen when the agent runs on a
- * virtual display. It shows a compact status pill at the top of the screen.
+ * This is the ONLY overlay visible on the real screen when the agent runs on a virtual display. It
+ * shows a compact status pill at the top of the screen.
  *
  * - Tap: opens the VirtualDisplayViewerActivity (live preview)
  * - Long-press: expands inline Stop/Pause controls for 3 seconds
@@ -27,12 +27,12 @@ import android.widget.TextView
  * Touches outside the pill pass through (WRAP_CONTENT layout).
  */
 class StatusIslandManager(
-    private val service: AccessibilityService,
-    private val onTap: () -> Unit,
-    private val onLongPress: () -> Unit,
-    private val onStop: () -> Unit,
-    private val onPause: () -> Unit,
-    private val onResume: () -> Unit
+        private val service: AccessibilityService,
+        private val onTap: () -> Unit,
+        private val onLongPress: () -> Unit,
+        private val onStop: () -> Unit,
+        private val onPause: () -> Unit,
+        private val onResume: () -> Unit
 ) {
     companion object {
         private const val TAG = "StatusIslandManager"
@@ -124,67 +124,79 @@ class StatusIslandManager(
     // ── Layout Building ──
 
     private fun buildPillLayout(): ViewGroup {
-        val container = LinearLayout(service).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-        }
+        val container =
+                LinearLayout(service).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER_HORIZONTAL
+                }
 
         // Main pill row
-        val pill = LinearLayout(service).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(6), dp(12), dp(6))
-            background = GradientDrawable().apply {
-                setColor(colorBackground)
-                cornerRadius = dp(20).toFloat()
-                setStroke(1, 0xFFE5E5E5.toInt())
-            }
-            elevation = dp(4).toFloat()
+        val pill =
+                LinearLayout(service).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(12), dp(6), dp(12), dp(6))
+                    background =
+                            GradientDrawable().apply {
+                                setColor(colorBackground)
+                                cornerRadius = dp(20).toFloat()
+                                setStroke(1, 0xFFE5E5E5.toInt())
+                            }
+                    elevation = dp(4).toFloat()
 
-            setOnClickListener { onTap() }
-            setOnLongClickListener {
-                toggleInlineControls()
-                onLongPress()
-                true
-            }
-        }
+                    setOnClickListener { onTap() }
+                    setOnLongClickListener {
+                        toggleInlineControls()
+                        onLongPress()
+                        true
+                    }
+                }
 
         // Status dot
-        val dot = View(service).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(8), dp(8)).apply {
-                marginEnd = dp(8)
-            }
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(colorPrimary)
-            }
-        }
+        val dot =
+                View(service).apply {
+                    layoutParams =
+                            LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(8) }
+                    background =
+                            GradientDrawable().apply {
+                                shape = GradientDrawable.OVAL
+                                setColor(colorPrimary)
+                            }
+                }
         pill.addView(dot)
         statusDot = dot
 
         // Status text
-        val text = TextView(service).apply {
-            setText("Working...")
-            setTextColor(colorText)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            maxLines = 1
-        }
+        val text =
+                TextView(service).apply {
+                    setText("Working...")
+                    setTextColor(colorText)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                    maxLines = 1
+                }
         pill.addView(text)
         statusText = text
 
-        container.addView(pill, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ))
+        container.addView(
+                pill,
+                LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+        )
 
         // Inline controls (hidden by default)
         val controls = buildInlineControls()
         controls.visibility = View.GONE
-        container.addView(controls, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(4) })
+        container.addView(
+                controls,
+                LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                        .apply { topMargin = dp(4) }
+        )
         controlsContainer = controls
 
         return container
@@ -195,40 +207,39 @@ class StatusIslandManager(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(dp(8), dp(4), dp(8), dp(4))
-            background = GradientDrawable().apply {
-                setColor(colorBackground)
-                cornerRadius = dp(16).toFloat()
-                setStroke(1, 0xFFE5E5E5.toInt())
-            }
+            background =
+                    GradientDrawable().apply {
+                        setColor(colorBackground)
+                        cornerRadius = dp(16).toFloat()
+                        setStroke(1, 0xFFE5E5E5.toInt())
+                    }
             elevation = dp(4).toFloat()
 
             // Pause/Resume button
-            val pauseBtn = TextView(service).apply {
-                text = "⏸"
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                setPadding(dp(12), dp(6), dp(12), dp(6))
-                gravity = Gravity.CENTER
-                setOnClickListener {
-                    if (isPaused) onResume() else onPause()
-                }
-            }
+            val pauseBtn =
+                    TextView(service).apply {
+                        text = "⏸"
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                        setPadding(dp(12), dp(6), dp(12), dp(6))
+                        gravity = Gravity.CENTER
+                        setOnClickListener { if (isPaused) onResume() else onPause() }
+                    }
             addView(pauseBtn)
             pauseIconText = pauseBtn
 
             // Spacer
-            addView(View(service).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(8), dp(1))
-            })
+            addView(View(service).apply { layoutParams = LinearLayout.LayoutParams(dp(8), dp(1)) })
 
             // Stop button
-            val stopBtn = TextView(service).apply {
-                text = "⏹"
-                setTextColor(colorError)
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                setPadding(dp(12), dp(6), dp(12), dp(6))
-                gravity = Gravity.CENTER
-                setOnClickListener { onStop() }
-            }
+            val stopBtn =
+                    TextView(service).apply {
+                        text = "⏹"
+                        setTextColor(colorError)
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                        setPadding(dp(12), dp(6), dp(12), dp(6))
+                        gravity = Gravity.CENTER
+                        setOnClickListener { onStop() }
+                    }
             addView(stopBtn)
         }
     }
@@ -239,25 +250,24 @@ class StatusIslandManager(
             controls.visibility = View.GONE
         } else {
             controls.visibility = View.VISIBLE
-            handler.postDelayed({
-                controls.visibility = View.GONE
-            }, CONTROLS_AUTO_HIDE_MS)
+            handler.postDelayed({ controls.visibility = View.GONE }, CONTROLS_AUTO_HIDE_MS)
         }
     }
 
     private fun createLayoutParams(): WindowManager.LayoutParams {
         val statusBarHeight = getStatusBarHeight()
         return WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = statusBarHeight + dp(8)
-        }
+                        WindowManager.LayoutParams.WRAP_CONTENT,
+                        WindowManager.LayoutParams.WRAP_CONTENT,
+                        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                        PixelFormat.TRANSLUCENT
+                )
+                .apply {
+                    gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                    y = dp(4)
+                }
     }
 
     private fun getStatusBarHeight(): Int {
@@ -267,9 +277,10 @@ class StatusIslandManager(
 
     private fun dp(value: Int): Int {
         return TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP,
-            value.toFloat(),
-            service.resources.displayMetrics
-        ).toInt()
+                        TypedValue.COMPLEX_UNIT_DIP,
+                        value.toFloat(),
+                        service.resources.displayMetrics
+                )
+                .toInt()
     }
 }
