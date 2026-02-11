@@ -199,7 +199,10 @@ private constructor(
         // to Running. Subsequent tasks (from Idle state) do not re-emit SessionStarted.
         if (_state.value == SessionState.Created) {
             // Start session recording
-            services.recordingService.initializeNewSession(sessionId.value, config.mainModel)
+            services.recordingService.initializeNewSession(
+                    sessionId = sessionId.value,
+                    model = config.mainModel
+            )
 
             // Initialize platform resources (VirtualDisplayPlatform creates display here).
             try {

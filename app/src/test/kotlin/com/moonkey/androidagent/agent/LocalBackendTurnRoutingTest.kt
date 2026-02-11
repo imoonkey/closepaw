@@ -27,81 +27,90 @@ import org.junit.Test
 
 class LocalBackendTurnRoutingTest {
 
-    @Test
-    fun `local backend uses local llm client without cloud api keys`() = runTest {
-        val localClient = LocalBackendTestLLMClient()
-        val catalog =
-                ModelCatalog.fromJson(
-                        """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
-                )
+        @Test
+        fun `local backend uses local llm client without cloud api keys`() = runTest {
+                val localClient = LocalBackendTestLLMClient()
+                val catalog =
+                        ModelCatalog.fromJson(
+                                """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+                        )
 
-        @Suppress("DEPRECATION")
-        val sessionConfig =
-                SessionConfig(
-                        llmBackend = LLMBackendType.LOCAL,
-                        maxTurns = 1,
-                        actionDelayMs = 0
-                )
-        val toolRegistry = ToolRegistry()
-        val policyEngine = PolicyEngine()
-        val services =
-                SessionServices(
-                        toolRegistry = toolRegistry,
-                        toolRouter = ToolRouter(toolRegistry, policyEngine),
-                        historyManager = HistoryManager(),
-                        sessionState = AgentSessionState(),
-                        policyEngine = policyEngine,
-                        platform = FakeAndroidPlatform(),
-                        config = sessionConfig,
-                        llmClient = localClient,
-                        modelCatalog = catalog,
-                        llmClientFactory = LLMClientFactory(catalog = catalog, apiKeyResolver = { null }),
-                        traceRecorder = NoopTraceRecorder
-                )
+                @Suppress("DEPRECATION")
+                val sessionConfig =
+                        SessionConfig(
+                                llmBackend = LLMBackendType.LOCAL,
+                                maxTurns = 1,
+                                actionDelayMs = 0
+                        )
+                val toolRegistry = ToolRegistry()
+                val policyEngine = PolicyEngine()
+                val services =
+                        SessionServices(
+                                toolRegistry = toolRegistry,
+                                toolRouter = ToolRouter(toolRegistry, policyEngine),
+                                historyManager = HistoryManager(),
+                                sessionState = AgentSessionState(),
+                                policyEngine = policyEngine,
+                                platform = FakeAndroidPlatform(),
+                                config = sessionConfig,
+                                llmClient = localClient,
+                                modelCatalog = catalog,
+                                llmClientFactory =
+                                        LLMClientFactory(
+                                                catalog = catalog,
+                                                apiKeyResolver = { null }
+                                        ),
+                                traceRecorder = NoopTraceRecorder,
+                                recordingService = io.mockk.mockk(relaxed = true)
+                        )
 
-        val agent =
-                Agent(
-                        config =
-                                AgentExecutionConfig(
-                                        goal = "Say done",
-                                        sessionId = SessionId("local-routing-test"),
-                                        maxTurns = 1,
-                                        uiSettleDelayMs = 0,
-                                        systemPrompt = "You are a test agent.",
-                                        modelName = "gpt-5.2"
-                                ),
-                        services = services,
-                        eventEmitter = {},
-                        cancellationSignal = CompletableDeferred()
-                )
+                val agent =
+                        Agent(
+                                config =
+                                        AgentExecutionConfig(
+                                                goal = "Say done",
+                                                sessionId = SessionId("local-routing-test"),
+                                                maxTurns = 1,
+                                                uiSettleDelayMs = 0,
+                                                systemPrompt = "You are a test agent.",
+                                                modelName = "gpt-5.2"
+                                        ),
+                                services = services,
+                                eventEmitter = {},
+                                cancellationSignal = CompletableDeferred()
+                        )
 
-        val stopReason = agent.run()
-        assertThat(stopReason).isEqualTo(AgentStopReason.GoalAchieved)
-        assertThat(localClient.streamingCalls).isEqualTo(1)
-    }
+                val stopReason = agent.run()
+                assertThat(stopReason).isEqualTo(AgentStopReason.GoalAchieved)
+                assertThat(localClient.streamingCalls).isEqualTo(1)
+        }
 }
 
 private class LocalBackendTestLLMClient : LLMClient() {
-    var streamingCalls: Int = 0
+        var streamingCalls: Int = 0
 
-    override suspend fun chatWithTools(
-            systemPrompt: String,
-            inputItems: List<ResponseInputItem>,
-            tools: List<FunctionTool>,
-            model: String
-    ): ResponsesResult {
-        return ResponsesResult(textContent = "done", toolCalls = emptyList(), responseId = "local")
-    }
+        override suspend fun chatWithTools(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+        ): ResponsesResult {
+                return ResponsesResult(
+                        textContent = "done",
+                        toolCalls = emptyList(),
+                        responseId = "local"
+                )
+        }
 
-    override fun chatWithToolsStreaming(
-            systemPrompt: String,
-            inputItems: List<ResponseInputItem>,
-            tools: List<FunctionTool>,
-            model: String
-    ): Flow<LLMStreamEvent> = flow {
-        streamingCalls += 1
-        emit(LLMStreamEvent.Created("local"))
-        emit(LLMStreamEvent.TextDelta("done"))
-        emit(LLMStreamEvent.Completed)
-    }
+        override fun chatWithToolsStreaming(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+        ): Flow<LLMStreamEvent> = flow {
+                streamingCalls += 1
+                emit(LLMStreamEvent.Created("local"))
+                emit(LLMStreamEvent.TextDelta("done"))
+                emit(LLMStreamEvent.Completed)
+        }
 }

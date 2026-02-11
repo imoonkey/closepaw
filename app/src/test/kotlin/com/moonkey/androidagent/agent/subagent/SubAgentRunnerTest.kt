@@ -32,237 +32,246 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class SubAgentRunnerTest {
 
-    @Test
-    fun `runner returns success when child reaches goal`() = runTest {
-        val services = buildServices(SubAgentTestLLMClient(delayMs = 0))
-        val runner =
-                IsolatedSubAgentRunner(
-                        definition =
-                                AgentDefinition(
-                                        name = "executor",
-                                        description = "Exec",
-                                        systemPrompt = "prompt",
-                                        toolNames = emptyList(),
-                                        maxTurns = 1,
-                                        timeoutMs = 5_000
-                                ),
-                        parentServices = services,
-                        parentSessionId = SessionId("session-1"),
-                        eventEmitter = {}
-                )
-
-        val result = runner.run(SubAgentRequest(query = "do it"))
-
-        assertThat(result.success).isTrue()
-    }
-
-    @Test
-    fun `runner returns timeout when child exceeds timeout`() = runTest {
-        val services = buildServices(SubAgentTestLLMClient(delayMs = 200))
-        val events = mutableListOf<AgentEvent>()
-        val runner =
-                IsolatedSubAgentRunner(
-                        definition =
-                                AgentDefinition(
-                                        name = "executor",
-                                        description = "Exec",
-                                        systemPrompt = "prompt",
-                                        toolNames = emptyList(),
-                                        maxTurns = 1,
-                                        timeoutMs = 10
-                                ),
-                        parentServices = services,
-                        parentSessionId = SessionId("session-1"),
-                        eventEmitter = { events.add(it) }
-                )
-
-        val result = runner.run(SubAgentRequest(query = "do it"))
-
-        assertThat(result.success).isFalse()
-        assertThat(result.message).contains("Timeout")
-    }
-
-    @Test
-    fun `runner forwards complete_task success answer`() = runTest {
-        val llm =
-                ScriptedSubAgentLLMClient(
-                        events =
-                                listOf(
-                                        LLMStreamEvent.ToolCallDone(
-                                                LLMToolCall(
-                                                        callId = "call-1",
-                                                        name = "complete_task",
-                                                        arguments =
-                                                                "{\"status\":\"success\",\"answer\":\"Email summary captured\"}"
-                                                )
+        @Test
+        fun `runner returns success when child reaches goal`() = runTest {
+                val services = buildServices(SubAgentTestLLMClient(delayMs = 0))
+                val runner =
+                        IsolatedSubAgentRunner(
+                                definition =
+                                        AgentDefinition(
+                                                name = "executor",
+                                                description = "Exec",
+                                                systemPrompt = "prompt",
+                                                toolNames = emptyList(),
+                                                maxTurns = 1,
+                                                timeoutMs = 5_000
                                         ),
-                                        LLMStreamEvent.Completed
-                                )
-                )
-        val services = buildServices(llm, includeCompleteTask = true)
-        val runner =
-                IsolatedSubAgentRunner(
-                        definition =
-                                AgentDefinition(
-                                        name = "executor",
-                                        description = "Exec",
-                                        systemPrompt = "prompt",
-                                        toolNames = listOf("complete_task"),
-                                        maxTurns = 1,
-                                        timeoutMs = 5_000
-                                ),
-                        parentServices = services,
-                        parentSessionId = SessionId("session-1"),
-                        eventEmitter = {}
-                )
+                                parentServices = services,
+                                parentSessionId = SessionId("session-1"),
+                                eventEmitter = {}
+                        )
 
-        val result = runner.run(SubAgentRequest(query = "do it"))
+                val result = runner.run(SubAgentRequest(query = "do it"))
 
-        assertThat(result.success).isTrue()
-        assertThat(result.message).contains("Email summary captured")
-    }
+                assertThat(result.success).isTrue()
+        }
 
-    @Test
-    fun `runner maps complete_task failure status to failed result`() = runTest {
-        val llm =
-                ScriptedSubAgentLLMClient(
-                        events =
-                                listOf(
-                                        LLMStreamEvent.ToolCallDone(
-                                                LLMToolCall(
-                                                        callId = "call-1",
-                                                        name = "complete_task",
-                                                        arguments =
-                                                                "{\"status\":\"failure\",\"answer\":\"Could not find Notion app: Not installed\"}"
-                                                )
+        @Test
+        fun `runner returns timeout when child exceeds timeout`() = runTest {
+                val services = buildServices(SubAgentTestLLMClient(delayMs = 200))
+                val events = mutableListOf<AgentEvent>()
+                val runner =
+                        IsolatedSubAgentRunner(
+                                definition =
+                                        AgentDefinition(
+                                                name = "executor",
+                                                description = "Exec",
+                                                systemPrompt = "prompt",
+                                                toolNames = emptyList(),
+                                                maxTurns = 1,
+                                                timeoutMs = 10
                                         ),
-                                        LLMStreamEvent.Completed
-                                )
-                )
-        val services = buildServices(llm, includeCompleteTask = true)
-        val runner =
-                IsolatedSubAgentRunner(
-                        definition =
-                                AgentDefinition(
-                                        name = "executor",
-                                        description = "Exec",
-                                        systemPrompt = "prompt",
-                                        toolNames = listOf("complete_task"),
-                                        maxTurns = 1,
-                                        timeoutMs = 5_000
-                                ),
-                        parentServices = services,
-                        parentSessionId = SessionId("session-1"),
-                        eventEmitter = {}
-                )
+                                parentServices = services,
+                                parentSessionId = SessionId("session-1"),
+                                eventEmitter = { events.add(it) }
+                        )
 
-        val result = runner.run(SubAgentRequest(query = "do it"))
+                val result = runner.run(SubAgentRequest(query = "do it"))
 
-        assertThat(result.success).isFalse()
-        assertThat(result.message).contains("Could not find Notion app: Not installed")
-    }
+                assertThat(result.success).isFalse()
+                assertThat(result.message).contains("Timeout")
+        }
 
-    @Test
-    fun `runner returns narrative summary when executor hits step limit`() = runTest {
-        val llm = ScriptedSubAgentLLMClient(events = listOf(LLMStreamEvent.Completed))
-        val services = buildServices(llm, includeCompleteTask = false)
-        val runner =
-                IsolatedSubAgentRunner(
-                        definition =
-                                AgentDefinition(
-                                        name = "executor",
-                                        description = "Exec",
-                                        systemPrompt = "prompt",
-                                        toolNames = emptyList(),
-                                        maxTurns = 1,
-                                        timeoutMs = 5_000,
-                                        narrativeSummaryOnLimit = true
-                                ),
-                        parentServices = services,
-                        parentSessionId = SessionId("session-1"),
-                        eventEmitter = {}
-                )
+        @Test
+        fun `runner forwards complete_task success answer`() = runTest {
+                val llm =
+                        ScriptedSubAgentLLMClient(
+                                events =
+                                        listOf(
+                                                LLMStreamEvent.ToolCallDone(
+                                                        LLMToolCall(
+                                                                callId = "call-1",
+                                                                name = "complete_task",
+                                                                arguments =
+                                                                        "{\"status\":\"success\",\"answer\":\"Email summary captured\"}"
+                                                        )
+                                                ),
+                                                LLMStreamEvent.Completed
+                                        )
+                        )
+                val services = buildServices(llm, includeCompleteTask = true)
+                val runner =
+                        IsolatedSubAgentRunner(
+                                definition =
+                                        AgentDefinition(
+                                                name = "executor",
+                                                description = "Exec",
+                                                systemPrompt = "prompt",
+                                                toolNames = listOf("complete_task"),
+                                                maxTurns = 1,
+                                                timeoutMs = 5_000
+                                        ),
+                                parentServices = services,
+                                parentSessionId = SessionId("session-1"),
+                                eventEmitter = {}
+                        )
 
-        val result = runner.run(SubAgentRequest(query = "Tap search"))
+                val result = runner.run(SubAgentRequest(query = "do it"))
 
-        assertThat(result.success).isFalse()
-        assertThat(result.message).contains("Executor reached step limit")
-        assertThat(result.message).contains("Delegated query: Tap search")
-    }
+                assertThat(result.success).isTrue()
+                assertThat(result.message).contains("Email summary captured")
+        }
+
+        @Test
+        fun `runner maps complete_task failure status to failed result`() = runTest {
+                val llm =
+                        ScriptedSubAgentLLMClient(
+                                events =
+                                        listOf(
+                                                LLMStreamEvent.ToolCallDone(
+                                                        LLMToolCall(
+                                                                callId = "call-1",
+                                                                name = "complete_task",
+                                                                arguments =
+                                                                        "{\"status\":\"failure\",\"answer\":\"Could not find Notion app: Not installed\"}"
+                                                        )
+                                                ),
+                                                LLMStreamEvent.Completed
+                                        )
+                        )
+                val services = buildServices(llm, includeCompleteTask = true)
+                val runner =
+                        IsolatedSubAgentRunner(
+                                definition =
+                                        AgentDefinition(
+                                                name = "executor",
+                                                description = "Exec",
+                                                systemPrompt = "prompt",
+                                                toolNames = listOf("complete_task"),
+                                                maxTurns = 1,
+                                                timeoutMs = 5_000
+                                        ),
+                                parentServices = services,
+                                parentSessionId = SessionId("session-1"),
+                                eventEmitter = {}
+                        )
+
+                val result = runner.run(SubAgentRequest(query = "do it"))
+
+                assertThat(result.success).isFalse()
+                assertThat(result.message).contains("Could not find Notion app: Not installed")
+        }
+
+        @Test
+        fun `runner returns narrative summary when executor hits step limit`() = runTest {
+                val llm = ScriptedSubAgentLLMClient(events = listOf(LLMStreamEvent.Completed))
+                val services = buildServices(llm, includeCompleteTask = false)
+                val runner =
+                        IsolatedSubAgentRunner(
+                                definition =
+                                        AgentDefinition(
+                                                name = "executor",
+                                                description = "Exec",
+                                                systemPrompt = "prompt",
+                                                toolNames = emptyList(),
+                                                maxTurns = 1,
+                                                timeoutMs = 5_000,
+                                                narrativeSummaryOnLimit = true
+                                        ),
+                                parentServices = services,
+                                parentSessionId = SessionId("session-1"),
+                                eventEmitter = {}
+                        )
+
+                val result = runner.run(SubAgentRequest(query = "Tap search"))
+
+                assertThat(result.success).isFalse()
+                assertThat(result.message).contains("Executor reached step limit")
+                assertThat(result.message).contains("Delegated query: Tap search")
+        }
 }
 
 private fun buildServices(
         llmClient: LLMClient,
         includeCompleteTask: Boolean = false
 ): SessionServices {
-    val toolRegistry = ToolRegistry()
-    if (includeCompleteTask) {
-        toolRegistry.register(CompleteTaskTool())
-    }
-    val policyEngine = PolicyEngine()
-    val testCatalog =
-            ModelCatalog.fromJson(
-                    """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
-            )
-    return SessionServices(
-            toolRegistry = toolRegistry,
-            toolRouter = ToolRouter(toolRegistry, policyEngine),
-            historyManager = HistoryManager(),
-            sessionState = AgentSessionState(),
-            policyEngine = policyEngine,
-            platform = FakeAndroidPlatform(),
-            config =
-                    @Suppress("DEPRECATION")
-                    SessionConfig(
-                            maxTurns = 1,
-                            actionDelayMs = 0,
-                            llmBackend = LLMBackendType.OPENAI
-                    ),
-            llmClient = llmClient,
-            modelCatalog = testCatalog,
-            llmClientFactory = LLMClientFactory.forTest(testCatalog, llmClient),
-            traceRecorder = NoopTraceRecorder
-    )
+        val toolRegistry = ToolRegistry()
+        if (includeCompleteTask) {
+                toolRegistry.register(CompleteTaskTool())
+        }
+        val policyEngine = PolicyEngine()
+        val testCatalog =
+                ModelCatalog.fromJson(
+                        """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+                )
+        return SessionServices(
+                toolRegistry = toolRegistry,
+                toolRouter = ToolRouter(toolRegistry, policyEngine),
+                historyManager = HistoryManager(),
+                sessionState = AgentSessionState(),
+                policyEngine = policyEngine,
+                platform = FakeAndroidPlatform(),
+                config =
+                        @Suppress("DEPRECATION")
+                        SessionConfig(
+                                maxTurns = 1,
+                                actionDelayMs = 0,
+                                llmBackend = LLMBackendType.OPENAI
+                        ),
+                llmClient = llmClient,
+                modelCatalog = testCatalog,
+                llmClientFactory = LLMClientFactory.forTest(testCatalog, llmClient),
+                traceRecorder = NoopTraceRecorder,
+                recordingService = io.mockk.mockk(relaxed = true)
+        )
 }
 
 private class SubAgentTestLLMClient(private val delayMs: Long) : LLMClient() {
-    override suspend fun chatWithTools(
-            systemPrompt: String,
-            inputItems: List<ResponseInputItem>,
-            tools: List<FunctionTool>,
-            model: String
-    ): ResponsesResult {
-        return ResponsesResult(textContent = "done", toolCalls = emptyList(), responseId = "resp")
-    }
-
-    override fun chatWithToolsStreaming(
-            systemPrompt: String,
-            inputItems: List<ResponseInputItem>,
-            tools: List<FunctionTool>,
-            model: String
-    ): Flow<LLMStreamEvent> = flow {
-        if (delayMs > 0) {
-            delay(delayMs)
+        override suspend fun chatWithTools(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+        ): ResponsesResult {
+                return ResponsesResult(
+                        textContent = "done",
+                        toolCalls = emptyList(),
+                        responseId = "resp"
+                )
         }
-        emit(LLMStreamEvent.TextDelta("done"))
-        emit(LLMStreamEvent.Completed)
-    }
+
+        override fun chatWithToolsStreaming(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+        ): Flow<LLMStreamEvent> = flow {
+                if (delayMs > 0) {
+                        delay(delayMs)
+                }
+                emit(LLMStreamEvent.TextDelta("done"))
+                emit(LLMStreamEvent.Completed)
+        }
 }
 
 private class ScriptedSubAgentLLMClient(private val events: List<LLMStreamEvent>) : LLMClient() {
-    override suspend fun chatWithTools(
-            systemPrompt: String,
-            inputItems: List<ResponseInputItem>,
-            tools: List<FunctionTool>,
-            model: String
-    ): ResponsesResult {
-        return ResponsesResult(textContent = null, toolCalls = emptyList(), responseId = "resp")
-    }
+        override suspend fun chatWithTools(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+        ): ResponsesResult {
+                return ResponsesResult(
+                        textContent = null,
+                        toolCalls = emptyList(),
+                        responseId = "resp"
+                )
+        }
 
-    override fun chatWithToolsStreaming(
-            systemPrompt: String,
-            inputItems: List<ResponseInputItem>,
-            tools: List<FunctionTool>,
-            model: String
-    ): Flow<LLMStreamEvent> = flow { events.forEach { emit(it) } }
+        override fun chatWithToolsStreaming(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+        ): Flow<LLMStreamEvent> = flow { events.forEach { emit(it) } }
 }

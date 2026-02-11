@@ -8,7 +8,14 @@ import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.session.AgentSession
-import com.moonkey.androidagent.ui.chat.model.*
+import com.moonkey.androidagent.ui.chat.model.ActionCardData
+import com.moonkey.androidagent.ui.chat.model.ActionState
+import com.moonkey.androidagent.ui.chat.model.AgentMessageState
+import com.moonkey.androidagent.ui.chat.model.ChatMessage
+import com.moonkey.androidagent.ui.chat.model.ChatUiState
+import com.moonkey.androidagent.ui.chat.model.ContentBlock
+import com.moonkey.androidagent.ui.chat.model.InputState
+import com.moonkey.androidagent.ui.chat.model.TaskBannerState
 import com.moonkey.androidagent.ui.common.formatToolName
 import com.moonkey.androidagent.ui.common.getToolIcon
 import java.util.UUID
@@ -101,10 +108,9 @@ class ChatViewModel(
                 is AgentEvent.ActionProposed -> handleActionProposed(event)
                 is AgentEvent.ActionExecuted -> handleActionExecuted(event)
                 is AgentEvent.TaskCompleted -> handleTaskCompleted(event)
-                is AgentEvent.ScreenCaptured -> handleScreenCaptured(event)
                 is AgentEvent.SessionError -> handleError(event)
                 else -> {
-                    /* Ignore other events */
+                    /* Ignore other events (ScreenCaptured, etc) */
                 }
             }
         }
@@ -291,10 +297,6 @@ class ChatViewModel(
 
             // Also mark any pending agent message as complete
             updateLastAgentMessage { msg -> msg.copy(state = AgentMessageState.Complete) }
-        }
-
-        private fun handleScreenCaptured(event: AgentEvent.ScreenCaptured) {
-            // No-op in ViewModel
         }
 
         /** Helper: update the last agent message in the list. */

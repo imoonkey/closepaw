@@ -240,22 +240,8 @@ class ShizukuClient {
                 Log.e(TAG, "Shell command timed out: ${command.joinToString(" ")}")
                 return -1
             }
-            val exitCode =
-                    try {
-                        process.exitValue()
-                    } catch (e: IllegalArgumentException) {
-                        // Known Shizuku bug: sometimes throws "process hasn't exited" even after
-                        // waitFor returns true
-                        if (e.message?.contains("process hasn't exited") == true) {
-                            Log.w(
-                                    TAG,
-                                    "Shizuku process.exitValue() failed but waitFor returned true. Assuming success (0)."
-                            )
-                            0
-                        } else {
-                            throw e
-                        }
-                    }
+            // waitForProcess returns true only if process.exitValue() succeeded
+            val exitCode = process.exitValue()
             if (exitCode != 0) {
                 val error = process.errorStream.bufferedReader().use { it.readText() }
                 Log.w(
@@ -281,6 +267,7 @@ class ShizukuClient {
         val startTime = System.nanoTime()
         val remNanos = unit.toNanos(timeout)
         var rem = remNanos
+        var sleepMs = 10L
 
         do {
             try {
@@ -299,7 +286,9 @@ class ShizukuClient {
 
             if (rem > 0) {
                 try {
-                    Thread.sleep(Math.min(TimeUnit.NANOSECONDS.toMillis(rem) + 1, 100))
+                    Thread.sleep(Math.min(TimeUnit.NANOSECONDS.toMillis(rem) + 1, sleepMs))
+                    // Exponential backoff up to 100ms
+                    sleepMs = Math.min(sleepMs * 2, 100L)
                 } catch (e: InterruptedException) {
                     return false
                 }

@@ -235,15 +235,21 @@ class AgentService : AccessibilityService() {
         // Cancel previous collector if still active
         eventCollectorJob?.cancel()
 
+        // Cache the recording service to avoid repeated lookup in high-frequency event loop
+        val recordingService = agentSession.getServices().recordingService
+
         eventCollectorJob =
-                scope.launch { agentSession.events.collect { event -> handleEvent(event) } }
+                scope.launch {
+                    agentSession.events.collect { event -> handleEvent(event, recordingService) }
+                }
     }
 
     /** Handle events from the session. */
-    private fun handleEvent(event: AgentEvent) {
+    private fun handleEvent(
+            event: AgentEvent,
+            recordingService: com.moonkey.androidagent.history.SessionRecordingService? = null
+    ) {
         Log.d(TAG, "Received event: ${event::class.simpleName}")
-
-        val recordingService = session?.getServices()?.recordingService
 
         when (event) {
             is AgentEvent.StatusUpdate -> {

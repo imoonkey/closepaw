@@ -395,6 +395,17 @@ class VirtualDisplayPlatform(
         try {
             val debugDir = File(service.getExternalFilesDir(null), "debug-output")
             if (!debugDir.exists()) debugDir.mkdirs()
+
+            // Cleanup: keep only last 20 screenshots
+            val files = debugDir.listFiles { _, name -> name.startsWith("vd_screenshot_") }
+            if (files != null && files.size >= 20) {
+                files.sortBy { it.lastModified() }
+                // Delete oldest until we have space for one more
+                for (i in 0..(files.size - 20)) {
+                    files[i].delete()
+                }
+            }
+
             val file =
                     File(
                             debugDir,
