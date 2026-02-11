@@ -5,8 +5,13 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.media.ImageReader
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Display
+import android.view.PixelCopy
+import android.view.Surface
+import android.view.SurfaceView
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenImageSource
@@ -26,8 +31,10 @@ import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.protocol.SessionConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
+import kotlin.coroutines.resume
 
 /**
  * VirtualDisplayPlatform — AndroidPlatform running on a Shizuku virtual display.
@@ -47,6 +54,11 @@ class VirtualDisplayPlatform(
         private val sessionConfig: SessionConfig
 ) : AndroidPlatform {
 
+    /**
+     * Which surface the VirtualDisplay is currently rendering to.
+     */
+    enum class SurfaceMode { IMAGE_READER, LIVE_PREVIEW }
+
     companion object {
         private const val TAG = "VirtualDisplayPlatform"
 
@@ -54,11 +66,19 @@ class VirtualDisplayPlatform(
 
         private const val SURFACE_READY_DELAY_MS = 200L
         private const val IMAGE_READER_MAX_IMAGES = 2
+
+        /** PixelCopy failures before permanently reverting to ImageReader. */
+        private const val PIXEL_COPY_MAX_FAILURES = 2
     }
 
     @Volatile private var displayId: Int = Display.INVALID_DISPLAY
     @Volatile private var imageReader: ImageReader? = null
     private var binderDeadListener: Shizuku.OnBinderDeadListener? = null
+
+    // ── Surface switching (Hybrid Model) ──
+    @Volatile private var surfaceMode = SurfaceMode.IMAGE_READER
+    @Volatile private var liveSurfaceView: SurfaceView? = null
+    @Volatile private var pixelCopyFailCount = 0
 
     private val displayIdProvider: () -> Int = { displayId }
 
@@ -121,6 +141,9 @@ class VirtualDisplayPlatform(
         binderDeadListener?.let { shizuku.removeBinderDeadListener(it) }
         binderDeadListener = null
 
+        liveSurfaceView = null
+        surfaceMode = SurfaceMode.IMAGE_READER
+
         if (displayId != Display.INVALID_DISPLAY) {
             shizuku.releaseVirtualDisplay(displayId)
         }
@@ -131,6 +154,55 @@ class VirtualDisplayPlatform(
 
         Log.i(TAG, "Stopped")
     }
+
+    // ── Hybrid Surface Switching ──────────────────────────────────
+
+    /**
+     * Switch VirtualDisplay output to the Viewer's SurfaceView for 60fps live preview.
+     * Called when the Viewer Activity becomes visible.
+     */
+    fun switchToLivePreview(surfaceView: SurfaceView) {
+        if (surfaceMode == SurfaceMode.LIVE_PREVIEW) return
+        val surface = surfaceView.holder.surface ?: run {
+            Log.w(TAG, "SurfaceView holder has no valid surface, staying on ImageReader")
+            return
+        }
+        if (!surface.isValid) {
+            Log.w(TAG, "SurfaceView surface is invalid, staying on ImageReader")
+            return
+        }
+        val ok = shizuku.setVirtualDisplaySurface(displayId, surface)
+        if (ok) {
+            liveSurfaceView = surfaceView
+            surfaceMode = SurfaceMode.LIVE_PREVIEW
+            pixelCopyFailCount = 0
+            Log.i(TAG, "Switched to live preview surface")
+        } else {
+            Log.w(TAG, "setSurface failed, staying on ImageReader")
+        }
+    }
+
+    /**
+     * Switch VirtualDisplay output back to the ImageReader for headless capture.
+     * Called when the Viewer Activity is hidden or destroyed.
+     */
+    fun switchToImageReader() {
+        if (surfaceMode == SurfaceMode.IMAGE_READER) return
+        val reader = imageReader ?: return
+        val ok = shizuku.setVirtualDisplaySurface(displayId, reader.surface)
+        if (ok) {
+            liveSurfaceView = null
+            surfaceMode = SurfaceMode.IMAGE_READER
+            Log.i(TAG, "Switched to ImageReader surface")
+        } else {
+            Log.w(TAG, "Failed to switch back to ImageReader — display may be in bad state")
+        }
+    }
+
+    /** Current surface mode, for UI to check. */
+    fun getSurfaceMode(): SurfaceMode = surfaceMode
+
+    // ── Screen Capture ──────────────────────────────────────────
 
     override suspend fun captureScreen(): ScreenSnapshot {
         val timestamp = System.currentTimeMillis()
@@ -159,6 +231,13 @@ class VirtualDisplayPlatform(
     }
 
     private suspend fun captureScreenshot(): ScreenImage? {
+        return when (surfaceMode) {
+            SurfaceMode.IMAGE_READER -> captureFromImageReader()
+            SurfaceMode.LIVE_PREVIEW -> captureFromPixelCopy()
+        }
+    }
+
+    private suspend fun captureFromImageReader(): ScreenImage? {
         val reader = imageReader ?: return null
 
         return withContext(Dispatchers.Default) {
@@ -193,28 +272,72 @@ class VirtualDisplayPlatform(
                             }
                         } else bitmap
 
-                val maxDim = sessionConfig.perceptionConfig.screenshotMaxDimension
-                val quality = sessionConfig.perceptionConfig.screenshotJpegQuality
-                val scaled = BitmapUtils.scaleBitmapIfNeeded(cropped, maxDim)
-                val width = scaled.width
-                val height = scaled.height
-                val bytes = BitmapUtils.compressJpeg(scaled, quality)
-
-                if (scaled !== cropped) cropped.recycle()
-                scaled.recycle()
-
-                bytes?.let {
-                    ScreenImage(
-                            width = width,
-                            height = height,
-                            mimeType = "image/jpeg",
-                            bytes = it,
-                            source = ScreenImageSource.VIRTUAL_DISPLAY_CAPTURE
-                    )
-                }
+                bitmapToScreenImage(cropped)
             } finally {
                 image.close()
             }
+        }
+    }
+
+    /**
+     * Capture a screenshot via PixelCopy when surface is pointed at the Viewer's SurfaceView.
+     * On consecutive failures, permanently reverts to ImageReader mode.
+     */
+    private suspend fun captureFromPixelCopy(): ScreenImage? {
+        val sv = liveSurfaceView
+        if (sv == null || !sv.holder.surface.isValid) {
+            Log.w(TAG, "PixelCopy: no valid SurfaceView, falling back to ImageReader")
+            switchToImageReader()
+            return captureFromImageReader()
+        }
+
+        val bitmap = Bitmap.createBitmap(config.width, config.height, Bitmap.Config.ARGB_8888)
+
+        val result = withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine<Int> { cont ->
+                PixelCopy.request(sv, bitmap, { copyResult ->
+                    cont.resume(copyResult)
+                }, Handler(Looper.getMainLooper()))
+            }
+        }
+
+        if (result != PixelCopy.SUCCESS) {
+            bitmap.recycle()
+            pixelCopyFailCount++
+            Log.w(TAG, "PixelCopy failed (result=$result, failCount=$pixelCopyFailCount)")
+            if (pixelCopyFailCount >= PIXEL_COPY_MAX_FAILURES) {
+                Log.w(TAG, "PixelCopy failed $pixelCopyFailCount times, reverting to ImageReader")
+                switchToImageReader()
+            }
+            return captureFromImageReader()
+        }
+
+        pixelCopyFailCount = 0
+        return withContext(Dispatchers.Default) {
+            bitmapToScreenImage(bitmap)
+        }
+    }
+
+    /** Scale, compress, and wrap a Bitmap into a ScreenImage. */
+    private fun bitmapToScreenImage(bitmap: Bitmap): ScreenImage? {
+        val maxDim = sessionConfig.perceptionConfig.screenshotMaxDimension
+        val quality = sessionConfig.perceptionConfig.screenshotJpegQuality
+        val scaled = BitmapUtils.scaleBitmapIfNeeded(bitmap, maxDim)
+        val width = scaled.width
+        val height = scaled.height
+        val bytes = BitmapUtils.compressJpeg(scaled, quality)
+
+        if (scaled !== bitmap) bitmap.recycle()
+        scaled.recycle()
+
+        return bytes?.let {
+            ScreenImage(
+                    width = width,
+                    height = height,
+                    mimeType = "image/jpeg",
+                    bytes = it,
+                    source = ScreenImageSource.VIRTUAL_DISPLAY_CAPTURE
+            )
         }
     }
 

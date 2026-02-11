@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.util.Log
 import android.view.InputEvent
 import android.view.Surface
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
@@ -85,6 +86,12 @@ class ShizukuClient {
     // ── Display Management ──────────────────────────────────────
 
     /**
+     * Stored callbacks from createVirtualDisplay, keyed by displayId.
+     * Required for setVirtualDisplaySurface on ROMs that validate the callback token.
+     */
+    private val displayCallbacks = ConcurrentHashMap<Int, IVirtualDisplayCallback>()
+
+    /**
      * Create a virtual display via IDisplayManager through Shizuku.
      *
      * @return displayId of the created virtual display, or -1 on failure
@@ -110,6 +117,34 @@ class ShizukuClient {
         }
     }
 
+    /**
+     * Switch the surface a virtual display renders to.
+     *
+     * Uses IDisplayManager.setVirtualDisplaySurface(callback, displayId, surface).
+     * The callback token must match the one used in createVirtualDisplay.
+     *
+     * @return true if the surface was switched successfully
+     */
+    fun setVirtualDisplaySurface(displayId: Int, surface: Surface): Boolean {
+        if (displayId < 0) return false
+        return try {
+            val proxy = getDisplayManagerProxy()
+            val callback = displayCallbacks[displayId]
+            val method = proxy.javaClass.getMethod(
+                    "setVirtualDisplaySurface",
+                    IVirtualDisplayCallback::class.java,
+                    Int::class.javaPrimitiveType,
+                    Surface::class.java
+            )
+            method.invoke(proxy, callback, displayId, surface)
+            Log.d(TAG, "Set virtual display $displayId surface (callback=${callback != null})")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set virtual display $displayId surface", e)
+            false
+        }
+    }
+
     /** Release a virtual display. */
     fun releaseVirtualDisplay(displayId: Int) {
         if (displayId < 0) return
@@ -118,6 +153,7 @@ class ShizukuClient {
             val method =
                     proxy.javaClass.getMethod("releaseVirtualDisplay", Int::class.javaPrimitiveType)
             method.invoke(proxy, displayId)
+            displayCallbacks.remove(displayId)
             Log.d(TAG, "Released virtual display $displayId")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to release virtual display $displayId", e)
@@ -243,6 +279,7 @@ class ShizukuClient {
     fun clearCachedProxies() {
         cachedDisplayProxy = null
         cachedInputProxy = null
+        displayCallbacks.clear()
         Log.d(TAG, "Cleared cached binder proxies")
     }
 
@@ -340,6 +377,9 @@ class ShizukuClient {
                 )
 
         val displayId = method.invoke(proxy, config, callback, null, "com.android.shell") as Int
+        if (displayId >= 0) {
+            displayCallbacks[displayId] = callback
+        }
         Log.d(TAG, "Created virtual display (API33+): displayId=$displayId")
         return displayId
     }
@@ -392,6 +432,9 @@ class ShizukuClient {
                             null
                     ) as
                             Int
+            if (displayId >= 0) {
+                displayCallbacks[displayId] = callback
+            }
             Log.d(TAG, "Created virtual display (legacy): displayId=$displayId")
             displayId
         } catch (e: NoSuchMethodException) {
@@ -435,6 +478,9 @@ class ShizukuClient {
         val displayId =
                 method.invoke(proxy, callback, null, "com.android.shell", surface, flags, name) as
                         Int
+        if (displayId >= 0) {
+            displayCallbacks[displayId] = callback
+        }
         Log.d(TAG, "Created virtual display (legacy-alt): displayId=$displayId")
         return displayId
     }
