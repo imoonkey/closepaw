@@ -8,12 +8,6 @@
 # Process 1: Design & Plan
 1. Read the design doc, or if needed under @doc/todo/[TODO]. Coming up with execution plan.
 
-1. Read all the docs under @doc/todo/0.01_virtual_display/  (not the old/ subfolder). Coming up with a final design, write to the same folder, combining strength of design_1 and design_2.
-
-- I have implemented doc/todo/0.01_virtual_display/final_design.md, and did some fix. The code review are under doc/todo/0.01_virtual_display/review*.md (by cursor/codex/gemini)。
-- 阅读review，并总结所有的issue。写到一个新的review_summary.md 的 design/plan doc。
-- 中间有必要的时候查看我的code。其中有些部分(如refactor)，scope较大，需要仔细思考，认真设计。比如AccessibilityPlatform类似 VirtualDisplayPlatform，也很臃肿。可以一起想想怎么做一个结构aligned reorg。这部分如果合适，可以单独写一个的design/plan doc。一起实施。
-
 # Process 2: Phased implementation
 At each phase of the execution, repeat the following:
 
@@ -29,7 +23,7 @@ Once all implementation done:
 
 Once visual debug passes:
 4. Start a new subagent to do remove any redundant/legacy/dead code. and do /code-simplifier . Ensure code quality.
-5. /update-docs. Besides that, update the relevant doc/todo/docs with your implementation details.
+5. /update-docs. Besides updating doc/{main|dev}, skills/ etc., update the relevant doc/todo/docs with your implementation details.
 
 
 # Important Notes
@@ -40,6 +34,6 @@ Once visual debug passes:
     - Ideally, for every todo item, the separation is clear, you work on it with a new subagent or summarize context after each todo item, so previous todo item's history does not contaminate the context. 
     - If you have tools to summarize your context, try to find a point to use it after you have used 50% of your context window. So you always have a less cluttered context.
 
-- Note that your subagents does not use the same model as you, it uses Composer 1.5 or some other model, you can consider it less good at deep thinking than you, but you can delegate reasonably scoped and clearly defined tasks to them.
+- Note that your subagents does not use the same model as you, you can consider it less good at deep thinking than you. You only delegate relatively narrowly scoped and clearly defined tasks to them. You do the design and major code writing yourself.
 
 - each of the `/xxx` mentioned above is a SKILL or AGENT, if you cannot interpret it as skill, read .ai-dev/{skills|agents}/xxx/SKILL.md directly.

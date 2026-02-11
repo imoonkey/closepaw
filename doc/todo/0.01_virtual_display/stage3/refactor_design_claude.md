@@ -1,7 +1,7 @@
 # AccessibilityPlatform Refactoring — Stage 3
 
 Date: 2026-02-11
-Status: Design proposal
+Status: Design proposal (updated after cross-review with Gemini design)
 
 ---
 
@@ -70,23 +70,33 @@ The logic is the same; only the "get root" step differs:
 - Accessibility: `service.rootInActiveWindow`
 - VD: `windowAccessor.getRootOnDisplay()`
 
-### 5. `performWait()` — Trivial but duplicated
+### 5. Root node leak in AccessibilityPlatform
+
+`AccessibilityPlatform.performNodeClickAt()` (line 405) calls
+`service.rootInActiveWindow` to get root but **never recycles it**.
+Same for `performNodeLongClickAt`. The VD side always recycles root
+because `VirtualDisplayNodeActionPerformer` does it in finally blocks.
+This is a bug worth fixing structurally, not just patching.
+
+### 6. `performWait()` — Trivial but duplicated
 
 Both do `delay(action.durationMs)` and return `ActionResult.Success`.
 
 ---
 
-## What's NOT Duplicated (Don't Touch It)
+## What's NOT Duplicated (Don't Unify)
 
 - Screenshot capture: fundamentally different (a11y screenshot API vs ImageReader)
-- Gesture dispatch: fundamentally different (dispatchGesture vs Shizuku injection)
+- Gesture dispatch: different transport (dispatchGesture vs Shizuku injection)
 - System buttons: different APIs (globalAction vs KeyEvent injection)
 - Lifecycle: different (no-op vs create/release display)
 - Display info: different sources (DisplayMetrics vs VirtualDisplayConfig)
 - A11y tree capture: similar but AccessibilityPlatform has trace recording
 
-Don't try to unify these. They're different for hardware reasons. Forcing
-them into a shared abstraction would be architecture astronauting.
+Don't try to unify these behind a shared abstraction. They're different
+for hardware reasons. But gesture dispatch code should still be **extracted
+out** of AccessibilityPlatform into its own class for structural parity
+with VD's `VirtualDisplayInputInjector` (see Change 4 below).
 
 ---
 
@@ -211,33 +221,68 @@ Delete the private `scaleBitmapIfNeeded()` and `compressJpeg()` from
 `BitmapUtils.compressJpeg()` instead. This was the original intent when
 `BitmapUtils` was created — just finish the job.
 
-### Change 4: Delete `VirtualDisplayNodeActionPerformer`
+### Change 4: `AccessibilityGestureInjector` — Extract gesture dispatch
 
-It gets replaced by the shared `NodeActionPerformer`. The VD-specific
+> Borrowed from Gemini design. This is the right call.
+
+AccessibilityPlatform has ~120 lines of gesture construction and dispatch:
+`performTap`, `performSwipeGesture`, `performLongPressGesture`,
+`dispatchGesture` (with timeout + callback), and `performSystemButton`
+(globalAction). Extract these into `AccessibilityGestureInjector`.
+
+This creates true structural parity with VD's `VirtualDisplayInputInjector`.
+Both platforms now have a dedicated injector — they just use different
+transports (dispatchGesture vs Shizuku injectInputEvent).
+
+```kotlin
+// platform/AccessibilityGestureInjector.kt
+class AccessibilityGestureInjector(
+    private val service: AccessibilityService,
+    private val visualizer: ActionVisualizerManager? = null
+) {
+    companion object {
+        private const val DEFAULT_GESTURE_DURATION_MS = 100L
+        private const val GESTURE_TIMEOUT_MS = 5000L
+    }
+
+    suspend fun injectTap(x: Float, y: Float): ActionResult { ... }
+    suspend fun injectSwipe(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Long): ActionResult { ... }
+    suspend fun injectLongPress(x: Float, y: Float, durationMs: Long): ActionResult { ... }
+    suspend fun injectSystemButton(button: SystemButtonType): ActionResult { ... }
+
+    // Gesture dispatch with timeout (moved from AccessibilityPlatform)
+    private suspend fun dispatchGesture(gesture: GestureDescription): ActionResult { ... }
+}
+```
+
+Naming uses `inject*` to match VD's `VirtualDisplayInputInjector` API
+names, even though the transport is dispatchGesture. The caller doesn't
+care about the transport.
+
+### Change 5: Delete `VirtualDisplayNodeActionPerformer`
+
+Replaced by the shared `NodeActionPerformer`. The VD-specific
 `clearInputFocusAfterSetText()` moves into the shared class (because the
-behavior is correct for both platforms).
+behavior is correct for both platforms — fixes IME popup bug everywhere).
 
-### Change 5: AccessibilityPlatform internal cleanup
+### Change 6: AccessibilityPlatform becomes a thin orchestrator
 
-After extracting node actions and bitmap utils, AccessibilityPlatform
-will naturally shrink. The remaining responsibilities:
+After extracting node actions, gesture dispatch, bitmap utils, and app
+management, AccessibilityPlatform's remaining responsibilities:
 
 ```
-AccessibilityPlatform (orchestrator, ~400 lines)
-├── captureScreen()           — a11y tree + screenshot with trace recording
-├── performAction()           — dispatch to nodeActionPerformer / gesture helpers
+AccessibilityPlatform (orchestrator, ~250 lines)
+├── captureScreen()            — a11y tree + screenshot with trace recording
+├── performAction()            — one-liner dispatch to nodeActionPerformer / gestureInjector
 ├── captureAccessibilityTree() — a11y tree + trace artifacts
-├── captureScreenshotIfEnabled() — screenshot via a11y API
-├── Gesture helpers           — tap, swipe, long press, dispatchGesture
+├── captureScreenshotIfEnabled() — screenshot via a11y API + BitmapUtils
 ├── hasRequiredPermissions(), getCurrentPackageName(), getDisplayInfo()
-├── getInstalledApps()        — delegates to AppManager
-└── launchApp()               — intent-based launch
+├── getInstalledApps()         — delegates to AppManager
+└── launchApp()                — intent-based launch
 ```
 
-The gesture helpers (performTap, performSwipeGesture, dispatchGesture,
-performLongPressGesture) stay in AccessibilityPlatform. They use
-`service.dispatchGesture()` which is specific to the a11y service
-running on the default display. Don't extract them.
+~250 lines is a proper orchestrator. You can read it in one sitting and
+understand what the platform does without drowning in implementation detail.
 
 ---
 
@@ -247,8 +292,9 @@ running on the default display. Don't extract them.
 |---|---|---|
 | `platform/NodeActionPerformer.kt` | **NEW** | ~120 |
 | `platform/AppManager.kt` | **NEW** | ~30 |
-| `platform/AccessibilityPlatform.kt` | **MODIFY** — remove node action methods, remove bitmap utils, delegate to shared classes | ~450 (from 831) |
-| `platform/virtualdisplay/VirtualDisplayPlatform.kt` | **MODIFY** — use `NodeActionPerformer` instead of `VirtualDisplayNodeActionPerformer`, use `AppManager` | ~310 (from 338) |
+| `platform/AccessibilityGestureInjector.kt` | **NEW** | ~120 |
+| `platform/AccessibilityPlatform.kt` | **MODIFY** — thin orchestrator | ~250 (from 831) |
+| `platform/virtualdisplay/VirtualDisplayPlatform.kt` | **MODIFY** — use shared `NodeActionPerformer` + `AppManager` | ~310 (from 338) |
 | `platform/virtualdisplay/VirtualDisplayNodeActionPerformer.kt` | **DELETE** | — |
 | `platform/BitmapUtils.kt` | No change | 43 |
 
@@ -269,37 +315,44 @@ running on the default display. Don't extract them.
 
 ## What This Achieves
 
-1. **AccessibilityPlatform drops from 831 to ~450 lines** — approaching
-   reasonable orchestrator size.
+1. **AccessibilityPlatform drops from 831 to ~250 lines** — proper
+   orchestrator size, readable in one sitting.
 
-2. **Node action logic lives in one place** — `NodeActionPerformer`.
+2. **Root node leak fixed structurally** — `NodeActionPerformer.withRoot`
+   always recycles. No more ad-hoc leaks in individual action methods.
+
+3. **Node action logic lives in one place** — `NodeActionPerformer`.
    Bug fixes apply to both platforms automatically. The IME focus-clear
    fix currently only in VD gets applied to accessibility mode too.
 
-3. **App management logic lives in one place** — `AppManager`. Zero
+4. **App management logic lives in one place** — `AppManager`. Zero
    behavior change, just no more copy-paste.
 
-4. **Both platforms now have aligned structure:**
+5. **Both platforms now have symmetric structure:**
    ```
-   AccessibilityPlatform (orchestrator)
-     ├── NodeActionPerformer      (shared)
-     ├── AppManager               (shared)
-     ├── BitmapUtils              (shared)
-     ├── AccessibilityNodeFinder  (shared, already was)
-     └── gesture helpers          (a11y-specific, stays inline)
+   AccessibilityPlatform (orchestrator, ~250 lines)
+     ├── NodeActionPerformer           (shared)
+     ├── AccessibilityGestureInjector  (a11y-specific)
+     ├── AppManager                    (shared)
+     ├── BitmapUtils                   (shared)
+     └── AccessibilityNodeFinder       (shared, already was)
 
-   VirtualDisplayPlatform (orchestrator)
-     ├── NodeActionPerformer      (shared)
-     ├── AppManager               (shared)
-     ├── BitmapUtils              (shared)
-     ├── AccessibilityNodeFinder  (shared, already was)
-     ├── VirtualDisplayWindowAccessor    (VD-specific)
-     └── VirtualDisplayInputInjector     (VD-specific)
+   VirtualDisplayPlatform (orchestrator, ~310 lines)
+     ├── NodeActionPerformer           (shared)
+     ├── VirtualDisplayInputInjector   (VD-specific)
+     ├── AppManager                    (shared)
+     ├── BitmapUtils                   (shared)
+     ├── AccessibilityNodeFinder       (shared, already was)
+     └── VirtualDisplayWindowAccessor  (VD-specific)
    ```
 
-5. **No abstraction overhead** — `NodeActionPerformer` is a plain class
-   with a lambda constructor. `AppManager` is a stateless object. No
-   interfaces, no inheritance, no dependency injection framework.
+   The structural symmetry is now obvious: both have a shared
+   `NodeActionPerformer` + a platform-specific injector + shared utilities.
+
+6. **No abstraction overhead** — `NodeActionPerformer` is a plain class
+   with a lambda constructor. `AppManager` is a stateless object.
+   `AccessibilityGestureInjector` is a plain class. No interfaces, no
+   inheritance, no dependency injection framework.
 
 ---
 
@@ -314,9 +367,21 @@ running on the default display. Don't extract them.
   different (a11y API callback vs ImageReader buffer copy). Both already
   converge on `BitmapUtils` for the final scale+compress step.
 
-- **No gesture abstraction layer.** `dispatchGesture` (a11y) and
-  `injectInputEvent` (Shizuku) are different APIs for different contexts.
-  Wrapping them in a common interface would add indirection without value.
+- **No shared gesture/injector interface.** `dispatchGesture` (a11y) and
+  `injectInputEvent` (Shizuku) have different APIs, different error modes,
+  and different threading models. A common interface would add indirection
+  without value. They're both extracted into their own classes for
+  readability, not for polymorphism.
+
+- **No `AccessibilityWindowAccessor`.** Gemini's design proposes a
+  5-line class wrapping `service.rootInActiveWindow`. That's a file for
+  a one-liner. The lambda `rootProvider` in `NodeActionPerformer`
+  handles this without the extra indirection.
+
+- **No per-platform `NodeActionPerformer` copies.** Gemini creates
+  separate `AccessibilityNodeActionPerformer` and keeps
+  `VirtualDisplayNodeActionPerformer`. This re-duplicates the logic we're
+  trying to deduplicate. One shared class with a lambda is simpler.
 
 - **No changes to `AndroidPlatform` contract.** It's fine as is.
 
@@ -353,18 +418,24 @@ running on the default display. Don't extract them.
 
 Do this in three small commits, not one giant one:
 
-### Commit 1: Extract `NodeActionPerformer` + `AppManager`
+### Commit 1: Extract shared utilities
 
-Create the two new files. Write them from scratch based on the shared
-logic. Include `clearInputFocusAfterSetText` in the shared `setTextOnNode`.
-Include `performEnterKey` (moved from AccessibilityPlatform).
+- Create `NodeActionPerformer.kt` — shared node action logic with
+  `rootProvider` lambda, `withRoot` helper, and `clearInputFocusAfterSetText`.
+  Include `performEnterKey` (moved from AccessibilityPlatform).
+- Create `AppManager.kt` — extract identical `getInstalledApps` logic.
+- Create `AccessibilityGestureInjector.kt` — move gesture construction,
+  dispatch, timeout, visualizer calls, and systemButton (globalAction)
+  out of AccessibilityPlatform.
 
 ### Commit 2: Rewire both platforms
 
 - `AccessibilityPlatform`: construct `NodeActionPerformer` with
-  `rootProvider = { service.rootInActiveWindow }`. Delete all private
-  node action methods. Delete private `scaleBitmapIfNeeded`/`compressJpeg`,
-  use `BitmapUtils` instead. Delegate `getInstalledApps` to `AppManager`.
+  `rootProvider = { service.rootInActiveWindow }`, construct
+  `AccessibilityGestureInjector` with service + visualizer. Delete all
+  private node action methods, all gesture methods. Delete private
+  `scaleBitmapIfNeeded`/`compressJpeg`, use `BitmapUtils`. Delegate
+  `getInstalledApps` to `AppManager`.
 
 - `VirtualDisplayPlatform`: construct `NodeActionPerformer` with
   `rootProvider = { windowAccessor.getRootOnDisplay() }`. Update
@@ -373,7 +444,7 @@ Include `performEnterKey` (moved from AccessibilityPlatform).
 ### Commit 3: Delete + clean up
 
 - Delete `VirtualDisplayNodeActionPerformer.kt`
-- Remove any dead imports
+- Remove dead imports from both platforms
 - Build, verify no regressions
 
 ---
@@ -388,9 +459,26 @@ Include `performEnterKey` (moved from AccessibilityPlatform).
 
 ---
 
+## Cross-review: Gemini Design
+
+After reading `refactor_design_gemini.md`, incorporated and rejected:
+
+| Gemini Idea | Verdict | Reason |
+|---|---|---|
+| Extract `AccessibilityInputInjector` | **Adopted** (as `AccessibilityGestureInjector`) | Creates true structural parity. Drops AP from ~450 to ~250 lines. Good call. |
+| Root leak fix as first-class concern | **Adopted** | Valid bug. `withRoot` pattern fixes it structurally. |
+| Separate `AccessibilityNodeActionPerformer` | **Rejected** | Re-duplicates `setTextOnNode` and all node action logic. Shared class with lambda is simpler. |
+| `AccessibilityWindowAccessor` (5-line wrapper) | **Rejected** | Over-engineering. A lambda does the job without a new file. |
+| `AppQueryUtils` name | **Rejected** (naming only) | `AppManager` is clearer. Same concept. |
+
+---
+
 ## One-liner
 
-Extract shared node-action logic and app-management into two small utility
-classes. Both platforms use them. Delete the VD-specific copy. Finish the
-BitmapUtils migration. AccessibilityPlatform goes from 831 to ~450 lines.
-No new abstractions, no inheritance, no framework — just less copy-paste.
+Extract shared node-action logic, app management, and gesture dispatch into
+focused utility classes. Both platforms use the shared ones, each has a
+platform-specific injector. Delete the VD-specific copy. Finish the
+BitmapUtils migration. Fix root node leaks structurally.
+AccessibilityPlatform goes from 831 to ~250 lines.
+No new abstractions, no inheritance, no framework — just less copy-paste
+and symmetric structure.
