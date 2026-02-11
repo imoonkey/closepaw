@@ -1,7 +1,7 @@
 # Platform Abstraction
 
 > AndroidPlatform, Perceptor, screen perception, and virtual display support.
-> Last updated: 2026-02-11 (commit: c1cbe68)
+> Last updated: 2026-02-11 (commit: 4c72079)
 
 ## AndroidPlatform
 
@@ -74,32 +74,30 @@ Each `UIAction` variant maps to **exactly one** Android API call. The platform h
 
 ```kotlin
 override suspend fun performAction(action: UIAction): ActionResult = when (action) {
-    is UIAction.ClickNodeAt     -> performNodeClickAt(action.x, action.y)
-    is UIAction.TapAt           -> performTap(...)
-    is UIAction.LongClickNodeAt -> performNodeLongClickAt(action.x, action.y)
-    is UIAction.LongPressAt     -> performLongPressGesture(...)
-    is UIAction.SetTextOnNodeAt -> performSetTextOnNodeAt(...)
-    is UIAction.SetTextOnFocused -> performSetTextOnFocused(...)
-    is UIAction.Swipe           -> performSwipe(action)
-    is UIAction.SystemButton    -> performSystemButton(action)
-    is UIAction.Wait            -> performWait(action)
+    is UIAction.ClickNodeAt      -> nodeActionPerformer.performNodeClickAt(action.x, action.y)
+    is UIAction.LongClickNodeAt  -> nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
+    is UIAction.SetTextOnNodeAt  -> nodeActionPerformer.performSetTextOnNodeAt(...)
+    is UIAction.SetTextOnFocused -> nodeActionPerformer.performSetTextOnFocused(...)
+    is UIAction.TapAt            -> gestureInjector.injectTap(action.x, action.y)
+    is UIAction.LongPressAt      -> gestureInjector.injectLongPress(...)
+    is UIAction.Swipe            -> gestureInjector.injectSwipe(...)
+    is UIAction.SystemButton     -> when (action.button) {
+        SystemButtonType.ENTER -> nodeActionPerformer.performEnterKey()
+        else -> gestureInjector.injectSystemButton(action.button)
+    }
+    is UIAction.Wait             -> performWait(action)
 }
 ```
 
-### Action Visualization Integration
+### Component Structure
 
-Can integrate with `ActionVisualizerManager` to show visual feedback:
-
-```kotlin
-class AccessibilityPlatform(
-    private val service: AccessibilityService,
-    private val visualizer: ActionVisualizerManager? = null
-) {
-    private suspend fun performTap(x: Float, y: Float): ActionResult {
-        visualizer?.showClick(x, y)
-        // ... dispatch gesture
-    }
-}
+```text
+AccessibilityPlatform (orchestrator)
+├── NodeActionPerformer             # shared node actions (click/long-click/set-text/enter)
+├── AccessibilityGestureInjector    # accessibility gesture/global-action transport
+├── AccessibilityScreenshotCapturer # a11y screenshot + BitmapUtils + trace persistence
+├── AppManager                      # shared installed-app query
+└── BitmapUtils                     # shared scaling/jpeg compression
 ```
 
 ---
@@ -117,13 +115,15 @@ VirtualDisplayPlatform
 ├── ShizukuClient          # Binder access via Shizuku (reflection on framework stubs)
 ├── ImageReader            # Screenshot capture from virtual display Surface
 ├── AccessibilityService   # A11y tree filtered by displayId
-└── AccessibilityNodeFinder # Reused from AccessibilityPlatform for node actions
+├── NodeActionPerformer    # Shared node action executor (root via VirtualDisplayWindowAccessor)
+├── VirtualDisplayInputInjector # VD tap/swipe/long-press/system-button injection
+└── AccessibilityNodeFinder # Shared node finder utility
 ```
 
 ### Key Design Decisions
 
 - **A11y tree via `displayId` filtering**: Filters `AccessibilityService.windows` by `window.displayId` to get only the virtual display's UI tree. Reuses `Perceptor.snapshot()` for conversion.
-- **Node-based actions via a11y `performAction()`**: `ClickNodeAt`, `LongClickNodeAt`, `SetTextOnNodeAt` use `AccessibilityNodeFinder` on the filtered root, same as `AccessibilityPlatform`.
+- **Node-based actions via shared `NodeActionPerformer`**: `ClickNodeAt`, `LongClickNodeAt`, `SetTextOnNodeAt`, `SetTextOnFocused`, and `SystemButton(ENTER)` use the same shared implementation as `AccessibilityPlatform`.
 - **Coordinate-based actions via Shizuku input injection**: `TapAt`, `LongPressAt`, `Swipe` inject `MotionEvent` via `IInputManager` with `setDisplayId()` reflection.
 - **Screen capture via `ImageReader`**: `createVirtualDisplay()` renders to an `ImageReader` surface; `captureScreenshot()` acquires the latest image.
 - **Coroutine-friendly**: All blocking waits use `delay()`, not `Thread.sleep()`.
