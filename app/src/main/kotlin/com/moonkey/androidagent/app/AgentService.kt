@@ -81,11 +81,18 @@ class AgentService : AccessibilityService() {
     /**
      * Register an external session (created by MainActivity) for capsule observation. This allows
      * the SmartCapsule to display streaming updates from sessions created outside AgentService.
+     *
+     * @param platformMode The platform mode for this session — required to set up
+     *   the correct overlay strategy (StatusIsland for VD, capsule+glow for A11y).
      */
-    fun observeExternalSession(externalSession: AgentSession) {
-        Log.i(TAG, "Observing external session: ${externalSession.sessionId}")
+    fun observeExternalSession(
+        externalSession: AgentSession,
+        platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
+    ) {
+        Log.i(TAG, "Observing external session: ${externalSession.sessionId}, mode=$platformMode")
         session = externalSession
-        // Don't show capsule here - it will be shown on TaskStarted if app is not in foreground
+        currentPlatformMode = platformMode
+        overlayController?.setPlatformMode(platformMode)
         observeSession(externalSession)
     }
 

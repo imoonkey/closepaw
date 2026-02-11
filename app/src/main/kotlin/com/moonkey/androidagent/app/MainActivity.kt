@@ -411,7 +411,7 @@ class MainActivity : ComponentActivity() {
 
                     viewModel.startEventCollection(session)
 
-                    service.observeExternalSession(session)
+                    service.observeExternalSession(session, settingsState.platformMode)
                     session.submit(Op.UserInput(text))
 
                     Log.i(
