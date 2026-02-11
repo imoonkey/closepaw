@@ -333,8 +333,7 @@ class AgentService : AccessibilityService() {
             goal: String,
             apiKeys: Map<String, String> = emptyMap(),
             maxSteps: Int = 20,
-            platformMode: com.moonkey.androidagent.protocol.PlatformMode =
-                    com.moonkey.androidagent.protocol.PlatformMode.ACCESSIBILITY
+            platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     ) {
         // Stop any existing session before starting new one (prevents concurrent sessions)
         // Cancel collector first to stop receiving events, then shutdown session

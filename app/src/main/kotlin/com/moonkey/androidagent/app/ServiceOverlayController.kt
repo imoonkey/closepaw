@@ -310,11 +310,9 @@ class ServiceOverlayController(
                 } else {
                     Log.d(logTag, "Our app went to background with active task, showing capsule and glow")
                     edgeGlowManager.show(currentGlowState)
-                    if (currentTaskInput != null) {
-                        capsuleManager.onTaskStarted("restore", currentTaskInput!!)
-                    } else {
-                        capsuleManager.show()
-                    }
+                    currentTaskInput?.let { input ->
+                        capsuleManager.onTaskStarted("restore", input)
+                    } ?: capsuleManager.show()
                 }
             }
         }

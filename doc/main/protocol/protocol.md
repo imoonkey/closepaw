@@ -1,7 +1,7 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-10 (commit: 04cecbd)
+> Last updated: 2026-02-11 (commit: ddc744e)
 
 ## Overview
 
@@ -134,10 +134,12 @@ AgentEvent
 | `TaskStarted` | New task begins | `taskId`, `input` |
 | `MessageDelta` | Streaming text chunk | `turnId`, `delta` |
 | `ActionExecuted` | Tool completes | `actionId`, `toolName`, `success` |
-| `TaskCompleted` | Task ends | `taskId`, `result` |
+| `TaskCompleted` | Task ends | `taskId`, `result`, `reason` |
 | `SessionCompleted` | Session terminates | `result`, `reason` |
 
-### Completion Reasons
+### CompletionReason
+
+Both `TaskCompleted` and `SessionCompleted` carry a `reason: CompletionReason`. This enables downstream consumers (e.g., VD handoff logic) to react differently based on *why* a task ended.
 
 | Reason | Description |
 |--------|-------------|
@@ -147,6 +149,8 @@ AgentEvent
 | `TASK_IMPOSSIBLE` | Runtime deemed task not completable |
 | `ERROR` | Error occurred |
 | `INTERRUPTED` | Session interrupted |
+
+> **VD Handoff**: When `TaskCompleted.reason == GOAL_ACHIEVED` and `platformMode == VIRTUAL_DISPLAY`, `AgentService` relaunches the foreground app on the default display and opens the `VirtualDisplayViewerActivity`.
 
 ### Planning State Events
 

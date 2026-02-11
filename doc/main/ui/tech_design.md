@@ -1,7 +1,7 @@
 # UI Tech Design
 
 > Technical implementation: tech stack, code structure, state management.
-> Last updated: 2026-02-04 (commit: da83b53ba4e849e52b45158a3485261d7399facb)
+> Last updated: 2026-02-11 (commit: ddc744e)
 
 ## Tech Stack
 
@@ -69,6 +69,9 @@ ui/
 │
 ├── session/
 │   └── TimeUtils.kt             # Relative time formatting
+│
+├── viewer/
+│   └── VirtualDisplayViewerActivity.kt  # VD live preview activity
 │
 └── settings/
     ├── SettingsSheet.kt         # Configuration sheet
@@ -211,11 +214,14 @@ class MainActivity : ComponentActivity() {
 
 ```
 AgentService.session.events
-    ├──► EdgeGlowManager (ambient glow)
-    ├──► SmartCapsuleManager (overlay)
+    └──► ServiceOverlayController (mode-aware)
+            ├── ACCESSIBILITY: EdgeGlow + SmartCapsule
+            └── VIRTUAL_DISPLAY: StatusIsland only
     └──► ChatViewModel (message list)
             └──► ChatScreen recomposition
 ```
+
+**VD handoff:** On `TaskCompleted` with `reason=GOAL_ACHIEVED` in Virtual Display mode, AgentService relaunches the foreground app on the default display and opens `VirtualDisplayViewerActivity`.
 
 ### Material 3 Components
 

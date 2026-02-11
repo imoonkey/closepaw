@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-02-08 (commit: a475ef9aacefa7da5ac84bfb0a09a48ce29776d9)
+> Last updated: 2026-02-11 (commit: ddc744e)
 
 ## Overview
 
@@ -165,6 +165,8 @@ Multiple targeting methods in a single call → validation error. No implicit pr
 | swipe | `Swipe(start,end)` | — | Failed |
 
 Each attempt: dispatch → settle delay (300ms) → verify UI change via `UiChangeDetector`.
+
+**TypeExecutor note:** Attempt 2 (TapAt → SetTextOnFocused) is guarded by `platform.allowTapToFocus()` and skipped when the platform returns false (Virtual Display mode).
 
 ### ActionOutcome
 

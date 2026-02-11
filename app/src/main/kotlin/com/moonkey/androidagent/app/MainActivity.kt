@@ -38,6 +38,7 @@ import com.moonkey.androidagent.ui.theme.ChatTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -284,7 +285,7 @@ class MainActivity : ComponentActivity() {
                 clearCurrentSession()
                 payload.goalText?.let {
                     Log.d(TAG, "Goal set from intent: $it")
-                    kotlinx.coroutines.delay(500)
+                    delay(500)
                     ensureSessionAndSend(it)
                 }
             }
@@ -305,7 +306,7 @@ class MainActivity : ComponentActivity() {
         currentSession?.let { session ->
             try {
                 session.submit(Op.Shutdown)
-                kotlinx.coroutines.delay(100)
+                delay(100)
                 Log.d(TAG, "Existing session shutdown completed")
             } catch (e: Exception) {
                 Log.w(TAG, "Error shutting down session: ${e.message}")

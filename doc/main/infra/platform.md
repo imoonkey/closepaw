@@ -1,7 +1,7 @@
 # Platform Abstraction
 
 > AndroidPlatform, Perceptor, screen perception, and virtual display support.
-> Last updated: 2026-02-11 (commit: 4c72079)
+> Last updated: 2026-02-11 (commit: ddc744e)
 
 ## AndroidPlatform
 
@@ -22,10 +22,13 @@ interface AndroidPlatform {
     fun hasRequiredPermissions(): Boolean
     fun getCurrentPackageName(): String?
     fun getDisplayInfo(): DisplayInfo
+    fun allowTapToFocus(): Boolean = true  // Whether tap-to-focus fallback is safe
 }
 ```
 
 `start()` / `stop()` have default no-op implementations. `AccessibilityPlatform` does not use them. `VirtualDisplayPlatform` creates the virtual display in `start()` and tears it down in `stop()`.
+
+`allowTapToFocus()` controls whether the `TypeExecutor` may attempt a tap-to-focus fallback for text input. Returns `false` in VD mode because tapping the virtual display to focus a field can trigger unintended keyboard events on the physical screen.
 
 Note: `performAction` takes only a `UIAction` — no snapshot parameter. All atomic actions work with coordinates or focused state; element resolution happens in the executor layer.
 
@@ -125,16 +128,32 @@ VirtualDisplayPlatform
 - **A11y tree via `displayId` filtering**: Filters `AccessibilityService.windows` by `window.displayId` to get only the virtual display's UI tree. Reuses `Perceptor.snapshot()` for conversion.
 - **Node-based actions via shared `NodeActionPerformer`**: `ClickNodeAt`, `LongClickNodeAt`, `SetTextOnNodeAt`, `SetTextOnFocused`, and `SystemButton(ENTER)` use the same shared implementation as `AccessibilityPlatform`.
 - **Coordinate-based actions via Shizuku input injection**: `TapAt`, `LongPressAt`, `Swipe` inject `MotionEvent` via `IInputManager` with `setDisplayId()` reflection.
-- **Screen capture via `ImageReader`**: `createVirtualDisplay()` renders to an `ImageReader` surface; `captureScreenshot()` acquires the latest image.
+- **Hybrid surface model**: Background capture uses `ImageReader`; live preview uses `SurfaceView` via `PixelCopy`. `setVirtualDisplaySurface()` switches between them at runtime.
+- **Tap-to-focus disabled**: `allowTapToFocus()` returns `false` to prevent keyboard crosstalk between VD and real screen. After each text action, `dismissMainDisplayKeyboard()` sends `KEYCODE_BACK` on display 0 as a safety net.
 - **Coroutine-friendly**: All blocking waits use `delay()`, not `Thread.sleep()`.
+
+### Hybrid Surface Mode
+
+The VD runs in one of two `SurfaceMode`s:
+
+| Mode | Surface | Capture Method | When |
+|------|---------|----------------|------|
+| `IMAGE_READER` | `ImageReader` surface | `acquireLatestImage()` | Default — agent operating or viewer hidden |
+| `LIVE_PREVIEW` | `SurfaceView` from viewer | `PixelCopy.request()` | Viewer visible — user watching live |
+
+- `switchToLivePreview(surfaceView)`: redirects VD output to the viewer's `SurfaceView` via `ShizukuClient.setVirtualDisplaySurface()`, switches capture to `PixelCopy`.
+- `switchToImageReader()`: reverts VD output to `ImageReader` surface, resets `PixelCopy` failure count.
+- `PixelCopy` failure threshold: after 2 consecutive failures (`PIXEL_COPY_MAX_FAILURES`), automatically reverts to `IMAGE_READER` mode.
 
 ### Lifecycle
 
 | Phase | What Happens |
 |-------|-------------|
 | `start()` | Creates `ImageReader`, calls `ShizukuClient.createVirtualDisplay()`, registers binder death listener |
-| Runtime | Captures a11y tree + screenshot, performs actions on virtual display |
-| `stop()` | Releases `ImageReader`, clears display ID |
+| Runtime | Captures a11y tree + screenshot (ImageReader or PixelCopy), performs actions on VD |
+| Viewer opens | `switchToLivePreview()` — user sees live VD feed |
+| Viewer closes | `switchToImageReader()` — back to background capture |
+| `stop()` | Releases `ImageReader`, resets surface state, clears display ID |
 
 ### ShizukuClient
 
@@ -146,9 +165,13 @@ Thin wrapper for privileged Shizuku binder calls using reflection on Android fra
 |--------|---------------|
 | `isAvailable()` | `Shizuku.pingBinder()` + permission check |
 | `createVirtualDisplay(config, surface)` | `IDisplayManager.createVirtualDisplay()` (API 33+ or legacy) |
+| `releaseVirtualDisplay(displayId)` | `IDisplayManager.releaseVirtualDisplay()` |
+| `setVirtualDisplaySurface(displayId, surface)` | `IDisplayManager.setVirtualDisplaySurface()` via stored callback |
 | `injectInputEvent(event, mode)` | `IInputManager.injectInputEvent()` |
 | `startActivityOnDisplay(displayId, intent)` | `ActivityOptions.setLaunchDisplayId()` + `am start` |
 | `addBinderDeadListener(callback)` | `Shizuku.addBinderDeadListener()` |
+
+Display callbacks (`IVirtualDisplayCallback`) are stored in a `ConcurrentHashMap` keyed by `displayId` when `createVirtualDisplay` succeeds. `setVirtualDisplaySurface` uses the stored callback to switch the VD's output surface at runtime. Callbacks are cleared on `releaseVirtualDisplay` and `clearCachedProxies`.
 
 Uses `HiddenApiBypass` for `InputEvent.setDisplayId()` and `ServiceManager` access. All reflection results use safe null checks with descriptive exceptions (no `!!`).
 

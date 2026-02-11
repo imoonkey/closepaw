@@ -1,11 +1,22 @@
 # Overlay System
 
-> Smart Capsule, Edge Glow, and Action Visualizer.
-> Last updated: 2026-02-04 (commit: da83b53ba4e849e52b45158a3485261d7399facb)
+> Smart Capsule, Edge Glow, Status Island, Action Visualizer, and mode-aware overlay branching.
+> Last updated: 2026-02-11 (commit: ddc744e)
 
 ## Overview
 
 The overlay system provides visual feedback when the agent is executing tasks outside the main app. All overlays use Android's `TYPE_ACCESSIBILITY_OVERLAY` for system-wide visibility.
+
+### Mode-Aware Branching
+
+`ServiceOverlayController` selects overlays based on `PlatformMode`:
+
+| Mode | Overlays on Real Screen | Rationale |
+|------|------------------------|-----------|
+| `ACCESSIBILITY` | EdgeGlow + SmartCapsule + ActionVisualizer | User sees the agent operating on the same screen |
+| `VIRTUAL_DISPLAY` | StatusIsland only | Agent operates on a hidden VD; only a compact pill is needed on the real screen |
+
+→ See: `app/ServiceOverlayController.kt`
 
 ---
 
@@ -110,6 +121,35 @@ edgeGlowManager?.hide()
 
 ---
 
+## Status Island (VD Mode)
+
+→ See: `ui/overlay/StatusIslandManager.kt`
+
+Compact floating pill overlay displayed on the **real screen** during virtual display mode. Replaces SmartCapsule + EdgeGlow with a single minimal indicator.
+
+### Features
+
+- **Status dot**: Color-coded (thinking, acting, success, error, paused)
+- **Tap**: Opens `VirtualDisplayViewerActivity` for live VD preview
+- **Long-press**: Shows inline pause/stop controls
+- **Compact**: Small floating pill that doesn't interfere with real-screen usage
+
+### States
+
+| State | Color | Hex |
+|-------|-------|-----|
+| Thinking | Blue | `#2563EB` |
+| Acting | Light Blue | `#3B82F6` |
+| Success | Teal | `#0D9488` |
+| Error | Red | `#DC2626` |
+| Paused | Amber | `#F59E0B` |
+
+### Integration
+
+Driven by `ServiceOverlayController` in `VIRTUAL_DISPLAY` mode. All event handlers (`onTaskStarted`, `onMessageDelta`, `onActionExecuted`, `onTaskCompleted`) delegate to `StatusIslandManager` instead of SmartCapsule/EdgeGlow.
+
+---
+
 ## Action Visualizer
 
 Visual feedback when the agent performs touch actions.
@@ -189,7 +229,9 @@ class ActionVisualizerManager(context: AccessibilityService) {
 
 ## Z-Order
 
-Edge glow should be added **before** SmartCapsule so it renders below:
+### Accessibility Mode
+
+Edge glow added **before** SmartCapsule so it renders below:
 
 ```
 Screen
@@ -198,15 +240,25 @@ Screen
           └── ActionVisualizer (topmost)
 ```
 
+### Virtual Display Mode
+
+Only the Status Island is shown on the real screen:
+
+```
+Screen
+  └── StatusIsland (single overlay)
+```
+
 ---
 
 ## File Structure
 
 ```
 ui/overlay/
-├── SmartCapsuleManager.kt        # Capsule behavior + updates
+├── SmartCapsuleManager.kt        # Capsule behavior + updates (A11y mode)
 ├── SmartCapsuleLayoutBuilder.kt  # Capsule view construction
-├── EdgeGlowManager.kt            # Edge glow lifecycle
+├── StatusIslandManager.kt         # VD-mode compact pill overlay
+├── EdgeGlowManager.kt            # Edge glow lifecycle (A11y mode)
 ├── EdgeGlowView.kt               # Custom glow rendering
 ├── model/
 │   └── GlowState.kt              # State enum with colors
@@ -214,6 +266,9 @@ ui/overlay/
     ├── ActionVisualizerManager.kt  # Visualization orchestrator
     ├── ClickRippleView.kt          # Ripple effect view
     └── SwipeTrailView.kt           # Swipe trail view
+
+app/
+└── ServiceOverlayController.kt    # Mode-aware overlay branching
 ```
 
 ---
