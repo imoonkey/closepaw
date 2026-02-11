@@ -15,6 +15,7 @@ import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenImageSource
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.model.ScreenSnapshotDebug
 import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.perception.screenshotJpegQuality
 import com.moonkey.androidagent.perception.screenshotMaxDimension
@@ -27,6 +28,9 @@ import com.moonkey.androidagent.platform.DisplayInfo
 import com.moonkey.androidagent.platform.NodeActionPerformer
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.protocol.SessionConfig
+import com.moonkey.androidagent.trace.TraceRecorder
+import java.io.File
+import java.io.FileOutputStream
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -49,8 +53,11 @@ class VirtualDisplayPlatform(
         private val service: AccessibilityService,
         private val shizuku: ShizukuClient,
         private val config: VirtualDisplayConfig,
-        private val sessionConfig: SessionConfig
+        private val sessionConfig: SessionConfig,
+        private val traceRecorder: TraceRecorder
 ) : AndroidPlatform {
+
+    private data class VDScreenshotCapture(val image: ScreenImage, val tracePath: String?)
 
     /** Which surface the VirtualDisplay is currently rendering to. */
     enum class SurfaceMode {
@@ -214,11 +221,25 @@ class VirtualDisplayPlatform(
         val pc = sessionConfig.perceptionConfig
 
         val elements = if (pc.capturesAccessibility) captureA11yTree() else emptyList()
-        val image = if (pc.capturesScreenshot) captureScreenshot() else null
+        val imageCapture = if (pc.capturesScreenshot) captureScreenshot() else null
 
-        Log.d(TAG, "Captured screen: ${elements.size} elements, screenshot=${image != null}")
+        Log.d(TAG, "Captured screen: ${elements.size} elements, screenshot=${imageCapture != null}")
 
-        return ScreenSnapshot(timestamp = timestamp, elements = elements, image = image)
+        val debug =
+                imageCapture?.tracePath?.let { path ->
+                    ScreenSnapshotDebug(
+                            rawA11yTreePath = null,
+                            sanitizedA11yTreePath = null,
+                            screenshotPath = path
+                    )
+                }
+
+        return ScreenSnapshot(
+                timestamp = timestamp,
+                elements = elements,
+                image = imageCapture?.image,
+                debug = debug
+        )
     }
 
     private suspend fun captureA11yTree(): List<PerceptionElement> {
@@ -235,14 +256,14 @@ class VirtualDisplayPlatform(
         }
     }
 
-    private suspend fun captureScreenshot(): ScreenImage? {
+    private suspend fun captureScreenshot(): VDScreenshotCapture? {
         return when (surfaceMode) {
             SurfaceMode.IMAGE_READER -> captureFromImageReader()
             SurfaceMode.LIVE_PREVIEW -> captureFromPixelCopy()
         }
     }
 
-    private suspend fun captureFromImageReader(): ScreenImage? {
+    private suspend fun captureFromImageReader(): VDScreenshotCapture? {
         val reader = imageReader ?: return null
 
         return withContext(Dispatchers.Default) {
@@ -288,7 +309,7 @@ class VirtualDisplayPlatform(
      * Capture a screenshot via PixelCopy when surface is pointed at the Viewer's SurfaceView. On
      * consecutive failures, permanently reverts to ImageReader mode.
      */
-    private suspend fun captureFromPixelCopy(): ScreenImage? {
+    private suspend fun captureFromPixelCopy(): VDScreenshotCapture? {
         val sv = liveSurfaceView
         if (sv == null || !sv.holder.surface.isValid) {
             Log.w(TAG, "PixelCopy: no valid SurfaceView, falling back to ImageReader")
@@ -326,7 +347,7 @@ class VirtualDisplayPlatform(
     }
 
     /** Scale, compress, and wrap a Bitmap into a ScreenImage. */
-    private fun bitmapToScreenImage(bitmap: Bitmap): ScreenImage? {
+    private fun bitmapToScreenImage(bitmap: Bitmap): VDScreenshotCapture? {
         val maxDim = sessionConfig.perceptionConfig.screenshotMaxDimension
         val quality = sessionConfig.perceptionConfig.screenshotJpegQuality
         val scaled = BitmapUtils.scaleBitmapIfNeeded(bitmap, maxDim)
@@ -338,13 +359,50 @@ class VirtualDisplayPlatform(
         scaled.recycle()
 
         return bytes?.let {
-            ScreenImage(
-                    width = width,
-                    height = height,
-                    mimeType = "image/jpeg",
-                    bytes = it,
-                    source = ScreenImageSource.VIRTUAL_DISPLAY_CAPTURE
-            )
+            // Save to trace if enabled
+            val tracePath =
+                    if (traceRecorder.enabled) {
+                        traceRecorder.storeBytes(
+                                        kind = "screenshot",
+                                        filenameHint =
+                                                "screenshot_${System.currentTimeMillis()}_${width}x${height}.jpg",
+                                        bytes = it,
+                                        mimeType = "image/jpeg"
+                                )
+                                ?.path
+                    } else {
+                        null
+                    }
+
+            // Also persist for debug if needed
+            if (sessionConfig.debugMode) {
+                persistDebugScreenshot(it, width, height)
+            }
+
+            val image =
+                    ScreenImage(
+                            width = width,
+                            height = height,
+                            mimeType = "image/jpeg",
+                            bytes = it,
+                            source = ScreenImageSource.VIRTUAL_DISPLAY_CAPTURE
+                    )
+            VDScreenshotCapture(image, tracePath)
+        }
+    }
+
+    private fun persistDebugScreenshot(bytes: ByteArray, width: Int, height: Int) {
+        try {
+            val debugDir = File(service.getExternalFilesDir(null), "debug-output")
+            if (!debugDir.exists()) debugDir.mkdirs()
+            val file =
+                    File(
+                            debugDir,
+                            "vd_screenshot_${System.currentTimeMillis()}_${width}x${height}.jpg"
+                    )
+            FileOutputStream(file).use { it.write(bytes) }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to persist debug screenshot", e)
         }
     }
 
@@ -449,8 +507,9 @@ class VirtualDisplayPlatform(
 
                 if (component != null && shizukuAvailable) {
                     Log.d(TAG, "Launching $component on display $displayId via shell")
-                    val cmd =
-                            arrayOf("am", "start", "-n", component, "--display", "$displayId", "-W")
+                    // Remove -W to avoid Shizuku process wait issues (process hasn't exited
+                    // exception)
+                    val cmd = arrayOf("am", "start", "-n", component, "--display", "$displayId")
                     val code = shizuku.executeShellCommand(cmd)
                     if (code == 0) {
                         return@withContext ActionResult.Success(

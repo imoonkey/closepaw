@@ -13,13 +13,13 @@ import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 /**
  * PlatformFactory — Single decision point for platform selection.
  *
- * Decides whether to use AccessibilityPlatform (real screen) or
- * VirtualDisplayPlatform (Shizuku virtual display) based on:
+ * Decides whether to use AccessibilityPlatform (real screen) or VirtualDisplayPlatform (Shizuku
+ * virtual display) based on:
  * 1. SessionConfig.platformMode (user preference)
  * 2. Shizuku availability (runtime check)
  *
- * If the user requests VIRTUAL_DISPLAY but Shizuku is unavailable,
- * falls back to ACCESSIBILITY and logs a warning.
+ * If the user requests VIRTUAL_DISPLAY but Shizuku is unavailable, falls back to ACCESSIBILITY and
+ * logs a warning.
  */
 object PlatformFactory {
 
@@ -35,10 +35,10 @@ object PlatformFactory {
      * @return The selected AndroidPlatform (not yet started)
      */
     fun create(
-        config: SessionConfig,
-        service: AccessibilityService,
-        visualizer: ActionVisualizerManager? = null,
-        traceRecorder: TraceRecorder
+            config: SessionConfig,
+            service: AccessibilityService,
+            visualizer: ActionVisualizerManager? = null,
+            traceRecorder: TraceRecorder
     ): AndroidPlatform {
         return when (config.platformMode) {
             PlatformMode.ACCESSIBILITY -> {
@@ -46,18 +46,19 @@ object PlatformFactory {
                 AccessibilityPlatform(service, config, visualizer, traceRecorder)
             }
             PlatformMode.VIRTUAL_DISPLAY -> {
-                createVirtualDisplayPlatform(config, service)
-                    ?: run {
-                        Log.w(TAG, "Shizuku unavailable, falling back to AccessibilityPlatform")
-                        AccessibilityPlatform(service, config, visualizer, traceRecorder)
-                    }
+                createVirtualDisplayPlatform(config, service, traceRecorder)
+                        ?: run {
+                            Log.w(TAG, "Shizuku unavailable, falling back to AccessibilityPlatform")
+                            AccessibilityPlatform(service, config, visualizer, traceRecorder)
+                        }
             }
         }
     }
 
     private fun createVirtualDisplayPlatform(
-        config: SessionConfig,
-        service: AccessibilityService
+            config: SessionConfig,
+            service: AccessibilityService,
+            traceRecorder: TraceRecorder
     ): VirtualDisplayPlatform? {
         val shizuku = ShizukuClient()
 
@@ -72,13 +73,17 @@ object PlatformFactory {
         }
 
         val displayConfig = VirtualDisplayConfig.fromPhysicalDisplay(service)
-        Log.i(TAG, "Using VirtualDisplayPlatform: ${displayConfig.width}x${displayConfig.height}@${displayConfig.densityDpi}dpi")
+        Log.i(
+                TAG,
+                "Using VirtualDisplayPlatform: ${displayConfig.width}x${displayConfig.height}@${displayConfig.densityDpi}dpi"
+        )
 
         return VirtualDisplayPlatform(
-            service = service,
-            shizuku = shizuku,
-            config = displayConfig,
-            sessionConfig = config
+                service = service,
+                shizuku = shizuku,
+                config = displayConfig,
+                sessionConfig = config,
+                traceRecorder = traceRecorder
         )
     }
 }

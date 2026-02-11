@@ -4,7 +4,9 @@ import android.content.Context
 import android.util.Log
 import com.moonkey.androidagent.history.HistoryConfig
 import com.moonkey.androidagent.history.HistoryManager
+import com.moonkey.androidagent.history.SessionRecordingService
 import com.moonkey.androidagent.history.TruncationPolicy
+import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
@@ -25,6 +27,8 @@ import com.moonkey.androidagent.tool.impl.SystemButtonTool
 import com.moonkey.androidagent.tool.impl.WaitTool
 import com.moonkey.androidagent.tool.impl.WriteTodosTool
 import com.moonkey.androidagent.trace.TraceRecorder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 
 /**
  * SessionServices - Dependency Injection container for all session-scoped services.
@@ -61,7 +65,8 @@ data class SessionServices(
         val llmClient: LLMClient,
         val modelCatalog: ModelCatalog,
         val llmClientFactory: LLMClientFactory,
-        val traceRecorder: TraceRecorder
+        val traceRecorder: TraceRecorder,
+        val recordingService: SessionRecordingService
 ) {
     companion object {
         private const val TAG = "SessionServices"
@@ -84,7 +89,8 @@ data class SessionServices(
                 config: SessionConfig,
                 platform: AndroidPlatform,
                 apiKeys: Map<String, String> = emptyMap(),
-                context: Context? = null,
+                context: Context,
+                scope: CoroutineScope,
                 traceRecorder: TraceRecorder
         ): SessionServices {
             Log.d(TAG, "Creating SessionServices with backend: ${config.llmBackend}...")
@@ -139,6 +145,10 @@ data class SessionServices(
             val historyManager = HistoryManager(historyConfig)
             Log.d(TAG, "Created HistoryManager")
 
+            val storage = SessionStorage(context, Dispatchers.IO)
+            val recordingService = SessionRecordingService(storage, scope)
+            Log.d(TAG, "Created SessionRecordingService")
+
             Log.i(TAG, "SessionServices created successfully")
 
             return SessionServices(
@@ -152,7 +162,8 @@ data class SessionServices(
                     llmClient = llmClient,
                     modelCatalog = modelCatalog,
                     llmClientFactory = llmClientFactory,
-                    traceRecorder = traceRecorder
+                    traceRecorder = traceRecorder,
+                    recordingService = recordingService
             )
         }
 
@@ -307,12 +318,14 @@ object SessionServicesBuilder {
             config: SessionConfig,
             platform: AndroidPlatform,
             apiKeys: Map<String, String> = emptyMap(),
-            context: Context? = null,
+            context: Context,
+            scope: CoroutineScope,
             traceRecorder: TraceRecorder,
             additionalTools: List<com.moonkey.androidagent.tool.ToolSpec> = emptyList(),
             excludeTools: Set<String> = emptySet()
     ): SessionServices {
-        val services = SessionServices.create(config, platform, apiKeys, context, traceRecorder)
+        val services =
+                SessionServices.create(config, platform, apiKeys, context, scope, traceRecorder)
 
         // Remove excluded tools
         excludeTools.forEach { name -> services.toolRegistry.unregister(name) }

@@ -235,12 +235,27 @@ class ShizukuClient {
     fun executeShellCommand(command: Array<String>): Int {
         return try {
             val process = newProcessViaShizuku(command)
-            if (!process.waitFor(30, TimeUnit.SECONDS)) {
+            if (!waitForProcess(process, 30, TimeUnit.SECONDS)) {
                 process.destroy()
                 Log.e(TAG, "Shell command timed out: ${command.joinToString(" ")}")
                 return -1
             }
-            val exitCode = process.exitValue()
+            val exitCode =
+                    try {
+                        process.exitValue()
+                    } catch (e: IllegalArgumentException) {
+                        // Known Shizuku bug: sometimes throws "process hasn't exited" even after
+                        // waitFor returns true
+                        if (e.message?.contains("process hasn't exited") == true) {
+                            Log.w(
+                                    TAG,
+                                    "Shizuku process.exitValue() failed but waitFor returned true. Assuming success (0)."
+                            )
+                            0
+                        } else {
+                            throw e
+                        }
+                    }
             if (exitCode != 0) {
                 val error = process.errorStream.bufferedReader().use { it.readText() }
                 Log.w(
@@ -255,6 +270,44 @@ class ShizukuClient {
             Log.e(TAG, "Failed to execute shell command: ${command.joinToString(" ")}", e)
             -1
         }
+    }
+
+    /**
+     * Custom waitFor implementation to handle Shizuku's incorrect exception usage.
+     * ShizukuRemoteProcess throws IllegalArgumentException instead of IllegalThreadStateException
+     * when process hasn't exited, which breaks the default waitFor(timeout) implementation.
+     */
+    private fun waitForProcess(process: Process, timeout: Long, unit: TimeUnit): Boolean {
+        val startTime = System.nanoTime()
+        val remNanos = unit.toNanos(timeout)
+        var rem = remNanos
+
+        do {
+            try {
+                process.exitValue()
+                return true
+            } catch (e: IllegalThreadStateException) {
+                // Expected, keep waiting
+            } catch (e: IllegalArgumentException) {
+                // Shizuku bug: "process hasn't exited"
+                if (e.message?.contains("process hasn't exited") == true) {
+                    // Keep waiting
+                } else {
+                    throw e
+                }
+            }
+
+            if (rem > 0) {
+                try {
+                    Thread.sleep(Math.min(TimeUnit.NANOSECONDS.toMillis(rem) + 1, 100))
+                } catch (e: InterruptedException) {
+                    return false
+                }
+            }
+            rem = remNanos - (System.nanoTime() - startTime)
+        } while (rem > 0)
+
+        return false
     }
 
     /**

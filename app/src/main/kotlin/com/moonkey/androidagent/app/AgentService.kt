@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.SurfaceView
 import android.view.accessibility.AccessibilityEvent
 import com.moonkey.androidagent.BuildConfig
+import com.moonkey.androidagent.history.model.ScreenStateRecord
 import com.moonkey.androidagent.platform.virtualdisplay.VirtualDisplayPlatform
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.CompletionReason
@@ -19,6 +20,7 @@ import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
 import com.moonkey.androidagent.ui.overlay.StatusIslandManager
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
+import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -82,12 +84,12 @@ class AgentService : AccessibilityService() {
      * Register an external session (created by MainActivity) for capsule observation. This allows
      * the SmartCapsule to display streaming updates from sessions created outside AgentService.
      *
-     * @param platformMode The platform mode for this session — required to set up
-     *   the correct overlay strategy (StatusIsland for VD, capsule+glow for A11y).
+     * @param platformMode The platform mode for this session — required to set up the correct
+     * overlay strategy (StatusIsland for VD, capsule+glow for A11y).
      */
     fun observeExternalSession(
-        externalSession: AgentSession,
-        platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
+            externalSession: AgentSession,
+            platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     ) {
         Log.i(TAG, "Observing external session: ${externalSession.sessionId}, mode=$platformMode")
         session = externalSession
@@ -144,14 +146,15 @@ class AgentService : AccessibilityService() {
                                     }
                             startActivity(intent)
                         },
-                        statusIslandManager = StatusIslandManager(
-                                service = this,
-                                onTap = { openViewer() },
-                                onLongPress = { /* expand handled inside island */ },
-                                onStop = { submitOp(Op.Shutdown) },
-                                onPause = { submitOp(Op.Pause) },
-                                onResume = { submitOp(Op.Resume) }
-                        )
+                        statusIslandManager =
+                                StatusIslandManager(
+                                        service = this,
+                                        onTap = { openViewer() },
+                                        onLongPress = { /* expand handled inside island */},
+                                        onStop = { submitOp(Op.Shutdown) },
+                                        onPause = { submitOp(Op.Pause) },
+                                        onResume = { submitOp(Op.Resume) }
+                                )
                 )
 
         // Initialize ActionVisualizerManager for touch action visualization
@@ -240,6 +243,8 @@ class AgentService : AccessibilityService() {
     private fun handleEvent(event: AgentEvent) {
         Log.d(TAG, "Received event: ${event::class.simpleName}")
 
+        val recordingService = session?.getServices()?.recordingService
+
         when (event) {
             is AgentEvent.StatusUpdate -> {
                 val displayStatus =
@@ -257,15 +262,24 @@ class AgentService : AccessibilityService() {
             // ===== Task Events (for SmartCapsule streaming) =====
 
             is AgentEvent.TaskStarted -> {
+                recordingService?.recordUserMessage(
+                        UUID.randomUUID().toString(),
+                        event.timestamp,
+                        event.input
+                )
+                recordingService?.startAgentMessage(event.taskId, event.timestamp)
                 overlayController?.onTaskStarted(event.taskId, event.input)
             }
             is AgentEvent.MessageDelta -> {
+                recordingService?.appendTextDelta(event.delta)
                 overlayController?.onMessageDelta(event.turnId, event.delta)
             }
             is AgentEvent.TurnPhaseChanged -> {
                 overlayController?.onTurnPhaseChanged(event.phase)
             }
             is AgentEvent.ActionExecuted -> {
+                val state = if (event.success) "success" else "failed"
+                recordingService?.updateActionState(event.actionId, state, event.result)
                 overlayController?.onActionExecuted(event.toolName, event.success)
             }
             is AgentEvent.SubAgentStarted -> {
@@ -279,13 +293,41 @@ class AgentService : AccessibilityService() {
                 updateStatus("🤖 ${event.agentName} $status")
             }
             is AgentEvent.TaskCompleted -> {
+                recordingService?.completeAgentMessage()
                 overlayController?.onTaskCompleted(event.reason)
 
                 // Completion handoff: relaunch the VD's last app on the real screen
                 if (event.reason == CompletionReason.GOAL_ACHIEVED &&
-                    currentPlatformMode == PlatformMode.VIRTUAL_DISPLAY) {
+                                currentPlatformMode == PlatformMode.VIRTUAL_DISPLAY
+                ) {
                     performHandoff()
                 }
+            }
+            is AgentEvent.ActionProposed -> {
+                recordingService?.recordAction(
+                        actionId = event.actionId,
+                        toolName = event.toolName,
+                        description = event.description,
+                        state = "proposed"
+                )
+            }
+            is AgentEvent.ScreenCaptured -> {
+                recordingService?.recordScreenState(
+                        ScreenStateRecord(
+                                id = UUID.randomUUID().toString(),
+                                timestamp = event.timestamp,
+                                turnId = event.turnId,
+                                turnNumber = event.turnNumber,
+                                phase = event.phase,
+                                elementCount = event.elementCount,
+                                packageName = event.packageName,
+                                activityName = event.activityName,
+                                rawA11yTreePath = event.rawA11yTreePath,
+                                sanitizedA11yTreePath = event.sanitizedA11yTreePath,
+                                screenshotPath = event.screenshotPath,
+                                traceRunId = event.traceRunId
+                        )
+                )
             }
 
             // ===== Session Lifecycle Events =====
@@ -398,9 +440,12 @@ class AgentService : AccessibilityService() {
     /** Open the VirtualDisplayViewerActivity. Called from StatusIsland tap. */
     private fun openViewer() {
         try {
-            val intent = Intent()
-                .setClassName(this, "com.moonkey.androidagent.ui.viewer.VirtualDisplayViewerActivity")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val intent =
+                    Intent().setClassName(
+                                    this,
+                                    "com.moonkey.androidagent.ui.viewer.VirtualDisplayViewerActivity"
+                            )
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to open viewer", e)
@@ -408,8 +453,8 @@ class AgentService : AccessibilityService() {
     }
 
     /**
-     * Called by VirtualDisplayViewerActivity when its SurfaceView is ready.
-     * Switches the virtual display output to the Viewer for live preview.
+     * Called by VirtualDisplayViewerActivity when its SurfaceView is ready. Switches the virtual
+     * display output to the Viewer for live preview.
      */
     fun notifyViewerVisible(surfaceView: SurfaceView) {
         val platform = session?.getServices()?.platform as? VirtualDisplayPlatform ?: return
@@ -417,8 +462,8 @@ class AgentService : AccessibilityService() {
     }
 
     /**
-     * Called by VirtualDisplayViewerActivity when it's hidden.
-     * Switches back to ImageReader for headless capture.
+     * Called by VirtualDisplayViewerActivity when it's hidden. Switches back to ImageReader for
+     * headless capture.
      */
     fun notifyViewerHidden() {
         val platform = session?.getServices()?.platform as? VirtualDisplayPlatform ?: return
@@ -426,8 +471,8 @@ class AgentService : AccessibilityService() {
     }
 
     /**
-     * Completion handoff: relaunch the VD's last active app on the real screen.
-     * Simple relaunch — most apps restore their last state on cold start.
+     * Completion handoff: relaunch the VD's last active app on the real screen. Simple relaunch —
+     * most apps restore their last state on cold start.
      */
     private fun performHandoff() {
         val platform = session?.getServices()?.platform as? VirtualDisplayPlatform
@@ -437,10 +482,12 @@ class AgentService : AccessibilityService() {
             return
         }
 
-        val intent = packageManager.getLaunchIntentForPackage(lastPackage) ?: run {
-            Log.w(TAG, "Handoff: no launch intent for $lastPackage")
-            return
-        }
+        val intent =
+                packageManager.getLaunchIntentForPackage(lastPackage)
+                        ?: run {
+                            Log.w(TAG, "Handoff: no launch intent for $lastPackage")
+                            return
+                        }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
         Log.i(TAG, "Handoff: relaunched $lastPackage on default display")

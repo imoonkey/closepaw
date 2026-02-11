@@ -64,18 +64,20 @@ private constructor(
         ): AgentSession {
             val sessionId = SessionId.generate()
             val traceRecorder = TraceRecorderFactory.create(service, config, sessionId)
-            val platform: AndroidPlatform = PlatformFactory.create(
-                    config = config,
-                    service = service,
-                    visualizer = visualizer,
-                    traceRecorder = traceRecorder
-            )
+            val platform: AndroidPlatform =
+                    PlatformFactory.create(
+                            config = config,
+                            service = service,
+                            visualizer = visualizer,
+                            traceRecorder = traceRecorder
+                    )
             val services =
                     SessionServices.create(
                             config = config,
                             platform = platform,
                             apiKeys = apiKeys,
                             context = service,
+                            scope = scope,
                             traceRecorder = traceRecorder
                     )
 
@@ -196,6 +198,9 @@ private constructor(
         // SessionStarted is only emitted once when the session first moves from Created
         // to Running. Subsequent tasks (from Idle state) do not re-emit SessionStarted.
         if (_state.value == SessionState.Created) {
+            // Start session recording
+            services.recordingService.initializeNewSession(sessionId.value, config.mainModel)
+
             // Initialize platform resources (VirtualDisplayPlatform creates display here).
             try {
                 services.platform.start()
@@ -270,12 +275,13 @@ private constructor(
         Log.i(TAG, "Task $taskId completed (reason=$completionReason). Session Idle.")
     }
 
-    private fun AgentStopReason.toCompletionReason(): CompletionReason = when (this) {
-        is AgentStopReason.GoalAchieved -> CompletionReason.GOAL_ACHIEVED
-        is AgentStopReason.MaxTurnsReached -> CompletionReason.MAX_TURNS
-        is AgentStopReason.UserRequested -> CompletionReason.USER_STOPPED
-        is AgentStopReason.Error -> CompletionReason.ERROR
-    }
+    private fun AgentStopReason.toCompletionReason(): CompletionReason =
+            when (this) {
+                is AgentStopReason.GoalAchieved -> CompletionReason.GOAL_ACHIEVED
+                is AgentStopReason.MaxTurnsReached -> CompletionReason.MAX_TURNS
+                is AgentStopReason.UserRequested -> CompletionReason.USER_STOPPED
+                is AgentStopReason.Error -> CompletionReason.ERROR
+            }
 
     private suspend fun handlePause() {
         if (_state.value != SessionState.Running) {
