@@ -28,16 +28,16 @@ class VirtualDisplayWindowAccessor(
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                 val allDisplayWindows = service.getWindowsOnAllDisplays()
                 val displayWindows = allDisplayWindows.get(displayId)
-                if (displayWindows != null) {
-                    if (Log.isLoggable(TAG, Log.DEBUG)) {
+                if (Log.isLoggable(TAG, Log.DEBUG)) {
+                    if (displayWindows != null) {
                         val summary = displayWindows.joinToString(", ") {
                             "Window(id=${it.id}, display=${it.displayId}, title=${it.title}, type=${it.type})"
                         }
                         Log.d(TAG, "Windows on display $displayId: $summary")
+                    } else {
+                        val displayIds = (0 until allDisplayWindows.size()).map { allDisplayWindows.keyAt(it) }
+                        Log.d(TAG, "No windows on display $displayId. Available displays: $displayIds")
                     }
-                } else if (Log.isLoggable(TAG, Log.DEBUG)) {
-                    val displayIds = (0 until allDisplayWindows.size()).map { allDisplayWindows.keyAt(it) }
-                    Log.d(TAG, "No windows on display $displayId. Available displays: $displayIds")
                 }
                 displayWindows ?: emptyList()
             } else {

@@ -117,7 +117,6 @@ class VirtualDisplayPlatform(
 
         if (displayId != Display.INVALID_DISPLAY) {
             shizuku.releaseVirtualDisplay(displayId)
-            Log.d(TAG, "Released virtual display $displayId")
         }
 
         imageReader?.close()

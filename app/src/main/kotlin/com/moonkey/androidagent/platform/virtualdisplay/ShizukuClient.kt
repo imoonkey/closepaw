@@ -32,9 +32,6 @@ class ShizukuClient {
 
         /** InputManager.INJECT_INPUT_EVENT_MODE_WAIT_FOR_FINISH */
         const val INJECT_MODE_WAIT = 2
-
-        /** InputManager.INJECT_INPUT_EVENT_MODE_ASYNC */
-        const val INJECT_MODE_ASYNC = 0
     }
 
     // ── Shizuku Status ──────────────────────────────────────────
@@ -169,9 +166,6 @@ class ShizukuClient {
                     .getMethod("setLaunchDisplayId", Int::class.javaPrimitiveType)
                     .invoke(options, displayId)
             val bundle = optionsClass.getMethod("toBundle").invoke(options) as android.os.Bundle
-
-            // Use Shizuku's transactRemote or IActivityManager to start activity as shell
-            // Fallback: context.startActivity with the options bundle
             context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), bundle)
             Log.d(TAG, "Launched activity on display $displayId")
         } catch (e: Exception) {
@@ -217,24 +211,19 @@ class ShizukuClient {
      */
     private fun newProcessViaShizuku(command: Array<String>): Process {
         val shizukuClass = Shizuku::class.java
-        val publicMethod =
-                runCatching {
-                            shizukuClass.getMethod(
-                                    "newProcess",
-                                    Array<String>::class.java,
-                                    Array<String>::class.java,
-                                    String::class.java
-                            )
-                        }
-                        .getOrNull()
-        val method =
-                publicMethod
-                        ?: shizukuClass.getDeclaredMethod(
-                        "newProcess",
-                        Array<String>::class.java,
-                        Array<String>::class.java,
-                        String::class.java
-                )
+        val method = runCatching {
+            shizukuClass.getMethod(
+                "newProcess",
+                Array<String>::class.java,
+                Array<String>::class.java,
+                String::class.java
+            )
+        }.getOrNull() ?: shizukuClass.getDeclaredMethod(
+            "newProcess",
+            Array<String>::class.java,
+            Array<String>::class.java,
+            String::class.java
+        )
         method.isAccessible = true
         return method.invoke(null, command, null, null) as Process
     }
@@ -336,8 +325,6 @@ class ShizukuClient {
                 }
         val projectionClass = Class.forName("android.media.projection.IMediaProjection")
 
-        // Try: createVirtualDisplay(callback, projection, packageName, name, width, height,
-        // densityDpi, surface, flags, uniqueId)
         return try {
             val method =
                     proxy.javaClass.getMethod(
