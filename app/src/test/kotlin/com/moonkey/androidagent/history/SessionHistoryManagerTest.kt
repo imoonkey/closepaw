@@ -54,4 +54,24 @@ class SessionHistoryManagerTest {
 
         assertThat(result.isFailure).isTrue()
     }
+
+    @Test
+    fun `startNewSession preserves model and appVersion metadata`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val manager = SessionHistoryManager.create(storage, this)
+
+        val sessionId = manager.startNewSession(model = "gpt-5.2", appVersion = "1.0")
+
+        advanceTimeBy(600L)
+        advanceUntilIdle()
+
+        val file = storage.listSessionFiles().single()
+        val record = storage.readSession(file.name).getOrThrow()
+        assertThat(record.sessionId).isEqualTo(sessionId)
+        assertThat(record.sessionId).isNotEqualTo("gpt-5.2")
+        assertThat(record.metadata.model).isEqualTo("gpt-5.2")
+        assertThat(record.metadata.appVersion).isEqualTo("1.0")
+    }
 }

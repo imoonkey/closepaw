@@ -148,7 +148,7 @@ class SessionHistoryManager(
      * @return The new session ID
      */
     fun startNewSession(model: String? = null, appVersion: String? = null): String {
-        return recordingService.initializeNewSession(model, appVersion)
+        return recordingService.initializeNewSession(model = model, appVersion = appVersion)
     }
     
     /**

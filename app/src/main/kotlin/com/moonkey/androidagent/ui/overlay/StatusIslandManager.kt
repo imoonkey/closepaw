@@ -266,7 +266,7 @@ class StatusIslandManager(
                 )
                 .apply {
                     gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                    y = dp(4)
+                    y = statusBarHeight + dp(4)
                 }
     }
 
