@@ -1,3 +1,11 @@
+# Design Task
+阅读 doc/todo/0.01_virtual_display/stage4/qi_note.md for 我的最初想法。doc/todo/0.01_virtual_display/stage4/final_ui_design.md 是我迭代后现阶段的ui设计。现在开始进行这一阶段的系统设计。
+
+- 阅读 doc/todo/0.01_virtual_display/stage4下的所有 system_design* 和 design_review*的system部分。
+- 然后再阅读 doc/todo/0.01_virtual_display/stage4/compatibility_faq.md，尤其是关于What is the optimal architecture for Performance + UX? (The Hybrid Model)的讨论。这个可能是之前的design没出现的考量。你帮我想想，有必要的话上网查查api是否可行，然后决定要不要用hybrid mode，我的建议是如果可行就用这个模式。
+
+
+# General Principles
 write the design like if you are Linus Torvalds.
 - 拥抱KISS principle，keep it simple stupid. 避免过度设计，避免过度工程化。嵌套层数不要太深。
 - 设计high readability的code。
@@ -6,4 +14,9 @@ write the design like if you are Linus Torvalds.
 
 - 这个feature对我的项目至关重要，请用 /ultra-think 来设计，深思熟虑，考虑周全。 @.ai-dev/skills/ultra-think/SKILL.md
 
-- 你会把你的设计写到doc/todo/[xxx]/ 下的 yyy_[your model name, e.g., claude/codex/gemini].md 下。写作过程中你不会参考这个folder下别的design，独立思考。
+# Note
+- 你会把你的设计写到 doc/todo/0.01_virtual_display/stage4 下的 final_system_design.md 下。
+
+
+# Design Review
+Review all the design files in doc/todo/[xxx]/ 。对design进行比较和评审。关注点在于设计本身，而不在writing style。请把你的design_review写到相同folder下的design_review_[your model name, e.g., claude/codex/gemini].md。
