@@ -266,6 +266,21 @@ sealed interface AgentEvent {
         val decision: ApprovalDecision
     ) : AgentEvent
     
+    // ===== Ask User Events =====
+
+    /**
+     * Agent is asking the user for help.
+     *
+     * Capsule transitions to WaitingForInput (question) or WaitingForAction (action).
+     */
+    data class AskUser(
+        override val sessionId: SessionId,
+        override val timestamp: Long,
+        val type: AskUserType,
+        val message: String,
+        val callId: String
+    ) : AgentEvent
+
     // ===== Thought Events =====
 
     /**
@@ -331,4 +346,15 @@ enum class CompletionReason {
     
     /** Session was interrupted */
     INTERRUPTED
+}
+
+/**
+ * AskUserType — whether the agent needs a text answer or a physical action.
+ */
+enum class AskUserType {
+    /** Agent needs a text answer from the user. */
+    QUESTION,
+
+    /** Agent needs the user to perform a physical action on the phone. */
+    ACTION
 }

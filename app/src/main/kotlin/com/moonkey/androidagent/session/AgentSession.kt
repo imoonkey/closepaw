@@ -161,6 +161,7 @@ private constructor(
             is Op.Shutdown -> handleShutdown()
             is Op.UserInput -> handleUserInput(op)
             is Op.Supplement -> handleSupplement(op.text)
+            is Op.UserResponse -> handleUserResponse(op.callId, op.response)
             is Op.Approve -> handleApproval(op)
         }
     }
@@ -330,14 +331,25 @@ private constructor(
         Log.i(TAG, "Supplement received: ${text.take(50)}")
     }
 
+    private suspend fun handleUserResponse(callId: String, response: String) {
+        val delivered = services.userResponseChannel.deliver(callId, response)
+        if (delivered) {
+            Log.i(TAG, "UserResponse delivered: callId=$callId")
+        } else {
+            Log.w(TAG, "UserResponse not delivered (no matching pending request): callId=$callId")
+        }
+    }
+
     private suspend fun handleInterrupt() {
         if (_state.value != SessionState.Running) {
             Log.w(TAG, "Cannot interrupt: not running (state: ${_state.value})")
             return
         }
 
+        // Cancel any pending ask_user request
+        services.userResponseChannel.cancel()
+
         // Interrupt is cooperative - signals agent to stop after current action.
-        // This will eventually trigger handleAgentComplete via AgentStopReason.UserRequested
         agentRunner.stop()
         Log.i(TAG, "Interrupt requested")
     }
@@ -347,6 +359,9 @@ private constructor(
 
         val previousState = _state.value
         _state.value = SessionState.Shutdown
+
+        // Cancel any pending ask_user request
+        services.userResponseChannel.cancel()
 
         // Stop agent
         agentRunner.shutdown()

@@ -129,5 +129,23 @@ class AgentEventDispatcher(
         ))
     }
 
+    /**
+     * Emit an AskUser event — agent is requesting user help.
+     */
+    suspend fun emitAskUser(
+        type: com.moonkey.androidagent.protocol.AskUserType,
+        message: String,
+        callId: String
+    ) {
+        Log.d(TAG, "AskUser: type=$type, message=${message.take(40)}, callId=$callId")
+        eventEmitter(AgentEvent.AskUser(
+            sessionId = sessionId,
+            timestamp = now(),
+            type = type,
+            message = message,
+            callId = callId
+        ))
+    }
+
     private fun now(): Long = System.currentTimeMillis()
 }

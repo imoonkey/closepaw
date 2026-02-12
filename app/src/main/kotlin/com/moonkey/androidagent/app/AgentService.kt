@@ -138,6 +138,7 @@ class AgentService : AccessibilityService() {
                         onTakeover = { submitOp(Op.Takeover) },
                         onResume = { submitOp(Op.Resume) },
                         onSupplement = { text -> submitOp(Op.Supplement(text)) },
+                        onUserResponse = { callId, response -> submitOp(Op.UserResponse(callId, response)) },
                         onOpenApp = {
                             val intent =
                                     Intent(this, MainActivity::class.java).apply {
@@ -375,6 +376,10 @@ class AgentService : AccessibilityService() {
             is AgentEvent.SupplementReceived -> {
                 Log.i(TAG, "Supplement received: ${event.text.take(30)}")
                 overlayController?.onSupplementReceived(event.text)
+            }
+            is AgentEvent.AskUser -> {
+                Log.i(TAG, "AskUser: type=${event.type}, callId=${event.callId}")
+                overlayController?.onAskUser(event.type, event.message, event.callId)
             }
 
             // Handle other events as needed

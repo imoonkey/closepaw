@@ -2,6 +2,7 @@ package com.moonkey.androidagent.app
 
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
+import com.moonkey.androidagent.protocol.AskUserType
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.TurnPhase
@@ -28,6 +29,7 @@ class ServiceOverlayController(
     private val onTakeover: () -> Unit,
     private val onResume: () -> Unit,
     private val onSupplement: (String) -> Unit,
+    private val onUserResponse: (String, String) -> Unit, // (callId, response)
     private val onOpenApp: () -> Unit,
     private val statusIslandManager: StatusIslandManager? = null
 ) {
@@ -38,6 +40,7 @@ class ServiceOverlayController(
         this.onTakeover = this@ServiceOverlayController.onTakeover
         this.onResume = this@ServiceOverlayController.onResume
         this.onSupplement = { text -> this@ServiceOverlayController.onSupplement(text) }
+        this.onUserResponse = { callId, response -> this@ServiceOverlayController.onUserResponse(callId, response) }
         this.onOpenApp = this@ServiceOverlayController.onOpenApp
     }
 
@@ -294,6 +297,21 @@ class ServiceOverlayController(
             }
             PlatformMode.ACCESSIBILITY -> {
                 capsuleManager.onSupplementConfirmed()
+            }
+        }
+    }
+
+    fun onAskUser(type: AskUserType, message: String, callId: String) {
+        when (platformMode) {
+            PlatformMode.VIRTUAL_DISPLAY -> {
+                statusIslandManager?.updateStatus("❓ ${message.take(20)}", glowStateColor(GlowState.Paused))
+            }
+            PlatformMode.ACCESSIBILITY -> {
+                val capsuleMode = when (type) {
+                    AskUserType.QUESTION -> CapsuleMode.WaitingForInput(question = message, callId = callId)
+                    AskUserType.ACTION -> CapsuleMode.WaitingForAction(instruction = message, callId = callId)
+                }
+                capsuleManager.updateMode(capsuleMode)
             }
         }
     }

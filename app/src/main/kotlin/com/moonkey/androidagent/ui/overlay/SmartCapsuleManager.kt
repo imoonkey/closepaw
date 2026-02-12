@@ -13,6 +13,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 
 /**
@@ -37,6 +38,7 @@ class SmartCapsuleManager(
     var onTakeover: (() -> Unit)? = null
     var onResume: (() -> Unit)? = null
     var onSupplement: ((String) -> Unit)? = null
+    var onUserResponse: ((String, String) -> Unit)? = null // (callId, response)
     var onStop: (() -> Unit)? = null
     var onOpenApp: (() -> Unit)? = null
     var onDismissError: (() -> Unit)? = null
@@ -49,6 +51,7 @@ class SmartCapsuleManager(
     private var pulseAnimator: AnimatorSet? = null
     private var delayedHideRunnable: Runnable? = null
     private var supplementConfirmedRunnable: Runnable? = null
+    private var keyboardShowRunnable: Runnable? = null
     private var lastButtonClickTime = 0L
 
     private val handler = Handler(Looper.getMainLooper())
@@ -75,8 +78,10 @@ class SmartCapsuleManager(
         mode = newMode
         Log.d(TAG, "Mode: ${oldMode::class.simpleName} → ${newMode::class.simpleName}")
 
-        // Cancel pending delayed hide (e.g., from Done state) to prevent race
+        // Cancel pending delayed actions to prevent races
         clearDelayedHide()
+        keyboardShowRunnable?.let { handler.removeCallbacks(it) }
+        keyboardShowRunnable = null
 
         when (newMode) {
             is CapsuleMode.Hidden -> hide()
@@ -118,6 +123,8 @@ class SmartCapsuleManager(
         clearDelayedHide()
         supplementConfirmedRunnable?.let { handler.removeCallbacks(it) }
         supplementConfirmedRunnable = null
+        keyboardShowRunnable?.let { handler.removeCallbacks(it) }
+        keyboardShowRunnable = null
         overlayView?.let {
             try {
                 windowManager.removeView(it)
@@ -147,10 +154,9 @@ class SmartCapsuleManager(
                 is CapsuleMode.SupplementInput -> renderSupplementInput(v, mode)
                 is CapsuleMode.Done -> renderDone(v, mode)
                 is CapsuleMode.Error -> renderError(v, mode)
+                is CapsuleMode.WaitingForInput -> renderWaitingForInput(v, mode)
+                is CapsuleMode.WaitingForAction -> renderWaitingForAction(v, mode)
                 is CapsuleMode.Hidden -> {} // handled in updateMode
-                // Stage 3 modes — placeholder rendering falls back to Running
-                is CapsuleMode.WaitingForInput -> renderRunning(v, CapsuleMode.Running(mode.question))
-                is CapsuleMode.WaitingForAction -> renderRunning(v, CapsuleMode.Running(mode.instruction))
             }
         }
     }
@@ -281,6 +287,100 @@ class SmartCapsuleManager(
         v.stopButton.alpha = 1f
     }
 
+    private fun renderWaitingForInput(v: CapsuleViews, mode: CapsuleMode.WaitingForInput) {
+        // Row 1: "💬 等待答复" header
+        stopPulse()
+        v.statusDot.visibility = View.GONE
+        v.thoughtText.text = "💬 ${mode.question}"
+        v.thoughtText.alpha = 1f
+        v.thoughtText.maxLines = 3
+
+        // Row 2: hide normal buttons
+        v.row2.visibility = View.VISIBLE
+        v.divider.visibility = View.VISIBLE
+        v.supplementButton.visibility = View.GONE
+        v.primaryButton.visibility = View.GONE
+
+        // Show stop button
+        v.stopIcon.text = "⏹"
+        v.stopText.text = "停止"
+        v.stopButton.visibility = View.VISIBLE
+        v.stopButton.isEnabled = true
+        v.stopButton.alpha = 1f
+
+        // Show input area for the answer
+        showAnswerInputArea(v, mode.callId)
+    }
+
+    private fun renderWaitingForAction(v: CapsuleViews, mode: CapsuleMode.WaitingForAction) {
+        // Row 1: "✋ 操作手机" header + instruction
+        stopPulse()
+        v.statusDot.visibility = View.GONE
+        v.thoughtText.text = "✋ ${mode.instruction}"
+        v.thoughtText.alpha = 1f
+        v.thoughtText.maxLines = 3
+
+        // Row 2: [✅ 完成] [⏹ 停止]
+        v.row2.visibility = View.VISIBLE
+        v.divider.visibility = View.VISIBLE
+        v.supplementInputArea?.visibility = View.GONE
+        v.supplementButton.visibility = View.GONE
+
+        // Repurpose primary button as "完成"
+        v.primaryIcon.text = "✅"
+        v.primaryText.text = "完成"
+        v.primaryButton.visibility = View.VISIBLE
+        v.primaryButton.isEnabled = true
+        v.primaryButton.alpha = 1f
+
+        v.stopIcon.text = "⏹"
+        v.stopText.text = "停止"
+        v.stopButton.visibility = View.VISIBLE
+        v.stopButton.isEnabled = true
+        v.stopButton.alpha = 1f
+    }
+
+    private fun showAnswerInputArea(v: CapsuleViews, callId: String) {
+        val inputArea = v.supplementInputArea ?: return
+        val editText = v.supplementEditText ?: return
+        val sendButton = v.supplementSendButton ?: return
+
+        inputArea.visibility = View.VISIBLE
+        editText.text.clear()
+        editText.hint = "输入你的答复..."
+
+        // Make overlay focusable
+        setOverlayFocusable(true)
+
+        editText.requestFocus()
+        scheduleKeyboardShow(editText)
+
+        sendButton.setOnClickListener {
+            val text = editText.text.toString().trim()
+            if (text.isNotEmpty()) {
+                onUserResponse?.invoke(callId, text)
+                hideAnswerInputArea(v)
+                // Transition back to Running - the agent will continue
+                updateMode(CapsuleMode.Running("处理答复中..."))
+            }
+        }
+    }
+
+    private fun hideAnswerInputArea(v: CapsuleViews) {
+        val inputArea = v.supplementInputArea ?: return
+        val editText = v.supplementEditText ?: return
+
+        val imm = service.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(editText.windowToken, 0)
+
+        editText.text.clear()
+        inputArea.visibility = View.GONE
+
+        setOverlayFocusable(false)
+        v.statusDot.visibility = View.VISIBLE
+        v.thoughtText.maxLines = 1
+    }
+
     private fun renderSupplementInput(v: CapsuleViews, mode: CapsuleMode.SupplementInput) {
         // Row 1: "补充你的想法" + close button (repurpose dot area)
         stopPulse()
@@ -323,10 +423,7 @@ class SmartCapsuleManager(
 
         // Request focus and show keyboard
         editText.requestFocus()
-        handler.postDelayed({
-            val imm = service.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            imm?.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT)
-        }, 200)
+        scheduleKeyboardShow(editText)
 
         sendButton.setOnClickListener {
             val text = editText.text.toString().trim()
@@ -368,6 +465,16 @@ class SmartCapsuleManager(
         } catch (e: Exception) {
             Log.w(TAG, "Failed to update focusable state", e)
         }
+    }
+
+    private fun scheduleKeyboardShow(editText: EditText) {
+        keyboardShowRunnable?.let { handler.removeCallbacks(it) }
+        val runnable = Runnable {
+            val imm = service.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT)
+        }
+        keyboardShowRunnable = runnable
+        handler.postDelayed(runnable, 200)
     }
 
     // ── Takeover / Supplement transitions ──
@@ -420,23 +527,30 @@ class SmartCapsuleManager(
     // ── Button logic ──
 
     private fun handlePrimaryClick() {
-        when (mode) {
+        when (val m = mode) {
             is CapsuleMode.Running -> requestTakeover()
             is CapsuleMode.Takeover -> onResume?.invoke()
-            else -> {} // Other modes handle primary differently (Stage 3)
+            is CapsuleMode.WaitingForAction -> {
+                // User tapped "完成" — deliver response
+                onUserResponse?.invoke(m.callId, "done")
+                updateMode(CapsuleMode.Running("处理中..."))
+            }
+            else -> {}
         }
     }
 
     private fun handleStopClick() {
         when (val m = mode) {
             is CapsuleMode.Error -> {
-                // In error mode, stop button shows "关闭" (dismiss)
                 onDismissError?.invoke() ?: hide()
             }
             is CapsuleMode.SupplementInput -> {
-                // Cancel supplement input, return to previous mode
                 views?.let { hideSupplementInputArea(it) }
                 updateMode(m.previousMode)
+            }
+            is CapsuleMode.WaitingForInput -> {
+                views?.let { hideAnswerInputArea(it) }
+                onStop?.invoke()
             }
             else -> onStop?.invoke()
         }

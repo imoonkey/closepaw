@@ -82,6 +82,14 @@ sealed interface Op {
     ) : Op
 
     /**
+     * User responds to an ask_user request (question answer or action completion).
+     */
+    data class UserResponse(
+        val callId: String,
+        val response: String
+    ) : Op
+
+    /**
      * User responds to an approval request.
      */
     data class Approve(

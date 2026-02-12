@@ -39,6 +39,7 @@ internal class SessionAgentRunner(
         if (agentDef.requiresDelegationToolRegistration) {
             ensureDelegationToolRegistered()
         }
+        ensureAskUserToolRegistered()
 
         val signal = CompletableDeferred<AgentStopReason>()
         cancellationSignal = signal
@@ -106,6 +107,20 @@ internal class SessionAgentRunner(
             eventEmitter = emitEvent
         )
         services.toolRegistry.register(delegateTool)
+    }
+
+    private fun ensureAskUserToolRegistered() {
+        if (services.toolRegistry.contains("ask_user")) return
+
+        val dispatcher = com.moonkey.androidagent.agent.AgentEventDispatcher(
+            sessionId = sessionId,
+            eventEmitter = emitEvent
+        )
+        val askUserTool = com.moonkey.androidagent.tool.impl.AskUserTool(
+            responseChannel = services.userResponseChannel,
+            eventDispatcher = dispatcher
+        )
+        services.toolRegistry.register(askUserTool)
     }
 
     suspend fun pause() {

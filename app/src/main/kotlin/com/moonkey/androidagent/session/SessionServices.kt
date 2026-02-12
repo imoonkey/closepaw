@@ -19,6 +19,7 @@ import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
+import com.moonkey.androidagent.tool.impl.AskUserTool
 import com.moonkey.androidagent.tool.impl.CompleteTaskTool
 import com.moonkey.androidagent.tool.impl.MobileActionTool
 import com.moonkey.androidagent.tool.impl.OpenAppTool
@@ -66,7 +67,8 @@ data class SessionServices(
         val modelCatalog: ModelCatalog,
         val llmClientFactory: LLMClientFactory,
         val traceRecorder: TraceRecorder,
-        val recordingService: SessionRecordingService
+        val recordingService: SessionRecordingService,
+        val userResponseChannel: UserResponseChannel = UserResponseChannel()
 ) {
     companion object {
         private const val TAG = "SessionServices"
@@ -288,6 +290,9 @@ data class SessionServices(
 
         // Cancel any pending tool calls
         toolRouter.cancelAll()
+
+        // Cancel any pending ask_user request
+        userResponseChannel.cancel()
 
         // Clear history
         historyManager.clear()
