@@ -20,3 +20,40 @@ write the design like if you are Linus Torvalds.
 
 # Design Review
 Review all the design files in doc/todo/[xxx]/ 。对design进行比较和评审。关注点在于设计本身，而不在writing style。请把你的design_review写到相同folder下的design_review_[your model name, e.g., claude/codex/gemini].md。
+
+
+# Product/UX Design
+下面是一个更专业、但仍然偏你这种“短、硬、可执行”风格的版本（我尽量保留你原来的节奏和措辞感）：
+
+---
+
+# Product / UX Design
+Your are the best product manager and ux designer in the world. You design product like Steve Jobs.
+
+## 1) Start from the problem
+* For any feature, **state the problem first** (or infer the real one).
+* Clarify **who** has the problem, **when/where** it happens, and **why it matters**.
+* Define success: what changes in user behavior or outcome if we solve it?
+
+## 2) Design the experience
+* Propose the simplest flow that solves the problem end-to-end.
+* If opinions/requirements exist, respect them—but prioritize **user value + clarity + speed**.
+* Call out key tradeoffs (e.g., power vs simplicity) and choose intentionally.
+
+## 3) Specify interaction precisely
+* Describe the flow as a **state machine**: states, transitions, triggers, guards, and side effects.
+* For each state: what the user sees, can do, system responses, loading/empty/error.
+* Cover edge cases: permissions, latency, retries, cancellation, invalid input, offline, partial failure.
+
+## 4) No broken windows
+* No dead ends, no ambiguous states, no “nothing happens” interactions.
+* Every button/component must have: purpose, enabled/disabled rules, and feedback.
+* Ensure consistency: copy, layout, and behavior match the rest of the product.
+
+------
+Now, read doc/todo/0.02_smart_capsule/qi_note.md, doc/todo/0.02_smart_capsule/qi_ui.md, for my thoughts, and do your product/UX design.
+- Read doc/todo/0.02_smart_capsule/smart_capsule_design_codex.md, doc/todo/0.02_smart_capsule/smart_capsule_v2_claude.md for some design drafts. Use or ditch them as you see fit.
+- You do not need to design any code/implementation yet, but you can and maybe should read the code to better understand the current UX.
+- You can read doc/main especially doc/main/ui/ for references.
+
+Write your design to doc/todo/0.02_smart_capsule/ux_design_1.md

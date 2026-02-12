@@ -24,6 +24,17 @@ Open [http://localhost:8000](http://localhost:8000).
 - **Select Run**: Use the dropdown at the top to select a run from `debug-output` (searched in `../debug-output`).
 - **Auto-Compilation**: If a run hasn't been compiled (missing `derived/steps.jsonl`), selecting it will automatically trigger the compiler.
 
+## Features
+
+- **Step-by-step Replay**: Navigate through each turn of the conversation.
+- **Visual State**: View screenshots and accessibility trees side-by-side.
+- **Tool Calls**: See exact tool parameters and outputs.
+- **Performance Stats**: Analyze token usage and latency (using `a11y_token_stats.py`).
+- **Auto-Compilation**: Automatically compiles raw traces into a viewable format.
+- **Auto-Load**: Automatically loads the most recent run upon opening.
+- **Refreshed UI**: Clean, modern light theme with improved typography and readability.
+- **Enhanced Navigation**: Sidebar displays tool names and session roles for easier scanning.
+
 ## A11y Token Stats
 
 Compute token counts for raw vs sanitized accessibility trees:
