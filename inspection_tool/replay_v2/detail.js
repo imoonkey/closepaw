@@ -1,4 +1,4 @@
-export function renderDetailPanel({ container, step, getFile, escapeHtml, onJumpToStepId, onJumpToSessionId }) {
+export function renderDetailPanel({ container, step, getFileUrl, escapeHtml, onJumpToStepId, onJumpToSessionId }) {
   container.innerHTML = "";
 
   container.appendChild(renderSummary(step, escapeHtml));
@@ -8,11 +8,11 @@ export function renderDetailPanel({ container, step, getFile, escapeHtml, onJump
 
   const worldColumn = document.createElement("div");
   worldColumn.className = "detail-column";
-  worldColumn.appendChild(renderWorldPanel(step, getFile, escapeHtml));
+  worldColumn.appendChild(renderWorldPanel(step, getFileUrl, escapeHtml));
 
   const mindColumn = document.createElement("div");
   mindColumn.className = "detail-column";
-  mindColumn.appendChild(renderMindPanel(step, getFile, escapeHtml));
+  mindColumn.appendChild(renderMindPanel(step, getFileUrl, escapeHtml));
   mindColumn.appendChild(renderLinksPanel(step, escapeHtml, onJumpToStepId, onJumpToSessionId));
 
   grid.appendChild(worldColumn);
@@ -33,7 +33,7 @@ function renderSummary(step, escapeHtml) {
   return summary;
 }
 
-function renderWorldPanel(step, getFile, escapeHtml) {
+function renderWorldPanel(step, getFileUrl, escapeHtml) {
   const world = document.createElement("div");
   world.className = "section";
   world.innerHTML = `<div class="section-title">World</div>`;
@@ -109,13 +109,12 @@ function renderWorldPanel(step, getFile, escapeHtml) {
       return;
     }
 
-    const imageFile = getFile(view.screenshot.path);
-    if (!imageFile) {
+    const imgUrl = getFileUrl(view.screenshot.path);
+    if (!imgUrl) {
       stageWrapper.innerHTML = `<pre>Missing file: ${escapeHtml(view.screenshot.path)}</pre>`;
       return;
     }
 
-    const imgUrl = URL.createObjectURL(imageFile);
     stageWrapper.innerHTML = "";
 
     const stage = document.createElement("div");
@@ -134,29 +133,39 @@ function renderWorldPanel(step, getFile, escapeHtml) {
     stageWrapper.appendChild(stage);
 
     img.addEventListener("load", async () => {
-      URL.revokeObjectURL(imgUrl);
+      // URL.revokeObjectURL(imgUrl); // Not needed for served URLs
       if (!overlayEnabled) return;
       const treeArtifact = view.sanitized || view.raw;
       if (!treeArtifact?.path) {
         overlay.innerHTML = "";
         return;
       }
-      const treeFile = getFile(treeArtifact.path);
-      if (!treeFile) {
+      const treeUrl = getFileUrl(treeArtifact.path);
+      if (!treeUrl) {
         overlay.innerHTML = "";
         return;
       }
-      const treeText = await treeFile.text();
-      let nodes = [];
+      
       try {
-        const parsed = JSON.parse(treeText);
-        if (Array.isArray(parsed)) nodes = parsed;
-      } catch {
-        nodes = [];
+        const resp = await fetch(treeUrl);
+        if (!resp.ok) throw new Error("Failed to fetch tree");
+        const treeText = await resp.text();
+        
+        let nodes = [];
+        try {
+          const parsed = JSON.parse(treeText);
+          if (Array.isArray(parsed)) nodes = parsed;
+        } catch {
+          nodes = [];
+        }
+        renderOverlayBoxes({ overlay, nodes, img });
+      } catch (e) {
+        console.error("Error loading a11y tree:", e);
+        overlay.innerHTML = "";
       }
-      renderOverlayBoxes({ overlay, nodes, img });
     });
   }
+
 
   renderWorldStage();
   return world;
@@ -243,7 +252,13 @@ function renderOverlayBoxes({ overlay, nodes, img }) {
   });
 }
 
-function renderMindPanel(step, getFile, escapeHtml) {
+// Persistent state for Mind panel
+const mindState = {
+  activeTabId: null,
+  sectionStates: new Map(), // title -> boolean
+};
+
+function renderMindPanel(step, getFileUrl, escapeHtml) {
   const mind = document.createElement("div");
   mind.className = "section";
   mind.innerHTML = `<div class="section-title">Mind</div>`;
@@ -260,7 +275,11 @@ function renderMindPanel(step, getFile, escapeHtml) {
     return mind;
   }
 
-  let activeId = config[0].id;
+  // Restore active tab if valid, else default to first
+  let activeId = mindState.activeTabId;
+  if (!activeId || !config.find((c) => c.id === activeId)) {
+    activeId = config[0].id;
+  }
 
   config.forEach((item) => {
     const button = document.createElement("button");
@@ -269,8 +288,9 @@ function renderMindPanel(step, getFile, escapeHtml) {
     button.textContent = item.label;
     button.addEventListener("click", async () => {
       activeId = item.id;
+      mindState.activeTabId = activeId; // Persist selection
       updateTabs();
-      await renderMindTab({ item, content, getFile, escapeHtml });
+      await renderMindTab({ item, content, getFileUrl, escapeHtml });
     });
     tabs.appendChild(button);
     item.button = button;
@@ -280,7 +300,7 @@ function renderMindPanel(step, getFile, escapeHtml) {
   mind.appendChild(content);
 
   updateTabs();
-  renderMindTab({ item: config[0], content, getFile, escapeHtml });
+  renderMindTab({ item: config.find((c) => c.id === activeId) || config[0], content, getFileUrl, escapeHtml });
   return mind;
 
   function updateTabs() {
@@ -303,7 +323,7 @@ function buildMindTabs(step) {
   ];
 }
 
-async function renderMindTab({ item, content, getFile, escapeHtml }) {
+async function renderMindTab({ item, content, getFileUrl, escapeHtml }) {
   content.innerHTML = "<pre>Loading...</pre>";
 
   if (item.kind === "llm_request") {
@@ -313,9 +333,9 @@ async function renderMindTab({ item, content, getFile, escapeHtml }) {
     const history = findArtifact(item.reqArtifacts, "llm_history");
 
     const blocks = [];
-    if (systemPrompt) blocks.push({ title: "=== SYSTEM PROMPT ===", artifact: systemPrompt });
-    if (userContext) blocks.push({ title: "=== USER CONTEXT ===", artifact: userContext });
-    if (inputItems) blocks.push({ title: "=== INPUT ITEMS ===", artifact: inputItems, format: true });
+    if (systemPrompt) blocks.push({ title: "=== SYSTEM PROMPT ===", artifact: systemPrompt, collapsible: true });
+    if (userContext) blocks.push({ title: "=== USER CONTEXT ===", artifact: userContext, collapsible: true });
+    if (inputItems) blocks.push({ title: "=== INPUT ITEMS ===", artifact: inputItems, format: true, collapsible: true });
     if (history) blocks.push({ title: "=== CHAT HISTORY ===", artifact: history, format: true, collapsible: true });
 
     if (!blocks.length) {
@@ -324,7 +344,7 @@ async function renderMindTab({ item, content, getFile, escapeHtml }) {
     }
     content.innerHTML = "";
     for (const block of blocks) {
-      let text = await readArtifactText(block.artifact, getFile);
+      let text = await readArtifactText(block.artifact, getFileUrl);
       if (block.format) text = tryPretty(text);
       appendSectionBlock(content, block.title, text, escapeHtml, block.collapsible);
     }
@@ -336,8 +356,8 @@ async function renderMindTab({ item, content, getFile, escapeHtml }) {
     const toolCalls = findArtifact(item.respArtifacts, "llm_tool_calls");
 
     const blocks = [];
-    if (responseText) blocks.push({ title: "=== TEXT OUTPUT ===", artifact: responseText });
-    if (toolCalls) blocks.push({ title: "=== TOOL CALLS ===", artifact: toolCalls, format: true });
+    if (responseText) blocks.push({ title: "=== TEXT OUTPUT ===", artifact: responseText, collapsible: true });
+    if (toolCalls) blocks.push({ title: "=== TOOL CALLS ===", artifact: toolCalls, format: true, collapsible: true });
 
     if (!blocks.length) {
       // Fallback to data object if no artifacts
@@ -351,9 +371,9 @@ async function renderMindTab({ item, content, getFile, escapeHtml }) {
     }
     content.innerHTML = "";
     for (const block of blocks) {
-      let text = await readArtifactText(block.artifact, getFile);
+      let text = await readArtifactText(block.artifact, getFileUrl);
       if (block.format) text = tryPretty(text);
-      appendSectionBlock(content, block.title, text, escapeHtml);
+      appendSectionBlock(content, block.title, text, escapeHtml, block.collapsible);
     }
     return;
   }
@@ -406,7 +426,7 @@ async function renderMindTab({ item, content, getFile, escapeHtml }) {
       // Input section
       const inputArtifact = findArtifact(call.artifacts || [], "tool_call_args");
       if (inputArtifact) {
-        const inputText = await readArtifactText(inputArtifact, getFile);
+        const inputText = await readArtifactText(inputArtifact, getFileUrl);
         const inputSection = document.createElement("div");
         inputSection.className = "tool-section";
         inputSection.innerHTML = `
@@ -420,7 +440,7 @@ async function renderMindTab({ item, content, getFile, escapeHtml }) {
       if (result) {
         const outputArtifact = findArtifact(result.artifacts || [], "tool_result");
         if (outputArtifact) {
-          const outputText = await readArtifactText(outputArtifact, getFile);
+          const outputText = await readArtifactText(outputArtifact, getFileUrl);
           const outputSection = document.createElement("div");
           outputSection.className = "tool-section";
           outputSection.innerHTML = `
@@ -435,7 +455,7 @@ async function renderMindTab({ item, content, getFile, escapeHtml }) {
         const textObs = findArtifact(result.artifacts || [], "tool_observation_text");
         const obsArtifact = screenObs || textObs;
         if (obsArtifact) {
-          const obsText = await readArtifactText(obsArtifact, getFile);
+          const obsText = await readArtifactText(obsArtifact, getFileUrl);
           const obsSection = document.createElement("div");
           obsSection.className = "tool-section tool-observation";
           obsSection.innerHTML = `
@@ -467,6 +487,21 @@ function appendSectionBlock(container, title, text, escapeHtml, collapsible = fa
 
   if (collapsible) {
     const details = document.createElement("details");
+    
+    // Determine open state from persistence or defaults
+    let isOpen = true; 
+    if (mindState.sectionStates.has(title)) {
+      isOpen = mindState.sectionStates.get(title);
+    } else if (title === "=== CHAT HISTORY ===") {
+      isOpen = false;
+    }
+    details.open = isOpen;
+
+    // Persist state on toggle
+    details.addEventListener("toggle", () => {
+      mindState.sectionStates.set(title, details.open);
+    });
+
     const summary = document.createElement("summary");
     summary.textContent = title;
     details.appendChild(summary);
@@ -530,11 +565,17 @@ function findArtifact(artifacts, kind) {
   return (artifacts || []).find((artifact) => artifact.kind === kind) || null;
 }
 
-async function readArtifactText(artifact, getFile) {
+async function readArtifactText(artifact, getFileUrl) {
   if (!artifact?.path) return "Artifact missing path.";
-  const file = getFile(artifact.path);
-  if (!file) return `Missing file: ${artifact.path}`;
-  return file.text();
+  const url = getFileUrl(artifact.path);
+  if (!url) return `Missing file: ${artifact.path}`;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return `Failed to fetch: ${resp.statusText}`;
+    return await resp.text();
+  } catch (e) {
+    return `Error fetching artifact: ${e.message}`;
+  }
 }
 
 function appendBlock(container, title, text) {

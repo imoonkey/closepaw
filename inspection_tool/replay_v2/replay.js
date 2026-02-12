@@ -1,7 +1,7 @@
 import { renderDetailPanel } from "./detail.js";
 
-const folderInput = document.getElementById("folderInput");
-const loadBtn = document.getElementById("loadBtn");
+const runSelect = document.getElementById("runSelect");
+const refreshBtn = document.getElementById("refreshBtn");
 const treePanel = document.getElementById("treePanel");
 const detailPanel = document.getElementById("detailPanel");
 const meta = document.getElementById("meta");
@@ -11,9 +11,6 @@ const nextBtn = document.getElementById("nextBtn");
 const filterInput = document.getElementById("filterInput");
 const clearFilterBtn = document.getElementById("clearFilterBtn");
 
-/** @type {Map<string, File>} */
-let fileMap = new Map();
-let rootPrefix = "";
 let sessions = [];
 let sessionById = new Map();
 let stepById = new Map();
@@ -23,9 +20,14 @@ let selectedStepIndex = -1;
 let selectedStepId = null;
 let filterQuery = "";
 let treeError = null;
+let currentRunId = null;
 
-loadBtn.addEventListener("click", () => folderInput.click());
-folderInput.addEventListener("change", () => loadTrace(folderInput.files));
+// Initial load
+refreshRuns();
+
+refreshBtn.addEventListener("click", refreshRuns);
+runSelect.addEventListener("change", () => loadRun(runSelect.value));
+
 prevBtn.addEventListener("click", () => moveSelection(-1));
 nextBtn.addEventListener("click", () => moveSelection(1));
 filterInput.addEventListener("input", () => {
@@ -53,82 +55,125 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-function buildFileMap(files) {
-  fileMap = new Map();
-  for (const file of files) {
-    const rel = file.webkitRelativePath || file.name;
-    fileMap.set(rel, file);
+async function refreshRuns() {
+  try {
+    const res = await fetch("/api/runs");
+    if (!res.ok) throw new Error("Failed to fetch runs");
+    const runs = await res.json();
+    
+    // Preserve selection if possible
+    let current = runSelect.value;
+    
+    // Auto-select first run if none selected and runs available
+    if (!current && runs.length > 0) {
+      current = runs[0].id;
+      loadRun(current);
+    }
+    runSelect.innerHTML = '<option value="" disabled selected>Select a run...</option>';
+    
+    runs.forEach(run => {
+      const option = document.createElement("option");
+      option.value = run.id; // Corrected to use ID
+      option.textContent = `${run.id} ${run.compiled ? "✓" : ""}`;
+      runSelect.appendChild(option);
+    });
+
+    if (current && runs.find(r => r.id === current)) {
+      runSelect.value = current;
+    }
+  } catch (e) {
+    console.error(e);
+    meta.textContent = "Error fetching runs";
   }
 }
 
-function detectRootPrefix() {
-  for (const path of fileMap.keys()) {
-    if (path.endsWith("/trace.jsonl")) {
-      return path.slice(0, -"trace.jsonl".length);
+async function loadRun(runId) {
+  if (!runId) return;
+  currentRunId = runId;
+  meta.textContent = "Loading...";
+  treePanel.innerHTML = '<div class="hint">Loading trace...</div>';
+
+  try {
+    // Check if we need to compile
+    // We can try to fetch index, if 404, assume need compile or just error
+    // But let's verify if 'derived/steps.jsonl' exists
+    const checkRes = await fetch(`/traces/${runId}/derived/steps.jsonl`, { method: "HEAD" });
+    if (!checkRes.ok) {
+      meta.textContent = "Compiling trace...";
+      const compileRes = await fetch(`/api/runs/${runId}/compile`, { method: "POST" });
+      if (!compileRes.ok) {
+        throw new Error("Compilation failed");
+      }
+      refreshRuns(); // Update checked status in dropdown
     }
-    if (path === "trace.jsonl") {
-      return "";
+
+    // Load data
+    const metaRes = await fetch(`/traces/${runId}/meta.json`);
+    if (metaRes.ok) {
+      const metaJson = await metaRes.json();
+      meta.textContent = `${runId} | ${metaJson.appId || "app"} | sdk ${metaJson.deviceSdkInt || "?"}`;
+    } else {
+      meta.textContent = `${runId}`;
     }
+
+    const treeRes = await fetch(`/traces/${runId}/derived/agent_tree.json`);
+    const stepsRes = await fetch(`/traces/${runId}/derived/steps.jsonl`);
+    
+    if (!treeRes.ok || !stepsRes.ok) {
+        throw new Error("Failed to load derived artifacts");
+    }
+
+    const derivedTree = await treeRes.json();
+    const derivedStepsText = await stepsRes.text();
+
+    if (!derivedTree || !Array.isArray(derivedTree.sessions)) {
+        sessions = [];
+        treeError = "Invalid agent_tree.json.";
+    } else {
+        sessions = derivedTree.sessions;
+        treeError = null;
+    }
+    sessionById = new Map(sessions.map((node) => [node.session_id, node]));
+
+    steps = parseJsonLines(derivedStepsText);
+    stepById = new Map(steps.map((step) => [step.step_id, step]));
+    filteredSteps = steps.slice();
+
+    selectedStepIndex = -1;
+    selectedStepId = null;
+    filterQuery = "";
+    filterInput.value = "";
+
+    applyFilters();
+    
+    // Auto-select first step
+    if (filteredSteps.length > 0) {
+      selectStep(0);
+    } else {
+      detailPanel.textContent = "Select a step.";
+    }
+
+  } catch (e) {
+    console.error(e);
+    meta.textContent = `Error: ${e.message}`;
+    treePanel.textContent = e.message;
   }
-  return "";
 }
 
+// Helpers for detail view to get file URL
+function getFileUrl(path) {
+    if (!currentRunId || !path) return null;
+    // path is relative to trace dir, e.g. "derived/..." or "artifacts/..."
+    return `/traces/${currentRunId}/${path}`;
+}
+
+// Re-export or pass getFileUrl to detail render
 function getFile(path) {
-  const withPrefix = rootPrefix ? rootPrefix + path : path;
-  return fileMap.get(withPrefix) || fileMap.get(path) || null;
-}
-
-async function readText(path) {
-  const file = getFile(path);
-  if (!file) return null;
-  return file.text();
-}
-
-async function loadTrace(files) {
-  if (!files || files.length === 0) return;
-
-  buildFileMap(files);
-  rootPrefix = detectRootPrefix();
-  treeError = null;
-
-  const metaText = await readText("meta.json");
-  const metaJson = parseJson(metaText);
-  if (metaJson) {
-    meta.textContent = `${metaJson.runId || "run"} | ${metaJson.appId || "app"} | sdk ${metaJson.deviceSdkInt || "?"}`;
-  } else {
-    meta.textContent = "Trace loaded";
-  }
-
-  const derivedTreeText = await readText("derived/agent_tree.json");
-  const derivedStepsText = await readText("derived/steps.jsonl");
-  if (!derivedTreeText || !derivedStepsText) {
-    meta.textContent = "Missing derived replay data";
-    treePanel.textContent = "Missing derived/agent_tree.json or derived/steps.jsonl.";
-    detailPanel.textContent = "Select a step.";
-    return;
-  }
-
-  const derivedTree = parseJson(derivedTreeText);
-  if (!derivedTree || !Array.isArray(derivedTree.sessions)) {
-    sessions = [];
-    treeError = "Invalid agent_tree.json.";
-  } else {
-    sessions = derivedTree.sessions;
-    treeError = null;
-  }
-  sessionById = new Map(sessions.map((node) => [node.session_id, node]));
-
-  steps = parseJsonLines(derivedStepsText);
-  stepById = new Map(steps.map((step) => [step.step_id, step]));
-  filteredSteps = steps.slice();
-
-  selectedStepIndex = -1;
-  selectedStepId = null;
-  filterQuery = "";
-  filterInput.value = "";
-
-  applyFilters();
-  detailPanel.textContent = "Select a step.";
+    // This signature matches old getFile but returns URL/Fetchable
+    // For detail.js, it expects something it can .text() or used as img src.
+    // We need to adapt detail.js to work with URLs.
+    // Here we just return the URL, and detail.js update will handle it.
+    return getFileUrl(path); 
 }
 
 function parseJson(text) {
@@ -395,7 +440,7 @@ function selectStep(index) {
   renderDetailPanel({
     container: detailPanel,
     step,
-    getFile,
+    getFileUrl: getFile, // Pass the function that returns URL
     escapeHtml,
     onJumpToStepId: (stepId) => jumpToStep(stepId),
     onJumpToSessionId: (sessionId) => jumpToSession(sessionId),
@@ -417,7 +462,7 @@ function selectStepById(stepId) {
   renderDetailPanel({
     container: detailPanel,
     step: stepById.get(stepId),
-    getFile,
+    getFileUrl: getFile,
     escapeHtml,
     onJumpToStepId: (nextStepId) => jumpToStep(nextStepId),
     onJumpToSessionId: (sessionId) => jumpToSession(sessionId),
