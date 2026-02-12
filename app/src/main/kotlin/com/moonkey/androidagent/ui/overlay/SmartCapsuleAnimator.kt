@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.AccelerateInterpolator
@@ -48,8 +49,8 @@ internal class SmartCapsuleAnimator(
      */
     fun animateToMeasuredHeight(container: ViewGroup, fromHeight: Int) {
         container.measure(
-            android.view.View.MeasureSpec.makeMeasureSpec(container.width, android.view.View.MeasureSpec.EXACTLY),
-            android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED)
+            View.MeasureSpec.makeMeasureSpec(container.width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
         )
         val targetHeight = container.measuredHeight
         if (Math.abs(targetHeight - fromHeight) <= 4) {

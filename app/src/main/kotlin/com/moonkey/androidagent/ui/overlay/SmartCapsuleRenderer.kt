@@ -7,6 +7,7 @@ import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.graphics.drawable.GradientDrawable
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
+import com.moonkey.androidagent.ui.overlay.model.isExpanded
 
 /**
  * SmartCapsuleRenderer — pure visual rendering for each CapsuleMode.
@@ -194,12 +195,7 @@ internal class SmartCapsuleRenderer {
 
         // Expanded body: show the question (fade in from compact modes)
         v.expandedBody?.text = mode.question
-        val fromCompact = previousMode != null && !isExpandedMode(previousMode)
-        if (fromCompact && v.expandedBody != null) {
-            fadeIn(v.expandedBody!!)
-        } else {
-            v.expandedBody?.visibility = View.VISIBLE
-        }
+        showExpandedBody(v.expandedBody, previousMode)
 
         // Input area for the answer
         v.supplementInputArea?.visibility = View.VISIBLE
@@ -229,12 +225,7 @@ internal class SmartCapsuleRenderer {
 
         // Expanded body: show the instruction (fade in from compact modes)
         v.expandedBody?.text = mode.instruction
-        val fromCompact = previousMode != null && !isExpandedMode(previousMode)
-        if (fromCompact && v.expandedBody != null) {
-            fadeIn(v.expandedBody!!)
-        } else {
-            v.expandedBody?.visibility = View.VISIBLE
-        }
+        showExpandedBody(v.expandedBody, previousMode)
 
         v.supplementInputArea?.visibility = View.GONE
 
@@ -333,11 +324,10 @@ internal class SmartCapsuleRenderer {
         view.animate().alpha(1f).setDuration(duration).start()
     }
 
-    private fun isExpandedMode(mode: CapsuleMode): Boolean = when (mode) {
-        is CapsuleMode.WaitingForInput,
-        is CapsuleMode.WaitingForAction,
-        is CapsuleMode.SupplementInput -> true
-        else -> false
+    private fun showExpandedBody(body: View?, previousMode: CapsuleMode?) {
+        if (body == null) return
+        val fromCompact = previousMode != null && !previousMode.isExpanded()
+        if (fromCompact) fadeIn(body) else body.visibility = View.VISIBLE
     }
 
     // ── Helpers ──

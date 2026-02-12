@@ -96,8 +96,8 @@ internal class SmartCapsuleLayoutBuilder(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(16), dp(10), dp(16), dp(10))
-            if (onRow1Tap != null) {
-                setOnClickListener { onRow1Tap() }
+            onRow1Tap?.let { handler ->
+                setOnClickListener { handler() }
                 isClickable = true
                 isFocusable = true
                 contentDescription = "打开主应用"

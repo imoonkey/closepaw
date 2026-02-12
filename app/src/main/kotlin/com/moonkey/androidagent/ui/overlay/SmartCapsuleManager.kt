@@ -12,6 +12,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
+import com.moonkey.androidagent.ui.overlay.model.isExpanded
 
 /**
  * SmartCapsuleManager — CapsuleMode-driven floating collaboration surface.
@@ -200,7 +201,7 @@ class SmartCapsuleManager(
 
     // ── Input setup ──
 
-    private fun setupAnswerInput(v: CapsuleViews, callId: String) {
+    private fun setupInputWithSend(v: CapsuleViews, onSend: (String) -> Unit) {
         val editText = v.supplementEditText ?: return
         val sendButton = v.supplementSendButton ?: return
 
@@ -209,27 +210,19 @@ class SmartCapsuleManager(
 
         sendButton.setOnClickListener {
             val text = editText.text.toString().trim()
-            if (text.isNotEmpty()) {
-                onUserResponse?.invoke(callId, text)
-                updateMode(CapsuleMode.Running("处理答复中..."))
-            }
+            if (text.isNotEmpty()) onSend(text)
+        }
+    }
+
+    private fun setupAnswerInput(v: CapsuleViews, callId: String) {
+        setupInputWithSend(v) { text ->
+            onUserResponse?.invoke(callId, text)
+            updateMode(CapsuleMode.Running("处理答复中..."))
         }
     }
 
     private fun setupSupplementInput(v: CapsuleViews) {
-        val editText = v.supplementEditText ?: return
-        val sendButton = v.supplementSendButton ?: return
-
-        editText.requestFocus()
-        scheduleKeyboardShow(editText)
-
-        sendButton.setOnClickListener {
-            val text = editText.text.toString().trim()
-            if (text.isNotEmpty()) {
-                onSupplement?.invoke(text)
-                // Don't call updateMode here — wait for SupplementReceived event
-            }
-        }
+        setupInputWithSend(v) { onSupplement?.invoke(it) }
     }
 
     private fun setOverlayFocusable(focusable: Boolean) {
@@ -339,7 +332,6 @@ class SmartCapsuleManager(
         when (val m = mode) {
             is CapsuleMode.Error -> onDismissError?.invoke() ?: hide()
             is CapsuleMode.SupplementInput -> updateMode(m.previousMode)
-            is CapsuleMode.WaitingForInput -> onStop?.invoke()
             else -> onStop?.invoke()
         }
     }
@@ -380,16 +372,8 @@ class SmartCapsuleManager(
 
     // ── Animation helpers ──
 
-    private fun isHeightTransition(from: CapsuleMode, to: CapsuleMode): Boolean {
-        return isExpandedMode(from) != isExpandedMode(to)
-    }
-
-    private fun isExpandedMode(mode: CapsuleMode): Boolean = when (mode) {
-        is CapsuleMode.WaitingForInput,
-        is CapsuleMode.WaitingForAction,
-        is CapsuleMode.SupplementInput -> true
-        else -> false
-    }
+    private fun isHeightTransition(from: CapsuleMode, to: CapsuleMode): Boolean =
+        from.isExpanded() != to.isExpanded()
 
     // ── Debounce ──
 
@@ -407,13 +391,7 @@ class SmartCapsuleManager(
     }
 
     fun onMessageDelta(turnId: String, delta: String) {
-        val current = mode
-        if (current is CapsuleMode.Running && current.thought == "思考中...") {
-            val text = delta.replace("\n", " ").trim().take(40)
-            if (text.isNotEmpty()) {
-                updateMode(CapsuleMode.Running(text))
-            }
-        }
+        maybeUpdatePlaceholderThought { delta.replace("\n", " ").trim() }
     }
 
     fun onActionExecuted(toolName: String, success: Boolean) { /* no-op */ }
@@ -435,12 +413,12 @@ class SmartCapsuleManager(
     }
 
     fun updateStatus(status: String) {
-        val current = mode
-        if (current is CapsuleMode.Running && current.thought == "思考中...") {
-            val clean = status.replace(Regex("[🚀👀🧠💡✅⏸️❌⚠️✓]"), "").trim()
-            if (clean.isNotEmpty()) {
-                updateMode(CapsuleMode.Running(clean.take(40)))
-            }
-        }
+        maybeUpdatePlaceholderThought { status.replace(Regex("[🚀👀🧠💡✅⏸️❌⚠️✓]"), "").trim() }
+    }
+
+    private fun maybeUpdatePlaceholderThought(process: () -> String?) {
+        val current = mode as? CapsuleMode.Running ?: return
+        if (current.thought != "思考中...") return
+        process()?.take(40)?.takeIf { it.isNotEmpty() }?.let { updateMode(CapsuleMode.Running(it)) }
     }
 }

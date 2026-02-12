@@ -54,6 +54,16 @@ fun CapsuleMode.displayThought(): String? = when (this) {
 }
 
 /**
+ * True if mode shows expanded body (question/instruction) and optional input area.
+ */
+fun CapsuleMode.isExpanded(): Boolean = when (this) {
+    is CapsuleMode.WaitingForInput,
+    is CapsuleMode.WaitingForAction,
+    is CapsuleMode.SupplementInput -> true
+    else -> false
+}
+
+/**
  * Sanitize raw agent_thought text for capsule display.
  * Simple and minimal — no hacky adhoc rules.
  */
