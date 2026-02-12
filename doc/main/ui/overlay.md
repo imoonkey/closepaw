@@ -1,7 +1,7 @@
 # Overlay System
 
 > Smart Capsule, Edge Glow, Status Island, Action Visualizer, and mode-aware overlay branching.
-> Last updated: 2026-02-12 (Smart Capsule V2)
+> Last updated: 2026-02-12 (Smart Capsule V2 Round 2)
 
 ## Overview
 
@@ -14,7 +14,7 @@ The overlay system provides visual feedback when the agent is executing tasks ou
 | Mode | Overlays on Real Screen | Rationale |
 |------|------------------------|-----------|
 | `ACCESSIBILITY` | EdgeGlow + SmartCapsule + ActionVisualizer | User sees the agent operating on the same screen |
-| `VIRTUAL_DISPLAY` | StatusIsland only | Agent operates on a hidden VD; only a compact pill is needed on the real screen |
+| `VIRTUAL_DISPLAY` | StatusIsland + SmartCapsule (ask_user only) | Agent on hidden VD; StatusIsland for compact state; SmartCapsule overlay appears for `ask_user` so user can respond |
 
 → See: `app/ServiceOverlayController.kt`
 
@@ -28,7 +28,12 @@ The floating overlay for user-agent collaboration. Driven entirely by `CapsuleMo
 
 ### Architecture
 
-One sealed interface, `CapsuleMode`, is the single source of truth for the capsule's UI:
+**Separation of concerns:**
+- **SmartCapsuleManager** — lifecycle, input (buttons, EditText), callbacks, event handlers
+- **SmartCapsuleRenderer** — pure visual rendering for each `CapsuleMode`
+- **SmartCapsuleAnimator** — window-level height expand/collapse, dot color crossfade, Done exit slide+fade
+
+One sealed interface, `CapsuleMode`, is the single source of truth for the capsule's UI. `CapsuleMode.isExpanded()` extension indicates when the capsule shows expanded layout (WaitingForInput, WaitingForAction).
 
 ```kotlin
 sealed interface CapsuleMode {
@@ -82,7 +87,7 @@ Agent thoughts flow through:
 
 ### Layout
 
-Two-row layout built programmatically by `SmartCapsuleLayoutBuilder`:
+Two-row compact layout built by `SmartCapsuleLayoutBuilder`:
 
 ```
 ┌──────────────────────────────────────────┐
@@ -90,6 +95,32 @@ Two-row layout built programmatically by `SmartCapsuleLayoutBuilder`:
 │ [EditText for input...        ] [Send]   │  ← Row 2: supplement/answer input (hidden by default)
 └──────────────────────────────────────────┘
 ```
+
+**Expanded layout** (WaitingForInput, WaitingForAction) — `expandedBody` view between divider and row2:
+
+| State | Row 1 Header | expandedBody | Row 2 |
+|-------|--------------|--------------|-------|
+| WaitingForInput | "💬 等待答复" | Question text (max 3 lines) | [停止] |
+| WaitingForAction | "✋ 操作手机" | Instruction text (max 2 lines) | [完成] [停止] |
+
+Input area reused for answer input in WaitingForInput. `showExpandedBody` helper in renderer controls visibility.
+
+### ask_user Polish (Round 2)
+
+- **4-minute nudge** — After 4 minutes in WaitingFor* states, appends "还在等待您的回复..." to body text
+- **Context-aware supplement confirmation** — "✓ 已收到" (between turns) vs "✓ 已收到，下一步生效" (mid-turn)
+- **VD mode fix** — In VIRTUAL_DISPLAY mode, `ask_user` shows full SmartCapsule overlay so user can type/tap; capsule hides after response
+
+### State Transition Animations (Round 2)
+
+| Transition | Animation | Duration |
+|------------|-----------|----------|
+| Running ↔ Takeover | Dot color crossfade (blue ↔ amber) | 200ms |
+| Compact → WaitingFor* | Height expand + content fade-in | 250ms |
+| WaitingFor* → Running | Height collapse | 200ms |
+| Done → Hidden | Slide down 16dp + fade out | 300ms |
+
+→ See: `ui/overlay/SmartCapsuleAnimator.kt`
 
 ### Callbacks
 
@@ -301,13 +332,15 @@ Screen
 
 ```
 ui/overlay/
-├── SmartCapsuleManager.kt        # CapsuleMode-driven capsule manager (A11y mode)
-├── SmartCapsuleLayoutBuilder.kt  # Two-row capsule layout construction
-├── StatusIslandManager.kt         # VD-mode compact pill overlay
+├── SmartCapsuleManager.kt        # Lifecycle, input, callbacks (delegates to renderer/animator)
+├── SmartCapsuleRenderer.kt       # Pure visual rendering per CapsuleMode
+├── SmartCapsuleAnimator.kt       # Window-level height, dot crossfade, Done exit
+├── SmartCapsuleLayoutBuilder.kt  # Two-row + expandedBody layout construction
+├── StatusIslandManager.kt        # VD-mode compact pill overlay
 ├── EdgeGlowManager.kt            # Edge glow lifecycle (A11y mode)
 ├── EdgeGlowView.kt               # Custom glow rendering
 ├── model/
-│   ├── CapsuleMode.kt            # Sealed interface: single source of truth for capsule UI
+│   ├── CapsuleMode.kt            # Sealed interface + isExpanded() extension
 │   └── GlowState.kt              # State enum with colors
 └── visualizer/
     ├── ActionVisualizerManager.kt  # Visualization orchestrator

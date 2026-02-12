@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionServices, and session lifecycle.
-> Last updated: 2026-02-12 (Smart Capsule V2)
+> Last updated: 2026-02-12 (Smart Capsule V2 Round 2)
 
 ## AgentSession
 
@@ -109,6 +109,18 @@ Bridges `AgentSession` and runtime `Agent`:
 |------|------------------------|------------|
 | `BASIC` | `StandaloneAgentDef` | Off |
 | `PRO` | `PlannerAgentDef` | On (`delegate_task` registered) |
+
+### Takeover Timing
+
+When the user requests takeover (`Op.Takeover`), `AgentSession.handleTakeover()` calls `agentRunner.pause()`, which returns `Deferred<Unit>`. The session awaits this deferred before emitting `SessionTakeover`. Thus:
+
+1. User taps 接管 → capsule shows TakeoverPending immediately
+2. Session calls `agentRunner.pause()`, receives deferred
+3. Agent finishes current turn, then actually pauses (loop top check)
+4. Deferred completes → session emits `SessionTakeover`
+5. Capsule transitions to Takeover
+
+The capsule's TakeoverPending state reflects reality: handover is not instant while the agent finishes its current action.
 
 ---
 

@@ -1,6 +1,6 @@
 # Stage 4 — ask_user Polish + VD Fix + Takeover Timing
 
-**Status**: DESIGN
+**Status**: IMPLEMENTED
 **Depends on**: Round 1 (Stages 1-3) + local fixes
 **UX Reference**: `round2/ux_design_round2.md` §1-5
 

@@ -1,6 +1,6 @@
 # Stage 5 — State Transition Animations
 
-**Status**: DESIGN
+**Status**: IMPLEMENTED
 **Depends on**: Stage 4 (expanded layout must exist for expand/collapse animation)
 **UX Reference**: `round2/ux_design_round2.md` §6
 

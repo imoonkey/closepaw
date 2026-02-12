@@ -1,7 +1,7 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-12 (Smart Capsule V2)
+> Last updated: 2026-02-12 (Smart Capsule V2 Round 2)
 
 ## Overview
 
@@ -144,7 +144,7 @@ AgentEvent
 | `ActionExecuted` | Tool completes | `actionId`, `toolName`, `success` |
 | `AskUser` | Agent needs user help | `type`, `message`, `callId` |
 | `SupplementReceived` | User sent mid-task supplement | `text` |
-| `SessionTakeover` | User takes over from agent | — |
+| `SessionTakeover` | User takes over from agent; emitted only after agent actually pauses (see [session.md](../infra/session.md) § Takeover Timing) | — |
 | `TaskCompleted` | Task ends | `taskId`, `result`, `reason` |
 | `SessionCompleted` | Session terminates | `result`, `reason` |
 
