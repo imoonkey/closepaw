@@ -5,13 +5,13 @@ import android.view.accessibility.AccessibilityNodeInfo
 
 object AccessibilityNodeFinder {
     /**
-     * Find the smallest clickable node at the given coordinates.
+     * Find the top-most clickable node at the given coordinates.
      *
-     * This function finds the clickable node with the smallest bounding area that contains the
-     * given point. This is important because:
-     * - Some apps have overlapping clickable elements (e.g., a button inside a larger view)
-     * - The user typically wants to click the specific UI element (the smaller one)
-     * - Simply taking the first clickable child in traversal order may pick the wrong element
+     * Matching strategy:
+     * 1. Only consider nodes containing (x, y)
+     * 2. Traverse children in reverse index order (last child first), which better matches
+     * visual z-order in common Android view hierarchies
+     * 3. Return the first clickable visible node found in that top-down traversal
      *
      * Used for ACTION_CLICK approach which works better with some apps.
      */
@@ -21,51 +21,40 @@ object AccessibilityNodeFinder {
             y: Int
     ): AccessibilityNodeInfo? {
         val bounds = Rect()
-        var bestNode: AccessibilityNodeInfo? = null
-        var bestArea = Long.MAX_VALUE
 
-        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean) {
+        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean): AccessibilityNodeInfo? {
             node.getBoundsInScreen(bounds)
 
             if (!bounds.contains(x, y)) {
                 if (shouldRecycle) node.recycle()
-                return
+                return null
             }
 
-            // Check if this node is clickable and smaller than current best
-            // Fix: Add isVisibleToUser check to avoid clicking hidden elements
-            if (node.isClickable && node.isVisibleToUser) {
-                val area = bounds.width().toLong() * bounds.height().toLong()
-                if (area < bestArea) {
-                    // Found a smaller clickable node
-                    bestNode?.recycle()
-                    // Fix: obtain a copy so we don't recycle the node while it's still being
-                    // traversed
-                    bestNode = AccessibilityNodeInfo.obtain(node)
-                    bestArea = area
+            // Search children first and in reverse order to match visual top-most behavior.
+            for (i in node.childCount - 1 downTo 0) {
+                val child = node.getChild(i) ?: continue
+                val childMatch = search(child, shouldRecycle = true)
+                if (childMatch != null) {
+                    if (shouldRecycle) node.recycle()
+                    return childMatch
                 }
             }
 
-            // Fix: Always search children to find nested smaller nodes
-            // (Previous code incorrectly returned early if node was clickable but larger than best)
-            for (i in 0 until node.childCount) {
-                val child = node.getChild(i) ?: continue
-                search(child, shouldRecycle = true)
+            if (node.isClickable && node.isVisibleToUser) {
+                return node
             }
 
-            // Fix: Always recycle the current node if we own it (shouldRecycle)
-            // We can safely recycle 'node' because 'bestNode' (if set) is now a separate copy
             if (shouldRecycle) {
                 node.recycle()
             }
+            return null
         }
 
-        search(root, shouldRecycle = false)
-        return bestNode
+        return search(root, shouldRecycle = false)
     }
 
     /**
-     * Find the smallest long-clickable node at the given coordinates. Mirrors
+     * Find the top-most long-clickable node at the given coordinates. Mirrors
      * findClickableNodeAtLocation but checks isLongClickable.
      */
     fun findLongClickableNodeAtLocation(
@@ -74,38 +63,35 @@ object AccessibilityNodeFinder {
             y: Int
     ): AccessibilityNodeInfo? {
         val bounds = Rect()
-        var bestNode: AccessibilityNodeInfo? = null
-        var bestArea = Long.MAX_VALUE
 
-        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean) {
+        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean): AccessibilityNodeInfo? {
             node.getBoundsInScreen(bounds)
 
             if (!bounds.contains(x, y)) {
                 if (shouldRecycle) node.recycle()
-                return
+                return null
             }
 
-            if (node.isLongClickable && node.isVisibleToUser) {
-                val area = bounds.width().toLong() * bounds.height().toLong()
-                if (area < bestArea) {
-                    bestNode?.recycle()
-                    bestNode = AccessibilityNodeInfo.obtain(node)
-                    bestArea = area
+            for (i in node.childCount - 1 downTo 0) {
+                val child = node.getChild(i) ?: continue
+                val childMatch = search(child, shouldRecycle = true)
+                if (childMatch != null) {
+                    if (shouldRecycle) node.recycle()
+                    return childMatch
                 }
             }
 
-            for (i in 0 until node.childCount) {
-                val child = node.getChild(i) ?: continue
-                search(child, shouldRecycle = true)
+            if (node.isLongClickable && node.isVisibleToUser) {
+                return node
             }
 
             if (shouldRecycle) {
                 node.recycle()
             }
+            return null
         }
 
-        search(root, shouldRecycle = false)
-        return bestNode
+        return search(root, shouldRecycle = false)
     }
 
     /**
@@ -188,8 +174,8 @@ object AccessibilityNodeFinder {
                 return null
             }
 
-            // Check children first (prefer deeper matches)
-            for (i in 0 until node.childCount) {
+            // Check children first in reverse order (prefer visual top-most match).
+            for (i in node.childCount - 1 downTo 0) {
                 val child = node.getChild(i) ?: continue
                 val found = search(child, shouldRecycle = true)
                 if (found != null) {

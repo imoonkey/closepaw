@@ -2,7 +2,6 @@ package com.moonkey.androidagent.platform
 
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,10 +15,6 @@ class NodeActionPerformer(
         private val rootProvider: () -> AccessibilityNodeInfo?,
         private val sdkIntProvider: () -> Int = { Build.VERSION.SDK_INT }
 ) {
-    companion object {
-        private const val TAG = "NodeActionPerformer"
-    }
-
     @Suppress("DEPRECATION")
     suspend fun performNodeClickAt(x: Int, y: Int): ActionResult {
         return onMain {
@@ -149,13 +144,7 @@ class NodeActionPerformer(
             return ActionResult.Failure("ACTION_SET_TEXT failed")
         }
 
-        clearInputFocusAfterSetText(node)
         return ActionResult.Success("Text entered: $text")
-    }
-
-    private fun clearInputFocusAfterSetText(node: AccessibilityNodeInfo) {
-        runCatching { node.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS) }
-                .onFailure { Log.w(TAG, "Failed to clear input focus (non-fatal)", it) }
     }
 
     private inline fun withRoot(block: (AccessibilityNodeInfo) -> ActionResult): ActionResult {

@@ -53,21 +53,20 @@ class NodeActionPerformerTest {
     }
 
     @Test
-    fun `performSetTextOnNodeAt clears text then sets text and clears focus`() = runTest {
+    fun `performSetTextOnNodeAt clears then sets text and preserves focus`() = runTest {
         val root = mockk<AccessibilityNodeInfo>(relaxed = true)
         val node = mockk<AccessibilityNodeInfo>(relaxed = true)
 
         every { AccessibilityNodeFinder.findNodeAtLocation(root, 1, 2) } returns node
         every { node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, any()) } returnsMany
                 listOf(true, true)
-        every { node.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS) } returns true
 
         val performer = NodeActionPerformer(rootProvider = { root })
         val result = performer.performSetTextOnNodeAt(1, 2, "hello", clear = true)
 
         assertThat(result).isEqualTo(ActionResult.Success("Text entered: hello"))
         verify(exactly = 2) { node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, any()) }
-        verify(exactly = 1) { node.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS) }
+        verify(exactly = 0) { node.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS) }
         verify(exactly = 1) { node.recycle() }
         verify(exactly = 1) { root.recycle() }
     }
