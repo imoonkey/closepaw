@@ -1,7 +1,7 @@
 export function renderDetailPanel({ container, step, getFileUrl, escapeHtml, onJumpToStepId, onJumpToSessionId }) {
   container.innerHTML = "";
 
-  container.appendChild(renderSummary(step, escapeHtml));
+
 
   const grid = document.createElement("div");
   grid.className = "detail-grid";
@@ -20,7 +20,7 @@ export function renderDetailPanel({ container, step, getFileUrl, escapeHtml, onJ
   container.appendChild(grid);
 }
 
-function renderSummary(step, escapeHtml) {
+export function renderSummary(step, escapeHtml) {
   const summary = document.createElement("div");
   summary.className = "section";
   summary.innerHTML = `
@@ -120,49 +120,92 @@ function renderWorldPanel(step, getFileUrl, escapeHtml) {
     const stage = document.createElement("div");
     stage.className = "world-stage";
 
+    const wrapper = document.createElement("div");
+    wrapper.className = "world-wrapper";
+
     const img = document.createElement("img");
     img.src = imgUrl;
     img.alt = "screenshot";
-
+    
     const overlay = document.createElement("div");
     overlay.className = "world-overlay";
     overlay.style.display = overlayEnabled ? "block" : "none";
-
-    stage.appendChild(img);
-    stage.appendChild(overlay);
+    
+    wrapper.appendChild(img);
+    wrapper.appendChild(overlay);
+    stage.appendChild(wrapper);
     stageWrapper.appendChild(stage);
 
-    img.addEventListener("load", async () => {
-      // URL.revokeObjectURL(imgUrl); // Not needed for served URLs
-      if (!overlayEnabled) return;
-      const treeArtifact = view.sanitized || view.raw;
-      if (!treeArtifact?.path) {
-        overlay.innerHTML = "";
-        return;
-      }
-      const treeUrl = getFileUrl(treeArtifact.path);
-      if (!treeUrl) {
-        overlay.innerHTML = "";
-        return;
-      }
+    // Context state for this stage
+    let ctx = {
+      nodes: null,
+      actions: null,
+      dataLoaded: false
+    };
+
+    // Render function that depends on current image dimensions
+    const updateOverlay = () => {
+      overlay.innerHTML = ""; // Always clear before re-render
+      if (!overlayEnabled || !ctx.dataLoaded) return;
       
+      if (ctx.nodes) {
+        renderOverlayBoxes({ overlay, nodes: ctx.nodes, img });
+      }
+      if (ctx.actions) {
+        renderActionMarkers({ overlay, actions: ctx.actions, img });
+      }
+    };
+
+    // Observe image resizes to re-render overlay positions
+    const ro = new ResizeObserver(() => {
+      if (overlayEnabled && ctx.dataLoaded) {
+        requestAnimationFrame(updateOverlay);
+      }
+    });
+    ro.observe(img);
+
+    // Initial load
+    img.addEventListener("load", async () => {
+      if (!overlayEnabled) return;
+      
+      // Fetch A11y
       try {
-        const resp = await fetch(treeUrl);
-        if (!resp.ok) throw new Error("Failed to fetch tree");
-        const treeText = await resp.text();
-        
-        let nodes = [];
-        try {
-          const parsed = JSON.parse(treeText);
-          if (Array.isArray(parsed)) nodes = parsed;
-        } catch {
-          nodes = [];
+        const treeArtifact = view.sanitized || view.raw;
+        if (treeArtifact?.path) {
+          const treeUrl = getFileUrl(treeArtifact.path);
+          if (treeUrl) {
+            const resp = await fetch(treeUrl);
+            if (resp.ok) {
+              const treeText = await resp.text();
+              const parsed = JSON.parse(treeText);
+              ctx.nodes = Array.isArray(parsed) ? parsed : [];
+            }
+          }
         }
-        renderOverlayBoxes({ overlay, nodes, img });
       } catch (e) {
         console.error("Error loading a11y tree:", e);
-        overlay.innerHTML = "";
       }
+
+      // Fetch Action Markers
+      try {
+        const toolCalls = step.tool?.calls || [];
+        const actions = [];
+        await Promise.all(toolCalls.map(async (call) => {
+          const argsArtifact = (call.artifacts || []).find(a => a.kind === "tool_call_args");
+          if (!argsArtifact) return;
+          try {
+            const argsText = await readArtifactText(argsArtifact, getFileUrl);
+            const args = JSON.parse(argsText);
+            actions.push({ name: call.data?.name, args });
+          } catch (e) { console.warn("Failed tool args", e); }
+        }));
+        ctx.actions = actions;
+      } catch (e) {
+        console.error("Error loading actions:", e);
+      }
+
+      ctx.dataLoaded = true;
+      updateOverlay();
     });
   }
 
@@ -198,7 +241,28 @@ function buildWorldViews(step) {
 }
 
 function renderOverlayBoxes({ overlay, nodes, img }) {
-  overlay.innerHTML = "";
+  // Clear existing boxes but keep markers if any (though we usually clear all)
+  // Actually simpler to just append content. But renderWorldStage keeps calling us.
+  // The 'overlay' is cleared in renderWorldStage before calling this? 
+  // No, renderWorldStage clears it: overlay.innerHTML = ""; BEFORE the load listener.
+  // But inside load listener, we might have partial updates if we aren't careful.
+  // We should probably rely on renderWorldStage's logic.
+  // BUT: renderWorldStage calls renderOverlayBoxes then renderActionMarkers.
+  // renderOverlayBoxes should likely NOT clear if we want to mix them, 
+  // OR renderWorldStage should handle clearing.
+  // Currently renderWorldStage doesn't clear inside the load callback before these calls.
+  // So we should clear once at start of load callback?
+  // Let's just append in these functions.
+  
+  // Actually, let's clear in renderOverlayBoxes only if we want to prioritize it.
+  // But wait, renderActionMarkers comes after.
+  // Let's safeguard:
+  // We'll trust the caller to manage cleanliness or just append.
+  // Existing code: overlay.innerHTML = ""; at start of renderOverlayBoxes.
+  // If we do that, we wipe previous stuff. 
+  // So renderActionMarkers must *append*.
+  
+  overlay.innerHTML = ""; // Clear for fresh a11y render
   if (!nodes.length) return;
 
   const naturalWidth = img.naturalWidth || img.clientWidth || 1;
@@ -206,6 +270,7 @@ function renderOverlayBoxes({ overlay, nodes, img }) {
   const displayWidth = img.clientWidth || naturalWidth;
   const displayHeight = img.clientHeight || naturalHeight;
 
+  // Calculate constraints...
   let maxX = 0;
   let maxY = 0;
   nodes.forEach((node) => {
@@ -251,6 +316,58 @@ function renderOverlayBoxes({ overlay, nodes, img }) {
     overlay.appendChild(box);
   });
 }
+
+
+function renderActionMarkers({ overlay, actions, img }) {
+  if (!actions || !actions.length) return;
+
+  const naturalWidth = img.naturalWidth || img.clientWidth || 1;
+  const naturalHeight = img.naturalHeight || img.clientHeight || 1;
+  const displayWidth = img.clientWidth || naturalWidth;
+  const displayHeight = img.clientHeight || naturalHeight;
+
+  const scaleX = displayWidth / naturalWidth;
+  const scaleY = displayHeight / naturalHeight;
+
+  actions.forEach(({ name, args }) => {
+    // Support 'input' tool
+    if (name === "input" && args) {
+       // Tap: { action: 'tap', coordinate: [x, y] }
+       if (args.action === 'tap' && Array.isArray(args.coordinate) && args.coordinate.length === 2) {
+         const [x, y] = args.coordinate;
+         const marker = document.createElement("div");
+         marker.className = "action-marker action-tap";
+         marker.style.left = `${x * scaleX}px`;
+         marker.style.top = `${y * scaleY}px`;
+         marker.title = `Tap (${x}, ${y})`;
+         overlay.appendChild(marker);
+       }
+       // Swipe: { action: 'swipe', coordinate: [x, y], end_coordinate: [ex, ey] }
+       if (args.action === 'swipe' && Array.isArray(args.coordinate) && Array.isArray(args.end_coordinate)) {
+          const [x1, y1] = args.coordinate;
+          const [x2, y2] = args.end_coordinate;
+          
+          const marker = document.createElement("div");
+          marker.className = "action-marker action-swipe";
+          
+          // Calculate length and angle
+          const dx = (x2 - x1) * scaleX;
+          const dy = (y2 - y1) * scaleY;
+          const length = Math.sqrt(dx*dx + dy*dy);
+          const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+          
+          marker.style.width = `${length}px`;
+          marker.style.left = `${x1 * scaleX}px`;
+          marker.style.top = `${y1 * scaleY}px`;
+          marker.style.transform = `rotate(${angle}deg)`;
+          marker.title = `Swipe (${x1},${y1}) -> (${x2},${y2})`;
+          
+          overlay.appendChild(marker);
+       }
+    }
+  });
+}
+
 
 // Persistent state for Mind panel
 const mindState = {

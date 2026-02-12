@@ -1,9 +1,10 @@
-import { renderDetailPanel } from "./detail.js";
+import { renderDetailPanel, renderSummary } from "./detail.js";
 
 const runSelect = document.getElementById("runSelect");
 const refreshBtn = document.getElementById("refreshBtn");
 const treePanel = document.getElementById("treePanel");
 const detailPanel = document.getElementById("detailPanel");
+const stepSummaryPanel = document.getElementById("stepSummaryPanel");
 const meta = document.getElementById("meta");
 const stepCounter = document.getElementById("stepCounter");
 const prevBtn = document.getElementById("prevBtn");
@@ -313,9 +314,9 @@ function buildStepContent(step, depth, isActive, isContext) {
   item.innerHTML = `
     <div class="tree-head">
       <span>${escapeHtml(turn)}</span>
-      <span class="code">#${escapeHtml(String(step.seq_start ?? "?"))}</span>
+      <span class="code" title="Seq Start: ${step.seq_start}">#${escapeHtml(String(step.seq_start ?? "?"))}</span>
     </div>
-    <div class="tree-meta-line">${escapeHtml(types)}</div>
+    <div class="tree-meta-line">${escapeHtml(getToolSummary(step))}</div>
   `;
   return item;
 }
@@ -445,6 +446,13 @@ function selectStep(index) {
     onJumpToStepId: (stepId) => jumpToStep(stepId),
     onJumpToSessionId: (sessionId) => jumpToSession(sessionId),
   });
+
+  // Render summary to sidebar
+  if (stepSummaryPanel) {
+    stepSummaryPanel.innerHTML = "";
+    stepSummaryPanel.appendChild(renderSummary(step, escapeHtml));
+    stepSummaryPanel.style.display = "block";
+  }
 }
 
 function selectStepById(stepId) {
@@ -500,4 +508,13 @@ function escapeHtml(text) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+
+function getToolSummary(step) {
+  const calls = step.tool?.calls || [];
+  if (calls.length > 0) {
+    return calls.map(c => c.data?.name || "unknown").join(", ");
+  }
+  return Array.isArray(step.event_types) ? step.event_types.join(" -> ") : "";
 }
