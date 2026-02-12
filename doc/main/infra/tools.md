@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-02-11 (commit: ddc744e)
+> Last updated: 2026-02-12 (Smart Capsule V2: ask_user tool)
 
 ## Overview
 
@@ -93,8 +93,11 @@ Determines whether tools need user approval.
 | `write_todos` | Todo list management | `todos` array |
 | `scratchpad` | Key-value memory | `action`, `key`, `value` |
 | `delegate_task` | Sub-agent delegation (PRO mode) | `agent_name`, `query` |
+| `ask_user` | Request user help mid-task | `type` (`question`/`action`), `message` |
 
 `delegate_task` is registered lazily only when the selected agent definition requires delegation.
+
+`ask_user` is registered lazily in `SessionAgentRunner.start()`. It suspends the agent coroutine via `UserResponseChannel` (CompletableDeferred) until the user responds through the capsule UI, or times out after 5 minutes. See [session.md](session.md) for `UserResponseChannel` details.
 
 ### mobile_action Actions
 

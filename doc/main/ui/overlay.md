@@ -1,7 +1,7 @@
 # Overlay System
 
 > Smart Capsule, Edge Glow, Status Island, Action Visualizer, and mode-aware overlay branching.
-> Last updated: 2026-02-11 (commit: ddc744e)
+> Last updated: 2026-02-12 (Smart Capsule V2)
 
 ## Overview
 
@@ -20,56 +20,96 @@ The overlay system provides visual feedback when the agent is executing tasks ou
 
 ---
 
-## Smart Capsule
+## Smart Capsule (V2)
 
-The floating overlay that follows users across all apps during agent execution.
+The floating overlay for user-agent collaboration. Driven entirely by `CapsuleMode`.
 
-### Features
+→ See: `ui/overlay/model/CapsuleMode.kt`, `ui/overlay/SmartCapsuleManager.kt`
 
-- **Streaming text**: Shows live agent response
-- **Status dot**: Color-coded with pulsing animation
-- **Control buttons**: Pause, Stop, Open App
-- **Morphing states**: Visual feedback through color and animation
+### Architecture
 
-### States
+One sealed interface, `CapsuleMode`, is the single source of truth for the capsule's UI:
 
-| State | Visual | Behavior |
-|-------|--------|----------|
-| **Thinking** | Pulsing glow, "Thinking..." | Agent processing |
-| **Acting** | Status text | Shows current tool |
-| **Streaming** | Live text | Agent response streaming |
-| **Success** | Green flash | Task complete |
-| **Error** | Red tint, shake | Something went wrong |
-| **Paused** | Amber tint | User paused execution |
+```kotlin
+sealed interface CapsuleMode {
+    data class Running(val thought: String) : CapsuleMode
+    data class TakeoverPending(val lastThought: String) : CapsuleMode
+    data class Takeover(val lastThought: String) : CapsuleMode
+    data class SupplementInput(val previousMode: CapsuleMode) : CapsuleMode
+    data class WaitingForInput(val question: String, val callId: String) : CapsuleMode
+    data class WaitingForAction(val instruction: String, val callId: String) : CapsuleMode
+    data class Done(val message: String) : CapsuleMode
+    data class Error(val message: String) : CapsuleMode
+    data object Hidden : CapsuleMode
+}
+```
 
-### Specifications
+Call `updateMode(newMode)` to change state. The manager handles show/hide/render automatically.
 
-| Property | Value |
-|----------|-------|
-| Height (compact) | 48dp |
-| Width | Screen width - 32dp margins |
-| Corner Radius | 24dp (capsule) |
-| Background | White with subtle shadow |
-| Status Dot | 8dp, color-coded |
-| Typography | 14sp, Medium weight |
-| Button Size | 40dp circular |
+### Thought Pipeline
+
+Agent thoughts flow through:
+
+1. LLM returns tool call with `agent_thought` parameter
+2. `AgentTurnRunner` extracts and sanitizes the thought (≤40 chars)
+3. `AgentEvent.ThoughtUpdate` emitted
+4. `SmartCapsuleManager` updates to `Running(thought)`
+
+### Modes
+
+| Mode | Visual | User Action |
+|------|--------|-------------|
+| **Running** | Pulsing blue dot, thought text, [Stop] | Tap pill → TakeoverPending |
+| **TakeoverPending** | Amber dot, "即将接管..." | Agent finishes current turn, then → Takeover |
+| **Takeover** | Amber dot, [继续] [补充] [Stop] | Resume, supplement, or stop |
+| **SupplementInput** | EditText + keyboard, [Send] | Type message, confirm → agent receives it |
+| **WaitingForInput** | Question text, EditText, [Send] | Type answer to agent's question |
+| **WaitingForAction** | Instruction text, [完成] | Tap "Done" after performing physical action |
+| **Done** | Green dot, completion message | Auto-hides after 3s |
+| **Error** | Red dot, error message, [关闭] | Dismiss |
+| **Hidden** | Not shown | — |
+
+### Status Dot Colors
+
+| Mode | Color | Hex |
+|------|-------|-----|
+| Running | Blue | `#2563EB` |
+| TakeoverPending | Amber | `#F59E0B` |
+| Takeover | Amber | `#F59E0B` |
+| WaitingForInput/Action | Purple | `#7C3AED` |
+| Done | Teal | `#0D9488` |
+| Error | Red | `#DC2626` |
+
+### Layout
+
+Two-row layout built programmatically by `SmartCapsuleLayoutBuilder`:
+
+```
+┌──────────────────────────────────────────┐
+│ [●] Thought text...          [▶ 继续] [⏹]│  ← Row 1: status + thought + buttons
+│ [EditText for input...        ] [Send]   │  ← Row 2: supplement/answer input (hidden by default)
+└──────────────────────────────────────────┘
+```
+
+### Callbacks
+
+`SmartCapsuleManager` exposes callbacks wired by `ServiceOverlayController`:
+
+| Callback | Triggered By | Dispatches |
+|----------|--------------|------------|
+| `onTakeover` | User requests takeover | `Op.Takeover` |
+| `onResume` | User taps "继续" in Takeover | `Op.Resume` |
+| `onSupplement` | User sends supplement text | `Op.Supplement(text)` |
+| `onUserResponse` | User answers ask_user | `Op.UserResponse(callId, response)` |
+| `onStop` | User taps Stop | `Op.Shutdown` |
+| `onOpenApp` | User taps app icon | Opens main activity |
+| `onDismissError` | User dismisses error | Hides capsule |
 
 ### Integration
 
-→ See: `ui/overlay/SmartCapsuleManager.kt`
+→ See: `app/ServiceOverlayController.kt`, `app/AgentService.kt`
 
-Called from `AgentService`:
-
-```kotlin
-session.events.collect { event ->
-    when (event) {
-        is AgentEvent.TaskStarted -> capsuleManager.onTaskStarted(event.taskId, event.input)
-        is AgentEvent.MessageDelta -> capsuleManager.onMessageDelta(event.turnId, event.delta)
-        is AgentEvent.ActionExecuted -> capsuleManager.onActionExecuted(event.toolName, event.success)
-        is AgentEvent.TaskCompleted -> capsuleManager.onTaskCompleted()
-    }
-}
-```
+Events flow: `AgentSession` → `AgentEvent` → `AgentService.handleEvent()` → `ServiceOverlayController` → `SmartCapsuleManager.updateMode()`
 
 ---
 
@@ -261,12 +301,13 @@ Screen
 
 ```
 ui/overlay/
-├── SmartCapsuleManager.kt        # Capsule behavior + updates (A11y mode)
-├── SmartCapsuleLayoutBuilder.kt  # Capsule view construction
+├── SmartCapsuleManager.kt        # CapsuleMode-driven capsule manager (A11y mode)
+├── SmartCapsuleLayoutBuilder.kt  # Two-row capsule layout construction
 ├── StatusIslandManager.kt         # VD-mode compact pill overlay
 ├── EdgeGlowManager.kt            # Edge glow lifecycle (A11y mode)
 ├── EdgeGlowView.kt               # Custom glow rendering
 ├── model/
+│   ├── CapsuleMode.kt            # Sealed interface: single source of truth for capsule UI
 │   └── GlowState.kt              # State enum with colors
 └── visualizer/
     ├── ActionVisualizerManager.kt  # Visualization orchestrator

@@ -1,5 +1,7 @@
 # Stage 2: Takeover & Supplement
 
+> **Status: IMPLEMENTED** (2026-02-12)
+>
 > User takes control. User injects mid-task messages.
 > Depends on Stage 1 (CapsuleMode, new capsule UI).
 

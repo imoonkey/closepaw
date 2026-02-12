@@ -1,5 +1,7 @@
 # Stage 3: ask_user Tool
 
+> **Status: IMPLEMENTED** (2026-02-12)
+>
 > Agent asks the user for help. Suspension mechanism. Expandable capsule.
 > Depends on Stage 1 (CapsuleMode, capsule UI) and Stage 2 (keyboard handling).
 

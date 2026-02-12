@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionServices, and session lifecycle.
-> Last updated: 2026-02-10 (commit: 04cecbd)
+> Last updated: 2026-02-12 (Smart Capsule V2)
 
 ## AgentSession
 
@@ -55,7 +55,7 @@ Dependency-injection container for all session-scoped services.
 |---------|---------|
 | `toolRegistry` | Tool discovery and schema generation |
 | `toolRouter` | Tool execution + approval lifecycle |
-| `historyManager` | Conversation history + compression |
+| `historyManager` | Conversation history + compression (thread-safe via `@Synchronized`) |
 | `sessionState` | Shared planning state (todos + scratchpad) |
 | `policyEngine` | Tool approval decisions |
 | `platform` | Android operations |
@@ -64,6 +64,7 @@ Dependency-injection container for all session-scoped services.
 | `modelCatalog` | Database of available models and providers |
 | `llmClientFactory` | Factory for creating LLM clients |
 | `traceRecorder` | Trace persistence sink |
+| `userResponseChannel` | Suspension bridge for `ask_user` tool (CompletableDeferred) |
 
 ### Cleanup
 
@@ -86,7 +87,7 @@ Built-in tool registration includes:
 - `mobile_action`, `open_app`, `system_button`, `wait`
 - `write_todos`, `scratchpad`, `complete_task`
 
-`delegate_task` is not part of static built-in registration. It is attached lazily by `SessionAgentRunner` when required.
+`delegate_task` and `ask_user` are not part of static built-in registration. They are attached lazily by `SessionAgentRunner.start()` when required.
 
 ---
 
@@ -98,6 +99,7 @@ Bridges `AgentSession` and runtime `Agent`:
 - Chooses main agent definition via `AgentDefRegistry.mainFor(config.agentMode)`
 - Builds `AgentExecutionConfig` from selected definition (prompt + allowed tools + execution role)
 - Registers `delegate_task` only when selected definition requires delegation
+- Registers `ask_user` with `UserResponseChannel` and event emitter
 - Handles lifecycle (`start`, `pause`, `resume`, `stop`, `shutdown`)
 - Wires `AgentRegistry` + `IsolatedSubAgentRunner` when delegation is enabled
 
@@ -148,12 +150,14 @@ session.submit(Op.UserInput("Open Settings"))
 ### Submitting Operations
 
 ```kotlin
-session.submit(Op.UserInput("Check my email"))  // Start task
-session.submit(Op.Pause)                         // Pause
-session.submit(Op.Resume)                        // Resume
-session.submit(Op.Interrupt)                     // Stop task, session stays Idle
-session.submit(Op.Shutdown)                      // Terminate session
-session.submit(Op.Approve(actionId, decision))   // Respond to approval
+session.submit(Op.UserInput("Check my email"))            // Start task
+session.submit(Op.Takeover)                               // User takes over
+session.submit(Op.Resume)                                 // Resume after takeover
+session.submit(Op.Supplement("also check spam folder"))   // Inject mid-task context
+session.submit(Op.UserResponse(callId, "yes"))            // Respond to ask_user
+session.submit(Op.Interrupt)                              // Stop task, session stays Idle
+session.submit(Op.Shutdown)                               // Terminate session
+session.submit(Op.Approve(actionId, decision))            // Respond to approval
 ```
 
 ### Observing Events
@@ -168,6 +172,25 @@ session.events.collect { event ->
     }
 }
 ```
+
+---
+
+## UserResponseChannel
+
+→ See: `session/UserResponseChannel.kt`
+
+Suspension bridge between the `ask_user` tool and the UI. Only one pending request is allowed at a time.
+
+| Method | Called By | Purpose |
+|--------|-----------|---------|
+| `awaitResponse(callId)` | `AskUserInvocation.execute()` | Suspend until user responds |
+| `deliver(callId, response)` | `AgentSession.handleUserResponse()` | Complete the deferred with user's answer |
+| `cancel()` | `AgentSession.handleInterrupt/Shutdown()` | Cancel pending request |
+
+**Exit paths:**
+- **Normal**: User responds → `deliver()` → deferred completes → tool returns success
+- **Timeout**: `withTimeoutOrNull(5min)` → returns `null` → `finally` clears state → tool returns "timed out"
+- **Cancellation**: `cancel()` → `CancellationException` → tool returns `Cancelled`
 
 ---
 

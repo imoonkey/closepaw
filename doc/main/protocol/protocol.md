@@ -1,7 +1,7 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-11 (commit: ddc744e)
+> Last updated: 2026-02-12 (Smart Capsule V2)
 
 ## Overview
 
@@ -42,7 +42,7 @@ The Android Agent uses unidirectional flow with a task-based model:
             ┌──────►│           Running           │◄──────┐
             │       └──────┬───────────────┬──────┘       │
             │              │               │              │
-            │     Op.Pause │               │ TaskCompleted│
+            │  Op.Takeover │               │ TaskCompleted│
             │              ▼               │              │
    Op.Resume│       ┌──────────┐           │              │
             │       │  Paused  │           │              │
@@ -62,11 +62,13 @@ The Android Agent uses unidirectional flow with a task-based model:
 | Operation | Valid States | Effect |
 |-----------|--------------|--------|
 | `Op.UserInput(text)` | Created, Idle | Start a new task |
-| `Op.Pause` | Running | Pause cooperatively |
+| `Op.Takeover` | Running | Pause cooperatively (user takes control) |
 | `Op.Resume` | Paused | Resume execution |
 | `Op.Interrupt` | Running | Stop current task, session returns to Idle |
 | `Op.Shutdown` | Any | Graceful shutdown |
 | `Op.Approve(id, decision)` | Running | Resolve pending approval |
+| `Op.Supplement(text)` | Running | Inject additional context mid-task |
+| `Op.UserResponse(callId, response)` | Running | Respond to an `ask_user` tool request |
 
 ### ApprovalDecision
 
@@ -92,13 +94,18 @@ AgentEvent
 │   ├── SessionStarted
 │   ├── SessionCompleted
 │   ├── SessionError
-│   ├── SessionPaused
+│   ├── SessionTakeover          # was SessionPaused
 │   └── SessionResumed
 │
 ├── Task Events
 │   ├── TaskStarted
 │   ├── TaskCompleted
 │   └── MessageDelta
+│
+├── Capsule Events (Smart Capsule V2)
+│   ├── ThoughtUpdate            # agent_thought for capsule display
+│   ├── AskUser                  # agent requests user help
+│   └── SupplementReceived       # user injected mid-task context
 │
 ├── Planning State Events
 │   ├── TodosUpdated
@@ -133,9 +140,20 @@ AgentEvent
 | `SessionStarted` | First Created → Running | `goal` |
 | `TaskStarted` | New task begins | `taskId`, `input` |
 | `MessageDelta` | Streaming text chunk | `turnId`, `delta` |
+| `ThoughtUpdate` | Agent selects tool call with `agent_thought` | `thought` |
 | `ActionExecuted` | Tool completes | `actionId`, `toolName`, `success` |
+| `AskUser` | Agent needs user help | `type`, `message`, `callId` |
+| `SupplementReceived` | User sent mid-task supplement | `text` |
+| `SessionTakeover` | User takes over from agent | — |
 | `TaskCompleted` | Task ends | `taskId`, `result`, `reason` |
 | `SessionCompleted` | Session terminates | `result`, `reason` |
+
+### AskUserType
+
+| Type | Description |
+|------|-------------|
+| `QUESTION` | Agent asks a question, user types text answer |
+| `ACTION` | Agent requests user to perform a physical action, user taps "Done" |
 
 ### CompletionReason
 
@@ -176,7 +194,7 @@ Both `TaskCompleted` and `SessionCompleted` carry a `reason: CompletionReason`. 
 | 🧠 | Thinking... | LLM call in progress |
 | 💡 | Executing actions... | Tool execution |
 | ✅ | Goal achieved! | Success |
-| ⏸️ | Paused | Session paused |
+| ⏸️ | Takeover | User took over from agent |
 | ❌ | Error: {message} | Fatal error |
 
 ---

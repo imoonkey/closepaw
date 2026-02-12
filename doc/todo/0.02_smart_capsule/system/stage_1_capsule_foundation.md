@@ -1,5 +1,7 @@
 # Stage 1: Capsule Foundation
 
+> **Status: IMPLEMENTED** (2026-02-12)
+>
 > Data model, redesigned capsule UI, thought pipeline.
 > This is the foundation everything else builds on.
 
