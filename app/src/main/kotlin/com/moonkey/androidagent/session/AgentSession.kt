@@ -371,19 +371,16 @@ private constructor(
 
         // Only emit completion if not already emitted
         if (completionEmitted.compareAndSet(false, true)) {
+            val reason = when (previousState) {
+                SessionState.Running, SessionState.Paused -> CompletionReason.USER_STOPPED
+                else -> CompletionReason.INTERRUPTED
+            }
             emit(
                     AgentEvent.SessionCompleted(
                             sessionId = sessionId,
                             timestamp = now(),
                             result = null,
-                            reason =
-                                    if (previousState == SessionState.Running ||
-                                                    previousState == SessionState.Paused
-                                    ) {
-                                        CompletionReason.USER_STOPPED
-                                    } else {
-                                        CompletionReason.INTERRUPTED
-                                    }
+                            reason = reason
                     )
             )
         }

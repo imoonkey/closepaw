@@ -27,7 +27,6 @@ internal data class CapsuleViews(
     val divider: View,
     val row2: ViewGroup,
     val supplementButton: ViewGroup,
-    val supplementText: TextView,
     val primaryButton: ViewGroup,
     val primaryIcon: TextView,
     val primaryText: TextView,
@@ -55,17 +54,14 @@ internal class SmartCapsuleLayoutBuilder(
     // ── Colors ──
 
     private val bgWhite = 0xFFFFFFFF.toInt()
-    private val borderGray = 0xFFE5E7EB.toInt()
     private val dividerGray = 0xFFF3F4F6.toInt()
     private val textPrimary = 0xFF111827.toInt()
     private val textSecondary = 0xFF6B7280.toInt()
     private val textWhite = 0xFFFFFFFF.toInt()
 
     private val colorBlue = 0xFF2563EB.toInt()
-    private val colorTeal = 0xFF0D9488.toInt()
     private val colorRed = 0xFFEF4444.toInt()
     private val colorRedLight = 0xFFFEE2E2.toInt()
-    private val colorAmber = 0xFFF59E0B.toInt()
     private val colorGrayBg = 0xFFF9FAFB.toInt()
     private val colorGrayBorder = 0xFFE5E7EB.toInt()
 
@@ -85,7 +81,7 @@ internal class SmartCapsuleLayoutBuilder(
             background = GradientDrawable().apply {
                 setColor(bgWhite)
                 cornerRadius = dp(24).toFloat()
-                setStroke(1, borderGray)
+                setStroke(1, colorGrayBorder)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 elevation = dp(4).toFloat()
@@ -241,7 +237,6 @@ internal class SmartCapsuleLayoutBuilder(
             divider = divider,
             row2 = row2,
             supplementButton = supplementResult.container,
-            supplementText = supplementResult.label,
             primaryButton = primaryResult.container,
             primaryIcon = primaryResult.icon,
             primaryText = primaryResult.label,

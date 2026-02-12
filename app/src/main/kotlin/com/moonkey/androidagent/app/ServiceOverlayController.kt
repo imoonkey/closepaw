@@ -93,7 +93,7 @@ class ServiceOverlayController(
 
     fun dispose() {
         edgeGlowManager.dispose()
-        capsuleManager.hide()
+        capsuleManager.dispose()
         statusIslandManager?.dispose()
     }
 

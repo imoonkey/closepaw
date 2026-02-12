@@ -600,7 +600,7 @@ class SmartCapsuleManager(
         action()
     }
 
-    // ── Legacy compatibility (used by ServiceOverlayController) ──
+    // ── Event handlers (used by ServiceOverlayController) ──
 
     fun onTaskStarted(taskId: String, userInput: String) {
         updateMode(CapsuleMode.Running("${userInput.take(30)}..."))
@@ -617,7 +617,7 @@ class SmartCapsuleManager(
     }
 
     fun onActionExecuted(toolName: String, success: Boolean) {
-        // Thought stays from ThoughtUpdate; no-op
+        // No-op: thought stays from ThoughtUpdate
     }
 
     fun onTaskCompleted() {
