@@ -161,7 +161,11 @@ class Agent(
     }
 
     suspend fun resume() {
-        lifecycleMutex.withLock { pauseState.value = false }
+        lifecycleMutex.withLock {
+            pauseConfirmed?.complete(Unit)
+            pauseConfirmed = null
+            pauseState.value = false
+        }
         eventDispatcher.status("▶️ Resuming...")
     }
 

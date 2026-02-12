@@ -327,6 +327,7 @@ class SmartCapsuleManager(
         cancelNudgeTimer()
         nudgeRunnable = Runnable {
             val body = v.expandedBody ?: return@Runnable
+            if (body.windowToken == null) return@Runnable // view detached
             val currentText = body.text?.toString() ?: ""
             body.text = "$currentText\n还在等待您的回复..."
         }.also { handler.postDelayed(it, NUDGE_DELAY_MS) }
