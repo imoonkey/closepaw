@@ -84,11 +84,20 @@ internal class SmartCapsuleAnimator(
             duration = 300
             interpolator = AccelerateInterpolator()
             addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
+                private var cancelled = false
+                override fun onAnimationCancel(animation: Animator) {
+                    cancelled = true
                     container.translationY = 0f
                     container.alpha = 1f
-                    onEnd()
                     exitAnimator = null
+                }
+                override fun onAnimationEnd(animation: Animator) {
+                    if (!cancelled) {
+                        container.translationY = 0f
+                        container.alpha = 1f
+                        onEnd()
+                        exitAnimator = null
+                    }
                 }
             })
             start()
