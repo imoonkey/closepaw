@@ -80,6 +80,8 @@ class SmartCapsuleManager(
 
         // Cancel pending delayed actions to prevent races
         clearDelayedHide()
+        supplementConfirmedRunnable?.let { handler.removeCallbacks(it) }
+        supplementConfirmedRunnable = null
         keyboardShowRunnable?.let { handler.removeCallbacks(it) }
         keyboardShowRunnable = null
 
@@ -108,6 +110,7 @@ class SmartCapsuleManager(
                 onSupplement = { debounced { enterSupplementInput() } },
                 onPrimary = { debounced { handlePrimaryClick() } },
                 onStop = { debounced { handleStopClick() } },
+                onRow1Tap = { debounced { onOpenApp?.invoke() } },
             )
             windowManager.addView(capsuleViews.container, params)
             overlayView = capsuleViews.container
@@ -167,6 +170,7 @@ class SmartCapsuleManager(
         v.statusDot.visibility = View.VISIBLE
         v.thoughtText.text = mode.thought.ifEmpty { "思考中..." }
         v.thoughtText.alpha = 1f
+        v.thoughtText.maxLines = 1 // Reset from WaitingFor* states
 
         // Row 2: [补充] [接管] [停止], all visible and enabled
         v.row2.visibility = View.VISIBLE
@@ -179,12 +183,14 @@ class SmartCapsuleManager(
 
         v.primaryIcon.text = "✋"
         v.primaryText.text = "接管"
+        v.primaryButton.contentDescription = "接管"
         v.primaryButton.visibility = View.VISIBLE
         v.primaryButton.isEnabled = true
         v.primaryButton.alpha = 1f
 
         v.stopIcon.text = "⏹"
         v.stopText.text = "停止"
+        v.stopButton.contentDescription = "停止"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
@@ -196,6 +202,7 @@ class SmartCapsuleManager(
         v.statusDot.visibility = View.VISIBLE
         v.thoughtText.text = "正在交接..."
         v.thoughtText.alpha = 1f
+        v.thoughtText.maxLines = 1
 
         // Row 2: supplement disabled, primary disabled, stop enabled
         v.row2.visibility = View.VISIBLE
@@ -225,6 +232,7 @@ class SmartCapsuleManager(
         v.statusDot.visibility = View.VISIBLE
         v.thoughtText.text = mode.lastThought.ifEmpty { "已暂停" }
         v.thoughtText.alpha = 0.6f
+        v.thoughtText.maxLines = 1
 
         // Row 2: [补充] [▶ 继续] [停止]
         v.row2.visibility = View.VISIBLE
@@ -237,12 +245,14 @@ class SmartCapsuleManager(
 
         v.primaryIcon.text = "▶"
         v.primaryText.text = "继续"
+        v.primaryButton.contentDescription = "继续"
         v.primaryButton.visibility = View.VISIBLE
         v.primaryButton.isEnabled = true
         v.primaryButton.alpha = 1f
 
         v.stopIcon.text = "⏹"
         v.stopText.text = "停止"
+        v.stopButton.contentDescription = "停止"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
@@ -253,6 +263,7 @@ class SmartCapsuleManager(
         setDotColor(v, colorTeal, pulsing = false)
         v.thoughtText.text = "✓ ${mode.message}"
         v.thoughtText.alpha = 1f
+        v.thoughtText.maxLines = 1
 
         // Row 2: hidden
         v.row2.visibility = View.GONE
@@ -271,6 +282,7 @@ class SmartCapsuleManager(
         v.statusDot.visibility = View.VISIBLE
         v.thoughtText.text = "⚠ ${mode.message}"
         v.thoughtText.alpha = 1f
+        v.thoughtText.maxLines = 1
 
         // Row 2: only dismiss button
         v.row2.visibility = View.VISIBLE
@@ -282,6 +294,7 @@ class SmartCapsuleManager(
 
         v.stopIcon.text = "✕"
         v.stopText.text = "关闭"
+        v.stopButton.contentDescription = "关闭"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
@@ -315,6 +328,7 @@ class SmartCapsuleManager(
     private fun renderWaitingForAction(v: CapsuleViews, mode: CapsuleMode.WaitingForAction) {
         // Row 1: "✋ 操作手机" header + instruction
         stopPulse()
+        setOverlayFocusable(false) // Ensure non-focusable (no keyboard needed)
         v.statusDot.visibility = View.GONE
         v.thoughtText.text = "✋ ${mode.instruction}"
         v.thoughtText.alpha = 1f
@@ -329,12 +343,14 @@ class SmartCapsuleManager(
         // Repurpose primary button as "完成"
         v.primaryIcon.text = "✅"
         v.primaryText.text = "完成"
+        v.primaryButton.contentDescription = "完成"
         v.primaryButton.visibility = View.VISIBLE
         v.primaryButton.isEnabled = true
         v.primaryButton.alpha = 1f
 
         v.stopIcon.text = "⏹"
         v.stopText.text = "停止"
+        v.stopButton.contentDescription = "停止"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
@@ -398,6 +414,7 @@ class SmartCapsuleManager(
         // Repurpose stop button as close (✕)
         v.stopIcon.text = "✕"
         v.stopText.text = "取消"
+        v.stopButton.contentDescription = "取消"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
@@ -475,6 +492,18 @@ class SmartCapsuleManager(
         }
         keyboardShowRunnable = runnable
         handler.postDelayed(runnable, 200)
+    }
+
+    /**
+     * Cancel supplement input if active (e.g. when ask_user arrives while user is typing).
+     * Returns the previous mode so the capsule doesn't lose state.
+     */
+    fun cancelSupplementIfActive() {
+        val current = mode
+        if (current is CapsuleMode.SupplementInput) {
+            views?.let { hideSupplementInputArea(it) }
+            // Don't restore previous mode — caller will set WaitingFor* next
+        }
     }
 
     // ── Takeover / Supplement transitions ──
@@ -620,8 +649,16 @@ class SmartCapsuleManager(
         // No-op: thought stays from ThoughtUpdate
     }
 
-    fun onTaskCompleted() {
-        updateMode(CapsuleMode.Done("已完成"))
+    fun onTaskCompleted(reason: com.moonkey.androidagent.protocol.CompletionReason = com.moonkey.androidagent.protocol.CompletionReason.GOAL_ACHIEVED) {
+        val message = when (reason) {
+            com.moonkey.androidagent.protocol.CompletionReason.GOAL_ACHIEVED -> "已完成"
+            com.moonkey.androidagent.protocol.CompletionReason.MAX_TURNS -> "已达到最大步数"
+            com.moonkey.androidagent.protocol.CompletionReason.TASK_IMPOSSIBLE -> "无法完成任务"
+            com.moonkey.androidagent.protocol.CompletionReason.USER_STOPPED -> "已停止"
+            com.moonkey.androidagent.protocol.CompletionReason.ERROR -> "发生错误"
+            com.moonkey.androidagent.protocol.CompletionReason.INTERRUPTED -> "已中断"
+        }
+        updateMode(CapsuleMode.Done(message))
     }
 
     fun onError(message: String) {

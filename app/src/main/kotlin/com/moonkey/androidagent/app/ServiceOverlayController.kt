@@ -202,7 +202,7 @@ class ServiceOverlayController(
             }
             PlatformMode.ACCESSIBILITY -> {
                 edgeGlowManager.updateState(GlowState.Success)
-                capsuleManager.onTaskCompleted()
+                capsuleManager.onTaskCompleted(reason)
             }
         }
     }
@@ -304,9 +304,13 @@ class ServiceOverlayController(
     fun onAskUser(type: AskUserType, message: String, callId: String) {
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
+                // VD mode: no full response UI available. Show message on status island.
+                // The ask_user will timeout after 5 minutes — a known limitation in VD mode.
                 statusIslandManager?.updateStatus("❓ ${message.take(20)}", glowStateColor(GlowState.Paused))
             }
             PlatformMode.ACCESSIBILITY -> {
+                // If user is typing a supplement, cancel it before showing ask_user UI
+                capsuleManager.cancelSupplementIfActive()
                 val capsuleMode = when (type) {
                     AskUserType.QUESTION -> CapsuleMode.WaitingForInput(question = message, callId = callId)
                     AskUserType.ACTION -> CapsuleMode.WaitingForAction(instruction = message, callId = callId)

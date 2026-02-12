@@ -12,7 +12,8 @@ internal object ExecutorAgentDef : AgentDef() {
                     "wait",
                     "open_app",
                     "scratchpad",
-                    "complete_task"
+                    "complete_task",
+                    "ask_user"
             )
     override val requiresDelegationToolRegistration: Boolean = false
 

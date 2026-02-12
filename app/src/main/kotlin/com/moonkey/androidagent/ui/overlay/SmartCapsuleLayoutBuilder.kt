@@ -69,6 +69,7 @@ internal class SmartCapsuleLayoutBuilder(
         onSupplement: () -> Unit,
         onPrimary: () -> Unit,
         onStop: () -> Unit,
+        onRow1Tap: (() -> Unit)? = null,
     ): CapsuleViews {
         // Outer container with side margins
         val container = FrameLayout(context).apply {
@@ -93,6 +94,12 @@ internal class SmartCapsuleLayoutBuilder(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(16), dp(10), dp(16), dp(10))
+            if (onRow1Tap != null) {
+                setOnClickListener { onRow1Tap() }
+                isClickable = true
+                isFocusable = true
+                contentDescription = "打开主应用"
+            }
         }
 
         val statusDot = View(context).apply {

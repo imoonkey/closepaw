@@ -17,7 +17,8 @@ class AgentDefTest {
                 "open_app",
                 "scratchpad",
                 "write_todos",
-                "complete_task"
+                "complete_task",
+                "ask_user"
             )
         assertThat(StandaloneAgentDef.requiresDelegationToolRegistration).isFalse()
         assertThat(StandaloneAgentDef.systemPrompt).contains("standalone Android automation agent")
@@ -48,7 +49,8 @@ class AgentDefTest {
                 "wait",
                 "open_app",
                 "scratchpad",
-                "complete_task"
+                "complete_task",
+                "ask_user"
             )
         assertThat(ExecutorAgentDef.requiresDelegationToolRegistration).isFalse()
         assertThat(ExecutorAgentDef.systemPrompt).contains("Executor agent")

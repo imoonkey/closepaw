@@ -13,7 +13,8 @@ internal object StandaloneAgentDef : AgentDef() {
                     "open_app",
                     "scratchpad",
                     "write_todos",
-                    "complete_task"
+                    "complete_task",
+                    "ask_user"
             )
     override val requiresDelegationToolRegistration: Boolean = false
 
