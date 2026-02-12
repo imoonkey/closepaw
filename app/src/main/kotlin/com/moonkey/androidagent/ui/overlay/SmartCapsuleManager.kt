@@ -5,10 +5,12 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 
 /**
@@ -53,10 +55,15 @@ class SmartCapsuleManager(
     var isAgentMidTurn = false
         internal set
 
+    private var previousMode: CapsuleMode = CapsuleMode.Hidden
+
     private val handler = Handler(Looper.getMainLooper())
     private val windowManager = service.getSystemService(WindowManager::class.java)
     private val layoutBuilder = SmartCapsuleLayoutBuilder(service)
     private val renderer = SmartCapsuleRenderer()
+    private val animator = SmartCapsuleAnimator(
+        windowManager, service.resources.displayMetrics.density
+    )
 
     // ── Public API ──
 
@@ -67,15 +74,16 @@ class SmartCapsuleManager(
      * Handles show/hide automatically.
      */
     fun updateMode(newMode: CapsuleMode) {
-        val oldMode = mode
+        previousMode = mode
         mode = newMode
-        Log.d(TAG, "Mode: ${oldMode::class.simpleName} → ${newMode::class.simpleName}")
+        Log.d(TAG, "Mode: ${previousMode::class.simpleName} → ${newMode::class.simpleName}")
 
-        // Cancel pending delayed actions to prevent races
+        // Cancel pending delayed actions and exit animation
         cancelAllRunnables()
+        animator.cancelAll()
 
         // If leaving an input mode, hide keyboard
-        if (oldMode is CapsuleMode.SupplementInput || oldMode is CapsuleMode.WaitingForInput) {
+        if (previousMode is CapsuleMode.SupplementInput || previousMode is CapsuleMode.WaitingForInput) {
             hideKeyboard()
         }
 
@@ -105,6 +113,9 @@ class SmartCapsuleManager(
             )
             windowManager.addView(capsuleViews.container, params)
             overlayView = capsuleViews.container
+            // Reset transform state from any previous exit animation
+            capsuleViews.container.translationY = 0f
+            capsuleViews.container.alpha = 1f
             views = capsuleViews
             Log.i(TAG, "Capsule shown")
         } catch (e: Exception) {
@@ -113,10 +124,14 @@ class SmartCapsuleManager(
     }
 
     fun hide() {
+        animator.cancelAll()
         renderer.stopPulse()
+        renderer.cancelAnimations()
         cancelAllRunnables()
         hideKeyboard()
         overlayView?.let {
+            it.translationY = 0f
+            it.alpha = 1f
             try {
                 windowManager.removeView(it)
             } catch (e: Exception) {
@@ -136,9 +151,23 @@ class SmartCapsuleManager(
 
     private fun renderAndSetup(mode: CapsuleMode) {
         val v = views ?: return
-        v.container.post {
+        val container = overlayView ?: return
+        val prev = previousMode
+
+        container.post {
             if (overlayView == null) return@post
-            renderer.render(v, mode)
+
+            val currentHeight = container.height
+            val needsHeightAnim = currentHeight > 0 && isHeightTransition(prev, mode)
+
+            if (needsHeightAnim) {
+                animator.lockHeight(container)
+                renderer.render(v, mode, prev)
+                animator.animateToMeasuredHeight(container, currentHeight)
+            } else {
+                renderer.render(v, mode, prev)
+            }
+
             setupInteractivity(v, mode)
         }
     }
@@ -241,7 +270,7 @@ class SmartCapsuleManager(
         if (mode is CapsuleMode.SupplementInput) {
             hideKeyboard()
             views?.supplementEditText?.text?.clear()
-            views?.supplementInputArea?.visibility = android.view.View.GONE
+            views?.supplementInputArea?.visibility = View.GONE
         }
     }
 
@@ -318,9 +347,10 @@ class SmartCapsuleManager(
     // ── Timers ──
 
     private fun scheduleAutoHide() {
-        delayedHideRunnable = Runnable { hide() }.also {
-            handler.postDelayed(it, 3000)
-        }
+        delayedHideRunnable = Runnable {
+            val container = overlayView ?: run { hide(); return@Runnable }
+            animator.animateExit(container) { hide() }
+        }.also { handler.postDelayed(it, 3000) }
     }
 
     private fun startNudgeTimer(v: CapsuleViews) {
@@ -348,6 +378,19 @@ class SmartCapsuleManager(
         cancelNudgeTimer()
     }
 
+    // ── Animation helpers ──
+
+    private fun isHeightTransition(from: CapsuleMode, to: CapsuleMode): Boolean {
+        return isExpandedMode(from) != isExpandedMode(to)
+    }
+
+    private fun isExpandedMode(mode: CapsuleMode): Boolean = when (mode) {
+        is CapsuleMode.WaitingForInput,
+        is CapsuleMode.WaitingForAction,
+        is CapsuleMode.SupplementInput -> true
+        else -> false
+    }
+
     // ── Debounce ──
 
     private fun debounced(action: () -> Unit) {
@@ -373,21 +416,16 @@ class SmartCapsuleManager(
         }
     }
 
-    fun onActionExecuted(toolName: String, success: Boolean) {
-        // No-op: thought stays from ThoughtUpdate
-    }
+    fun onActionExecuted(toolName: String, success: Boolean) { /* no-op */ }
 
-    fun onTaskCompleted(
-        reason: com.moonkey.androidagent.protocol.CompletionReason =
-            com.moonkey.androidagent.protocol.CompletionReason.GOAL_ACHIEVED
-    ) {
+    fun onTaskCompleted(reason: CompletionReason = CompletionReason.GOAL_ACHIEVED) {
         val message = when (reason) {
-            com.moonkey.androidagent.protocol.CompletionReason.GOAL_ACHIEVED -> "已完成"
-            com.moonkey.androidagent.protocol.CompletionReason.MAX_TURNS -> "已达到最大步数"
-            com.moonkey.androidagent.protocol.CompletionReason.TASK_IMPOSSIBLE -> "无法完成任务"
-            com.moonkey.androidagent.protocol.CompletionReason.USER_STOPPED -> "已停止"
-            com.moonkey.androidagent.protocol.CompletionReason.ERROR -> "发生错误"
-            com.moonkey.androidagent.protocol.CompletionReason.INTERRUPTED -> "已中断"
+            CompletionReason.GOAL_ACHIEVED -> "已完成"
+            CompletionReason.MAX_TURNS -> "已达到最大步数"
+            CompletionReason.TASK_IMPOSSIBLE -> "无法完成任务"
+            CompletionReason.USER_STOPPED -> "已停止"
+            CompletionReason.ERROR -> "发生错误"
+            CompletionReason.INTERRUPTED -> "已中断"
         }
         updateMode(CapsuleMode.Done(message))
     }
