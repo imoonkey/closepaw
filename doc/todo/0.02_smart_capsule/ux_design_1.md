@@ -57,8 +57,7 @@ The capsule looks and works the same whether it's inside the app, floating over 
 The capsule has a small number of clearly distinct modes. Not a tree of states. Not modals inside modals. The user should always know where they are with one glance.
 
 **5. Delete before you add.**
-Remove the "Open App" button. Remove emoji status strings. Remove agent_thought from tool parameters. Every removal makes the remaining features stronger.
-( *Qi Note*:  agent_thought 不能删除，这个要保留的，这个是smart capsule要show给user的thought）
+Remove the "Open App" button. Remove emoji status strings. Every removal makes the remaining features stronger.
 ---
 
 ## 3. Capsule Anatomy
@@ -110,6 +109,19 @@ Remove the "Open App" button. Remove emoji status strings. Remove agent_thought 
 | Done | ✅ | 完成 | Filled pill, primary | WaitingForAction |
 | Cancel | ✕ | (icon only) | Ghost button | Input modes |
 
+### 3.4 Button Enable/Disable Rules
+
+| Button | Enabled States | Disabled States | Notes |
+|--------|---------------|-----------------|-------|
+| **补充** | Running, Takeover | TakeoverPending, WaitingForInput, Done, Error | Disabled when user is already providing input |
+| **接管** | Running | TakeoverPending, Takeover, WaitingFor*, Done, Error | Only when agent is actively executing |
+| **继续** | Takeover | WaitingForInput (until answered) | Only when user has control |
+| **停止** | Running, TakeoverPending, Takeover, WaitingFor* | Done, Error, Hidden | Always available during active task |
+| **发送** | SupplementInput (text non-empty), WaitingForInput (text non-empty) | When input is empty | Input validation |
+| **完成** | WaitingForAction | — | Primary CTA |
+
+All buttons: 300ms debounce. No button should ever produce zero feedback — either a state change or a visual press response.
+
 ---
 
 ## 4. Capsule States (State Machine)
@@ -134,12 +146,19 @@ The capsule has **six states**. Each is a flat, distinct configuration — not n
             │          │      │(question)│(action) │                   │
             │          ▼      │        ▼          ▼                   │
             │   ┌──────────┐  │  ┌───────────┐  ┌──────────────┐     │
-            ├───│ Takeover │  │  │ Waiting   │  │ Waiting      │     │
-            │   │          │  │  │ ForInput  │  │ ForAction    │     │
-            │   └──────────┘  │  └─────┬─────┘  └──────┬───────┘     │
-            │                 │        │ user sends     │ user taps   │
-            │           user  │        │ answer         │ 完成        │
-            │          types  │        └────────────────┴─────────────┘
+            │   │ Takeover │  │  │ Waiting   │  │ Waiting      │     │
+            │   │ Pending  │  │  │ ForInput  │  │ ForAction    │     │
+            │   └────┬─────┘  │  └─────┬─────┘  └──────┬───────┘     │
+            │        │ current│        │ user sends     │ user taps   │
+            │        │ action │        │ answer         │ 完成        │
+            │        │ done   │        └────────────────┴─────────────┘
+            │        ▼        │
+            │   ┌──────────┐  │
+            ├───│ Takeover │  │
+            │   └──────────┘  │
+            │                 │
+            │           user  │
+            │          types  │
             │           补充   │
             │          ┌──────▼──────┐          (transient overlay
             │          │ Supplement  │           on Running or
@@ -163,10 +182,24 @@ The default. Agent is working.
 |--------|--------|
 | **Row 1** | Blue dot (pulsing) + agent thought text |
 | **Row 2** | [补充] [接管] [停止] |
-| **Thought source** | LLM streaming text (MessageDelta), sanitized to one line |
-| **Thought fallback** | If no text: "思考中..." (with animated ellipsis) |
+| **Thought source** | `agent_thought` from tool call parameters (see Section 5) |
+| **Thought fallback** | If no agent_thought: tool description → "思考中..." |
 | **Entry** | TaskStarted, or resume from Takeover/WaitingFor* |
 | **Exit** | User taps 接管/补充/停止, or agent calls ask_user, or task completes |
+
+#### State: TakeoverPending
+
+Transient state: user requested takeover, but agent is mid-action.
+
+| Aspect | Detail |
+|--------|--------|
+| **Row 1** | Amber dot (static) + "正在交接..." (handing over...) |
+| **Row 2** | [补充 disabled] [接管 disabled] [停止] |
+| **Entry** | User tapped 接管 while agent is mid-turn (LLM streaming or tool executing) |
+| **Exit** | Current action completes → automatically transitions to Takeover |
+| **Behavior** | No user interaction needed. Wait for current action to finish. Stop is always available. |
+
+**Why not cancel immediately:** Interrupting a half-finished gesture can leave the screen in a corrupted state. Interrupting an LLM stream wastes the API call. Let the current operation complete; it takes at most a few seconds.
 
 #### State: Takeover
 
@@ -176,11 +209,9 @@ User has grabbed control. Agent is paused.
 |--------|--------|
 | **Row 1** | Amber dot (static) + last thought text (dimmed, 60% opacity) |
 | **Row 2** | [补充] [▶ 继续] [停止] |
-| **Entry** | User tapped 接管 |
+| **Entry** | TakeoverPending completes, or user tapped 接管 while agent was between turns (immediate) |
 | **Exit** | User taps 继续 → Running (agent re-perceives screen), or 停止/补充 |
-| **Behavior** | Agent paused. User operates phone freely. On resume, agent captures fresh screen state and plans from scratch. Old queued tool calls are discarded. |
-
-**Mid-turn takeover:** If user taps 接管 while agent is mid-action (LLM streaming or tool executing), the takeover queues. Row 1 shows "正在暂停..." (pausing...) until current action completes, then enters Takeover.
+| **Behavior** | Agent paused. User operates phone freely. On resume, agent captures fresh screen state and plans from scratch. |
 
 #### State: SupplementInput
 
@@ -250,6 +281,7 @@ Something went wrong. Stays until dismissed.
 |-------|-------|-----|-----------|
 | Running (thinking) | Blue | `#2563EB` | Pulsing |
 | Running (executing) | Light Blue | `#3B82F6` | Pulsing |
+| TakeoverPending | Amber | `#F59E0B` | Static |
 | Takeover | Amber | `#F59E0B` | Static |
 | WaitingForInput | Purple | `#7C3AED` | Slow pulse |
 | WaitingForAction | Amber | `#F59E0B` | Static |
@@ -261,58 +293,55 @@ Something went wrong. Stays until dismissed.
 ## 5. Agent Thought
 
 ### 5.1 The Design Decision
-( *Qi Note*:  还是那个意见，agent_thought 不能删除，这个要保留的，这个是smart capsule要show给user的thought。 这个总归比emit text要稳定要更structured吧。）
 
-**Use LLM text output as the thought.** Not tool parameters.
+**Use `agent_thought` from tool parameters as the thought source.** Every tool call already includes an `agent_thought` parameter — a brief, structured, intentional explanation of what the agent is about to do. This is more reliable and predictable than raw LLM streaming text, which can contain verbose reasoning or markdown.
 
-The agent already emits text before tool calls (streamed via `MessageDelta`). We instruct it to make this text a short, user-facing explanation instead of verbose reasoning.
-
-**Remove** `agent_thought` from all tool parameter schemas. It was scattered across 7 tools, sometimes filled, sometimes not, never displayed in the capsule. One source of truth is better than seven optional ones.
+`agent_thought` is the single source of truth for the capsule thought line.
 
 ### 5.2 Prompt Instruction
-( *Qi Note*:  还是那个意见，用agent_thought。这里prompt怎么改也要变。另外prompt要全英文。）
 
-Added to all agent system prompts:
+Added to all agent system prompts (in English, as all prompts are English):
 
 ```
-## User-Facing Thought
-Before calling tools, write ONE short sentence explaining what you're about to do.
-This sentence is shown directly to the user on a single line of their screen.
+## Agent Thought
+Every tool call MUST include `agent_thought` — a brief user-facing explanation of what you're about to do.
+This text is shown directly to the user on a single line of their screen.
 Rules:
-- One sentence only. No markdown. No explanation.
-- Under <10 Chinese characters or <20 English characters.
+- One short sentence. No markdown. No internal reasoning.
+- Under 40 characters.
+- Be concrete: "Opening Taobao to search" not "Executing search operation"
 - Write in the same language as the user's goal.
-- Be concrete: "打开淘宝搜索包臀裙" not "正在执行搜索操作"
 
 Examples: "打开淘宝" / "向下滑动查看更多" / "Comparing prices" / "点击第一个结果"
 ```
 
 ### 5.3 Display Pipeline
-( *Qi Note*: 改成用agent thought；sanitizer可以简化，不要有太多adhoc的hacky的东西）
 
 ```
-LLM streams text
-  → MessageDelta event
-  → Sanitizer (trim, collapse whitespace, replace newlines, truncate 40 chars + "...")
+Tool call received
+  → Extract agent_thought from first selected tool call
+  → Sanitize (trim whitespace, truncate to 40 chars + "...")
+  → Emit ThoughtUpdate event
   → Capsule Row 1 text update
 ```
 
-**Sanitizer rules:**
+**Sanitizer:** Simple and minimal.
 1. Trim leading/trailing whitespace
-2. Replace all newlines with space
-3. Collapse consecutive spaces
-4. If length > 40 characters: truncate and append "..."
-5. If empty: show "思考中..."
+2. If length > 40 characters: truncate and append "..."
+3. If empty: use fallback (see 5.4)
 
-**Update cadence:** Thought text updates as MessageDelta streams in. When tool execution starts, the thought freezes at the last streamed value. When a new turn starts, it resets.
+**Update cadence:**
+- Turn starts → "思考中..." (thinking)
+- Tool call selected → agent_thought displayed
+- Stays on display until next turn starts or task ends
 
 ### 5.4 Fallback Priority
-( *Qi Note*: 改成用agent thought）
-If the LLM doesn't emit text before tools (model failure):
 
-1. Primary: MessageDelta text (sanitized)
-2. Fallback: Formatted action description from tool call (e.g., "点击 '加入购物车'")
-3. Last resort: Status text (e.g., "执行操作...")
+If `agent_thought` is missing or empty:
+
+1. **Primary**: `agent_thought` from the selected tool call
+2. **Fallback**: Tool action description (e.g., "Click '加入购物车'")
+3. **Last resort**: "思考中..."
 
 ---
 
@@ -643,6 +672,12 @@ When no task is active, the normal input dock returns for starting new tasks.
 
 **Behavior:** Debounced. First tap registers, subsequent taps within 300ms are ignored. Button shows pressed state on first tap.
 
+### 10.9 Partial Failure
+
+**Scenario:** One tool execution fails, but the task is not necessarily impossible.
+
+**Behavior:** A single step failure does not auto-terminate the task. The agent sees the error in its observation and decides the next action. The capsule continues showing Running state. The agent may retry, skip, ask_user, or call complete_task with a failure note.
+
 ---
 
 ## 11. Scope Boundaries
@@ -719,6 +754,7 @@ The capsule's visual state is fully determined by a single sealed interface:
 ```
 CapsuleMode
 ├── Running(thought: String)
+├── TakeoverPending(lastThought: String)
 ├── Takeover(lastThought: String)
 ├── SupplementInput(previousMode: CapsuleMode)
 ├── WaitingForInput(question: String, callId: String)

@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -11,49 +12,84 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.util.TypedValue
 
-internal data class CapsuleColors(
-    val background: Int,
-    val border: Int,
-    val primary: Int,
-    val error: Int,
-    val text: Int
-)
-
+/**
+ * CapsuleViews — handles to the key views inside the capsule.
+ * Used by SmartCapsuleManager to update content and visibility.
+ */
 internal data class CapsuleViews(
     val container: ViewGroup,
-    val statusText: TextView,
+    val row1: ViewGroup,
     val statusDot: View,
-    val pauseButton: View,
-    val pauseIconText: TextView
+    val thoughtText: TextView,
+    val divider: View,
+    val row2: ViewGroup,
+    val supplementButton: ViewGroup,
+    val supplementText: TextView,
+    val primaryButton: ViewGroup,
+    val primaryIcon: TextView,
+    val primaryText: TextView,
+    val stopButton: ViewGroup,
+    val stopText: TextView,
 )
 
+/**
+ * SmartCapsuleLayoutBuilder — builds the two-row capsule view hierarchy.
+ *
+ * Row 1: [StatusDot] [ThoughtText]
+ * Row 2: [补充] [接管/继续] [停止]
+ *
+ * All views are built programmatically (no XML layouts in overlay context).
+ * The builder is stateless — call build() to get a fresh CapsuleViews.
+ */
 internal class SmartCapsuleLayoutBuilder(
-    private val context: AccessibilityService,
-    private val colors: CapsuleColors
+    private val context: AccessibilityService
 ) {
+    // ── Colors ──
+
+    private val bgWhite = 0xFFFFFFFF.toInt()
+    private val borderGray = 0xFFE5E7EB.toInt()
+    private val dividerGray = 0xFFF3F4F6.toInt()
+    private val textPrimary = 0xFF111827.toInt()
+    private val textSecondary = 0xFF6B7280.toInt()
+    private val textWhite = 0xFFFFFFFF.toInt()
+
+    private val colorBlue = 0xFF2563EB.toInt()
+    private val colorTeal = 0xFF0D9488.toInt()
+    private val colorRed = 0xFFEF4444.toInt()
+    private val colorRedLight = 0xFFFEE2E2.toInt()
+    private val colorAmber = 0xFFF59E0B.toInt()
+    private val colorGrayBg = 0xFFF9FAFB.toInt()
+    private val colorGrayBorder = 0xFFE5E7EB.toInt()
+
     fun build(
-        onPauseToggle: () -> Unit,
+        onSupplement: () -> Unit,
+        onPrimary: () -> Unit,
         onStop: () -> Unit,
-        onOpenApp: () -> Unit
     ): CapsuleViews {
+        // Outer container with side margins
         val container = FrameLayout(context).apply {
-            setPadding(dp(16), dp(8), dp(16), dp(24))
+            setPadding(dp(16), dp(4), dp(16), dp(8))
         }
 
+        // Card: vertical layout with rounded corners
         val card = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(12), dp(12), dp(12))
+            orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                setColor(this@SmartCapsuleLayoutBuilder.colors.background)
+                setColor(bgWhite)
                 cornerRadius = dp(24).toFloat()
-                setStroke(1, this@SmartCapsuleLayoutBuilder.colors.border)
+                setStroke(1, borderGray)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                elevation = dp(8).toFloat()
+                elevation = dp(4).toFloat()
             }
+        }
+
+        // ── Row 1: Status dot + Thought text ──
+        val row1 = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(10), dp(16), dp(10))
         }
 
         val statusDot = View(context).apply {
@@ -62,60 +98,76 @@ internal class SmartCapsuleLayoutBuilder(
             }
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(this@SmartCapsuleLayoutBuilder.colors.primary)
+                setColor(colorBlue)
             }
         }
-        card.addView(statusDot)
+        row1.addView(statusDot)
 
-        val statusText = TextView(context).apply {
-            text = "Ready"
-            setTextColor(colors.text)
+        val thoughtText = TextView(context).apply {
+            text = "思考中..."
+            setTextColor(textPrimary)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             maxLines = 1
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
-            )
+            isSingleLine = true
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        card.addView(statusText)
+        row1.addView(thoughtText)
 
-        card.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(12), 0)
-        })
+        card.addView(row1, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
 
-        val pauseButton = createIconButton(
-            iconText = "⏸",
-            contentDescription = "Pause",
-            tintColor = colors.text,
-            onClick = onPauseToggle
+        // ── Divider ──
+        val divider = View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(1)
+            ).apply {
+                marginStart = dp(16)
+                marginEnd = dp(16)
+            }
+            setBackgroundColor(dividerGray)
+        }
+        card.addView(divider)
+
+        // ── Row 2: Control buttons ──
+        val row2 = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(10))
+        }
+
+        // Supplement button (outlined, secondary)
+        val supplementResult = buildPillButton(
+            icon = "💬", label = "补充",
+            bgColor = colorGrayBg, borderColor = colorGrayBorder, textColor = textSecondary,
+            onClick = onSupplement
         )
-        card.addView(pauseButton.container)
+        row2.addView(supplementResult.container, pillLayoutParams(weight = 1f))
 
-        card.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(6), 0)
-        })
+        row2.addView(spacer(dp(8)))
 
-        val stopButton = createIconButton(
-            iconText = "⏹",
-            contentDescription = "Stop",
-            tintColor = colors.error,
+        // Primary button (filled, blue — 接管/继续)
+        val primaryResult = buildPillButton(
+            icon = "✋", label = "接管",
+            bgColor = colorBlue, borderColor = colorBlue, textColor = textWhite,
+            onClick = onPrimary
+        )
+        row2.addView(primaryResult.container, pillLayoutParams(weight = 1f))
+
+        row2.addView(spacer(dp(8)))
+
+        // Stop button (outlined red)
+        val stopResult = buildPillButton(
+            icon = "⏹", label = "停止",
+            bgColor = colorRedLight, borderColor = colorRed, textColor = colorRed,
             onClick = onStop
         )
-        card.addView(stopButton.container)
+        row2.addView(stopResult.container, pillLayoutParams(weight = 1f))
 
-        card.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(6), 0)
-        })
-
-        val openAppButton = createIconButton(
-            iconText = "↗",
-            contentDescription = "Open App",
-            tintColor = colors.primary,
-            onClick = onOpenApp
-        )
-        card.addView(openAppButton.container)
+        card.addView(row2, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
 
         container.addView(card, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
@@ -124,10 +176,18 @@ internal class SmartCapsuleLayoutBuilder(
 
         return CapsuleViews(
             container = container,
-            statusText = statusText,
+            row1 = row1,
             statusDot = statusDot,
-            pauseButton = pauseButton.container,
-            pauseIconText = pauseButton.icon
+            thoughtText = thoughtText,
+            divider = divider,
+            row2 = row2,
+            supplementButton = supplementResult.container,
+            supplementText = supplementResult.label,
+            primaryButton = primaryResult.container,
+            primaryIcon = primaryResult.icon,
+            primaryText = primaryResult.label,
+            stopButton = stopResult.container,
+            stopText = stopResult.label,
         )
     }
 
@@ -135,14 +195,9 @@ internal class SmartCapsuleLayoutBuilder(
         return WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            // Use TYPE_ACCESSIBILITY_OVERLAY - exempt from untrusted touch blocking
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1)
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
             else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE,
-            // Flags for interactive overlay (has pause/stop buttons):
-            // - NOT_FOCUSABLE: Don't steal focus from target apps
-            // - LAYOUT_IN_SCREEN: Cover full screen including status bar
-            // Note: Do NOT use FLAG_NOT_TOUCHABLE - buttons need to be clickable!
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             android.graphics.PixelFormat.TRANSLUCENT
@@ -151,40 +206,69 @@ internal class SmartCapsuleLayoutBuilder(
         }
     }
 
-    private data class IconButton(val container: View, val icon: TextView)
+    // ── Pill button builder ──
 
-    private fun createIconButton(
-        iconText: String,
-        contentDescription: String,
-        tintColor: Int,
-        onClick: () -> Unit
-    ): IconButton {
-        val container = FrameLayout(context).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
+    private data class PillButtonViews(
+        val container: ViewGroup,
+        val icon: TextView,
+        val label: TextView,
+    )
+
+    private fun buildPillButton(
+        icon: String,
+        label: String,
+        bgColor: Int,
+        borderColor: Int,
+        textColor: Int,
+        onClick: () -> Unit,
+    ): PillButtonViews {
+        val container = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(8), dp(14), dp(8))
             background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(0xFFF5F5F5.toInt())
+                setColor(bgColor)
+                cornerRadius = dp(20).toFloat()
+                setStroke(1, borderColor)
             }
             setOnClickListener { onClick() }
+            isClickable = true
+            isFocusable = true
+            contentDescription = label
         }
 
-        val icon = TextView(context).apply {
-            text = iconText
-            setTextColor(tintColor)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        val iconView = TextView(context).apply {
+            text = icon
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             gravity = Gravity.CENTER
-            this.contentDescription = contentDescription
         }
+        container.addView(iconView, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { marginEnd = dp(4) })
 
-        container.addView(icon, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        ))
+        val labelView = TextView(context).apply {
+            text = label
+            setTextColor(textColor)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            gravity = Gravity.CENTER
+        }
+        container.addView(labelView)
 
-        return IconButton(container, icon)
+        return PillButtonViews(container as ViewGroup, iconView, labelView)
     }
 
-    private fun dp(value: Int): Int {
+    private fun pillLayoutParams(weight: Float) = LinearLayout.LayoutParams(
+        0, ViewGroup.LayoutParams.WRAP_CONTENT, weight
+    )
+
+    private fun spacer(width: Int) = View(context).apply {
+        layoutParams = LinearLayout.LayoutParams(width, 0)
+    }
+
+    // ── Dp conversion ──
+
+    internal fun dp(value: Int): Int {
         return TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP,
             value.toFloat(),

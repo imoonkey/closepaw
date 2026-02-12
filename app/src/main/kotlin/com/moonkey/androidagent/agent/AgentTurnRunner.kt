@@ -28,6 +28,7 @@ import com.moonkey.androidagent.trace.AgentTrace
 import com.moonkey.androidagent.trace.ArbitrationDecision
 import com.moonkey.androidagent.trace.DropReason
 import com.moonkey.androidagent.trace.DroppedToolCall
+import com.moonkey.androidagent.ui.overlay.model.sanitizeThought
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
@@ -317,6 +318,10 @@ internal class AgentTurnRunner(
                         decision = buildArbitrationDecision(result.toolCalls, arbitration)
                 )
                 emitArbitrationWarnings(turnNumber, result, arbitration)
+
+                // Extract agent_thought from the first selected tool call for capsule display
+                emitAgentThought(arbitration.selectedToolCalls, turnNumber)
+
                 return PlanningPhaseResult(turnResult = result, arbitration = arbitration)
         }
 
@@ -417,6 +422,31 @@ internal class AgentTurnRunner(
                                 "⚠️ Completion returned with screen action; executing action first"
                         )
                 }
+        }
+
+        /**
+         * Extract agent_thought from the first selected tool call and emit it
+         * as a ThoughtUpdate event for the Smart Capsule.
+         *
+         * Fallback chain: agent_thought → tool action description → nothing.
+         */
+        private suspend fun emitAgentThought(
+                selectedToolCalls: List<ToolCallRequest>,
+                turnNumber: Int
+        ) {
+                val firstCall = selectedToolCalls.firstOrNull() ?: return
+                val agentThought = firstCall.arguments
+                        .optString("agent_thought", "")
+                        .trim()
+                        .takeIf { it.isNotEmpty() }
+
+                val thought = agentThought
+                        ?: ActionDescriptionFormatter.format(firstCall).takeIf { it.isNotEmpty() }
+                        ?: return
+
+                val sanitized = sanitizeThought(thought)
+                Log.d(TAG, "Turn $turnNumber: agent_thought = $sanitized")
+                eventDispatcher.thoughtUpdate(sanitized)
         }
 
         private suspend fun executeActions(

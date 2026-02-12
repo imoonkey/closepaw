@@ -257,6 +257,20 @@ sealed interface AgentEvent {
         val decision: ApprovalDecision
     ) : AgentEvent
     
+    // ===== Thought Events =====
+
+    /**
+     * Agent thought update for the Smart Capsule.
+     *
+     * Extracted from `agent_thought` in tool call parameters.
+     * One line, user-facing, concrete.
+     */
+    data class ThoughtUpdate(
+        override val sessionId: SessionId,
+        override val timestamp: Long,
+        val thought: String
+    ) : AgentEvent
+
     // ===== Status Events =====
     
     /**

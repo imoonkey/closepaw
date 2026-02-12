@@ -280,6 +280,9 @@ class AgentService : AccessibilityService() {
                 recordingService?.appendTextDelta(event.delta)
                 overlayController?.onMessageDelta(event.turnId, event.delta)
             }
+            is AgentEvent.ThoughtUpdate -> {
+                overlayController?.onThoughtUpdate(event.thought)
+            }
             is AgentEvent.TurnPhaseChanged -> {
                 overlayController?.onTurnPhaseChanged(event.phase)
             }

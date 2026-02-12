@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.ui.overlay
 
 import android.accessibilityservice.AccessibilityService
+import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.Intent
 import android.graphics.drawable.GradientDrawable
@@ -11,277 +12,377 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
-import android.widget.TextView
 import com.moonkey.androidagent.app.MainActivity
-import com.moonkey.androidagent.util.StatusUtils
+import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 
 /**
- * SmartCapsuleManager - Enhanced floating control bar with streaming support.
- * 
- * Features:
- * - Streaming text display from MessageDelta events
- * - Pulsing status dot animation
- * - "Open App" button to return to main activity
- * - Task status updates (started, executing, completed)
- * 
- * Positioned at bottom of screen with modern capsule design.
+ * SmartCapsuleManager — CapsuleMode-driven floating collaboration surface.
+ *
+ * One CapsuleMode value drives the entire UI.
+ * Call [updateMode] to change state. Call [updateThought] as a convenience
+ * to update the thought text while staying in Running mode.
+ *
+ * The manager owns the overlay lifecycle (show/hide) and renders based on mode.
  */
 class SmartCapsuleManager(
-    private val context: AccessibilityService,
-    private val onStop: () -> Unit,
-    private val onPause: () -> Unit,
-    private val onResume: () -> Unit,
-    private val onOpenApp: (() -> Unit)? = null
+    private val service: AccessibilityService
 ) {
     companion object {
         private const val TAG = "SmartCapsuleManager"
+        private const val DEBOUNCE_MS = 300L
     }
-    
-    private val windowManager = context.getSystemService(WindowManager::class.java)
-    private val handler = Handler(Looper.getMainLooper())
-    
+
+    // ── Callbacks ──
+
+    var onTakeover: (() -> Unit)? = null
+    var onResume: (() -> Unit)? = null
+    var onSupplement: (() -> Unit)? = null
+    var onStop: (() -> Unit)? = null
+    var onOpenApp: (() -> Unit)? = null
+    var onDismissError: (() -> Unit)? = null
+
+    // ── State ──
+
+    private var mode: CapsuleMode = CapsuleMode.Hidden
+    private var views: CapsuleViews? = null
     private var overlayView: ViewGroup? = null
-    private var statusText: TextView? = null
-    private var statusDot: View? = null
-    private var pauseButton: View? = null
-    private var pauseIconText: TextView? = null
-    
-    private var isPaused = false
-    
-    // Streaming state
-    private val streamingText = StringBuilder()
-    private var currentTurnId: String? = null
-    private var pulseAnimator: ObjectAnimator? = null
-    
-    // Colors matching the new chat theme
-    private val colorBackground = 0xFFFFFFFF.toInt()
-    private val colorBorder = 0xFFE5E5E5.toInt()
-    private val colorPrimary = 0xFF2563EB.toInt()     // Blue - working
-    private val colorSuccess = 0xFF0D9488.toInt()     // Teal - success
-    private val colorError = 0xFFDC2626.toInt()       // Red - error
-    private val colorWarning = 0xFFF59E0B.toInt()     // Amber - paused
-    private val colorText = 0xFF171717.toInt()
-    private val layoutBuilder = SmartCapsuleLayoutBuilder(
-        context = context,
-        colors = CapsuleColors(
-            background = colorBackground,
-            border = colorBorder,
-            primary = colorPrimary,
-            error = colorError,
-            text = colorText
-        )
-    )
+    private var pulseAnimator: AnimatorSet? = null
+    private var delayedHideRunnable: Runnable? = null
+    private var lastButtonClickTime = 0L
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val windowManager = service.getSystemService(WindowManager::class.java)
+    private val layoutBuilder = SmartCapsuleLayoutBuilder(service)
+
+    // ── Colors ──
+
+    private val colorBlue = 0xFF2563EB.toInt()
+    private val colorAmber = 0xFFF59E0B.toInt()
+    private val colorTeal = 0xFF0D9488.toInt()
+    private val colorRed = 0xFFEF4444.toInt()
+
+    // ── Public API ──
+
+    fun isShowing(): Boolean = overlayView != null
 
     /**
-     * Check if the capsule overlay is currently visible.
+     * Update the capsule to a new mode. This is the primary API.
+     * Handles show/hide automatically.
      */
-    fun isShowing(): Boolean = overlayView != null
-    
-    fun show() {
-        Log.d(TAG, "show() called, overlayView=${overlayView != null}")
-        if (overlayView != null) {
-            Log.d(TAG, "show() - already showing, returning early")
-            return
-        }
+    fun updateMode(newMode: CapsuleMode) {
+        val oldMode = mode
+        mode = newMode
+        Log.d(TAG, "Mode: ${oldMode::class.simpleName} → ${newMode::class.simpleName}")
 
+        // Cancel pending delayed hide (e.g., from Done state) to prevent race
+        clearDelayedHide()
+
+        when (newMode) {
+            is CapsuleMode.Hidden -> hide()
+            else -> {
+                if (overlayView == null) show()
+                render(newMode)
+            }
+        }
+    }
+
+    /**
+     * Convenience: update thought text while in Running mode.
+     * If not currently Running, transitions to Running(thought).
+     */
+    fun updateThought(thought: String) {
+        updateMode(CapsuleMode.Running(thought))
+    }
+
+    fun show() {
+        if (overlayView != null) return
         try {
             val params = layoutBuilder.createLayoutParams()
-            val views = layoutBuilder.build(
-                onPauseToggle = {
-                    if (isPaused) {
-                        onResume()
-                    } else {
-                        onPause()
-                    }
-                },
-                onStop = onStop,
-                onOpenApp = { openAgentApp() }
+            val capsuleViews = layoutBuilder.build(
+                onSupplement = { debounced { onSupplement?.invoke() } },
+                onPrimary = { debounced { handlePrimaryClick() } },
+                onStop = { debounced { handleStopClick() } },
             )
-
-            windowManager.addView(views.container, params)
-            overlayView = views.container
-            statusText = views.statusText
-            statusDot = views.statusDot
-            pauseButton = views.pauseButton
-            pauseIconText = views.pauseIconText
-            Log.i(TAG, "show() - overlay view added successfully")
-            
-            // Reset state
-            isPaused = false
-            streamingText.clear()
-            currentTurnId = null
+            windowManager.addView(capsuleViews.container, params)
+            overlayView = capsuleViews.container
+            views = capsuleViews
+            Log.i(TAG, "Capsule shown")
         } catch (e: Exception) {
-            Log.e(TAG, "show() - failed to add overlay view", e)
-        }
-    }
-    
-    /**
-     * Open the main Agent app activity.
-     */
-    private fun openAgentApp() {
-        onOpenApp?.invoke() ?: run {
-            val intent = Intent(context, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
-            context.startActivity(intent)
+            Log.e(TAG, "Failed to show capsule", e)
         }
     }
 
     fun hide() {
-        stopPulsingAnimation()
-        if (overlayView != null) {
-            windowManager.removeView(overlayView)
-            overlayView = null
-            statusText = null
-            statusDot = null
-            pauseButton = null
-            pauseIconText = null
+        stopPulse()
+        clearDelayedHide()
+        overlayView?.let {
+            try {
+                windowManager.removeView(it)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to remove capsule view", e)
+            }
         }
-        streamingText.clear()
-        currentTurnId = null
+        overlayView = null
+        views = null
+        mode = CapsuleMode.Hidden
     }
-    
-    // ===== Streaming Support =====
-    
-    /**
-     * Called when a new task starts.
-     */
-    @Suppress("UNUSED_PARAMETER") // taskId reserved for future tracking
-    fun onTaskStarted(taskId: String, userInput: String) {
-        Log.d(TAG, "onTaskStarted: taskId=$taskId, input=${userInput.take(30)}")
-        streamingText.clear()
-        currentTurnId = null
-        show()
-        setStatusDot(colorPrimary, pulsing = true)
-        setStatusText("Working on: ${userInput.take(30)}...")
+
+    fun dispose() {
+        hide()
     }
-    
-    /**
-     * Called when streaming text delta is received.
-     */
-    fun onMessageDelta(turnId: String, delta: String) {
-        if (turnId != currentTurnId) {
-            streamingText.clear()
-            currentTurnId = turnId
-        }
-        streamingText.append(delta)
-        updateStatusText(streamingText.toString())
-    }
-    
-    /**
-     * Called when an action is executed.
-     */
-    fun onActionExecuted(toolName: String, success: Boolean) {
-        setStatusDot(if (success) colorSuccess else colorError, pulsing = false)
-        setStatusText("$toolName ${if (success) "✓" else "✗"}")
-    }
-    
-    /**
-     * Called when task completes.
-     */
-    fun onTaskCompleted() {
-        setStatusDot(colorSuccess, pulsing = false)
-        setStatusText("✓ Done")
-        handler.postDelayed({ hide() }, 3000)
-    }
-    
-    /**
-     * Called on error.
-     */
-    fun onError(message: String) {
-        setStatusDot(colorError, pulsing = false)
-        setStatusText("⚠ $message")
-    }
-    
-    // ===== Internal Helpers =====
-    
-    private fun updateStatusText(text: String) {
-        val displayText = text.take(50).replace("\n", " ")
-        setStatusText(displayText.ifEmpty { "Thinking..." })
-    }
-    
-    private fun setStatusText(text: String) {
-        statusText?.post {
+
+    // ── Rendering ──
+
+    private fun render(mode: CapsuleMode) {
+        val v = views ?: return
+        v.container.post {
             if (overlayView == null) return@post
-            statusText?.text = text
-        }
-    }
-    
-    private fun setStatusDot(color: Int, pulsing: Boolean) {
-        statusDot?.post {
-            if (overlayView == null) return@post
-            (statusDot?.background as? GradientDrawable)?.setColor(color)
-            
-            if (pulsing) {
-                startPulsingAnimation()
-            } else {
-                stopPulsingAnimation()
+            when (mode) {
+                is CapsuleMode.Running -> renderRunning(v, mode)
+                is CapsuleMode.TakeoverPending -> renderTakeoverPending(v, mode)
+                is CapsuleMode.Takeover -> renderTakeover(v, mode)
+                is CapsuleMode.Done -> renderDone(v, mode)
+                is CapsuleMode.Error -> renderError(v, mode)
+                is CapsuleMode.Hidden -> {} // handled in updateMode
+                // Stage 2/3 modes - placeholder rendering falls back to Running
+                is CapsuleMode.SupplementInput -> renderRunning(v, CapsuleMode.Running(
+                    mode.previousMode.let {
+                        when (it) {
+                            is CapsuleMode.Running -> it.thought
+                            is CapsuleMode.Takeover -> it.lastThought
+                            else -> "思考中..."
+                        }
+                    }
+                ))
+                is CapsuleMode.WaitingForInput -> renderRunning(v, CapsuleMode.Running(mode.question))
+                is CapsuleMode.WaitingForAction -> renderRunning(v, CapsuleMode.Running(mode.instruction))
             }
         }
     }
-    
-    /**
-     * Update the status text displayed in the overlay.
-     * (Legacy method for compatibility with existing code)
-     */
-    fun updateStatus(status: String) {
-        val currentStatusText = statusText ?: return
-        currentStatusText.post { 
-            if (overlayView == null) return@post
-            
-            // Clean up emoji for cleaner display
-            val cleanStatus = StatusUtils.cleanStatusText(status)
-            val displayText = if (cleanStatus.length > 40) {
-                cleanStatus.take(37) + "..."
-            } else {
-                cleanStatus
-            }
-            statusText?.text = displayText.ifEmpty { "Ready" }
-            
-            // Update status dot color based on status type
-            val dotColor = when (StatusUtils.getStatusType(status)) {
-                StatusUtils.StatusType.SUCCESS -> colorSuccess
-                StatusUtils.StatusType.ERROR -> colorError
-                StatusUtils.StatusType.WARNING -> colorWarning
-                StatusUtils.StatusType.THINKING -> colorPrimary
-                else -> colorPrimary
-            }
-            (statusDot?.background as? GradientDrawable)?.setColor(dotColor)
+
+    private fun renderRunning(v: CapsuleViews, mode: CapsuleMode.Running) {
+        // Row 1: blue pulsing dot + thought
+        setDotColor(v, colorBlue, pulsing = true)
+        v.thoughtText.text = mode.thought.ifEmpty { "思考中..." }
+        v.thoughtText.alpha = 1f
+
+        // Row 2: [补充] [接管] [停止], all visible and enabled
+        v.row2.visibility = View.VISIBLE
+        v.divider.visibility = View.VISIBLE
+
+        v.supplementButton.visibility = View.VISIBLE
+        v.supplementButton.isEnabled = true
+        v.supplementButton.alpha = 1f
+
+        v.primaryIcon.text = "✋"
+        v.primaryText.text = "接管"
+        v.primaryButton.isEnabled = true
+        v.primaryButton.alpha = 1f
+
+        v.stopButton.visibility = View.VISIBLE
+        v.stopButton.isEnabled = true
+        v.stopButton.alpha = 1f
+    }
+
+    private fun renderTakeoverPending(v: CapsuleViews, mode: CapsuleMode.TakeoverPending) {
+        // Row 1: amber static dot + "正在交接..."
+        setDotColor(v, colorAmber, pulsing = false)
+        v.thoughtText.text = "正在交接..."
+        v.thoughtText.alpha = 1f
+
+        // Row 2: supplement disabled, primary disabled, stop enabled
+        v.row2.visibility = View.VISIBLE
+        v.divider.visibility = View.VISIBLE
+
+        v.supplementButton.visibility = View.VISIBLE
+        v.supplementButton.isEnabled = false
+        v.supplementButton.alpha = 0.4f
+
+        v.primaryIcon.text = "✋"
+        v.primaryText.text = "交接中"
+        v.primaryButton.isEnabled = false
+        v.primaryButton.alpha = 0.4f
+
+        v.stopButton.visibility = View.VISIBLE
+        v.stopButton.isEnabled = true
+        v.stopButton.alpha = 1f
+    }
+
+    private fun renderTakeover(v: CapsuleViews, mode: CapsuleMode.Takeover) {
+        // Row 1: amber static dot + dimmed last thought
+        setDotColor(v, colorAmber, pulsing = false)
+        v.thoughtText.text = mode.lastThought.ifEmpty { "已暂停" }
+        v.thoughtText.alpha = 0.6f
+
+        // Row 2: [补充] [▶ 继续] [停止]
+        v.row2.visibility = View.VISIBLE
+        v.divider.visibility = View.VISIBLE
+
+        v.supplementButton.visibility = View.VISIBLE
+        v.supplementButton.isEnabled = true
+        v.supplementButton.alpha = 1f
+
+        v.primaryIcon.text = "▶"
+        v.primaryText.text = "继续"
+        v.primaryButton.isEnabled = true
+        v.primaryButton.alpha = 1f
+
+        v.stopButton.visibility = View.VISIBLE
+        v.stopButton.isEnabled = true
+        v.stopButton.alpha = 1f
+    }
+
+    private fun renderDone(v: CapsuleViews, mode: CapsuleMode.Done) {
+        // Row 1: teal static dot + message
+        setDotColor(v, colorTeal, pulsing = false)
+        v.thoughtText.text = "✓ ${mode.message}"
+        v.thoughtText.alpha = 1f
+
+        // Row 2: hidden
+        v.row2.visibility = View.GONE
+        v.divider.visibility = View.GONE
+
+        // Auto-hide after 3 seconds (tracked so it can be cancelled)
+        clearDelayedHide()
+        delayedHideRunnable = Runnable { hide() }.also {
+            handler.postDelayed(it, 3000)
         }
     }
-    
-    /**
-     * Update the pause/resume button state.
-     */
-    fun updatePauseState(paused: Boolean) {
-        isPaused = paused
-        pauseButton?.post {
-            if (overlayView == null) return@post
-            pauseIconText?.text = if (paused) "▶" else "⏸"
-            
-            if (paused) {
-                setStatusDot(colorWarning, pulsing = false)
-            }
+
+    private fun renderError(v: CapsuleViews, mode: CapsuleMode.Error) {
+        // Row 1: red static dot + error message
+        setDotColor(v, colorRed, pulsing = false)
+        v.thoughtText.text = "⚠ ${mode.message}"
+        v.thoughtText.alpha = 1f
+
+        // Row 2: only dismiss button
+        v.row2.visibility = View.VISIBLE
+        v.divider.visibility = View.VISIBLE
+
+        v.supplementButton.visibility = View.GONE
+        v.primaryButton.visibility = View.GONE
+
+        v.stopText.text = "关闭"
+        v.stopButton.visibility = View.VISIBLE
+        v.stopButton.isEnabled = true
+        v.stopButton.alpha = 1f
+    }
+
+    // ── Button logic ──
+
+    private fun handlePrimaryClick() {
+        when (mode) {
+            is CapsuleMode.Running -> onTakeover?.invoke()
+            is CapsuleMode.Takeover -> onResume?.invoke()
+            else -> {} // Other modes handle primary differently (Stage 2/3)
         }
     }
-    
-    // ===== Animations =====
-    
-    private fun startPulsingAnimation() {
-        stopPulsingAnimation()
-        statusDot?.let { dot ->
-            pulseAnimator = ObjectAnimator.ofFloat(dot, "alpha", 1f, 0.4f, 1f).apply {
-                duration = 1000
-                repeatCount = ObjectAnimator.INFINITE
-                interpolator = AccelerateDecelerateInterpolator()
-                start()
+
+    private fun handleStopClick() {
+        when (mode) {
+            is CapsuleMode.Error -> {
+                // In error mode, stop button shows "关闭" (dismiss)
+                onDismissError?.invoke() ?: hide()
             }
+            else -> onStop?.invoke()
         }
     }
-    
-    private fun stopPulsingAnimation() {
+
+    // ── Status dot ──
+
+    private fun setDotColor(v: CapsuleViews, color: Int, pulsing: Boolean) {
+        (v.statusDot.background as? GradientDrawable)?.setColor(color)
+        if (pulsing) startPulse(v.statusDot) else stopPulse()
+    }
+
+    private fun startPulse(dot: View) {
+        stopPulse()
+        val scaleX = ObjectAnimator.ofFloat(dot, "scaleX", 1f, 1.3f, 1f).apply {
+            duration = 1500
+            repeatCount = ObjectAnimator.INFINITE
+            interpolator = AccelerateDecelerateInterpolator()
+        }
+        val scaleY = ObjectAnimator.ofFloat(dot, "scaleY", 1f, 1.3f, 1f).apply {
+            duration = 1500
+            repeatCount = ObjectAnimator.INFINITE
+            interpolator = AccelerateDecelerateInterpolator()
+        }
+        pulseAnimator = AnimatorSet().apply {
+            playTogether(scaleX, scaleY)
+            start()
+        }
+    }
+
+    private fun stopPulse() {
         pulseAnimator?.cancel()
         pulseAnimator = null
-        statusDot?.alpha = 1f
+    }
+
+    private fun clearDelayedHide() {
+        delayedHideRunnable?.let { handler.removeCallbacks(it) }
+        delayedHideRunnable = null
+    }
+
+    // ── Debounce ──
+
+    private fun debounced(action: () -> Unit) {
+        val now = System.currentTimeMillis()
+        if (now - lastButtonClickTime < DEBOUNCE_MS) return
+        lastButtonClickTime = now
+        action()
+    }
+
+    // ── Legacy compatibility (used by ServiceOverlayController during migration) ──
+
+    /**
+     * Legacy method for backward compatibility with ServiceOverlayController.
+     * Maps old event-based calls to CapsuleMode updates.
+     */
+    fun onTaskStarted(taskId: String, userInput: String) {
+        updateMode(CapsuleMode.Running("${userInput.take(30)}..."))
+    }
+
+    fun onMessageDelta(turnId: String, delta: String) {
+        // MessageDelta is now secondary to ThoughtUpdate.
+        // Only update if we're in Running and thought is still the default.
+        val current = mode
+        if (current is CapsuleMode.Running && current.thought == "思考中...") {
+            val text = delta.replace("\n", " ").trim().take(40)
+            if (text.isNotEmpty()) {
+                updateMode(CapsuleMode.Running(text))
+            }
+        }
+    }
+
+    fun onActionExecuted(toolName: String, success: Boolean) {
+        // Thought stays from ThoughtUpdate; don't override with tool name
+    }
+
+    fun onTaskCompleted() {
+        updateMode(CapsuleMode.Done("已完成"))
+    }
+
+    fun onError(message: String) {
+        updateMode(CapsuleMode.Error(message.take(40)))
+    }
+
+    fun updateStatus(status: String) {
+        // Legacy: only update if still in default thinking state
+        val current = mode
+        if (current is CapsuleMode.Running && current.thought == "思考中...") {
+            val clean = status.replace(Regex("[🚀👀🧠💡✅⏸️❌⚠️✓]"), "").trim()
+            if (clean.isNotEmpty()) {
+                updateMode(CapsuleMode.Running(clean.take(40)))
+            }
+        }
+    }
+
+    fun updatePauseState(paused: Boolean) {
+        if (paused) {
+            val lastThought = (mode as? CapsuleMode.Running)?.thought ?: "已暂停"
+            updateMode(CapsuleMode.Takeover(lastThought))
+        } else {
+            updateMode(CapsuleMode.Running("思考中..."))
+        }
     }
 }

@@ -116,5 +116,18 @@ class AgentEventDispatcher(
         ))
     }
 
+    /**
+     * Emit a thought update for the Smart Capsule.
+     * Extracted from agent_thought in tool call parameters.
+     */
+    suspend fun thoughtUpdate(thought: String) {
+        Log.d(TAG, "ThoughtUpdate: $thought")
+        eventEmitter(AgentEvent.ThoughtUpdate(
+            sessionId = sessionId,
+            timestamp = now(),
+            thought = thought
+        ))
+    }
+
     private fun now(): Long = System.currentTimeMillis()
 }

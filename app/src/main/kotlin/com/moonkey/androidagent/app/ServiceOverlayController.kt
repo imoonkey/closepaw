@@ -31,13 +31,12 @@ class ServiceOverlayController(
 ) {
     // A11y overlays — only used in ACCESSIBILITY mode
     private val edgeGlowManager = EdgeGlowManager(context)
-    private val capsuleManager = SmartCapsuleManager(
-        context = context,
-        onStop = onStop,
-        onPause = onPause,
-        onResume = onResume,
-        onOpenApp = onOpenApp
-    )
+    private val capsuleManager = SmartCapsuleManager(service = context).apply {
+        this.onStop = this@ServiceOverlayController.onStop
+        this.onTakeover = this@ServiceOverlayController.onPause  // Maps to pause until Stage 2
+        this.onResume = this@ServiceOverlayController.onResume
+        this.onOpenApp = this@ServiceOverlayController.onOpenApp
+    }
 
     private var platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     private var hasActiveTask = false
@@ -241,6 +240,18 @@ class ServiceOverlayController(
             PlatformMode.ACCESSIBILITY -> {
                 edgeGlowManager.updateState(GlowState.Error)
                 capsuleManager.onError(message)
+            }
+        }
+    }
+
+    fun onThoughtUpdate(thought: String) {
+        when (platformMode) {
+            PlatformMode.VIRTUAL_DISPLAY -> {
+                // StatusIsland shows truncated thought
+                statusIslandManager?.updateStatus(thought.take(24), glowStateColor(GlowState.Active))
+            }
+            PlatformMode.ACCESSIBILITY -> {
+                capsuleManager.updateThought(thought)
             }
         }
     }
