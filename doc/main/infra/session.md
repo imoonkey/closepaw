@@ -61,6 +61,8 @@ Dependency-injection container for all session-scoped services.
 | `platform` | Android operations |
 | `config` | Session configuration |
 | `llmClient` | LLM client (OpenAI or local LFM) |
+| `modelCatalog` | Database of available models and providers |
+| `llmClientFactory` | Factory for creating LLM clients |
 | `traceRecorder` | Trace persistence sink |
 
 ### Cleanup
@@ -70,8 +72,15 @@ Dependency-injection container for all session-scoped services.
 ### Creation
 
 ```kotlin
-val services = SessionServices.create(config, platform, apiKeys, context, traceRecorder)
+// SessionServices.create() now loads ModelCatalog from assets/llm_models.json
+val services = SessionServices.create(config, platform, apiKeys, context, scope, traceRecorder)
 ```
+
+The factory method:
+1. Loads `ModelCatalog` from assets (defines available models and API providers)
+2. Creates `LLMClientFactory`
+3. Instantiates appropriate `LLMClient` (OpenAI or Local) based on config
+4. Wires up all other services
 
 Built-in tool registration includes:
 - `mobile_action`, `open_app`, `system_button`, `wait`

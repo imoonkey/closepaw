@@ -46,7 +46,7 @@ High-level API for session management:
 
 ```kotlin
 class SessionHistoryManager(storage, recordingService, scope) {
-    suspend fun listSessions(): List<SessionInfo>
+    suspend fun listSessions(): List<SessionInfo> // Cached for performance
     suspend fun loadSession(sessionId: String): Result<ResumedSessionData>
     suspend fun deleteSession(sessionId: String): Result<Unit>
     fun startNewSession(model: String?, appVersion: String?): String
@@ -75,6 +75,7 @@ class SessionRecordingService(storage, scope) {
     fun appendTextDelta(delta: String)
     fun recordAction(actionId: String, toolName: String, description: String, state: String)
     fun updateActionState(actionId: String, state: String, result: String?)
+    fun recordScreenState(state: ScreenStateRecord) // Records trace linkage
     fun completeAgentMessage()
     fun completeSession()
 }

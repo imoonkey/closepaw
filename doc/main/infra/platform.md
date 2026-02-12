@@ -143,7 +143,7 @@ The VD runs in one of two `SurfaceMode`s:
 
 - `switchToLivePreview(surfaceView)`: redirects VD output to the viewer's `SurfaceView` via `ShizukuClient.setVirtualDisplaySurface()`, switches capture to `PixelCopy`.
 - `switchToImageReader()`: reverts VD output to `ImageReader` surface, resets `PixelCopy` failure count.
-- `PixelCopy` failure threshold: after 2 consecutive failures (`PIXEL_COPY_MAX_FAILURES`), automatically reverts to `IMAGE_READER` mode.
+- `PixelCopy` fallback: after 2 consecutive failures (`PIXEL_COPY_MAX_FAILURES`), automatically reverts to `IMAGE_READER` mode to ensure reliability.
 
 ### Lifecycle
 
@@ -164,11 +164,12 @@ Thin wrapper for privileged Shizuku binder calls using reflection on Android fra
 | Method | Underlying API |
 |--------|---------------|
 | `isAvailable()` | `Shizuku.pingBinder()` + permission check |
-| `createVirtualDisplay(config, surface)` | `IDisplayManager.createVirtualDisplay()` (API 33+ or legacy) |
+| `createVirtualDisplay(config, surface)` | `IDisplayManager.createVirtualDisplay()` (handles API 33+ `VirtualDisplayConfig` vs legacy params) |
 | `releaseVirtualDisplay(displayId)` | `IDisplayManager.releaseVirtualDisplay()` |
 | `setVirtualDisplaySurface(displayId, surface)` | `IDisplayManager.setVirtualDisplaySurface()` via stored callback |
 | `injectInputEvent(event, mode)` | `IInputManager.injectInputEvent()` |
 | `startActivityOnDisplay(displayId, intent)` | `ActivityOptions.setLaunchDisplayId()` + `am start` |
+| `executeShellCommand(cmd)` | `Shizuku.newProcess()` with custom `waitFor` logic to handle spurious exceptions |
 | `addBinderDeadListener(callback)` | `Shizuku.addBinderDeadListener()` |
 
 Display callbacks (`IVirtualDisplayCallback`) are stored in a `ConcurrentHashMap` keyed by `displayId` when `createVirtualDisplay` succeeds. `setVirtualDisplaySurface` uses the stored callback to switch the VD's output surface at runtime. Callbacks are cleared on `releaseVirtualDisplay` and `clearCachedProxies`.
@@ -256,12 +257,12 @@ Internal helper for finding accessibility nodes in the a11y tree:
 
 | Method | Purpose |
 |--------|---------|
-| `findClickableNodeAtLocation(x, y)` | Smallest clickable node at coordinates |
-| `findLongClickableNodeAtLocation(x, y)` | Smallest long-clickable node at coordinates |
+| `findClickableNodeAtLocation(x, y)` | Top-most clickable node at coordinates (searches children in reverse/z-order) |
+| `findLongClickableNodeAtLocation(x, y)` | Top-most long-clickable node at coordinates |
 | `findFocusedEditableNode()` | Currently focused editable node |
 | `findNodeAtLocation(x, y)` | Text-input capable node at coordinates |
 
-All methods check `isVisibleToUser` to avoid clicking invisible nodes. Properly recycles `AccessibilityNodeInfo` objects.
+All methods check `isVisibleToUser` to avoid clicking invisible nodes. Properly recycles `AccessibilityNodeInfo` objects during traversal (P1 fix).
 
 ---
 

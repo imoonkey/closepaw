@@ -131,8 +131,14 @@ Compact floating pill overlay displayed on the **real screen** during virtual di
 
 - **Status dot**: Color-coded (thinking, acting, success, error, paused)
 - **Tap**: Opens `VirtualDisplayViewerActivity` for live VD preview
-- **Long-press**: Shows inline pause/stop controls
+- **Long-press**: Shows inline pause/stop controls for 3 seconds
 - **Compact**: Small floating pill that doesn't interfere with real-screen usage
+
+### Inline Controls
+
+Long-pressing the pill reveals:
+- **Pause/Resume**: Toggle session pause state
+- **Stop**: Terminate the session immediately
 
 ### States
 

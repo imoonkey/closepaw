@@ -206,3 +206,23 @@ echo 'PLATFORM_MODE=virtual_display' >> .env
 
 - **[Scripts README](../../scripts/README.md)** - Complete script reference and options
 - **[Visual Debugging Guide](../../scripts/agent_process_visual_debug.md)** - Step-by-step debugging methodology
+
+## Inspection Tool (Replay v2)
+
+The Inspection Tool is a web-based trace viewer for debugging agent sessions. It provides a step-by-step replay of the agent's execution, including screenshots, accessibility trees, and tool calls.
+
+### Running the Tool
+
+```bash
+./inspection_tool/serve.sh
+```
+
+Then open [http://localhost:8000](http://localhost:8000).
+
+### Features
+
+- **Step-by-step Replay**: Navigate through each turn of the conversation.
+- **Visual State**: View screenshots and accessibility trees side-by-side.
+- **Tool Calls**: See exact tool parameters and outputs.
+- **Performance Stats**: Analyze token usage and latency (using `a11y_token_stats.py`).
+- **Auto-Compilation**: Automatically compiles raw traces into a viewable format.
