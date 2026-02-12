@@ -15,6 +15,7 @@ import com.moonkey.androidagent.tool.impl.DelegateTaskTool
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -123,8 +124,8 @@ internal class SessionAgentRunner(
         services.toolRegistry.register(askUserTool)
     }
 
-    suspend fun pause() {
-        agent?.pause()
+    suspend fun pause(): Deferred<Unit> {
+        return agent?.pause() ?: CompletableDeferred<Unit>().also { it.complete(Unit) }
     }
 
     suspend fun resume() {

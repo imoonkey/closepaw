@@ -25,6 +25,8 @@ internal data class CapsuleViews(
     val statusDot: View,
     val thoughtText: TextView,
     val divider: View,
+    // Expanded body — shown in WaitingFor* states (question/instruction text)
+    val expandedBody: TextView? = null,
     val row2: ViewGroup,
     val supplementButton: ViewGroup,
     val primaryButton: ViewGroup,
@@ -33,7 +35,7 @@ internal data class CapsuleViews(
     val stopButton: ViewGroup,
     val stopIcon: TextView,
     val stopText: TextView,
-    // Supplement input area (hidden by default, shown in SupplementInput mode)
+    // Supplement input area (hidden by default, shown in SupplementInput/WaitingForInput)
     val supplementInputArea: ViewGroup? = null,
     val supplementEditText: EditText? = null,
     val supplementSendButton: View? = null,
@@ -140,6 +142,20 @@ internal class SmartCapsuleLayoutBuilder(
         }
         card.addView(divider)
 
+        // ── Expanded body (hidden by default, shown in WaitingFor* states) ──
+        val expandedBody = TextView(context).apply {
+            setTextColor(textPrimary)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            maxLines = 3
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        card.addView(expandedBody)
+
         // ── Row 2: Control buttons ──
         val row2 = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -242,6 +258,7 @@ internal class SmartCapsuleLayoutBuilder(
             statusDot = statusDot,
             thoughtText = thoughtText,
             divider = divider,
+            expandedBody = expandedBody,
             row2 = row2,
             supplementButton = supplementResult.container,
             primaryButton = primaryResult.container,

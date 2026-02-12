@@ -146,6 +146,9 @@ class ServiceOverlayController(
             TurnPhase.PLANNING, TurnPhase.PERCEPTION -> GlowState.Active
         }
 
+        // Track mid-turn state for context-aware supplement confirmation
+        capsuleManager.isAgentMidTurn = (phase == TurnPhase.EXECUTION || phase == TurnPhase.PLANNING)
+
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
                 statusIslandManager?.updateStatus(
@@ -253,7 +256,8 @@ class ServiceOverlayController(
     fun onThoughtUpdate(thought: String) {
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                // StatusIsland shows truncated thought
+                // If capsule is showing (from ask_user), hide it — interaction is done
+                if (capsuleManager.isShowing()) capsuleManager.hide()
                 statusIslandManager?.updateStatus(thought.take(24), glowStateColor(GlowState.Active))
             }
             PlatformMode.ACCESSIBILITY -> {
@@ -278,9 +282,11 @@ class ServiceOverlayController(
 
     fun onSessionResumed() {
         currentGlowState = GlowState.Active
+        capsuleManager.isAgentMidTurn = false
 
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
+                if (capsuleManager.isShowing()) capsuleManager.hide()
                 statusIslandManager?.updatePauseState(paused = false)
             }
             PlatformMode.ACCESSIBILITY -> {
@@ -302,19 +308,21 @@ class ServiceOverlayController(
     }
 
     fun onAskUser(type: AskUserType, message: String, callId: String) {
+        // Cancel any active supplement input before showing ask_user UI
+        capsuleManager.cancelSupplementIfActive()
+
+        val capsuleMode = when (type) {
+            AskUserType.QUESTION -> CapsuleMode.WaitingForInput(question = message, callId = callId)
+            AskUserType.ACTION -> CapsuleMode.WaitingForAction(instruction = message, callId = callId)
+        }
+
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                // VD mode: no full response UI available. Show message on status island.
-                // The ask_user will timeout after 5 minutes — a known limitation in VD mode.
+                // Show SmartCapsule overlay for ask_user (user needs input UI)
+                capsuleManager.updateMode(capsuleMode)
                 statusIslandManager?.updateStatus("❓ ${message.take(20)}", glowStateColor(GlowState.Paused))
             }
             PlatformMode.ACCESSIBILITY -> {
-                // If user is typing a supplement, cancel it before showing ask_user UI
-                capsuleManager.cancelSupplementIfActive()
-                val capsuleMode = when (type) {
-                    AskUserType.QUESTION -> CapsuleMode.WaitingForInput(question = message, callId = callId)
-                    AskUserType.ACTION -> CapsuleMode.WaitingForAction(instruction = message, callId = callId)
-                }
                 capsuleManager.updateMode(capsuleMode)
             }
         }

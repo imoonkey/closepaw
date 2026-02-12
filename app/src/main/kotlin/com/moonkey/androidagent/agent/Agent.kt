@@ -9,6 +9,7 @@ import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.session.SessionServices
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -29,6 +30,7 @@ class Agent(
 
     private var turnCount = 0
     private val pauseState = MutableStateFlow(false)
+    private var pauseConfirmed: CompletableDeferred<Unit>? = null
     private val stopRequested = AtomicBoolean(false)
     private val lifecycleMutex = Mutex()
 
@@ -63,6 +65,9 @@ class Agent(
         var recoverableRetryCount = 0
         while (shouldContinue()) {
             if (pauseState.value) {
+                // Signal that the agent is actually paused (current turn done)
+                pauseConfirmed?.complete(Unit)
+                pauseConfirmed = null
                 eventDispatcher.status("⏸️ Paused - waiting to resume...")
                 pauseState.first { !it }
                 eventDispatcher.status("▶️ Resuming...")
@@ -141,9 +146,18 @@ class Agent(
         return finalReason
     }
 
-    suspend fun pause() {
-        lifecycleMutex.withLock { pauseState.value = true }
+    /**
+     * Request pause. Returns a [Deferred] that completes when the agent
+     * actually enters the paused state (i.e. the current turn finishes).
+     */
+    suspend fun pause(): Deferred<Unit> {
+        val confirmed = CompletableDeferred<Unit>()
+        lifecycleMutex.withLock {
+            pauseState.value = true
+            pauseConfirmed = confirmed
+        }
         eventDispatcher.status("⏸️ Paused")
+        return confirmed
     }
 
     suspend fun resume() {

@@ -288,8 +288,10 @@ private constructor(
             return
         }
 
-        agentRunner.pause()
+        // Request pause and wait for agent to actually pause (current turn finishes)
+        val confirmed = agentRunner.pause()
         _state.value = SessionState.Paused
+        confirmed.await()
 
         emit(AgentEvent.SessionTakeover(sessionId = sessionId, timestamp = now()))
 
