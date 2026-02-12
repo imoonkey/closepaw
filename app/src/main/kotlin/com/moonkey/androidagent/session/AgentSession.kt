@@ -155,12 +155,12 @@ private constructor(
         Log.d(TAG, "Received Op: $op (current state: ${_state.value})")
 
         when (op) {
-            is Op.Start -> handleStart(op)
-            is Op.Pause -> handlePause()
+            is Op.Takeover -> handleTakeover()
             is Op.Resume -> handleResume()
             is Op.Interrupt -> handleInterrupt()
             is Op.Shutdown -> handleShutdown()
             is Op.UserInput -> handleUserInput(op)
+            is Op.Supplement -> handleSupplement(op.text)
             is Op.Approve -> handleApproval(op)
         }
     }
@@ -180,11 +180,6 @@ private constructor(
     }
 
     // ===== Operation Handlers =====
-
-    private suspend fun handleStart(op: Op.Start) {
-        // Backward compatibility: Map Start to UserInput
-        handleUserInput(Op.UserInput(op.goal))
-    }
 
     private suspend fun handleUserInput(op: Op.UserInput) {
         // Only Running or Paused states indicate an active task that prevents new input.
@@ -286,19 +281,18 @@ private constructor(
                 is AgentStopReason.Error -> CompletionReason.ERROR
             }
 
-    private suspend fun handlePause() {
+    private suspend fun handleTakeover() {
         if (_state.value != SessionState.Running) {
-            Log.w(TAG, "Cannot pause: not running (state: ${_state.value})")
+            Log.w(TAG, "Cannot takeover: not running (state: ${_state.value})")
             return
         }
 
+        agentRunner.pause()
         _state.value = SessionState.Paused
 
-        agentRunner.pause()
+        emit(AgentEvent.SessionTakeover(sessionId = sessionId, timestamp = now()))
 
-        emit(AgentEvent.SessionPaused(sessionId = sessionId, timestamp = now()))
-
-        Log.i(TAG, "Session paused: $sessionId")
+        Log.i(TAG, "Session takeover (paused): $sessionId")
     }
 
     private suspend fun handleResume() {
@@ -314,6 +308,26 @@ private constructor(
         emit(AgentEvent.SessionResumed(sessionId = sessionId, timestamp = now()))
 
         Log.i(TAG, "Session resumed: $sessionId")
+    }
+
+    private suspend fun handleSupplement(text: String) {
+        val currentState = _state.value
+        if (currentState != SessionState.Running && currentState != SessionState.Paused) {
+            Log.w(TAG, "Cannot supplement: not running or paused (state: $currentState)")
+            return
+        }
+
+        // Inject user message into conversation history
+        services.historyManager.addItem(
+            com.moonkey.androidagent.history.ResponseItem.Message(
+                role = "user",
+                content = text
+            )
+        )
+
+        emit(AgentEvent.SupplementReceived(sessionId = sessionId, timestamp = now(), text = text))
+
+        Log.i(TAG, "Supplement received: ${text.take(50)}")
     }
 
     private suspend fun handleInterrupt() {

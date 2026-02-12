@@ -27,51 +27,54 @@ class HistoryManager(
         private const val TOKENS_PER_CHAR = 0.25f
     }
     
-    // The conversation history
+    // The conversation history — guarded by @Synchronized for thread safety.
+    // Supplement injection (main thread) can race with agent turn recording (IO dispatcher).
     private val items = mutableListOf<ResponseItem>()
-    
+
     // Token usage tracking (null = needs recalculation, fixes H2 bug)
     private var lastTokenEstimate: Long? = null
-    
+
     /**
      * Add a single item to history.
      */
+    @Synchronized
     fun addItem(item: ResponseItem) {
         val processed = processItem(item, config.defaultTruncationPolicy)
         items.add(processed)
-        lastTokenEstimate = null // Invalidate cache
+        lastTokenEstimate = null
         Log.d(TAG, "Added item: ${item.javaClass.simpleName}, total items: ${items.size}")
         autoCompressIfNeeded()
     }
-    
+
     /**
      * Record multiple items from a turn.
-     * 
+     *
      * @param newItems Items to add
      * @param policy Truncation policy for tool outputs
      */
+    @Synchronized
     fun recordItems(newItems: List<ResponseItem>, policy: TruncationPolicy = config.defaultTruncationPolicy) {
         newItems.forEach { item ->
             val processed = processItem(item, policy)
             items.add(processed)
         }
-        lastTokenEstimate = null // Invalidate cache
+        lastTokenEstimate = null
         Log.d(TAG, "Recorded ${newItems.size} items, total: ${items.size}")
         autoCompressIfNeeded()
     }
-    
+
     /**
-     * Get all history items.
+     * Get all history items (defensive copy).
      */
+    @Synchronized
     fun getAll(): List<ResponseItem> = items.toList()
-    
+
     /**
      * Get history prepared for sending to the LLM.
-     * 
-     * This performs normalization to ensure:
-     * - Every function call has a corresponding output
-     * - No orphaned outputs without calls
+     *
+     * Performs normalization to ensure call/output pairs match.
      */
+    @Synchronized
     fun forPrompt(): List<ResponseItem> {
         return normalizeHistory(items.toList())
     }
@@ -79,19 +82,19 @@ class HistoryManager(
     /**
      * Get the number of items in history.
      */
+    @Synchronized
     fun size(): Int = items.size
-    
-    /**
-     * Check if history is empty.
-     */
+
+    @Synchronized
     fun isEmpty(): Boolean = items.isEmpty()
-    
+
     /**
      * Clear all history.
      */
+    @Synchronized
     fun clear() {
         items.clear()
-        lastTokenEstimate = null // Reset to null, not 0
+        lastTokenEstimate = null
         Log.d(TAG, "History cleared")
     }
     
@@ -101,9 +104,10 @@ class HistoryManager(
      * This is a rough estimate - actual tokenization depends on the model.
      * Uses nullable type to avoid returning 0 on first call.
      */
+    @Synchronized
     fun estimateTokenCount(): Long {
         lastTokenEstimate?.let { return it }
-        
+
         val estimate = items.sumOf { it.estimateTokens() }
         lastTokenEstimate = estimate
         return estimate
@@ -133,6 +137,7 @@ class HistoryManager(
      *    userTurnPositions = [0, 2, 4], cutIndex = userTurnPositions[3 - 1] = userTurnPositions[2] = 4
      * 4. Remove all items from cutIndex to end
      */
+    @Synchronized
     fun dropLastNUserTurns(n: Int) {
         if (n <= 0) return
         
@@ -167,6 +172,7 @@ class HistoryManager(
      * 
      * Also removes corresponding output/call if needed to maintain consistency.
      */
+    @Synchronized
     fun removeFirstItem() {
         if (items.isEmpty()) return
         
@@ -194,6 +200,7 @@ class HistoryManager(
      * 2. Remove oldest items
      * 3. Summarize old conversations (future)
      */
+    @Synchronized
     fun compress(targetTokens: Long) {
         Log.d(TAG, "Compressing history from ${estimateTokenCount()} to $targetTokens tokens")
         

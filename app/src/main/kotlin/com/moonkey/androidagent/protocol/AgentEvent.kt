@@ -49,19 +49,28 @@ sealed interface AgentEvent {
     ) : AgentEvent
     
     /**
-     * Session was paused.
+     * User took over control (agent paused).
      */
-    data class SessionPaused(
+    data class SessionTakeover(
         override val sessionId: SessionId,
         override val timestamp: Long
     ) : AgentEvent
-    
+
     /**
-     * Session was resumed.
+     * Session was resumed after takeover.
      */
     data class SessionResumed(
         override val sessionId: SessionId,
         override val timestamp: Long
+    ) : AgentEvent
+
+    /**
+     * User injected a mid-task supplement message.
+     */
+    data class SupplementReceived(
+        override val sessionId: SessionId,
+        override val timestamp: Long,
+        val text: String
     ) : AgentEvent
 
     // ===== Task Events (New) =====

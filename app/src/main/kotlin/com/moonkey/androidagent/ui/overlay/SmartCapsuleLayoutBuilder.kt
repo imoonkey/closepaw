@@ -4,11 +4,13 @@ import android.accessibilityservice.AccessibilityService
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.text.InputType
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -30,7 +32,12 @@ internal data class CapsuleViews(
     val primaryIcon: TextView,
     val primaryText: TextView,
     val stopButton: ViewGroup,
+    val stopIcon: TextView,
     val stopText: TextView,
+    // Supplement input area (hidden by default, shown in SupplementInput mode)
+    val supplementInputArea: ViewGroup? = null,
+    val supplementEditText: EditText? = null,
+    val supplementSendButton: View? = null,
 )
 
 /**
@@ -169,6 +176,58 @@ internal class SmartCapsuleLayoutBuilder(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ))
 
+        // ── Supplement input area (hidden by default) ──
+        val supplementInputRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(4), dp(12), dp(10))
+            visibility = View.GONE
+        }
+
+        val supplementEditText = EditText(context).apply {
+            hint = "输入补充信息..."
+            setTextColor(textPrimary)
+            setHintTextColor(textSecondary)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            inputType = InputType.TYPE_CLASS_TEXT
+            isSingleLine = true
+            background = GradientDrawable().apply {
+                setColor(colorGrayBg)
+                cornerRadius = dp(16).toFloat()
+                setStroke(1, colorGrayBorder)
+            }
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            layoutParams = LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
+            )
+        }
+        supplementInputRow.addView(supplementEditText)
+
+        supplementInputRow.addView(spacer(dp(8)))
+
+        val sendButton = TextView(context).apply {
+            text = "发送"
+            setTextColor(textWhite)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            gravity = Gravity.CENTER
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            background = GradientDrawable().apply {
+                setColor(colorBlue)
+                cornerRadius = dp(16).toFloat()
+            }
+            isClickable = true
+            isFocusable = true
+            contentDescription = "发送"
+        }
+        supplementInputRow.addView(sendButton, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+
+        card.addView(supplementInputRow, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+
         container.addView(card, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.WRAP_CONTENT
@@ -187,7 +246,11 @@ internal class SmartCapsuleLayoutBuilder(
             primaryIcon = primaryResult.icon,
             primaryText = primaryResult.label,
             stopButton = stopResult.container,
+            stopIcon = stopResult.icon,
             stopText = stopResult.label,
+            supplementInputArea = supplementInputRow,
+            supplementEditText = supplementEditText,
+            supplementSendButton = sendButton,
         )
     }
 

@@ -8,6 +8,7 @@ import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.ui.overlay.EdgeGlowManager
 import com.moonkey.androidagent.ui.overlay.SmartCapsuleManager
 import com.moonkey.androidagent.ui.overlay.StatusIslandManager
+import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.model.GlowState
 
 /**
@@ -24,8 +25,9 @@ class ServiceOverlayController(
     private val appPackage: String,
     private val logTag: String,
     private val onStop: () -> Unit,
-    private val onPause: () -> Unit,
+    private val onTakeover: () -> Unit,
     private val onResume: () -> Unit,
+    private val onSupplement: (String) -> Unit,
     private val onOpenApp: () -> Unit,
     private val statusIslandManager: StatusIslandManager? = null
 ) {
@@ -33,8 +35,9 @@ class ServiceOverlayController(
     private val edgeGlowManager = EdgeGlowManager(context)
     private val capsuleManager = SmartCapsuleManager(service = context).apply {
         this.onStop = this@ServiceOverlayController.onStop
-        this.onTakeover = this@ServiceOverlayController.onPause  // Maps to pause until Stage 2
+        this.onTakeover = this@ServiceOverlayController.onTakeover
         this.onResume = this@ServiceOverlayController.onResume
+        this.onSupplement = { text -> this@ServiceOverlayController.onSupplement(text) }
         this.onOpenApp = this@ServiceOverlayController.onOpenApp
     }
 
@@ -256,7 +259,7 @@ class ServiceOverlayController(
         }
     }
 
-    fun onSessionPaused() {
+    fun onSessionTakeover() {
         currentGlowState = GlowState.Paused
 
         when (platformMode) {
@@ -265,7 +268,7 @@ class ServiceOverlayController(
             }
             PlatformMode.ACCESSIBILITY -> {
                 edgeGlowManager.updateState(GlowState.Paused)
-                capsuleManager.updatePauseState(paused = true)
+                capsuleManager.onTakeoverConfirmed()
             }
         }
     }
@@ -279,7 +282,18 @@ class ServiceOverlayController(
             }
             PlatformMode.ACCESSIBILITY -> {
                 edgeGlowManager.updateState(GlowState.Active)
-                capsuleManager.updatePauseState(paused = false)
+                capsuleManager.updateMode(CapsuleMode.Running("思考中..."))
+            }
+        }
+    }
+
+    fun onSupplementReceived(text: String) {
+        when (platformMode) {
+            PlatformMode.VIRTUAL_DISPLAY -> {
+                statusIslandManager?.updateStatus("已收到: ${text.take(16)}", glowStateColor(currentGlowState))
+            }
+            PlatformMode.ACCESSIBILITY -> {
+                capsuleManager.onSupplementConfirmed()
             }
         }
     }

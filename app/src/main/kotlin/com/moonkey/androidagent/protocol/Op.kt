@@ -15,82 +15,79 @@ import com.moonkey.androidagent.perception.PerceptionConfig
  * - Processed asynchronously by the session
  */
 sealed interface Op {
-    
+
     // ===== Session Lifecycle =====
-    
+
     /**
-     * Start the agent with a goal.
-     * 
-     * @deprecated Use UserInput to start a task instead. Kept for backward compatibility.
-     * Maps to UserInput(goal).
-     * 
-     * Valid in: Created state
-     * Transitions to: Running state
-     */
-    @Deprecated("Use UserInput instead", ReplaceWith("UserInput(goal)"))
-    data class Start(
-        /** The user's goal/instruction for the agent */
-        val goal: String
-    ) : Op
-    
-    /**
-     * Pause execution cooperatively.
-     * 
-     * The agent will complete its current action, then pause.
+     * User takes control of the device.
+     *
+     * The agent finishes its current action, then enters Paused state.
+     * The capsule transitions through TakeoverPending → Takeover.
+     *
      * Valid in: Running state
      * Transitions to: Paused state
      */
-    data object Pause : Op
-    
+    data object Takeover : Op
+
     /**
-     * Resume from pause.
-     * 
+     * Resume from takeover (user returns control to agent).
+     *
      * Valid in: Paused state
      * Transitions to: Running state
      */
     data object Resume : Op
-    
+
     /**
      * Interrupt the current turn.
-     * 
-     * Note: Interrupt is cooperative - the agent will complete its current
-     * action before stopping. True cancellation of in-flight LLM calls is
-     * not supported.
-     * 
+     *
+     * Cooperative — the agent completes its current action before stopping.
+     *
      * Valid in: Running state
      * Stays in: Running state (ready for next turn)
      */
     data object Interrupt : Op
-    
+
     /**
      * Shutdown the session gracefully.
-     * 
+     *
      * Valid in: Any state
      * Transitions to: Shutdown state
      */
     data object Shutdown : Op
-    
+
     // ===== User Interaction =====
-    
+
     /**
      * User provides input to the agent.
-     * 
-     * - If session is idle, starts a new Task.
-     * - If session is running, provides input to the current Task (if supported).
-     * 
-     * This is the primary way to interact with the agent in Chat Mode.
+     *
+     * - If session is idle/created, starts a new Task.
+     * - If session is running, rejects (agent is busy).
+     *
+     * This is the primary way to interact with the agent.
      */
     data class UserInput(
         val text: String
     ) : Op
-    
+
+    /**
+     * User injects a mid-task message into the agent's conversation history.
+     *
+     * The agent sees this message on its next turn alongside perception data.
+     * Does not interrupt the current turn — the supplement is passive.
+     *
+     * Valid in: Running or Paused state
+     */
+    data class Supplement(
+        val text: String
+    ) : Op
+
     /**
      * User responds to an approval request.
      */
     data class Approve(
         /** ID of the action being approved/denied */
         val actionId: String,
-        
+
         /** User's decision */
         val decision: ApprovalDecision
     ) : Op

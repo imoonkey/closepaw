@@ -135,8 +135,9 @@ class AgentService : AccessibilityService() {
                         appPackage = OUR_PACKAGE,
                         logTag = TAG,
                         onStop = { submitOp(Op.Shutdown) },
-                        onPause = { submitOp(Op.Pause) },
+                        onTakeover = { submitOp(Op.Takeover) },
                         onResume = { submitOp(Op.Resume) },
+                        onSupplement = { text -> submitOp(Op.Supplement(text)) },
                         onOpenApp = {
                             val intent =
                                     Intent(this, MainActivity::class.java).apply {
@@ -152,7 +153,7 @@ class AgentService : AccessibilityService() {
                                         onTap = { openViewer() },
                                         onLongPress = { /* expand handled inside island */},
                                         onStop = { submitOp(Op.Shutdown) },
-                                        onPause = { submitOp(Op.Pause) },
+                                        onPause = { submitOp(Op.Takeover) },
                                         onResume = { submitOp(Op.Resume) }
                                 )
                 )
@@ -213,7 +214,7 @@ class AgentService : AccessibilityService() {
         val currentSession = session
         Log.d(TAG, "submitOp: $op, session=${currentSession?.sessionId}")
 
-        if (currentSession == null && op !is Op.Start) {
+        if (currentSession == null) {
             Log.w(TAG, "No active session for op: $op")
             return
         }
@@ -363,13 +364,17 @@ class AgentService : AccessibilityService() {
                 updateStatus("❌ Error: ${event.error.message}")
                 overlayController?.onSessionError(event.error.message)
             }
-            is AgentEvent.SessionPaused -> {
-                Log.i(TAG, "Session paused: ${event.sessionId}")
-                overlayController?.onSessionPaused()
+            is AgentEvent.SessionTakeover -> {
+                Log.i(TAG, "Session takeover: ${event.sessionId}")
+                overlayController?.onSessionTakeover()
             }
             is AgentEvent.SessionResumed -> {
                 Log.i(TAG, "Session resumed: ${event.sessionId}")
                 overlayController?.onSessionResumed()
+            }
+            is AgentEvent.SupplementReceived -> {
+                Log.i(TAG, "Supplement received: ${event.text.take(30)}")
+                overlayController?.onSupplementReceived(event.text)
             }
 
             // Handle other events as needed
@@ -429,7 +434,7 @@ class AgentService : AccessibilityService() {
                 observeSession(newSession)
 
                 // Submit start operation
-                newSession.submit(Op.Start(goal = goal))
+                newSession.submit(Op.UserInput(text = goal))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create session", e)
                 updateStatus("❌ Failed to start: ${e.message}")

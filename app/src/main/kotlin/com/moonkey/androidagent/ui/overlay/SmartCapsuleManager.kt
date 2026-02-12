@@ -3,7 +3,7 @@ package com.moonkey.androidagent.ui.overlay
 import android.accessibilityservice.AccessibilityService
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
-import android.content.Intent
+import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
@@ -12,7 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
-import com.moonkey.androidagent.app.MainActivity
+import android.view.inputmethod.InputMethodManager
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 
 /**
@@ -36,7 +36,7 @@ class SmartCapsuleManager(
 
     var onTakeover: (() -> Unit)? = null
     var onResume: (() -> Unit)? = null
-    var onSupplement: (() -> Unit)? = null
+    var onSupplement: ((String) -> Unit)? = null
     var onStop: (() -> Unit)? = null
     var onOpenApp: (() -> Unit)? = null
     var onDismissError: (() -> Unit)? = null
@@ -48,6 +48,7 @@ class SmartCapsuleManager(
     private var overlayView: ViewGroup? = null
     private var pulseAnimator: AnimatorSet? = null
     private var delayedHideRunnable: Runnable? = null
+    private var supplementConfirmedRunnable: Runnable? = null
     private var lastButtonClickTime = 0L
 
     private val handler = Handler(Looper.getMainLooper())
@@ -99,7 +100,7 @@ class SmartCapsuleManager(
         try {
             val params = layoutBuilder.createLayoutParams()
             val capsuleViews = layoutBuilder.build(
-                onSupplement = { debounced { onSupplement?.invoke() } },
+                onSupplement = { debounced { enterSupplementInput() } },
                 onPrimary = { debounced { handlePrimaryClick() } },
                 onStop = { debounced { handleStopClick() } },
             )
@@ -115,6 +116,8 @@ class SmartCapsuleManager(
     fun hide() {
         stopPulse()
         clearDelayedHide()
+        supplementConfirmedRunnable?.let { handler.removeCallbacks(it) }
+        supplementConfirmedRunnable = null
         overlayView?.let {
             try {
                 windowManager.removeView(it)
@@ -141,19 +144,11 @@ class SmartCapsuleManager(
                 is CapsuleMode.Running -> renderRunning(v, mode)
                 is CapsuleMode.TakeoverPending -> renderTakeoverPending(v, mode)
                 is CapsuleMode.Takeover -> renderTakeover(v, mode)
+                is CapsuleMode.SupplementInput -> renderSupplementInput(v, mode)
                 is CapsuleMode.Done -> renderDone(v, mode)
                 is CapsuleMode.Error -> renderError(v, mode)
                 is CapsuleMode.Hidden -> {} // handled in updateMode
-                // Stage 2/3 modes - placeholder rendering falls back to Running
-                is CapsuleMode.SupplementInput -> renderRunning(v, CapsuleMode.Running(
-                    mode.previousMode.let {
-                        when (it) {
-                            is CapsuleMode.Running -> it.thought
-                            is CapsuleMode.Takeover -> it.lastThought
-                            else -> "思考中..."
-                        }
-                    }
-                ))
+                // Stage 3 modes — placeholder rendering falls back to Running
                 is CapsuleMode.WaitingForInput -> renderRunning(v, CapsuleMode.Running(mode.question))
                 is CapsuleMode.WaitingForAction -> renderRunning(v, CapsuleMode.Running(mode.instruction))
             }
@@ -163,12 +158,14 @@ class SmartCapsuleManager(
     private fun renderRunning(v: CapsuleViews, mode: CapsuleMode.Running) {
         // Row 1: blue pulsing dot + thought
         setDotColor(v, colorBlue, pulsing = true)
+        v.statusDot.visibility = View.VISIBLE
         v.thoughtText.text = mode.thought.ifEmpty { "思考中..." }
         v.thoughtText.alpha = 1f
 
         // Row 2: [补充] [接管] [停止], all visible and enabled
         v.row2.visibility = View.VISIBLE
         v.divider.visibility = View.VISIBLE
+        v.supplementInputArea?.visibility = View.GONE
 
         v.supplementButton.visibility = View.VISIBLE
         v.supplementButton.isEnabled = true
@@ -176,9 +173,12 @@ class SmartCapsuleManager(
 
         v.primaryIcon.text = "✋"
         v.primaryText.text = "接管"
+        v.primaryButton.visibility = View.VISIBLE
         v.primaryButton.isEnabled = true
         v.primaryButton.alpha = 1f
 
+        v.stopIcon.text = "⏹"
+        v.stopText.text = "停止"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
@@ -187,12 +187,14 @@ class SmartCapsuleManager(
     private fun renderTakeoverPending(v: CapsuleViews, mode: CapsuleMode.TakeoverPending) {
         // Row 1: amber static dot + "正在交接..."
         setDotColor(v, colorAmber, pulsing = false)
+        v.statusDot.visibility = View.VISIBLE
         v.thoughtText.text = "正在交接..."
         v.thoughtText.alpha = 1f
 
         // Row 2: supplement disabled, primary disabled, stop enabled
         v.row2.visibility = View.VISIBLE
         v.divider.visibility = View.VISIBLE
+        v.supplementInputArea?.visibility = View.GONE
 
         v.supplementButton.visibility = View.VISIBLE
         v.supplementButton.isEnabled = false
@@ -200,9 +202,12 @@ class SmartCapsuleManager(
 
         v.primaryIcon.text = "✋"
         v.primaryText.text = "交接中"
+        v.primaryButton.visibility = View.VISIBLE
         v.primaryButton.isEnabled = false
         v.primaryButton.alpha = 0.4f
 
+        v.stopIcon.text = "⏹"
+        v.stopText.text = "停止"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
@@ -211,12 +216,14 @@ class SmartCapsuleManager(
     private fun renderTakeover(v: CapsuleViews, mode: CapsuleMode.Takeover) {
         // Row 1: amber static dot + dimmed last thought
         setDotColor(v, colorAmber, pulsing = false)
+        v.statusDot.visibility = View.VISIBLE
         v.thoughtText.text = mode.lastThought.ifEmpty { "已暂停" }
         v.thoughtText.alpha = 0.6f
 
         // Row 2: [补充] [▶ 继续] [停止]
         v.row2.visibility = View.VISIBLE
         v.divider.visibility = View.VISIBLE
+        v.supplementInputArea?.visibility = View.GONE
 
         v.supplementButton.visibility = View.VISIBLE
         v.supplementButton.isEnabled = true
@@ -224,9 +231,12 @@ class SmartCapsuleManager(
 
         v.primaryIcon.text = "▶"
         v.primaryText.text = "继续"
+        v.primaryButton.visibility = View.VISIBLE
         v.primaryButton.isEnabled = true
         v.primaryButton.alpha = 1f
 
+        v.stopIcon.text = "⏹"
+        v.stopText.text = "停止"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
@@ -252,37 +262,181 @@ class SmartCapsuleManager(
     private fun renderError(v: CapsuleViews, mode: CapsuleMode.Error) {
         // Row 1: red static dot + error message
         setDotColor(v, colorRed, pulsing = false)
+        v.statusDot.visibility = View.VISIBLE
         v.thoughtText.text = "⚠ ${mode.message}"
         v.thoughtText.alpha = 1f
 
         // Row 2: only dismiss button
         v.row2.visibility = View.VISIBLE
         v.divider.visibility = View.VISIBLE
+        v.supplementInputArea?.visibility = View.GONE
 
         v.supplementButton.visibility = View.GONE
         v.primaryButton.visibility = View.GONE
 
+        v.stopIcon.text = "✕"
         v.stopText.text = "关闭"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
     }
 
+    private fun renderSupplementInput(v: CapsuleViews, mode: CapsuleMode.SupplementInput) {
+        // Row 1: "补充你的想法" + close button (repurpose dot area)
+        stopPulse()
+        v.statusDot.visibility = View.GONE
+        v.thoughtText.text = "补充你的想法"
+        v.thoughtText.alpha = 1f
+
+        // Row 2: show EditText + send button; hide normal buttons
+        v.row2.visibility = View.VISIBLE
+        v.divider.visibility = View.VISIBLE
+
+        v.supplementButton.visibility = View.GONE
+        v.primaryButton.visibility = View.GONE
+
+        // Repurpose stop button as close (✕)
+        v.stopIcon.text = "✕"
+        v.stopText.text = "取消"
+        v.stopButton.visibility = View.VISIBLE
+        v.stopButton.isEnabled = true
+        v.stopButton.alpha = 1f
+
+        // Show supplement input area
+        showSupplementInputArea(v)
+    }
+
+    private fun enterSupplementInput() {
+        updateMode(CapsuleMode.SupplementInput(previousMode = mode))
+    }
+
+    private fun showSupplementInputArea(v: CapsuleViews) {
+        val inputArea = v.supplementInputArea ?: return
+        val editText = v.supplementEditText ?: return
+        val sendButton = v.supplementSendButton ?: return
+
+        inputArea.visibility = View.VISIBLE
+        editText.text.clear()
+
+        // Make overlay focusable to allow keyboard input
+        setOverlayFocusable(true)
+
+        // Request focus and show keyboard
+        editText.requestFocus()
+        handler.postDelayed({
+            val imm = service.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT)
+        }, 200)
+
+        sendButton.setOnClickListener {
+            val text = editText.text.toString().trim()
+            if (text.isNotEmpty()) {
+                onSupplement?.invoke(text)
+                hideSupplementInputArea(v)
+            }
+        }
+    }
+
+    private fun hideSupplementInputArea(v: CapsuleViews) {
+        val inputArea = v.supplementInputArea ?: return
+        val editText = v.supplementEditText ?: return
+
+        // Hide keyboard
+        val imm = service.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(editText.windowToken, 0)
+
+        editText.text.clear()
+        inputArea.visibility = View.GONE
+
+        // Restore overlay non-focusable
+        setOverlayFocusable(false)
+
+        // Restore dot visibility
+        v.statusDot.visibility = View.VISIBLE
+    }
+
+    private fun setOverlayFocusable(focusable: Boolean) {
+        val container = overlayView ?: return
+        val params = container.layoutParams as? WindowManager.LayoutParams ?: return
+        if (focusable) {
+            params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+        } else {
+            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+        }
+        try {
+            windowManager.updateViewLayout(container, params)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to update focusable state", e)
+        }
+    }
+
+    // ── Takeover / Supplement transitions ──
+
+    /**
+     * Called when user taps 接管 — immediately show TakeoverPending,
+     * then the session confirms with [onTakeoverConfirmed].
+     */
+    private fun requestTakeover() {
+        val lastThought = (mode as? CapsuleMode.Running)?.thought ?: ""
+        updateMode(CapsuleMode.TakeoverPending(lastThought))
+        onTakeover?.invoke()
+    }
+
+    /**
+     * Called by ServiceOverlayController when SessionTakeover event arrives.
+     * Transitions from TakeoverPending → Takeover.
+     */
+    fun onTakeoverConfirmed() {
+        val lastThought = when (val m = mode) {
+            is CapsuleMode.TakeoverPending -> m.lastThought
+            is CapsuleMode.Running -> m.thought
+            else -> ""
+        }
+        updateMode(CapsuleMode.Takeover(lastThought))
+    }
+
+    /**
+     * Called by ServiceOverlayController when SupplementReceived event arrives.
+     * Exits SupplementInput mode and shows a brief "已收到" confirmation.
+     */
+    fun onSupplementConfirmed() {
+        val previousMode = (mode as? CapsuleMode.SupplementInput)?.previousMode
+        if (previousMode != null) {
+            updateMode(previousMode)
+        }
+        // Brief flash "已收到" on the thought line (cancellable)
+        val v = views ?: return
+        val originalText = v.thoughtText.text.toString()
+        v.thoughtText.text = "✓ 已收到"
+        supplementConfirmedRunnable?.let { handler.removeCallbacks(it) }
+        val runnable = Runnable {
+            views?.thoughtText?.text = originalText
+            supplementConfirmedRunnable = null
+        }
+        supplementConfirmedRunnable = runnable
+        handler.postDelayed(runnable, 1500)
+    }
+
     // ── Button logic ──
 
     private fun handlePrimaryClick() {
         when (mode) {
-            is CapsuleMode.Running -> onTakeover?.invoke()
+            is CapsuleMode.Running -> requestTakeover()
             is CapsuleMode.Takeover -> onResume?.invoke()
-            else -> {} // Other modes handle primary differently (Stage 2/3)
+            else -> {} // Other modes handle primary differently (Stage 3)
         }
     }
 
     private fun handleStopClick() {
-        when (mode) {
+        when (val m = mode) {
             is CapsuleMode.Error -> {
                 // In error mode, stop button shows "关闭" (dismiss)
                 onDismissError?.invoke() ?: hide()
+            }
+            is CapsuleMode.SupplementInput -> {
+                // Cancel supplement input, return to previous mode
+                views?.let { hideSupplementInputArea(it) }
+                updateMode(m.previousMode)
             }
             else -> onStop?.invoke()
         }
@@ -332,19 +486,13 @@ class SmartCapsuleManager(
         action()
     }
 
-    // ── Legacy compatibility (used by ServiceOverlayController during migration) ──
+    // ── Legacy compatibility (used by ServiceOverlayController) ──
 
-    /**
-     * Legacy method for backward compatibility with ServiceOverlayController.
-     * Maps old event-based calls to CapsuleMode updates.
-     */
     fun onTaskStarted(taskId: String, userInput: String) {
         updateMode(CapsuleMode.Running("${userInput.take(30)}..."))
     }
 
     fun onMessageDelta(turnId: String, delta: String) {
-        // MessageDelta is now secondary to ThoughtUpdate.
-        // Only update if we're in Running and thought is still the default.
         val current = mode
         if (current is CapsuleMode.Running && current.thought == "思考中...") {
             val text = delta.replace("\n", " ").trim().take(40)
@@ -355,7 +503,7 @@ class SmartCapsuleManager(
     }
 
     fun onActionExecuted(toolName: String, success: Boolean) {
-        // Thought stays from ThoughtUpdate; don't override with tool name
+        // Thought stays from ThoughtUpdate; no-op
     }
 
     fun onTaskCompleted() {
@@ -367,22 +515,12 @@ class SmartCapsuleManager(
     }
 
     fun updateStatus(status: String) {
-        // Legacy: only update if still in default thinking state
         val current = mode
         if (current is CapsuleMode.Running && current.thought == "思考中...") {
             val clean = status.replace(Regex("[🚀👀🧠💡✅⏸️❌⚠️✓]"), "").trim()
             if (clean.isNotEmpty()) {
                 updateMode(CapsuleMode.Running(clean.take(40)))
             }
-        }
-    }
-
-    fun updatePauseState(paused: Boolean) {
-        if (paused) {
-            val lastThought = (mode as? CapsuleMode.Running)?.thought ?: "已暂停"
-            updateMode(CapsuleMode.Takeover(lastThought))
-        } else {
-            updateMode(CapsuleMode.Running("思考中..."))
         }
     }
 }
