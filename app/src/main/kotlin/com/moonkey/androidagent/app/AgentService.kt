@@ -154,14 +154,14 @@ class AgentService : AccessibilityService() {
                                     }
                             startActivity(intent)
                         },
+                        onOpenViewer = { openViewer() },
                         statusIslandManager =
                                 StatusIslandManager(
                                         service = this,
-                                        onTap = { openViewer() },
-                                        onLongPress = { /* expand handled inside island */},
-                                        onStop = { submitOp(Op.Shutdown) },
-                                        onPause = { submitOp(Op.Takeover) },
-                                        onResume = { submitOp(Op.Resume) }
+                                        onExpandCapsule = {
+                                            // Tap island → expand Smart Capsule overlay, hide island
+                                            overlayController?.onIslandTapped()
+                                        }
                                 )
                 )
 
@@ -462,7 +462,27 @@ class AgentService : AccessibilityService() {
 
     // ── Virtual Display Viewer Support ──
 
-    /** Open the VirtualDisplayViewerActivity. Called from StatusIsland tap. */
+    /**
+     * Called by VirtualDisplayViewerActivity when it becomes visible.
+     * Shows capsule overlay on real screen and hides status island.
+     */
+    fun onViewerOpened() {
+        if (overlayController == null) {
+            Log.w(TAG, "onViewerOpened: overlay controller not initialized (service not connected?)")
+            return
+        }
+        overlayController?.onViewerOpened()
+    }
+
+    /**
+     * Called by VirtualDisplayViewerActivity when it becomes hidden.
+     * Hides capsule overlay and shows status island.
+     */
+    fun onViewerClosed() {
+        overlayController?.onViewerClosed()
+    }
+
+    /** Open the VirtualDisplayViewerActivity. Called from StatusIsland tap or nav button. */
     private fun openViewer() {
         try {
             val intent =

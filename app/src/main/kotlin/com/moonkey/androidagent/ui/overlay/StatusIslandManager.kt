@@ -18,26 +18,24 @@ import android.widget.TextView
 /**
  * StatusIslandManager — Floating pill overlay on the real screen during VD mode.
  *
- * This is the ONLY overlay visible on the real screen when the agent runs on a virtual display. It
- * shows a compact status pill at the top of the screen.
+ * This is the ONLY overlay visible on the real screen when the agent runs on a virtual display
+ * and the user is NOT viewing the VD viewer or the main app. It shows a compact status pill
+ * at the top of the screen.
  *
- * - Tap: opens the VirtualDisplayViewerActivity (live preview)
- * - Long-press: expands inline Stop/Pause controls for 3 seconds
+ * - Tap: expands the Smart Capsule overlay (provides full controls)
+ *
+ * All controls (stop, takeover, resume, navigation) are in the expanded Smart Capsule.
+ * The island is purely a compact status display.
  *
  * Touches outside the pill pass through (WRAP_CONTENT layout).
  */
 class StatusIslandManager(
         private val service: AccessibilityService,
-        private val onTap: () -> Unit,
-        private val onLongPress: () -> Unit,
-        private val onStop: () -> Unit,
-        private val onPause: () -> Unit,
-        private val onResume: () -> Unit
+        private val onExpandCapsule: () -> Unit
 ) {
     companion object {
         private const val TAG = "StatusIslandManager"
         private const val AUTO_HIDE_DELAY_MS = 3000L
-        private const val CONTROLS_AUTO_HIDE_MS = 3000L
     }
 
     private val wm = service.getSystemService(WindowManager::class.java)
@@ -45,9 +43,7 @@ class StatusIslandManager(
     private var pillView: ViewGroup? = null
     private var statusText: TextView? = null
     private var statusDot: View? = null
-    private var controlsContainer: LinearLayout? = null
     private var isPaused = false
-    private var pauseIconText: TextView? = null
 
     // Colors
     private val colorBackground = 0xFFFFFFFF.toInt()
@@ -82,8 +78,6 @@ class StatusIslandManager(
         pillView = null
         statusText = null
         statusDot = null
-        controlsContainer = null
-        pauseIconText = null
     }
 
     fun isShowing(): Boolean = pillView != null
@@ -111,7 +105,6 @@ class StatusIslandManager(
         isPaused = paused
         handler.post {
             if (pillView == null) return@post
-            pauseIconText?.text = if (paused) "▶" else "⏸"
             val dotColor = if (paused) colorWarning else colorPrimary
             (statusDot?.background as? GradientDrawable)?.setColor(dotColor)
         }
@@ -123,14 +116,8 @@ class StatusIslandManager(
 
     // ── Layout Building ──
 
-    private fun buildPillLayout(): ViewGroup {
-        val container =
-                LinearLayout(service).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER_HORIZONTAL
-                }
-
-        // Main pill row
+    private fun buildPillLayout(): LinearLayout {
+        // Simple pill: tap to expand Smart Capsule overlay
         val pill =
                 LinearLayout(service).apply {
                     orientation = LinearLayout.HORIZONTAL
@@ -144,12 +131,7 @@ class StatusIslandManager(
                             }
                     elevation = dp(4).toFloat()
 
-                    setOnClickListener { onTap() }
-                    setOnLongClickListener {
-                        toggleInlineControls()
-                        onLongPress()
-                        true
-                    }
+                    setOnClickListener { onExpandCapsule() }
                 }
 
         // Status dot
@@ -178,80 +160,7 @@ class StatusIslandManager(
         pill.addView(text)
         statusText = text
 
-        container.addView(
-                pill,
-                LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-        )
-
-        // Inline controls (hidden by default)
-        val controls = buildInlineControls()
-        controls.visibility = View.GONE
-        container.addView(
-                controls,
-                LinearLayout.LayoutParams(
-                                LinearLayout.LayoutParams.WRAP_CONTENT,
-                                LinearLayout.LayoutParams.WRAP_CONTENT
-                        )
-                        .apply { topMargin = dp(4) }
-        )
-        controlsContainer = controls
-
-        return container
-    }
-
-    private fun buildInlineControls(): LinearLayout {
-        return LinearLayout(service).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(dp(8), dp(4), dp(8), dp(4))
-            background =
-                    GradientDrawable().apply {
-                        setColor(colorBackground)
-                        cornerRadius = dp(16).toFloat()
-                        setStroke(1, 0xFFE5E5E5.toInt())
-                    }
-            elevation = dp(4).toFloat()
-
-            // Pause/Resume button
-            val pauseBtn =
-                    TextView(service).apply {
-                        text = "⏸"
-                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                        setPadding(dp(12), dp(6), dp(12), dp(6))
-                        gravity = Gravity.CENTER
-                        setOnClickListener { if (isPaused) onResume() else onPause() }
-                    }
-            addView(pauseBtn)
-            pauseIconText = pauseBtn
-
-            // Spacer
-            addView(View(service).apply { layoutParams = LinearLayout.LayoutParams(dp(8), dp(1)) })
-
-            // Stop button
-            val stopBtn =
-                    TextView(service).apply {
-                        text = "⏹"
-                        setTextColor(colorError)
-                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-                        setPadding(dp(12), dp(6), dp(12), dp(6))
-                        gravity = Gravity.CENTER
-                        setOnClickListener { onStop() }
-                    }
-            addView(stopBtn)
-        }
-    }
-
-    private fun toggleInlineControls() {
-        val controls = controlsContainer ?: return
-        if (controls.visibility == View.VISIBLE) {
-            controls.visibility = View.GONE
-        } else {
-            controls.visibility = View.VISIBLE
-            handler.postDelayed({ controls.visibility = View.GONE }, CONTROLS_AUTO_HIDE_MS)
-        }
+        return pill
     }
 
     private fun createLayoutParams(): WindowManager.LayoutParams {

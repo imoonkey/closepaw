@@ -110,6 +110,35 @@ class ServiceOverlayController(
         statusIslandManager?.hide()
     }
 
+    /** Called when status island is tapped — expand capsule overlay, hide island. */
+    fun onIslandTapped() {
+        stateHolder.setContext(CapsuleContext.SCREEN_VIEWING)
+        // Set nav context BEFORE showing capsule so first render has correct buttons
+        capsuleManager.updateNavContext(
+            CapsuleContext.SCREEN_VIEWING, platformMode, hasIsland = statusIslandManager != null
+        )
+        showCapsuleOverlay()
+        hideIsland()
+    }
+
+    /** Called when VD viewer activity becomes visible. */
+    fun onViewerOpened() {
+        stateHolder.setContext(CapsuleContext.SCREEN_VIEWING)
+        // Set nav context BEFORE showing capsule so first render has correct buttons
+        capsuleManager.updateNavContext(
+            CapsuleContext.SCREEN_VIEWING, platformMode, hasIsland = statusIslandManager != null
+        )
+        showCapsuleOverlay()
+        hideIsland()
+    }
+
+    /** Called when VD viewer activity becomes hidden. */
+    fun onViewerClosed() {
+        stateHolder.setContext(CapsuleContext.BACKGROUND)
+        hideCapsuleOverlay()
+        showIsland()
+    }
+
     fun updateStatus(status: String) {
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
