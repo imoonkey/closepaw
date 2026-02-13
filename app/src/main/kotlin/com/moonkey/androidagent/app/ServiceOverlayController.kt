@@ -489,7 +489,17 @@ class ServiceOverlayController(
         }
     }
 
-    // ── Private: Color mapping ──
+    // ── Private: Glow state coordination ──
+    //
+    // EdgeGlow state is coordinated with CapsuleMode through shared event handlers:
+    //   CapsuleMode.Running    → GlowState.Active (or Executing during TurnPhase.EXECUTION)
+    //   CapsuleMode.Takeover   → GlowState.Paused
+    //   CapsuleMode.Done       → GlowState.Success
+    //   CapsuleMode.Error      → GlowState.Error
+    //   CapsuleMode.Hidden     → glow hidden
+    //
+    // GlowState has finer granularity (Active vs Executing) driven by TurnPhase events.
+    // Both capsule and glow are updated in the same event handler to prevent drift.
 
     private fun glowStateColor(state: GlowState): Int = when (state) {
         GlowState.Active -> 0xFF2563EB.toInt()    // Blue
