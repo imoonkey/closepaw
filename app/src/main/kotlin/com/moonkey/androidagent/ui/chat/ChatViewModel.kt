@@ -14,7 +14,6 @@ import com.moonkey.androidagent.ui.chat.model.AgentMessageState
 import com.moonkey.androidagent.ui.chat.model.ChatMessage
 import com.moonkey.androidagent.ui.chat.model.ChatUiState
 import com.moonkey.androidagent.ui.chat.model.ContentBlock
-import com.moonkey.androidagent.ui.chat.model.InputState
 import com.moonkey.androidagent.ui.chat.model.TaskBannerState
 import com.moonkey.androidagent.ui.common.formatToolName
 import com.moonkey.androidagent.ui.common.getToolIcon
@@ -116,8 +115,8 @@ class ChatViewModel(
         }
 
         private fun handleTaskStarted(event: AgentEvent.TaskStarted) {
-            // Update UI state
-            _uiState.update { it.copy(inputState = InputState.Working, showEmptyState = false) }
+            // Update UI state — capsule mode is managed by CapsuleStateHolder
+            _uiState.update { it.copy(showEmptyState = false) }
 
             // Update banner
             _taskBannerState.value = TaskBannerState.Working(taskTitle = event.input.take(50))
@@ -265,8 +264,7 @@ class ChatViewModel(
         }
 
         private fun handleTaskCompleted(event: AgentEvent.TaskCompleted) {
-            // Update UI state
-            _uiState.update { it.copy(inputState = InputState.Idle) }
+            // Capsule mode transitions are handled by CapsuleStateHolder
 
             // Update banner
             _taskBannerState.value =
@@ -292,7 +290,7 @@ class ChatViewModel(
         }
 
         private fun handleError(event: AgentEvent.SessionError) {
-            _uiState.update { it.copy(inputState = InputState.Idle) }
+            // Capsule mode transitions are handled by CapsuleStateHolder
             _taskBannerState.value = TaskBannerState.Error(event.error.message)
 
             // Also mark any pending agent message as complete
@@ -332,6 +330,32 @@ class ChatViewModel(
         if (session != null) {
             viewModelScope.launch { session.submit(Op.Interrupt) }
         }
+    }
+
+    // ===== Smart Capsule Actions =====
+
+    /** Send a supplement message during an active task. */
+    fun sendSupplement(text: String) {
+        val session = sessionProvider() ?: return
+        viewModelScope.launch { session.submit(Op.Supplement(text)) }
+    }
+
+    /** Request takeover (user takes control of device). */
+    fun requestTakeover() {
+        val session = sessionProvider() ?: return
+        viewModelScope.launch { session.submit(Op.Takeover) }
+    }
+
+    /** Resume from takeover (return control to agent). */
+    fun requestResume() {
+        val session = sessionProvider() ?: return
+        viewModelScope.launch { session.submit(Op.Resume) }
+    }
+
+    /** Send user response to an ask_user request. */
+    fun sendUserResponse(callId: String, response: String) {
+        val session = sessionProvider() ?: return
+        viewModelScope.launch { session.submit(Op.UserResponse(callId, response)) }
     }
 
     /** Clear conversation history. */

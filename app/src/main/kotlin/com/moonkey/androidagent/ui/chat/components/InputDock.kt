@@ -35,12 +35,11 @@ import com.moonkey.androidagent.ui.theme.ChatSendButtonOnActive
 /**
  * InputDock - Always-visible input area at the bottom of the chat.
  * 
- * Supports two states:
- * - Idle: User can type and send messages
- * - Working: Input is disabled, shows stop button
- * 
- * Clean design: Clear borders, visible placeholder, good contrast.
+ * @deprecated Replaced by [com.moonkey.androidagent.ui.capsule.SmartCapsuleCompose]
+ * which provides a unified 3-row capsule with agent controls, navigation, and input.
+ * Kept for reference only — not used in ChatScreen since Stage 8.
  */
+@Deprecated("Replaced by SmartCapsuleCompose. See ui/capsule/SmartCapsuleCompose.kt")
 @Composable
 fun InputDock(
     state: InputState,

@@ -17,18 +17,23 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.moonkey.androidagent.app.AgentService
 import com.moonkey.androidagent.history.model.SessionInfo
+import com.moonkey.androidagent.protocol.PlatformMode
+import com.moonkey.androidagent.ui.capsule.SmartCapsuleCompose
 import com.moonkey.androidagent.ui.chat.components.ChatHeader
 import com.moonkey.androidagent.ui.chat.components.EmptyState
-import com.moonkey.androidagent.ui.chat.components.InputDock
 import com.moonkey.androidagent.ui.chat.components.MessageBubble
 import com.moonkey.androidagent.ui.chat.components.TaskBanner
 import com.moonkey.androidagent.ui.chat.model.ChatMessage
 import com.moonkey.androidagent.ui.navigation.NavigationDrawerContent
+import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
+import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import kotlinx.coroutines.launch
 
 /**
@@ -36,6 +41,7 @@ import kotlinx.coroutines.launch
  * 
  * Orchestrates all chat components into a cohesive conversation experience.
  * Includes navigation drawer for session history and settings access.
+ * Uses SmartCapsuleCompose as bottomBar (replaces old InputDock).
  */
 @Composable
 fun ChatScreen(
@@ -53,7 +59,15 @@ fun ChatScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val taskBannerState by viewModel.taskBannerState.collectAsStateWithLifecycle()
     val messages = viewModel.messages
-    
+
+    // Collect capsule mode from CapsuleStateHolder (via AgentService singleton).
+    // Fallback flows are stable (remembered) to avoid recomposition churn when service is null.
+    val stateHolder = AgentService.instance?.capsuleStateHolder
+    val fallbackMode = remember { kotlinx.coroutines.flow.MutableStateFlow<CapsuleMode>(CapsuleMode.Hidden) }
+    val fallbackPlatform = remember { kotlinx.coroutines.flow.MutableStateFlow(PlatformMode.ACCESSIBILITY) }
+    val capsuleMode by (stateHolder?.mode ?: fallbackMode).collectAsStateWithLifecycle()
+    val capsulePlatformMode by (stateHolder?.platformMode ?: fallbackPlatform).collectAsStateWithLifecycle()
+
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
@@ -103,10 +117,21 @@ fun ChatScreen(
                 )
             },
             bottomBar = {
-                InputDock(
-                    state = uiState.inputState,
+                SmartCapsuleCompose(
+                    mode = capsuleMode,
+                    platformMode = capsulePlatformMode,
+                    context = CapsuleContext.MAIN_APP,
                     onSend = viewModel::sendMessage,
-                    onStop = viewModel::stopTask
+                    onSupplement = viewModel::sendSupplement,
+                    onTakeover = viewModel::requestTakeover,
+                    onResume = viewModel::requestResume,
+                    onStop = viewModel::stopTask,
+                    onUserResponse = viewModel::sendUserResponse,
+                    onDismissError = { stateHolder?.onDismissError() },
+                    // In MAIN_APP context, nav buttons [1] ⊖ and [2] 📱 are hidden.
+                    // [3] 👁 (Watch) only appears in VD mode — wire to Activity's startActivity
+                    // for VirtualDisplayViewerActivity if needed. Currently no-op.
+                    onNavigate = { /* No-op: nav buttons hidden in MAIN_APP context */ }
                 )
             }
         ) { paddingValues ->

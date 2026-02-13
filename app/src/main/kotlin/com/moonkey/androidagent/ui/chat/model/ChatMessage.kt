@@ -169,11 +169,13 @@ sealed interface TaskBannerState {
 
 /**
  * InputState - State of the input dock.
+ * @deprecated Replaced by CapsuleMode from CapsuleStateHolder. Kept for InputDock backward compat.
  */
+@Deprecated("Replaced by CapsuleMode from CapsuleStateHolder")
 enum class InputState {
     /** Ready for user input */
     Idle,
-    
+
     /** Agent is working, input disabled */
     Working
 }
@@ -182,6 +184,5 @@ enum class InputState {
  * ChatUiState - Overall UI state for the chat screen.
  */
 data class ChatUiState(
-    val inputState: InputState = InputState.Idle,
     val showEmptyState: Boolean = true
 )

@@ -69,6 +69,12 @@ class AgentService : AccessibilityService() {
     private var currentPlatformMode: PlatformMode = PlatformMode.ACCESSIBILITY
 
     /**
+     * Access the capsule state holder for in-app Compose UI.
+     * Returns null if service not connected or overlay not initialized.
+     */
+    val capsuleStateHolder get() = overlayController?.stateHolder
+
+    /**
      * Get the action visualizer for use in sessions created by MainActivity. Returns null if
      * service is not connected or visualizer not initialized.
      *
