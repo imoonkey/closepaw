@@ -35,7 +35,7 @@ internal data class CapsuleViews(
     val stopButton: ViewGroup,
     val stopIcon: TextView,
     val stopText: TextView,
-    // Supplement input area (hidden by default, shown in SupplementInput/WaitingForInput)
+    // Supplement input area (hidden by default, shown in WaitingForInput)
     val supplementInputArea: ViewGroup? = null,
     val supplementEditText: EditText? = null,
     val supplementSendButton: View? = null,
@@ -204,7 +204,7 @@ internal class SmartCapsuleLayoutBuilder(
         }
 
         val supplementEditText = EditText(context).apply {
-            hint = "输入补充信息..."
+            hint = "输入..." // Renderer overrides hint per mode
             setTextColor(textPrimary)
             setHintTextColor(textSecondary)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)

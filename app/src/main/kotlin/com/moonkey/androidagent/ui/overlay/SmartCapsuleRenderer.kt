@@ -44,7 +44,6 @@ internal class SmartCapsuleRenderer {
             is CapsuleMode.Running -> renderRunning(v, mode, previousMode)
             is CapsuleMode.TakeoverPending -> renderTakeoverPending(v, mode, previousMode)
             is CapsuleMode.Takeover -> renderTakeover(v, mode, previousMode)
-            is CapsuleMode.SupplementInput -> renderSupplementInput(v, mode)
             is CapsuleMode.Done -> renderDone(v, mode)
             is CapsuleMode.Error -> renderError(v, mode)
             is CapsuleMode.WaitingForInput -> renderWaitingForInput(v, mode, previousMode)
@@ -244,31 +243,6 @@ internal class SmartCapsuleRenderer {
         v.stopIcon.text = "⏹"
         v.stopText.text = "停止"
         v.stopButton.contentDescription = "停止"
-        v.stopButton.visibility = View.VISIBLE
-        v.stopButton.isEnabled = true
-        v.stopButton.alpha = 1f
-    }
-
-    private fun renderSupplementInput(v: CapsuleViews, mode: CapsuleMode.SupplementInput) {
-        stopPulse()
-        v.statusDot.visibility = View.GONE
-        v.thoughtText.text = "补充你的想法"
-        v.thoughtText.alpha = 1f
-        v.expandedBody?.visibility = View.GONE
-
-        v.supplementInputArea?.visibility = View.VISIBLE
-        v.supplementEditText?.text?.clear()
-        v.supplementEditText?.hint = "输入补充信息..."
-
-        // Row 2: only close button
-        v.row2.visibility = View.VISIBLE
-        v.divider.visibility = View.VISIBLE
-        v.supplementButton.visibility = View.GONE
-        v.primaryButton.visibility = View.GONE
-
-        v.stopIcon.text = "✕"
-        v.stopText.text = "取消"
-        v.stopButton.contentDescription = "取消"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f

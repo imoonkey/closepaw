@@ -69,9 +69,47 @@ class CapsuleModeTest {
     }
 
     @Test
-    fun `SupplementInput delegates to previousMode`() {
-        val running = CapsuleMode.Running("搜索中")
-        val supplement = CapsuleMode.SupplementInput(running)
-        assertThat(supplement.displayThought()).isEqualTo("搜索中")
+    fun `displayThought returns null for WaitingForInput`() {
+        val mode = CapsuleMode.WaitingForInput(question = "选哪个?", callId = "c1")
+        assertThat(mode.displayThought()).isNull()
+    }
+
+    @Test
+    fun `isExpanded returns true for WaitingForInput`() {
+        val mode = CapsuleMode.WaitingForInput(question = "选哪个?", callId = "c1")
+        assertThat(mode.isExpanded()).isTrue()
+    }
+
+    @Test
+    fun `isExpanded returns false for Running`() {
+        assertThat(CapsuleMode.Running("test").isExpanded()).isFalse()
+    }
+
+    @Test
+    fun `displayThought returns lastThought for TakeoverPending`() {
+        val mode = CapsuleMode.TakeoverPending("正在切换")
+        assertThat(mode.displayThought()).isEqualTo("正在切换")
+    }
+
+    @Test
+    fun `displayThought returns null for WaitingForAction`() {
+        val mode = CapsuleMode.WaitingForAction(instruction = "请打开设置", callId = "c2")
+        assertThat(mode.displayThought()).isNull()
+    }
+
+    @Test
+    fun `isExpanded returns true for WaitingForAction`() {
+        val mode = CapsuleMode.WaitingForAction(instruction = "请打开设置", callId = "c2")
+        assertThat(mode.isExpanded()).isTrue()
+    }
+
+    @Test
+    fun `isExpanded returns false for Done`() {
+        assertThat(CapsuleMode.Done("ok").isExpanded()).isFalse()
+    }
+
+    @Test
+    fun `isExpanded returns false for Hidden`() {
+        assertThat(CapsuleMode.Hidden.isExpanded()).isFalse()
     }
 }

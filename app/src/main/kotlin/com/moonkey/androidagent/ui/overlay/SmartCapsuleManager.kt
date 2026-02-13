@@ -10,19 +10,18 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
-import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.model.isExpanded
 
 /**
- * SmartCapsuleManager — CapsuleMode-driven floating collaboration surface.
+ * SmartCapsuleManager — pure View renderer for the Smart Capsule overlay.
  *
- * One CapsuleMode value drives the entire UI.
- * Call [updateMode] to change state. Call [updateThought] as a convenience
- * to update the thought text while staying in Running mode.
+ * Does NOT compute state. State is managed by [CapsuleStateHolder].
+ * Call [renderMode] to push a new mode for display. The manager handles
+ * show/hide, rendering, animations, keyboard, and button callbacks.
  *
  * Visual rendering is delegated to [SmartCapsuleRenderer].
- * This class owns overlay lifecycle, state, callbacks, and input management.
+ * Window-level animations are delegated to [SmartCapsuleAnimator].
  */
 class SmartCapsuleManager(
     private val service: AccessibilityService
@@ -33,7 +32,7 @@ class SmartCapsuleManager(
         private const val NUDGE_DELAY_MS = 4 * 60 * 1000L // 4 minutes
     }
 
-    // ── Callbacks ──
+    // ── Callbacks (set by ServiceOverlayController) ──
 
     var onTakeover: (() -> Unit)? = null
     var onResume: (() -> Unit)? = null
@@ -42,21 +41,24 @@ class SmartCapsuleManager(
     var onStop: (() -> Unit)? = null
     var onOpenApp: (() -> Unit)? = null
     var onDismissError: (() -> Unit)? = null
+    var onDoneAutoHide: (() -> Unit)? = null
 
-    // ── State ──
+    // ── Rendering state (cache, not source of truth) ──
+    // INVARIANT: these always match the last renderMode() call.
+    // Read by handlePrimaryClick/handleStopClick to determine current button behavior.
 
     private var mode: CapsuleMode = CapsuleMode.Hidden
+    private var previousMode: CapsuleMode = CapsuleMode.Hidden
     private var views: CapsuleViews? = null
     private var overlayView: ViewGroup? = null
+
+    // ── Timers & runnables ──
+
     private var delayedHideRunnable: Runnable? = null
     private var supplementConfirmedRunnable: Runnable? = null
     private var keyboardShowRunnable: Runnable? = null
     private var nudgeRunnable: Runnable? = null
     private var lastButtonClickTime = 0L
-    var isAgentMidTurn = false
-        internal set
-
-    private var previousMode: CapsuleMode = CapsuleMode.Hidden
 
     private val handler = Handler(Looper.getMainLooper())
     private val windowManager = service.getSystemService(WindowManager::class.java)
@@ -71,20 +73,20 @@ class SmartCapsuleManager(
     fun isShowing(): Boolean = overlayView != null
 
     /**
-     * Update the capsule to a new mode. This is the primary API.
-     * Handles show/hide automatically.
+     * Render the capsule for a new mode. This is the single entry point for visual updates.
+     * State transitions happen in [CapsuleStateHolder]; this method only displays.
      */
-    fun updateMode(newMode: CapsuleMode) {
-        previousMode = mode
+    fun renderMode(newMode: CapsuleMode, prevMode: CapsuleMode) {
+        previousMode = prevMode
         mode = newMode
-        Log.d(TAG, "Mode: ${previousMode::class.simpleName} → ${newMode::class.simpleName}")
+        Log.d(TAG, "Render: ${prevMode::class.simpleName} → ${newMode::class.simpleName}")
 
         // Cancel pending delayed actions and exit animation
         cancelAllRunnables()
         animator.cancelAll()
 
         // If leaving an input mode, hide keyboard
-        if (previousMode is CapsuleMode.SupplementInput || previousMode is CapsuleMode.WaitingForInput) {
+        if (prevMode is CapsuleMode.WaitingForInput) {
             hideKeyboard()
         }
 
@@ -97,17 +99,12 @@ class SmartCapsuleManager(
         }
     }
 
-    /** Convenience: update thought text while in Running mode. */
-    fun updateThought(thought: String) {
-        updateMode(CapsuleMode.Running(thought))
-    }
-
     fun show() {
         if (overlayView != null) return
         try {
             val params = layoutBuilder.createLayoutParams()
             val capsuleViews = layoutBuilder.build(
-                onSupplement = { debounced { enterSupplementInput() } },
+                onSupplement = { /* Supplement via Row 3 in Stage 7+ */ },
                 onPrimary = { debounced { handlePrimaryClick() } },
                 onStop = { debounced { handleStopClick() } },
                 onRow1Tap = { debounced { onOpenApp?.invoke() } },
@@ -146,6 +143,25 @@ class SmartCapsuleManager(
 
     fun dispose() {
         hide()
+    }
+
+    /**
+     * Flash a supplement confirmation on the thought line.
+     * Called by ServiceOverlayController when SupplementReceived event arrives.
+     */
+    fun flashSupplementConfirmation(isAgentMidTurn: Boolean) {
+        val v = views ?: return
+        val originalText = v.thoughtText.text.toString()
+        val confirmText = if (isAgentMidTurn) "✓ 已收到，下一步生效" else "✓ 已收到"
+        val confirmDuration = if (isAgentMidTurn) 2000L else 1500L
+        v.thoughtText.text = confirmText
+        supplementConfirmedRunnable?.let { handler.removeCallbacks(it) }
+        val runnable = Runnable {
+            views?.thoughtText?.text = originalText
+            supplementConfirmedRunnable = null
+        }
+        supplementConfirmedRunnable = runnable
+        handler.postDelayed(runnable, confirmDuration)
     }
 
     // ── Rendering ──
@@ -188,10 +204,6 @@ class SmartCapsuleManager(
                 setOverlayFocusable(false)
                 startNudgeTimer(v)
             }
-            is CapsuleMode.SupplementInput -> {
-                setOverlayFocusable(true)
-                setupSupplementInput(v)
-            }
             is CapsuleMode.Done -> {
                 scheduleAutoHide()
             }
@@ -217,12 +229,8 @@ class SmartCapsuleManager(
     private fun setupAnswerInput(v: CapsuleViews, callId: String) {
         setupInputWithSend(v) { text ->
             onUserResponse?.invoke(callId, text)
-            updateMode(CapsuleMode.Running("处理答复中..."))
+            // State transition handled by CapsuleStateHolder via onUserResponseSent
         }
-    }
-
-    private fun setupSupplementInput(v: CapsuleViews) {
-        setupInputWithSend(v) { onSupplement?.invoke(it) }
     }
 
     private fun setOverlayFocusable(focusable: Boolean) {
@@ -256,82 +264,22 @@ class SmartCapsuleManager(
         imm?.hideSoftInputFromWindow(editText.windowToken, 0)
     }
 
-    /**
-     * Cancel supplement input if active (e.g. when ask_user arrives while user is typing).
-     */
-    fun cancelSupplementIfActive() {
-        if (mode is CapsuleMode.SupplementInput) {
-            hideKeyboard()
-            views?.supplementEditText?.text?.clear()
-            views?.supplementInputArea?.visibility = View.GONE
-        }
-    }
-
-    // ── Takeover / Supplement transitions ──
-
-    private fun enterSupplementInput() {
-        updateMode(CapsuleMode.SupplementInput(previousMode = mode))
-    }
-
-    private fun requestTakeover() {
-        val lastThought = (mode as? CapsuleMode.Running)?.thought ?: ""
-        updateMode(CapsuleMode.TakeoverPending(lastThought))
-        onTakeover?.invoke()
-    }
-
-    /**
-     * Called by ServiceOverlayController when SessionTakeover event arrives.
-     */
-    fun onTakeoverConfirmed() {
-        val lastThought = when (val m = mode) {
-            is CapsuleMode.TakeoverPending -> m.lastThought
-            is CapsuleMode.Running -> m.thought
-            else -> ""
-        }
-        updateMode(CapsuleMode.Takeover(lastThought))
-    }
-
-    /**
-     * Called by ServiceOverlayController when SupplementReceived event arrives.
-     * Shows a brief confirmation flash on the thought line.
-     */
-    fun onSupplementConfirmed() {
-        val previousMode = (mode as? CapsuleMode.SupplementInput)?.previousMode
-        if (previousMode != null) {
-            updateMode(previousMode)
-        }
-        val v = views ?: return
-        val originalText = v.thoughtText.text.toString()
-        val confirmText = if (isAgentMidTurn) "✓ 已收到，下一步生效" else "✓ 已收到"
-        val confirmDuration = if (isAgentMidTurn) 2000L else 1500L
-        v.thoughtText.text = confirmText
-        supplementConfirmedRunnable?.let { handler.removeCallbacks(it) }
-        val runnable = Runnable {
-            views?.thoughtText?.text = originalText
-            supplementConfirmedRunnable = null
-        }
-        supplementConfirmedRunnable = runnable
-        handler.postDelayed(runnable, confirmDuration)
-    }
-
     // ── Button logic ──
 
     private fun handlePrimaryClick() {
         when (val m = mode) {
-            is CapsuleMode.Running -> requestTakeover()
+            is CapsuleMode.Running -> onTakeover?.invoke()
             is CapsuleMode.Takeover -> onResume?.invoke()
             is CapsuleMode.WaitingForAction -> {
                 onUserResponse?.invoke(m.callId, "done")
-                updateMode(CapsuleMode.Running("处理中..."))
             }
             else -> {}
         }
     }
 
     private fun handleStopClick() {
-        when (val m = mode) {
+        when (mode) {
             is CapsuleMode.Error -> onDismissError?.invoke() ?: hide()
-            is CapsuleMode.SupplementInput -> updateMode(m.previousMode)
             else -> onStop?.invoke()
         }
     }
@@ -341,7 +289,7 @@ class SmartCapsuleManager(
     private fun scheduleAutoHide() {
         delayedHideRunnable = Runnable {
             val container = overlayView ?: run { hide(); return@Runnable }
-            animator.animateExit(container) { hide() }
+            animator.animateExit(container) { onDoneAutoHide?.invoke() ?: hide() }
         }.also { handler.postDelayed(it, 3000) }
     }
 
@@ -382,43 +330,5 @@ class SmartCapsuleManager(
         if (now - lastButtonClickTime < DEBOUNCE_MS) return
         lastButtonClickTime = now
         action()
-    }
-
-    // ── Event handlers (used by ServiceOverlayController) ──
-
-    fun onTaskStarted(taskId: String, userInput: String) {
-        updateMode(CapsuleMode.Running("${userInput.take(30)}..."))
-    }
-
-    fun onMessageDelta(turnId: String, delta: String) {
-        maybeUpdatePlaceholderThought { delta.replace("\n", " ").trim() }
-    }
-
-    fun onActionExecuted(toolName: String, success: Boolean) { /* no-op */ }
-
-    fun onTaskCompleted(reason: CompletionReason = CompletionReason.GOAL_ACHIEVED) {
-        val message = when (reason) {
-            CompletionReason.GOAL_ACHIEVED -> "已完成"
-            CompletionReason.MAX_TURNS -> "已达到最大步数"
-            CompletionReason.TASK_IMPOSSIBLE -> "无法完成任务"
-            CompletionReason.USER_STOPPED -> "已停止"
-            CompletionReason.ERROR -> "发生错误"
-            CompletionReason.INTERRUPTED -> "已中断"
-        }
-        updateMode(CapsuleMode.Done(message))
-    }
-
-    fun onError(message: String) {
-        updateMode(CapsuleMode.Error(message.take(40)))
-    }
-
-    fun updateStatus(status: String) {
-        maybeUpdatePlaceholderThought { status.replace(Regex("[🚀👀🧠💡✅⏸️❌⚠️✓]"), "").trim() }
-    }
-
-    private fun maybeUpdatePlaceholderThought(process: () -> String?) {
-        val current = mode as? CapsuleMode.Running ?: return
-        if (current.thought != "思考中...") return
-        process()?.take(40)?.takeIf { it.isNotEmpty() }?.let { updateMode(CapsuleMode.Running(it)) }
     }
 }
