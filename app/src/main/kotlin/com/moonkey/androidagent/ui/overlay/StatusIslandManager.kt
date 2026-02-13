@@ -4,8 +4,6 @@ import android.accessibilityservice.AccessibilityService
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
@@ -14,6 +12,10 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import com.moonkey.androidagent.ui.overlay.model.CapsuleColors
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.model.GlowState
@@ -38,15 +40,13 @@ class StatusIslandManager(
 ) {
     companion object {
         private const val TAG = "StatusIslandManager"
-        private const val AUTO_HIDE_DELAY_MS = 3000L
     }
 
     private val wm = service.getSystemService(WindowManager::class.java)
-    private val handler = Handler(Looper.getMainLooper())
     private var pillView: ViewGroup? = null
     private var statusText: TextView? = null
     private var statusDot: View? = null
-    private var autoHideRunnable: Runnable? = null
+    private var observeJob: Job? = null
 
     // Colors
     private val colorBackground = 0xFFFFFFFF.toInt()
@@ -66,7 +66,6 @@ class StatusIslandManager(
     }
 
     fun hide() {
-        cancelAutoHide()
         pillView?.let {
             try {
                 wm.removeView(it)
@@ -82,42 +81,43 @@ class StatusIslandManager(
     fun isShowing(): Boolean = pillView != null
 
     /**
-     * Unified rendering from CapsuleMode + GlowState.
-     * Derives display text and dot color from mode. No manual state tracking needed.
+     * Observe state holder mode and update island reactively.
      */
-    fun renderMode(mode: CapsuleMode, glowState: GlowState) {
-        val text = when (mode) {
-            is CapsuleMode.Running -> mode.thought.take(24)
-            is CapsuleMode.TakeoverPending -> "Handing over..."
-            is CapsuleMode.Takeover -> "Paused"
-            is CapsuleMode.WaitingForInput -> "Awaiting response"
-            is CapsuleMode.WaitingForAction -> "Action needed"
-            is CapsuleMode.Done -> "Done: ${mode.message.take(18)}"
-            is CapsuleMode.Error -> "Error: ${mode.message.take(18)}"
-            is CapsuleMode.Hidden -> ""
-        }
-        val dotColor = glowStateColor(glowState)
-        updateDisplay(text, dotColor)
-
-        // Auto-hide after terminal states
-        cancelAutoHide()
-        if (mode is CapsuleMode.Done || mode is CapsuleMode.Hidden) {
-            val runnable = Runnable { hide() }
-            autoHideRunnable = runnable
-            handler.postDelayed(runnable, AUTO_HIDE_DELAY_MS)
+    fun startObserving(stateHolder: CapsuleStateHolder, scope: CoroutineScope) {
+        if (observeJob != null) return
+        observeJob = scope.launch {
+            stateHolder.mode.collectLatest { mode ->
+                if (mode is CapsuleMode.Hidden) {
+                    hide()
+                    return@collectLatest
+                }
+                if (!isShowing()) show()
+                updateDisplay(
+                    text = modeText(mode),
+                    dotColor = glowStateColor(stateHolder.derivedGlowState),
+                )
+            }
         }
     }
 
     fun dispose() {
+        observeJob?.cancel()
+        observeJob = null
         hide()
     }
 
-    private fun cancelAutoHide() {
-        autoHideRunnable?.let { handler.removeCallbacks(it) }
-        autoHideRunnable = null
-    }
-
     // ── Private: display update ──
+
+    private fun modeText(mode: CapsuleMode): String = when (mode) {
+        is CapsuleMode.Running -> mode.thought.take(24)
+        is CapsuleMode.TakeoverPending -> "Handing over..."
+        is CapsuleMode.Takeover -> "Paused"
+        is CapsuleMode.WaitingForInput -> "Awaiting response"
+        is CapsuleMode.WaitingForAction -> "Action needed"
+        is CapsuleMode.Done -> "Done: ${mode.message.take(18)}"
+        is CapsuleMode.Error -> "Error: ${mode.message.take(18)}"
+        is CapsuleMode.Hidden -> ""
+    }
 
     private fun updateDisplay(text: String, dotColor: Int) {
         statusText?.post {

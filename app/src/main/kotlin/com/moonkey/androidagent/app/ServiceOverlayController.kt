@@ -80,6 +80,10 @@ class ServiceOverlayController(
     private var isAppInForeground = true
     private var lastKnownForegroundPackage: String? = null
 
+    init {
+        statusIslandManager?.startObserving(stateHolder, scope)
+    }
+
     /** Set platform mode. Call before any events are dispatched. */
     fun setPlatformMode(mode: PlatformMode) {
         platformMode = mode
@@ -102,7 +106,6 @@ class ServiceOverlayController(
 
     fun showIsland() {
         statusIslandManager?.show()
-        renderIsland()
     }
 
     fun hideIsland() {
@@ -139,7 +142,7 @@ class ServiceOverlayController(
     fun updateStatus(status: String) {
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                renderIsland()
+                // No-op: StatusIsland observes state holder reactively.
             }
             PlatformMode.ACCESSIBILITY -> {
                 maybeUpdatePlaceholderThought(status)
@@ -151,7 +154,6 @@ class ServiceOverlayController(
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
                 statusIslandManager?.show()
-                renderIsland()
             }
             PlatformMode.ACCESSIBILITY -> {
                 capsuleManager.show()
@@ -196,7 +198,6 @@ class ServiceOverlayController(
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
                 statusIslandManager?.show()
-                renderIsland()
             }
             PlatformMode.ACCESSIBILITY -> {
                 Log.i(logTag, "Task started: $taskId, input: $input, isAppInForeground=$isAppInForeground")
@@ -226,7 +227,7 @@ class ServiceOverlayController(
 
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                renderIsland()
+                // No-op: island updates via StateFlow observer.
             }
             PlatformMode.ACCESSIBILITY -> {
                 edgeGlowManager.updateState(stateHolder.derivedGlowState)
@@ -237,7 +238,7 @@ class ServiceOverlayController(
     fun onActionExecuted(toolName: String, success: Boolean) {
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                renderIsland()
+                // No-op: island updates via StateFlow observer.
             }
             PlatformMode.ACCESSIBILITY -> {
                 edgeGlowManager.updateState(stateHolder.derivedGlowState)
@@ -259,7 +260,7 @@ class ServiceOverlayController(
 
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                renderIsland()
+                // No-op: island updates via StateFlow observer.
             }
             PlatformMode.ACCESSIBILITY -> {
                 edgeGlowManager.updateState(stateHolder.derivedGlowState)
@@ -273,7 +274,7 @@ class ServiceOverlayController(
 
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                renderIsland()
+                // No-op: island updates via StateFlow observer.
             }
             PlatformMode.ACCESSIBILITY -> {
                 if (!stateHolder.hasActiveTask || isAppInForeground) {
@@ -290,7 +291,7 @@ class ServiceOverlayController(
 
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                renderIsland()
+                // No-op: island updates via StateFlow observer.
             }
             PlatformMode.ACCESSIBILITY -> {
                 edgeGlowManager.updateState(stateHolder.derivedGlowState)
@@ -304,9 +305,7 @@ class ServiceOverlayController(
 
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                // If capsule is showing (from ask_user), hide it — interaction is done
-                if (capsuleManager.isShowing()) capsuleManager.hide()
-                renderIsland()
+                // No-op: island updates via StateFlow observer.
             }
             PlatformMode.ACCESSIBILITY -> {
                 // Manager auto-renders via observer
@@ -319,7 +318,7 @@ class ServiceOverlayController(
 
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                renderIsland()
+                // No-op: island updates via StateFlow observer.
             }
             PlatformMode.ACCESSIBILITY -> {
                 edgeGlowManager.updateState(stateHolder.derivedGlowState)
@@ -333,8 +332,7 @@ class ServiceOverlayController(
 
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                if (capsuleManager.isShowing()) capsuleManager.hide()
-                renderIsland()
+                // No-op: island updates via StateFlow observer.
             }
             PlatformMode.ACCESSIBILITY -> {
                 edgeGlowManager.updateState(stateHolder.derivedGlowState)
@@ -346,7 +344,7 @@ class ServiceOverlayController(
     fun onSupplementReceived(text: String) {
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                renderIsland()
+                // No-op: island updates via StateFlow observer.
             }
             PlatformMode.ACCESSIBILITY -> {
                 capsuleManager.flashSupplementConfirmation(stateHolder.isAgentMidTurn.value)
@@ -362,22 +360,11 @@ class ServiceOverlayController(
                 // Show SmartCapsule overlay for ask_user (user needs input UI)
                 capsuleManager.show()
                 // Manager auto-renders via observer
-                renderIsland()
             }
             PlatformMode.ACCESSIBILITY -> {
                 // Manager auto-renders via observer
             }
         }
-    }
-
-    // ── Private: island rendering ──
-
-    /**
-     * Push current state to StatusIslandManager.
-     * Island is simple enough to use a push model.
-     */
-    private fun renderIsland() {
-        statusIslandManager?.renderMode(stateHolder.mode.value, stateHolder.derivedGlowState)
     }
 
     // ── Private: thought update ──
