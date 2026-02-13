@@ -33,29 +33,3 @@ sealed interface CapsuleMode {
     /** No active task. Capsule hidden. */
     data object Hidden : CapsuleMode
 }
-
-/**
- * Extract the thought text to display, regardless of mode.
- * Returns null for modes that don't show a thought line.
- */
-fun CapsuleMode.displayThought(): String? = when (this) {
-    is CapsuleMode.Running -> thought
-    is CapsuleMode.TakeoverPending -> lastThought
-    is CapsuleMode.Takeover -> lastThought
-    is CapsuleMode.Done -> "✓ $message"
-    is CapsuleMode.Error -> "⚠ $message"
-    is CapsuleMode.WaitingForInput -> null // Uses expanded layout
-    is CapsuleMode.WaitingForAction -> null // Uses expanded layout
-    is CapsuleMode.Hidden -> null
-}
-
-/**
- * True if mode shows expanded body (question/instruction).
- */
-fun CapsuleMode.isExpanded(): Boolean = when (this) {
-    is CapsuleMode.WaitingForInput,
-    is CapsuleMode.WaitingForAction -> true
-    else -> false
-}
-
-// sanitizeThought moved to protocol/TextUtils.kt to avoid cross-layer dependency

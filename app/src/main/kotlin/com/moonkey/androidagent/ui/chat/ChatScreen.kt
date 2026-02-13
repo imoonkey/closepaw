@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.moonkey.androidagent.app.AgentService
 import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.protocol.PlatformMode
+import com.moonkey.androidagent.ui.capsule.NavAction
 import com.moonkey.androidagent.ui.capsule.SmartCapsuleCompose
 import com.moonkey.androidagent.ui.chat.components.ChatHeader
 import com.moonkey.androidagent.ui.chat.components.EmptyState
@@ -54,6 +55,7 @@ fun ChatScreen(
     onNewSession: () -> Unit,
     onDeleteSession: (SessionInfo) -> Unit,
     onLoadSessions: () -> Unit,
+    onOpenViewer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -127,11 +129,12 @@ fun ChatScreen(
                     onResume = viewModel::requestResume,
                     onStop = viewModel::stopTask,
                     onUserResponse = viewModel::sendUserResponse,
-                    onDismissError = { stateHolder?.onDismissError() },
-                    // In MAIN_APP context, nav buttons [1] ⊖ and [2] 📱 are hidden.
-                    // [3] 👁 (Watch) only appears in VD mode — wire to Activity's startActivity
-                    // for VirtualDisplayViewerActivity if needed. Currently no-op.
-                    onNavigate = { /* No-op: nav buttons hidden in MAIN_APP context */ }
+                    onDismissError = { viewModel.dismissError() },
+                    onNavigate = { action ->
+                        if (action == NavAction.OPEN_VIEWER) {
+                            onOpenViewer()
+                        }
+                    }
                 )
             }
         ) { paddingValues ->

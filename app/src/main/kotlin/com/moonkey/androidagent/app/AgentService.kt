@@ -233,7 +233,6 @@ class AgentService : AccessibilityService() {
     private fun updateStatus(status: String) {
         Log.d(TAG, status)
         _statusFlow.value = status
-        overlayController?.updateStatus(status)
     }
 
     /**
@@ -419,8 +418,11 @@ class AgentService : AccessibilityService() {
         currentPlatformMode = platformMode
         overlayController?.setPlatformMode(platformMode)
 
-        // Show initial overlay
-        overlayController?.showCapsule()
+        // Show initial overlay window for the selected platform.
+        when (platformMode) {
+            PlatformMode.VIRTUAL_DISPLAY -> overlayController?.showIsland()
+            PlatformMode.ACCESSIBILITY -> overlayController?.showCapsuleOverlay()
+        }
 
         // Create and run session in coroutine
         scope.launch {

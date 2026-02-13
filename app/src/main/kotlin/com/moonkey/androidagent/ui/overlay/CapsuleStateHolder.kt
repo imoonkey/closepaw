@@ -65,7 +65,18 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
     val derivedGlowState: GlowState get() = deriveGlowState(_mode.value, _turnPhase.value)
 
     /** Whether there's an active task (derived from mode). */
-    val hasActiveTask: Boolean get() = _mode.value !is CapsuleMode.Hidden
+    val hasActiveTask: Boolean
+        get() =
+            when (_mode.value) {
+                is CapsuleMode.Running,
+                is CapsuleMode.TakeoverPending,
+                is CapsuleMode.Takeover,
+                is CapsuleMode.WaitingForInput,
+                is CapsuleMode.WaitingForAction -> true
+                is CapsuleMode.Done,
+                is CapsuleMode.Error,
+                is CapsuleMode.Hidden -> false
+            }
 
     private var autoHideJob: Job? = null
 

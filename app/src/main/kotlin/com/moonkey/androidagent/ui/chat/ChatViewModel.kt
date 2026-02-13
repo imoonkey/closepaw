@@ -3,6 +3,7 @@ package com.moonkey.androidagent.ui.chat
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.moonkey.androidagent.app.AgentService
 import com.moonkey.androidagent.history.SessionHistoryManager
 import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.protocol.AgentEvent
@@ -356,6 +357,11 @@ class ChatViewModel(
     fun sendUserResponse(callId: String, response: String) {
         val session = sessionProvider() ?: return
         viewModelScope.launch { session.submit(Op.UserResponse(callId, response)) }
+    }
+
+    fun dismissError() {
+        AgentService.instance?.capsuleStateHolder?.onDismissError()
+        _taskBannerState.value = TaskBannerState.Idle
     }
 
     /** Clear conversation history. */

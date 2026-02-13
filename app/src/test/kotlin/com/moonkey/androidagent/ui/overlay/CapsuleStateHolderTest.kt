@@ -299,4 +299,17 @@ class CapsuleStateHolderTest {
         holder.onTaskStarted("task1", "input")
         assertThat(holder.hasActiveTask).isTrue()
     }
+
+    @Test
+    fun `hasActiveTask is false when Done`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED)
+        assertThat(holder.hasActiveTask).isFalse()
+    }
+
+    @Test
+    fun `hasActiveTask is false when Error`() {
+        holder.onError("error")
+        assertThat(holder.hasActiveTask).isFalse()
+    }
 }

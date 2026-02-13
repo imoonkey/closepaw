@@ -35,6 +35,7 @@ import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
 import com.moonkey.androidagent.ui.settings.SettingsSheet
 import com.moonkey.androidagent.ui.settings.catalogModelOptions
 import com.moonkey.androidagent.ui.theme.ChatTheme
+import com.moonkey.androidagent.ui.viewer.VirtualDisplayViewerActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -154,7 +155,8 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         onDeleteSession = { session -> viewModel.deleteSession(session) },
-                        onLoadSessions = { viewModel.loadSessions() }
+                        onLoadSessions = { viewModel.loadSessions() },
+                        onOpenViewer = { openViewer() },
                 )
 
                 if (showSettings) {
@@ -489,6 +491,11 @@ class MainActivity : ComponentActivity() {
     private fun openOverlaySettings() {
         val intent =
                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+        startActivity(intent)
+    }
+
+    private fun openViewer() {
+        val intent = Intent(this, VirtualDisplayViewerActivity::class.java)
         startActivity(intent)
     }
 }

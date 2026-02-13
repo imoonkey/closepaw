@@ -11,7 +11,6 @@ import com.moonkey.androidagent.ui.overlay.EdgeGlowManager
 import com.moonkey.androidagent.ui.overlay.SmartCapsuleManager
 import com.moonkey.androidagent.ui.overlay.StatusIslandManager
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
-import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -114,12 +113,18 @@ class ServiceOverlayController(
 
     /** Called when status island is tapped — expand capsule overlay, hide island. */
     fun onIslandTapped() {
+        if (!stateHolder.hasActiveTask) {
+            onOpenApp()
+            return
+        }
         stateHolder.setContext(CapsuleContext.SCREEN_VIEWING)
         capsuleManager.updateNavContext(
             CapsuleContext.SCREEN_VIEWING, platformMode, hasIsland = statusIslandManager != null
         )
         showCapsuleOverlay()
-        hideIsland()
+        if (capsuleManager.isShowing()) {
+            hideIsland()
+        }
     }
 
     /** Called when VD viewer activity becomes visible. */
@@ -129,7 +134,9 @@ class ServiceOverlayController(
             CapsuleContext.SCREEN_VIEWING, platformMode, hasIsland = statusIslandManager != null
         )
         showCapsuleOverlay()
-        hideIsland()
+        if (capsuleManager.isShowing()) {
+            hideIsland()
+        }
     }
 
     /** Called when VD viewer activity becomes hidden. */
@@ -137,28 +144,6 @@ class ServiceOverlayController(
         stateHolder.setContext(CapsuleContext.BACKGROUND)
         hideCapsuleOverlay()
         showIsland()
-    }
-
-    fun updateStatus(status: String) {
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: StatusIsland observes state holder reactively.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                maybeUpdatePlaceholderThought(status)
-            }
-        }
-    }
-
-    fun showCapsule() {
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                statusIslandManager?.show()
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                capsuleManager.show()
-            }
-        }
     }
 
     fun hideAll() {
@@ -210,13 +195,13 @@ class ServiceOverlayController(
         }
     }
 
-    fun onMessageDelta(turnId: String, delta: String) {
+    fun onMessageDelta(_turnId: String, _delta: String) {
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                // Status island doesn't show streaming text — too small.
+                // No-op: Status island does not render streaming deltas.
             }
             PlatformMode.ACCESSIBILITY -> {
-                maybeUpdatePlaceholderThought(delta.replace("\n", " ").trim())
+                // No-op: canonical thought text is updated via ThoughtUpdate event.
             }
         }
     }
@@ -365,21 +350,6 @@ class ServiceOverlayController(
                 // Manager auto-renders via observer
             }
         }
-    }
-
-    // ── Private: thought update ──
-
-    /**
-     * Update thought text only if capsule is in Running mode with placeholder thought.
-     * Used for status updates and message deltas that arrive before ThoughtUpdate events.
-     */
-    private fun maybeUpdatePlaceholderThought(text: String) {
-        val current = stateHolder.mode.value as? CapsuleMode.Running ?: return
-        if (current.thought != "Thinking...") return
-        val cleaned = text.replace(Regex("[🚀👀🧠💡✅⏸️❌⚠️✓]"), "").trim()
-        val display = cleaned.take(40).takeIf { it.isNotEmpty() } ?: return
-        stateHolder.onThoughtUpdate(display)
-        // Manager auto-renders via observer — no push needed
     }
 
     // ── Private: A11y mode window tracking ──

@@ -14,7 +14,6 @@ import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.model.CapsuleRenderSpec
 import com.moonkey.androidagent.ui.overlay.model.NavSpec
-import com.moonkey.androidagent.ui.overlay.model.isExpanded
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -378,7 +377,10 @@ class SmartCapsuleManager(
     // ── Animation helpers ──
 
     private fun isHeightTransition(from: CapsuleMode, to: CapsuleMode): Boolean =
-        from.isExpanded() != to.isExpanded()
+        isExpandedMode(from) != isExpandedMode(to)
+
+    private fun isExpandedMode(mode: CapsuleMode): Boolean =
+        mode is CapsuleMode.WaitingForInput || mode is CapsuleMode.WaitingForAction
 
     // ── Debounce ──
 
