@@ -78,6 +78,15 @@ class ServiceOverlayController(
     private var platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     private var isAppInForeground = true
     private var lastKnownForegroundPackage: String? = null
+    private var isViewerVisible = false
+
+    private enum class ContextTrigger {
+        PLATFORM_CHANGED,
+        ISLAND_TAPPED,
+        VIEWER_OPENED,
+        VIEWER_CLOSED,
+        A11Y_FOREGROUND_CHANGED
+    }
 
     init {
         statusIslandManager?.startObserving(stateHolder, scope)
@@ -87,9 +96,7 @@ class ServiceOverlayController(
     fun setPlatformMode(mode: PlatformMode) {
         platformMode = mode
         stateHolder.setPlatformMode(mode)
-        capsuleManager.updateNavContext(
-            stateHolder.context.value, mode, hasIsland = statusIslandManager != null
-        )
+        updateContext(ContextTrigger.PLATFORM_CHANGED)
     }
 
     // ── Capsule overlay + island management (for VD mode navigation) ──
@@ -117,10 +124,7 @@ class ServiceOverlayController(
             onOpenApp()
             return
         }
-        stateHolder.setContext(CapsuleContext.SCREEN_VIEWING)
-        capsuleManager.updateNavContext(
-            CapsuleContext.SCREEN_VIEWING, platformMode, hasIsland = statusIslandManager != null
-        )
+        updateContext(ContextTrigger.ISLAND_TAPPED)
         showCapsuleOverlay()
         if (capsuleManager.isShowing()) {
             hideIsland()
@@ -129,10 +133,8 @@ class ServiceOverlayController(
 
     /** Called when VD viewer activity becomes visible. */
     fun onViewerOpened() {
-        stateHolder.setContext(CapsuleContext.SCREEN_VIEWING)
-        capsuleManager.updateNavContext(
-            CapsuleContext.SCREEN_VIEWING, platformMode, hasIsland = statusIslandManager != null
-        )
+        isViewerVisible = true
+        updateContext(ContextTrigger.VIEWER_OPENED)
         showCapsuleOverlay()
         if (capsuleManager.isShowing()) {
             hideIsland()
@@ -141,7 +143,8 @@ class ServiceOverlayController(
 
     /** Called when VD viewer activity becomes hidden. */
     fun onViewerClosed() {
-        stateHolder.setContext(CapsuleContext.BACKGROUND)
+        isViewerVisible = false
+        updateContext(ContextTrigger.VIEWER_CLOSED)
         hideCapsuleOverlay()
         showIsland()
     }
@@ -385,20 +388,40 @@ class ServiceOverlayController(
             if (wasInForeground != isAppInForeground && stateHolder.hasActiveTask) {
                 if (isAppInForeground) {
                     Log.d(logTag, "Our app in foreground, hiding capsule and glow")
-                    stateHolder.setContext(CapsuleContext.MAIN_APP)
+                    updateContext(ContextTrigger.A11Y_FOREGROUND_CHANGED)
                     capsuleManager.hide()
                     edgeGlowManager.hideImmediately()
                 } else {
                     Log.d(logTag, "Our app went to background with active task, showing capsule and glow")
-                    stateHolder.setContext(CapsuleContext.SCREEN_VIEWING)
+                    updateContext(ContextTrigger.A11Y_FOREGROUND_CHANGED)
                     edgeGlowManager.show(stateHolder.derivedGlowState)
-                    capsuleManager.updateNavContext(
-                        CapsuleContext.SCREEN_VIEWING, platformMode, hasIsland = statusIslandManager != null
-                    )
                     capsuleManager.show()
                     // Manager auto-renders via observer
                 }
             }
         }
+    }
+
+    private fun updateContext(trigger: ContextTrigger) {
+        val context = when (trigger) {
+            ContextTrigger.ISLAND_TAPPED,
+            ContextTrigger.VIEWER_OPENED -> CapsuleContext.SCREEN_VIEWING
+            ContextTrigger.VIEWER_CLOSED -> CapsuleContext.BACKGROUND
+            ContextTrigger.PLATFORM_CHANGED,
+            ContextTrigger.A11Y_FOREGROUND_CHANGED -> when (platformMode) {
+                PlatformMode.ACCESSIBILITY -> {
+                    if (isAppInForeground) CapsuleContext.MAIN_APP else CapsuleContext.SCREEN_VIEWING
+                }
+                PlatformMode.VIRTUAL_DISPLAY -> {
+                    if (isViewerVisible) CapsuleContext.SCREEN_VIEWING else CapsuleContext.BACKGROUND
+                }
+            }
+        }
+        stateHolder.setContext(context)
+        capsuleManager.updateNavContext(
+            context,
+            platformMode,
+            hasIsland = statusIslandManager != null
+        )
     }
 }
