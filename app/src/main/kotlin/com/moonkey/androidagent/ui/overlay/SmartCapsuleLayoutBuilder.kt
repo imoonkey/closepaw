@@ -17,35 +17,45 @@ import android.widget.TextView
 
 /**
  * CapsuleViews — handles to the key views inside the capsule.
- * Used by SmartCapsuleManager to update content and visibility.
+ * Used by SmartCapsuleManager and SmartCapsuleRenderer to update content and visibility.
  */
 internal data class CapsuleViews(
     val container: ViewGroup,
+    // Row 1: status dot + thought
     val row1: ViewGroup,
     val statusDot: View,
     val thoughtText: TextView,
-    val divider: View,
+    // Divider 1 (between Row 1 and expanded body / Row 2)
+    val divider1: View,
     // Expanded body — shown in WaitingFor* states (question/instruction text)
     val expandedBody: TextView? = null,
+    // Row 2: control buttons (left) + nav icons (right)
     val row2: ViewGroup,
-    val supplementButton: ViewGroup,
     val primaryButton: ViewGroup,
     val primaryIcon: TextView,
     val primaryText: TextView,
     val stopButton: ViewGroup,
     val stopIcon: TextView,
     val stopText: TextView,
-    // Supplement input area (hidden by default, shown in WaitingForInput)
-    val supplementInputArea: ViewGroup? = null,
-    val supplementEditText: EditText? = null,
-    val supplementSendButton: View? = null,
+    // Navigation icons (right side of Row 2)
+    val navMinimize: View? = null,   // [1] ⊖
+    val navApp: View? = null,        // [2] 📱
+    val navWatch: View? = null,      // [3] 👁
+    // Divider 2 (between Row 2 and Row 3)
+    val divider2: View,
+    // Row 3: input + action button
+    val row3: ViewGroup,
+    val inputEditText: EditText,
+    val inputButton: ViewGroup,
+    val inputButtonText: TextView,
 )
 
 /**
- * SmartCapsuleLayoutBuilder — builds the two-row capsule view hierarchy.
+ * SmartCapsuleLayoutBuilder — builds the three-row capsule view hierarchy.
  *
  * Row 1: [StatusDot] [ThoughtText]
- * Row 2: [补充] [接管/继续] [停止]
+ * Row 2: [接管/继续] [停止]  ...  [⊖] [📱] [👁]
+ * Row 3: [EditText] [发送/补充]
  *
  * All views are built programmatically (no XML layouts in overlay context).
  * The builder is stateless — call build() to get a fresh CapsuleViews.
@@ -66,12 +76,17 @@ internal class SmartCapsuleLayoutBuilder(
     private val colorRedLight = 0xFFFEE2E2.toInt()
     private val colorGrayBg = 0xFFF9FAFB.toInt()
     private val colorGrayBorder = 0xFFE5E7EB.toInt()
+    private val colorNavGray = 0xFF9CA3AF.toInt()
 
     fun build(
-        onSupplement: () -> Unit,
         onPrimary: () -> Unit,
         onStop: () -> Unit,
         onRow1Tap: (() -> Unit)? = null,
+        onRow3Submit: () -> Unit,
+        onMinimize: (() -> Unit)? = null,
+        onNavApp: (() -> Unit)? = null,
+        onNavWatch: (() -> Unit)? = null,
+        onInputFocused: () -> Unit = {},
     ): CapsuleViews {
         // Outer container with side margins
         val container = FrameLayout(context).apply {
@@ -130,17 +145,9 @@ internal class SmartCapsuleLayoutBuilder(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ))
 
-        // ── Divider ──
-        val divider = View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(1)
-            ).apply {
-                marginStart = dp(16)
-                marginEnd = dp(16)
-            }
-            setBackgroundColor(dividerGray)
-        }
-        card.addView(divider)
+        // ── Divider 1 ──
+        val divider1 = buildDivider()
+        card.addView(divider1)
 
         // ── Expanded body (hidden by default, shown in WaitingFor* states) ──
         val expandedBody = TextView(context).apply {
@@ -156,22 +163,12 @@ internal class SmartCapsuleLayoutBuilder(
         }
         card.addView(expandedBody)
 
-        // ── Row 2: Control buttons ──
+        // ── Row 2: Control buttons (left) + nav icons (right) ──
         val row2 = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(10))
         }
-
-        // Supplement button (outlined, secondary)
-        val supplementResult = buildPillButton(
-            icon = "💬", label = "补充",
-            bgColor = colorGrayBg, borderColor = colorGrayBorder, textColor = textSecondary,
-            onClick = onSupplement
-        )
-        row2.addView(supplementResult.container, pillLayoutParams(weight = 1f))
-
-        row2.addView(spacer(dp(8)))
 
         // Primary button (filled, blue — 接管/继续)
         val primaryResult = buildPillButton(
@@ -179,7 +176,9 @@ internal class SmartCapsuleLayoutBuilder(
             bgColor = colorBlue, borderColor = colorBlue, textColor = textWhite,
             onClick = onPrimary
         )
-        row2.addView(primaryResult.container, pillLayoutParams(weight = 1f))
+        row2.addView(primaryResult.container, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
 
         row2.addView(spacer(dp(8)))
 
@@ -189,22 +188,44 @@ internal class SmartCapsuleLayoutBuilder(
             bgColor = colorRedLight, borderColor = colorRed, textColor = colorRed,
             onClick = onStop
         )
-        row2.addView(stopResult.container, pillLayoutParams(weight = 1f))
+        row2.addView(stopResult.container, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+
+        // Flexible spacer pushes nav icons to the right
+        row2.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 0, 1f)
+        })
+
+        // Navigation icons [1] [2] [3]
+        val navMinimize = buildNavIcon("⊖", "最小化") { onMinimize?.invoke() }
+        row2.addView(navMinimize)
+        row2.addView(spacer(dp(4)))
+
+        val navApp = buildNavIcon("📱", "打开应用") { onNavApp?.invoke() }
+        row2.addView(navApp)
+        row2.addView(spacer(dp(4)))
+
+        val navWatch = buildNavIcon("👁", "查看屏幕") { onNavWatch?.invoke() }
+        row2.addView(navWatch)
 
         card.addView(row2, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ))
 
-        // ── Supplement input area (hidden by default) ──
-        val supplementInputRow = LinearLayout(context).apply {
+        // ── Divider 2 ──
+        val divider2 = buildDivider()
+        card.addView(divider2)
+
+        // ── Row 3: Input + action button ──
+        val row3 = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(4), dp(12), dp(10))
-            visibility = View.GONE
+            setPadding(dp(12), dp(8), dp(12), dp(10))
         }
 
-        val supplementEditText = EditText(context).apply {
-            hint = "输入..." // Renderer overrides hint per mode
+        val inputEditText = EditText(context).apply {
+            hint = "有想法? 补充一下..."
             setTextColor(textPrimary)
             setHintTextColor(textSecondary)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
@@ -219,31 +240,25 @@ internal class SmartCapsuleLayoutBuilder(
             layoutParams = LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f
             )
-        }
-        supplementInputRow.addView(supplementEditText)
-
-        supplementInputRow.addView(spacer(dp(8)))
-
-        val sendButton = TextView(context).apply {
-            text = "发送"
-            setTextColor(textWhite)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            gravity = Gravity.CENTER
-            setPadding(dp(14), dp(8), dp(14), dp(8))
-            background = GradientDrawable().apply {
-                setColor(colorBlue)
-                cornerRadius = dp(16).toFloat()
+            setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) onInputFocused()
             }
-            isClickable = true
-            isFocusable = true
-            contentDescription = "发送"
         }
-        supplementInputRow.addView(sendButton, LinearLayout.LayoutParams(
+        row3.addView(inputEditText)
+
+        row3.addView(spacer(dp(8)))
+
+        // Action button (pill-shaped: "发送 →" or "💬 补充")
+        val inputButtonResult = buildPillButton(
+            icon = "💬", label = "补充",
+            bgColor = colorBlue, borderColor = colorBlue, textColor = textWhite,
+            onClick = onRow3Submit
+        )
+        row3.addView(inputButtonResult.container, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ))
 
-        card.addView(supplementInputRow, LinearLayout.LayoutParams(
+        card.addView(row3, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ))
 
@@ -257,19 +272,23 @@ internal class SmartCapsuleLayoutBuilder(
             row1 = row1,
             statusDot = statusDot,
             thoughtText = thoughtText,
-            divider = divider,
+            divider1 = divider1,
             expandedBody = expandedBody,
             row2 = row2,
-            supplementButton = supplementResult.container,
             primaryButton = primaryResult.container,
             primaryIcon = primaryResult.icon,
             primaryText = primaryResult.label,
             stopButton = stopResult.container,
             stopIcon = stopResult.icon,
             stopText = stopResult.label,
-            supplementInputArea = supplementInputRow,
-            supplementEditText = supplementEditText,
-            supplementSendButton = sendButton,
+            navMinimize = navMinimize,
+            navApp = navApp,
+            navWatch = navWatch,
+            divider2 = divider2,
+            row3 = row3,
+            inputEditText = inputEditText,
+            inputButton = inputButtonResult.container,
+            inputButtonText = inputButtonResult.label,
         )
     }
 
@@ -285,6 +304,35 @@ internal class SmartCapsuleLayoutBuilder(
             android.graphics.PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+        }
+    }
+
+    // ── Divider builder ──
+
+    private fun buildDivider(): View = View(context).apply {
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(1)
+        ).apply {
+            marginStart = dp(16)
+            marginEnd = dp(16)
+        }
+        setBackgroundColor(dividerGray)
+    }
+
+    // ── Navigation icon builder ──
+
+    private fun buildNavIcon(icon: String, contentDesc: String, onClick: () -> Unit): View {
+        return TextView(context).apply {
+            text = icon
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            gravity = Gravity.CENTER
+            val size = dp(28)
+            layoutParams = LinearLayout.LayoutParams(size, size)
+            setOnClickListener { onClick() }
+            isClickable = true
+            isFocusable = true
+            contentDescription = contentDesc
+            setTextColor(colorNavGray)
         }
     }
 
@@ -339,10 +387,6 @@ internal class SmartCapsuleLayoutBuilder(
 
         return PillButtonViews(container as ViewGroup, iconView, labelView)
     }
-
-    private fun pillLayoutParams(weight: Float) = LinearLayout.LayoutParams(
-        0, ViewGroup.LayoutParams.WRAP_CONTENT, weight
-    )
 
     private fun spacer(width: Int) = View(context).apply {
         layoutParams = LinearLayout.LayoutParams(width, 0)

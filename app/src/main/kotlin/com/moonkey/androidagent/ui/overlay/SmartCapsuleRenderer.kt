@@ -6,6 +6,8 @@ import android.animation.ValueAnimator
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.graphics.drawable.GradientDrawable
+import com.moonkey.androidagent.protocol.PlatformMode
+import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.model.isExpanded
 
@@ -15,6 +17,11 @@ import com.moonkey.androidagent.ui.overlay.model.isExpanded
  * Sets visibility, text, colors, dot animation, and content transitions on [CapsuleViews].
  * Does NOT handle click listeners, keyboard, or overlay focus state —
  * those are the manager's responsibility after [render] returns.
+ *
+ * Three-row layout:
+ *   Row 1: thought line (dot + text)
+ *   Row 2: control buttons + nav icons
+ *   Row 3: input field + action button
  *
  * View-level animations (dot crossfade, content fade) live here.
  * Window-level animations (height, exit) live in [SmartCapsuleAnimator].
@@ -52,13 +59,38 @@ internal class SmartCapsuleRenderer {
         }
     }
 
+    /**
+     * Configure navigation button visibility based on context and platform mode.
+     * Called after render() by the manager.
+     */
+    fun configureNavButtons(
+        v: CapsuleViews,
+        context: CapsuleContext,
+        platformMode: PlatformMode,
+        hasIsland: Boolean = true
+    ) {
+        // [1] ⊖ Minimize: only in VD mode AND only when island exists to return to
+        val showMinimize = platformMode == PlatformMode.VIRTUAL_DISPLAY && hasIsland
+        // [2] 📱 App: never when already in the app
+        val showApp = context != CapsuleContext.MAIN_APP
+        // [3] 👁 Watch: never in A11y mode; never when already viewing
+        val showWatch = when {
+            platformMode == PlatformMode.ACCESSIBILITY -> false
+            context == CapsuleContext.SCREEN_VIEWING -> false
+            else -> true
+        }
+        v.navMinimize?.visibility = if (showMinimize) View.VISIBLE else View.GONE
+        v.navApp?.visibility = if (showApp) View.VISIBLE else View.GONE
+        v.navWatch?.visibility = if (showWatch) View.VISIBLE else View.GONE
+    }
+
     /** Cancel view-level animations (dot crossfade). */
     fun cancelAnimations() {
         dotColorAnimator?.cancel()
         dotColorAnimator = null
     }
 
-    // ── Compact mode renders ──
+    // ── Running ──
 
     private fun renderRunning(v: CapsuleViews, mode: CapsuleMode.Running, previousMode: CapsuleMode?) {
         val animateDot = previousMode is CapsuleMode.TakeoverPending || previousMode is CapsuleMode.Takeover
@@ -69,26 +101,32 @@ internal class SmartCapsuleRenderer {
         v.thoughtText.maxLines = 1
         v.expandedBody?.visibility = View.GONE
 
+        // Row 1 + divider1 visible
+        v.row1.visibility = View.VISIBLE
+        v.divider1.visibility = View.VISIBLE
+
+        // Row 2: [接管] [停止] + nav
         v.row2.visibility = View.VISIBLE
-        v.divider.visibility = View.VISIBLE
-        v.supplementInputArea?.visibility = View.GONE
-
-        showAllButtons(v)
-        v.supplementButton.isEnabled = true
-        v.supplementButton.alpha = 1f
-
+        v.primaryButton.visibility = View.VISIBLE
         v.primaryIcon.text = "✋"
         v.primaryText.text = "接管"
         v.primaryButton.contentDescription = "接管"
         v.primaryButton.isEnabled = true
         v.primaryButton.alpha = 1f
-
+        v.stopButton.visibility = View.VISIBLE
         v.stopIcon.text = "⏹"
         v.stopText.text = "停止"
         v.stopButton.contentDescription = "停止"
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
+
+        // Row 3: supplement mode
+        v.divider2.visibility = View.VISIBLE
+        v.row3.visibility = View.VISIBLE
+        configureRow3Supplement(v)
     }
+
+    // ── TakeoverPending ──
 
     private fun renderTakeoverPending(v: CapsuleViews, mode: CapsuleMode.TakeoverPending, previousMode: CapsuleMode?) {
         val animateDot = previousMode is CapsuleMode.Running
@@ -99,24 +137,29 @@ internal class SmartCapsuleRenderer {
         v.thoughtText.maxLines = 1
         v.expandedBody?.visibility = View.GONE
 
+        v.row1.visibility = View.VISIBLE
+        v.divider1.visibility = View.VISIBLE
+
+        // Row 2: [接管 disabled] [停止]
         v.row2.visibility = View.VISIBLE
-        v.divider.visibility = View.VISIBLE
-        v.supplementInputArea?.visibility = View.GONE
-
-        showAllButtons(v)
-        v.supplementButton.isEnabled = false
-        v.supplementButton.alpha = 0.4f
-
+        v.primaryButton.visibility = View.VISIBLE
         v.primaryIcon.text = "✋"
         v.primaryText.text = "交接中"
         v.primaryButton.isEnabled = false
         v.primaryButton.alpha = 0.4f
-
+        v.stopButton.visibility = View.VISIBLE
         v.stopIcon.text = "⏹"
         v.stopText.text = "停止"
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
+
+        // Row 3: supplement mode
+        v.divider2.visibility = View.VISIBLE
+        v.row3.visibility = View.VISIBLE
+        configureRow3Supplement(v)
     }
+
+    // ── Takeover ──
 
     private fun renderTakeover(v: CapsuleViews, mode: CapsuleMode.Takeover, previousMode: CapsuleMode?) {
         val animateDot = previousMode is CapsuleMode.Running
@@ -127,26 +170,31 @@ internal class SmartCapsuleRenderer {
         v.thoughtText.maxLines = 1
         v.expandedBody?.visibility = View.GONE
 
+        v.row1.visibility = View.VISIBLE
+        v.divider1.visibility = View.VISIBLE
+
+        // Row 2: [继续] [停止]
         v.row2.visibility = View.VISIBLE
-        v.divider.visibility = View.VISIBLE
-        v.supplementInputArea?.visibility = View.GONE
-
-        showAllButtons(v)
-        v.supplementButton.isEnabled = true
-        v.supplementButton.alpha = 1f
-
+        v.primaryButton.visibility = View.VISIBLE
         v.primaryIcon.text = "▶"
         v.primaryText.text = "继续"
         v.primaryButton.contentDescription = "继续"
         v.primaryButton.isEnabled = true
         v.primaryButton.alpha = 1f
-
+        v.stopButton.visibility = View.VISIBLE
         v.stopIcon.text = "⏹"
         v.stopText.text = "停止"
         v.stopButton.contentDescription = "停止"
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
+
+        // Row 3: supplement mode
+        v.divider2.visibility = View.VISIBLE
+        v.row3.visibility = View.VISIBLE
+        configureRow3Supplement(v)
     }
+
+    // ── Done ──
 
     private fun renderDone(v: CapsuleViews, mode: CapsuleMode.Done) {
         setDotColor(v, COLOR_TEAL, pulsing = false)
@@ -156,9 +204,14 @@ internal class SmartCapsuleRenderer {
         v.thoughtText.maxLines = 1
         v.expandedBody?.visibility = View.GONE
 
+        v.row1.visibility = View.VISIBLE
+        v.divider1.visibility = View.GONE
         v.row2.visibility = View.GONE
-        v.divider.visibility = View.GONE
+        v.divider2.visibility = View.GONE
+        v.row3.visibility = View.GONE
     }
+
+    // ── Error ──
 
     private fun renderError(v: CapsuleViews, mode: CapsuleMode.Error) {
         setDotColor(v, COLOR_RED, pulsing = false)
@@ -168,22 +221,25 @@ internal class SmartCapsuleRenderer {
         v.thoughtText.maxLines = 1
         v.expandedBody?.visibility = View.GONE
 
+        v.row1.visibility = View.VISIBLE
+        v.divider1.visibility = View.VISIBLE
+
+        // Row 2: [关闭] only
         v.row2.visibility = View.VISIBLE
-        v.divider.visibility = View.VISIBLE
-        v.supplementInputArea?.visibility = View.GONE
-
-        v.supplementButton.visibility = View.GONE
         v.primaryButton.visibility = View.GONE
-
         v.stopIcon.text = "✕"
         v.stopText.text = "关闭"
         v.stopButton.contentDescription = "关闭"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
+
+        // Row 3: hidden
+        v.divider2.visibility = View.GONE
+        v.row3.visibility = View.GONE
     }
 
-    // ── Expanded mode renders ──
+    // ── WaitingForInput ──
 
     private fun renderWaitingForInput(v: CapsuleViews, mode: CapsuleMode.WaitingForInput, previousMode: CapsuleMode?) {
         stopPulse()
@@ -196,24 +252,26 @@ internal class SmartCapsuleRenderer {
         v.expandedBody?.text = mode.question
         showExpandedBody(v.expandedBody, previousMode)
 
-        // Input area for the answer
-        v.supplementInputArea?.visibility = View.VISIBLE
-        v.supplementEditText?.text?.clear()
-        v.supplementEditText?.hint = "输入你的答复..."
+        v.row1.visibility = View.VISIBLE
+        v.divider1.visibility = View.VISIBLE
 
-        // Row 2: only stop button
+        // Row 2: [停止] only
         v.row2.visibility = View.VISIBLE
-        v.divider.visibility = View.VISIBLE
-        v.supplementButton.visibility = View.GONE
         v.primaryButton.visibility = View.GONE
-
         v.stopIcon.text = "⏹"
         v.stopText.text = "停止"
         v.stopButton.contentDescription = "停止"
         v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
+
+        // Row 3: answer mode — only clear input when entering from a different mode
+        v.divider2.visibility = View.VISIBLE
+        v.row3.visibility = View.VISIBLE
+        configureRow3Answer(v, previousMode)
     }
+
+    // ── WaitingForAction ──
 
     private fun renderWaitingForAction(v: CapsuleViews, mode: CapsuleMode.WaitingForAction, previousMode: CapsuleMode?) {
         stopPulse()
@@ -226,26 +284,44 @@ internal class SmartCapsuleRenderer {
         v.expandedBody?.text = mode.instruction
         showExpandedBody(v.expandedBody, previousMode)
 
-        v.supplementInputArea?.visibility = View.GONE
+        v.row1.visibility = View.VISIBLE
+        v.divider1.visibility = View.VISIBLE
 
         // Row 2: [完成] [停止]
         v.row2.visibility = View.VISIBLE
-        v.divider.visibility = View.VISIBLE
-        v.supplementButton.visibility = View.GONE
-
+        v.primaryButton.visibility = View.VISIBLE
         v.primaryIcon.text = "✅"
         v.primaryText.text = "完成"
         v.primaryButton.contentDescription = "完成"
-        v.primaryButton.visibility = View.VISIBLE
         v.primaryButton.isEnabled = true
         v.primaryButton.alpha = 1f
-
+        v.stopButton.visibility = View.VISIBLE
         v.stopIcon.text = "⏹"
         v.stopText.text = "停止"
         v.stopButton.contentDescription = "停止"
-        v.stopButton.visibility = View.VISIBLE
         v.stopButton.isEnabled = true
         v.stopButton.alpha = 1f
+
+        // Row 3: hidden (user operates phone)
+        v.divider2.visibility = View.GONE
+        v.row3.visibility = View.GONE
+    }
+
+    // ── Row 3 configuration helpers ──
+
+    private fun configureRow3Supplement(v: CapsuleViews) {
+        v.inputEditText.hint = "有想法? 补充一下..."
+        v.inputButtonText.text = "补充"
+    }
+
+    private fun configureRow3Answer(v: CapsuleViews, previousMode: CapsuleMode?) {
+        // Only clear input when transitioning *into* WaitingForInput from another mode,
+        // so re-renders (e.g. thought updates) don't erase what the user is typing.
+        if (previousMode !is CapsuleMode.WaitingForInput) {
+            v.inputEditText.text?.clear()
+        }
+        v.inputEditText.hint = "输入你的答复..."
+        v.inputButtonText.text = "发送 →"
     }
 
     // ── Dot helpers ──
@@ -302,13 +378,5 @@ internal class SmartCapsuleRenderer {
         if (body == null) return
         val fromCompact = previousMode != null && !previousMode.isExpanded()
         if (fromCompact) fadeIn(body) else body.visibility = View.VISIBLE
-    }
-
-    // ── Helpers ──
-
-    private fun showAllButtons(v: CapsuleViews) {
-        v.supplementButton.visibility = View.VISIBLE
-        v.primaryButton.visibility = View.VISIBLE
-        v.stopButton.visibility = View.VISIBLE
     }
 }

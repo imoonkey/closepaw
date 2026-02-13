@@ -10,6 +10,7 @@ import com.moonkey.androidagent.ui.overlay.CapsuleStateHolder
 import com.moonkey.androidagent.ui.overlay.EdgeGlowManager
 import com.moonkey.androidagent.ui.overlay.SmartCapsuleManager
 import com.moonkey.androidagent.ui.overlay.StatusIslandManager
+import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.model.GlowState
 
@@ -33,6 +34,7 @@ class ServiceOverlayController(
     private val onSupplement: (String) -> Unit,
     private val onUserResponse: (String, String) -> Unit, // (callId, response)
     private val onOpenApp: () -> Unit,
+    private val onOpenViewer: (() -> Unit)? = null,
     private val statusIslandManager: StatusIslandManager? = null
 ) {
     // ── Unified state ──
@@ -65,6 +67,12 @@ class ServiceOverlayController(
             stateHolder.onDoneAutoHide()
             pushModeToOverlayCapsule()
         }
+        // Navigation callbacks
+        this.onMinimize = {
+            hideCapsuleOverlay()
+            showIsland()
+        }
+        this.onOpenViewer = { this@ServiceOverlayController.onOpenViewer?.invoke() }
     }
 
     private var platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
@@ -78,6 +86,28 @@ class ServiceOverlayController(
     fun setPlatformMode(mode: PlatformMode) {
         platformMode = mode
         stateHolder.setPlatformMode(mode)
+        capsuleManager.updateNavContext(
+            stateHolder.context.value, mode, hasIsland = statusIslandManager != null
+        )
+    }
+
+    // ── Capsule overlay + island management (for VD mode navigation) ──
+
+    fun showCapsuleOverlay() {
+        capsuleManager.show()
+        capsuleManager.renderMode(stateHolder.mode.value, CapsuleMode.Hidden)
+    }
+
+    fun hideCapsuleOverlay() {
+        capsuleManager.hide()
+    }
+
+    fun showIsland() {
+        statusIslandManager?.show()
+    }
+
+    fun hideIsland() {
+        statusIslandManager?.hide()
     }
 
     fun updateStatus(status: String) {
@@ -413,12 +443,17 @@ class ServiceOverlayController(
             if (wasInForeground != isAppInForeground && hasActiveTask) {
                 if (isAppInForeground) {
                     Log.d(logTag, "Our app in foreground, hiding capsule and glow")
+                    stateHolder.setContext(CapsuleContext.MAIN_APP)
                     capsuleManager.hide()
                     edgeGlowManager.hideImmediately()
                 } else {
                     Log.d(logTag, "Our app went to background with active task, showing capsule and glow")
+                    stateHolder.setContext(CapsuleContext.SCREEN_VIEWING)
                     edgeGlowManager.show(currentGlowState)
                     capsuleManager.show()
+                    capsuleManager.updateNavContext(
+                        CapsuleContext.SCREEN_VIEWING, platformMode, hasIsland = statusIslandManager != null
+                    )
                     pushModeToOverlayCapsule()
                 }
             }

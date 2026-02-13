@@ -10,6 +10,8 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import com.moonkey.androidagent.protocol.PlatformMode
+import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.model.isExpanded
 
@@ -19,6 +21,11 @@ import com.moonkey.androidagent.ui.overlay.model.isExpanded
  * Does NOT compute state. State is managed by [CapsuleStateHolder].
  * Call [renderMode] to push a new mode for display. The manager handles
  * show/hide, rendering, animations, keyboard, and button callbacks.
+ *
+ * Three-row layout:
+ *   Row 1: thought line
+ *   Row 2: controls + nav
+ *   Row 3: input + action button
  *
  * Visual rendering is delegated to [SmartCapsuleRenderer].
  * Window-level animations are delegated to [SmartCapsuleAnimator].
@@ -42,15 +49,27 @@ class SmartCapsuleManager(
     var onOpenApp: (() -> Unit)? = null
     var onDismissError: (() -> Unit)? = null
     var onDoneAutoHide: (() -> Unit)? = null
+    // Navigation callbacks
+    var onMinimize: (() -> Unit)? = null
+    var onOpenViewer: (() -> Unit)? = null
+    // Send new task (when no task active, Row 3 acts as InputDock).
+    // Not wired in Stage 7 — overlay hides on Hidden mode. Wired in Stage 8+ for
+    // Compose main-app capsule or future Row-3-only idle overlay (e.g. VD viewer with no task).
+    var onSend: ((String) -> Unit)? = null
 
     // ── Rendering state (cache, not source of truth) ──
     // INVARIANT: these always match the last renderMode() call.
-    // Read by handlePrimaryClick/handleStopClick to determine current button behavior.
+    // Read by handlePrimaryClick/handleStopClick/handleRow3Submit to determine behavior.
 
     private var mode: CapsuleMode = CapsuleMode.Hidden
     private var previousMode: CapsuleMode = CapsuleMode.Hidden
     private var views: CapsuleViews? = null
     private var overlayView: ViewGroup? = null
+
+    // ── Context for nav button rendering ──
+    private var capsuleContext: CapsuleContext = CapsuleContext.SCREEN_VIEWING
+    private var platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
+    private var hasIsland: Boolean = true
 
     // ── Timers & runnables ──
 
@@ -71,6 +90,16 @@ class SmartCapsuleManager(
     // ── Public API ──
 
     fun isShowing(): Boolean = overlayView != null
+
+    /** Update context and platform mode for nav button rendering. */
+    fun updateNavContext(context: CapsuleContext, platform: PlatformMode, hasIsland: Boolean = true) {
+        capsuleContext = context
+        platformMode = platform
+        this.hasIsland = hasIsland
+        // Re-render nav buttons if currently showing
+        val v = views ?: return
+        renderer.configureNavButtons(v, capsuleContext, platformMode, hasIsland)
+    }
 
     /**
      * Render the capsule for a new mode. This is the single entry point for visual updates.
@@ -104,10 +133,14 @@ class SmartCapsuleManager(
         try {
             val params = layoutBuilder.createLayoutParams()
             val capsuleViews = layoutBuilder.build(
-                onSupplement = { /* Supplement via Row 3 in Stage 7+ */ },
                 onPrimary = { debounced { handlePrimaryClick() } },
                 onStop = { debounced { handleStopClick() } },
                 onRow1Tap = { debounced { onOpenApp?.invoke() } },
+                onRow3Submit = { debounced { handleRow3Submit() } },
+                onMinimize = { debounced { onMinimize?.invoke() } },
+                onNavApp = { debounced { onOpenApp?.invoke() } },
+                onNavWatch = { debounced { onOpenViewer?.invoke() } },
+                onInputFocused = { handleInputFocused() },
             )
             windowManager.addView(capsuleViews.container, params)
             overlayView = capsuleViews.container
@@ -180,9 +213,11 @@ class SmartCapsuleManager(
             if (needsHeightAnim) {
                 animator.lockHeight(container)
                 renderer.render(v, mode, prev)
+                renderer.configureNavButtons(v, capsuleContext, platformMode, hasIsland)
                 animator.animateToMeasuredHeight(container, currentHeight)
             } else {
                 renderer.render(v, mode, prev)
+                renderer.configureNavButtons(v, capsuleContext, platformMode, hasIsland)
             }
 
             setupInteractivity(v, mode)
@@ -197,7 +232,7 @@ class SmartCapsuleManager(
         when (mode) {
             is CapsuleMode.WaitingForInput -> {
                 setOverlayFocusable(true)
-                setupAnswerInput(v, mode.callId)
+                focusInputAndShowKeyboard(v.inputEditText)
                 startNudgeTimer(v)
             }
             is CapsuleMode.WaitingForAction -> {
@@ -211,26 +246,42 @@ class SmartCapsuleManager(
         }
     }
 
-    // ── Input setup ──
+    // ── Row 3 input handling ──
 
-    private fun setupInputWithSend(v: CapsuleViews, onSend: (String) -> Unit) {
-        val editText = v.supplementEditText ?: return
-        val sendButton = v.supplementSendButton ?: return
+    private fun handleRow3Submit() {
+        val v = views ?: return
+        val text = v.inputEditText.text.toString().trim()
+        if (text.isEmpty()) return
 
-        editText.requestFocus()
-        scheduleKeyboardShow(editText)
-
-        sendButton.setOnClickListener {
-            val text = editText.text.toString().trim()
-            if (text.isNotEmpty()) onSend(text)
+        when (val m = mode) {
+            is CapsuleMode.WaitingForInput -> {
+                onUserResponse?.invoke(m.callId, text)
+            }
+            is CapsuleMode.Hidden -> {
+                onSend?.invoke(text)
+            }
+            else -> {
+                // Running, TakeoverPending, Takeover → supplement
+                onSupplement?.invoke(text)
+            }
         }
+
+        v.inputEditText.text?.clear()
+        hideKeyboard()
+        setOverlayFocusable(false)
     }
 
-    private fun setupAnswerInput(v: CapsuleViews, callId: String) {
-        setupInputWithSend(v) { text ->
-            onUserResponse?.invoke(callId, text)
-            // State transition handled by CapsuleStateHolder via onUserResponseSent
-        }
+    private fun handleInputFocused() {
+        setOverlayFocusable(true)
+        val v = views ?: return
+        scheduleKeyboardShow(v.inputEditText)
+    }
+
+    // ── Input helpers ──
+
+    private fun focusInputAndShowKeyboard(editText: EditText) {
+        editText.requestFocus()
+        scheduleKeyboardShow(editText)
     }
 
     private fun setOverlayFocusable(focusable: Boolean) {
@@ -259,7 +310,7 @@ class SmartCapsuleManager(
     }
 
     private fun hideKeyboard() {
-        val editText = views?.supplementEditText ?: return
+        val editText = views?.inputEditText ?: return
         val imm = service.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
         imm?.hideSoftInputFromWindow(editText.windowToken, 0)
     }
