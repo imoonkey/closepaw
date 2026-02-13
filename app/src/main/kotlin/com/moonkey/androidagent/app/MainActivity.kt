@@ -119,16 +119,11 @@ class MainActivity : ComponentActivity() {
                             activeSession?.let { session ->
                                 // Complete the same recorder instance that receives live events.
                                 session.getServices().recordingService.completeSession()
-                                sessionScope.launch {
-                                    session.submit(Op.Shutdown)
-                                    Log.d(TAG, "Submitted Op.Shutdown for session cleanup on task completion")
-                                }
                             } ?: run {
                                 // Fallback for legacy/history-only flows.
                                 sessionHistoryManager.endSession()
                             }
-                            currentSession = null
-                            Log.d(TAG, "Session cleared after task completion")
+                            Log.d(TAG, "Task completed; keeping session alive for next task")
                         }
                 )
 

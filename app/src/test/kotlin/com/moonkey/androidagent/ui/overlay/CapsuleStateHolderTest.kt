@@ -181,10 +181,10 @@ class CapsuleStateHolderTest {
     @Test
     fun `onTaskCompleted GOAL_ACHIEVED sets Done`() {
         holder.onTaskStarted("task1", "input")
-        holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED)
+        holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED, "All done")
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Done::class.java)
-        assertThat((mode as CapsuleMode.Done).message).isEqualTo("Completed")
+        assertThat((mode as CapsuleMode.Done).message).isEqualTo("All done")
     }
 
     @Test
@@ -199,6 +199,23 @@ class CapsuleStateHolderTest {
     fun `onTaskCompleted ignored when already Hidden`() {
         holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED)
         assertThat(holder.mode.value).isEqualTo(CapsuleMode.Hidden)
+    }
+
+    @Test
+    fun `onSessionEnded USER_STOPPED sets Hidden`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onSessionEnded(CompletionReason.USER_STOPPED)
+        assertThat(holder.mode.value).isEqualTo(CapsuleMode.Hidden)
+    }
+
+    @Test
+    fun `onSessionEnded GOAL_ACHIEVED keeps done message`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED, "Summary")
+        holder.onSessionEnded(CompletionReason.GOAL_ACHIEVED)
+        val mode = holder.mode.value
+        assertThat(mode).isInstanceOf(CapsuleMode.Done::class.java)
+        assertThat((mode as CapsuleMode.Done).message).isEqualTo("Summary")
     }
 
     @Test

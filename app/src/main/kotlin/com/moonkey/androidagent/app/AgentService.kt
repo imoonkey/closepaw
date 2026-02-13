@@ -312,7 +312,7 @@ class AgentService : AccessibilityService() {
             }
             is AgentEvent.TaskCompleted -> {
                 recordingService?.completeAgentMessage()
-                overlayController?.onTaskCompleted(event.reason)
+                overlayController?.onTaskCompleted(event.reason, event.result)
 
                 // Completion handoff: relaunch the VD's last app on the real screen
                 if (event.reason == CompletionReason.GOAL_ACHIEVED &&

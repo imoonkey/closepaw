@@ -81,7 +81,8 @@ class LocalBackendTurnRoutingTest {
                         )
 
                 val stopReason = agent.run()
-                assertThat(stopReason).isEqualTo(AgentStopReason.GoalAchieved)
+                assertThat(stopReason).isInstanceOf(AgentStopReason.GoalAchieved::class.java)
+                assertThat((stopReason as AgentStopReason.GoalAchieved).message).isEqualTo("done")
                 assertThat(localClient.streamingCalls).isEqualTo(1)
         }
 }

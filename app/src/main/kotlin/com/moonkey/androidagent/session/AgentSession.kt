@@ -254,7 +254,12 @@ private constructor(
 
         val taskId = currentTaskId ?: "unknown"
         val completionReason = reason.toCompletionReason()
-        val resultMessage = if (reason is AgentStopReason.Error) reason.message else null
+        val resultMessage =
+                when (reason) {
+                    is AgentStopReason.Error -> reason.message
+                    is AgentStopReason.GoalAchieved -> reason.message
+                    else -> null
+                }
 
         emit(
                 AgentEvent.TaskCompleted(

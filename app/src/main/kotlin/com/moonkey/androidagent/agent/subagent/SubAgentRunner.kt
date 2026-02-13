@@ -166,7 +166,7 @@ class IsolatedSubAgentRunner(
         val completion = extractCompletion(childServices.historyManager)
 
         return when (stopReason) {
-            AgentStopReason.GoalAchieved -> {
+            is AgentStopReason.GoalAchieved -> {
                 if (completion != null && completion.status == "failure") {
                     SubAgentResult(success = false, message = completion.toFailureMessage(definition.name))
                 } else {

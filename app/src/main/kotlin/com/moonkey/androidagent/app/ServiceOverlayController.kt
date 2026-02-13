@@ -55,13 +55,11 @@ class ServiceOverlayController(
     ).apply {
         this.onStop = this@ServiceOverlayController.onStop
         this.onTakeover = {
-            stateHolder.onTakeoverRequested()
             this@ServiceOverlayController.onTakeover()
         }
         this.onResume = this@ServiceOverlayController.onResume
         this.onSupplement = { text -> this@ServiceOverlayController.onSupplement(text) }
         this.onUserResponse = { callId, response ->
-            stateHolder.onUserResponseSent(callId)
             this@ServiceOverlayController.onUserResponse(callId, response)
         }
         this.onOpenApp = this@ServiceOverlayController.onOpenApp
@@ -256,8 +254,8 @@ class ServiceOverlayController(
         }
     }
 
-    fun onTaskCompleted(reason: CompletionReason) {
-        stateHolder.onTaskCompleted(reason)
+    fun onTaskCompleted(reason: CompletionReason, message: String?) {
+        stateHolder.onTaskCompleted(reason, message)
 
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
@@ -271,25 +269,17 @@ class ServiceOverlayController(
     }
 
     fun onSessionCompleted(reason: CompletionReason) {
+        stateHolder.onSessionEnded(reason)
+
         when (platformMode) {
             PlatformMode.VIRTUAL_DISPLAY -> {
-                statusIslandManager?.hide()
+                renderIsland()
             }
             PlatformMode.ACCESSIBILITY -> {
-                val glowState = stateHolder.derivedGlowState
-                when (reason) {
-                    CompletionReason.GOAL_ACHIEVED, CompletionReason.MAX_TURNS -> {
-                        edgeGlowManager.updateState(glowState)
-                    }
-                    CompletionReason.USER_STOPPED, CompletionReason.INTERRUPTED -> {
-                        edgeGlowManager.hideImmediately()
-                    }
-                    CompletionReason.ERROR, CompletionReason.TASK_IMPOSSIBLE -> {
-                        edgeGlowManager.updateState(glowState)
-                    }
-                }
-                if (reason == CompletionReason.USER_STOPPED || reason == CompletionReason.INTERRUPTED) {
-                    capsuleManager.hide()
+                if (!stateHolder.hasActiveTask || isAppInForeground) {
+                    edgeGlowManager.hide()
+                } else {
+                    edgeGlowManager.updateState(stateHolder.derivedGlowState)
                 }
             }
         }

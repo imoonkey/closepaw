@@ -4,7 +4,7 @@ import com.moonkey.androidagent.agent.cognition.context.NavigationState
 
 /** Reason why the agent stopped. */
 sealed class AgentStopReason {
-    data object GoalAchieved : AgentStopReason()
+    data class GoalAchieved(val message: String = "Goal achieved") : AgentStopReason()
     data object UserRequested : AgentStopReason()
     data object MaxTurnsReached : AgentStopReason()
     data class Error(val message: String) : AgentStopReason()

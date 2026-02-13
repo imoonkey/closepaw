@@ -152,14 +152,14 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
         setMode(CapsuleMode.Running("Processing response..."))
     }
 
-    fun onTaskCompleted(reason: CompletionReason) {
+    fun onTaskCompleted(reason: CompletionReason, message: String? = null) {
         val current = _mode.value
         if (current is CapsuleMode.Hidden || current is CapsuleMode.Done || current is CapsuleMode.Error) {
             Log.d(TAG, "Ignoring task completed in ${current::class.simpleName}")
             return
         }
         val mode = when (reason) {
-            CompletionReason.GOAL_ACHIEVED -> CapsuleMode.Done("Completed")
+            CompletionReason.GOAL_ACHIEVED -> CapsuleMode.Done(message ?: "Completed")
             CompletionReason.MAX_TURNS -> CapsuleMode.Done("Max steps reached")
             CompletionReason.TASK_IMPOSSIBLE -> CapsuleMode.Done("Task impossible")
             CompletionReason.USER_STOPPED -> CapsuleMode.Done("Stopped")
@@ -168,6 +168,34 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
         }
         setMode(mode)
         if (mode is CapsuleMode.Done) scheduleAutoHide()
+    }
+
+    fun onSessionEnded(reason: CompletionReason) {
+        cancelAutoHide()
+        when (reason) {
+            CompletionReason.GOAL_ACHIEVED -> {
+                val message = (mode.value as? CapsuleMode.Done)?.message ?: "Completed"
+                setMode(CapsuleMode.Done(message))
+                scheduleAutoHide()
+            }
+            CompletionReason.MAX_TURNS -> {
+                setMode(CapsuleMode.Done("Max steps reached"))
+                scheduleAutoHide()
+            }
+            CompletionReason.TASK_IMPOSSIBLE -> {
+                setMode(CapsuleMode.Done("Task impossible"))
+                scheduleAutoHide()
+            }
+            CompletionReason.USER_STOPPED,
+            CompletionReason.INTERRUPTED -> {
+                setMode(CapsuleMode.Hidden)
+            }
+            CompletionReason.ERROR -> {
+                if (_mode.value !is CapsuleMode.Error) {
+                    setMode(CapsuleMode.Error("Error occurred"))
+                }
+            }
+        }
     }
 
     fun onDismissError() {

@@ -100,7 +100,7 @@ class Agent(
                 }
                 is TurnOutcome.Complete -> {
                     eventDispatcher.status("✅ Goal achieved!")
-                    stopReason = AgentStopReason.GoalAchieved
+                    stopReason = AgentStopReason.GoalAchieved(result.message)
                     break
                 }
                 is TurnOutcome.Error -> {
@@ -139,7 +139,7 @@ class Agent(
                         ?: when {
                             stopRequested.get() || cancellationSignal.isCompleted ->
                                     AgentStopReason.UserRequested
-                            else -> AgentStopReason.GoalAchieved
+                            else -> AgentStopReason.GoalAchieved()
                         }
 
         trace.sessionStopped(finalReason, turnCount)
