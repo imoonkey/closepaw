@@ -14,6 +14,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.moonkey.androidagent.ui.overlay.model.CapsuleColors
 
 /**
  * CapsuleViews — handles to the key views inside the capsule.
@@ -54,8 +55,8 @@ internal data class CapsuleViews(
  * SmartCapsuleLayoutBuilder — builds the three-row capsule view hierarchy.
  *
  * Row 1: [StatusDot] [ThoughtText]
- * Row 2: [接管/继续] [停止]  ...  [⊖] [📱] [👁]
- * Row 3: [EditText] [发送/补充]
+ * Row 2: [Takeover/Resume] [Stop]  ...  [⊖] [📱] [👁]
+ * Row 3: [EditText] [Send/Add note]
  *
  * All views are built programmatically (no XML layouts in overlay context).
  * The builder is stateless — call build() to get a fresh CapsuleViews.
@@ -71,8 +72,8 @@ internal class SmartCapsuleLayoutBuilder(
     private val textSecondary = 0xFF6B7280.toInt()
     private val textWhite = 0xFFFFFFFF.toInt()
 
-    private val colorBlue = 0xFF2563EB.toInt()
-    private val colorRed = 0xFFEF4444.toInt()
+    private val colorBlue = CapsuleColors.BLUE
+    private val colorRed = CapsuleColors.RED
     private val colorRedLight = 0xFFFEE2E2.toInt()
     private val colorGrayBg = 0xFFF9FAFB.toInt()
     private val colorGrayBorder = 0xFFE5E7EB.toInt()
@@ -115,7 +116,7 @@ internal class SmartCapsuleLayoutBuilder(
                 setOnClickListener { handler() }
                 isClickable = true
                 isFocusable = true
-                contentDescription = "打开主应用"
+                contentDescription = "Open main app"
             }
         }
 
@@ -131,7 +132,7 @@ internal class SmartCapsuleLayoutBuilder(
         row1.addView(statusDot)
 
         val thoughtText = TextView(context).apply {
-            text = "思考中..."
+            text = "Thinking..."
             setTextColor(textPrimary)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -170,9 +171,9 @@ internal class SmartCapsuleLayoutBuilder(
             setPadding(dp(12), dp(8), dp(12), dp(10))
         }
 
-        // Primary button (filled, blue — 接管/继续)
+        // Primary button (filled, blue — Takeover/Resume)
         val primaryResult = buildPillButton(
-            icon = "✋", label = "接管",
+            icon = "✋", label = "Takeover",
             bgColor = colorBlue, borderColor = colorBlue, textColor = textWhite,
             onClick = onPrimary
         )
@@ -184,7 +185,7 @@ internal class SmartCapsuleLayoutBuilder(
 
         // Stop button (outlined red)
         val stopResult = buildPillButton(
-            icon = "⏹", label = "停止",
+            icon = "⏹", label = "Stop",
             bgColor = colorRedLight, borderColor = colorRed, textColor = colorRed,
             onClick = onStop
         )
@@ -198,15 +199,15 @@ internal class SmartCapsuleLayoutBuilder(
         })
 
         // Navigation icons [1] [2] [3]
-        val navMinimize = buildNavIcon("⊖", "最小化") { onMinimize?.invoke() }
+        val navMinimize = buildNavIcon("⊖", "Minimize") { onMinimize?.invoke() }
         row2.addView(navMinimize)
         row2.addView(spacer(dp(4)))
 
-        val navApp = buildNavIcon("📱", "打开应用") { onNavApp?.invoke() }
+        val navApp = buildNavIcon("📱", "Open app") { onNavApp?.invoke() }
         row2.addView(navApp)
         row2.addView(spacer(dp(4)))
 
-        val navWatch = buildNavIcon("👁", "查看屏幕") { onNavWatch?.invoke() }
+        val navWatch = buildNavIcon("👁", "View screen") { onNavWatch?.invoke() }
         row2.addView(navWatch)
 
         card.addView(row2, LinearLayout.LayoutParams(
@@ -225,7 +226,7 @@ internal class SmartCapsuleLayoutBuilder(
         }
 
         val inputEditText = EditText(context).apply {
-            hint = "有想法? 补充一下..."
+            hint = "Got ideas? Add a note..."
             setTextColor(textPrimary)
             setHintTextColor(textSecondary)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
@@ -248,9 +249,9 @@ internal class SmartCapsuleLayoutBuilder(
 
         row3.addView(spacer(dp(8)))
 
-        // Action button (pill-shaped: "发送 →" or "💬 补充")
+        // Action button (pill-shaped: "Send →" or "💬 Add note")
         val inputButtonResult = buildPillButton(
-            icon = "💬", label = "补充",
+            icon = "💬", label = "Add note",
             bgColor = colorBlue, borderColor = colorBlue, textColor = textWhite,
             onClick = onRow3Submit
         )

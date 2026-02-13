@@ -14,6 +14,9 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.moonkey.androidagent.ui.overlay.model.CapsuleColors
+import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
+import com.moonkey.androidagent.ui.overlay.model.GlowState
 
 /**
  * StatusIslandManager — Floating pill overlay on the real screen during VD mode.
@@ -30,8 +33,8 @@ import android.widget.TextView
  * Touches outside the pill pass through (WRAP_CONTENT layout).
  */
 class StatusIslandManager(
-        private val service: AccessibilityService,
-        private val onExpandCapsule: () -> Unit
+    private val service: AccessibilityService,
+    private val onExpandCapsule: () -> Unit
 ) {
     companion object {
         private const val TAG = "StatusIslandManager"
@@ -43,15 +46,11 @@ class StatusIslandManager(
     private var pillView: ViewGroup? = null
     private var statusText: TextView? = null
     private var statusDot: View? = null
-    private var isPaused = false
+    private var autoHideRunnable: Runnable? = null
 
     // Colors
     private val colorBackground = 0xFFFFFFFF.toInt()
     private val colorText = 0xFF171717.toInt()
-    private val colorPrimary = 0xFF2563EB.toInt()
-    private val colorSuccess = 0xFF0D9488.toInt()
-    private val colorError = 0xFFDC2626.toInt()
-    private val colorWarning = 0xFFF59E0B.toInt()
 
     fun show() {
         if (pillView != null) return
@@ -67,7 +66,7 @@ class StatusIslandManager(
     }
 
     fun hide() {
-        handler.removeCallbacksAndMessages(null)
+        cancelAutoHide()
         pillView?.let {
             try {
                 wm.removeView(it)
@@ -82,31 +81,30 @@ class StatusIslandManager(
 
     fun isShowing(): Boolean = pillView != null
 
-    fun updateStatus(statusStr: String, dotColor: Int) {
-        statusText?.post {
-            if (pillView == null) return@post
-            val display = if (statusStr.length > 24) statusStr.take(21) + "..." else statusStr
-            statusText?.text = display
-            (statusDot?.background as? GradientDrawable)?.setColor(dotColor)
+    /**
+     * Unified rendering from CapsuleMode + GlowState.
+     * Derives display text and dot color from mode. No manual state tracking needed.
+     */
+    fun renderMode(mode: CapsuleMode, glowState: GlowState) {
+        val text = when (mode) {
+            is CapsuleMode.Running -> mode.thought.take(24)
+            is CapsuleMode.TakeoverPending -> "Handing over..."
+            is CapsuleMode.Takeover -> "Paused"
+            is CapsuleMode.WaitingForInput -> "Awaiting response"
+            is CapsuleMode.WaitingForAction -> "Action needed"
+            is CapsuleMode.Done -> "Done: ${mode.message.take(18)}"
+            is CapsuleMode.Error -> "Error: ${mode.message.take(18)}"
+            is CapsuleMode.Hidden -> ""
         }
-    }
+        val dotColor = glowStateColor(glowState)
+        updateDisplay(text, dotColor)
 
-    fun showSuccess(message: String) {
-        updateStatus(message, colorSuccess)
-        handler.postDelayed({ hide() }, AUTO_HIDE_DELAY_MS)
-    }
-
-    fun showError(message: String) {
-        updateStatus(message, colorError)
-        handler.postDelayed({ hide() }, AUTO_HIDE_DELAY_MS)
-    }
-
-    fun updatePauseState(paused: Boolean) {
-        isPaused = paused
-        handler.post {
-            if (pillView == null) return@post
-            val dotColor = if (paused) colorWarning else colorPrimary
-            (statusDot?.background as? GradientDrawable)?.setColor(dotColor)
+        // Auto-hide after terminal states
+        cancelAutoHide()
+        if (mode is CapsuleMode.Done || mode is CapsuleMode.Hidden) {
+            val runnable = Runnable { hide() }
+            autoHideRunnable = runnable
+            handler.postDelayed(runnable, AUTO_HIDE_DELAY_MS)
         }
     }
 
@@ -114,49 +112,66 @@ class StatusIslandManager(
         hide()
     }
 
+    private fun cancelAutoHide() {
+        autoHideRunnable?.let { handler.removeCallbacks(it) }
+        autoHideRunnable = null
+    }
+
+    // ── Private: display update ──
+
+    private fun updateDisplay(text: String, dotColor: Int) {
+        statusText?.post {
+            if (pillView == null) return@post
+            val display = if (text.length > 24) text.take(21) + "..." else text
+            statusText?.text = display
+            (statusDot?.background as? GradientDrawable)?.setColor(dotColor)
+        }
+    }
+
+    private fun glowStateColor(state: GlowState): Int = when (state) {
+        GlowState.Active -> CapsuleColors.BLUE
+        GlowState.Executing -> CapsuleColors.PURPLE
+        GlowState.Success -> CapsuleColors.TEAL
+        GlowState.Error -> CapsuleColors.RED
+        GlowState.Paused -> CapsuleColors.AMBER
+    }
+
     // ── Layout Building ──
 
     private fun buildPillLayout(): LinearLayout {
-        // Simple pill: tap to expand Smart Capsule overlay
-        val pill =
-                LinearLayout(service).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(12), dp(6), dp(12), dp(6))
-                    background =
-                            GradientDrawable().apply {
-                                setColor(colorBackground)
-                                cornerRadius = dp(20).toFloat()
-                                setStroke(1, 0xFFE5E5E5.toInt())
-                            }
-                    elevation = dp(4).toFloat()
+        val pill = LinearLayout(service).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            background = GradientDrawable().apply {
+                setColor(colorBackground)
+                cornerRadius = dp(20).toFloat()
+                setStroke(1, 0xFFE5E5E5.toInt())
+            }
+            elevation = dp(4).toFloat()
 
-                    setOnClickListener { onExpandCapsule() }
-                }
+            setOnClickListener { onExpandCapsule() }
+        }
 
         // Status dot
-        val dot =
-                View(service).apply {
-                    layoutParams =
-                            LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(8) }
-                    background =
-                            GradientDrawable().apply {
-                                shape = GradientDrawable.OVAL
-                                setColor(colorPrimary)
-                            }
-                }
+        val dot = View(service).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(8), dp(8)).apply { marginEnd = dp(8) }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(CapsuleColors.BLUE)
+            }
+        }
         pill.addView(dot)
         statusDot = dot
 
         // Status text
-        val text =
-                TextView(service).apply {
-                    setText("Working...")
-                    setTextColor(colorText)
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                    maxLines = 1
-                }
+        val text = TextView(service).apply {
+            setText("Working...")
+            setTextColor(colorText)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            maxLines = 1
+        }
         pill.addView(text)
         statusText = text
 
@@ -166,17 +181,16 @@ class StatusIslandManager(
     private fun createLayoutParams(): WindowManager.LayoutParams {
         val statusBarHeight = getStatusBarHeight()
         return WindowManager.LayoutParams(
-                        WindowManager.LayoutParams.WRAP_CONTENT,
-                        WindowManager.LayoutParams.WRAP_CONTENT,
-                        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
-                        PixelFormat.TRANSLUCENT
-                )
-                .apply {
-                    gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-                    y = statusBarHeight + dp(4)
-                }
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+            y = statusBarHeight + dp(4)
+        }
     }
 
     private fun getStatusBarHeight(): Int {
@@ -186,10 +200,9 @@ class StatusIslandManager(
 
     private fun dp(value: Int): Int {
         return TypedValue.applyDimension(
-                        TypedValue.COMPLEX_UNIT_DIP,
-                        value.toFloat(),
-                        service.resources.displayMetrics
-                )
-                .toInt()
+            TypedValue.COMPLEX_UNIT_DIP,
+            value.toFloat(),
+            service.resources.displayMetrics
+        ).toInt()
     }
 }

@@ -5,7 +5,6 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
@@ -13,25 +12,31 @@ import android.widget.EditText
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
+import com.moonkey.androidagent.ui.overlay.model.CapsuleRenderSpec
+import com.moonkey.androidagent.ui.overlay.model.NavSpec
 import com.moonkey.androidagent.ui.overlay.model.isExpanded
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /**
  * SmartCapsuleManager — pure View renderer for the Smart Capsule overlay.
  *
- * Does NOT compute state. State is managed by [CapsuleStateHolder].
- * Call [renderMode] to push a new mode for display. The manager handles
- * show/hide, rendering, animations, keyboard, and button callbacks.
+ * Observes [CapsuleStateHolder.mode] via StateFlow. When shown, any state change
+ * automatically triggers a re-render. No manual pushing needed.
  *
  * Three-row layout:
  *   Row 1: thought line
  *   Row 2: controls + nav
  *   Row 3: input + action button
  *
- * Visual rendering is delegated to [SmartCapsuleRenderer].
+ * Visual rendering is delegated to [SmartCapsuleRenderer] via [CapsuleRenderSpec].
  * Window-level animations are delegated to [SmartCapsuleAnimator].
  */
 class SmartCapsuleManager(
-    private val service: AccessibilityService
+    private val service: AccessibilityService,
+    private val stateHolder: CapsuleStateHolder,
+    private val scope: CoroutineScope,
 ) {
     companion object {
         private const val TAG = "SmartCapsuleManager"
@@ -48,23 +53,19 @@ class SmartCapsuleManager(
     var onStop: (() -> Unit)? = null
     var onOpenApp: (() -> Unit)? = null
     var onDismissError: (() -> Unit)? = null
-    var onDoneAutoHide: (() -> Unit)? = null
     // Navigation callbacks
     var onMinimize: (() -> Unit)? = null
     var onOpenViewer: (() -> Unit)? = null
     // Send new task (when no task active, Row 3 acts as InputDock).
-    // Not wired in Stage 7 — overlay hides on Hidden mode. Wired in Stage 8+ for
-    // Compose main-app capsule or future Row-3-only idle overlay (e.g. VD viewer with no task).
     var onSend: ((String) -> Unit)? = null
 
-    // ── Rendering state (cache, not source of truth) ──
-    // INVARIANT: these always match the last renderMode() call.
-    // Read by handlePrimaryClick/handleStopClick/handleRow3Submit to determine behavior.
+    // ── Rendering state (cache for button handlers) ──
 
-    private var mode: CapsuleMode = CapsuleMode.Hidden
+    private var currentMode: CapsuleMode = CapsuleMode.Hidden
     private var previousMode: CapsuleMode = CapsuleMode.Hidden
     private var views: CapsuleViews? = null
     private var overlayView: ViewGroup? = null
+    private var observeJob: Job? = null
 
     // ── Context for nav button rendering ──
     private var capsuleContext: CapsuleContext = CapsuleContext.SCREEN_VIEWING
@@ -73,7 +74,6 @@ class SmartCapsuleManager(
 
     // ── Timers & runnables ──
 
-    private var delayedHideRunnable: Runnable? = null
     private var supplementConfirmedRunnable: Runnable? = null
     private var keyboardShowRunnable: Runnable? = null
     private var nudgeRunnable: Runnable? = null
@@ -98,34 +98,8 @@ class SmartCapsuleManager(
         this.hasIsland = hasIsland
         // Re-render nav buttons if currently showing
         val v = views ?: return
-        renderer.configureNavButtons(v, capsuleContext, platformMode, hasIsland)
-    }
-
-    /**
-     * Render the capsule for a new mode. This is the single entry point for visual updates.
-     * State transitions happen in [CapsuleStateHolder]; this method only displays.
-     */
-    fun renderMode(newMode: CapsuleMode, prevMode: CapsuleMode) {
-        previousMode = prevMode
-        mode = newMode
-        Log.d(TAG, "Render: ${prevMode::class.simpleName} → ${newMode::class.simpleName}")
-
-        // Cancel pending delayed actions and exit animation
-        cancelAllRunnables()
-        animator.cancelAll()
-
-        // If leaving an input mode, hide keyboard
-        if (prevMode is CapsuleMode.WaitingForInput) {
-            hideKeyboard()
-        }
-
-        when (newMode) {
-            is CapsuleMode.Hidden -> hide()
-            else -> {
-                if (overlayView == null) show()
-                renderAndSetup(newMode)
-            }
-        }
+        val navSpec = NavSpec.from(capsuleContext, platformMode, hasIsland)
+        renderer.applyNavSpec(v, navSpec)
     }
 
     fun show() {
@@ -149,12 +123,16 @@ class SmartCapsuleManager(
             capsuleViews.container.alpha = 1f
             views = capsuleViews
             Log.i(TAG, "Capsule shown")
+
+            // Start observing — auto-render on every state change
+            startObserving()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to show capsule", e)
         }
     }
 
     fun hide() {
+        stopObserving()
         animator.cancelAll()
         renderer.stopPulse()
         renderer.cancelAnimations()
@@ -171,7 +149,7 @@ class SmartCapsuleManager(
         }
         overlayView = null
         views = null
-        mode = CapsuleMode.Hidden
+        currentMode = CapsuleMode.Hidden
     }
 
     fun dispose() {
@@ -185,7 +163,7 @@ class SmartCapsuleManager(
     fun flashSupplementConfirmation(isAgentMidTurn: Boolean) {
         val v = views ?: return
         val originalText = v.thoughtText.text.toString()
-        val confirmText = if (isAgentMidTurn) "✓ 已收到，下一步生效" else "✓ 已收到"
+        val confirmText = if (isAgentMidTurn) "✓ Received, will apply next step" else "✓ Received"
         val confirmDuration = if (isAgentMidTurn) 2000L else 1500L
         v.thoughtText.text = confirmText
         supplementConfirmedRunnable?.let { handler.removeCallbacks(it) }
@@ -197,27 +175,68 @@ class SmartCapsuleManager(
         handler.postDelayed(runnable, confirmDuration)
     }
 
+    // ── Observer ──
+
+    private fun startObserving() {
+        stopObserving()
+        observeJob = scope.launch {
+            stateHolder.mode.collect { mode ->
+                // Post to main looper to ensure View operations run on the UI thread.
+                // The coroutine scope may be Dispatchers.Main, but handler.post
+                // guarantees we're on the looper after any pending view layout passes.
+                handler.post { onModeChanged(mode) }
+            }
+        }
+    }
+
+    private fun stopObserving() {
+        observeJob?.cancel()
+        observeJob = null
+    }
+
+    private fun onModeChanged(newMode: CapsuleMode) {
+        val prevMode = currentMode
+        previousMode = prevMode
+        currentMode = newMode
+        Log.d(TAG, "Observe: ${prevMode::class.simpleName} → ${newMode::class.simpleName}")
+
+        // Cancel pending delayed actions and exit animation
+        cancelAllRunnables()
+        animator.cancelAll()
+
+        // If leaving an input mode, hide keyboard
+        if (prevMode is CapsuleMode.WaitingForInput) {
+            hideKeyboard()
+        }
+
+        when (newMode) {
+            is CapsuleMode.Hidden -> hide()
+            else -> renderAndSetup(newMode, prevMode)
+        }
+    }
+
     // ── Rendering ──
 
-    private fun renderAndSetup(mode: CapsuleMode) {
+    private fun renderAndSetup(mode: CapsuleMode, prevMode: CapsuleMode) {
         val v = views ?: return
         val container = overlayView ?: return
-        val prev = previousMode
 
         container.post {
             if (overlayView == null) return@post
 
+            val spec = CapsuleRenderSpec.from(mode, prevMode)
+            val navSpec = NavSpec.from(capsuleContext, platformMode, hasIsland)
             val currentHeight = container.height
-            val needsHeightAnim = currentHeight > 0 && isHeightTransition(prev, mode)
+            val needsHeightAnim = currentHeight > 0 && isHeightTransition(prevMode, mode)
 
             if (needsHeightAnim) {
                 animator.lockHeight(container)
-                renderer.render(v, mode, prev)
-                renderer.configureNavButtons(v, capsuleContext, platformMode, hasIsland)
+                renderer.render(v, spec)
+                renderer.applyNavSpec(v, navSpec)
                 animator.animateToMeasuredHeight(container, currentHeight)
             } else {
-                renderer.render(v, mode, prev)
-                renderer.configureNavButtons(v, capsuleContext, platformMode, hasIsland)
+                renderer.render(v, spec)
+                renderer.applyNavSpec(v, navSpec)
             }
 
             setupInteractivity(v, mode)
@@ -226,7 +245,6 @@ class SmartCapsuleManager(
 
     /**
      * Set up interactive parts after renderer has configured visuals.
-     * Click listeners, keyboard, focus state.
      */
     private fun setupInteractivity(v: CapsuleViews, mode: CapsuleMode) {
         when (mode) {
@@ -239,9 +257,6 @@ class SmartCapsuleManager(
                 setOverlayFocusable(false)
                 startNudgeTimer(v)
             }
-            is CapsuleMode.Done -> {
-                scheduleAutoHide()
-            }
             else -> {}
         }
     }
@@ -253,7 +268,7 @@ class SmartCapsuleManager(
         val text = v.inputEditText.text.toString().trim()
         if (text.isEmpty()) return
 
-        when (val m = mode) {
+        when (val m = currentMode) {
             is CapsuleMode.WaitingForInput -> {
                 onUserResponse?.invoke(m.callId, text)
             }
@@ -318,7 +333,7 @@ class SmartCapsuleManager(
     // ── Button logic ──
 
     private fun handlePrimaryClick() {
-        when (val m = mode) {
+        when (val m = currentMode) {
             is CapsuleMode.Running -> onTakeover?.invoke()
             is CapsuleMode.Takeover -> onResume?.invoke()
             is CapsuleMode.WaitingForAction -> {
@@ -329,7 +344,7 @@ class SmartCapsuleManager(
     }
 
     private fun handleStopClick() {
-        when (mode) {
+        when (currentMode) {
             is CapsuleMode.Error -> onDismissError?.invoke() ?: hide()
             else -> onStop?.invoke()
         }
@@ -337,20 +352,13 @@ class SmartCapsuleManager(
 
     // ── Timers ──
 
-    private fun scheduleAutoHide() {
-        delayedHideRunnable = Runnable {
-            val container = overlayView ?: run { hide(); return@Runnable }
-            animator.animateExit(container) { onDoneAutoHide?.invoke() ?: hide() }
-        }.also { handler.postDelayed(it, 3000) }
-    }
-
     private fun startNudgeTimer(v: CapsuleViews) {
         cancelNudgeTimer()
         nudgeRunnable = Runnable {
             val body = v.expandedBody ?: return@Runnable
             if (body.windowToken == null) return@Runnable // view detached
             val currentText = body.text?.toString() ?: ""
-            body.text = "$currentText\n还在等待您的回复..."
+            body.text = "$currentText\nStill waiting for your response..."
         }.also { handler.postDelayed(it, NUDGE_DELAY_MS) }
     }
 
@@ -360,8 +368,6 @@ class SmartCapsuleManager(
     }
 
     private fun cancelAllRunnables() {
-        delayedHideRunnable?.let { handler.removeCallbacks(it) }
-        delayedHideRunnable = null
         supplementConfirmedRunnable?.let { handler.removeCallbacks(it) }
         supplementConfirmedRunnable = null
         keyboardShowRunnable?.let { handler.removeCallbacks(it) }

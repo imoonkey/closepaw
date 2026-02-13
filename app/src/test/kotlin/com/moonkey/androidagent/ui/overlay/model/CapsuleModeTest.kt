@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.ui.overlay.model
 
 import com.google.common.truth.Truth.assertThat
+import com.moonkey.androidagent.protocol.sanitizeThought
 import org.junit.Test
 
 class CapsuleModeTest {
@@ -20,7 +21,7 @@ class CapsuleModeTest {
 
     @Test
     fun `sanitizeThought preserves short text`() {
-        assertThat(sanitizeThought("打开淘宝")).isEqualTo("打开淘宝")
+        assertThat(sanitizeThought("Open Taobao")).isEqualTo("Open Taobao")
     }
 
     @Test
@@ -41,14 +42,14 @@ class CapsuleModeTest {
 
     @Test
     fun `displayThought returns thought for Running`() {
-        val mode = CapsuleMode.Running("打开淘宝")
-        assertThat(mode.displayThought()).isEqualTo("打开淘宝")
+        val mode = CapsuleMode.Running("Open Taobao")
+        assertThat(mode.displayThought()).isEqualTo("Open Taobao")
     }
 
     @Test
     fun `displayThought returns lastThought for Takeover`() {
-        val mode = CapsuleMode.Takeover("最后的想法")
-        assertThat(mode.displayThought()).isEqualTo("最后的想法")
+        val mode = CapsuleMode.Takeover("Last thought")
+        assertThat(mode.displayThought()).isEqualTo("Last thought")
     }
 
     @Test
@@ -58,25 +59,25 @@ class CapsuleModeTest {
 
     @Test
     fun `displayThought returns message for Done`() {
-        val mode = CapsuleMode.Done("任务完成")
-        assertThat(mode.displayThought()).isEqualTo("✓ 任务完成")
+        val mode = CapsuleMode.Done("Task complete")
+        assertThat(mode.displayThought()).isEqualTo("✓ Task complete")
     }
 
     @Test
     fun `displayThought returns message for Error`() {
-        val mode = CapsuleMode.Error("网络错误")
-        assertThat(mode.displayThought()).isEqualTo("⚠ 网络错误")
+        val mode = CapsuleMode.Error("Network error")
+        assertThat(mode.displayThought()).isEqualTo("⚠ Network error")
     }
 
     @Test
     fun `displayThought returns null for WaitingForInput`() {
-        val mode = CapsuleMode.WaitingForInput(question = "选哪个?", callId = "c1")
+        val mode = CapsuleMode.WaitingForInput(question = "Which one?", callId = "c1")
         assertThat(mode.displayThought()).isNull()
     }
 
     @Test
     fun `isExpanded returns true for WaitingForInput`() {
-        val mode = CapsuleMode.WaitingForInput(question = "选哪个?", callId = "c1")
+        val mode = CapsuleMode.WaitingForInput(question = "Which one?", callId = "c1")
         assertThat(mode.isExpanded()).isTrue()
     }
 
@@ -87,19 +88,19 @@ class CapsuleModeTest {
 
     @Test
     fun `displayThought returns lastThought for TakeoverPending`() {
-        val mode = CapsuleMode.TakeoverPending("正在切换")
-        assertThat(mode.displayThought()).isEqualTo("正在切换")
+        val mode = CapsuleMode.TakeoverPending("Switching control")
+        assertThat(mode.displayThought()).isEqualTo("Switching control")
     }
 
     @Test
     fun `displayThought returns null for WaitingForAction`() {
-        val mode = CapsuleMode.WaitingForAction(instruction = "请打开设置", callId = "c2")
+        val mode = CapsuleMode.WaitingForAction(instruction = "Please open Settings", callId = "c2")
         assertThat(mode.displayThought()).isNull()
     }
 
     @Test
     fun `isExpanded returns true for WaitingForAction`() {
-        val mode = CapsuleMode.WaitingForAction(instruction = "请打开设置", callId = "c2")
+        val mode = CapsuleMode.WaitingForAction(instruction = "Please open Settings", callId = "c2")
         assertThat(mode.isExpanded()).isTrue()
     }
 

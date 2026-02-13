@@ -28,7 +28,7 @@ import com.moonkey.androidagent.trace.AgentTrace
 import com.moonkey.androidagent.trace.ArbitrationDecision
 import com.moonkey.androidagent.trace.DropReason
 import com.moonkey.androidagent.trace.DroppedToolCall
-import com.moonkey.androidagent.ui.overlay.model.sanitizeThought
+import com.moonkey.androidagent.protocol.sanitizeThought
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay

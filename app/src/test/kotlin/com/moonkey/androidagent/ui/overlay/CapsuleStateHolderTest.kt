@@ -4,16 +4,22 @@ import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.protocol.AskUserType
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import org.junit.Before
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CapsuleStateHolderTest {
 
+    private lateinit var scope: TestScope
     private lateinit var holder: CapsuleStateHolder
 
     @Before
     fun setUp() {
-        holder = CapsuleStateHolder()
+        scope = TestScope()
+        holder = CapsuleStateHolder(scope)
     }
 
     // ── Initial state ──
@@ -32,10 +38,10 @@ class CapsuleStateHolderTest {
 
     @Test
     fun `onTaskStarted sets Running mode with sanitized input`() {
-        holder.onTaskStarted("task1", "打开淘宝搜索")
+        holder.onTaskStarted("task1", "Open Taobao and search")
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Running::class.java)
-        assertThat((mode as CapsuleMode.Running).thought).isEqualTo("打开淘宝搜索")
+        assertThat((mode as CapsuleMode.Running).thought).isEqualTo("Open Taobao and search")
     }
 
     @Test
@@ -47,13 +53,30 @@ class CapsuleStateHolderTest {
         assertThat(thought).endsWith("...")
     }
 
+    @Test
+    fun `onTaskStarted resets from any state`() {
+        holder.onError("some error")
+        assertThat(holder.mode.value).isInstanceOf(CapsuleMode.Error::class.java)
+        holder.onTaskStarted("task2", "new task")
+        assertThat(holder.mode.value).isInstanceOf(CapsuleMode.Running::class.java)
+    }
+
     // ── Thought update ──
 
     @Test
-    fun `onThoughtUpdate changes to Running with new thought`() {
+    fun `onThoughtUpdate changes thought in Running mode`() {
         holder.onTaskStarted("task1", "input")
-        holder.onThoughtUpdate("正在搜索...")
-        assertThat((holder.mode.value as CapsuleMode.Running).thought).isEqualTo("正在搜索...")
+        holder.onThoughtUpdate("Searching...")
+        assertThat((holder.mode.value as CapsuleMode.Running).thought).isEqualTo("Searching...")
+    }
+
+    @Test
+    fun `onThoughtUpdate ignored when not in Running mode`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onTakeoverRequested()
+        val modeBefore = holder.mode.value
+        holder.onThoughtUpdate("should be ignored")
+        assertThat(holder.mode.value).isEqualTo(modeBefore)
     }
 
     // ── Takeover flow ──
@@ -61,39 +84,57 @@ class CapsuleStateHolderTest {
     @Test
     fun `onTakeoverRequested transitions from Running to TakeoverPending`() {
         holder.onTaskStarted("task1", "input")
-        holder.onThoughtUpdate("当前想法")
+        holder.onThoughtUpdate("current thought")
         holder.onTakeoverRequested()
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.TakeoverPending::class.java)
-        assertThat((mode as CapsuleMode.TakeoverPending).lastThought).isEqualTo("当前想法")
+        assertThat((mode as CapsuleMode.TakeoverPending).lastThought).isEqualTo("current thought")
+    }
+
+    @Test
+    fun `onTakeoverRequested ignored when not Running`() {
+        // Hidden state
+        holder.onTakeoverRequested()
+        assertThat(holder.mode.value).isEqualTo(CapsuleMode.Hidden)
     }
 
     @Test
     fun `onTakeoverConfirmed transitions from TakeoverPending to Takeover`() {
         holder.onTaskStarted("task1", "input")
-        holder.onThoughtUpdate("当前想法")
+        holder.onThoughtUpdate("current thought")
         holder.onTakeoverRequested()
         holder.onTakeoverConfirmed()
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Takeover::class.java)
-        assertThat((mode as CapsuleMode.Takeover).lastThought).isEqualTo("当前想法")
+        assertThat((mode as CapsuleMode.Takeover).lastThought).isEqualTo("current thought")
     }
 
     @Test
-    fun `onResumed transitions back to Running`() {
+    fun `onResumed transitions from Takeover to Running`() {
         holder.onTaskStarted("task1", "input")
         holder.onTakeoverRequested()
         holder.onTakeoverConfirmed()
         holder.onResumed()
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Running::class.java)
-        assertThat((mode as CapsuleMode.Running).thought).isEqualTo("思考中...")
+        assertThat((mode as CapsuleMode.Running).thought).isEqualTo("Thinking...")
+    }
+
+    @Test
+    fun `onResumed ignored when not in takeover state`() {
+        holder.onTaskStarted("task1", "input")
+        val modeBefore = holder.mode.value
+        holder.onResumed()
+        assertThat(holder.mode.value).isEqualTo(modeBefore)
     }
 
     @Test
     fun `onResumed resets isAgentMidTurn`() {
+        holder.onTaskStarted("task1", "input")
         holder.setAgentMidTurn(true)
         assertThat(holder.isAgentMidTurn.value).isTrue()
+        holder.onTakeoverRequested()
+        holder.onTakeoverConfirmed()
         holder.onResumed()
         assertThat(holder.isAgentMidTurn.value).isFalse()
     }
@@ -102,70 +143,107 @@ class CapsuleStateHolderTest {
 
     @Test
     fun `onAskUser QUESTION sets WaitingForInput`() {
-        holder.onAskUser(AskUserType.QUESTION, "选哪个?", "call1")
+        holder.onAskUser(AskUserType.QUESTION, "Which one?", "call1")
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.WaitingForInput::class.java)
-        assertThat((mode as CapsuleMode.WaitingForInput).question).isEqualTo("选哪个?")
+        assertThat((mode as CapsuleMode.WaitingForInput).question).isEqualTo("Which one?")
         assertThat(mode.callId).isEqualTo("call1")
     }
 
     @Test
     fun `onAskUser ACTION sets WaitingForAction`() {
-        holder.onAskUser(AskUserType.ACTION, "请打开设置", "call2")
+        holder.onAskUser(AskUserType.ACTION, "Open Settings", "call2")
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.WaitingForAction::class.java)
-        assertThat((mode as CapsuleMode.WaitingForAction).instruction).isEqualTo("请打开设置")
+        assertThat((mode as CapsuleMode.WaitingForAction).instruction).isEqualTo("Open Settings")
         assertThat(mode.callId).isEqualTo("call2")
     }
 
     @Test
-    fun `onUserResponseSent transitions to Running`() {
-        holder.onAskUser(AskUserType.QUESTION, "选哪个?", "call1")
+    fun `onUserResponseSent transitions to Running from WaitingForInput`() {
+        holder.onAskUser(AskUserType.QUESTION, "Which one?", "call1")
         holder.onUserResponseSent("call1")
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Running::class.java)
-        assertThat((mode as CapsuleMode.Running).thought).isEqualTo("处理答复中...")
+        assertThat((mode as CapsuleMode.Running).thought).isEqualTo("Processing response...")
+    }
+
+    @Test
+    fun `onUserResponseSent ignored when no pending ask`() {
+        holder.onTaskStarted("task1", "input")
+        val modeBefore = holder.mode.value
+        holder.onUserResponseSent("call1")
+        assertThat(holder.mode.value).isEqualTo(modeBefore)
     }
 
     // ── Task completion ──
 
     @Test
     fun `onTaskCompleted GOAL_ACHIEVED sets Done`() {
+        holder.onTaskStarted("task1", "input")
         holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED)
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Done::class.java)
-        assertThat((mode as CapsuleMode.Done).message).isEqualTo("已完成")
+        assertThat((mode as CapsuleMode.Done).message).isEqualTo("Completed")
     }
 
     @Test
     fun `onTaskCompleted ERROR sets Error`() {
+        holder.onTaskStarted("task1", "input")
         holder.onTaskCompleted(CompletionReason.ERROR)
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Error::class.java)
     }
 
     @Test
-    fun `onDoneAutoHide transitions to Hidden`() {
+    fun `onTaskCompleted ignored when already Hidden`() {
         holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED)
-        holder.onDoneAutoHide()
         assertThat(holder.mode.value).isEqualTo(CapsuleMode.Hidden)
+    }
+
+    @Test
+    fun `auto-hide transitions Done to Hidden after 3 seconds`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED)
+        assertThat(holder.mode.value).isInstanceOf(CapsuleMode.Done::class.java)
+
+        scope.advanceTimeBy(3001)
+        assertThat(holder.mode.value).isEqualTo(CapsuleMode.Hidden)
+    }
+
+    @Test
+    fun `auto-hide cancelled by new task`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED)
+        holder.onTaskStarted("task2", "new task")
+
+        scope.advanceTimeBy(3001)
+        assertThat(holder.mode.value).isInstanceOf(CapsuleMode.Running::class.java)
     }
 
     // ── Error ──
 
     @Test
     fun `onError sets Error mode`() {
-        holder.onError("网络错误")
+        holder.onError("Network error")
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Error::class.java)
-        assertThat((mode as CapsuleMode.Error).message).isEqualTo("网络错误")
+        assertThat((mode as CapsuleMode.Error).message).isEqualTo("Network error")
     }
 
     @Test
     fun `onDismissError transitions to Hidden`() {
-        holder.onError("网络错误")
+        holder.onError("Network error")
         holder.onDismissError()
         assertThat(holder.mode.value).isEqualTo(CapsuleMode.Hidden)
+    }
+
+    @Test
+    fun `onDismissError ignored when not in Error`() {
+        holder.onTaskStarted("task1", "input")
+        val modeBefore = holder.mode.value
+        holder.onDismissError()
+        assertThat(holder.mode.value).isEqualTo(modeBefore)
     }
 
     // ── Previous mode tracking ──
@@ -190,5 +268,18 @@ class CapsuleStateHolderTest {
         val afterTakeoverReq = holder.mode.value
         holder.onTakeoverConfirmed()
         assertThat(holder.previousMode).isEqualTo(afterTakeoverReq)
+    }
+
+    // ── Derived properties ──
+
+    @Test
+    fun `hasActiveTask is false when Hidden`() {
+        assertThat(holder.hasActiveTask).isFalse()
+    }
+
+    @Test
+    fun `hasActiveTask is true when Running`() {
+        holder.onTaskStarted("task1", "input")
+        assertThat(holder.hasActiveTask).isTrue()
     }
 }

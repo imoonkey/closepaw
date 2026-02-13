@@ -1,25 +1,45 @@
 package com.moonkey.androidagent.ui.overlay
 
+import android.util.Log
 import com.moonkey.androidagent.protocol.AskUserType
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.PlatformMode
+import com.moonkey.androidagent.protocol.TurnPhase
+import com.moonkey.androidagent.protocol.sanitizeThought
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
-import com.moonkey.androidagent.ui.overlay.model.sanitizeThought
+import com.moonkey.androidagent.ui.overlay.model.GlowState
+import com.moonkey.androidagent.ui.overlay.model.deriveGlowState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 /**
  * CapsuleStateHolder — single source of truth for Smart Capsule state.
  *
  * All UI renderers (SmartCapsuleManager, SmartCapsuleCompose, StatusIslandManager)
  * read from this holder. State transitions happen here and only here.
- * Renderers are pure — they display what this holder tells them.
  *
- * Exposed as StateFlow for Compose consumers and direct reads for View consumers.
+ * ## State Machine
+ * See system_design_claude.md Section 3A for the exhaustive state × event matrix.
+ * Every transition is guarded — invalid events are silently ignored with a log message.
+ *
+ * ## Threading
+ * All mutations must happen on the Main dispatcher (enforced by StateFlow usage from
+ * coroutine scope or direct main-thread calls from ServiceOverlayController).
  */
-class CapsuleStateHolder {
+class CapsuleStateHolder(private val scope: CoroutineScope) {
+
+    companion object {
+        private const val TAG = "CapsuleStateHolder"
+        private const val AUTO_HIDE_DELAY_MS = 3000L
+    }
+
+    // ── Core state ──
 
     private val _mode = MutableStateFlow<CapsuleMode>(CapsuleMode.Hidden)
     val mode: StateFlow<CapsuleMode> = _mode.asStateFlow()
@@ -27,96 +47,132 @@ class CapsuleStateHolder {
     private val _context = MutableStateFlow(CapsuleContext.MAIN_APP)
     val context: StateFlow<CapsuleContext> = _context.asStateFlow()
 
+    private val _platformMode = MutableStateFlow(PlatformMode.ACCESSIBILITY)
+    val platformMode: StateFlow<PlatformMode> = _platformMode.asStateFlow()
+
+    private val _turnPhase = MutableStateFlow<TurnPhase?>(null)
+    val turnPhase: StateFlow<TurnPhase?> = _turnPhase.asStateFlow()
+
+    /** True when agent is mid-turn (execution/planning). Used for supplement confirmation. */
+    private val _isAgentMidTurn = MutableStateFlow(false)
+    val isAgentMidTurn: StateFlow<Boolean> = _isAgentMidTurn.asStateFlow()
+
     /** The mode before the current one, for transition animations. */
     var previousMode: CapsuleMode = CapsuleMode.Hidden
         private set
 
-    private val _platformMode = MutableStateFlow(PlatformMode.ACCESSIBILITY)
-    val platformMode: StateFlow<PlatformMode> = _platformMode.asStateFlow()
+    /** Derived glow state — no parallel state machine needed. */
+    val derivedGlowState: GlowState get() = deriveGlowState(_mode.value, _turnPhase.value)
 
-    /** True when agent is mid-turn (execution/planning). Used for supplement confirmation text. */
-    private val _isAgentMidTurn = MutableStateFlow(false)
-    val isAgentMidTurn: StateFlow<Boolean> = _isAgentMidTurn.asStateFlow()
+    /** Whether there's an active task (derived from mode). */
+    val hasActiveTask: Boolean get() = _mode.value !is CapsuleMode.Hidden
 
-    fun setPlatformMode(mode: PlatformMode) {
-        _platformMode.value = mode
-    }
+    private var autoHideJob: Job? = null
 
-    fun setAgentMidTurn(midTurn: Boolean) {
-        _isAgentMidTurn.value = midTurn
-    }
+    // ── Configuration ──
 
-    // ── State transitions ──
+    fun setPlatformMode(mode: PlatformMode) { _platformMode.value = mode }
+
+    fun setTurnPhase(phase: TurnPhase) { _turnPhase.value = phase }
+
+    fun setAgentMidTurn(midTurn: Boolean) { _isAgentMidTurn.value = midTurn }
+
+    fun setContext(ctx: CapsuleContext) { _context.value = ctx }
+
+    // ── Universal events (any state → target) ──
 
     fun onTaskStarted(taskId: String, input: String) {
+        cancelAutoHide()
+        _turnPhase.value = null
         setMode(CapsuleMode.Running(sanitizeThought(input)))
     }
 
-    fun onThoughtUpdate(thought: String) {
-        setMode(CapsuleMode.Running(thought))
-    }
-
-    fun onTakeoverRequested() {
-        val lastThought = (_mode.value as? CapsuleMode.Running)?.thought ?: ""
-        setMode(CapsuleMode.TakeoverPending(lastThought))
-    }
-
-    fun onTakeoverConfirmed() {
-        val lastThought = when (val m = _mode.value) {
-            is CapsuleMode.TakeoverPending -> m.lastThought
-            is CapsuleMode.Running -> m.thought
-            else -> ""
-        }
-        setMode(CapsuleMode.Takeover(lastThought))
-    }
-
-    fun onResumed() {
-        _isAgentMidTurn.value = false
-        setMode(CapsuleMode.Running("思考中..."))
+    fun onError(message: String) {
+        cancelAutoHide()
+        setMode(CapsuleMode.Error(sanitizeThought(message)))
     }
 
     fun onAskUser(type: AskUserType, message: String, callId: String) {
         setMode(
             when (type) {
-                AskUserType.QUESTION -> CapsuleMode.WaitingForInput(question = message, callId = callId)
-                AskUserType.ACTION -> CapsuleMode.WaitingForAction(instruction = message, callId = callId)
+                AskUserType.QUESTION -> CapsuleMode.WaitingForInput(
+                    question = message, callId = callId,
+                )
+                AskUserType.ACTION -> CapsuleMode.WaitingForAction(
+                    instruction = message, callId = callId,
+                )
             }
         )
+    }
+
+    // ── Guarded events (specific states only) ──
+
+    fun onThoughtUpdate(thought: String) {
+        if (_mode.value !is CapsuleMode.Running) return
+        setMode(CapsuleMode.Running(thought))
+    }
+
+    fun onTakeoverRequested() {
+        val current = _mode.value as? CapsuleMode.Running ?: run {
+            Log.d(TAG, "Ignoring takeover request in ${_mode.value::class.simpleName}")
+            return
+        }
+        setMode(CapsuleMode.TakeoverPending(current.thought))
+    }
+
+    fun onTakeoverConfirmed() {
+        val thought = when (val m = _mode.value) {
+            is CapsuleMode.TakeoverPending -> m.lastThought
+            is CapsuleMode.Running -> m.thought
+            else -> {
+                Log.d(TAG, "Ignoring takeover confirmed in ${_mode.value::class.simpleName}")
+                return
+            }
+        }
+        setMode(CapsuleMode.Takeover(thought))
+    }
+
+    fun onResumed() {
+        val current = _mode.value
+        if (current !is CapsuleMode.Takeover && current !is CapsuleMode.TakeoverPending) {
+            Log.d(TAG, "Ignoring resume in ${current::class.simpleName}")
+            return
+        }
+        _turnPhase.value = null
+        _isAgentMidTurn.value = false
+        setMode(CapsuleMode.Running("Thinking..."))
     }
 
     fun onUserResponseSent(callId: String) {
-        setMode(CapsuleMode.Running("处理答复中..."))
+        val current = _mode.value
+        if (current !is CapsuleMode.WaitingForInput && current !is CapsuleMode.WaitingForAction) {
+            Log.d(TAG, "Ignoring user response in ${current::class.simpleName}")
+            return
+        }
+        setMode(CapsuleMode.Running("Processing response..."))
     }
 
     fun onTaskCompleted(reason: CompletionReason) {
-        setMode(
-            when (reason) {
-                CompletionReason.GOAL_ACHIEVED -> CapsuleMode.Done("已完成")
-                CompletionReason.MAX_TURNS -> CapsuleMode.Done("已达到最大步数")
-                CompletionReason.TASK_IMPOSSIBLE -> CapsuleMode.Done("无法完成任务")
-                CompletionReason.USER_STOPPED -> CapsuleMode.Done("已停止")
-                CompletionReason.ERROR -> CapsuleMode.Error("发生错误")
-                CompletionReason.INTERRUPTED -> CapsuleMode.Done("已中断")
-            }
-        )
-    }
-
-    fun onDoneAutoHide() {
-        setMode(CapsuleMode.Hidden)
-    }
-
-    fun onError(message: String) {
-        setMode(CapsuleMode.Error(sanitizeThought(message)))
+        val current = _mode.value
+        if (current is CapsuleMode.Hidden || current is CapsuleMode.Done || current is CapsuleMode.Error) {
+            Log.d(TAG, "Ignoring task completed in ${current::class.simpleName}")
+            return
+        }
+        val mode = when (reason) {
+            CompletionReason.GOAL_ACHIEVED -> CapsuleMode.Done("Completed")
+            CompletionReason.MAX_TURNS -> CapsuleMode.Done("Max steps reached")
+            CompletionReason.TASK_IMPOSSIBLE -> CapsuleMode.Done("Task impossible")
+            CompletionReason.USER_STOPPED -> CapsuleMode.Done("Stopped")
+            CompletionReason.ERROR -> CapsuleMode.Error("Error occurred")
+            CompletionReason.INTERRUPTED -> CapsuleMode.Done("Interrupted")
+        }
+        setMode(mode)
+        if (mode is CapsuleMode.Done) scheduleAutoHide()
     }
 
     fun onDismissError() {
+        if (_mode.value !is CapsuleMode.Error) return
         setMode(CapsuleMode.Hidden)
-    }
-
-    // ── Context tracking (wired in Stage 7+: VD viewer, status island) ──
-
-    fun setContext(ctx: CapsuleContext) {
-        _context.value = ctx
     }
 
     // ── Internal ──
@@ -124,5 +180,20 @@ class CapsuleStateHolder {
     private fun setMode(new: CapsuleMode) {
         previousMode = _mode.value
         _mode.value = new
+    }
+
+    private fun scheduleAutoHide() {
+        cancelAutoHide()
+        autoHideJob = scope.launch {
+            delay(AUTO_HIDE_DELAY_MS)
+            if (_mode.value is CapsuleMode.Done) {
+                setMode(CapsuleMode.Hidden)
+            }
+        }
+    }
+
+    private fun cancelAutoHide() {
+        autoHideJob?.cancel()
+        autoHideJob = null
     }
 }

@@ -15,7 +15,7 @@ sealed interface CapsuleMode {
     /** User requested takeover, waiting for current action to finish. */
     data class TakeoverPending(val lastThought: String) : CapsuleMode
 
-    /** User has control. Agent paused. Shows dimmed thought + [继续][停止]. */
+    /** User has control. Agent paused. Shows dimmed thought + [Resume][Stop]. */
     data class Takeover(val lastThought: String) : CapsuleMode
 
     /** Agent asked a question, waiting for text answer. Capsule expanded. */
@@ -58,10 +58,4 @@ fun CapsuleMode.isExpanded(): Boolean = when (this) {
     else -> false
 }
 
-/**
- * Sanitize raw agent_thought text for capsule display.
- */
-fun sanitizeThought(raw: String): String {
-    val trimmed = raw.trim()
-    return if (trimmed.length > 40) trimmed.take(40) + "..." else trimmed
-}
+// sanitizeThought moved to protocol/TextUtils.kt to avoid cross-layer dependency

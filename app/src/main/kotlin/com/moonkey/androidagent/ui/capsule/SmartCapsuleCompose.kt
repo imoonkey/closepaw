@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.sp
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
+import com.moonkey.androidagent.ui.overlay.model.CapsuleRenderSpec
+import com.moonkey.androidagent.ui.overlay.model.NavSpec
 
 /**
  * Navigation action for capsule context switching.
@@ -56,14 +58,17 @@ enum class NavAction {
 /**
  * SmartCapsuleCompose — Compose version of the Smart Capsule for embedding in the main app.
  *
+ * Uses [CapsuleRenderSpec] as single source of truth for visual properties,
+ * ensuring pixel-perfect consistency with the View-based overlay capsule.
+ *
  * Three-row layout:
  *   Row 1: Status dot + thought text (visible when task active)
  *   Row 2: Control buttons + nav icons (visible when task active)
- *   Row 3: Input field + action button (always visible unless WaitingForAction/Done/Error)
+ *   Row 3: Input field + action button (visible per spec)
  *
  * In the main app (CapsuleContext.MAIN_APP):
- *   - When no task active (Hidden mode): only Row 3 is shown (acts as InputDock replacement)
- *   - When task active: all 3 rows are shown
+ *   - When no task active (Hidden mode): only Row 3 is shown (acts as InputDock)
+ *   - When task active: all applicable rows are shown
  */
 @Composable
 fun SmartCapsuleCompose(
@@ -82,6 +87,22 @@ fun SmartCapsuleCompose(
 ) {
     var inputText by remember { mutableStateOf("") }
     val isTaskActive = mode !is CapsuleMode.Hidden
+
+    // Track previous mode locally for transition-aware rendering (e.g. clearInput)
+    val previousModeState = remember { mutableStateOf<CapsuleMode?>(null) }
+    val spec = remember(mode) {
+        CapsuleRenderSpec.from(mode, previousModeState.value).also {
+            previousModeState.value = mode
+        }
+    }
+    val navSpec = remember(context, platformMode) {
+        NavSpec.from(context, platformMode, hasIsland = true)
+    }
+
+    // Clear input when spec says so (e.g. transition into WaitingForInput)
+    if (spec.row3?.clearInput == true && inputText.isNotEmpty()) {
+        inputText = ""
+    }
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -102,17 +123,26 @@ fun SmartCapsuleCompose(
             ) {
                 Column {
                     Spacer(Modifier.height(12.dp))
-                    CapsuleRow1(mode = mode)
+                    CapsuleRow1(spec = spec)
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 8.dp),
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                     )
-                    // Expanded body for WaitingFor* modes
-                    ExpandedBody(mode = mode)
+                    // Expanded body
+                    if (spec.expandedBody != null) {
+                        Text(
+                            text = spec.expandedBody,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        )
+                    }
                     CapsuleRow2(
+                        spec = spec,
+                        navSpec = navSpec,
                         mode = mode,
-                        platformMode = platformMode,
-                        context = context,
                         onTakeover = onTakeover,
                         onResume = onResume,
                         onStop = onStop,
@@ -127,29 +157,21 @@ fun SmartCapsuleCompose(
                 }
             }
 
-            // Row 3: always visible except WaitingForAction, Done, Error
-            if (shouldShowRow3(mode)) {
+            // Row 3: shown when spec defines it
+            if (spec.row3 != null) {
                 CapsuleRow3(
-                    mode = mode,
+                    row3Spec = spec.row3,
                     inputText = inputText,
                     onInputChange = { inputText = it },
                     onSubmit = {
                         val text = inputText.trim()
                         if (text.isEmpty()) return@CapsuleRow3
                         when (mode) {
-                            is CapsuleMode.Hidden -> {
-                                onSend(text)
-                                inputText = ""
-                            }
-                            is CapsuleMode.WaitingForInput -> {
-                                onUserResponse(mode.callId, text)
-                                inputText = ""
-                            }
-                            else -> {
-                                onSupplement(text)
-                                inputText = ""
-                            }
+                            is CapsuleMode.Hidden -> onSend(text)
+                            is CapsuleMode.WaitingForInput -> onUserResponse(mode.callId, text)
+                            else -> onSupplement(text)
                         }
+                        inputText = ""
                     }
                 )
                 Spacer(Modifier.height(8.dp))
@@ -161,29 +183,17 @@ fun SmartCapsuleCompose(
 // ── Row 1: Status dot + thought text ──
 
 @Composable
-private fun CapsuleRow1(mode: CapsuleMode) {
+private fun CapsuleRow1(spec: CapsuleRenderSpec) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Status dot
-        val dotColor by animateColorAsState(
-            targetValue = when (mode) {
-                is CapsuleMode.Running -> Color(0xFF2563EB)       // Blue
-                is CapsuleMode.TakeoverPending -> Color(0xFFF59E0B) // Amber
-                is CapsuleMode.Takeover -> Color(0xFFF59E0B)       // Amber
-                is CapsuleMode.Done -> Color(0xFF0D9488)           // Teal
-                is CapsuleMode.Error -> Color(0xFFEF4444)          // Red
-                else -> Color.Transparent
-            },
-            label = "dotColor"
-        )
-
-        val showDot = mode !is CapsuleMode.WaitingForInput &&
-            mode !is CapsuleMode.WaitingForAction &&
-            mode !is CapsuleMode.Hidden
-
-        if (showDot) {
+        if (spec.dot != null) {
+            val dotColor by animateColorAsState(
+                targetValue = Color(spec.dot.color),
+                label = "dotColor"
+            )
             Box(
                 modifier = Modifier
                     .size(8.dp)
@@ -195,46 +205,12 @@ private fun CapsuleRow1(mode: CapsuleMode) {
 
         // Thought text
         Text(
-            text = when (mode) {
-                is CapsuleMode.Running -> mode.thought.ifEmpty { "思考中..." }
-                is CapsuleMode.TakeoverPending -> "正在交接..."
-                is CapsuleMode.Takeover -> mode.lastThought.ifEmpty { "已暂停" }
-                is CapsuleMode.Done -> "✓ ${mode.message}"
-                is CapsuleMode.Error -> "⚠ ${mode.message}"
-                is CapsuleMode.WaitingForInput -> "💬 等待答复"
-                is CapsuleMode.WaitingForAction -> "✋ 操作手机"
-                is CapsuleMode.Hidden -> ""
-            },
+            text = spec.thought.text,
             style = MaterialTheme.typography.bodyMedium,
-            color = when (mode) {
-                is CapsuleMode.Takeover -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                else -> MaterialTheme.colorScheme.onSurface
-            },
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = spec.thought.alpha),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-// ── Expanded Body (for WaitingFor* modes) ──
-
-@Composable
-private fun ExpandedBody(mode: CapsuleMode) {
-    val bodyText = when (mode) {
-        is CapsuleMode.WaitingForInput -> mode.question
-        is CapsuleMode.WaitingForAction -> mode.instruction
-        else -> null
-    }
-
-    if (bodyText != null) {
-        Text(
-            text = bodyText,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
         )
     }
 }
@@ -243,9 +219,9 @@ private fun ExpandedBody(mode: CapsuleMode) {
 
 @Composable
 private fun CapsuleRow2(
+    spec: CapsuleRenderSpec,
+    navSpec: NavSpec,
     mode: CapsuleMode,
-    platformMode: PlatformMode,
-    context: CapsuleContext,
     onTakeover: () -> Unit,
     onResume: () -> Unit,
     onStop: () -> Unit,
@@ -258,50 +234,44 @@ private fun CapsuleRow2(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left: Control buttons
+        // Left: Control buttons — derive from spec
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            when (mode) {
-                is CapsuleMode.Running -> {
-                    CapsuleTextButton(text = "✋ 接管", onClick = onTakeover)
-                    CapsuleTextButton(text = "⏹ 停止", onClick = onStop)
-                }
-                is CapsuleMode.TakeoverPending -> {
-                    CapsuleTextButton(text = "✋ 交接中", onClick = {}, enabled = false)
-                    CapsuleTextButton(text = "⏹ 停止", onClick = onStop)
-                }
-                is CapsuleMode.Takeover -> {
-                    CapsuleTextButton(text = "▶ 继续", onClick = onResume)
-                    CapsuleTextButton(text = "⏹ 停止", onClick = onStop)
-                }
-                is CapsuleMode.WaitingForInput -> {
-                    CapsuleTextButton(text = "⏹ 停止", onClick = onStop)
-                }
-                is CapsuleMode.WaitingForAction -> {
-                    CapsuleTextButton(
-                        text = "✅ 完成",
-                        onClick = { onDone(mode.callId) }
-                    )
-                    CapsuleTextButton(text = "⏹ 停止", onClick = onStop)
-                }
-                is CapsuleMode.Error -> {
-                    CapsuleTextButton(text = "✕ 关闭", onClick = onDismissError)
-                }
-                else -> {}
+            spec.buttons.primary?.let { btn ->
+                CapsuleTextButton(
+                    text = "${btn.icon} ${btn.text}",
+                    onClick = {
+                        when (mode) {
+                            is CapsuleMode.Running -> onTakeover()
+                            is CapsuleMode.Takeover -> onResume()
+                            is CapsuleMode.WaitingForAction -> onDone(mode.callId)
+                            else -> {}
+                        }
+                    },
+                    enabled = btn.enabled
+                )
+            }
+            spec.buttons.stop?.let { btn ->
+                CapsuleTextButton(
+                    text = "${btn.icon} ${btn.text}",
+                    onClick = {
+                        when (mode) {
+                            is CapsuleMode.Error -> onDismissError()
+                            else -> onStop()
+                        }
+                    }
+                )
             }
         }
 
-        // Right: Navigation icons
+        // Right: Navigation icons — derive from navSpec
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            // [1] Minimize: only in VD mode AND not when already in main app
-            if (platformMode == PlatformMode.VIRTUAL_DISPLAY && context != CapsuleContext.MAIN_APP) {
+            if (navSpec.showMinimize) {
                 NavIconButton(text = "⊖", onClick = { onNavigate(NavAction.MINIMIZE) })
             }
-            // [2] App: never when already in app
-            if (context != CapsuleContext.MAIN_APP) {
+            if (navSpec.showApp) {
                 NavIconButton(text = "📱", onClick = { onNavigate(NavAction.OPEN_APP) })
             }
-            // [3] Watch: never in A11y; never when already viewing
-            if (platformMode != PlatformMode.ACCESSIBILITY && context != CapsuleContext.SCREEN_VIEWING) {
+            if (navSpec.showWatch) {
                 NavIconButton(text = "👁", onClick = { onNavigate(NavAction.OPEN_VIEWER) })
             }
         }
@@ -312,17 +282,11 @@ private fun CapsuleRow2(
 
 @Composable
 private fun CapsuleRow3(
-    mode: CapsuleMode,
+    row3Spec: CapsuleRenderSpec.Row3Spec,
     inputText: String,
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit
 ) {
-    val (placeholder, buttonText) = when (mode) {
-        is CapsuleMode.Hidden -> "有什么可以帮你?" to "发送 →"
-        is CapsuleMode.WaitingForInput -> "输入你的答复..." to "发送 →"
-        else -> "有想法? 补充一下..." to "补充"
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -335,7 +299,7 @@ private fun CapsuleRow3(
             modifier = Modifier.weight(1f),
             placeholder = {
                 Text(
-                    text = placeholder,
+                    text = row3Spec.hint,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
@@ -355,7 +319,7 @@ private fun CapsuleRow3(
             enabled = inputText.isNotBlank()
         ) {
             Text(
-                text = buttonText,
+                text = row3Spec.buttonText,
                 fontSize = 14.sp
             )
         }
@@ -400,11 +364,4 @@ private fun NavIconButton(
     ) {
         Text(text = text, fontSize = 16.sp)
     }
-}
-
-private fun shouldShowRow3(mode: CapsuleMode): Boolean = when (mode) {
-    is CapsuleMode.WaitingForAction -> false
-    is CapsuleMode.Done -> false
-    is CapsuleMode.Error -> false
-    else -> true
 }

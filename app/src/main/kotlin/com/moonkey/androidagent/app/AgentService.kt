@@ -138,6 +138,7 @@ class AgentService : AccessibilityService() {
         overlayController =
                 ServiceOverlayController(
                         context = this,
+                        scope = scope,
                         appPackage = OUR_PACKAGE,
                         logTag = TAG,
                         onStop = { submitOp(Op.Shutdown) },
