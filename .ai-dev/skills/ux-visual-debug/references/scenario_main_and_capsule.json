@@ -1,0 +1,62 @@
+{
+  "name": "main-and-smart-capsule-smoke",
+  "package": "com.moonkey.androidagent",
+  "steps": [
+    {
+      "name": "Reset app state",
+      "action": "force_stop"
+    },
+    {
+      "name": "Launch app",
+      "action": "start_app"
+    },
+    {
+      "name": "Wait home screen stable",
+      "action": "wait",
+      "ms": 1600
+    },
+    {
+      "name": "Open Smart Capsule area",
+      "action": "tap_contains_text",
+      "text": "Smart",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Wait capsule state render",
+      "action": "wait",
+      "ms": 900
+    },
+    {
+      "name": "Tap 接管 button if present",
+      "action": "tap_text",
+      "text": "接管",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Wait post-接管 UI",
+      "action": "wait",
+      "ms": 700
+    },
+    {
+      "name": "Tap 补充 button if present",
+      "action": "tap_text",
+      "text": "补充",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Input supplemental text",
+      "action": "type",
+      "text": "Please continue this flow with more detail.",
+      "submit": false,
+      "continue_on_fail": true
+    },
+    {
+      "name": "Take manual screenshot marker",
+      "action": "screenshot"
+    },
+    {
+      "name": "Go back to previous screen",
+      "action": "back"
+    }
+  ]
+}

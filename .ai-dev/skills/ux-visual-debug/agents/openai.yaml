@@ -1,0 +1,4 @@
+interface:
+  display_name: "UX Visual Debug"
+  short_description: "Automate Android UX QA with ADB visual checks"
+  default_prompt: "Use $ux-visual-debug to run UX scenarios and, when needed, link parallel visual-debug trajectory capture with an agent goal."

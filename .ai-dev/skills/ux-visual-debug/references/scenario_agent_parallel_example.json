@@ -1,0 +1,49 @@
+{
+  "name": "agent-linked-parallel-example",
+  "package": "com.moonkey.androidagent",
+  "steps": [
+    {
+      "name": "Reset app",
+      "action": "force_stop"
+    },
+    {
+      "name": "Launch app",
+      "action": "start_app"
+    },
+    {
+      "name": "Wait for agent to begin acting",
+      "action": "wait",
+      "ms": 2200
+    },
+    {
+      "name": "User taps Smart Capsule while agent run is active",
+      "action": "tap_contains_text",
+      "text": "Smart",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Observe transition",
+      "action": "wait",
+      "ms": 1200
+    },
+    {
+      "name": "Try 接管",
+      "action": "tap_text",
+      "text": "接管",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Try 补充",
+      "action": "tap_text",
+      "text": "补充",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Type interruption input",
+      "action": "type",
+      "text": "User intervention during active agent task.",
+      "submit": false,
+      "continue_on_fail": true
+    }
+  ]
+}

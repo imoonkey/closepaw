@@ -7,6 +7,17 @@ description: Systematic code review with severity-based findings. Use before mer
 
 Systematic review process with high standards.
 
+## Guidelines
+Analyze the code changes based on the following pillars:
+
+*   **Correctness**: Does the code achieve its stated purpose without bugs or logical errors?
+*   **Maintainability**: Is the code clean, well-structured, and easy to understand and modify in the future? Consider factors like code clarity, modularity, and adherence to established design patterns.
+*   **Readability**: Is the code well-commented (where necessary) and consistently formatted according to our project's coding style guidelines?
+*   **Efficiency**: Are there any obvious performance bottlenecks or resource inefficiencies introduced by the changes?
+*   **Security**: Are there any potential security vulnerabilities or insecure coding practices?
+*   **Edge Cases and Error Handling**: Does the code appropriately handle edge cases and potential errors?
+*   **Testability**: Is the new or modified code adequately covered by tests (even if preflight checks pass)? Suggest additional test cases that would improve coverage or robustness.
+
 ## Review Mindset
 
 High standards like kernel code. Find:
@@ -39,15 +50,16 @@ High standards like kernel code. Find:
 - Data loss: state corruption, race conditions
 
 ### High (Should Fix)
-- Spaghetti code, confusing logic
+- Correctness: errors/ bugs
+- Maintainability: Spaghetti code, confusing logic, significant code duplication
+- Efficiency: significant efficieny issue
 - Memory leaks
 - Threading violations
 - Missing validation
 - Lifecycle issues
 
 ### Medium (Consider)
-- Code duplication
-- Hard to read logic
+- Readability: Hard to read logic, moderate code duplication
 - Missing tests
 - Large files/functions
 - Poor naming

@@ -1,0 +1,47 @@
+{
+  "name": "android-agent-ux-template",
+  "package": "com.moonkey.androidagent",
+  "steps": [
+    {
+      "name": "Force stop app",
+      "action": "force_stop"
+    },
+    {
+      "name": "Start app",
+      "action": "start_app"
+    },
+    {
+      "name": "Wait for first frame",
+      "action": "wait",
+      "ms": 1500
+    },
+    {
+      "name": "Assert app shell visible",
+      "action": "assert_text",
+      "text": "Android Agent",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Tap a top-level control",
+      "action": "tap_text",
+      "text": "Smart Capsule",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Wait for transition",
+      "action": "wait",
+      "ms": 1000
+    },
+    {
+      "name": "Optional text input",
+      "action": "type",
+      "text": "check ux flow",
+      "submit": false,
+      "continue_on_fail": true
+    },
+    {
+      "name": "Return",
+      "action": "back"
+    }
+  ]
+}
