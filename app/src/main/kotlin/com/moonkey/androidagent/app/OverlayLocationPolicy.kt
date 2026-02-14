@@ -80,7 +80,6 @@ internal fun deriveOverlayVisibility(
 ): OverlayVisibilityDecision {
     val isActive = hasActiveTask || mode is CapsuleMode.Done || mode is CapsuleMode.Error
     val normalizedShowPreference = when {
-        platformMode != PlatformMode.VIRTUAL_DISPLAY -> showPreference
         location == OverlayUserLocation.MAIN_APP || !isActive -> showPreference
         mode is CapsuleMode.WaitingForInput ||
             mode is CapsuleMode.WaitingForAction ||
@@ -90,11 +89,12 @@ internal fun deriveOverlayVisibility(
 
     return when (platformMode) {
         PlatformMode.ACCESSIBILITY -> {
-            val showCapsule = location != OverlayUserLocation.MAIN_APP && isActive
+            val isOverlayContext = location != OverlayUserLocation.MAIN_APP && isActive
+            val showCapsule = isOverlayContext && normalizedShowPreference == ShowPreference.CAPSULE
             OverlayVisibilityDecision(
                 showCapsule = showCapsule,
-                showIsland = false,
-                showGlow = showCapsule,
+                showIsland = isOverlayContext && normalizedShowPreference == ShowPreference.ISLAND,
+                showGlow = location != OverlayUserLocation.MAIN_APP && isActive,
                 normalizedShowPreference = normalizedShowPreference,
             )
         }
@@ -110,7 +110,7 @@ internal fun deriveOverlayVisibility(
                 OverlayVisibilityDecision(
                     showCapsule = normalizedShowPreference == ShowPreference.CAPSULE,
                     showIsland = normalizedShowPreference == ShowPreference.ISLAND,
-                    showGlow = false,
+                    showGlow = hasActiveTask,
                     normalizedShowPreference = normalizedShowPreference,
                 )
             }

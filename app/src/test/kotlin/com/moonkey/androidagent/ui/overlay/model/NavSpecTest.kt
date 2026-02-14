@@ -81,12 +81,26 @@ class NavSpecTest {
     }
 
     @Test
-    fun `a11y never shows nav buttons`() {
+    fun `a11y running in overlay context shows minimize only`() {
         val spec = NavSpec.from(
             context = CapsuleContext.SCREEN_VIEWING,
             platformMode = PlatformMode.ACCESSIBILITY,
             hasIsland = true,
             mode = CapsuleMode.Running("thinking"),
+        )
+
+        assertThat(spec.showMinimize).isTrue()
+        assertThat(spec.showApp).isFalse()
+        assertThat(spec.showWatch).isFalse()
+    }
+
+    @Test
+    fun `a11y waiting for input keeps minimize hidden`() {
+        val spec = NavSpec.from(
+            context = CapsuleContext.SCREEN_VIEWING,
+            platformMode = PlatformMode.ACCESSIBILITY,
+            hasIsland = true,
+            mode = CapsuleMode.WaitingForInput(question = "q", callId = "c1"),
         )
 
         assertThat(spec.showMinimize).isFalse()

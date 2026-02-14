@@ -171,7 +171,6 @@ data class NavSpec(
 
             return NavSpec(
                 showMinimize = !row2Hidden
-                    && platformMode == PlatformMode.VIRTUAL_DISPLAY
                     && hasIsland
                     && context != CapsuleContext.MAIN_APP
                     && mode !is CapsuleMode.WaitingForInput

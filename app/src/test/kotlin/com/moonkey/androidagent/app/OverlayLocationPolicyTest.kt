@@ -135,7 +135,7 @@ class OverlayLocationPolicyTest {
     }
 
     @Test
-    fun `derive visibility never shows island in accessibility mode`() {
+    fun `derive visibility allows island in accessibility mode when preference is island`() {
         val decision = deriveOverlayVisibility(
             platformMode = PlatformMode.ACCESSIBILITY,
             location = OverlayUserLocation.OTHER_APP,
@@ -144,7 +144,29 @@ class OverlayLocationPolicyTest {
             showPreference = ShowPreference.ISLAND,
         )
 
-        assertThat(decision.showIsland).isFalse()
+        assertThat(decision.showIsland).isTrue()
+        assertThat(decision.showCapsule).isFalse()
+    }
+
+    @Test
+    fun `derive visibility forces capsule in interactive accessibility modes even when preference is island`() {
+        val modes = listOf(
+            CapsuleMode.WaitingForInput(question = "q", callId = "1"),
+            CapsuleMode.WaitingForAction(instruction = "do", callId = "1"),
+            CapsuleMode.Error("error"),
+        )
+        modes.forEach { mode ->
+            val decision = deriveOverlayVisibility(
+                platformMode = PlatformMode.ACCESSIBILITY,
+                location = OverlayUserLocation.OTHER_APP,
+                mode = mode,
+                hasActiveTask = mode !is CapsuleMode.Error,
+                showPreference = ShowPreference.ISLAND,
+            )
+            assertThat(decision.normalizedShowPreference).isEqualTo(ShowPreference.CAPSULE)
+            assertThat(decision.showCapsule).isTrue()
+            assertThat(decision.showIsland).isFalse()
+        }
     }
 
     @Test
@@ -166,5 +188,52 @@ class OverlayLocationPolicyTest {
             assertThat(decision.showCapsule).isTrue()
             assertThat(decision.showIsland).isFalse()
         }
+    }
+
+    @Test
+    fun `derive visibility shows glow in vd when active and off main app`() {
+        val decision = deriveOverlayVisibility(
+            platformMode = PlatformMode.VIRTUAL_DISPLAY,
+            location = OverlayUserLocation.OTHER_APP,
+            mode = CapsuleMode.Running("thinking"),
+            hasActiveTask = true,
+            showPreference = ShowPreference.ISLAND,
+        )
+
+        assertThat(decision.showGlow).isTrue()
+    }
+
+    @Test
+    fun `derive visibility hides glow in vd when task is inactive`() {
+        val decision = deriveOverlayVisibility(
+            platformMode = PlatformMode.VIRTUAL_DISPLAY,
+            location = OverlayUserLocation.OTHER_APP,
+            mode = CapsuleMode.Done("done"),
+            hasActiveTask = false,
+            showPreference = ShowPreference.ISLAND,
+        )
+
+        assertThat(decision.showGlow).isFalse()
+    }
+
+    @Test
+    fun `derive visibility keeps glow for terminal a11y modes`() {
+        val doneDecision = deriveOverlayVisibility(
+            platformMode = PlatformMode.ACCESSIBILITY,
+            location = OverlayUserLocation.OTHER_APP,
+            mode = CapsuleMode.Done("done"),
+            hasActiveTask = false,
+            showPreference = ShowPreference.CAPSULE,
+        )
+        val errorDecision = deriveOverlayVisibility(
+            platformMode = PlatformMode.ACCESSIBILITY,
+            location = OverlayUserLocation.OTHER_APP,
+            mode = CapsuleMode.Error("error"),
+            hasActiveTask = false,
+            showPreference = ShowPreference.CAPSULE,
+        )
+
+        assertThat(doneDecision.showGlow).isTrue()
+        assertThat(errorDecision.showGlow).isTrue()
     }
 }

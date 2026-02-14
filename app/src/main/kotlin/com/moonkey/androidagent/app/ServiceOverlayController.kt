@@ -26,8 +26,8 @@ import kotlinx.coroutines.launch
  * Invariants enforced by applyVisibility:
  *   A. Capsule and Island are never simultaneously visible.
  *   B. In MAIN_APP, no system overlays — Compose capsule handles it.
- *   C. In A11y mode, island is never shown.
- *   D. In VD + background + active task, ShowPreference decides capsule vs island.
+ *   C. In overlay context + active task, ShowPreference decides capsule vs island.
+ *   D. WaitingFor* / Error force capsule visibility regardless preference.
  */
 class ServiceOverlayController(
     context: AccessibilityService,
@@ -88,7 +88,7 @@ class ServiceOverlayController(
     private var platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     private var userLocation = OverlayUserLocation.MAIN_APP
 
-    /** User preference: capsule or island in VD background. */
+    /** User preference: capsule or island while overlays are visible (A11y/VD). */
     private var showPreference = ShowPreference.ISLAND
 
     init {
@@ -160,7 +160,8 @@ class ServiceOverlayController(
         }
         when (platformMode) {
             PlatformMode.ACCESSIBILITY -> {
-                // Defensive no-op: A11y should never show island.
+                showPreference = ShowPreference.CAPSULE
+                applyVisibility()
             }
             PlatformMode.VIRTUAL_DISPLAY -> {
                 if (userLocation == OverlayUserLocation.VD_VIEWER) {
@@ -210,48 +211,37 @@ class ServiceOverlayController(
 
     fun onTaskStarted(taskId: String, input: String) {
         stateHolder.onTaskStarted(taskId, input)
+        showPreference = ShowPreference.CAPSULE
         applyVisibility()
     }
 
     fun onTurnPhaseChanged(phase: TurnPhase) {
         stateHolder.setTurnPhase(phase)
         stateHolder.setAgentMidTurn(phase == TurnPhase.EXECUTION || phase == TurnPhase.PLANNING)
-        if (platformMode == PlatformMode.ACCESSIBILITY) {
-            edgeGlowManager.updateState(stateHolder.derivedGlowState)
-        }
+        refreshGlowState()
     }
 
     fun onActionExecuted(toolName: String, success: Boolean) {
-        if (platformMode == PlatformMode.ACCESSIBILITY) {
-            edgeGlowManager.updateState(stateHolder.derivedGlowState)
-        }
+        refreshGlowState()
         // applyVisibility not needed: active task state hasn't changed
     }
 
     fun onTaskCompleted(reason: CompletionReason, message: String?) {
         stateHolder.onTaskCompleted(reason, message)
-        if (platformMode == PlatformMode.ACCESSIBILITY) {
-            edgeGlowManager.updateState(stateHolder.derivedGlowState)
-        }
+        refreshGlowState()
         // applyVisibility triggered by mode observer (Done/Error)
     }
 
     fun onSessionCompleted(reason: CompletionReason) {
         stateHolder.onSessionEnded(reason)
-        if (platformMode == PlatformMode.ACCESSIBILITY) {
-            edgeGlowManager.updateState(stateHolder.derivedGlowState)
-        }
+        refreshGlowState()
         applyVisibility()
     }
 
     fun onSessionError(message: String) {
         stateHolder.onError(message)
-        if (platformMode == PlatformMode.ACCESSIBILITY) {
-            edgeGlowManager.updateState(stateHolder.derivedGlowState)
-        }
-        if (platformMode == PlatformMode.VIRTUAL_DISPLAY) {
-            showPreference = ShowPreference.CAPSULE
-        }
+        refreshGlowState()
+        showPreference = ShowPreference.CAPSULE
         applyVisibility()
     }
 
@@ -262,16 +252,12 @@ class ServiceOverlayController(
 
     fun onSessionTakeover() {
         stateHolder.onTakeoverConfirmed()
-        if (platformMode == PlatformMode.ACCESSIBILITY) {
-            edgeGlowManager.updateState(stateHolder.derivedGlowState)
-        }
+        refreshGlowState()
     }
 
     fun onSessionResumed() {
         stateHolder.onResumed()
-        if (platformMode == PlatformMode.ACCESSIBILITY) {
-            edgeGlowManager.updateState(stateHolder.derivedGlowState)
-        }
+        refreshGlowState()
     }
 
     fun onSupplementReceived(@Suppress("UNUSED_PARAMETER") text: String) {
@@ -282,11 +268,8 @@ class ServiceOverlayController(
 
     fun onAskUser(type: AskUserType, message: String, callId: String) {
         stateHolder.onAskUser(type, message, callId)
-        // In VD mode, WaitingFor* needs capsule shown for user input
-        if (platformMode == PlatformMode.VIRTUAL_DISPLAY) {
-            showPreference = ShowPreference.CAPSULE
-            applyVisibility()
-        }
+        showPreference = ShowPreference.CAPSULE
+        applyVisibility()
     }
 
     // ── Private: window tracking (shared between A11y and VD) ──
@@ -318,5 +301,10 @@ class ServiceOverlayController(
             platformMode,
             hasIsland = statusIslandManager != null
         )
+    }
+
+    private fun refreshGlowState() {
+        if (!edgeGlowManager.isShowing()) return
+        edgeGlowManager.updateState(stateHolder.derivedGlowState)
     }
 }
