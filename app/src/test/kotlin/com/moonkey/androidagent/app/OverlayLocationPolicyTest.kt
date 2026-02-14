@@ -77,4 +77,94 @@ class OverlayLocationPolicyTest {
         )
         assertThat(result).isFalse()
     }
+
+    @Test
+    fun `derive visibility enforces mutual exclusion`() {
+        val cases = listOf(
+            deriveOverlayVisibility(
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                location = OverlayUserLocation.OTHER_APP,
+                mode = CapsuleMode.Running("thinking"),
+                hasActiveTask = true,
+                showPreference = ShowPreference.CAPSULE,
+            ),
+            deriveOverlayVisibility(
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                location = OverlayUserLocation.OTHER_APP,
+                mode = CapsuleMode.Running("thinking"),
+                hasActiveTask = true,
+                showPreference = ShowPreference.ISLAND,
+            ),
+            deriveOverlayVisibility(
+                platformMode = PlatformMode.ACCESSIBILITY,
+                location = OverlayUserLocation.OTHER_APP,
+                mode = CapsuleMode.Running("thinking"),
+                hasActiveTask = true,
+                showPreference = ShowPreference.ISLAND,
+            ),
+        )
+
+        cases.forEach { decision ->
+            assertThat(decision.showCapsule && decision.showIsland).isFalse()
+        }
+    }
+
+    @Test
+    fun `derive visibility hides all overlays in main app`() {
+        val a11y = deriveOverlayVisibility(
+            platformMode = PlatformMode.ACCESSIBILITY,
+            location = OverlayUserLocation.MAIN_APP,
+            mode = CapsuleMode.Running("thinking"),
+            hasActiveTask = true,
+            showPreference = ShowPreference.CAPSULE,
+        )
+        val vd = deriveOverlayVisibility(
+            platformMode = PlatformMode.VIRTUAL_DISPLAY,
+            location = OverlayUserLocation.MAIN_APP,
+            mode = CapsuleMode.Running("thinking"),
+            hasActiveTask = true,
+            showPreference = ShowPreference.CAPSULE,
+        )
+
+        assertThat(a11y.showCapsule).isFalse()
+        assertThat(a11y.showIsland).isFalse()
+        assertThat(a11y.showGlow).isFalse()
+        assertThat(vd.showCapsule).isFalse()
+        assertThat(vd.showIsland).isFalse()
+        assertThat(vd.showGlow).isFalse()
+    }
+
+    @Test
+    fun `derive visibility never shows island in accessibility mode`() {
+        val decision = deriveOverlayVisibility(
+            platformMode = PlatformMode.ACCESSIBILITY,
+            location = OverlayUserLocation.OTHER_APP,
+            mode = CapsuleMode.Running("thinking"),
+            hasActiveTask = true,
+            showPreference = ShowPreference.ISLAND,
+        )
+
+        assertThat(decision.showIsland).isFalse()
+    }
+
+    @Test
+    fun `derive visibility forces capsule in interactive vd modes even when preference is island`() {
+        val modes = listOf(
+            CapsuleMode.WaitingForInput(question = "q", callId = "1"),
+            CapsuleMode.WaitingForAction(instruction = "do", callId = "1"),
+            CapsuleMode.Error("error"),
+        )
+        modes.forEach { mode ->
+            val decision = deriveOverlayVisibility(
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                location = OverlayUserLocation.OTHER_APP,
+                mode = mode,
+                hasActiveTask = mode !is CapsuleMode.Error,
+                showPreference = ShowPreference.ISLAND,
+            )
+            assertThat(decision.normalizedShowPreference).isEqualTo(ShowPreference.CAPSULE)
+            assertThat(decision.showCapsule).isTrue()
+            assertThat(decision.showIsland).isFalse()
+        }
+    }
 }

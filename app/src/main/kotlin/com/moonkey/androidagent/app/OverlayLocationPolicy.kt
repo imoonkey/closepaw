@@ -10,6 +10,18 @@ internal enum class OverlayUserLocation {
     OTHER_APP
 }
 
+internal enum class ShowPreference {
+    CAPSULE,
+    ISLAND
+}
+
+internal data class OverlayVisibilityDecision(
+    val showCapsule: Boolean,
+    val showIsland: Boolean,
+    val showGlow: Boolean,
+    val normalizedShowPreference: ShowPreference,
+)
+
 internal fun isActivityWindowClass(className: String?): Boolean {
     val normalizedClassName = className?.substringBefore('$') ?: return false
     return normalizedClassName.endsWith("Activity") ||
@@ -58,3 +70,50 @@ internal fun shouldOpenAppWhenIslandTapped(
     hasActiveTask: Boolean,
     mode: CapsuleMode,
 ): Boolean = !hasActiveTask && mode !is CapsuleMode.Done && mode !is CapsuleMode.Error
+
+internal fun deriveOverlayVisibility(
+    platformMode: PlatformMode,
+    location: OverlayUserLocation,
+    mode: CapsuleMode,
+    hasActiveTask: Boolean,
+    showPreference: ShowPreference,
+): OverlayVisibilityDecision {
+    val isActive = hasActiveTask || mode is CapsuleMode.Done || mode is CapsuleMode.Error
+    val normalizedShowPreference = when {
+        platformMode != PlatformMode.VIRTUAL_DISPLAY -> showPreference
+        location == OverlayUserLocation.MAIN_APP || !isActive -> showPreference
+        mode is CapsuleMode.WaitingForInput ||
+            mode is CapsuleMode.WaitingForAction ||
+            mode is CapsuleMode.Error -> ShowPreference.CAPSULE
+        else -> showPreference
+    }
+
+    return when (platformMode) {
+        PlatformMode.ACCESSIBILITY -> {
+            val showCapsule = location != OverlayUserLocation.MAIN_APP && isActive
+            OverlayVisibilityDecision(
+                showCapsule = showCapsule,
+                showIsland = false,
+                showGlow = showCapsule,
+                normalizedShowPreference = normalizedShowPreference,
+            )
+        }
+        PlatformMode.VIRTUAL_DISPLAY -> {
+            if (location == OverlayUserLocation.MAIN_APP || !isActive) {
+                OverlayVisibilityDecision(
+                    showCapsule = false,
+                    showIsland = false,
+                    showGlow = false,
+                    normalizedShowPreference = normalizedShowPreference,
+                )
+            } else {
+                OverlayVisibilityDecision(
+                    showCapsule = normalizedShowPreference == ShowPreference.CAPSULE,
+                    showIsland = normalizedShowPreference == ShowPreference.ISLAND,
+                    showGlow = false,
+                    normalizedShowPreference = normalizedShowPreference,
+                )
+            }
+        }
+    }
+}

@@ -89,7 +89,6 @@ class ServiceOverlayController(
     private var userLocation = OverlayUserLocation.MAIN_APP
 
     /** User preference: capsule or island in VD background. */
-    enum class ShowPreference { CAPSULE, ISLAND }
     private var showPreference = ShowPreference.ISLAND
 
     init {
@@ -121,55 +120,33 @@ class ServiceOverlayController(
      */
     private fun applyVisibility() {
         val mode = stateHolder.mode.value
-        val isActive = stateHolder.hasActiveTask
-            || mode is CapsuleMode.Done
-            || mode is CapsuleMode.Error
-        val isMainApp = userLocation == OverlayUserLocation.MAIN_APP
+        val decision = deriveOverlayVisibility(
+            platformMode = platformMode,
+            location = userLocation,
+            mode = mode,
+            hasActiveTask = stateHolder.hasActiveTask,
+            showPreference = showPreference,
+        )
+        showPreference = decision.normalizedShowPreference
 
-        when (platformMode) {
-            PlatformMode.ACCESSIBILITY -> {
-                // A11y: no island ever. Capsule + glow only when not in our app and task active.
-                if (isMainApp || !isActive) {
-                    capsuleManager.hide()
-                    edgeGlowManager.hideImmediately()
-                } else {
-                    if (!capsuleManager.isShowing()) capsuleManager.show()
-                    if (!edgeGlowManager.isShowing()) {
-                        edgeGlowManager.show(stateHolder.derivedGlowState)
-                    }
-                }
+        if (decision.showCapsule) {
+            if (!capsuleManager.isShowing()) capsuleManager.show()
+        } else {
+            capsuleManager.hide()
+        }
+
+        if (decision.showIsland) {
+            if (statusIslandManager?.isShowing() != true) statusIslandManager?.show()
+        } else {
+            statusIslandManager?.hide()
+        }
+
+        if (decision.showGlow) {
+            if (!edgeGlowManager.isShowing()) {
+                edgeGlowManager.show(stateHolder.derivedGlowState)
             }
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                edgeGlowManager.hideImmediately()
-
-                if (isMainApp || !isActive) {
-                    // In our app or no task: Compose capsule handles everything.
-                    capsuleManager.hide()
-                    statusIslandManager?.hide()
-                } else {
-                    if ((mode is CapsuleMode.WaitingForInput ||
-                            mode is CapsuleMode.WaitingForAction ||
-                            mode is CapsuleMode.Error) &&
-                        showPreference == ShowPreference.ISLAND
-                    ) {
-                        showPreference = ShowPreference.CAPSULE
-                    }
-
-                    // Background or viewer: show one of capsule/island per preference.
-                    when (showPreference) {
-                        ShowPreference.CAPSULE -> {
-                            if (!capsuleManager.isShowing()) capsuleManager.show()
-                            statusIslandManager?.hide()
-                        }
-                        ShowPreference.ISLAND -> {
-                            capsuleManager.hide()
-                            if (statusIslandManager?.isShowing() != true) {
-                                statusIslandManager?.show()
-                            }
-                        }
-                    }
-                }
-            }
+        } else {
+            edgeGlowManager.hideImmediately()
         }
     }
 
