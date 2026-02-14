@@ -61,6 +61,26 @@ class NavSpecTest {
     }
 
     @Test
+    fun `done mode hides all nav buttons`() {
+        val contexts = listOf(
+            CapsuleContext.MAIN_APP,
+            CapsuleContext.SCREEN_VIEWING,
+            CapsuleContext.BACKGROUND,
+        )
+        contexts.forEach { ctx ->
+            val spec = NavSpec.from(
+                context = ctx,
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                hasIsland = true,
+                mode = CapsuleMode.Done("completed"),
+            )
+            assertThat(spec.showMinimize).isFalse()
+            assertThat(spec.showApp).isFalse()
+            assertThat(spec.showWatch).isFalse()
+        }
+    }
+
+    @Test
     fun `a11y never shows nav buttons`() {
         val spec = NavSpec.from(
             context = CapsuleContext.SCREEN_VIEWING,

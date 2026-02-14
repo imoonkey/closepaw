@@ -125,36 +125,39 @@ fun SmartCapsuleCompose(
                 Column {
                     Spacer(Modifier.height(12.dp))
                     CapsuleRow1(spec = spec)
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-                    // Expanded body
-                    if (spec.expandedBody != null) {
-                        Text(
-                            text = spec.expandedBody,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 8.dp)
+                    // Design Section 12: Done shows only Row1. Row2 + dividers hidden.
+                    if (mode !is CapsuleMode.Done) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                        // Expanded body
+                        if (spec.expandedBody != null) {
+                            Text(
+                                text = spec.expandedBody,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                            )
+                        }
+                        CapsuleRow2(
+                            spec = spec,
+                            navSpec = navSpec,
+                            mode = mode,
+                            onTakeover = onTakeover,
+                            onResume = onResume,
+                            onStop = onStop,
+                            onDone = { callId -> onUserResponse(callId, "done") },
+                            onDismissError = onDismissError,
+                            onNavigate = onNavigate
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                         )
                     }
-                    CapsuleRow2(
-                        spec = spec,
-                        navSpec = navSpec,
-                        mode = mode,
-                        onTakeover = onTakeover,
-                        onResume = onResume,
-                        onStop = onStop,
-                        onDone = { callId -> onUserResponse(callId, "done") },
-                        onDismissError = onDismissError,
-                        onNavigate = onNavigate
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
                 }
             }
 

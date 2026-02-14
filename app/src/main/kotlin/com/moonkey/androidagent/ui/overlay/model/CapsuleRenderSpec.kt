@@ -164,17 +164,26 @@ data class NavSpec(
             platformMode: PlatformMode,
             hasIsland: Boolean,
             mode: CapsuleMode? = null,
-        ): NavSpec = NavSpec(
-            showMinimize = platformMode == PlatformMode.VIRTUAL_DISPLAY
-                && hasIsland
-                && context != CapsuleContext.MAIN_APP
-                && mode !is CapsuleMode.WaitingForInput
-                && mode !is CapsuleMode.WaitingForAction
-                && mode !is CapsuleMode.Error,
-            showApp = context != CapsuleContext.MAIN_APP
-                && platformMode != PlatformMode.ACCESSIBILITY,
-            showWatch = platformMode != PlatformMode.ACCESSIBILITY
-                && context != CapsuleContext.SCREEN_VIEWING,
-        )
+        ): NavSpec {
+            // Design Section 4: NavSpec is context-level permission.
+            // Done mode hides Row2 entirely, so all Row2-R nav buttons must also hide.
+            val row2Hidden = mode is CapsuleMode.Done
+
+            return NavSpec(
+                showMinimize = !row2Hidden
+                    && platformMode == PlatformMode.VIRTUAL_DISPLAY
+                    && hasIsland
+                    && context != CapsuleContext.MAIN_APP
+                    && mode !is CapsuleMode.WaitingForInput
+                    && mode !is CapsuleMode.WaitingForAction
+                    && mode !is CapsuleMode.Error,
+                showApp = !row2Hidden
+                    && context != CapsuleContext.MAIN_APP
+                    && platformMode != PlatformMode.ACCESSIBILITY,
+                showWatch = !row2Hidden
+                    && platformMode != PlatformMode.ACCESSIBILITY
+                    && context != CapsuleContext.SCREEN_VIEWING,
+            )
+        }
     }
 }
