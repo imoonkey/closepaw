@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.moonkey.androidagent.app.AgentService
 import com.moonkey.androidagent.history.SessionHistoryManager
+import com.moonkey.androidagent.history.model.MessageConverter
+import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.Op
@@ -28,6 +30,33 @@ import kotlinx.coroutines.launch
 
 internal fun completionSummary(result: String?): String =
         result?.takeIf { it.isNotBlank() } ?: "Task completed"
+
+internal fun appendCompletionToMessages(
+        messages: MutableList<ChatMessage>,
+        completionText: String,
+        timestamp: Long,
+        taskId: String
+) {
+    val index = messages.indexOfLast { it is ChatMessage.Agent }
+    if (index >= 0) {
+        val current = messages[index] as ChatMessage.Agent
+        messages[index] =
+                current.copy(
+                        contentBlocks = current.contentBlocks + ContentBlock.Text(completionText),
+                        state = AgentMessageState.Complete
+                )
+        return
+    }
+
+    messages.add(
+            ChatMessage.Agent(
+                    id = taskId,
+                    timestamp = timestamp,
+                    contentBlocks = listOf(ContentBlock.Text(completionText)),
+                    state = AgentMessageState.Complete
+            )
+    )
+}
 
 /**
  * ChatViewModel - Manages chat state and event collection.
@@ -276,11 +305,8 @@ class ChatViewModel(
             _taskBannerState.value =
                     TaskBannerState.Completed(summary = completionText)
 
-            // Completion text must always be appended, even when backend result is empty.
-            updateLastAgentMessage { msg ->
-                val blocks = msg.contentBlocks + ContentBlock.Text(completionText)
-                msg.copy(contentBlocks = blocks, state = AgentMessageState.Complete)
-            }
+            // Completion text must always be present, even when no agent bubble exists yet.
+            appendCompletionToMessages(_messages, completionText, event.timestamp, event.taskId)
 
             // Reset streaming state
             streamingBuffer.clear()
@@ -327,6 +353,17 @@ class ChatViewModel(
                 _messages[index] = transform(current)
             }
         }
+    }
+
+    /** Restore chat UI from a recorder snapshot owned by an active session. */
+    fun restoreMessagesFromRecords(records: List<MessageRecord>) {
+        val restoredMessages = MessageConverter.fromRecords(records)
+        _messages.clear()
+        streamingBuffer.clear()
+        currentAgentMessageId = null
+        _messages.addAll(restoredMessages)
+        _uiState.update { it.copy(showEmptyState = _messages.isEmpty()) }
+        _taskBannerState.value = TaskBannerState.Idle
     }
 
     /**

@@ -74,6 +74,9 @@ class AgentService : AccessibilityService() {
      */
     val capsuleStateHolder get() = overlayController?.stateHolder
 
+    /** Returns the currently active session observed by the service, if any. */
+    fun getActiveSession(): AgentSession? = session
+
     /**
      * Get the action visualizer for use in sessions created by MainActivity. Returns null if
      * service is not connected or visualizer not initialized.
@@ -151,6 +154,7 @@ class AgentService : AccessibilityService() {
                                     Intent(this, MainActivity::class.java).apply {
                                         flags =
                                                 Intent.FLAG_ACTIVITY_NEW_TASK or
+                                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
                                                         Intent.FLAG_ACTIVITY_SINGLE_TOP
                                     }
                             startActivity(intent)
@@ -227,7 +231,7 @@ class AgentService : AccessibilityService() {
             return
         }
 
-        scope.launch { currentSession?.submit(op) }
+        scope.launch { currentSession.submit(op) }
     }
 
     private fun updateStatus(status: String) {

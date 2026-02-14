@@ -211,6 +211,11 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
+    override fun onStart() {
+        super.onStart()
+        rebindActiveServiceSessionIfNeeded()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         // Don't shutdown session when activity is destroyed - agent continues in service
@@ -325,6 +330,23 @@ class MainActivity : ComponentActivity() {
         }
 
         Log.d(TAG, "Current session cleared")
+    }
+
+    private fun rebindActiveServiceSessionIfNeeded() {
+        val service = AgentService.instance ?: return
+        val serviceSession = service.getActiveSession() ?: return
+        if (currentSession === serviceSession) return
+
+        currentSession = serviceSession
+        viewModel.startEventCollection(serviceSession)
+
+        serviceSession.getServices().recordingService.getCurrentSession()?.let { snapshot ->
+            viewModel.restoreMessagesFromRecords(snapshot.messages)
+            Log.i(
+                    TAG,
+                    "Rebound active session ${serviceSession.sessionId} with ${snapshot.messages.size} recorded messages"
+            )
+        } ?: Log.i(TAG, "Rebound active session ${serviceSession.sessionId} without recorder snapshot")
     }
 
     private fun ensureSessionAndSend(text: String) {
