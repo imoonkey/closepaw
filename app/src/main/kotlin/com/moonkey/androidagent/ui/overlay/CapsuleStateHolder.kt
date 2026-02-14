@@ -154,13 +154,22 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
         setMode(CapsuleMode.Running("Thinking..."))
     }
 
-    fun onUserResponseSent(callId: String) {
+    fun onUserResponseSent(callId: String): Boolean {
         val current = _mode.value
         if (current !is CapsuleMode.WaitingForInput && current !is CapsuleMode.WaitingForAction) {
             Log.d(TAG, "Ignoring user response in ${current::class.simpleName}")
-            return
+            return false
+        }
+        val expectedCallId = when (current) {
+            is CapsuleMode.WaitingForInput -> current.callId
+            is CapsuleMode.WaitingForAction -> current.callId
+        }
+        if (expectedCallId != callId) {
+            Log.d(TAG, "Ignoring user response due to callId mismatch: expected=$expectedCallId, actual=$callId")
+            return false
         }
         setMode(CapsuleMode.Running("Processing response..."))
+        return true
     }
 
     fun onTaskCompleted(reason: CompletionReason, message: String? = null) {
@@ -170,7 +179,10 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
             return
         }
         val mode = when (reason) {
-            CompletionReason.GOAL_ACHIEVED -> CapsuleMode.Done(message ?: "Completed")
+            CompletionReason.GOAL_ACHIEVED -> {
+                val completionMessage = message?.takeIf { it.isNotBlank() } ?: "Task completed"
+                CapsuleMode.Done(completionMessage)
+            }
             CompletionReason.MAX_TURNS -> CapsuleMode.Done("Max steps reached")
             CompletionReason.TASK_IMPOSSIBLE -> CapsuleMode.Done("Task impossible")
             CompletionReason.USER_STOPPED -> CapsuleMode.Done("Stopped")

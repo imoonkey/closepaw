@@ -96,7 +96,7 @@ class SmartCapsuleManager(
         this.hasIsland = hasIsland
         // Re-render nav buttons if currently showing
         val v = views ?: return
-        val navSpec = NavSpec.from(capsuleContext, platformMode, hasIsland)
+        val navSpec = NavSpec.from(capsuleContext, platformMode, hasIsland, currentMode)
         renderer.applyNavSpec(v, navSpec)
     }
 
@@ -224,7 +224,7 @@ class SmartCapsuleManager(
             if (overlayView == null) return@post
 
             val spec = CapsuleRenderSpec.from(mode, prevMode)
-            val navSpec = NavSpec.from(capsuleContext, platformMode, hasIsland)
+            val navSpec = NavSpec.from(capsuleContext, platformMode, hasIsland, mode)
             val currentHeight = container.height
             val needsHeightAnim = currentHeight > 0 && isHeightTransition(prevMode, mode)
 

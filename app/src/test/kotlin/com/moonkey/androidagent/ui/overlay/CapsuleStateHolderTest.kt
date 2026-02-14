@@ -169,6 +169,14 @@ class CapsuleStateHolderTest {
     }
 
     @Test
+    fun `onUserResponseSent ignored when callId mismatches waiting call`() {
+        holder.onAskUser(AskUserType.QUESTION, "Which one?", "call1")
+        val modeBefore = holder.mode.value
+        holder.onUserResponseSent("wrong-call")
+        assertThat(holder.mode.value).isEqualTo(modeBefore)
+    }
+
+    @Test
     fun `onUserResponseSent ignored when no pending ask`() {
         holder.onTaskStarted("task1", "input")
         val modeBefore = holder.mode.value
@@ -185,6 +193,24 @@ class CapsuleStateHolderTest {
         val mode = holder.mode.value
         assertThat(mode).isInstanceOf(CapsuleMode.Done::class.java)
         assertThat((mode as CapsuleMode.Done).message).isEqualTo("All done")
+    }
+
+    @Test
+    fun `onTaskCompleted GOAL_ACHIEVED uses default message when result missing`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED, null)
+        val mode = holder.mode.value
+        assertThat(mode).isInstanceOf(CapsuleMode.Done::class.java)
+        assertThat((mode as CapsuleMode.Done).message).isEqualTo("Task completed")
+    }
+
+    @Test
+    fun `onTaskCompleted GOAL_ACHIEVED uses default message when result blank`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED, "   ")
+        val mode = holder.mode.value
+        assertThat(mode).isInstanceOf(CapsuleMode.Done::class.java)
+        assertThat((mode as CapsuleMode.Done).message).isEqualTo("Task completed")
     }
 
     @Test

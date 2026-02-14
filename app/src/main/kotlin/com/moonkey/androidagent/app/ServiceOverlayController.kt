@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
  * Single source of truth: [CapsuleStateHolder].
  *
  * Window visibility is determined by ONE function: [applyVisibility].
- * It reads (platformMode, isAppInForeground, mode, showPreference)
+ * It reads (platformMode, userLocation, mode, showPreference)
  * and sets exactly which overlay windows are visible.
  *
  * Invariants enforced by applyVisibility:
@@ -64,8 +64,9 @@ class ServiceOverlayController(
         this.onResume = this@ServiceOverlayController.onResume
         this.onSupplement = { text -> this@ServiceOverlayController.onSupplement(text) }
         this.onUserResponse = { callId, response ->
-            stateHolder.onUserResponseSent(callId) // transition WaitingFor* → Running
-            this@ServiceOverlayController.onUserResponse(callId, response)
+            if (stateHolder.onUserResponseSent(callId)) {
+                this@ServiceOverlayController.onUserResponse(callId, response)
+            }
         }
         this.onOpenApp = this@ServiceOverlayController.onOpenApp
         this.onDismissError = {
@@ -82,21 +83,17 @@ class ServiceOverlayController(
     // ── Window-level state ──
 
     private var platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
-    private var isAppInForeground = true
-    private var lastKnownForegroundPackage: String? = null
-    private var isViewerVisible = false
+    private var userLocation = UserLocation.MAIN_APP
+
+    private enum class UserLocation {
+        MAIN_APP,
+        VD_VIEWER,
+        OTHER_APP
+    }
 
     /** User preference: capsule or island in VD background. */
     enum class ShowPreference { CAPSULE, ISLAND }
     private var showPreference = ShowPreference.ISLAND
-
-    private enum class ContextTrigger {
-        PLATFORM_CHANGED,
-        ISLAND_TAPPED,
-        VIEWER_OPENED,
-        VIEWER_CLOSED,
-        FOREGROUND_CHANGED
-    }
 
     init {
         statusIslandManager?.startObserving(stateHolder, scope)
@@ -115,7 +112,8 @@ class ServiceOverlayController(
     fun setPlatformMode(mode: PlatformMode) {
         platformMode = mode
         stateHolder.setPlatformMode(mode)
-        updateContext(ContextTrigger.PLATFORM_CHANGED)
+        updateContext()
+        applyVisibility()
     }
 
     // ── Visibility system (single authority) ──
@@ -129,11 +127,12 @@ class ServiceOverlayController(
         val isActive = stateHolder.hasActiveTask
             || mode is CapsuleMode.Done
             || mode is CapsuleMode.Error
+        val isMainApp = userLocation == UserLocation.MAIN_APP
 
         when (platformMode) {
             PlatformMode.ACCESSIBILITY -> {
                 // A11y: no island ever. Capsule + glow only when not in our app and task active.
-                if (isAppInForeground || !isActive) {
+                if (isMainApp || !isActive) {
                     capsuleManager.hide()
                     edgeGlowManager.hideImmediately()
                 } else {
@@ -144,11 +143,21 @@ class ServiceOverlayController(
                 }
             }
             PlatformMode.VIRTUAL_DISPLAY -> {
-                if (isAppInForeground || !isActive) {
+                edgeGlowManager.hideImmediately()
+
+                if (isMainApp || !isActive) {
                     // In our app or no task: Compose capsule handles everything.
                     capsuleManager.hide()
                     statusIslandManager?.hide()
                 } else {
+                    if ((mode is CapsuleMode.WaitingForInput ||
+                            mode is CapsuleMode.WaitingForAction ||
+                            mode is CapsuleMode.Error) &&
+                        showPreference == ShowPreference.ISLAND
+                    ) {
+                        showPreference = ShowPreference.CAPSULE
+                    }
+
                     // Background or viewer: show one of capsule/island per preference.
                     when (showPreference) {
                         ShowPreference.CAPSULE -> {
@@ -170,34 +179,40 @@ class ServiceOverlayController(
     // ── Public: viewer lifecycle ──
 
     fun onIslandTapped() {
-        if (!stateHolder.hasActiveTask) {
+        val mode = stateHolder.mode.value
+        if (!stateHolder.hasActiveTask && mode !is CapsuleMode.Done && mode !is CapsuleMode.Error) {
             onOpenApp()
             return
         }
         when (platformMode) {
             PlatformMode.ACCESSIBILITY -> {
-                // Shouldn't happen (no island in A11y), but defensive
-                showPreference = ShowPreference.CAPSULE
-                applyVisibility()
+                // Defensive no-op: A11y should never show island.
             }
             PlatformMode.VIRTUAL_DISPLAY -> {
-                // Open VD viewer — onViewerOpened() handles capsule + island swap
-                onOpenViewer?.invoke() ?: onOpenApp()
+                if (userLocation == UserLocation.VD_VIEWER) {
+                    showPreference = ShowPreference.CAPSULE
+                    applyVisibility()
+                } else {
+                    // Open VD viewer — onViewerOpened() handles capsule + island swap
+                    onOpenViewer?.invoke() ?: onOpenApp()
+                }
             }
         }
     }
 
     fun onViewerOpened() {
-        isViewerVisible = true
+        userLocation = UserLocation.VD_VIEWER
         showPreference = ShowPreference.CAPSULE
-        updateContext(ContextTrigger.VIEWER_OPENED)
+        updateContext()
         applyVisibility()
     }
 
     fun onViewerClosed() {
-        isViewerVisible = false
+        if (userLocation == UserLocation.VD_VIEWER) {
+            userLocation = UserLocation.OTHER_APP
+        }
         showPreference = ShowPreference.ISLAND
-        updateContext(ContextTrigger.VIEWER_CLOSED)
+        updateContext()
         applyVisibility()
     }
 
@@ -260,7 +275,10 @@ class ServiceOverlayController(
         if (platformMode == PlatformMode.ACCESSIBILITY) {
             edgeGlowManager.updateState(stateHolder.derivedGlowState)
         }
-        // applyVisibility triggered by mode observer (Error)
+        if (platformMode == PlatformMode.VIRTUAL_DISPLAY) {
+            showPreference = ShowPreference.CAPSULE
+        }
+        applyVisibility()
     }
 
     fun onThoughtUpdate(thought: String) {
@@ -282,8 +300,8 @@ class ServiceOverlayController(
         }
     }
 
-    fun onSupplementReceived(text: String) {
-        if (platformMode == PlatformMode.ACCESSIBILITY) {
+    fun onSupplementReceived(@Suppress("UNUSED_PARAMETER") text: String) {
+        if (capsuleManager.isShowing()) {
             capsuleManager.flashSupplementConfirmation(stateHolder.isAgentMidTurn.value)
         }
     }
@@ -310,41 +328,41 @@ class ServiceOverlayController(
 
         if (!isActivityWindow) return
 
-        if (packageName != null && packageName != lastKnownForegroundPackage) {
-            lastKnownForegroundPackage = packageName
-            val wasInForeground = isAppInForeground
-            isAppInForeground = packageName == appPackage
+        val nextLocation = when {
+            packageName == null -> return
+            packageName != appPackage -> UserLocation.OTHER_APP
+            isViewerActivityClass(normalizedClassName) -> UserLocation.VD_VIEWER
+            else -> UserLocation.MAIN_APP
+        }
 
+        if (nextLocation != userLocation) {
             Log.d(
                 logTag,
-                "Window changed: pkg=$packageName, " +
-                    "wasInForeground=$wasInForeground, isInForeground=$isAppInForeground, " +
-                    "hasActiveTask=${stateHolder.hasActiveTask}"
+                "Window changed: pkg=$packageName, class=$normalizedClassName, " +
+                    "from=$userLocation, to=$nextLocation, hasActiveTask=${stateHolder.hasActiveTask}"
             )
-
-            if (wasInForeground != isAppInForeground) {
-                updateContext(ContextTrigger.FOREGROUND_CHANGED)
-                applyVisibility()
-            }
+            userLocation = nextLocation
+            updateContext()
+            applyVisibility()
         }
     }
 
-    private fun updateContext(trigger: ContextTrigger) {
-        val ctx = when (trigger) {
-            ContextTrigger.ISLAND_TAPPED,
-            ContextTrigger.VIEWER_OPENED -> CapsuleContext.SCREEN_VIEWING
-            ContextTrigger.VIEWER_CLOSED -> CapsuleContext.BACKGROUND
-            ContextTrigger.PLATFORM_CHANGED,
-            ContextTrigger.FOREGROUND_CHANGED -> when (platformMode) {
-                PlatformMode.ACCESSIBILITY -> {
-                    if (isAppInForeground) CapsuleContext.MAIN_APP else CapsuleContext.SCREEN_VIEWING
-                }
-                PlatformMode.VIRTUAL_DISPLAY -> {
-                    when {
-                        isAppInForeground -> CapsuleContext.MAIN_APP
-                        isViewerVisible -> CapsuleContext.SCREEN_VIEWING
-                        else -> CapsuleContext.BACKGROUND
-                    }
+    private fun isViewerActivityClass(className: String?): Boolean {
+        val name = className ?: return false
+        return name.contains("VirtualDisplayViewerActivity")
+    }
+
+    private fun updateContext() {
+        val ctx = when (platformMode) {
+            PlatformMode.ACCESSIBILITY -> {
+                if (userLocation == UserLocation.MAIN_APP) CapsuleContext.MAIN_APP
+                else CapsuleContext.SCREEN_VIEWING
+            }
+            PlatformMode.VIRTUAL_DISPLAY -> {
+                when (userLocation) {
+                    UserLocation.MAIN_APP -> CapsuleContext.MAIN_APP
+                    UserLocation.VD_VIEWER -> CapsuleContext.SCREEN_VIEWING
+                    UserLocation.OTHER_APP -> CapsuleContext.BACKGROUND
                 }
             }
         }

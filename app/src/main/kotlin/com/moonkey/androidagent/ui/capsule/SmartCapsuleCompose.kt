@@ -95,8 +95,8 @@ fun SmartCapsuleCompose(
             previousModeState.value = mode
         }
     }
-    val navSpec = remember(context, platformMode) {
-        NavSpec.from(context, platformMode, hasIsland = true)
+    val navSpec = remember(context, platformMode, mode) {
+        NavSpec.from(context, platformMode, hasIsland = true, mode = mode)
     }
 
     // Clear input when spec says so (e.g. transition into WaitingForInput)
@@ -163,6 +163,8 @@ fun SmartCapsuleCompose(
                     row3Spec = spec.row3,
                     inputText = inputText,
                     onInputChange = { inputText = it },
+                    showOpenViewer = mode is CapsuleMode.Hidden && navSpec.showWatch,
+                    onOpenViewer = { onNavigate(NavAction.OPEN_VIEWER) },
                     onSubmit = {
                         val text = inputText.trim()
                         if (text.isEmpty()) return@CapsuleRow3
@@ -285,6 +287,8 @@ private fun CapsuleRow3(
     row3Spec: CapsuleRenderSpec.Row3Spec,
     inputText: String,
     onInputChange: (String) -> Unit,
+    showOpenViewer: Boolean,
+    onOpenViewer: () -> Unit,
     onSubmit: () -> Unit
 ) {
     Row(
@@ -313,6 +317,10 @@ private fun CapsuleRow3(
             maxLines = 3,
             singleLine = false
         )
+        if (showOpenViewer) {
+            Spacer(Modifier.width(8.dp))
+            NavIconButton(text = "👁", onClick = onOpenViewer)
+        }
         Spacer(Modifier.width(8.dp))
         TextButton(
             onClick = onSubmit,

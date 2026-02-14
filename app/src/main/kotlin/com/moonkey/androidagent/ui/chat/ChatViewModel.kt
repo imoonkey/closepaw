@@ -26,6 +26,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+internal fun completionSummary(result: String?): String =
+        result?.takeIf { it.isNotBlank() } ?: "Task completed"
+
 /**
  * ChatViewModel - Manages chat state and event collection.
  *
@@ -267,18 +270,15 @@ class ChatViewModel(
 
         private fun handleTaskCompleted(event: AgentEvent.TaskCompleted) {
             // Capsule mode transitions are handled by CapsuleStateHolder
+            val completionText = completionSummary(event.result)
 
             // Update banner
             _taskBannerState.value =
-                    TaskBannerState.Completed(summary = event.result ?: "Task complete")
+                    TaskBannerState.Completed(summary = completionText)
 
-            // Append completion result to agent message if present
+            // Completion text must always be appended, even when backend result is empty.
             updateLastAgentMessage { msg ->
-                val blocks = if (!event.result.isNullOrBlank()) {
-                    msg.contentBlocks + ContentBlock.Text(event.result)
-                } else {
-                    msg.contentBlocks
-                }
+                val blocks = msg.contentBlocks + ContentBlock.Text(completionText)
                 msg.copy(contentBlocks = blocks, state = AgentMessageState.Complete)
             }
 
@@ -312,7 +312,7 @@ class ChatViewModel(
                     ChatMessage.User(
                             id = UUID.randomUUID().toString(),
                             timestamp = System.currentTimeMillis(),
-                            text = "📝 ${event.text}"
+                            text = event.text
                     )
             )
         }
