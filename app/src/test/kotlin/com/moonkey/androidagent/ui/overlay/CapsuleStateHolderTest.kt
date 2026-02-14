@@ -279,6 +279,15 @@ class CapsuleStateHolderTest {
     }
 
     @Test
+    fun `onSessionEnded GOAL_ACHIEVED uses task completed default without prior result`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onSessionEnded(CompletionReason.GOAL_ACHIEVED)
+        val mode = holder.mode.value
+        assertThat(mode).isInstanceOf(CapsuleMode.Done::class.java)
+        assertThat((mode as CapsuleMode.Done).message).isEqualTo("Task completed")
+    }
+
+    @Test
     fun `auto-hide transitions Done to Hidden after 3 seconds`() {
         holder.onTaskStarted("task1", "input")
         holder.onTaskCompleted(CompletionReason.GOAL_ACHIEVED)

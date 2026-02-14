@@ -229,7 +229,7 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
         _isStopPending.value = false
         when (reason) {
             CompletionReason.GOAL_ACHIEVED -> {
-                val message = (mode.value as? CapsuleMode.Done)?.message ?: "Completed"
+                val message = (mode.value as? CapsuleMode.Done)?.message ?: "Task completed"
                 setMode(CapsuleMode.Done(message))
                 scheduleAutoHide()
             }
