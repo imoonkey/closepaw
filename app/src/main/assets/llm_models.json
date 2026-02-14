@@ -5,23 +5,23 @@
     "api": "response",
     "model_id": "gpt-5.2"
   },
-  "gpt-5.2-pro": {
-    "display_name": "GPT-5.2 Pro",
-    "provider": "OPENAI",
-    "api": "response",
-    "model_id": "gpt-5.2-pro"
-  },
   "gpt-5.2-chat": {
     "display_name": "GPT-5.2 (Chat API)",
     "provider": "OPENAI",
     "api": "chat",
     "model_id": "gpt-5.2"
   },
-  "glm-4.7": {
-    "display_name": "GLM-4.7",
+  "glm-5": {
+    "display_name": "GLM-5",
     "provider": "OPENROUTER",
     "api": "chat",
-    "model_id": "z-ai/glm-4.7"
+    "model_id": "z-ai/glm-5"
+  },
+  "minimax-m2.5": {
+    "display_name": "Minimax M2.5",
+    "provider": "OPENROUTER",
+    "api": "chat",
+    "model_id": "minimax/minimax-m2.5"
   },
   "kimi-k2.5": {
     "display_name": "Kimi K2.5",
@@ -34,18 +34,6 @@
     "provider": "OPENROUTER",
     "api": "chat",
     "model_id": "qwen/qwen3-vl-235b-a22b-instruct"
-  },
-  "pony-alpha": {
-    "display_name": "Pony Alpha",
-    "provider": "OPENROUTER",
-    "api": "chat",
-    "model_id": "openrouter/pony-alpha"
-  },
-  "aurora-alpha": {
-    "display_name": "Aurora Alpha",
-    "provider": "OPENROUTER",
-    "api": "chat",
-    "model_id": "openrouter/aurora-alpha"
   },
   "autoglm-phone-9b-multilingual": {
     "display_name": "AutoGLM Phone 9B Multilingual",

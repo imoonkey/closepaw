@@ -149,6 +149,7 @@ class StatusIslandManager(
                 setStroke(1, 0xFFE5E5E5.toInt())
             }
             elevation = dp(4).toFloat()
+            contentDescription = "Agent status island"
 
             setOnClickListener { onExpandCapsule() }
         }
