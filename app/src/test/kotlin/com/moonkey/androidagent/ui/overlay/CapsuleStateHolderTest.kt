@@ -184,6 +184,40 @@ class CapsuleStateHolderTest {
         assertThat(holder.mode.value).isEqualTo(modeBefore)
     }
 
+    // ── Stop transient feedback ──
+
+    @Test
+    fun `onStopRequested marks stop pending in running mode`() {
+        holder.onTaskStarted("task1", "input")
+        val accepted = holder.onStopRequested()
+        assertThat(accepted).isTrue()
+        assertThat(holder.isStopPending.value).isTrue()
+    }
+
+    @Test
+    fun `onStopRequested ignored when stop already pending`() {
+        holder.onTaskStarted("task1", "input")
+        assertThat(holder.onStopRequested()).isTrue()
+        assertThat(holder.onStopRequested()).isFalse()
+        assertThat(holder.isStopPending.value).isTrue()
+    }
+
+    @Test
+    fun `stop pending is cleared on terminal events`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onStopRequested()
+        holder.onTaskCompleted(CompletionReason.USER_STOPPED)
+        assertThat(holder.isStopPending.value).isFalse()
+    }
+
+    @Test
+    fun `stop pending is cleared on new task start`() {
+        holder.onTaskStarted("task1", "input")
+        holder.onStopRequested()
+        holder.onTaskStarted("task2", "next")
+        assertThat(holder.isStopPending.value).isFalse()
+    }
+
     // ── Task completion ──
 
     @Test

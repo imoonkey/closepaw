@@ -57,6 +57,15 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
     private val _isAgentMidTurn = MutableStateFlow(false)
     val isAgentMidTurn: StateFlow<Boolean> = _isAgentMidTurn.asStateFlow()
 
+    /**
+     * Transient stop feedback flag.
+     *
+     * Not part of CapsuleMode state machine. Drives immediate "Stopping..." disabled UI
+     * until a terminal/new-task event clears it.
+     */
+    private val _isStopPending = MutableStateFlow(false)
+    val isStopPending: StateFlow<Boolean> = _isStopPending.asStateFlow()
+
     /** The mode before the current one, for transition animations. */
     var previousMode: CapsuleMode = CapsuleMode.Hidden
         private set
@@ -94,12 +103,14 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
 
     fun onTaskStarted(taskId: String, input: String) {
         cancelAutoHide()
+        _isStopPending.value = false
         _turnPhase.value = null
         setMode(CapsuleMode.Running(sanitizeThought(input)))
     }
 
     fun onError(message: String) {
         cancelAutoHide()
+        _isStopPending.value = false
         setMode(CapsuleMode.Error(sanitizeThought(message)))
     }
 
@@ -172,12 +183,32 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
         return true
     }
 
+    /**
+     * Mark stop as pending for immediate UI feedback.
+     * Valid only when current mode has a Stop action.
+     */
+    fun onStopRequested(): Boolean {
+        val mode = _mode.value
+        if (mode !is CapsuleMode.Running &&
+            mode !is CapsuleMode.TakeoverPending &&
+            mode !is CapsuleMode.Takeover &&
+            mode !is CapsuleMode.WaitingForInput &&
+            mode !is CapsuleMode.WaitingForAction
+        ) {
+            return false
+        }
+        if (_isStopPending.value) return false
+        _isStopPending.value = true
+        return true
+    }
+
     fun onTaskCompleted(reason: CompletionReason, message: String? = null) {
         val current = _mode.value
         if (current is CapsuleMode.Hidden || current is CapsuleMode.Done || current is CapsuleMode.Error) {
             Log.d(TAG, "Ignoring task completed in ${current::class.simpleName}")
             return
         }
+        _isStopPending.value = false
         val mode = when (reason) {
             CompletionReason.GOAL_ACHIEVED -> {
                 val completionMessage = message?.takeIf { it.isNotBlank() } ?: "Task completed"
@@ -195,6 +226,7 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
 
     fun onSessionEnded(reason: CompletionReason) {
         cancelAutoHide()
+        _isStopPending.value = false
         when (reason) {
             CompletionReason.GOAL_ACHIEVED -> {
                 val message = (mode.value as? CapsuleMode.Done)?.message ?: "Completed"
@@ -223,6 +255,7 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
 
     fun onDismissError() {
         if (_mode.value !is CapsuleMode.Error) return
+        _isStopPending.value = false
         setMode(CapsuleMode.Hidden)
     }
 

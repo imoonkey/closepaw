@@ -44,7 +44,11 @@ data class CapsuleRenderSpec(
          * [previousMode] is used to decide whether to clear the input field
          * on transitions into WaitingForInput.
          */
-        fun from(mode: CapsuleMode, previousMode: CapsuleMode? = null): CapsuleRenderSpec =
+        fun from(
+            mode: CapsuleMode,
+            previousMode: CapsuleMode? = null,
+            isStopPending: Boolean = false,
+        ): CapsuleRenderSpec =
             when (mode) {
                 is CapsuleMode.Running -> CapsuleRenderSpec(
                     dot = DotSpec(CapsuleColors.BLUE, pulsing = true),
@@ -52,7 +56,7 @@ data class CapsuleRenderSpec(
                     expandedBody = null,
                     buttons = ButtonsSpec(
                         primary = ButtonSpec("✋", "Takeover"),
-                        stop = ButtonSpec("⏹", "Stop"),
+                        stop = stopButtonSpec(isStopPending),
                     ),
                     row3 = Row3Spec("Got ideas? Add a note...", "Add note"),
                 )
@@ -63,7 +67,7 @@ data class CapsuleRenderSpec(
                     expandedBody = null,
                     buttons = ButtonsSpec(
                         primary = ButtonSpec("✋", "Handing over", enabled = false),
-                        stop = ButtonSpec("⏹", "Stop"),
+                        stop = stopButtonSpec(isStopPending),
                     ),
                     row3 = Row3Spec("Got ideas? Add a note...", "Add note"),
                 )
@@ -77,7 +81,7 @@ data class CapsuleRenderSpec(
                     expandedBody = null,
                     buttons = ButtonsSpec(
                         primary = ButtonSpec("▶", "Resume"),
-                        stop = ButtonSpec("⏹", "Stop"),
+                        stop = stopButtonSpec(isStopPending),
                     ),
                     row3 = Row3Spec("Got ideas? Add a note...", "Add note"),
                 )
@@ -88,7 +92,7 @@ data class CapsuleRenderSpec(
                     expandedBody = mode.question,
                     buttons = ButtonsSpec(
                         primary = null,
-                        stop = ButtonSpec("⏹", "Stop"),
+                        stop = stopButtonSpec(isStopPending),
                     ),
                     row3 = Row3Spec(
                         hint = "Type your response...",
@@ -104,7 +108,7 @@ data class CapsuleRenderSpec(
                     expandedBody = mode.instruction,
                     buttons = ButtonsSpec(
                         primary = ButtonSpec("✅", "Done"),
-                        stop = ButtonSpec("⏹", "Stop"),
+                        stop = stopButtonSpec(isStopPending),
                     ),
                     row3 = null,
                 )
@@ -136,6 +140,10 @@ data class CapsuleRenderSpec(
                     row3 = Row3Spec("What can I help you with?", "Send →"),
                 )
             }
+
+        private fun stopButtonSpec(isStopPending: Boolean): ButtonSpec =
+            if (isStopPending) ButtonSpec("⏹", "Stopping...", enabled = false)
+            else ButtonSpec("⏹", "Stop")
     }
 }
 

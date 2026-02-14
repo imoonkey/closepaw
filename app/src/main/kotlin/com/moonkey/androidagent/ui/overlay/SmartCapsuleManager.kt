@@ -16,6 +16,7 @@ import com.moonkey.androidagent.ui.overlay.model.CapsuleRenderSpec
 import com.moonkey.androidagent.ui.overlay.model.NavSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -61,6 +62,7 @@ class SmartCapsuleManager(
     // ── Rendering state (cache for button handlers) ──
 
     private var currentMode: CapsuleMode = CapsuleMode.Hidden
+    private var isStopPending: Boolean = false
     private var views: CapsuleViews? = null
     private var overlayView: ViewGroup? = null
     private var observeJob: Job? = null
@@ -150,6 +152,7 @@ class SmartCapsuleManager(
         overlayView = null
         views = null
         currentMode = CapsuleMode.Hidden
+        isStopPending = false
     }
 
     fun dispose() {
@@ -180,11 +183,13 @@ class SmartCapsuleManager(
     private fun startObserving() {
         stopObserving()
         observeJob = scope.launch {
-            stateHolder.mode.collect { mode ->
+            combine(stateHolder.mode, stateHolder.isStopPending) { mode, stopPending ->
+                mode to stopPending
+            }.collect { (mode, stopPending) ->
                 // Post to main looper to ensure View operations run on the UI thread.
                 // The coroutine scope may be Dispatchers.Main, but handler.post
                 // guarantees we're on the looper after any pending view layout passes.
-                handler.post { onModeChanged(mode) }
+                handler.post { onUiStateChanged(mode, stopPending) }
             }
         }
     }
@@ -194,36 +199,51 @@ class SmartCapsuleManager(
         observeJob = null
     }
 
-    private fun onModeChanged(newMode: CapsuleMode) {
+    private fun onUiStateChanged(newMode: CapsuleMode, newStopPending: Boolean) {
         val prevMode = currentMode
+        val modeChanged = prevMode != newMode
+        val stopChanged = isStopPending != newStopPending
+        if (!modeChanged && !stopChanged) return
+
         currentMode = newMode
-        Log.d(TAG, "Observe: ${prevMode::class.simpleName} → ${newMode::class.simpleName}")
+        isStopPending = newStopPending
+        Log.d(
+            TAG,
+            "Observe: ${prevMode::class.simpleName} → ${newMode::class.simpleName}, " +
+                "stopPending=$newStopPending"
+        )
 
         // Cancel pending delayed actions and exit animation
-        cancelAllRunnables()
-        animator.cancelAll()
+        if (modeChanged) {
+            cancelAllRunnables()
+            animator.cancelAll()
 
-        // If leaving an input mode, hide keyboard
-        if (prevMode is CapsuleMode.WaitingForInput) {
-            hideKeyboard()
+            // If leaving an input mode, hide keyboard
+            if (prevMode is CapsuleMode.WaitingForInput) {
+                hideKeyboard()
+            }
         }
 
         when (newMode) {
             is CapsuleMode.Hidden -> hide()
-            else -> renderAndSetup(newMode, prevMode)
+            else -> renderAndSetup(
+                mode = newMode,
+                prevMode = if (modeChanged) prevMode else newMode,
+                isStopPending = newStopPending,
+            )
         }
     }
 
     // ── Rendering ──
 
-    private fun renderAndSetup(mode: CapsuleMode, prevMode: CapsuleMode) {
+    private fun renderAndSetup(mode: CapsuleMode, prevMode: CapsuleMode, isStopPending: Boolean) {
         val v = views ?: return
         val container = overlayView ?: return
 
         container.post {
             if (overlayView == null) return@post
 
-            val spec = CapsuleRenderSpec.from(mode, prevMode)
+            val spec = CapsuleRenderSpec.from(mode, prevMode, isStopPending)
             val navSpec = NavSpec.from(capsuleContext, platformMode, hasIsland, mode)
             val currentHeight = container.height
             val needsHeightAnim = currentHeight > 0 && isHeightTransition(prevMode, mode)

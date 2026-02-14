@@ -73,6 +73,7 @@ enum class NavAction {
 @Composable
 fun SmartCapsuleCompose(
     mode: CapsuleMode,
+    isStopPending: Boolean,
     platformMode: PlatformMode,
     context: CapsuleContext,
     onSend: (String) -> Unit,
@@ -90,8 +91,8 @@ fun SmartCapsuleCompose(
 
     // Track previous mode locally for transition-aware rendering (e.g. clearInput)
     val previousModeState = remember { mutableStateOf<CapsuleMode?>(null) }
-    val spec = remember(mode) {
-        CapsuleRenderSpec.from(mode, previousModeState.value).also {
+    val spec = remember(mode, isStopPending) {
+        CapsuleRenderSpec.from(mode, previousModeState.value, isStopPending).also {
             previousModeState.value = mode
         }
     }
@@ -260,7 +261,8 @@ private fun CapsuleRow2(
                             is CapsuleMode.Error -> onDismissError()
                             else -> onStop()
                         }
-                    }
+                    },
+                    enabled = btn.enabled
                 )
             }
         }

@@ -67,8 +67,10 @@ fun ChatScreen(
     val stateHolder = AgentService.instance?.capsuleStateHolder
     val fallbackMode = remember { kotlinx.coroutines.flow.MutableStateFlow<CapsuleMode>(CapsuleMode.Hidden) }
     val fallbackPlatform = remember { kotlinx.coroutines.flow.MutableStateFlow(PlatformMode.ACCESSIBILITY) }
+    val fallbackStopPending = remember { kotlinx.coroutines.flow.MutableStateFlow(false) }
     val capsuleMode by (stateHolder?.mode ?: fallbackMode).collectAsStateWithLifecycle()
     val capsulePlatformMode by (stateHolder?.platformMode ?: fallbackPlatform).collectAsStateWithLifecycle()
+    val isStopPending by (stateHolder?.isStopPending ?: fallbackStopPending).collectAsStateWithLifecycle()
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -121,13 +123,18 @@ fun ChatScreen(
             bottomBar = {
                 SmartCapsuleCompose(
                     mode = capsuleMode,
+                    isStopPending = isStopPending,
                     platformMode = capsulePlatformMode,
                     context = CapsuleContext.MAIN_APP,
                     onSend = viewModel::sendMessage,
                     onSupplement = viewModel::sendSupplement,
                     onTakeover = viewModel::requestTakeover,
                     onResume = viewModel::requestResume,
-                    onStop = viewModel::stopTask,
+                    onStop = {
+                        if (stateHolder?.onStopRequested() != false) {
+                            viewModel.stopTask()
+                        }
+                    },
                     onUserResponse = viewModel::sendUserResponse,
                     onDismissError = { viewModel.dismissError() },
                     onNavigate = { action ->

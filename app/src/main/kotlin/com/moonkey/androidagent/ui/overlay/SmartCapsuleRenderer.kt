@@ -170,8 +170,8 @@ internal class SmartCapsuleRenderer {
             v.stopIcon.text = buttons.stop.icon
             v.stopText.text = buttons.stop.text
             v.stopButton.contentDescription = buttons.stop.text
-            v.stopButton.isEnabled = true
-            v.stopButton.alpha = 1f
+            v.stopButton.isEnabled = buttons.stop.enabled
+            v.stopButton.alpha = if (buttons.stop.enabled) 1f else 0.4f
         } else {
             v.stopButton.visibility = View.GONE
         }

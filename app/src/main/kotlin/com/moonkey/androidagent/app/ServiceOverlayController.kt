@@ -10,7 +10,6 @@ import com.moonkey.androidagent.ui.overlay.CapsuleStateHolder
 import com.moonkey.androidagent.ui.overlay.EdgeGlowManager
 import com.moonkey.androidagent.ui.overlay.SmartCapsuleManager
 import com.moonkey.androidagent.ui.overlay.StatusIslandManager
-import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -56,7 +55,11 @@ class ServiceOverlayController(
         stateHolder = stateHolder,
         scope = scope,
     ).apply {
-        this.onStop = this@ServiceOverlayController.onStop
+        this.onStop = {
+            if (stateHolder.onStopRequested()) {
+                this@ServiceOverlayController.onStop()
+            }
+        }
         this.onTakeover = {
             stateHolder.onTakeoverRequested()   // immediate visual feedback
             this@ServiceOverlayController.onTakeover()
@@ -83,13 +86,7 @@ class ServiceOverlayController(
     // ── Window-level state ──
 
     private var platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
-    private var userLocation = UserLocation.MAIN_APP
-
-    private enum class UserLocation {
-        MAIN_APP,
-        VD_VIEWER,
-        OTHER_APP
-    }
+    private var userLocation = OverlayUserLocation.MAIN_APP
 
     /** User preference: capsule or island in VD background. */
     enum class ShowPreference { CAPSULE, ISLAND }
@@ -127,7 +124,7 @@ class ServiceOverlayController(
         val isActive = stateHolder.hasActiveTask
             || mode is CapsuleMode.Done
             || mode is CapsuleMode.Error
-        val isMainApp = userLocation == UserLocation.MAIN_APP
+        val isMainApp = userLocation == OverlayUserLocation.MAIN_APP
 
         when (platformMode) {
             PlatformMode.ACCESSIBILITY -> {
@@ -180,7 +177,7 @@ class ServiceOverlayController(
 
     fun onIslandTapped() {
         val mode = stateHolder.mode.value
-        if (!stateHolder.hasActiveTask && mode !is CapsuleMode.Done && mode !is CapsuleMode.Error) {
+        if (shouldOpenAppWhenIslandTapped(stateHolder.hasActiveTask, mode)) {
             onOpenApp()
             return
         }
@@ -189,7 +186,7 @@ class ServiceOverlayController(
                 // Defensive no-op: A11y should never show island.
             }
             PlatformMode.VIRTUAL_DISPLAY -> {
-                if (userLocation == UserLocation.VD_VIEWER) {
+                if (userLocation == OverlayUserLocation.VD_VIEWER) {
                     showPreference = ShowPreference.CAPSULE
                     applyVisibility()
                 } else {
@@ -201,15 +198,15 @@ class ServiceOverlayController(
     }
 
     fun onViewerOpened() {
-        userLocation = UserLocation.VD_VIEWER
+        userLocation = OverlayUserLocation.VD_VIEWER
         showPreference = ShowPreference.CAPSULE
         updateContext()
         applyVisibility()
     }
 
     fun onViewerClosed() {
-        if (userLocation == UserLocation.VD_VIEWER) {
-            userLocation = UserLocation.OTHER_APP
+        if (userLocation == OverlayUserLocation.VD_VIEWER) {
+            userLocation = OverlayUserLocation.OTHER_APP
         }
         showPreference = ShowPreference.ISLAND
         updateContext()
@@ -318,27 +315,16 @@ class ServiceOverlayController(
     // ── Private: window tracking (shared between A11y and VD) ──
 
     private fun handleWindowStateChangedInternal(packageName: String?, className: String?) {
-        val normalizedClassName = className?.substringBefore('$')
-        val isActivityWindow = normalizedClassName != null &&
-            (normalizedClassName.endsWith("Activity") ||
-                normalizedClassName.contains("Activity") ||
-                normalizedClassName.contains("Launcher") ||
-                normalizedClassName.contains(".app.") ||
-                normalizedClassName.contains("Home"))
-
-        if (!isActivityWindow) return
-
-        val nextLocation = when {
-            packageName == null -> return
-            packageName != appPackage -> UserLocation.OTHER_APP
-            isViewerActivityClass(normalizedClassName) -> UserLocation.VD_VIEWER
-            else -> UserLocation.MAIN_APP
-        }
+        val nextLocation = resolveUserLocation(
+            appPackage = appPackage,
+            packageName = packageName,
+            className = className,
+        ) ?: return
 
         if (nextLocation != userLocation) {
             Log.d(
                 logTag,
-                "Window changed: pkg=$packageName, class=$normalizedClassName, " +
+                "Window changed: pkg=$packageName, class=$className, " +
                     "from=$userLocation, to=$nextLocation, hasActiveTask=${stateHolder.hasActiveTask}"
             )
             userLocation = nextLocation
@@ -347,25 +333,8 @@ class ServiceOverlayController(
         }
     }
 
-    private fun isViewerActivityClass(className: String?): Boolean {
-        val name = className ?: return false
-        return name.contains("VirtualDisplayViewerActivity")
-    }
-
     private fun updateContext() {
-        val ctx = when (platformMode) {
-            PlatformMode.ACCESSIBILITY -> {
-                if (userLocation == UserLocation.MAIN_APP) CapsuleContext.MAIN_APP
-                else CapsuleContext.SCREEN_VIEWING
-            }
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                when (userLocation) {
-                    UserLocation.MAIN_APP -> CapsuleContext.MAIN_APP
-                    UserLocation.VD_VIEWER -> CapsuleContext.SCREEN_VIEWING
-                    UserLocation.OTHER_APP -> CapsuleContext.BACKGROUND
-                }
-            }
-        }
+        val ctx = resolveCapsuleContext(platformMode, userLocation)
         stateHolder.setContext(ctx)
         capsuleManager.updateNavContext(
             ctx,
