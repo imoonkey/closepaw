@@ -286,7 +286,6 @@ class AgentService : AccessibilityService() {
             }
             is AgentEvent.MessageDelta -> {
                 recordingService?.appendTextDelta(event.delta)
-                overlayController?.onMessageDelta(event.turnId, event.delta)
             }
             is AgentEvent.ThoughtUpdate -> {
                 overlayController?.onThoughtUpdate(event.thought)
@@ -312,13 +311,6 @@ class AgentService : AccessibilityService() {
             is AgentEvent.TaskCompleted -> {
                 recordingService?.completeAgentMessage()
                 overlayController?.onTaskCompleted(event.reason, event.result)
-
-                // Completion handoff: relaunch the VD's last app on the real screen
-                if (event.reason == CompletionReason.GOAL_ACHIEVED &&
-                                currentPlatformMode == PlatformMode.VIRTUAL_DISPLAY
-                ) {
-                    performHandoff()
-                }
             }
             is AgentEvent.ActionProposed -> {
                 recordingService?.recordAction(
@@ -418,11 +410,8 @@ class AgentService : AccessibilityService() {
         currentPlatformMode = platformMode
         overlayController?.setPlatformMode(platformMode)
 
-        // Show initial overlay window for the selected platform.
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> overlayController?.showIsland()
-            PlatformMode.ACCESSIBILITY -> overlayController?.showCapsuleOverlay()
-        }
+        // Overlay windows are now managed by applyVisibility() inside ServiceOverlayController.
+        // They appear automatically when the first TaskStarted event arrives.
 
         // Create and run session in coroutine
         scope.launch {
@@ -518,26 +507,4 @@ class AgentService : AccessibilityService() {
         platform.switchToImageReader()
     }
 
-    /**
-     * Completion handoff: relaunch the VD's last active app on the real screen. Simple relaunch —
-     * most apps restore their last state on cold start.
-     */
-    private fun performHandoff() {
-        val platform = session?.getServices()?.platform as? VirtualDisplayPlatform
-        val lastPackage = platform?.getCurrentPackageName()
-        if (lastPackage == null) {
-            Log.w(TAG, "Handoff: no last package to relaunch")
-            return
-        }
-
-        val intent =
-                packageManager.getLaunchIntentForPackage(lastPackage)
-                        ?: run {
-                            Log.w(TAG, "Handoff: no launch intent for $lastPackage")
-                            return
-                        }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
-        Log.i(TAG, "Handoff: relaunched $lastPackage on default display")
-    }
 }

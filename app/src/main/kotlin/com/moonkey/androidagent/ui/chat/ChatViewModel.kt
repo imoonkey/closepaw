@@ -109,6 +109,7 @@ class ChatViewModel(
                 is AgentEvent.ActionExecuted -> handleActionExecuted(event)
                 is AgentEvent.TaskCompleted -> handleTaskCompleted(event)
                 is AgentEvent.SessionError -> handleError(event)
+                is AgentEvent.SupplementReceived -> handleSupplement(event)
                 else -> {
                     /* Ignore other events (ScreenCaptured, etc) */
                 }
@@ -271,8 +272,15 @@ class ChatViewModel(
             _taskBannerState.value =
                     TaskBannerState.Completed(summary = event.result ?: "Task complete")
 
-            // Mark agent message as complete
-            updateLastAgentMessage { msg -> msg.copy(state = AgentMessageState.Complete) }
+            // Append completion result to agent message if present
+            updateLastAgentMessage { msg ->
+                val blocks = if (!event.result.isNullOrBlank()) {
+                    msg.contentBlocks + ContentBlock.Text(event.result)
+                } else {
+                    msg.contentBlocks
+                }
+                msg.copy(contentBlocks = blocks, state = AgentMessageState.Complete)
+            }
 
             // Reset streaming state
             streamingBuffer.clear()
@@ -296,6 +304,17 @@ class ChatViewModel(
 
             // Also mark any pending agent message as complete
             updateLastAgentMessage { msg -> msg.copy(state = AgentMessageState.Complete) }
+        }
+
+        private fun handleSupplement(event: AgentEvent.SupplementReceived) {
+            // Show supplement as a user message in chat history
+            _messages.add(
+                    ChatMessage.User(
+                            id = UUID.randomUUID().toString(),
+                            timestamp = System.currentTimeMillis(),
+                            text = "📝 ${event.text}"
+                    )
+            )
         }
 
         /** Helper: update the last agent message in the list. */

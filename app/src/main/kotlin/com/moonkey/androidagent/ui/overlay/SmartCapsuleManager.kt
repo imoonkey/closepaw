@@ -61,7 +61,6 @@ class SmartCapsuleManager(
     // ── Rendering state (cache for button handlers) ──
 
     private var currentMode: CapsuleMode = CapsuleMode.Hidden
-    private var previousMode: CapsuleMode = CapsuleMode.Hidden
     private var views: CapsuleViews? = null
     private var overlayView: ViewGroup? = null
     private var observeJob: Job? = null
@@ -108,7 +107,9 @@ class SmartCapsuleManager(
             val capsuleViews = layoutBuilder.build(
                 onPrimary = { debounced { handlePrimaryClick() } },
                 onStop = { debounced { handleStopClick() } },
-                onRow1Tap = { debounced { onOpenApp?.invoke() } },
+                // A11y mode: no Row1 tap — changing foreground disrupts agent's screen control
+                onRow1Tap = if (platformMode == PlatformMode.ACCESSIBILITY) null
+                    else { { debounced { onOpenApp?.invoke() } } },
                 onRow3Submit = { debounced { handleRow3Submit() } },
                 onMinimize = { debounced { onMinimize?.invoke() } },
                 onNavApp = { debounced { onOpenApp?.invoke() } },
@@ -195,7 +196,6 @@ class SmartCapsuleManager(
 
     private fun onModeChanged(newMode: CapsuleMode) {
         val prevMode = currentMode
-        previousMode = prevMode
         currentMode = newMode
         Log.d(TAG, "Observe: ${prevMode::class.simpleName} → ${newMode::class.simpleName}")
 
@@ -244,17 +244,37 @@ class SmartCapsuleManager(
 
     /**
      * Set up interactive parts after renderer has configured visuals.
+     *
+     * In A11y mode, input is disabled during Running/TakeoverPending to avoid
+     * focus conflicts with the agent's screen operations. Input is only enabled
+     * in Takeover (agent paused) and WaitingForInput (agent asked for text).
      */
     private fun setupInteractivity(v: CapsuleViews, mode: CapsuleMode) {
         when (mode) {
             is CapsuleMode.WaitingForInput -> {
                 setOverlayFocusable(true)
+                v.inputEditText.isFocusable = true
+                v.inputEditText.isFocusableInTouchMode = true
                 focusInputAndShowKeyboard(v.inputEditText)
                 startNudgeTimer(v)
             }
             is CapsuleMode.WaitingForAction -> {
                 setOverlayFocusable(false)
                 startNudgeTimer(v)
+            }
+            is CapsuleMode.Takeover -> {
+                // Allow input in Takeover (agent is paused, user has control)
+                v.inputEditText.isFocusable = true
+                v.inputEditText.isFocusableInTouchMode = true
+            }
+            is CapsuleMode.Running, is CapsuleMode.TakeoverPending -> {
+                if (platformMode == PlatformMode.ACCESSIBILITY) {
+                    // A11y: disable input to prevent focus conflict with agent
+                    v.inputEditText.isFocusable = false
+                    v.inputEditText.isFocusableInTouchMode = false
+                    v.inputEditText.hint = "Take over to type note"
+                    setOverlayFocusable(false)
+                }
             }
             else -> {}
         }

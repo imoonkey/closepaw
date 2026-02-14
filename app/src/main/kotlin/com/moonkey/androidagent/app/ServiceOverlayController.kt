@@ -11,20 +11,24 @@ import com.moonkey.androidagent.ui.overlay.EdgeGlowManager
 import com.moonkey.androidagent.ui.overlay.SmartCapsuleManager
 import com.moonkey.androidagent.ui.overlay.StatusIslandManager
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
+import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
- * ServiceOverlayController — Thin coordinator between state and overlay windows.
+ * ServiceOverlayController — Coordinator between state and overlay windows.
  *
  * Single source of truth: [CapsuleStateHolder].
- * Shadow state: NONE. All state is derived from stateHolder.
  *
- * In ACCESSIBILITY mode: drives EdgeGlowManager + SmartCapsuleManager.
- * In VIRTUAL_DISPLAY mode: drives StatusIslandManager (+ capsule overlay for ask_user).
+ * Window visibility is determined by ONE function: [applyVisibility].
+ * It reads (platformMode, isAppInForeground, mode, showPreference)
+ * and sets exactly which overlay windows are visible.
  *
- * SmartCapsuleManager observes [CapsuleStateHolder.mode] via StateFlow — auto-renders.
- * This controller only decides WHEN to show/hide overlay windows.
- * It does NOT push rendering updates (no pushModeToOverlayCapsule).
+ * Invariants enforced by applyVisibility:
+ *   A. Capsule and Island are never simultaneously visible.
+ *   B. In MAIN_APP, no system overlays — Compose capsule handles it.
+ *   C. In A11y mode, island is never shown.
+ *   D. In VD + background + active task, ShowPreference decides capsule vs island.
  */
 class ServiceOverlayController(
     context: AccessibilityService,
@@ -54,11 +58,13 @@ class ServiceOverlayController(
     ).apply {
         this.onStop = this@ServiceOverlayController.onStop
         this.onTakeover = {
+            stateHolder.onTakeoverRequested()   // immediate visual feedback
             this@ServiceOverlayController.onTakeover()
         }
         this.onResume = this@ServiceOverlayController.onResume
         this.onSupplement = { text -> this@ServiceOverlayController.onSupplement(text) }
         this.onUserResponse = { callId, response ->
+            stateHolder.onUserResponseSent(callId) // transition WaitingFor* → Running
             this@ServiceOverlayController.onUserResponse(callId, response)
         }
         this.onOpenApp = this@ServiceOverlayController.onOpenApp
@@ -67,29 +73,42 @@ class ServiceOverlayController(
         }
         // Navigation callbacks
         this.onMinimize = {
-            hideCapsuleOverlay()
-            showIsland()
+            showPreference = ShowPreference.ISLAND
+            applyVisibility()
         }
         this.onOpenViewer = { this@ServiceOverlayController.onOpenViewer?.invoke() }
     }
 
-    // ── Window-level state (NOT capsule state) ──
+    // ── Window-level state ──
 
     private var platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     private var isAppInForeground = true
     private var lastKnownForegroundPackage: String? = null
     private var isViewerVisible = false
 
+    /** User preference: capsule or island in VD background. */
+    enum class ShowPreference { CAPSULE, ISLAND }
+    private var showPreference = ShowPreference.ISLAND
+
     private enum class ContextTrigger {
         PLATFORM_CHANGED,
         ISLAND_TAPPED,
         VIEWER_OPENED,
         VIEWER_CLOSED,
-        A11Y_FOREGROUND_CHANGED
+        FOREGROUND_CHANGED
     }
 
     init {
         statusIslandManager?.startObserving(stateHolder, scope)
+
+        // Observe mode for terminal transitions (Done→Hidden auto-hide) that affect visibility
+        scope.launch {
+            stateHolder.mode.collect { mode ->
+                if (mode is CapsuleMode.Hidden || mode is CapsuleMode.Done || mode is CapsuleMode.Error) {
+                    applyVisibility()
+                }
+            }
+        }
     }
 
     /** Set platform mode. Call before any events are dispatched. */
@@ -99,66 +118,93 @@ class ServiceOverlayController(
         updateContext(ContextTrigger.PLATFORM_CHANGED)
     }
 
-    // ── Capsule overlay + island management (for VD mode navigation) ──
+    // ── Visibility system (single authority) ──
 
-    fun showCapsuleOverlay() {
-        capsuleManager.show()
-        // No need to push mode — manager observes StateFlow
+    /**
+     * The ONE function that decides which overlay windows are visible.
+     * Called after every state change and context change.
+     */
+    private fun applyVisibility() {
+        val mode = stateHolder.mode.value
+        val isActive = stateHolder.hasActiveTask
+            || mode is CapsuleMode.Done
+            || mode is CapsuleMode.Error
+
+        when (platformMode) {
+            PlatformMode.ACCESSIBILITY -> {
+                // A11y: no island ever. Capsule + glow only when not in our app and task active.
+                if (isAppInForeground || !isActive) {
+                    capsuleManager.hide()
+                    edgeGlowManager.hideImmediately()
+                } else {
+                    if (!capsuleManager.isShowing()) capsuleManager.show()
+                    if (!edgeGlowManager.isShowing()) {
+                        edgeGlowManager.show(stateHolder.derivedGlowState)
+                    }
+                }
+            }
+            PlatformMode.VIRTUAL_DISPLAY -> {
+                if (isAppInForeground || !isActive) {
+                    // In our app or no task: Compose capsule handles everything.
+                    capsuleManager.hide()
+                    statusIslandManager?.hide()
+                } else {
+                    // Background or viewer: show one of capsule/island per preference.
+                    when (showPreference) {
+                        ShowPreference.CAPSULE -> {
+                            if (!capsuleManager.isShowing()) capsuleManager.show()
+                            statusIslandManager?.hide()
+                        }
+                        ShowPreference.ISLAND -> {
+                            capsuleManager.hide()
+                            if (statusIslandManager?.isShowing() != true) {
+                                statusIslandManager?.show()
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    fun hideCapsuleOverlay() {
-        capsuleManager.hide()
-    }
+    // ── Public: viewer lifecycle ──
 
-    fun showIsland() {
-        statusIslandManager?.show()
-    }
-
-    fun hideIsland() {
-        statusIslandManager?.hide()
-    }
-
-    /** Called when status island is tapped — expand capsule overlay, hide island. */
     fun onIslandTapped() {
         if (!stateHolder.hasActiveTask) {
             onOpenApp()
             return
         }
-        updateContext(ContextTrigger.ISLAND_TAPPED)
-        showCapsuleOverlay()
-        if (capsuleManager.isShowing()) {
-            hideIsland()
+        when (platformMode) {
+            PlatformMode.ACCESSIBILITY -> {
+                // Shouldn't happen (no island in A11y), but defensive
+                showPreference = ShowPreference.CAPSULE
+                applyVisibility()
+            }
+            PlatformMode.VIRTUAL_DISPLAY -> {
+                // Open VD viewer — onViewerOpened() handles capsule + island swap
+                onOpenViewer?.invoke() ?: onOpenApp()
+            }
         }
     }
 
-    /** Called when VD viewer activity becomes visible. */
     fun onViewerOpened() {
         isViewerVisible = true
+        showPreference = ShowPreference.CAPSULE
         updateContext(ContextTrigger.VIEWER_OPENED)
-        showCapsuleOverlay()
-        if (capsuleManager.isShowing()) {
-            hideIsland()
-        }
+        applyVisibility()
     }
 
-    /** Called when VD viewer activity becomes hidden. */
     fun onViewerClosed() {
         isViewerVisible = false
+        showPreference = ShowPreference.ISLAND
         updateContext(ContextTrigger.VIEWER_CLOSED)
-        hideCapsuleOverlay()
-        showIsland()
+        applyVisibility()
     }
 
     fun hideAll() {
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                statusIslandManager?.hide()
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                edgeGlowManager.hideImmediately()
-                capsuleManager.hide()
-            }
-        }
+        capsuleManager.hide()
+        edgeGlowManager.hideImmediately()
+        statusIslandManager?.hide()
     }
 
     fun dispose() {
@@ -168,198 +214,92 @@ class ServiceOverlayController(
     }
 
     fun handleWindowStateChanged(packageName: String?, className: String?) {
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // In VD mode, window changes on the real screen are irrelevant.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                handleWindowStateChangedA11y(packageName, className)
-            }
-        }
+        handleWindowStateChangedInternal(packageName, className)
     }
 
     // ── Event handlers ──
 
     fun onTaskStarted(taskId: String, input: String) {
         stateHolder.onTaskStarted(taskId, input)
-
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                statusIslandManager?.show()
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                Log.i(logTag, "Task started: $taskId, input: $input, isAppInForeground=$isAppInForeground")
-                if (!isAppInForeground) {
-                    edgeGlowManager.show(stateHolder.derivedGlowState)
-                    capsuleManager.show()
-                    // Manager auto-renders via observer — no push needed
-                }
-            }
-        }
-    }
-
-    fun onMessageDelta(_turnId: String, _delta: String) {
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: Status island does not render streaming deltas.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                // No-op: canonical thought text is updated via ThoughtUpdate event.
-            }
-        }
+        applyVisibility()
     }
 
     fun onTurnPhaseChanged(phase: TurnPhase) {
         stateHolder.setTurnPhase(phase)
         stateHolder.setAgentMidTurn(phase == TurnPhase.EXECUTION || phase == TurnPhase.PLANNING)
-
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: island updates via StateFlow observer.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                edgeGlowManager.updateState(stateHolder.derivedGlowState)
-            }
+        if (platformMode == PlatformMode.ACCESSIBILITY) {
+            edgeGlowManager.updateState(stateHolder.derivedGlowState)
         }
     }
 
     fun onActionExecuted(toolName: String, success: Boolean) {
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: island updates via StateFlow observer.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                edgeGlowManager.updateState(stateHolder.derivedGlowState)
-                if (stateHolder.hasActiveTask && !isAppInForeground) {
-                    if (!edgeGlowManager.isShowing()) {
-                        edgeGlowManager.show(stateHolder.derivedGlowState)
-                    }
-                    if (!capsuleManager.isShowing()) {
-                        capsuleManager.show()
-                        // Manager auto-renders via observer
-                    }
-                }
-            }
+        if (platformMode == PlatformMode.ACCESSIBILITY) {
+            edgeGlowManager.updateState(stateHolder.derivedGlowState)
         }
+        // applyVisibility not needed: active task state hasn't changed
     }
 
     fun onTaskCompleted(reason: CompletionReason, message: String?) {
         stateHolder.onTaskCompleted(reason, message)
-
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: island updates via StateFlow observer.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                edgeGlowManager.updateState(stateHolder.derivedGlowState)
-                // Manager auto-renders via observer
-            }
+        if (platformMode == PlatformMode.ACCESSIBILITY) {
+            edgeGlowManager.updateState(stateHolder.derivedGlowState)
         }
+        // applyVisibility triggered by mode observer (Done/Error)
     }
 
     fun onSessionCompleted(reason: CompletionReason) {
         stateHolder.onSessionEnded(reason)
-
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: island updates via StateFlow observer.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                if (!stateHolder.hasActiveTask || isAppInForeground) {
-                    edgeGlowManager.hide()
-                } else {
-                    edgeGlowManager.updateState(stateHolder.derivedGlowState)
-                }
-            }
+        if (platformMode == PlatformMode.ACCESSIBILITY) {
+            edgeGlowManager.updateState(stateHolder.derivedGlowState)
         }
+        applyVisibility()
     }
 
     fun onSessionError(message: String) {
         stateHolder.onError(message)
-
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: island updates via StateFlow observer.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                edgeGlowManager.updateState(stateHolder.derivedGlowState)
-                // Manager auto-renders via observer
-            }
+        if (platformMode == PlatformMode.ACCESSIBILITY) {
+            edgeGlowManager.updateState(stateHolder.derivedGlowState)
         }
+        // applyVisibility triggered by mode observer (Error)
     }
 
     fun onThoughtUpdate(thought: String) {
         stateHolder.onThoughtUpdate(thought)
-
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: island updates via StateFlow observer.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                // Manager auto-renders via observer
-            }
-        }
+        // Capsule and island auto-render via observer
     }
 
     fun onSessionTakeover() {
         stateHolder.onTakeoverConfirmed()
-
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: island updates via StateFlow observer.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                edgeGlowManager.updateState(stateHolder.derivedGlowState)
-                // Manager auto-renders via observer
-            }
+        if (platformMode == PlatformMode.ACCESSIBILITY) {
+            edgeGlowManager.updateState(stateHolder.derivedGlowState)
         }
     }
 
     fun onSessionResumed() {
         stateHolder.onResumed()
-
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: island updates via StateFlow observer.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                edgeGlowManager.updateState(stateHolder.derivedGlowState)
-                // Manager auto-renders via observer
-            }
+        if (platformMode == PlatformMode.ACCESSIBILITY) {
+            edgeGlowManager.updateState(stateHolder.derivedGlowState)
         }
     }
 
     fun onSupplementReceived(text: String) {
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // No-op: island updates via StateFlow observer.
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                capsuleManager.flashSupplementConfirmation(stateHolder.isAgentMidTurn.value)
-            }
+        if (platformMode == PlatformMode.ACCESSIBILITY) {
+            capsuleManager.flashSupplementConfirmation(stateHolder.isAgentMidTurn.value)
         }
     }
 
     fun onAskUser(type: AskUserType, message: String, callId: String) {
         stateHolder.onAskUser(type, message, callId)
-
-        when (platformMode) {
-            PlatformMode.VIRTUAL_DISPLAY -> {
-                // Show SmartCapsule overlay for ask_user (user needs input UI)
-                capsuleManager.show()
-                // Manager auto-renders via observer
-            }
-            PlatformMode.ACCESSIBILITY -> {
-                // Manager auto-renders via observer
-            }
+        // In VD mode, WaitingFor* needs capsule shown for user input
+        if (platformMode == PlatformMode.VIRTUAL_DISPLAY) {
+            showPreference = ShowPreference.CAPSULE
+            applyVisibility()
         }
     }
 
-    // ── Private: A11y mode window tracking ──
+    // ── Private: window tracking (shared between A11y and VD) ──
 
-    private fun handleWindowStateChangedA11y(packageName: String?, className: String?) {
-        Log.d(logTag, "TYPE_WINDOW_STATE_CHANGED: pkg=$packageName, class=$className, lastKnown=$lastKnownForegroundPackage")
-
+    private fun handleWindowStateChangedInternal(packageName: String?, className: String?) {
         val normalizedClassName = className?.substringBefore('$')
         val isActivityWindow = normalizedClassName != null &&
             (normalizedClassName.endsWith("Activity") ||
@@ -368,10 +308,7 @@ class ServiceOverlayController(
                 normalizedClassName.contains(".app.") ||
                 normalizedClassName.contains("Home"))
 
-        if (!isActivityWindow) {
-            Log.d(logTag, "Ignoring non-activity window: $className")
-            return
-        }
+        if (!isActivityWindow) return
 
         if (packageName != null && packageName != lastKnownForegroundPackage) {
             lastKnownForegroundPackage = packageName
@@ -380,46 +317,40 @@ class ServiceOverlayController(
 
             Log.d(
                 logTag,
-                "Window changed (state update): pkg=$packageName, " +
+                "Window changed: pkg=$packageName, " +
                     "wasInForeground=$wasInForeground, isInForeground=$isAppInForeground, " +
                     "hasActiveTask=${stateHolder.hasActiveTask}"
             )
 
-            if (wasInForeground != isAppInForeground && stateHolder.hasActiveTask) {
-                if (isAppInForeground) {
-                    Log.d(logTag, "Our app in foreground, hiding capsule and glow")
-                    updateContext(ContextTrigger.A11Y_FOREGROUND_CHANGED)
-                    capsuleManager.hide()
-                    edgeGlowManager.hideImmediately()
-                } else {
-                    Log.d(logTag, "Our app went to background with active task, showing capsule and glow")
-                    updateContext(ContextTrigger.A11Y_FOREGROUND_CHANGED)
-                    edgeGlowManager.show(stateHolder.derivedGlowState)
-                    capsuleManager.show()
-                    // Manager auto-renders via observer
-                }
+            if (wasInForeground != isAppInForeground) {
+                updateContext(ContextTrigger.FOREGROUND_CHANGED)
+                applyVisibility()
             }
         }
     }
 
     private fun updateContext(trigger: ContextTrigger) {
-        val context = when (trigger) {
+        val ctx = when (trigger) {
             ContextTrigger.ISLAND_TAPPED,
             ContextTrigger.VIEWER_OPENED -> CapsuleContext.SCREEN_VIEWING
             ContextTrigger.VIEWER_CLOSED -> CapsuleContext.BACKGROUND
             ContextTrigger.PLATFORM_CHANGED,
-            ContextTrigger.A11Y_FOREGROUND_CHANGED -> when (platformMode) {
+            ContextTrigger.FOREGROUND_CHANGED -> when (platformMode) {
                 PlatformMode.ACCESSIBILITY -> {
                     if (isAppInForeground) CapsuleContext.MAIN_APP else CapsuleContext.SCREEN_VIEWING
                 }
                 PlatformMode.VIRTUAL_DISPLAY -> {
-                    if (isViewerVisible) CapsuleContext.SCREEN_VIEWING else CapsuleContext.BACKGROUND
+                    when {
+                        isAppInForeground -> CapsuleContext.MAIN_APP
+                        isViewerVisible -> CapsuleContext.SCREEN_VIEWING
+                        else -> CapsuleContext.BACKGROUND
+                    }
                 }
             }
         }
-        stateHolder.setContext(context)
+        stateHolder.setContext(ctx)
         capsuleManager.updateNavContext(
-            context,
+            ctx,
             platformMode,
             hasIsland = statusIslandManager != null
         )

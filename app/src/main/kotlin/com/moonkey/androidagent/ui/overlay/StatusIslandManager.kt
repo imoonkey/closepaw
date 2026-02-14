@@ -81,21 +81,22 @@ class StatusIslandManager(
     fun isShowing(): Boolean = pillView != null
 
     /**
-     * Observe state holder mode and update island reactively.
+     * Observe state holder mode and update island display reactively.
+     *
+     * IMPORTANT: This observer only updates text/dot when the island IS already visible.
+     * It does NOT call show()/hide(). Window visibility is managed exclusively by
+     * ServiceOverlayController.applyVisibility().
      */
     fun startObserving(stateHolder: CapsuleStateHolder, scope: CoroutineScope) {
         if (observeJob != null) return
         observeJob = scope.launch {
             stateHolder.mode.collectLatest { mode ->
-                if (mode is CapsuleMode.Hidden) {
-                    hide()
-                    return@collectLatest
+                if (isShowing()) {
+                    updateDisplay(
+                        text = modeText(mode),
+                        dotColor = glowStateColor(stateHolder.derivedGlowState),
+                    )
                 }
-                if (!isShowing()) show()
-                updateDisplay(
-                    text = modeText(mode),
-                    dotColor = glowStateColor(stateHolder.derivedGlowState),
-                )
             }
         }
     }

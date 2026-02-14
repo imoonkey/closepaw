@@ -156,8 +156,11 @@ data class NavSpec(
             platformMode: PlatformMode,
             hasIsland: Boolean,
         ): NavSpec = NavSpec(
-            showMinimize = platformMode == PlatformMode.VIRTUAL_DISPLAY && hasIsland,
-            showApp = context != CapsuleContext.MAIN_APP,
+            showMinimize = platformMode == PlatformMode.VIRTUAL_DISPLAY
+                && hasIsland
+                && context != CapsuleContext.MAIN_APP,
+            showApp = context != CapsuleContext.MAIN_APP
+                && platformMode != PlatformMode.ACCESSIBILITY,
             showWatch = platformMode != PlatformMode.ACCESSIBILITY
                 && context != CapsuleContext.SCREEN_VIEWING,
         )
