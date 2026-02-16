@@ -16,14 +16,6 @@ import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
-import com.moonkey.androidagent.tool.impl.AskUserTool
-import com.moonkey.androidagent.tool.impl.CompleteTaskTool
-import com.moonkey.androidagent.tool.impl.MobileActionTool
-import com.moonkey.androidagent.tool.impl.OpenAppTool
-import com.moonkey.androidagent.tool.impl.ScratchpadTool
-import com.moonkey.androidagent.tool.impl.SystemButtonTool
-import com.moonkey.androidagent.tool.impl.WaitTool
-import com.moonkey.androidagent.tool.impl.WriteTodosTool
 import com.moonkey.androidagent.trace.TraceRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -100,15 +92,11 @@ data class SessionServices(
             val llmClient: LLMClient = llmBootstrap.llmClient
             Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
 
-            val policyEngine = PolicyEngine(config.approvalMode)
-            Log.d(TAG, "Created PolicyEngine with mode: ${config.approvalMode}")
-
-            val sessionState = AgentSessionState()
-            val toolRegistry = ToolRegistry().apply { registerBuiltInTools(sessionState) }
-            Log.d(TAG, "Created ToolRegistry with ${toolRegistry.size()} tools")
-
-            val toolRouter = ToolRouter(toolRegistry, policyEngine)
-            Log.d(TAG, "Created ToolRouter")
+            val tooling = SessionToolingBootstrapper.create(config.approvalMode)
+            val policyEngine = tooling.policyEngine
+            val sessionState = tooling.sessionState
+            val toolRegistry = tooling.toolRegistry
+            val toolRouter = tooling.toolRouter
 
             val historyConfig =
                     HistoryConfig(
@@ -142,21 +130,6 @@ data class SessionServices(
                     traceRecorder = traceRecorder,
                     recordingService = recordingService
             )
-        }
-        /**
-         * Registers built-in tools: complete_task, mobile_action, system_button, wait, open_app,
-         * write_todos, scratchpad.
-         */
-        private fun ToolRegistry.registerBuiltInTools(sessionState: AgentSessionState) {
-            register(CompleteTaskTool())
-            register(MobileActionTool())
-            register(SystemButtonTool())
-            register(WaitTool())
-            register(OpenAppTool())
-            register(WriteTodosTool(sessionState.todos))
-            register(ScratchpadTool(sessionState.scratchpad))
-
-            Log.d(TAG, "Registered ${size()} built-in tools: ${getNames().joinToString()}")
         }
     }
 
