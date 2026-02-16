@@ -135,3 +135,9 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 7. Moved session configuration types out of `Op.kt` into focused protocol file (Phase 1 config cleanup).
 - `app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionConfig.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/protocol/Op.kt`
+
+8. Centralized legacy backend compatibility reads (`llmBackend`) behind `SessionConfig` compat helper and reduced direct runtime references.
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionConfig.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/trace/AgentTrace.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/trace/TraceRecorderFactory.kt`
