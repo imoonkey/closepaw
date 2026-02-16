@@ -21,10 +21,12 @@ Date: 2026-02-16
   - [x] Legacy local config read centralized via `resolvedLocalLlmConfigCompat()`
   - [x] Canonical `SessionLlmConfig` introduced and wired into runtime/session construction
   - [ ] Remove deprecated constructor fields after settings-side migration (`llmBackend`/`localLLMConfig`/`model`)
+- [ ] SessionServices decomposition
+  - [x] LLM bootstrap path extracted from `SessionServices` into dedicated collaborator (`SessionLlmBootstrapper`)
+  - [ ] Continue splitting remaining concerns (history/tool wiring, summary/report helpers)
 
 ### Not Started
 - [ ] LLM client consolidation (`Response`/`Chat` shared retry + streaming scaffold)
-- [ ] SessionServices decomposition
 - [ ] Tool system DRY-up + prompt composition consolidation
 
 ## Sources Referenced
@@ -160,3 +162,7 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt`
 - `app/src/test/kotlin/com/moonkey/androidagent/session/SessionServicesProviderRoutingTest.kt`
 - `app/src/test/kotlin/com/moonkey/androidagent/agent/LocalBackendTurnRoutingTest.kt`
+
+11. Started SessionServices decomposition by extracting catalog+factory+client bootstrap into `SessionLlmBootstrapper`.
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionLlmBootstrapper.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
