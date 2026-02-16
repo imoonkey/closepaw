@@ -2,12 +2,9 @@ package com.moonkey.androidagent.platform.virtualdisplay
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.util.Log
 import android.view.InputEvent
 import android.view.Surface
-import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
 
 /**
@@ -29,39 +26,31 @@ class ShizukuClient {
         const val INJECT_MODE_WAIT = 2
     }
 
+    private val runtimeGateway = ShizukuRuntimeGateway()
+
     // ── Shizuku Status ──────────────────────────────────────────
 
     /** True if Shizuku binder is alive and responding. */
     fun isAvailable(): Boolean =
-            try {
-                Shizuku.pingBinder()
-            } catch (e: Exception) {
-                Log.w(TAG, "Shizuku ping failed: ${e.message}")
-                false
-            }
+            runtimeGateway.isAvailable()
 
     /** True if we have been granted Shizuku permission. */
     fun hasPermission(): Boolean =
-            try {
-                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-            } catch (e: Exception) {
-                Log.w(TAG, "Shizuku permission check failed: ${e.message}")
-                false
-            }
+            runtimeGateway.hasPermission()
 
     /** Request Shizuku permission from the user. */
     fun requestPermission(requestCode: Int) {
-        Shizuku.requestPermission(requestCode)
+        runtimeGateway.requestPermission(requestCode)
     }
 
     /** Register a listener for Shizuku binder death. */
     fun addBinderDeadListener(listener: Shizuku.OnBinderDeadListener) {
-        Shizuku.addBinderDeadListener(listener)
+        runtimeGateway.addBinderDeadListener(listener)
     }
 
     /** Remove a previously registered binder death listener. */
     fun removeBinderDeadListener(listener: Shizuku.OnBinderDeadListener) {
-        Shizuku.removeBinderDeadListener(listener)
+        runtimeGateway.removeBinderDeadListener(listener)
     }
 
     // ── Hidden API Bypass ───────────────────────────────────────
@@ -71,10 +60,7 @@ class ShizukuClient {
      * internals.
      */
     fun bypassHiddenApis() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            HiddenApiBypass.addHiddenApiExemptions("")
-            Log.d(TAG, "Hidden API restrictions bypassed")
-        }
+        runtimeGateway.bypassHiddenApis()
     }
 
     // ── Display Management ──────────────────────────────────────
