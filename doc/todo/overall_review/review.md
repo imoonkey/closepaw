@@ -11,6 +11,7 @@ Date: 2026-02-16
 - [x] VirtualDisplay decomposition Phase 1 (viewer touch, screenshot processing, app control, surface control, capture coordination, shell executor extraction)
 - [x] VirtualDisplay/Shizuku decomposition Phase 2 (service proxy/transport/activity/runtime split inside `ShizukuClient`)
 - [x] SessionConfig extraction Phase 1 (`SessionConfig` and related enums moved out of `Op.kt`)
+- [x] SessionServices decomposition (LLM/tool/history/bootstrap split + builder/summary extraction)
 
 ### In Progress
 - [ ] Protocol domain split Phase 2 (`AgentEvent.kt` event-domain decomposition while preserving behavior)
@@ -21,11 +22,6 @@ Date: 2026-02-16
   - [x] Legacy local config read centralized via `resolvedLocalLlmConfigCompat()`
   - [x] Canonical `SessionLlmConfig` introduced and wired into runtime/session construction
   - [ ] Remove deprecated constructor fields after settings-side migration (`llmBackend`/`localLLMConfig`/`model`)
-- [ ] SessionServices decomposition
-  - [x] LLM bootstrap path extracted from `SessionServices` into dedicated collaborator (`SessionLlmBootstrapper`)
-  - [x] Tool/policy/session-state bootstrap path extracted into `SessionToolingBootstrapper`
-  - [x] History/recording bootstrap path extracted into `SessionHistoryBootstrapper`
-  - [ ] Continue splitting remaining concerns (history/tool wiring, summary/report helpers)
 
 ### Not Started
 - [ ] LLM client consolidation (`Response`/`Chat` shared retry + streaming scaffold)
@@ -176,3 +172,8 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 13. Continued SessionServices decomposition by extracting history manager + recording service wiring into `SessionHistoryBootstrapper`.
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionHistoryBootstrapper.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
+
+14. Completed SessionServices decomposition phase by extracting `SessionServicesBuilder` and summary formatting out of the core container file.
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServicesBuilder.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServicesSummaryFormatter.kt`
