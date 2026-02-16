@@ -59,29 +59,6 @@ Rationale: `TaskStarted`/`Error`/`AskUser` are server-driven events that can arr
 - `onAskUser`(VD): 强制 `CAPSULE`
 - `onError`(VD): 强制 `CAPSULE`（保证有 close/dismiss 入口）
 
-### 2.3 State-invariant force-CAPSULE（必须一致）
-
-上述 2.2 中 `onAskUser`/`onError` 的 `强制 CAPSULE` 是**事件驱动**的初始触发。但如果后续事件（`onMinimize(⊖)` 或 `onViewerClosed`）将 `showPref` 改回 `ISLAND`，事件驱动的 force 不会重新触发。
-
-为保证 `user_flow.md` B2i/B3i 表中 "Force to CAPSULE" 的状态不变量:
-
-**`applyVisibility()` 必须包含以下 guard：**
-
-```
-if platformMode == VD
-   && mode in {WaitingForInput, WaitingForAction, Error}
-   && showPreference == ISLAND:
-     showPreference = CAPSULE   // state-invariant force
-```
-
-理由：这三个 mode 需要用户交互（输入框/ [Done] / [Close]），而 Island 没有这些控件。若允许 ISLAND，用户将无法操作。
-
-**影响：**
-- `onMinimize(⊖)` 在 WI/WA/Error 期间实际为 no-op（设 ISLAND 后立即被 applyVisibility 覆盖回 CAPSULE）。
-- `onViewerClosed` 在 WI/WA/Error 期间不会导致丢失交互 UI。
-- 最终拍板：WI/WA/Error 期间**隐藏 `⊖`**，避免展示 no-op 控件导致用户困惑。
-- 防御性实现：即便旧 UI/竞态仍触发 `onMinimize`，也必须被 state-invariant guard 覆盖回 CAPSULE。
-
 ## 3. 可见性规则（必须一致）
 
 `isActive = hasActiveTask || mode in {Done, Error}`
@@ -95,7 +72,6 @@ if platformMode == VD
 - `MAIN_APP`: Compose only（Overlay/Island hidden）
 - `VD_VIEWER | OTHER_APP`:
   - `!isActive`: Overlay/Island hidden
-  - **State-invariant force（Section 2.3）：** `mode in {WaitingForInput, WaitingForAction, Error} && ShowPreference==ISLAND` → 先 force `ShowPreference=CAPSULE`
   - `isActive && ShowPreference=CAPSULE`: show OverlayCapsule
   - `isActive && ShowPreference=ISLAND`: show Island
 
@@ -117,9 +93,6 @@ if platformMode == VD
 - 最终渲染还受 row 可见性约束：
   - 若当前 mode 隐藏 Row2（如 `Done`），则不渲染 Row2-R 按钮。
   - `VD + MAIN_APP + Hidden` 是特例：`👁` 必须可达，可放在 collapsed capsule 或同一组件的固定入口区。
-- mode 覆盖规则（最终拍板）：
-  - 在 VD overlay 场景，`mode in {WaitingForInput, WaitingForAction, Error}` 时，`⊖` 必须隐藏。
-  - 其他可见性按表执行（`📱/👁` 仍按 context 决定）。
 
 ## 5. Side Effects 契约（必须一致）
 
@@ -370,11 +343,9 @@ onIslandTapped():
 3. 对 `applyVisibility` 做笛卡尔组合测试：
    - `PlatformMode x UserLocation x CapsuleMode(active/terminal/hidden) x ShowPreference`
    - 断言 island/capsule 互斥、MAIN_APP 无 overlay、A11y 无 island。
-   - **断言 force-CAPSULE 状态不变量**：VD + (WaitingForInput|WaitingForAction|Error) + ISLAND → 最终显示 Capsule（不是 Island）。
 4. 对 `UserResponseSent(callId)` 增加 mismatch guard 测试，确保 waiting 态不会误退出。
 5. 对 Stop feedback 增加“点击后 1 帧内可见反馈”测试。
 6. 对 `VD + MAIN_APP + Hidden` 增加 `👁` 可达性测试（且仍为单组件实现）。
-7. 对 `mode in {WI, WA, Error}` 增加 `⊖ hidden` 断言（B2c/B3c 均覆盖）。
 
 ## 21. State-Flow Consistency Check（必须一致）
 
