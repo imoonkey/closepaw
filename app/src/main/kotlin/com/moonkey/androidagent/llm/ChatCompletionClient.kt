@@ -47,28 +47,12 @@ class ChatCompletionClient(
         tools: List<FunctionTool>,
         model: String
     ): ResponsesResult = withContext(Dispatchers.IO) {
-        var lastException: Exception? = null
-        var backoffMs = INITIAL_BACKOFF_MS
-
-        for (attempt in 1..MAX_RETRIES) {
-            try {
-                return@withContext executeChatWithTools(systemPrompt, inputItems, tools, model)
-            } catch (e: RateLimitException) {
-                lastException = e
-                if (attempt == MAX_RETRIES) throw e
-                val waitMs = e.retryAfterMs ?: backoffMs
-                Log.w(TAG, "Rate limited (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms")
-                delay(waitMs)
-                backoffMs = advanceBackoff(backoffMs)
-            } catch (e: TransientException) {
-                lastException = e
-                if (attempt == MAX_RETRIES) throw e.cause ?: e
-                Log.w(TAG, "Transient error (attempt $attempt/$MAX_RETRIES): ${e.message}")
-                delay(backoffMs)
-                backoffMs = advanceBackoff(backoffMs)
-            }
+        CloudLlmRetry.executeWithRetry(
+                tag = TAG,
+                operationName = "chat-completions chatWithTools"
+        ) {
+            executeChatWithTools(systemPrompt, inputItems, tools, model)
         }
-        throw lastException ?: RuntimeException("Unexpected error in retry loop")
     }
 
     private fun executeChatWithTools(
@@ -253,7 +237,7 @@ class ChatCompletionClient(
                     }
                     Log.w(TAG, "Retryable stream error (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms")
                     delay(waitMs)
-                    backoffMs = advanceBackoff(backoffMs)
+                    backoffMs = CloudLlmRetry.advanceBackoff(backoffMs)
                     continue
                 }
 
@@ -293,9 +277,6 @@ class ChatCompletionClient(
             .tools(chatTools)
             .build()
     }
-
-    private fun advanceBackoff(current: Long): Long =
-        (current * BACKOFF_MULTIPLIER).toLong().coerceAtMost(MAX_BACKOFF_MS)
 
     override suspend fun cleanup() {
         Log.d(TAG, "Cleanup requested (no-op for cloud client)")

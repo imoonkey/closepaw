@@ -36,9 +36,6 @@ class OpenAIResponseClient(
 
     private val client: OpenAIClient
 
-    private fun advanceBackoff(currentMs: Long): Long =
-        (currentMs * LLMClient.BACKOFF_MULTIPLIER).toLong().coerceAtMost(LLMClient.MAX_BACKOFF_MS)
-
     init {
         Log.d(TAG, "Creating OpenAIResponseClient")
         client = OpenAIOkHttpClient.builder()
@@ -61,44 +58,12 @@ class OpenAIResponseClient(
         model: String
     ): ResponsesResult {
         return withContext(Dispatchers.IO) {
-            var lastException: Exception? = null
-            var backoffMs = LLMClient.INITIAL_BACKOFF_MS
-
-            for (attempt in 1..LLMClient.MAX_RETRIES) {
-                try {
-                    return@withContext executeChatWithTools(systemPrompt, inputItems, tools, model)
-                } catch (e: RateLimitException) {
-                    lastException = e
-
-                    if (attempt == LLMClient.MAX_RETRIES) {
-                        Log.e(TAG, "Max retries (${LLMClient.MAX_RETRIES}) exceeded for rate limit")
-                        throw e
-                    }
-
-                    val waitMs = e.retryAfterMs ?: backoffMs
-                    Log.w(TAG, "Rate limited (attempt $attempt/${LLMClient.MAX_RETRIES}), waiting ${waitMs}ms...")
-
-                    delay(waitMs)
-                    backoffMs = advanceBackoff(backoffMs)
-
-                } catch (e: TransientException) {
-                    lastException = e
-
-                    if (attempt == LLMClient.MAX_RETRIES) {
-                        Log.e(TAG, "Max retries (${LLMClient.MAX_RETRIES}) exceeded for transient error")
-                        throw e.cause ?: e
-                    }
-
-                    Log.w(
-                        TAG,
-                        "Transient error (attempt $attempt/${LLMClient.MAX_RETRIES}): ${e.message}, retrying in ${backoffMs}ms..."
-                    )
-                    delay(backoffMs)
-                    backoffMs = advanceBackoff(backoffMs)
-                }
+            CloudLlmRetry.executeWithRetry(
+                    tag = TAG,
+                    operationName = "responses chatWithTools"
+            ) {
+                executeChatWithTools(systemPrompt, inputItems, tools, model)
             }
-
-            throw lastException ?: RuntimeException("Unexpected error in retry loop")
         }
     }
 
@@ -217,7 +182,7 @@ class OpenAIResponseClient(
                     }
                     Log.w(TAG, "Retryable stream error (attempt $attempt/${LLMClient.MAX_RETRIES}): ${classified.message}, waiting ${waitMs}ms...")
                     delay(waitMs)
-                    backoffMs = advanceBackoff(backoffMs)
+                    backoffMs = CloudLlmRetry.advanceBackoff(backoffMs)
                     continue
                 }
 
