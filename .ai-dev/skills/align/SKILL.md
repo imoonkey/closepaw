@@ -10,15 +10,16 @@ Align the design of the system or anything else between Codex and Claude.
 ## 目录约定
 
 ```
-align/
-  discussion/
-    status.txt                 # 独立状态文件（单行）
-    0001_CODEX.md              # 每次发言一个新文件（只增不改）
-    0002_CLAUDE.md
-    ...
-  design/
-    design.md                  # 最终对齐产物（可多个文件）
-    ...
+[project_folder]/
+  align/
+    discussion/
+      status.txt                 # 独立状态文件（单行）
+      0001_CODEX.md              # 每次发言一个新文件（只增不改）
+      0002_CLAUDE.md
+      ...
+    design/
+      design.md                  # 最终对齐产物（可多个文件）
+      ...
 ```
 
 ---
@@ -108,9 +109,8 @@ SEQ=0000 NEXT=CODEX CODEX=PENDING CLAUDE=PENDING
 ---
 
 ## 额外硬规则（保证简单稳定）
-
 * **只有 `NEXT=你` 时才允许写任何文件**（包括 `align/design/*` 和 `align/discussion/*`）。
 * 讨论只增量：永远新建 `####_AGENT.md`，不要回改旧讨论文件。
-* 终局产物只看 `align/design/*`；讨论过程只看 `align/discussion/*`。
 
-如果你希望更“傻瓜化”（连重置对方 PENDING 的条件都不判断），也可以改成：**每次写完都把对方投票置为 PENDING**——会更慢一点但更不容易漏复核。
+## Principles
+过程中有任何对方有和你不同意见，或者对方提到而你没提到的地方，不要make assumptions，看代码，上网查，用证据解决分歧。
