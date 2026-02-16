@@ -12,7 +12,7 @@ Date: 2026-02-16
 - [x] SessionConfig extraction Phase 1 (`SessionConfig` and related enums moved out of `Op.kt`)
 
 ### In Progress
-- [ ] VirtualDisplay/Shizuku decomposition Phase 2 (transport-level split inside `ShizukuClient`)
+- [x] VirtualDisplay/Shizuku decomposition Phase 2 (transport-level split inside `ShizukuClient`)
 - [ ] Protocol domain split Phase 2 (`AgentEvent.kt` event-domain decomposition while preserving behavior)
 - [ ] SessionConfig cleanup Phase 2 (reduce deprecated `llmBackend/localLLMConfig/model` compatibility path)
 
@@ -93,9 +93,9 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/test/kotlin/com/moonkey/androidagent/tool/impl/MobileActionToolTest.kt`
 
 ## Suggested Next Refactor Phase
-1. Continue VirtualDisplay stack decomposition: split remaining orchestration from `VirtualDisplayPlatform` and start `ShizukuClient` transport decomposition.
-2. Continue protocol domain split from `AgentEvent.kt` into event-domain focused files.
-3. Continue SessionConfig cleanup Phase 2: shrink deprecated `llmBackend/localLLMConfig/model` compatibility surface.
+1. Continue protocol domain split Phase 2: reduce `AgentEvent.kt` density and move event-domain definitions out while keeping behavior unchanged.
+2. Continue SessionConfig cleanup Phase 2: shrink deprecated `llmBackend/localLLMConfig/model` compatibility surface.
+3. Start LLM client consolidation: extract shared retry/stream scaffold for cloud clients.
 
 ## Follow-up Progress (2026-02-16)
 1. Extracted turn error classification policy into `TurnErrorClassifier` and added dedicated regression tests.
@@ -143,3 +143,7 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/trace/AgentTrace.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/trace/TraceRecorderFactory.kt`
+
+9. Added `AgentEvent` domain interfaces and mapped existing events to domain types (no behavior change).
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/AgentEventDomains.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/AgentEvent.kt`
