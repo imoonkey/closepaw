@@ -129,6 +129,7 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuServiceProxyProvider.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuDisplayTransport.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuInputTransport.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuActivityLauncher.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuClient.kt`
 
