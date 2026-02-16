@@ -11,10 +11,7 @@ import android.view.Display
 import android.view.SurfaceView
 import android.view.accessibility.AccessibilityEvent
 import com.moonkey.androidagent.BuildConfig
-import com.moonkey.androidagent.history.model.ScreenStateRecord
 import com.moonkey.androidagent.platform.virtualdisplay.VirtualDisplayPlatform
-import com.moonkey.androidagent.protocol.AgentEvent
-import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.SessionConfig
@@ -23,7 +20,6 @@ import com.moonkey.androidagent.ui.overlay.compose.IslandOverlayHost
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.compose.ServiceLifecycleOwner
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
-import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -75,6 +71,13 @@ class AgentService : AccessibilityService() {
     private var overlayController: ServiceOverlayController? = null
     private var actionVisualizer: ActionVisualizerManager? = null
     private var currentPlatformMode: PlatformMode = PlatformMode.ACCESSIBILITY
+    private val eventHandler =
+            AgentServiceEventHandler(
+                    logTag = TAG,
+                    updateStatus = ::updateStatus,
+                    sessionCleared = { session = null },
+                    overlayController = { overlayController }
+            )
 
     /**
      * Access the capsule state holder for in-app Compose UI.
@@ -300,7 +303,7 @@ class AgentService : AccessibilityService() {
                     try {
                         agentSession.events.collect { event ->
                             try {
-                                handleEvent(event, recordingService)
+                                eventHandler.handleEvent(event, recordingService)
                             } catch (e: Exception) {
                                 Log.e(
                                         TAG,
@@ -315,142 +318,6 @@ class AgentService : AccessibilityService() {
                         Log.e(TAG, "Session event collector crashed", e)
                     }
                 }
-    }
-
-    /** Handle events from the session. */
-    private fun handleEvent(
-            event: AgentEvent,
-            recordingService: com.moonkey.androidagent.history.SessionRecordingService? = null
-    ) {
-        Log.d(TAG, "Received event: ${event::class.simpleName}")
-
-        when (event) {
-            is AgentEvent.StatusUpdate -> {
-                val displayStatus =
-                        if (event.emoji != null) {
-                            "${event.emoji} ${event.status}"
-                        } else {
-                            event.status
-                        }
-                updateStatus(displayStatus)
-            }
-            is AgentEvent.SessionStarted -> {
-                Log.i(TAG, "Session started: ${event.sessionId}, goal: ${event.goal}")
-            }
-
-            // ===== Task Events (for SmartCapsule streaming) =====
-
-            is AgentEvent.TaskStarted -> {
-                recordingService?.recordUserMessage(
-                        UUID.randomUUID().toString(),
-                        event.timestamp,
-                        event.input
-                )
-                recordingService?.startAgentMessage(event.taskId, event.timestamp)
-                overlayController?.onTaskStarted(event.taskId, event.input)
-            }
-            is AgentEvent.MessageDelta -> {
-                recordingService?.appendTextDelta(event.delta)
-            }
-            is AgentEvent.ThoughtUpdate -> {
-                overlayController?.onThoughtUpdate(event.thought)
-            }
-            is AgentEvent.TurnPhaseChanged -> {
-                overlayController?.onTurnPhaseChanged(event.phase)
-            }
-            is AgentEvent.ActionExecuted -> {
-                val state = if (event.success) "success" else "failed"
-                recordingService?.updateActionState(event.actionId, state, event.result)
-                overlayController?.onActionExecuted(event.toolName, event.success)
-            }
-            is AgentEvent.SubAgentStarted -> {
-                updateStatus("🤖 Delegating to ${event.agentName}...")
-            }
-            is AgentEvent.SubAgentActivity -> {
-                // Activity events can be very frequent; keep UI/log noise low.
-            }
-            is AgentEvent.SubAgentCompleted -> {
-                val status = if (event.success) "completed" else "failed"
-                updateStatus("🤖 ${event.agentName} $status")
-            }
-            is AgentEvent.TaskCompleted -> {
-                Log.i(TAG, "Task completed: ${event.taskId}, reason: ${event.reason}")
-                recordingService?.completeAgentMessage()
-                overlayController?.onTaskCompleted(event.reason, event.result)
-            }
-            is AgentEvent.ActionProposed -> {
-                recordingService?.recordAction(
-                        actionId = event.actionId,
-                        toolName = event.toolName,
-                        description = event.description,
-                        state = "proposed"
-                )
-            }
-            is AgentEvent.ScreenCaptured -> {
-                recordingService?.recordScreenState(
-                        ScreenStateRecord(
-                                id = UUID.randomUUID().toString(),
-                                timestamp = event.timestamp,
-                                turnId = event.turnId,
-                                turnNumber = event.turnNumber,
-                                phase = event.phase,
-                                elementCount = event.elementCount,
-                                packageName = event.packageName,
-                                activityName = event.activityName,
-                                rawA11yTreePath = event.rawA11yTreePath,
-                                sanitizedA11yTreePath = event.sanitizedA11yTreePath,
-                                screenshotPath = event.screenshotPath,
-                                traceRunId = event.traceRunId
-                        )
-                )
-            }
-
-            // ===== Session Lifecycle Events =====
-
-            is AgentEvent.SessionCompleted -> {
-                Log.i(TAG, "Session completed: ${event.sessionId}, reason: ${event.reason}")
-
-                // Emit a terminal status so MainActivity can detect completion
-                val statusMessage =
-                        when (event.reason) {
-                            CompletionReason.GOAL_ACHIEVED -> "✅ Goal achieved!"
-                            CompletionReason.USER_STOPPED -> "🛑 Agent stopped"
-                            CompletionReason.MAX_TURNS -> "⚠️ Max turns reached"
-                            CompletionReason.TASK_IMPOSSIBLE -> "❌ Task cannot be completed"
-                            CompletionReason.ERROR -> "❌ Session ended with error"
-                            CompletionReason.INTERRUPTED -> "🛑 Session interrupted"
-                        }
-                updateStatus(statusMessage)
-                overlayController?.onSessionCompleted(event.reason)
-                session = null
-            }
-            is AgentEvent.SessionError -> {
-                Log.e(TAG, "Session error: ${event.error.message}")
-                updateStatus("❌ Error: ${event.error.message}")
-                overlayController?.onSessionError(event.error.message)
-            }
-            is AgentEvent.SessionTakeover -> {
-                Log.i(TAG, "Session takeover: ${event.sessionId}")
-                overlayController?.onSessionTakeover()
-            }
-            is AgentEvent.SessionResumed -> {
-                Log.i(TAG, "Session resumed: ${event.sessionId}")
-                overlayController?.onSessionResumed()
-            }
-            is AgentEvent.SupplementReceived -> {
-                Log.i(TAG, "Supplement received: ${event.text.take(30)}")
-                overlayController?.onSupplementReceived(event.text)
-            }
-            is AgentEvent.AskUser -> {
-                Log.i(TAG, "AskUser: type=${event.type}, callId=${event.callId}")
-                overlayController?.onAskUser(event.type, event.message, event.callId)
-            }
-
-            // Handle other events as needed
-            else -> {
-                Log.d(TAG, "Unhandled event type: ${event::class.simpleName}")
-            }
-        }
     }
 
     /** Run the agent loop - called from MainActivity */
