@@ -83,6 +83,7 @@ class ShizukuClient {
     private val proxyProvider = ShizukuServiceProxyProvider()
     private val displayTransport = ShizukuDisplayTransport(proxyProvider)
     private val inputTransport = ShizukuInputTransport(proxyProvider)
+    private val activityLauncher = ShizukuActivityLauncher()
 
     /**
      * Create a virtual display via IDisplayManager through Shizuku.
@@ -140,18 +141,7 @@ class ShizukuClient {
      * displays.
      */
     fun launchOnDisplay(context: Context, intent: Intent, displayId: Int) {
-        try {
-            val optionsClass = Class.forName("android.app.ActivityOptions")
-            val options = optionsClass.getMethod("makeBasic").invoke(null)
-            optionsClass
-                    .getMethod("setLaunchDisplayId", Int::class.javaPrimitiveType)
-                    .invoke(options, displayId)
-            val bundle = optionsClass.getMethod("toBundle").invoke(options) as android.os.Bundle
-            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), bundle)
-            Log.d(TAG, "Launched activity on display $displayId")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to launch on display $displayId", e)
-        }
+        activityLauncher.launchOnDisplay(context, intent, displayId)
     }
 
     /**
