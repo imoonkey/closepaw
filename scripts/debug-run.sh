@@ -72,7 +72,7 @@ while [[ $# -gt 0 ]]; do
             FORCED_PERCEPTION_MODE="$2"
             shift 2
             ;;
-        --main-model)
+        --model|--main-model)
             if [[ $# -lt 2 ]]; then
                 echo "Missing value for --main-model"
                 exit 1
@@ -165,7 +165,7 @@ if [[ -f "$PROJECT_ROOT/.env" ]]; then
 fi
 
 # Determine effective models early for logging
-EFFECTIVE_MAIN_MODEL="${FORCED_MAIN_MODEL:-${MAIN_MODEL:-gpt-5.2}}"
+EFFECTIVE_MAIN_MODEL="${FORCED_MAIN_MODEL:-${MAIN_MODEL:-minimax-m2.5}}"
 EFFECTIVE_EXECUTOR_MODEL="${FORCED_EXECUTOR_MODEL:-${EXECUTOR_MODEL:-}}"
 
 # Determine LLM backend
@@ -228,7 +228,66 @@ LOGCAT_PID=$!
 cleanup() {
     kill "$LOGCAT_PID" >/dev/null 2>&1 || true
 }
-trap 'echo ""; warn "Interrupted, stopping agent..."; stop_agent; cleanup; exit 0' INT TERM
+
+# Finalization: save logs, pull debug artifacts from device.
+# Extracted so it runs on both normal completion AND Ctrl+C.
+FINALIZED=false
+finalize() {
+    if [[ "$FINALIZED" == "true" ]]; then
+        return
+    fi
+    FINALIZED=true
+
+    echo ""
+    log "Saving full agent log..."
+    grep -E "Agent|Turn|LLMClient|ToolRouter|SessionServices" "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/agent.log" || true
+
+    log "Saving full system log..."
+    grep -E "AgentService|AccessibilityPlatform|AgentSession" "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/system.log" || true
+
+    # Pull compressed LLM screenshots saved by debug mode (if any)
+    DEVICE_LLM_DIR="/sdcard/Android/data/$PACKAGE/files/debug-output"
+    LOCAL_LLM_DIR="$DEBUG_DIR/llm_screens"
+    mkdir -p "$LOCAL_LLM_DIR"
+    if adb shell "ls $DEVICE_LLM_DIR" >/dev/null 2>&1; then
+        log "Pulling LLM screenshots..."
+        adb pull "$DEVICE_LLM_DIR/." "$LOCAL_LLM_DIR/" >/dev/null 2>&1 || true
+    fi
+
+    # Pull trace (JSONL + artifacts)
+    LOCAL_TRACE_DIR="$DEBUG_DIR/trace"
+    mkdir -p "$LOCAL_TRACE_DIR"
+    if adb shell "ls '$DEVICE_TRACE_DIR'" >/dev/null 2>&1; then
+        log "Pulling trace artifacts..."
+        adb pull "$DEVICE_TRACE_DIR/." "$LOCAL_TRACE_DIR/" >/dev/null 2>&1 || true
+        if command -v python3 >/dev/null 2>&1; then
+            log "Compiling replay index..."
+            python3 "$PROJECT_ROOT/inspection_tool/replay_compiler.py" "$LOCAL_TRACE_DIR" \
+                > "$DEBUG_DIR/replay_compile.log" 2>&1 || true
+        fi
+    fi
+
+    # Save LFMLLMClient specific logs for local LLM debugging
+    if [[ "$LLM_BACKEND" == "local" ]]; then
+        log "Saving local LLM logs..."
+        grep -E "LFMLLMClient|Leap|Model" "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/local_llm.log" || true
+    fi
+
+    echo ""
+    echo -e "${GREEN}=============================================================${NC}"
+    echo -e "${GREEN}Debug output saved to: $DEBUG_DIR${NC}"
+    echo ""
+    echo "Files:"
+    ls -la "$DEBUG_DIR"
+    echo ""
+    echo "To view:"
+    echo "  Screenshots: open $DEBUG_DIR/turn_*.png"
+    echo "  Full log:    cat $DEBUG_DIR/agent.log"
+    echo "  Replay v2:   cd inspection_tool && ./serve.sh 8080  (open /replay_v2/index.html, pick $DEBUG_DIR/trace)"
+    echo -e "${GREEN}=============================================================${NC}"
+}
+
+trap 'echo ""; warn "Interrupted, stopping agent..."; stop_agent; finalize; cleanup; exit 0' INT TERM
 trap 'cleanup' EXIT
 
 # Capture basic device/app info
@@ -358,50 +417,5 @@ if [[ $CAPTURE_COUNT -ge $MAX_TURNS ]]; then
     warn "Reached max captured turn-start events ($MAX_TURNS)"
 fi
 
-echo ""
-log "Saving full agent log..."
-grep -E "Agent|Turn|LLMClient|ToolRouter|SessionServices" "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/agent.log" || true
-
-log "Saving full system log..."
-grep -E "AgentService|AccessibilityPlatform|AgentSession" "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/system.log" || true
-
-# Pull compressed LLM screenshots saved by debug mode (if any)
-DEVICE_LLM_DIR="/sdcard/Android/data/$PACKAGE/files/debug-output"
-LOCAL_LLM_DIR="$DEBUG_DIR/llm_screens"
-mkdir -p "$LOCAL_LLM_DIR"
-if adb shell "ls $DEVICE_LLM_DIR" >/dev/null 2>&1; then
-    log "Pulling LLM screenshots..."
-    adb pull "$DEVICE_LLM_DIR/." "$LOCAL_LLM_DIR/" >/dev/null 2>&1 || true
-fi
-
-# Pull trace (JSONL + artifacts)
-LOCAL_TRACE_DIR="$DEBUG_DIR/trace"
-mkdir -p "$LOCAL_TRACE_DIR"
-if adb shell "ls '$DEVICE_TRACE_DIR'" >/dev/null 2>&1; then
-    log "Pulling trace artifacts..."
-    adb pull "$DEVICE_TRACE_DIR/." "$LOCAL_TRACE_DIR/" >/dev/null 2>&1 || true
-    if command -v python3 >/dev/null 2>&1; then
-        log "Compiling replay index..."
-        python3 "$PROJECT_ROOT/inspection_tool/replay_compiler.py" "$LOCAL_TRACE_DIR" \
-            > "$DEBUG_DIR/replay_compile.log" 2>&1 || true
-    fi
-fi
-
-# Save LFMLLMClient specific logs for local LLM debugging
-if [[ "$LLM_BACKEND" == "local" ]]; then
-    log "Saving local LLM logs..."
-    grep -E "LFMLLMClient|Leap|Model" "$DEBUG_DIR/logcat_full.log" > "$DEBUG_DIR/local_llm.log" || true
-fi
-
-echo ""
-echo -e "${GREEN}=============================================================${NC}"
-echo -e "${GREEN}Debug output saved to: $DEBUG_DIR${NC}"
-echo ""
-echo "Files:"
-ls -la "$DEBUG_DIR"
-echo ""
-echo "To view:"
-echo "  Screenshots: open $DEBUG_DIR/turn_*.png"
-echo "  Full log:    cat $DEBUG_DIR/agent.log"
-echo "  Replay v2:   cd inspection_tool && ./serve.sh 8080  (open /replay_v2/index.html, pick $DEBUG_DIR/trace)"
-echo -e "${GREEN}=============================================================${NC}"
+# Run finalization (idempotent – safe to call even if trap already ran it)
+finalize
