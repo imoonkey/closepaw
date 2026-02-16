@@ -5,15 +5,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.display.IVirtualDisplayCallback
 import android.os.Build
-import android.os.IBinder
 import android.util.Log
 import android.view.InputEvent
 import android.view.Surface
 import java.util.concurrent.ConcurrentHashMap
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
-import rikka.shizuku.ShizukuBinderWrapper
-import rikka.shizuku.SystemServiceHelper
 
 /**
  * ShizukuClient — Thin wrapper for Shizuku binder calls.
@@ -90,6 +87,7 @@ class ShizukuClient {
      */
     private val displayCallbacks = ConcurrentHashMap<Int, IVirtualDisplayCallback>()
     private val shellExecutor = ShizukuShellExecutor()
+    private val proxyProvider = ShizukuServiceProxyProvider()
 
     /**
      * Create a virtual display via IDisplayManager through Shizuku.
@@ -243,51 +241,19 @@ class ShizukuClient {
      * were never created.
      */
     fun clearCachedProxies() {
-        cachedDisplayProxy = null
-        cachedInputProxy = null
+        proxyProvider.clear()
         displayCallbacks.clear()
         Log.d(TAG, "Cleared cached binder proxies")
     }
 
     // ── Private: Binder Proxy Acquisition ───────────────────────
 
-    @Volatile private var cachedDisplayProxy: Any? = null
-    @Volatile private var cachedInputProxy: Any? = null
-
     private fun getDisplayManagerProxy(): Any {
-        cachedDisplayProxy?.let {
-            return it
-        }
-        val binder =
-                SystemServiceHelper.getSystemService("display")
-                        ?: throw IllegalStateException("Cannot obtain display service binder")
-        val wrapped = ShizukuBinderWrapper(binder)
-        val stubClass = Class.forName("android.hardware.display.IDisplayManager\$Stub")
-        val proxy =
-                stubClass.getMethod("asInterface", IBinder::class.java).invoke(null, wrapped)
-                        ?: throw IllegalStateException(
-                                "IDisplayManager.Stub.asInterface returned null"
-                        )
-        cachedDisplayProxy = proxy
-        return proxy
+        return proxyProvider.displayManagerProxy()
     }
 
     private fun getInputManagerProxy(): Any {
-        cachedInputProxy?.let {
-            return it
-        }
-        val binder =
-                SystemServiceHelper.getSystemService("input")
-                        ?: throw IllegalStateException("Cannot obtain input service binder")
-        val wrapped = ShizukuBinderWrapper(binder)
-        val stubClass = Class.forName("android.hardware.input.IInputManager\$Stub")
-        val proxy =
-                stubClass.getMethod("asInterface", IBinder::class.java).invoke(null, wrapped)
-                        ?: throw IllegalStateException(
-                                "IInputManager.Stub.asInterface returned null"
-                        )
-        cachedInputProxy = proxy
-        return proxy
+        return proxyProvider.inputManagerProxy()
     }
 
     // ── Private: Version-specific Display Creation ──────────────
