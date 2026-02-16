@@ -17,11 +17,9 @@ import com.moonkey.androidagent.ui.chat.model.AgentMessageState
 import com.moonkey.androidagent.ui.chat.model.ChatMessage
 import com.moonkey.androidagent.ui.chat.model.ChatUiState
 import com.moonkey.androidagent.ui.chat.model.ContentBlock
-import com.moonkey.androidagent.ui.chat.model.TaskBannerState
 import com.moonkey.androidagent.ui.common.formatToolName
 import com.moonkey.androidagent.ui.common.getToolIcon
 import java.util.UUID
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,7 +69,6 @@ internal fun appendCompletionToMessages(
  * - Maintain message list with mutableStateListOf<ChatMessage>()
  * - Handle streaming text accumulation
  * - Manage input state (Idle/Working)
- * - Manage task banner state
  * - Manage session history (list, resume, delete)
  */
 class ChatViewModel(
@@ -83,9 +80,6 @@ class ChatViewModel(
 
     companion object {
         private const val TAG = "ChatViewModel"
-
-        /** Delay before hiding completed banner */
-        private const val BANNER_FADE_DELAY_MS = 2000L
     }
 
     // UI State
@@ -96,10 +90,6 @@ class ChatViewModel(
     private val _messages = mutableStateListOf<ChatMessage>()
     val messages: List<ChatMessage>
         get() = _messages
-
-    // Task banner state
-    private val _taskBannerState = MutableStateFlow<TaskBannerState>(TaskBannerState.Idle)
-    val taskBannerState: StateFlow<TaskBannerState> = _taskBannerState.asStateFlow()
 
     // Streaming accumulator
     private val streamingBuffer = StringBuilder()
@@ -117,7 +107,6 @@ class ChatViewModel(
                     streamingBuffer = streamingBuffer,
                     setCurrentAgentMessageId = { currentAgentMessageId = it },
                     uiState = _uiState,
-                    taskBannerState = _taskBannerState
             )
     val sessions: StateFlow<List<SessionInfo>> = sessionHistoryController.sessions
 
@@ -149,7 +138,7 @@ class ChatViewModel(
             when (event) {
                 is AgentEvent.TaskStarted -> handleTaskStarted(event)
                 is AgentEvent.TurnStarted -> handleTurnStarted(event)
-                is AgentEvent.TurnPhaseChanged -> handlePhaseChanged(event)
+                is AgentEvent.TurnPhaseChanged -> Unit
                 is AgentEvent.MessageDelta -> handleMessageDelta(event)
                 is AgentEvent.ActionProposed -> handleActionProposed(event)
                 is AgentEvent.ActionExecuted -> handleActionExecuted(event)
@@ -165,9 +154,6 @@ class ChatViewModel(
         private fun handleTaskStarted(event: AgentEvent.TaskStarted) {
             // Update UI state — capsule mode is managed by CapsuleStateHolder
             _uiState.update { it.copy(showEmptyState = false) }
-
-            // Update banner
-            _taskBannerState.value = TaskBannerState.Working(taskTitle = event.input.take(50))
 
             val userMsgId = UUID.randomUUID().toString()
 
@@ -199,13 +185,6 @@ class ChatViewModel(
             // This prevents text from previous turns accumulating with new turn text
             android.util.Log.d(TAG, "TurnStarted: turn=${event.turnNumber}, clearing buffer")
             streamingBuffer.clear()
-        }
-
-        private fun handlePhaseChanged(event: AgentEvent.TurnPhaseChanged) {
-            val current = _taskBannerState.value
-            if (current is TaskBannerState.Working) {
-                _taskBannerState.value = current.copy(phase = event.phase.name)
-            }
         }
 
         private fun handleMessageDelta(event: AgentEvent.MessageDelta) {
@@ -315,10 +294,6 @@ class ChatViewModel(
             // Capsule mode transitions are handled by CapsuleStateHolder
             val completionText = completionSummary(event.result)
 
-            // Update banner
-            _taskBannerState.value =
-                    TaskBannerState.Completed(summary = completionText)
-
             // Completion text must always be present, even when no agent bubble exists yet.
             appendCompletionToMessages(_messages, completionText, event.timestamp, event.taskId)
 
@@ -328,20 +303,9 @@ class ChatViewModel(
 
             // Notify that task is completed (for session cleanup)
             onTaskCompleted?.invoke()
-
-            // Auto-hide banner after delay
-            viewModelScope.launch {
-                delay(BANNER_FADE_DELAY_MS)
-                if (_taskBannerState.value is TaskBannerState.Completed) {
-                    _taskBannerState.value = TaskBannerState.Idle
-                }
-            }
         }
 
         private fun handleError(event: AgentEvent.SessionError) {
-            // Capsule mode transitions are handled by CapsuleStateHolder
-            _taskBannerState.value = TaskBannerState.Error(event.error.message)
-
             // Also mark any pending agent message as complete
             updateLastAgentMessage { msg -> msg.copy(state = AgentMessageState.Complete) }
         }
@@ -377,7 +341,6 @@ class ChatViewModel(
         currentAgentMessageId = null
         _messages.addAll(restoredMessages)
         _uiState.update { it.copy(showEmptyState = _messages.isEmpty()) }
-        _taskBannerState.value = TaskBannerState.Idle
     }
 
     /**
@@ -431,7 +394,6 @@ class ChatViewModel(
 
     fun dismissError() {
         AgentService.instance?.capsuleStateHolder?.onDismissError()
-        _taskBannerState.value = TaskBannerState.Idle
     }
 
     /** Clear conversation history. */

@@ -116,58 +116,6 @@ enum class ActionState {
 }
 
 /**
- * TaskBannerState - State for the task context banner.
- */
-sealed interface TaskBannerState {
-    val dotColor: Long
-    val title: String
-    val subtitle: String?
-    
-    /**
-     * No active task - banner is hidden.
-     */
-    data object Idle : TaskBannerState {
-        override val dotColor = 0x00000000L
-        override val title = ""
-        override val subtitle: String? = null
-    }
-    
-    /**
-     * Task is running.
-     */
-    data class Working(
-        val taskTitle: String,
-        val phase: String? = null
-    ) : TaskBannerState {
-        override val dotColor = 0xFF2563EBL // Primary blue
-        override val title = "Working on: $taskTitle"
-        override val subtitle = phase
-    }
-    
-    /**
-     * Task completed successfully.
-     */
-    data class Completed(
-        val summary: String
-    ) : TaskBannerState {
-        override val dotColor = 0xFF0D9488L // Success teal
-        override val title = "✓ $summary"
-        override val subtitle: String? = null
-    }
-    
-    /**
-     * Task encountered an error.
-     */
-    data class Error(
-        val message: String
-    ) : TaskBannerState {
-        override val dotColor = 0xFFDC2626L // Error red
-        override val title = "⚠ $message"
-        override val subtitle: String? = null
-    }
-}
-
-/**
  * ChatUiState - Overall UI state for the chat screen.
  */
 data class ChatUiState(

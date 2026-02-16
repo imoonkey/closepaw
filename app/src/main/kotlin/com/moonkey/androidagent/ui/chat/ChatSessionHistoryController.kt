@@ -7,7 +7,6 @@ import com.moonkey.androidagent.history.model.MessageConverter
 import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.ui.chat.model.ChatMessage
 import com.moonkey.androidagent.ui.chat.model.ChatUiState
-import com.moonkey.androidagent.ui.chat.model.TaskBannerState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +21,6 @@ class ChatSessionHistoryController(
     private val streamingBuffer: StringBuilder,
     private val setCurrentAgentMessageId: (String?) -> Unit,
     private val uiState: MutableStateFlow<ChatUiState>,
-    private val taskBannerState: MutableStateFlow<TaskBannerState>
 ) {
     companion object {
         private const val TAG = "ChatSessionHistory"
@@ -36,7 +34,6 @@ class ChatSessionHistoryController(
         streamingBuffer.clear()
         setCurrentAgentMessageId(null)
         uiState.update { it.copy(showEmptyState = true) }
-        taskBannerState.value = TaskBannerState.Idle
     }
 
     fun loadSessions() {
@@ -60,7 +57,6 @@ class ChatSessionHistoryController(
                     messages.addAll(restoredMessages)
 
                     uiState.update { it.copy(showEmptyState = messages.isEmpty()) }
-                    taskBannerState.value = TaskBannerState.Idle
 
                     manager.resumeSession(data)
 
