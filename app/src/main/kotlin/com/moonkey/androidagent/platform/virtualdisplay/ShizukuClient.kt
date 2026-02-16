@@ -10,7 +10,6 @@ import android.util.Log
 import android.view.InputEvent
 import android.view.Surface
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
@@ -90,6 +89,7 @@ class ShizukuClient {
      * setVirtualDisplaySurface on ROMs that validate the callback token.
      */
     private val displayCallbacks = ConcurrentHashMap<Int, IVirtualDisplayCallback>()
+    private val shellExecutor = ShizukuShellExecutor()
 
     /**
      * Create a virtual display via IDisplayManager through Shizuku.
@@ -233,98 +233,7 @@ class ShizukuClient {
      * @return Exit code of the command, or -1 on failure
      */
     fun executeShellCommand(command: Array<String>): Int {
-        return try {
-            val process = newProcessViaShizuku(command)
-            if (!waitForProcess(process, 30, TimeUnit.SECONDS)) {
-                process.destroy()
-                Log.e(TAG, "Shell command timed out: ${command.joinToString(" ")}")
-                return -1
-            }
-            // waitForProcess returns true only if process.exitValue() succeeded
-            val exitCode = process.exitValue()
-            if (exitCode != 0) {
-                val error = process.errorStream.bufferedReader().use { it.readText() }
-                Log.w(
-                        TAG,
-                        "Shell command non-zero exit ($exitCode): ${command.joinToString(" ")}\n$error"
-                )
-            } else {
-                Log.d(TAG, "Shell command success: ${command.joinToString(" ")}")
-            }
-            exitCode
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to execute shell command: ${command.joinToString(" ")}", e)
-            -1
-        }
-    }
-
-    /**
-     * Custom waitFor implementation to handle Shizuku's incorrect exception usage.
-     * ShizukuRemoteProcess throws IllegalArgumentException instead of IllegalThreadStateException
-     * when process hasn't exited, which breaks the default waitFor(timeout) implementation.
-     */
-    private fun waitForProcess(process: Process, timeout: Long, unit: TimeUnit): Boolean {
-        val startTime = System.nanoTime()
-        val remNanos = unit.toNanos(timeout)
-        var rem = remNanos
-        var sleepMs = 10L
-
-        do {
-            try {
-                process.exitValue()
-                return true
-            } catch (e: IllegalThreadStateException) {
-                // Expected, keep waiting
-            } catch (e: IllegalArgumentException) {
-                // Shizuku bug: "process hasn't exited"
-                if (e.message?.contains("process hasn't exited") == true) {
-                    // Keep waiting
-                } else {
-                    throw e
-                }
-            }
-
-            if (rem > 0) {
-                try {
-                    Thread.sleep(Math.min(TimeUnit.NANOSECONDS.toMillis(rem) + 1, sleepMs))
-                    // Exponential backoff up to 100ms
-                    sleepMs = Math.min(sleepMs * 2, 100L)
-                } catch (e: InterruptedException) {
-                    return false
-                }
-            }
-            rem = remNanos - (System.nanoTime() - startTime)
-        } while (rem > 0)
-
-        return false
-    }
-
-    /**
-     * Obtain a Process via Shizuku.
-     *
-     * Some Shizuku versions expose newProcess as a public method, while others keep it private.
-     * Resolve public signature first, then fall back to declared/private method.
-     */
-    private fun newProcessViaShizuku(command: Array<String>): Process {
-        val shizukuClass = Shizuku::class.java
-        val method =
-                runCatching {
-                            shizukuClass.getMethod(
-                                    "newProcess",
-                                    Array<String>::class.java,
-                                    Array<String>::class.java,
-                                    String::class.java
-                            )
-                        }
-                        .getOrNull()
-                        ?: shizukuClass.getDeclaredMethod(
-                                "newProcess",
-                                Array<String>::class.java,
-                                Array<String>::class.java,
-                                String::class.java
-                        )
-        method.isAccessible = true
-        return method.invoke(null, command, null, null) as Process
+        return shellExecutor.execute(command)
     }
 
     // ── Proxy Lifecycle ──────────────────────────────────────────
