@@ -13,11 +13,9 @@ Date: 2026-02-16
 - [x] SessionConfig extraction Phase 1 (`SessionConfig` and related enums moved out of `Op.kt`)
 - [x] SessionConfig cleanup Phase 2 (legacy `model/llmBackend/localLLMConfig` compatibility path removed from runtime config)
 - [x] SessionServices decomposition (LLM/tool/history/bootstrap split + builder/summary extraction)
+- [x] Protocol domain split Phase 2 (`AgentEvent` declarations split by domain files; `AgentEvent.kt` reduced to root interface)
 
 ### In Progress
-- [ ] Protocol domain split Phase 2 (`AgentEvent.kt` event-domain decomposition while preserving behavior)
-  - [x] Domain interfaces extracted (`AgentEventDomains.kt`) and existing events mapped
-  - [ ] Event declarations split out of `AgentEvent.kt` into focused domain files
 
 ### Not Started
 - [ ] LLM client consolidation (`Response`/`Chat` shared retry + streaming scaffold)
@@ -179,3 +177,9 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionLlmBootstrapper.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/trace/AgentTrace.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/trace/TraceRecorderFactory.kt`
+
+16. Completed Protocol domain split Phase 2 by moving event declarations out of `AgentEvent.kt` into focused domain files and migrating event references.
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/AgentEvent.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/*Events.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentEventDispatcher.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandler.kt`
