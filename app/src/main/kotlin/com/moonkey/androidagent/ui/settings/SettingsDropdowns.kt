@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
@@ -48,6 +49,55 @@ private fun DropdownSelectedIndicator() {
 }
 
 @Composable
+private fun dropdownFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+)
+
+@Composable
+private fun SettingsDropdownField(
+    label: String,
+    value: String,
+    leadingIcon: ImageVector,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    menuContent: @Composable () -> Unit
+) {
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = onExpandedChange
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            leadingIcon = {
+                Icon(
+                    imageVector = leadingIcon,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            shape = RoundedCornerShape(12.dp),
+            colors = dropdownFieldColors()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) }
+        ) {
+            menuContent()
+        }
+    }
+}
+
+@Composable
 internal fun BackendSelector(
     selectedBackend: LLMBackendType,
     onBackendChange: (LLMBackendType) -> Unit
@@ -59,59 +109,41 @@ internal fun BackendSelector(
     )
     val selectedDisplayName = backends.find { it.first == selectedBackend }?.second ?: "Cloud (OpenAI)"
 
-    ExposedDropdownMenuBox(
+    SettingsDropdownField(
+        label = "Backend",
+        value = selectedDisplayName,
+        leadingIcon = if (selectedBackend == LLMBackendType.OPENAI) {
+            Icons.Outlined.Cloud
+        } else {
+            Icons.Outlined.PhoneAndroid
+        },
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        onExpandedChange = { expanded = it }
     ) {
-        OutlinedTextField(
-            value = selectedDisplayName,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Backend") },
-            leadingIcon = {
-                Icon(
-                    imageVector = if (selectedBackend == LLMBackendType.OPENAI)
-                        Icons.Outlined.Cloud else Icons.Outlined.PhoneAndroid,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+        backends.forEach { (backend, displayName) ->
+            DropdownMenuItem(
+                text = { Text(displayName) },
+                onClick = {
+                    onBackendChange(backend)
+                    expanded = false
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = if (backend == LLMBackendType.OPENAI) {
+                            Icons.Outlined.Cloud
+                        } else {
+                            Icons.Outlined.PhoneAndroid
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = if (backend == selectedBackend) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
             )
-        )
-
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            backends.forEach { (backend, displayName) ->
-                DropdownMenuItem(
-                    text = { Text(displayName) },
-                    onClick = {
-                        onBackendChange(backend)
-                        expanded = false
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = if (backend == LLMBackendType.OPENAI)
-                                Icons.Outlined.Cloud else Icons.Outlined.PhoneAndroid,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = if (backend == selectedBackend)
-                                MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                )
-            }
         }
     }
 }
@@ -125,48 +157,26 @@ internal fun CloudModelDropdown(
     var expanded by remember { mutableStateOf(false) }
     val selectedDisplayName = modelOptions.find { it.first == selectedModel }?.second ?: selectedModel
 
-    ExposedDropdownMenuBox(
+    SettingsDropdownField(
+        label = "Model",
+        value = selectedDisplayName,
+        leadingIcon = Icons.Outlined.Psychology,
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        onExpandedChange = { expanded = it }
     ) {
-        OutlinedTextField(
-            value = selectedDisplayName,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Model") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Psychology,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+        modelOptions.forEach { (modelId, displayName) ->
+            DropdownMenuItem(
+                text = { Text(displayName) },
+                onClick = {
+                    onModelChange(modelId)
+                    expanded = false
+                },
+                leadingIcon = if (modelId == selectedModel) {
+                    { DropdownSelectedIndicator() }
+                } else {
+                    null
+                }
             )
-        )
-
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            modelOptions.forEach { (modelId, displayName) ->
-                DropdownMenuItem(
-                    text = { Text(displayName) },
-                    onClick = {
-                        onModelChange(modelId)
-                        expanded = false
-                    },
-                    leadingIcon = if (modelId == selectedModel) { { DropdownSelectedIndicator() } } else null
-                )
-            }
         }
     }
 }
@@ -183,56 +193,39 @@ internal fun ExecutorModelDropdown(
         else -> modelOptions.find { it.first == selectedModel }?.second ?: selectedModel
     }
 
-    ExposedDropdownMenuBox(
+    SettingsDropdownField(
+        label = "Executor Model",
+        value = selectedDisplayName,
+        leadingIcon = Icons.Outlined.Psychology,
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        onExpandedChange = { expanded = it }
     ) {
-        OutlinedTextField(
-            value = selectedDisplayName,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Executor Model") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Psychology,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        DropdownMenuItem(
+            text = { Text("(Same as Main Model)") },
+            onClick = {
+                onModelChange(null)
+                expanded = false
             },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline
-            )
+            leadingIcon = if (selectedModel == null) {
+                { DropdownSelectedIndicator() }
+            } else {
+                null
+            }
         )
 
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
+        modelOptions.forEach { (modelId, displayName) ->
             DropdownMenuItem(
-                text = { Text("(Same as Main Model)") },
+                text = { Text(displayName) },
                 onClick = {
-                    onModelChange(null)
+                    onModelChange(modelId)
                     expanded = false
                 },
-                leadingIcon = if (selectedModel == null) { { DropdownSelectedIndicator() } } else null
+                leadingIcon = if (modelId == selectedModel) {
+                    { DropdownSelectedIndicator() }
+                } else {
+                    null
+                }
             )
-            modelOptions.forEach { (modelId, displayName) ->
-                DropdownMenuItem(
-                    text = { Text(displayName) },
-                    onClick = {
-                        onModelChange(modelId)
-                        expanded = false
-                    },
-                    leadingIcon = if (modelId == selectedModel) { { DropdownSelectedIndicator() } } else null
-                )
-            }
         }
     }
 }
@@ -246,57 +239,35 @@ internal fun LocalModelDropdown(
     val selectedModel = AVAILABLE_LOCAL_MODELS.find { it.id == selectedModelId }
         ?: AVAILABLE_LOCAL_MODELS.first()
 
-    ExposedDropdownMenuBox(
+    SettingsDropdownField(
+        label = "Local Model",
+        value = selectedModel.displayName,
+        leadingIcon = Icons.Outlined.Memory,
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        onExpandedChange = { expanded = it }
     ) {
-        OutlinedTextField(
-            value = selectedModel.displayName,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Local Model") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Memory,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+        AVAILABLE_LOCAL_MODELS.forEach { model ->
+            DropdownMenuItem(
+                text = {
+                    Column {
+                        Text(model.displayName)
+                        Text(
+                            text = model.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                onClick = {
+                    onModelChange(model)
+                    expanded = false
+                },
+                leadingIcon = if (model.id == selectedModelId) {
+                    { DropdownSelectedIndicator() }
+                } else {
+                    null
+                }
             )
-        )
-
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            AVAILABLE_LOCAL_MODELS.forEach { model ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(model.displayName)
-                            Text(
-                                text = model.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    },
-                    onClick = {
-                        onModelChange(model)
-                        expanded = false
-                    },
-                    leadingIcon = if (model.id == selectedModelId) { { DropdownSelectedIndicator() } } else null
-                )
-            }
         }
     }
 }
@@ -308,48 +279,26 @@ internal fun MaxTurnsDropdown(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    ExposedDropdownMenuBox(
+    SettingsDropdownField(
+        label = "Max Turns",
+        value = "$maxTurns turns",
+        leadingIcon = Icons.Outlined.Repeat,
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        onExpandedChange = { expanded = it }
     ) {
-        OutlinedTextField(
-            value = "$maxTurns turns",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Max Turns") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Repeat,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+        MAX_TURNS_OPTIONS.forEach { turns ->
+            DropdownMenuItem(
+                text = { Text("$turns turns") },
+                onClick = {
+                    onMaxTurnsChange(turns)
+                    expanded = false
+                },
+                leadingIcon = if (turns == maxTurns) {
+                    { DropdownSelectedIndicator() }
+                } else {
+                    null
+                }
             )
-        )
-
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            MAX_TURNS_OPTIONS.forEach { turns ->
-                DropdownMenuItem(
-                    text = { Text("$turns turns") },
-                    onClick = {
-                        onMaxTurnsChange(turns)
-                        expanded = false
-                    },
-                    leadingIcon = if (turns == maxTurns) { { DropdownSelectedIndicator() } } else null
-                )
-            }
         }
     }
 }
@@ -366,48 +315,26 @@ internal fun AgentModeDropdown(
     )
     val selectedDisplayName = modeItems.find { it.first == agentMode }?.second ?: agentMode.name
 
-    ExposedDropdownMenuBox(
+    SettingsDropdownField(
+        label = "Execution Mode",
+        value = selectedDisplayName,
+        leadingIcon = Icons.Outlined.Speed,
         expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
+        onExpandedChange = { expanded = it }
     ) {
-        OutlinedTextField(
-            value = selectedDisplayName,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Execution Mode") },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.Speed,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline
+        modeItems.forEach { (mode, label) ->
+            DropdownMenuItem(
+                text = { Text(label) },
+                onClick = {
+                    onAgentModeChange(mode)
+                    expanded = false
+                },
+                leadingIcon = if (mode == agentMode) {
+                    { DropdownSelectedIndicator() }
+                } else {
+                    null
+                }
             )
-        )
-
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            modeItems.forEach { (mode, label) ->
-                DropdownMenuItem(
-                    text = { Text(label) },
-                    onClick = {
-                        onAgentModeChange(mode)
-                        expanded = false
-                    },
-                    leadingIcon = if (mode == agentMode) { { DropdownSelectedIndicator() } } else null
-                )
-            }
         }
     }
 }
