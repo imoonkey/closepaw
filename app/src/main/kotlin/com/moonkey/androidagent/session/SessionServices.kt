@@ -7,17 +7,12 @@ import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.SessionRecordingService
 import com.moonkey.androidagent.history.TruncationPolicy
 import com.moonkey.androidagent.history.storage.SessionStorage
-import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.platform.AndroidPlatform
-import com.moonkey.androidagent.protocol.AgentMode
-import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionLlmConfig
-import com.moonkey.androidagent.protocol.resolvedBackendTypeCompat
-import com.moonkey.androidagent.protocol.resolvedLocalLlmConfigCompat
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -88,44 +83,21 @@ data class SessionServices(
          * Android context (required for LOCAL backend for model downloading)
          * @return Fully initialized SessionServices
          */
-        @Suppress("DEPRECATION")
         fun create(
                 config: SessionConfig,
                 platform: AndroidPlatform,
                 apiKeys: Map<String, String> = emptyMap(),
                 context: Context,
                 scope: CoroutineScope,
-            traceRecorder: TraceRecorder
+                traceRecorder: TraceRecorder
         ): SessionServices {
-            val backend = config.resolvedBackendTypeCompat()
-            Log.d(TAG, "Creating SessionServices with backend: $backend...")
+            Log.d(TAG, "Creating SessionServices...")
             Log.d(TAG, "API keys available for providers: ${apiKeys.keys}")
 
-            val modelCatalog = loadModelCatalog(context)
-            Log.d(
-                    TAG,
-                    "Loaded ModelCatalog with ${modelCatalog.size} models: ${modelCatalog.names()}"
-            )
-
-            val llmClientFactory =
-                    LLMClientFactory(
-                            catalog = modelCatalog,
-                            apiKeyResolver = { envVar -> apiKeys[envVar] }
-                    )
-            Log.d(TAG, "Created LLMClientFactory")
-
-            val llmClient: LLMClient =
-                    when (backend) {
-                        LLMBackendType.OPENAI -> {
-                            ensureRequiredCloudKeys(config, modelCatalog, apiKeys)
-                            llmClientFactory.create(config.mainModel)
-                        }
-                        LLMBackendType.LOCAL -> {
-                            requireNotNull(context) { "Context is required for local LLM backend" }
-                            val localConfig = config.resolvedLocalLlmConfigCompat()
-                            LFMLLMClient(context, localConfig)
-                        }
-                    }
+            val llmBootstrap = SessionLlmBootstrapper.create(config, context, apiKeys)
+            val modelCatalog = llmBootstrap.modelCatalog
+            val llmClientFactory = llmBootstrap.llmClientFactory
+            val llmClient: LLMClient = llmBootstrap.llmClient
             Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
 
             val policyEngine = PolicyEngine(config.approvalMode)
@@ -171,47 +143,6 @@ data class SessionServices(
                     recordingService = recordingService
             )
         }
-
-        /**
-         * Load ModelCatalog from assets/llm_models.json. Falls back to a minimal single-model
-         * catalog if context is unavailable or the asset is missing.
-         *
-         * Note: Performs blocking I/O on the calling thread. Callers must ensure this runs off the
-         * main thread (e.g. `Dispatchers.IO`). Asset reads are typically sub-millisecond, but the
-         * guarantee matters.
-         */
-        private fun loadModelCatalog(context: Context?): ModelCatalog {
-            if (context == null) {
-                Log.w(TAG, "No context available; using fallback single-model catalog")
-                return ModelCatalog.fromJson(FALLBACK_CATALOG_JSON)
-            }
-            return try {
-                val json =
-                        context.assets.open("llm_models.json").bufferedReader().use {
-                            it.readText()
-                        }
-                ModelCatalog.fromJson(json)
-            } catch (e: java.io.IOException) {
-                Log.w(TAG, "Failed to read llm_models.json from assets; using fallback", e)
-                ModelCatalog.fromJson(FALLBACK_CATALOG_JSON)
-            } catch (e: kotlinx.serialization.SerializationException) {
-                Log.w(TAG, "Failed to parse llm_models.json; using fallback", e)
-                ModelCatalog.fromJson(FALLBACK_CATALOG_JSON)
-            }
-        }
-
-        private const val FALLBACK_CATALOG_JSON =
-                """
-        {
-          "gpt-5.2": {
-            "display_name": "GPT-5.2",
-            "provider": "OPENAI",
-            "api": "response",
-            "model_id": "gpt-5.2"
-          }
-        }
-        """
-
         /**
          * Registers built-in tools: complete_task, mobile_action, system_button, wait, open_app,
          * write_todos, scratchpad.
@@ -226,28 +157,6 @@ data class SessionServices(
             register(ScratchpadTool(sessionState.scratchpad))
 
             Log.d(TAG, "Registered ${size()} built-in tools: ${getNames().joinToString()}")
-        }
-
-        private fun ensureRequiredCloudKeys(
-                config: SessionConfig,
-                catalog: ModelCatalog,
-                apiKeys: Map<String, String>
-        ) {
-            val requiredModels = linkedSetOf(config.mainModel)
-            if (config.agentMode == AgentMode.PRO) {
-                config.executorModel?.let(requiredModels::add)
-            }
-
-            requiredModels.forEach { modelName ->
-                val entry = catalog.resolve(modelName)
-                val requiredEnv = entry.effectiveApiKeyEnv
-                if (apiKeys[requiredEnv].isNullOrBlank()) {
-                    throw IllegalStateException(
-                            "Missing API key '$requiredEnv' for model '$modelName' " +
-                                    "(provider=${entry.provider}, api=${entry.api})."
-                    )
-                }
-            }
         }
     }
 
