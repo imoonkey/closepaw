@@ -47,13 +47,6 @@ class VirtualDisplayPlatform(
         private val sessionConfig: SessionConfig,
         private val traceRecorder: TraceRecorder
 ) : AndroidPlatform {
-
-    /** Which surface the VirtualDisplay is currently rendering to. */
-    enum class SurfaceMode {
-        IMAGE_READER,
-        LIVE_PREVIEW
-    }
-
     companion object {
         private const val TAG = "VirtualDisplayPlatform"
 
@@ -71,11 +64,10 @@ class VirtualDisplayPlatform(
     private var binderDeadListener: Shizuku.OnBinderDeadListener? = null
 
     // ── Surface switching (Hybrid Model) ──
-    @Volatile private var surfaceMode = SurfaceMode.IMAGE_READER
-    @Volatile private var liveSurfaceView: SurfaceView? = null
     @Volatile private var pixelCopyFailCount = 0
 
     private val displayIdProvider: () -> Int = { displayId }
+    private val imageReaderProvider: () -> ImageReader? = { imageReader }
 
     private val windowAccessor = VirtualDisplayWindowAccessor(service, displayIdProvider)
 
@@ -94,6 +86,12 @@ class VirtualDisplayPlatform(
                     service = service,
                     shizuku = shizuku,
                     displayIdProvider = displayIdProvider
+            )
+    private val surfaceController =
+            VirtualDisplaySurfaceController(
+                    shizuku = shizuku,
+                    displayIdProvider = displayIdProvider,
+                    imageReaderProvider = imageReaderProvider
             )
     private val viewerTouchHandler =
             VirtualDisplayViewerTouchHandler(
@@ -156,8 +154,7 @@ class VirtualDisplayPlatform(
         binderDeadListener?.let { shizuku.removeBinderDeadListener(it) }
         binderDeadListener = null
 
-        liveSurfaceView = null
-        surfaceMode = SurfaceMode.IMAGE_READER
+        surfaceController.reset()
 
         if (displayId != Display.INVALID_DISPLAY) {
             shizuku.releaseVirtualDisplay(displayId)
@@ -177,28 +174,13 @@ class VirtualDisplayPlatform(
      * the Viewer Activity becomes visible.
      */
     fun switchToLivePreview(surfaceView: SurfaceView) {
-        if (surfaceMode == SurfaceMode.LIVE_PREVIEW) return
-        val surface =
-                surfaceView.holder.surface
-                        ?: run {
-                            Log.w(
-                                    TAG,
-                                    "SurfaceView holder has no valid surface, staying on ImageReader"
-                            )
-                            return
-                        }
-        if (!surface.isValid) {
-            Log.w(TAG, "SurfaceView surface is invalid, staying on ImageReader")
-            return
-        }
-        val ok = shizuku.setVirtualDisplaySurface(displayId, surface)
-        if (ok) {
-            liveSurfaceView = surfaceView
-            surfaceMode = SurfaceMode.LIVE_PREVIEW
+        val before = surfaceController.mode()
+        surfaceController.switchToLivePreview(surfaceView)
+        val after = surfaceController.mode()
+        if (before != VirtualDisplaySurfaceMode.LIVE_PREVIEW &&
+                after == VirtualDisplaySurfaceMode.LIVE_PREVIEW
+        ) {
             pixelCopyFailCount = 0
-            Log.i(TAG, "Switched to live preview surface")
-        } else {
-            Log.w(TAG, "setSurface failed, staying on ImageReader")
         }
     }
 
@@ -207,20 +189,11 @@ class VirtualDisplayPlatform(
      * Viewer Activity is hidden or destroyed.
      */
     fun switchToImageReader() {
-        if (surfaceMode == SurfaceMode.IMAGE_READER) return
-        val reader = imageReader ?: return
-        val ok = shizuku.setVirtualDisplaySurface(displayId, reader.surface)
-        if (ok) {
-            liveSurfaceView = null
-            surfaceMode = SurfaceMode.IMAGE_READER
-            Log.i(TAG, "Switched to ImageReader surface")
-        } else {
-            Log.w(TAG, "Failed to switch back to ImageReader — display may be in bad state")
-        }
+        surfaceController.switchToImageReader()
     }
 
     /** Current surface mode, for UI to check. */
-    fun getSurfaceMode(): SurfaceMode = surfaceMode
+    fun getSurfaceMode(): VirtualDisplaySurfaceMode = surfaceController.mode()
 
     /**
      * Forward a touch stream from VirtualDisplayViewerActivity into the virtual display.
@@ -291,9 +264,9 @@ class VirtualDisplayPlatform(
     }
 
     private suspend fun captureScreenshot(): VDScreenshotCapture? {
-        return when (surfaceMode) {
-            SurfaceMode.IMAGE_READER -> captureFromImageReader()
-            SurfaceMode.LIVE_PREVIEW -> captureFromPixelCopy()
+        return when (surfaceController.mode()) {
+            VirtualDisplaySurfaceMode.IMAGE_READER -> captureFromImageReader()
+            VirtualDisplaySurfaceMode.LIVE_PREVIEW -> captureFromPixelCopy()
         }
     }
 
@@ -344,7 +317,7 @@ class VirtualDisplayPlatform(
      * consecutive failures, permanently reverts to ImageReader mode.
      */
     private suspend fun captureFromPixelCopy(): VDScreenshotCapture? {
-        val sv = liveSurfaceView
+        val sv = surfaceController.liveSurfaceView()
         if (sv == null || !sv.holder.surface.isValid) {
             Log.w(TAG, "PixelCopy: no valid SurfaceView, falling back to ImageReader")
             switchToImageReader()
