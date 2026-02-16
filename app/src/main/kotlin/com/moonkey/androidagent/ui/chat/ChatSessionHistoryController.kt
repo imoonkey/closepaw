@@ -19,6 +19,7 @@ class ChatSessionHistoryController(
     private val sessionHistoryManager: SessionHistoryManager?,
     private val messages: SnapshotStateList<ChatMessage>,
     private val streamingBuffer: StringBuilder,
+    private val stateLock: Any,
     private val setCurrentAgentMessageId: (String?) -> Unit,
     private val uiState: MutableStateFlow<ChatUiState>,
 ) {
@@ -30,10 +31,12 @@ class ChatSessionHistoryController(
     val sessions: StateFlow<List<SessionInfo>> = _sessions.asStateFlow()
 
     fun clearConversation() {
-        messages.clear()
-        streamingBuffer.clear()
-        setCurrentAgentMessageId(null)
-        uiState.update { it.copy(showEmptyState = true) }
+        synchronized(stateLock) {
+            messages.clear()
+            streamingBuffer.clear()
+            setCurrentAgentMessageId(null)
+            uiState.update { it.copy(showEmptyState = true) }
+        }
     }
 
     fun loadSessions() {
@@ -49,14 +52,14 @@ class ChatSessionHistoryController(
         scope.launch {
             manager.loadSession(sessionInfo.id)
                 .onSuccess { data ->
-                    messages.clear()
-                    streamingBuffer.clear()
-                    setCurrentAgentMessageId(null)
-
                     val restoredMessages = MessageConverter.fromRecords(data.session.messages)
-                    messages.addAll(restoredMessages)
-
-                    uiState.update { it.copy(showEmptyState = messages.isEmpty()) }
+                    synchronized(stateLock) {
+                        messages.clear()
+                        streamingBuffer.clear()
+                        setCurrentAgentMessageId(null)
+                        messages.addAll(restoredMessages)
+                        uiState.update { it.copy(showEmptyState = messages.isEmpty()) }
+                    }
 
                     manager.resumeSession(data)
 

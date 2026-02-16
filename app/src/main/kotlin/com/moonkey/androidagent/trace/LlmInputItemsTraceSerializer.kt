@@ -1,5 +1,6 @@
 package com.moonkey.androidagent.trace
 
+import com.moonkey.androidagent.llm.extractMessageContent
 import com.openai.models.responses.ResponseInputItem
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -58,11 +59,4 @@ internal object LlmInputItemsTraceSerializer {
         }
     }
 
-    private fun extractMessageContent(content: Any): String {
-        return when (content) {
-            is String -> content
-            is List<*> -> content.joinToString(" ") { part -> part?.toString().orEmpty() }.trim()
-            else -> content.toString()
-        }
-    }
 }

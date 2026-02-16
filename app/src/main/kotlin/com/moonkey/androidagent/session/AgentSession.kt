@@ -21,17 +21,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * AgentSession - Manages the lifecycle of an agent execution.
- *
- * This is the main entry point for controlling the agent. It:
- * - Receives Operations (Op) via submit()
- * - Emits Events (AgentEvent) via the events Flow
- * - Maintains session state via the state StateFlow
- *
- * V2: Uses single ReAct Agent instead of multi-agent orchestration. Supports multi-round tasks via
- * Op.UserInput.
- */
 class AgentSession
 private constructor(
         val sessionId: SessionId,
@@ -43,18 +32,8 @@ private constructor(
     companion object {
         private const val TAG = "AgentSession"
 
-        /** Grace period to allow event collectors to process final event before channel close */
         private const val EVENT_DELIVERY_GRACE_PERIOD_MS = 100L
 
-        /**
-         * Create a new AgentSession with full SessionServices.
-         *
-         * @param config Session configuration
-         * @param service AccessibilityService for platform access
-         * @param scope CoroutineScope for async operations
-         * @param apiKeys Per-provider API keys, keyed by env var name
-         * @param visualizer Optional ActionVisualizerManager for touch action visualization
-         */
         fun create(
                 config: SessionConfig,
                 service: AccessibilityService,
@@ -90,11 +69,6 @@ private constructor(
             )
         }
 
-        /**
-         * Create a new AgentSession with pre-created SessionServices.
-         *
-         * Useful for testing or custom service configuration.
-         */
         fun createWithServices(
                 config: SessionConfig,
                 service: AccessibilityService,
@@ -111,23 +85,14 @@ private constructor(
         }
     }
 
-    /** Get the SessionServices. */
     fun getServices(): SessionServices = services
-
-    // ===== State =====
 
     private val _state = MutableStateFlow<SessionState>(SessionState.Created)
     val state: StateFlow<SessionState> = _state.asStateFlow()
 
-    // ===== Events =====
-
-    // Use SharedFlow to allow multiple collectors (ChatViewModel + AgentService)
-    // replay=8: replay recent events for late collectors (esp. TaskStarted)
-    // extraBufferCapacity: buffer events to avoid slow collectors blocking emitter
     private val _events = MutableSharedFlow<AgentEvent>(replay = 8, extraBufferCapacity = 64)
     val events: SharedFlow<AgentEvent> = _events.asSharedFlow()
 
-    // ===== Agent (V2) =====
     private val agentRunner =
             SessionAgentRunner(
                     scope = scope,
@@ -140,17 +105,9 @@ private constructor(
 
     private var currentTaskId: String? = null
 
-    // Guard against emitting SessionCompleted twice (Issue 2: double completion)
     private val completionEmitted = AtomicBoolean(false)
 
-    // Guard against scheduling multiple channel close operations (PR feedback)
     private val channelCloseScheduled = AtomicBoolean(false)
-
-    /**
-     * Submit an operation to the session.
-     *
-     * This is thread-safe and can be called from any thread.
-     */
     suspend fun submit(op: Op) {
         Log.d(TAG, "Received Op: $op (current state: ${_state.value})")
 
@@ -166,7 +123,6 @@ private constructor(
         }
     }
 
-    /** Emit a status update as an event. */
     internal fun emitStatus(status: String, emoji: String? = null) {
         scope.launch {
             emit(
@@ -180,27 +136,19 @@ private constructor(
         }
     }
 
-    // ===== Operation Handlers =====
-
     private suspend fun handleUserInput(op: Op.UserInput) {
-        // Only Running or Paused states indicate an active task that prevents new input.
-        // Created and Idle states allow starting new tasks.
         if (_state.value == SessionState.Running || _state.value == SessionState.Paused) {
             Log.w(TAG, "Rejecting UserInput: Session is busy")
             emitStatus("⚠️ Agent is busy. Please wait.")
             return
         }
 
-        // SessionStarted is only emitted once when the session first moves from Created
-        // to Running. Subsequent tasks (from Idle state) do not re-emit SessionStarted.
         if (_state.value == SessionState.Created) {
-            // Start session recording
             services.recordingService.initializeNewSession(
                     sessionId = sessionId.value,
                     model = config.mainModel
             )
 
-            // Initialize platform resources (VirtualDisplayPlatform creates display here).
             try {
                 services.platform.start()
             } catch (e: Exception) {
@@ -213,12 +161,11 @@ private constructor(
                     SessionStarted(
                             sessionId = sessionId,
                             timestamp = now(),
-                            goal = op.text // Treat first input as "goal" for compatibility
+                            goal = op.text
                     )
             )
         }
 
-        // Start new task
         val taskId = "task-${System.currentTimeMillis()}"
         currentTaskId = taskId
         _state.value = SessionState.Running
@@ -237,17 +184,7 @@ private constructor(
         Log.i(TAG, "Task started: $taskId, input: ${op.text}")
     }
 
-    /**
-     * Handle agent completion (V2).
-     *
-     * Cleanup of agent references happens here after task completion. Note: If handleShutdown() is
-     * called during a task, it sets state to Shutdown and performs its own cleanup (agent.stop(),
-     * agentJob.cancel(), etc.). The early return below ensures we don't double-cleanup or emit
-     * spurious events.
-     */
     private suspend fun handleAgentComplete(reason: AgentStopReason) {
-        // If we are shutting down, handleShutdown() already handled cleanup.
-        // Skip task completion logic to avoid double events or stale reference issues.
         if (_state.value == SessionState.Shutdown) {
             return
         }
@@ -271,7 +208,6 @@ private constructor(
                 )
         )
 
-        // Transition to Idle (ready for next task)
         _state.value = SessionState.Idle
         currentTaskId = null
         agentRunner.clear()
@@ -293,7 +229,6 @@ private constructor(
             return
         }
 
-        // Request pause and wait for agent to actually pause (current turn finishes)
         val confirmed = agentRunner.pause()
         _state.value = SessionState.Paused
         confirmed.await()
@@ -325,7 +260,6 @@ private constructor(
             return
         }
 
-        // Inject user message into conversation history
         services.historyManager.addItem(
             com.moonkey.androidagent.history.ResponseItem.Message(
                 role = "user",
@@ -353,10 +287,8 @@ private constructor(
             return
         }
 
-        // Cancel any pending ask_user request
         services.userResponseChannel.cancel()
 
-        // Interrupt is cooperative - signals agent to stop after current action.
         agentRunner.stop()
         Log.i(TAG, "Interrupt requested")
     }
@@ -367,16 +299,12 @@ private constructor(
         val previousState = _state.value
         _state.value = SessionState.Shutdown
 
-        // Cancel any pending ask_user request
         services.userResponseChannel.cancel()
 
-        // Stop agent
         agentRunner.shutdown()
 
-        // Cleanup SessionServices
         services.cleanup()
 
-        // Only emit completion if not already emitted
         if (completionEmitted.compareAndSet(false, true)) {
             val reason = when (previousState) {
                 SessionState.Running, SessionState.Paused -> CompletionReason.USER_STOPPED
@@ -392,14 +320,12 @@ private constructor(
             )
         }
 
-        // Close channel with delay
         closeChannelWithDelay()
     }
 
     private suspend fun handleApproval(op: Op.Approve) {
         services.toolRouter.resolveApproval(op.actionId, op.decision)
 
-        // Emit ApprovalResolved event
         emit(
                 ApprovalResolved(
                         sessionId = sessionId,
@@ -412,8 +338,6 @@ private constructor(
         Log.d(TAG, "Resolved approval: ${op.actionId} -> ${op.decision}")
     }
 
-    // ===== Helpers =====
-
     private suspend fun emit(event: AgentEvent) {
         try {
             _events.emit(event)
@@ -423,10 +347,6 @@ private constructor(
         }
     }
 
-    /**
-     * Mark the session as closed after a delay. SharedFlow doesn't need explicit closing, but this
-     * signals end of session.
-     */
     private fun closeChannelWithDelay() {
         if (!channelCloseScheduled.compareAndSet(false, true)) {
             return
@@ -434,7 +354,6 @@ private constructor(
 
         scope.launch {
             delay(EVENT_DELIVERY_GRACE_PERIOD_MS)
-            // SharedFlow doesn't have close(), session lifecycle is tracked via state
             Log.d(TAG, "Session event stream ended")
         }
     }

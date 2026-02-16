@@ -297,21 +297,6 @@ class LFMLLMClient(
         return messages
     }
 
-    private fun extractMessageContent(content: Any): String {
-        return when (content) {
-            is String -> content
-            is List<*> -> {
-                content.mapNotNull { part ->
-                    when (part) {
-                        is String -> part
-                        else -> part?.toString()
-                    }
-                }.joinToString(" ")
-            }
-            else -> content.toString()
-        }
-    }
-
     private fun registerTools(conversation: Conversation, tools: List<FunctionTool>) {
         tools.forEach { tool ->
             conversation.registerFunction(LeapToolSchemaAdapter.toLeapFunction(tool))

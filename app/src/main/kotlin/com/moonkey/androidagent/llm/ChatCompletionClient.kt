@@ -9,7 +9,6 @@ import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
@@ -108,26 +107,17 @@ class ChatCompletionClient(
         Log.d(TAG, "Starting streaming Chat Completions with ${inputItems.size} input items")
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
-        var lastException: Exception? = null
-        var backoffMs = INITIAL_BACKOFF_MS
-        var streamCompleted = false
-        var failureEmitted = false
+        val retryResult =
+            streamWithRetry(
+                tag = TAG,
+                emitToFlow = { event -> trySend(event) }
+            ) { attempt, emitter ->
+                val textAccumulator = StringBuilder()
+                // Map: tool call index → (callId, name, argsBuilder)
+                val toolCallBuilders = mutableMapOf<Long, Triple<String, String, StringBuilder>>()
+                val completedToolCalls = mutableListOf<LLMToolCall>()
+                var responseId: String? = null
 
-        for (attempt in 1..MAX_RETRIES) {
-            var emittedEvent = false
-            val textAccumulator = StringBuilder()
-            // Map: tool call index → (callId, name, argsBuilder)
-            val toolCallBuilders = mutableMapOf<Long, Triple<String, String, StringBuilder>>()
-            val completedToolCalls = mutableListOf<LLMToolCall>()
-            var responseId: String? = null
-
-            fun emit(event: LLMStreamEvent) {
-                if (event is LLMStreamEvent.Failed) failureEmitted = true
-                emittedEvent = true
-                trySend(event)
-            }
-
-            try {
                 val params = buildParams(systemPrompt, inputItems, tools, model)
                 Log.d(TAG, "Making streaming Chat API call (attempt $attempt)")
 
@@ -136,7 +126,7 @@ class ChatCompletionClient(
                         stream.stream().forEach { chunk ->
                             if (responseId == null) {
                                 responseId = chunk.id()
-                                emit(LLMStreamEvent.Created(chunk.id()))
+                                emitter.emit(LLMStreamEvent.Created(chunk.id()))
                             }
 
                             for (choice in chunk.choices()) {
@@ -146,7 +136,7 @@ class ChatCompletionClient(
                                 delta.content().ifPresent { text ->
                                     if (text.isNotEmpty()) {
                                         textAccumulator.append(text)
-                                        emit(LLMStreamEvent.TextDelta(text))
+                                        emitter.emit(LLMStreamEvent.TextDelta(text))
                                     }
                                 }
 
@@ -156,11 +146,13 @@ class ChatCompletionClient(
                                         val idx = tcDelta.index()
 
                                         if (!toolCallBuilders.containsKey(idx)) {
-                                            toolCallBuilders[idx] = Triple(
-                                                tcDelta.id().orElse("call_$idx"),
-                                                tcDelta.function().orElse(null)?.name()?.orElse("") ?: "",
-                                                StringBuilder()
-                                            )
+                                            toolCallBuilders[idx] =
+                                                Triple(
+                                                    tcDelta.id().orElse("call_$idx"),
+                                                    tcDelta.function().orElse(null)?.name()?.orElse("")
+                                                        ?: "",
+                                                    StringBuilder()
+                                                )
                                         } else {
                                             // Update id/name if provided in a later delta
                                             tcDelta.id().ifPresent { id ->
@@ -191,13 +183,14 @@ class ChatCompletionClient(
                                 choice.finishReason().ifPresent { _ ->
                                     for ((_, builder) in toolCallBuilders) {
                                         val (callId, name, args) = builder
-                                        val toolCall = LLMToolCall(
-                                            callId = callId,
-                                            name = name,
-                                            arguments = args.toString()
-                                        )
+                                        val toolCall =
+                                            LLMToolCall(
+                                                callId = callId,
+                                                name = name,
+                                                arguments = args.toString()
+                                            )
                                         completedToolCalls.add(toolCall)
-                                        emit(LLMStreamEvent.ToolCallDone(toolCall))
+                                        emitter.emit(LLMStreamEvent.ToolCallDone(toolCall))
                                     }
                                     toolCallBuilders.clear()
                                 }
@@ -215,43 +208,16 @@ class ChatCompletionClient(
                         responseId = responseId ?: "unknown"
                     )
                 )
-                emit(LLMStreamEvent.Completed)
-                streamCompleted = true
-                break
-
-            } catch (e: Exception) {
-                val classified = OpenAIErrorClassifier.classify(e)
-                lastException = classified
-
-                when (
-                    val retryAction =
-                        CloudStreamRetryPolicy.decide(
-                            tag = TAG,
-                            classified = classified,
-                            attempt = attempt,
-                            emittedEvent = emittedEvent,
-                            backoffMs = backoffMs
-                        )
-                ) {
-                    is StreamRetryAction.FailAndStop -> {
-                        emit(LLMStreamEvent.Failed(retryAction.message))
-                        break
-                    }
-                    is StreamRetryAction.Retry -> {
-                        delay(retryAction.waitMs)
-                        backoffMs = retryAction.nextBackoffMs
-                        continue
-                    }
-                    StreamRetryAction.Stop -> break
-                }
+                emitter.emit(LLMStreamEvent.Completed)
             }
-        }
 
-        if (streamCompleted) {
+        if (retryResult.completed) {
             close()
         } else {
-            val error = lastException ?: RuntimeException("Stream ended unexpectedly")
-            if (!failureEmitted) trySend(LLMStreamEvent.Failed(error.message ?: "Unknown error"))
+            val error = retryResult.lastError ?: RuntimeException("Stream ended unexpectedly")
+            if (!retryResult.failureEmitted) {
+                trySend(LLMStreamEvent.Failed(error.message ?: "Unknown error"))
+            }
             close(error)
         }
 

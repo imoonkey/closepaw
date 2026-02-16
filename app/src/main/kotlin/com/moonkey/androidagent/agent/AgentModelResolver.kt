@@ -1,5 +1,6 @@
 package com.moonkey.androidagent.agent
 
+import android.util.Log
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
 import com.moonkey.androidagent.llm.ModelCatalog
@@ -22,11 +23,23 @@ internal class AgentModelResolver(
         private val modelCatalog: ModelCatalog,
         private val llmClientFactory: LLMClientFactory
 ) {
+        companion object {
+                private const val TAG = "AgentModelResolver"
+        }
+
         fun resolve(modelName: String): AgentModelResolution {
                 val entry = modelCatalog.resolveOrNull(modelName)
                 if (entry != null) {
                         val catalogClient =
-                                runCatching { llmClientFactory.create(modelName) }.getOrNull()
+                                runCatching { llmClientFactory.create(modelName) }
+                                        .onFailure { error ->
+                                                Log.w(
+                                                        TAG,
+                                                        "Failed to create catalog client for '$modelName'; using session fallback",
+                                                        error
+                                                )
+                                        }
+                                        .getOrNull()
                         if (catalogClient != null) {
                                 return AgentModelResolution(
                                         llmClient = catalogClient,
@@ -36,6 +49,10 @@ internal class AgentModelResolver(
                         }
                 }
 
+                Log.w(
+                        TAG,
+                        "Model '$modelName' not found in catalog or client unavailable; using session client fallback"
+                )
                 return AgentModelResolution(
                         llmClient = sessionLlmClient,
                         modelId = modelName,

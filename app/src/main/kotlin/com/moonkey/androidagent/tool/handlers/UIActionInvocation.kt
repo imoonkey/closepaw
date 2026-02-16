@@ -2,10 +2,9 @@ package com.moonkey.androidagent.tool.handlers
 
 import android.util.Log
 import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.perception.Perceptor
-import com.moonkey.androidagent.perception.toSummary
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
+import com.moonkey.androidagent.tool.action.buildObservation
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
@@ -78,13 +77,7 @@ class UIActionInvocation(
         return try {
             delay(UI_SETTLE_DELAY_MS)
             val snapshot = context.platform.captureScreen()
-            val tree = Perceptor.toPromptJson(snapshot)
-            ToolObservation.ScreenState(
-                accessibilityTree = tree,
-                elementCount = snapshot.elements.size,
-                summary = snapshot.toSummary(context.platform.getCurrentPackageName()),
-                snapshot = snapshot
-            )
+            buildObservation(snapshot, context.platform)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to capture post-action observation: ${e.message}")
             null

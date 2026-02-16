@@ -13,17 +13,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * Records chat events to a session file in real-time.
- *
- * Usage:
- * 1. Call initializeNewSession() to start a new session, or resumeSession() to resume an existing
- * one
- * 2. Call record*() methods as events occur
- * 3. Session is auto-saved after each significant change (debounced)
- *
- * This service is the bridge between live AgentEvents and persisted SessionRecords.
- */
 class SessionRecordingService(
         private val storage: SessionStorage,
         private val scope: CoroutineScope
@@ -39,10 +28,8 @@ class SessionRecordingService(
     private var currentFileName: String? = null
     private val stateLock = Any()
 
-    // Current agent message being built
     private val agentMessageBuffer = AgentMessageBuffer()
 
-    // Debounced save job
     private var saveJob: Job? = null
 
     /**
@@ -277,42 +264,17 @@ class SessionRecordingService(
         }
     }
 
-    // ===== Private Helpers =====
-
     /** Finalize the current agent message and add it to the session. */
     private fun finalizeCurrentAgentMessage() {
-        val snapshot = agentMessageBuffer.finalizeSnapshot() ?: return
-        val session = synchronized(stateLock) { currentSession } ?: return
-
-        val existingIndex =
-                session.messages.indexOfFirst { it is MessageRecord.Agent && it.id == snapshot.id }
-
-        val agentMessage =
-                MessageRecord.Agent(
-                        id = snapshot.id,
-                        timestamp = System.currentTimeMillis(),
-                        contentBlocks = snapshot.blocks,
-                        isComplete = true
-                )
-
         synchronized(stateLock) {
+            val snapshot = agentMessageBuffer.finalizeSnapshot() ?: return
+            val session = currentSession ?: return
             currentSession =
-                    if (existingIndex >= 0) {
-                        // Update existing
-                        session.copy(
-                                messages =
-                                        session.messages.mapIndexed { index, msg ->
-                                            if (index == existingIndex) agentMessage else msg
-                                        },
-                                lastUpdated = System.currentTimeMillis()
-                        )
-                    } else {
-                        // Add new
-                        session.copy(
-                                messages = session.messages + agentMessage,
-                                lastUpdated = System.currentTimeMillis()
-                        )
-                    }
+                SessionRecordMessageMerger.mergeAgentSnapshot(
+                    session = session,
+                    snapshot = snapshot,
+                    isComplete = true
+                )
         }
     }
 
@@ -321,37 +283,15 @@ class SessionRecordingService(
      * updates (action state changes).
      */
     private fun updateAgentMessageInSession() {
-        val snapshot = agentMessageBuffer.buildPartialSnapshot() ?: return
-        val session = synchronized(stateLock) { currentSession } ?: return
-
-        val agentMessage =
-                MessageRecord.Agent(
-                        id = snapshot.id,
-                        timestamp = System.currentTimeMillis(),
-                        contentBlocks = snapshot.blocks,
-                        isComplete = false
-                )
-
-        // Check if message already exists
-        val existingIndex =
-                session.messages.indexOfFirst { it is MessageRecord.Agent && it.id == snapshot.id }
-
         synchronized(stateLock) {
+            val snapshot = agentMessageBuffer.buildPartialSnapshot() ?: return
+            val session = currentSession ?: return
             currentSession =
-                    if (existingIndex >= 0) {
-                        session.copy(
-                                messages =
-                                        session.messages.mapIndexed { index, msg ->
-                                            if (index == existingIndex) agentMessage else msg
-                                        },
-                                lastUpdated = System.currentTimeMillis()
-                        )
-                    } else {
-                        session.copy(
-                                messages = session.messages + agentMessage,
-                                lastUpdated = System.currentTimeMillis()
-                        )
-                    }
+                SessionRecordMessageMerger.mergeAgentSnapshot(
+                    session = session,
+                    snapshot = snapshot,
+                    isComplete = false
+                )
         }
     }
 
@@ -369,15 +309,32 @@ class SessionRecordingService(
 
     /** Record a screen state reference for replay/debug. */
     fun recordScreenState(state: ScreenStateRecord) {
-        val session =
-                synchronized(stateLock) {
-                    currentSession
-                            ?: run {
-                                Log.w(TAG, "No active session for recording screen state")
-                                return
-                            }
-                }
         val normalizedState = normalizeScreenStateRecord(state)
+        val recorded =
+                synchronized(stateLock) {
+                    val session = currentSession
+                    if (session == null) {
+                        Log.w(TAG, "No active session for recording screen state")
+                        return@synchronized false
+                    }
+                    val updatedMetadata =
+                            if (!normalizedState.traceRunId.isNullOrBlank() &&
+                                            session.metadata.traceRunId.isNullOrBlank()
+                            ) {
+                                session.metadata.copy(traceRunId = normalizedState.traceRunId)
+                            } else {
+                                session.metadata
+                            }
+                    currentSession =
+                            session.copy(
+                                    screenStates = session.screenStates + normalizedState,
+                                    lastUpdated = normalizedState.timestamp,
+                                    metadata = updatedMetadata
+                            )
+                    true
+                }
+        if (!recorded) return
+
         val hasArtifactPath =
                 normalizedState.rawA11yTreePath != null ||
                         normalizedState.sanitizedA11yTreePath != null ||
@@ -387,24 +344,6 @@ class SessionRecordingService(
                     TAG,
                     "Screen state recorded without artifact paths: turn=${normalizedState.turnNumber}, phase=${normalizedState.phase}"
             )
-        }
-
-        val updatedMetadata =
-                if (!normalizedState.traceRunId.isNullOrBlank() &&
-                                session.metadata.traceRunId.isNullOrBlank()
-                ) {
-                    session.metadata.copy(traceRunId = normalizedState.traceRunId)
-                } else {
-                    session.metadata
-                }
-
-        synchronized(stateLock) {
-            currentSession =
-                    session.copy(
-                            screenStates = session.screenStates + normalizedState,
-                            lastUpdated = normalizedState.timestamp,
-                            metadata = updatedMetadata
-                    )
         }
 
         Log.d(

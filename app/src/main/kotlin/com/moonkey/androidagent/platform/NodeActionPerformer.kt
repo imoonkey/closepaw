@@ -17,38 +17,24 @@ class NodeActionPerformer(
 ) {
     @Suppress("DEPRECATION")
     suspend fun performNodeClickAt(x: Int, y: Int): ActionResult {
-        return onMain {
-            withRoot { root ->
-                val node = AccessibilityNodeFinder.findClickableNodeAtLocation(root, x, y)
-                        ?: return@withRoot ActionResult.Failure("No clickable node at ($x,$y)")
-                try {
-                    val ok = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                    if (ok) ActionResult.Success("ACTION_CLICK at ($x,$y)")
-                    else ActionResult.Failure("ACTION_CLICK returned false at ($x,$y)")
-                } finally {
-                    if (node !== root) node.recycle()
-                }
-            }
-        }
+        return performNodeActionAt(
+                nodeFinder = { root -> AccessibilityNodeFinder.findClickableNodeAtLocation(root, x, y) },
+                notFoundMessage = "No clickable node at ($x,$y)",
+                action = AccessibilityNodeInfo.ACTION_CLICK,
+                successMessage = "ACTION_CLICK at ($x,$y)",
+                failureMessage = "ACTION_CLICK returned false at ($x,$y)"
+        )
     }
 
     @Suppress("DEPRECATION")
     suspend fun performNodeLongClickAt(x: Int, y: Int): ActionResult {
-        return onMain {
-            withRoot { root ->
-                val node = AccessibilityNodeFinder.findLongClickableNodeAtLocation(root, x, y)
-                        ?: return@withRoot ActionResult.Failure(
-                                "No long-clickable node at ($x,$y)"
-                        )
-                try {
-                    val ok = node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
-                    if (ok) ActionResult.Success("ACTION_LONG_CLICK at ($x,$y)")
-                    else ActionResult.Failure("ACTION_LONG_CLICK returned false at ($x,$y)")
-                } finally {
-                    if (node !== root) node.recycle()
-                }
-            }
-        }
+        return performNodeActionAt(
+                nodeFinder = { root -> AccessibilityNodeFinder.findLongClickableNodeAtLocation(root, x, y) },
+                notFoundMessage = "No long-clickable node at ($x,$y)",
+                action = AccessibilityNodeInfo.ACTION_LONG_CLICK,
+                successMessage = "ACTION_LONG_CLICK at ($x,$y)",
+                failureMessage = "ACTION_LONG_CLICK returned false at ($x,$y)"
+        )
     }
 
     suspend fun performSetTextOnNodeAt(x: Int, y: Int, text: String, clear: Boolean): ActionResult {
@@ -145,6 +131,30 @@ class NodeActionPerformer(
         }
 
         return ActionResult.Success("Text entered: $text")
+    }
+
+    private suspend fun performNodeActionAt(
+            nodeFinder: (AccessibilityNodeInfo) -> AccessibilityNodeInfo?,
+            notFoundMessage: String,
+            action: Int,
+            successMessage: String,
+            failureMessage: String
+    ): ActionResult {
+        return onMain {
+            withRoot { root ->
+                val node = nodeFinder(root) ?: return@withRoot ActionResult.Failure(notFoundMessage)
+                try {
+                    val ok = node.performAction(action)
+                    if (ok) {
+                        ActionResult.Success(successMessage)
+                    } else {
+                        ActionResult.Failure(failureMessage)
+                    }
+                } finally {
+                    if (node !== root) node.recycle()
+                }
+            }
+        }
     }
 
     private inline fun withRoot(block: (AccessibilityNodeInfo) -> ActionResult): ActionResult {

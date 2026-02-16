@@ -77,21 +77,6 @@ internal object LlmLogger {
         Log.i(tag, "╚══════════════════════════════════════════════════════════════")
     }
 
-    private fun extractMessageContent(content: Any): String {
-        return when (content) {
-            is String -> content
-            is List<*> -> {
-                content.mapNotNull { part ->
-                    when (part) {
-                        is String -> part
-                        else -> part?.toString()
-                    }
-                }.joinToString(" ")
-            }
-            else -> content.toString()
-        }
-    }
-
     private fun logLongMessage(tag: String, prefix: String, message: String) {
         val truncated = if (message.length > MAX_LOG_LENGTH) {
             message.take(MAX_LOG_LENGTH) + "...[truncated ${message.length - MAX_LOG_LENGTH} chars]"

@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.history
 
 import android.util.Log
-import org.json.JSONObject
 
 /**
  * HistoryManager - Manages conversation history for agent sessions.
@@ -22,8 +21,6 @@ class HistoryManager(
     
     companion object {
         private const val TAG = "HistoryManager"
-        
-        // Approximate tokens per character (conservative estimate for English text)
         private const val TOKENS_PER_CHAR = 0.25f
     }
     
@@ -225,6 +222,7 @@ class HistoryManager(
     /**
      * Get a summary of history for debugging.
      */
+    @Synchronized
     fun getSummary(): String {
         return buildString {
             appendLine("History Summary:")
@@ -311,92 +309,4 @@ class HistoryManager(
             compress(config.maxTokenBudget)
         }
     }
-}
-
-/**
- * HistoryConfig - Configuration for history management.
- */
-data class HistoryConfig(
-    /** Default truncation policy for tool outputs */
-    val defaultTruncationPolicy: TruncationPolicy = TruncationPolicy.CONSERVATIVE,
-    
-    /** Maximum token budget for history */
-    val maxTokenBudget: Long = 100_000,
-    
-    /** Whether to auto-compress when approaching limit */
-    val autoCompress: Boolean = true,
-    
-    /** Threshold for auto-compression (percentage of maxTokenBudget) */
-    val autoCompressThreshold: Float = 0.85f
-)
-
-/**
- * TruncationPolicy - Controls how much of tool outputs to keep.
- * 
- * NONE uses -1 as sentinel value (handled specially in truncateOutput).
- */
-enum class TruncationPolicy(val maxTokens: Int) {
-    /** Keep everything (for debugging) - sentinel value, handled specially */
-    NONE(-1),
-    
-    /** Conservative truncation - good balance for most uses */
-    CONSERVATIVE(8000),
-    
-    /** Aggressive truncation - for very long sessions */
-    AGGRESSIVE(2000),
-    
-    /** Minimal - keep only essential info */
-    MINIMAL(500)
-}
-
-/**
- * ResponseItem - An item in the conversation history.
- * 
- * Represents the different types of content that can be in a conversation:
- * - Messages (system/user/assistant)
- * - Function calls (tool invocations)
- * - Function call outputs (tool results)
- * - Ghost snapshots (placeholders for removed items)
- */
-sealed class ResponseItem {
-    
-    /** Estimate the number of tokens this item uses */
-    abstract fun estimateTokens(): Long
-    
-    /**
-     * A chat message.
-     */
-    data class Message(
-        val role: String,  // "system", "user", "assistant"
-        val content: String,
-        val name: String? = null,  // Optional name for multi-agent
-        val isScreenObservation: Boolean = false  // Screen state captured at turn start
-    ) : ResponseItem() {
-        override fun estimateTokens(): Long = (content.length * 0.25f).toLong() + 4 // +4 for role tokens
-    }
-    
-    /**
-     * A function/tool call from the assistant.
-     */
-    data class FunctionCall(
-        val id: String,
-        val name: String,
-        val arguments: JSONObject
-    ) : ResponseItem() {
-        // Apply toLong() AFTER multiplication, not to 0.25f
-        override fun estimateTokens(): Long = ((name.length + arguments.toString().length) * 0.25f).toLong() + 10
-    }
-    
-    /**
-     * The output of a function/tool call.
-     */
-    data class FunctionCallOutput(
-        val callId: String,
-        val content: String,
-        val success: Boolean = true,
-        val truncated: Boolean = false
-    ) : ResponseItem() {
-        override fun estimateTokens(): Long = (content.length * 0.25f).toLong() + 4
-    }
-    
 }

@@ -55,20 +55,3 @@ internal object StandaloneAgentDef : AgentDef() {
         - Keep answers concise and factual in complete_task.
         """.trimIndent()
 }
-
-// Qi note: tentaively move tool related system prompts out, as it duplicates with tool prompts
-// themselves
-
-// - Call complete_task(status="success", answer="...") when goal is achieved.
-// - If blocked, call complete_task(status="failure", answer="...") with blocker details.
-
-// Common actions:
-// - Open app: open_app(app_name="Gmail") — always use this, do NOT navigate the app drawer. To
-// switch apps, use open_app directly. Do NOT go to Home first or use launcher.
-// - Tap: mobile_action(action="click", element_index=N)
-// - Type: mobile_action(action="type", input_text="...", element_index=N)
-// - Scroll down: mobile_action(action="swipe", direction="up")
-// - Scroll up: mobile_action(action="swipe", direction="down")
-// - Back: system_button(button="back")
-// - Home: system_button(button="home")
-// - Wait: wait(duration_ms=1000)

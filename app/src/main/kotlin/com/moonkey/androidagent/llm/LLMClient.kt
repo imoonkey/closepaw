@@ -23,6 +23,7 @@ abstract class LLMClient {
     
     companion object {
         const val TAG = "LLMClient"
+        const val DEFAULT_MODEL = "gpt-5.2"
         
         // Rate limit configuration (shared defaults)
         const val MAX_RETRIES = 5
@@ -44,7 +45,7 @@ abstract class LLMClient {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String = "gpt-5.2"
+        model: String = DEFAULT_MODEL
     ): ResponsesResult
     
     /**
@@ -63,7 +64,7 @@ abstract class LLMClient {
         systemPrompt: String,
         inputItems: List<ResponseInputItem>,
         tools: List<FunctionTool>,
-        model: String = "gpt-5.2"
+        model: String = DEFAULT_MODEL
     ): Flow<LLMStreamEvent>
     
     /**

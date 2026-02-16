@@ -4,20 +4,16 @@ import android.accessibilityservice.AccessibilityService
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.os.Build
 import android.util.Log
 import android.view.Display
 import android.view.SurfaceView
 import android.view.accessibility.AccessibilityEvent
-import com.moonkey.androidagent.BuildConfig
-import com.moonkey.androidagent.platform.virtualdisplay.VirtualDisplayPlatform
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
 import com.moonkey.androidagent.ui.overlay.compose.IslandOverlayHost
-import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.compose.ServiceLifecycleOwner
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.CoroutineScope
@@ -34,23 +30,13 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
-/**
- * AgentService - The entry point for the Accessibility Service.
- *
- * **Phase 2**: Now uses AgentSession with Op/Event protocol. Operations are submitted via Op sealed
- * class, status is received via AgentEvent Flow.
- *
- * Status updates are exposed via [statusFlow] for lifecycle-aware collection by MainActivity.
- */
 class AgentService : AccessibilityService() {
 
     companion object {
         private const val TAG = "AgentService"
 
-        /** Broadcast action to stop the agent remotely (from scripts) */
         const val ACTION_STOP_AGENT = "com.moonkey.androidagent.STOP_AGENT"
 
-        /** Our package name for detecting when app is in foreground */
         private const val OUR_PACKAGE = "com.moonkey.androidagent"
         private const val SHUTDOWN_TIMEOUT_MS = 5_000L
 
@@ -58,10 +44,6 @@ class AgentService : AccessibilityService() {
         var instance: AgentService? = null
             private set
 
-        /**
-         * Status updates exposed as StateFlow for lifecycle-aware collection. Static so
-         * MainActivity can collect even before service instance is available.
-         */
         private val _statusFlow = MutableStateFlow<String>("")
         val statusFlow: StateFlow<String> = _statusFlow.asStateFlow()
     }
@@ -73,6 +55,14 @@ class AgentService : AccessibilityService() {
     private var actionVisualizer: ActionVisualizerManager? = null
     private var currentPlatformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     @Volatile private var isServiceActive = false
+    private val viewerBridge by lazy {
+        AgentServiceViewerBridge(
+            logTag = TAG,
+            overlayControllerProvider = { overlayController },
+            platformProvider = { session?.getServices()?.platform as? com.moonkey.androidagent.platform.virtualdisplay.VirtualDisplayPlatform },
+            openViewerActivity = { openViewerActivity() }
+        )
+    }
     private val eventHandler =
             AgentServiceEventHandler(
                     logTag = TAG,
@@ -81,34 +71,14 @@ class AgentService : AccessibilityService() {
                     overlayController = { overlayController }
             )
 
-    /**
-     * Access the capsule state holder for in-app Compose UI.
-     * Returns null if service not connected or overlay not initialized.
-     */
     val capsuleStateHolder get() = overlayController?.stateHolder
 
-    /** Returns the currently active session observed by the service, if any. */
     fun getActiveSession(): AgentSession? = session
 
-    /**
-     * Get the action visualizer for use in sessions created by MainActivity. Returns null if
-     * service is not connected or visualizer not initialized.
-     *
-     * Note: Internal visibility - only for use within the app module. External code should not
-     * depend on this method.
-     */
     internal fun getActionVisualizer(): ActionVisualizerManager? = actionVisualizer
 
-    /** Job for the current session's event collector, cancelled before starting new session */
     private var eventCollectorJob: Job? = null
 
-    /**
-     * Register an external session (created by MainActivity) for capsule observation. This allows
-     * the SmartCapsule to display streaming updates from sessions created outside AgentService.
-     *
-     * @param platformMode The platform mode for this session — required to set up the correct
-     * overlay strategy (StatusIsland for VD, capsule+glow for A11y).
-     */
     fun observeExternalSession(
             externalSession: AgentSession,
             platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
@@ -124,7 +94,6 @@ class AgentService : AccessibilityService() {
         observeSession(externalSession)
     }
 
-    /** BroadcastReceiver to handle remote stop commands (from debug-run.sh script) */
     private val stopReceiver =
             object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
@@ -141,7 +110,6 @@ class AgentService : AccessibilityService() {
         instance = this
         Log.i(TAG, "AgentService connected")
 
-        // Ensure we retrieve interactive windows
         val info = serviceInfo
         if (info != null) {
             info.flags =
@@ -179,7 +147,7 @@ class AgentService : AccessibilityService() {
                                     }
                             startActivity(intent)
                         },
-                        onOpenViewer = { openViewer() },
+                        onOpenViewer = { viewerBridge.openViewer() },
                         statusIslandManager =
                                 IslandOverlayHost(
                                         service = this,
@@ -192,7 +160,6 @@ class AgentService : AccessibilityService() {
                                 )
                 )
 
-        // Initialize ActionVisualizerManager for touch action visualization
         actionVisualizer = ActionVisualizerManager(
                 context = this,
                 lifecycleOwner = serviceLifecycleOwner,
@@ -200,20 +167,10 @@ class AgentService : AccessibilityService() {
         )
         Log.i(TAG, "ActionVisualizerManager initialized")
 
-        // Register broadcast receiver for remote stop commands (from adb/debug-run.sh)
-        // Only in debug builds - security risk if exposed in production
-        if (BuildConfig.DEBUG) {
-            val filter = IntentFilter(ACTION_STOP_AGENT)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(stopReceiver, filter, Context.RECEIVER_EXPORTED)
-            } else {
-                @Suppress("UnspecifiedRegisterReceiverFlag") registerReceiver(stopReceiver, filter)
-            }
-        }
+        registerDebugStopReceiverIfNeeded(this, stopReceiver)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Detect when our app goes to foreground/background to show/hide capsule
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             val eventDisplayId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 event.displayId
@@ -233,11 +190,9 @@ class AgentService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        // Fence off new work immediately so callers don't grab a half-destroyed instance.
         isServiceActive = false
         instance = null
 
-        // Cancel event collector first to avoid handling events during teardown.
         eventCollectorJob?.cancel()
         eventCollectorJob = null
 
@@ -259,17 +214,9 @@ class AgentService : AccessibilityService() {
         overlayController = null
         actionVisualizer?.dispose()
         actionVisualizer = null
-        if (BuildConfig.DEBUG) {
-            try {
-                unregisterReceiver(stopReceiver)
-            } catch (e: IllegalArgumentException) {
-                // Receiver was never registered
-                Log.w(TAG, "stopReceiver was not registered: ${e.message}")
-            }
-        }
+        unregisterDebugStopReceiverIfNeeded(this, stopReceiver)
         serviceLifecycleOwner.onDestroy()
         super.onDestroy()
-        // Reset statusFlow to prevent stale values when service restarts
         _statusFlow.value = ""
         scope.cancel()
     }
@@ -279,7 +226,6 @@ class AgentService : AccessibilityService() {
         serviceLifecycleOwner.onCreate()
     }
 
-    /** Submit an operation to the current session. */
     private fun submitOp(op: Op) {
         if (!isServiceActive) {
             Log.w(TAG, "Dropping op while service is not active: $op")
@@ -301,15 +247,9 @@ class AgentService : AccessibilityService() {
         _statusFlow.value = status
     }
 
-    /**
-     * Start observing events from the session. Cancels any previous collector before starting new
-     * one.
-     */
     private fun observeSession(agentSession: AgentSession) {
-        // Cancel previous collector if still active
         eventCollectorJob?.cancel()
 
-        // Cache the recording service to avoid repeated lookup in high-frequency event loop
         val recordingService = agentSession.getServices().recordingService
 
         eventCollectorJob =
@@ -334,7 +274,6 @@ class AgentService : AccessibilityService() {
                 }
     }
 
-    /** Run the agent loop - called from MainActivity */
     fun runAgent(
             goal: String,
             apiKeys: Map<String, String> = emptyMap(),
@@ -345,27 +284,18 @@ class AgentService : AccessibilityService() {
             Log.w(TAG, "Ignoring runAgent because service is not active")
             return
         }
-        // Stop any existing session before starting new one (prevents concurrent sessions)
-        // Cancel collector first to stop receiving events, then shutdown session
         if (session != null) {
             Log.i(TAG, "Stopping existing session before starting new one")
             eventCollectorJob?.cancel()
             eventCollectorJob = null
             val oldSession = session
             session = null
-            // Submit shutdown synchronously since we're about to replace the session
-            // The old session will handle its own cleanup
             scope.launch { oldSession?.submit(Op.Shutdown) }
         }
 
-        // Set platform mode on overlay controller
         currentPlatformMode = platformMode
         overlayController?.setPlatformMode(platformMode)
 
-        // Overlay windows are now managed by applyVisibility() inside ServiceOverlayController.
-        // They appear automatically when the first TaskStarted event arrives.
-
-        // Create and run session in coroutine
         scope.launch {
             try {
                 val sessionConfig =
@@ -389,10 +319,8 @@ class AgentService : AccessibilityService() {
 
                 session = newSession
 
-                // Start observing events
                 observeSession(newSession)
 
-                // Submit start operation
                 newSession.submit(Op.UserInput(text = goal))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create session", e)
@@ -408,35 +336,19 @@ class AgentService : AccessibilityService() {
         updateStatus("🛑 Agent stopped")
     }
 
-    // ── Virtual Display Viewer Support ──
-
-    /**
-     * Called by VirtualDisplayViewerActivity when it becomes visible.
-     * Shows capsule overlay on real screen and hides status island.
-     */
     fun onViewerOpened() {
-        if (overlayController == null) {
-            Log.w(TAG, "onViewerOpened: overlay controller not initialized (service not connected?)")
-            return
-        }
-        overlayController?.onViewerOpened()
+        viewerBridge.onViewerOpened()
     }
 
-    /**
-     * Called by VirtualDisplayViewerActivity when it becomes hidden.
-     * Hides capsule overlay and shows status island.
-     */
     fun onViewerClosed() {
-        overlayController?.onViewerClosed()
+        viewerBridge.onViewerClosed()
     }
 
-    /** MainActivity foreground callback to enforce MAIN_APP overlay invariants. */
     fun onMainAppVisible() {
-        overlayController?.onMainAppVisible()
+        viewerBridge.onMainAppVisible()
     }
 
-    /** Open the VirtualDisplayViewerActivity. Called from StatusIsland tap or nav button. */
-    private fun openViewer() {
+    private fun openViewerActivity() {
         try {
             val intent =
                     Intent().setClassName(
@@ -450,27 +362,14 @@ class AgentService : AccessibilityService() {
         }
     }
 
-    /**
-     * Called by VirtualDisplayViewerActivity when its SurfaceView is ready. Switches the virtual
-     * display output to the Viewer for live preview.
-     */
     fun notifyViewerVisible(surfaceView: SurfaceView) {
-        val platform = session?.getServices()?.platform as? VirtualDisplayPlatform ?: return
-        platform.switchToLivePreview(surfaceView)
+        viewerBridge.notifyViewerVisible(surfaceView)
     }
 
-    /**
-     * Called by VirtualDisplayViewerActivity when it's hidden. Switches back to ImageReader for
-     * headless capture.
-     */
     fun notifyViewerHidden() {
-        val platform = session?.getServices()?.platform as? VirtualDisplayPlatform ?: return
-        platform.switchToImageReader()
+        viewerBridge.notifyViewerHidden()
     }
 
-    /**
-     * Forward touch events from VirtualDisplayViewerActivity to VD input injection.
-     */
     fun onViewerTouch(
             action: Int,
             x: Float,
@@ -480,13 +379,7 @@ class AgentService : AccessibilityService() {
             viewWidth: Int,
             viewHeight: Int,
     ): Boolean {
-        // Viewer interaction is only allowed after explicit takeover.
-        // Returning true consumes the touch so it doesn't accidentally control VD while agent runs.
-        val currentMode = overlayController?.stateHolder?.mode?.value
-        if (currentMode !is CapsuleMode.Takeover) return true
-
-        val platform = session?.getServices()?.platform as? VirtualDisplayPlatform ?: return false
-        return platform.onViewerTouch(
+        return viewerBridge.onViewerTouch(
                 action = action,
                 x = x,
                 y = y,

@@ -11,8 +11,6 @@ import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.tool.ToolCallResult
 import com.moonkey.androidagent.tool.ToolObservation
 import com.openai.models.responses.ResponseInputItem
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -30,6 +28,7 @@ internal class AgentTrace(
     private val services: SessionServices
 ) {
     private val trace = services.traceRecorder
+    private val artifacts = AgentTraceArtifacts(trace)
     private var sessionStartedAtMs: Long = 0L
     private val runMetrics = RunMetrics()
 
@@ -113,18 +112,7 @@ internal class AgentTrace(
     }
 
     fun screenCaptured(turnId: String, turnNumber: Int, snapshot: ScreenSnapshot, packageName: String?) {
-        val artifacts =
-            buildList {
-                snapshot.debug?.rawA11yTreePath?.let {
-                    add(TraceArtifactRef(kind = "raw_a11y_tree", path = it, mimeType = "application/json"))
-                }
-                snapshot.debug?.sanitizedA11yTreePath?.let {
-                    add(TraceArtifactRef(kind = "sanitized_a11y_tree", path = it, mimeType = "application/json"))
-                }
-                snapshot.debug?.screenshotPath?.let {
-                    add(TraceArtifactRef(kind = "screenshot", path = it, mimeType = "image/jpeg"))
-                }
-            }
+        val snapshotArtifacts = artifacts.snapshotArtifacts(snapshot, postAction = false)
 
         trace.emit(
             sessionId = sessionId.value,
@@ -136,7 +124,7 @@ internal class AgentTrace(
                     put("elements", JsonPrimitive(snapshot.elements.size))
                     packageName?.let { put("package", JsonPrimitive(it)) }
                 },
-            artifacts = artifacts
+            artifacts = snapshotArtifacts
         )
     }
 
@@ -155,65 +143,14 @@ internal class AgentTrace(
         if (!trace.enabled) return
         runMetrics.llmRequests++
 
-        val historyJson = HistoryTraceSerializer.toJson(history)
-        val historyArtifact =
-            storeRedactedText(
-                kind = "llm_history",
-                filenameHint = "turn_${turnNumber}_history.json",
-                content = encodeRedactedJson(historyJson),
-                mimeType = "application/json"
-            )
-
-        val systemArtifact =
-            storeRedactedText(
-                kind = "llm_system_prompt",
-                filenameHint = "turn_${turnNumber}_system.txt",
-                content = systemPrompt,
-                mimeType = "text/plain"
-            )
-
-        val contextArtifact =
-            storeRedactedText(
-                kind = "llm_user_context",
-                filenameHint = "turn_${turnNumber}_user_context.txt",
-                content = userContextText,
-                mimeType = "text/plain"
-            )
-
-        val fullPromptArtifact =
-            storeRedactedText(
-                kind = "llm_full_prompt",
-                filenameHint = "turn_${turnNumber}_full_prompt.txt",
-                content =
-                    """
-                    === SYSTEM PROMPT ===
-                    $systemPrompt
-
-                    === USER CONTEXT ===
-                    $userContextText
-                    """.trimIndent(),
-                mimeType = "text/plain"
-            )
-
-        val inputItemsArtifact =
-            storeRedactedText(
-                kind = "llm_input_items",
-                filenameHint = "turn_${turnNumber}_llm_input_items.json",
-                content = encodeRedactedJson(LlmInputItemsTraceSerializer.toJson(inputItems)),
-                mimeType = "application/json"
-            )
-
-        val snapshotArtifacts =
-            listOfNotNull(
-                snapshot.debug?.sanitizedA11yTreePath?.let {
-                    TraceArtifactRef(kind = "sanitized_a11y_tree", path = it, mimeType = "application/json")
-                },
-                snapshot.debug?.rawA11yTreePath?.let {
-                    TraceArtifactRef(kind = "raw_a11y_tree", path = it, mimeType = "application/json")
-                },
-                snapshot.debug?.screenshotPath?.let {
-                    TraceArtifactRef(kind = "screenshot", path = it, mimeType = "image/jpeg")
-                }
+        val llmRequestArtifacts =
+            artifacts.llmRequestArtifacts(
+                turnNumber = turnNumber,
+                snapshot = snapshot,
+                systemPrompt = systemPrompt,
+                userContextText = userContextText,
+                history = history,
+                inputItems = inputItems
             )
 
         trace.emit(
@@ -229,14 +166,7 @@ internal class AgentTrace(
                     put("model_id", JsonPrimitive(modelId))
                     put("screenshot_attached", JsonPrimitive(snapshot.image != null))
                 },
-            artifacts =
-                listOfNotNull(
-                    historyArtifact,
-                    systemArtifact,
-                    contextArtifact,
-                    fullPromptArtifact,
-                    inputItemsArtifact
-                ) + snapshotArtifacts
+            artifacts = llmRequestArtifacts
         )
     }
 
@@ -244,37 +174,7 @@ internal class AgentTrace(
     fun llmResponse(turnId: String, turnNumber: Int, result: TurnResult) {
         if (!trace.enabled) return
         runMetrics.llmResponses++
-
-        val toolCallsJson =
-            buildJsonArray {
-                result.toolCalls.forEach { call ->
-                    add(
-                        buildJsonObject {
-                            put("id", JsonPrimitive(call.id))
-                            put("name", JsonPrimitive(call.name))
-                            put("arguments_json", JsonPrimitive(call.arguments.toString()))
-                        }
-                    )
-                }
-            }
-
-        val responseTextArtifact =
-            result.content?.let {
-                storeRedactedText(
-                    kind = "llm_response_text",
-                    filenameHint = "turn_${turnNumber}_assistant.txt",
-                    content = it,
-                    mimeType = "text/plain"
-                )
-            }
-
-        val toolCallsArtifact =
-            storeRedactedText(
-                kind = "llm_tool_calls",
-                filenameHint = "turn_${turnNumber}_tool_calls.json",
-                content = encodeRedactedJson(toolCallsJson),
-                mimeType = "application/json"
-            )
+        val llmResponseArtifacts = artifacts.llmResponseArtifacts(turnNumber, result)
 
         trace.emit(
             sessionId = sessionId.value,
@@ -287,7 +187,7 @@ internal class AgentTrace(
                     put("tool_calls", JsonPrimitive(result.toolCalls.size))
                     put("is_complete", JsonPrimitive(result.isComplete))
                 },
-            artifacts = listOfNotNull(responseTextArtifact, toolCallsArtifact)
+            artifacts = llmResponseArtifacts
         )
     }
 
@@ -333,7 +233,7 @@ internal class AgentTrace(
         runMetrics.toolCalls++
 
         val argsArtifact =
-            storeRedactedText(
+            artifacts.storeRedactedText(
                 kind = "tool_call_args",
                 filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}.json",
                 content = toolCall.arguments.toString(2),
@@ -370,67 +270,14 @@ internal class AgentTrace(
             runMetrics.toolFailures++
         }
 
-        val resultArtifact =
-            storeRedactedText(
-                kind = "tool_result",
-                filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_result.txt",
-                content = formattedResult,
-                mimeType = "text/plain"
-            )
-
-        val observationArtifact =
-            when (observation) {
-                is ToolObservation.ScreenState ->
-                    storeRedactedText(
-                        kind = "tool_observation_screen",
-                        filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_screen.json",
-                        content = observation.accessibilityTree,
-                        mimeType = "application/json"
-                    )
-
-                is ToolObservation.TextOutput ->
-                    storeRedactedText(
-                        kind = "tool_observation_text",
-                        filenameHint = "turn_${turnNumber}_${toolCall.name}_${toolCall.id}_obs.txt",
-                        content = observation.content,
-                        mimeType = "text/plain"
-                    )
-            }
-
         val postArtifacts =
-            buildList {
-                addAll(listOfNotNull(resultArtifact, observationArtifact))
-                observedSnapshot?.debug?.rawA11yTreePath?.let {
-                    add(
-                        TraceArtifactRef(
-                            kind = "raw_a11y_tree",
-                            path = it,
-                            mimeType = "application/json",
-                            description = "Post-action raw tree"
-                        )
-                    )
-                }
-                observedSnapshot?.debug?.sanitizedA11yTreePath?.let {
-                    add(
-                        TraceArtifactRef(
-                            kind = "sanitized_a11y_tree",
-                            path = it,
-                            mimeType = "application/json",
-                            description = "Post-action sanitized tree"
-                        )
-                    )
-                }
-                observedSnapshot?.debug?.screenshotPath?.let {
-                    add(
-                        TraceArtifactRef(
-                            kind = "screenshot",
-                            path = it,
-                            mimeType = "image/jpeg",
-                            description = "Post-action screenshot"
-                        )
-                    )
-                }
-            }
+            artifacts.toolResultArtifacts(
+                turnNumber = turnNumber,
+                toolCall = toolCall,
+                formattedResult = formattedResult,
+                observation = observation,
+                observedSnapshot = observedSnapshot
+            )
 
         trace.emit(
             sessionId = sessionId.value,
@@ -468,30 +315,12 @@ internal class AgentTrace(
                 put("tool_successes", JsonPrimitive(runMetrics.toolSuccesses))
                 put("tool_failures", JsonPrimitive(runMetrics.toolFailures))
             }
-        return storeRedactedText(
+        return artifacts.storeRedactedText(
             kind = "run_summary",
             filenameHint = "run_summary.json",
-            content = encodeRedactedJson(summaryJson),
+            content = artifacts.encodeRedactedJson(summaryJson),
             mimeType = "application/json"
         )
-    }
-
-    private fun storeRedactedText(
-        kind: String,
-        filenameHint: String,
-        content: String,
-        mimeType: String
-    ): TraceArtifactRef? {
-        return trace.storeText(
-            kind = kind,
-            filenameHint = filenameHint,
-            content = CognitionTraceRedactor.redactText(content),
-            mimeType = mimeType
-        )
-    }
-
-    private fun encodeRedactedJson(element: JsonElement): String {
-        return TraceJson.instance.encodeToString(CognitionTraceRedactor.redactJson(element))
     }
 }
 

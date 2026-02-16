@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.app
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
@@ -9,13 +8,9 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.moonkey.androidagent.BuildConfig
 import com.moonkey.androidagent.history.SessionHistoryManager
@@ -24,19 +19,13 @@ import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.perception.PerceptionConfig
-import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.session.AgentSession
-import com.moonkey.androidagent.ui.chat.ChatScreen
 import com.moonkey.androidagent.ui.chat.ChatViewModel
 import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
-import com.moonkey.androidagent.ui.settings.SettingsSheet
-import com.moonkey.androidagent.ui.settings.catalogModelOptions
-import com.moonkey.androidagent.ui.theme.ChatTheme
-import com.moonkey.androidagent.ui.viewer.VirtualDisplayViewerActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -65,28 +54,16 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_NOVITA_API_KEY = "novita_api_key"
     }
 
-    // Session scope - survives configuration changes within activity lifecycle
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-
-    // Current session
     private var currentSession: AgentSession? = null
     private val sessionCreationLock = Any()
     @Volatile private var sessionCreationInProgress = false
-
-    // Settings state
+    @Volatile private var sessionRetryScheduled = false
     private lateinit var settingsState: AppSettingsState
-
-    // Per-intent trace controls (not persisted to settings)
     private var pendingTraceEnabled: Boolean? = null
     private var pendingTraceRunId: String? = null
-
-    // Session history
     private lateinit var sessionHistoryManager: SessionHistoryManager
-
-    // ViewModel
     private lateinit var viewModel: ChatViewModel
-
-    // Settings visibility
     private var showSettings by mutableStateOf(false)
 
     private val modelCatalog: ModelCatalog by lazy {
@@ -101,103 +78,48 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         enableEdgeToEdge()
-
         settingsState = AppSettingsState(AppSettingsStore(applicationContext))
         settingsState.load()
         handleIntent(intent)
-
         val sessionStorage = SessionStorage(applicationContext)
         sessionHistoryManager = SessionHistoryManager.create(sessionStorage, sessionScope)
-
         viewModel =
                 ChatViewModel(
                         sessionProvider = { currentSession },
                         sessionHistoryManager = sessionHistoryManager,
                         onSessionNeeded = { text -> ensureSessionAndSend(text) },
                         onTaskCompleted = {
-                            // Session recording completion is owned by AgentServiceEventHandler.
                             Log.d(TAG, "Task completed; keeping session alive for next task")
                         }
                 )
 
         setContent {
-            ChatTheme {
-                val sessions by viewModel.sessions.collectAsStateWithLifecycle()
-
-                ChatScreen(
-                        viewModel = viewModel,
-                        sessions = sessions,
-                        currentModel = settingsState.selectedModel,
-                        appVersion = BuildConfig.VERSION_NAME,
-                        onOpenSettings = { showSettings = true },
-                        onSessionSelect = { session ->
-                            viewModel.resumeSession(session) {
-                                sessionHistoryManager.getRecordingService().clearSession()
-                                currentSession = null
-                                Log.d(
-                                        TAG,
-                                        "History session resumed for viewing; cleared recording state"
-                                )
-                            }
-                        },
-                        onNewSession = {
-                            viewModel.startNewSession(
-                                    settingsState.selectedModel,
-                                    BuildConfig.VERSION_NAME
+            MainActivityContent(
+                    viewModel = viewModel,
+                    settingsState = settingsState,
+                    modelCatalog = modelCatalog,
+                    appVersion = BuildConfig.VERSION_NAME,
+                    showSettings = showSettings,
+                    onShowSettingsChange = { showSettings = it },
+                    onSessionSelect = { session ->
+                        viewModel.resumeSession(session) {
+                            sessionHistoryManager.getRecordingService().clearSession()
+                            currentSession = null
+                            Log.d(
+                                    TAG,
+                                    "History session resumed for viewing; cleared recording state"
                             )
-                        },
-                        onDeleteSession = { session -> viewModel.deleteSession(session) },
-                        onLoadSessions = { viewModel.loadSessions() },
-                        onOpenViewer = { openViewer() },
-                )
-
-                if (showSettings) {
-                    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-                    ModalBottomSheet(
-                            onDismissRequest = { showSettings = false },
-                            sheetState = sheetState,
-                            dragHandle = {}
-                    ) {
-                        SettingsSheet(
-                                llmBackend = settingsState.llmBackend,
-                                onBackendChange = settingsState::updateBackend,
-                                selectedModel = settingsState.selectedModel,
-                                onModelChange = settingsState::updateModel,
-                                modelOptions = catalogModelOptions(modelCatalog.all()),
-                                selectedExecutorModel = settingsState.executorModel,
-                                onExecutorModelChange = settingsState::updateExecutorModel,
-                                selectedLocalModel = settingsState.selectedLocalModelId,
-                                onLocalModelChange = settingsState::updateLocalModel,
-                                modelLoadingStatus = settingsState.modelLoadingStatus,
-                                openAiApiKey = settingsState.apiKey,
-                                onOpenAiApiKeyChange = settingsState::updateApiKey,
-                                openRouterApiKey = settingsState.openRouterApiKey,
-                                onOpenRouterApiKeyChange = settingsState::updateOpenRouterApiKey,
-                                novitaApiKey = settingsState.novitaApiKey,
-                                onNovitaApiKeyChange = settingsState::updateNovitaApiKey,
-                                maxTurns = settingsState.maxTurns,
-                                onMaxTurnsChange = settingsState::updateMaxTurns,
-                                agentMode = settingsState.agentMode,
-                                onAgentModeChange = settingsState::updateAgentMode,
-                                perceptionMode = settingsState.perceptionMode,
-                                onPerceptionModeChange = settingsState::updatePerceptionMode,
-                                debugMode = settingsState.debugMode,
-                                onDebugModeChange = settingsState::updateDebugMode,
-                                isAccessibilityEnabled = AgentService.instance != null,
-                                isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
-                                onAccessibilityClick = { openAccessibilitySettings() },
-                                onOverlayClick = { openOverlaySettings() },
-                                onDismiss = { showSettings = false }
-                        )
-                    }
-                }
-            }
+                        }
+                    },
+                    onOpenViewer = { openViewer(this@MainActivity) },
+                    isAccessibilityEnabled = AgentService.instance != null,
+                    isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
+                    onAccessibilityClick = { openAccessibilitySettings(this@MainActivity) },
+                    onOverlayClick = { openOverlaySettings(this@MainActivity) }
+            )
         }
     }
 
@@ -222,73 +144,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Don't shutdown session when activity is destroyed - agent continues in service
-        // The session will be cleaned up when task completes or user explicitly stops
         Log.d(TAG, "onDestroy called, session active: ${currentSession != null}")
     }
 
     private fun handleIntent(intent: Intent) {
         val payload = MainActivityIntentPayload.from(intent)
-
-        payload.apiKey?.let { key ->
-            settingsState.updateApiKey(key)
-            Log.d(TAG, "API key set from intent")
-        }
-
-        payload.openRouterApiKey?.let { key ->
-            settingsState.updateOpenRouterApiKey(key)
-            Log.d(TAG, "OpenRouter API key set from intent")
-        }
-
-        payload.novitaApiKey?.let { key ->
-            settingsState.updateNovitaApiKey(key)
-            Log.d(TAG, "Novita API key set from intent")
-        }
-
-        payload.backendType?.let {
-            settingsState.updateBackend(it)
-            Log.d(TAG, "LLM backend set from intent: $it")
-        }
-
-        payload.agentMode?.let {
-            settingsState.updateAgentMode(it)
-            Log.d(TAG, "Agent mode set from intent: $it")
-        }
-
-        payload.perceptionMode?.let { mode ->
-            settingsState.updatePerceptionMode(mode)
-            Log.d(TAG, "Perception mode set from intent: $mode")
-        }
-
-        payload.platformMode?.let {
-            settingsState.updatePlatformMode(it)
-            Log.d(TAG, "Platform mode set from intent: $it")
-        }
-
-        payload.mainModel?.let {
-            settingsState.updateModel(it)
-            Log.d(TAG, "Main model set from intent: $it")
-        }
-
-        payload.executorModel?.let {
-            settingsState.updateExecutorModel(it)
-            Log.d(TAG, "Executor model set from intent: $it")
-        }
-
-        payload.debugMode?.let { enabled ->
-            settingsState.updateDebugMode(enabled)
-            Log.d(TAG, "Debug mode set from intent: $enabled")
-        }
-
-        payload.traceEnabled?.let { enabled ->
-            pendingTraceEnabled = enabled
-            Log.d(TAG, "Trace enabled set from intent: $enabled")
-        }
-
-        payload.traceRunId?.let { runId ->
-            pendingTraceRunId = runId
-            Log.d(TAG, "Trace run id set from intent: $runId")
-        }
+        val applyResult =
+                applyIntentPayloadToSettings(
+                        payload = payload,
+                        settingsState = settingsState,
+                        currentPendingTraceEnabled = pendingTraceEnabled,
+                        currentPendingTraceRunId = pendingTraceRunId,
+                        log = { message -> Log.d(TAG, message) }
+                )
+        pendingTraceEnabled = applyResult.pendingTraceEnabled
+        pendingTraceRunId = applyResult.pendingTraceRunId
 
         if (payload.freshSession) {
             Log.d(TAG, "Fresh session requested, clearing existing state")
@@ -303,13 +173,8 @@ class MainActivity : ComponentActivity() {
         } else {
             payload.goalText?.let {
                 Log.d(TAG, "Goal set from intent: $it")
-                // Auto-send the goal as first message
                 window.decorView.postDelayed({ ensureSessionAndSend(it) }, 500)
             }
-        }
-
-        if (payload.autoStart) {
-            Log.d(TAG, "Auto-start requested")
         }
     }
 
@@ -366,7 +231,7 @@ class MainActivity : ComponentActivity() {
 
         if (!Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "Please grant Overlay permission", Toast.LENGTH_LONG).show()
-            openOverlaySettings()
+            openOverlaySettings(this)
             return
         }
 
@@ -374,7 +239,7 @@ class MainActivity : ComponentActivity() {
         if (service == null) {
             Toast.makeText(this, "Please enable the Accessibility Service", Toast.LENGTH_LONG)
                     .show()
-            openAccessibilitySettings()
+            openAccessibilitySettings(this)
             return
         }
 
@@ -394,7 +259,26 @@ class MainActivity : ComponentActivity() {
                     if (active != null) {
                         active.submit(Op.UserInput(text))
                     } else {
-                        window.decorView.postDelayed({ ensureSessionAndSend(text) }, 200)
+                        val shouldScheduleRetry =
+                                synchronized(sessionCreationLock) {
+                                    if (sessionRetryScheduled) {
+                                        false
+                                    } else {
+                                        sessionRetryScheduled = true
+                                        true
+                                    }
+                                }
+                        if (shouldScheduleRetry) {
+                            window.decorView.postDelayed(
+                                    {
+                                        synchronized(sessionCreationLock) {
+                                            sessionRetryScheduled = false
+                                        }
+                                        ensureSessionAndSend(text)
+                                    },
+                                    200
+                            )
+                        }
                     }
                 }
                 return
@@ -500,27 +384,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun validateCloudKeysForSelectedModels(): Boolean {
-        if (settingsState.llmBackend != LLMBackendType.OPENAI) return true
-
-        val apiKeys = settingsState.buildApiKeys()
-        val modelsToValidate = linkedSetOf(settingsState.selectedModel)
-        if (settingsState.agentMode == AgentMode.PRO) {
-            settingsState.executorModel?.let(modelsToValidate::add)
-        }
-
-        val missing = buildList {
-            for (modelName in modelsToValidate) {
-                val entry = modelCatalog.resolveOrNull(modelName)
-                if (entry == null) {
-                    add("Unknown model: $modelName")
-                    continue
-                }
-                val requiredEnv = entry.effectiveApiKeyEnv
-                if (apiKeys[requiredEnv].isNullOrBlank()) {
-                    add("${entry.displayName} requires $requiredEnv")
-                }
-            }
-        }
+        val missing = findMissingCloudKeys(settingsState, modelCatalog)
 
         if (missing.isEmpty()) return true
 
@@ -528,32 +392,5 @@ class MainActivity : ComponentActivity() {
                 .show()
         showSettings = true
         return false
-    }
-
-    private fun LFMLLMClient.ModelLoadingState.toUiStatus(): ModelLoadingStatus {
-        return when (this) {
-            is LFMLLMClient.ModelLoadingState.NotLoaded -> ModelLoadingStatus.Idle
-            is LFMLLMClient.ModelLoadingState.Downloading ->
-                    ModelLoadingStatus.Downloading(progress)
-            is LFMLLMClient.ModelLoadingState.Loading -> ModelLoadingStatus.Loading
-            is LFMLLMClient.ModelLoadingState.Ready -> ModelLoadingStatus.Ready
-            is LFMLLMClient.ModelLoadingState.Error -> ModelLoadingStatus.Error(message)
-        }
-    }
-
-    private fun openAccessibilitySettings() {
-        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        startActivity(intent)
-    }
-
-    private fun openOverlaySettings() {
-        val intent =
-                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-        startActivity(intent)
-    }
-
-    private fun openViewer() {
-        val intent = Intent(this, VirtualDisplayViewerActivity::class.java)
-        startActivity(intent)
     }
 }

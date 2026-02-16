@@ -19,39 +19,8 @@ object AccessibilityNodeFinder {
             root: AccessibilityNodeInfo,
             x: Int,
             y: Int
-    ): AccessibilityNodeInfo? {
-        val bounds = Rect()
-
-        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean): AccessibilityNodeInfo? {
-            node.getBoundsInScreen(bounds)
-
-            if (!bounds.contains(x, y)) {
-                if (shouldRecycle) node.recycle()
-                return null
-            }
-
-            // Search children first and in reverse order to match visual top-most behavior.
-            for (i in node.childCount - 1 downTo 0) {
-                val child = node.getChild(i) ?: continue
-                val childMatch = search(child, shouldRecycle = true)
-                if (childMatch != null) {
-                    if (shouldRecycle) node.recycle()
-                    return childMatch
-                }
-            }
-
-            if (node.isClickable && node.isVisibleToUser) {
-                return node
-            }
-
-            if (shouldRecycle) {
-                node.recycle()
-            }
-            return null
-        }
-
-        return search(root, shouldRecycle = false)
-    }
+    ): AccessibilityNodeInfo? =
+            findActionableNodeAtLocation(root, x, y) { node -> node.isClickable && node.isVisibleToUser }
 
     /**
      * Find the top-most long-clickable node at the given coordinates. Mirrors
@@ -61,6 +30,16 @@ object AccessibilityNodeFinder {
             root: AccessibilityNodeInfo,
             x: Int,
             y: Int
+    ): AccessibilityNodeInfo? =
+            findActionableNodeAtLocation(root, x, y) { node ->
+                node.isLongClickable && node.isVisibleToUser
+            }
+
+    private fun findActionableNodeAtLocation(
+            root: AccessibilityNodeInfo,
+            x: Int,
+            y: Int,
+            predicate: (AccessibilityNodeInfo) -> Boolean
     ): AccessibilityNodeInfo? {
         val bounds = Rect()
 
@@ -81,7 +60,7 @@ object AccessibilityNodeFinder {
                 }
             }
 
-            if (node.isLongClickable && node.isVisibleToUser) {
+            if (predicate(node)) {
                 return node
             }
 

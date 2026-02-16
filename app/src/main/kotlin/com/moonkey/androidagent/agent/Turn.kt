@@ -37,7 +37,7 @@ class Turn(
     suspend fun run(
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
-            model: String = "gpt-5.2"
+            model: String = LLMClient.DEFAULT_MODEL
     ): TurnResult {
         val request = prepareRequest(inputItems, model)
         Log.d(TAG, "Running turn with ${request.inputItems.size} input items, model=$model")
@@ -61,7 +61,7 @@ class Turn(
     fun runStreaming(
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
-            model: String = "gpt-5.2"
+            model: String = LLMClient.DEFAULT_MODEL
     ): Flow<TurnStreamEvent> = flow {
         Log.d(TAG, "Running streaming turn with LLM streaming, model=$model")
 

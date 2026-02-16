@@ -137,12 +137,7 @@ internal class ShizukuDisplayTransport(
                                         "VirtualDisplayConfig.Builder.build() returned null"
                                 )
 
-                val callback =
-                        object : IVirtualDisplayCallback.Stub() {
-                                override fun onPaused() {}
-                                override fun onResumed() {}
-                                override fun onStopped() {}
-                        }
+                val callback = newDisplayCallback()
 
                 val configClass = Class.forName("android.hardware.display.VirtualDisplayConfig")
                 val method =
@@ -155,11 +150,7 @@ internal class ShizukuDisplayTransport(
                         )
 
                 val displayId = method.invoke(proxy, config, callback, null, "com.android.shell") as Int
-                if (displayId >= 0) {
-                        displayCallbacks[displayId] = callback
-                }
-                Log.d(TAG, "Created virtual display (API33+): displayId=$displayId")
-                return displayId
+                return registerDisplayCallback(displayId, callback, "API33+")
         }
 
         /** API 31-32: Legacy method with individual parameters. */
@@ -172,12 +163,7 @@ internal class ShizukuDisplayTransport(
                 surface: Surface,
                 flags: Int
         ): Int {
-                val callback =
-                        object : IVirtualDisplayCallback.Stub() {
-                                override fun onPaused() {}
-                                override fun onResumed() {}
-                                override fun onStopped() {}
-                        }
+                val callback = newDisplayCallback()
                 val projectionClass = Class.forName("android.media.projection.IMediaProjection")
 
                 return try {
@@ -209,11 +195,7 @@ internal class ShizukuDisplayTransport(
                                         flags,
                                         null
                                 ) as Int
-                        if (displayId >= 0) {
-                                displayCallbacks[displayId] = callback
-                        }
-                        Log.d(TAG, "Created virtual display (legacy): displayId=$displayId")
-                        displayId
+                        registerDisplayCallback(displayId, callback, "legacy")
                 } catch (e: NoSuchMethodException) {
                         Log.w(TAG, "Legacy createVirtualDisplay signature not found, trying alternative")
                         createVirtualDisplayLegacyAlt(
@@ -255,10 +237,26 @@ internal class ShizukuDisplayTransport(
                 val displayId =
                         method.invoke(proxy, callback, null, "com.android.shell", surface, flags, name) as
                                 Int
+                return registerDisplayCallback(displayId, callback, "legacy-alt")
+        }
+
+        private fun newDisplayCallback(): IVirtualDisplayCallback {
+                return object : IVirtualDisplayCallback.Stub() {
+                        override fun onPaused() {}
+                        override fun onResumed() {}
+                        override fun onStopped() {}
+                }
+        }
+
+        private fun registerDisplayCallback(
+                displayId: Int,
+                callback: IVirtualDisplayCallback,
+                variant: String
+        ): Int {
                 if (displayId >= 0) {
                         displayCallbacks[displayId] = callback
                 }
-                Log.d(TAG, "Created virtual display (legacy-alt): displayId=$displayId")
+                Log.d(TAG, "Created virtual display ($variant): displayId=$displayId")
                 return displayId
         }
 }

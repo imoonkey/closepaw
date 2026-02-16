@@ -40,7 +40,7 @@ import kotlinx.coroutines.CoroutineScope
  * val services = SessionServices.create(localConfig, platform, context = context)
  * ```
  */
-data class SessionServices(
+class SessionServices(
         val toolRegistry: ToolRegistry,
         val toolRouter: ToolRouter,
         val historyManager: HistoryManager,
@@ -115,6 +115,39 @@ data class SessionServices(
                     recordingService = recordingService
             )
         }
+    }
+
+    /** Create a copy with optionally replaced services. */
+    fun copy(
+            toolRegistry: ToolRegistry = this.toolRegistry,
+            toolRouter: ToolRouter = this.toolRouter,
+            historyManager: HistoryManager = this.historyManager,
+            sessionState: AgentSessionState = this.sessionState,
+            policyEngine: PolicyEngine = this.policyEngine,
+            platform: AndroidPlatform = this.platform,
+            config: SessionConfig = this.config,
+            llmClient: LLMClient = this.llmClient,
+            modelCatalog: ModelCatalog = this.modelCatalog,
+            llmClientFactory: LLMClientFactory = this.llmClientFactory,
+            traceRecorder: TraceRecorder = this.traceRecorder,
+            recordingService: SessionRecordingService = this.recordingService,
+            userResponseChannel: UserResponseChannel = this.userResponseChannel
+    ): SessionServices {
+        return SessionServices(
+                toolRegistry = toolRegistry,
+                toolRouter = toolRouter,
+                historyManager = historyManager,
+                sessionState = sessionState,
+                policyEngine = policyEngine,
+                platform = platform,
+                config = config,
+                llmClient = llmClient,
+                modelCatalog = modelCatalog,
+                llmClientFactory = llmClientFactory,
+                traceRecorder = traceRecorder,
+                recordingService = recordingService,
+                userResponseChannel = userResponseChannel
+        )
     }
 
     /** Update the approval mode at runtime. */

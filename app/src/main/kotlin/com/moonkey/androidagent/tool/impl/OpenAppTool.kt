@@ -1,8 +1,8 @@
 package com.moonkey.androidagent.tool.impl
 
 import android.util.Log
-import com.moonkey.androidagent.perception.toSummary
 import com.moonkey.androidagent.platform.ActionResult
+import com.moonkey.androidagent.tool.action.buildObservation
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
@@ -205,13 +205,7 @@ private class OpenAppInvocation(
                 }
 
                 val observation = snapshot?.let {
-                    val tree = com.moonkey.androidagent.perception.Perceptor.toPromptJson(it)
-                    ToolObservation.ScreenState(
-                        accessibilityTree = tree,
-                        elementCount = it.elements.size,
-                        summary = it.toSummary(context.platform.getCurrentPackageName()),
-                        snapshot = it
-                    )
+                    buildObservation(it, context.platform)
                 }
 
                 ToolExecutionResult.Success(

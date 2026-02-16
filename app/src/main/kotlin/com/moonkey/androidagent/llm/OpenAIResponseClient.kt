@@ -9,7 +9,6 @@ import com.openai.models.responses.ResponseInputItem
 import com.openai.models.responses.FunctionTool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
@@ -81,29 +80,17 @@ class OpenAIResponseClient(
         Log.d(TAG, "Starting native streaming chat with ${inputItems.size} input items")
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
-        var lastException: Exception? = null
-        var backoffMs = LLMClient.INITIAL_BACKOFF_MS
-        var streamCompleted = false
-        var failureEmitted = false
+        val retryResult =
+            streamWithRetry(
+                tag = TAG,
+                emitToFlow = { event -> trySend(event) }
+            ) { attempt, emitter ->
+                var sawCompleted = false
+                var responseId: String? = null
+                val textAccumulator = StringBuilder()
+                val toolCalls = mutableListOf<LLMToolCall>()
 
-        for (attempt in 1..LLMClient.MAX_RETRIES) {
-            var emittedEvent = false
-            var sawCompleted = false
-            var responseId: String? = null
-            val textAccumulator = StringBuilder()
-            val toolCalls = mutableListOf<LLMToolCall>()
-
-            fun emit(event: LLMStreamEvent) {
-                if (event is LLMStreamEvent.Failed) {
-                    failureEmitted = true
-                }
-                emittedEvent = true
-                trySend(event)
-            }
-
-            try {
                 val params = buildResponseParams(systemPrompt, inputItems, tools, model)
-
                 Log.d(TAG, "Making streaming Responses API call to OpenAI (attempt $attempt)...")
 
                 withContext(Dispatchers.IO) {
@@ -113,25 +100,26 @@ class OpenAIResponseClient(
                                 event.isCreated() -> {
                                     val created = event.asCreated()
                                     responseId = created.response().id()
-                                    emit(LLMStreamEvent.Created(created.response().id()))
+                                    emitter.emit(LLMStreamEvent.Created(created.response().id()))
                                 }
                                 event.isOutputTextDelta() -> {
                                     val textDelta = event.asOutputTextDelta()
                                     textAccumulator.append(textDelta.delta())
-                                    emit(LLMStreamEvent.TextDelta(textDelta.delta()))
+                                    emitter.emit(LLMStreamEvent.TextDelta(textDelta.delta()))
                                 }
                                 event.isOutputItemDone() -> {
                                     val itemDone = event.asOutputItemDone()
                                     val item = itemDone.item()
                                     if (item.isFunctionCall()) {
                                         val funcCall = item.asFunctionCall()
-                                        val toolCall = LLMToolCall(
-                                            callId = funcCall.callId(),
-                                            name = funcCall.name(),
-                                            arguments = funcCall.arguments()
-                                        )
+                                        val toolCall =
+                                            LLMToolCall(
+                                                callId = funcCall.callId(),
+                                                name = funcCall.name(),
+                                                arguments = funcCall.arguments()
+                                            )
                                         toolCalls.add(toolCall)
-                                        emit(LLMStreamEvent.ToolCallDone(toolCall))
+                                        emitter.emit(LLMStreamEvent.ToolCallDone(toolCall))
                                     }
                                 }
                                 event.isCompleted() -> {
@@ -144,11 +132,11 @@ class OpenAIResponseClient(
                                             responseId = responseId ?: "unknown"
                                         )
                                     )
-                                    emit(LLMStreamEvent.Completed)
+                                    emitter.emit(LLMStreamEvent.Completed)
                                 }
                                 event.isFailed() -> {
                                     val failed = event.asFailed()
-                                    emit(LLMStreamEvent.Failed("Response failed: ${failed.response()}"))
+                                    emitter.emit(LLMStreamEvent.Failed("Response failed: ${failed.response()}"))
                                     throw RuntimeException("Response failed: ${failed.response()}")
                                 }
                             }
@@ -161,42 +149,15 @@ class OpenAIResponseClient(
                 }
 
                 Log.d(TAG, "Streaming completed successfully")
-                streamCompleted = true
-                break
-
-            } catch (e: Exception) {
-                val classified = OpenAIErrorClassifier.classify(e)
-                lastException = classified
-
-                when (
-                    val retryAction =
-                        CloudStreamRetryPolicy.decide(
-                            tag = TAG,
-                            classified = classified,
-                            attempt = attempt,
-                            emittedEvent = emittedEvent,
-                            backoffMs = backoffMs
-                        )
-                ) {
-                    is StreamRetryAction.FailAndStop -> {
-                        emit(LLMStreamEvent.Failed(retryAction.message))
-                        break
-                    }
-                    is StreamRetryAction.Retry -> {
-                        delay(retryAction.waitMs)
-                        backoffMs = retryAction.nextBackoffMs
-                        continue
-                    }
-                    StreamRetryAction.Stop -> break
-                }
             }
-        }
 
-        if (streamCompleted) {
+        if (retryResult.completed) {
             close()
         } else {
-            val error = lastException ?: RuntimeException("Stream completed with error flag but no error details")
-            if (!failureEmitted) {
+            val error =
+                retryResult.lastError
+                    ?: RuntimeException("Stream completed with error flag but no error details")
+            if (!retryResult.failureEmitted) {
                 trySend(LLMStreamEvent.Failed(error.message ?: "Unknown error"))
             }
             close(error)
