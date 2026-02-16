@@ -37,7 +37,8 @@
             android:name=".ui.viewer.VirtualDisplayViewerActivity"
             android:theme="@style/Theme.AndroidAgent.FullScreen"
             android:exported="false"
-            android:launchMode="singleTask" />
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true" />
 
         <service
             android:name=".app.AgentService"

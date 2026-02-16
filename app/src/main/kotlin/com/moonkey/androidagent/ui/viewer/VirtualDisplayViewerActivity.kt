@@ -74,6 +74,10 @@ class VirtualDisplayViewerActivity : ComponentActivity() {
         AgentService.instance?.notifyViewerHidden()
         // Notify service: hide capsule overlay, show island, set BACKGROUND context
         AgentService.instance?.onViewerClosed()
+        if (!isChangingConfigurations) {
+            // Keep viewer transient; returning to app should land on chat task, not a stale viewer task.
+            finish()
+        }
     }
 }
 
