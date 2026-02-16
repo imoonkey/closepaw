@@ -5,10 +5,8 @@ import com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
 import com.moonkey.androidagent.agent.cognition.prompt.PromptBuilder
 import com.moonkey.androidagent.history.ResponseItem
-import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
-import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.protocol.sanitizeThought
 import com.moonkey.androidagent.session.SessionServices
@@ -33,12 +31,12 @@ internal class TurnPlanningPhaseRunner(
         companion object {
                 private const val TAG = "TurnPlanningPhase"
         }
-
-        private data class ModelResolution(
-                val llmClient: LLMClient,
-                val modelId: String,
-                val supportsVision: Boolean
-        )
+        private val modelResolver =
+                AgentModelResolver(
+                        sessionLlmClient = services.llmClient,
+                        modelCatalog = services.modelCatalog,
+                        llmClientFactory = services.llmClientFactory
+                )
 
         suspend fun runPlanningPhase(
                 turnId: String,
@@ -49,7 +47,7 @@ internal class TurnPlanningPhaseRunner(
                 eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PLANNING)
                 eventDispatcher.status("🧠 Thinking...")
 
-                val model = resolveTurnModel()
+                val model = modelResolver.resolve(config.modelName)
 
                 val turn =
                         Turn(
@@ -149,25 +147,6 @@ internal class TurnPlanningPhaseRunner(
                 emitAgentThought(arbitration.selectedToolCalls, turnNumber)
 
                 return PlanningPhaseOutput(turnResult = result, arbitration = arbitration)
-        }
-
-        private fun resolveTurnModel(): ModelResolution {
-                return when (services.config.llmBackend) {
-                        LLMBackendType.LOCAL ->
-                                ModelResolution(
-                                        llmClient = services.llmClient,
-                                        modelId = config.modelName,
-                                        supportsVision = false
-                                )
-                        LLMBackendType.OPENAI -> {
-                                val modelEntry = services.modelCatalog.resolve(config.modelName)
-                                ModelResolution(
-                                        llmClient = services.llmClientFactory.create(config.modelName),
-                                        modelId = modelEntry.modelId,
-                                        supportsVision = modelEntry.supportsVision
-                                )
-                        }
-                }
         }
 
         /**
