@@ -5,12 +5,11 @@ import android.util.Log
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
+import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
-import com.moonkey.androidagent.protocol.resolvedBackendTypeCompat
-import com.moonkey.androidagent.protocol.resolvedLocalLlmConfigCompat
 import kotlinx.serialization.SerializationException
 
 internal data class SessionLlmBootstrap(
@@ -28,7 +27,7 @@ internal object SessionLlmBootstrapper {
             context: Context,
             apiKeys: Map<String, String>
     ): SessionLlmBootstrap {
-        val backend = config.resolvedBackendTypeCompat()
+        val backend = config.llm.backendType
         val modelCatalog = loadModelCatalog(context)
         Log.d(TAG, "Loaded ModelCatalog with ${modelCatalog.size} models: ${modelCatalog.names()}")
 
@@ -45,7 +44,7 @@ internal object SessionLlmBootstrapper {
                         llmClientFactory.create(config.mainModel)
                     }
                     LLMBackendType.LOCAL -> {
-                        val localConfig = config.resolvedLocalLlmConfigCompat()
+                        val localConfig = config.llm.localConfig ?: LocalLLMConfig()
                         LFMLLMClient(context, localConfig)
                     }
                 }

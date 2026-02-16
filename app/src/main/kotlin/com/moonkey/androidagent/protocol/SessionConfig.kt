@@ -16,33 +16,15 @@ data class SessionConfig(
         val actionDelayMs: Long = 2000,
         /** Approval mode for tool execution */
         val approvalMode: ApprovalMode = ApprovalMode.SMART,
-        /** LLM model to use (for cloud backends) — kept for backward compat with UI.
-         * @deprecated Use [mainModel] instead. Will be removed when UI migrates.
-         */
-        @Deprecated("Use mainModel instead", replaceWith = ReplaceWith("mainModel"))
-        val model: String = "gpt-5.2",
-        /** LLM backend type (cloud or local) — kept for backward compat with UI.
-         * @deprecated Will be removed when local LLM path migrates to ModelCatalog.
-         */
-        @Deprecated("Will be removed when local models migrate to catalog")
-        val llmBackend: LLMBackendType = LLMBackendType.OPENAI,
         /** Execution mode for main agent orchestration */
         val agentMode: AgentMode = AgentMode.PRO,
-        /** Local LLM configuration (used when llmBackend is LOCAL) — kept for backward compat.
-         * @deprecated Will be removed when local LLM path migrates to ModelCatalog.
-         */
-        @Deprecated("Will be removed when local models migrate to catalog")
-        val localLLMConfig: LocalLLMConfig? = null,
         /**
-         * Canonical LLM runtime routing config.
-         *
-         * New runtime code should use this field. Deprecated top-level fields are kept only for
-         * compatibility during migration.
+         * Canonical LLM runtime routing config (backend + local model params).
          */
         val llm: SessionLlmConfig =
                 SessionLlmConfig(
-                        backendType = llmBackend,
-                        localConfig = localLLMConfig
+                        backendType = LLMBackendType.OPENAI,
+                        localConfig = null
                 ),
         /** Enable verbose debug logging */
         val debugMode: Boolean = false,
@@ -55,11 +37,9 @@ data class SessionConfig(
         /**
          * Primary model name (key in llm_models.json) for standalone/planner agents.
          *
-         * Defaults to [model] for backward compatibility: when the UI sets only
-         * [model], [mainModel] inherits the same value. When constructing configs
-         * programmatically, prefer setting [mainModel] directly.
+         * Construct configs with [mainModel] directly.
          */
-        @Suppress("DEPRECATION") val mainModel: String = model,
+        val mainModel: String = "gpt-5.2",
         /**
          * Model name (key in llm_models.json) for executor agents in planner/executor mode.
          * When null, executor agents fall back to [mainModel].
@@ -111,21 +91,3 @@ enum class ApprovalMode {
         /** Smart mode: auto-approve low-risk, ask for high-risk */
         SMART
 }
-
-/**
- * Compatibility shim for legacy backend selection path.
- *
- * Keeps direct reads of deprecated [SessionConfig.llmBackend] centralized so migration to
- * model-catalog-only routing can happen in one place.
- */
-@Suppress("DEPRECATION")
-fun SessionConfig.resolvedBackendTypeCompat(): LLMBackendType = llm.backendType
-
-/**
- * Compatibility shim for legacy local backend config path.
- *
- * Keeps direct reads of deprecated [SessionConfig.localLLMConfig] centralized so migration to
- * model-catalog-only local routing can happen in one place.
- */
-@Suppress("DEPRECATION")
-fun SessionConfig.resolvedLocalLlmConfigCompat(): LocalLLMConfig = llm.localConfig ?: LocalLLMConfig()

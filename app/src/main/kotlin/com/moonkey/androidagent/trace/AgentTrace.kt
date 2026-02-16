@@ -7,7 +7,6 @@ import com.moonkey.androidagent.agent.TurnResult
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.SessionId
-import com.moonkey.androidagent.protocol.resolvedBackendTypeCompat
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.tool.ToolCallResult
 import com.moonkey.androidagent.tool.ToolObservation
@@ -50,7 +49,7 @@ internal class AgentTrace(
                     config.delegationCallId?.let { put("delegation_call_id", JsonPrimitive(it)) }
                     put("max_turns", JsonPrimitive(config.maxTurns))
                     put("ui_settle_delay_ms", JsonPrimitive(config.uiSettleDelayMs))
-                    put("llm_backend", JsonPrimitive(services.config.resolvedBackendTypeCompat().name))
+                    put("llm_backend", JsonPrimitive(services.config.llm.backendType.name))
                     put("model", JsonPrimitive(config.modelName))
                     put("main_model", JsonPrimitive(services.config.mainModel))
                     services.config.executorModel?.let {
