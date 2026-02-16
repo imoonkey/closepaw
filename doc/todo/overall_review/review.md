@@ -23,6 +23,7 @@ Date: 2026-02-16
   - [ ] Remove deprecated constructor fields after settings-side migration (`llmBackend`/`localLLMConfig`/`model`)
 - [ ] SessionServices decomposition
   - [x] LLM bootstrap path extracted from `SessionServices` into dedicated collaborator (`SessionLlmBootstrapper`)
+  - [x] Tool/policy/session-state bootstrap path extracted into `SessionToolingBootstrapper`
   - [ ] Continue splitting remaining concerns (history/tool wiring, summary/report helpers)
 
 ### Not Started
@@ -165,4 +166,8 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 
 11. Started SessionServices decomposition by extracting catalog+factory+client bootstrap into `SessionLlmBootstrapper`.
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionLlmBootstrapper.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
+
+12. Continued SessionServices decomposition by extracting tool/policy/session-state wiring into `SessionToolingBootstrapper`.
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionToolingBootstrapper.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
