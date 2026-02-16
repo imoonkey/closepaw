@@ -125,28 +125,7 @@ data class SessionServices(
 
     /** Get a summary of all services for debugging. */
     fun getSummary(): String {
-        return buildString {
-            appendLine("=== SessionServices Summary ===")
-            appendLine()
-            appendLine("Config:")
-            appendLine("  Main Model: ${config.mainModel}")
-            config.executorModel?.let { appendLine("  Executor Model: $it") }
-            appendLine("  Approval Mode: ${config.approvalMode}")
-            appendLine("  Max Turns: ${config.maxTurns}")
-            appendLine("  Action Delay: ${config.actionDelayMs}ms")
-            appendLine("  Debug Mode: ${config.debugMode}")
-            appendLine()
-            appendLine("Tools (${toolRegistry.size()}):")
-            toolRegistry.getNames().forEach { name -> appendLine("  - $name") }
-            appendLine()
-            appendLine("History:")
-            appendLine("  Items: ${historyManager.size()}")
-            appendLine("  Tokens: ~${historyManager.estimateTokenCount()}")
-            appendLine()
-            appendLine("Platform:")
-            appendLine("  Permissions OK: ${platform.hasRequiredPermissions()}")
-            appendLine("  Current Package: ${platform.getCurrentPackageName() ?: "unknown"}")
-        }
+        return SessionServicesSummaryFormatter.format(this)
     }
 
     /**
@@ -181,32 +160,5 @@ data class SessionServices(
         traceRecorder.close()
 
         Log.i(TAG, "SessionServices cleaned up")
-    }
-}
-
-/** Extension for creating SessionServices with additional options. */
-object SessionServicesBuilder {
-
-    /** Create SessionServices with custom tool configuration. */
-    fun createWithCustomTools(
-            config: SessionConfig,
-            platform: AndroidPlatform,
-            apiKeys: Map<String, String> = emptyMap(),
-            context: Context,
-            scope: CoroutineScope,
-            traceRecorder: TraceRecorder,
-            additionalTools: List<com.moonkey.androidagent.tool.ToolSpec> = emptyList(),
-            excludeTools: Set<String> = emptySet()
-    ): SessionServices {
-        val services =
-                SessionServices.create(config, platform, apiKeys, context, scope, traceRecorder)
-
-        // Remove excluded tools
-        excludeTools.forEach { name -> services.toolRegistry.unregister(name) }
-
-        // Add additional tools
-        additionalTools.forEach { tool -> services.toolRegistry.register(tool) }
-
-        return services
     }
 }
