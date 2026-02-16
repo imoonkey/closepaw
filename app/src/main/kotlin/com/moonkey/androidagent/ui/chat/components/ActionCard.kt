@@ -115,9 +115,10 @@ fun ActionCard(
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    if (data.resultSummary != null) {
+                    val resultSummary = data.resultSummary
+                    if (resultSummary != null) {
                         Text(
-                            text = data.resultSummary!!,
+                            text = resultSummary,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

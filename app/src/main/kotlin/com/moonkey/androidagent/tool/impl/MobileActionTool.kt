@@ -69,10 +69,20 @@ Actions:
 
         return MobileActionInvocation(params, description) { platform, snapshot, isCancelled ->
             when (action) {
-                "click" -> ClickExecutor().execute(target!!, snapshot, platform, isCancelled)
-                "long_press" -> LongPressExecutor().execute(
-                    target!!, params.optLong("duration_ms", 1000), snapshot, platform, isCancelled
-                )
+                "click" -> {
+                    val requiredTarget = requireTarget(action, target)
+                    ClickExecutor().execute(requiredTarget, snapshot, platform, isCancelled)
+                }
+                "long_press" -> {
+                    val requiredTarget = requireTarget(action, target)
+                    LongPressExecutor().execute(
+                        requiredTarget,
+                        params.optLong("duration_ms", 1000),
+                        snapshot,
+                        platform,
+                        isCancelled
+                    )
+                }
                 "type" -> TypeExecutor().execute(
                     target, params.getString("input_text"),
                     params.optBoolean("clear", false), snapshot, platform, isCancelled
@@ -118,7 +128,7 @@ Actions:
                 return ValidationResult.Invalid("x and y must be >= 0")
             }
         }
-        if (hasText && params.has("text_index") && !hasText) {
+        if (params.has("text_index") && !hasText) {
             return ValidationResult.Invalid("text_index requires text")
         }
 
@@ -230,6 +240,12 @@ Actions:
             if (hasText) add("text")
             if (hasCoords) add("x/y")
         }.joinToString(", ")
+    }
+
+    private fun requireTarget(action: String, target: Target?): Target {
+        return requireNotNull(target) {
+            "$action requires a target. Validate parameters before creating invocation."
+        }
     }
 
     // ============================================================

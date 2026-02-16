@@ -102,4 +102,30 @@ class SessionRecordingServiceTest {
             )
         )
     }
+
+    @Test
+    fun `completeSession finalizes pending agent buffer before persisting metadata`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val service = SessionRecordingService(storage, this)
+
+        service.initializeNewSession(model = "gpt-5.2", appVersion = "1.0")
+        val fileName = requireNotNull(service.getCurrentFileName())
+
+        service.recordUserMessage(id = "u1", timestamp = 100L, text = "hello")
+        service.startAgentMessage(id = "a1", timestamp = 120L)
+        service.appendTextDelta("final output")
+        service.completeSession()
+
+        advanceTimeBy(600L)
+        advanceUntilIdle()
+
+        val record = storage.readSession(fileName).getOrThrow()
+        val agentMessages = record.messages.filterIsInstance<MessageRecord.Agent>()
+        assertThat(agentMessages).hasSize(1)
+        assertThat(agentMessages.single().isComplete).isTrue()
+        assertThat(agentMessages.single().contentBlocks)
+            .contains(com.moonkey.androidagent.history.model.ContentBlockRecord.Text("final output"))
+    }
 }

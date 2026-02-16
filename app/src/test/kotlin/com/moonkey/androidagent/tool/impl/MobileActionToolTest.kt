@@ -128,6 +128,18 @@ class MobileActionToolTest {
     }
 
     @Test
+    fun `text_index without text is invalid`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "click")
+            .put("text_index", 1)
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
     fun `wait is no longer a mobile_action action`() {
         val tool = MobileActionTool()
         val params = JSONObject().put("action", "wait")

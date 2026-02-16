@@ -187,10 +187,9 @@ class SessionRecordingService(
 
     /** Mark session as completed normally. */
     fun completeSession() {
-        val session = currentSession ?: return
-
         // Finalize any pending agent message
         finalizeCurrentAgentMessage()
+        val session = currentSession ?: return
 
         // Extract summary from first user message if not set
         val summary =
