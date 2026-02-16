@@ -2,11 +2,7 @@ package com.moonkey.androidagent.agent
 
 import android.util.Log
 import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.protocol.AgentEvent
-import com.moonkey.androidagent.protocol.ScreenStatePhase
-import com.moonkey.androidagent.protocol.SessionId
-import com.moonkey.androidagent.protocol.Todo
-import com.moonkey.androidagent.protocol.TurnPhase
+import com.moonkey.androidagent.protocol.*
 
 class AgentEventDispatcher(
     private val sessionId: SessionId,
@@ -18,7 +14,7 @@ class AgentEventDispatcher(
 
     suspend fun status(status: String) {
         Log.d(TAG, "Status: $status")
-        eventEmitter(AgentEvent.StatusUpdate(
+        eventEmitter(StatusUpdate(
             sessionId = sessionId,
             timestamp = now(),
             status = status
@@ -27,7 +23,7 @@ class AgentEventDispatcher(
 
     suspend fun messageDelta(turnId: String, delta: String) {
         Log.d(TAG, "MessageDelta: turnId=$turnId, delta=${delta.take(50)}...")
-        eventEmitter(AgentEvent.MessageDelta(
+        eventEmitter(MessageDelta(
             sessionId = sessionId,
             timestamp = now(),
             turnId = turnId,
@@ -37,7 +33,7 @@ class AgentEventDispatcher(
 
     suspend fun actionProposed(actionId: String, toolName: String, description: String) {
         Log.d(TAG, "ActionProposed: $toolName - $description")
-        eventEmitter(AgentEvent.ActionProposed(
+        eventEmitter(ActionProposed(
             sessionId = sessionId,
             timestamp = now(),
             actionId = actionId,
@@ -47,7 +43,7 @@ class AgentEventDispatcher(
     }
 
     suspend fun turnStarted(turnId: String, turnNumber: Int) {
-        eventEmitter(AgentEvent.TurnStarted(
+        eventEmitter(TurnStarted(
             sessionId = sessionId,
             timestamp = now(),
             turnId = turnId,
@@ -57,7 +53,7 @@ class AgentEventDispatcher(
     }
 
     suspend fun turnPhaseChanged(turnId: String, phase: TurnPhase) {
-        eventEmitter(AgentEvent.TurnPhaseChanged(
+        eventEmitter(TurnPhaseChanged(
             sessionId = sessionId,
             timestamp = now(),
             turnId = turnId,
@@ -66,7 +62,7 @@ class AgentEventDispatcher(
     }
 
     suspend fun turnCompleted(turnId: String, turnNumber: Int) {
-        eventEmitter(AgentEvent.TurnCompleted(
+        eventEmitter(TurnCompleted(
             sessionId = sessionId,
             timestamp = now(),
             turnId = turnId,
@@ -83,7 +79,7 @@ class AgentEventDispatcher(
         phase: ScreenStatePhase,
         traceRunId: String?
     ) {
-        eventEmitter(AgentEvent.ScreenCaptured(
+        eventEmitter(ScreenCaptured(
             sessionId = sessionId,
             timestamp = now(),
             elementCount = snapshot.elements.size,
@@ -100,7 +96,7 @@ class AgentEventDispatcher(
     }
 
     suspend fun todosUpdated(todos: List<Todo>) {
-        eventEmitter(AgentEvent.TodosUpdated(
+        eventEmitter(TodosUpdated(
             sessionId = sessionId,
             timestamp = now(),
             todos = todos
@@ -108,7 +104,7 @@ class AgentEventDispatcher(
     }
 
     suspend fun scratchpadUpdated(key: String, action: String) {
-        eventEmitter(AgentEvent.ScratchpadUpdated(
+        eventEmitter(ScratchpadUpdated(
             sessionId = sessionId,
             timestamp = now(),
             key = key,
@@ -122,7 +118,7 @@ class AgentEventDispatcher(
      */
     suspend fun thoughtUpdate(thought: String) {
         Log.d(TAG, "ThoughtUpdate: $thought")
-        eventEmitter(AgentEvent.ThoughtUpdate(
+        eventEmitter(ThoughtUpdate(
             sessionId = sessionId,
             timestamp = now(),
             thought = thought
@@ -138,7 +134,7 @@ class AgentEventDispatcher(
         callId: String
     ) {
         Log.d(TAG, "AskUser: type=$type, message=${message.take(40)}, callId=$callId")
-        eventEmitter(AgentEvent.AskUser(
+        eventEmitter(AskUser(
             sessionId = sessionId,
             timestamp = now(),
             type = type,

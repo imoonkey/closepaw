@@ -5,10 +5,7 @@ import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.perception.toSummary
-import com.moonkey.androidagent.protocol.AgentEvent
-import com.moonkey.androidagent.protocol.ApprovalDetails
-import com.moonkey.androidagent.protocol.ScreenStatePhase
-import com.moonkey.androidagent.protocol.TurnPhase
+import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.tool.MobileActionName
 import com.moonkey.androidagent.tool.SimpleToolRouterContext
@@ -145,7 +142,7 @@ internal class TurnExecutionPhaseRunner(
                 )
 
                 eventEmitter(
-                        AgentEvent.ActionExecuted(
+                        ActionExecuted(
                                 sessionId = config.sessionId,
                                 timestamp = System.currentTimeMillis(),
                                 actionId = toolResult.callId,
@@ -161,7 +158,7 @@ internal class TurnExecutionPhaseRunner(
         private suspend fun emitApprovalRequired(details: ApprovalDetails) {
                 try {
                         eventEmitter(
-                                AgentEvent.ApprovalRequired(
+                                ApprovalRequired(
                                         sessionId = config.sessionId,
                                         timestamp = System.currentTimeMillis(),
                                         actionId = details.callId,

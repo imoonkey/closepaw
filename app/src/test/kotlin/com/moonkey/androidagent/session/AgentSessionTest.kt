@@ -8,12 +8,7 @@ import com.moonkey.androidagent.llm.LLMClientFactory
 import com.moonkey.androidagent.llm.LLMStreamEvent
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.ResponsesResult
-import com.moonkey.androidagent.protocol.AgentEvent
-import com.moonkey.androidagent.protocol.AgentMode
-import com.moonkey.androidagent.protocol.CompletionReason
-import com.moonkey.androidagent.protocol.Op
-import com.moonkey.androidagent.protocol.SessionConfig
-import com.moonkey.androidagent.protocol.SessionState
+import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.test.FakeAndroidPlatform
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
@@ -47,7 +42,7 @@ class AgentSessionTest {
                 advanceUntilIdle()
 
                 assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
-                val completed = events.filterIsInstance<AgentEvent.SessionCompleted>().single()
+                val completed = events.filterIsInstance<SessionCompleted>().single()
                 assertThat(completed.reason).isEqualTo(CompletionReason.USER_STOPPED)
 
                 job.cancel()
@@ -74,7 +69,7 @@ class AgentSessionTest {
 
                         assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
                         val completed =
-                                events.filterIsInstance<AgentEvent.SessionCompleted>().single()
+                                events.filterIsInstance<SessionCompleted>().single()
                         assertThat(completed.reason).isEqualTo(CompletionReason.USER_STOPPED)
 
                         job.cancel()

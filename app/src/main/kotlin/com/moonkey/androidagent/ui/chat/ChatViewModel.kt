@@ -8,8 +8,7 @@ import com.moonkey.androidagent.history.SessionHistoryManager
 import com.moonkey.androidagent.history.model.MessageConverter
 import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.model.SessionInfo
-import com.moonkey.androidagent.protocol.AgentEvent
-import com.moonkey.androidagent.protocol.Op
+import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.session.AgentSession
 import com.moonkey.androidagent.ui.chat.model.ActionCardData
 import com.moonkey.androidagent.ui.chat.model.ActionState
@@ -128,7 +127,7 @@ class ChatViewModel(
                 }
     }
 
-    /** Handle incoming AgentEvent. */
+    /** Handle incoming  */
     private fun handleEvent(event: AgentEvent) {
         eventReducer.handle(event)
     }
@@ -136,22 +135,22 @@ class ChatViewModel(
     private inner class EventReducer {
         fun handle(event: AgentEvent) {
             when (event) {
-                is AgentEvent.TaskStarted -> handleTaskStarted(event)
-                is AgentEvent.TurnStarted -> handleTurnStarted(event)
-                is AgentEvent.TurnPhaseChanged -> Unit
-                is AgentEvent.MessageDelta -> handleMessageDelta(event)
-                is AgentEvent.ActionProposed -> handleActionProposed(event)
-                is AgentEvent.ActionExecuted -> handleActionExecuted(event)
-                is AgentEvent.TaskCompleted -> handleTaskCompleted(event)
-                is AgentEvent.SessionError -> handleError(event)
-                is AgentEvent.SupplementReceived -> handleSupplement(event)
+                is TaskStarted -> handleTaskStarted(event)
+                is TurnStarted -> handleTurnStarted(event)
+                is TurnPhaseChanged -> Unit
+                is MessageDelta -> handleMessageDelta(event)
+                is ActionProposed -> handleActionProposed(event)
+                is ActionExecuted -> handleActionExecuted(event)
+                is TaskCompleted -> handleTaskCompleted(event)
+                is SessionError -> handleError(event)
+                is SupplementReceived -> handleSupplement(event)
                 else -> {
                     /* Ignore other events (ScreenCaptured, etc) */
                 }
             }
         }
 
-        private fun handleTaskStarted(event: AgentEvent.TaskStarted) {
+        private fun handleTaskStarted(event: TaskStarted) {
             // Update UI state — capsule mode is managed by CapsuleStateHolder
             _uiState.update { it.copy(showEmptyState = false) }
 
@@ -180,14 +179,14 @@ class ChatViewModel(
             )
         }
 
-        private fun handleTurnStarted(event: AgentEvent.TurnStarted) {
+        private fun handleTurnStarted(event: TurnStarted) {
             // Clear streaming buffer at turn start to properly segment text between turns
             // This prevents text from previous turns accumulating with new turn text
             android.util.Log.d(TAG, "TurnStarted: turn=${event.turnNumber}, clearing buffer")
             streamingBuffer.clear()
         }
 
-        private fun handleMessageDelta(event: AgentEvent.MessageDelta) {
+        private fun handleMessageDelta(event: MessageDelta) {
             android.util.Log.d(
                     TAG,
                     "MessageDelta received: turnId=${event.turnId}, delta=${event.delta.take(30)}..."
@@ -223,7 +222,7 @@ class ChatViewModel(
             }
         }
 
-        private fun handleActionProposed(event: AgentEvent.ActionProposed) {
+        private fun handleActionProposed(event: ActionProposed) {
             val newAction =
                     ActionCardData(
                             id = event.actionId,
@@ -246,7 +245,7 @@ class ChatViewModel(
             }
         }
 
-        private fun handleActionExecuted(event: AgentEvent.ActionExecuted) {
+        private fun handleActionExecuted(event: ActionExecuted) {
             val newState = if (event.success) ActionState.Success else ActionState.Failed
             val stateString = if (event.success) "success" else "failed"
 
@@ -290,7 +289,7 @@ class ChatViewModel(
             }
         }
 
-        private fun handleTaskCompleted(event: AgentEvent.TaskCompleted) {
+        private fun handleTaskCompleted(event: TaskCompleted) {
             // Capsule mode transitions are handled by CapsuleStateHolder
             val completionText = completionSummary(event.result)
 
@@ -305,12 +304,12 @@ class ChatViewModel(
             onTaskCompleted?.invoke()
         }
 
-        private fun handleError(event: AgentEvent.SessionError) {
+        private fun handleError(event: SessionError) {
             // Also mark any pending agent message as complete
             updateLastAgentMessage { msg -> msg.copy(state = AgentMessageState.Complete) }
         }
 
-        private fun handleSupplement(event: AgentEvent.SupplementReceived) {
+        private fun handleSupplement(event: SupplementReceived) {
             // Show supplement as a user message in chat history
             _messages.add(
                     ChatMessage.User(

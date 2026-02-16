@@ -6,8 +6,7 @@ import com.moonkey.androidagent.agent.subagent.AgentRegistry
 import com.moonkey.androidagent.agent.subagent.SubAgentRequest
 import com.moonkey.androidagent.agent.subagent.SubAgentResult
 import com.moonkey.androidagent.agent.subagent.SubAgentRunner
-import com.moonkey.androidagent.protocol.AgentEvent
-import com.moonkey.androidagent.protocol.SessionId
+import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.test.FakeAndroidPlatform
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
@@ -83,8 +82,8 @@ class DelegateTaskToolTest {
             "do not open settings"
         )
         assertThat(capturedRequests.single().delegationCallId).isEqualTo("call-123")
-        assertThat(events.filterIsInstance<AgentEvent.SubAgentStarted>()).hasSize(1)
-        assertThat(events.filterIsInstance<AgentEvent.SubAgentCompleted>()).hasSize(1)
+        assertThat(events.filterIsInstance<SubAgentStarted>()).hasSize(1)
+        assertThat(events.filterIsInstance<SubAgentCompleted>()).hasSize(1)
     }
 
     @Test

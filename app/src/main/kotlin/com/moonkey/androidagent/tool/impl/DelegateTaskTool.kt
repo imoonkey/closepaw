@@ -4,8 +4,7 @@ import com.moonkey.androidagent.agent.subagent.AgentDefinition
 import com.moonkey.androidagent.agent.subagent.AgentRegistry
 import com.moonkey.androidagent.agent.subagent.SubAgentRequest
 import com.moonkey.androidagent.agent.subagent.SubAgentRunner
-import com.moonkey.androidagent.protocol.AgentEvent
-import com.moonkey.androidagent.protocol.SessionId
+import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
@@ -160,7 +159,7 @@ private class DelegateTaskInvocation(
         val requestWithCallId = request.copy(delegationCallId = context.callId)
 
         eventEmitter(
-            AgentEvent.SubAgentStarted(
+            SubAgentStarted(
                 sessionId = sessionId,
                 timestamp = System.currentTimeMillis(),
                 agentName = definition.name,
@@ -171,7 +170,7 @@ private class DelegateTaskInvocation(
         val result = runnerFactory(definition).run(requestWithCallId)
 
         eventEmitter(
-            AgentEvent.SubAgentCompleted(
+            SubAgentCompleted(
                 sessionId = sessionId,
                 timestamp = System.currentTimeMillis(),
                 agentName = definition.name,

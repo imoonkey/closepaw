@@ -3,8 +3,7 @@ package com.moonkey.androidagent.app
 import android.util.Log
 import com.moonkey.androidagent.history.SessionRecordingService
 import com.moonkey.androidagent.history.model.ScreenStateRecord
-import com.moonkey.androidagent.protocol.AgentEvent
-import com.moonkey.androidagent.protocol.CompletionReason
+import com.moonkey.androidagent.protocol.*
 import java.util.UUID
 
 /**
@@ -27,7 +26,7 @@ internal class AgentServiceEventHandler(
         val overlay = overlayController()
 
         when (event) {
-            is AgentEvent.StatusUpdate -> {
+            is StatusUpdate -> {
                 val displayStatus = if (event.emoji != null) {
                     "${event.emoji} ${event.status}"
                 } else {
@@ -35,12 +34,12 @@ internal class AgentServiceEventHandler(
                 }
                 updateStatus(displayStatus)
             }
-            is AgentEvent.SessionStarted -> {
+            is SessionStarted -> {
                 Log.i(logTag, "Session started: ${event.sessionId}, goal: ${event.goal}")
             }
 
             // ===== Task Events (for SmartCapsule streaming) =====
-            is AgentEvent.TaskStarted -> {
+            is TaskStarted -> {
                 recordingService?.recordUserMessage(
                     UUID.randomUUID().toString(),
                     event.timestamp,
@@ -49,36 +48,36 @@ internal class AgentServiceEventHandler(
                 recordingService?.startAgentMessage(event.taskId, event.timestamp)
                 overlay?.onTaskStarted(event.taskId, event.input)
             }
-            is AgentEvent.MessageDelta -> {
+            is MessageDelta -> {
                 recordingService?.appendTextDelta(event.delta)
             }
-            is AgentEvent.ThoughtUpdate -> {
+            is ThoughtUpdate -> {
                 overlay?.onThoughtUpdate(event.thought)
             }
-            is AgentEvent.TurnPhaseChanged -> {
+            is TurnPhaseChanged -> {
                 overlay?.onTurnPhaseChanged(event.phase)
             }
-            is AgentEvent.ActionExecuted -> {
+            is ActionExecuted -> {
                 val state = if (event.success) "success" else "failed"
                 recordingService?.updateActionState(event.actionId, state, event.result)
                 overlay?.onActionExecuted(event.toolName, event.success)
             }
-            is AgentEvent.SubAgentStarted -> {
+            is SubAgentStarted -> {
                 updateStatus("🤖 Delegating to ${event.agentName}...")
             }
-            is AgentEvent.SubAgentActivity -> {
+            is SubAgentActivity -> {
                 // Activity events can be very frequent; keep UI/log noise low.
             }
-            is AgentEvent.SubAgentCompleted -> {
+            is SubAgentCompleted -> {
                 val status = if (event.success) "completed" else "failed"
                 updateStatus("🤖 ${event.agentName} $status")
             }
-            is AgentEvent.TaskCompleted -> {
+            is TaskCompleted -> {
                 Log.i(logTag, "Task completed: ${event.taskId}, reason: ${event.reason}")
                 recordingService?.completeAgentMessage()
                 overlay?.onTaskCompleted(event.reason, event.result)
             }
-            is AgentEvent.ActionProposed -> {
+            is ActionProposed -> {
                 recordingService?.recordAction(
                     actionId = event.actionId,
                     toolName = event.toolName,
@@ -86,7 +85,7 @@ internal class AgentServiceEventHandler(
                     state = "proposed"
                 )
             }
-            is AgentEvent.ScreenCaptured -> {
+            is ScreenCaptured -> {
                 recordingService?.recordScreenState(
                     ScreenStateRecord(
                         id = UUID.randomUUID().toString(),
@@ -106,7 +105,7 @@ internal class AgentServiceEventHandler(
             }
 
             // ===== Session Lifecycle Events =====
-            is AgentEvent.SessionCompleted -> {
+            is SessionCompleted -> {
                 Log.i(logTag, "Session completed: ${event.sessionId}, reason: ${event.reason}")
                 val statusMessage = when (event.reason) {
                     CompletionReason.GOAL_ACHIEVED -> "✅ Goal achieved!"
@@ -120,24 +119,24 @@ internal class AgentServiceEventHandler(
                 overlay?.onSessionCompleted(event.reason)
                 sessionCleared()
             }
-            is AgentEvent.SessionError -> {
+            is SessionError -> {
                 Log.e(logTag, "Session error: ${event.error.message}")
                 updateStatus("❌ Error: ${event.error.message}")
                 overlay?.onSessionError(event.error.message)
             }
-            is AgentEvent.SessionTakeover -> {
+            is SessionTakeover -> {
                 Log.i(logTag, "Session takeover: ${event.sessionId}")
                 overlay?.onSessionTakeover()
             }
-            is AgentEvent.SessionResumed -> {
+            is SessionResumed -> {
                 Log.i(logTag, "Session resumed: ${event.sessionId}")
                 overlay?.onSessionResumed()
             }
-            is AgentEvent.SupplementReceived -> {
+            is SupplementReceived -> {
                 Log.i(logTag, "Supplement received: ${event.text.take(30)}")
                 overlay?.onSupplementReceived(event.text)
             }
-            is AgentEvent.AskUser -> {
+            is AskUser -> {
                 Log.i(logTag, "AskUser: type=${event.type}, callId=${event.callId}")
                 overlay?.onAskUser(event.type, event.message, event.callId)
             }

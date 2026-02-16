@@ -170,7 +170,7 @@ private constructor(
     internal fun emitStatus(status: String, emoji: String? = null) {
         scope.launch {
             emit(
-                    AgentEvent.StatusUpdate(
+                    StatusUpdate(
                             sessionId = sessionId,
                             timestamp = now(),
                             status = status,
@@ -210,7 +210,7 @@ private constructor(
             }
 
             emit(
-                    AgentEvent.SessionStarted(
+                    SessionStarted(
                             sessionId = sessionId,
                             timestamp = now(),
                             goal = op.text // Treat first input as "goal" for compatibility
@@ -224,7 +224,7 @@ private constructor(
         _state.value = SessionState.Running
 
         emit(
-                AgentEvent.TaskStarted(
+                TaskStarted(
                         sessionId = sessionId,
                         timestamp = now(),
                         taskId = taskId,
@@ -262,7 +262,7 @@ private constructor(
                 }
 
         emit(
-                AgentEvent.TaskCompleted(
+                TaskCompleted(
                         sessionId = sessionId,
                         timestamp = now(),
                         taskId = taskId,
@@ -298,7 +298,7 @@ private constructor(
         _state.value = SessionState.Paused
         confirmed.await()
 
-        emit(AgentEvent.SessionTakeover(sessionId = sessionId, timestamp = now()))
+        emit(SessionTakeover(sessionId = sessionId, timestamp = now()))
 
         Log.i(TAG, "Session takeover (paused): $sessionId")
     }
@@ -313,7 +313,7 @@ private constructor(
 
         agentRunner.resume()
 
-        emit(AgentEvent.SessionResumed(sessionId = sessionId, timestamp = now()))
+        emit(SessionResumed(sessionId = sessionId, timestamp = now()))
 
         Log.i(TAG, "Session resumed: $sessionId")
     }
@@ -333,7 +333,7 @@ private constructor(
             )
         )
 
-        emit(AgentEvent.SupplementReceived(sessionId = sessionId, timestamp = now(), text = text))
+        emit(SupplementReceived(sessionId = sessionId, timestamp = now(), text = text))
 
         Log.i(TAG, "Supplement received: ${text.take(50)}")
     }
@@ -383,7 +383,7 @@ private constructor(
                 else -> CompletionReason.INTERRUPTED
             }
             emit(
-                    AgentEvent.SessionCompleted(
+                    SessionCompleted(
                             sessionId = sessionId,
                             timestamp = now(),
                             result = null,
@@ -401,7 +401,7 @@ private constructor(
 
         // Emit ApprovalResolved event
         emit(
-                AgentEvent.ApprovalResolved(
+                ApprovalResolved(
                         sessionId = sessionId,
                         timestamp = now(),
                         actionId = op.actionId,

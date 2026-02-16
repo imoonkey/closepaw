@@ -9,8 +9,7 @@ import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
-import com.moonkey.androidagent.protocol.AgentEvent
-import com.moonkey.androidagent.protocol.SessionId
+import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.session.AgentSessionState
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.tool.ToolRouter
@@ -207,17 +206,17 @@ class IsolatedSubAgentRunner(
 
     private suspend fun bridgeEvent(event: AgentEvent) {
         val activity = when (event) {
-            is AgentEvent.ActionProposed -> "proposed ${event.toolName}: ${event.description}"
-            is AgentEvent.ActionExecuted -> {
+            is ActionProposed -> "proposed ${event.toolName}: ${event.description}"
+            is ActionExecuted -> {
                 val state = if (event.success) "success" else "failed"
                 "executed ${event.toolName}: $state"
             }
-            is AgentEvent.SessionError -> "error: ${event.error.message}"
+            is SessionError -> "error: ${event.error.message}"
             else -> return
         }
 
         eventEmitter(
-            AgentEvent.SubAgentActivity(
+            SubAgentActivity(
                 sessionId = parentSessionId,
                 timestamp = System.currentTimeMillis(),
                 agentName = definition.name,
