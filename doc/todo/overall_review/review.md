@@ -22,6 +22,7 @@ Date: 2026-02-16
   - [ ] Continue extracting request/stream lifecycle scaffold where practical without over-abstraction
 - [ ] Tool system DRY-up + prompt composition consolidation
   - [x] Added shared `textToolSuccess(...)` helper for text-only tool success outputs
+  - [x] Added shared `appendReason(...)` helper for consistent reason suffix in tool descriptions
   - [ ] Continue consolidating description/observation/result boilerplate across tool implementations
 
 ### Not Started
@@ -204,3 +205,10 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/WriteTodosTool.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ScratchpadTool.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt`
+
+20. Continued tool-system DRY-up by extracting shared `appendReason(...)` helper and reusing it in tool description builders.
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/WriteTodosTool.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ScratchpadTool.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/OpenAppTool.kt`
