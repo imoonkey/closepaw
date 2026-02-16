@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.platform.virtualdisplay
 
 import android.accessibilityservice.AccessibilityService
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.media.ImageReader
@@ -18,7 +17,6 @@ import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.AppInfo
-import com.moonkey.androidagent.platform.AppManager
 import com.moonkey.androidagent.platform.DisplayInfo
 import com.moonkey.androidagent.platform.NodeActionPerformer
 import com.moonkey.androidagent.platform.UIAction
@@ -90,6 +88,12 @@ class VirtualDisplayPlatform(
                     service = service,
                     sessionConfig = sessionConfig,
                     traceRecorder = traceRecorder
+            )
+    private val appController =
+            VirtualDisplayAppController(
+                    service = service,
+                    shizuku = shizuku,
+                    displayIdProvider = displayIdProvider
             )
     private val viewerTouchHandler =
             VirtualDisplayViewerTouchHandler(
@@ -412,22 +416,10 @@ class VirtualDisplayPlatform(
         // Safety net: dismiss keyboard on main display after text actions.
         // Even with allowTapToFocus=false, some apps auto-focus fields on window attach.
         if (action is UIAction.SetTextOnNodeAt || action is UIAction.SetTextOnFocused) {
-            dismissMainDisplayKeyboard()
+            appController.dismissMainDisplayKeyboard()
         }
 
         return result
-    }
-
-    /**
-     * Dismiss keyboard on display 0 (real screen). KEYCODE_BACK on display 0 dismisses IME if
-     * showing, benign if not.
-     */
-    private fun dismissMainDisplayKeyboard() {
-        try {
-            shizuku.executeShellCommand(arrayOf("input", "keyevent", "--display", "0", "4"))
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to dismiss main display keyboard", e)
-        }
     }
 
     override fun hasRequiredPermissions(): Boolean {
@@ -452,52 +444,10 @@ class VirtualDisplayPlatform(
     }
 
     override suspend fun getInstalledApps(): List<AppInfo> {
-        return withContext(Dispatchers.IO) {
-            try {
-                AppManager.getInstalledApps(service.packageManager)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to get installed apps", e)
-                emptyList()
-            }
-        }
+        return appController.getInstalledApps()
     }
 
     override suspend fun launchApp(packageName: String): ActionResult {
-        return withContext(Dispatchers.IO) {
-            try {
-                val launchIntent =
-                        service.packageManager.getLaunchIntentForPackage(packageName)
-                                ?: return@withContext ActionResult.Failure(
-                                        "App not found or not launchable: $packageName"
-                                )
-
-                val component = launchIntent.component?.flattenToShortString()
-                val shizukuAvailable = shizuku.isAvailable()
-                Log.d(TAG, "launchApp: component=$component, shizukuAvailable=$shizukuAvailable")
-
-                if (component != null && shizukuAvailable) {
-                    Log.d(TAG, "Launching $component on display $displayId via shell")
-                    // Remove -W to avoid Shizuku process wait issues (process hasn't exited
-                    // exception)
-                    val cmd = arrayOf("am", "start", "-n", component, "--display", "$displayId")
-                    val code = shizuku.executeShellCommand(cmd)
-                    if (code == 0) {
-                        return@withContext ActionResult.Success(
-                                "Launched $component on display $displayId (shell)"
-                        )
-                    }
-                    Log.w(TAG, "Shell launch failed (code $code), falling back to intent")
-                }
-
-                launchIntent.addFlags(
-                        Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
-                )
-                shizuku.launchOnDisplay(service, launchIntent, displayId)
-                ActionResult.Success("Launched $packageName on display $displayId (intent)")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to launch $packageName on display $displayId", e)
-                ActionResult.Failure("Failed to launch $packageName: ${e.message}")
-            }
-        }
+        return appController.launchApp(packageName)
     }
 }
