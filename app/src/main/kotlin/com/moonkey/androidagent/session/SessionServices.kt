@@ -10,13 +10,13 @@ import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
-import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.resolvedBackendTypeCompat
+import com.moonkey.androidagent.protocol.resolvedLocalLlmConfigCompat
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -121,7 +121,7 @@ data class SessionServices(
                         }
                         LLMBackendType.LOCAL -> {
                             requireNotNull(context) { "Context is required for local LLM backend" }
-                            val localConfig = config.localLLMConfig ?: LocalLLMConfig()
+                            val localConfig = config.resolvedLocalLlmConfigCompat()
                             LFMLLMClient(context, localConfig)
                         }
                     }

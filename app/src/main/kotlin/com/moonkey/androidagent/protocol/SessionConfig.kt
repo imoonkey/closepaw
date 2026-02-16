@@ -103,3 +103,12 @@ enum class ApprovalMode {
  */
 @Suppress("DEPRECATION")
 fun SessionConfig.resolvedBackendTypeCompat(): LLMBackendType = llmBackend
+
+/**
+ * Compatibility shim for legacy local backend config path.
+ *
+ * Keeps direct reads of deprecated [SessionConfig.localLLMConfig] centralized so migration to
+ * model-catalog-only local routing can happen in one place.
+ */
+@Suppress("DEPRECATION")
+fun SessionConfig.resolvedLocalLlmConfigCompat(): LocalLLMConfig = localLLMConfig ?: LocalLLMConfig()
