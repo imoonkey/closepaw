@@ -1,5 +1,6 @@
 package com.moonkey.androidagent.app
 
+import android.view.Display
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
@@ -35,9 +36,13 @@ internal fun resolveUserLocation(
     appPackage: String,
     packageName: String?,
     className: String?,
+    displayId: Int? = null,
 ): OverlayUserLocation? {
     if (!isActivityWindowClass(className)) return null
     if (packageName == null) return null
+    // Ignore non-default display activity windows to prevent VD app windows from
+    // flipping location while user stays in MainActivity on the real screen.
+    if (displayId != null && displayId != Display.DEFAULT_DISPLAY) return null
     if (packageName != appPackage) return OverlayUserLocation.OTHER_APP
 
     val normalizedClassName = className?.substringBefore('$') ?: return null

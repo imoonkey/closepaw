@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.util.Log
+import android.view.Display
 import android.view.SurfaceView
 import android.view.accessibility.AccessibilityEvent
 import com.moonkey.androidagent.BuildConfig
@@ -199,9 +200,15 @@ class AgentService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         // Detect when our app goes to foreground/background to show/hide capsule
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val eventDisplayId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                event.displayId
+            } else {
+                Display.DEFAULT_DISPLAY
+            }
             overlayController?.handleWindowStateChanged(
                     packageName = event.packageName?.toString(),
-                    className = event.className?.toString()
+                    className = event.className?.toString(),
+                    displayId = eventDisplayId,
             )
         }
     }

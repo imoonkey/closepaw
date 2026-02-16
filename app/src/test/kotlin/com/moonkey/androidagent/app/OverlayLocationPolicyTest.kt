@@ -1,5 +1,6 @@
 package com.moonkey.androidagent.app
 
+import android.view.Display
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
@@ -46,6 +47,28 @@ class OverlayLocationPolicyTest {
             className = "android.widget.FrameLayout",
         )
         assertThat(location).isNull()
+    }
+
+    @Test
+    fun `resolve user location ignores non-default display windows`() {
+        val location = resolveUserLocation(
+            appPackage = "com.moonkey.androidagent",
+            packageName = "com.google.android.youtube",
+            className = "com.google.android.apps.youtube.app.watchwhile.MainActivity",
+            displayId = 85,
+        )
+        assertThat(location).isNull()
+    }
+
+    @Test
+    fun `resolve user location accepts default display windows`() {
+        val location = resolveUserLocation(
+            appPackage = "com.moonkey.androidagent",
+            packageName = "com.google.android.youtube",
+            className = "com.google.android.apps.youtube.app.watchwhile.MainActivity",
+            displayId = Display.DEFAULT_DISPLAY,
+        )
+        assertThat(location).isEqualTo(OverlayUserLocation.OTHER_APP)
     }
 
     @Test

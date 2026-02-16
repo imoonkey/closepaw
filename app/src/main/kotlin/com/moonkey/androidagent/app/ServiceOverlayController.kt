@@ -214,8 +214,8 @@ class ServiceOverlayController(
         statusIslandManager?.dispose()
     }
 
-    fun handleWindowStateChanged(packageName: String?, className: String?) {
-        handleWindowStateChangedInternal(packageName, className)
+    fun handleWindowStateChanged(packageName: String?, className: String?, displayId: Int?) {
+        handleWindowStateChangedInternal(packageName, className, displayId)
     }
 
     /**
@@ -299,17 +299,22 @@ class ServiceOverlayController(
 
     // ── Private: window tracking (shared between A11y and VD) ──
 
-    private fun handleWindowStateChangedInternal(packageName: String?, className: String?) {
+    private fun handleWindowStateChangedInternal(
+        packageName: String?,
+        className: String?,
+        displayId: Int?,
+    ) {
         val nextLocation = resolveUserLocation(
             appPackage = appPackage,
             packageName = packageName,
             className = className,
+            displayId = displayId,
         ) ?: return
 
         if (nextLocation != userLocation) {
             Log.d(
                 logTag,
-                "Window changed: pkg=$packageName, class=$className, " +
+                "Window changed: pkg=$packageName, class=$className, displayId=$displayId, " +
                     "from=$userLocation, to=$nextLocation, hasActiveTask=${stateHolder.hasActiveTask}"
             )
             userLocation = nextLocation
