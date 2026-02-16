@@ -82,6 +82,7 @@ class ShizukuClient {
     private val shellExecutor = ShizukuShellExecutor()
     private val proxyProvider = ShizukuServiceProxyProvider()
     private val displayTransport = ShizukuDisplayTransport(proxyProvider)
+    private val inputTransport = ShizukuInputTransport(proxyProvider)
 
     /**
      * Create a virtual display via IDisplayManager through Shizuku.
@@ -127,19 +128,7 @@ class ShizukuClient {
      * @return true if injection succeeded
      */
     fun injectInputEvent(event: InputEvent, mode: Int = INJECT_MODE_WAIT): Boolean {
-        return try {
-            val proxy = getInputManagerProxy()
-            val method =
-                    proxy.javaClass.getMethod(
-                            "injectInputEvent",
-                            InputEvent::class.java,
-                            Int::class.javaPrimitiveType
-                    )
-            method.invoke(proxy, event, mode) as Boolean
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to inject input event", e)
-            false
-        }
+        return inputTransport.injectInputEvent(event, mode)
     }
 
     // ── App Launch ──────────────────────────────────────────────
@@ -191,7 +180,4 @@ class ShizukuClient {
 
     // ── Private: Binder Proxy Acquisition ───────────────────────
 
-    private fun getInputManagerProxy(): Any {
-        return proxyProvider.inputManagerProxy()
-    }
 }
