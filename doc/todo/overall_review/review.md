@@ -20,9 +20,11 @@ Date: 2026-02-16
   - [x] Shared cloud retry/backoff policy extracted to `CloudLlmRetry`
   - [x] Shared cloud streaming retry/error decision policy extracted to `CloudStreamRetryPolicy`
   - [ ] Continue extracting request/stream lifecycle scaffold where practical without over-abstraction
+- [ ] Tool system DRY-up + prompt composition consolidation
+  - [x] Added shared `textToolSuccess(...)` helper for text-only tool success outputs
+  - [ ] Continue consolidating description/observation/result boilerplate across tool implementations
 
 ### Not Started
-- [ ] Tool system DRY-up + prompt composition consolidation
 
 ## Sources Referenced
 - `doc/todo/overall_review/review_claude.md`
@@ -196,3 +198,9 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/main/kotlin/com/moonkey/androidagent/llm/CloudStreamRetryPolicy.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt`
+
+19. Started tool-system DRY-up by introducing shared `textToolSuccess(...)` helper and applying it to multiple text-oriented tools.
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/WriteTodosTool.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ScratchpadTool.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt`
