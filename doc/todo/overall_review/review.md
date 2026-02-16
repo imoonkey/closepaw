@@ -74,9 +74,9 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/test/kotlin/com/moonkey/androidagent/tool/impl/MobileActionToolTest.kt`
 
 ## Suggested Next Refactor Phase
-1. Continue VirtualDisplay stack decomposition: split surface/capture state transitions into explicit collaborators.
+1. Continue VirtualDisplay stack decomposition: split remaining orchestration from `VirtualDisplayPlatform` and start `ShizukuClient` transport decomposition.
 2. Continue protocol domain split from `AgentEvent.kt` into event-domain focused files.
-3. Continue SessionConfig cleanup: shrink deprecated `llmBackend/localLLMConfig/model` compatibility surface.
+3. Continue SessionConfig cleanup Phase 2: shrink deprecated `llmBackend/localLLMConfig/model` compatibility surface.
 
 ## Follow-up Progress (2026-02-16)
 1. Extracted turn error classification policy into `TurnErrorClassifier` and added dedicated regression tests.
@@ -104,4 +104,10 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayViewerTouchHandler.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayScreenshotProcessor.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayAppController.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplaySurfaceController.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt`
+
+7. Moved session configuration types out of `Op.kt` into focused protocol file (Phase 1 config cleanup).
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionConfig.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/Op.kt`
