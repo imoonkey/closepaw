@@ -10,6 +10,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
+import com.moonkey.androidagent.ui.theme.ChatTheme
 
 /**
  * Small utility for WindowManager overlays backed by ComposeView.
@@ -36,7 +37,11 @@ class OverlayComposeHost(
                 setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
                 setViewTreeLifecycleOwner(lifecycleOwner)
                 setViewTreeSavedStateRegistryOwner(savedStateRegistryOwner)
-                setContent(content)
+                setContent {
+                    ChatTheme {
+                        content()
+                    }
+                }
             }
             windowManager.addView(view, layoutParams)
             composeView = view

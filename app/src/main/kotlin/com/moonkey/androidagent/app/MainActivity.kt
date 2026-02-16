@@ -209,12 +209,18 @@ class MainActivity : ComponentActivity() {
         Log.d(TAG, "onNewIntent called")
         setIntent(intent)
         handleIntent(intent)
+        AgentService.instance?.onMainAppVisible()
     }
 
     override fun onStart() {
         super.onStart()
         AgentService.instance?.onMainAppVisible()
         rebindActiveServiceSessionIfNeeded()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        AgentService.instance?.onMainAppVisible()
     }
 
     override fun onDestroy() {

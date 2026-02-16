@@ -1,12 +1,6 @@
 package com.moonkey.androidagent.ui.capsule.surface
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -115,13 +109,8 @@ fun SmartCapsuleSurface(
             modifier = Modifier
                 .padding(horizontal = 16.dp)
                 .navigationBarsPadding()
-                .animateContentSize()
         ) {
-            AnimatedVisibility(
-                visible = isTaskActive,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
+            if (isTaskActive) {
                 Column {
                     Spacer(Modifier.height(12.dp))
                     CapsuleRow1(spec = renderSpec, onClick = onRow1Click)

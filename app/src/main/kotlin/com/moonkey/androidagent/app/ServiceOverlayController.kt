@@ -82,7 +82,7 @@ class ServiceOverlayController(
                 this@ServiceOverlayController.onUserResponse(callId, response)
             }
         }
-        this.onOpenApp = this@ServiceOverlayController.onOpenApp
+        this.onOpenApp = { openMainAppAndHideOverlays() }
         this.onDismissError = {
             stateHolder.onDismissError()
         }
@@ -166,7 +166,7 @@ class ServiceOverlayController(
     fun onIslandTapped() {
         val mode = stateHolder.mode.value
         if (shouldOpenAppWhenIslandTapped(stateHolder.hasActiveTask, mode)) {
-            onOpenApp()
+            openMainAppAndHideOverlays()
             return
         }
         when (platformMode) {
@@ -180,7 +180,7 @@ class ServiceOverlayController(
                     applyVisibility()
                 } else {
                     // Open VD viewer — onViewerOpened() handles capsule + island swap
-                    onOpenViewer?.invoke() ?: onOpenApp()
+                    onOpenViewer?.invoke() ?: openMainAppAndHideOverlays()
                 }
             }
         }
@@ -331,5 +331,10 @@ class ServiceOverlayController(
     private fun refreshGlowState() {
         if (!edgeGlowManager.isShowing()) return
         edgeGlowManager.updateState(stateHolder.derivedGlowState)
+    }
+
+    private fun openMainAppAndHideOverlays() {
+        onMainAppVisible()
+        onOpenApp()
     }
 }

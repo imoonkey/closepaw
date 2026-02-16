@@ -140,16 +140,19 @@ fun ChatTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as Activity).window
-            // Set status bar icons based on theme
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
-            
-            // On API < 35, we need to explicitly set bar colors.
-            if (Build.VERSION.SDK_INT < 35) {
-                @Suppress("DEPRECATION")
-                window.statusBarColor = colorScheme.background.toArgb()
-                @Suppress("DEPRECATION")
-                window.navigationBarColor = colorScheme.background.toArgb()
+            val activity = view.context as? Activity
+            if (activity != null) {
+                val window = activity.window
+                // Set status bar icons based on theme
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+
+                // On API < 35, we need to explicitly set bar colors.
+                if (Build.VERSION.SDK_INT < 35) {
+                    @Suppress("DEPRECATION")
+                    window.statusBarColor = colorScheme.background.toArgb()
+                    @Suppress("DEPRECATION")
+                    window.navigationBarColor = colorScheme.background.toArgb()
+                }
             }
         }
     }
