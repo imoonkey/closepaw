@@ -24,6 +24,7 @@ Date: 2026-02-16
 - [ ] SessionServices decomposition
   - [x] LLM bootstrap path extracted from `SessionServices` into dedicated collaborator (`SessionLlmBootstrapper`)
   - [x] Tool/policy/session-state bootstrap path extracted into `SessionToolingBootstrapper`
+  - [x] History/recording bootstrap path extracted into `SessionHistoryBootstrapper`
   - [ ] Continue splitting remaining concerns (history/tool wiring, summary/report helpers)
 
 ### Not Started
@@ -170,4 +171,8 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 
 12. Continued SessionServices decomposition by extracting tool/policy/session-state wiring into `SessionToolingBootstrapper`.
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionToolingBootstrapper.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
+
+13. Continued SessionServices decomposition by extracting history manager + recording service wiring into `SessionHistoryBootstrapper`.
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionHistoryBootstrapper.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
