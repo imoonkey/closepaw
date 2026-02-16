@@ -11,6 +11,7 @@ import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionId
+import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.session.AgentSessionState
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.test.FakeAndroidPlatform
@@ -108,9 +109,12 @@ private fun buildServices(traceRecorder: TraceRecorder): SessionServices {
         val policyEngine = PolicyEngine()
         val toolRouter = ToolRouter(toolRegistry, policyEngine)
         val platform = FakeAndroidPlatform()
-        @Suppress("DEPRECATION")
         val config =
-                SessionConfig(maxTurns = 1, actionDelayMs = 0, llmBackend = LLMBackendType.OPENAI)
+                SessionConfig(
+                        maxTurns = 1,
+                        actionDelayMs = 0,
+                        llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
+                )
         val testCatalog =
                 ModelCatalog.fromJson(
                         """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""

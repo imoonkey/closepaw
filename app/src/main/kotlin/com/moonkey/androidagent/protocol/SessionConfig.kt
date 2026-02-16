@@ -33,6 +33,17 @@ data class SessionConfig(
          */
         @Deprecated("Will be removed when local models migrate to catalog")
         val localLLMConfig: LocalLLMConfig? = null,
+        /**
+         * Canonical LLM runtime routing config.
+         *
+         * New runtime code should use this field. Deprecated top-level fields are kept only for
+         * compatibility during migration.
+         */
+        val llm: SessionLlmConfig =
+                SessionLlmConfig(
+                        backendType = llmBackend,
+                        localConfig = localLLMConfig
+                ),
         /** Enable verbose debug logging */
         val debugMode: Boolean = false,
         /** Persist a full JSONL trace (for inspection_tool) */
@@ -59,6 +70,12 @@ data class SessionConfig(
         val executorModel: String? = null,
         /** Platform mode: real screen (accessibility) or virtual display (Shizuku) */
         val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
+)
+
+/** Canonical LLM routing config used at runtime. */
+data class SessionLlmConfig(
+        val backendType: LLMBackendType = LLMBackendType.OPENAI,
+        val localConfig: LocalLLMConfig? = null
 )
 
 /** Platform mode — which display the agent operates on. */
@@ -102,7 +119,7 @@ enum class ApprovalMode {
  * model-catalog-only routing can happen in one place.
  */
 @Suppress("DEPRECATION")
-fun SessionConfig.resolvedBackendTypeCompat(): LLMBackendType = llmBackend
+fun SessionConfig.resolvedBackendTypeCompat(): LLMBackendType = llm.backendType
 
 /**
  * Compatibility shim for legacy local backend config path.
@@ -111,4 +128,4 @@ fun SessionConfig.resolvedBackendTypeCompat(): LLMBackendType = llmBackend
  * model-catalog-only local routing can happen in one place.
  */
 @Suppress("DEPRECATION")
-fun SessionConfig.resolvedLocalLlmConfigCompat(): LocalLLMConfig = localLLMConfig ?: LocalLLMConfig()
+fun SessionConfig.resolvedLocalLlmConfigCompat(): LocalLLMConfig = llm.localConfig ?: LocalLLMConfig()

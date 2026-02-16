@@ -7,6 +7,7 @@ import com.moonkey.androidagent.llm.ChatCompletionClient
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
+import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.test.FakeAndroidPlatform
 import com.moonkey.androidagent.trace.NoopTraceRecorder
 import io.mockk.every
@@ -20,9 +21,12 @@ class SessionServicesProviderRoutingTest {
   @Test
   fun `openrouter model works without openai key`() {
     val context = contextWithCatalog()
-    @Suppress("DEPRECATION")
     val config =
-            SessionConfig(llmBackend = LLMBackendType.OPENAI, mainModel = "glm-4.7", maxTurns = 1)
+            SessionConfig(
+                    llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
+                    mainModel = "glm-4.7",
+                    maxTurns = 1
+            )
     val services =
             SessionServices.create(
                     config = config,
@@ -42,10 +46,9 @@ class SessionServicesProviderRoutingTest {
   @Test
   fun `pro mode validates executor model provider key`() {
     val context = contextWithCatalog()
-    @Suppress("DEPRECATION")
     val config =
             SessionConfig(
-                    llmBackend = LLMBackendType.OPENAI,
+                    llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
                     mainModel = "gpt-5.2",
                     executorModel = "autoglm-phone-9b-multilingual",
                     agentMode = AgentMode.PRO,

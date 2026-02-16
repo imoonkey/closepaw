@@ -10,6 +10,7 @@ import com.moonkey.androidagent.llm.ResponsesResult
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionId
+import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.session.AgentSessionState
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.test.FakeAndroidPlatform
@@ -35,10 +36,9 @@ class LocalBackendTurnRoutingTest {
                                 """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
                         )
 
-                @Suppress("DEPRECATION")
                 val sessionConfig =
                         SessionConfig(
-                                llmBackend = LLMBackendType.LOCAL,
+                                llm = SessionLlmConfig(backendType = LLMBackendType.LOCAL),
                                 maxTurns = 1,
                                 actionDelayMs = 0
                         )

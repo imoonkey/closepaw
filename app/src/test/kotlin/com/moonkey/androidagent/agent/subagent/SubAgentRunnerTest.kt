@@ -12,6 +12,7 @@ import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionId
+import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.session.AgentSessionState
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.test.FakeAndroidPlatform
@@ -212,11 +213,10 @@ private fun buildServices(
                 policyEngine = policyEngine,
                 platform = FakeAndroidPlatform(),
                 config =
-                        @Suppress("DEPRECATION")
                         SessionConfig(
                                 maxTurns = 1,
                                 actionDelayMs = 0,
-                                llmBackend = LLMBackendType.OPENAI
+                                llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
                         ),
                 llmClient = llmClient,
                 modelCatalog = testCatalog,

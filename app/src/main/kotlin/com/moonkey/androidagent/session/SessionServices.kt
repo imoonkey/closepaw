@@ -15,6 +15,7 @@ import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
+import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.protocol.resolvedBackendTypeCompat
 import com.moonkey.androidagent.protocol.resolvedLocalLlmConfigCompat
 import com.moonkey.androidagent.tool.PolicyEngine
@@ -52,7 +53,7 @@ import kotlinx.coroutines.Dispatchers
  * val services = SessionServices.create(config, platform, apiKeys = mapOf("OPENAI_API_KEY" to "sk-..."))
  *
  * // For local LLM backend:
- * val localConfig = config.copy(llmBackend = LLMBackendType.LOCAL)
+ * val localConfig = config.copy(llm = SessionLlmConfig(backendType = LLMBackendType.LOCAL))
  * val services = SessionServices.create(localConfig, platform, context = context)
  * ```
  */

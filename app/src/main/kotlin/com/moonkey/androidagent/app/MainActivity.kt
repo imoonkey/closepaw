@@ -28,6 +28,7 @@ import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
+import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.session.AgentSession
 import com.moonkey.androidagent.ui.chat.ChatScreen
 import com.moonkey.androidagent.ui.chat.ChatViewModel
@@ -396,7 +397,6 @@ class MainActivity : ComponentActivity() {
                         settingsState.updateModelLoadingStatus(ModelLoadingStatus.Loading)
                     }
 
-                    @Suppress("DEPRECATION")
                     val session =
                             AgentSession.create(
                                     config =
@@ -408,8 +408,12 @@ class MainActivity : ComponentActivity() {
                                                     traceEnabled = pendingTraceEnabled
                                                                     ?: settingsState.debugMode,
                                                     traceRunId = pendingTraceRunId,
-                                                    llmBackend = settingsState.llmBackend,
-                                                    localLLMConfig = localConfig,
+                                                    llm =
+                                                            SessionLlmConfig(
+                                                                    backendType =
+                                                                            settingsState.llmBackend,
+                                                                    localConfig = localConfig
+                                                            ),
                                                     agentMode = settingsState.agentMode,
                                                     perceptionConfig =
                                                             when (settingsState.perceptionMode) {
