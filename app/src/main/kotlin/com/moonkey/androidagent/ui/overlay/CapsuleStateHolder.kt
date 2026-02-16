@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 /**
  * CapsuleStateHolder — single source of truth for Smart Capsule state.
  *
- * All UI renderers (SmartCapsuleManager, SmartCapsuleCompose, StatusIslandManager)
+ * All UI renderers (CapsuleOverlayHost, SmartCapsuleCompose, IslandOverlayHost)
  * read from this holder. State transitions happen here and only here.
  *
  * ## State Machine

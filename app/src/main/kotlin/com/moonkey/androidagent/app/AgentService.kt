@@ -18,7 +18,8 @@ import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
-import com.moonkey.androidagent.ui.overlay.StatusIslandManager
+import com.moonkey.androidagent.ui.overlay.compose.IslandOverlayHost
+import com.moonkey.androidagent.ui.overlay.compose.ServiceLifecycleOwner
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +64,7 @@ class AgentService : AccessibilityService() {
     }
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private val serviceLifecycleOwner = ServiceLifecycleOwner()
     private var session: AgentSession? = null
     private var overlayController: ServiceOverlayController? = null
     private var actionVisualizer: ActionVisualizerManager? = null
@@ -141,6 +143,8 @@ class AgentService : AccessibilityService() {
         overlayController =
                 ServiceOverlayController(
                         context = this,
+                        lifecycleOwner = serviceLifecycleOwner,
+                        savedStateRegistryOwner = serviceLifecycleOwner,
                         scope = scope,
                         appPackage = OUR_PACKAGE,
                         logTag = TAG,
@@ -161,8 +165,10 @@ class AgentService : AccessibilityService() {
                         },
                         onOpenViewer = { openViewer() },
                         statusIslandManager =
-                                StatusIslandManager(
+                                IslandOverlayHost(
                                         service = this,
+                                        lifecycleOwner = serviceLifecycleOwner,
+                                        savedStateRegistryOwner = serviceLifecycleOwner,
                                         onExpandCapsule = {
                                             // Tap island → expand Smart Capsule overlay, hide island
                                             overlayController?.onIslandTapped()
@@ -171,7 +177,11 @@ class AgentService : AccessibilityService() {
                 )
 
         // Initialize ActionVisualizerManager for touch action visualization
-        actionVisualizer = ActionVisualizerManager(this)
+        actionVisualizer = ActionVisualizerManager(
+                context = this,
+                lifecycleOwner = serviceLifecycleOwner,
+                savedStateRegistryOwner = serviceLifecycleOwner
+        )
         Log.i(TAG, "ActionVisualizerManager initialized")
 
         // Register broadcast receiver for remote stop commands (from adb/debug-run.sh)
@@ -214,11 +224,17 @@ class AgentService : AccessibilityService() {
                 Log.w(TAG, "stopReceiver was not registered: ${e.message}")
             }
         }
+        serviceLifecycleOwner.onDestroy()
         super.onDestroy()
         instance = null
         // Reset statusFlow to prevent stale values when service restarts
         _statusFlow.value = ""
         scope.cancel()
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        serviceLifecycleOwner.onCreate()
     }
 
     /** Submit an operation to the current session. */

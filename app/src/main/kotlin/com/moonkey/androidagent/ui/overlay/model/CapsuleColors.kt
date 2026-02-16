@@ -3,8 +3,8 @@ package com.moonkey.androidagent.ui.overlay.model
 /**
  * CapsuleColors — centralized color constants for Smart Capsule UI.
  *
- * Used by CapsuleRenderSpec, EdgeGlowManager, StatusIslandManager,
- * and SmartCapsuleLayoutBuilder. One place to change the palette.
+ * Used by CapsuleRenderSpec and Compose overlay hosts.
+ * One place to change the palette.
  */
 object CapsuleColors {
     /** Running / Active — Blue */

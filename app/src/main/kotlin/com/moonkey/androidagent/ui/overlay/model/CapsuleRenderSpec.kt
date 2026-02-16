@@ -5,8 +5,8 @@ import com.moonkey.androidagent.protocol.PlatformMode
 /**
  * CapsuleRenderSpec — pure rendering specification derived from CapsuleMode.
  *
- * Maps CapsuleMode → visual properties. Both View (SmartCapsuleRenderer) and
- * Compose (SmartCapsuleCompose) read from this spec. This is the SINGLE source
+ * Maps CapsuleMode → visual properties. Both overlay and in-app Compose renderers
+ * read from this spec. This is the SINGLE source
  * of truth for "what does the capsule look like in each mode."
  *
  * No business logic. No callbacks. No state management.

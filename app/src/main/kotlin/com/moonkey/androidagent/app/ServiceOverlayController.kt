@@ -2,14 +2,16 @@ package com.moonkey.androidagent.app
 
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
+import androidx.lifecycle.LifecycleOwner
+import androidx.savedstate.SavedStateRegistryOwner
 import com.moonkey.androidagent.protocol.AskUserType
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.ui.overlay.CapsuleStateHolder
-import com.moonkey.androidagent.ui.overlay.EdgeGlowManager
-import com.moonkey.androidagent.ui.overlay.SmartCapsuleManager
-import com.moonkey.androidagent.ui.overlay.StatusIslandManager
+import com.moonkey.androidagent.ui.overlay.compose.CapsuleOverlayHost
+import com.moonkey.androidagent.ui.overlay.compose.GlowOverlayHost
+import com.moonkey.androidagent.ui.overlay.compose.IslandOverlayHost
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -31,6 +33,8 @@ import kotlinx.coroutines.launch
  */
 class ServiceOverlayController(
     context: AccessibilityService,
+    lifecycleOwner: LifecycleOwner,
+    savedStateRegistryOwner: SavedStateRegistryOwner,
     private val scope: CoroutineScope,
     private val appPackage: String,
     private val logTag: String,
@@ -41,7 +45,7 @@ class ServiceOverlayController(
     private val onUserResponse: (String, String) -> Unit, // (callId, response)
     private val onOpenApp: () -> Unit,
     private val onOpenViewer: (() -> Unit)? = null,
-    private val statusIslandManager: StatusIslandManager? = null
+    private val statusIslandManager: IslandOverlayHost? = null
 ) {
     // ── Unified state (single source of truth) ──
 
@@ -49,11 +53,18 @@ class ServiceOverlayController(
 
     // ── Overlay managers ──
 
-    private val edgeGlowManager = EdgeGlowManager(context)
-    private val capsuleManager = SmartCapsuleManager(
+    private val edgeGlowManager = GlowOverlayHost(
+        service = context,
+        scope = scope,
+        lifecycleOwner = lifecycleOwner,
+        savedStateRegistryOwner = savedStateRegistryOwner,
+    )
+    private val capsuleManager = CapsuleOverlayHost(
         service = context,
         stateHolder = stateHolder,
         scope = scope,
+        lifecycleOwner = lifecycleOwner,
+        savedStateRegistryOwner = savedStateRegistryOwner,
     ).apply {
         this.onStop = {
             if (stateHolder.onStopRequested()) {

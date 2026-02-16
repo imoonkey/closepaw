@@ -21,7 +21,7 @@ import com.moonkey.androidagent.app.AgentService
  * VirtualDisplayViewerActivity — Full-screen live preview of the virtual display.
  *
  * Shows the VD output via a SurfaceView (GPU-direct, 60fps). The Smart Capsule
- * overlay (managed by SmartCapsuleManager via ServiceOverlayController) renders
+ * overlay (managed by CapsuleOverlayHost via ServiceOverlayController) renders
  * as a system overlay on top of this activity — providing all UI controls.
  *
  * This activity is a pure SurfaceView container with no built-in controls.
