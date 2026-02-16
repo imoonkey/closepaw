@@ -6,20 +6,23 @@ import android.graphics.PixelFormat
 import android.os.Build
 import android.util.Log
 import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.LifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.capsule.NavAction
 import com.moonkey.androidagent.ui.capsule.surface.SmartCapsuleSurface
+import com.moonkey.androidagent.ui.capsule.surface.smartCapsuleHostPadding
 import com.moonkey.androidagent.ui.overlay.CapsuleStateHolder
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
@@ -67,6 +70,7 @@ class CapsuleOverlayHost(
     private val hasIsland = MutableStateFlow(true)
     private val transientThought = MutableStateFlow<String?>(null)
     private val inputFocused = MutableStateFlow(false)
+    private val interactionLocked = MutableStateFlow(false)
 
     private var focusJob: Job? = null
     private var transientThoughtJob: Job? = null
@@ -77,19 +81,16 @@ class CapsuleOverlayHost(
 
     fun show() {
         if (composeHost.isShowing()) return
-        composeHost.show(createLayoutParams()) {
+        composeHost.show(createLayoutParams(interactionLocked.value)) {
             val mode by stateHolder.mode.collectAsState(initial = CapsuleMode.Hidden)
             val stopPending by stateHolder.isStopPending.collectAsState(initial = false)
             val ctx by capsuleContext.collectAsState(initial = CapsuleContext.SCREEN_VIEWING)
             val platform by platformMode.collectAsState(initial = PlatformMode.ACCESSIBILITY)
             val islandEnabled by hasIsland.collectAsState(initial = true)
             val flashThought by transientThought.collectAsState(initial = null)
+            val lockTouches by interactionLocked.collectAsState(initial = false)
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)
-            ) {
+            val capsuleContent: @androidx.compose.runtime.Composable () -> Unit = {
                 SmartCapsuleSurface(
                     mode = mode,
                     previousMode = stateHolder.previousMode,
@@ -129,6 +130,36 @@ class CapsuleOverlayHost(
                     autoFocusInput = mode is CapsuleMode.WaitingForInput,
                 )
             }
+
+            if (lockTouches) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AndroidView(
+                        factory = { ctx ->
+                            View(ctx).apply {
+                                setOnTouchListener { _, _ -> true }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .smartCapsuleHostPadding()
+                    ) {
+                        capsuleContent()
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .smartCapsuleHostPadding()
+                ) {
+                    capsuleContent()
+                }
+            }
         }
         startFocusObserver()
         Log.i(TAG, "Capsule overlay shown")
@@ -156,6 +187,24 @@ class CapsuleOverlayHost(
         capsuleContext.value = context
         platformMode.value = platform
         this.hasIsland.value = hasIsland
+    }
+
+    fun setInteractionLocked(locked: Boolean) {
+        if (interactionLocked.value == locked) return
+        interactionLocked.value = locked
+        if (!composeHost.isShowing()) return
+        composeHost.updateLayoutParams { params ->
+            params.height = if (locked) {
+                WindowManager.LayoutParams.MATCH_PARENT
+            } else {
+                WindowManager.LayoutParams.WRAP_CONTENT
+            }
+            params.gravity = if (locked) {
+                Gravity.TOP or Gravity.START
+            } else {
+                Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            }
+        }
     }
 
     fun flashSupplementConfirmation(isAgentMidTurn: Boolean) {
@@ -209,10 +258,11 @@ class CapsuleOverlayHost(
         }
     }
 
-    private fun createLayoutParams(): WindowManager.LayoutParams =
+    private fun createLayoutParams(locked: Boolean): WindowManager.LayoutParams =
         WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
+            if (locked) WindowManager.LayoutParams.MATCH_PARENT
+            else WindowManager.LayoutParams.WRAP_CONTENT,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
             } else {
@@ -223,7 +273,8 @@ class CapsuleOverlayHost(
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            gravity = if (locked) Gravity.TOP or Gravity.START
+            else Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
         }
 
     private fun debounced(action: () -> Unit) {

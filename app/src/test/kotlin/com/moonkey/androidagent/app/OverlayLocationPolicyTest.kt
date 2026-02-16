@@ -272,4 +272,40 @@ class OverlayLocationPolicyTest {
         assertThat(doneDecision.showGlow).isTrue()
         assertThat(errorDecision.showGlow).isTrue()
     }
+
+    @Test
+    fun `should lock interaction in a11y running other app`() {
+        val lock = shouldLockUserInteraction(
+            platformMode = PlatformMode.ACCESSIBILITY,
+            location = OverlayUserLocation.OTHER_APP,
+            mode = CapsuleMode.Running("thinking"),
+        )
+        assertThat(lock).isTrue()
+    }
+
+    @Test
+    fun `should unlock interaction in a11y takeover`() {
+        val lock = shouldLockUserInteraction(
+            platformMode = PlatformMode.ACCESSIBILITY,
+            location = OverlayUserLocation.OTHER_APP,
+            mode = CapsuleMode.Takeover("paused"),
+        )
+        assertThat(lock).isFalse()
+    }
+
+    @Test
+    fun `should lock interaction in vd viewer running and unlock in takeover`() {
+        val locked = shouldLockUserInteraction(
+            platformMode = PlatformMode.VIRTUAL_DISPLAY,
+            location = OverlayUserLocation.VD_VIEWER,
+            mode = CapsuleMode.Running("thinking"),
+        )
+        val unlocked = shouldLockUserInteraction(
+            platformMode = PlatformMode.VIRTUAL_DISPLAY,
+            location = OverlayUserLocation.VD_VIEWER,
+            mode = CapsuleMode.Takeover("paused"),
+        )
+        assertThat(locked).isTrue()
+        assertThat(unlocked).isFalse()
+    }
 }

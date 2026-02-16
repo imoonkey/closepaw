@@ -138,7 +138,13 @@ class ServiceOverlayController(
             hasActiveTask = stateHolder.hasActiveTask,
             showPreference = showPreference,
         )
+        val lockInteraction = shouldLockUserInteraction(
+            platformMode = platformMode,
+            location = userLocation,
+            mode = mode,
+        )
         showPreference = decision.normalizedShowPreference
+        capsuleManager.setInteractionLocked(lockInteraction)
 
         if (decision.showCapsule) {
             if (!capsuleManager.isShowing()) capsuleManager.show()
@@ -278,11 +284,13 @@ class ServiceOverlayController(
     fun onSessionTakeover() {
         stateHolder.onTakeoverConfirmed()
         refreshGlowState()
+        applyVisibility()
     }
 
     fun onSessionResumed() {
         stateHolder.onResumed()
         refreshGlowState()
+        applyVisibility()
     }
 
     fun onSupplementReceived(@Suppress("UNUSED_PARAMETER") text: String) {

@@ -26,6 +26,7 @@ import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.capsule.NavAction
 import com.moonkey.androidagent.ui.capsule.SmartCapsuleCompose
+import com.moonkey.androidagent.ui.capsule.surface.smartCapsuleHostPadding
 import com.moonkey.androidagent.ui.chat.components.ChatHeader
 import com.moonkey.androidagent.ui.chat.components.EmptyState
 import com.moonkey.androidagent.ui.chat.components.MessageBubble
@@ -118,28 +119,35 @@ fun ChatScreen(
                 )
             },
             bottomBar = {
-                SmartCapsuleCompose(
-                    mode = capsuleMode,
-                    isStopPending = isStopPending,
-                    platformMode = capsulePlatformMode,
-                    context = CapsuleContext.MAIN_APP,
-                    onSend = viewModel::sendMessage,
-                    onSupplement = viewModel::sendSupplement,
-                    onTakeover = viewModel::requestTakeover,
-                    onResume = viewModel::requestResume,
-                    onStop = {
-                        if (stateHolder?.onStopRequested() != false) {
-                            viewModel.stopTask()
-                        }
-                    },
-                    onUserResponse = viewModel::sendUserResponse,
-                    onDismissError = { viewModel.dismissError() },
-                    onNavigate = { action ->
-                        if (action == NavAction.OPEN_VIEWER) {
-                            onOpenViewer()
-                        }
-                    }
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .smartCapsuleHostPadding()
+                ) {
+                    SmartCapsuleCompose(
+                        mode = capsuleMode,
+                        isStopPending = isStopPending,
+                        platformMode = capsulePlatformMode,
+                        context = CapsuleContext.MAIN_APP,
+                        onSend = viewModel::sendMessage,
+                        onSupplement = viewModel::sendSupplement,
+                        onTakeover = viewModel::requestTakeover,
+                        onResume = viewModel::requestResume,
+                        onStop = {
+                            if (stateHolder?.onStopRequested() != false) {
+                                viewModel.stopTask()
+                            }
+                        },
+                        onUserResponse = viewModel::sendUserResponse,
+                        onDismissError = { viewModel.dismissError() },
+                        onNavigate = { action ->
+                            if (action == NavAction.OPEN_VIEWER) {
+                                onOpenViewer()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         ) { paddingValues ->
             Box(

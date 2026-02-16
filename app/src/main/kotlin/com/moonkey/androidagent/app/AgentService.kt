@@ -20,6 +20,7 @@ import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.session.AgentSession
 import com.moonkey.androidagent.ui.overlay.compose.IslandOverlayHost
+import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.compose.ServiceLifecycleOwner
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import java.util.UUID
@@ -551,6 +552,11 @@ class AgentService : AccessibilityService() {
             viewWidth: Int,
             viewHeight: Int,
     ): Boolean {
+        // Viewer interaction is only allowed after explicit takeover.
+        // Returning true consumes the touch so it doesn't accidentally control VD while agent runs.
+        val currentMode = overlayController?.stateHolder?.mode?.value
+        if (currentMode !is CapsuleMode.Takeover) return true
+
         val platform = session?.getServices()?.platform as? VirtualDisplayPlatform ?: return false
         return platform.onViewerTouch(
                 action = action,

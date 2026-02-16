@@ -122,3 +122,26 @@ internal fun deriveOverlayVisibility(
         }
     }
 }
+
+/**
+ * Whether user touch interaction with the underlying screen should be blocked.
+ *
+ * - A11y OTHER_APP: block while agent owns control (non-terminal, non-takeover modes).
+ * - VD_VIEWER: block until takeover is confirmed.
+ */
+internal fun shouldLockUserInteraction(
+    platformMode: PlatformMode,
+    location: OverlayUserLocation,
+    mode: CapsuleMode,
+): Boolean {
+    val userOwnsControl = mode is CapsuleMode.Takeover
+    val nonInteractiveState = mode is CapsuleMode.Hidden ||
+        mode is CapsuleMode.Done ||
+        mode is CapsuleMode.Error
+    if (userOwnsControl || nonInteractiveState) return false
+
+    return when (platformMode) {
+        PlatformMode.ACCESSIBILITY -> location == OverlayUserLocation.OTHER_APP
+        PlatformMode.VIRTUAL_DISPLAY -> location == OverlayUserLocation.VD_VIEWER
+    }
+}
