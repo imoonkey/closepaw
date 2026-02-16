@@ -40,5 +40,11 @@
     "provider": "NOVITA",
     "api": "chat",
     "model_id": "zai-org/autoglm-phone-9b-multilingual"
+  },
+  "qwen3.5": {
+    "display_name": "Qwen 3.5",
+    "provider": "OPENROUTER",
+    "api": "chat",
+    "model_id": "qwen/qwen3.5-plus-02-15"
   }
 }
