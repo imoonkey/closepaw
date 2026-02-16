@@ -1,0 +1,116 @@
+---
+name: align
+description: Align the design of the system or anything else between Codex and Claude.
+---
+
+# Align
+
+Align the design of the system or anything else between Codex and Claude.
+
+## 目录约定
+
+```
+align/
+  discussion/
+    status.txt                 # 独立状态文件（单行）
+    0001_CODEX.md              # 每次发言一个新文件（只增不改）
+    0002_CLAUDE.md
+    ...
+  design/
+    design.md                  # 最终对齐产物（可多个文件）
+    ...
+```
+
+---
+
+## status.txt（单行格式）
+
+固定一行，key=value 用空格分隔：
+
+```
+SEQ=0000 NEXT=CODEX CODEX=PENDING CLAUDE=PENDING
+```
+
+字段/取值：
+
+* `SEQ`: 递增整数（每轮 +1）
+* `NEXT`: `CODEX` / `CLAUDE` / `DONE`
+* `CODEX`, `CLAUDE`: `PENDING` / `APPROVE` / `CHANGES`
+
+---
+
+## 极简状态机
+
+* `NEXT=CODEX`：轮到 Codex 写
+* `NEXT=CLAUDE`：轮到 Claude 写
+* 结束条件：`CODEX=APPROVE` 且 `CLAUDE=APPROVE` → `NEXT=DONE`
+
+---
+
+## SOP（两边都照做）
+
+### A) 如果 `status.txt` 里 `NEXT` 不是你
+
+1. **不要读/想/写任何东西**，只做轮询等待。
+2. 用轮询脚本阻塞等待（**不要自己手写 sleep 循环，会污染 context**）：
+
+   ```bash
+   .ai-dev/skills/align/scripts/align_poll.sh <path/to/align/discussion/status.txt> <Your agent name:CLAUDE|CODEX>
+   ```
+
+   脚本会阻塞，仅在轮到你或 DONE 时输出一行（`YOUR_TURN` / `DONE`），所有轮询细节写入 `poll.log`。
+3. 收到 `YOUR_TURN` → 转到 B；收到 `DONE` → 转到 C。
+
+### B) 如果 `status.txt` 里 `NEXT=你`
+
+你是**唯一允许写入**的人（discussion 和 design 都只能你改）。
+
+1. 读取 `align/discussion/` 下所有讨论文件（按 SEQ 升序），尤其是对方的新讨论文件。
+2. 如需更新最终对齐产物：修改/新增 `align/design/*`。尽可能避免完全覆盖式的修改，而是增量式的修改，不然你和对方都很难知道到底改了什么，不利于alignment discussion。
+3. 在 `align/discussion/` 新建一个讨论文件（**只新建，不修改旧文件**）：
+
+   * 文件名：`{newSEQ}_{YOU}.md`（例如 `0003_CODEX.md`）
+   * 内容尽量短：本轮结论、改了什么、仍未解决的问题、你的最终投票（APPROVE/CHANGES）。
+4. 更新 `align/discussion/status.txt`（仍然单行）：
+
+   * `newSEQ = SEQ + 1`
+   * 设定你自己的投票：`YOU=APPROVE` (只有本轮未对align/discussion/* 进行过任何改动时才可选APPROVE) 或 `YOU=CHANGES` （只要本轮对align/discussion/* 进行过任何改动，就必须选择CHANGES）
+   * **如果你对 design 做了任何实质改动**（改方案/接口/约束/假设等），把对方投票重置为 `PENDING`
+   * 若此时双方都 `APPROVE`：写 `NEXT=DONE`
+   * 否则：写 `NEXT=对方`
+5. 写完后再次调用轮询脚本等待对方回应或 DONE：
+
+   ```bash
+   .ai-dev/skills/align/scripts/align_poll.sh <path/to/align/discussion/status.txt> <CLAUDE|CODEX>
+   ```
+
+### C) 如果 `status.txt` 里 `NEXT=DONE`
+如果你和对方均已经APPROVE，结束轮询。
+
+**status 更新示例：**
+
+* Codex 提修改，交给 Claude：
+
+  ```
+  SEQ=0001 NEXT=CLAUDE CODEX=CHANGES CLAUDE=PENDING
+  ```
+* Claude 改完并 approve，同时让 Codex 复核（重置 Codex=PENDING）：
+
+  ```
+  SEQ=0002 NEXT=CODEX CODEX=PENDING CLAUDE=APPROVE
+  ```
+* Codex 复核后 approve，结束：
+
+  ```
+  SEQ=0003 NEXT=DONE CODEX=APPROVE CLAUDE=APPROVE
+  ```
+
+---
+
+## 额外硬规则（保证简单稳定）
+
+* **只有 `NEXT=你` 时才允许写任何文件**（包括 `align/design/*` 和 `align/discussion/*`）。
+* 讨论只增量：永远新建 `####_AGENT.md`，不要回改旧讨论文件。
+* 终局产物只看 `align/design/*`；讨论过程只看 `align/discussion/*`。
+
+如果你希望更“傻瓜化”（连重置对方 PENDING 的条件都不判断），也可以改成：**每次写完都把对方投票置为 PENDING**——会更慢一点但更不容易漏复核。

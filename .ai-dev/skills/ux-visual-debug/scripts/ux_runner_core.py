@@ -128,48 +128,81 @@ class UXRunner:
     def _find_nodes(self, xml_path: Path) -> List[Dict[str, str]]:
         return [node.attrib for node in ET.parse(xml_path).getroot().iter("node")]
 
-    def _lookup_and_tap(self, mode: str, value: str, occurrence: int, contains: bool = False) -> None:
+    def _lookup_and_tap(
+        self, mode: str, value: str, occurrence: int,
+        contains: bool = False, retries: int = 1, retry_interval_ms: int = 800,
+    ) -> None:
         if not value:
             raise RuntimeError(f"{mode} selector cannot be empty")
 
-        nodes = self._find_nodes(self.dump_ui("lookup"))
-        matches: List[Dict[str, str]] = []
-        for node in nodes:
-            text_val = (node.get("text") or "").strip()
-            desc_val = (node.get("content-desc") or "").strip()
-            rid_val = (node.get("resource-id") or "").strip()
+        last_error: Optional[RuntimeError] = None
+        for attempt in range(max(1, retries)):
+            try:
+                nodes = self._find_nodes(self.dump_ui("lookup"))
+                matches: List[Dict[str, str]] = []
+                for node in nodes:
+                    text_val = (node.get("text") or "").strip()
+                    desc_val = (node.get("content-desc") or "").strip()
+                    rid_val = (node.get("resource-id") or "").strip()
 
-            if mode == "text":
-                pool = [text_val, desc_val]
-                ok = any((value in item if contains else value == item) for item in pool if item)
-            elif mode == "resource_id":
-                ok = value == rid_val
-            elif mode == "desc":
-                ok = (value in desc_val) if contains else (value == desc_val)
-            else:
-                raise RuntimeError(f"Unsupported selector mode: {mode}")
+                    if mode == "text":
+                        pool = [text_val, desc_val]
+                        ok = any((value in item if contains else value == item) for item in pool if item)
+                    elif mode == "resource_id":
+                        ok = value == rid_val
+                    elif mode == "desc":
+                        ok = (value in desc_val) if contains else (value == desc_val)
+                    else:
+                        raise RuntimeError(f"Unsupported selector mode: {mode}")
 
-            if ok:
-                matches.append(node)
+                    if ok:
+                        matches.append(node)
 
-        if not matches:
-            raise RuntimeError(f"No node matched {mode}='{value}'")
+                if not matches:
+                    raise RuntimeError(f"No node matched {mode}='{value}'")
 
-        idx = occurrence - 1
-        if idx < 0 or idx >= len(matches):
-            raise RuntimeError(f"Matched {len(matches)} node(s), occurrence {occurrence} out of range")
+                idx = occurrence - 1
+                if idx < 0 or idx >= len(matches):
+                    raise RuntimeError(f"Matched {len(matches)} node(s), occurrence {occurrence} out of range")
 
-        bounds = parse_bounds(matches[idx].get("bounds", ""))
-        if not bounds:
-            raise RuntimeError("Matched node missing valid bounds")
+                bounds = parse_bounds(matches[idx].get("bounds", ""))
+                if not bounds:
+                    raise RuntimeError("Matched node missing valid bounds")
 
-        x, y = center_of_bounds(bounds)
-        self.shell("input", "tap", str(x), str(y))
+                x, y = center_of_bounds(bounds)
+                self.shell("input", "tap", str(x), str(y))
+                return
+            except RuntimeError as exc:
+                last_error = exc
+                if attempt < retries - 1:
+                    time.sleep(retry_interval_ms / 1000.0)
+
+        raise last_error  # type: ignore[misc]
 
     def _has_text(self, target: str) -> bool:
         if not target:
             return False
         return any(target in item for item in self.visible_strings(self.dump_ui("assert")))
+
+    def _has_desc(self, target: str) -> bool:
+        if not target:
+            return False
+        xml_path = self.dump_ui("assert")
+        for node in ET.parse(xml_path).getroot().iter("node"):
+            desc = (node.attrib.get("content-desc") or "").strip()
+            if desc and target in desc:
+                return True
+        return False
+
+    def _poll_until(self, check_fn, target: str, timeout_ms: int, interval_ms: int, expect: bool) -> None:
+        deadline = time.time() + timeout_ms / 1000.0
+        while time.time() < deadline:
+            found = check_fn(target)
+            if found == expect:
+                return
+            time.sleep(interval_ms / 1000.0)
+        verb = "appear" if expect else "disappear"
+        raise RuntimeError(f"Timed out waiting for '{target}' to {verb} ({timeout_ms}ms)")
 
     def execute_step(self, index: int, step: Dict[str, Any]) -> bool:
         action = (step.get("action") or "").strip()
@@ -204,13 +237,30 @@ class UXRunner:
             elif action == "wait":
                 time.sleep(max(0, int(step.get("ms", 800))) / 1000.0)
             elif action == "tap_text":
-                self._lookup_and_tap("text", str(step.get("text") or ""), int(step.get("occurrence", 1)))
+                self._lookup_and_tap(
+                    "text", str(step.get("text") or ""), int(step.get("occurrence", 1)),
+                    retries=int(step.get("retries", 1)),
+                    retry_interval_ms=int(step.get("retry_interval_ms", 800)),
+                )
             elif action == "tap_contains_text":
-                self._lookup_and_tap("text", str(step.get("text") or ""), int(step.get("occurrence", 1)), True)
+                self._lookup_and_tap(
+                    "text", str(step.get("text") or ""), int(step.get("occurrence", 1)), True,
+                    retries=int(step.get("retries", 1)),
+                    retry_interval_ms=int(step.get("retry_interval_ms", 800)),
+                )
             elif action == "tap_resource_id":
-                self._lookup_and_tap("resource_id", str(step.get("resource_id") or ""), int(step.get("occurrence", 1)))
+                self._lookup_and_tap(
+                    "resource_id", str(step.get("resource_id") or ""), int(step.get("occurrence", 1)),
+                    retries=int(step.get("retries", 1)),
+                    retry_interval_ms=int(step.get("retry_interval_ms", 800)),
+                )
             elif action == "tap_desc":
-                self._lookup_and_tap("desc", str(step.get("desc") or ""), int(step.get("occurrence", 1)), bool(step.get("contains", False)))
+                self._lookup_and_tap(
+                    "desc", str(step.get("desc") or ""), int(step.get("occurrence", 1)),
+                    bool(step.get("contains", False)),
+                    retries=int(step.get("retries", 1)),
+                    retry_interval_ms=int(step.get("retry_interval_ms", 800)),
+                )
             elif action == "tap_xy":
                 self.shell("input", "tap", str(int(step.get("x"))), str(int(step.get("y"))))
             elif action == "type":
@@ -250,6 +300,30 @@ class UXRunner:
                     raise RuntimeError(f"Unexpected text visible: {target}")
             elif action in {"screenshot", "dump_ui", "note"}:
                 pass
+            elif action == "wait_for_text":
+                target = str(step.get("text") or "")
+                self._poll_until(
+                    self._has_text, target,
+                    timeout_ms=int(step.get("timeout_ms", 10000)),
+                    interval_ms=int(step.get("interval_ms", 500)),
+                    expect=True,
+                )
+            elif action == "wait_for_not_text":
+                target = str(step.get("text") or "")
+                self._poll_until(
+                    self._has_text, target,
+                    timeout_ms=int(step.get("timeout_ms", 10000)),
+                    interval_ms=int(step.get("interval_ms", 500)),
+                    expect=False,
+                )
+            elif action == "wait_for_desc":
+                target = str(step.get("desc") or "")
+                self._poll_until(
+                    self._has_desc, target,
+                    timeout_ms=int(step.get("timeout_ms", 10000)),
+                    interval_ms=int(step.get("interval_ms", 500)),
+                    expect=True,
+                )
             else:
                 raise RuntimeError(f"Unsupported action: {action}")
         except Exception as exc:  # noqa: BLE001

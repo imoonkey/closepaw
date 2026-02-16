@@ -12,13 +12,15 @@
     },
     {
       "name": "Wait for agent to begin acting",
-      "action": "wait",
-      "ms": 2200
+      "action": "wait_for_text",
+      "text": "Takeover",
+      "timeout_ms": 20000,
+      "interval_ms": 1000
     },
     {
-      "name": "User taps Smart Capsule while agent run is active",
-      "action": "tap_contains_text",
-      "text": "Smart",
+      "name": "Verify Running state: Takeover button visible",
+      "action": "assert_text",
+      "text": "Takeover",
       "continue_on_fail": true
     },
     {
@@ -27,19 +29,28 @@
       "ms": 1200
     },
     {
-      "name": "Try 接管",
-      "action": "tap_text",
-      "text": "接管",
+      "name": "Tap Takeover",
+      "action": "tap_desc",
+      "desc": "Takeover",
+      "retries": 3,
+      "retry_interval_ms": 1000,
       "continue_on_fail": true
     },
     {
-      "name": "Try 补充",
+      "name": "Wait for Takeover confirmation",
+      "action": "wait",
+      "ms": 2000
+    },
+    {
+      "name": "Tap Add note if available",
       "action": "tap_text",
-      "text": "补充",
+      "text": "Add note",
+      "retries": 2,
+      "retry_interval_ms": 800,
       "continue_on_fail": true
     },
     {
-      "name": "Type interruption input",
+      "name": "Type supplement during active task",
       "action": "type",
       "text": "User intervention during active agent task.",
       "submit": false,

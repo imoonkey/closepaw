@@ -1,0 +1,97 @@
+{
+  "name": "vd-island-capsule-navigation",
+  "package": "com.moonkey.androidagent",
+  "launch_activity": "",
+  "steps": [
+    {
+      "name": "Wait for Status Island to appear",
+      "action": "wait_for_desc",
+      "desc": "Agent status island",
+      "timeout_ms": 30000,
+      "interval_ms": 1500
+    },
+    {
+      "name": "Capture island state",
+      "action": "screenshot"
+    },
+    {
+      "name": "Tap Status Island to expand capsule",
+      "action": "tap_desc",
+      "desc": "Agent status island",
+      "retries": 3,
+      "retry_interval_ms": 1500
+    },
+    {
+      "name": "Wait for capsule to expand (Takeover button visible)",
+      "action": "wait_for_text",
+      "text": "Takeover",
+      "timeout_ms": 8000,
+      "interval_ms": 500
+    },
+    {
+      "name": "Verify expanded capsule: Stop button present",
+      "action": "assert_text",
+      "text": "Stop",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Capture expanded capsule state",
+      "action": "screenshot"
+    },
+    {
+      "name": "Tap Minimize to collapse capsule",
+      "action": "tap_desc",
+      "desc": "Minimize",
+      "retries": 2,
+      "retry_interval_ms": 1000
+    },
+    {
+      "name": "Wait for island to reappear",
+      "action": "wait_for_desc",
+      "desc": "Agent status island",
+      "timeout_ms": 8000,
+      "interval_ms": 500
+    },
+    {
+      "name": "Verify capsule collapsed (Takeover should not be visible)",
+      "action": "assert_not_text",
+      "text": "Takeover",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Capture island-returned state",
+      "action": "screenshot"
+    },
+    {
+      "name": "Tap Island again to re-expand",
+      "action": "tap_desc",
+      "desc": "Agent status island",
+      "retries": 2,
+      "retry_interval_ms": 1000
+    },
+    {
+      "name": "Wait for capsule to expand again",
+      "action": "wait_for_text",
+      "text": "Stop",
+      "timeout_ms": 8000,
+      "interval_ms": 500
+    },
+    {
+      "name": "Tap Open App to navigate to main app",
+      "action": "tap_desc",
+      "desc": "Open app",
+      "retries": 2,
+      "retry_interval_ms": 1000,
+      "continue_on_fail": true
+    },
+    {
+      "name": "Wait for main app to appear",
+      "action": "wait",
+      "ms": 2000
+    },
+    {
+      "name": "Final state capture",
+      "action": "screenshot"
+    }
+  ]
+}

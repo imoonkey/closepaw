@@ -1,0 +1,122 @@
+{
+  "name": "a11y-task-lifecycle",
+  "package": "com.moonkey.androidagent",
+  "launch_activity": "",
+  "steps": [
+    {
+      "name": "Reset app state",
+      "action": "force_stop"
+    },
+    {
+      "name": "Launch app",
+      "action": "start_app"
+    },
+    {
+      "name": "Wait for home screen",
+      "action": "wait",
+      "ms": 2000
+    },
+    {
+      "name": "Verify Hidden state: Send button visible",
+      "action": "assert_text",
+      "text": "Send"
+    },
+    {
+      "name": "Verify Hidden state: input hint visible",
+      "action": "assert_text",
+      "text": "What can I help you with?",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Type task goal",
+      "action": "type",
+      "text": "play a Adele song on youtube",
+      "clear": true
+    },
+    {
+      "name": "Submit task",
+      "action": "tap_text",
+      "text": "Send",
+      "retries": 2,
+      "retry_interval_ms": 500
+    },
+    {
+      "name": "Wait for Running state",
+      "action": "wait_for_text",
+      "text": "Takeover",
+      "timeout_ms": 20000,
+      "interval_ms": 1000
+    },
+    {
+      "name": "Verify Running state: Stop button present",
+      "action": "assert_text",
+      "text": "Stop",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Verify Running state: Add note hint",
+      "action": "assert_text",
+      "text": "Add note",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Wait for a few agent turns",
+      "action": "wait",
+      "ms": 5000
+    },
+    {
+      "name": "Tap Takeover button",
+      "action": "tap_desc",
+      "desc": "Takeover",
+      "retries": 3,
+      "retry_interval_ms": 1500
+    },
+    {
+      "name": "Wait for Takeover/Resume state",
+      "action": "wait_for_text",
+      "text": "Resume",
+      "timeout_ms": 15000,
+      "interval_ms": 1000
+    },
+    {
+      "name": "Verify Takeover state: Stop still available",
+      "action": "assert_text",
+      "text": "Stop",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Wait in Takeover state",
+      "action": "wait",
+      "ms": 2000
+    },
+    {
+      "name": "Tap Resume button",
+      "action": "tap_desc",
+      "desc": "Resume",
+      "retries": 2,
+      "retry_interval_ms": 1000
+    },
+    {
+      "name": "Wait for Running state after Resume",
+      "action": "wait_for_text",
+      "text": "Takeover",
+      "timeout_ms": 10000,
+      "interval_ms": 1000
+    },
+    {
+      "name": "Verify resumed Running state",
+      "action": "assert_text",
+      "text": "Stop",
+      "continue_on_fail": true
+    },
+    {
+      "name": "Wait for task completion or timeout",
+      "action": "wait",
+      "ms": 60000
+    },
+    {
+      "name": "Final state capture",
+      "action": "screenshot"
+    }
+  ]
+}

@@ -16,9 +16,9 @@
       "ms": 1600
     },
     {
-      "name": "Open Smart Capsule area",
-      "action": "tap_contains_text",
-      "text": "Smart",
+      "name": "Verify Send button visible",
+      "action": "assert_text",
+      "text": "Send",
       "continue_on_fail": true
     },
     {
@@ -27,20 +27,24 @@
       "ms": 900
     },
     {
-      "name": "Tap 接管 button if present",
-      "action": "tap_text",
-      "text": "接管",
+      "name": "Tap Takeover button if present",
+      "action": "tap_desc",
+      "desc": "Takeover",
+      "retries": 2,
+      "retry_interval_ms": 1000,
       "continue_on_fail": true
     },
     {
-      "name": "Wait post-接管 UI",
+      "name": "Wait post-Takeover UI",
       "action": "wait",
       "ms": 700
     },
     {
-      "name": "Tap 补充 button if present",
+      "name": "Tap Add note button if present",
       "action": "tap_text",
-      "text": "补充",
+      "text": "Add note",
+      "retries": 2,
+      "retry_interval_ms": 800,
       "continue_on_fail": true
     },
     {

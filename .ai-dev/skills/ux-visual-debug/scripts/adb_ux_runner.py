@@ -2,15 +2,27 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
-from ux_runner_core import run_ux_qa
+from ux_runner_core import UXRunner, run_ux_qa
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Android UX QA scenarios over ADB")
-    parser.add_argument("--scenario", required=True, help="Path to scenario JSON")
-    parser.add_argument("--out-root", default="debug-output/ux-qa", help="Root output folder")
+
+    # -- Capture mode (AI-interactive) --
+    parser.add_argument(
+        "--capture",
+        metavar="PREFIX",
+        default=None,
+        help="Quick-capture mode: take screenshot + UI dump + visible text. "
+        "Output files: PREFIX.png, PREFIX.xml, PREFIX_visible.txt",
+    )
     parser.add_argument("--serial", default=None, help="ADB device serial")
+
+    # -- Scenario mode --
+    parser.add_argument("--scenario", default=None, help="Path to scenario JSON")
+    parser.add_argument("--out-root", default="debug-output/ux-qa", help="Root output folder")
 
     parser.add_argument("--agent-goal", default="", help="If set, run scripts/debug-run.sh with this agent goal")
     parser.add_argument(
@@ -41,8 +53,36 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def run_capture(prefix: str, serial: str | None) -> int:
+    """Quick-capture: screenshot + UI dump + visible text."""
+    from pathlib import Path
+
+    out_dir = Path(prefix).parent
+    out_dir.mkdir(parents=True, exist_ok=True)
+    label = Path(prefix).name
+
+    dummy_scenario: dict = {"name": "capture", "package": "", "steps": []}
+    runner = UXRunner(dummy_scenario, out_dir, serial=serial)
+    runner.ensure_prerequisites()
+
+    artifacts = runner.capture_snapshot(label)
+    print(f"[capture] Screenshot: {artifacts['screenshot']}")
+    print(f"[capture] UI XML:     {artifacts['ui_xml']}")
+    print(f"[capture] Visible:    {artifacts['visible_text']}")
+    return 0
+
+
 def main() -> int:
-    return run_ux_qa(parse_args())
+    args = parse_args()
+
+    if args.capture:
+        return run_capture(args.capture, args.serial)
+
+    if not args.scenario:
+        print("Error: --scenario or --capture is required", file=sys.stderr)
+        return 1
+
+    return run_ux_qa(args)
 
 
 if __name__ == "__main__":
