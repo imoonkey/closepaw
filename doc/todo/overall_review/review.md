@@ -16,9 +16,11 @@ Date: 2026-02-16
 - [x] Protocol domain split Phase 2 (`AgentEvent` declarations split by domain files; `AgentEvent.kt` reduced to root interface)
 
 ### In Progress
+- [ ] LLM client consolidation (`Response`/`Chat` shared retry + streaming scaffold)
+  - [x] Shared cloud retry/backoff policy extracted to `CloudLlmRetry`
+  - [ ] Continue extracting shared streaming retry/error-handling scaffold
 
 ### Not Started
-- [ ] LLM client consolidation (`Response`/`Chat` shared retry + streaming scaffold)
 - [ ] Tool system DRY-up + prompt composition consolidation
 
 ## Sources Referenced
@@ -183,3 +185,8 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/main/kotlin/com/moonkey/androidagent/protocol/*Events.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentEventDispatcher.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandler.kt`
+
+17. Started LLM client consolidation by extracting shared cloud retry/backoff logic from `OpenAIResponseClient` and `ChatCompletionClient`.
+- `app/src/main/kotlin/com/moonkey/androidagent/llm/CloudLlmRetry.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt`
