@@ -2,11 +2,8 @@ package com.moonkey.androidagent.session
 
 import android.content.Context
 import android.util.Log
-import com.moonkey.androidagent.history.HistoryConfig
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.SessionRecordingService
-import com.moonkey.androidagent.history.TruncationPolicy
-import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
 import com.moonkey.androidagent.llm.ModelCatalog
@@ -18,7 +15,6 @@ import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
 import com.moonkey.androidagent.trace.TraceRecorder
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 
 /**
  * SessionServices - Dependency Injection container for all session-scoped services.
@@ -98,21 +94,9 @@ data class SessionServices(
             val toolRegistry = tooling.toolRegistry
             val toolRouter = tooling.toolRouter
 
-            val historyConfig =
-                    HistoryConfig(
-                            defaultTruncationPolicy =
-                                    TruncationPolicy.AGGRESSIVE, // 2000 tokens vs 8000
-                            autoCompress = true,
-                            maxTokenBudget =
-                                    18_000 // Leave headroom for tools (~700), screen (~5-10K), and
-                            // response
-                            )
-            val historyManager = HistoryManager(historyConfig)
-            Log.d(TAG, "Created HistoryManager")
-
-            val storage = SessionStorage(context, Dispatchers.IO)
-            val recordingService = SessionRecordingService(storage, scope)
-            Log.d(TAG, "Created SessionRecordingService")
+            val history = SessionHistoryBootstrapper.create(context, scope)
+            val historyManager = history.historyManager
+            val recordingService = history.recordingService
 
             Log.i(TAG, "SessionServices created successfully")
 
