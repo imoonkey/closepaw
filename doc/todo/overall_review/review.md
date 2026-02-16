@@ -74,6 +74,18 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/test/kotlin/com/moonkey/androidagent/tool/impl/MobileActionToolTest.kt`
 
 ## Suggested Next Refactor Phase
-1. Split `AgentTurnRunner` into planning/execution/error components (no behavior change).
+1. Continue turn-pipeline cleanup: extract shared model resolution from `TurnPlanningPhaseRunner` and remove deprecated direct `llmBackend` branching.
 2. Split `VirtualDisplayPlatform` viewer responsibilities into a dedicated collaborator.
-3. Extract generic settings dropdown component and reduce `SettingsDropdowns.kt` duplication.
+3. Continue protocol domain split from `AgentEvent.kt` into focused files.
+
+## Follow-up Progress (2026-02-16)
+1. Extracted turn error classification policy into `TurnErrorClassifier` and added dedicated regression tests.
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/TurnErrorClassifier.kt`
+- `app/src/test/kotlin/com/moonkey/androidagent/agent/TurnErrorClassifierTest.kt`
+
+2. Split `AgentTurnRunner` execution phase into `TurnExecutionPhaseRunner` (no behavior change).
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt`
+
+3. Split `AgentTurnRunner` planning phase into `TurnPlanningPhaseRunner`; `AgentTurnRunner` reduced to orchestration-focused 252 LOC.
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/TurnPlanningPhaseRunner.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt`
