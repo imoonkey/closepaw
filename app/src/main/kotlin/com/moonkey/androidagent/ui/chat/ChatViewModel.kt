@@ -31,6 +31,11 @@ import kotlinx.coroutines.launch
 internal fun completionSummary(result: String?): String =
         result?.takeIf { it.isNotBlank() } ?: "Task completed"
 
+internal fun shouldHandleReboundEvent(
+        eventTimestamp: Long,
+        replayCutoffTimestamp: Long?
+): Boolean = replayCutoffTimestamp == null || eventTimestamp > replayCutoffTimestamp
+
 internal fun appendCompletionToMessages(
         messages: MutableList<ChatMessage>,
         completionText: String,
@@ -117,12 +122,21 @@ class ChatViewModel(
     val sessions: StateFlow<List<SessionInfo>> = sessionHistoryController.sessions
 
     /** Start collecting events from a session. */
-    fun startEventCollection(session: AgentSession) {
+    fun startEventCollection(
+            session: AgentSession,
+            replayCutoffTimestamp: Long? = null
+    ) {
         // Cancel any existing collection
         eventCollectionJob?.cancel()
 
         eventCollectionJob =
-                viewModelScope.launch { session.events.collect { event -> handleEvent(event) } }
+                viewModelScope.launch {
+                    session.events.collect { event ->
+                        if (shouldHandleReboundEvent(event.timestamp, replayCutoffTimestamp)) {
+                            handleEvent(event)
+                        }
+                    }
+                }
     }
 
     /** Handle incoming AgentEvent. */

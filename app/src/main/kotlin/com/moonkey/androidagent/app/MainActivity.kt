@@ -338,15 +338,21 @@ class MainActivity : ComponentActivity() {
         if (currentSession === serviceSession) return
 
         currentSession = serviceSession
-        viewModel.startEventCollection(serviceSession)
-
-        serviceSession.getServices().recordingService.getCurrentSession()?.let { snapshot ->
+        val snapshot = serviceSession.getServices().recordingService.getCurrentSession()
+        snapshot?.let {
             viewModel.restoreMessagesFromRecords(snapshot.messages)
+            viewModel.startEventCollection(
+                    serviceSession,
+                    replayCutoffTimestamp = snapshot.lastUpdated
+            )
             Log.i(
                     TAG,
                     "Rebound active session ${serviceSession.sessionId} with ${snapshot.messages.size} recorded messages"
             )
-        } ?: Log.i(TAG, "Rebound active session ${serviceSession.sessionId} without recorder snapshot")
+        } ?: run {
+            viewModel.startEventCollection(serviceSession)
+            Log.i(TAG, "Rebound active session ${serviceSession.sessionId} without recorder snapshot")
+        }
     }
 
     private fun ensureSessionAndSend(text: String) {
