@@ -9,7 +9,6 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Display
-import android.view.MotionEvent
 import android.view.PixelCopy
 import android.view.SurfaceView
 import com.moonkey.androidagent.model.PerceptionElement
@@ -76,7 +75,6 @@ class VirtualDisplayPlatform(
 
         /** PixelCopy failures before permanently reverting to ImageReader. */
         private const val PIXEL_COPY_MAX_FAILURES = 2
-        private const val VIEWER_SWIPE_THRESHOLD_PX = 18f
     }
 
     @Volatile private var displayId: Int = Display.INVALID_DISPLAY
@@ -96,10 +94,13 @@ class VirtualDisplayPlatform(
             NodeActionPerformer(rootProvider = { windowAccessor.getRootOnDisplay() })
 
     private val inputInjector = VirtualDisplayInputInjector(shizuku, displayIdProvider)
-    private var viewerDownX = 0f
-    private var viewerDownY = 0f
-    private var viewerDownTime = 0L
-    private var viewerMoved = false
+    private val viewerTouchHandler =
+            VirtualDisplayViewerTouchHandler(
+                    config = config,
+                    displayIdProvider = displayIdProvider,
+                    inputInjector = inputInjector,
+                    shizuku = shizuku
+            )
 
     override suspend fun start() {
         check(displayId == Display.INVALID_DISPLAY) { "Already started (displayId=$displayId)" }
@@ -235,23 +236,15 @@ class VirtualDisplayPlatform(
             viewWidth: Int,
             viewHeight: Int,
     ): Boolean {
-        if (displayId == Display.INVALID_DISPLAY || viewWidth <= 0 || viewHeight <= 0) return false
-
-        val targetX = ((x / viewWidth) * config.width).coerceIn(0f, (config.width - 1).toFloat())
-        val targetY = ((y / viewHeight) * config.height).coerceIn(0f, (config.height - 1).toFloat())
-
-        val actionMasked = action and MotionEvent.ACTION_MASK
-        if (inputInjector.supportsDisplayIdInjection()) {
-            return inputInjector.injectMotionAction(
-                    action = actionMasked,
-                    x = targetX,
-                    y = targetY,
-                    downTime = downTime,
-                    eventTime = eventTime,
-            )
-        }
-
-        return injectViewerTouchViaShell(actionMasked, targetX, targetY, eventTime)
+        return viewerTouchHandler.onViewerTouch(
+                action = action,
+                x = x,
+                y = y,
+                downTime = downTime,
+                eventTime = eventTime,
+                viewWidth = viewWidth,
+                viewHeight = viewHeight
+        )
     }
 
     // ── Screen Capture ──────────────────────────────────────────
@@ -458,67 +451,6 @@ class VirtualDisplayPlatform(
     }
 
     override fun allowTapToFocus(): Boolean = false
-
-    private fun injectViewerTouchViaShell(
-            action: Int,
-            x: Float,
-            y: Float,
-            eventTime: Long,
-    ): Boolean {
-        when (action) {
-            MotionEvent.ACTION_DOWN -> {
-                viewerDownX = x
-                viewerDownY = y
-                viewerDownTime = eventTime
-                viewerMoved = false
-                return true
-            }
-            MotionEvent.ACTION_MOVE -> {
-                if (!viewerMoved) {
-                    val dx = x - viewerDownX
-                    val dy = y - viewerDownY
-                    if (dx * dx + dy * dy >= VIEWER_SWIPE_THRESHOLD_PX * VIEWER_SWIPE_THRESHOLD_PX) {
-                        viewerMoved = true
-                    }
-                }
-                return true
-            }
-            MotionEvent.ACTION_CANCEL -> {
-                viewerMoved = false
-                viewerDownTime = 0L
-                return true
-            }
-            MotionEvent.ACTION_UP -> {
-                val durationMs = (eventTime - viewerDownTime).coerceIn(16L, 1500L)
-                val command = if (viewerMoved) {
-                    arrayOf(
-                            "input",
-                            "swipe",
-                            "--display",
-                            "$displayId",
-                            "${viewerDownX.toInt()}",
-                            "${viewerDownY.toInt()}",
-                            "${x.toInt()}",
-                            "${y.toInt()}",
-                            "$durationMs",
-                    )
-                } else {
-                    arrayOf(
-                            "input",
-                            "tap",
-                            "--display",
-                            "$displayId",
-                            "${x.toInt()}",
-                            "${y.toInt()}",
-                    )
-                }
-                viewerMoved = false
-                viewerDownTime = 0L
-                return shizuku.executeShellCommand(command) == 0
-            }
-            else -> return false
-        }
-    }
 
     override suspend fun performAction(action: UIAction): ActionResult {
         if (displayId == Display.INVALID_DISPLAY) {
