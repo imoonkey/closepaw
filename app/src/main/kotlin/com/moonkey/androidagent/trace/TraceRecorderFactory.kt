@@ -5,6 +5,7 @@ import android.os.Build
 import com.moonkey.androidagent.BuildConfig
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionId
+import com.moonkey.androidagent.protocol.resolvedBackendTypeCompat
 
 object TraceRecorderFactory {
     private const val TRACE_ROOT_DIR_NAME = "inspection-trace"
@@ -34,7 +35,7 @@ object TraceRecorderFactory {
                 deviceSdkInt = Build.VERSION.SDK_INT,
                 config =
                     TraceRunConfig(
-                        llmBackend = config.llmBackend.name,
+                        llmBackend = config.resolvedBackendTypeCompat().name,
                         model = config.mainModel,
                         mainModel = config.mainModel,
                         executorModel = config.executorModel,

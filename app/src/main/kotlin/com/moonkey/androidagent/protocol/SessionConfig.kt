@@ -94,3 +94,12 @@ enum class ApprovalMode {
         /** Smart mode: auto-approve low-risk, ask for high-risk */
         SMART
 }
+
+/**
+ * Compatibility shim for legacy backend selection path.
+ *
+ * Keeps direct reads of deprecated [SessionConfig.llmBackend] centralized so migration to
+ * model-catalog-only routing can happen in one place.
+ */
+@Suppress("DEPRECATION")
+fun SessionConfig.resolvedBackendTypeCompat(): LLMBackendType = llmBackend

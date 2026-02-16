@@ -16,6 +16,7 @@ import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
+import com.moonkey.androidagent.protocol.resolvedBackendTypeCompat
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -93,9 +94,10 @@ data class SessionServices(
                 apiKeys: Map<String, String> = emptyMap(),
                 context: Context,
                 scope: CoroutineScope,
-                traceRecorder: TraceRecorder
+            traceRecorder: TraceRecorder
         ): SessionServices {
-            Log.d(TAG, "Creating SessionServices with backend: ${config.llmBackend}...")
+            val backend = config.resolvedBackendTypeCompat()
+            Log.d(TAG, "Creating SessionServices with backend: $backend...")
             Log.d(TAG, "API keys available for providers: ${apiKeys.keys}")
 
             val modelCatalog = loadModelCatalog(context)
@@ -112,7 +114,7 @@ data class SessionServices(
             Log.d(TAG, "Created LLMClientFactory")
 
             val llmClient: LLMClient =
-                    when (config.llmBackend) {
+                    when (backend) {
                         LLMBackendType.OPENAI -> {
                             ensureRequiredCloudKeys(config, modelCatalog, apiKeys)
                             llmClientFactory.create(config.mainModel)
