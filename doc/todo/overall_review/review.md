@@ -18,7 +18,8 @@ Date: 2026-02-16
 ### In Progress
 - [ ] LLM client consolidation (`Response`/`Chat` shared retry + streaming scaffold)
   - [x] Shared cloud retry/backoff policy extracted to `CloudLlmRetry`
-  - [ ] Continue extracting shared streaming retry/error-handling scaffold
+  - [x] Shared cloud streaming retry/error decision policy extracted to `CloudStreamRetryPolicy`
+  - [ ] Continue extracting request/stream lifecycle scaffold where practical without over-abstraction
 
 ### Not Started
 - [ ] Tool system DRY-up + prompt composition consolidation
@@ -188,5 +189,10 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 
 17. Started LLM client consolidation by extracting shared cloud retry/backoff logic from `OpenAIResponseClient` and `ChatCompletionClient`.
 - `app/src/main/kotlin/com/moonkey/androidagent/llm/CloudLlmRetry.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt`
+
+18. Continued LLM client consolidation by extracting shared streaming retry/error decision policy.
+- `app/src/main/kotlin/com/moonkey/androidagent/llm/CloudStreamRetryPolicy.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt`
