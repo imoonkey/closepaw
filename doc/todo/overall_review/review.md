@@ -18,7 +18,9 @@ Date: 2026-02-16
   - [ ] Event declarations split out of `AgentEvent.kt` into focused domain files
 - [ ] SessionConfig cleanup Phase 2 (reduce deprecated `llmBackend/localLLMConfig/model` compatibility path)
   - [x] Legacy backend read centralized via `resolvedBackendTypeCompat()`
-  - [ ] Remaining deprecated compatibility reads (`localLLMConfig`/legacy construction paths) centralized or removed
+  - [x] Legacy local config read centralized via `resolvedLocalLlmConfigCompat()`
+  - [x] Canonical `SessionLlmConfig` introduced and wired into runtime/session construction
+  - [ ] Remove deprecated constructor fields after settings-side migration (`llmBackend`/`localLLMConfig`/`model`)
 
 ### Not Started
 - [ ] LLM client consolidation (`Response`/`Chat` shared retry + streaming scaffold)
@@ -151,3 +153,10 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 9. Added `AgentEvent` domain interfaces and mapped existing events to domain types (no behavior change).
 - `app/src/main/kotlin/com/moonkey/androidagent/protocol/AgentEventDomains.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/protocol/AgentEvent.kt`
+
+10. Introduced canonical session LLM routing config and migrated runtime/session construction/test usage to reduce deprecated field dependence.
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionConfig.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt`
+- `app/src/test/kotlin/com/moonkey/androidagent/session/SessionServicesProviderRoutingTest.kt`
+- `app/src/test/kotlin/com/moonkey/androidagent/agent/LocalBackendTurnRoutingTest.kt`
