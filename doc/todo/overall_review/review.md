@@ -74,9 +74,9 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/test/kotlin/com/moonkey/androidagent/tool/impl/MobileActionToolTest.kt`
 
 ## Suggested Next Refactor Phase
-1. Continue turn-pipeline cleanup: extract shared model resolution from `TurnPlanningPhaseRunner` and remove deprecated direct `llmBackend` branching.
-2. Split `VirtualDisplayPlatform` viewer responsibilities into a dedicated collaborator.
-3. Continue protocol domain split from `AgentEvent.kt` into focused files.
+1. Continue VirtualDisplay stack decomposition: split surface/capture state transitions into explicit collaborators.
+2. Continue protocol domain split from `AgentEvent.kt` into event-domain focused files.
+3. Continue SessionConfig cleanup: shrink deprecated `llmBackend/localLLMConfig/model` compatibility surface.
 
 ## Follow-up Progress (2026-02-16)
 1. Extracted turn error classification policy into `TurnErrorClassifier` and added dedicated regression tests.
@@ -89,3 +89,18 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 3. Split `AgentTurnRunner` planning phase into `TurnPlanningPhaseRunner`; `AgentTurnRunner` reduced to orchestration-focused 252 LOC.
 - `app/src/main/kotlin/com/moonkey/androidagent/agent/TurnPlanningPhaseRunner.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt`
+
+4. Centralized per-agent model resolution with catalog-first fallback policy (`AgentModelResolver`) and removed direct `llmBackend` branching from planning phase.
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/AgentModelResolver.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/agent/TurnPlanningPhaseRunner.kt`
+- `app/src/test/kotlin/com/moonkey/androidagent/agent/AgentModelResolverTest.kt`
+
+5. Split protocol enums from `AgentEvent.kt` into focused files.
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/TurnPhase.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/CompletionReason.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/AskUserType.kt`
+
+6. Split VirtualDisplay viewer/capture responsibilities into dedicated collaborators.
+- `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayViewerTouchHandler.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayScreenshotProcessor.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt`
