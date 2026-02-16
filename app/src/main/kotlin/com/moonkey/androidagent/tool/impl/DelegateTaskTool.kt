@@ -10,6 +10,7 @@ import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
 import com.moonkey.androidagent.tool.ToolSpec
 import com.moonkey.androidagent.tool.ValidationResult
+import com.moonkey.androidagent.tool.appendReason
 import com.moonkey.androidagent.tool.textToolSuccess
 import org.json.JSONArray
 import org.json.JSONObject
@@ -122,7 +123,7 @@ class DelegateTaskTool(
     private fun buildDescription(agentName: String, query: String, thought: String): String {
         val queryPreview = query.take(80)
         val base = "Delegate to $agentName: $queryPreview"
-        return if (thought.isNotEmpty()) "$base (reason: $thought)" else base
+        return appendReason(base, thought)
     }
 
     private fun parseStringArray(array: JSONArray?): List<String> {

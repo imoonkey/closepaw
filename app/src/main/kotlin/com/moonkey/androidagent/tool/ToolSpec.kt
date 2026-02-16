@@ -177,3 +177,7 @@ fun textToolSuccess(output: String, data: Any? = null): ToolExecutionResult.Succ
                 data = data,
                 observation = ToolObservation.TextOutput(output)
         )
+
+/** Appends a reason suffix in a consistent format. */
+fun appendReason(base: String, reason: String): String =
+        reason.takeIf { it.isNotBlank() }?.let { "$base (reason: $it)" } ?: base

@@ -9,6 +9,7 @@ import com.moonkey.androidagent.tool.ToolInvocation
 import com.moonkey.androidagent.tool.ToolObservation
 import com.moonkey.androidagent.tool.ToolSpec
 import com.moonkey.androidagent.tool.ValidationResult
+import com.moonkey.androidagent.tool.appendReason
 import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
@@ -105,11 +106,7 @@ If the app is not found, suggestions will be provided.
         val appName = params.optString("app_name", "").trim()
         val agentThought = params.optString("agent_thought", "").trim()
 
-        val desc = if (agentThought.isNotEmpty()) {
-            "Open app: $appName (reason: $agentThought)"
-        } else {
-            "Open app: $appName"
-        }
+        val desc = appendReason("Open app: $appName", agentThought)
 
         return OpenAppInvocation(params, desc, appName)
     }

@@ -6,6 +6,7 @@ import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
 import com.moonkey.androidagent.tool.ToolSpec
 import com.moonkey.androidagent.tool.ValidationResult
+import com.moonkey.androidagent.tool.appendReason
 import com.moonkey.androidagent.tool.textToolSuccess
 import org.json.JSONArray
 import org.json.JSONObject
@@ -123,7 +124,7 @@ class ScratchpadTool(
             "delete" -> "Delete scratchpad key '$key'"
             else -> "Scratchpad action '$action'"
         }
-        return if (agentThought.isNotEmpty()) "$base (reason: $agentThought)" else base
+        return appendReason(base, agentThought)
     }
 }
 

@@ -8,6 +8,7 @@ import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
 import com.moonkey.androidagent.tool.ToolSpec
 import com.moonkey.androidagent.tool.ValidationResult
+import com.moonkey.androidagent.tool.appendReason
 import com.moonkey.androidagent.tool.textToolSuccess
 import org.json.JSONArray
 import org.json.JSONObject
@@ -80,11 +81,7 @@ class WriteTodosTool(
     override fun createInvocation(params: JSONObject): ToolInvocation {
         val todos = parseTodos(params.getJSONArray("todos"), mutableListOf())
         val agentThought = params.optString("agent_thought", "").trim()
-        val description = if (agentThought.isNotEmpty()) {
-            "Update todos (${todos.size} items) (reason: $agentThought)"
-        } else {
-            "Update todos (${todos.size} items)"
-        }
+        val description = appendReason("Update todos (${todos.size} items)", agentThought)
 
         return WriteTodosInvocation(
             state = state,
