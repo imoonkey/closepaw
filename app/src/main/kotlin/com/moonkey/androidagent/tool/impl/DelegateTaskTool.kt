@@ -8,9 +8,9 @@ import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
-import com.moonkey.androidagent.tool.ToolObservation
 import com.moonkey.androidagent.tool.ToolSpec
 import com.moonkey.androidagent.tool.ValidationResult
+import com.moonkey.androidagent.tool.textToolSuccess
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -185,14 +185,13 @@ private class DelegateTaskInvocation(
             "Sub-agent failed: ${result.message}"
         }
 
-        return ToolExecutionResult.Success(
-            output = output,
-            data = mapOf(
-                "agent" to definition.name,
-                "success" to result.success,
-                "message" to result.message
-            ),
-            observation = ToolObservation.TextOutput(output)
+        return textToolSuccess(
+                output = output,
+                data = mapOf(
+                        "agent" to definition.name,
+                        "success" to result.success,
+                        "message" to result.message
+                )
         )
     }
 }

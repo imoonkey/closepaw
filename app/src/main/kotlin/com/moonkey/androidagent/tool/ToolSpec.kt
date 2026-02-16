@@ -169,3 +169,11 @@ sealed interface ToolObservation {
     /** Text output for non-UI tools */
     data class TextOutput(val content: String) : ToolObservation
 }
+
+/** Standard success result for text-only tools. */
+fun textToolSuccess(output: String, data: Any? = null): ToolExecutionResult.Success =
+        ToolExecutionResult.Success(
+                output = output,
+                data = data,
+                observation = ToolObservation.TextOutput(output)
+        )

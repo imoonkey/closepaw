@@ -6,9 +6,9 @@ import com.moonkey.androidagent.session.TodoState
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
-import com.moonkey.androidagent.tool.ToolObservation
 import com.moonkey.androidagent.tool.ToolSpec
 import com.moonkey.androidagent.tool.ValidationResult
+import com.moonkey.androidagent.tool.textToolSuccess
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -148,11 +148,7 @@ private class WriteTodosInvocation(
         return try {
             state.update(todos)
             val output = buildOutput(todos)
-            ToolExecutionResult.Success(
-                output = output,
-                data = todos,
-                observation = ToolObservation.TextOutput(output)
-            )
+            textToolSuccess(output = output, data = todos)
         } catch (e: Exception) {
             ToolExecutionResult.Failure("Failed to update todos: ${e.message}", e)
         }

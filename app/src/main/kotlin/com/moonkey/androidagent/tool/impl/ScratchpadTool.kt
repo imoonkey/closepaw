@@ -4,9 +4,9 @@ import com.moonkey.androidagent.session.ScratchpadState
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
-import com.moonkey.androidagent.tool.ToolObservation
 import com.moonkey.androidagent.tool.ToolSpec
 import com.moonkey.androidagent.tool.ValidationResult
+import com.moonkey.androidagent.tool.textToolSuccess
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -176,10 +176,7 @@ private class ScratchpadInvocation(
                 }.toString()
             }
 
-            ToolExecutionResult.Success(
-                output = output,
-                observation = ToolObservation.TextOutput(output)
-            )
+            textToolSuccess(output = output)
         } catch (e: Exception) {
             ToolExecutionResult.Failure("Scratchpad action failed: ${e.message}", e)
         }
