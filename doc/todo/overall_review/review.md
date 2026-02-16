@@ -106,7 +106,9 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayAppController.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplaySurfaceController.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuShellExecutor.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuClient.kt`
 
 7. Moved session configuration types out of `Op.kt` into focused protocol file (Phase 1 config cleanup).
 - `app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionConfig.kt`
