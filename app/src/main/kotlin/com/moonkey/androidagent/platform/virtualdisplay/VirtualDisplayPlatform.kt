@@ -12,25 +12,18 @@ import android.view.Display
 import android.view.PixelCopy
 import android.view.SurfaceView
 import com.moonkey.androidagent.model.PerceptionElement
-import com.moonkey.androidagent.model.ScreenImage
-import com.moonkey.androidagent.model.ScreenImageSource
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.model.ScreenSnapshotDebug
 import com.moonkey.androidagent.perception.Perceptor
-import com.moonkey.androidagent.perception.screenshotJpegQuality
-import com.moonkey.androidagent.perception.screenshotMaxDimension
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.AppInfo
 import com.moonkey.androidagent.platform.AppManager
-import com.moonkey.androidagent.platform.BitmapUtils
 import com.moonkey.androidagent.platform.DisplayInfo
 import com.moonkey.androidagent.platform.NodeActionPerformer
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.trace.TraceRecorder
-import java.io.File
-import java.io.FileOutputStream
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -56,8 +49,6 @@ class VirtualDisplayPlatform(
         private val sessionConfig: SessionConfig,
         private val traceRecorder: TraceRecorder
 ) : AndroidPlatform {
-
-    private data class VDScreenshotCapture(val image: ScreenImage, val tracePath: String?)
 
     /** Which surface the VirtualDisplay is currently rendering to. */
     enum class SurfaceMode {
@@ -94,6 +85,12 @@ class VirtualDisplayPlatform(
             NodeActionPerformer(rootProvider = { windowAccessor.getRootOnDisplay() })
 
     private val inputInjector = VirtualDisplayInputInjector(shizuku, displayIdProvider)
+    private val screenshotProcessor =
+            VirtualDisplayScreenshotProcessor(
+                    service = service,
+                    sessionConfig = sessionConfig,
+                    traceRecorder = traceRecorder
+            )
     private val viewerTouchHandler =
             VirtualDisplayViewerTouchHandler(
                     config = config,
@@ -331,7 +328,7 @@ class VirtualDisplayPlatform(
                             }
                         } else bitmap
 
-                bitmapToScreenImage(cropped)
+                screenshotProcessor.toScreenImage(cropped)
             } finally {
                 image.close()
             }
@@ -376,78 +373,7 @@ class VirtualDisplayPlatform(
         }
 
         pixelCopyFailCount = 0
-        return withContext(Dispatchers.Default) { bitmapToScreenImage(bitmap) }
-    }
-
-    /** Scale, compress, and wrap a Bitmap into a ScreenImage. */
-    private fun bitmapToScreenImage(bitmap: Bitmap): VDScreenshotCapture? {
-        val maxDim = sessionConfig.perceptionConfig.screenshotMaxDimension
-        val quality = sessionConfig.perceptionConfig.screenshotJpegQuality
-        val scaled = BitmapUtils.scaleBitmapIfNeeded(bitmap, maxDim)
-        val width = scaled.width
-        val height = scaled.height
-        val bytes = BitmapUtils.compressJpeg(scaled, quality)
-
-        if (scaled !== bitmap) bitmap.recycle()
-        scaled.recycle()
-
-        return bytes?.let {
-            // Save to trace if enabled
-            val tracePath =
-                    if (traceRecorder.enabled) {
-                        traceRecorder.storeBytes(
-                                        kind = "screenshot",
-                                        filenameHint =
-                                                "screenshot_${System.currentTimeMillis()}_${width}x${height}.jpg",
-                                        bytes = it,
-                                        mimeType = "image/jpeg"
-                                )
-                                ?.path
-                    } else {
-                        null
-                    }
-
-            // Also persist for debug if needed
-            if (sessionConfig.debugMode) {
-                persistDebugScreenshot(it, width, height)
-            }
-
-            val image =
-                    ScreenImage(
-                            width = width,
-                            height = height,
-                            mimeType = "image/jpeg",
-                            bytes = it,
-                            source = ScreenImageSource.VIRTUAL_DISPLAY_CAPTURE
-                    )
-            VDScreenshotCapture(image, tracePath)
-        }
-    }
-
-    private fun persistDebugScreenshot(bytes: ByteArray, width: Int, height: Int) {
-        try {
-            val debugDir = File(service.getExternalFilesDir(null), "debug-output")
-            if (!debugDir.exists()) debugDir.mkdirs()
-
-            // Cleanup: keep only last 20 screenshots
-            val files = debugDir.listFiles { _, name -> name.startsWith("vd_screenshot_") }
-            if (files != null && files.size >= 20) {
-                files.sortBy { it.lastModified() }
-                // Delete oldest until we have space for one more
-                for (i in 0..(files.size - 20)) {
-                    files[i].delete()
-                }
-            }
-
-            val file =
-                    File(
-                            debugDir,
-                            "vd_screenshot_${System.currentTimeMillis()}_${width}x${height}.jpg"
-                    )
-            FileOutputStream(file).use { it.write(bytes) }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to persist debug screenshot", e)
-        }
+        return withContext(Dispatchers.Default) { screenshotProcessor.toScreenImage(bitmap) }
     }
 
     override fun allowTapToFocus(): Boolean = false
