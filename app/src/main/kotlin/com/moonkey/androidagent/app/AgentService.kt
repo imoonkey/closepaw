@@ -28,11 +28,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * AgentService - The entry point for the Accessibility Service.
@@ -52,6 +55,7 @@ class AgentService : AccessibilityService() {
 
         /** Our package name for detecting when app is in foreground */
         private const val OUR_PACKAGE = "com.moonkey.androidagent"
+        private const val SHUTDOWN_TIMEOUT_MS = 5_000L
 
         @Volatile
         var instance: AgentService? = null
@@ -201,7 +205,7 @@ class AgentService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         // Detect when our app goes to foreground/background to show/hide capsule
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            val eventDisplayId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val eventDisplayId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 event.displayId
             } else {
                 Display.DEFAULT_DISPLAY
@@ -219,7 +223,24 @@ class AgentService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        submitOp(Op.Shutdown)
+        // Cancel event collector first to avoid handling events during teardown.
+        eventCollectorJob?.cancel()
+        eventCollectorJob = null
+
+        val currentSession = session
+        if (currentSession != null) {
+            runBlocking {
+                val completed = withTimeoutOrNull(SHUTDOWN_TIMEOUT_MS) {
+                    currentSession.submit(Op.Shutdown)
+                    true
+                }
+                if (completed != true) {
+                    Log.w(TAG, "Timed out waiting for session shutdown")
+                }
+            }
+        }
+        session = null
+
         overlayController?.dispose()
         overlayController = null
         actionVisualizer?.dispose()
@@ -276,7 +297,23 @@ class AgentService : AccessibilityService() {
 
         eventCollectorJob =
                 scope.launch {
-                    agentSession.events.collect { event -> handleEvent(event, recordingService) }
+                    try {
+                        agentSession.events.collect { event ->
+                            try {
+                                handleEvent(event, recordingService)
+                            } catch (e: Exception) {
+                                Log.e(
+                                        TAG,
+                                        "Failed to handle event: ${event::class.simpleName}",
+                                        e
+                                )
+                            }
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Session event collector crashed", e)
+                    }
                 }
     }
 
@@ -337,6 +374,7 @@ class AgentService : AccessibilityService() {
                 updateStatus("🤖 ${event.agentName} $status")
             }
             is AgentEvent.TaskCompleted -> {
+                Log.i(TAG, "Task completed: ${event.taskId}, reason: ${event.reason}")
                 recordingService?.completeAgentMessage()
                 overlayController?.onTaskCompleted(event.reason, event.result)
             }

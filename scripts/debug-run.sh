@@ -350,8 +350,17 @@ echo ""
 MAX_TURNS="${DEBUG_MAX_TURNS:-80}"
 CAPTURE_COUNT=0
 LAST_LOG_LINE=0
+START_TS=$(date +%s)
+MAX_WAIT_SECONDS_RAW="${DEBUG_MAX_WAIT_SECONDS:-900}"
+if [[ "$MAX_WAIT_SECONDS_RAW" =~ ^[0-9]+$ ]]; then
+    MAX_WAIT_SECONDS="$MAX_WAIT_SECONDS_RAW"
+else
+    warn "Invalid DEBUG_MAX_WAIT_SECONDS='$MAX_WAIT_SECONDS_RAW', falling back to 900"
+    MAX_WAIT_SECONDS=900
+fi
 
 log "Monitoring turns (max $MAX_TURNS captured turn-start events)..."
+log "Max wait before auto-stop: ${MAX_WAIT_SECONDS}s (set DEBUG_MAX_WAIT_SECONDS to override)"
 echo ""
 
 while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
@@ -395,11 +404,11 @@ while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
         LAST_LOG_LINE=$TOTAL_LINES
     fi
 
-    # Check if main session finished.
-    # Avoid generic "GoalAchieved" patterns because sub-agents can emit those too.
-    if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionCompleted\\|AgentService: Session completed\\|AgentService: Task completed"; then
+    # Check if task/session finished.
+    # Match explicit event names to avoid false positives from generic status text.
+    if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -qE "AgentSession: Emitted event: TaskCompleted|AgentService: Received event: TaskCompleted|AgentSession: Emitted event: SessionCompleted|AgentService: Session completed|AgentService: Task completed"; then
         echo ""
-        ok "Agent completed!"
+        ok "Task/session completed!"
         stop_agent
         break
     fi
@@ -408,6 +417,14 @@ while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
     if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionError\\|AgentService: Session error\\|Fatal error"; then
         echo ""
         warn "Agent stopped (session error)"
+        stop_agent
+        break
+    fi
+
+    ELAPSED=$(( $(date +%s) - START_TS ))
+    if [[ "$MAX_WAIT_SECONDS" -gt 0 && "$ELAPSED" -ge "$MAX_WAIT_SECONDS" ]]; then
+        echo ""
+        warn "Timed out after ${ELAPSED}s without terminal signal"
         stop_agent
         break
     fi
