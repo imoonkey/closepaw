@@ -23,54 +23,78 @@ internal class VirtualDisplaySurfaceController(
                 private const val TAG = "VDSurfaceController"
         }
 
-        @Volatile private var mode = VirtualDisplaySurfaceMode.IMAGE_READER
-        @Volatile private var liveSurfaceView: SurfaceView? = null
+        private data class SurfaceState(
+                val mode: VirtualDisplaySurfaceMode,
+                val liveSurfaceView: SurfaceView?
+        )
 
-        fun mode(): VirtualDisplaySurfaceMode = mode
+        private val stateLock = Any()
+        @Volatile
+        private var state = SurfaceState(mode = VirtualDisplaySurfaceMode.IMAGE_READER, liveSurfaceView = null)
 
-        fun liveSurfaceView(): SurfaceView? = liveSurfaceView
+        fun mode(): VirtualDisplaySurfaceMode = state.mode
+
+        fun liveSurfaceView(): SurfaceView? = state.liveSurfaceView
 
         fun reset() {
-                liveSurfaceView = null
-                mode = VirtualDisplaySurfaceMode.IMAGE_READER
+                synchronized(stateLock) {
+                        state =
+                                SurfaceState(
+                                        mode = VirtualDisplaySurfaceMode.IMAGE_READER,
+                                        liveSurfaceView = null
+                                )
+                }
         }
 
         fun switchToLivePreview(surfaceView: SurfaceView) {
-                if (mode == VirtualDisplaySurfaceMode.LIVE_PREVIEW) return
-                val surface =
-                        surfaceView.holder.surface
-                                ?: run {
-                                        Log.w(
-                                                TAG,
-                                                "SurfaceView holder has no valid surface, staying on ImageReader"
-                                        )
-                                        return
-                                }
-                if (!surface.isValid) {
-                        Log.w(TAG, "SurfaceView surface is invalid, staying on ImageReader")
-                        return
-                }
+                synchronized(stateLock) {
+                        if (state.mode == VirtualDisplaySurfaceMode.LIVE_PREVIEW) return
+                        val surface =
+                                surfaceView.holder.surface
+                                        ?: run {
+                                                Log.w(
+                                                        TAG,
+                                                        "SurfaceView holder has no valid surface, staying on ImageReader"
+                                                )
+                                                return
+                                        }
+                        if (!surface.isValid) {
+                                Log.w(TAG, "SurfaceView surface is invalid, staying on ImageReader")
+                                return
+                        }
 
-                val ok = shizuku.setVirtualDisplaySurface(displayIdProvider(), surface)
-                if (ok) {
-                        liveSurfaceView = surfaceView
-                        mode = VirtualDisplaySurfaceMode.LIVE_PREVIEW
-                        Log.i(TAG, "Switched to live preview surface")
-                } else {
-                        Log.w(TAG, "setSurface failed, staying on ImageReader")
+                        val ok = shizuku.setVirtualDisplaySurface(displayIdProvider(), surface)
+                        if (ok) {
+                                state =
+                                        SurfaceState(
+                                                mode = VirtualDisplaySurfaceMode.LIVE_PREVIEW,
+                                                liveSurfaceView = surfaceView
+                                        )
+                                Log.i(TAG, "Switched to live preview surface")
+                        } else {
+                                Log.w(TAG, "setSurface failed, staying on ImageReader")
+                        }
                 }
         }
 
         fun switchToImageReader() {
-                if (mode == VirtualDisplaySurfaceMode.IMAGE_READER) return
-                val reader = imageReaderProvider() ?: return
-                val ok = shizuku.setVirtualDisplaySurface(displayIdProvider(), reader.surface)
-                if (ok) {
-                        liveSurfaceView = null
-                        mode = VirtualDisplaySurfaceMode.IMAGE_READER
-                        Log.i(TAG, "Switched to ImageReader surface")
-                } else {
-                        Log.w(TAG, "Failed to switch back to ImageReader — display may be in bad state")
+                synchronized(stateLock) {
+                        if (state.mode == VirtualDisplaySurfaceMode.IMAGE_READER) return
+                        val reader = imageReaderProvider() ?: return
+                        val ok = shizuku.setVirtualDisplaySurface(displayIdProvider(), reader.surface)
+                        if (ok) {
+                                state =
+                                        SurfaceState(
+                                                mode = VirtualDisplaySurfaceMode.IMAGE_READER,
+                                                liveSurfaceView = null
+                                        )
+                                Log.i(TAG, "Switched to ImageReader surface")
+                        } else {
+                                Log.w(
+                                        TAG,
+                                        "Failed to switch back to ImageReader — display may be in bad state"
+                                )
+                        }
                 }
         }
 }

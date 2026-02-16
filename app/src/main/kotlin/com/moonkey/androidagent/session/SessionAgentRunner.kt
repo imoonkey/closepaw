@@ -31,9 +31,14 @@ internal class SessionAgentRunner(
         private const val TAG = "SessionAgentRunner"
     }
 
-    private var agent: Agent? = null
-    private var agentJob: Job? = null
-    private var cancellationSignal: CompletableDeferred<AgentStopReason>? = null
+    private data class RunnerState(
+        val agent: Agent?,
+        val agentJob: Job?,
+        val cancellationSignal: CompletableDeferred<AgentStopReason>?
+    )
+
+    private val stateLock = Any()
+    private var state = RunnerState(agent = null, agentJob = null, cancellationSignal = null)
 
     fun start(taskInput: String, taskId: String) {
         val agentDef = AgentDefRegistry.mainFor(config.agentMode)
@@ -43,7 +48,6 @@ internal class SessionAgentRunner(
         ensureAskUserToolRegistered()
 
         val signal = CompletableDeferred<AgentStopReason>()
-        cancellationSignal = signal
 
         // Resolve model name based on agent role
         val modelName = when (agentDef.executionRole) {
@@ -72,9 +76,8 @@ internal class SessionAgentRunner(
             eventEmitter = { event -> emitEvent(event) },
             cancellationSignal = signal
         )
-        agent = newAgent
 
-        agentJob = scope.launch {
+        val newAgentJob = scope.launch {
             try {
                 val result = newAgent.run()
                 onComplete(result)
@@ -85,6 +88,9 @@ internal class SessionAgentRunner(
                 Log.e(TAG, "Agent error", e)
                 onComplete(AgentStopReason.Error(e.message ?: "Unknown error"))
             }
+        }
+        synchronized(stateLock) {
+            state = RunnerState(agent = newAgent, agentJob = newAgentJob, cancellationSignal = signal)
         }
 
         Log.d(TAG, "Started agent for task $taskId")
@@ -125,29 +131,35 @@ internal class SessionAgentRunner(
     }
 
     suspend fun pause(): Deferred<Unit> {
-        return agent?.pause() ?: CompletableDeferred<Unit>().also { it.complete(Unit) }
+        val currentAgent = synchronized(stateLock) { state.agent }
+        return currentAgent?.pause() ?: CompletableDeferred<Unit>().also { it.complete(Unit) }
     }
 
     suspend fun resume() {
-        agent?.resume()
+        val currentAgent = synchronized(stateLock) { state.agent }
+        currentAgent?.resume()
     }
 
     fun stop() {
-        agent?.stop()
+        val currentAgent = synchronized(stateLock) { state.agent }
+        currentAgent?.stop()
     }
 
     fun shutdown() {
-        agent?.stop()
-        agent = null
-        agentJob?.cancel()
-        agentJob = null
-        cancellationSignal?.complete(AgentStopReason.UserRequested)
-        cancellationSignal = null
+        val snapshot =
+            synchronized(stateLock) {
+                val current = state
+                state = RunnerState(agent = null, agentJob = null, cancellationSignal = null)
+                current
+            }
+        snapshot.agent?.stop()
+        snapshot.agentJob?.cancel()
+        snapshot.cancellationSignal?.complete(AgentStopReason.UserRequested)
     }
 
     fun clear() {
-        agent = null
-        agentJob = null
-        cancellationSignal = null
+        synchronized(stateLock) {
+            state = RunnerState(agent = null, agentJob = null, cancellationSignal = null)
+        }
     }
 }

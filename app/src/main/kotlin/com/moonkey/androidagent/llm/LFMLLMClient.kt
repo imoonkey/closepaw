@@ -66,45 +66,49 @@ class LFMLLMClient(
      */
     suspend fun loadModel(onProgress: ((ModelLoadingState) -> Unit)? = null) {
         modelMutex.withLock {
-            if (modelRunner != null) {
-                Log.d(TAG, "Model already loaded")
-                return
-            }
+            loadModelLocked(onProgress)
+        }
+    }
 
-            try {
-                withContext(Dispatchers.IO) {
-                    modelLoadingState = ModelLoadingState.Downloading(0f)
-                    onProgress?.invoke(modelLoadingState)
+    private suspend fun loadModelLocked(onProgress: ((ModelLoadingState) -> Unit)? = null) {
+        if (modelRunner != null) {
+            Log.d(TAG, "Model already loaded")
+            return
+        }
 
-                    val saveDir = File(context.filesDir, "leap_models").absolutePath
-                    val downloader = LeapDownloader(
-                        config = LeapDownloaderConfig(saveDir = saveDir)
-                    )
-
-                    modelRunner = downloader.loadModel(
-                        modelSlug = config.modelSlug,
-                        quantizationSlug = config.quantizationSlug,
-                        progress = { progressData ->
-                            val progress = progressData.progress
-                            modelLoadingState = if (progress >= 1f) {
-                                ModelLoadingState.Loading
-                            } else {
-                                ModelLoadingState.Downloading(progress)
-                            }
-                            onProgress?.invoke(modelLoadingState)
-                        }
-                    )
-
-                    modelLoadingState = ModelLoadingState.Ready
-                    onProgress?.invoke(modelLoadingState)
-                    Log.i(TAG, "Model loaded: ${config.modelSlug}/${config.quantizationSlug}")
-                }
-            } catch (e: Exception) {
-                modelLoadingState = ModelLoadingState.Error(e.message ?: "Unknown error")
+        try {
+            withContext(Dispatchers.IO) {
+                modelLoadingState = ModelLoadingState.Downloading(0f)
                 onProgress?.invoke(modelLoadingState)
-                Log.e(TAG, "Failed to load model", e)
-                throw e
+
+                val saveDir = File(context.filesDir, "leap_models").absolutePath
+                val downloader = LeapDownloader(
+                    config = LeapDownloaderConfig(saveDir = saveDir)
+                )
+
+                modelRunner = downloader.loadModel(
+                    modelSlug = config.modelSlug,
+                    quantizationSlug = config.quantizationSlug,
+                    progress = { progressData ->
+                        val progress = progressData.progress
+                        modelLoadingState = if (progress >= 1f) {
+                            ModelLoadingState.Loading
+                        } else {
+                            ModelLoadingState.Downloading(progress)
+                        }
+                        onProgress?.invoke(modelLoadingState)
+                    }
+                )
+
+                modelLoadingState = ModelLoadingState.Ready
+                onProgress?.invoke(modelLoadingState)
+                Log.i(TAG, "Model loaded: ${config.modelSlug}/${config.quantizationSlug}")
             }
+        } catch (e: Exception) {
+            modelLoadingState = ModelLoadingState.Error(e.message ?: "Unknown error")
+            onProgress?.invoke(modelLoadingState)
+            Log.e(TAG, "Failed to load model", e)
+            throw e
         }
     }
 
@@ -213,9 +217,12 @@ class LFMLLMClient(
     }
 
     private suspend fun getOrLoadModel(): ModelRunner {
-        modelRunner?.let { return it }
-        loadModel()
-        return modelRunner ?: throw IllegalStateException("Model not loaded after loadModel()")
+        return modelMutex.withLock {
+            modelRunner ?: run {
+                loadModelLocked(onProgress = null)
+                modelRunner ?: throw IllegalStateException("Model not loaded after loadModel()")
+            }
+        }
     }
 
     private fun buildConversation(

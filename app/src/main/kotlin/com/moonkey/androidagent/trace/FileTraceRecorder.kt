@@ -25,6 +25,7 @@ internal class FileTraceRecorder(
         private const val TRACE_FILE_NAME = "trace.jsonl"
         private const val META_FILE_NAME = "meta.json"
         private const val ARTIFACTS_DIR_NAME = "artifacts"
+        private const val WRITE_CHANNEL_CAPACITY = 2048
     }
 
     private sealed interface WriteOp {
@@ -36,7 +37,7 @@ internal class FileTraceRecorder(
     override val enabled: Boolean = true
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val channel = Channel<WriteOp>(capacity = Channel.UNLIMITED)
+    private val channel = Channel<WriteOp>(capacity = WRITE_CHANNEL_CAPACITY)
     private val seq = AtomicLong(0L)
     private val artifactSeq = AtomicLong(0L)
     private val writerJob: Job

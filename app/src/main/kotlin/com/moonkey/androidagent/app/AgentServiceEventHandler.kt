@@ -74,7 +74,7 @@ internal class AgentServiceEventHandler(
             }
             is TaskCompleted -> {
                 Log.i(logTag, "Task completed: ${event.taskId}, reason: ${event.reason}")
-                recordingService?.completeAgentMessage()
+                recordingService?.completeSession()
                 overlay?.onTaskCompleted(event.reason, event.result)
             }
             is ActionProposed -> {

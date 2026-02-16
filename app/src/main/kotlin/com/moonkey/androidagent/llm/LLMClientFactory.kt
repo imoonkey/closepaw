@@ -49,7 +49,7 @@ class LLMClientFactory(
         val entry = catalog.resolve(modelName)
         val cacheKey = "${entry.provider}|${entry.effectiveBaseUrl ?: "default"}|${entry.api}"
 
-        return clientCache.getOrPut(cacheKey) {
+        return clientCache.computeIfAbsent(cacheKey) {
             val apiKey = resolveApiKey(entry)
             val client =
                     when (entry.api) {

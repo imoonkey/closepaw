@@ -42,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
@@ -69,6 +70,8 @@ class MainActivity : ComponentActivity() {
 
     // Current session
     private var currentSession: AgentSession? = null
+    private val sessionCreationLock = Any()
+    @Volatile private var sessionCreationInProgress = false
 
     // Settings state
     private lateinit var settingsState: AppSettingsState
@@ -117,14 +120,7 @@ class MainActivity : ComponentActivity() {
                         sessionHistoryManager = sessionHistoryManager,
                         onSessionNeeded = { text -> ensureSessionAndSend(text) },
                         onTaskCompleted = {
-                            val activeSession = currentSession
-                            activeSession?.let { session ->
-                                // Complete the same recorder instance that receives live events.
-                                session.getServices().recordingService.completeSession()
-                            } ?: run {
-                                // Fallback for legacy/history-only flows.
-                                sessionHistoryManager.endSession()
-                            }
+                            // Session recording completion is owned by AgentServiceEventHandler.
                             Log.d(TAG, "Task completed; keeping session alive for next task")
                         }
                 )
@@ -383,6 +379,27 @@ class MainActivity : ComponentActivity() {
         }
 
         if (currentSession == null) {
+            val shouldCreate =
+                    synchronized(sessionCreationLock) {
+                        if (currentSession != null || sessionCreationInProgress) {
+                            false
+                        } else {
+                            sessionCreationInProgress = true
+                            true
+                        }
+                    }
+            if (!shouldCreate) {
+                lifecycleScope.launch {
+                    val active = currentSession
+                    if (active != null) {
+                        active.submit(Op.UserInput(text))
+                    } else {
+                        window.decorView.postDelayed({ ensureSessionAndSend(text) }, 200)
+                    }
+                }
+                return
+            }
+
             lifecycleScope.launch {
                 try {
                     val localConfig =
@@ -397,42 +414,42 @@ class MainActivity : ComponentActivity() {
                         settingsState.updateModelLoadingStatus(ModelLoadingStatus.Loading)
                     }
 
-                    val session =
-                            AgentSession.create(
-                                    config =
-                                            SessionConfig(
-                                                    maxTurns = settingsState.maxTurns,
-                                                    mainModel = settingsState.selectedModel,
-                                                    executorModel = settingsState.executorModel,
-                                                    debugMode = settingsState.debugMode,
-                                                    traceEnabled = pendingTraceEnabled
-                                                                    ?: settingsState.debugMode,
-                                                    traceRunId = pendingTraceRunId,
-                                                    llm =
-                                                            SessionLlmConfig(
-                                                                    backendType =
-                                                                            settingsState.llmBackend,
-                                                                    localConfig = localConfig
-                                                            ),
-                                                    agentMode = settingsState.agentMode,
-                                                    perceptionConfig =
-                                                            when (settingsState.perceptionMode) {
-                                                                "screenshot_only" ->
-                                                                        PerceptionConfig
-                                                                                .ScreenshotOnly()
-                                                                "hybrid" ->
-                                                                        PerceptionConfig.Hybrid()
-                                                                else ->
-                                                                        PerceptionConfig
-                                                                                .AccessibilityOnly
-                                                            },
-                                                    platformMode = settingsState.platformMode
+                    val sessionConfig =
+                            SessionConfig(
+                                    maxTurns = settingsState.maxTurns,
+                                    mainModel = settingsState.selectedModel,
+                                    executorModel = settingsState.executorModel,
+                                    debugMode = settingsState.debugMode,
+                                    traceEnabled = pendingTraceEnabled ?: settingsState.debugMode,
+                                    traceRunId = pendingTraceRunId,
+                                    llm =
+                                            SessionLlmConfig(
+                                                    backendType = settingsState.llmBackend,
+                                                    localConfig = localConfig
                                             ),
-                                    service = service,
-                                    scope = sessionScope,
-                                    apiKeys = settingsState.buildApiKeys(),
-                                    visualizer = service.getActionVisualizer()
+                                    agentMode = settingsState.agentMode,
+                                    perceptionConfig =
+                                            when (settingsState.perceptionMode) {
+                                                "screenshot_only" ->
+                                                        PerceptionConfig.ScreenshotOnly()
+                                                "hybrid" -> PerceptionConfig.Hybrid()
+                                                else -> PerceptionConfig.AccessibilityOnly
+                                            },
+                                    platformMode = settingsState.platformMode
                             )
+
+                    val apiKeys = settingsState.buildApiKeys()
+                    val visualizer = service.getActionVisualizer()
+                    val session =
+                            withContext(Dispatchers.Default) {
+                                AgentSession.create(
+                                        config = sessionConfig,
+                                        service = service,
+                                        scope = sessionScope,
+                                        apiKeys = apiKeys,
+                                        visualizer = visualizer
+                                )
+                            }
 
                     if (settingsState.llmBackend == LLMBackendType.LOCAL) {
                         val localClient = session.getServices().llmClient as? LFMLLMClient
@@ -473,6 +490,8 @@ class MainActivity : ComponentActivity() {
                                     Toast.LENGTH_LONG
                             )
                             .show()
+                } finally {
+                    synchronized(sessionCreationLock) { sessionCreationInProgress = false }
                 }
             }
         } else {

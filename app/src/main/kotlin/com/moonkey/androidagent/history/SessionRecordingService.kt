@@ -37,6 +37,7 @@ class SessionRecordingService(
 
     private var currentSession: SessionRecord? = null
     private var currentFileName: String? = null
+    private val stateLock = Any()
 
     // Current agent message being built
     private val agentMessageBuffer = AgentMessageBuffer()
@@ -59,18 +60,19 @@ class SessionRecordingService(
         val finalSessionId = sessionId ?: UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
 
-        currentSession =
-                SessionRecord(
-                        sessionId = finalSessionId,
-                        startTime = now,
-                        lastUpdated = now,
-                        messages = emptyList(),
-                        metadata = SessionMetadata(appVersion = appVersion, model = model)
-                )
-        currentFileName = storage.generateFileName(finalSessionId)
-
-        // Reset state
-        agentMessageBuffer.clear()
+        synchronized(stateLock) {
+            currentSession =
+                    SessionRecord(
+                            sessionId = finalSessionId,
+                            startTime = now,
+                            lastUpdated = now,
+                            messages = emptyList(),
+                            metadata = SessionMetadata(appVersion = appVersion, model = model)
+                    )
+            currentFileName = storage.generateFileName(finalSessionId)
+            // Reset state
+            agentMessageBuffer.clear()
+        }
 
         Log.i(TAG, "Initialized new session: $finalSessionId, file: $currentFileName")
         scheduleSave()
@@ -84,79 +86,88 @@ class SessionRecordingService(
      * @param data The session data to resume from
      */
     fun resumeSession(data: ResumedSessionData) {
-        currentSession = data.session
-        currentFileName = data.fileName
-
-        // Reset agent message state (we're starting fresh)
-        agentMessageBuffer.clear()
+        synchronized(stateLock) {
+            currentSession = data.session
+            currentFileName = data.fileName
+            // Reset agent message state (we're starting fresh)
+            agentMessageBuffer.clear()
+        }
 
         Log.i(TAG, "Resumed session: ${data.session.sessionId}, file: ${data.fileName}")
     }
 
     /** Record a user message. */
     fun recordUserMessage(id: String, timestamp: Long, text: String) {
-        val session =
-                currentSession
-                        ?: run {
-                            Log.w(TAG, "No active session for recording user message")
-                            return
-                        }
+        val recorded =
+                synchronized(stateLock) {
+                    val session =
+                            currentSession
+                                    ?: run {
+                                        Log.w(TAG, "No active session for recording user message")
+                                        return@synchronized false
+                                    }
 
-        // Finalize any pending agent message first
-        finalizeCurrentAgentMessage()
+                    // Finalize any pending agent message first
+                    finalizeCurrentAgentMessage()
 
-        val userMessage = MessageRecord.User(id = id, timestamp = timestamp, text = text)
-
-        currentSession =
-                session.copy(messages = session.messages + userMessage, lastUpdated = timestamp)
-
+                    val userMessage = MessageRecord.User(id = id, timestamp = timestamp, text = text)
+                    currentSession =
+                            session.copy(messages = session.messages + userMessage, lastUpdated = timestamp)
+                    true
+                }
+        if (!recorded) return
         Log.d(TAG, "Recorded user message: ${text.take(30)}...")
         scheduleSave()
     }
 
     /** Start recording an agent message. */
     fun startAgentMessage(id: String, timestamp: Long) {
-        val session =
-                currentSession
-                        ?: run {
-                            Log.w(TAG, "No active session for starting agent message")
-                            return
-                        }
-
-        // Finalize any previous agent message
-        finalizeCurrentAgentMessage()
-
-        agentMessageBuffer.start(id)
+        val started =
+                synchronized(stateLock) {
+                    if (currentSession == null) {
+                        Log.w(TAG, "No active session for starting agent message")
+                        return@synchronized false
+                    }
+                    // Finalize any previous agent message
+                    finalizeCurrentAgentMessage()
+                    agentMessageBuffer.start(id)
+                    true
+                }
+        if (!started) return
 
         Log.d(TAG, "Started agent message: $id")
     }
 
     /** Append text delta to current agent message. */
     fun appendTextDelta(delta: String) {
-        if (!agentMessageBuffer.hasActiveMessage()) {
-            Log.w(TAG, "No active agent message for text delta")
-            return
+        synchronized(stateLock) {
+            if (!agentMessageBuffer.hasActiveMessage()) {
+                Log.w(TAG, "No active agent message for text delta")
+                return
+            }
+            agentMessageBuffer.appendText(delta)
         }
-        agentMessageBuffer.appendText(delta)
         // Don't save on every delta - wait for action or completion
     }
 
     /** Record an action in current agent message. */
     fun recordAction(actionId: String, toolName: String, description: String, state: String) {
-        if (!agentMessageBuffer.hasActiveMessage()) {
-            Log.w(TAG, "No active agent message for action")
-            return
-        }
+        synchronized(stateLock) {
+            if (!agentMessageBuffer.hasActiveMessage()) {
+                Log.w(TAG, "No active agent message for action")
+                return
+            }
 
-        val action =
-                ContentBlockRecord.Action(
-                        id = actionId,
-                        toolName = toolName,
-                        description = description,
-                        state = state,
-                        resultSummary = null
-                )
-        agentMessageBuffer.recordAction(action)
+            val action =
+                    ContentBlockRecord.Action(
+                            id = actionId,
+                            toolName = toolName,
+                            description = description,
+                            state = state,
+                            resultSummary = null
+                    )
+            agentMessageBuffer.recordAction(action)
+        }
         Log.d(TAG, "Recorded action: $toolName ($state)")
 
         // Save after adding action
@@ -166,11 +177,13 @@ class SessionRecordingService(
 
     /** Update an action's state and result. */
     fun updateActionState(actionId: String, state: String, result: String?) {
-        if (!agentMessageBuffer.hasActiveMessage()) {
-            Log.w(TAG, "No active agent message for action update")
-            return
+        synchronized(stateLock) {
+            if (!agentMessageBuffer.hasActiveMessage()) {
+                Log.w(TAG, "No active agent message for action update")
+                return
+            }
+            agentMessageBuffer.updateActionState(actionId, state, result)
         }
-        agentMessageBuffer.updateActionState(actionId, state, result)
 
         Log.d(TAG, "Updated action $actionId state to $state")
 
@@ -187,37 +200,41 @@ class SessionRecordingService(
 
     /** Mark session as completed normally. */
     fun completeSession() {
-        // Finalize any pending agent message
-        finalizeCurrentAgentMessage()
-        val session = currentSession ?: return
+        val pendingSave: Job? =
+                synchronized(stateLock) {
+                    // Finalize any pending agent message
+                    finalizeCurrentAgentMessage()
+                    val session = currentSession ?: return
 
-        // Extract summary from first user message if not set
-        val summary =
-                session.summary
-                        ?: session.messages
-                                .filterIsInstance<MessageRecord.User>()
-                                .firstOrNull()
-                                ?.text
-                                ?.take(50)
-                                ?.let { if (it.length < 50) it else "$it..." }
+                    // Extract summary from first user message if not set
+                    val summary =
+                            session.summary
+                                    ?: session.messages
+                                            .filterIsInstance<MessageRecord.User>()
+                                            .firstOrNull()
+                                            ?.text
+                                            ?.take(50)
+                                            ?.let { if (it.length < 50) it else "$it..." }
 
-        currentSession =
-                session.copy(
-                        lastUpdated = System.currentTimeMillis(),
-                        summary = summary,
-                        metadata =
-                                session.metadata.copy(
-                                        completedNormally = true,
-                                        turnCount =
-                                                session.messages.count { it is MessageRecord.Agent }
-                                )
-                )
+                    currentSession =
+                            session.copy(
+                                    lastUpdated = System.currentTimeMillis(),
+                                    summary = summary,
+                                    metadata =
+                                            session.metadata.copy(
+                                                    completedNormally = true,
+                                                    turnCount =
+                                                            session.messages.count { it is MessageRecord.Agent }
+                                            )
+                            )
+                    val pending = saveJob
+                    saveJob = null
+                    pending
+                }
 
-        Log.i(TAG, "Session completed: ${session.sessionId}")
+        Log.i(TAG, "Session completed")
 
         // Force immediate save - cancel debounce but let any in-progress save complete
-        val pendingSave = saveJob
-        saveJob = null
         scope.launch {
             // Wait for any pending save to complete before doing final save
             pendingSave?.join()
@@ -226,16 +243,16 @@ class SessionRecordingService(
     }
 
     /** Get the current session record. */
-    fun getCurrentSession(): SessionRecord? = currentSession
+    fun getCurrentSession(): SessionRecord? = synchronized(stateLock) { currentSession }
 
     /** Get current file name. */
-    fun getCurrentFileName(): String? = currentFileName
+    fun getCurrentFileName(): String? = synchronized(stateLock) { currentFileName }
 
     /** Check if there's an active session. */
-    fun hasActiveSession(): Boolean = currentSession != null
+    fun hasActiveSession(): Boolean = synchronized(stateLock) { currentSession != null }
 
     /** Get current session ID. */
-    fun getCurrentSessionId(): String? = currentSession?.sessionId
+    fun getCurrentSessionId(): String? = synchronized(stateLock) { currentSession?.sessionId }
 
     /**
      * Clear session tracking (called when session ends). Waits for any pending save to complete
@@ -243,13 +260,19 @@ class SessionRecordingService(
      */
     fun clearSession() {
         // Let any pending save complete before clearing state
-        val pendingSave = saveJob
-        saveJob = null
+        val pendingSave =
+                synchronized(stateLock) {
+                    val pending = saveJob
+                    saveJob = null
+                    pending
+                }
         scope.launch {
             pendingSave?.join()
-            currentSession = null
-            currentFileName = null
-            agentMessageBuffer.clear()
+            synchronized(stateLock) {
+                currentSession = null
+                currentFileName = null
+                agentMessageBuffer.clear()
+            }
             Log.d(TAG, "Session tracking cleared")
         }
     }
@@ -259,7 +282,7 @@ class SessionRecordingService(
     /** Finalize the current agent message and add it to the session. */
     private fun finalizeCurrentAgentMessage() {
         val snapshot = agentMessageBuffer.finalizeSnapshot() ?: return
-        val session = currentSession ?: return
+        val session = synchronized(stateLock) { currentSession } ?: return
 
         val existingIndex =
                 session.messages.indexOfFirst { it is MessageRecord.Agent && it.id == snapshot.id }
@@ -272,23 +295,25 @@ class SessionRecordingService(
                         isComplete = true
                 )
 
-        currentSession =
-                if (existingIndex >= 0) {
-                    // Update existing
-                    session.copy(
-                            messages =
-                                    session.messages.mapIndexed { index, msg ->
-                                        if (index == existingIndex) agentMessage else msg
-                                    },
-                            lastUpdated = System.currentTimeMillis()
-                    )
-                } else {
-                    // Add new
-                    session.copy(
-                            messages = session.messages + agentMessage,
-                            lastUpdated = System.currentTimeMillis()
-                    )
-                }
+        synchronized(stateLock) {
+            currentSession =
+                    if (existingIndex >= 0) {
+                        // Update existing
+                        session.copy(
+                                messages =
+                                        session.messages.mapIndexed { index, msg ->
+                                            if (index == existingIndex) agentMessage else msg
+                                        },
+                                lastUpdated = System.currentTimeMillis()
+                        )
+                    } else {
+                        // Add new
+                        session.copy(
+                                messages = session.messages + agentMessage,
+                                lastUpdated = System.currentTimeMillis()
+                        )
+                    }
+        }
     }
 
     /**
@@ -297,7 +322,7 @@ class SessionRecordingService(
      */
     private fun updateAgentMessageInSession() {
         val snapshot = agentMessageBuffer.buildPartialSnapshot() ?: return
-        val session = currentSession ?: return
+        val session = synchronized(stateLock) { currentSession } ?: return
 
         val agentMessage =
                 MessageRecord.Agent(
@@ -311,41 +336,47 @@ class SessionRecordingService(
         val existingIndex =
                 session.messages.indexOfFirst { it is MessageRecord.Agent && it.id == snapshot.id }
 
-        currentSession =
-                if (existingIndex >= 0) {
-                    session.copy(
-                            messages =
-                                    session.messages.mapIndexed { index, msg ->
-                                        if (index == existingIndex) agentMessage else msg
-                                    },
-                            lastUpdated = System.currentTimeMillis()
-                    )
-                } else {
-                    session.copy(
-                            messages = session.messages + agentMessage,
-                            lastUpdated = System.currentTimeMillis()
-                    )
-                }
+        synchronized(stateLock) {
+            currentSession =
+                    if (existingIndex >= 0) {
+                        session.copy(
+                                messages =
+                                        session.messages.mapIndexed { index, msg ->
+                                            if (index == existingIndex) agentMessage else msg
+                                        },
+                                lastUpdated = System.currentTimeMillis()
+                        )
+                    } else {
+                        session.copy(
+                                messages = session.messages + agentMessage,
+                                lastUpdated = System.currentTimeMillis()
+                        )
+                    }
+        }
     }
 
     /** Schedule a debounced save. */
     private fun scheduleSave() {
-        saveJob?.cancel()
-        saveJob =
-                scope.launch {
-                    delay(SAVE_DEBOUNCE_MS)
-                    save()
-                }
+        synchronized(stateLock) {
+            saveJob?.cancel()
+            saveJob =
+                    scope.launch {
+                        delay(SAVE_DEBOUNCE_MS)
+                        save()
+                    }
+        }
     }
 
     /** Record a screen state reference for replay/debug. */
     fun recordScreenState(state: ScreenStateRecord) {
         val session =
-                currentSession
-                        ?: run {
-                            Log.w(TAG, "No active session for recording screen state")
-                            return
-                        }
+                synchronized(stateLock) {
+                    currentSession
+                            ?: run {
+                                Log.w(TAG, "No active session for recording screen state")
+                                return
+                            }
+                }
         val normalizedState = normalizeScreenStateRecord(state)
         val hasArtifactPath =
                 normalizedState.rawA11yTreePath != null ||
@@ -367,12 +398,14 @@ class SessionRecordingService(
                     session.metadata
                 }
 
-        currentSession =
-                session.copy(
-                        screenStates = session.screenStates + normalizedState,
-                        lastUpdated = normalizedState.timestamp,
-                        metadata = updatedMetadata
-                )
+        synchronized(stateLock) {
+            currentSession =
+                    session.copy(
+                            screenStates = session.screenStates + normalizedState,
+                            lastUpdated = normalizedState.timestamp,
+                            metadata = updatedMetadata
+                    )
+        }
 
         Log.d(
                 TAG,
@@ -396,8 +429,12 @@ class SessionRecordingService(
 
     /** Save current state to disk. */
     private suspend fun save() {
-        val session = currentSession ?: return
-        val fileName = currentFileName ?: return
+        val (fileName, session) =
+                synchronized(stateLock) {
+                    val current = currentSession ?: return
+                    val file = currentFileName ?: return
+                    file to current
+                }
 
         storage.writeSession(fileName, session).onFailure { e ->
             Log.e(TAG, "Failed to save session", e)

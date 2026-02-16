@@ -1,6 +1,8 @@
 package com.moonkey.androidagent.session
 
 import android.content.Context
+import android.content.res.AssetManager
+import android.os.Looper
 import android.util.Log
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LLMClient
@@ -11,6 +13,7 @@ import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import kotlinx.serialization.SerializationException
+import java.util.WeakHashMap
 
 internal data class SessionLlmBootstrap(
         val modelCatalog: ModelCatalog,
@@ -21,14 +24,17 @@ internal data class SessionLlmBootstrap(
 /** Creates catalog + LLM factory + runtime LLM client for a session. */
 internal object SessionLlmBootstrapper {
     private const val TAG = "SessionLlmBootstrap"
+    private val catalogLock = Any()
+    private val cachedCatalogByAssets = WeakHashMap<AssetManager, ModelCatalog>()
 
     fun create(
             config: SessionConfig,
             context: Context,
             apiKeys: Map<String, String>
     ): SessionLlmBootstrap {
+        requireOffMainThread()
         val backend = config.llm.backendType
-        val modelCatalog = loadModelCatalog(context)
+        val modelCatalog = getOrLoadModelCatalog(context)
         Log.d(TAG, "Loaded ModelCatalog with ${modelCatalog.size} models: ${modelCatalog.names()}")
 
         val llmClientFactory =
@@ -63,6 +69,25 @@ internal object SessionLlmBootstrapper {
      * Note: Performs blocking I/O on the calling thread. Callers must ensure this runs off the
      * main thread (e.g. `Dispatchers.IO`).
      */
+    private fun getOrLoadModelCatalog(context: Context): ModelCatalog {
+        val assets = context.assets
+        synchronized(catalogLock) {
+            cachedCatalogByAssets[assets]?.let { return it }
+            val loaded = loadModelCatalog(context)
+            cachedCatalogByAssets[assets] = loaded
+            return loaded
+        }
+    }
+
+    private fun requireOffMainThread() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            Log.w(
+                    TAG,
+                    "SessionLlmBootstrapper.create() called on main thread; callers should move bootstrap off-main"
+            )
+        }
+    }
+
     private fun loadModelCatalog(context: Context): ModelCatalog {
         return try {
             val json = context.assets.open("llm_models.json").bufferedReader().use { it.readText() }

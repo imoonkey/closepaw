@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
@@ -71,6 +72,7 @@ class AgentService : AccessibilityService() {
     private var overlayController: ServiceOverlayController? = null
     private var actionVisualizer: ActionVisualizerManager? = null
     private var currentPlatformMode: PlatformMode = PlatformMode.ACCESSIBILITY
+    @Volatile private var isServiceActive = false
     private val eventHandler =
             AgentServiceEventHandler(
                     logTag = TAG,
@@ -111,6 +113,10 @@ class AgentService : AccessibilityService() {
             externalSession: AgentSession,
             platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     ) {
+        if (!isServiceActive) {
+            Log.w(TAG, "Ignoring observeExternalSession while service is shutting down")
+            return
+        }
         Log.i(TAG, "Observing external session: ${externalSession.sessionId}, mode=$platformMode")
         session = externalSession
         currentPlatformMode = platformMode
@@ -131,6 +137,7 @@ class AgentService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        isServiceActive = true
         instance = this
         Log.i(TAG, "AgentService connected")
 
@@ -226,6 +233,10 @@ class AgentService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        // Fence off new work immediately so callers don't grab a half-destroyed instance.
+        isServiceActive = false
+        instance = null
+
         // Cancel event collector first to avoid handling events during teardown.
         eventCollectorJob?.cancel()
         eventCollectorJob = null
@@ -258,7 +269,6 @@ class AgentService : AccessibilityService() {
         }
         serviceLifecycleOwner.onDestroy()
         super.onDestroy()
-        instance = null
         // Reset statusFlow to prevent stale values when service restarts
         _statusFlow.value = ""
         scope.cancel()
@@ -271,6 +281,10 @@ class AgentService : AccessibilityService() {
 
     /** Submit an operation to the current session. */
     private fun submitOp(op: Op) {
+        if (!isServiceActive) {
+            Log.w(TAG, "Dropping op while service is not active: $op")
+            return
+        }
         val currentSession = session
         Log.d(TAG, "submitOp: $op, session=${currentSession?.sessionId}")
 
@@ -327,16 +341,21 @@ class AgentService : AccessibilityService() {
             maxSteps: Int = 20,
             platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     ) {
+        if (!isServiceActive) {
+            Log.w(TAG, "Ignoring runAgent because service is not active")
+            return
+        }
         // Stop any existing session before starting new one (prevents concurrent sessions)
         // Cancel collector first to stop receiving events, then shutdown session
         if (session != null) {
             Log.i(TAG, "Stopping existing session before starting new one")
             eventCollectorJob?.cancel()
             eventCollectorJob = null
+            val oldSession = session
+            session = null
             // Submit shutdown synchronously since we're about to replace the session
             // The old session will handle its own cleanup
-            scope.launch { session?.submit(Op.Shutdown) }
-            session = null
+            scope.launch { oldSession?.submit(Op.Shutdown) }
         }
 
         // Set platform mode on overlay controller
@@ -349,20 +368,24 @@ class AgentService : AccessibilityService() {
         // Create and run session in coroutine
         scope.launch {
             try {
-                val newSession =
-                        AgentSession.create(
-                                config =
-                                        SessionConfig(
-                                                maxTurns = maxSteps,
-                                                debugMode = true,
-                                                traceEnabled = true,
-                                                platformMode = platformMode
-                                        ),
-                                service = this@AgentService,
-                                scope = scope,
-                                apiKeys = apiKeys,
-                                visualizer = actionVisualizer
+                val sessionConfig =
+                        SessionConfig(
+                                maxTurns = maxSteps,
+                                debugMode = true,
+                                traceEnabled = true,
+                                platformMode = platformMode
                         )
+                val visualizer = actionVisualizer
+                val newSession =
+                        withContext(Dispatchers.Default) {
+                            AgentSession.create(
+                                    config = sessionConfig,
+                                    service = this@AgentService,
+                                    scope = scope,
+                                    apiKeys = apiKeys,
+                                    visualizer = visualizer
+                            )
+                        }
 
                 session = newSession
 

@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.session
 
 import kotlinx.coroutines.CompletableDeferred
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * UserResponseChannel — suspension bridge between ask_user tool and UI.
@@ -21,8 +22,12 @@ import kotlinx.coroutines.CompletableDeferred
  */
 class UserResponseChannel {
 
-    @Volatile private var pending: CompletableDeferred<String>? = null
-    @Volatile private var pendingCallId: String? = null
+    private data class PendingRequest(
+        val callId: String,
+        val deferred: CompletableDeferred<String>
+    )
+
+    private val pending = AtomicReference<PendingRequest?>(null)
 
     /**
      * Suspend until the user responds. Called by the ask_user tool.
@@ -31,15 +36,13 @@ class UserResponseChannel {
      * @throws kotlinx.coroutines.CancellationException if cancelled (stop/timeout)
      */
     suspend fun awaitResponse(callId: String): String {
-        check(pending == null) { "Only one pending ask_user request allowed" }
         val deferred = CompletableDeferred<String>()
-        pending = deferred
-        pendingCallId = callId
+        val request = PendingRequest(callId = callId, deferred = deferred)
+        check(pending.compareAndSet(null, request)) { "Only one pending ask_user request allowed" }
         return try {
             deferred.await()
         } finally {
-            pending = null
-            pendingCallId = null
+            pending.compareAndSet(request, null)
         }
     }
 
@@ -49,19 +52,16 @@ class UserResponseChannel {
      * @return true if delivered, false if no matching pending request.
      */
     fun deliver(callId: String, response: String): Boolean {
-        val p = pending ?: return false
-        if (pendingCallId != callId) return false
-        pending = null
-        pendingCallId = null
-        return p.complete(response)
+        val request = pending.get() ?: return false
+        if (request.callId != callId) return false
+        if (!pending.compareAndSet(request, null)) return false
+        return request.deferred.complete(response)
     }
 
     /** Cancel any pending request (called on stop/shutdown). */
     fun cancel() {
-        pending?.cancel()
-        pending = null
-        pendingCallId = null
+        pending.getAndSet(null)?.deferred?.cancel()
     }
 
-    val hasPending: Boolean get() = pending != null
+    val hasPending: Boolean get() = pending.get() != null
 }

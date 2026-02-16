@@ -51,7 +51,9 @@ internal class TurnExecutionPhaseRunner(
                 )
 
                 for (toolCall in toolCallsToExecute) {
-                        actionForNextTurn = classifyAction(toolCall)
+                        if (actionForNextTurn == null) {
+                                actionForNextTurn = classifyAction(toolCall)
+                        }
                         currentSnapshot =
                                 executeSingleToolCall(
                                         turnId = turnId,
