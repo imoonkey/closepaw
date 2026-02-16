@@ -2,6 +2,25 @@
 
 Date: 2026-02-16
 
+## Refactor Status (2026-02-16)
+### Completed
+- [x] Lifecycle/orchestration critical fixes (`AgentService` shutdown + collector boundary, `debug-run.sh` task completion detection)
+- [x] History consistency critical fix (`SessionRecordingService.completeSession`)
+- [x] Agent turn pipeline split (`TurnErrorClassifier`, `TurnExecutionPhaseRunner`, `TurnPlanningPhaseRunner`, `AgentModelResolver`)
+- [x] Protocol enum split (`TurnPhase`, `CompletionReason`, `AskUserType`)
+- [x] VirtualDisplay decomposition Phase 1 (viewer touch, screenshot processing, app control, surface control, capture coordination, shell executor extraction)
+- [x] SessionConfig extraction Phase 1 (`SessionConfig` and related enums moved out of `Op.kt`)
+
+### In Progress
+- [ ] VirtualDisplay/Shizuku decomposition Phase 2 (transport-level split inside `ShizukuClient`)
+- [ ] Protocol domain split Phase 2 (`AgentEvent.kt` event-domain decomposition while preserving behavior)
+- [ ] SessionConfig cleanup Phase 2 (reduce deprecated `llmBackend/localLLMConfig/model` compatibility path)
+
+### Not Started
+- [ ] LLM client consolidation (`Response`/`Chat` shared retry + streaming scaffold)
+- [ ] SessionServices decomposition
+- [ ] Tool system DRY-up + prompt composition consolidation
+
 ## Sources Referenced
 - `doc/todo/overall_review/review_claude.md`
 - `doc/todo/overall_review/design/*_claude.md` (all 10 docs)
