@@ -141,6 +141,62 @@ class TurnToolFilteringTest {
         assertThat(result.toolCalls.single().id).isNotEmpty()
         assertThat(result.toolCalls.single().id).startsWith("synthetic_mobile_action_0_")
     }
+
+    @Test
+    fun `run recovers inline tool call from text payload`() = runTest {
+        val llm =
+                CapturingTurnLLMClient(
+                        response =
+                                ResponsesResult(
+                                        textContent =
+                                                """mobile_action{"action":"type","element_index":1,"input_text":"张韶涵"}""",
+                                        toolCalls = emptyList(),
+                                        responseId = "resp"
+                                )
+                )
+        val registry = ToolRegistry().apply { register(TestTurnTool("mobile_action")) }
+        val turn = Turn(toolRegistry = registry, llmClient = llm)
+
+        val result =
+                turn.run(
+                        systemPrompt = "standalone",
+                        inputItems = minimalInputItems
+                )
+
+        assertThat(result.toolCalls).hasSize(1)
+        val toolCall = result.toolCalls.single()
+        assertThat(toolCall.name).isEqualTo("mobile_action")
+        assertThat(toolCall.arguments.getString("action")).isEqualTo("type")
+        assertThat(toolCall.arguments.getInt("element_index")).isEqualTo(1)
+        assertThat(toolCall.arguments.getString("input_text")).isEqualTo("张韶涵")
+        assertThat(result.isComplete).isFalse()
+        assertThat(result.content).isNull()
+    }
+
+    @Test
+    fun `run treats regular text as completion when no tool calls exist`() = runTest {
+        val llm =
+                CapturingTurnLLMClient(
+                        response =
+                                ResponsesResult(
+                                        textContent = "Done. Task finished.",
+                                        toolCalls = emptyList(),
+                                        responseId = "resp"
+                                )
+                )
+        val registry = ToolRegistry().apply { register(TestTurnTool("mobile_action")) }
+        val turn = Turn(toolRegistry = registry, llmClient = llm)
+
+        val result =
+                turn.run(
+                        systemPrompt = "standalone",
+                        inputItems = minimalInputItems
+                )
+
+        assertThat(result.toolCalls).isEmpty()
+        assertThat(result.isComplete).isTrue()
+        assertThat(result.content).isEqualTo("Done. Task finished.")
+    }
 }
 
 private class CapturingTurnLLMClient(private val response: ResponsesResult) : LLMClient() {

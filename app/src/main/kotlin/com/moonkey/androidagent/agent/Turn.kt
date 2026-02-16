@@ -155,7 +155,7 @@ class Turn(
     }
 
     private fun processResponse(textContent: String?, llmToolCalls: List<LLMToolCall>): TurnResult {
-        val allToolCalls =
+        val parsedToolCalls =
                 llmToolCalls.mapIndexed { index, llmToolCall ->
                     val converted = convertToToolCallRequest(llmToolCall)
                     if (converted.id.isBlank()) {
@@ -166,7 +166,12 @@ class Turn(
                         converted
                     }
                 }
+        val recoveredToolCall =
+                if (parsedToolCalls.isEmpty()) recoverToolCallFromText(textContent) else null
+        val allToolCalls = recoveredToolCall?.let { listOf(it) } ?: parsedToolCalls
         val toolCalls = allToolCalls.filter { allowedToolNames?.contains(it.name) != false }
+        val recoveredAccepted = recoveredToolCall != null && toolCalls.any { it.id == recoveredToolCall.id }
+        val effectiveTextContent = if (recoveredAccepted) null else textContent
 
         if (toolCalls.size != allToolCalls.size) {
             val acceptedNames = toolCalls.map { it.name }.toSet()
@@ -175,11 +180,77 @@ class Turn(
         }
 
         val completeTaskCall = toolCalls.find { it.name == COMPLETE_TASK_TOOL }
-        val isComplete = completeTaskCall != null || (toolCalls.isEmpty() && textContent != null)
+        val isComplete = completeTaskCall != null || (toolCalls.isEmpty() && effectiveTextContent != null)
 
         Log.d(TAG, "Process result: ${toolCalls.size} tool calls, isComplete=$isComplete")
 
-        return TurnResult(content = textContent, toolCalls = toolCalls, isComplete = isComplete)
+        return TurnResult(content = effectiveTextContent, toolCalls = toolCalls, isComplete = isComplete)
+    }
+
+    private fun recoverToolCallFromText(textContent: String?): ToolCallRequest? {
+        val candidate = textContent?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val compact = stripMarkdownCodeFence(candidate)
+
+        parseObjectWrappedToolCall(compact)?.let { recovered ->
+            Log.w(TAG, "Recovered tool call from text payload: ${recovered.name}")
+            return recovered
+        }
+
+        val inlinePattern = Regex("""^([a-zA-Z_][a-zA-Z0-9_]*)\s*(\{[\s\S]*\})$""")
+        val inlineMatch = inlinePattern.matchEntire(compact) ?: return null
+        val toolName = inlineMatch.groupValues[1]
+        val argsRaw = inlineMatch.groupValues[2]
+        return try {
+            val args = JSONObject(argsRaw)
+            val syntheticId = "synthetic_${toolName}_text_${UUID.randomUUID()}"
+            Log.w(TAG, "Recovered inline tool call from text payload: $toolName")
+            ToolCallRequest(
+                    id = syntheticId,
+                    name = toolName,
+                    arguments = args
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun parseObjectWrappedToolCall(candidate: String): ToolCallRequest? {
+        val payload =
+                try {
+                    JSONObject(candidate)
+                } catch (_: Exception) {
+                    return null
+                }
+        val toolName =
+                payload.optString("name")
+                        .ifBlank { payload.optString("tool_name") }
+                        .ifBlank { return null }
+        val argumentsValue = payload.opt("arguments") ?: payload.opt("args")
+        val arguments =
+                when (argumentsValue) {
+                    is JSONObject -> argumentsValue
+                    is String ->
+                            try {
+                                JSONObject(argumentsValue)
+                            } catch (_: Exception) {
+                                JSONObject()
+                            }
+                    else -> JSONObject()
+                }
+        return ToolCallRequest(
+                id = "synthetic_${toolName}_text_${UUID.randomUUID()}",
+                name = toolName,
+                arguments = arguments
+        )
+    }
+
+    private fun stripMarkdownCodeFence(text: String): String {
+        val trimmed = text.trim()
+        if (!trimmed.startsWith("```")) return trimmed
+        val firstNewline = trimmed.indexOf('\n')
+        if (firstNewline < 0) return trimmed.removePrefix("```").removeSuffix("```").trim()
+        val withoutHeader = trimmed.substring(firstNewline + 1)
+        return withoutHeader.removeSuffix("```").trim()
     }
 }
 
