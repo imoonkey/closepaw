@@ -7,6 +7,7 @@ import com.moonkey.androidagent.history.model.ScreenStateRecord
 import com.moonkey.androidagent.history.model.SessionMetadata
 import com.moonkey.androidagent.history.model.SessionRecord
 import com.moonkey.androidagent.history.storage.SessionStorage
+import com.moonkey.androidagent.protocol.CompletionReason
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -87,16 +88,16 @@ class SessionRecordingService(
     fun recordUserMessage(id: String, timestamp: Long, text: String) {
         val recorded =
                 synchronized(stateLock) {
-                    val session =
-                            currentSession
-                                    ?: run {
-                                        Log.w(TAG, "No active session for recording user message")
-                                        return@synchronized false
-                                    }
+                    if (currentSession == null) {
+                        Log.w(TAG, "No active session for recording user message")
+                        return@synchronized false
+                    }
 
                     // Finalize any pending agent message first
                     finalizeCurrentAgentMessage()
 
+                    // Re-read after finalize (it may have updated currentSession)
+                    val session = currentSession ?: return@synchronized false
                     val userMessage = MessageRecord.User(id = id, timestamp = timestamp, text = text)
                     currentSession =
                             session.copy(messages = session.messages + userMessage, lastUpdated = timestamp)
@@ -185,8 +186,13 @@ class SessionRecordingService(
         scheduleSave()
     }
 
-    /** Mark session as completed normally. */
-    fun completeSession() {
+    /** Mark session as completed. */
+    fun completeSession(reason: CompletionReason = CompletionReason.GOAL_ACHIEVED) {
+        val completedNormally = when (reason) {
+            CompletionReason.GOAL_ACHIEVED, CompletionReason.MAX_TURNS -> true
+            CompletionReason.USER_STOPPED, CompletionReason.TASK_IMPOSSIBLE,
+            CompletionReason.ERROR, CompletionReason.INTERRUPTED -> false
+        }
         val pendingSave: Job? =
                 synchronized(stateLock) {
                     // Finalize any pending agent message
@@ -209,7 +215,7 @@ class SessionRecordingService(
                                     summary = summary,
                                     metadata =
                                             session.metadata.copy(
-                                                    completedNormally = true,
+                                                    completedNormally = completedNormally,
                                                     turnCount =
                                                             session.messages.count { it is MessageRecord.Agent }
                                             )

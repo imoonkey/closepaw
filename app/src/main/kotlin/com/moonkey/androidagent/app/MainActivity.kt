@@ -58,7 +58,7 @@ class MainActivity : ComponentActivity() {
     private var currentSession: AgentSession? = null
     private val sessionCreationLock = Any()
     @Volatile private var sessionCreationInProgress = false
-    @Volatile private var sessionRetryScheduled = false
+    private val pendingInputs = mutableListOf<String>()  // guarded by sessionCreationLock
     private lateinit var settingsState: AppSettingsState
     private var pendingTraceEnabled: Boolean? = null
     private var pendingTraceRunId: String? = null
@@ -261,23 +261,11 @@ class MainActivity : ComponentActivity() {
                     } else {
                         val shouldScheduleRetry =
                                 synchronized(sessionCreationLock) {
-                                    if (sessionRetryScheduled) {
-                                        false
-                                    } else {
-                                        sessionRetryScheduled = true
-                                        true
-                                    }
+                                    pendingInputs.add(text)
+                                    pendingInputs.size == 1
                                 }
                         if (shouldScheduleRetry) {
-                            window.decorView.postDelayed(
-                                    {
-                                        synchronized(sessionCreationLock) {
-                                            sessionRetryScheduled = false
-                                        }
-                                        ensureSessionAndSend(text)
-                                    },
-                                    200
-                            )
+                            window.decorView.postDelayed({ drainPendingInputs() }, 200)
                         }
                     }
                 }
@@ -356,6 +344,7 @@ class MainActivity : ComponentActivity() {
 
                     service.observeExternalSession(session, settingsState.platformMode)
                     session.submit(Op.UserInput(text))
+                    drainPendingInputs()
 
                     Log.i(
                             TAG,
@@ -375,11 +364,26 @@ class MainActivity : ComponentActivity() {
                             )
                             .show()
                 } finally {
-                    synchronized(sessionCreationLock) { sessionCreationInProgress = false }
+                    synchronized(sessionCreationLock) {
+                        sessionCreationInProgress = false
+                        pendingInputs.clear()
+                    }
                 }
             }
         } else {
             lifecycleScope.launch { currentSession?.submit(Op.UserInput(text)) }
+        }
+    }
+
+    private fun drainPendingInputs() {
+        val session = currentSession ?: return
+        val inputs = synchronized(sessionCreationLock) {
+            val copy = pendingInputs.toList()
+            pendingInputs.clear()
+            copy
+        }
+        lifecycleScope.launch {
+            inputs.forEach { input -> session.submit(Op.UserInput(input)) }
         }
     }
 

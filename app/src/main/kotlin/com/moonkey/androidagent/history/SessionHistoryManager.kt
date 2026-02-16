@@ -4,6 +4,7 @@ import android.util.Log
 import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.history.storage.SessionStorage
+import com.moonkey.androidagent.protocol.CompletionReason
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -182,8 +183,8 @@ class SessionHistoryManager(
     /**
      * Clear session tracking (when ending a session).
      */
-    fun endSession() {
-        recordingService.completeSession()
+    fun endSession(reason: CompletionReason = CompletionReason.GOAL_ACHIEVED) {
+        recordingService.completeSession(reason)
     }
     
     // ===== Private Helpers =====

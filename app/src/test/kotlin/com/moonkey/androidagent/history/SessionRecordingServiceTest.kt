@@ -3,6 +3,7 @@ package com.moonkey.androidagent.history
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.storage.SessionStorage
+import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.test.buildTestContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -127,5 +128,75 @@ class SessionRecordingServiceTest {
         assertThat(agentMessages.single().isComplete).isTrue()
         assertThat(agentMessages.single().contentBlocks)
             .contains(com.moonkey.androidagent.history.model.ContentBlockRecord.Text("final output"))
+    }
+
+    @Test
+    fun `completeSession with ERROR reason marks completedNormally false`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val service = SessionRecordingService(storage, this)
+
+        service.initializeNewSession(model = "gpt-5.2", appVersion = "1.0")
+        val fileName = requireNotNull(service.getCurrentFileName())
+
+        service.recordUserMessage(id = "u1", timestamp = 100L, text = "hello")
+        service.completeSession(CompletionReason.ERROR)
+
+        advanceTimeBy(600L)
+        advanceUntilIdle()
+
+        val record = storage.readSession(fileName).getOrThrow()
+        assertThat(record.metadata.completedNormally).isFalse()
+    }
+
+    @Test
+    fun `completeSession with USER_STOPPED marks completedNormally false`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val service = SessionRecordingService(storage, this)
+
+        service.initializeNewSession(model = "gpt-5.2", appVersion = "1.0")
+        val fileName = requireNotNull(service.getCurrentFileName())
+
+        service.recordUserMessage(id = "u1", timestamp = 100L, text = "hello")
+        service.completeSession(CompletionReason.USER_STOPPED)
+
+        advanceTimeBy(600L)
+        advanceUntilIdle()
+
+        val record = storage.readSession(fileName).getOrThrow()
+        assertThat(record.metadata.completedNormally).isFalse()
+    }
+
+    @Test
+    fun `recordUserMessage preserves finalized agent message`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val service = SessionRecordingService(storage, this)
+
+        service.initializeNewSession(model = "gpt-5.2", appVersion = "1.0")
+        val fileName = requireNotNull(service.getCurrentFileName())
+
+        // Start an agent message with content
+        service.startAgentMessage(id = "a1", timestamp = 100L)
+        service.appendTextDelta("agent response")
+
+        // Recording a user message should finalize the agent message AND preserve it
+        service.recordUserMessage(id = "u1", timestamp = 200L, text = "follow up")
+
+        advanceTimeBy(600L)
+        advanceUntilIdle()
+
+        val record = storage.readSession(fileName).getOrThrow()
+        val agentMessages = record.messages.filterIsInstance<MessageRecord.Agent>()
+        val userMessages = record.messages.filterIsInstance<MessageRecord.User>()
+        assertThat(agentMessages).hasSize(1)
+        assertThat(agentMessages.single().contentBlocks)
+            .contains(com.moonkey.androidagent.history.model.ContentBlockRecord.Text("agent response"))
+        assertThat(userMessages).hasSize(1)
+        assertThat(userMessages.single().text).isEqualTo("follow up")
     }
 }
