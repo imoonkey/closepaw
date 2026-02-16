@@ -25,11 +25,15 @@ internal class AgentModelResolver(
         fun resolve(modelName: String): AgentModelResolution {
                 val entry = modelCatalog.resolveOrNull(modelName)
                 if (entry != null) {
-                        return AgentModelResolution(
-                                llmClient = llmClientFactory.create(modelName),
-                                modelId = entry.modelId,
-                                supportsVision = entry.supportsVision
-                        )
+                        val catalogClient =
+                                runCatching { llmClientFactory.create(modelName) }.getOrNull()
+                        if (catalogClient != null) {
+                                return AgentModelResolution(
+                                        llmClient = catalogClient,
+                                        modelId = entry.modelId,
+                                        supportsVision = entry.supportsVision
+                                )
+                        }
                 }
 
                 return AgentModelResolution(

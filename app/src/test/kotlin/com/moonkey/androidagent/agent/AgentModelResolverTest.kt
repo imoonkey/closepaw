@@ -66,6 +66,33 @@ class AgentModelResolverTest {
                 assertThat(resolved.modelId).isEqualTo("legacy-local-model")
                 assertThat(resolved.supportsVision).isFalse()
         }
+
+        @Test
+        fun `known model falls back to session client when factory cannot build client`() {
+                val sessionClient = FakeTestLLMClient()
+                val catalog =
+                        ModelCatalog.fromJson(
+                                """
+                {
+                  "known-model": {
+                    "display_name": "Known Model",
+                    "provider": "OPENAI",
+                    "api": "response",
+                    "model_id": "known-model-id",
+                    "supports_vision": true
+                  }
+                }
+                """
+                        )
+                val factory = LLMClientFactory(catalog = catalog, apiKeyResolver = { null })
+                val resolver = AgentModelResolver(sessionClient, catalog, factory)
+
+                val resolved = resolver.resolve("known-model")
+
+                assertThat(resolved.llmClient).isSameInstanceAs(sessionClient)
+                assertThat(resolved.modelId).isEqualTo("known-model")
+                assertThat(resolved.supportsVision).isFalse()
+        }
 }
 
 private class FakeTestLLMClient : LLMClient() {
