@@ -1,19 +1,13 @@
 package com.moonkey.androidagent.platform.virtualdisplay
 
 import android.accessibilityservice.AccessibilityService
-import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.media.ImageReader
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.Display
-import android.view.PixelCopy
 import android.view.SurfaceView
-import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.model.ScreenSnapshotDebug
-import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.AppInfo
@@ -22,11 +16,7 @@ import com.moonkey.androidagent.platform.NodeActionPerformer
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.trace.TraceRecorder
-import kotlin.coroutines.resume
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 
 /**
@@ -54,9 +44,6 @@ class VirtualDisplayPlatform(
 
         private const val SURFACE_READY_DELAY_MS = 200L
         private const val IMAGE_READER_MAX_IMAGES = 2
-
-        /** PixelCopy failures before permanently reverting to ImageReader. */
-        private const val PIXEL_COPY_MAX_FAILURES = 2
     }
 
     @Volatile private var displayId: Int = Display.INVALID_DISPLAY
@@ -64,8 +51,6 @@ class VirtualDisplayPlatform(
     private var binderDeadListener: Shizuku.OnBinderDeadListener? = null
 
     // ── Surface switching (Hybrid Model) ──
-    @Volatile private var pixelCopyFailCount = 0
-
     private val displayIdProvider: () -> Int = { displayId }
     private val imageReaderProvider: () -> ImageReader? = { imageReader }
 
@@ -92,6 +77,15 @@ class VirtualDisplayPlatform(
                     shizuku = shizuku,
                     displayIdProvider = displayIdProvider,
                     imageReaderProvider = imageReaderProvider
+            )
+    private val captureCoordinator =
+            VirtualDisplayCaptureCoordinator(
+                    config = config,
+                    windowAccessor = windowAccessor,
+                    imageReaderProvider = imageReaderProvider,
+                    surfaceController = surfaceController,
+                    switchToImageReader = { switchToImageReader() },
+                    screenshotProcessor = screenshotProcessor
             )
     private val viewerTouchHandler =
             VirtualDisplayViewerTouchHandler(
@@ -180,7 +174,7 @@ class VirtualDisplayPlatform(
         if (before != VirtualDisplaySurfaceMode.LIVE_PREVIEW &&
                 after == VirtualDisplaySurfaceMode.LIVE_PREVIEW
         ) {
-            pixelCopyFailCount = 0
+            captureCoordinator.onLivePreviewActivated()
         }
     }
 
@@ -227,8 +221,9 @@ class VirtualDisplayPlatform(
         val timestamp = System.currentTimeMillis()
         val pc = sessionConfig.perceptionConfig
 
-        val elements = if (pc.capturesAccessibility) captureA11yTree() else emptyList()
-        val imageCapture = if (pc.capturesScreenshot) captureScreenshot() else null
+        val elements =
+                if (pc.capturesAccessibility) captureCoordinator.captureA11yTree() else emptyList()
+        val imageCapture = if (pc.capturesScreenshot) captureCoordinator.captureScreenshot() else null
 
         Log.d(TAG, "Captured screen: ${elements.size} elements, screenshot=${imageCapture != null}")
 
@@ -247,110 +242,6 @@ class VirtualDisplayPlatform(
                 image = imageCapture?.image,
                 debug = debug
         )
-    }
-
-    private suspend fun captureA11yTree(): List<PerceptionElement> {
-        return withContext(Dispatchers.Main) {
-            val root = windowAccessor.getRootOnDisplay() ?: return@withContext emptyList()
-            try {
-                Perceptor.snapshot(root, config.width, config.height).elements
-            } catch (e: Exception) {
-                Log.w(TAG, "Perceptor.snapshot failed", e)
-                emptyList()
-            } finally {
-                root.recycle()
-            }
-        }
-    }
-
-    private suspend fun captureScreenshot(): VDScreenshotCapture? {
-        return when (surfaceController.mode()) {
-            VirtualDisplaySurfaceMode.IMAGE_READER -> captureFromImageReader()
-            VirtualDisplaySurfaceMode.LIVE_PREVIEW -> captureFromPixelCopy()
-        }
-    }
-
-    private suspend fun captureFromImageReader(): VDScreenshotCapture? {
-        val reader = imageReader ?: return null
-
-        return withContext(Dispatchers.Default) {
-            val image =
-                    try {
-                        reader.acquireLatestImage()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "acquireLatestImage failed", e)
-                        return@withContext null
-                    }
-            if (image == null) return@withContext null
-
-            try {
-                val plane = image.planes[0]
-                val pixelStride = plane.pixelStride
-                if (pixelStride == 0) return@withContext null
-                val rowStride = plane.rowStride
-                val rowPadding = rowStride - pixelStride * image.width
-
-                val bitmap =
-                        Bitmap.createBitmap(
-                                image.width + rowPadding / pixelStride,
-                                image.height,
-                                Bitmap.Config.ARGB_8888
-                        )
-                bitmap.copyPixelsFromBuffer(plane.buffer)
-
-                val cropped =
-                        if (bitmap.width > config.width) {
-                            Bitmap.createBitmap(bitmap, 0, 0, config.width, config.height).also {
-                                if (it !== bitmap) bitmap.recycle()
-                            }
-                        } else bitmap
-
-                screenshotProcessor.toScreenImage(cropped)
-            } finally {
-                image.close()
-            }
-        }
-    }
-
-    /**
-     * Capture a screenshot via PixelCopy when surface is pointed at the Viewer's SurfaceView. On
-     * consecutive failures, permanently reverts to ImageReader mode.
-     */
-    private suspend fun captureFromPixelCopy(): VDScreenshotCapture? {
-        val sv = surfaceController.liveSurfaceView()
-        if (sv == null || !sv.holder.surface.isValid) {
-            Log.w(TAG, "PixelCopy: no valid SurfaceView, falling back to ImageReader")
-            switchToImageReader()
-            return captureFromImageReader()
-        }
-
-        val bitmap = Bitmap.createBitmap(config.width, config.height, Bitmap.Config.ARGB_8888)
-
-        val result =
-                withContext(Dispatchers.Main) {
-                    suspendCancellableCoroutine<Int> { cont ->
-                        PixelCopy.request(
-                                sv,
-                                bitmap,
-                                { copyResult -> cont.resume(copyResult) },
-                                Handler(Looper.getMainLooper())
-                        )
-                    }
-                }
-
-        if (result != PixelCopy.SUCCESS) {
-            bitmap.recycle()
-            pixelCopyFailCount++
-            Log.w(TAG, "PixelCopy failed (result=$result, failCount=$pixelCopyFailCount)")
-            if (pixelCopyFailCount >= PIXEL_COPY_MAX_FAILURES) {
-                Log.w(TAG, "PixelCopy failed $pixelCopyFailCount times, reverting to ImageReader")
-                switchToImageReader()
-            }
-            return captureFromImageReader()
-        }
-
-        pixelCopyFailCount = 0
-        return withContext(Dispatchers.Default) { screenshotProcessor.toScreenImage(bitmap) }
     }
 
     override fun allowTapToFocus(): Boolean = false
