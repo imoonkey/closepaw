@@ -27,7 +27,7 @@ sealed interface AgentEvent {
         override val sessionId: SessionId,
         override val timestamp: Long,
         val goal: String
-    ) : AgentEvent
+    ) : SessionLifecycleEvent
     
     /**
      * Session completed (successfully or via user stop).
@@ -37,7 +37,7 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val result: String?,
         val reason: CompletionReason
-    ) : AgentEvent
+    ) : SessionLifecycleEvent
     
     /**
      * Session encountered an error.
@@ -46,7 +46,7 @@ sealed interface AgentEvent {
         override val sessionId: SessionId,
         override val timestamp: Long,
         val error: AgentError
-    ) : AgentEvent
+    ) : SessionLifecycleEvent
     
     /**
      * User took over control (agent paused).
@@ -54,7 +54,7 @@ sealed interface AgentEvent {
     data class SessionTakeover(
         override val sessionId: SessionId,
         override val timestamp: Long
-    ) : AgentEvent
+    ) : SessionLifecycleEvent
 
     /**
      * Session was resumed after takeover.
@@ -62,7 +62,7 @@ sealed interface AgentEvent {
     data class SessionResumed(
         override val sessionId: SessionId,
         override val timestamp: Long
-    ) : AgentEvent
+    ) : SessionLifecycleEvent
 
     /**
      * User injected a mid-task supplement message.
@@ -71,7 +71,7 @@ sealed interface AgentEvent {
         override val sessionId: SessionId,
         override val timestamp: Long,
         val text: String
-    ) : AgentEvent
+    ) : SessionLifecycleEvent
 
     // ===== Task Events (New) =====
 
@@ -83,7 +83,7 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val taskId: String,
         val input: String
-    ) : AgentEvent
+    ) : TaskLifecycleEvent
 
     /**
      * A task has completed.
@@ -97,7 +97,7 @@ sealed interface AgentEvent {
         val taskId: String,
         val result: String?,
         val reason: CompletionReason
-    ) : AgentEvent
+    ) : TaskLifecycleEvent
 
     // ===== Planning State Events =====
 
@@ -108,7 +108,7 @@ sealed interface AgentEvent {
         override val sessionId: SessionId,
         override val timestamp: Long,
         val todos: List<Todo>
-    ) : AgentEvent
+    ) : PlanningStateEvent
 
     /**
      * Scratchpad has been updated (write/delete).
@@ -118,7 +118,7 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val key: String,
         val action: String
-    ) : AgentEvent
+    ) : PlanningStateEvent
 
     // ===== Sub-Agent Events =====
 
@@ -130,7 +130,7 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val agentName: String,
         val query: String
-    ) : AgentEvent
+    ) : SubAgentDomainEvent
 
     /**
      * Bridged activity emitted from a running sub-agent.
@@ -140,7 +140,7 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val agentName: String,
         val activity: String
-    ) : AgentEvent
+    ) : SubAgentDomainEvent
 
     /**
      * Sub-agent completed with success/failure status.
@@ -151,7 +151,7 @@ sealed interface AgentEvent {
         val agentName: String,
         val success: Boolean,
         val message: String
-    ) : AgentEvent
+    ) : SubAgentDomainEvent
     
     // ===== Turn Events =====
     
@@ -164,7 +164,7 @@ sealed interface AgentEvent {
         val turnId: String,
         val turnNumber: Int,
         val phase: TurnPhase
-    ) : AgentEvent
+    ) : TurnDomainEvent
     
     /**
      * A turn has completed.
@@ -174,7 +174,7 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val turnId: String,
         val turnNumber: Int
-    ) : AgentEvent
+    ) : TurnDomainEvent
     
     /**
      * Turn phase has changed.
@@ -184,7 +184,7 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val turnId: String,
         val phase: TurnPhase
-    ) : AgentEvent
+    ) : TurnDomainEvent
 
     // ===== Streaming Events (New) =====
 
@@ -196,7 +196,7 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val turnId: String,
         val delta: String
-    ) : AgentEvent
+    ) : StreamingDomainEvent
     
     // ===== Action Events =====
     
@@ -209,7 +209,7 @@ sealed interface AgentEvent {
         val actionId: String,
         val toolName: String,
         val description: String
-    ) : AgentEvent
+    ) : ActionDomainEvent
     
     /**
      * An action has been executed.
@@ -221,7 +221,7 @@ sealed interface AgentEvent {
         val toolName: String,
         val success: Boolean,
         val result: String?
-    ) : AgentEvent
+    ) : ActionDomainEvent
     
     // ===== Perception Events =====
     
@@ -241,7 +241,7 @@ sealed interface AgentEvent {
         val sanitizedA11yTreePath: String?,
         val screenshotPath: String?,
         val traceRunId: String?
-    ) : AgentEvent
+    ) : PerceptionDomainEvent
     
     // ===== Approval Events =====
     
@@ -254,7 +254,7 @@ sealed interface AgentEvent {
         val actionId: String,
         val description: String,
         val details: ApprovalDetails
-    ) : AgentEvent
+    ) : ApprovalDomainEvent
     
     /**
      * Approval request was resolved (approved, denied, or timed out).
@@ -264,7 +264,7 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val actionId: String,
         val decision: ApprovalDecision
-    ) : AgentEvent
+    ) : ApprovalDomainEvent
     
     // ===== Ask User Events =====
 
@@ -279,7 +279,7 @@ sealed interface AgentEvent {
         val type: AskUserType,
         val message: String,
         val callId: String
-    ) : AgentEvent
+    ) : AskUserDomainEvent
 
     // ===== Thought Events =====
 
@@ -293,7 +293,7 @@ sealed interface AgentEvent {
         override val sessionId: SessionId,
         override val timestamp: Long,
         val thought: String
-    ) : AgentEvent
+    ) : ThoughtDomainEvent
 
     // ===== Status Events =====
     
@@ -308,5 +308,5 @@ sealed interface AgentEvent {
         override val timestamp: Long,
         val status: String,
         val emoji: String? = null
-    ) : AgentEvent
+    ) : StatusDomainEvent
 }
