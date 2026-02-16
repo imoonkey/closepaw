@@ -179,6 +179,34 @@ class VirtualDisplayInputInjector(
         return event
     }
 
+    /**
+     * Inject one raw MotionEvent action to the virtual display.
+     * Used by the Viewer to forward user touch input (down/move/up stream).
+     */
+    fun injectMotionAction(
+            action: Int,
+            x: Float,
+            y: Float,
+            downTime: Long,
+            eventTime: Long,
+    ): Boolean {
+        val displayId = displayIdProvider()
+        if (displayId == Display.INVALID_DISPLAY) return false
+        if (action != MotionEvent.ACTION_DOWN &&
+                action != MotionEvent.ACTION_MOVE &&
+                action != MotionEvent.ACTION_UP &&
+                action != MotionEvent.ACTION_CANCEL
+        ) {
+            return false
+        }
+        val event = motionEvent(downTime, eventTime, action, x, y)
+        val ok = shizuku.injectInputEvent(event)
+        event.recycle()
+        return ok
+    }
+
+    fun supportsDisplayIdInjection(): Boolean = setDisplayIdMethod != null
+
     private fun keyEvent(downTime: Long, eventTime: Long, action: Int, keyCode: Int): KeyEvent {
         val event = KeyEvent(downTime, eventTime, action, keyCode, 0)
         setDisplayId(event, displayIdProvider())

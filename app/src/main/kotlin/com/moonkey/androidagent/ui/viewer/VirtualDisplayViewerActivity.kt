@@ -2,6 +2,7 @@ package com.moonkey.androidagent.ui.viewer
 
 import android.os.Bundle
 import android.util.Log
+import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.activity.ComponentActivity
@@ -53,6 +54,17 @@ class VirtualDisplayViewerActivity : ComponentActivity() {
                 onSurfaceDestroyed = {
                     surfaceView = null
                     AgentService.instance?.notifyViewerHidden()
+                },
+                onSurfaceTouch = { view, event ->
+                    AgentService.instance?.onViewerTouch(
+                        action = event.actionMasked,
+                        x = event.x,
+                        y = event.y,
+                        downTime = event.downTime,
+                        eventTime = event.eventTime,
+                        viewWidth = view.width,
+                        viewHeight = view.height,
+                    ) == true
                 }
             )
         }
@@ -90,7 +102,8 @@ class VirtualDisplayViewerActivity : ComponentActivity() {
 @Composable
 private fun VirtualDisplayViewerScreen(
     onSurfaceReady: (SurfaceView) -> Unit,
-    onSurfaceDestroyed: () -> Unit
+    onSurfaceDestroyed: () -> Unit,
+    onSurfaceTouch: (SurfaceView, MotionEvent) -> Boolean,
 ) {
     Box(
         modifier = Modifier
@@ -100,6 +113,7 @@ private fun VirtualDisplayViewerScreen(
         LivePreviewSurface(
             onSurfaceReady = onSurfaceReady,
             onSurfaceDestroyed = onSurfaceDestroyed,
+            onSurfaceTouch = onSurfaceTouch,
             modifier = Modifier.fillMaxSize()
         )
     }
@@ -111,11 +125,17 @@ private fun VirtualDisplayViewerScreen(
 private fun LivePreviewSurface(
     onSurfaceReady: (SurfaceView) -> Unit,
     onSurfaceDestroyed: () -> Unit,
+    onSurfaceTouch: (SurfaceView, MotionEvent) -> Boolean,
     modifier: Modifier = Modifier
 ) {
     AndroidView(
         factory = { ctx ->
             SurfaceView(ctx).apply {
+                isClickable = true
+                setOnTouchListener { _, event ->
+                    if (event == null) return@setOnTouchListener false
+                    onSurfaceTouch(this, event)
+                }
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) {
                         Log.d("VDViewerSurface", "Surface created")

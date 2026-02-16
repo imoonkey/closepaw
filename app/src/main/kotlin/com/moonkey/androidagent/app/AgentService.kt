@@ -539,4 +539,28 @@ class AgentService : AccessibilityService() {
         platform.switchToImageReader()
     }
 
+    /**
+     * Forward touch events from VirtualDisplayViewerActivity to VD input injection.
+     */
+    fun onViewerTouch(
+            action: Int,
+            x: Float,
+            y: Float,
+            downTime: Long,
+            eventTime: Long,
+            viewWidth: Int,
+            viewHeight: Int,
+    ): Boolean {
+        val platform = session?.getServices()?.platform as? VirtualDisplayPlatform ?: return false
+        return platform.onViewerTouch(
+                action = action,
+                x = x,
+                y = y,
+                downTime = downTime,
+                eventTime = eventTime,
+                viewWidth = viewWidth,
+                viewHeight = viewHeight,
+        )
+    }
+
 }
