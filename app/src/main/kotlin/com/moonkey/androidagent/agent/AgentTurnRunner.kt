@@ -638,39 +638,10 @@ internal class AgentTurnRunner(
         ): TurnOutcome.Error {
                 Log.e(TAG, "Turn execution failed", error)
                 trace.turnError(turnId, turnNumber, error)
-
-                val message = error.message.orEmpty()
-                val causes = generateSequence(error as Throwable?) { it.cause }.toList()
-
-                fun anyMessageContains(keyword: String): Boolean {
-                        return causes.any { cause ->
-                                cause.message?.contains(keyword, ignoreCase = true) == true
-                        }
-                }
-
-                val isDnsFailure =
-                        causes.any { it is java.net.UnknownHostException } ||
-                                anyMessageContains("Unable to resolve host") ||
-                                anyMessageContains("No address associated")
-
-                val isContextLimit =
-                        anyMessageContains("context length") ||
-                                anyMessageContains("maximum context") ||
-                                anyMessageContains("context window") ||
-                                anyMessageContains("too many tokens") ||
-                                anyMessageContains("max tokens")
-
-                val isTransientNetworkError =
-                        !isDnsFailure &&
-                                !isContextLimit &&
-                                (causes.any { it is java.net.SocketTimeoutException } ||
-                                        anyMessageContains("timeout") ||
-                                        anyMessageContains("connection refused") ||
-                                        anyMessageContains("connection reset"))
-
+                val classification = TurnErrorClassifier.classify(error)
                 return TurnOutcome.Error(
-                        message = message.ifEmpty { "Unknown error" },
-                        recoverable = isTransientNetworkError
+                        message = classification.message,
+                        recoverable = classification.recoverable
                 )
         }
 
