@@ -207,6 +207,20 @@ class ServiceOverlayController(
         handleWindowStateChangedInternal(packageName, className)
     }
 
+    /**
+     * MainActivity foreground callback.
+     *
+     * Accessibility window events can be delayed/missed on some devices. This explicit signal
+     * guarantees MAIN_APP invariants: no system capsule/island/glow on top of in-app Compose UI.
+     */
+    fun onMainAppVisible() {
+        if (userLocation != OverlayUserLocation.MAIN_APP) {
+            userLocation = OverlayUserLocation.MAIN_APP
+            updateContext()
+        }
+        applyVisibility()
+    }
+
     // ── Event handlers ──
 
     fun onTaskStarted(taskId: String, input: String) {

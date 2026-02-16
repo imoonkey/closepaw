@@ -213,6 +213,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        AgentService.instance?.onMainAppVisible()
         rebindActiveServiceSessionIfNeeded()
     }
 

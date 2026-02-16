@@ -110,7 +110,7 @@ internal fun deriveOverlayVisibility(
                 OverlayVisibilityDecision(
                     showCapsule = normalizedShowPreference == ShowPreference.CAPSULE,
                     showIsland = normalizedShowPreference == ShowPreference.ISLAND,
-                    showGlow = hasActiveTask,
+                    showGlow = location == OverlayUserLocation.VD_VIEWER && hasActiveTask,
                     normalizedShowPreference = normalizedShowPreference,
                 )
             }

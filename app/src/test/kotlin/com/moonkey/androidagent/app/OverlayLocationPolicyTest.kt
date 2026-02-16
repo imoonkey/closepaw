@@ -191,10 +191,10 @@ class OverlayLocationPolicyTest {
     }
 
     @Test
-    fun `derive visibility shows glow in vd when active and off main app`() {
+    fun `derive visibility shows glow in vd when active and viewer is visible`() {
         val decision = deriveOverlayVisibility(
             platformMode = PlatformMode.VIRTUAL_DISPLAY,
-            location = OverlayUserLocation.OTHER_APP,
+            location = OverlayUserLocation.VD_VIEWER,
             mode = CapsuleMode.Running("thinking"),
             hasActiveTask = true,
             showPreference = ShowPreference.ISLAND,
@@ -210,6 +210,19 @@ class OverlayLocationPolicyTest {
             location = OverlayUserLocation.OTHER_APP,
             mode = CapsuleMode.Done("done"),
             hasActiveTask = false,
+            showPreference = ShowPreference.ISLAND,
+        )
+
+        assertThat(decision.showGlow).isFalse()
+    }
+
+    @Test
+    fun `derive visibility hides glow in vd background even when task is active`() {
+        val decision = deriveOverlayVisibility(
+            platformMode = PlatformMode.VIRTUAL_DISPLAY,
+            location = OverlayUserLocation.OTHER_APP,
+            mode = CapsuleMode.Running("thinking"),
+            hasActiveTask = true,
             showPreference = ShowPreference.ISLAND,
         )
 

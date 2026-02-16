@@ -478,6 +478,11 @@ class AgentService : AccessibilityService() {
         overlayController?.onViewerClosed()
     }
 
+    /** MainActivity foreground callback to enforce MAIN_APP overlay invariants. */
+    fun onMainAppVisible() {
+        overlayController?.onMainAppVisible()
+    }
+
     /** Open the VirtualDisplayViewerActivity. Called from StatusIsland tap or nav button. */
     private fun openViewer() {
         try {
