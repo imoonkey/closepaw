@@ -221,28 +221,29 @@ class ChatCompletionClient(
 
             } catch (e: Exception) {
                 val classified = OpenAIErrorClassifier.classify(e)
-                val retryable = classified is RateLimitException || classified is TransientException
                 lastException = classified
 
-                if (retryable && emittedEvent) {
-                    Log.w(TAG, "Stream error after output; skipping retry: ${classified.message}")
-                    emit(LLMStreamEvent.Failed("Stream interrupted: ${classified.message}"))
-                    break
-                }
-
-                if (retryable && attempt < MAX_RETRIES) {
-                    val waitMs = when (classified) {
-                        is RateLimitException -> classified.retryAfterMs ?: backoffMs
-                        else -> backoffMs
+                when (
+                    val retryAction =
+                        CloudStreamRetryPolicy.decide(
+                            tag = TAG,
+                            classified = classified,
+                            attempt = attempt,
+                            emittedEvent = emittedEvent,
+                            backoffMs = backoffMs
+                        )
+                ) {
+                    is StreamRetryAction.FailAndStop -> {
+                        emit(LLMStreamEvent.Failed(retryAction.message))
+                        break
                     }
-                    Log.w(TAG, "Retryable stream error (attempt $attempt/$MAX_RETRIES), waiting ${waitMs}ms")
-                    delay(waitMs)
-                    backoffMs = CloudLlmRetry.advanceBackoff(backoffMs)
-                    continue
+                    is StreamRetryAction.Retry -> {
+                        delay(retryAction.waitMs)
+                        backoffMs = retryAction.nextBackoffMs
+                        continue
+                    }
+                    StreamRetryAction.Stop -> break
                 }
-
-                Log.e(TAG, "Streaming failed with non-retryable error", classified)
-                break
             }
         }
 
