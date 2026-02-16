@@ -11,17 +11,13 @@ Date: 2026-02-16
 - [x] VirtualDisplay decomposition Phase 1 (viewer touch, screenshot processing, app control, surface control, capture coordination, shell executor extraction)
 - [x] VirtualDisplay/Shizuku decomposition Phase 2 (service proxy/transport/activity/runtime split inside `ShizukuClient`)
 - [x] SessionConfig extraction Phase 1 (`SessionConfig` and related enums moved out of `Op.kt`)
+- [x] SessionConfig cleanup Phase 2 (legacy `model/llmBackend/localLLMConfig` compatibility path removed from runtime config)
 - [x] SessionServices decomposition (LLM/tool/history/bootstrap split + builder/summary extraction)
 
 ### In Progress
 - [ ] Protocol domain split Phase 2 (`AgentEvent.kt` event-domain decomposition while preserving behavior)
   - [x] Domain interfaces extracted (`AgentEventDomains.kt`) and existing events mapped
   - [ ] Event declarations split out of `AgentEvent.kt` into focused domain files
-- [ ] SessionConfig cleanup Phase 2 (reduce deprecated `llmBackend/localLLMConfig/model` compatibility path)
-  - [x] Legacy backend read centralized via `resolvedBackendTypeCompat()`
-  - [x] Legacy local config read centralized via `resolvedLocalLlmConfigCompat()`
-  - [x] Canonical `SessionLlmConfig` introduced and wired into runtime/session construction
-  - [ ] Remove deprecated constructor fields after settings-side migration (`llmBackend`/`localLLMConfig`/`model`)
 
 ### Not Started
 - [ ] LLM client consolidation (`Response`/`Chat` shared retry + streaming scaffold)
@@ -177,3 +173,9 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServicesBuilder.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServicesSummaryFormatter.kt`
+
+15. Completed SessionConfig cleanup Phase 2 by removing deprecated top-level legacy fields and making `SessionLlmConfig` + `mainModel/executorModel` the only runtime path.
+- `app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionConfig.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/session/SessionLlmBootstrapper.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/trace/AgentTrace.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/trace/TraceRecorderFactory.kt`
