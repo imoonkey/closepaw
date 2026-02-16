@@ -123,7 +123,6 @@ internal class AgentTurnRunner(
 
         private data class PreparedTurn(
                 val nextState: TurnRunnerState,
-                val loopWarning: LoopWarning?,
                 val warnings: List<String>
         )
 
@@ -198,7 +197,6 @@ internal class AgentTurnRunner(
 
                 return PreparedTurn(
                         nextState = nextState,
-                        loopWarning = loopWarning,
                         warnings = warnings
                 )
         }
