@@ -103,4 +103,5 @@ This merged review integrates Claude’s broad refactor map and Codex’s code-v
 6. Split VirtualDisplay viewer/capture responsibilities into dedicated collaborators.
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayViewerTouchHandler.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayScreenshotProcessor.kt`
+- `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayAppController.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt`
