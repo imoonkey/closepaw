@@ -109,6 +109,38 @@ class TurnToolFilteringTest {
 
         assertThat(result.toolCalls).isEmpty()
     }
+
+    @Test
+    fun `run synthesizes non-empty tool call ids when provider returns blank id`() = runTest {
+        val llm =
+                CapturingTurnLLMClient(
+                        response =
+                                ResponsesResult(
+                                        textContent = null,
+                                        toolCalls =
+                                                listOf(
+                                                        LLMToolCall(
+                                                                callId = "",
+                                                                name = "mobile_action",
+                                                                arguments = "{}"
+                                                        )
+                                                ),
+                                        responseId = "resp"
+                                )
+                )
+        val registry = ToolRegistry().apply { register(TestTurnTool("mobile_action")) }
+        val turn = Turn(toolRegistry = registry, llmClient = llm)
+
+        val result =
+                turn.run(
+                        systemPrompt = "planner",
+                        inputItems = minimalInputItems
+                )
+
+        assertThat(result.toolCalls).hasSize(1)
+        assertThat(result.toolCalls.single().id).isNotEmpty()
+        assertThat(result.toolCalls.single().id).startsWith("synthetic_mobile_action_0_")
+    }
 }
 
 private class CapturingTurnLLMClient(private val response: ResponsesResult) : LLMClient() {

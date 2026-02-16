@@ -60,6 +60,34 @@ internal fun appendCompletionToMessages(
     )
 }
 
+internal fun updateActionBlockForExecution(
+        blocks: List<ContentBlock>,
+        actionId: String,
+        newState: ActionState,
+        resultSummary: String?
+): Pair<List<ContentBlock>, Boolean> {
+    val existingBlockIndex =
+            blocks.indexOfLast { block ->
+                block is ContentBlock.Action && block.data.id == actionId
+            }
+    if (existingBlockIndex < 0) return blocks to false
+
+    val updated =
+            blocks.mapIndexed { index, block ->
+                if (index == existingBlockIndex && block is ContentBlock.Action) {
+                    ContentBlock.Action(
+                            block.data.copy(
+                                    state = newState,
+                                    resultSummary = resultSummary
+                            )
+                    )
+                } else {
+                    block
+                }
+            }
+    return updated to true
+}
+
 /**
  * ChatViewModel - Manages chat state and event collection.
  *
@@ -247,28 +275,21 @@ class ChatViewModel(
 
         private fun handleActionExecuted(event: ActionExecuted) {
             val newState = if (event.success) ActionState.Success else ActionState.Failed
-            val stateString = if (event.success) "success" else "failed"
 
             updateLastAgentMessage { msg ->
-                // Find existing action block and update it, or add new one
-                val existingBlockIndex =
-                        msg.contentBlocks.indexOfFirst { block ->
-                            block is ContentBlock.Action && block.data.id == event.actionId
-                        }
+                // Update the most recent matching action block.
+                // Some providers may emit repeated call IDs across turns; indexOfLast keeps UI alignment.
+                val (updatedExisting, found) =
+                        updateActionBlockForExecution(
+                                blocks = msg.contentBlocks,
+                                actionId = event.actionId,
+                                newState = newState,
+                                resultSummary = event.result
+                        )
 
                 val updatedBlocks =
-                        if (existingBlockIndex >= 0) {
-                            // Update existing action block
-                            msg.contentBlocks.mapIndexed { index, block ->
-                                if (index == existingBlockIndex && block is ContentBlock.Action) {
-                                    ContentBlock.Action(
-                                            block.data.copy(
-                                                    state = newState,
-                                                    resultSummary = event.result
-                                            )
-                                    )
-                                } else block
-                            }
+                        if (found) {
+                            updatedExisting
                         } else {
                             // Action wasn't proposed first - add it directly
                             // Clear streaming buffer first since this is a new action

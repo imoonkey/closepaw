@@ -7,6 +7,7 @@ import com.moonkey.androidagent.llm.LLMToolCall
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
+import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.json.JSONObject
@@ -154,7 +155,17 @@ class Turn(
     }
 
     private fun processResponse(textContent: String?, llmToolCalls: List<LLMToolCall>): TurnResult {
-        val allToolCalls = llmToolCalls.map { convertToToolCallRequest(it) }
+        val allToolCalls =
+                llmToolCalls.mapIndexed { index, llmToolCall ->
+                    val converted = convertToToolCallRequest(llmToolCall)
+                    if (converted.id.isBlank()) {
+                        val syntheticId =
+                                "synthetic_${llmToolCall.name}_${index}_${UUID.randomUUID()}"
+                        converted.copy(id = syntheticId)
+                    } else {
+                        converted
+                    }
+                }
         val toolCalls = allToolCalls.filter { allowedToolNames?.contains(it.name) != false }
 
         if (toolCalls.size != allToolCalls.size) {
