@@ -38,6 +38,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 #folderInput { display: none; }
@@ -81,6 +82,12 @@ body {
   padding: 6px 10px;
   cursor: pointer;
   font-size: 12px;
+}
+
+#debugRunSelect,
+#evalRunSelect,
+#evalTaskSelect {
+  min-width: 220px;
 }
 
 .btn:hover, .select:hover { border-color: var(--accent); background: #f7fafc; }
@@ -342,6 +349,7 @@ body {
 
 .world-stage {
   position: relative;
+  width: 100%;
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
@@ -349,7 +357,9 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  max-height: calc(100vh - 200px); /* Constrain height to viewport minus headers */
+  /* Give the stage an explicit viewport-bound height so portrait screenshots can fit fully. */
+  height: min(68vh, 980px);
+  min-height: 280px;
 }
 
 .world-stage img {

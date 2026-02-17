@@ -1,6 +1,8 @@
 import { renderDetailPanel, renderSummary } from "./detail.js";
 
-const runSelect = document.getElementById("runSelect");
+const debugRunSelect = document.getElementById("debugRunSelect");
+const evalRunSelect = document.getElementById("evalRunSelect");
+const evalTaskSelect = document.getElementById("evalTaskSelect");
 const refreshBtn = document.getElementById("refreshBtn");
 const treePanel = document.getElementById("treePanel");
 const detailPanel = document.getElementById("detailPanel");
@@ -21,13 +23,65 @@ let selectedStepIndex = -1;
 let selectedStepId = null;
 let filterQuery = "";
 let treeError = null;
-let currentRunId = null;
+let catalog = { debug_runs: [], eval_runs: [] };
+let selectedDebugRunId = "";
+let selectedEvalRunId = "";
+let selectedEvalTaskId = "";
+let currentTraceId = null;
+let activeSource = "";
 
 // Initial load
-refreshRuns();
+refreshCatalog();
 
-refreshBtn.addEventListener("click", refreshRuns);
-runSelect.addEventListener("change", () => loadRun(runSelect.value));
+refreshBtn.addEventListener("click", refreshCatalog);
+debugRunSelect.addEventListener("change", () => {
+  selectedDebugRunId = debugRunSelect.value || "";
+  if (!selectedDebugRunId) {
+    if (activeSource === "debug") {
+      activeSource = "";
+      currentTraceId = null;
+      clearRunData("No trace selected.");
+    }
+    return;
+  }
+  activeSource = "debug";
+  selectedEvalRunId = "";
+  selectedEvalTaskId = "";
+  evalRunSelect.value = "";
+  populateEvalTaskSelect();
+  loadDebugTrace();
+});
+evalRunSelect.addEventListener("change", () => {
+  selectedEvalRunId = evalRunSelect.value || "";
+  selectedEvalTaskId = "";
+  populateEvalTaskSelect();
+  if (!selectedEvalRunId) {
+    if (activeSource === "eval") {
+      activeSource = "";
+      currentTraceId = null;
+      clearRunData("No trace selected.");
+    }
+    return;
+  }
+  activeSource = "eval";
+  selectedDebugRunId = "";
+  debugRunSelect.value = "";
+  loadEvalTrace();
+});
+evalTaskSelect.addEventListener("change", () => {
+  selectedEvalTaskId = evalTaskSelect.value || "";
+  if (!selectedEvalRunId || !selectedEvalTaskId) {
+    if (activeSource === "eval") {
+      currentTraceId = null;
+      clearRunData("No eval task selected.");
+    }
+    return;
+  }
+  activeSource = "eval";
+  selectedDebugRunId = "";
+  debugRunSelect.value = "";
+  loadEvalTrace();
+});
 
 prevBtn.addEventListener("click", () => moveSelection(-1));
 nextBtn.addEventListener("click", () => moveSelection(1));
@@ -56,69 +110,230 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-async function refreshRuns() {
-  try {
-    const res = await fetch("/api/runs");
-    if (!res.ok) throw new Error("Failed to fetch runs");
-    const runs = await res.json();
-    
-    // Preserve selection if possible
-    let current = runSelect.value;
-    
-    // Auto-select first run if none selected and runs available
-    if (!current && runs.length > 0) {
-      current = runs[0].id;
-      loadRun(current);
-    }
-    runSelect.innerHTML = '<option value="" disabled selected>Select a run...</option>';
-    
-    runs.forEach(run => {
-      const option = document.createElement("option");
-      option.value = run.id; // Corrected to use ID
-      option.textContent = `${run.id} ${run.compiled ? "✓" : ""}`;
-      runSelect.appendChild(option);
-    });
+function findDebugRun(runId) {
+  return catalog.debug_runs.find((run) => run.id === runId) || null;
+}
 
-    if (current && runs.find(r => r.id === current)) {
-      runSelect.value = current;
-    }
-  } catch (e) {
-    console.error(e);
-    meta.textContent = "Error fetching runs";
+function findEvalRun(runId) {
+  return catalog.eval_runs.find((run) => run.id === runId) || null;
+}
+
+function clearRunData(message) {
+  sessions = [];
+  sessionById = new Map();
+  stepById = new Map();
+  steps = [];
+  filteredSteps = [];
+  selectedStepIndex = -1;
+  selectedStepId = null;
+  filterQuery = "";
+  filterInput.value = "";
+  treeError = null;
+  treePanel.innerHTML = `<div class="hint">${escapeHtml(message)}</div>`;
+  detailPanel.textContent = "Select a step.";
+  if (stepSummaryPanel) {
+    stepSummaryPanel.innerHTML = "";
+    stepSummaryPanel.style.display = "none";
+  }
+  updateCounter();
+}
+
+function populateDebugRunSelect() {
+  debugRunSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Debug Run...";
+  debugRunSelect.appendChild(placeholder);
+
+  catalog.debug_runs.forEach((run) => {
+    const option = document.createElement("option");
+    option.value = run.id;
+    option.textContent = `${run.id} ${run.compiled ? "✓" : ""}`;
+    debugRunSelect.appendChild(option);
+  });
+
+  debugRunSelect.disabled = catalog.debug_runs.length === 0;
+  if (selectedDebugRunId && findDebugRun(selectedDebugRunId)) {
+    debugRunSelect.value = selectedDebugRunId;
+  } else {
+    selectedDebugRunId = "";
+    debugRunSelect.value = "";
   }
 }
 
-async function loadRun(runId) {
-  if (!runId) return;
-  currentRunId = runId;
+function populateEvalRunSelect() {
+  evalRunSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Eval Run...";
+  evalRunSelect.appendChild(placeholder);
+
+  catalog.eval_runs.forEach((run) => {
+    const compiledCount = run.tasks.filter((task) => task.compiled).length;
+    const option = document.createElement("option");
+    option.value = run.id;
+    option.textContent = `${run.id} (${compiledCount}/${run.tasks.length} compiled)`;
+    evalRunSelect.appendChild(option);
+  });
+
+  evalRunSelect.disabled = catalog.eval_runs.length === 0;
+  if (selectedEvalRunId && findEvalRun(selectedEvalRunId)) {
+    evalRunSelect.value = selectedEvalRunId;
+  } else {
+    selectedEvalRunId = "";
+    evalRunSelect.value = "";
+  }
+}
+
+function populateEvalTaskSelect() {
+  evalTaskSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Eval Task...";
+  evalTaskSelect.appendChild(placeholder);
+
+  const evalRun = findEvalRun(selectedEvalRunId);
+  if (!evalRun || evalRun.tasks.length === 0) {
+    selectedEvalTaskId = "";
+    evalTaskSelect.disabled = true;
+    evalTaskSelect.value = "";
+    return;
+  }
+
+  evalRun.tasks.forEach((task) => {
+    const option = document.createElement("option");
+    option.value = task.id;
+    option.textContent = `${task.id} ${task.compiled ? "✓" : ""}`;
+    evalTaskSelect.appendChild(option);
+  });
+
+  const keepCurrent = selectedEvalTaskId && evalRun.tasks.some((task) => task.id === selectedEvalTaskId);
+  if (!keepCurrent) {
+    selectedEvalTaskId = evalRun.tasks[0].id;
+  }
+  evalTaskSelect.disabled = false;
+  evalTaskSelect.value = selectedEvalTaskId;
+}
+
+async function refreshCatalog() {
+  try {
+    const res = await fetch("/api/catalog");
+    if (!res.ok) throw new Error("Failed to fetch run catalog");
+    const payload = await res.json();
+    catalog = {
+      debug_runs: Array.isArray(payload.debug_runs) ? payload.debug_runs : [],
+      eval_runs: Array.isArray(payload.eval_runs) ? payload.eval_runs : [],
+    };
+
+    populateDebugRunSelect();
+    populateEvalRunSelect();
+    populateEvalTaskSelect();
+
+    const hasAnyRun = catalog.debug_runs.length > 0 || catalog.eval_runs.length > 0;
+    if (!hasAnyRun) {
+      selectedDebugRunId = "";
+      selectedEvalRunId = "";
+      selectedEvalTaskId = "";
+      activeSource = "";
+      currentTraceId = null;
+      meta.textContent = "No trace runs found";
+      clearRunData("No runs found.");
+      return;
+    }
+
+    if (activeSource === "debug" && selectedDebugRunId && findDebugRun(selectedDebugRunId)) {
+      await loadDebugTrace();
+      return;
+    }
+
+    if (activeSource === "eval" && selectedEvalRunId && findEvalRun(selectedEvalRunId)) {
+      populateEvalTaskSelect();
+      if (selectedEvalTaskId) {
+        await loadEvalTrace();
+        return;
+      }
+    }
+
+    if (catalog.debug_runs.length > 0) {
+      selectedDebugRunId = catalog.debug_runs[0].id;
+      debugRunSelect.value = selectedDebugRunId;
+      selectedEvalRunId = "";
+      selectedEvalTaskId = "";
+      evalRunSelect.value = "";
+      populateEvalTaskSelect();
+      activeSource = "debug";
+      await loadDebugTrace();
+      return;
+    }
+
+    const firstEvalRun = catalog.eval_runs[0];
+    selectedEvalRunId = firstEvalRun.id;
+    evalRunSelect.value = selectedEvalRunId;
+    selectedDebugRunId = "";
+    debugRunSelect.value = "";
+    populateEvalTaskSelect();
+    activeSource = "eval";
+    await loadEvalTrace();
+  } catch (e) {
+    console.error(e);
+    meta.textContent = "Error fetching run catalog";
+    clearRunData("Failed to load run catalog.");
+  }
+}
+
+async function loadDebugTrace() {
+  const run = findDebugRun(selectedDebugRunId);
+  if (!run) {
+    currentTraceId = null;
+    clearRunData("No trace selected.");
+    return;
+  }
+  await loadTraceByRef({ traceId: run.trace_id, label: run.id });
+}
+
+async function loadEvalTrace() {
+  const evalRun = findEvalRun(selectedEvalRunId);
+  if (!evalRun || evalRun.tasks.length === 0) {
+    currentTraceId = null;
+    clearRunData("No eval trace selected.");
+    return;
+  }
+
+  let task = evalRun.tasks.find((item) => item.id === selectedEvalTaskId) || null;
+  if (!task) {
+    task = evalRun.tasks[0];
+    selectedEvalTaskId = task.id;
+    evalTaskSelect.value = selectedEvalTaskId;
+  }
+  await loadTraceByRef({ traceId: task.trace_id, label: `${evalRun.id} / ${task.id}` });
+}
+
+async function loadTraceByRef(traceRef) {
+  currentTraceId = traceRef.traceId;
+  const traceToken = encodeURIComponent(traceRef.traceId);
   meta.textContent = "Loading...";
   treePanel.innerHTML = '<div class="hint">Loading trace...</div>';
 
   try {
-    // Check if we need to compile
-    // We can try to fetch index, if 404, assume need compile or just error
-    // But let's verify if 'derived/steps.jsonl' exists
-    const checkRes = await fetch(`/traces/${runId}/derived/steps.jsonl`, { method: "HEAD" });
+    const checkRes = await fetch(`/traces/${traceToken}/derived/steps.jsonl`, { method: "HEAD" });
     if (!checkRes.ok) {
       meta.textContent = "Compiling trace...";
-      const compileRes = await fetch(`/api/runs/${runId}/compile`, { method: "POST" });
+      const compileRes = await fetch(`/api/traces/${traceToken}/compile`, { method: "POST" });
       if (!compileRes.ok) {
-        throw new Error("Compilation failed");
+        throw new Error(`Compilation failed (${compileRes.status})`);
       }
-      refreshRuns(); // Update checked status in dropdown
     }
 
-    // Load data
-    const metaRes = await fetch(`/traces/${runId}/meta.json`);
+    const metaRes = await fetch(`/traces/${traceToken}/meta.json`);
     if (metaRes.ok) {
       const metaJson = await metaRes.json();
-      meta.textContent = `${runId} | ${metaJson.appId || "app"} | sdk ${metaJson.deviceSdkInt || "?"}`;
+      meta.textContent = `${traceRef.label} | ${metaJson.appId || "app"} | sdk ${metaJson.deviceSdkInt || "?"}`;
     } else {
-      meta.textContent = `${runId}`;
+      meta.textContent = `${traceRef.label}`;
     }
 
-    const treeRes = await fetch(`/traces/${runId}/derived/agent_tree.json`);
-    const stepsRes = await fetch(`/traces/${runId}/derived/steps.jsonl`);
+    const treeRes = await fetch(`/traces/${traceToken}/derived/agent_tree.json`);
+    const stepsRes = await fetch(`/traces/${traceToken}/derived/steps.jsonl`);
     
     if (!treeRes.ok || !stepsRes.ok) {
         throw new Error("Failed to load derived artifacts");
@@ -163,9 +378,9 @@ async function loadRun(runId) {
 
 // Helpers for detail view to get file URL
 function getFileUrl(path) {
-    if (!currentRunId || !path) return null;
+    if (!currentTraceId || !path) return null;
     // path is relative to trace dir, e.g. "derived/..." or "artifacts/..."
-    return `/traces/${currentRunId}/${path}`;
+    return `/traces/${encodeURIComponent(currentTraceId)}/${path}`;
 }
 
 // Re-export or pass getFileUrl to detail render

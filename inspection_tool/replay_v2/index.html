@@ -4,15 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Android Agent Replay v2</title>
-  <link rel="stylesheet" href="./styles.css?v=2" />
+  <link rel="stylesheet" href="./styles.css?v=5" />
   <link rel="icon" type="image/png" href="./favicon.png" />
 </head>
 <body>
   <header class="header">
     <div class="title">Android Agent Replay v2</div>
     <div class="toolbar">
-      <select id="runSelect" class="select">
-        <option value="" disabled selected>Select a run...</option>
+      <select id="debugRunSelect" class="select">
+        <option value="" selected>Debug Run...</option>
+      </select>
+      <select id="evalRunSelect" class="select">
+        <option value="" selected>Eval Run...</option>
+      </select>
+      <select id="evalTaskSelect" class="select" disabled>
+        <option value="" selected>Eval Task...</option>
       </select>
       <button id="refreshBtn" class="btn">Refresh</button>
       <span id="meta" class="pill">No trace loaded</span>
@@ -41,6 +47,6 @@
     </section>
   </main>
 
-  <script type="module" src="./replay.js?v=2"></script>
+  <script type="module" src="./replay.js?v=5"></script>
 </body>
 </html>
