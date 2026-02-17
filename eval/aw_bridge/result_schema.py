@@ -63,7 +63,8 @@ def summarize_results(results: list[TaskResult]) -> dict[str, Any]:
     claimed_goal = [
         r
         for r in results
-        if (r.agent_completion_reason or "").strip().lower() == "goalachieved"
+        if (r.agent_completion_reason or "").strip().lower().replace("_", "")
+        == "goalachieved"
     ]
     claimed_goal_successes = sum(1 for r in claimed_goal if r.scripted_success)
 

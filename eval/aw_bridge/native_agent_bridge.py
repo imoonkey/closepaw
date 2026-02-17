@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import shlex
 import subprocess
 import time
 
@@ -99,8 +100,8 @@ class NativeAgentBridge:
 
     def pull_trace_dir(self, run_id: str, local_trace_dir: Path) -> bool:
         device_trace_dir = self._device_trace_dir(run_id)
-        exists = self._run_adb(
-            ["shell", "ls", device_trace_dir],
+        exists = self._run_adb_shell(
+            ["ls", device_trace_dir],
             check=False,
             capture_output=True,
             timeout_sec=self._config.adb_command_timeout_sec,
@@ -118,9 +119,8 @@ class NativeAgentBridge:
         return result.returncode == 0
 
     def stop_agent(self) -> None:
-        self._run_adb(
+        self._run_adb_shell(
             [
-                "shell",
                 "am",
                 "broadcast",
                 "-a",
@@ -133,8 +133,8 @@ class NativeAgentBridge:
         )
 
     def force_stop(self) -> None:
-        self._run_adb(
-            ["shell", "am", "force-stop", self._config.package_name],
+        self._run_adb_shell(
+            ["am", "force-stop", self._config.package_name],
             check=False,
             timeout_sec=self._config.adb_command_timeout_sec,
         )
@@ -178,14 +178,13 @@ class NativeAgentBridge:
         if self._config.executor_model:
             extras.extend(["--es", "executor_model", self._config.executor_model])
 
-        self._run_adb(
-            ["shell", "input", "keyevent", "KEYCODE_HOME"],
+        self._run_adb_shell(
+            ["input", "keyevent", "KEYCODE_HOME"],
             check=False,
             timeout_sec=self._config.adb_command_timeout_sec,
         )
-        self._run_adb(
+        self._run_adb_shell(
             [
-                "shell",
                 "am",
                 "start",
                 "-n",
@@ -199,8 +198,8 @@ class NativeAgentBridge:
         )
 
     def _clear_device_trace(self, run_id: str) -> None:
-        self._run_adb(
-            ["shell", "rm", "-rf", self._device_trace_dir(run_id)],
+        self._run_adb_shell(
+            ["rm", "-rf", self._device_trace_dir(run_id)],
             check=False,
             timeout_sec=self._config.adb_command_timeout_sec,
         )
@@ -216,6 +215,17 @@ class NativeAgentBridge:
             return ["adb", "-s", self._config.adb_serial, *args]
         return ["adb", *args]
 
+    def _adb_shell_command(self, args: list[str]) -> list[str]:
+        """Build an adb shell command with proper escaping.
+
+        adb shell concatenates remaining args and passes them through the
+        device shell, so each argument must be individually quoted.
+        """
+        escaped = " ".join(shlex.quote(a) for a in args)
+        if self._config.adb_serial:
+            return ["adb", "-s", self._config.adb_serial, "shell", escaped]
+        return ["adb", "shell", escaped]
+
     def _run_adb(
         self,
         args: list[str],
@@ -225,6 +235,22 @@ class NativeAgentBridge:
     ) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             self._adb_command(args),
+            check=check,
+            text=True,
+            capture_output=capture_output,
+            timeout=timeout_sec,
+        )
+
+    def _run_adb_shell(
+        self,
+        args: list[str],
+        check: bool,
+        capture_output: bool = False,
+        timeout_sec: int | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        """Run an adb shell command with properly escaped arguments."""
+        return subprocess.run(
+            self._adb_shell_command(args),
             check=check,
             text=True,
             capture_output=capture_output,

@@ -55,7 +55,6 @@ def build_task_instances(
         use_identical_params=use_identical_params,
         env=env,
     )
-    suite.suite_family = suite_family
 
     items: list[TaskInstance] = []
     for task_name, instances in suite.items():

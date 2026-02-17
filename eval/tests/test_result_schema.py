@@ -44,6 +44,22 @@ class ResultSchemaTest(unittest.TestCase):
         self.assertAlmostEqual(metrics["goal_claim_precision"], 0.5)
         self.assertAlmostEqual(metrics["tool_failure_rate"], 0.25)
 
+    def test_goal_claim_precision_matches_underscore_variant(self) -> None:
+        rows = [
+            _result("GOAL_ACHIEVED", True, 2, 0, 10.0),
+            _result("GoalAchieved", True, 2, 0, 12.0),
+            _result("GOAL_ACHIEVED", False, 2, 0, 8.0),
+        ]
+        metrics = summarize_results(rows)
+        # All 3 rows match as goal claims, 2 succeeded
+        self.assertAlmostEqual(metrics["goal_claim_precision"], 2.0 / 3.0)
+
+    def test_empty_results(self) -> None:
+        metrics = summarize_results([])
+        self.assertEqual(metrics["num_results"], 0)
+        self.assertAlmostEqual(metrics["scripted_success_rate"], 0.0)
+        self.assertIsNone(metrics["goal_claim_precision"])
+
 
 if __name__ == "__main__":
     unittest.main()

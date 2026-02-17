@@ -1,0 +1,20 @@
+[project]
+name = "android-agent-eval"
+version = "0.1.0"
+description = "Evaluation harness for Android Agent"
+requires-python = ">=3.11"
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["eval*"]
+
+[tool.pytest.ini_options]
+testpaths = ["eval/tests"]
+pythonpath = ["."]

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from eval.aw_bridge.jsonl_utils import read_jsonl
 from eval.aw_bridge.result_schema import ArtifactPaths, TaskResult, summarize_results
 
 
@@ -18,7 +19,7 @@ def main() -> None:
     if not per_task_path.exists():
         raise FileNotFoundError(f"Missing per_task.jsonl: {per_task_path}")
 
-    rows = [_task_result_from_dict(row) for row in _read_jsonl(per_task_path)]
+    rows = [_task_result_from_dict(row) for row in read_jsonl(per_task_path)]
     metrics = summarize_results(rows)
     payload = {
         "run_dir": str(run_dir),
@@ -26,21 +27,6 @@ def main() -> None:
         "metrics": metrics,
     }
     print(json.dumps(payload, ensure_ascii=True, indent=2))
-
-
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
-    rows = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        raw = line.strip()
-        if not raw:
-            continue
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(parsed, dict):
-            rows.append(parsed)
-    return rows
 
 
 def _task_result_from_dict(row: dict[str, Any]) -> TaskResult:

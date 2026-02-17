@@ -18,7 +18,7 @@ ERROR_PATTERN = re.compile(
     r"AgentService: Session error|"
     r"Fatal error)"
 )
-REASON_PATTERN = re.compile(r"reason=([A-Z_]+)")
+REASON_PATTERN = re.compile(r"reason[=:]\s*([A-Za-z_]+)")
 
 
 @dataclass

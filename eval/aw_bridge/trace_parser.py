@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from eval.aw_bridge.jsonl_utils import read_jsonl
+
 
 @dataclass
 class TraceParseResult:
@@ -38,7 +40,7 @@ def parse_trace(trace_dir: Path) -> TraceParseResult:
     latest_status: str | None = None
     run_summary_rel: str | None = None
 
-    for event in _iter_jsonl(trace_file):
+    for event in read_jsonl(trace_file):
         event_type = event.get("type")
         if event_type == "tool_call":
             data = event.get("data", {})
@@ -85,21 +87,6 @@ def parse_trace(trace_dir: Path) -> TraceParseResult:
             else None
         ),
     )
-
-
-def _iter_jsonl(path: Path) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        raw = line.strip()
-        if not raw:
-            continue
-        try:
-            parsed = json.loads(raw)
-            if isinstance(parsed, dict):
-                rows.append(parsed)
-        except json.JSONDecodeError:
-            continue
-    return rows
 
 
 def _find_artifact_path(event: dict[str, Any], kind: str) -> str | None:

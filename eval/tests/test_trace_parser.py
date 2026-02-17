@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from eval.aw_bridge.trace_parser import parse_trace
+from eval.aw_bridge.trace_parser import empty_trace_result, parse_trace
 
 
 class TraceParserTest(unittest.TestCase):
@@ -68,6 +68,117 @@ class TraceParserTest(unittest.TestCase):
             self.assertEqual(result.tool_calls, 6)
             self.assertEqual(result.tool_failures, 1)
             self.assertEqual(result.run_summary_path, str(summary_file))
+
+    def test_empty_trace_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = parse_trace(Path(tmp))
+            self.assertIsNone(result.answer)
+            self.assertIsNone(result.completion_reason)
+            self.assertEqual(result.turns_executed, 0)
+            self.assertEqual(result.tool_calls, 0)
+
+    def test_trace_without_complete_task(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_dir = Path(tmp)
+            summary_file = trace_dir / "artifacts" / "run_summary" / "run_summary.json"
+            summary_file.parent.mkdir(parents=True, exist_ok=True)
+            summary_file.write_text(
+                json.dumps(
+                    {
+                        "stop_reason": "MaxTurnsReached",
+                        "turns_executed": 10,
+                        "tool_calls": 15,
+                        "tool_failures": 2,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            trace_rows = [
+                {"type": "tool_call", "data": {"name": "mobile_action"}, "artifacts": []},
+                {
+                    "type": "session_stopped",
+                    "artifacts": [
+                        {
+                            "kind": "run_summary",
+                            "path": "artifacts/run_summary/run_summary.json",
+                        }
+                    ],
+                },
+            ]
+            trace_jsonl = trace_dir / "trace.jsonl"
+            trace_jsonl.write_text(
+                "\n".join(json.dumps(row) for row in trace_rows),
+                encoding="utf-8",
+            )
+
+            result = parse_trace(trace_dir)
+            self.assertIsNone(result.answer)
+            self.assertIsNone(result.answer_status)
+            self.assertEqual(result.completion_reason, "MaxTurnsReached")
+            self.assertEqual(result.turns_executed, 10)
+
+    def test_multiple_complete_task_uses_last(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_dir = Path(tmp)
+            args1 = trace_dir / "artifacts" / "tool_call_args" / "1_args.json"
+            args1.parent.mkdir(parents=True, exist_ok=True)
+            args1.write_text(
+                json.dumps({"status": "failure", "answer": "first attempt"}),
+                encoding="utf-8",
+            )
+            args2 = trace_dir / "artifacts" / "tool_call_args" / "2_args.json"
+            args2.write_text(
+                json.dumps({"status": "success", "answer": "final answer"}),
+                encoding="utf-8",
+            )
+
+            trace_rows = [
+                {
+                    "type": "tool_call",
+                    "data": {"name": "complete_task"},
+                    "artifacts": [
+                        {"kind": "tool_call_args", "path": "artifacts/tool_call_args/1_args.json"}
+                    ],
+                },
+                {
+                    "type": "tool_call",
+                    "data": {"name": "complete_task"},
+                    "artifacts": [
+                        {"kind": "tool_call_args", "path": "artifacts/tool_call_args/2_args.json"}
+                    ],
+                },
+            ]
+            trace_jsonl = trace_dir / "trace.jsonl"
+            trace_jsonl.write_text(
+                "\n".join(json.dumps(row) for row in trace_rows),
+                encoding="utf-8",
+            )
+
+            result = parse_trace(trace_dir)
+            self.assertEqual(result.answer, "final answer")
+            self.assertEqual(result.answer_status, "success")
+
+    def test_corrupt_jsonl_lines_skipped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            trace_dir = Path(tmp)
+            trace_jsonl = trace_dir / "trace.jsonl"
+            trace_jsonl.write_text(
+                "not valid json\n{invalid\n",
+                encoding="utf-8",
+            )
+            result = parse_trace(trace_dir)
+            self.assertIsNone(result.answer)
+            self.assertEqual(result.turns_executed, 0)
+
+    def test_empty_trace_result_helper(self) -> None:
+        result = empty_trace_result()
+        self.assertIsNone(result.answer)
+        self.assertIsNone(result.answer_status)
+        self.assertIsNone(result.completion_reason)
+        self.assertEqual(result.turns_executed, 0)
+        self.assertEqual(result.tool_calls, 0)
+        self.assertEqual(result.tool_failures, 0)
+        self.assertIsNone(result.run_summary_path)
 
 
 if __name__ == "__main__":
