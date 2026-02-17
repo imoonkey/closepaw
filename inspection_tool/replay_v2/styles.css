@@ -12,9 +12,13 @@
 }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; }
+html, body { height: 100%; overflow: hidden; }
 body {
   margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   background: radial-gradient(circle at top right, #e2e8f0 0%, var(--bg) 45%);
   color: var(--text);
@@ -23,7 +27,8 @@ body {
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  flex-shrink: 0;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.9);
@@ -34,21 +39,17 @@ body {
   letter-spacing: 0.4px;
 }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 #folderInput { display: none; }
 
 .layout {
   display: grid;
   grid-template-columns: 380px 1fr;
-  height: calc(100vh - 52px);
+  flex: 1;
+  min-height: 0;
+  height: auto;
   gap: 1px;
   background: var(--border);
+  overflow: hidden;
 }
 
 .panel {
@@ -56,6 +57,8 @@ body {
   flex-direction: column;
   background: var(--bg-panel);
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .panel-header {
@@ -72,6 +75,7 @@ body {
   padding: 10px;
   overflow: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .btn, .select {
@@ -87,7 +91,7 @@ body {
 #debugRunSelect,
 #evalRunSelect,
 #evalTaskSelect {
-  min-width: 220px;
+  min-width: 0;
 }
 
 .btn:hover, .select:hover { border-color: var(--accent); background: #f7fafc; }
@@ -129,6 +133,43 @@ body {
 
 .tree-panel {
   min-height: 0;
+  overflow: auto;
+}
+
+#stepPanelBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.left-controls {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.left-controls .select,
+.left-controls .btn {
+  width: 100%;
+}
+
+.left-meta {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+#treePanel {
+  flex: 1;
+  min-height: 0;
+}
+
+#detailPanel {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .tree-session {
@@ -357,9 +398,10 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  /* Keep viewport-bounded stage but allow scrolling for very tall screenshots. */
-  height: min(68vh, 980px);
-  min-height: 280px;
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  max-height: none;
 }
 
 .world-stage img {
@@ -391,6 +433,11 @@ body {
   border-radius: 8px;
   background: #f7fafc;
   padding: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
 }
 
 .world-overlay {
@@ -481,12 +528,45 @@ body {
   display: grid;
   grid-template-columns: minmax(320px, 46%) 1fr;
   gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .detail-column {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.world-section {
+  flex: 1;
+  overflow: hidden;
+}
+
+.mind-section {
+  flex: 1;
+  overflow: hidden;
+}
+
+.mind-section .tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.links-section {
+  flex: 0 0 auto;
+  max-height: 35%;
+  overflow: auto;
 }
 
 /* LLM Section Blocks */
@@ -612,6 +692,7 @@ body {
 @media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
   .detail-grid {
     grid-template-columns: 1fr;

@@ -4,31 +4,31 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Android Agent Replay v2</title>
-  <link rel="stylesheet" href="./styles.css?v=6" />
+  <link rel="stylesheet" href="./styles.css?v=8" />
   <link rel="icon" type="image/png" href="./favicon.png" />
 </head>
 <body>
   <header class="header">
     <div class="title">Android Agent Replay v2</div>
-    <div class="toolbar">
-      <select id="debugRunSelect" class="select">
-        <option value="" selected>Debug Run...</option>
-      </select>
-      <select id="evalRunSelect" class="select">
-        <option value="" selected>Eval Run...</option>
-      </select>
-      <select id="evalTaskSelect" class="select" disabled>
-        <option value="" selected>Eval Task...</option>
-      </select>
-      <button id="refreshBtn" class="btn">Refresh</button>
-      <span id="meta" class="pill">No trace loaded</span>
-    </div>
   </header>
 
   <main class="layout">
     <section class="panel">
       <div class="panel-header">Step Tree</div>
-      <div class="panel-body">
+      <div id="stepPanelBody" class="panel-body">
+        <div class="left-controls">
+          <select id="debugRunSelect" class="select">
+            <option value="" selected>Debug Run...</option>
+          </select>
+          <select id="evalRunSelect" class="select">
+            <option value="" selected>Eval Run...</option>
+          </select>
+          <select id="evalTaskSelect" class="select" disabled>
+            <option value="" selected>Eval Task...</option>
+          </select>
+          <button id="refreshBtn" class="btn">Refresh</button>
+          <span id="meta" class="pill left-meta">No trace loaded</span>
+        </div>
         <div id="stepSummaryPanel"></div>
         <div class="timeline-toolbar">
           <button id="prevBtn" class="btn">Prev</button>
@@ -47,6 +47,6 @@
     </section>
   </main>
 
-  <script type="module" src="./replay.js?v=6"></script>
+  <script type="module" src="./replay.js?v=8"></script>
 </body>
 </html>
