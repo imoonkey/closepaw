@@ -352,12 +352,12 @@ body {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 10px;
-  overflow: hidden;
+  overflow: auto;
   background: #edf2f7;
   display: flex;
   justify-content: center;
-  align-items: center;
-  /* Give the stage an explicit viewport-bound height so portrait screenshots can fit fully. */
+  align-items: flex-start;
+  /* Keep viewport-bounded stage but allow scrolling for very tall screenshots. */
   height: min(68vh, 980px);
   min-height: 280px;
 }
@@ -365,7 +365,7 @@ body {
 .world-stage img {
   display: block;
   max-width: 100%;
-  max-height: 100%;
+  max-height: none;
   width: auto;
   height: auto;
   object-fit: contain;
@@ -375,9 +375,9 @@ body {
   position: relative;
   display: inline-flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
   max-width: 100%;
-  max-height: 100%;
+  max-height: none;
 }
 
 .world-wrapper img {

@@ -147,12 +147,18 @@ function renderWorldPanel(step, getFileUrl, escapeHtml) {
     const updateOverlay = () => {
       overlay.innerHTML = ""; // Always clear before re-render
       if (!overlayEnabled || !ctx.dataLoaded) return;
-      
+
+      const transform = buildCoordinateTransform({
+        img,
+        nodes: ctx.nodes || [],
+        actions: ctx.actions || [],
+      });
+
       if (ctx.nodes) {
-        renderOverlayBoxes({ overlay, nodes: ctx.nodes, img });
+        renderOverlayBoxes({ overlay, nodes: ctx.nodes, transform });
       }
       if (ctx.actions) {
-        renderActionMarkers({ overlay, actions: ctx.actions, img });
+        renderActionMarkers({ overlay, actions: ctx.actions, transform });
       }
     };
 
@@ -240,63 +246,17 @@ function buildWorldViews(step) {
   return views;
 }
 
-function renderOverlayBoxes({ overlay, nodes, img }) {
-  // Clear existing boxes but keep markers if any (though we usually clear all)
-  // Actually simpler to just append content. But renderWorldStage keeps calling us.
-  // The 'overlay' is cleared in renderWorldStage before calling this? 
-  // No, renderWorldStage clears it: overlay.innerHTML = ""; BEFORE the load listener.
-  // But inside load listener, we might have partial updates if we aren't careful.
-  // We should probably rely on renderWorldStage's logic.
-  // BUT: renderWorldStage calls renderOverlayBoxes then renderActionMarkers.
-  // renderOverlayBoxes should likely NOT clear if we want to mix them, 
-  // OR renderWorldStage should handle clearing.
-  // Currently renderWorldStage doesn't clear inside the load callback before these calls.
-  // So we should clear once at start of load callback?
-  // Let's just append in these functions.
-  
-  // Actually, let's clear in renderOverlayBoxes only if we want to prioritize it.
-  // But wait, renderActionMarkers comes after.
-  // Let's safeguard:
-  // We'll trust the caller to manage cleanliness or just append.
-  // Existing code: overlay.innerHTML = ""; at start of renderOverlayBoxes.
-  // If we do that, we wipe previous stuff. 
-  // So renderActionMarkers must *append*.
-  
-  overlay.innerHTML = ""; // Clear for fresh a11y render
+function renderOverlayBoxes({ overlay, nodes, transform }) {
+  overlay.innerHTML = "";
   if (!nodes.length) return;
-
-  const naturalWidth = img.naturalWidth || img.clientWidth || 1;
-  const naturalHeight = img.naturalHeight || img.clientHeight || 1;
-  const displayWidth = img.clientWidth || naturalWidth;
-  const displayHeight = img.clientHeight || naturalHeight;
-
-  // Calculate constraints...
-  let maxX = 0;
-  let maxY = 0;
-  nodes.forEach((node) => {
-    const bounds = Array.isArray(node.bounds) ? node.bounds : [];
-    if (bounds.length !== 4) return;
-    const [, , right, bottom] = bounds.map((value) => Number(value));
-    if (!Number.isFinite(right) || !Number.isFinite(bottom)) return;
-    maxX = Math.max(maxX, right);
-    maxY = Math.max(maxY, bottom);
-  });
-
-  if (maxX <= 0 || maxY <= 0) {
-    maxX = naturalWidth;
-    maxY = naturalHeight;
-  }
-
-  const scaleX = displayWidth / maxX;
-  const scaleY = displayHeight / maxY;
 
   nodes.forEach((node) => {
     const bounds = Array.isArray(node.bounds) ? node.bounds : [];
     if (bounds.length !== 4) return;
     const [left, top, right, bottom] = bounds.map((value) => Number(value));
     if (![left, top, right, bottom].every(Number.isFinite)) return;
-    const width = Math.max((right - left) * scaleX, 1);
-    const height = Math.max((bottom - top) * scaleY, 1);
+    const width = Math.max((right - left) * transform.scale, 1);
+    const height = Math.max((bottom - top) * transform.scale, 1);
 
     const box = document.createElement("div");
     box.className = "overlay-box";
@@ -305,8 +265,8 @@ function renderOverlayBoxes({ overlay, nodes, img }) {
     if (node.scrollable) box.classList.add("overlay-scrollable");
     if (node.text || node.desc) box.classList.add("overlay-text");
 
-    box.style.left = `${left * scaleX}px`;
-    box.style.top = `${top * scaleY}px`;
+    box.style.left = `${left * transform.scale}px`;
+    box.style.top = `${top * transform.scale}px`;
     box.style.width = `${width}px`;
     box.style.height = `${height}px`;
 
@@ -318,54 +278,150 @@ function renderOverlayBoxes({ overlay, nodes, img }) {
 }
 
 
-function renderActionMarkers({ overlay, actions, img }) {
+function renderActionMarkers({ overlay, actions, transform }) {
   if (!actions || !actions.length) return;
 
+  actions.forEach(({ name, args }) => {
+    if (!args || typeof args !== "object") return;
+
+    if (isTapAction(name, args)) {
+      const point = extractTapPoint(args);
+      if (!point) return;
+      const [x, y] = point;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      const marker = document.createElement("div");
+      marker.className = "action-marker action-tap";
+      marker.style.left = `${x * transform.scale}px`;
+      marker.style.top = `${y * transform.scale}px`;
+      marker.title = `Tap (${x}, ${y})`;
+      overlay.appendChild(marker);
+      return;
+    }
+
+    if (isSwipeAction(name, args)) {
+      const swipe = extractSwipePoints(args);
+      if (!swipe) return;
+      const [x1, y1, x2, y2] = swipe;
+      if (![x1, y1, x2, y2].every(Number.isFinite)) return;
+
+      const marker = document.createElement("div");
+      marker.className = "action-marker action-swipe";
+
+      const dx = (x2 - x1) * transform.scale;
+      const dy = (y2 - y1) * transform.scale;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+      marker.style.width = `${length}px`;
+      marker.style.left = `${x1 * transform.scale}px`;
+      marker.style.top = `${y1 * transform.scale}px`;
+      marker.style.transform = `rotate(${angle}deg)`;
+      marker.title = `Swipe (${x1},${y1}) -> (${x2},${y2})`;
+
+      overlay.appendChild(marker);
+    }
+  });
+}
+
+function buildCoordinateTransform({ img, nodes = [], actions = [] }) {
   const naturalWidth = img.naturalWidth || img.clientWidth || 1;
   const naturalHeight = img.naturalHeight || img.clientHeight || 1;
   const displayWidth = img.clientWidth || naturalWidth;
   const displayHeight = img.clientHeight || naturalHeight;
 
-  const scaleX = displayWidth / naturalWidth;
-  const scaleY = displayHeight / naturalHeight;
+  let maxX = 0;
+  let maxY = 0;
 
-  actions.forEach(({ name, args }) => {
-    // Support 'input' tool
-    if (name === "input" && args) {
-       // Tap: { action: 'tap', coordinate: [x, y] }
-       if (args.action === 'tap' && Array.isArray(args.coordinate) && args.coordinate.length === 2) {
-         const [x, y] = args.coordinate;
-         const marker = document.createElement("div");
-         marker.className = "action-marker action-tap";
-         marker.style.left = `${x * scaleX}px`;
-         marker.style.top = `${y * scaleY}px`;
-         marker.title = `Tap (${x}, ${y})`;
-         overlay.appendChild(marker);
-       }
-       // Swipe: { action: 'swipe', coordinate: [x, y], end_coordinate: [ex, ey] }
-       if (args.action === 'swipe' && Array.isArray(args.coordinate) && Array.isArray(args.end_coordinate)) {
-          const [x1, y1] = args.coordinate;
-          const [x2, y2] = args.end_coordinate;
-          
-          const marker = document.createElement("div");
-          marker.className = "action-marker action-swipe";
-          
-          // Calculate length and angle
-          const dx = (x2 - x1) * scaleX;
-          const dy = (y2 - y1) * scaleY;
-          const length = Math.sqrt(dx*dx + dy*dy);
-          const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-          
-          marker.style.width = `${length}px`;
-          marker.style.left = `${x1 * scaleX}px`;
-          marker.style.top = `${y1 * scaleY}px`;
-          marker.style.transform = `rotate(${angle}deg)`;
-          marker.title = `Swipe (${x1},${y1}) -> (${x2},${y2})`;
-          
-          overlay.appendChild(marker);
-       }
-    }
+  nodes.forEach((node) => {
+    const bounds = Array.isArray(node?.bounds) ? node.bounds : [];
+    if (bounds.length !== 4) return;
+    const [, , right, bottom] = bounds.map((value) => Number(value));
+    if (!Number.isFinite(right) || !Number.isFinite(bottom)) return;
+    maxX = Math.max(maxX, right);
+    maxY = Math.max(maxY, bottom);
   });
+
+  actions.forEach(({ args }) => {
+    if (!args || typeof args !== "object") return;
+    const points = collectActionPoints(args);
+    points.forEach(([x, y]) => {
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    });
+  });
+
+  if (maxX <= 0) maxX = naturalWidth;
+  if (maxY <= 0) maxY = naturalHeight;
+
+  const scaleX = displayWidth / maxX;
+  const scaleY = displayHeight / maxY;
+  const scale = Number.isFinite(scaleX) && Number.isFinite(scaleY)
+    ? Math.min(scaleX, scaleY)
+    : 1;
+
+  return {
+    scale: Number.isFinite(scale) && scale > 0 ? scale : 1,
+  };
+}
+
+function collectActionPoints(args) {
+  const points = [];
+  const pushPoint = (x, y) => {
+    const nx = Number(x);
+    const ny = Number(y);
+    if (!Number.isFinite(nx) || !Number.isFinite(ny)) return;
+    if (nx < 0 || ny < 0) return;
+    points.push([nx, ny]);
+  };
+
+  if (Array.isArray(args.coordinate) && args.coordinate.length === 2) {
+    pushPoint(args.coordinate[0], args.coordinate[1]);
+  }
+  if (Array.isArray(args.end_coordinate) && args.end_coordinate.length === 2) {
+    pushPoint(args.end_coordinate[0], args.end_coordinate[1]);
+  }
+  if (Object.prototype.hasOwnProperty.call(args, "x") && Object.prototype.hasOwnProperty.call(args, "y")) {
+    pushPoint(args.x, args.y);
+  }
+
+  return points;
+}
+
+function isTapAction(name, args) {
+  const action = String(args.action || "").toLowerCase();
+  if (name === "input" && action === "tap") return true;
+  if (name === "mobile_action" && (action === "click" || action === "long_press")) return true;
+  return false;
+}
+
+function isSwipeAction(name, args) {
+  const action = String(args.action || "").toLowerCase();
+  if (name === "input" && action === "swipe") return true;
+  if (name === "mobile_action" && action === "swipe") return true;
+  return false;
+}
+
+function extractTapPoint(args) {
+  if (Array.isArray(args.coordinate) && args.coordinate.length === 2) {
+    return [Number(args.coordinate[0]), Number(args.coordinate[1])];
+  }
+  if (Object.prototype.hasOwnProperty.call(args, "x") && Object.prototype.hasOwnProperty.call(args, "y")) {
+    return [Number(args.x), Number(args.y)];
+  }
+  return null;
+}
+
+function extractSwipePoints(args) {
+  if (Array.isArray(args.coordinate) && args.coordinate.length === 2 &&
+      Array.isArray(args.end_coordinate) && args.end_coordinate.length === 2) {
+    return [
+      Number(args.coordinate[0]),
+      Number(args.coordinate[1]),
+      Number(args.end_coordinate[0]),
+      Number(args.end_coordinate[1]),
+    ];
+  }
+  return null;
 }
 
 
