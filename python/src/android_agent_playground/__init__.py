@@ -1,1 +1,0 @@
-"""Android Agent Python Playground."""
