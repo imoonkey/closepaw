@@ -1,0 +1,35 @@
+suite_family: android_world
+runner:
+  output_root: eval/results
+  task_random_seed: 30
+  n_task_combinations: 1
+  use_identical_params: false
+  retry_infra_failures: 1
+  stop_agent_after_task: true
+  adb_serial: null
+  adb_command_timeout_sec: 60
+  adb_pull_timeout_sec: 300
+
+android_world:
+  reference_root: .reference/eval/android_world
+  console_port: 5554
+  grpc_port: 8554
+  adb_path: ""
+  perform_emulator_setup: false
+  freeze_datetime: true
+
+bridge:
+  package_name: com.moonkey.androidagent
+  activity: com.moonkey.androidagent/.app.MainActivity
+  llm_backend: openai
+  agent_mode: pro
+  perception_mode: accessibility_only
+  platform_mode: accessibility
+  main_model: minimax-m2.5
+  executor_model: ""
+  auto_start: true
+  fresh_session: true
+  debug_mode: false
+  trace_enabled: true
+  max_wait_seconds: 900
+  poll_interval_seconds: 1

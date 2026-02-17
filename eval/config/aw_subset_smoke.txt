@@ -1,0 +1,8 @@
+SystemWifiTurnOnVerify
+SystemWifiTurnOffVerify
+SystemBluetoothTurnOnVerify
+ClockTimerEntry
+ContactsAddContact
+MarkorCreateNote
+BrowserMultiply
+ExpenseAddSingle
