@@ -1,4 +1,4 @@
-import { renderDetailPanel, renderSummary } from "./detail.js";
+import { renderDetailPanel, renderSummary } from "./detail.js?v=7";
 
 const debugRunSelect = document.getElementById("debugRunSelect");
 const evalRunSelect = document.getElementById("evalRunSelect");

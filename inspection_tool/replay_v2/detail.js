@@ -35,7 +35,7 @@ export function renderSummary(step, escapeHtml) {
 
 function renderWorldPanel(step, getFileUrl, escapeHtml) {
   const world = document.createElement("div");
-  world.className = "section";
+  world.className = "section world-section";
   world.innerHTML = `<div class="section-title">World</div>`;
 
   const views = buildWorldViews(step);
@@ -433,7 +433,7 @@ const mindState = {
 
 function renderMindPanel(step, getFileUrl, escapeHtml) {
   const mind = document.createElement("div");
-  mind.className = "section";
+  mind.className = "section mind-section";
   mind.innerHTML = `<div class="section-title">Mind</div>`;
 
   const tabs = document.createElement("div");
@@ -690,7 +690,7 @@ function appendSectionBlock(container, title, text, escapeHtml, collapsible = fa
 
 function renderLinksPanel(step, escapeHtml, onJumpToStepId, onJumpToSessionId) {
   const links = document.createElement("div");
-  links.className = "section";
+  links.className = "section links-section";
   links.innerHTML = `<div class="section-title">Links</div>`;
 
   const parent = step.links?.parent_step_id;
