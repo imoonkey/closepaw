@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +44,10 @@ def main() -> None:
     args = _parse_args()
     workspace_root = Path(__file__).resolve().parents[2]
     config = _load_config(workspace_root, args)
+
+    # Load API keys from .env file and/or environment
+    api_keys = _load_api_keys(workspace_root)
+    config.bridge.api_keys = api_keys or None
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = (workspace_root / config.output_root / timestamp).resolve()
@@ -93,12 +98,18 @@ def main() -> None:
         env.close()
 
     summary = summarize_results(final_results)
+    safe_config = asdict(config)
+    # Redact API keys from persisted config
+    if "bridge" in safe_config and "api_keys" in safe_config["bridge"]:
+        safe_config["bridge"]["api_keys"] = {
+            k: "***" for k in (safe_config["bridge"]["api_keys"] or {})
+        }
     summary_payload = {
         "run_timestamp": timestamp,
         "suite_family": config.suite_family,
         "num_task_instances": len(final_results),
         "num_attempts": len(all_attempt_results),
-        "config": asdict(config),
+        "config": safe_config,
         "metrics": summary,
     }
     summary_path = run_dir / "summary.json"
@@ -369,6 +380,33 @@ def _nullable_str(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+_API_KEY_NAMES = ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "NOVITA_API_KEY")
+
+
+def _load_api_keys(workspace_root: Path) -> dict[str, str]:
+    """Load API keys from .env file and environment variables."""
+    keys: dict[str, str] = {}
+    env_file = workspace_root / ".env"
+    if env_file.is_file():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            name, _, value = line.partition("=")
+            name = name.strip()
+            value = value.strip().strip("\"'")
+            if name in _API_KEY_NAMES and value:
+                keys[name] = value
+    # Environment variables override .env
+    for name in _API_KEY_NAMES:
+        val = os.environ.get(name)
+        if val:
+            keys[name] = val
+    return keys
 
 
 if __name__ == "__main__":

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import logging
 import shlex
 import subprocess
 import time
 
 from eval.aw_bridge.completion_monitor import LogcatCompletionMonitor
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -29,6 +32,7 @@ class BridgeConfig:
     stop_agent_after_task: bool
     adb_command_timeout_sec: int
     adb_pull_timeout_sec: int
+    api_keys: dict[str, str] | None = None
 
 
 @dataclass
@@ -41,6 +45,8 @@ class BridgeOutcome:
 
 
 class NativeAgentBridge:
+    _A11Y_SERVICE = "com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService"
+
     def __init__(self, config: BridgeConfig) -> None:
         self._config = config
 
@@ -140,6 +146,9 @@ class NativeAgentBridge:
         )
 
     def _start_agent(self, goal: str, run_id: str) -> None:
+        self.force_stop()
+        self._ensure_accessibility_service()
+
         extras = [
             "--es",
             "goal",
@@ -177,6 +186,16 @@ class NativeAgentBridge:
         ]
         if self._config.executor_model:
             extras.extend(["--es", "executor_model", self._config.executor_model])
+        if self._config.api_keys:
+            _KEY_MAP = {
+                "OPENAI_API_KEY": "openai_api_key",
+                "OPENROUTER_API_KEY": "openrouter_api_key",
+                "NOVITA_API_KEY": "novita_api_key",
+            }
+            for env_name, extra_name in _KEY_MAP.items():
+                val = self._config.api_keys.get(env_name)
+                if val:
+                    extras.extend(["--es", extra_name, val])
 
         self._run_adb_shell(
             ["input", "keyevent", "KEYCODE_HOME"],
@@ -196,6 +215,63 @@ class NativeAgentBridge:
             check=True,
             timeout_sec=self._config.adb_command_timeout_sec,
         )
+
+    def _ensure_accessibility_service(self) -> None:
+        """Ensure our accessibility service is enabled and bound.
+
+        force-stop removes the service from the enabled list, so we
+        must re-add it before each task launch.  Also grants overlay
+        permission which the agent checks before starting a session.
+
+        After enabling, polls ``dumpsys accessibility`` until the service
+        appears in the *Bound services* list so the activity won't race
+        ahead before ``AgentService.instance`` is set.
+        """
+        # Grant overlay (draw-over-other-apps) permission
+        self._run_adb_shell(
+            ["appops", "set", self._config.package_name,
+             "SYSTEM_ALERT_WINDOW", "allow"],
+            check=False,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+
+        result = self._run_adb_shell(
+            ["settings", "get", "secure", "enabled_accessibility_services"],
+            check=False,
+            capture_output=True,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        current = (result.stdout or "").strip()
+
+        if self._A11Y_SERVICE not in current:
+            if current and current != "null":
+                new_value = f"{current}:{self._A11Y_SERVICE}"
+            else:
+                new_value = self._A11Y_SERVICE
+
+            _log.info("Enabling accessibility service: %s", self._A11Y_SERVICE)
+            self._run_adb_shell(
+                ["settings", "put", "secure",
+                 "enabled_accessibility_services", new_value],
+                check=False,
+                timeout_sec=self._config.adb_command_timeout_sec,
+            )
+            self._run_adb_shell(
+                ["settings", "put", "secure", "accessibility_enabled", "1"],
+                check=False,
+                timeout_sec=self._config.adb_command_timeout_sec,
+            )
+
+        # Poll until the service is actually bound (not just enabled).
+        # On an emulator under load (AndroidWorld gRPC traffic), binding
+        # can take up to ~6 seconds.  Use a generous fixed sleep because
+        # subprocess-based polling (dumpsys) is unreliable when the gRPC
+        # runtime interferes with fork() handlers.
+        _log.info("Waiting for accessibility service to bind …")
+        time.sleep(self._SERVICE_BIND_WAIT_SEC)
+        _log.info("Accessibility service wait complete")
+
+    _SERVICE_BIND_WAIT_SEC = 8
 
     def _clear_device_trace(self, run_id: str) -> None:
         self._run_adb_shell(

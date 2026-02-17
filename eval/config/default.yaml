@@ -14,15 +14,15 @@ android_world:
   reference_root: .reference/eval/android_world
   console_port: 5554
   grpc_port: 8554
-  adb_path: ""
+  adb_path: /usr/local/bin/adb
   perform_emulator_setup: false
-  freeze_datetime: true
+  freeze_datetime: false  # disabled: frozen date (Oct 2023) predates LLM API SSL certs
 
 bridge:
   package_name: com.moonkey.androidagent
   activity: com.moonkey.androidagent/.app.MainActivity
   llm_backend: openai
-  agent_mode: pro
+  agent_mode: basic
   perception_mode: accessibility_only
   platform_mode: accessibility
   main_model: minimax-m2.5

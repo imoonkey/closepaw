@@ -16,5 +16,5 @@ dev = [
 include = ["eval*"]
 
 [tool.pytest.ini_options]
-testpaths = ["eval/tests"]
-pythonpath = ["."]
+testpaths = ["tests"]
+pythonpath = [".."]
