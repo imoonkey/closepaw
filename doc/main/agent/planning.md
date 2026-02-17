@@ -1,7 +1,7 @@
 # Planning State & Context Hygiene
 
 > TodoState, ScratchpadState, and context-compression strategies.
-> Last updated: 2026-02-09 (commit: e2e2f8cde08b4b5fb225d1f09a616b6630db1695)
+> Last updated: 2026-02-17 (commit: c57e349)
 
 ## Planning State System
 
@@ -14,28 +14,29 @@ The agent uses planning-state tools to track progress and share data between pla
 
 Runtime warning text (loop warning / final-turn warning) is injected in the observation section by `AgentTurnRunner.buildWarnings(...)`.
 
--> See: `agent/cognition/prompt/PromptBuilder.kt`, `agent/AgentTurnRunner.kt`
+→ See: `agent/cognition/prompt/PromptBuilder.kt`, `agent/AgentTurnRunner.kt`
 
 ---
 
 ## TodoState
 
--> See: `session/TodoState.kt`
+→ See: `session/TodoState.kt`
 
 Thread-safe todo list for tracking subgoals:
 
 ```kotlin
 class TodoState {
-    fun update(todos: List<Todo>)  // Replace entire list
-    fun get(): List<Todo>          // Get current list
+    fun update(todos: List<Todo>)  // Replace entire list (validated)
+    fun get(): List<Todo>          // Thread-safe retrieval
     fun clear()                    // Clear all todos
     fun toPromptContext(): String  // Markdown list for prompt context
 }
 ```
 
 **Constraints:**
-- Only one todo can be `IN_PROGRESS`
+- Only one todo can be `IN_PROGRESS` at a time (validated on `update()`)
 - Full-list replacement model (no partial patch API)
+- Thread-safe via `synchronized(lock)`
 
 ### Todo Model
 
@@ -46,9 +47,11 @@ data class Todo(
 )
 ```
 
+→ See: `protocol/TodoModels.kt`
+
 ### write_todos Tool
 
--> See: `tool/impl/WriteTodosTool.kt`
+→ See: `tool/impl/WriteTodosTool.kt`
 
 ```kotlin
 write_todos(
@@ -64,7 +67,7 @@ write_todos(
 
 ## ScratchpadState
 
--> See: `session/ScratchpadState.kt`
+→ See: `session/ScratchpadState.kt`
 
 Thread-safe key-value store for intermediate data:
 
@@ -92,7 +95,7 @@ class ScratchpadState {
 
 ### scratchpad Tool
 
--> See: `tool/impl/ScratchpadTool.kt`
+→ See: `tool/impl/ScratchpadTool.kt`
 
 ```kotlin
 // Write
@@ -122,13 +125,26 @@ To control token usage, runtime history is kept text-first while preserving rece
 | **Current Screen** | Current turn always includes full screen JSON in observation section |
 | **Screen History** | Each turn records screen JSON as `ResponseItem.Message(isScreenObservation=true)` |
 | **Screen Compression** | `PromptBuilder` keeps recent full screen turns and compresses older ones |
-| **Token Budget** | `HistoryManager` truncates long outputs and auto-compresses by token threshold |
+| **Token Budget** | `HistoryManager` truncates long outputs and auto-compresses by token threshold (18,000 default) |
 
 ### Screen Compression Output
 
 Older recorded screen observations are compressed to one line:
 
 `Screen: {N} elements (compressed)`
+
+Default retained full observations: `recentFullScreenTurns = 3`.
+
+### HistoryManager
+
+→ See: `history/HistoryManager.kt`
+
+Manages in-memory conversation history with:
+- Token estimation (0.25 tokens per char)
+- Truncation policies: `NONE`, `CONSERVATIVE(8000)`, `AGGRESSIVE(2000)`, `MINIMAL(500)`
+- Auto-compression when token budget is exceeded
+- `forPrompt()` normalizes history (pairs function calls with outputs)
+- `dropLastNUserTurns(n)` for history rollback
 
 ### Data Flow
 
@@ -165,10 +181,10 @@ Turn N                                  Turn N+1
 
 | Event | Description |
 |-------|-------------|
-| `TodosUpdated` | Emitted when todos change |
-| `ScratchpadUpdated` | Emitted on write/delete |
+| `TodosUpdated` | Emitted when todos change (carries `todos: List<Todo>`) |
+| `ScratchpadUpdated` | Emitted on write/delete (carries `key` and `action`) |
 
--> See: [Protocol Events](../protocol/protocol.md#planning-state-events)
+→ See: [Protocol Events](../protocol/protocol.md#planning-state-events)
 
 ---
 

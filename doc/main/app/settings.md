@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-02-10 (commit: 04cecbd)
+> Last updated: 2026-02-17 (commit: c57e349)
 
 ## Overview
 
@@ -16,8 +16,8 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `llmBackend` | `LLMBackendType` | `OPENAI` | `OPENAI` (Cloud: OpenAI/OpenRouter/Novita) or `LOCAL` (On-device) |
-| `model` | `String` | `"gpt-5.2"` | Main agent model (cloud) |
-| `executorModel` | `String` | `null` | Executor agent model (cloud, optional override) |
+| `model` | `String` | `"gpt-5.2"` | Main agent model (cloud), resolved via `ModelCatalog` |
+| `executorModel` | `String?` | `null` | Executor agent model (cloud, optional override — falls back to main) |
 | `localModel` | `String` | `"LFM2.5-1.2B-Instruct"` | Local model selection |
 | `openAiApiKey` | `String` | `""` | API key for OpenAI |
 | `openRouterApiKey` | `String` | `""` | API key for OpenRouter |
@@ -28,16 +28,16 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `agentMode` | `AgentMode` | `PRO` | Main-agent orchestration mode (`BASIC` or `PRO`) |
-| `maxTurns` | `Int` | `20` | Max turns per task (UI setting default) |
+| `maxTurns` | `Int` | `20` | Max turns per task (UI default; protocol default is 50) |
 | `debugMode` | `Boolean` | `false` | Verbose logging + debug artifacts |
 
 ### Platform
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `platformMode` | `PlatformMode` | `ACCESSIBILITY` | `ACCESSIBILITY` (standard) or `VIRTUAL_DISPLAY` (Shizuku-based, runs apps on a virtual display) |
+| `platformMode` | `PlatformMode` | `ACCESSIBILITY` | `ACCESSIBILITY` (standard) or `VIRTUAL_DISPLAY` (Shizuku-based) |
 
-→ See: [infra/platform.md](../infra/platform.md) for `VirtualDisplayPlatform` and `PlatformFactory` details.
+> See: [infra/platform.md](../infra/platform.md) for `VirtualDisplayPlatform` and `PlatformFactory` details.
 
 ### Perception
 
@@ -45,25 +45,34 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 |---------|------|---------|-------------|
 | `perceptionMode` | `String` | `"accessibility_only"` | One of: `accessibility_only`, `screenshot_only`, `hybrid` |
 
-→ See: [infra/platform.md](../infra/platform.md) for `PerceptionConfig` variants and capture behavior.
+> See: [infra/platform.md](../infra/platform.md) for `PerceptionConfig` variants and capture behavior.
 
 ---
 
-## SessionConfig
+## SessionConfig Compilation
 
-→ See: `protocol/Op.kt`
+> See: `protocol/SessionConfig.kt`
 
 Settings are compiled into `SessionConfig` when creating a session:
 
 ```kotlin
 data class SessionConfig(
-    // ...
+    val maxTurns: Int = 50,
+    val actionDelayMs: Long = 2000,
+    val approvalMode: ApprovalMode = ApprovalMode.SMART,
+    val agentMode: AgentMode = AgentMode.PRO,
+    val llm: SessionLlmConfig,
+    val mainModel: String = "gpt-5.2",
+    val executorModel: String? = null,
     val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
-    val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
+    val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
+    // ...
 )
 ```
 
-`SessionConfig.maxTurns` has a protocol default of `50`, while UI settings currently initialize the user-facing value to `20`. `perceptionConfig` is built from `perceptionMode` when creating a session (`accessibility_only` → `AccessibilityOnly`, etc.). `platformMode` controls which `AndroidPlatform` implementation is used (via `PlatformFactory`).
+- `perceptionConfig` is built from `perceptionMode` string: `accessibility_only` → `AccessibilityOnly`, `screenshot_only` → `ScreenshotOnly`, `hybrid` → `Hybrid`
+- `executorModel` falls back to `mainModel` when null (resolved at runtime by `AgentModelResolver`)
+- `platformMode` selects `AndroidPlatform` implementation via `PlatformFactory`
 
 ---
 
@@ -83,25 +92,43 @@ Mode can be set from:
 
 ## Settings UI
 
-→ See: `ui/settings/SettingsSheet.kt`
+> See: `ui/settings/SettingsSheet.kt`
 
-The settings sheet is a modal bottom sheet with:
-- sectioned layout (LLM, Execution, Perception, Debug, Permissions)
-- backend/model selectors
-- execution mode selector (`AgentModeDropdown`)
-- max-turn selector
-- perception mode selector (`PerceptionModeSelector`): Accessibility Only, Screenshot Only, Hybrid (A11y + Screenshot)
-- debug toggle
-- permission status indicators (Accessibility, Overlay)
+The settings sheet is a modal bottom sheet with sectioned layout:
+
+| Section | Contents |
+|---------|----------|
+| LLM Backend | Cloud/Local toggle |
+| Cloud Model | Main model dropdown (visible when Cloud) |
+| Executor Model | Executor model dropdown (visible when PRO mode + Cloud) |
+| Local Model | Model selection + loading status indicator (visible when Local) |
+| Max Turns | Dropdown: 10, 20, 50 |
+| Execution Mode | Basic/Pro dropdown (`AgentModeDropdown`) |
+| Perception Mode | 3-button toggle: Accessibility Only, Hybrid, Screenshot Only |
+| API Keys | OpenAI, OpenRouter, Novita key fields (password masked, toggle visibility) |
+| Permissions | Accessibility Service + Overlay permission status indicators |
+| About & Debug | App version + debug mode switch |
+
+### Local Model Loading Status
+
+| Status | UI |
+|--------|----|
+| `Idle` | No indicator |
+| `Downloading(progress)` | Progress bar with percentage |
+| `Loading` | Indeterminate progress |
+| `Ready` | Green checkmark |
+| `Error(message)` | Red error text |
 
 ### Settings Files
 
 ```
 ui/settings/
-├── SettingsSheet.kt         # Main composable
-├── SettingsModels.kt        # Data models + defaults
-├── SettingsDropdowns.kt     # Backend/model/mode dropdowns
-└── SettingsWidgets.kt       # Shared UI widgets
+├── SettingsSheet.kt         # Main composable (modal bottom sheet)
+├── SettingsModels.kt        # Data models (LocalModelOption, ModelLoadingStatus)
+├── SettingsDropdowns.kt     # Backend/model/mode/turns dropdowns
+├── SettingsDropdown.kt      # Generic reusable dropdown composable
+├── SettingsWidgets.kt       # Shared widgets (Header, Section, Row, StatusIndicator)
+└── ApiKeyFields.kt          # API key input fields (masked + visibility toggle)
 ```
 
 ---
@@ -110,33 +137,20 @@ ui/settings/
 
 Settings are persisted in SharedPreferences via `AppSettingsStore`.
 
-Key examples:
-- `agent_mode`
-- `llm_backend`
-- `max_turns`
-- `debug_mode`
-- `perception_mode` (values: `accessibility_only`, `screenshot_only`, `hybrid`; migrated from legacy `screenshot_input` boolean)
-- `platform_mode` (values: `ACCESSIBILITY`, `VIRTUAL_DISPLAY`)
+Key preference keys:
+- `agent_mode` — `BASIC` or `PRO`
+- `llm_backend` — `OPENAI` or `LOCAL`
+- `max_turns` — integer
+- `debug_mode` — boolean
+- `perception_mode` — `accessibility_only`, `screenshot_only`, `hybrid`
+- `platform_mode` — `ACCESSIBILITY`, `VIRTUAL_DISPLAY`
+- `main_model` — model name string
+- `executor_model` — model name string (nullable)
 
 ### Security
 
-- API key is stored using encrypted preference handling in app code paths.
-- Avoid logging secrets; keep sensitive output out of debug logs.
-
----
-
-## Local Model Management
-
-When `llmBackend = LOCAL`:
-
-| State | Description |
-|-------|-------------|
-| `NOT_DOWNLOADED` | Model not available |
-| `DOWNLOADING` | Download in progress |
-| `READY` | Model loaded and ready |
-| `ERROR` | Download or load failed |
-
-→ See: [infra/llm.md](../infra/llm.md) for LFM client details
+- API keys stored using encrypted preference handling
+- Keys not logged in debug output
 
 ---
 
@@ -144,4 +158,5 @@ When `llmBackend = LOCAL`:
 
 - [Protocol](../protocol/protocol.md) - `SessionConfig` contract
 - [Session](../infra/session.md) - Runtime wiring of config
+- [LLM](../infra/llm.md) - Model catalog and client factory
 - [UI Tech Design](../ui/tech_design.md) - Settings UI components

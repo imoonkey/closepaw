@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-02-12 (Smart Capsule V2: ask_user tool)
+> Last updated: 2026-02-17 (commit: c57e349)
 
 ## Overview
 
@@ -53,7 +53,7 @@ class ToolRegistry {
     fun register(tool: ToolSpec)
     fun get(name: String): ToolSpec?
     fun getAll(): List<ToolSpec>
-    fun generateResponsesApiTools(): List<FunctionTool>
+    fun generateResponsesApiTools(filter: (ToolSpec) -> Boolean): List<FunctionTool>
 }
 ```
 
@@ -207,7 +207,7 @@ interface ToolSpec {
 | `MobileActionInvocation` | `MobileActionTool` — routes to executors |
 | `UIActionInvocation` | `SystemButtonTool`, `WaitTool` — direct UIAction execution |
 | `DataQueryInvocation` | Data query tools |
-| Custom invocations | `OpenAppTool`, `WriteTodosTool`, `ScratchpadTool`, etc. |
+| Custom invocations | `OpenAppTool`, `WriteTodosTool`, `ScratchpadTool`, `AskUserTool`, etc. |
 
 ---
 
@@ -216,12 +216,6 @@ interface ToolSpec {
 Successful tool execution can include post-action screen context:
 
 → See: `tool/action/ObservationBuilder.kt`
-
-```kotlin
-internal suspend fun buildObservation(
-    snapshot: ScreenSnapshot, platform: AndroidPlatform
-): ToolObservation.ScreenState
-```
 
 Used by executors (ClickExecutor, LongPressExecutor, TypeExecutor, SwipeExecutor) to capture post-action screen state for the LLM.
 
@@ -233,7 +227,7 @@ Used by executors (ClickExecutor, LongPressExecutor, TypeExecutor, SwipeExecutor
 2. Implement required members:
    - `name`, `description`, `parameterSchema`
    - `validate(params)`, `createInvocation(params)`
-3. Register in `SessionServices.registerBuiltInTools()` (or conditional runtime wiring)
+3. Register in `SessionToolingBootstrapper` (built-in) or `SessionAgentRunner` (lazy)
 
 ---
 
@@ -245,6 +239,7 @@ tool/
 ├── ToolCallState.kt          # State definitions
 ├── ToolCallResult.kt         # Result types
 ├── ToolName.kt               # Canonical tool/action names
+├── ToolSchemaConverters.kt   # Schema conversion utilities
 ├── ToolRegistry.kt           # Discovery/registration
 ├── ToolRouter.kt             # Execution state machine
 ├── PolicyEngine.kt           # Approval logic
@@ -270,7 +265,8 @@ tool/
     ├── CompleteTaskTool.kt
     ├── WriteTodosTool.kt
     ├── ScratchpadTool.kt
-    └── DelegateTaskTool.kt
+    ├── DelegateTaskTool.kt
+    └── AskUserTool.kt
 ```
 
 ---

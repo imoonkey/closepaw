@@ -1,11 +1,13 @@
 # Overlay System
 
 > Smart Capsule, Edge Glow, Status Island, Action Visualizer, and mode-aware overlay branching.
-> Last updated: 2026-02-13 (Smart Capsule V2 Round 3)
+> Last updated: 2026-02-17 (commit: c57e349)
 
 ## Overview
 
-The overlay system provides visual feedback and interaction when the agent is executing tasks. All system overlays use Android's `TYPE_ACCESSIBILITY_OVERLAY` for system-wide visibility. The main app uses a Compose capsule widget instead.
+The overlay system provides visual feedback and interaction when the agent executes tasks outside the main app. All system overlays use Android's `TYPE_ACCESSIBILITY_OVERLAY` for system-wide visibility. The main app embeds a Compose capsule widget instead.
+
+All overlay hosts are Compose-based, using `OverlayComposeHost` to bridge `ComposeView` into `WindowManager`.
 
 ### Mode-Aware Branching
 
@@ -19,33 +21,37 @@ The overlay system provides visual feedback and interaction when the agent is ex
 | `VIRTUAL_DISPLAY` | `SCREEN_VIEWING` | SmartCapsule overlay | User watching VD viewer |
 | `VIRTUAL_DISPLAY` | `BACKGROUND` | StatusIsland | Compact pill on real screen |
 
-→ See: `app/ServiceOverlayController.kt`, `ui/overlay/model/CapsuleContext.kt`
+> See: `app/ServiceOverlayController.kt`, `ui/overlay/model/CapsuleContext.kt`
 
 ---
 
-## Smart Capsule (V2 Round 3)
+## Smart Capsule
 
 The primary UI for user-agent collaboration. Exists in two forms:
-- **System overlay** (`SmartCapsuleManager`) — View-based, shown outside the main app
-- **Compose widget** (`SmartCapsuleCompose`) — Compose-based, embedded in the main app
+- **System overlay** (`CapsuleOverlayHost`) — Compose-based, shown outside the main app via `WindowManager`
+- **Compose widget** (`SmartCapsuleCompose`) — embedded in the main app's `ChatScreen` as `Scaffold.bottomBar`
 
-Both are driven by `CapsuleMode` from a shared `CapsuleStateHolder`.
+Both render `SmartCapsuleSurface` and are driven by `CapsuleMode` from a shared `CapsuleStateHolder`.
 
-→ See: `ui/overlay/model/CapsuleMode.kt`, `ui/overlay/CapsuleStateHolder.kt`
+> See: `ui/overlay/model/CapsuleMode.kt`, `ui/overlay/CapsuleStateHolder.kt`
 
 ### Architecture
 
 **State management:**
-- **CapsuleStateHolder** — single source of truth. Holds `CapsuleMode`, `CapsuleContext`, `PlatformMode`, `isAgentMidTurn` as `StateFlow`s. Processes events and broadcasts state changes.
+- **CapsuleStateHolder** — single source of truth. Holds `CapsuleMode`, `CapsuleContext`, `PlatformMode`, `turnPhase`, `isAgentMidTurn`, `isStopPending` as `StateFlow`s. All state transitions happen here.
 
-**Overlay (View-based) separation of concerns:**
-- **SmartCapsuleManager** — pure renderer. Receives mode via `renderMode()`, handles show/hide, keyboard, callbacks.
-- **SmartCapsuleRenderer** — per-mode visual rendering (row visibility, text, colors, dot animation)
-- **SmartCapsuleAnimator** — window-level height expand/collapse, Done exit slide+fade
-- **SmartCapsuleLayoutBuilder** — 3-row View layout construction
+**Overlay host:**
+- **CapsuleOverlayHost** — Compose overlay via `OverlayComposeHost`. Manages focusability (keyboard) for `WaitingForInput`, debounces button callbacks (300ms), supports interaction locking (full-screen touch blocker), and transient supplement confirmation flash.
 
-**Compose widget:**
-- **SmartCapsuleCompose** — Compose version for main app. Same 3-row layout, same callbacks.
+**Compose rendering:**
+- **SmartCapsuleSurface** — 3-row Compose layout consuming `CapsuleMode` and `CapsuleRenderSpec`
+- **SmartCapsuleSurfaceParts** — Row 1 (status dot + thought), Row 2 (controls + nav), Row 3 (input + action button)
+- **SmartCapsuleHostLayout** — host-level padding for overlay positioning
+
+**In-app widget:**
+- **SmartCapsuleCompose** — Compose version for main app. Same `SmartCapsuleSurface`, same callbacks.
+
+### CapsuleMode
 
 ```kotlin
 sealed interface CapsuleMode {
@@ -60,262 +66,289 @@ sealed interface CapsuleMode {
 }
 ```
 
-State flows: `ServiceOverlayController` receives events → updates `CapsuleStateHolder` → pushes to `SmartCapsuleManager.renderMode()`. `SmartCapsuleCompose` collects `stateHolder.mode` directly via `StateFlow`.
+### CapsuleRenderSpec
 
-### Thought Pipeline
+> See: `ui/overlay/model/CapsuleRenderSpec.kt`
 
-Agent thoughts flow through:
+Pure rendering specification derived from `CapsuleMode`. Maps mode to visual properties. Both overlay and in-app renderers consume this spec.
 
-1. LLM returns tool call with `agent_thought` parameter
-2. `AgentTurnRunner` extracts and sanitizes the thought (≤40 chars)
-3. `AgentEvent.ThoughtUpdate` emitted
-4. `ServiceOverlayController` → `CapsuleStateHolder.onThoughtUpdate()` → `Running(thought)`
-5. Overlay: pushed via `capsuleManager.renderMode()`. Compose: collected via `stateHolder.mode`
+```kotlin
+data class CapsuleRenderSpec(
+    val dot: DotSpec?,          // Status dot (color, pulsing)
+    val thought: ThoughtSpec,   // Row 1 text + alpha
+    val expandedBody: String?,  // Expanded question/instruction text
+    val buttons: ButtonsSpec,   // Row 2 primary + stop buttons
+    val row3: Row3Spec?,        // Row 3 input + action button (null = hidden)
+)
+```
+
+### NavSpec
+
+> See: `ui/overlay/model/CapsuleRenderSpec.kt`
+
+Separate from `CapsuleRenderSpec` because navigation visibility depends on `CapsuleContext` + `PlatformMode`, not `CapsuleMode`.
+
+```kotlin
+data class NavSpec(
+    val showMinimize: Boolean,  // [⊖] — VD mode, not in main app, not WaitingFor*/Error
+    val showApp: Boolean,       // [📱] — Not in main app, not A11y mode
+    val showWatch: Boolean,     // [👁] — VD mode, not SCREEN_VIEWING
+)
+```
 
 ### Modes
 
-| Mode | Row 1 | Row 2 | Row 3 | User Action |
-|------|-------|-------|-------|-------------|
-| **Running** | Blue dot, thought | [接管] [停止] + nav | [补充] input | Takeover, supplement, stop |
-| **TakeoverPending** | Amber dot, "正在交接..." | [交接中] [停止] + nav | [补充] input | Wait for handoff |
-| **Takeover** | Amber dot, last thought | [继续] [停止] + nav | [补充] input | Resume, supplement, stop |
-| **WaitingForInput** | "💬 等待答复", question | [停止] + nav | [发送 →] input | Type answer |
-| **WaitingForAction** | "✋ 操作手机", instruction | [完成] [停止] + nav | Hidden | Tap "Done" after action |
-| **Done** | Teal dot, completion | Hidden | Hidden | Auto-hides 3s |
-| **Error** | Red dot, error | [关闭] | Hidden | Dismiss |
-| **Hidden** | Hidden | Hidden | [发送 →] input (main app only) | Send new task |
+| Mode | Dot | Row 1 | Row 2 Primary | Row 3 |
+|------|-----|-------|---------------|-------|
+| **Running** | Blue (pulsing) | Thought text | [✋ Takeover] | Input + "Add note" |
+| **TakeoverPending** | Amber | "Handing over..." | [✋ Handing over] (disabled) | Input + "Add note" |
+| **Takeover** | Amber | Last thought (60% alpha) | [▶ Resume] | Input + "Add note" |
+| **WaitingForInput** | Hidden | "💬 Awaiting response" + body | [⏹ Stop] only | Input + "Send →" |
+| **WaitingForAction** | Hidden | "✋ Action needed" + body | [✅ Done] | Hidden |
+| **Done** | Teal | "✓ {message}" | Hidden | Hidden |
+| **Error** | Red | "⚠ {message}" | [✕ Close] | Hidden |
+| **Hidden** | Hidden | — | Hidden | Input + "Send →" |
 
 ### Status Dot Colors
+
+> See: `ui/overlay/model/CapsuleColors.kt`
 
 | Mode | Color | Hex |
 |------|-------|-----|
 | Running | Blue | `#2563EB` |
-| TakeoverPending | Amber | `#F59E0B` |
-| Takeover | Amber | `#F59E0B` |
-| WaitingForInput/Action | Purple | `#7C3AED` |
+| TakeoverPending / Takeover | Amber | `#F59E0B` |
 | Done | Teal | `#0D9488` |
-| Error | Red | `#DC2626` |
+| Error | Red | `#EF4444` |
 
 ### Layout
 
-Three-row layout built by `SmartCapsuleLayoutBuilder`:
+Three-row layout rendered by `SmartCapsuleSurface`:
 
 ```
 ┌──────────────────────────────────────────┐
 │ [●] Thought text...                      │  ← Row 1: status dot + thought
 │──────────────────────────────────────────│
-│ [✋ 接管] [⏹ 停止]          [⊖] [📱] [👁]│  ← Row 2: controls + nav icons
+│ [✋ Takeover] [⏹ Stop]     [⊖] [📱] [👁]│  ← Row 2: controls + nav icons
 │──────────────────────────────────────────│
-│ [有想法? 补充一下...          ] [💬 补充] │  ← Row 3: input + action button
+│ [Got ideas? Add a note...    ] [Add note]│  ← Row 3: input + action button
 └──────────────────────────────────────────┘
 ```
 
-**Expanded body** (WaitingForInput, WaitingForAction) appears below Row 1 showing the question/instruction text.
+**Expanded body** (WaitingForInput, WaitingForAction): appears below Row 1 showing the question/instruction text.
 
 **Navigation icons** (Row 2, right side):
-- [⊖] Minimize to island (VD mode only, not in main app)
-- [📱] Open main app (not shown when already in app)
-- [👁] Open VD viewer (VD mode only, not when already viewing)
+- [⊖] Minimize to island (VD mode only, not in main app, not in WaitingFor*/Error)
+- [📱] Open main app (not in main app, VD mode only)
+- [👁] Open VD viewer (VD mode, not when already viewing)
 
-**Row 3 button text** adapts per mode:
-- Hidden (idle): "发送 →" — sends new task
-- Running/Takeover: "补充" — sends supplement
-- WaitingForInput: "发送 →" — sends response
+### Thought Pipeline
 
-### ask_user Polish (Round 2)
+1. LLM returns tool call with `agent_thought` parameter
+2. `AgentTurnRunner` extracts and sanitizes the thought (≤40 chars via `sanitizeThought`)
+3. `AgentEvent.ThoughtUpdate` emitted
+4. `ServiceOverlayController` → `CapsuleStateHolder.onThoughtUpdate()` → `Running(thought)`
+5. Overlay: `SmartCapsuleSurface` recomposes via `stateHolder.mode` StateFlow collection
 
-- **4-minute nudge** — After 4 minutes in WaitingFor* states, appends "还在等待您的回复..." to body text
-- **Context-aware supplement confirmation** — "✓ 已收到" (between turns) vs "✓ 已收到，下一步生效" (mid-turn)
-- **VD mode fix** — In VIRTUAL_DISPLAY mode, `ask_user` shows full SmartCapsule overlay so user can type/tap; capsule hides after response
+### Supplement Confirmation
 
-### State Transition Animations (Round 2)
+`CapsuleOverlayHost.flashSupplementConfirmation()` shows transient feedback:
+- Between turns: `"✓ Received"` (displayed 1500ms)
+- Mid-turn (`isAgentMidTurn=true`): `"✓ Received, will apply next step"` (displayed 2000ms)
 
-| Transition | Animation | Duration |
-|------------|-----------|----------|
-| Running ↔ Takeover | Dot color crossfade (blue ↔ amber) | 200ms |
-| Compact → WaitingFor* | Height expand + content fade-in | 250ms |
-| WaitingFor* → Running | Height collapse | 200ms |
-| Done → Hidden | Slide down 16dp + fade out | 300ms |
+### Stop Pending Feedback
 
-→ See: `ui/overlay/SmartCapsuleAnimator.kt`
+`CapsuleStateHolder.isStopPending` drives immediate "Stopping..." disabled UI on the stop button. Not part of the `CapsuleMode` state machine — it's a transient UI flag cleared by the next terminal or new-task event.
+
+### CapsuleStateHolder State Transitions
+
+> See: `ui/overlay/CapsuleStateHolder.kt`
+
+| Method | Guard | Transition |
+|--------|-------|------------|
+| `onTaskStarted(taskId, input)` | Any | → `Running(sanitized input)` |
+| `onThoughtUpdate(thought)` | Must be `Running` | → `Running(thought)` |
+| `onTakeoverRequested()` | Must be `Running` | → `TakeoverPending(thought)` |
+| `onTakeoverConfirmed()` | `TakeoverPending` or `Running` | → `Takeover(thought)` |
+| `onResumed()` | `Takeover` or `TakeoverPending` | → `Running("Thinking...")` |
+| `onAskUser(type, message, callId)` | Any active | → `WaitingForInput` or `WaitingForAction` |
+| `onUserResponseSent(callId)` | `WaitingForInput` or `WaitingForAction` + callId match | → `Running("Processing response...")` |
+| `onTaskCompleted(reason, message?)` | Not `Hidden`/`Done`/`Error` | → `Done` or `Error` per reason |
+| `onSessionEnded(reason)` | Any | → `Done`/`Hidden`/`Error` per reason |
+| `onError(message)` | Any | → `Error(message)` |
+| `onDismissError()` | Must be `Error` | → `Hidden` |
+
+Auto-hide: `Done` state schedules auto-hide to `Hidden` after 3000ms.
 
 ### Callbacks
 
-`SmartCapsuleManager` and `SmartCapsuleCompose` expose callbacks wired by `ServiceOverlayController` / `ChatScreen`:
+`CapsuleOverlayHost` and `SmartCapsuleCompose` expose callbacks wired by `ServiceOverlayController` / `ChatScreen`:
 
 | Callback | Triggered By | Dispatches |
 |----------|--------------|------------|
-| `onTakeover` | User requests takeover | `stateHolder.onTakeoverRequested()` → `Op.Takeover` |
-| `onResume` | User taps "继续" in Takeover | `Op.Resume` |
+| `onTakeover` | User requests takeover | `CapsuleStateHolder.onTakeoverRequested()` → `Op.Takeover` |
+| `onResume` | User taps Resume in Takeover | `Op.Resume` |
 | `onSupplement` | User sends supplement text | `Op.Supplement(text)` |
-| `onUserResponse` | User answers ask_user | `stateHolder.onUserResponseSent()` → `Op.UserResponse(callId, response)` |
+| `onUserResponse` | User answers ask_user | `CapsuleStateHolder.onUserResponseSent()` → `Op.UserResponse(callId, response)` |
 | `onStop` | User taps Stop | `Op.Shutdown` |
+| `onSend` | User sends new task (Hidden mode) | `Op.UserInput(text)` |
 | `onOpenApp` | User taps app icon | Opens main activity |
-| `onDismissError` | User dismisses error | `stateHolder.onDismissError()` |
-| `onDoneAutoHide` | Done state auto-hides after 3s | `stateHolder.onDoneAutoHide()` |
+| `onDismissError` | User dismisses error | `CapsuleStateHolder.onDismissError()` |
 | `onMinimize` | Nav [⊖] tapped | Hides capsule, shows island |
 | `onOpenViewer` | Nav [👁] tapped | Launches VD viewer activity |
 
 ### Integration
 
-→ See: `app/ServiceOverlayController.kt`, `app/AgentService.kt`
+**Overlay flow:** `AgentSession` → `AgentEvent` → `AgentService.handleEvent()` → `ServiceOverlayController` → `CapsuleStateHolder` → `SmartCapsuleSurface` recomposes
 
-**Overlay flow:** `AgentSession` → `AgentEvent` → `AgentService.handleEvent()` → `ServiceOverlayController` → `CapsuleStateHolder` → `capsuleManager.renderMode()`
-
-**Compose flow:** `CapsuleStateHolder.mode` collected via `StateFlow` in `ChatScreen` → `SmartCapsuleCompose` renders directly
+**Compose (in-app) flow:** `CapsuleStateHolder.mode` collected via `StateFlow` in `ChatScreen` → `SmartCapsuleCompose` → `SmartCapsuleSurface` renders
 
 ---
 
 ## Edge Glow
 
-Ambient visual feedback showing the agent is actively controlling the device.
+> See: `ui/overlay/compose/GlowOverlayHost.kt`, `ui/overlay/compose/EdgeGlowCompose.kt`
+
+Ambient visual feedback showing the agent is actively controlling the device. Full-screen `Canvas`-based Compose overlay rendering gradient glow on all four screen edges.
 
 ### Features
 
-- **Full-screen edge glow** with gradient fade from edges
-- **State-based colors** matching agent execution phases
-- **Pulse animation** when active or executing
-- **Touch pass-through** (doesn't block interaction)
-- **Display cutout handling** for notched devices
-- **Auto-hide** after success state (2 seconds)
+- **Four-edge gradient glow** (40dp width) with state-based colors
+- **Pulse animation** when Active or Executing (800ms, alpha 0.5→0.85)
+- **Static alpha** (0.7) for Paused/Error/Success
+- **Touch pass-through** (`FLAG_NOT_TOUCHABLE`)
+- **Display cutout handling** (`LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES`)
+- **Auto-hide** after Success state (2000ms delay, then 500ms fade-out)
+- **Derived state** — glow state is derived from `CapsuleMode` + `TurnPhase` via `deriveGlowState()`, eliminating parallel state management
 
 ### Glow States
 
-| State | Color | Hex | Behavior |
-|-------|-------|-----|----------|
-| **Active** | Primary Blue | `#2563EB` | Pulsing animation |
-| **Executing** | Light Blue | `#3B82F6` | Pulsing animation |
-| **Success** | Teal | `#0D9488` | Static, auto-hides after 2s |
-| **Error** | Red | `#DC2626` | Static |
-| **Paused** | Amber | `#F59E0B` | Static |
+> See: `ui/overlay/model/GlowState.kt`
 
-### Visibility Control
-
-The edge glow is only visible when the main app is **not** in the foreground:
+| State | Color | Hex | Derived When |
+|-------|-------|-----|-------------|
+| **Active** | Blue | `#2563EB` | Running (non-execution phase) |
+| **Executing** | Light Blue | `#3B82F6` | Running + `EXECUTION` turn phase |
+| **Success** | Teal | `#0D9488` | Done mode |
+| **Error** | Red | `#DC2626` | Error mode |
+| **Paused** | Amber | `#F59E0B` | TakeoverPending, Takeover, WaitingFor* modes |
 
 ```kotlin
-if (!isAppInForeground && shouldShowGlow) {
-    edgeGlowManager?.show(currentGlowState)
-} else {
-    edgeGlowManager?.hide()
-}
+fun deriveGlowState(mode: CapsuleMode, turnPhase: TurnPhase?): GlowState
 ```
 
-### Integration
+### Visibility
 
-→ See: `ui/overlay/EdgeGlowManager.kt`
-
-```kotlin
-edgeGlowManager?.show(GlowState.Active)
-edgeGlowManager?.updateState(GlowState.Executing)
-edgeGlowManager?.updateState(GlowState.Success)  // Auto-hides
-edgeGlowManager?.hide()
-```
+Only visible in `ACCESSIBILITY` mode when user is in `SCREEN_VIEWING` context (not in main app).
 
 ---
 
 ## Status Island (VD Mode)
 
-→ See: `ui/overlay/StatusIslandManager.kt`
+> See: `ui/overlay/compose/IslandOverlayHost.kt`, `ui/overlay/compose/StatusIslandCompose.kt`
 
-Compact floating pill overlay displayed on the **real screen** during virtual display mode when the user is in `BACKGROUND` context (not viewing VD viewer or main app).
+Compact floating pill overlay displayed on the **real screen** during virtual display mode when the user is in `BACKGROUND` context.
 
 ### Features
 
-- **Status dot**: Color-coded (thinking, acting, success, error, paused)
-- **Tap**: Expands to full Smart Capsule overlay (calls `onExpandCapsule`)
-- **Compact**: Small floating pill that doesn't interfere with real-screen usage
-
-### States
-
-| State | Color | Hex |
-|-------|-------|-----|
-| Thinking | Blue | `#2563EB` |
-| Acting | Light Blue | `#3B82F6` |
-| Success | Teal | `#0D9488` |
-| Error | Red | `#DC2626` |
-| Paused | Amber | `#F59E0B` |
+- **Compose-based** — `StatusIslandCompose` renders a `Surface` with dot + text
+- **Status dot**: Color derived from `CapsuleMode` + `TurnPhase` via `deriveGlowState()`
+- **Text**: Mode-dependent (thought text truncated to 24 chars, or status like "Paused", "Action needed")
+- **Tap**: Expands to full Smart Capsule overlay (`onExpandCapsule` callback)
+- **Position**: Top-center, below status bar (4dp margin)
+- **Shadow**: 4dp elevation
 
 ### Integration
 
-Driven by `ServiceOverlayController` in `VIRTUAL_DISPLAY` mode. When the island is tapped, `ServiceOverlayController.onIslandTapped()` hides the island, sets context to `SCREEN_VIEWING`, updates nav buttons, and shows the full Smart Capsule overlay.
+Driven by `ServiceOverlayController` in `VIRTUAL_DISPLAY` mode. `IslandOverlayHost.startObserving(stateHolder)` connects the state. When tapped, `ServiceOverlayController.onIslandTapped()` hides the island, sets context to `SCREEN_VIEWING`, and shows the full Smart Capsule overlay.
 
 ---
 
 ## Action Visualizer
 
-Visual feedback when the agent performs touch actions.
+> See: `ui/overlay/visualizer/ActionVisualizerManager.kt`, `ui/overlay/compose/VisualizerOverlayHost.kt`, `ui/overlay/compose/ActionVisualizerCompose.kt`
+
+Visual feedback when the agent performs touch actions. Compose `Canvas`-based rendering with automatic item lifetime management.
 
 ### Features
 
-- **Ripple effect** for tap/click actions
-- **Trail animation** for swipe/scroll actions
-- **Non-intrusive** - passes all touch events through
-- **Automatic cleanup** after animation completes
-- **Color-coded** actions
+- **Click ripple** — expanding circle animation
+- **Swipe trail** — animated line with start/end dots
+- **Touch pass-through** (`FLAG_NOT_TOUCHABLE`)
+- **Automatic cleanup** — items removed after their duration expires
+- **Edge clamping** — coordinates clamped to 10px from screen edges
 
 ### Visualization Types
 
 #### Click Ripple
-
-→ See: `ui/overlay/visualizer/ClickRippleView.kt`
 
 | Property | Value |
 |----------|-------|
 | Initial radius | 8dp |
 | Final radius | 48dp |
 | Duration | 500ms |
-| Animation | EaseOut |
+| Animation | Linear expansion with alpha fade (0.6 → ~0.18) |
 | Click color | Blue (`#2563EB`) at 60% opacity |
 | Long press color | Purple (`#7C3AED`) at 60% opacity |
 
 #### Swipe Trail
-
-→ See: `ui/overlay/visualizer/SwipeTrailView.kt`
 
 | Property | Value |
 |----------|-------|
 | Line width | 4dp |
 | Start dot radius | 8dp |
 | End dot radius | 6dp |
+| Duration | gesture duration + 400ms |
 | Swipe color | Light Blue (`#3B82F6`) at 50% opacity |
 | Scroll color | Indigo (`#6366F1`) at 50% opacity |
-
-### Integration
-
-→ See: `ui/overlay/visualizer/ActionVisualizerManager.kt`
-
-Called from `AccessibilityPlatform`:
-
-```kotlin
-class AccessibilityPlatform(
-    private val service: AccessibilityService,
-    private val visualizer: ActionVisualizerManager? = null
-) {
-    private suspend fun performTap(x: Float, y: Float): ActionResult {
-        visualizer?.showClick(x, y)
-        // ... dispatch gesture
-    }
-    
-    private suspend fun performSwipe(...): ActionResult {
-        visualizer?.showSwipe(startX, startY, endX, endY, durationMs)
-        // ... dispatch gesture
-    }
-}
-```
 
 ### API
 
 ```kotlin
-class ActionVisualizerManager(context: AccessibilityService) {
+class ActionVisualizerManager(
+    context: AccessibilityService,
+    lifecycleOwner: LifecycleOwner,
+    savedStateRegistryOwner: SavedStateRegistryOwner,
+) {
     var enabled: Boolean
     fun showClick(x: Float, y: Float, longPress: Boolean = false)
-    fun showSwipe(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Long)
-    fun showScrollAsSwipe(startX: Float, startY: Float, endX: Float, endY: Float, durationMs: Long)
-    fun clearAll()
+    fun showSwipe(startX, startY, endX, endY, durationMs: Long)
+    fun showScrollAsSwipe(startX, startY, endX, endY, durationMs: Long)
     fun dispose()
 }
 ```
+
+Called from `AccessibilityPlatform` before dispatching gestures.
+
+---
+
+## Overlay Compose Infrastructure
+
+### OverlayComposeHost
+
+> See: `ui/overlay/compose/OverlayComposeHost.kt`
+
+Shared utility wrapping a `ComposeView` for system overlay via `WindowManager`:
+
+```kotlin
+class OverlayComposeHost(context, lifecycleOwner, savedStateRegistryOwner, windowManager, tag) {
+    fun isShowing(): Boolean
+    fun show(layoutParams, content: @Composable () -> Unit)
+    fun hide()
+    fun updateLayoutParams(update: (WindowManager.LayoutParams) -> Unit)
+    fun getWindowToken(): IBinder?
+    fun dispose()
+}
+```
+
+- Uses `ViewCompositionStrategy.DisposeOnDetachedFromWindow`
+- Sets `ViewTreeLifecycleOwner` and `ViewTreeSavedStateRegistryOwner`
+- Wraps content in `ChatTheme`
+
+### ServiceLifecycleOwner
+
+> See: `ui/overlay/compose/ServiceLifecycleOwner.kt`
+
+Implements `LifecycleOwner` + `SavedStateRegistryOwner` for services. Manual lifecycle events: `onCreate()` → CREATE → START → RESUME, `onDestroy()` → PAUSE → STOP → DESTROY. Enables Compose in non-Activity contexts (AccessibilityService).
 
 ---
 
@@ -327,9 +360,9 @@ Edge glow added **before** SmartCapsule so it renders below:
 
 ```
 Screen
-  └── EdgeGlowView (bottom)
-      └── SmartCapsule (top)
-          └── ActionVisualizer (topmost)
+  └── EdgeGlow (bottom — FLAG_NOT_TOUCHABLE)
+      └── SmartCapsule (middle)
+          └── ActionVisualizer (top — FLAG_NOT_TOUCHABLE)
 ```
 
 ### Virtual Display Mode (BACKGROUND)
@@ -338,7 +371,7 @@ Only the Status Island is shown on the real screen:
 
 ```
 Screen
-  └── StatusIsland (single overlay)
+  └── StatusIsland (single overlay, top-center)
 ```
 
 ### Virtual Display Mode (SCREEN_VIEWING)
@@ -366,35 +399,36 @@ ChatScreen
 
 ```
 ui/overlay/
-├── CapsuleStateHolder.kt         # Single source of truth: CapsuleMode + CapsuleContext StateFlows
-├── SmartCapsuleManager.kt        # Pure renderer for overlay (View-based), receives renderMode()
-├── SmartCapsuleRenderer.kt       # Per-mode visual rendering (3-row layout)
-├── SmartCapsuleAnimator.kt       # Window-level height, dot crossfade, Done exit
-├── SmartCapsuleLayoutBuilder.kt  # 3-row View layout construction + nav icons
-├── StatusIslandManager.kt        # VD-mode compact pill (tap → expand to capsule)
-├── EdgeGlowManager.kt            # Edge glow lifecycle (A11y mode)
-├── EdgeGlowView.kt               # Custom glow rendering
+├── CapsuleStateHolder.kt                  # Single source of truth: mode/context/phase StateFlows
+├── compose/
+│   ├── OverlayComposeHost.kt              # ComposeView → WindowManager bridge
+│   ├── ServiceLifecycleOwner.kt           # LifecycleOwner for AccessibilityService
+│   ├── CapsuleOverlayHost.kt              # Smart Capsule system overlay
+│   ├── GlowOverlayHost.kt                 # Edge glow system overlay
+│   ├── IslandOverlayHost.kt               # Status island system overlay (VD mode)
+│   ├── VisualizerOverlayHost.kt           # Action visualizer system overlay
+│   ├── EdgeGlowCompose.kt                 # Canvas-based 4-edge glow rendering
+│   ├── StatusIslandCompose.kt             # Compact status pill composable
+│   └── ActionVisualizerCompose.kt         # Canvas-based click/swipe rendering
 ├── model/
-│   ├── CapsuleMode.kt            # Sealed interface + isExpanded() extension
-│   ├── CapsuleContext.kt          # MAIN_APP / SCREEN_VIEWING / BACKGROUND enum
-│   └── GlowState.kt              # State enum with colors
+│   ├── CapsuleMode.kt                     # Sealed interface (8 modes)
+│   ├── CapsuleContext.kt                  # MAIN_APP / SCREEN_VIEWING / BACKGROUND
+│   ├── CapsuleColors.kt                   # Status dot color constants
+│   ├── CapsuleRenderSpec.kt               # Mode → visual properties + NavSpec
+│   └── GlowState.kt                       # Glow state enum + deriveGlowState()
 └── visualizer/
-    ├── ActionVisualizerManager.kt  # Visualization orchestrator
-    ├── ClickRippleView.kt          # Ripple effect view
-    └── SwipeTrailView.kt           # Swipe trail view
+    └── ActionVisualizerManager.kt         # Visualization orchestrator
 
 ui/capsule/
-└── SmartCapsuleCompose.kt         # Compose version for main app embedding
-
-ui/chat/
-├── ChatScreen.kt                  # Hosts SmartCapsuleCompose in Scaffold.bottomBar
-├── ChatViewModel.kt               # Delegates capsule actions to AgentSession
-└── components/
-    └── InputDock.kt               # @Deprecated, replaced by SmartCapsuleCompose
+├── SmartCapsuleCompose.kt                 # Compose capsule for main app
+└── surface/
+    ├── SmartCapsuleSurface.kt             # 3-row capsule Compose layout
+    ├── SmartCapsuleSurfaceParts.kt        # Row1/Row2/Row3 components
+    └── SmartCapsuleHostLayout.kt          # Host-level padding
 
 app/
-├── ServiceOverlayController.kt    # Mode-aware overlay branching, owns CapsuleStateHolder
-└── AgentService.kt                # Exposes capsuleStateHolder, viewer lifecycle hooks
+├── ServiceOverlayController.kt           # Mode-aware overlay branching
+└── AgentService.kt                       # Exposes CapsuleStateHolder, viewer lifecycle hooks
 ```
 
 ---
@@ -403,4 +437,5 @@ app/
 
 - [Style](style.md) - Color definitions
 - [Tech Design](tech_design.md) - Integration details
+- [User Interaction](user_interaction.md) - User flows
 - [Platform](../infra/platform.md) - AccessibilityPlatform integration

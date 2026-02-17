@@ -1,11 +1,14 @@
 # Session History Persistence
 
-> Session recording, storage, and resume functionality.
-> Last updated: 2026-02-09 (commit: e2e2f8cde08b4b5fb225d1f09a616b6630db1695)
+> Session recording, storage, runtime prompt history, and resume functionality.
+> Last updated: 2026-02-17 (commit: c57e349)
 
 ## Overview
 
-The session history system enables **automatic persistence** of chat sessions, allowing users to browse past conversations and resume them later.
+The session history system has two layers:
+
+1. **Persistence layer** — automatic recording of chat sessions to disk for browsing and resuming past conversations
+2. **Runtime layer** — in-memory conversation history management for LLM context with token budgeting and truncation
 
 ---
 
@@ -36,88 +39,176 @@ The session history system enables **automatic persistence** of chat sessions, a
 
 ---
 
-## Core Components
+## Persistence Layer
 
 ### SessionHistoryManager
 
-→ See: `history/SessionHistoryManager.kt`
+> See: `history/SessionHistoryManager.kt`
 
-High-level API for session management:
+High-level API coordinating between `SessionStorage` and `SessionRecordingService`.
 
 ```kotlin
 class SessionHistoryManager(storage, recordingService, scope) {
-    suspend fun listSessions(): List<SessionInfo> // Cached for performance
+    suspend fun listSessions(): List<SessionInfo>        // Cached, sorted newest-first
     suspend fun loadSession(sessionId: String): Result<ResumedSessionData>
+    suspend fun loadSessionByFileName(fileName: String): Result<ResumedSessionData>
     suspend fun deleteSession(sessionId: String): Result<Unit>
+    suspend fun deleteSessionByFileName(fileName: String): Result<Unit>
+    fun getMostRecentSession(): SessionInfo?
     fun startNewSession(model: String?, appVersion: String?): String
     fun resumeSession(data: ResumedSessionData)
+    fun getCurrentSessionId(): String?
+    fun hasActiveSession(): Boolean
+    fun endSession(reason: CompletionReason)
     fun getRecordingService(): SessionRecordingService
 }
 ```
 
+Session info caching uses `ConcurrentHashMap<String, CachedSessionInfo>` with file modification time checks — entries are re-read only when the file has been updated. Protected by `Mutex` for concurrent access.
+
 ### SessionRecordingService
 
-→ See: `history/SessionRecordingService.kt`
+> See: `history/SessionRecordingService.kt`
 
 Real-time bridge between `AgentEvent` stream and persisted `SessionRecord`:
 
-- Record user messages and agent responses in real-time
-- Build agent messages incrementally using `AgentMessageBuffer`
-- Debounce writes (500ms delay)
-- Handle session resume and completion
-
 ```kotlin
 class SessionRecordingService(storage, scope) {
-    fun initializeNewSession(model: String?, appVersion: String?): String
+    fun initializeNewSession(sessionId?, model?, appVersion?): String
     fun resumeSession(data: ResumedSessionData)
-    fun recordUserMessage(id: String, timestamp: Long, text: String)
-    fun startAgentMessage(id: String, timestamp: Long)
-    fun appendTextDelta(delta: String)
-    fun recordAction(actionId: String, toolName: String, description: String, state: String)
-    fun updateActionState(actionId: String, state: String, result: String?)
-    fun recordScreenState(state: ScreenStateRecord) // Records trace linkage
+    fun recordUserMessage(id, timestamp, text)
+    fun startAgentMessage(id, timestamp)
+    fun appendTextDelta(delta)
+    fun recordAction(actionId, toolName, description, state)
+    fun updateActionState(actionId, state, result?)
+    fun recordScreenState(state: ScreenStateRecord)
     fun completeAgentMessage()
-    fun completeSession()
+    fun completeSession(reason: CompletionReason)
+    fun clearSession()
 }
 ```
+
+Key behaviors:
+- **Debounced saves**: 500ms delay (`SAVE_DEBOUNCE_MS`) to avoid excessive I/O
+- **Agent message buffering**: Uses `AgentMessageBuffer` to accumulate streaming text + interleaved actions
+- **Immediate save** on session completion
+- **Screen state recording**: Normalizes paths, captures `traceRunId` for replay/debug artifact correlation
+
+### AgentMessageBuffer
+
+> See: `history/AgentMessageBuffer.kt`
+
+Buffers a streaming agent message with interleaved text and action blocks:
+
+- `appendText(delta)` — accumulates text in `StringBuilder`
+- `recordAction(action)` — finalizes current text block, adds action block
+- `updateActionState(actionId, state, result?)` — updates existing action in-place
+- `buildPartialSnapshot()` — returns current state without finalizing (for incremental saves)
+- `finalizeSnapshot()` — returns final snapshot and clears buffer
+
+### SessionRecordMessageMerger
+
+> See: `history/SessionRecordMessageMerger.kt`
+
+Internal utility: `mergeAgentSnapshot()` updates or inserts an agent message snapshot into a `SessionRecord`, returning a new record with updated `lastUpdated`.
 
 ### SessionStorage
 
-→ See: `history/storage/SessionStorage.kt`
+> See: `history/storage/SessionStorage.kt`
 
-Low-level file I/O operations:
+Low-level file I/O operations.
 
 ```kotlin
 class SessionStorage(context) {
-    suspend fun writeSession(fileName: String, record: SessionRecord): Result<Unit>
-    suspend fun readSession(fileName: String): Result<SessionRecord>
+    suspend fun writeSession(fileName, record: SessionRecord): Result<Unit>
+    suspend fun readSession(fileName): Result<SessionRecord>
     suspend fun listSessionFiles(): List<File>
-    suspend fun deleteSession(fileName: String): Result<Unit>
-    fun generateFileName(sessionId: String): String
+    suspend fun deleteSession(fileName): Result<Unit>
+    fun generateFileName(sessionId): String
+    fun sessionExists(fileName): Boolean
 }
 ```
 
-**Storage Location:** `/data/data/{package}/files/sessions/`
-
-**File Naming:** `session-{timestamp}-{uuid}.json`
+- **Storage location**: `/data/data/{package}/files/sessions/`
+- **File naming**: `session-{yyyy-MM-ddTHH-mm-ss}-{uuid}.json`
+- **JSON config**: pretty print, ignore unknown keys, encode defaults
+- All I/O on `Dispatchers.IO`
 
 ---
 
 ## Runtime Prompt History
 
-In addition to persisted UI session history, runtime prompt history is managed in-memory by `HistoryManager` for each active agent session.
+### HistoryManager
 
--> See: `history/HistoryManager.kt`
+> See: `history/HistoryManager.kt`
 
-Key runtime behavior:
-- Stores message/function-call/function-output items used for LLM `input`
-- Tags turn-start screen messages with `isScreenObservation=true`
-- Normalizes call/output pairs before prompt send (`forPrompt()`)
-- Applies token-budget management and output truncation policies
+In-memory conversation history for each active agent session. Stores `ResponseItem` list used as LLM `input`.
 
-Screen observations are later compressed by `PromptBuilder` when preparing prompt input.
+```kotlin
+class HistoryManager {
+    fun addItem(item: ResponseItem)
+    fun recordItems(newItems: List<ResponseItem>, policy: TruncationPolicy)
+    fun getAll(): List<ResponseItem>        // Defensive copy
+    fun forPrompt(): List<ResponseItem>     // Normalized for LLM
+    fun size(): Int
+    fun isEmpty(): Boolean
+    fun clear()
+    fun estimateTokenCount(): Long
+    fun isApproachingLimit(maxTokens: Long, warningThreshold: Float = 0.8f): Boolean
+    fun dropLastNUserTurns(n: Int)
+    fun removeFirstItem()
+    fun compress(targetTokens: Long)
+    fun getSummary(): String
+}
+```
 
--> See: `agent/cognition/prompt/PromptBuilder.kt`
+Key behaviors:
+- **Token estimation**: `TOKENS_PER_CHAR = 0.25f`, rough estimate for context window management
+- **Auto-compression**: triggers at `autoCompressThreshold` (85%) of `maxTokenBudget` (100K tokens)
+- **Two-strategy compression**: (1) aggressive truncation of old function outputs, (2) remove oldest items
+- **History normalization** (`normalizeHistory`): ensures function call/output pairs are matched; adds placeholders for missing outputs, removes orphaned outputs
+- **Screen observation tagging**: items tagged with `isScreenObservation=true` are later compressed by `PromptBuilder`
+- **Thread-safe**: all methods `@Synchronized`
+
+### HistoryConfig
+
+> See: `history/HistoryConfig.kt`
+
+```kotlin
+data class HistoryConfig(
+    val defaultTruncationPolicy: TruncationPolicy = TruncationPolicy.CONSERVATIVE,
+    val maxTokenBudget: Long = 100_000,
+    val autoCompress: Boolean = true,
+    val autoCompressThreshold: Float = 0.85f
+)
+```
+
+### TruncationPolicy
+
+Defined in `HistoryConfig.kt`:
+
+| Policy | Max Tokens per Output |
+|--------|----------------------|
+| `NONE` | No truncation |
+| `CONSERVATIVE` | 8,000 |
+| `AGGRESSIVE` | 2,000 |
+| `MINIMAL` | 500 |
+
+### ResponseItem
+
+> See: `history/ResponseItem.kt`
+
+Sealed class for conversation items:
+
+```kotlin
+sealed class ResponseItem {
+    abstract fun estimateTokens(): Long
+
+    data class Message(role, content, name?, isScreenObservation = false) : ResponseItem()
+    data class FunctionCall(id, name, arguments: JSONObject) : ResponseItem()
+    data class FunctionCallOutput(callId, content, success = true, truncated = false) : ResponseItem()
+}
+```
 
 ---
 
@@ -125,9 +216,7 @@ Screen observations are later compressed by `PromptBuilder` when preparing promp
 
 ### SessionRecord
 
-→ See: `history/model/SessionRecord.kt`
-
-Complete session data stored on disk:
+> See: `history/model/SessionRecord.kt`
 
 ```kotlin
 @Serializable
@@ -136,6 +225,7 @@ data class SessionRecord(
     val startTime: Long,
     val lastUpdated: Long,
     val messages: List<MessageRecord>,
+    val screenStates: List<ScreenStateRecord> = emptyList(),
     val summary: String? = null,
     val metadata: SessionMetadata = SessionMetadata()
 )
@@ -144,6 +234,7 @@ data class SessionRecord(
 data class SessionMetadata(
     val appVersion: String? = null,
     val model: String? = null,
+    val traceRunId: String? = null,
     val turnCount: Int = 0,
     val completedNormally: Boolean = false
 )
@@ -151,14 +242,14 @@ data class SessionMetadata(
 
 ### MessageRecord
 
-→ See: `history/model/MessageRecord.kt`
+> See: `history/model/MessageRecord.kt`
 
 ```kotlin
 @Serializable
 sealed interface MessageRecord {
     val id: String
     val timestamp: Long
-    
+
     data class User(id, timestamp, text: String) : MessageRecord
     data class Agent(id, timestamp, contentBlocks: List<ContentBlockRecord>, isComplete: Boolean) : MessageRecord
 }
@@ -170,11 +261,35 @@ sealed interface ContentBlockRecord {
 }
 ```
 
+Action `state` values: `"proposed"`, `"executing"`, `"success"`, `"failed"`, `"skipped"`.
+
+### ScreenStateRecord
+
+> See: `history/model/ScreenStateRecord.kt`
+
+```kotlin
+@Serializable
+data class ScreenStateRecord(
+    val id: String,
+    val timestamp: Long,
+    val turnId: String,
+    val turnNumber: Int,
+    val phase: ScreenStatePhase,
+    val elementCount: Int,
+    val packageName: String?,
+    val activityName: String?,
+    val rawA11yTreePath: String?,
+    val sanitizedA11yTreePath: String?,
+    val screenshotPath: String?,
+    val traceRunId: String?
+)
+```
+
 ### SessionInfo
 
-→ See: `history/model/SessionInfo.kt`
+> See: `history/model/SessionInfo.kt`
 
-Lightweight summary for session list UI:
+Lightweight summary for session list UI (avoids loading full content):
 
 ```kotlin
 data class SessionInfo(
@@ -183,11 +298,21 @@ data class SessionInfo(
     val startTime: Long,
     val lastUpdated: Long,
     val messageCount: Int,
-    val displayTitle: String,
+    val displayTitle: String,      // Truncated to 50 chars
     val firstUserMessage: String,
     val isActive: Boolean = false
 )
 ```
+
+### MessageConverter
+
+> See: `history/model/MessageConverter.kt`
+
+Bidirectional conversion between `ChatMessage` (UI) and `MessageRecord` (persistence):
+
+- `toRecord(ChatMessage) → MessageRecord`
+- `fromRecord(MessageRecord) → ChatMessage`
+- Batch: `toRecords()`, `fromRecords()`
 
 ---
 
@@ -206,7 +331,7 @@ AgentEvent                     SessionRecordingService              File
     │ ActionExecuted(click)              │                            │
     │───────────────────────────────────►│ recordAction()             │
     │                                    │───────────────────────────►│
-    │                                    │ (debounced save)           │
+    │                                    │ (debounced save, 500ms)    │
     │                                    │                            │
     │ TaskCompleted                      │                            │
     │───────────────────────────────────►│ completeAgentMessage()     │
@@ -217,49 +342,25 @@ AgentEvent                     SessionRecordingService              File
 
 ---
 
-## Session Lifecycle
-
-```
-┌─────────────┐
-│  No Session │
-└──────┬──────┘
-       │ startNewSession() or resumeSession()
-       ▼
-┌─────────────┐
-│   Active    │◄──── recordUserMessage()
-│   Session   │◄──── appendTextDelta()
-│             │◄──── recordAction()
-└──────┬──────┘      (debounced auto-save)
-       │ completeSession()
-       ▼
-┌─────────────┐
-│  Completed  │ ──► Saved to /files/sessions/*.json
-│   Session   │
-└──────┬──────┘
-       │ listSessions() + user selects
-       ▼
-┌─────────────┐
-│   Resumed   │ ──► loadSession() ──► resumeSession()
-└─────────────┘
-```
-
----
-
 ## File Structure
 
 ```
 history/
-├── HistoryManager.kt           # Token management, truncation
-├── SessionHistoryManager.kt    # High-level session management
-├── SessionRecordingService.kt  # Real-time recording
-├── AgentMessageBuffer.kt       # Streaming agent message buffer
+├── HistoryManager.kt              # Runtime prompt history (token budget, truncation)
+├── HistoryConfig.kt               # Configuration (TruncationPolicy, token budgets)
+├── ResponseItem.kt                # Conversation items (Message, FunctionCall, FunctionCallOutput)
+├── SessionHistoryManager.kt       # High-level session management (list, load, delete, resume)
+├── SessionRecordingService.kt     # Real-time event recording (debounced saves)
+├── AgentMessageBuffer.kt          # Streaming agent message buffer (text + actions)
+├── SessionRecordMessageMerger.kt  # Merge agent snapshots into SessionRecord
 ├── model/
-│   ├── SessionRecord.kt        # Complete session data
-│   ├── MessageRecord.kt        # Message types
-│   ├── SessionInfo.kt          # Lightweight summary
-│   └── MessageConverter.kt     # ChatMessage ↔ MessageRecord
+│   ├── SessionRecord.kt           # Complete session data + metadata
+│   ├── MessageRecord.kt           # Message types + content blocks
+│   ├── SessionInfo.kt             # Lightweight session summary
+│   ├── ScreenStateRecord.kt       # Screen state reference (paths for replay/debug)
+│   └── MessageConverter.kt        # ChatMessage ↔ MessageRecord conversion
 └── storage/
-    └── SessionStorage.kt       # File I/O operations
+    └── SessionStorage.kt          # File I/O operations
 ```
 
 ---
@@ -269,3 +370,4 @@ history/
 - [UI User Interaction](../ui/user_interaction.md) - Session history UI
 - [Protocol](../protocol/protocol.md) - Events that trigger recording
 - [Session](../infra/session.md) - AgentSession lifecycle
+- [Planning](../agent/planning.md) - HistoryManager token budget in agent context

@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionServices, and session lifecycle.
-> Last updated: 2026-02-12 (Smart Capsule V2 Round 2)
+> Last updated: 2026-02-17 (commit: c57e349)
 
 ## AgentSession
 
@@ -11,7 +11,7 @@ Thin lifecycle manager. It does not implement planning/action logic directly.
 
 **Responsibilities:**
 - Process `Op` from UI
-- Emit `AgentEvent` to UI
+- Emit `AgentEvent` to UI (SharedFlow with replay=8, buffer=64)
 - Manage session state transitions (`Created`/`Running`/`Paused`/`Idle`/`Shutdown`)
 - Manage per-task lifecycle via `handleUserInput()`
 - Delegate runtime start/stop to `SessionAgentRunner`
@@ -49,7 +49,7 @@ Created ──(UserInput + platform.start())──► Running ──(TaskComplet
 
 → See: `session/SessionServices.kt`
 
-Dependency-injection container for all session-scoped services.
+Dependency-injection container for all session-scoped services. Created via factory method with three bootstrappers.
 
 | Service | Purpose |
 |---------|---------|
@@ -62,26 +62,30 @@ Dependency-injection container for all session-scoped services.
 | `config` | Session configuration |
 | `llmClient` | LLM client (OpenAI or local LFM) |
 | `modelCatalog` | Database of available models and providers |
-| `llmClientFactory` | Factory for creating LLM clients |
+| `llmClientFactory` | Factory for creating LLM clients (cached by provider) |
 | `traceRecorder` | Trace persistence sink |
+| `recordingService` | Session history recording |
 | `userResponseChannel` | Suspension bridge for `ask_user` tool (CompletableDeferred) |
+
+### Bootstrappers
+
+Creation is split into three bootstrappers:
+
+| Bootstrapper | Creates |
+|-------------|---------|
+| `SessionLlmBootstrapper` | `ModelCatalog` (from `assets/llm_models.json`), `LLMClientFactory`, `LLMClient` |
+| `SessionToolingBootstrapper` | `PolicyEngine`, `AgentSessionState`, `ToolRegistry`, `ToolRouter` |
+| `SessionHistoryBootstrapper` | `HistoryManager` (maxTokenBudget=18,000, AGGRESSIVE truncation), `SessionRecordingService` |
 
 ### Cleanup
 
-`SessionServices.cleanup()` calls `platform.stop()` to release platform resources (virtual display teardown, `ImageReader` release). Both calls are wrapped in try-catch to ensure cleanup completes even on errors.
+`SessionServices.cleanup()` calls `platform.stop()` to release platform resources (virtual display teardown, `ImageReader` release). Wrapped in try-catch for resilience.
 
 ### Creation
 
 ```kotlin
-// SessionServices.create() now loads ModelCatalog from assets/llm_models.json
 val services = SessionServices.create(config, platform, apiKeys, context, scope, traceRecorder)
 ```
-
-The factory method:
-1. Loads `ModelCatalog` from assets (defines available models and API providers)
-2. Creates `LLMClientFactory`
-3. Instantiates appropriate `LLMClient` (OpenAI or Local) based on config
-4. Wires up all other services
 
 Built-in tool registration includes:
 - `mobile_action`, `open_app`, `system_button`, `wait`
@@ -99,7 +103,7 @@ Bridges `AgentSession` and runtime `Agent`:
 - Chooses main agent definition via `AgentDefRegistry.mainFor(config.agentMode)`
 - Builds `AgentExecutionConfig` from selected definition (prompt + allowed tools + execution role)
 - Registers `delegate_task` only when selected definition requires delegation
-- Registers `ask_user` with `UserResponseChannel` and event emitter
+- Always registers `ask_user` with `UserResponseChannel` and event emitter
 - Handles lifecycle (`start`, `pause`, `resume`, `stop`, `shutdown`)
 - Wires `AgentRegistry` + `IsolatedSubAgentRunner` when delegation is enabled
 
@@ -114,7 +118,7 @@ Bridges `AgentSession` and runtime `Agent`:
 
 When the user requests takeover (`Op.Takeover`), `AgentSession.handleTakeover()` calls `agentRunner.pause()`, which returns `Deferred<Unit>`. The session awaits this deferred before emitting `SessionTakeover`. Thus:
 
-1. User taps 接管 → capsule shows TakeoverPending immediately
+1. User taps takeover → capsule shows TakeoverPending immediately
 2. Session calls `agentRunner.pause()`, receives deferred
 3. Agent finishes current turn, then actually pauses (loop top check)
 4. Deferred completes → session emits `SessionTakeover`
@@ -138,10 +142,10 @@ Shared state container accessible to agent and tools:
 
 | Event | Description |
 |-------|-------------|
-| `SessionStarted` | First transition from Created → Running |
-| `TaskStarted` | New task begins |
-| `TaskCompleted` | Task ends, session → Idle |
-| `SessionCompleted` | Session terminates |
+| `SessionStarted` | First transition from Created → Running (goal) |
+| `TaskStarted` | New task begins (taskId, input) |
+| `TaskCompleted` | Task ends (taskId, result, reason) |
+| `SessionCompleted` | Session terminates (result, reason) |
 
 → See: [Protocol](../protocol/protocol.md)
 
@@ -191,11 +195,11 @@ session.events.collect { event ->
 
 → See: `session/UserResponseChannel.kt`
 
-Suspension bridge between the `ask_user` tool and the UI. Only one pending request is allowed at a time.
+Suspension bridge between the `ask_user` tool and the UI. Uses `AtomicReference<PendingRequest?>` for thread safety. Only one pending request is allowed at a time.
 
 | Method | Called By | Purpose |
 |--------|-----------|---------|
-| `awaitResponse(callId)` | `AskUserInvocation.execute()` | Suspend until user responds |
+| `awaitResponse(callId)` | `AskUserTool.execute()` | Suspend until user responds |
 | `deliver(callId, response)` | `AgentSession.handleUserResponse()` | Complete the deferred with user's answer |
 | `cancel()` | `AgentSession.handleInterrupt/Shutdown()` | Cancel pending request |
 

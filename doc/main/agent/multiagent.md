@@ -1,7 +1,7 @@
 # Multi-Agent System
 
 > Sub-agent delegation, executor agents, and orchestration.
-> Last updated: 2026-02-09 (commit: 917ebf7)
+> Last updated: 2026-02-17 (commit: c57e349)
 
 ## Planner-Executor Pattern
 
@@ -9,19 +9,19 @@ In `AgentMode.PRO`, the main agent is a **planner** and delegates atomic UI acti
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│              Main Agent (Planner)                             │
-│  - Plans multi-step tasks                                     │
-│  - Manages todos and scratchpad                               │
-│  - Delegates atomic actions via delegate_task                 │
+│              Main Agent (Planner)                              │
+│  - Plans multi-step tasks                                      │
+│  - Manages todos and scratchpad                                │
+│  - Delegates atomic actions via delegate_task                  │
 └───────────────────────┬────────────────────────────────────────┘
                         │ delegate_task(query)
                         ▼
 ┌────────────────────────────────────────────────────────────────┐
-│              Executor Agent (Sub-Agent)                       │
-│  - Receives semantic intent                                   │
-│  - Grounds to actual UI elements                              │
-│  - Executes one atomic action                                 │
-│  - Returns success/failure summary to planner                 │
+│              Executor Agent (Sub-Agent)                        │
+│  - Receives semantic intent                                    │
+│  - Grounds to actual UI elements                               │
+│  - Executes one atomic action                                  │
+│  - Returns success/failure summary to planner                  │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -38,10 +38,10 @@ In `AgentMode.BASIC`, delegation is disabled and the standalone main agent execu
 Static role definitions centralize:
 - system prompt text
 - allowed tool set
-- execution role
+- execution role (`PLANNER`, `EXECUTOR`, `STANDALONE`)
 - whether delegation tooling must be wired
 
-Main-agent selection is mode-based (`BASIC` -> standalone, `PRO` -> planner), and executor definition is reused by sub-agent wiring.
+Main-agent selection is mode-based (`BASIC` → standalone, `PRO` → planner), and executor definition is reused by sub-agent wiring.
 
 ### AgentDefinition
 
@@ -88,10 +88,11 @@ class AgentRegistry {
 Executes one delegated request with isolated runtime state:
 - Creates child `Agent` with filtered tools
 - Uses child history (no parent history access)
-- Shares parent scratchpad intentionally for handoff
+- Shares parent scratchpad intentionally for data handoff
 - Emits bridged activity events to parent session
 - Returns normalized `SubAgentResult(success, message)`
-- Produces a narrative summary when step limit is reached
+- Produces a narrative summary when step limit is reached (via `ExecutorStepPolicy`)
+- Handles timeout via `withTimeoutOrNull`
 
 ---
 
@@ -121,30 +122,38 @@ Do not pass full history/screenshots/raw tree dumps. Executor captures fresh scr
 
 ---
 
-## Built-in Sub-Agent
+## Built-in Sub-Agents
 
 | Agent | Description | Tools |
 |-------|-------------|-------|
-| `executor` | UI grounding and atomic action execution | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task` |
+| `executor` | UI grounding and atomic action execution | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task`, `ask_user` |
 
 ### Executor Agent
 
 → See: `agent/definition/ExecutorAgentDef.kt`
 
-`ExecutorAgentDef` includes:
 - Name: `executor`
-- Prompt: `ExecutorAgentDef.systemPrompt`
-- Max turns: `5` (implicitly via `AgentDefinition` default or override)
 - Role: `AgentExecutionRole.EXECUTOR`
+- Max turns: defined in `AgentDefinition` (default 10)
+- Prompt: covers query types (TAP, SCROLL, EXTRACT, TYPE, BACK, OPEN APP), failure recovery, one-atomic-action-per-delegation rule
 
 ### Planner Agent
 
 → See: `agent/definition/PlannerAgentDef.kt`
 
-`PlannerAgentDef` includes:
 - Name: `planner`
-- Tools: `open_app`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task`
 - Role: `AgentExecutionRole.PLANNER`
+- Tools: `open_app`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task`
+- Prompt: high-level planning, delegation patterns, failure recovery, atomic action guidance for executor
+
+### Standalone Agent
+
+→ See: `agent/definition/StandaloneAgentDef.kt`
+
+- Name: `standalone`
+- Role: `AgentExecutionRole.STANDALONE`
+- Tools: `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `write_todos`, `complete_task`, `ask_user`
+- Prompt: end-to-end task completion, direct UI interaction
 
 ---
 
@@ -152,9 +161,20 @@ Do not pass full history/screenshots/raw tree dumps. Executor captures fresh scr
 
 → See: `session/SessionAgentRunner.kt`
 
-`SessionAgentRunner` registers `delegate_task` only when the active main-agent definition requires it (via `requiresDelegationToolRegistration`).
+`SessionAgentRunner` registers `delegate_task` only when the active main-agent definition requires it (via `requiresDelegationToolRegistration`). It also always registers `ask_user`.
 
-When enabled, it creates a default `AgentRegistry` (`executor` included) and connects it to `IsolatedSubAgentRunner`.
+When delegation is enabled, it creates a default `AgentRegistry` (with executor included) and connects it to `IsolatedSubAgentRunner`.
+
+---
+
+## Model Resolution for Agents
+
+→ See: `agent/AgentModelResolver.kt`
+
+Each agent can use a different model:
+- **Main agent**: uses `SessionConfig.mainModel` (default `gpt-5.2`)
+- **Executor agent**: uses `SessionConfig.executorModel` if set, otherwise falls back to main model
+- Resolution goes through `ModelCatalog` to find provider details and create the appropriate `LLMClient`
 
 ---
 
@@ -162,9 +182,9 @@ When enabled, it creates a default `AgentRegistry` (`executor` included) and con
 
 | Event | Description |
 |-------|-------------|
-| `SubAgentStarted` | Delegation begins |
-| `SubAgentActivity` | Bridged status from sub-agent |
-| `SubAgentCompleted` | Sub-agent finished |
+| `SubAgentStarted` | Delegation begins (agentName, query) |
+| `SubAgentActivity` | Bridged status from sub-agent (agentName, activity) |
+| `SubAgentCompleted` | Sub-agent finished (agentName, success, message) |
 
 → See: [Protocol Events](../protocol/protocol.md#sub-agent-events)
 
@@ -173,7 +193,7 @@ When enabled, it creates a default `AgentRegistry` (`executor` included) and con
 ## Adding New Sub-Agents
 
 1. Define a new object inheriting `AgentDef` in `agent/definition/`.
-2. Register it in `AgentRegistry` creation.
+2. Register it in `AgentRegistry` creation via `SubAgentRunner.kt`.
 3. Keep prompt + tool list tightly scoped.
 4. Ensure `SessionAgentRunner` wiring handles it.
 

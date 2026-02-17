@@ -1,145 +1,226 @@
 # UI Style Guide
 
 > Design system: colors, typography, shapes, and visual specifications.
-> Last updated: 2026-02-04 (commit: da83b53ba4e849e52b45158a3485261d7399facb)
+> Last updated: 2026-02-17 (commit: c57e349)
 
 ## Design System
 
-The Android Agent uses Material 3 design with a premium chat-focused aesthetic.
+The Android Agent uses Material 3 with a chat-focused aesthetic. Dark mode support via system theme detection.
 
 ### Theme Files
 
-→ See: `ui/theme/`
+> See: `ui/theme/`
 
 | File | Purpose |
 |------|---------|
-| `Color.kt` | Light/Dark color schemes |
-| `Shape.kt` | Bubble shapes, card shapes |
-| `Theme.kt` | ChatTheme composable + system bar config |
-| `Type.kt` | Typography definitions |
-| `WindowInsets.kt` | AppWindowInsets for consistent inset handling |
+| `Color.kt` | Light/Dark color definitions |
+| `Shape.kt` | Bubble shapes, card shapes, special shapes |
+| `Theme.kt` | `ChatTheme` composable + system bar config |
+| `Type.kt` | `AgentTypography` scale |
+| `WindowInsets.kt` | `AppWindowInsets` singleton for consistent inset handling |
+
+### ChatTheme
+
+> See: `ui/theme/Theme.kt`
+
+```kotlin
+@Composable
+fun ChatTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit)
+```
+
+- Selects `ChatLightColorScheme` or `ChatDarkColorScheme` based on system theme
+- Configures status bar icon appearance (`isAppearanceLightStatusBars`)
+- Sets bar colors on API < 35
+- Applies `AgentTypography` and `AgentShapes`
 
 ---
 
 ## Color Palette
 
-Clean, modern palette inspired by ChatGPT and contemporary AI assistants.
+Clean, modern palette inspired by contemporary AI assistants. High clarity, warm neutrals.
 
 ### Light Theme
 
-```kotlin
-val LightColorScheme = lightColorScheme(
-    // Primary - Soft black for CTA (send button)
-    primary = Color(0xFF3B3B3B),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFF0F0F0),
-    onPrimaryContainer = Color(0xFF3B3B3B),
-    
-    // Secondary - ChatGPT teal for success/accent
-    secondary = Color(0xFF10A37F),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE6F4F1),
-    onSecondaryContainer = Color(0xFF0D7355),
-    
-    // Surface - Pure white, unified
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF0D0D0D),
-    surfaceVariant = Color(0xFFF7F7F8),
-    onSurfaceVariant = Color(0xFF5D5D5D),
-    
-    // Background - Pure white
-    background = Color(0xFFFFFFFF),
-    onBackground = Color(0xFF0D0D0D),
-    
-    // Error
-    error = Color(0xFFEF4146),
-    onError = Color.White,
-    
-    // Outline - Visible borders
-    outline = Color(0xFFE5E5E5),
-    outlineVariant = Color(0xFFEEEEEE)
-)
-```
+> See: `ui/theme/Color.kt`
 
-### Semantic Colors
+| Role | Color | Hex | Usage |
+|------|-------|-----|-------|
+| Primary | Soft black | `#3B3B3B` | Send button, CTA elements |
+| On Primary | White | `#FFFFFF` | Text on primary |
+| Primary Container | Light gray | `#F0F0F0` | Chips, secondary containers |
+| Secondary | Teal | `#10A37F` | Success states, accents |
+| Secondary Container | Light teal | `#E6F4F1` | Success backgrounds |
+| Surface | Pure white | `#FFFFFF` | Main surface |
+| Surface Variant | Light gray | `#F7F7F8` | Agent bubble background |
+| On Surface | Near black | `#0D0D0D` | Primary text |
+| On Surface Variant | Medium gray | `#5D5D5D` | Secondary text, icon tints |
+| Background | Pure white | `#FFFFFF` | Screen background |
+| Error | Red | `#EF4146` | Error states |
+| Error Background | Light red | `#FEEEF` | Error containers |
+| Outline | Light border | `#E5E5E5` | Visible borders |
+| Outline Variant | Subtle border | `#EEEEEE` | Secondary borders |
+
+### Dark Theme
 
 | Role | Color | Hex |
 |------|-------|-----|
-| Primary (Send Button) | Soft black | `#3B3B3B` |
-| Success Teal | ChatGPT green | `#10A37F` |
-| Warning | Warm amber | `#F5A623` |
-| Error Red | Clear red | `#EF4146` |
-| Info Blue | Standard blue | `#2563EB` |
-| User Bubble | Light gray | `#EFEFEF` |
-| Icon Tint | Medium gray | `#5D5D5D` |
+| Primary | Light gray | `#EEEEEE` |
+| On Primary | Dark text | `#1A1A1A` |
+| Primary Container | Dark container | `#2D2D2D` |
+| Secondary | Bright teal | `#4ADE9E` |
+| Surface | Dark surface | `#1A1A1A` |
+| Surface Variant | Slightly lighter | `#2D2D2D` |
+| On Surface | Light text | `#EEEEEE` |
+| On Surface Variant | Medium text | `#B4B4B4` |
+| Background | Near black | `#0D0D0D` |
+| Error | Light red | `#FF6B6B` |
+| Outline | Dark border | `#3D3D3D` |
+
+### Semantic Colors
+
+| Role | Light | Dark | Hex (Light) |
+|------|-------|------|------------|
+| Success | Teal | Bright teal | `#10A37F` |
+| Warning | Warm amber | — | `#F5A623` |
+| Error | Clear red | Light red | `#EF4146` |
+| Info | Blue | — | `#2563EB` |
+
+### Chat-Specific Colors
+
+| Element | Light Hex | Description |
+|---------|-----------|-------------|
+| User Bubble | `#EFEFEF` | Light gray background |
+| User Bubble Text | `#1A1A1A` | Dark text on light bubble |
+| Send Button Active | `#000000` | Pure black when input has text |
+| Send Button Icon | `#FFFFFF` | White icon on black button |
+| Icon Primary | `#5D5D5D` | Medium gray icon tint |
+| Icon Secondary | `#8E8E8E` | Lighter icon tint |
+
+### Interactive States
+
+| State | Hex |
+|-------|-----|
+| Hover | `#F7F7F8` |
+| Pressed | `#EEEEEE` |
+| Disabled Background | `#E5E5E5` |
+| Disabled Text | `#B4B4B4` |
+
+### Overlay Colors
+
+Overlay elements use a separate palette defined in `CapsuleColors`:
+
+| Role | Color | Hex |
+|------|-------|-----|
+| Running / Active | Blue | `#2563EB` |
+| Takeover / Paused | Amber | `#F59E0B` |
+| Done / Success | Teal | `#0D9488` |
+| Error | Red | `#EF4444` |
+| Executing (glow) | Purple | `#7C3AED` |
+
+See [Overlay](overlay.md) for full color specifications per component.
 
 ---
 
 ## Typography
 
-Material 3 typography scale optimized for chat:
+> See: `ui/theme/Type.kt`
 
-```kotlin
-val AgentTypography = Typography(
-    // Display - Empty state title
-    displayMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 36.sp),
-    
-    // Title - Header (Medium weight for elegance)
-    titleLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 20.sp, lineHeight = 28.sp),
-    
-    // Body - Chat messages
-    bodyLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
-    
-    // Labels - Action cards, timestamps
-    labelLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp)
-)
-```
+Full Material 3 typography scale (`AgentTypography`):
 
-| Style | Usage |
-|-------|-------|
-| `displayMedium` | Empty state title |
-| `titleLarge` | Header title |
-| `bodyLarge` | Chat messages |
-| `labelLarge` | Action cards, timestamps |
+### Display
+
+| Style | Weight | Size | Line Height | Usage |
+|-------|--------|------|-------------|-------|
+| `displayLarge` | Bold | 48sp | 56sp | — |
+| `displayMedium` | Bold | 36sp | 44sp | — |
+| `displaySmall` | SemiBold | 28sp | 36sp | Empty state title |
+
+### Headline
+
+| Style | Weight | Size | Line Height | Usage |
+|-------|--------|------|-------------|-------|
+| `headlineLarge` | SemiBold | 24sp | 32sp | — |
+| `headlineMedium` | SemiBold | 20sp | 28sp | — |
+| `headlineSmall` | Medium | 18sp | 24sp | — |
+
+### Title
+
+| Style | Weight | Size | Line Height | Usage |
+|-------|--------|------|-------------|-------|
+| `titleLarge` | SemiBold | 18sp | 24sp | Header title |
+| `titleMedium` | Medium | 16sp | 22sp | — |
+| `titleSmall` | Medium | 14sp | 20sp | — |
+
+### Body
+
+| Style | Weight | Size | Line Height | Usage |
+|-------|--------|------|-------------|-------|
+| `bodyLarge` | Normal | 16sp | 24sp | Chat messages |
+| `bodyMedium` | Normal | 14sp | 20sp | Secondary content |
+| `bodySmall` | Normal | 12sp | 16sp | Timestamps |
+
+### Label
+
+| Style | Weight | Size | Line Height | Usage |
+|-------|--------|------|-------------|-------|
+| `labelLarge` | Medium | 14sp | 20sp | Action cards, buttons |
+| `labelMedium` | Medium | 12sp | 16sp | Status island text |
+| `labelSmall` | Medium | 10sp | 14sp | Captions |
 
 ---
 
 ## Shapes
 
-Custom shapes for chat bubbles and cards:
+> See: `ui/theme/Shape.kt`
+
+### Material 3 Shape Scale (`AgentShapes`)
+
+| Scale | Radius | Usage |
+|-------|--------|-------|
+| `small` | 8dp | Chips, small cards |
+| `medium` | 12dp | Action cards, list items |
+| `large` | 20dp | Bubbles, sheets, dialogs |
+| `extraLarge` | 24dp | Extra large sheets |
+
+### Chat Bubble Shapes
+
+Asymmetric corners for natural conversation feel:
 
 ```kotlin
-// User bubble: rounded except bottom-right
+// User bubble: rounded except bottom-right (pointing right)
 val BubbleShapeUser = RoundedCornerShape(
     topStart = 20.dp, topEnd = 20.dp,
     bottomStart = 20.dp, bottomEnd = 6.dp
 )
 
-// Agent bubble: rounded except top-left
+// Agent bubble: rounded except top-left (pointing left)
 val BubbleShapeAgent = RoundedCornerShape(
     topStart = 6.dp, topEnd = 20.dp,
     bottomStart = 20.dp, bottomEnd = 20.dp
 )
-
-// Action cards
-val CardShape = RoundedCornerShape(12.dp)
-
-// Smart Capsule
-val CapsuleShape = RoundedCornerShape(24.dp)
 ```
+
+### Special Shapes
+
+| Shape | Definition | Usage |
+|-------|-----------|-------|
+| `CapsuleShape` | `RoundedCornerShape(24.dp)` | Smart Capsule overlay |
+| `PillShape` | `RoundedCornerShape(percent = 50)` | Fully rounded pills |
+| `CardShape` | `RoundedCornerShape(12.dp)` | Action cards, containers |
+| `InputShape` | `RoundedCornerShape(24.dp)` | Text input fields |
+| `SheetShape` | Top corners 20dp, bottom 0dp | Bottom sheets |
 
 ---
 
 ## Visual Identity
 
-| Element | Style |
-|---------|-------|
-| Background | Pure white (#FFFFFF) |
-| User Bubbles | Light gray (#EFEFEF), dark text |
-| Agent Bubbles | Surface variant (#F7F7F8), dark text |
-| Action Cards | Bordered cards with status colors |
-| Task Banner | Subtle surface variant with pulsing dot |
-| Send Button | Pure black when text entered, gray when empty |
+| Element | Light Mode | Dark Mode |
+|---------|-----------|-----------|
+| Background | Pure white (`#FFFFFF`) | Near black (`#0D0D0D`) |
+| User Bubbles | Light gray (`#EFEFEF`) + dark text | Dark container + light text |
+| Agent Bubbles | Surface variant (`#F7F7F8`) + dark text | Dark variant + light text |
+| Action Cards | Bordered cards with status colors | Same pattern, dark surfaces |
+| Send Button | Pure black when text entered, gray when empty | Light gray when text, dark when empty |
 
 ---
 
@@ -147,9 +228,37 @@ val CapsuleShape = RoundedCornerShape(24.dp)
 
 ### Edge-to-Edge
 
-- Status bar: Transparent
-- Navigation bar: Transparent with scrim
-- Proper inset handling via `AppWindowInsets`
+- Status bar: Transparent (icon color adapts to theme)
+- Navigation bar: Transparent (color set on API < 35)
+- Insets managed via `AppWindowInsets` singleton
+
+### AppWindowInsets
+
+> See: `ui/theme/WindowInsets.kt`
+
+```kotlin
+object AppWindowInsets {
+    val systemBars: WindowInsets     // Full system bars (status + navigation)
+    val statusBars: WindowInsets     // Status bar only (headers, drawers)
+    val navigationBars: WindowInsets // Navigation bar only (bottom content)
+    val none: WindowInsets           // Edge-to-edge (parent handles insets)
+}
+```
+
+Use Material 3 built-in `windowInsets` parameters on components (`ModalBottomSheet`, `Scaffold`, etc.) rather than manual `windowInsetsPadding()` modifiers.
+
+---
+
+## File Structure
+
+```
+ui/theme/
+├── Color.kt          # Light/Dark color definitions (semantic + chat-specific)
+├── Shape.kt          # AgentShapes, bubble shapes, special shapes
+├── Theme.kt          # ChatTheme composable (light/dark scheme selection)
+├── Type.kt           # AgentTypography (full Material 3 scale)
+└── WindowInsets.kt   # AppWindowInsets singleton
+```
 
 ---
 
@@ -157,4 +266,4 @@ val CapsuleShape = RoundedCornerShape(24.dp)
 
 - [User Interaction](user_interaction.md) - Pages, components, user behaviors
 - [Tech Design](tech_design.md) - Technical implementation details
-- [Overlay](overlay.md) - Overlay visual specifications
+- [Overlay](overlay.md) - Overlay visual specifications and capsule colors

@@ -1,18 +1,18 @@
 # Turn Prompt Anatomy
 
 > What each turn sends to the LLM: instructions, input items, and filtered tools.
-> Last updated: 2026-02-09 (commit: e2e2f8cde08b4b5fb225d1f09a616b6630db1695)
+> Last updated: 2026-02-17 (commit: c57e349)
 
 ## Overview
 
 Each turn request is assembled by three runtime pieces:
 
-1. `AgentTurnRunner` chooses warnings and system prompt
+1. `TurnPlanningPhaseRunner` chooses warnings and system prompt
 2. `PromptBuilder` constructs `input` items
 3. `Turn` sends `instructions/input/tools` to the selected model and parses response
 
 Primary wiring:
-- `agent/AgentTurnRunner.kt`
+- `agent/TurnPlanningPhaseRunner.kt`
 - `agent/cognition/prompt/PromptBuilder.kt`
 - `agent/Turn.kt`
 
@@ -23,14 +23,14 @@ Primary wiring:
 System prompt text is sourced from the active `AgentDef` and passed unchanged to `Turn`.
 
 - Main agent (`SessionAgentRunner`):
-  - `AgentMode.BASIC` -> `StandaloneAgentDef.systemPrompt`
-  - `AgentMode.PRO` -> `PlannerAgentDef.systemPrompt`
+  - `AgentMode.BASIC` → `StandaloneAgentDef.systemPrompt`
+  - `AgentMode.PRO` → `PlannerAgentDef.systemPrompt`
 - Sub-agent executor:
   - `ExecutorAgentDef.systemPrompt`
 
-`AgentTurnRunner` now enforces prompt presence with `requireNotNull(config.systemPrompt)`.
+`AgentTurnRunner` enforces prompt presence with `requireNotNull(config.systemPrompt)`.
 
--> See: `agent/definition/AgentDefRegistry.kt`, `agent/AgentTurnRunner.kt`
+→ See: `agent/definition/AgentDefRegistry.kt`, `agent/AgentTurnRunner.kt`
 
 ---
 
@@ -46,11 +46,11 @@ System prompt text is sourced from the active `AgentDef` and passed unchanged to
 
 History items are converted from `ResponseItem` to Responses API `ResponseInputItem`:
 
-- `ResponseItem.Message` -> `easy_input_message`
-- `ResponseItem.FunctionCall` -> `function_call`
-- `ResponseItem.FunctionCallOutput` -> `function_call_output`
+- `ResponseItem.Message` → `easy_input_message`
+- `ResponseItem.FunctionCall` → `function_call`
+- `ResponseItem.FunctionCallOutput` → `function_call_output`
 
-Screen observations are tagged by `ResponseItem.Message(isScreenObservation = true)`.  
+Screen observations are tagged by `ResponseItem.Message(isScreenObservation = true)`.
 To control growth, `PromptBuilder` keeps only recent full screen observations and compresses older ones to:
 
 `Screen: {N} elements (compressed)`
@@ -73,15 +73,15 @@ When todos or scratchpad keys exist, a single user message is inserted:
 ```
 
 - Omitted when both todo list and scratchpad are empty.
-- Scratchpad exposes keys only (not values).
+- Scratchpad exposes keys only (not values) in the memory section.
 
 ### 2.3 Observation Section
 
 Final user message always includes current screen JSON:
 
 ````text
-⚠️ ...optional warning...
-🛑 ...optional final-turn warning...
+[warning] ...optional warning...
+[final-turn] ...optional final-turn warning...
 
 Screen state (N elements):
 ```json
@@ -89,23 +89,23 @@ Screen state (N elements):
 ```
 ````
 
-If screenshot input is available and backend is OpenAI, the message also attaches image content and appends:
+If screenshot input is available and backend supports vision, the message also attaches image content and appends:
 
 `Screenshot attached (compressed).`
 
 ### Warnings Included
 
 Warnings are prepared in `AgentTurnRunner.buildWarnings(...)`:
-- Loop warning from `LoopDetectionPolicy` (`⚠️` or `🚨`)
-- Final-turn warning when step policy enters `ForceStop` (`🛑 FINAL TURN (...)`)
+- Loop warning from `LoopDetectionPolicy` (WARNING or CRITICAL severity)
+- Final-turn warning when step policy enters `ForceStop`
 
-No XML `<system_reminder>` block and no "available tools" line are injected anymore.
+→ See: `agent/cognition/policy/LoopDetectionPolicy.kt`, `agent/cognition/policy/ExecutorStepPolicy.kt`
 
 ---
 
 ## 3. Screen Observation Recording
 
-After input items are built (so current turn does not duplicate itself), `AgentTurnRunner` records the current screen into history as:
+After input items are built (so current turn does not duplicate itself), `TurnPlanningPhaseRunner` records the current screen into history as:
 
 - `role = "user"`
 - `isScreenObservation = true`
@@ -113,7 +113,7 @@ After input items are built (so current turn does not duplicate itself), `AgentT
 
 This makes the next turn history-aware while still keeping the current prompt deterministic.
 
--> See: `agent/AgentTurnRunner.kt`, `history/HistoryManager.kt`
+→ See: `agent/TurnPlanningPhaseRunner.kt`, `history/HistoryManager.kt`
 
 ---
 
@@ -121,17 +121,17 @@ This makes the next turn history-aware while still keeping the current prompt de
 
 `Turn` generates tool schemas from `ToolRegistry` and applies `allowedToolNames` filtering.
 
-Mode-level allowlists are still defined by session/agent wiring:
+Mode-level allowlists are defined by agent definitions:
 
 | Mode | Available Tools |
 |------|-----------------|
-| Standalone (`BASIC`) | `mobile_action`, `system_button`, `wait`, `open_app`, `write_todos`, `scratchpad`, `complete_task` |
+| Standalone (`BASIC`) | `mobile_action`, `system_button`, `wait`, `open_app`, `write_todos`, `scratchpad`, `complete_task`, `ask_user` |
 | Planner (`PRO` main) | `open_app`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task` |
-| Executor (delegated) | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task` |
+| Executor (delegated) | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task`, `ask_user` |
 
 Tool calls returned by the model but outside the allowlist are dropped before completion checks.
 
--> See: `agent/Turn.kt`, `session/SessionAgentRunner.kt`
+→ See: `agent/Turn.kt`, `agent/definition/`
 
 ---
 
@@ -148,7 +148,7 @@ Conceptual shape of one request:
     {"type": "function_call", "id": "...", "name": "write_todos", "arguments": "{...}"},
     {"type": "function_call_output", "call_id": "...", "output": "Success: ..."},
     {"role": "user", "content": "## Working Memory\n..."},
-    {"role": "user", "content": "⚠️ ...\n\nScreen state (16 elements):\n```json\n...\n```"}
+    {"role": "user", "content": "Screen state (16 elements):\n```json\n...\n```"}
   ],
   "tools": [
     {"type": "function", "name": "mobile_action", "parameters": {...}},
@@ -166,7 +166,16 @@ Conceptual shape of one request:
 - a `complete_task` call exists, or
 - there are no tool calls and assistant text is present
 
-`AgentTurnRunner` then applies `TurnToolPolicy` arbitration for one-tool-per-turn execution and completion deferral rules.
+`TurnPlanningPhaseRunner` then applies `TurnToolPolicy` arbitration for one-tool-per-turn execution and completion deferral rules.
+
+### Tool Call Recovery
+
+When the LLM returns tool calls formatted as text instead of structured tool calls, `Turn` attempts recovery:
+- Parses JSON objects with `name`/`tool_name` and `arguments`/`args` fields
+- Matches inline `toolName {...}` patterns
+- Strips markdown code fences before parsing
+
+→ See: `agent/Turn.kt`
 
 ---
 
@@ -185,7 +194,7 @@ When trace is enabled, request/response artifacts are written under `trace/artif
 
 Additional artifacts include raw/sanitized a11y trees, screenshots, tool args/results, and post-action observation records.
 
--> See: `trace/AgentTrace.kt`
+→ See: `trace/AgentTrace.kt`
 
 ---
 

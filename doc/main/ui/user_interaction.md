@@ -1,20 +1,11 @@
 # UI User Interaction
 
 > Pages, components, and user interaction flows.
-> Last updated: 2026-02-04 (commit: da83b53ba4e849e52b45158a3485261d7399facb)
+> Last updated: 2026-02-17 (commit: c57e349)
 
 ## Overview
 
-The Android Agent uses a **chat-first conversational interface** built with Jetpack Compose and Material 3. Designed around "Invisible Intelligence" — the interface disappears, leaving only the conversation.
-
-| Goal | Implementation |
-|------|----------------|
-| **Chat-First** | Conversational UI with streaming |
-| **Beautiful UI** | Material 3 with premium polish |
-| **Edge-to-Edge** | Full screen with proper insets |
-| **Reactive** | State-driven, real-time streaming |
-| **Ubiquitous** | Overlay follows users across apps |
-| **Session History** | Browse and resume past conversations |
+Chat-first conversational interface built with Jetpack Compose and Material 3. The Smart Capsule replaces the traditional input dock, serving as the unified interaction surface across all contexts.
 
 ---
 
@@ -22,15 +13,13 @@ The Android Agent uses a **chat-first conversational interface** built with Jetp
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                        ChatScreen                               │
+│                        ChatScreen                              │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │ ChatHeader     │ [≡] Android Agent [+]                  │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
-│  │ TaskBanner    │ "Working on: ..." with status dot       │   │
-│  ├───────────────┼─────────────────────────────────────────┤   │
 │  │ MessageList   │ User/Agent bubbles, Action cards        │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
-│  │ InputDock     │ Text input + Send/Stop button           │   │
+│  │ SmartCapsule  │ 3-row: status/controls/input            │   │
 │  └─────────────────────────────────────────────────────────┘   │
 ├────────────────────────────────────────────────────────────────┤
 │  NavigationDrawer (session history + settings entry)           │
@@ -45,33 +34,29 @@ The Android Agent uses a **chat-first conversational interface** built with Jetp
 
 | Component | Purpose |
 |-----------|---------|
-| **ChatHeader** | Menu (≡) left, title center, new chat (+) right |
-| **TaskBanner** | Current task context with animated status dot |
-| **MessageBubble** | User/Agent message bubbles |
-| **StreamingText** | Text with blinking cursor during streaming |
-| **ThinkingIndicator** | Animated dots while processing |
-| **ActionCard** | Tool execution cards with status states |
-| **InputDock** | Input field with Send/Stop toggle |
-| **EmptyState** | First-launch experience with suggestions |
+| **ChatHeader** | Menu (≡) left, title center, new chat (+) right (visible when messages exist) |
+| **MessageBubble** | User/Agent message bubbles (asymmetric corner shapes) |
+| **StreamingText** | Text with blinking cursor (530ms alpha animation) |
+| **ThinkingIndicator** | 3 animated dots (staggered 200ms delay, 600ms alpha cycle) |
+| **ActionCard** | Tool execution card with state-dependent styling |
+| **EmptyState** | First-launch with SmartToy icon + 3 suggestion chips |
+| **SmartCapsuleCompose** | 3-row capsule: status dot + thought, controls, input |
 
----
+### ActionCard States
 
-## Settings Sheet
+| State | Background | Border | Icon |
+|-------|-----------|--------|------|
+| Proposed | Surface | Outline | None |
+| Executing | Blue | Blue | Spinner |
+| Success | Teal | Teal | Checkmark |
+| Failed | Red | Red | X |
+| Skipped | Surface | Dashed outline | None |
 
-Modal bottom sheet with custom header (no drag handle).
+### EmptyState Suggestion Chips
 
-**Settings Items:**
-- LLM backend (Cloud/OpenAI vs Local)
-- Cloud model selection (GPT-5.2, GPT-5.2 Pro)
-- Local model selection with download status
-- Execution mode (`Basic` standalone or `Pro` planner+executor)
-- Screenshot input toggle
-- API key (cloud only)
-- Max turns (10, 20, 50)
-- Accessibility service status
-- Overlay permission status
-- Debug mode toggle
-- About & version info
+- "Check my unread emails"
+- "Turn on Do Not Disturb"
+- "Search for nearby restaurants"
 
 ---
 
@@ -87,20 +72,23 @@ Opens via menu button (≡). Contains session history and settings access.
 ├─────────────────────────────────┤
 │  [ + New Conversation ]         │
 ├─────────────────────────────────┤
-│  Recent                         │
-│  ───────────────────────────────│
 │  ┌───────────────────────────┐  │
 │  │ "Check my email and..."   │  │
-│  │  5 messages • 2 hours ago │🗑│
+│  │  5 messages · 2 hours ago │🗑│
 │  └───────────────────────────┘  │
 │  ...                            │
 ├─────────────────────────────────┤
 │  ⚙ Settings                     │
-│    gpt-5.2 • v1.0               │
+│    gpt-5.2 · v1.0               │
 └─────────────────────────────────┘
 ```
 
+- Session items: title (2 lines max) + message count + relative time + delete icon
+- Settings entry at bottom: icon + model name + app version
+
 ### Relative Time Formatting
+
+> See: `ui/session/TimeUtils.kt`
 
 | Time Difference | Output |
 |----------------|--------|
@@ -118,31 +106,98 @@ Opens via menu button (≡). Contains session history and settings access.
 
 | AgentEvent | UI Update |
 |------------|-----------|
-| `TaskStarted` | Add user message, show Task Banner, disable input |
-| `TurnPhaseChanged` | Update Task Banner subtitle |
+| `TaskStarted` | Add user message + agent message (Thinking) |
+| `TurnStarted` | Clear streaming buffer |
 | `MessageDelta` | Append to agent bubble, show streaming cursor |
-| `ActionExecuted` | Add action card to agent bubble |
-| `TaskCompleted` | Mark bubble complete, enable input |
-| `SessionError` | Show error in Task Banner |
+| `ActionProposed` | Add action card (Proposed state) |
+| `ActionExecuted` | Update action card state + result |
+| `TaskCompleted` | Append completion text, mark bubble Complete |
+| `SessionError` | Mark bubble Complete |
+| `SupplementReceived` | Add user message for supplement |
+| `ThoughtUpdate` | Update capsule thought text |
+| `AskUser` | Capsule transitions to WaitingForInput/WaitingForAction |
 
-### User Flow
+---
+
+## User Flows
+
+### Send Task
 
 ```
-User sends message
+User types in capsule input → taps Send
     │
-    ├──► Task Banner shows "Working on: ..."
+    ├──► Agent message appears (Thinking indicator)
     │
-    ├──► Edge Glow activates (when outside app)
+    ├──► Capsule shows Running mode (blue dot + thought)
     │
-    ├──► Smart Capsule appears (when in other apps)
+    ├──► Edge Glow activates (when outside app, A11y mode)
     │
     ├──► Action cards appear as tools execute
     │         │
-    │         └──► Click/Swipe visualizations on screen
+    │         └──► Click/swipe visualizations on screen
     │
     └──► Agent response streams in message bubble
                 │
-                └──► Task complete, input re-enabled
+                └──► Task complete, capsule returns to idle
+```
+
+### Takeover Flow
+
+```
+User taps Takeover button in capsule
+    │
+    ├──► CapsuleMode → TakeoverPending (amber dot, "Handing over...")
+    │
+    ├──► Agent finishes current action
+    │
+    ├──► CapsuleMode → Takeover (amber dot, shows Resume button)
+    │
+    ├──► User interacts with phone directly
+    │
+    └──► User taps Resume → CapsuleMode → Running (blue dot)
+```
+
+### ask_user Flow
+
+```
+Agent calls ask_user tool
+    │
+    ├──► QUESTION type:
+    │    └── Capsule → WaitingForInput (shows question, input field focused)
+    │        └── User types answer → taps Send → response delivered
+    │
+    └──► ACTION type:
+         └── Capsule → WaitingForAction (shows instruction, Done button)
+             └── User performs action → taps Done → agent resumes
+```
+
+### Supplement Flow
+
+```
+While agent is running (Running/Takeover mode):
+    │
+    └──► User types in capsule Row 3 input → taps "Supplement"
+         │
+         ├──► Op.Supplement(text) sent to session
+         │
+         ├──► Transient confirmation: "✓ Received" (between turns)
+         │    or "✓ Received, will apply next step" (mid-turn, 2s display)
+         │
+         └──► Text injected into conversation history for next LLM call
+```
+
+### VD Handoff Flow
+
+```
+Task completes with GOAL_ACHIEVED in VirtualDisplay mode:
+    │
+    ├──► AgentService relaunches foreground app on default display
+    │
+    └──► VirtualDisplayViewerActivity opens (live VD preview)
+         │
+         ├──► Capsule overlay shown (SCREEN_VIEWING context)
+         │
+         └──► User views result, can send follow-up or dismiss
 ```
 
 ---
