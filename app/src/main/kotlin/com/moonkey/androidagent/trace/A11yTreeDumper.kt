@@ -2,6 +2,8 @@ package com.moonkey.androidagent.trace
 
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
+import com.moonkey.androidagent.util.isCheckedCompat
+import com.moonkey.androidagent.util.recycleCompat
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -70,7 +72,7 @@ internal object A11yTreeDumper {
                 scrollable = node.isScrollable,
                 editable = node.isEditable,
                 checkable = node.isCheckable,
-                checked = node.isChecked,
+                checked = node.isCheckedCompat(),
                 selected = node.isSelected,
                 password = node.isPassword,
                 visibleToUser = node.isVisibleToUser,
@@ -79,7 +81,7 @@ internal object A11yTreeDumper {
             )
 
         if (shouldRecycle) {
-            node.recycle()
+            node.recycleCompat()
         }
 
         return dump

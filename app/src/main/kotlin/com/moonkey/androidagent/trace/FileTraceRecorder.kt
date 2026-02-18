@@ -170,9 +170,7 @@ internal class FileTraceRecorder(
     }
 
     override suspend fun close() {
-        if (!channel.isClosedForSend) {
-            channel.close()
-        }
+        channel.close()
         withContext(Dispatchers.IO) {
             writerJob.join()
         }

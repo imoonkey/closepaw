@@ -2,6 +2,7 @@ package com.moonkey.androidagent.platform
 
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
+import com.moonkey.androidagent.util.recycleCompat
 
 object AccessibilityNodeFinder {
     /**
@@ -47,7 +48,7 @@ object AccessibilityNodeFinder {
             node.getBoundsInScreen(bounds)
 
             if (!bounds.contains(x, y)) {
-                if (shouldRecycle) node.recycle()
+                if (shouldRecycle) node.recycleCompat()
                 return null
             }
 
@@ -55,7 +56,7 @@ object AccessibilityNodeFinder {
                 val child = node.getChild(i) ?: continue
                 val childMatch = search(child, shouldRecycle = true)
                 if (childMatch != null) {
-                    if (shouldRecycle) node.recycle()
+                    if (shouldRecycle) node.recycleCompat()
                     return childMatch
                 }
             }
@@ -65,7 +66,7 @@ object AccessibilityNodeFinder {
             }
 
             if (shouldRecycle) {
-                node.recycle()
+                node.recycleCompat()
             }
             return null
         }
@@ -84,7 +85,7 @@ object AccessibilityNodeFinder {
             if (focused.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }) {
                 return focused
             }
-            focused.recycle()
+            focused.recycleCompat()
         }
 
         // Fallback: DFS for any editable node that has focus
@@ -102,10 +103,10 @@ object AccessibilityNodeFinder {
             val child = node.getChild(i) ?: continue
             val result = findEditableWithFocus(child)
             if (result != null) {
-                if (result !== child) child.recycle()
+                if (result !== child) child.recycleCompat()
                 return result
             }
-            child.recycle()
+            child.recycleCompat()
         }
 
         return null
@@ -148,7 +149,7 @@ object AccessibilityNodeFinder {
 
             if (!bounds.contains(x, y)) {
                 if (shouldRecycle) {
-                    node.recycle()
+                    node.recycleCompat()
                 }
                 return null
             }
@@ -162,7 +163,7 @@ object AccessibilityNodeFinder {
                     // Recycle current node if allowed (AccessibilityNodeInfo from getChild() are
                     // independent)
                     if (shouldRecycle) {
-                        node.recycle()
+                        node.recycleCompat()
                     }
                     return found
                 }
@@ -177,7 +178,7 @@ object AccessibilityNodeFinder {
 
             // No match in this subtree - recycle this node if allowed
             if (shouldRecycle) {
-                node.recycle()
+                node.recycleCompat()
             }
 
             return null

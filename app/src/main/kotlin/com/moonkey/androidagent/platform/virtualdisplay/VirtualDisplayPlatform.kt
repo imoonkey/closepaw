@@ -16,6 +16,7 @@ import com.moonkey.androidagent.platform.NodeActionPerformer
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.trace.TraceRecorder
+import com.moonkey.androidagent.util.recycleCompat
 import kotlinx.coroutines.delay
 import rikka.shizuku.Shizuku
 
@@ -295,7 +296,7 @@ class VirtualDisplayPlatform(
         return try {
             root.packageName?.toString()
         } finally {
-            root.recycle()
+            root.recycleCompat()
         }
     }
 

@@ -6,6 +6,8 @@ import com.moonkey.androidagent.model.Bounds
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.Point
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.util.isCheckedCompat
+import com.moonkey.androidagent.util.recycleCompat
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -174,7 +176,7 @@ object Perceptor {
         // Collection cap: stop collecting once we have enough candidates for scoring.
         // 2x maxElements gives applyTruncation a good pool while bounding traversal work.
         if (elements.size >= filterConfig.maxElements * 2) {
-            if (shouldRecycle) node.recycle()
+            if (shouldRecycle) node.recycleCompat()
             return
         }
 
@@ -190,7 +192,7 @@ object Perceptor {
                 filterConfig = filterConfig,
                 diagnosticsCollector = diagnosticsCollector
             )
-            if (shouldRecycle) node.recycle()
+            if (shouldRecycle) node.recycleCompat()
             return
         }
 
@@ -204,11 +206,11 @@ object Perceptor {
         val focused = node.isFocused
         val longClickable = node.isLongClickable
         val selected = node.isSelected
-        val checked = node.isChecked
+        val checked = node.isCheckedCompat()
         val checkable = node.isCheckable
 
         if (filterConfig.filterKeyboard && isKnownKeyboardNode(resourceId)) {
-            if (shouldRecycle) node.recycle()
+            if (shouldRecycle) node.recycleCompat()
             return
         }
 
@@ -302,7 +304,7 @@ object Perceptor {
             filterConfig = filterConfig,
             diagnosticsCollector = diagnosticsCollector
         )
-        if (shouldRecycle) node.recycle()
+        if (shouldRecycle) node.recycleCompat()
     }
 
     private fun traverseChildren(

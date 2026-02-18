@@ -8,6 +8,7 @@ import android.util.Log
 import android.view.PixelCopy
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.perception.Perceptor
+import com.moonkey.androidagent.util.recycleCompat
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -42,7 +43,7 @@ internal class VirtualDisplayCaptureCoordinator(
                                 Log.w(TAG, "Perceptor.snapshot failed", e)
                                 emptyList()
                         } finally {
-                                root.recycle()
+                                root.recycleCompat()
                         }
                 }
         }

@@ -3,6 +3,7 @@ package com.moonkey.androidagent.platform
 import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
+import com.moonkey.androidagent.util.recycleCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -45,7 +46,7 @@ class NodeActionPerformer(
                 try {
                     setTextOnNode(node, text, clear)
                 } finally {
-                    if (node !== root) node.recycle()
+                    if (node !== root) node.recycleCompat()
                 }
             }
         }
@@ -61,7 +62,7 @@ class NodeActionPerformer(
                 try {
                     setTextOnNode(node, text, clear)
                 } finally {
-                    if (node !== root) node.recycle()
+                    if (node !== root) node.recycleCompat()
                 }
             }
         }
@@ -100,7 +101,7 @@ class NodeActionPerformer(
                         )
                     }
                 } finally {
-                    if (focusedEditable !== root) focusedEditable.recycle()
+                    if (focusedEditable !== root) focusedEditable.recycleCompat()
                 }
             }
         }
@@ -151,7 +152,7 @@ class NodeActionPerformer(
                         ActionResult.Failure(failureMessage)
                     }
                 } finally {
-                    if (node !== root) node.recycle()
+                    if (node !== root) node.recycleCompat()
                 }
             }
         }
@@ -162,7 +163,7 @@ class NodeActionPerformer(
         return try {
             block(root)
         } finally {
-            root.recycle()
+            root.recycleCompat()
         }
     }
 
