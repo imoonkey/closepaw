@@ -58,17 +58,25 @@ internal fun applyTruncation(
     val interactive = candidates.filter { it.isInteractive }.sortedByDescending { score(it) }
     val nonInteractive = candidates.filter { !it.isInteractive }.sortedByDescending { score(it) }
 
-    val kept = LinkedHashSet<PerceptorCandidateElement>(maxElements)
-    interactive.take(interactiveCap).forEach { kept.add(it) }
-    nonInteractive.take(nonInteractiveFloor).forEach { kept.add(it) }
-    if (kept.size < maxElements) {
-        (interactive + nonInteractive)
-            .asSequence()
-            .filterNot { kept.contains(it) }
-            .take(maxElements - kept.size)
-            .forEach { kept.add(it) }
+    val kept = ArrayList<PerceptorCandidateElement>(maxElements)
+    val keptIndices = HashSet<Int>(maxElements)
+
+    for (c in interactive.take(interactiveCap)) {
+        val idx = candidates.indexOf(c)
+        if (keptIndices.add(idx)) kept.add(c)
     }
-    return kept.toList()
+    for (c in nonInteractive.take(nonInteractiveFloor)) {
+        val idx = candidates.indexOf(c)
+        if (keptIndices.add(idx)) kept.add(c)
+    }
+    if (kept.size < maxElements) {
+        for (c in (interactive + nonInteractive)) {
+            if (kept.size >= maxElements) break
+            val idx = candidates.indexOf(c)
+            if (keptIndices.add(idx)) kept.add(c)
+        }
+    }
+    return kept
 }
 
 private fun score(candidate: PerceptorCandidateElement): Float {
@@ -219,10 +227,13 @@ internal fun buildElementKey(
     }
 }
 
+private val HORIZONTAL_WHITESPACE = Regex("[ \\t]+")
+private val MULTI_NEWLINE = Regex("\\n{2,}")
+
 internal fun normalizeWhitespace(value: String): String {
     return value
-        .replace(Regex("[ \\t]+"), " ")
-        .replace(Regex("\\n{2,}"), "\n")
+        .replace(HORIZONTAL_WHITESPACE, " ")
+        .replace(MULTI_NEWLINE, "\n")
         .trim()
 }
 

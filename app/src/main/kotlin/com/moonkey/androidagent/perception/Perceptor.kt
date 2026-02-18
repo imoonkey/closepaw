@@ -79,7 +79,7 @@ object Perceptor {
                 rowSnapRatio = filterConfig.rowSnapScreenRatio
             )
         val indexed = sorted.mapIndexed { index, candidate -> candidate.element.copy(index = index) }
-        return ScreenSnapshot(timestamp = timestamp, elements = indexed)
+        return ScreenSnapshot(timestamp = timestamp, elements = indexed, textEnriched = true)
     }
 
     /** Convert Snapshot to JSON string for LLM Prompting */
@@ -89,11 +89,14 @@ object Perceptor {
     ): String {
         if (snapshot.elements.isEmpty()) return "[]"
 
-        // Re-run enrichment at serialization so manually constructed snapshots (tests, tooling)
-        // get the same text behavior as snapshots produced by Perceptor.snapshot().
-        val elements =
+        // Only run enrichment for manually constructed snapshots (tests, tooling).
+        // Snapshots from Perceptor.snapshot() are already enriched.
+        val elements = if (snapshot.textEnriched) {
+            snapshot.elements
+        } else {
             enrichEmptyTextElements(snapshot.elements.map { PerceptorCandidateElement(it, 1f) })
                 .map { it.element }
+        }
         val outputResourceId =
             shouldOutputResourceIds(
                 elements = elements,
@@ -168,6 +171,13 @@ object Perceptor {
         filterConfig: PerceptorFilterConfig,
         diagnosticsCollector: PerceptorDiagnosticsCollector?
     ) {
+        // Collection cap: stop collecting once we have enough candidates for scoring.
+        // 2x maxElements gives applyTruncation a good pool while bounding traversal work.
+        if (elements.size >= filterConfig.maxElements * 2) {
+            if (shouldRecycle) node.recycle()
+            return
+        }
+
         val visibleToUser = node.isVisibleToUser
         if (filterConfig.useVisibleToUserFilter && !visibleToUser) {
             traverseChildren(

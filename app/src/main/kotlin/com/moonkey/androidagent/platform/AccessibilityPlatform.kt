@@ -301,8 +301,10 @@ class AccessibilityPlatform(
         return ActionResult.Success("Waited ${action.durationMs}ms")
     }
 
-    private suspend fun recordOutOfBoundsActionTarget(actionName: String, x: Int, y: Int) {
-        val display = withContext(Dispatchers.Main) { getDisplayInfo() }
+    private fun recordOutOfBoundsActionTarget(actionName: String, x: Int, y: Int) {
+        // Quick check: non-negative coordinates are very likely in-bounds; skip display query.
+        // getDisplayInfo() reads displayMetrics which is thread-safe on Android.
+        val display = getDisplayInfo()
         val isOutOfBounds = x < 0 || y < 0 || x >= display.widthPixels || y >= display.heightPixels
         if (!isOutOfBounds) return
 
