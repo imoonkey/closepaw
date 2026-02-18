@@ -627,12 +627,48 @@ def _attempt_targeted_task_app_install(
                 getattr(app_class, "app_name", str(app_class)),
                 exc,
             )
+            _fallback_install_apk_candidates(config, app_class)
 
     missing_after = _collect_missing_task_packages(config, task_instances)
     if missing_after == missing_before:
         logging.warning("Targeted app install did not resolve missing task dependencies.")
     else:
         logging.info("Targeted app install reduced missing task dependencies.")
+
+
+def _fallback_install_apk_candidates(config: RunnerConfig, app_class: Any) -> None:
+    apk_names = tuple(getattr(app_class, "apk_names", ()) or ())
+    if not apk_names:
+        return
+
+    try:
+        from android_world.env.setup_device import apps as aw_apps  # type: ignore
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logging.warning("Cannot import AndroidWorld app downloader for fallback install: %s", exc)
+        return
+
+    app_name = getattr(app_class, "app_name", str(app_class))
+    for apk_name in apk_names:
+        try:
+            path = aw_apps.download_app_data(apk_name)
+            result = _run_adb(config, ["install", "-r", path], check=False, capture_output=True)
+            if result.returncode == 0:
+                logging.info("Fallback APK install succeeded for %s via %s", app_name, apk_name)
+                return
+            detail = (result.stderr or result.stdout or "").strip()
+            logging.warning(
+                "Fallback APK install failed for %s via %s: %s",
+                app_name,
+                apk_name,
+                detail,
+            )
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logging.warning(
+                "Fallback APK install exception for %s via %s: %s",
+                app_name,
+                apk_name,
+                exc,
+            )
 
 
 def _filter_unavailable_task_instances(
