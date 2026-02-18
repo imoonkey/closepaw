@@ -50,6 +50,10 @@ SEQ=0000 NEXT=CODEX CODEX=PENDING CLAUDE=PENDING
 
 ## SOP（两边都照做）
 
+### 0) 开始
+- 一般会通过prompt指定开始的一方。开始的一方初始化folders etc. 
+- If there is no initial draft, based on available references, e.g., individual designs, codebase, etc., come with a initial draft to document the consesus, and clarify the conflicts, different opinions, and open questions.
+
 ### A) 如果 `status.txt` 里 `NEXT` 不是你
 
 1. **不要读/想/写任何东西**，只做轮询等待。
@@ -113,4 +117,4 @@ SEQ=0000 NEXT=CODEX CODEX=PENDING CLAUDE=PENDING
 * 讨论只增量：永远新建 `####_AGENT.md`，不要回改旧讨论文件。
 
 ## Principles
-过程中有任何对方有和你不同意见，或者对方提到而你没提到的地方，不要make assumptions，看代码，上网查，用证据解决分歧。
+过程中有任何对方有和你不同意见，或者对方提到而你没提到的地方，不要make assumptions，看代码，上网查，做数据分析等等，用证据解决分歧。

@@ -6,6 +6,8 @@ import android.util.Log
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.model.ScreenSnapshotDebug
+import com.moonkey.androidagent.perception.PerceptorBoundsDiagnostics
+import com.moonkey.androidagent.perception.PerceptorDiagnosticsCollector
 import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.trace.A11yTreeDumper
@@ -13,9 +15,12 @@ import com.moonkey.androidagent.trace.NoopTraceRecorder
 import com.moonkey.androidagent.trace.TraceJson
 import com.moonkey.androidagent.trace.TraceRecorder
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
+import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * AccessibilityPlatform - Real implementation of AndroidPlatform using AccessibilityService.
@@ -43,6 +48,7 @@ class AccessibilityPlatform(
     private val gestureInjector = AccessibilityGestureInjector(service, visualizer)
 
     private val screenshotCapturer = AccessibilityScreenshotCapturer(service, config, traceRecorder)
+    private val outOfBoundsActionTargetCount = AtomicInteger(0)
 
     override suspend fun captureScreen(): ScreenSnapshot {
         val pc = config.perceptionConfig
@@ -66,7 +72,8 @@ class AccessibilityPlatform(
                     ScreenSnapshotDebug(
                             rawA11yTreePath = a11yResult.rawTreeArtifactPath,
                             sanitizedA11yTreePath = a11yResult.sanitizedTreeArtifactPath,
-                            screenshotPath = screenshotCapture?.tracePath
+                            screenshotPath = screenshotCapture?.tracePath,
+                            captureQualityPath = a11yResult.captureQualityArtifactPath
                     )
                 } else {
                     null
@@ -90,73 +97,133 @@ class AccessibilityPlatform(
             val elements: List<PerceptionElement>,
             val windowId: Int?,
             val rawTreeArtifactPath: String?,
-            val sanitizedTreeArtifactPath: String?
+            val sanitizedTreeArtifactPath: String?,
+            val captureQualityArtifactPath: String?
+    )
+
+    private data class CaptureQuality(
+            val attempts: Int,
+            val elementCount: Int,
+            val capturedAt: Long,
+            val emptyReason: String?,
+            val boundsDiagnostics: PerceptorBoundsDiagnostics,
+            val outOfBoundsActionTargetCount: Int
     )
 
     private suspend fun captureAccessibilityTree(): A11yCaptureResult {
-        val root = withContext(Dispatchers.Main) { service.rootInActiveWindow }
+        val display = withContext(Dispatchers.Main) { getDisplayInfo() }
+        var root = withContext(Dispatchers.Main) { service.rootInActiveWindow }
+        var attempts = 1
+        while (root == null && attempts < 3) {
+            delay(150)
+            attempts += 1
+            root = withContext(Dispatchers.Main) { service.rootInActiveWindow }
+        }
+        val capturedAt = System.currentTimeMillis()
         val windowId = root?.windowId
 
-        val rawTreeArtifactPath =
-                if (traceRecorder.enabled) {
-                    val dump = withContext(Dispatchers.Default) { A11yTreeDumper.dump(root) }
-                    val json = TraceJson.instance.encodeToString(dump)
-                    traceRecorder.storeText(
-                                    kind = "raw_a11y_tree",
-                                    filenameHint = "raw_${System.currentTimeMillis()}.json",
-                                    content = json,
-                                    mimeType = "application/json"
-                            )
-                            ?.path
-                } else null
+        if (root == null) {
+            val quality = CaptureQuality(
+                    attempts = attempts,
+                    elementCount = 0,
+                    capturedAt = capturedAt,
+                    emptyReason = "null_root",
+                    boundsDiagnostics = PerceptorBoundsDiagnostics(),
+                    outOfBoundsActionTargetCount = outOfBoundsActionTargetCount.get()
+            )
+            val qualityPath = storeCaptureQualityArtifact(quality)
+            return A11yCaptureResult(
+                    elements = emptyList(),
+                    windowId = null,
+                    rawTreeArtifactPath = null,
+                    sanitizedTreeArtifactPath = null,
+                    captureQualityArtifactPath = qualityPath
+            )
+        }
 
-        val snapshot = Perceptor.snapshot(root)
+        val rawTreeArtifactPath = if (traceRecorder.enabled) {
+            val dump = withContext(Dispatchers.Default) { A11yTreeDumper.dump(root) }
+            val json = TraceJson.instance.encodeToString(dump)
+            traceRecorder.storeText(
+                            kind = "raw_a11y_tree",
+                            filenameHint = "raw_${System.currentTimeMillis()}.json",
+                            content = json,
+                            mimeType = "application/json"
+                    )
+                    ?.path
+        } else null
 
-        val sanitizedTreeArtifactPath =
-                if (traceRecorder.enabled) {
-                    val json = Perceptor.toPromptJson(snapshot)
-                    traceRecorder.storeText(
-                                    kind = "sanitized_a11y_tree",
-                                    filenameHint = "sanitized_${snapshot.timestamp}.json",
-                                    content = json,
-                                    mimeType = "application/json"
-                            )
-                            ?.path
-                } else null
+        val diagnosticsCollector = PerceptorDiagnosticsCollector()
+        val snapshot = Perceptor.snapshot(
+                root = root,
+                screenWidthPx = display.widthPixels,
+                screenHeightPx = display.heightPixels,
+                diagnosticsCollector = diagnosticsCollector
+        )
+
+        val sanitizedTreeArtifactPath = if (traceRecorder.enabled) {
+            val json = Perceptor.toPromptJson(snapshot)
+            traceRecorder.storeText(
+                            kind = "sanitized_a11y_tree",
+                            filenameHint = "sanitized_${snapshot.timestamp}.json",
+                            content = json,
+                            mimeType = "application/json"
+                    )
+                    ?.path
+        } else null
+
+        val quality = CaptureQuality(
+                attempts = attempts,
+                elementCount = snapshot.elements.size,
+                capturedAt = capturedAt,
+                emptyReason = if (snapshot.elements.isEmpty()) "zero_visible_elements" else null,
+                boundsDiagnostics = diagnosticsCollector.snapshot(),
+                outOfBoundsActionTargetCount = outOfBoundsActionTargetCount.get()
+        )
+        val qualityPath = storeCaptureQualityArtifact(quality)
 
         return A11yCaptureResult(
                 elements = snapshot.elements,
                 windowId = windowId,
                 rawTreeArtifactPath = rawTreeArtifactPath,
-                sanitizedTreeArtifactPath = sanitizedTreeArtifactPath
+                sanitizedTreeArtifactPath = sanitizedTreeArtifactPath,
+                captureQualityArtifactPath = qualityPath
         )
     }
 
     override suspend fun performAction(action: UIAction): ActionResult {
         return when (action) {
             is UIAction.ClickNodeAt -> {
+                recordOutOfBoundsActionTarget("click_node", action.x, action.y)
                 visualizer?.showClick(action.x.toFloat(), action.y.toFloat())
                 nodeActionPerformer.performNodeClickAt(action.x, action.y)
             }
-            is UIAction.TapAt -> gestureInjector.injectTap(action.x, action.y)
+            is UIAction.TapAt -> {
+                recordOutOfBoundsActionTarget("tap", action.x, action.y)
+                gestureInjector.injectTap(action.x, action.y)
+            }
             is UIAction.LongClickNodeAt -> {
+                recordOutOfBoundsActionTarget("long_click_node", action.x, action.y)
                 visualizer?.showClick(action.x.toFloat(), action.y.toFloat(), longPress = true)
                 nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
             }
             is UIAction.LongPressAt -> {
+                recordOutOfBoundsActionTarget("long_press", action.x, action.y)
                 gestureInjector.injectLongPress(
                         x = action.x.toFloat(),
                         y = action.y.toFloat(),
                         durationMs = action.durationMs
                 )
             }
-            is UIAction.SetTextOnNodeAt ->
-                    nodeActionPerformer.performSetTextOnNodeAt(
-                            x = action.x,
-                            y = action.y,
-                            text = action.text,
-                            clear = action.clear
-                    )
+            is UIAction.SetTextOnNodeAt -> {
+                recordOutOfBoundsActionTarget("set_text_node", action.x, action.y)
+                nodeActionPerformer.performSetTextOnNodeAt(
+                        x = action.x,
+                        y = action.y,
+                        text = action.text,
+                        clear = action.clear
+                )
+            }
             is UIAction.SetTextOnFocused ->
                     nodeActionPerformer.performSetTextOnFocused(
                             text = action.text,
@@ -199,7 +266,7 @@ class AccessibilityPlatform(
 
     // ===== Action Helpers =====
     private suspend fun performSwipe(action: UIAction.Swipe): ActionResult {
-        val display = getDisplayInfo()
+        val display = withContext(Dispatchers.Main) { getDisplayInfo() }
         val maxX = (display.widthPixels - 1).coerceAtLeast(0)
         val maxY = (display.heightPixels - 1).coerceAtLeast(0)
         val startX = action.startX.coerceIn(0, maxX)
@@ -212,6 +279,7 @@ class AccessibilityPlatform(
                         endX != action.endX ||
                         endY != action.endY
         ) {
+            outOfBoundsActionTargetCount.incrementAndGet()
             Log.w(TAG, "Swipe coordinates clamped to screen bounds")
         }
 
@@ -229,8 +297,59 @@ class AccessibilityPlatform(
     }
 
     private suspend fun performWait(action: UIAction.Wait): ActionResult {
-        kotlinx.coroutines.delay(action.durationMs)
+        delay(action.durationMs)
         return ActionResult.Success("Waited ${action.durationMs}ms")
+    }
+
+    private suspend fun recordOutOfBoundsActionTarget(actionName: String, x: Int, y: Int) {
+        val display = withContext(Dispatchers.Main) { getDisplayInfo() }
+        val isOutOfBounds = x < 0 || y < 0 || x >= display.widthPixels || y >= display.heightPixels
+        if (!isOutOfBounds) return
+
+        val count = outOfBoundsActionTargetCount.incrementAndGet()
+        Log.w(TAG, "Out-of-bounds target for $actionName at ($x,$y)")
+        if (!traceRecorder.enabled) return
+
+        val payload = JSONObject().apply {
+            put("action", actionName)
+            put("x", x)
+            put("y", y)
+            put("display_width", display.widthPixels)
+            put("display_height", display.heightPixels)
+            put("count_so_far", count)
+        }
+        traceRecorder.storeText(
+                kind = "action_bounds_outlier",
+                filenameHint = "action_bounds_${System.currentTimeMillis()}.json",
+                content = payload.toString(2),
+                mimeType = "application/json"
+        )
+    }
+
+    private fun storeCaptureQualityArtifact(quality: CaptureQuality): String? {
+        if (!traceRecorder.enabled) return null
+        val payload = JSONObject().apply {
+            put("attempts", quality.attempts)
+            put("element_count", quality.elementCount)
+            put("captured_at", quality.capturedAt)
+            put("empty_reason", quality.emptyReason)
+            put(
+                    "bounds_diagnostics",
+                    JSONObject().apply {
+                        put("right_out_of_bounds_count", quality.boundsDiagnostics.rightOutOfBoundsCount)
+                        put("bottom_out_of_bounds_count", quality.boundsDiagnostics.bottomOutOfBoundsCount)
+                        put("negative_coordinate_count", quality.boundsDiagnostics.negativeCoordinateCount)
+                    }
+            )
+            put("out_of_bounds_action_target_count", quality.outOfBoundsActionTargetCount)
+        }
+        return traceRecorder.storeText(
+                        kind = "capture_quality",
+                        filenameHint = "capture_quality_${quality.capturedAt}.json",
+                        content = payload.toString(2),
+                        mimeType = "application/json"
+                )
+                ?.path
     }
 
     // ===== App Management Implementation =====

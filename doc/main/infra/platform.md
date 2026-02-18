@@ -314,9 +314,10 @@ Both platforms reuse `Perceptor.snapshot()` — `AccessibilityPlatform` passes `
 ```
 
 Notes:
-- `text` is merged text (`element.text` fallback to `element.description`).
-- `text_index` is emitted only when repeated visible labels need disambiguation.
-- Boolean fields like `clickable`/`editable`/`scrollable` are emitted only when true.
+- `text` is merged text with fallback chain: `text -> desc -> hint_text -> resource_id suffix`.
+- `text_index` is emitted for any non-empty merged text; `desc_index` is emitted when `desc` is present.
+- Boolean fields `clickable` / `editable` / `scrollable` are always emitted explicitly.
+- `id` is emitted conditionally when actionable-node id density on current snapshot crosses the threshold.
 
 ---
 

@@ -58,7 +58,9 @@ data class ScreenSnapshotDebug(
         /** Relative path (within trace run folder) to Perceptor prompt JSON */
         val sanitizedA11yTreePath: String? = null,
         /** Relative path (within trace run folder) to a screenshot captured for this snapshot (if any) */
-        val screenshotPath: String? = null
+        val screenshotPath: String? = null,
+        /** Relative path (within trace run folder) to capture quality JSON diagnostics */
+        val captureQualityPath: String? = null
 )
 
 data class ScreenImage(
@@ -114,5 +116,9 @@ data class PerceptionElement(
         val isFocused: Boolean,
         val isLongClickable: Boolean,
         val bounds: Bounds,
-        val center: Point
+        val center: Point,
+        val isSelected: Boolean = false,
+        val hintText: String = "",
+        val isChecked: Boolean = false,
+        val isCheckable: Boolean = false
 )
