@@ -5,8 +5,12 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 import json
 import logging
+import socket
 import os
 from pathlib import Path
+import shutil
+import subprocess
+import time
 from typing import Any
 
 import yaml
@@ -29,6 +33,7 @@ class RunnerConfig:
     task_random_seed: int
     n_task_combinations: int
     use_identical_params: bool
+    skip_unavailable_tasks: bool
     retry_infra_failures: int
     adb_serial: str | None
     reference_root: str
@@ -37,7 +42,26 @@ class RunnerConfig:
     adb_path: str | None
     perform_emulator_setup: bool
     freeze_datetime: bool
+    auto_start_emulator: bool
+    emulator_avd_name: str
+    emulator_binary_path: str | None
+    emulator_boot_timeout_sec: int
     bridge: BridgeConfig
+
+
+_BACKEND_REQUIRED_API_KEY = {
+    "openai": "OPENAI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "novita": "NOVITA_API_KEY",
+}
+
+_TASK_REQUIRED_PACKAGES: dict[str, tuple[str, ...]] = {
+    "BrowserMultiply": ("com.android.chrome",),
+    "ClockTimerEntry": ("com.google.android.deskclock", "com.android.deskclock"),
+    "ContactsAddContact": ("com.android.contacts", "com.google.android.contacts"),
+    "ExpenseAddSingle": ("com.arduia.expense",),
+    "MarkorCreateNote": ("net.gsantner.markor",),
+}
 
 
 def main() -> None:
@@ -48,6 +72,7 @@ def main() -> None:
     # Load API keys from .env file and/or environment
     api_keys = _load_api_keys(workspace_root)
     config.bridge.api_keys = api_keys or None
+    _validate_required_api_key(config, api_keys)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = (workspace_root / config.output_root / timestamp).resolve()
@@ -57,9 +82,10 @@ def main() -> None:
     _setup_logging(runner_log)
 
     logging.info("Run directory: %s", run_dir)
-    logging.info("Config: %s", asdict(config))
+    logging.info("Config: %s", _safe_config_for_logging(config))
 
     ensure_android_world_importable(workspace_root, config.reference_root)
+    _run_android_world_connectivity_preflight(config)
     env = _create_env(config)
 
     all_attempt_results: list[TaskResult] = []
@@ -77,6 +103,31 @@ def main() -> None:
             env=env,
         )
         logging.info("Loaded %d task instances", len(task_instances))
+        try:
+            task_instances = _run_preflight_checks(config, task_instances)
+        except RuntimeError as exc:
+            if _should_run_emulator_setup_retry(config, exc):
+                logging.warning(
+                    "Missing benchmark apps detected; retrying once with perform_emulator_setup=true"
+                )
+                env.close()
+                config.perform_emulator_setup = True
+                env = _create_env(config)
+                task_instances = build_task_instances(
+                    suite_family=config.suite_family,
+                    n_task_combinations=config.n_task_combinations,
+                    task_random_seed=config.task_random_seed,
+                    use_identical_params=config.use_identical_params,
+                    selected_tasks=selected_tasks,
+                    env=env,
+                )
+                logging.info(
+                    "Reloaded %d task instances after emulator setup",
+                    len(task_instances),
+                )
+                task_instances = _run_preflight_checks(config, task_instances)
+            else:
+                raise
 
         bridge = NativeAgentBridge(config.bridge)
         for task_idx, task_instance in enumerate(task_instances):
@@ -322,6 +373,7 @@ def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig
         task_random_seed=task_random_seed,
         n_task_combinations=n_task_combinations,
         use_identical_params=bool(runner_cfg.get("use_identical_params", False)),
+        skip_unavailable_tasks=bool(runner_cfg.get("skip_unavailable_tasks", True)),
         retry_infra_failures=int(runner_cfg.get("retry_infra_failures", 1)),
         adb_serial=_nullable_str(args.adb_serial or runner_cfg.get("adb_serial")),
         reference_root=str(aw_cfg.get("reference_root", ".reference/eval/android_world")),
@@ -329,7 +381,11 @@ def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig
         grpc_port=int(aw_cfg.get("grpc_port", 8554)),
         adb_path=_nullable_str(aw_cfg.get("adb_path")),
         perform_emulator_setup=bool(aw_cfg.get("perform_emulator_setup", False)),
-        freeze_datetime=bool(aw_cfg.get("freeze_datetime", True)),
+        freeze_datetime=bool(aw_cfg.get("freeze_datetime", False)),
+        auto_start_emulator=bool(aw_cfg.get("auto_start_emulator", True)),
+        emulator_avd_name=str(aw_cfg.get("emulator_avd_name", "AndroidWorldAvd")),
+        emulator_binary_path=_nullable_str(aw_cfg.get("emulator_binary_path")),
+        emulator_boot_timeout_sec=int(aw_cfg.get("emulator_boot_timeout_sec", 180)),
         bridge=bridge,
     )
 
@@ -407,6 +463,365 @@ def _load_api_keys(workspace_root: Path) -> dict[str, str]:
         if val:
             keys[name] = val
     return keys
+
+
+def _validate_required_api_key(config: RunnerConfig, api_keys: dict[str, str]) -> None:
+    backend = config.bridge.llm_backend.strip().lower()
+    required = _BACKEND_REQUIRED_API_KEY.get(backend)
+    if required and not api_keys.get(required):
+        raise RuntimeError(
+            f"Missing required API key for llm_backend='{config.bridge.llm_backend}': "
+            f"{required}. Add it to .env or environment variables."
+        )
+
+
+def _run_preflight_checks(
+    config: RunnerConfig,
+    task_instances: list[TaskInstance],
+) -> list[TaskInstance]:
+    _ensure_adb_device_ready(config)
+    _ensure_package_installed(config, config.bridge.package_name, "bridge package")
+    if config.skip_unavailable_tasks:
+        return _filter_unavailable_task_instances(config, task_instances)
+    _ensure_task_packages_installed(config, task_instances)
+    return task_instances
+
+
+def _run_android_world_connectivity_preflight(config: RunnerConfig) -> None:
+    if config.suite_family != "android_world":
+        return
+
+    expected_emulator = f"emulator-{config.console_port}"
+    if not config.adb_serial:
+        config.adb_serial = expected_emulator
+        config.bridge.adb_serial = expected_emulator
+
+    _run_adb(config, ["start-server"], check=False, capture_output=True)
+
+    if config.auto_start_emulator:
+        if not _is_expected_emulator_online(config, expected_emulator):
+            _start_android_world_emulator(config)
+
+    has_expected_emulator = _is_expected_emulator_online(config, expected_emulator)
+
+    if config.adb_serial:
+        if not config.adb_serial.startswith("emulator-"):
+            raise RuntimeError(
+                "AndroidWorld requires an emulator adb serial, but runner.adb_serial/--adb-serial "
+                f"is '{config.adb_serial}'."
+            )
+    elif not has_expected_emulator:
+        raise RuntimeError(
+            "AndroidWorld emulator not detected. "
+            f"Expected adb device '{expected_emulator}' for console_port={config.console_port}. "
+            "Start the benchmark emulator before running eval."
+        )
+
+    if not _is_local_tcp_port_open(config.grpc_port):
+        raise RuntimeError(
+            "AndroidWorld gRPC endpoint is not reachable on localhost "
+            f"port {config.grpc_port}. "
+            "Ensure the emulator is started with the matching gRPC port, or update "
+            "android_world.grpc_port in eval/config/default.yaml."
+        )
+
+    _wait_for_emulator_stability(config, expected_emulator)
+
+
+def _ensure_adb_device_ready(config: RunnerConfig) -> None:
+    result = _run_adb(config, ["get-state"], check=False, capture_output=True)
+    state = (result.stdout or "").strip().lower()
+    if result.returncode != 0 or state != "device":
+        detail = (result.stderr or result.stdout or "unknown").strip()
+        raise RuntimeError(
+            "ADB device is not ready. Ensure emulator/device is running and authorized. "
+            f"state={state or 'unknown'} detail={detail}"
+        )
+
+
+def _ensure_package_installed(config: RunnerConfig, package: str, label: str) -> None:
+    result = _run_adb_shell(config, ["pm", "path", package], check=False, capture_output=True)
+    if result.returncode != 0 or "package:" not in (result.stdout or ""):
+        detail = (result.stderr or result.stdout or "not installed").strip()
+        raise RuntimeError(f"Missing {label}: {package}. adb detail: {detail}")
+
+
+def _ensure_task_packages_installed(config: RunnerConfig, task_instances: list[TaskInstance]) -> None:
+    missing_by_task: dict[str, list[str]] = {}
+    for task in task_instances:
+        candidates = _TASK_REQUIRED_PACKAGES.get(task.task_name)
+        if not candidates:
+            continue
+        installed = any(_is_package_installed(config, package) for package in candidates)
+        if not installed:
+            missing_by_task[task.task_name] = list(candidates)
+
+    if missing_by_task:
+        lines = []
+        for task_name in sorted(missing_by_task):
+            lines.append(f"- {task_name}: one of {', '.join(missing_by_task[task_name])}")
+        raise RuntimeError(
+            "Missing benchmark app packages required by selected tasks:\n"
+            + "\n".join(lines)
+            + "\nInstall required benchmark apps before running smoke tests."
+        )
+
+
+def _is_package_installed(config: RunnerConfig, package: str) -> bool:
+    result = _run_adb_shell(config, ["pm", "path", package], check=False, capture_output=True)
+    return result.returncode == 0 and "package:" in (result.stdout or "")
+
+
+def _filter_unavailable_task_instances(
+    config: RunnerConfig,
+    task_instances: list[TaskInstance],
+) -> list[TaskInstance]:
+    available: list[TaskInstance] = []
+    dropped: dict[str, list[str]] = {}
+    for task in task_instances:
+        candidates = _TASK_REQUIRED_PACKAGES.get(task.task_name)
+        if not candidates:
+            available.append(task)
+            continue
+        installed = any(_is_package_installed(config, package) for package in candidates)
+        if installed:
+            available.append(task)
+        else:
+            dropped[task.task_name] = list(candidates)
+
+    if dropped:
+        logging.warning(
+            "Skipping %d task(s) due to missing app packages on device.",
+            len(dropped),
+        )
+        for task_name in sorted(dropped):
+            logging.warning(
+                "  - %s: requires one of [%s]",
+                task_name,
+                ", ".join(dropped[task_name]),
+            )
+
+    if not available:
+        raise RuntimeError(
+            "No runnable tasks remain after filtering unavailable app dependencies."
+        )
+
+    return available
+
+
+def _run_adb(
+    config: RunnerConfig,
+    args: list[str],
+    check: bool,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    cmd = ["adb"]
+    if config.adb_serial:
+        cmd.extend(["-s", config.adb_serial])
+    cmd.extend(args)
+    return subprocess.run(
+        cmd,
+        check=check,
+        text=True,
+        capture_output=capture_output,
+        timeout=config.bridge.adb_command_timeout_sec,
+    )
+
+
+def _run_adb_shell(
+    config: RunnerConfig,
+    args: list[str],
+    check: bool,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    return _run_adb(config, ["shell", *args], check=check, capture_output=capture_output)
+
+
+def _is_local_tcp_port_open(port: int, timeout_sec: float = 0.2) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(timeout_sec)
+        return sock.connect_ex(("127.0.0.1", int(port))) == 0
+
+
+def _is_expected_emulator_online(config: RunnerConfig, expected_serial: str) -> bool:
+    devices_out = _run_adb(config, ["devices"], check=False, capture_output=True)
+    devices_text = (devices_out.stdout or "")
+    return any(
+        line.startswith(expected_serial + "\t") and "device" in line
+        for line in devices_text.splitlines()
+    )
+
+
+def _start_android_world_emulator(config: RunnerConfig) -> None:
+    emulator_bin = _resolve_emulator_binary(config)
+    if not emulator_bin:
+        raise RuntimeError(
+            "Android emulator binary not found. Set android_world.emulator_binary_path "
+            "or add `emulator` to PATH."
+        )
+
+    listed_avds = subprocess.run(
+        [emulator_bin, "-list-avds"],
+        check=False,
+        text=True,
+        capture_output=True,
+        timeout=15,
+    )
+    avds = {line.strip() for line in (listed_avds.stdout or "").splitlines() if line.strip()}
+    selected_avd = _select_avd_name(config, avds)
+
+    cmd = [
+        emulator_bin,
+        "-avd",
+        selected_avd,
+        "-port",
+        str(config.console_port),
+        "-grpc",
+        str(config.grpc_port),
+        "-no-snapshot",
+        "-no-boot-anim",
+    ]
+    _log_cmd = " ".join(cmd)
+    logging.info("Auto-starting AndroidWorld emulator: %s", _log_cmd)
+    subprocess.Popen(  # pylint: disable=consider-using-with
+        cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+    expected_emulator = f"emulator-{config.console_port}"
+    deadline = time.time() + max(config.emulator_boot_timeout_sec, 30)
+    while time.time() < deadline:
+        if _is_expected_emulator_online(config, expected_emulator) and _is_local_tcp_port_open(
+            config.grpc_port
+        ):
+            logging.info(
+                "AndroidWorld emulator is ready: serial=%s grpc=%s",
+                expected_emulator,
+                config.grpc_port,
+            )
+            return
+        time.sleep(2)
+
+    raise RuntimeError(
+        "Timed out waiting for auto-started emulator to become ready. "
+        f"Expected serial={expected_emulator}, grpc_port={config.grpc_port}, "
+        f"timeout={config.emulator_boot_timeout_sec}s."
+    )
+
+
+def _resolve_emulator_binary(config: RunnerConfig) -> str | None:
+    if config.emulator_binary_path:
+        return config.emulator_binary_path
+
+    from_path = shutil.which("emulator")
+    if from_path:
+        return from_path
+
+    home = Path.home()
+    candidates = [
+        home / "Library/Android/sdk/emulator/emulator",
+        home / "Android/Sdk/emulator/emulator",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def _wait_for_emulator_stability(config: RunnerConfig, expected_serial: str) -> None:
+    timeout_sec = max(config.emulator_boot_timeout_sec, 90)
+    _run_adb(
+        config,
+        ["wait-for-device"],
+        check=False,
+        capture_output=True,
+    )
+
+    deadline = time.time() + timeout_sec
+    while time.time() < deadline:
+        if not _is_expected_emulator_online(config, expected_serial):
+            time.sleep(2)
+            continue
+
+        boot = _run_adb_shell(
+            config,
+            ["getprop", "sys.boot_completed"],
+            check=False,
+            capture_output=True,
+        )
+        whoami = _run_adb_shell(
+            config,
+            ["whoami"],
+            check=False,
+            capture_output=True,
+        )
+        boot_ok = (boot.stdout or "").strip() == "1"
+        shell_ok = whoami.returncode == 0 and bool((whoami.stdout or "").strip())
+        if boot_ok and shell_ok:
+            return
+        time.sleep(2)
+
+    raise RuntimeError(
+        "Emulator did not become stable in time "
+        f"(serial={expected_serial}, timeout={timeout_sec}s)."
+    )
+
+
+def _select_avd_name(config: RunnerConfig, avds: set[str]) -> str:
+    if config.emulator_avd_name in avds:
+        return config.emulator_avd_name
+
+    if not avds:
+        raise RuntimeError(
+            "No local Android AVD found. Create an AVD (AndroidWorld recommends Pixel 6 API 33) "
+            "and set android_world.emulator_avd_name in eval/config/default.yaml."
+        )
+
+    if len(avds) == 1:
+        fallback = next(iter(avds))
+        logging.warning(
+            "Configured AVD '%s' not found; falling back to only available AVD '%s'.",
+            config.emulator_avd_name,
+            fallback,
+        )
+        return fallback
+
+    preferred = sorted(
+        avds,
+        key=lambda name: (
+            0 if "androidworld" in name.lower() else 1,
+            0 if name.lower().startswith("pixel") else 1,
+            name,
+        ),
+    )[0]
+    logging.warning(
+        "Configured AVD '%s' not found; falling back to '%s' from available AVDs: %s",
+        config.emulator_avd_name,
+        preferred,
+        sorted(avds),
+    )
+    return preferred
+
+
+def _safe_config_for_logging(config: RunnerConfig) -> dict[str, Any]:
+    safe = asdict(config)
+    bridge = safe.get("bridge")
+    if isinstance(bridge, dict) and "api_keys" in bridge:
+        keys = bridge.get("api_keys") or {}
+        bridge["api_keys"] = {name: "***" for name in keys}
+    return safe
+
+
+def _should_run_emulator_setup_retry(config: RunnerConfig, exc: RuntimeError) -> bool:
+    if config.suite_family != "android_world":
+        return False
+    if config.skip_unavailable_tasks:
+        return False
+    if config.perform_emulator_setup:
+        return False
+    return "Missing benchmark app packages required by selected tasks:" in str(exc)
 
 
 if __name__ == "__main__":
