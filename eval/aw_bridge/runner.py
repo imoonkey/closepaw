@@ -34,6 +34,7 @@ class RunnerConfig:
     n_task_combinations: int
     use_identical_params: bool
     skip_unavailable_tasks: bool
+    auto_install_missing_task_apps: bool
     retry_infra_failures: int
     adb_serial: str | None
     reference_root: str
@@ -104,7 +105,7 @@ def main() -> None:
         )
         logging.info("Loaded %d task instances", len(task_instances))
         try:
-            task_instances = _run_preflight_checks(config, task_instances)
+            task_instances = _run_preflight_checks(config, task_instances, env)
         except RuntimeError as exc:
             if _should_run_emulator_setup_retry(config, exc):
                 logging.warning(
@@ -125,7 +126,7 @@ def main() -> None:
                     "Reloaded %d task instances after emulator setup",
                     len(task_instances),
                 )
-                task_instances = _run_preflight_checks(config, task_instances)
+                task_instances = _run_preflight_checks(config, task_instances, env)
             else:
                 raise
 
@@ -374,6 +375,9 @@ def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig
         n_task_combinations=n_task_combinations,
         use_identical_params=bool(runner_cfg.get("use_identical_params", False)),
         skip_unavailable_tasks=bool(runner_cfg.get("skip_unavailable_tasks", True)),
+        auto_install_missing_task_apps=bool(
+            runner_cfg.get("auto_install_missing_task_apps", True)
+        ),
         retry_infra_failures=int(runner_cfg.get("retry_infra_failures", 1)),
         adb_serial=_nullable_str(args.adb_serial or runner_cfg.get("adb_serial")),
         reference_root=str(aw_cfg.get("reference_root", ".reference/eval/android_world")),
@@ -478,9 +482,12 @@ def _validate_required_api_key(config: RunnerConfig, api_keys: dict[str, str]) -
 def _run_preflight_checks(
     config: RunnerConfig,
     task_instances: list[TaskInstance],
+    env: Any,
 ) -> list[TaskInstance]:
     _ensure_adb_device_ready(config)
     _ensure_package_installed(config, config.bridge.package_name, "bridge package")
+    if config.auto_install_missing_task_apps:
+        _attempt_targeted_task_app_install(config, task_instances, env)
     if config.skip_unavailable_tasks:
         return _filter_unavailable_task_instances(config, task_instances)
     _ensure_task_packages_installed(config, task_instances)
@@ -492,25 +499,29 @@ def _run_android_world_connectivity_preflight(config: RunnerConfig) -> None:
         return
 
     expected_emulator = f"emulator-{config.console_port}"
-    if not config.adb_serial:
-        config.adb_serial = expected_emulator
-        config.bridge.adb_serial = expected_emulator
-
-    _run_adb(config, ["start-server"], check=False, capture_output=True)
-
-    if config.auto_start_emulator:
-        if not _is_expected_emulator_online(config, expected_emulator):
-            _start_android_world_emulator(config)
-
-    has_expected_emulator = _is_expected_emulator_online(config, expected_emulator)
-
     if config.adb_serial:
         if not config.adb_serial.startswith("emulator-"):
             raise RuntimeError(
                 "AndroidWorld requires an emulator adb serial, but runner.adb_serial/--adb-serial "
                 f"is '{config.adb_serial}'."
             )
-    elif not has_expected_emulator:
+        if config.adb_serial != expected_emulator:
+            raise RuntimeError(
+                "AndroidWorld runner.adb_serial/--adb-serial must match console_port mapping. "
+                f"Got adb_serial='{config.adb_serial}' but console_port={config.console_port} "
+                f"(expected serial '{expected_emulator}')."
+            )
+    else:
+        config.adb_serial = expected_emulator
+    config.bridge.adb_serial = config.adb_serial
+
+    _run_adb_global(config, ["start-server"], check=False, capture_output=True)
+
+    if config.auto_start_emulator:
+        if not _is_expected_emulator_online(config, expected_emulator):
+            _start_android_world_emulator(config)
+
+    if not _is_expected_emulator_online(config, expected_emulator):
         raise RuntimeError(
             "AndroidWorld emulator not detected. "
             f"Expected adb device '{expected_emulator}' for console_port={config.console_port}. "
@@ -547,14 +558,7 @@ def _ensure_package_installed(config: RunnerConfig, package: str, label: str) ->
 
 
 def _ensure_task_packages_installed(config: RunnerConfig, task_instances: list[TaskInstance]) -> None:
-    missing_by_task: dict[str, list[str]] = {}
-    for task in task_instances:
-        candidates = _TASK_REQUIRED_PACKAGES.get(task.task_name)
-        if not candidates:
-            continue
-        installed = any(_is_package_installed(config, package) for package in candidates)
-        if not installed:
-            missing_by_task[task.task_name] = list(candidates)
+    missing_by_task = _collect_missing_task_packages(config, task_instances)
 
     if missing_by_task:
         lines = []
@@ -570,6 +574,65 @@ def _ensure_task_packages_installed(config: RunnerConfig, task_instances: list[T
 def _is_package_installed(config: RunnerConfig, package: str) -> bool:
     result = _run_adb_shell(config, ["pm", "path", package], check=False, capture_output=True)
     return result.returncode == 0 and "package:" in (result.stdout or "")
+
+
+def _collect_missing_task_packages(
+    config: RunnerConfig,
+    task_instances: list[TaskInstance],
+) -> dict[str, list[str]]:
+    missing_by_task: dict[str, list[str]] = {}
+    for task in task_instances:
+        candidates = _TASK_REQUIRED_PACKAGES.get(task.task_name)
+        if not candidates:
+            continue
+        installed = any(_is_package_installed(config, package) for package in candidates)
+        if not installed:
+            missing_by_task[task.task_name] = list(candidates)
+    return missing_by_task
+
+
+def _attempt_targeted_task_app_install(
+    config: RunnerConfig,
+    task_instances: list[TaskInstance],
+    env: Any,
+) -> None:
+    if config.suite_family != "android_world":
+        return
+
+    missing_before = _collect_missing_task_packages(config, task_instances)
+    if not missing_before:
+        return
+
+    try:
+        from android_world.env.setup_device import setup as aw_setup  # type: ignore
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        logging.warning("Unable to import AndroidWorld setup module for targeted app install: %s", exc)
+        return
+
+    app_list = aw_setup.get_app_list_to_setup([task.task_name for task in task_instances]) or ()
+    if not app_list:
+        return
+
+    logging.info(
+        "Attempting targeted app install/setup for missing task dependencies (%d apps)",
+        len(app_list),
+    )
+    for app_class in app_list:
+        try:
+            aw_setup.maybe_install_app(app_class, env)
+            aw_setup.setup_app(app_class, env)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logging.warning(
+                "Targeted setup failed for app '%s': %s",
+                getattr(app_class, "app_name", str(app_class)),
+                exc,
+            )
+
+    missing_after = _collect_missing_task_packages(config, task_instances)
+    if missing_after == missing_before:
+        logging.warning("Targeted app install did not resolve missing task dependencies.")
+    else:
+        logging.info("Targeted app install reduced missing task dependencies.")
 
 
 def _filter_unavailable_task_instances(
@@ -614,17 +677,44 @@ def _run_adb(
     args: list[str],
     check: bool,
     capture_output: bool = False,
+    timeout_sec: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
     cmd = ["adb"]
     if config.adb_serial:
         cmd.extend(["-s", config.adb_serial])
     cmd.extend(args)
+    timeout = (
+        float(timeout_sec)
+        if timeout_sec is not None
+        else float(config.bridge.adb_command_timeout_sec)
+    )
     return subprocess.run(
         cmd,
         check=check,
         text=True,
         capture_output=capture_output,
-        timeout=config.bridge.adb_command_timeout_sec,
+        timeout=timeout,
+    )
+
+
+def _run_adb_global(
+    config: RunnerConfig,
+    args: list[str],
+    check: bool,
+    capture_output: bool = False,
+    timeout_sec: float | None = None,
+) -> subprocess.CompletedProcess[str]:
+    timeout = (
+        float(timeout_sec)
+        if timeout_sec is not None
+        else float(config.bridge.adb_command_timeout_sec)
+    )
+    return subprocess.run(
+        ["adb", *args],
+        check=check,
+        text=True,
+        capture_output=capture_output,
+        timeout=timeout,
     )
 
 
@@ -633,8 +723,15 @@ def _run_adb_shell(
     args: list[str],
     check: bool,
     capture_output: bool = False,
+    timeout_sec: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return _run_adb(config, ["shell", *args], check=check, capture_output=capture_output)
+    return _run_adb(
+        config,
+        ["shell", *args],
+        check=check,
+        capture_output=capture_output,
+        timeout_sec=timeout_sec,
+    )
 
 
 def _is_local_tcp_port_open(port: int, timeout_sec: float = 0.2) -> bool:
@@ -644,7 +741,7 @@ def _is_local_tcp_port_open(port: int, timeout_sec: float = 0.2) -> bool:
 
 
 def _is_expected_emulator_online(config: RunnerConfig, expected_serial: str) -> bool:
-    devices_out = _run_adb(config, ["devices"], check=False, capture_output=True)
+    devices_out = _run_adb_global(config, ["devices"], check=False, capture_output=True)
     devices_text = (devices_out.stdout or "")
     return any(
         line.startswith(expected_serial + "\t") and "device" in line
@@ -737,6 +834,7 @@ def _wait_for_emulator_stability(config: RunnerConfig, expected_serial: str) -> 
         ["wait-for-device"],
         check=False,
         capture_output=True,
+        timeout_sec=timeout_sec,
     )
 
     deadline = time.time() + timeout_sec
