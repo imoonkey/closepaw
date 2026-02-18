@@ -5,7 +5,7 @@ Use these as guardrails when proposing cognition improvements. Prefer minimal, t
 ## Prompting
 
 - Put clear, explicit instructions first; be specific about desired behavior.
-- Use few-shot examples only when needed; show the target output format directly.
+- Use few-shot examples only when needed, use them sparsely; show the target output format directly.
 - Define success criteria and evaluate with targeted tests; not all failures are prompt issues.
 
 ## Tool use
