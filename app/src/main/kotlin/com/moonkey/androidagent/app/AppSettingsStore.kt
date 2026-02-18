@@ -46,7 +46,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_NOVITA_API_KEY = "novita_api_key"
         private const val KEY_PLATFORM_MODE = "platform_mode"
 
-        const val DEFAULT_MODEL = "gpt-5.2"
+        const val DEFAULT_MODEL = "glm-5"
         const val DEFAULT_MAX_TURNS = 20
         const val DEFAULT_DEBUG_MODE = false
         const val DEFAULT_PERCEPTION_MODE = "accessibility_only"
@@ -65,11 +65,7 @@ class AppSettingsStore(private val context: Context) {
         val savedKey = prefs.getString(KEY_API_KEY, null)?.takeIf { it.isNotBlank() }
         val apiKey = savedKey ?: loadApiKeyFromFile().orEmpty()
 
-        val storedModel = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
-        val selectedModel = normalizeModel(storedModel)
-        if (selectedModel != storedModel) {
-            prefs.edit().putString(KEY_MODEL, selectedModel).apply()
-        }
+        val selectedModel = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
         val maxTurns = prefs.getInt(KEY_MAX_TURNS, DEFAULT_MAX_TURNS)
         val debugMode = prefs.getBoolean(KEY_DEBUG_MODE, DEFAULT_DEBUG_MODE)
         val perceptionMode =
@@ -209,10 +205,4 @@ class AppSettingsStore(private val context: Context) {
         }
     }
 
-    private fun normalizeModel(value: String): String {
-        return when (value.lowercase()) {
-            "gpt-4o", "gpt-4o-mini" -> DEFAULT_MODEL
-            else -> value
-        }
-    }
 }

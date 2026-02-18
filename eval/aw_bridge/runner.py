@@ -50,10 +50,10 @@ class RunnerConfig:
     bridge: BridgeConfig
 
 
-_BACKEND_REQUIRED_API_KEY = {
-    "openai": "OPENAI_API_KEY",
-    "openrouter": "OPENROUTER_API_KEY",
-    "novita": "NOVITA_API_KEY",
+_PROVIDER_REQUIRED_API_KEY = {
+    "OPENAI": "OPENAI_API_KEY",
+    "OPENROUTER": "OPENROUTER_API_KEY",
+    "NOVITA": "NOVITA_API_KEY",
 }
 
 _TASK_REQUIRED_PACKAGES: dict[str, tuple[str, ...]] = {
@@ -73,7 +73,7 @@ def main() -> None:
     # Load API keys from .env file and/or environment
     api_keys = _load_api_keys(workspace_root)
     config.bridge.api_keys = api_keys or None
-    _validate_required_api_key(config, api_keys)
+    _validate_required_api_key(config, api_keys, workspace_root)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = (workspace_root / config.output_root / timestamp).resolve()
@@ -469,14 +469,70 @@ def _load_api_keys(workspace_root: Path) -> dict[str, str]:
     return keys
 
 
-def _validate_required_api_key(config: RunnerConfig, api_keys: dict[str, str]) -> None:
+def _validate_required_api_key(
+    config: RunnerConfig,
+    api_keys: dict[str, str],
+    workspace_root: Path | None = None,
+) -> None:
+    """Validate cloud API keys required by selected model(s).
+
+    Semantics:
+    - llm_backend == "local": no cloud API key required.
+    - Any cloud backend (including "openai" as OpenAI-compatible protocol):
+      API key requirement is determined by model provider in llm_models.json.
+    """
     backend = config.bridge.llm_backend.strip().lower()
-    required = _BACKEND_REQUIRED_API_KEY.get(backend)
-    if required and not api_keys.get(required):
+    if backend == "local":
+        return
+
+    workspace = workspace_root or Path(__file__).resolve().parents[2]
+    required_keys = _resolve_required_api_keys_for_models(config, workspace)
+    missing = [name for name in sorted(required_keys) if not api_keys.get(name)]
+    if missing:
+        models = [config.bridge.main_model]
+        if config.bridge.executor_model.strip():
+            models.append(config.bridge.executor_model.strip())
         raise RuntimeError(
-            f"Missing required API key for llm_backend='{config.bridge.llm_backend}': "
-            f"{required}. Add it to .env or environment variables."
+            "Missing required API key(s) for selected model(s): "
+            f"{', '.join(missing)}. Models={models}. "
+            "Add keys to .env or environment variables."
         )
+
+
+def _resolve_required_api_keys_for_models(
+    config: RunnerConfig, workspace_root: Path
+) -> set[str]:
+    model_catalog_path = (
+        workspace_root / "app" / "src" / "main" / "assets" / "llm_models.json"
+    )
+    if not model_catalog_path.is_file():
+        raise RuntimeError(f"Model catalog not found: {model_catalog_path}")
+
+    raw = json.loads(model_catalog_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise RuntimeError(f"Invalid model catalog format: {model_catalog_path}")
+
+    model_names: list[str] = [config.bridge.main_model.strip()]
+    executor_model = config.bridge.executor_model.strip()
+    if executor_model:
+        model_names.append(executor_model)
+
+    required: set[str] = set()
+    for model_name in model_names:
+        entry = raw.get(model_name)
+        if not isinstance(entry, dict):
+            raise RuntimeError(
+                f"Unknown model key '{model_name}' in {model_catalog_path}"
+            )
+        provider = str(entry.get("provider", "")).strip().upper()
+        env_name = _PROVIDER_REQUIRED_API_KEY.get(provider)
+        if not env_name:
+            raise RuntimeError(
+                f"Unsupported provider '{provider}' for model '{model_name}' "
+                f"in {model_catalog_path}"
+            )
+        required.add(env_name)
+    return required
 
 
 def _run_preflight_checks(

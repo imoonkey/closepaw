@@ -38,8 +38,8 @@ class SwipeExecutor(
         val direction = params.optString("direction", "").trim().lowercase()
         val durationMs = params.optLong("duration_ms", DEFAULT_SWIPE_DURATION_MS)
 
-        // Explicit start/end coordinates
-        if (hasStart && hasEnd && direction.isEmpty()) {
+        // Explicit start/end coordinates take precedence when both forms are provided.
+        if (hasStart && hasEnd) {
             return executeExplicitSwipe(params, durationMs, snapshot, platform)
         }
 

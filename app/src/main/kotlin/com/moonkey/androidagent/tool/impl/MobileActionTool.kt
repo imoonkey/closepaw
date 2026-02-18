@@ -37,7 +37,7 @@ Actions:
 - click: Tap target. Example: {"action":"click","element_index":3}
 - long_press: Long press target. Example: {"action":"long_press","text":"Delete"}
 - type: Type text. Example: {"action":"type","input_text":"hello","element_index":5}
-- swipe: Swipe gesture. Example: {"action":"swipe","direction":"up"}
+- swipe: Swipe gesture. Example: {"action":"swipe","direction":"up"} or {"action":"swipe","start":[540,300],"end":[540,900]}
 """.trimIndent()
 
     override val parameterSchema: JSONObject by lazy { buildSchema() }
@@ -155,10 +155,6 @@ Actions:
         val direction = params.optString("direction", "").trim().lowercase()
         val hasDirection = direction.isNotEmpty()
 
-        if ((hasStart || hasEnd) && hasDirection) {
-            return ValidationResult.Invalid("Provide either start/end or direction, not both")
-        }
-
         if (hasStart || hasEnd) {
             if (!hasStart) return ValidationResult.Invalid("swipe requires start coordinate [x, y]")
             val start = params.optJSONArray("start")
@@ -179,6 +175,7 @@ Actions:
             } catch (e: Exception) {
                 return ValidationResult.Invalid("Coordinates must be integers")
             }
+            // If both forms are provided, prefer explicit coordinates to reduce schema brittleness.
             return ValidationResult.Valid
         }
 
@@ -303,7 +300,7 @@ Actions:
             })
             put("direction", JSONObject().apply {
                 put("type", "string")
-                put("description", "Swipe direction. up/down scroll content opposite direction.")
+                put("description", "Swipe direction. up/down scroll content opposite direction. Ignored when start/end are provided.")
                 put("enum", JSONArray(listOf("up", "down", "left", "right")))
             })
             put("distance", JSONObject().apply {

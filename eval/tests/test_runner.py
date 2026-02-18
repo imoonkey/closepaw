@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from eval.aw_bridge.native_agent_bridge import BridgeConfig
@@ -9,6 +12,7 @@ from eval.aw_bridge.runner import (
     RunnerConfig,
     _run_adb,
     _run_android_world_connectivity_preflight,
+    _validate_required_api_key,
     _wait_for_emulator_stability,
 )
 
@@ -122,6 +126,75 @@ class RunnerEmulatorStabilityTest(unittest.TestCase):
 
         first_call = run_adb_mock.call_args_list[0]
         self.assertEqual(first_call[1]["timeout_sec"], 180)
+
+
+class RunnerApiKeyValidationTest(unittest.TestCase):
+    def _workspace_with_catalog(self, catalog: dict[str, dict[str, str]]) -> Path:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        catalog_path = root / "app" / "src" / "main" / "assets"
+        catalog_path.mkdir(parents=True, exist_ok=True)
+        (catalog_path / "llm_models.json").write_text(
+            json.dumps(catalog, ensure_ascii=True, indent=2),
+            encoding="utf-8",
+        )
+        return root
+
+    def test_openai_protocol_uses_model_provider_key(self) -> None:
+        config = _runner_config()
+        config.bridge.llm_backend = "openai"
+        config.bridge.main_model = "glm-5"
+        workspace = self._workspace_with_catalog(
+            {
+                "glm-5": {"provider": "OPENROUTER"},
+            }
+        )
+
+        _validate_required_api_key(
+            config,
+            {"OPENROUTER_API_KEY": "ok"},
+            workspace_root=workspace,
+        )
+
+    def test_missing_provider_key_raises(self) -> None:
+        config = _runner_config()
+        config.bridge.llm_backend = "openai"
+        config.bridge.main_model = "glm-5"
+        workspace = self._workspace_with_catalog(
+            {
+                "glm-5": {"provider": "OPENROUTER"},
+            }
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "OPENROUTER_API_KEY"):
+            _validate_required_api_key(config, {}, workspace_root=workspace)
+
+    def test_local_backend_skips_cloud_key_validation(self) -> None:
+        config = _runner_config()
+        config.bridge.llm_backend = "local"
+        workspace = self._workspace_with_catalog({})
+
+        _validate_required_api_key(config, {}, workspace_root=workspace)
+
+    def test_mixed_main_and_executor_require_both_keys(self) -> None:
+        config = _runner_config()
+        config.bridge.llm_backend = "openai"
+        config.bridge.main_model = "glm-5"
+        config.bridge.executor_model = "gpt-5.2"
+        workspace = self._workspace_with_catalog(
+            {
+                "glm-5": {"provider": "OPENROUTER"},
+                "gpt-5.2": {"provider": "OPENAI"},
+            }
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "OPENAI_API_KEY"):
+            _validate_required_api_key(
+                config,
+                {"OPENROUTER_API_KEY": "ok"},
+                workspace_root=workspace,
+            )
 
 
 if __name__ == "__main__":

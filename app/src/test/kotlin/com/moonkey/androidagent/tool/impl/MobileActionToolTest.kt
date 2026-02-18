@@ -116,6 +116,20 @@ class MobileActionToolTest {
     }
 
     @Test
+    fun `swipe allows both direction and explicit coordinates`() {
+        val tool = MobileActionTool()
+        val params = JSONObject()
+            .put("action", "swipe")
+            .put("direction", "down")
+            .put("start", JSONArray(listOf(540, 50)))
+            .put("end", JSONArray(listOf(540, 500)))
+
+        val result = tool.validate(params)
+
+        assertThat(result).isEqualTo(ValidationResult.Valid)
+    }
+
+    @Test
     fun `type with text only is valid`() {
         val tool = MobileActionTool()
         val params = JSONObject()

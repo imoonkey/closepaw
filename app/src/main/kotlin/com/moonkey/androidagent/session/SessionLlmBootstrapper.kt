@@ -126,11 +126,11 @@ internal object SessionLlmBootstrapper {
     private const val FALLBACK_CATALOG_JSON =
             """
         {
-          "gpt-5.2": {
-            "display_name": "GPT-5.2",
-            "provider": "OPENAI",
-            "api": "response",
-            "model_id": "gpt-5.2"
+          "glm-5": {
+            "display_name": "GLM-5",
+            "provider": "OPENROUTER",
+            "api": "chat",
+            "model_id": "z-ai/glm-5"
           }
         }
         """

@@ -39,7 +39,7 @@ data class SessionConfig(
          *
          * Construct configs with [mainModel] directly.
          */
-        val mainModel: String = "gpt-5.2",
+        val mainModel: String = "glm-5",
         /**
          * Model name (key in llm_models.json) for executor agents in planner/executor mode.
          * When null, executor agents fall back to [mainModel].
