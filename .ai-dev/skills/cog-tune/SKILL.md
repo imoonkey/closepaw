@@ -24,17 +24,19 @@ Pick one or both entry points:
 
 - **Debug-run entry**:
   - Use latest run or a provided run directory under `debug-output/`.
+  - Use inspection tool virtualenv for inspection scripts: `inspection_tool/.venv/bin/python ...`
   - If derived replay files are missing/outdated, compile them:
-    - `python3 inspection_tool/replay_compiler.py <run_dir>/trace`
+    - `inspection_tool/.venv/bin/python inspection_tool/replay_compiler.py <run_dir>/trace`
   - Optional helper: `python3 .ai-dev/skills/cog-tune/scripts/prepare_cog_review.py --latest`
     - Produces a `cognition_review.md` with per-step artifact paths.
 
 - **Eval entry (`eval/results/`)**:
   - Select a run directory: `eval/results/<timestamp>/`
+  - Use eval virtualenv for all eval scripts: `eval/.venv/bin/python ...`
   - Summarize metrics:
-    - `python3 eval/analysis/summarize.py --run-dir <eval_run_dir>`
+    - `eval/.venv/bin/python eval/analysis/summarize.py --run-dir <eval_run_dir>`
   - Compare against baseline run when available:
-    - `python3 eval/analysis/compare_runs.py --base <base_eval_run_dir> --new <eval_run_dir>`
+    - `eval/.venv/bin/python eval/analysis/compare_runs.py --base <base_eval_run_dir> --new <eval_run_dir>`
   - Use `per_task.jsonl` to identify candidate failures/regressions (for example: `scripted_success=false`, high `tool_failures`, `MaxTurnsReached`, long `duration_sec`).
   - For selected tasks, follow `artifact_paths.trace_dir` and inspect traces step-by-step like debug runs.
 
@@ -83,8 +85,8 @@ Use `rg` to locate prompt or tool definition text before edits.
 - Re-run at least one additional task to avoid overfitting.
 - Re-run a relevant eval subset (for example `eval/config/aw_subset_smoke.txt` or `eval/config/aw_subset_core.txt`) when tuning from eval.
 - Recompute/compare metrics:
-  - `python3 eval/analysis/summarize.py --run-dir <eval_run_dir>`
-  - `python3 eval/analysis/compare_runs.py --base <base_eval_run_dir> --new <eval_run_dir>`
+  - `eval/.venv/bin/python eval/analysis/summarize.py --run-dir <eval_run_dir>`
+  - `eval/.venv/bin/python eval/analysis/compare_runs.py --base <base_eval_run_dir> --new <eval_run_dir>`
 - If improvement is narrow, document the limitation and keep change small.
 - If uncertainty remains, propose instrumentation/trace improvements instead of guessing.
 

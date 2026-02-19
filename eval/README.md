@@ -15,14 +15,16 @@ This folder contains the Tier 0/1 evaluation implementation described in
 
 ## Quick Start
 
-1. Install Python dependencies for AndroidWorld and this harness.
+1. Create/use eval virtualenv and install Python dependencies for AndroidWorld and this harness.
 2. Ensure emulator/device + AndroidWorld runtime are ready.
 3. Install latest APK to device (`./scripts/setup.sh`).
 4. Run a smoke subset:
 
 ```bash
-python3 eval/aw_bridge/runner.py --tasks-file eval/config/aw_subset_smoke.txt
+eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/aw_subset_smoke.txt
 ```
+
+Use `eval/.venv/bin/python` for eval-related commands to avoid dependency/version drift.
 
 ## Output Layout
 
