@@ -31,7 +31,7 @@ bridge:
   agent_mode: basic
   perception_mode: accessibility_only
   platform_mode: accessibility
-  main_model: minimax-m2.5
+  main_model: qwen3.5
   executor_model: ""
   auto_start: true
   fresh_session: true

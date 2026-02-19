@@ -29,6 +29,7 @@ import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -62,6 +63,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var settingsState: AppSettingsState
     private var pendingTraceEnabled: Boolean? = null
     private var pendingTraceRunId: String? = null
+    private var pendingAutoStartGoal: String? = null
+    private var pendingGoalRunnable: Runnable? = null
+    private var drainPendingRunnable: Runnable? = null
     private lateinit var sessionHistoryManager: SessionHistoryManager
     private lateinit var viewModel: ChatViewModel
     private var showSettings by mutableStateOf(false)
@@ -135,14 +139,21 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         AgentService.instance?.onMainAppVisible()
         rebindActiveServiceSessionIfNeeded()
+        retryPendingAutoStartGoalIfReady()
     }
 
     override fun onResume() {
         super.onResume()
         AgentService.instance?.onMainAppVisible()
+        retryPendingAutoStartGoalIfReady()
     }
 
     override fun onDestroy() {
+        pendingGoalRunnable?.let { window.decorView.removeCallbacks(it) }
+        pendingGoalRunnable = null
+        drainPendingRunnable?.let { window.decorView.removeCallbacks(it) }
+        drainPendingRunnable = null
+        sessionScope.cancel()
         super.onDestroy()
         Log.d(TAG, "onDestroy called, session active: ${currentSession != null}")
     }
@@ -173,7 +184,7 @@ class MainActivity : ComponentActivity() {
         } else {
             payload.goalText?.let {
                 Log.d(TAG, "Goal set from intent: $it")
-                window.decorView.postDelayed({ ensureSessionAndSend(it) }, 500)
+                scheduleGoalDispatch(it)
             }
         }
     }
@@ -237,6 +248,7 @@ class MainActivity : ComponentActivity() {
 
         val service = AgentService.instance
         if (service == null) {
+            pendingAutoStartGoal = text
             Toast.makeText(this, "Please enable the Accessibility Service", Toast.LENGTH_LONG)
                     .show()
             openAccessibilitySettings(this)
@@ -265,7 +277,7 @@ class MainActivity : ComponentActivity() {
                                     pendingInputs.size == 1
                                 }
                         if (shouldScheduleRetry) {
-                            window.decorView.postDelayed({ drainPendingInputs() }, 200)
+                            scheduleDrainPendingInputs()
                         }
                     }
                 }
@@ -344,6 +356,7 @@ class MainActivity : ComponentActivity() {
 
                     service.observeExternalSession(session, settingsState.platformMode)
                     session.submit(Op.UserInput(text))
+                    pendingAutoStartGoal = null
                     drainPendingInputs()
 
                     Log.i(
@@ -371,8 +384,41 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } else {
-            lifecycleScope.launch { currentSession?.submit(Op.UserInput(text)) }
+            pendingAutoStartGoal = null
+            val session = currentSession
+            lifecycleScope.launch { session?.submit(Op.UserInput(text)) }
         }
+    }
+
+    private fun retryPendingAutoStartGoalIfReady() {
+        val pendingGoal = pendingAutoStartGoal ?: return
+        if (AgentService.instance == null) return
+        if (!Settings.canDrawOverlays(this)) return
+        if (findMissingCloudKeys(settingsState, modelCatalog).isNotEmpty()) return
+        if (sessionCreationInProgress) return
+        ensureSessionAndSend(pendingGoal)
+    }
+
+    private fun scheduleGoalDispatch(goal: String, delayMs: Long = 500L) {
+        pendingGoalRunnable?.let { window.decorView.removeCallbacks(it) }
+        val runnable =
+                Runnable {
+                    pendingGoalRunnable = null
+                    ensureSessionAndSend(goal)
+                }
+        pendingGoalRunnable = runnable
+        window.decorView.postDelayed(runnable, delayMs)
+    }
+
+    private fun scheduleDrainPendingInputs(delayMs: Long = 200L) {
+        drainPendingRunnable?.let { window.decorView.removeCallbacks(it) }
+        val runnable =
+                Runnable {
+                    drainPendingRunnable = null
+                    drainPendingInputs()
+                }
+        drainPendingRunnable = runnable
+        window.decorView.postDelayed(runnable, delayMs)
     }
 
     private fun drainPendingInputs() {

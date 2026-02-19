@@ -24,6 +24,7 @@ internal object PlannerAgentDef : AgentDef() {
 
         ## Tool Calling
         - Use function calling tools only; do NOT emit raw JSON or <action> tags.
+        - Never emit tool calls as plain text. Always invoke tools via structured function calls.
         - You may call multiple tools per turn.
         - Prefer at most one screen-affecting execution tool per turn (`delegate_task` or `open_app`).
         - You may combine `write_todos` and `scratchpad` with that execution tool in the same turn.

@@ -34,6 +34,16 @@ class Turn(
             val model: String
     )
 
+    private data class TextRecovery(
+            val toolCall: ToolCallRequest?,
+            val hasMalformedKnownToolMarker: Boolean
+    )
+
+    private data class InlineToolMarker(
+            val toolName: String,
+            val argsStart: Int
+    )
+
     suspend fun run(
             systemPrompt: String,
             inputItems: List<ResponseInputItem>,
@@ -97,7 +107,14 @@ class Turn(
                                 )
 
                                 val toolCallRequest = convertToToolCallRequest(llmToolCall)
-                                emit(TurnStreamEvent.ToolCallReceived(toolCallRequest))
+                                if (allowedToolNames?.contains(toolCallRequest.name) != false) {
+                                    emit(TurnStreamEvent.ToolCallReceived(toolCallRequest))
+                                } else {
+                                    Log.w(
+                                            TAG,
+                                            "Suppressing disallowed streaming tool event: ${toolCallRequest.name}"
+                                    )
+                                }
                             }
                             is LLMStreamEvent.Completed -> {
                                 Log.d(TAG, "Response completed, building final result")
@@ -166,8 +183,8 @@ class Turn(
                         converted
                     }
                 }
-        val recoveredToolCall =
-                if (parsedToolCalls.isEmpty()) recoverToolCallFromText(textContent) else null
+        val textRecovery = if (parsedToolCalls.isEmpty()) recoverToolCallFromText(textContent) else null
+        val recoveredToolCall = textRecovery?.toolCall
         val allToolCalls = recoveredToolCall?.let { listOf(it) } ?: parsedToolCalls
         val toolCalls = allToolCalls.filter { allowedToolNames?.contains(it.name) != false }
         val recoveredAccepted = recoveredToolCall != null && toolCalls.any { it.id == recoveredToolCall.id }
@@ -180,38 +197,113 @@ class Turn(
         }
 
         val completeTaskCall = toolCalls.find { it.name == COMPLETE_TASK_TOOL }
-        val isComplete = completeTaskCall != null || (toolCalls.isEmpty() && effectiveTextContent != null)
+        val hasMalformedKnownToolMarker = textRecovery?.hasMalformedKnownToolMarker == true
+        if (hasMalformedKnownToolMarker) {
+            Log.w(TAG, "Detected malformed known inline tool call marker in text response")
+        }
+        val isComplete =
+                completeTaskCall != null ||
+                        (toolCalls.isEmpty() &&
+                                effectiveTextContent != null &&
+                                !hasMalformedKnownToolMarker)
 
         Log.d(TAG, "Process result: ${toolCalls.size} tool calls, isComplete=$isComplete")
 
         return TurnResult(content = effectiveTextContent, toolCalls = toolCalls, isComplete = isComplete)
     }
 
-    private fun recoverToolCallFromText(textContent: String?): ToolCallRequest? {
+    private fun recoverToolCallFromText(textContent: String?): TextRecovery? {
         val candidate = textContent?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         val compact = stripMarkdownCodeFence(candidate)
 
         parseObjectWrappedToolCall(compact)?.let { recovered ->
             Log.w(TAG, "Recovered tool call from text payload: ${recovered.name}")
-            return recovered
+            return TextRecovery(toolCall = recovered, hasMalformedKnownToolMarker = false)
         }
 
-        val inlinePattern = Regex("""^([a-zA-Z_][a-zA-Z0-9_]*)\s*(\{[\s\S]*\})$""")
-        val inlineMatch = inlinePattern.matchEntire(compact) ?: return null
-        val toolName = inlineMatch.groupValues[1]
-        val argsRaw = inlineMatch.groupValues[2]
-        return try {
-            val args = JSONObject(argsRaw)
-            val syntheticId = "synthetic_${toolName}_text_${UUID.randomUUID()}"
-            Log.w(TAG, "Recovered inline tool call from text payload: $toolName")
-            ToolCallRequest(
-                    id = syntheticId,
-                    name = toolName,
-                    arguments = args
+        val knownToolNames = resolveRecoverableToolNames()
+        if (knownToolNames.isEmpty()) return null
+
+        val markers = findInlineToolMarkers(compact, knownToolNames)
+        if (markers.isEmpty()) return null
+
+        for (marker in markers.asReversed()) {
+            val argsRaw = extractBalancedJsonObject(compact, marker.argsStart) ?: continue
+            val args =
+                    try {
+                        JSONObject(argsRaw)
+                    } catch (_: Exception) {
+                        continue
+                    }
+            val syntheticId = "synthetic_${marker.toolName}_text_${UUID.randomUUID()}"
+            Log.w(TAG, "Recovered inline tool call from text payload: ${marker.toolName}")
+            return TextRecovery(
+                    toolCall =
+                            ToolCallRequest(
+                                    id = syntheticId,
+                                    name = marker.toolName,
+                                    arguments = args
+                            ),
+                    hasMalformedKnownToolMarker = false
             )
-        } catch (_: Exception) {
-            null
         }
+
+        return TextRecovery(
+                toolCall = null,
+                hasMalformedKnownToolMarker = true
+        )
+    }
+
+    private fun resolveRecoverableToolNames(): Set<String> {
+        return toolRegistry.getNames().filterTo(mutableSetOf()) { name ->
+            allowedToolNames?.contains(name) != false
+        }
+    }
+
+    private fun findInlineToolMarkers(text: String, knownToolNames: Set<String>): List<InlineToolMarker> {
+        return knownToolNames.flatMap { toolName ->
+            val pattern = Regex("""(?<![A-Za-z0-9_])${Regex.escape(toolName)}\s*\{""")
+            pattern.findAll(text).map { match ->
+                InlineToolMarker(toolName = toolName, argsStart = match.range.last)
+            }.toList()
+        }.sortedBy { it.argsStart }
+    }
+
+    private fun extractBalancedJsonObject(text: String, startIndex: Int): String? {
+        if (startIndex !in text.indices || text[startIndex] != '{') return null
+        var depth = 0
+        var inString = false
+        var escaped = false
+
+        for (index in startIndex until text.length) {
+            val ch = text[index]
+            if (inString) {
+                if (escaped) {
+                    escaped = false
+                    continue
+                }
+                if (ch == '\\') {
+                    escaped = true
+                    continue
+                }
+                if (ch == '"') {
+                    inString = false
+                }
+                continue
+            }
+
+            when (ch) {
+                '"' -> inString = true
+                '{' -> depth += 1
+                '}' -> {
+                    depth -= 1
+                    if (depth == 0) {
+                        return text.substring(startIndex, index + 1)
+                    }
+                }
+            }
+        }
+        return null
     }
 
     private fun parseObjectWrappedToolCall(candidate: String): ToolCallRequest? {

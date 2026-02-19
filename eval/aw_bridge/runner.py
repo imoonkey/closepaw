@@ -62,6 +62,8 @@ _TASK_REQUIRED_PACKAGES: dict[str, tuple[str, ...]] = {
     "ContactsAddContact": ("com.android.contacts", "com.google.android.contacts"),
     "ExpenseAddSingle": ("com.arduia.expense",),
     "MarkorCreateNote": ("net.gsantner.markor",),
+    "RecipeAddSingleRecipe": ("com.flauschcode.broccoli",),
+    "SimpleSmsSend": ("com.simplemobiletools.smsmessenger",),
 }
 
 
@@ -535,13 +537,41 @@ def _resolve_required_api_keys_for_models(
     return required
 
 
+def _build_and_install_bridge(config: RunnerConfig) -> None:
+    """Build the agent APK and install it on the target device."""
+    workspace_root = Path(__file__).resolve().parents[2]
+    gradlew = workspace_root / "gradlew"
+    apk_path = workspace_root / "app" / "build" / "outputs" / "apk" / "debug" / "app-debug.apk"
+    package = config.bridge.package_name
+
+    logging.info("Building agent APK …")
+    result = subprocess.run(
+        [str(gradlew), ":app:assembleDebug", "--quiet"],
+        cwd=str(workspace_root),
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Gradle build failed:\n{result.stderr or result.stdout}")
+    logging.info("Agent APK built successfully")
+
+    logging.info("Installing agent APK …")
+    _run_adb(config, ["install", "-r", "-t", str(apk_path)], check=True, timeout_sec=120)
+    logging.info("Agent APK installed")
+
+    # Grant overlay permission
+    _run_adb_shell(config, ["appops", "set", package, "SYSTEM_ALERT_WINDOW", "allow"], check=False)
+    logging.info("Overlay permission granted")
+
+
 def _run_preflight_checks(
     config: RunnerConfig,
     task_instances: list[TaskInstance],
     env: Any,
 ) -> list[TaskInstance]:
     _ensure_adb_device_ready(config)
-    _ensure_package_installed(config, config.bridge.package_name, "bridge package")
+    _build_and_install_bridge(config)
     if config.auto_install_missing_task_apps:
         _attempt_targeted_task_app_install(config, task_instances, env)
     if config.skip_unavailable_tasks:

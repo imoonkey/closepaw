@@ -27,8 +27,9 @@ internal object ExecutorAgentDef : AgentDef() {
 
         ## Tool Calling
         - Use function calling tools only; do NOT emit raw JSON or <action> tags.
+        - Never emit tool calls as plain text. Always invoke tools via structured function calls.
         - You may call multiple tools per turn when needed.
-        - BATCH your tools. Always combine cognitive updates (`write_todos`, `scratchpad`) with your next screen action if any (`mobile_action`, etc.) in the SAME turn.
+        - BATCH your tools. Always combine cognitive updates (`scratchpad`) with your next screen action if any (`mobile_action`, etc.) in the SAME turn.
         - Prefer at most ONE screen-affecting action per turn, then STOP and observe the result.
         - Do not call `complete_task` in the same turn as a screen-affecting action.
         - Call complete_task(status="success", answer="...") after verifying the goal on screen.

@@ -102,6 +102,7 @@ class LogcatCompletionMonitorTest(unittest.TestCase):
             monitor = LogcatCompletionMonitor(max_wait_seconds=0.1, poll_interval_seconds=0.02)
             result = monitor.wait(logcat)
             self.assertEqual(result.bridge_status, "timeout")
+            self.assertIsNone(result.agent_completion_reason)
 
     def test_reason_from_earlier_line(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -115,6 +116,19 @@ class LogcatCompletionMonitorTest(unittest.TestCase):
             result = monitor.wait(logcat)
             self.assertEqual(result.bridge_status, "completed")
             self.assertEqual(result.agent_completion_reason, "MAX_TURNS")
+
+    def test_ignores_unrelated_reason_lines_before_completion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            logcat = Path(tmp) / "logcat.log"
+            logcat.write_text(
+                "AudioService: reason: volume_controller\n"
+                "AgentSession: Emitted event: SessionCompleted\n",
+                encoding="utf-8",
+            )
+            monitor = LogcatCompletionMonitor(max_wait_seconds=1, poll_interval_seconds=0.01)
+            result = monitor.wait(logcat)
+            self.assertEqual(result.bridge_status, "completed")
+            self.assertIsNone(result.agent_completion_reason)
 
 
 if __name__ == "__main__":

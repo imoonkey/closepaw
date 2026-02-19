@@ -43,14 +43,15 @@ class LogcatCompletionMonitor:
                 with logcat_path.open("r", encoding="utf-8", errors="replace") as stream:
                     stream.seek(cursor)
                     for line in stream:
-                        reason = reason or _extract_reason(line)
                         if COMPLETED_PATTERN.search(line):
+                            reason = reason or _extract_reason(line)
                             return MonitorResult(
                                 bridge_status="completed",
                                 agent_completion_reason=reason,
                                 matched_line=line.strip(),
                             )
                         if ERROR_PATTERN.search(line):
+                            reason = reason or _extract_reason(line)
                             return MonitorResult(
                                 bridge_status="error",
                                 agent_completion_reason=reason,

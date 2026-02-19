@@ -10,6 +10,7 @@ from unittest import mock
 from eval.aw_bridge.native_agent_bridge import BridgeConfig
 from eval.aw_bridge.runner import (
     RunnerConfig,
+    _TASK_REQUIRED_PACKAGES,
     _run_adb,
     _run_android_world_connectivity_preflight,
     _validate_required_api_key,
@@ -195,6 +196,18 @@ class RunnerApiKeyValidationTest(unittest.TestCase):
                 {"OPENROUTER_API_KEY": "ok"},
                 workspace_root=workspace,
             )
+
+
+class RunnerTaskPackageMapTest(unittest.TestCase):
+    def test_includes_recipe_and_sms_requirements(self) -> None:
+        self.assertEqual(
+            _TASK_REQUIRED_PACKAGES.get("RecipeAddSingleRecipe"),
+            ("com.flauschcode.broccoli",),
+        )
+        self.assertEqual(
+            _TASK_REQUIRED_PACKAGES.get("SimpleSmsSend"),
+            ("com.simplemobiletools.smsmessenger",),
+        )
 
 
 if __name__ == "__main__":

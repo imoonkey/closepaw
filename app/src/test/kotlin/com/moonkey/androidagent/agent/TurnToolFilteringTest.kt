@@ -16,6 +16,7 @@ import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.json.JSONArray
 import org.json.JSONObject
@@ -174,6 +175,65 @@ class TurnToolFilteringTest {
     }
 
     @Test
+    fun `run recovers inline tool call wrapped in prose`() = runTest {
+        val llm =
+                CapturingTurnLLMClient(
+                        response =
+                                ResponsesResult(
+                                        textContent =
+                                                """
+                                                I will perform the requested action now.
+                                                mobile_action{"action":"click","element_index":7}
+                                                Action prepared.
+                                                """.trimIndent(),
+                                        toolCalls = emptyList(),
+                                        responseId = "resp"
+                                )
+                )
+        val registry = ToolRegistry().apply { register(TestTurnTool("mobile_action")) }
+        val turn = Turn(toolRegistry = registry, llmClient = llm)
+
+        val result =
+                turn.run(
+                        systemPrompt = "standalone",
+                        inputItems = minimalInputItems
+                )
+
+        assertThat(result.toolCalls).hasSize(1)
+        val toolCall = result.toolCalls.single()
+        assertThat(toolCall.name).isEqualTo("mobile_action")
+        assertThat(toolCall.arguments.getString("action")).isEqualTo("click")
+        assertThat(toolCall.arguments.getInt("element_index")).isEqualTo(7)
+        assertThat(result.isComplete).isFalse()
+        assertThat(result.content).isNull()
+    }
+
+    @Test
+    fun `run does not complete when known inline call marker is malformed`() = runTest {
+        val llm =
+                CapturingTurnLLMClient(
+                        response =
+                                ResponsesResult(
+                                        textContent = """Trying now: mobile_action{"action":"click","element_index":7""",
+                                        toolCalls = emptyList(),
+                                        responseId = "resp"
+                                )
+                )
+        val registry = ToolRegistry().apply { register(TestTurnTool("mobile_action")) }
+        val turn = Turn(toolRegistry = registry, llmClient = llm)
+
+        val result =
+                turn.run(
+                        systemPrompt = "standalone",
+                        inputItems = minimalInputItems
+                )
+
+        assertThat(result.toolCalls).isEmpty()
+        assertThat(result.isComplete).isFalse()
+        assertThat(result.content).contains("mobile_action")
+    }
+
+    @Test
     fun `run treats regular text as completion when no tool calls exist`() = runTest {
         val llm =
                 CapturingTurnLLMClient(
@@ -197,9 +257,58 @@ class TurnToolFilteringTest {
         assertThat(result.isComplete).isTrue()
         assertThat(result.content).isEqualTo("Done. Task finished.")
     }
+
+    @Test
+    fun `runStreaming suppresses disallowed tool events`() = runTest {
+        val llm =
+                CapturingTurnLLMClient(
+                        response =
+                                ResponsesResult(
+                                        textContent = null,
+                                        toolCalls = emptyList(),
+                                        responseId = "resp"
+                                ),
+                        streamEvents =
+                                listOf(
+                                        LLMStreamEvent.ToolCallDone(
+                                                LLMToolCall(
+                                                        callId = "call-1",
+                                                        name = "mobile_action",
+                                                        arguments = "{}"
+                                                )
+                                        ),
+                                        LLMStreamEvent.Completed
+                                )
+                )
+        val registry =
+                ToolRegistry().apply {
+                    register(TestTurnTool("mobile_action"))
+                    register(TestTurnTool("delegate_task"))
+                }
+        val turn =
+                Turn(
+                        toolRegistry = registry,
+                        llmClient = llm,
+                        allowedToolNames = setOf("delegate_task")
+                )
+
+        val events =
+                turn.runStreaming(
+                                systemPrompt = "planner",
+                                inputItems = minimalInputItems
+                        )
+                        .toList()
+
+        assertThat(events.filterIsInstance<TurnStreamEvent.ToolCallReceived>()).isEmpty()
+        val complete = events.filterIsInstance<TurnStreamEvent.Complete>().single()
+        assertThat(complete.result.toolCalls).isEmpty()
+    }
 }
 
-private class CapturingTurnLLMClient(private val response: ResponsesResult) : LLMClient() {
+private class CapturingTurnLLMClient(
+        private val response: ResponsesResult,
+        private val streamEvents: List<LLMStreamEvent> = listOf(LLMStreamEvent.Completed)
+) : LLMClient() {
     var lastToolNames: List<String> = emptyList()
 
     override suspend fun chatWithTools(
@@ -217,7 +326,9 @@ private class CapturingTurnLLMClient(private val response: ResponsesResult) : LL
             inputItems: List<ResponseInputItem>,
             tools: List<FunctionTool>,
             model: String
-    ): Flow<LLMStreamEvent> = flow { emit(LLMStreamEvent.Completed) }
+    ): Flow<LLMStreamEvent> = flow {
+        streamEvents.forEach { emit(it) }
+    }
 }
 
 private class TestTurnTool(override val name: String) : ToolSpec {
