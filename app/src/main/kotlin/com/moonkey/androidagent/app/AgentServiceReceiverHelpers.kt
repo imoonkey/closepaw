@@ -26,3 +26,25 @@ internal fun unregisterDebugStopReceiverIfNeeded(service: AgentService, receiver
         Log.w("AgentService", "stopReceiver was not registered: ${e.message}")
     }
 }
+
+internal fun registerDebugExecReceiverIfNeeded(service: AgentService, receiver: BroadcastReceiver) {
+    if (!BuildConfig.DEBUG) return
+    val filter = IntentFilter(ACTION_DEBUG_EXEC)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        service.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+    } else {
+        @Suppress("UnspecifiedRegisterReceiverFlag")
+        service.registerReceiver(receiver, filter)
+    }
+}
+
+internal fun unregisterDebugExecReceiverIfNeeded(service: AgentService, receiver: BroadcastReceiver) {
+    if (!BuildConfig.DEBUG) return
+    try {
+        service.unregisterReceiver(receiver)
+    } catch (e: IllegalArgumentException) {
+        Log.w("AgentService", "debugExecReceiver was not registered: ${e.message}")
+    }
+}
+
+internal const val ACTION_DEBUG_EXEC = "com.moonkey.androidagent.ACTION_DEBUG_EXEC"

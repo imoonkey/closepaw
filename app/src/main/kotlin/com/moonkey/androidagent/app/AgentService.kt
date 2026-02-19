@@ -9,6 +9,7 @@ import android.util.Log
 import android.view.Display
 import android.view.SurfaceView
 import android.view.accessibility.AccessibilityEvent
+import com.moonkey.androidagent.debug.ActionDebugReceiver
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.SessionConfig
@@ -104,6 +105,8 @@ class AgentService : AccessibilityService() {
                 }
             }
 
+    private val debugExecReceiver = ActionDebugReceiver()
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         isServiceActive = true
@@ -168,6 +171,7 @@ class AgentService : AccessibilityService() {
         Log.i(TAG, "ActionVisualizerManager initialized")
 
         registerDebugStopReceiverIfNeeded(this, stopReceiver)
+        registerDebugExecReceiverIfNeeded(this, debugExecReceiver)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -215,6 +219,7 @@ class AgentService : AccessibilityService() {
         actionVisualizer?.dispose()
         actionVisualizer = null
         unregisterDebugStopReceiverIfNeeded(this, stopReceiver)
+        unregisterDebugExecReceiverIfNeeded(this, debugExecReceiver)
         serviceLifecycleOwner.onDestroy()
         super.onDestroy()
         _statusFlow.value = ""
