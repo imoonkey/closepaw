@@ -111,6 +111,38 @@ log() { echo -e "${BLUE}> $1${NC}"; }
 ok() { echo -e "${GREEN}✓ $1${NC}"; }
 warn() { echo -e "${YELLOW}! $1${NC}"; }
 
+list_connected_devices() {
+    adb devices | awk 'NR > 1 && $2 == "device" {print $1}'
+}
+
+select_device() {
+    local preferred_serial="${ANDROID_SERIAL:-}"
+    local devices
+    local physical_devices
+
+    devices="$(list_connected_devices)"
+    if [[ -z "$devices" ]]; then
+        return 1
+    fi
+
+    if [[ -n "$preferred_serial" ]]; then
+        if printf "%s\n" "$devices" | grep -Fxq "$preferred_serial"; then
+            printf "%s\n" "$preferred_serial"
+            return 0
+        fi
+        warn "ANDROID_SERIAL=$preferred_serial not found; auto-selecting device."
+    fi
+
+    physical_devices="$(printf "%s\n" "$devices" | grep -v '^emulator-' || true)"
+    if [[ -n "$physical_devices" ]]; then
+        printf "%s\n" "$physical_devices" | head -n 1
+        return 0
+    fi
+
+    printf "%s\n" "$devices" | head -n 1
+    return 0
+}
+
 escape_shell_arg() {
     printf "%s" "$1" | sed "s/'/'\\\\''/g"
 }
@@ -216,9 +248,29 @@ log "Using perception mode: $PERCEPTION_MODE"
 log "Using platform mode: $PLATFORM_MODE"
 
 # Ensure device connected
-if ! adb devices | grep -q "device$"; then
+DEVICE="$(select_device || true)"
+if [[ -z "$DEVICE" ]]; then
     warn "No Android device detected. Waiting for device..."
     adb wait-for-device
+    DEVICE="$(select_device || true)"
+fi
+
+if [[ -z "$DEVICE" ]]; then
+    echo -e "${RED}x Unable to select a target device${NC}"
+    exit 1
+fi
+
+export ANDROID_SERIAL="$DEVICE"
+CONNECTED_DEVICES="$(list_connected_devices)"
+CONNECTED_COUNT="$(printf "%s\n" "$CONNECTED_DEVICES" | sed '/^$/d' | wc -l | tr -d ' ')"
+if [[ "$CONNECTED_COUNT" -gt 1 ]]; then
+    warn "Multiple devices detected; using $DEVICE"
+fi
+
+if [[ "$DEVICE" == emulator-* ]]; then
+    warn "No physical device found; using emulator: $DEVICE"
+else
+    ok "Selected physical device: $DEVICE"
 fi
 
 # Clear logs and start streaming capture

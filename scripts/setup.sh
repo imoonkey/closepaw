@@ -39,6 +39,38 @@ ok() { echo -e "${GREEN}✓ $1${NC}"; }
 warn() { echo -e "${YELLOW}! $1${NC}"; }
 err() { echo -e "${RED}x $1${NC}"; exit 1; }
 
+list_connected_devices() {
+    adb devices | awk 'NR > 1 && $2 == "device" {print $1}'
+}
+
+select_device() {
+    local preferred_serial="${ANDROID_SERIAL:-}"
+    local devices
+    local physical_devices
+
+    devices="$(list_connected_devices)"
+    if [[ -z "$devices" ]]; then
+        return 1
+    fi
+
+    if [[ -n "$preferred_serial" ]]; then
+        if printf "%s\n" "$devices" | grep -Fxq "$preferred_serial"; then
+            printf "%s\n" "$preferred_serial"
+            return 0
+        fi
+        warn "ANDROID_SERIAL=$preferred_serial not found; auto-selecting device."
+    fi
+
+    physical_devices="$(printf "%s\n" "$devices" | grep -v '^emulator-' || true)"
+    if [[ -n "$physical_devices" ]]; then
+        printf "%s\n" "$physical_devices" | head -n 1
+        return 0
+    fi
+
+    printf "%s\n" "$devices" | head -n 1
+    return 0
+}
+
 echo -e "${GREEN}"
 echo "=============================================================="
 echo "         Android Agent - Build & Deploy                        "
@@ -50,11 +82,23 @@ echo -e "${NC}"
 
 # 1. Check device
 log "Checking device connection..."
-if ! adb get-state >/dev/null 2>&1; then
+DEVICE="$(select_device || true)"
+if [[ -z "$DEVICE" ]]; then
     err "No device detected. Please connect device and enable USB debugging."
 fi
-DEVICE=$(adb devices | grep -v "List" | grep "device$" | head -1 | awk '{print $1}')
-ok "Device connected: $DEVICE"
+export ANDROID_SERIAL="$DEVICE"
+
+CONNECTED_DEVICES="$(list_connected_devices)"
+CONNECTED_COUNT="$(printf "%s\n" "$CONNECTED_DEVICES" | sed '/^$/d' | wc -l | tr -d ' ')"
+if [[ "$CONNECTED_COUNT" -gt 1 ]]; then
+    warn "Multiple devices detected; using $DEVICE"
+fi
+
+if [[ "$DEVICE" == emulator-* ]]; then
+    warn "No physical device found; using emulator: $DEVICE"
+else
+    ok "Selected physical device: $DEVICE"
+fi
 
 # 2. Load .env file and check backend
 if [[ -f "$PROJECT_ROOT/.env" ]]; then
