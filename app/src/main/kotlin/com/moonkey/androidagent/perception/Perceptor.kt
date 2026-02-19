@@ -5,6 +5,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import com.moonkey.androidagent.model.Bounds
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.Point
+import com.moonkey.androidagent.model.RangeInfo
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.util.isCheckedCompat
 import com.moonkey.androidagent.util.recycleCompat
@@ -138,9 +139,21 @@ object Perceptor {
                     put("clickable", elem.isClickable)
                     put("editable", elem.isEditable)
                     put("scrollable", elem.isScrollable)
+                    if (!elem.isEnabled) put("enabled", false)
                     if (elem.isSelected) put("selected", true)
                     if (elem.isChecked) put("checked", true)
                     if (elem.isCheckable) put("checkable", true)
+                    elem.rangeInfo?.let { rangeInfo ->
+                        put("range_current", rangeInfo.current)
+                        put("range_min", rangeInfo.min)
+                        put("range_max", rangeInfo.max)
+                        if (rangeInfo.max > rangeInfo.min) {
+                            val percent =
+                                ((rangeInfo.current - rangeInfo.min) / (rangeInfo.max - rangeInfo.min))
+                                    .coerceIn(0f, 1f) * 100f
+                            put("range_percent", percent)
+                        }
+                    }
                     if (elem.hintText.isNotBlank()) put("hint_text", elem.hintText)
                     put("focused", elem.isFocused)
                     put("long_clickable", elem.isLongClickable)
@@ -208,6 +221,7 @@ object Perceptor {
         val selected = node.isSelected
         val checked = node.isCheckedCompat()
         val checkable = node.isCheckable
+        val rangeInfo = node.rangeInfo?.let { RangeInfo(current = it.current, min = it.min, max = it.max) }
 
         if (filterConfig.filterKeyboard && isKnownKeyboardNode(resourceId)) {
             if (shouldRecycle) node.recycleCompat()
@@ -222,8 +236,8 @@ object Perceptor {
                 hintText.isNotBlank() ||
                 resourceId.isNotBlank()
         val shouldKeep = when (mode) {
-            TraversalMode.INTERACTIVE_ONLY -> clickable || editable || scrollable
-            TraversalMode.ALL -> clickable || editable || scrollable || hasContent
+            TraversalMode.INTERACTIVE_ONLY -> clickable || editable || scrollable || checkable
+            TraversalMode.ALL -> clickable || editable || scrollable || hasContent || checkable
         }
 
         val rect = Rect()
@@ -288,7 +302,8 @@ object Perceptor {
                         isSelected = selected,
                         hintText = normalizeWhitespace(hintText),
                         isChecked = checked,
-                        isCheckable = checkable
+                        isCheckable = checkable,
+                        rangeInfo = rangeInfo
                     )
                 elements.add(PerceptorCandidateElement(element, visibilityRatio))
             }

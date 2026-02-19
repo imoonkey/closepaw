@@ -22,11 +22,19 @@ internal data class A11yNodeDump(
     val editable: Boolean = false,
     val checkable: Boolean = false,
     val checked: Boolean = false,
+    val rangeInfo: A11yRangeInfo? = null,
     val selected: Boolean = false,
     val password: Boolean = false,
     val visibleToUser: Boolean = false,
     val childCount: Int = 0,
     val children: List<A11yNodeDump> = emptyList()
+)
+
+@Serializable
+internal data class A11yRangeInfo(
+    val current: Float,
+    val min: Float,
+    val max: Float
 )
 
 internal object A11yTreeDumper {
@@ -56,6 +64,10 @@ internal object A11yTreeDumper {
         val className = node.className?.toString()?.take(MAX_CLASS_LEN)
         val text = node.text?.toString()?.take(MAX_TEXT_LEN)
         val desc = node.contentDescription?.toString()?.take(MAX_DESC_LEN)
+        val rangeInfo =
+            node.rangeInfo?.let {
+                A11yRangeInfo(current = it.current, min = it.min, max = it.max)
+            }
 
         val dump =
             A11yNodeDump(
@@ -73,6 +85,7 @@ internal object A11yTreeDumper {
                 editable = node.isEditable,
                 checkable = node.isCheckable,
                 checked = node.isCheckedCompat(),
+                rangeInfo = rangeInfo,
                 selected = node.isSelected,
                 password = node.isPassword,
                 visibleToUser = node.isVisibleToUser,
@@ -87,4 +100,3 @@ internal object A11yTreeDumper {
         return dump
     }
 }
-

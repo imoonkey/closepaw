@@ -121,5 +121,12 @@ data class PerceptionElement(
         val isSelected: Boolean = false,
         val hintText: String = "",
         val isChecked: Boolean = false,
-        val isCheckable: Boolean = false
+        val isCheckable: Boolean = false,
+        val rangeInfo: RangeInfo? = null
+)
+
+data class RangeInfo(
+    val current: Float,
+    val min: Float,
+    val max: Float
 )

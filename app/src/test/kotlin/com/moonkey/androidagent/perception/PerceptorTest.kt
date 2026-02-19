@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.model.Bounds
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.Point
+import com.moonkey.androidagent.model.RangeInfo
 import com.moonkey.androidagent.model.ScreenSnapshot
 import org.json.JSONArray
 import org.junit.Test
@@ -21,7 +22,7 @@ class PerceptorTest {
             isClickable = true,
             isEditable = false,
             isScrollable = false,
-            isEnabled = true,
+            isEnabled = false,
             isFocused = false,
             isLongClickable = false,
             bounds = Bounds(left = 0, top = 0, right = 100, bottom = 50),
@@ -29,7 +30,8 @@ class PerceptorTest {
             isSelected = true,
             hintText = "Type a query",
             isChecked = true,
-            isCheckable = true
+            isCheckable = true,
+            rangeInfo = RangeInfo(current = 25f, min = 0f, max = 50f)
         )
         val snapshot = ScreenSnapshot(timestamp = 0L, elements = listOf(element))
 
@@ -45,9 +47,14 @@ class PerceptorTest {
         assertThat(obj.getBoolean("clickable")).isTrue()
         assertThat(obj.getBoolean("editable")).isFalse()
         assertThat(obj.getBoolean("scrollable")).isFalse()
+        assertThat(obj.getBoolean("enabled")).isFalse()
         assertThat(obj.getBoolean("selected")).isTrue()
         assertThat(obj.getBoolean("checked")).isTrue()
         assertThat(obj.getBoolean("checkable")).isTrue()
+        assertThat(obj.getDouble("range_current")).isEqualTo(25.0)
+        assertThat(obj.getDouble("range_min")).isEqualTo(0.0)
+        assertThat(obj.getDouble("range_max")).isEqualTo(50.0)
+        assertThat(obj.getDouble("range_percent")).isEqualTo(50.0)
         assertThat(obj.getString("hint_text")).isEqualTo("Type a query")
         assertThat(obj.getBoolean("focused")).isFalse()
         assertThat(obj.getBoolean("long_clickable")).isFalse()
