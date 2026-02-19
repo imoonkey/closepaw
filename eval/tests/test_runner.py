@@ -28,6 +28,7 @@ def _bridge_config() -> BridgeConfig:
         platform_mode="accessibility",
         main_model="minimax-m2.5",
         executor_model="",
+        max_turns=30,
         auto_start=True,
         fresh_session=True,
         debug_mode=False,

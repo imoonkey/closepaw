@@ -358,6 +358,7 @@ def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig
         platform_mode=str(bridge_cfg.get("platform_mode", "accessibility")),
         main_model=str(bridge_cfg.get("main_model", "minimax-m2.5")),
         executor_model=str(bridge_cfg.get("executor_model", "")),
+        max_turns=int(bridge_cfg.get("max_turns", 30)),
         auto_start=bool(bridge_cfg.get("auto_start", True)),
         fresh_session=bool(bridge_cfg.get("fresh_session", True)),
         debug_mode=bool(bridge_cfg.get("debug_mode", False)),

@@ -33,6 +33,7 @@ bridge:
   platform_mode: accessibility
   main_model: qwen3.5
   executor_model: ""
+  max_turns: 30
   auto_start: true
   fresh_session: true
   debug_mode: false

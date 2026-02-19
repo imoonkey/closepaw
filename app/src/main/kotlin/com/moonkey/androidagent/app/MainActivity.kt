@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_AGENT_MODE = "agent_mode"
         const val EXTRA_MAIN_MODEL = "main_model"
         const val EXTRA_EXECUTOR_MODEL = "executor_model"
+        const val EXTRA_MAX_TURNS = "max_turns"
         const val EXTRA_PLATFORM_MODE = "platform_mode"
         const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
         const val EXTRA_NOVITA_API_KEY = "novita_api_key"

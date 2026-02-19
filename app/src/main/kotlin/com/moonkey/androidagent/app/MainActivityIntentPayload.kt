@@ -15,6 +15,7 @@ data class MainActivityIntentPayload(
         val platformMode: PlatformMode?,
         val mainModel: String?,
         val executorModel: String?,
+        val maxTurns: Int?,
         val goalText: String?,
         val freshSession: Boolean,
         val autoStart: Boolean,
@@ -81,6 +82,17 @@ data class MainActivityIntentPayload(
                         it.isNotBlank()
                     }
 
+            val maxTurns =
+                    if (intent.hasExtra(MainActivity.EXTRA_MAX_TURNS)) {
+                        intent.getIntExtra(
+                                        MainActivity.EXTRA_MAX_TURNS,
+                                        AppSettingsStore.DEFAULT_MAX_TURNS
+                                )
+                                .takeIf { it > 0 }
+                    } else {
+                        null
+                    }
+
             val debugMode =
                     if (intent.hasExtra(MainActivity.EXTRA_DEBUG_MODE)) {
                         intent.getBooleanExtra(MainActivity.EXTRA_DEBUG_MODE, false)
@@ -110,6 +122,7 @@ data class MainActivityIntentPayload(
                     platformMode = platformMode,
                     mainModel = mainModel,
                     executorModel = executorModel,
+                    maxTurns = maxTurns,
                     goalText = goalText,
                     freshSession = intent.getBooleanExtra(MainActivity.EXTRA_FRESH_SESSION, false),
                     autoStart = intent.getBooleanExtra(MainActivity.EXTRA_AUTO_START, false),

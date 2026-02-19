@@ -48,6 +48,10 @@ internal fun applyIntentPayloadToSettings(
         settingsState.updateExecutorModel(it)
         log("Executor model set from intent: $it")
     }
+    payload.maxTurns?.let {
+        settingsState.updateMaxTurns(it)
+        log("Max turns set from intent: $it")
+    }
     payload.debugMode?.let { enabled ->
         settingsState.updateDebugMode(enabled)
         log("Debug mode set from intent: $enabled")

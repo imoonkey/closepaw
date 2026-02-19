@@ -22,6 +22,7 @@ class BridgeConfig:
     platform_mode: str
     main_model: str
     executor_model: str
+    max_turns: int
     auto_start: bool
     fresh_session: bool
     debug_mode: bool
@@ -184,6 +185,9 @@ class NativeAgentBridge:
             "--es",
             "main_model",
             self._config.main_model,
+            "--ei",
+            "max_turns",
+            str(self._config.max_turns),
         ]
         if self._config.executor_model:
             extras.extend(["--es", "executor_model", self._config.executor_model])
