@@ -105,3 +105,4 @@ lint/tmp/
 # project specific
 inspection_tool/debug_data
 debug-output
+.reference/
