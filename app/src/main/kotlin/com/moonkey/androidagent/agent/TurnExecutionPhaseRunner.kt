@@ -270,8 +270,7 @@ internal class TurnExecutionPhaseRunner(
                 val action = toolCall.arguments.optString("action", "").trim().lowercase()
                 val mobileActionName = MobileActionName.from(action)
                 return when (mobileActionName) {
-                        MobileActionName.Scroll -> "scroll:legacy"
-                        MobileActionName.Swipe -> {
+                        MobileActionName.Scroll -> {
                                 val direction =
                                         toolCall.arguments
                                                 .optString("direction", "")
@@ -279,6 +278,7 @@ internal class TurnExecutionPhaseRunner(
                                                 .lowercase()
                                 "scroll:${direction.ifBlank { "unknown" }}"
                         }
+                        MobileActionName.Swipe -> "mobile_action:swipe"
                         else -> "mobile_action:${mobileActionName.canonical}"
                 }
         }

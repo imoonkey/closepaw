@@ -270,6 +270,8 @@ class VirtualDisplayPlatform(
                     is UIAction.TapAt -> inputInjector.injectTap(action.x, action.y)
                     is UIAction.LongPressAt ->
                             inputInjector.injectLongPress(action.x, action.y, action.durationMs)
+                    is UIAction.ScrollNodeAt ->
+                            nodeActionPerformer.performScrollAt(action.x, action.y, action.direction)
                     is UIAction.Swipe -> inputInjector.injectSwipe(action)
                     is UIAction.SystemButton -> inputInjector.injectSystemButton(action.button)
                     is UIAction.Wait -> {

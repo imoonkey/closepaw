@@ -5,6 +5,7 @@ import com.moonkey.androidagent.tool.ToolSpec
 import com.moonkey.androidagent.tool.ValidationResult
 import com.moonkey.androidagent.tool.action.ClickExecutor
 import com.moonkey.androidagent.tool.action.LongPressExecutor
+import com.moonkey.androidagent.tool.action.ScrollExecutor
 import com.moonkey.androidagent.tool.action.SwipeExecutor
 import com.moonkey.androidagent.tool.action.Target
 import com.moonkey.androidagent.tool.action.TypeExecutor
@@ -37,7 +38,8 @@ Actions:
 - click: Tap target. Example: {"action":"click","element_index":3}
 - long_press: Long press target. Example: {"action":"long_press","text":"Delete"}
 - type: Type text. Example: {"action":"type","input_text":"hello","element_index":5}
-- swipe: Swipe gesture. Example: {"action":"swipe","direction":"up"} or {"action":"swipe","start":[540,300],"end":[540,900]}
+- scroll: Scroll in a direction. Uses content direction (direction="down" reveals content below). Optionally target a scrollable element with element_index. Example: {"action":"scroll","direction":"down"} or {"action":"scroll","direction":"down","element_index":2}
+- swipe: Precision coordinate gesture for sliders, drag-and-drop, etc. Requires explicit start/end coordinates. Example: {"action":"swipe","start":[100,500],"end":[400,500]}
 """.trimIndent()
 
     override val parameterSchema: JSONObject by lazy { buildSchema() }
@@ -57,8 +59,9 @@ Actions:
         return when (action) {
             "click", "long_press" -> validateTargetedAction(params, action, required = true)
             "type" -> validateTypeAction(params)
+            "scroll" -> validateScrollAction(params)
             "swipe" -> validateSwipeAction(params)
-            else -> ValidationResult.Invalid("Unknown action: '$action'. Valid: click, long_press, type, swipe")
+            else -> ValidationResult.Invalid("Unknown action: '$action'. Valid: click, long_press, scroll, swipe, type")
         }
     }
 
@@ -87,6 +90,7 @@ Actions:
                     target, params.getString("input_text"),
                     params.optBoolean("clear", false), snapshot, platform, isCancelled
                 )
+                "scroll" -> ScrollExecutor().execute(params, snapshot, platform, isCancelled)
                 "swipe" -> SwipeExecutor().execute(params, snapshot, platform, isCancelled)
                 else -> error("Unreachable: validated above")
             }
@@ -149,45 +153,40 @@ Actions:
         return validateTargetedAction(params, "type", required = false)
     }
 
-    private fun validateSwipeAction(params: JSONObject): ValidationResult {
-        val hasStart = params.has("start")
-        val hasEnd = params.has("end")
+    private fun validateScrollAction(params: JSONObject): ValidationResult {
         val direction = params.optString("direction", "").trim().lowercase()
-        val hasDirection = direction.isNotEmpty()
-
-        if (hasStart || hasEnd) {
-            if (!hasStart) return ValidationResult.Invalid("swipe requires start coordinate [x, y]")
-            val start = params.optJSONArray("start")
-            if (start == null || start.length() != 2) {
-                return ValidationResult.Invalid("start must be an array of [x, y]")
-            }
-            if (!hasEnd) return ValidationResult.Invalid("swipe requires end coordinate [x, y]")
-            val end = params.optJSONArray("end")
-            if (end == null || end.length() != 2) {
-                return ValidationResult.Invalid("end must be an array of [x, y]")
-            }
-            try {
-                val sx = start.getInt(0); val sy = start.getInt(1)
-                val ex = end.getInt(0); val ey = end.getInt(1)
-                if (sx < 0 || sy < 0 || ex < 0 || ey < 0) {
-                    return ValidationResult.Invalid("Coordinates must be non-negative")
-                }
-            } catch (e: Exception) {
-                return ValidationResult.Invalid("Coordinates must be integers")
-            }
-            // If both forms are provided, prefer explicit coordinates to reduce schema brittleness.
-            return ValidationResult.Valid
-        }
-
-        if (!hasDirection) {
-            return ValidationResult.Invalid("swipe requires start/end coordinates or direction")
+        if (direction.isEmpty()) {
+            return ValidationResult.Invalid("scroll requires direction (up/down/left/right)")
         }
         if (direction !in setOf("up", "down", "left", "right")) {
             return ValidationResult.Invalid("direction must be one of: up, down, left, right")
         }
-        val distance = params.optString("distance", "").trim().lowercase()
-        if (distance.isNotEmpty() && distance !in setOf("short", "medium", "long")) {
-            return ValidationResult.Invalid("distance must be one of: short, medium, long")
+        if (params.has("element_index")) {
+            val idx = params.optInt("element_index", -1)
+            if (idx < 0) return ValidationResult.Invalid("element_index must be >= 0")
+        }
+        return ValidationResult.Valid
+    }
+
+    private fun validateSwipeAction(params: JSONObject): ValidationResult {
+        if (!params.has("start")) return ValidationResult.Invalid("swipe requires start coordinate [x, y]")
+        val start = params.optJSONArray("start")
+        if (start == null || start.length() != 2) {
+            return ValidationResult.Invalid("start must be an array of [x, y]")
+        }
+        if (!params.has("end")) return ValidationResult.Invalid("swipe requires end coordinate [x, y]")
+        val end = params.optJSONArray("end")
+        if (end == null || end.length() != 2) {
+            return ValidationResult.Invalid("end must be an array of [x, y]")
+        }
+        try {
+            val sx = start.getInt(0); val sy = start.getInt(1)
+            val ex = end.getInt(0); val ey = end.getInt(1)
+            if (sx < 0 || sy < 0 || ex < 0 || ey < 0) {
+                return ValidationResult.Invalid("Coordinates must be non-negative")
+            }
+        } catch (e: Exception) {
+            return ValidationResult.Invalid("Coordinates must be integers")
         }
         return ValidationResult.Valid
     }
@@ -221,11 +220,19 @@ Actions:
                 val clear = if (params.optBoolean("clear", false)) " (clear first)" else ""
                 "Type \"$input\" into $targetDesc$clear"
             }
+            "scroll" -> {
+                val dir = params.optString("direction", "")
+                if (targetDesc.isNotEmpty()) "Scroll $dir on $targetDesc"
+                else "Scroll $dir"
+            }
             "swipe" -> {
-                val dir = params.optString("direction", "").ifEmpty { "explicit" }
-                val dist = params.optString("distance", "medium").ifEmpty { "medium" }
-                if (targetDesc.isNotEmpty()) "Swipe $dir ($dist) from $targetDesc"
-                else "Swipe $dir ($dist)"
+                val start = params.optJSONArray("start")
+                val end = params.optJSONArray("end")
+                if (start != null && end != null) {
+                    "Swipe (${start.optInt(0)},${start.optInt(1)})→(${end.optInt(0)},${end.optInt(1)})"
+                } else {
+                    "Swipe"
+                }
             }
             else -> "$action $targetDesc"
         }
@@ -253,7 +260,7 @@ Actions:
         val properties = JSONObject().apply {
             put("action", JSONObject().apply {
                 put("type", "string")
-                put("enum", JSONArray(listOf("click", "long_press", "swipe", "type")))
+                put("enum", JSONArray(listOf("click", "long_press", "scroll", "swipe", "type")))
                 put("description", "The action to perform")
             })
             put("agent_thought", JSONObject().apply {
@@ -262,7 +269,7 @@ Actions:
             })
             put("element_index", JSONObject().apply {
                 put("type", "integer")
-                put("description", "Index from current screen state. Preferred selector when available.")
+                put("description", "Index from current screen state. Used for click/long_press/type targeting, or to target a scrollable container for scroll.")
             })
             put("text", JSONObject().apply {
                 put("type", "string")
@@ -288,29 +295,24 @@ Actions:
                 put("type", "boolean")
                 put("description", "Clear field before typing (type action, default false)")
             })
+            put("direction", JSONObject().apply {
+                put("type", "string")
+                put("description", "Scroll content direction: 'down' reveals content below, 'up' reveals content above (scroll action only)")
+                put("enum", JSONArray(listOf("up", "down", "left", "right")))
+            })
             put("start", JSONObject().apply {
                 put("type", "array")
-                put("description", "Swipe start coordinate [x, y] in pixels")
+                put("description", "Swipe start coordinate [x, y] in pixels (swipe action only)")
                 put("items", JSONObject().put("type", "integer"))
             })
             put("end", JSONObject().apply {
                 put("type", "array")
-                put("description", "Swipe end coordinate [x, y] in pixels")
+                put("description", "Swipe end coordinate [x, y] in pixels (swipe action only)")
                 put("items", JSONObject().put("type", "integer"))
-            })
-            put("direction", JSONObject().apply {
-                put("type", "string")
-                put("description", "Swipe direction. up/down scroll content opposite direction. Ignored when start/end are provided.")
-                put("enum", JSONArray(listOf("up", "down", "left", "right")))
-            })
-            put("distance", JSONObject().apply {
-                put("type", "string")
-                put("description", "Directional swipe distance: short=1/4, medium=1/2, long=3/4 screen (default medium)")
-                put("enum", JSONArray(listOf("short", "medium", "long")))
             })
             put("duration_ms", JSONObject().apply {
                 put("type", "integer")
-                put("description", "Hold duration for long_press in milliseconds (default 1000)")
+                put("description", "Duration in ms: hold time for long_press (default 1000), gesture time for swipe (default 400)")
             })
         }
 

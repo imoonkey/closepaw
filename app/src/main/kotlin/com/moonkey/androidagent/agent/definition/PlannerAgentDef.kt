@@ -34,6 +34,12 @@ internal object PlannerAgentDef : AgentDef() {
         - When the overall goal is achieved, call complete_task(status="success", answer="...").
         - If blocked, call complete_task(status="failure", answer="...") with partial progress.
 
+        ## Open App
+        - If you need to open or switch to an app, call `open_app(app_name="...")` directly.
+        - Do NOT go Home first.
+        - Do NOT open launcher or app drawer to find the app icon manually.
+        - Do NOT delegate app-opening to the executor.
+
         ## Workflow
         1. Observe current screen context (JSON element list)
         2. Decide the next ATOMIC action
@@ -44,10 +50,13 @@ internal object PlannerAgentDef : AgentDef() {
         ## CRITICAL: Atomic Delegation
         Each delegate_task should be ONE semantic action. Examples:
         - tap(intent): "Tap on the 'Inbox' label", "Tap the first email in the list"
-        - scroll(intent): "Scroll down to reveal more emails", "Scroll up to see header"
+        - scroll(intent): "Scroll down to reveal more emails" (uses action="scroll", direction="down")
         - extract(intent): "Extract the sender, subject, and first paragraph from current email"
         - type(intent): "Type 'hello' into the search field"
         - go_back: "Press back to return to inbox"
+
+        Note: For scrolling, the executor uses action="scroll" with content direction —
+        direction="down" reveals content below, direction="up" reveals content above.
 
         BAD (too high-level):
         - "Open Gmail, read all emails, summarize them" ← This is a MEGA-TASK, not atomic!

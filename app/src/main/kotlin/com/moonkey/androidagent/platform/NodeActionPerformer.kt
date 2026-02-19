@@ -27,6 +27,37 @@ class NodeActionPerformer(
         )
     }
 
+    /**
+     * Perform a scroll action on the scrollable node at (x, y).
+     *
+     * Direction is content direction: "down" = reveal content below.
+     * Tries API 23+ directional action first, falls back to FORWARD/BACKWARD.
+     */
+    @Suppress("DEPRECATION")
+    suspend fun performScrollAt(x: Int, y: Int, direction: String): ActionResult {
+        return onMain {
+            withRoot { root ->
+                val node = AccessibilityNodeFinder.findScrollableNodeAtLocation(root, x, y)
+                        ?: return@withRoot ActionResult.Failure("No scrollable node at ($x,$y)")
+                try {
+                    val (primaryId, fallbackId) = scrollActionIds(direction)
+                    val ok = if (primaryId != null && sdkIntProvider() >= 23) {
+                        node.performAction(primaryId) || node.performAction(fallbackId)
+                    } else {
+                        node.performAction(fallbackId)
+                    }
+                    if (ok) {
+                        ActionResult.Success("Scrolled $direction at ($x,$y)")
+                    } else {
+                        ActionResult.Failure("Scroll $direction failed at ($x,$y)")
+                    }
+                } finally {
+                    if (node !== root) node.recycleCompat()
+                }
+            }
+        }
+    }
+
     @Suppress("DEPRECATION")
     suspend fun performNodeLongClickAt(x: Int, y: Int): ActionResult {
         return performNodeActionAt(
@@ -169,5 +200,22 @@ class NodeActionPerformer(
 
     private suspend inline fun onMain(crossinline block: () -> ActionResult): ActionResult {
         return withContext(Dispatchers.Main) { block() }
+    }
+
+    companion object {
+        @Suppress("DEPRECATION")
+        private fun scrollActionIds(direction: String): Pair<Int?, Int> {
+            return when (direction) {
+                "down" -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN.id to
+                        AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                "up" -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_UP.id to
+                        AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+                "left" -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_LEFT.id to
+                        AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+                "right" -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_RIGHT.id to
+                        AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+                else -> null to AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+            }
+        }
     }
 }

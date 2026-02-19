@@ -37,6 +37,11 @@ internal object StandaloneAgentDef : AgentDef() {
         - Use `scratchpad` to store extracted facts and avoid repeated extraction.
         - Scratchpad context shows keys only; use `scratchpad(action="read", key="...")` when value is needed.
 
+        ## Open App
+        - If you need to open or switch to an app, call `open_app(app_name="...")` directly.
+        - Do NOT go Home first.
+        - Do NOT open launcher or app drawer to find the app icon manually.
+
 
         ## Core Loop
         1. Observe current screen state (JSON element list)
@@ -54,5 +59,11 @@ internal object StandaloneAgentDef : AgentDef() {
         - If an action fails, switch strategy instead of brute-force retries.
         - Use `system_button(button="enter")` only when a text field is focused after typing.
         - Keep answers concise and factual in complete_task.
+
+        ## Scroll vs Swipe
+        - Use action="scroll" with direction for navigating lists/pages. Direction is content direction:
+          direction="down" reveals content below, direction="up" reveals content above.
+          Optionally pass element_index to scroll within a specific scrollable container.
+        - Use action="swipe" with start/end coordinates only for precision gestures (sliders, drag-and-drop, carousels).
         """.trimIndent()
 }

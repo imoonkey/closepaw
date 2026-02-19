@@ -49,6 +49,11 @@ internal object ExecutorAgentDef : AgentDef() {
         5. Prefer semantic selectors (`element_index`, `text`) over raw coordinates.
         6. Use coordinate taps only as a last resort and never on blank/unlabeled regions.
 
+        ## Open App
+        - If you need to open or switch to an app, call `open_app(app_name="...")` directly.
+        - Do NOT go Home first.
+        - Do NOT open launcher or app drawer to find the app icon manually.
+
         ## Query Types & How to Handle
 
         ### TAP queries ("Tap on X", "Click the Y button")
@@ -57,9 +62,15 @@ internal object ExecutorAgentDef : AgentDef() {
         3. complete_task(status="success", answer="Tapped [element description]")
 
         ### SCROLL queries ("Scroll down", "Scroll to find X")
-        1. mobile_action(action="swipe", direction="up") to scroll DOWN
-        2. If looking for element: check if visible after scroll
-        3. complete_task(status="success", answer="Scrolled [direction]. [What's now visible]")
+        1. mobile_action(action="scroll", direction="down") to scroll down (reveal content below)
+        2. To scroll within a specific list: mobile_action(action="scroll", direction="down", element_index=N)
+        3. If looking for element: check if visible after scroll
+        4. complete_task(status="success", answer="Scrolled [direction]. [What's now visible]")
+
+        ### SWIPE queries ("Drag slider", "Swipe carousel")
+        Use swipe only for precision coordinate gestures (sliders, drag-and-drop):
+        1. mobile_action(action="swipe", start=[x1,y1], end=[x2,y2])
+        2. complete_task(status="success", answer="Swiped from ... to ...")
 
         ### EXTRACT queries ("Extract sender and subject", "Read the content")
         1. Find the relevant elements in the JSON list
@@ -77,7 +88,7 @@ internal object ExecutorAgentDef : AgentDef() {
         2. complete_task(status="success", answer="Pressed back")
 
         ### OPEN APP queries ("Open Gmail", "Launch Settings")
-        - open_app(app_name="Gmail") — always use this, to switch apps, use open_app directly. Do NOT go to Home first or use launcher.
+        - open_app(app_name="Gmail") — always use this directly.
         - complete_task(status="success", answer="Opened Gmail")
 
         ## Scratchpad (Shared with Planner)

@@ -229,6 +229,10 @@ class AccessibilityPlatform(
                             text = action.text,
                             clear = action.clear
                     )
+            is UIAction.ScrollNodeAt -> {
+                recordOutOfBoundsActionTarget("scroll_node", action.x, action.y)
+                nodeActionPerformer.performScrollAt(action.x, action.y, action.direction)
+            }
             is UIAction.Swipe -> performSwipe(action)
             is UIAction.SystemButton ->
                     when (action.button) {

@@ -55,11 +55,19 @@ sealed interface UIAction {
     ) : UIAction
     
     /**
-     * Swipe from one point to another.
-     * 
-     * Note: Scroll functionality is implemented via swipe - use appropriate
-     * start/end coordinates to achieve scrolling behavior.
+     * Perform a scroll action on the scrollable node at coordinates.
+     *
+     * Uses AccessibilityNodeInfo scroll actions (ACTION_SCROLL_DOWN, etc.)
+     * which work at framework level and bypass gesture interception.
+     * [direction] is content direction: "down" = reveal content below.
      */
+    data class ScrollNodeAt(
+        val x: Int,
+        val y: Int,
+        val direction: String
+    ) : UIAction
+
+    /** Swipe from one point to another. Gesture-only, no node actions. */
     data class Swipe(
         val startX: Int,
         val startY: Int,

@@ -113,6 +113,19 @@ object AccessibilityNodeFinder {
     }
 
     /**
+     * Find the scrollable node at the given coordinates.
+     * Used for scroll action dispatch — finds the container to perform ACTION_SCROLL on.
+     */
+    fun findScrollableNodeAtLocation(
+            root: AccessibilityNodeInfo,
+            x: Int,
+            y: Int
+    ): AccessibilityNodeInfo? =
+            findActionableNodeAtLocation(root, x, y) { node ->
+                node.isScrollable && node.isVisibleToUser
+            }
+
+    /**
      * Find a text-input capable node at the given screen coordinates. Helper for performType() to
      * re-query the accessibility tree.
      *
