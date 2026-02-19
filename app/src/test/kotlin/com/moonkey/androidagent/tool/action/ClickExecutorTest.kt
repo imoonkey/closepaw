@@ -38,6 +38,60 @@ class ClickExecutorTest {
     }
 
     @Test
+    fun `execute prefers node action click for semantic target`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(snapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.ElementIndex(index = 1),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions)
+            .containsExactly(UIAction.ClickNodeAt(150, 210))
+            .inOrder()
+    }
+
+    @Test
+    fun `execute falls back to gesture tap when node action click fails`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(
+                    ActionResult.Failure("node click failed"),
+                    ActionResult.Success()
+                ),
+                capturedSnapshots = listOf(snapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.ElementIndex(index = 1),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions)
+            .containsExactly(
+                UIAction.ClickNodeAt(150, 210),
+                UIAction.TapAt(150, 210)
+            )
+            .inOrder()
+    }
+
+    @Test
     fun `execute returns cancelled when platform cancels action`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =

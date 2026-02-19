@@ -9,7 +9,10 @@ import com.moonkey.androidagent.platform.UIAction
 import kotlinx.coroutines.delay
 
 /**
- * Click executor: resolve target once, dispatch one gesture tap, capture once.
+ * Click executor: resolve target once.
+ *
+ * For semantic targets (element_index / text), try ACTION_CLICK first, then fallback to gesture tap.
+ * For coordinate targets, dispatch gesture tap directly.
  */
 class ClickExecutor(
     private val targetResolver: TargetResolver = TargetResolver
@@ -49,37 +52,78 @@ class ClickExecutor(
                 attemptTrail = emptyList()
             )
         }
-        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before dispatch")
 
-        val actionResult = platform.performAction(UIAction.TapAt(point.x, point.y))
-        when (actionResult) {
-            is ActionResult.Failure -> {
-                return ActionOutcome.Failed(
-                    reason = formatFailure(point, actionResult.reason, resolvedWarnings),
-                    attemptTrail = listOf("gesture_tap: ${actionResult.reason}")
+        val attemptTrail = mutableListOf<String>()
+
+        if (target.isSemantic()) {
+            if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before node click")
+            val nodeResult = platform.performAction(UIAction.ClickNodeAt(point.x, point.y))
+            when (nodeResult) {
+                is ActionResult.Success -> {
+                    attemptTrail += "node_action_click: success"
+                    return buildSuccessOutcome(
+                        point = point,
+                        channel = "node_action_click",
+                        warnings = resolvedWarnings,
+                        attemptTrail = attemptTrail,
+                        platform = platform
+                    )
+                }
+                is ActionResult.Cancelled -> return ActionOutcome.Cancelled(nodeResult.reason)
+                is ActionResult.Failure -> {
+                    attemptTrail += "node_action_click: ${nodeResult.reason}"
+                }
+            }
+        }
+
+        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before tap")
+        val tapResult = platform.performAction(UIAction.TapAt(point.x, point.y))
+        when (tapResult) {
+            is ActionResult.Success -> {
+                attemptTrail += "gesture_tap: success"
+                return buildSuccessOutcome(
+                    point = point,
+                    channel = "gesture_tap",
+                    warnings = resolvedWarnings,
+                    attemptTrail = attemptTrail,
+                    platform = platform
                 )
             }
-            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(actionResult.reason)
-            is ActionResult.Success -> {
-                delay(UI_SETTLE_DELAY_MS)
-                val postResult = runCatching { platform.captureScreen() }
-                val postSnapshot = postResult.getOrNull()
-                val observation = postSnapshot?.let { buildObservation(it, platform) }
-                val captureWarning = postResult.exceptionOrNull()?.message?.let { reason ->
-                    "Post-action capture failed: $reason"
-                }
-                val warnings = buildList {
-                    addAll(resolvedWarnings)
-                    if (captureWarning != null) add(captureWarning)
-                }
-                return ActionOutcome.Success(
-                    message = formatSuccess(point, warnings),
-                    observation = observation,
-                    attemptTrail = listOf("gesture_tap: success"),
-                    verified = true
+            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(tapResult.reason)
+            is ActionResult.Failure -> {
+                attemptTrail += "gesture_tap: ${tapResult.reason}"
+                return ActionOutcome.Failed(
+                    reason = formatFailure(point, "gesture_tap", tapResult.reason, resolvedWarnings),
+                    attemptTrail = attemptTrail
                 )
             }
         }
+    }
+
+    private suspend fun buildSuccessOutcome(
+        point: Point,
+        channel: String,
+        warnings: List<String>,
+        attemptTrail: List<String>,
+        platform: AndroidPlatform
+    ): ActionOutcome.Success {
+        delay(UI_SETTLE_DELAY_MS)
+        val postResult = runCatching { platform.captureScreen() }
+        val postSnapshot = postResult.getOrNull()
+        val observation = postSnapshot?.let { buildObservation(it, platform) }
+        val captureWarning = postResult.exceptionOrNull()?.message?.let { reason ->
+            "Post-action capture failed: $reason"
+        }
+        val allWarnings = buildList {
+            addAll(warnings)
+            if (captureWarning != null) add(captureWarning)
+        }
+        return ActionOutcome.Success(
+            message = formatSuccess(point, channel, allWarnings),
+            observation = observation,
+            attemptTrail = attemptTrail,
+            verified = true
+        )
     }
 
     private fun isWithinDisplayBounds(point: Point, displayInfo: DisplayInfo): Boolean {
@@ -88,8 +132,9 @@ class ClickExecutor(
             point.y in 0 until displayInfo.heightPixels
     }
 
-    private fun formatSuccess(point: Point, warnings: List<String>): String {
-        val base = "Tapped (${point.x},${point.y}) via gesture_tap"
+    private fun formatSuccess(point: Point, channel: String, warnings: List<String>): String {
+        val verb = if (channel == "node_action_click") "Clicked" else "Tapped"
+        val base = "$verb (${point.x},${point.y}) via $channel"
         if (warnings.isEmpty()) return base
         return buildString {
             append(base)
@@ -97,12 +142,19 @@ class ClickExecutor(
         }
     }
 
-    private fun formatFailure(point: Point, reason: String, warnings: List<String>): String {
-        val base = "Tap at (${point.x},${point.y}) failed: $reason"
+    private fun formatFailure(
+        point: Point,
+        channel: String,
+        reason: String,
+        warnings: List<String>
+    ): String {
+        val base = "Click at (${point.x},${point.y}) via $channel failed: $reason"
         if (warnings.isEmpty()) return base
         return buildString {
             append(base)
             warnings.forEach { warning -> append("\nWarning: $warning") }
         }
     }
+
+    private fun Target.isSemantic(): Boolean = this is Target.ElementIndex || this is Target.Text
 }
