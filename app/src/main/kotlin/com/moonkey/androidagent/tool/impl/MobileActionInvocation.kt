@@ -46,7 +46,7 @@ class MobileActionInvocation(
         is ActionOutcome.Failed -> {
             val output = buildString {
                 append(outcome.reason)
-                if (outcome.attemptTrail.isNotEmpty()) {
+                if (outcome.attemptTrail.size > 1) {
                     append("\nAttempts: ${outcome.attemptTrail.joinToString("; ")}")
                 }
             }

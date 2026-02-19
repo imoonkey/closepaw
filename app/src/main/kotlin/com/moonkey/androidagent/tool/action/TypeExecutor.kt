@@ -40,11 +40,16 @@ class TypeExecutor(
             return typeOnFocused(inputText, clear, snapshot, platform, attemptTrail)
         }
 
-        val point = targetResolver.resolve(target, snapshot)
-            ?: return ActionOutcome.Failed(
-                reason = targetResolver.describeFailure(target, snapshot),
-                attemptTrail = emptyList()
-            )
+        val resolvedTarget = targetResolver.resolve(target, snapshot)
+        val point = when (resolvedTarget) {
+            is TargetResolver.ResolveResult.Resolved -> resolvedTarget.point
+            is TargetResolver.ResolveResult.NotFound -> {
+                return ActionOutcome.Failed(
+                    reason = resolvedTarget.reason,
+                    attemptTrail = emptyList()
+                )
+            }
+        }
 
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before type")
 

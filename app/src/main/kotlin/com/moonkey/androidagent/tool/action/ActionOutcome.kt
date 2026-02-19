@@ -5,8 +5,8 @@ import com.moonkey.androidagent.tool.ToolObservation
 /**
  * Result of executor-level action execution.
  *
- * Richer than ActionResult: includes UI change verification,
- * observation for the LLM, and full attempt trail for debuggability.
+ * Richer than ActionResult: includes post-action observation and optional
+ * attempt trail metadata for debuggability.
  */
 sealed interface ActionOutcome {
     data class Success(

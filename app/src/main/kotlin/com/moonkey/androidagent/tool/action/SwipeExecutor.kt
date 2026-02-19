@@ -95,8 +95,9 @@ class SwipeExecutor(
         val swipeAreaHeight: Int
 
         if (target != null) {
-            val point = targetResolver.resolve(target, snapshot)
-            if (point != null) {
+            val resolvedTarget = targetResolver.resolve(target, snapshot)
+            if (resolvedTarget is TargetResolver.ResolveResult.Resolved) {
+                val point = resolvedTarget.point
                 originX = point.x.coerceIn(safeLeft, safeRight)
                 originY = point.y.coerceIn(safeTop, safeBottom)
             } else {

@@ -14,9 +14,11 @@ class TargetResolverTest {
         val target = element(index = 1, text = "Play", bounds = Bounds(100, 400, 500, 700))
         val snapshot = snapshotOf(target)
 
-        val point = TargetResolver.resolve(Target.ElementIndex(1), snapshot)
+        val resolved = TargetResolver.resolve(Target.ElementIndex(1), snapshot)
 
-        assertThat(point).isEqualTo(Point(300, 550))
+        assertThat(resolved).isEqualTo(
+            TargetResolver.ResolveResult.Resolved(point = Point(300, 550))
+        )
     }
 
     @Test
@@ -36,9 +38,10 @@ class TargetResolverTest {
         )
         val snapshot = snapshotOf(target, *nav.toTypedArray())
 
-        val point = TargetResolver.resolve(Target.ElementIndex(14), snapshot)
+        val resolved = TargetResolver.resolve(Target.ElementIndex(14), snapshot)
 
-        requireNotNull(point)
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.Resolved::class.java)
+        val point = (resolved as TargetResolver.ResolveResult.Resolved).point
         assertThat(point.x).isEqualTo(632)
         assertThat(point.y).isLessThan(2576)
         assertThat(point.y).isAtLeast(2354)
@@ -60,13 +63,15 @@ class TargetResolverTest {
         )
         val snapshot = snapshotOf(overlappingContent, create, *peers.toTypedArray())
 
-        val point = TargetResolver.resolve(Target.ElementIndex(17), snapshot)
+        val resolved = TargetResolver.resolve(Target.ElementIndex(17), snapshot)
 
-        assertThat(point).isEqualTo(Point(631, 2660))
+        assertThat(resolved).isEqualTo(
+            TargetResolver.ResolveResult.Resolved(point = Point(631, 2660))
+        )
     }
 
     @Test
-    fun `resolve element_index returns null when fully blocked by smaller clickable overlays`() {
+    fun `resolve element_index returns warning when center is occluded`() {
         val target = element(index = 20, text = "Large card", bounds = Bounds(100, 100, 900, 900))
         val blockers = listOf(
             element(index = 21, text = "OverlayA", bounds = Bounds(120, 120, 880, 320)),
@@ -75,9 +80,21 @@ class TargetResolverTest {
         )
         val snapshot = snapshotOf(target, *blockers.toTypedArray())
 
-        val point = TargetResolver.resolve(Target.ElementIndex(20), snapshot)
+        val resolved = TargetResolver.resolve(Target.ElementIndex(20), snapshot)
 
-        assertThat(point).isNull()
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.Resolved::class.java)
+        val result = resolved as TargetResolver.ResolveResult.Resolved
+        assertThat(result.point).isNotEqualTo(Point(500, 500))
+        assertThat(result.warnings).contains("Element center likely occluded; using offset point")
+    }
+
+    @Test
+    fun `resolve element_index returns not found for missing index`() {
+        val snapshot = snapshotOf(element(index = 1, text = "Play", bounds = Bounds(100, 400, 500, 700)))
+
+        val resolved = TargetResolver.resolve(Target.ElementIndex(9), snapshot)
+
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.NotFound::class.java)
     }
 
     private fun snapshotOf(vararg elements: PerceptionElement): ScreenSnapshot {

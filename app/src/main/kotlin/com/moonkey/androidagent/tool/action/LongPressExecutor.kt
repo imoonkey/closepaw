@@ -1,21 +1,18 @@
 package com.moonkey.androidagent.tool.action
 
+import com.moonkey.androidagent.model.Point
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.platform.DisplayInfo
 import com.moonkey.androidagent.platform.UIAction
 import kotlinx.coroutines.delay
 
 /**
- * Long press executor: resolve target, try ACTION_LONG_CLICK then gesture hold.
- *
- * Fallback table (same for all target types):
- *   Attempt 1: LongClickNodeAt(x, y)       — accessibility ACTION_LONG_CLICK
- *   Attempt 2: LongPressAt(x, y, duration)  — gesture hold
+ * Long press executor: resolve target once, dispatch one swipe-to-self gesture, capture once.
  */
 class LongPressExecutor(
-    private val targetResolver: TargetResolver = TargetResolver,
-    private val uiChangeDetector: UiChangeDetector = UiChangeDetector
+    private val targetResolver: TargetResolver = TargetResolver
 ) {
     companion object {
         private const val UI_SETTLE_DELAY_MS = 300L
@@ -28,61 +25,101 @@ class LongPressExecutor(
         platform: AndroidPlatform,
         isCancelled: () -> Boolean
     ): ActionOutcome {
-        val point = targetResolver.resolve(target, snapshot)
-            ?: return ActionOutcome.Failed(
-                reason = targetResolver.describeFailure(target, snapshot),
-                attemptTrail = emptyList()
-            )
-
-        val attemptTrail = mutableListOf<String>()
-        val attempts = listOf(
-            "ACTION_LONG_CLICK" to UIAction.LongClickNodeAt(point.x, point.y),
-            "gesture_long_press" to UIAction.LongPressAt(point.x, point.y, durationMs)
-        )
-
-        for ((label, action) in attempts) {
-            if (isCancelled()) return ActionOutcome.Cancelled("Cancelled between attempts")
-
-            val result = platform.performAction(action)
-
-            if (result is ActionResult.Failure) {
-                attemptTrail.add("$label: ${result.reason}")
-                continue
+        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before long press")
+        val displayInfo = platform.getDisplayInfo()
+        val resolvedTarget = targetResolver.resolve(target, snapshot)
+        val resolvedWarnings: List<String>
+        val point = when (resolvedTarget) {
+            is TargetResolver.ResolveResult.Resolved -> {
+                resolvedWarnings = resolvedTarget.warnings
+                resolvedTarget.point
             }
-
-            delay(UI_SETTLE_DELAY_MS)
-            val post = runCatching { platform.captureScreen() }.getOrNull()
-            val observation = post?.let { buildObservation(it, platform) }
-            val change = uiChangeDetector.compare(snapshot, post)
-
-            when (change) {
-                UiChangeDetector.ChangeResult.Changed -> {
-                    attemptTrail.add("$label: success (UI changed)")
-                    return ActionOutcome.Success(
-                        message = "Long pressed (${point.x},${point.y}) via $label",
-                        observation = observation,
-                        attemptTrail = attemptTrail,
-                        verified = true
-                    )
-                }
-                UiChangeDetector.ChangeResult.Unverifiable -> {
-                    attemptTrail.add("$label: dispatched (unverifiable)")
-                    return ActionOutcome.Success(
-                        message = "Long pressed (${point.x},${point.y}) via $label [unverified]",
-                        observation = observation,
-                        attemptTrail = attemptTrail,
-                        verified = false
-                    )
-                }
-                UiChangeDetector.ChangeResult.Unchanged -> {
-                    attemptTrail.add("$label: dispatched, no UI change")
-                }
+            is TargetResolver.ResolveResult.NotFound -> {
+                return ActionOutcome.Failed(
+                    reason = resolvedTarget.reason,
+                    attemptTrail = emptyList()
+                )
             }
         }
 
-        return ActionOutcome.Failed(
-            reason = "Long press at (${point.x},${point.y}) failed after all attempts",
-            attemptTrail = attemptTrail
+        if (!isWithinDisplayBounds(point, displayInfo)) {
+            return ActionOutcome.Failed(
+                reason =
+                    "Resolved long_press target (${point.x},${point.y}) is outside display bounds " +
+                        "${displayInfo.widthPixels}x${displayInfo.heightPixels}",
+                attemptTrail = emptyList()
+            )
+        }
+        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before dispatch")
+
+        val actionResult = platform.performAction(
+            UIAction.Swipe(
+                startX = point.x,
+                startY = point.y,
+                endX = point.x,
+                endY = point.y,
+                durationMs = durationMs
+            )
         )
+
+        when (actionResult) {
+            is ActionResult.Failure -> {
+                return ActionOutcome.Failed(
+                    reason = formatFailure(point, durationMs, actionResult.reason, resolvedWarnings),
+                    attemptTrail = listOf("swipe_to_self: ${actionResult.reason}")
+                )
+            }
+            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(actionResult.reason)
+            is ActionResult.Success -> {
+                delay(UI_SETTLE_DELAY_MS)
+                val postResult = runCatching { platform.captureScreen() }
+                val postSnapshot = postResult.getOrNull()
+                val observation = postSnapshot?.let { buildObservation(it, platform) }
+                val captureWarning = postResult.exceptionOrNull()?.message?.let { reason ->
+                    "Post-action capture failed: $reason"
+                }
+                val warnings = buildList {
+                    addAll(resolvedWarnings)
+                    if (captureWarning != null) add(captureWarning)
+                }
+                return ActionOutcome.Success(
+                    message = formatSuccess(point, durationMs, warnings),
+                    observation = observation,
+                    attemptTrail = listOf("swipe_to_self: success"),
+                    verified = true
+                )
+            }
+        }
+    }
+
+    private fun isWithinDisplayBounds(point: Point, displayInfo: DisplayInfo): Boolean {
+        if (displayInfo.widthPixels <= 0 || displayInfo.heightPixels <= 0) return true
+        return point.x in 0 until displayInfo.widthPixels &&
+            point.y in 0 until displayInfo.heightPixels
+    }
+
+    private fun formatSuccess(point: Point, durationMs: Long, warnings: List<String>): String {
+        val base =
+            "Long pressed (${point.x},${point.y}) for ${durationMs}ms via swipe_to_self"
+        if (warnings.isEmpty()) return base
+        return buildString {
+            append(base)
+            warnings.forEach { warning -> append("\nWarning: $warning") }
+        }
+    }
+
+    private fun formatFailure(
+        point: Point,
+        durationMs: Long,
+        reason: String,
+        warnings: List<String>
+    ): String {
+        val base =
+            "Long press at (${point.x},${point.y}) for ${durationMs}ms failed: $reason"
+        if (warnings.isEmpty()) return base
+        return buildString {
+            append(base)
+            warnings.forEach { warning -> append("\nWarning: $warning") }
+        }
     }
 }

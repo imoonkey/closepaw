@@ -16,12 +16,12 @@ import org.junit.Test
 class ClickExecutorTest {
 
     @Test
-    fun `execute retries jitter taps after unchanged attempts`() = runTest {
+    fun `execute dispatches a single gesture tap on success`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =
             RecordingPlatform(
-                actionResults = List(6) { ActionResult.Success() },
-                capturedSnapshots = List(6) { snapshot }
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(snapshot)
             )
         val executor = ClickExecutor()
 
@@ -33,14 +33,8 @@ class ClickExecutorTest {
                 isCancelled = { false }
             )
 
-        assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
-        assertThat(platform.performedActions).hasSize(6)
-        assertThat(platform.performedActions[0]).isEqualTo(UIAction.ClickNodeAt(100, 200))
-        assertThat(platform.performedActions[1]).isEqualTo(UIAction.TapAt(100, 200))
-        assertThat(platform.performedActions).contains(UIAction.TapAt(88, 200))
-        assertThat(platform.performedActions).contains(UIAction.TapAt(112, 200))
-        val failed = outcome as ActionOutcome.Failed
-        assertThat(failed.attemptTrail.joinToString("\n")).contains("jitter: scheduling")
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions).containsExactly(UIAction.TapAt(100, 200))
     }
 
     @Test
@@ -65,11 +59,35 @@ class ClickExecutorTest {
     }
 
     @Test
-    fun `execute does not report success when capture fails`() = runTest {
+    fun `execute still reports success when capture fails`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =
             RecordingPlatform(
-                actionResults = List(6) { ActionResult.Success() },
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = emptyList()
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.Coordinate(x = 100, y = 200),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.message).contains("Warning: Post-action capture failed")
+        assertThat(platform.performedActions).containsExactly(UIAction.TapAt(100, 200))
+    }
+
+    @Test
+    fun `execute fails immediately when gesture dispatch fails`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Failure("dispatch failed")),
                 capturedSnapshots = emptyList()
             )
         val executor = ClickExecutor()
@@ -84,7 +102,8 @@ class ClickExecutorTest {
 
         assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
         val failed = outcome as ActionOutcome.Failed
-        assertThat(failed.attemptTrail.joinToString("\n")).contains("capture failed")
+        assertThat(failed.reason).contains("dispatch failed")
+        assertThat(platform.performedActions).containsExactly(UIAction.TapAt(100, 200))
     }
 
     @Test
