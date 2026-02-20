@@ -1,4 +1,4 @@
-# AccessibilityForwarder A/B Test & dispatchGesture Flakiness Analysis
+# dispatchGesture Flakiness: Fixes, Reverts & AccessibilityForwarder A/B Test
 
 **Date**: 2026-02-20
 **Context**: Debugging flaky `dispatchGesture()` on BrightnessDialog SeekBar
@@ -8,9 +8,104 @@
 
 Two consecutive eval runs (025115 and 025322) with identical code produced different results: both passed in 025115, BrightnessMin failed in 025322. The swipe gesture reported "Success" via callback but had zero effect on the SeekBar value.
 
-Investigation identified `com.google.androidenv.accessibilityforwarder.AccessibilityForwarder` as a potential interference source — it was enabled alongside our `AgentService` and subscribes to ALL accessibility events.
+This doc covers three areas of work:
+1. Reverting `AccessibilityGestureInjector` regressions from prior debug session
+2. Adding right-edge inset in `AccessibilityPlatform` to avoid gesture-nav interception
+3. A/B testing `AccessibilityForwarder` as a potential interference source
 
-## What is AccessibilityForwarder?
+---
+
+## 1. AccessibilityGestureInjector — Revert Regressions
+
+Prior debug session (commit `e745664`) introduced two changes that were identified as regression causes:
+
+### Reverted: `setDisplayId()`
+
+```kotlin
+// BEFORE (regressed):
+private fun buildGesture(stroke: GestureDescription.StrokeDescription): GestureDescription {
+    val builder = GestureDescription.Builder().addStroke(stroke)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val displayId = resolveDisplayId() ?: Display.DEFAULT_DISPLAY
+        builder.setDisplayId(displayId)
+    }
+    return builder.build()
+}
+
+// AFTER (reverted to baseline):
+private fun buildGesture(stroke: GestureDescription.StrokeDescription): GestureDescription {
+    return GestureDescription.Builder().addStroke(stroke).build()
+}
+```
+
+**Why reverted**: `setDisplayId()` was added thinking it would help target the correct display, but it caused gestures to fail silently on some emulator configurations. The default behavior (no explicit display ID) works correctly.
+
+### Reverted: `Handler(Looper.getMainLooper())`
+
+```kotlin
+// BEFORE (regressed):
+val dispatched = service.dispatchGesture(gesture, callback, Handler(Looper.getMainLooper()))
+
+// AFTER (reverted to baseline):
+val dispatched = service.dispatchGesture(gesture, callback, null)
+```
+
+**Why reverted**: Passing a main-thread Handler forces the gesture callback to be delivered on the main looper. With `null`, the framework uses its own internal handler. The explicit Handler added unnecessary main-thread contention and was correlated with increased gesture failures.
+
+### Reverted: Tap duration to fixed 100ms
+
+```kotlin
+// BEFORE (regressed):
+private val DEFAULT_TAP_DURATION_MS = ViewConfiguration.getTapTimeout().toLong()
+
+// AFTER (reverted to baseline):
+private const val DEFAULT_GESTURE_DURATION_MS = 100L
+```
+
+**Why reverted**: `ViewConfiguration.getTapTimeout()` returns the system's tap recognition threshold, not an optimal gesture injection duration. Using a fixed 100ms is more predictable.
+
+### Also reverted: Verbose diagnostic logging
+
+Removed per-gesture `rootInActiveWindow`, `serviceInfo.flags`, `serviceInfo.capabilities` logging that was added for debugging. The compact `dispatched=$dispatched, ${describeGesture(gesture)}` format is sufficient.
+
+---
+
+## 2. AccessibilityPlatform — Right-Edge Inset for Leftward Swipes
+
+Android's gesture navigation intercepts `ACTION_DOWN` events near the right screen edge for "back" gesture recognition. This causes `dispatchGesture()` swipes that start from the right edge to be silently consumed by `InputDispatcher [Gesture Monitor]` instead of reaching the target UI element.
+
+### Fix: Inset start X by 30dp from right edge (leftward swipes only)
+
+```kotlin
+companion object {
+    private const val EDGE_INSET_DP = 30
+}
+
+private suspend fun performSwipe(action: UIAction.Swipe): ActionResult {
+    val edgeInsetPx = (EDGE_INSET_DP * display.density).toInt()
+    var startX = action.startX.coerceIn(0, maxX)
+    // ...
+    if (action.endX < action.startX && startX > maxX - edgeInsetPx) {
+        startX = maxX - edgeInsetPx
+    }
+}
+```
+
+**Key design decisions**:
+- **Right-edge only**: Left-edge rightward swipes are empirically NOT intercepted and must NOT be inset — the exact edge coordinate (e.g. x=42 for SeekBar left endpoint) is needed to hit UI elements flush with the screen edge.
+- **Only when swiping left** (`endX < startX`): A rightward swipe starting near the right edge shouldn't be inset since it's moving away from the edge.
+- **30dp**: Matches Android's default `gestureInsets` for back gesture zones.
+
+### Iteration history
+- v1 (bilateral): Inset both edges — broke left-edge SeekBar swipes
+- v2 (directional): Inset based on swipe direction on both edges — still broke left-edge
+- v3 (right-edge only, current): Only inset right edge for leftward swipes — works correctly
+
+---
+
+## 3. AccessibilityForwarder Investigation
+
+### What is AccessibilityForwarder?
 
 A **read-only observation service** from Google DeepMind's android_env project:
 
@@ -27,11 +122,11 @@ A **read-only observation service** from Google DeepMind's android_env project:
 2. **Event queue blocking**: `onAccessibilityEvent` does blocking gRPC calls (1s timeout); if gRPC server is down, backs up the framework's event queue
 3. **Crash dialogs**: When gRPC is misconfigured, produces "keeps stopping" dialogs that pollute the UI
 
-## A/B Test Design
+### A/B Test Design
 
 Modified `native_agent_bridge.py:_ensure_accessibility_service()` to strip AccessibilityForwarder from `enabled_accessibility_services` before each task (WITHOUT condition), vs. preserving the default behavior of appending our service to the existing list (WITH condition).
 
-## Results
+### Results
 
 | Run | Forwarder | BrightnessMax | BrightnessMin | Notes |
 |-----|-----------|---------------|---------------|-------|
@@ -51,7 +146,7 @@ Modified `native_agent_bridge.py:_ensure_accessibility_service()` to strip Acces
 | WITH forwarder | 4 (excl. stuck) | 3 | 1 | 75% |
 | WITHOUT forwarder | 3 | 1 | 2 | 33% |
 
-## Conclusion
+### Conclusion
 
 **AccessibilityForwarder is NOT the root cause of dispatchGesture flakiness.**
 
@@ -63,7 +158,7 @@ Failures occur both with and without the forwarder. The flakiness has multiple i
 
 3. **FileTraceRecorder channel overflow** — trace recording buffer overflows during shutdown, `session_stopped` event gets dropped, eval parser reports 0 turns. Separate infra bug.
 
-## Decision
+### Decision
 
 **Strip AccessibilityForwarder by default.** Although it's not the root cause of flakiness, it is:
 - Unnecessary for our native agent (we don't use the gRPC observation path)
@@ -71,7 +166,7 @@ Failures occur both with and without the forwarder. The flakiness has multiple i
 - A potential source of crash dialogs when gRPC is misconfigured
 - One fewer variable in debugging
 
-## Code Change
+### Code Change
 
 `eval/aw_bridge/native_agent_bridge.py` — `_ensure_accessibility_service()`:
 
