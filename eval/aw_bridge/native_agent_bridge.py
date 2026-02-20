@@ -199,7 +199,7 @@ class NativeAgentBridge:
             extras.extend(["--es", "executor_model", self._config.executor_model])
         if self._config.api_keys:
             _KEY_MAP = {
-                "OPENAI_API_KEY": "openai_api_key",
+                "OPENAI_API_KEY": "api_key",
                 "OPENROUTER_API_KEY": "openrouter_api_key",
                 "NOVITA_API_KEY": "novita_api_key",
             }
