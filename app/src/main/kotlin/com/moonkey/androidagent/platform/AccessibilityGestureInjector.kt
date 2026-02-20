@@ -2,14 +2,11 @@ package com.moonkey.androidagent.platform
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.graphics.Path
 import android.graphics.PathMeasure
+import android.os.Build
 import android.util.Log
 import android.view.Display
-import android.view.ViewConfiguration
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +26,7 @@ class AccessibilityGestureInjector(
 ) {
     companion object {
         private const val TAG = "AccessibilityGestureInjector"
-        private val DEFAULT_TAP_DURATION_MS = ViewConfiguration.getTapTimeout().toLong()
+        private const val DEFAULT_GESTURE_DURATION_MS = 100L
         private const val GESTURE_TIMEOUT_MS = 5000L
     }
 
@@ -38,7 +35,7 @@ class AccessibilityGestureInjector(
             visualizer?.showClick(x.toFloat(), y.toFloat())
 
             val path = Path().apply { moveTo(x.toFloat(), y.toFloat()) }
-            val stroke = GestureDescription.StrokeDescription(path, 0, DEFAULT_TAP_DURATION_MS)
+            val stroke = GestureDescription.StrokeDescription(path, 0, DEFAULT_GESTURE_DURATION_MS)
             val gesture = buildGesture(stroke)
 
             dispatchGesture(gesture)
@@ -102,47 +99,25 @@ class AccessibilityGestureInjector(
     private suspend fun dispatchGesture(gesture: GestureDescription): ActionResult {
         return withTimeoutOrNull(GESTURE_TIMEOUT_MS) {
             suspendCancellableCoroutine { continuation ->
-                val root = service.rootInActiveWindow
-                val serviceInfo = service.serviceInfo
-                Log.d(
-                        TAG,
-                        "dispatchGesture start: displayId=${gestureDisplayId(gesture)}, " +
-                                "strokeCount=${gesture.strokeCount}, " +
-                                "strokes=${describeGesture(gesture)}, " +
-                                "rootPkg=${root?.packageName}, " +
-                                "serviceFlags=${serviceInfo?.flags}, " +
-                                "serviceCapabilities=${serviceInfo?.capabilities}"
-                )
                 val callback =
                         object : AccessibilityService.GestureResultCallback() {
                             override fun onCompleted(gestureDescription: GestureDescription?) {
-                                Log.d(
-                                        TAG,
-                                        "dispatchGesture completed: displayId=${gestureDisplayId(gestureDescription)}"
-                                )
+                                Log.d(TAG, "dispatchGesture completed")
                                 if (continuation.isActive) {
                                     continuation.resume(ActionResult.Success("Gesture completed"))
                                 }
                             }
 
                             override fun onCancelled(gestureDescription: GestureDescription?) {
-                                Log.w(
-                                        TAG,
-                                        "dispatchGesture cancelled: displayId=${gestureDisplayId(gestureDescription)}"
-                                )
+                                Log.w(TAG, "dispatchGesture cancelled")
                                 if (continuation.isActive) {
                                     continuation.resume(ActionResult.Cancelled("Gesture cancelled"))
                                 }
                             }
                         }
 
-                val dispatched =
-                        service.dispatchGesture(
-                                gesture,
-                                callback,
-                                Handler(Looper.getMainLooper())
-                        )
-                Log.d(TAG, "dispatchGesture dispatched=$dispatched")
+                val dispatched = service.dispatchGesture(gesture, callback, null)
+                Log.d(TAG, "dispatchGesture dispatched=$dispatched, ${describeGesture(gesture)}")
                 if (!dispatched && continuation.isActive) {
                     continuation.resume(ActionResult.Failure("Failed to dispatch gesture"))
                 }
@@ -155,17 +130,7 @@ class AccessibilityGestureInjector(
     }
 
     private fun buildGesture(stroke: GestureDescription.StrokeDescription): GestureDescription {
-        val builder = GestureDescription.Builder().addStroke(stroke)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val displayId = resolveDisplayId() ?: Display.DEFAULT_DISPLAY
-            builder.setDisplayId(displayId)
-        }
-        return builder.build()
-    }
-
-    private fun resolveDisplayId(): Int? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
-        return service.rootInActiveWindow?.window?.displayId
+        return GestureDescription.Builder().addStroke(stroke).build()
     }
 
     private fun gestureDisplayId(gesture: GestureDescription?): Int {

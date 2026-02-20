@@ -254,11 +254,18 @@ class NativeAgentBridge:
         )
         current = (result.stdout or "").strip()
 
+        # Strip other accessibility services (e.g. AccessibilityForwarder)
+        # that Android World env setup enables.  We don't use the gRPC
+        # observation path — our agent has its own native a11y service —
+        # so the forwarder is unnecessary overhead and a source of Binder
+        # contention, blocking gRPC calls in onAccessibilityEvent, and
+        # "keeps stopping" crash dialogs.
+        if current and current != "null":
+            parts = [p for p in current.split(":") if p == self._A11Y_SERVICE]
+            current = ":".join(parts)
+
         if self._A11Y_SERVICE not in current:
-            if current and current != "null":
-                new_value = f"{current}:{self._A11Y_SERVICE}"
-            else:
-                new_value = self._A11Y_SERVICE
+            new_value = self._A11Y_SERVICE
 
             _log.info("Enabling accessibility service: %s", self._A11Y_SERVICE)
             self._run_adb_shell(
