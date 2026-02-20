@@ -204,7 +204,7 @@ run_adb_action() {
     esac
 
     # Settle
-    sleep "$(awk "BEGIN{printf \"%.3f\", $SETTLE_MS/1000}")"
+    sleep "$(printf '%s\n' "$SETTLE_MS" | awk '{printf "%.3f", $1/1000}')"
     adb_screencap "$after_img"
 
     ok "ADB action completed"

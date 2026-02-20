@@ -1,0 +1,4 @@
+interface:
+  display_name: "Action Debug"
+  short_description: "Debug action execution from traces"
+  default_prompt: "Use $action-debug to isolate and test a failed tool execution from a debug-run or eval run. Extract the action parameters from the trace, reproduce the screen state, and compare adb vs. a11y execution paths."

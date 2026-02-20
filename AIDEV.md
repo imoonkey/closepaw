@@ -91,6 +91,9 @@ sealed class AgentError {
 - `/code-review` - Systematic code review
 - `/strategic-compact` - Context compaction at task boundaries
 - `/orchestrate` - Chain skills/agents for complex workflows
+- `/action-debug` - Debug failed tool executions by isolating action layer
+- `/cog-tune` - Analyze agent cognition using traces and eval results
+- `/ux-visual-debug` - End-to-end UX QA from user perspective via ADB
 
 ## Git
 
