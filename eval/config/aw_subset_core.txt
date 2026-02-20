@@ -1,8 +1,8 @@
-SystemWifiTurnOnVerify
-SystemWifiTurnOffVerify
-SystemBluetoothTurnOnVerify
-SystemBrightnessMaxVerify
-SystemBrightnessMinVerify
+SystemWifiTurnOn
+SystemWifiTurnOff
+SystemBluetoothTurnOn
+SystemBrightnessMax
+SystemBrightnessMin
 ClockTimerEntry
 ContactsAddContact
 MarkorCreateNote
