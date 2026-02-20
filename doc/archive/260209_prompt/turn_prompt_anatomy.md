@@ -1,6 +1,6 @@
 # 每个 Turn 发给 OpenAI 的 Prompt 结构（含真实运行样本）
 
-> Last updated: 2026-02-06  
+> Last updated: 2026-02-20 (commit: 2493be6)
 > 主样本：`debug-output/run_20260205_150035`（时间 2026-02-05）
 
 ## 1. 先看总结构

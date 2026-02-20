@@ -1,6 +1,6 @@
 # Android Agent Prompt & Behavior 全景图
 
-> Last updated: 2026-02-09
+> Last updated: 2026-02-20 (commit: 2493be6)
 > 目标读者：Agent researcher — 快速了解所有决定 agent behavior 的部分：prompt 结构、action space、state representation、context packing
 
 ---
