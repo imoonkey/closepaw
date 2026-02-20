@@ -113,6 +113,7 @@ private fun buildServices(traceRecorder: TraceRecorder): SessionServices {
                 SessionConfig(
                         maxTurns = 1,
                         actionDelayMs = 0,
+                        mainModel = "gpt-5.2",
                         llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI)
                 )
         val testCatalog =
