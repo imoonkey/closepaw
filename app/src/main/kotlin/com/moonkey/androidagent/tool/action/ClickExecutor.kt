@@ -11,8 +11,9 @@ import kotlinx.coroutines.delay
 /**
  * Click executor: resolve target once.
  *
- * For semantic targets (element_index / text), try ACTION_CLICK first, then fallback to gesture tap.
- * For coordinate targets, dispatch gesture tap directly.
+ * Primary path: gesture tap (works on any visible element).
+ * Fallback for semantic targets: node ACTION_CLICK (a11y tree dependent).
+ * Coordinate targets: gesture tap only, no fallback.
  */
 class ClickExecutor(
     private val targetResolver: TargetResolver = TargetResolver
@@ -55,6 +56,29 @@ class ClickExecutor(
 
         val attemptTrail = mutableListOf<String>()
 
+        // Primary path: gesture tap
+        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before tap")
+        val tapResult = platform.performAction(UIAction.TapAt(point.x, point.y))
+        var gestureFailReason = ""
+        when (tapResult) {
+            is ActionResult.Success -> {
+                attemptTrail += "gesture_tap: success"
+                return buildSuccessOutcome(
+                    point = point,
+                    channel = "gesture_tap",
+                    warnings = resolvedWarnings,
+                    attemptTrail = attemptTrail,
+                    platform = platform
+                )
+            }
+            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(tapResult.reason)
+            is ActionResult.Failure -> {
+                gestureFailReason = tapResult.reason
+                attemptTrail += "gesture_tap: ${tapResult.reason}"
+            }
+        }
+
+        // Fallback: node action click (only for semantic targets)
         if (target.isSemantic()) {
             if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before node click")
             val nodeResult = platform.performAction(UIAction.ClickNodeAt(point.x, point.y))
@@ -72,32 +96,19 @@ class ClickExecutor(
                 is ActionResult.Cancelled -> return ActionOutcome.Cancelled(nodeResult.reason)
                 is ActionResult.Failure -> {
                     attemptTrail += "node_action_click: ${nodeResult.reason}"
+                    return ActionOutcome.Failed(
+                        reason = formatFailure(point, "node_action_click", nodeResult.reason, resolvedWarnings),
+                        attemptTrail = attemptTrail
+                    )
                 }
             }
         }
 
-        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before tap")
-        val tapResult = platform.performAction(UIAction.TapAt(point.x, point.y))
-        when (tapResult) {
-            is ActionResult.Success -> {
-                attemptTrail += "gesture_tap: success"
-                return buildSuccessOutcome(
-                    point = point,
-                    channel = "gesture_tap",
-                    warnings = resolvedWarnings,
-                    attemptTrail = attemptTrail,
-                    platform = platform
-                )
-            }
-            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(tapResult.reason)
-            is ActionResult.Failure -> {
-                attemptTrail += "gesture_tap: ${tapResult.reason}"
-                return ActionOutcome.Failed(
-                    reason = formatFailure(point, "gesture_tap", tapResult.reason, resolvedWarnings),
-                    attemptTrail = attemptTrail
-                )
-            }
-        }
+        // Coordinate target with gesture tap failure — no fallback available
+        return ActionOutcome.Failed(
+            reason = formatFailure(point, "gesture_tap", gestureFailReason, resolvedWarnings),
+            attemptTrail = attemptTrail
+        )
     }
 
     private suspend fun buildSuccessOutcome(
@@ -133,7 +144,7 @@ class ClickExecutor(
     }
 
     private fun formatSuccess(point: Point, channel: String, warnings: List<String>): String {
-        val verb = if (channel == "node_action_click") "Clicked" else "Tapped"
+        val verb = if (channel == "gesture_tap") "Tapped" else "Clicked"
         val base = "$verb (${point.x},${point.y}) via $channel"
         if (warnings.isEmpty()) return base
         return buildString {

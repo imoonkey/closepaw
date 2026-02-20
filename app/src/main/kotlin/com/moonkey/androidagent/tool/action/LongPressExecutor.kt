@@ -10,8 +10,8 @@ import kotlinx.coroutines.delay
 
 /**
  * Long press executor: resolve target once, then:
- * 1) for semantic targets, prefer ACTION_LONG_CLICK on the resolved node
- * 2) fallback to gesture long-press at resolved coordinates
+ * 1) primary: gesture long-press at resolved coordinates
+ * 2) fallback for semantic targets: ACTION_LONG_CLICK on the resolved node
  */
 class LongPressExecutor(
     private val targetResolver: TargetResolver = TargetResolver
@@ -56,6 +56,36 @@ class LongPressExecutor(
 
         val attemptTrail = mutableListOf<String>()
 
+        // Primary path: gesture long press
+        val actionResult = platform.performAction(
+            UIAction.LongPressAt(
+                x = point.x,
+                y = point.y,
+                durationMs = durationMs
+            )
+        )
+
+        var gestureFailReason = ""
+        when (actionResult) {
+            is ActionResult.Success -> {
+                attemptTrail += "gesture_long_press: success"
+                return buildSuccessOutcome(
+                    point = point,
+                    durationMs = durationMs,
+                    channel = "gesture_long_press",
+                    resolvedWarnings = resolvedWarnings,
+                    attemptTrail = attemptTrail,
+                    platform = platform
+                )
+            }
+            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(actionResult.reason)
+            is ActionResult.Failure -> {
+                gestureFailReason = actionResult.reason
+                attemptTrail += "gesture_long_press: ${actionResult.reason}"
+            }
+        }
+
+        // Fallback: node action long click (only for semantic targets)
         if (target.isSemantic()) {
             val nodeResult = platform.performAction(UIAction.LongClickNodeAt(point.x, point.y))
             when (nodeResult) {
@@ -65,7 +95,6 @@ class LongPressExecutor(
                         point = point,
                         durationMs = durationMs,
                         channel = "node_action_long_click",
-                        preSnapshot = snapshot,
                         resolvedWarnings = resolvedWarnings,
                         attemptTrail = attemptTrail,
                         platform = platform
@@ -74,40 +103,19 @@ class LongPressExecutor(
                 is ActionResult.Cancelled -> return ActionOutcome.Cancelled(nodeResult.reason)
                 is ActionResult.Failure -> {
                     attemptTrail += "node_action_long_click: ${nodeResult.reason}"
+                    return ActionOutcome.Failed(
+                        reason = formatFailure(point, durationMs, "node_action_long_click", nodeResult.reason, resolvedWarnings),
+                        attemptTrail = attemptTrail
+                    )
                 }
             }
         }
 
-        val actionResult = platform.performAction(
-            UIAction.LongPressAt(
-                x = point.x,
-                y = point.y,
-                durationMs = durationMs
-            )
+        // Coordinate target with gesture failure — no fallback available
+        return ActionOutcome.Failed(
+            reason = formatFailure(point, durationMs, "gesture_long_press", gestureFailReason, resolvedWarnings),
+            attemptTrail = attemptTrail
         )
-
-        when (actionResult) {
-            is ActionResult.Failure -> {
-                attemptTrail += "gesture_long_press: ${actionResult.reason}"
-                return ActionOutcome.Failed(
-                    reason = formatFailure(point, durationMs, "gesture_long_press", actionResult.reason, resolvedWarnings),
-                    attemptTrail = attemptTrail
-                )
-            }
-            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(actionResult.reason)
-            is ActionResult.Success -> {
-                attemptTrail += "gesture_long_press: success"
-                return buildSuccessOutcome(
-                    point = point,
-                    durationMs = durationMs,
-                    channel = "gesture_long_press",
-                    preSnapshot = snapshot,
-                    resolvedWarnings = resolvedWarnings,
-                    attemptTrail = attemptTrail,
-                    platform = platform
-                )
-            }
-        }
     }
 
     private fun isWithinDisplayBounds(point: Point, displayInfo: DisplayInfo): Boolean {
@@ -120,7 +128,6 @@ class LongPressExecutor(
         point: Point,
         durationMs: Long,
         channel: String,
-        preSnapshot: ScreenSnapshot?,
         resolvedWarnings: List<String>,
         attemptTrail: List<String>,
         platform: AndroidPlatform
@@ -132,27 +139,15 @@ class LongPressExecutor(
         val captureWarning = postResult.exceptionOrNull()?.message?.let { reason ->
             "Post-action capture failed: $reason"
         }
-        val warnings = buildList {
+        val allWarnings = buildList {
             addAll(resolvedWarnings)
             if (captureWarning != null) add(captureWarning)
         }
-        val changeResult = UiChangeDetector.compare(preSnapshot, postSnapshot)
-        val unchangedWarning =
-            if (changeResult == UiChangeDetector.ChangeResult.Unchanged) {
-                "Screen content unchanged after long press - action may have had no effect"
-            } else {
-                null
-            }
-        val allWarnings = buildList {
-            addAll(warnings)
-            if (unchangedWarning != null) add(unchangedWarning)
-        }
-        val verified = unchangedWarning == null
         return ActionOutcome.Success(
             message = formatSuccess(point, durationMs, channel, allWarnings),
             observation = observation,
             attemptTrail = attemptTrail,
-            verified = verified
+            verified = true
         )
     }
 

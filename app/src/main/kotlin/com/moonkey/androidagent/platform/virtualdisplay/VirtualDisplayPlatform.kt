@@ -272,7 +272,7 @@ class VirtualDisplayPlatform(
                             inputInjector.injectLongPress(action.x, action.y, action.durationMs)
                     is UIAction.ScrollNodeAt ->
                             nodeActionPerformer.performScrollAt(action.x, action.y, action.direction)
-                    is UIAction.Swipe -> inputInjector.injectSwipe(action)
+                    is UIAction.Swipe -> performSwipe(action)
                     is UIAction.SystemButton -> inputInjector.injectSystemButton(action.button)
                     is UIAction.Wait -> {
                         delay(action.durationMs)
@@ -287,6 +287,38 @@ class VirtualDisplayPlatform(
         }
 
         return result
+    }
+
+    // ===== Action Helpers =====
+
+    /**
+     * Clamp swipe coordinates to virtual display bounds.
+     * No edge inset needed — virtual display doesn't have gesture-nav interference.
+     */
+    private suspend fun performSwipe(action: UIAction.Swipe): ActionResult {
+        val maxX = (config.width - 1).coerceAtLeast(0)
+        val maxY = (config.height - 1).coerceAtLeast(0)
+
+        val startX = action.startX.coerceIn(0, maxX)
+        val startY = action.startY.coerceIn(0, maxY)
+        val endX = action.endX.coerceIn(0, maxX)
+        val endY = action.endY.coerceIn(0, maxY)
+
+        if (startX != action.startX ||
+                        startY != action.startY ||
+                        endX != action.endX ||
+                        endY != action.endY
+        ) {
+            Log.w(TAG, "Swipe coordinates clamped to virtual display bounds")
+        }
+
+        Log.d(
+                TAG,
+                "Swipe: ($startX,$startY) -> ($endX,$endY), duration=${action.durationMs}ms"
+        )
+        return inputInjector.injectSwipe(
+                UIAction.Swipe(startX, startY, endX, endY, action.durationMs)
+        )
     }
 
     override fun hasRequiredPermissions(): Boolean {

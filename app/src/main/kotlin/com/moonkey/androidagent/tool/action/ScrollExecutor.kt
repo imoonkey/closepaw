@@ -6,18 +6,16 @@ import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.UIAction
 import kotlinx.coroutines.delay
-import org.json.JSONObject
 
 /**
  * Scroll executor: content-direction scroll with optional element targeting.
  *
- * Pipeline:
- * 1. Determine scroll area (element bounds or full screen)
- * 2. Try accessibility scroll action (ACTION_SCROLL_DOWN etc.)
- * 3. If a11y fails, fall back to gesture swipe (center-to-edge within scroll area)
- * 4. Capture post-action screen, detect scroll boundary
+ * Cascade: gesture swipe first → a11y scroll fallback (matching click/long_press pattern).
+ * Uses TargetResolver for element resolution (unified targeting).
  */
-class ScrollExecutor {
+class ScrollExecutor(
+    private val targetResolver: TargetResolver = TargetResolver
+) {
     companion object {
         private const val UI_SETTLE_DELAY_MS = 400L
         private const val SWIPE_DURATION_MS = 300L
@@ -25,73 +23,47 @@ class ScrollExecutor {
     }
 
     suspend fun execute(
-        params: JSONObject,
+        target: Target?,
+        direction: String,
         snapshot: ScreenSnapshot?,
         platform: AndroidPlatform,
         isCancelled: () -> Boolean
     ): ActionOutcome {
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before scroll")
 
-        val direction = params.optString("direction", "").trim().lowercase()
-        if (direction !in listOf("up", "down", "left", "right")) {
-            return ActionOutcome.Failed(
-                reason = "Invalid scroll direction: '$direction'. Must be up/down/left/right.",
-                attemptTrail = emptyList()
-            )
-        }
-
-        val scrollArea = resolveScrollArea(params, snapshot, platform)
-        val centerX = scrollArea.centerX
-        val centerY = scrollArea.centerY
+        val scrollArea = resolveScrollArea(target, snapshot, platform)
         val attemptTrail = mutableListOf<String>()
 
-        // 1. Try accessibility scroll action
-        val a11yResult = platform.performAction(UIAction.ScrollNodeAt(centerX, centerY, direction))
-        when (a11yResult) {
-            is ActionResult.Success -> {
-                attemptTrail += "a11y_scroll: success"
-                delay(UI_SETTLE_DELAY_MS)
-                val post = runCatching { platform.captureScreen() }.getOrNull()
-                val observation = post?.let { buildObservation(it, platform) }
-                val boundary = UiChangeDetector.detectScrollBoundary(snapshot, post)
-                val message = buildMessage("Scrolled $direction via a11y action", boundary)
-                return ActionOutcome.Success(
-                    message = message,
-                    observation = observation,
-                    attemptTrail = attemptTrail,
-                    verified = true
-                )
-            }
-            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(a11yResult.reason)
-            is ActionResult.Failure -> {
-                attemptTrail += "a11y_scroll: ${a11yResult.reason}"
-            }
-        }
-
-        // 2. Gesture fallback: center-to-edge swipe within scroll area
-        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before gesture fallback")
-        val swipe = computeGestureFallback(direction, scrollArea)
+        // 1. Primary: gesture swipe within scroll area
+        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before gesture scroll")
+        val swipe = computeSwipeGesture(direction, scrollArea)
         val gestureResult = platform.performAction(swipe)
         when (gestureResult) {
             is ActionResult.Success -> {
                 attemptTrail += "gesture_swipe: success"
-                delay(UI_SETTLE_DELAY_MS)
-                val post = runCatching { platform.captureScreen() }.getOrNull()
-                val observation = post?.let { buildObservation(it, platform) }
-                val boundary = UiChangeDetector.detectScrollBoundary(snapshot, post)
-                val message = buildMessage("Scrolled $direction via gesture", boundary)
-                return ActionOutcome.Success(
-                    message = message,
-                    observation = observation,
-                    attemptTrail = attemptTrail,
-                    verified = true
-                )
+                return buildSuccessOutcome(direction, "gesture_swipe", attemptTrail, platform)
             }
             is ActionResult.Cancelled -> return ActionOutcome.Cancelled(gestureResult.reason)
             is ActionResult.Failure -> {
                 attemptTrail += "gesture_swipe: ${gestureResult.reason}"
+            }
+        }
+
+        // 2. Fallback: a11y scroll action
+        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before a11y scroll fallback")
+        val a11yResult = platform.performAction(
+            UIAction.ScrollNodeAt(scrollArea.centerX, scrollArea.centerY, direction)
+        )
+        when (a11yResult) {
+            is ActionResult.Success -> {
+                attemptTrail += "a11y_scroll: success"
+                return buildSuccessOutcome(direction, "a11y_scroll", attemptTrail, platform)
+            }
+            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(a11yResult.reason)
+            is ActionResult.Failure -> {
+                attemptTrail += "a11y_scroll: ${a11yResult.reason}"
                 return ActionOutcome.Failed(
-                    reason = "Scroll $direction failed: ${gestureResult.reason}",
+                    reason = "Scroll $direction failed: ${a11yResult.reason}",
                     attemptTrail = attemptTrail
                 )
             }
@@ -99,19 +71,38 @@ class ScrollExecutor {
     }
 
     private fun resolveScrollArea(
-        params: JSONObject,
+        target: Target?,
         snapshot: ScreenSnapshot?,
         platform: AndroidPlatform
     ): Bounds {
-        if (params.has("element_index") && snapshot != null) {
-            val idx = params.getInt("element_index")
-            val element = snapshot.elements.getOrNull(idx)
-            if (element != null && element.bounds.width > 0 && element.bounds.height > 0) {
-                return element.bounds
+        if (target != null) {
+            val resolved = targetResolver.resolve(target, snapshot)
+            if (resolved is TargetResolver.ResolveResult.Resolved) {
+                val bounds = resolved.bounds
+                if (bounds != null && bounds.width > 0 && bounds.height > 0) {
+                    return bounds
+                }
             }
         }
         val display = platform.getDisplayInfo()
         return Bounds(0, 0, display.widthPixels, display.heightPixels)
+    }
+
+    private suspend fun buildSuccessOutcome(
+        direction: String,
+        channel: String,
+        attemptTrail: List<String>,
+        platform: AndroidPlatform
+    ): ActionOutcome.Success {
+        delay(UI_SETTLE_DELAY_MS)
+        val post = runCatching { platform.captureScreen() }.getOrNull()
+        val observation = post?.let { buildObservation(it, platform) }
+        return ActionOutcome.Success(
+            message = "Scrolled $direction via $channel",
+            observation = observation,
+            attemptTrail = attemptTrail,
+            verified = true
+        )
     }
 
     /**
@@ -123,7 +114,7 @@ class ScrollExecutor {
      * - "left" (reveal left) → finger swipes RIGHT → start=center, end=right
      * - "right" (reveal right) → finger swipes LEFT → start=center, end=left
      */
-    private fun computeGestureFallback(direction: String, area: Bounds): UIAction.Swipe {
+    private fun computeSwipeGesture(direction: String, area: Bounds): UIAction.Swipe {
         val cx = area.centerX
         val cy = area.centerY
         val insetX = (area.width * EDGE_INSET_RATIO).toInt().coerceAtLeast(1)
@@ -137,9 +128,5 @@ class ScrollExecutor {
             else -> cx to cy
         }
         return UIAction.Swipe(cx, cy, endX, endY, SWIPE_DURATION_MS)
-    }
-
-    private fun buildMessage(base: String, boundary: String?): String {
-        return if (boundary != null) "$base. $boundary" else base
     }
 }

@@ -17,7 +17,10 @@ class TargetResolverTest {
         val resolved = TargetResolver.resolve(Target.ElementIndex(1), snapshot)
 
         assertThat(resolved).isEqualTo(
-            TargetResolver.ResolveResult.Resolved(point = Point(300, 550))
+            TargetResolver.ResolveResult.Resolved(
+                point = Point(300, 550),
+                bounds = Bounds(100, 400, 500, 700)
+            )
         )
     }
 
@@ -41,7 +44,10 @@ class TargetResolverTest {
         val resolved = TargetResolver.resolve(Target.ElementIndex(14), snapshot)
 
         assertThat(resolved).isEqualTo(
-            TargetResolver.ResolveResult.Resolved(point = Point(632, 2576))
+            TargetResolver.ResolveResult.Resolved(
+                point = Point(632, 2576),
+                bounds = Bounds(0, 2353, 1264, 2800)
+            )
         )
     }
 
@@ -64,7 +70,10 @@ class TargetResolverTest {
         val resolved = TargetResolver.resolve(Target.ElementIndex(17), snapshot)
 
         assertThat(resolved).isEqualTo(
-            TargetResolver.ResolveResult.Resolved(point = Point(631, 2660))
+            TargetResolver.ResolveResult.Resolved(
+                point = Point(631, 2660),
+                bounds = Bounds(505, 2576, 758, 2744)
+            )
         )
     }
 
@@ -81,7 +90,10 @@ class TargetResolverTest {
         val resolved = TargetResolver.resolve(Target.ElementIndex(20), snapshot)
 
         assertThat(resolved).isEqualTo(
-            TargetResolver.ResolveResult.Resolved(point = Point(500, 500))
+            TargetResolver.ResolveResult.Resolved(
+                point = Point(500, 500),
+                bounds = Bounds(100, 100, 900, 900)
+            )
         )
     }
 
@@ -94,7 +106,10 @@ class TargetResolverTest {
         val resolved = TargetResolver.resolve(Target.ElementIndex(7), snapshot)
 
         assertThat(resolved).isEqualTo(
-            TargetResolver.ResolveResult.Resolved(point = Point(1017, 191))
+            TargetResolver.ResolveResult.Resolved(
+                point = Point(1017, 191),
+                bounds = Bounds(954, 128, 1080, 254)
+            )
         )
     }
 

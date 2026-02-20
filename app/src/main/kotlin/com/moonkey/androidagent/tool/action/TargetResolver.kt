@@ -1,5 +1,6 @@
 package com.moonkey.androidagent.tool.action
 
+import com.moonkey.androidagent.model.Bounds
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.Point
 import com.moonkey.androidagent.model.ScreenSnapshot
@@ -13,6 +14,7 @@ object TargetResolver {
     sealed interface ResolveResult {
         data class Resolved(
             val point: Point,
+            val bounds: Bounds? = null,
             val warnings: List<String> = emptyList()
         ) : ResolveResult
 
@@ -67,6 +69,6 @@ object TargetResolver {
     }
 
     private fun resolveElementPoint(element: PerceptionElement): ResolveResult.Resolved {
-        return ResolveResult.Resolved(element.center)
+        return ResolveResult.Resolved(element.center, bounds = element.bounds)
     }
 }

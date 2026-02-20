@@ -90,7 +90,10 @@ Actions:
                     target, params.getString("input_text"),
                     params.optBoolean("clear", false), snapshot, platform, isCancelled
                 )
-                "scroll" -> ScrollExecutor().execute(params, snapshot, platform, isCancelled)
+                "scroll" -> ScrollExecutor().execute(
+                    target, params.getString("direction"),
+                    snapshot, platform, isCancelled
+                )
                 "swipe" -> SwipeExecutor().execute(params, snapshot, platform, isCancelled)
                 else -> error("Unreachable: validated above")
             }

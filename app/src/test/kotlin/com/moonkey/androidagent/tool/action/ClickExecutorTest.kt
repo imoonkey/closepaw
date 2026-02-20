@@ -38,7 +38,7 @@ class ClickExecutorTest {
     }
 
     @Test
-    fun `execute prefers node action click for semantic target`() = runTest {
+    fun `execute uses gesture tap as primary for semantic target`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =
             RecordingPlatform(
@@ -57,17 +57,17 @@ class ClickExecutorTest {
 
         assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
         assertThat(platform.performedActions)
-            .containsExactly(UIAction.ClickNodeAt(150, 210))
+            .containsExactly(UIAction.TapAt(150, 210))
             .inOrder()
     }
 
     @Test
-    fun `execute falls back to gesture tap when node action click fails`() = runTest {
+    fun `execute falls back to node action click when gesture tap fails`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =
             RecordingPlatform(
                 actionResults = listOf(
-                    ActionResult.Failure("node click failed"),
+                    ActionResult.Failure("gesture tap failed"),
                     ActionResult.Success()
                 ),
                 capturedSnapshots = listOf(snapshot)
@@ -85,8 +85,8 @@ class ClickExecutorTest {
         assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
         assertThat(platform.performedActions)
             .containsExactly(
-                UIAction.ClickNodeAt(150, 210),
-                UIAction.TapAt(150, 210)
+                UIAction.TapAt(150, 210),
+                UIAction.ClickNodeAt(150, 210)
             )
             .inOrder()
     }
@@ -137,7 +137,7 @@ class ClickExecutorTest {
     }
 
     @Test
-    fun `execute fails immediately when gesture dispatch fails`() = runTest {
+    fun `execute fails when gesture tap fails for coordinate target`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =
             RecordingPlatform(
