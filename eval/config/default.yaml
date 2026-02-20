@@ -31,6 +31,7 @@ bridge:
   agent_mode: basic
   perception_mode: accessibility_only
   platform_mode: accessibility
+  # shizuku_apk_path: eval/tools/shizuku.apk  # required if auto-installing Shizuku for virtual_display
   main_model: qwen3.5
   executor_model: ""
   max_turns: 30

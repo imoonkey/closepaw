@@ -12,6 +12,10 @@ from eval.aw_bridge.completion_monitor import LogcatCompletionMonitor
 _log = logging.getLogger(__name__)
 
 
+_SHIZUKU_PKG = "moe.shizuku.privileged.api"
+_SHIZUKU_SERVER_PROCESS = "shizuku_server"
+
+
 @dataclass
 class BridgeConfig:
     package_name: str
@@ -34,6 +38,7 @@ class BridgeConfig:
     adb_command_timeout_sec: int
     adb_pull_timeout_sec: int
     api_keys: dict[str, str] | None = None
+    shizuku_apk_path: str | None = None
 
 
 @dataclass
@@ -149,6 +154,7 @@ class NativeAgentBridge:
     def _start_agent(self, goal: str, run_id: str) -> None:
         self.force_stop()
         self._ensure_device_time_is_sane()
+        self._ensure_shizuku()
         self._ensure_accessibility_service()
 
         extras = [
@@ -278,6 +284,126 @@ class NativeAgentBridge:
 
     _SERVICE_BIND_WAIT_SEC = 8
     _MAX_ALLOWED_TIME_SKEW_SEC = 300
+    _SHIZUKU_START_TIMEOUT_SEC = 15
+
+    # ── Shizuku lifecycle ────────────────────────────────────────
+
+    def _ensure_shizuku(self) -> None:
+        """Install Shizuku and start its server for virtual-display mode.
+
+        Skips if platform_mode is not ``virtual_display``.  Assumes the
+        user has already granted Shizuku permission to the agent app at
+        least once (the grant persists across emulator reboots as long as
+        the userdata partition is not wiped).
+        """
+        if self._config.platform_mode != "virtual_display":
+            return
+
+        if not self._is_package_installed(_SHIZUKU_PKG):
+            self._install_shizuku()
+
+        if self._is_shizuku_server_running():
+            _log.info("Shizuku server already running")
+            return
+
+        self._start_shizuku_server()
+
+    def _is_package_installed(self, package: str) -> bool:
+        result = self._run_adb_shell(
+            ["pm", "list", "packages", package],
+            check=False,
+            capture_output=True,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        return f"package:{package}" in (result.stdout or "")
+
+    def _install_shizuku(self) -> None:
+        apk_path = self._config.shizuku_apk_path
+        if not apk_path:
+            raise RuntimeError(
+                "Shizuku is not installed on the device and no "
+                "shizuku_apk_path is configured.  Either install Shizuku "
+                "manually or set bridge.shizuku_apk_path in the eval config."
+            )
+        resolved = Path(apk_path).resolve()
+        if not resolved.is_file():
+            raise RuntimeError(f"Shizuku APK not found at {resolved}")
+
+        _log.info("Installing Shizuku from %s …", resolved)
+        self._run_adb(
+            ["install", "-r", "-t", str(resolved)],
+            check=True,
+            timeout_sec=120,
+        )
+        _log.info("Shizuku installed")
+
+    def _is_shizuku_server_running(self) -> bool:
+        result = self._run_adb_shell(
+            ["pidof", _SHIZUKU_SERVER_PROCESS],
+            check=False,
+            capture_output=True,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        return bool((result.stdout or "").strip())
+
+    def _start_shizuku_server(self) -> None:
+        """Start the Shizuku server via ``app_process``.
+
+        Uses the installed Shizuku APK as the classpath and launches
+        ``moe.shizuku.server.ShizukuService`` directly.  This avoids
+        depending on the ``start.sh`` helper (which requires scoped-
+        storage access to ``/sdcard/Android/data/``).
+        """
+        # Resolve the on-device APK path.
+        result = self._run_adb_shell(
+            ["pm", "path", _SHIZUKU_PKG],
+            check=False,
+            capture_output=True,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        apk_line = (result.stdout or "").strip()
+        if not apk_line.startswith("package:"):
+            raise RuntimeError(
+                f"Cannot resolve Shizuku APK on device: {apk_line}"
+            )
+        device_apk = apk_line.split("package:", 1)[1]
+
+        _log.info("Starting Shizuku server (APK=%s) …", device_apk)
+        # Launch in a detached shell so it outlives this adb command.
+        # The trailing '&' backgrounds the app_process and the outer
+        # subshell exits immediately.
+        start_cmd = (
+            f"(CLASSPATH={shlex.quote(device_apk)} "
+            f"/system/bin/app_process -Djava.class.path={shlex.quote(device_apk)} "
+            f"/system/bin --nice-name={_SHIZUKU_SERVER_PROCESS} "
+            f"moe.shizuku.server.ShizukuService &)"
+        )
+        # Use raw subprocess to pass the compound shell command.
+        cmd = self._adb_command(["shell", start_cmd])
+        subprocess.run(cmd, check=False, text=True, timeout=10)
+
+        # Poll until the server process appears.
+        deadline = time.monotonic() + self._SHIZUKU_START_TIMEOUT_SEC
+        while time.monotonic() < deadline:
+            if self._is_shizuku_server_running():
+                _log.info("Shizuku server started (pid=%s)",
+                          self._get_shizuku_pid())
+                return
+            time.sleep(1)
+
+        raise RuntimeError(
+            f"Shizuku server did not start within "
+            f"{self._SHIZUKU_START_TIMEOUT_SEC}s"
+        )
+
+    def _get_shizuku_pid(self) -> str:
+        result = self._run_adb_shell(
+            ["pidof", _SHIZUKU_SERVER_PROCESS],
+            check=False,
+            capture_output=True,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        return (result.stdout or "").strip()
 
     def _clear_device_trace(self, run_id: str) -> None:
         self._run_adb_shell(

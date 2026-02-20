@@ -355,7 +355,9 @@ def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig
         llm_backend=str(bridge_cfg.get("llm_backend", "openai")),
         agent_mode=str(bridge_cfg.get("agent_mode", "pro")),
         perception_mode=str(bridge_cfg.get("perception_mode", "accessibility_only")),
-        platform_mode=str(bridge_cfg.get("platform_mode", "accessibility")),
+        platform_mode=str(
+            args.platform_mode or bridge_cfg.get("platform_mode", "accessibility")
+        ),
         main_model=str(bridge_cfg.get("main_model", "minimax-m2.5")),
         executor_model=str(bridge_cfg.get("executor_model", "")),
         max_turns=int(bridge_cfg.get("max_turns", 30)),
@@ -369,6 +371,7 @@ def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig
         stop_agent_after_task=bool(runner_cfg.get("stop_agent_after_task", True)),
         adb_command_timeout_sec=int(runner_cfg.get("adb_command_timeout_sec", 60)),
         adb_pull_timeout_sec=int(runner_cfg.get("adb_pull_timeout_sec", 300)),
+        shizuku_apk_path=_nullable_str(bridge_cfg.get("shizuku_apk_path")),
     )
 
     return RunnerConfig(
@@ -407,6 +410,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--task-random-seed", type=int, default=None)
     parser.add_argument("--output-root", default=None)
     parser.add_argument("--adb-serial", default=None)
+    parser.add_argument(
+        "--platform-mode",
+        default=None,
+        choices=["accessibility", "virtual_display"],
+        help="Platform mode: accessibility (default) or virtual_display",
+    )
     return parser.parse_args()
 
 
