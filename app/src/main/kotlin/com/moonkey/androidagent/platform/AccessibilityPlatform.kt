@@ -41,7 +41,6 @@ class AccessibilityPlatform(
 
     companion object {
         private const val TAG = "AccessibilityPlatform"
-        private const val EDGE_INSET_DP = 30
     }
 
     private val nodeActionPerformer = NodeActionPerformer(rootProvider = { service.rootInActiveWindow })
@@ -275,20 +274,10 @@ class AccessibilityPlatform(
         val maxX = (display.widthPixels - 1).coerceAtLeast(0)
         val maxY = (display.heightPixels - 1).coerceAtLeast(0)
 
-        // Inset start X from the RIGHT edge when swiping left, to avoid
-        // Android's gesture-nav "back" intercepting the injected ACTION_DOWN.
-        // Left-edge rightward swipes are empirically NOT intercepted and must
-        // NOT be inset — the exact edge coordinate is needed to hit UI elements
-        // like SeekBar endpoints flush with the screen edge.
-        val edgeInsetPx = (EDGE_INSET_DP * display.density).toInt()
-        var startX = action.startX.coerceIn(0, maxX)
+        val startX = action.startX.coerceIn(0, maxX)
         val startY = action.startY.coerceIn(0, maxY)
         val endX = action.endX.coerceIn(0, maxX)
         val endY = action.endY.coerceIn(0, maxY)
-
-        if (action.endX < action.startX && startX > maxX - edgeInsetPx) {
-            startX = maxX - edgeInsetPx
-        }
 
         if (startX != action.startX ||
                         startY != action.startY ||

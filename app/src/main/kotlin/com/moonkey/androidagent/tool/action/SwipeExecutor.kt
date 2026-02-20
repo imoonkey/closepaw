@@ -46,6 +46,13 @@ class SwipeExecutor {
             )
         }
 
+        if (result is ActionResult.Cancelled) {
+            return ActionOutcome.Failed(
+                reason = "Swipe ($sx,$sy)→($ex,$ey) gesture was cancelled by the system.",
+                attemptTrail = listOf("swipe: cancelled")
+            )
+        }
+
         delay(max(MIN_SETTLE_DELAY_MS, (durationMs * 0.75).toLong()))
         val post = runCatching { platform.captureScreen() }.getOrNull()
         val observation = post?.let { buildObservation(it, platform) }
