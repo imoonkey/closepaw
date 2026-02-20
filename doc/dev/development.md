@@ -1,6 +1,6 @@
 # Development Guide
 
-> Last updated: 2026-02-11 (commit: c1cbe68)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 This guide covers the development workflow for Android Agent - building, testing, and debugging.
 
@@ -93,6 +93,19 @@ Output in `debug-output/run_<timestamp>/`:
 - `trace/` - JSONL trace + replay artifacts
 
 See [Visual Debugging Guide](../../scripts/agent_process_visual_debug.md) for systematic debugging workflow.
+
+### 3.1 Direct Action Debug (Execution Layer)
+
+Use `action-test.sh` to isolate action execution outside the full agent loop:
+
+```bash
+./scripts/action-test.sh click --x 540 --y 1200
+./scripts/action-test.sh scroll --direction down
+./scripts/action-test.sh long_press --x 540 --y 800 --duration 1500
+./scripts/action-test.sh click --x 540 --y 1200 --compare   # ADB baseline vs a11y path
+```
+
+This is useful when `mobile_action` reports success but UI does not change.
 
 ### 4. View Logs
 
@@ -206,6 +219,26 @@ echo 'PLATFORM_MODE=virtual_display' >> .env
 
 - **[Scripts README](../../scripts/README.md)** - Complete script reference and options
 - **[Visual Debugging Guide](../../scripts/agent_process_visual_debug.md)** - Step-by-step debugging methodology
+
+## Evaluation Harness (AndroidWorld Bridge)
+
+`eval/` contains the Python harness for batch evaluation and trace summary generation.
+
+### Quick Start
+
+```bash
+# Run a smoke subset
+eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/aw_subset_smoke.txt
+
+# Virtual-display eval run
+eval/.venv/bin/python eval/aw_bridge/runner.py --platform-mode virtual_display --tasks-file eval/config/aw_subset_smoke.txt
+
+# Setup-only for one AndroidWorld task (no agent run)
+eval/.venv/bin/python eval/aw_bridge/setup_task_only.py --task FilesMoveFile
+```
+
+Use `eval/.venv/bin/python` for eval commands to avoid dependency drift with the app environment.
+→ See: `eval/README.md`
 
 ## Inspection Tool (Replay v2)
 

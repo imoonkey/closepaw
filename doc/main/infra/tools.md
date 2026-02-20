@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## Overview
 
@@ -106,18 +106,22 @@ Determines whether tools need user approval.
 | `click` | Tap target |
 | `long_press` | Long tap target |
 | `type` | Type into focused or targeted field (`input_text`) |
-| `swipe` | Directional or coordinate swipe |
+| `scroll` | Content-direction scroll (`up/down/left/right`), optionally scoped to a scrollable element |
+| `swipe` | Precision coordinate gesture using explicit `start`/`end` arrays |
 
 ### Single Targeting Constraint
 
-Each `mobile_action` call accepts **exactly one** targeting method:
+For targeted actions (`click`, `long_press`, `type` with target), each call accepts **exactly one** targeting method:
 - `element_index` — index from current screen state (preferred)
 - `text` + optional `text_index` — visible text on screen
 - `x`, `y` — absolute pixel coordinates (last resort)
 
 Multiple targeting methods in a single call → validation error. No implicit priority or cross-target fallback.
 
-`type` allows no target (types into the currently focused field).
+Special cases:
+- `type` allows no target (types into the currently focused field)
+- `scroll` optionally accepts `element_index` to pick a scroll container
+- `swipe` uses `start: [x,y]` and `end: [x,y]` (no target selectors)
 
 ---
 
@@ -135,12 +139,12 @@ Multiple targeting methods in a single call → validation error. No implicit pr
 ┌───────────────────────────────▼──────────────────────────────┐
 │  Layer 2: ACTION EXECUTORS (the single smart layer)           │
 │                                                               │
-│  ClickExecutor       — ACTION_CLICK → gesture_tap fallback    │
-│  LongPressExecutor   — ACTION_LONG_CLICK → gesture hold       │
+│  ClickExecutor       — gesture tap → node ACTION_CLICK fallback│
+│  LongPressExecutor   — gesture long-press → node fallback      │
 │  TypeExecutor        — SetTextOnNodeAt → tap-to-focus fallback│
-│  SwipeExecutor       — direction/distance computation         │
+│  ScrollExecutor      — gesture swipe → node scroll fallback    │
+│  SwipeExecutor       — raw coordinate swipe                    │
 │  TargetResolver      — Target → Point resolution              │
-│  UiChangeDetector    — snapshot fingerprinting                │
 │  ObservationBuilder  — post-action ToolObservation builder    │
 └───────────────────────────────┬──────────────────────────────┘
                                 │
@@ -161,13 +165,14 @@ Multiple targeting methods in a single call → validation error. No implicit pr
 
 | Action | Attempt 1 | Attempt 2 | On All Fail |
 |--------|-----------|-----------|-------------|
-| click | `ClickNodeAt(x,y)` | `TapAt(x,y)` | Failed with trail |
-| long_press | `LongClickNodeAt(x,y)` | `LongPressAt(x,y,ms)` | Failed with trail |
+| click | `TapAt(x,y)` | `ClickNodeAt(x,y)` (semantic targets only) | Failed with trail |
+| long_press | `LongPressAt(x,y,ms)` | `LongClickNodeAt(x,y)` (semantic targets only) | Failed with trail |
 | type (with target) | `SetTextOnNodeAt(x,y)` | `TapAt` → `SetTextOnFocused` | Failed with trail |
 | type (no target) | `SetTextOnFocused` | — | Failed |
+| scroll | `Swipe(center→edge)` | `ScrollNodeAt(x,y,direction)` | Failed with trail |
 | swipe | `Swipe(start,end)` | — | Failed |
 
-Each attempt: dispatch → settle delay (300ms) → verify UI change via `UiChangeDetector`.
+Successful attempts capture a post-action snapshot after a settle delay and attach a `ToolObservation`.
 
 **TypeExecutor note:** Attempt 2 (TapAt → SetTextOnFocused) is guarded by `platform.allowTapToFocus()` and skipped when the platform returns false (Virtual Display mode).
 
@@ -179,8 +184,8 @@ Executor return type, richer than `ActionResult`:
 
 | Outcome | Meaning |
 |---------|---------|
-| `Success(verified=true)` | UI change confirmed |
-| `Success(verified=false)` | Dispatched but snapshot unavailable |
+| `Success(verified=true)` | Action dispatched and post-action observation path completed |
+| `Success(verified=false)` | Reserved for unverified-success paths (currently rare) |
 | `Failed(attemptTrail)` | All attempts exhausted |
 | `Cancelled` | Cancelled between attempts |
 
@@ -217,7 +222,7 @@ Successful tool execution can include post-action screen context:
 
 → See: `tool/action/ObservationBuilder.kt`
 
-Used by executors (ClickExecutor, LongPressExecutor, TypeExecutor, SwipeExecutor) to capture post-action screen state for the LLM.
+Used by executors (ClickExecutor, LongPressExecutor, TypeExecutor, ScrollExecutor, SwipeExecutor) to capture post-action screen state for the LLM.
 
 ---
 
@@ -249,9 +254,10 @@ tool/
 │   ├── ClickExecutor.kt      # Click fallback chain
 │   ├── LongPressExecutor.kt  # Long press fallback chain
 │   ├── TypeExecutor.kt       # Focus-then-type flow
-│   ├── SwipeExecutor.kt      # Direction/distance computation
+│   ├── ScrollExecutor.kt     # Content-direction scroll cascade
+│   ├── SwipeExecutor.kt      # Precision coordinate gestures
 │   ├── TargetResolver.kt     # Target → Point resolution
-│   ├── UiChangeDetector.kt   # Snapshot fingerprinting
+│   ├── UiChangeDetector.kt   # Snapshot fingerprinting (diagnostics utility)
 │   └── ObservationBuilder.kt # Post-action observation
 ├── handlers/
 │   ├── UIActionInvocation.kt # Used by SystemButtonTool, WaitTool

@@ -1,7 +1,7 @@
 # Overlay System
 
 > Smart Capsule, Edge Glow, Status Island, Action Visualizer, and mode-aware overlay branching.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## Overview
 
@@ -41,7 +41,7 @@ Both render `SmartCapsuleSurface` and are driven by `CapsuleMode` from a shared 
 - **CapsuleStateHolder** — single source of truth. Holds `CapsuleMode`, `CapsuleContext`, `PlatformMode`, `turnPhase`, `isAgentMidTurn`, `isStopPending` as `StateFlow`s. All state transitions happen here.
 
 **Overlay host:**
-- **CapsuleOverlayHost** — Compose overlay via `OverlayComposeHost`. Manages focusability (keyboard) for `WaitingForInput`, debounces button callbacks (300ms), supports interaction locking (full-screen touch blocker), and transient supplement confirmation flash.
+- **CapsuleOverlayHost** — Compose overlay via `OverlayComposeHost`. Uses `FLAG_NOT_TOUCHABLE` to keep screen gestures pass-through, manages focusability (keyboard) for `WaitingForInput`, debounces button callbacks (300ms), and supports transient supplement confirmation flash.
 
 **Compose rendering:**
 - **SmartCapsuleSurface** — 3-row Compose layout consuming `CapsuleMode` and `CapsuleRenderSpec`

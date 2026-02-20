@@ -1,7 +1,7 @@
 # Turn Prompt Anatomy
 
 > What each turn sends to the LLM: instructions, input items, and filtered tools.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## Overview
 
@@ -141,7 +141,7 @@ Conceptual shape of one request:
 
 ```json
 {
-  "model": "gpt-5.2",
+  "model": "glm-5",
   "instructions": "You are a standalone Android automation agent...",
   "input": [
     {"role": "user", "content": "Goal: ..."},

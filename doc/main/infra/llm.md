@@ -1,7 +1,7 @@
 # LLM Integration
 
 > LLM clients, model catalog, streaming, and retry infrastructure.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## Overview
 
@@ -36,7 +36,7 @@ abstract class LLMClient {
 }
 ```
 
-Constants: `DEFAULT_MODEL = "gpt-5.2"`, `MAX_RETRIES = 5`, `INITIAL_BACKOFF_MS = 1000`, `MAX_BACKOFF_MS = 60000`, `BACKOFF_MULTIPLIER = 2.0`.
+Constants: `DEFAULT_MODEL = "glm-5"`, `MAX_RETRIES = 5`, `INITIAL_BACKOFF_MS = 1000`, `MAX_BACKOFF_MS = 60000`, `BACKOFF_MULTIPLIER = 2.0`.
 
 ### Stream Event Types
 
@@ -222,6 +222,20 @@ class LLMClientFactory(
 - **Resolution**: `create(modelName)` → catalog lookup → API key resolution → client instantiation or cache hit
 - **Thread-safe**: `ConcurrentHashMap` for cache
 - **Test support**: `LLMClientFactory.forTest(catalog, client)` returns a factory that always uses the injected client
+
+## Session Bootstrap
+
+> See: `session/SessionLlmBootstrapper.kt`
+
+Session startup creates the LLM stack in this order:
+1. Load `llm_models.json` into `ModelCatalog` (cached per `AssetManager`)
+2. Build `LLMClientFactory` with env-key resolver
+3. Create runtime client from `SessionConfig.llm.backendType`
+
+Behavior details:
+- If `llm_models.json` is missing/malformed, bootstrap falls back to a minimal built-in catalog (`glm-5`)
+- For cloud backend, required API keys are validated for `mainModel` (and `executorModel` in `PRO` mode) before client creation
+- For local backend, bootstrap returns `LFMLLMClient` using `SessionConfig.llm.localConfig`
 
 ---
 

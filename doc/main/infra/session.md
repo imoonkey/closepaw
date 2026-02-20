@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionServices, and session lifecycle.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## AgentSession
 

@@ -1,7 +1,7 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## Quick Start
 
@@ -94,9 +94,10 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   │   ├── ClickExecutor.kt      # Click fallback chain
 │   │   ├── LongPressExecutor.kt  # Long press fallback chain
 │   │   ├── TypeExecutor.kt       # Type with focus management
-│   │   ├── SwipeExecutor.kt      # Swipe direction/distance
+│   │   ├── ScrollExecutor.kt     # Content-direction scroll cascade
+│   │   ├── SwipeExecutor.kt      # Precision coordinate gestures
 │   │   ├── TargetResolver.kt     # Target → coordinates
-│   │   ├── UiChangeDetector.kt   # Snapshot fingerprinting
+│   │   ├── UiChangeDetector.kt   # Snapshot fingerprinting (diagnostics utility)
 │   │   └── ObservationBuilder.kt # Post-action observation
 │   ├── handlers/
 │   │   └── UIActionInvocation.kt # For SystemButton/Wait tools

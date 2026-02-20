@@ -1,7 +1,7 @@
 # UI Style Guide
 
 > Design system: colors, typography, shapes, and visual specifications.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## Design System
 

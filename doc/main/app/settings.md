@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## Overview
 
@@ -16,7 +16,7 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `llmBackend` | `LLMBackendType` | `OPENAI` | `OPENAI` (Cloud: OpenAI/OpenRouter/Novita) or `LOCAL` (On-device) |
-| `model` | `String` | `"gpt-5.2"` | Main agent model (cloud), resolved via `ModelCatalog` |
+| `model` | `String` | `"glm-5"` | Main agent model (cloud), resolved via `ModelCatalog` |
 | `executorModel` | `String?` | `null` | Executor agent model (cloud, optional override — falls back to main) |
 | `localModel` | `String` | `"LFM2.5-1.2B-Instruct"` | Local model selection |
 | `openAiApiKey` | `String` | `""` | API key for OpenAI |
@@ -62,7 +62,7 @@ data class SessionConfig(
     val approvalMode: ApprovalMode = ApprovalMode.SMART,
     val agentMode: AgentMode = AgentMode.PRO,
     val llm: SessionLlmConfig,
-    val mainModel: String = "gpt-5.2",
+    val mainModel: String = "glm-5",
     val executorModel: String? = null,
     val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
     val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
@@ -146,11 +146,13 @@ Key preference keys:
 - `platform_mode` — `ACCESSIBILITY`, `VIRTUAL_DISPLAY`
 - `main_model` — model name string
 - `executor_model` — model name string (nullable)
+- `api_key` / `openrouter_api_key` / `novita_api_key` — provider API keys
 
 ### Security
 
-- API keys stored using encrypted preference handling
-- Keys not logged in debug output
+- API keys are persisted in app `SharedPreferences` (not encrypted by `AppSettingsStore`)
+- Keys are masked in UI input fields and not emitted in normal debug logs
+- Optional legacy bootstrap: if `api_key` is empty, app can import `/sdcard/api_key.txt` once
 
 ---
 

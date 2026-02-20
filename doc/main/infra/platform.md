@@ -1,7 +1,7 @@
 # Platform Abstraction
 
 > AndroidPlatform, Perceptor, screen perception, and virtual display support.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## AndroidPlatform
 
@@ -76,6 +76,7 @@ override suspend fun performAction(action: UIAction): ActionResult = when (actio
     is UIAction.LongPressAt      -> gestureInjector.injectLongPress(...)
     is UIAction.SetTextOnNodeAt  -> nodeActionPerformer.performSetTextOnNodeAt(...)
     is UIAction.SetTextOnFocused -> nodeActionPerformer.performSetTextOnFocused(...)
+    is UIAction.ScrollNodeAt     -> nodeActionPerformer.performScrollAt(...)
     is UIAction.Swipe            -> gestureInjector.injectSwipe(...)  // clamps to screen bounds
     is UIAction.SystemButton     -> ENTER via nodeActionPerformer, others via gestureInjector
     is UIAction.Wait             -> delay(action.durationMs)
@@ -83,12 +84,13 @@ override suspend fun performAction(action: UIAction): ActionResult = when (actio
 ```
 
 Visualizer feedback: `ClickNodeAt` and `LongClickNodeAt` trigger `visualizer?.showClick()` before executing the node action, showing ripple effects on-screen.
+`performSwipe()` clamps coordinates to display bounds and applies a right-edge inset for leftward swipes to reduce gesture-nav interception on physical displays.
 
 ### Component Structure
 
 ```text
 AccessibilityPlatform (orchestrator)
-├── NodeActionPerformer             # Shared node actions (click/long-click/set-text/enter)
+├── NodeActionPerformer             # Shared node actions (click/long-click/set-text/scroll/enter)
 ├── AccessibilityGestureInjector    # Gesture/global-action dispatch (tap/swipe/system buttons)
 ├── AccessibilityScreenshotCapturer # Screenshot capture + trace persistence
 ├── AppManager                      # Shared installed-app query (PackageManager)
@@ -104,6 +106,7 @@ AccessibilityPlatform (orchestrator)
 3. **Only includes screenshot in snapshot** when perception config requests it
 
 Trace recording dumps both raw a11y tree (via `A11yTreeDumper.dump()`) and sanitized a11y tree (via `Perceptor.toPromptJson()`) as JSON artifacts.
+When trace is enabled, capture-quality artifacts are also written (a11y retry attempts, bounds diagnostics, out-of-bounds action target counts).
 
 ---
 
@@ -131,8 +134,8 @@ VirtualDisplayPlatform (orchestrator)
 ### Key Design Decisions
 
 - **A11y tree via `displayId` filtering**: `VirtualDisplayWindowAccessor` filters `AccessibilityService.windows` by `window.displayId` to get only the virtual display's UI tree. Reuses `Perceptor.snapshot()` for conversion.
-- **Node-based actions via shared `NodeActionPerformer`**: `ClickNodeAt`, `LongClickNodeAt`, `SetTextOnNodeAt`, `SetTextOnFocused`, and `SystemButton(ENTER)` use the same shared implementation as `AccessibilityPlatform`, differing only in `rootProvider`.
-- **Coordinate-based actions via Shizuku input injection**: `TapAt`, `LongPressAt`, `Swipe`, and non-ENTER `SystemButton` inject `MotionEvent` via `IInputManager` with `setDisplayId()` reflection.
+- **Node-based actions via shared `NodeActionPerformer`**: `ClickNodeAt`, `LongClickNodeAt`, `SetTextOnNodeAt`, `SetTextOnFocused`, and `ScrollNodeAt` use the same shared implementation as `AccessibilityPlatform`, differing only in `rootProvider`.
+- **Coordinate/system actions via Shizuku input injection**: `TapAt`, `LongPressAt`, `Swipe`, and `SystemButton` inject `MotionEvent`/`KeyEvent` via `IInputManager` with `setDisplayId()` reflection.
 - **Tap-to-focus disabled**: `allowTapToFocus()` returns `false`. After each text action, `VirtualDisplayAppController.dismissMainDisplayKeyboard()` sends `KEYCODE_BACK` on display 0 as a safety net.
 - **Coroutine-friendly**: All blocking waits use `delay()`, not `Thread.sleep()`.
 
@@ -221,7 +224,8 @@ data class VirtualDisplayConfig(
 | `LongPressAt(x, y, durationMs)` | Gesture | Gesture hold at coordinates |
 | `SetTextOnNodeAt(x, y, text, clear)` | Node | Find node at coords → `ACTION_SET_TEXT` |
 | `SetTextOnFocused(text, clear)` | Node | Find focused editable → `ACTION_SET_TEXT` |
-| `Swipe(startX, startY, endX, endY, durationMs)` | Gesture | Gesture swipe (scroll via swipe) |
+| `ScrollNodeAt(x, y, direction)` | Node | Find scrollable node at coords → `ACTION_SCROLL_*` |
+| `Swipe(startX, startY, endX, endY, durationMs)` | Gesture | Raw coordinate swipe gesture |
 | `SystemButton(button)` | System | Global action: `BACK`, `HOME`, `RECENTS`, `ENTER` |
 | `Wait(durationMs)` | System | Pause execution |
 
@@ -256,6 +260,7 @@ Shared node-action executor for both platforms. The only platform-specific depen
 | `performNodeLongClickAt(x, y)` | Find long-clickable node → `ACTION_LONG_CLICK` |
 | `performSetTextOnNodeAt(x, y, text, clear)` | Find text-input node → `ACTION_SET_TEXT` |
 | `performSetTextOnFocused(text, clear)` | Find focused editable → `ACTION_SET_TEXT` |
+| `performScrollAt(x, y, direction)` | Find scrollable node → directional `ACTION_SCROLL_*` with forward/backward fallback |
 | `performEnterKey()` | Focused editable → `ACTION_IME_ENTER` (API 30+) with `ACTION_CLICK` fallback |
 
 All operations run on `Dispatchers.Main` (required for a11y API calls). Properly recycles `AccessibilityNodeInfo` objects via try/finally.
@@ -272,6 +277,7 @@ Internal helper for finding accessibility nodes in the a11y tree:
 |--------|---------|
 | `findClickableNodeAtLocation(x, y)` | Top-most clickable node at coordinates (reverse z-order search) |
 | `findLongClickableNodeAtLocation(x, y)` | Top-most long-clickable node at coordinates |
+| `findScrollableNodeAtLocation(x, y)` | Top-most scrollable node at coordinates |
 | `findFocusedEditableNode()` | Currently focused editable node |
 | `findNodeAtLocation(x, y)` | Text-input capable node at coordinates |
 
@@ -381,7 +387,7 @@ platform/
 ├── AccessibilityGestureInjector.kt  # Gesture dispatch (tap/swipe/long-press/system buttons)
 ├── AccessibilityScreenshotCapturer.kt # Screenshot capture + trace persistence
 ├── AccessibilityNodeFinder.kt # Node search helpers (shared by both platforms)
-├── NodeActionPerformer.kt     # Shared node action executor (click/text/enter)
+├── NodeActionPerformer.kt     # Shared node action executor (click/text/scroll/enter)
 ├── AppManager.kt              # Shared installed-app query (PackageManager)
 ├── BitmapUtils.kt             # Bitmap scaling + JPEG compression (shared)
 ├── UIAction.kt                # Atomic action types (sealed interface)

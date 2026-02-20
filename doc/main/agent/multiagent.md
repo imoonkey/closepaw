@@ -1,7 +1,7 @@
 # Multi-Agent System
 
 > Sub-agent delegation, executor agents, and orchestration.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## Planner-Executor Pattern
 
@@ -172,7 +172,7 @@ When delegation is enabled, it creates a default `AgentRegistry` (with executor 
 → See: `agent/AgentModelResolver.kt`
 
 Each agent can use a different model:
-- **Main agent**: uses `SessionConfig.mainModel` (default `gpt-5.2`)
+- **Main agent**: uses `SessionConfig.mainModel` (default `glm-5`)
 - **Executor agent**: uses `SessionConfig.executorModel` if set, otherwise falls back to main model
 - Resolution goes through `ModelCatalog` to find provider details and create the appropriate `LLMClient`
 

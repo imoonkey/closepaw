@@ -1,7 +1,7 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-17 (commit: c57e349)
+> Last updated: 2026-02-20 (commit: 2493be6)
 
 ## Overview
 
@@ -266,7 +266,7 @@ data class SessionConfig(
     val traceEnabled: Boolean = false,
     val traceRunId: String? = null,
     val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
-    val mainModel: String = "gpt-5.2",
+    val mainModel: String = "glm-5",
     val executorModel: String? = null,
     val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
 )
