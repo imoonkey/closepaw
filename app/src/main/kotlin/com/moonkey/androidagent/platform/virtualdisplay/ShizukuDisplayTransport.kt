@@ -4,6 +4,7 @@ import android.hardware.display.IVirtualDisplayCallback
 import android.os.Build
 import android.util.Log
 import android.view.Surface
+import java.lang.reflect.InvocationTargetException
 import java.util.concurrent.ConcurrentHashMap
 
 /** Transport layer for virtual display lifecycle calls through IDisplayManager. */
@@ -12,6 +13,12 @@ internal class ShizukuDisplayTransport(
 ) {
         companion object {
                 private const val TAG = "ShizukuDisplayTrans"
+                private val PACKAGE_NAME_CANDIDATES: List<String?> =
+                        listOf(
+                                "com.android.shell",
+                                null,
+                                "moe.shizuku.privileged.api",
+                        )
         }
 
         /**
@@ -149,8 +156,29 @@ internal class ShizukuDisplayTransport(
                                 String::class.java
                         )
 
-                val displayId = method.invoke(proxy, config, callback, null, "com.android.shell") as Int
-                return registerDisplayCallback(displayId, callback, "API33+")
+                var lastError: Throwable? = null
+                for (packageName in PACKAGE_NAME_CANDIDATES) {
+                        try {
+                                val displayId =
+                                        method.invoke(proxy, config, callback, null, packageName) as Int
+                                return registerDisplayCallback(
+                                        displayId,
+                                        callback,
+                                        "API33+ package=${packageName ?: "<null>"}"
+                                )
+                        } catch (e: InvocationTargetException) {
+                                if (isPackageUidMismatch(e)) {
+                                        lastError = e
+                                        Log.w(
+                                                TAG,
+                                                "createVirtualDisplay API33 rejected package=${packageName ?: "<null>"}; retrying"
+                                        )
+                                        continue
+                                }
+                                throw e
+                        }
+                }
+                throw lastError ?: IllegalStateException("createVirtualDisplay API33 failed")
         }
 
         /** API 31-32: Legacy method with individual parameters. */
@@ -181,21 +209,41 @@ internal class ShizukuDisplayTransport(
                                         Int::class.javaPrimitiveType,
                                         String::class.java
                                 )
-                        val displayId =
-                                method.invoke(
-                                        proxy,
-                                        callback,
-                                        null,
-                                        "com.android.shell",
-                                        name,
-                                        width,
-                                        height,
-                                        densityDpi,
-                                        surface,
-                                        flags,
-                                        null
-                                ) as Int
-                        registerDisplayCallback(displayId, callback, "legacy")
+                        var lastError: Throwable? = null
+                        for (packageName in PACKAGE_NAME_CANDIDATES) {
+                                try {
+                                        val displayId =
+                                                method.invoke(
+                                                        proxy,
+                                                        callback,
+                                                        null,
+                                                        packageName,
+                                                        name,
+                                                        width,
+                                                        height,
+                                                        densityDpi,
+                                                        surface,
+                                                        flags,
+                                                        null
+                                                ) as Int
+                                        return registerDisplayCallback(
+                                                displayId,
+                                                callback,
+                                                "legacy package=${packageName ?: "<null>"}"
+                                        )
+                                } catch (e: InvocationTargetException) {
+                                        if (isPackageUidMismatch(e)) {
+                                                lastError = e
+                                                Log.w(
+                                                        TAG,
+                                                        "createVirtualDisplay legacy rejected package=${packageName ?: "<null>"}; retrying"
+                                                )
+                                                continue
+                                        }
+                                        throw e
+                                }
+                        }
+                        throw lastError ?: IllegalStateException("createVirtualDisplay legacy failed")
                 } catch (e: NoSuchMethodException) {
                         Log.w(TAG, "Legacy createVirtualDisplay signature not found, trying alternative")
                         createVirtualDisplayLegacyAlt(
@@ -234,10 +282,37 @@ internal class ShizukuDisplayTransport(
                                 Int::class.javaPrimitiveType,
                                 String::class.java
                         )
-                val displayId =
-                        method.invoke(proxy, callback, null, "com.android.shell", surface, flags, name) as
-                                Int
-                return registerDisplayCallback(displayId, callback, "legacy-alt")
+                var lastError: Throwable? = null
+                for (packageName in PACKAGE_NAME_CANDIDATES) {
+                        try {
+                                val displayId =
+                                        method.invoke(
+                                                proxy,
+                                                callback,
+                                                null,
+                                                packageName,
+                                                surface,
+                                                flags,
+                                                name
+                                        ) as Int
+                                return registerDisplayCallback(
+                                        displayId,
+                                        callback,
+                                        "legacy-alt package=${packageName ?: "<null>"}"
+                                )
+                        } catch (e: InvocationTargetException) {
+                                if (isPackageUidMismatch(e)) {
+                                        lastError = e
+                                        Log.w(
+                                                TAG,
+                                                "createVirtualDisplay legacy-alt rejected package=${packageName ?: "<null>"}; retrying"
+                                        )
+                                        continue
+                                }
+                                throw e
+                        }
+                }
+                throw lastError ?: IllegalStateException("createVirtualDisplay legacy-alt failed")
         }
 
         private fun newDisplayCallback(): IVirtualDisplayCallback {
@@ -258,5 +333,10 @@ internal class ShizukuDisplayTransport(
                 }
                 Log.d(TAG, "Created virtual display ($variant): displayId=$displayId")
                 return displayId
+        }
+
+        private fun isPackageUidMismatch(error: InvocationTargetException): Boolean {
+                val message = error.cause?.message ?: return false
+                return message.contains("packageName must match the calling uid")
         }
 }

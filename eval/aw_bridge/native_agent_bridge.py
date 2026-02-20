@@ -14,6 +14,7 @@ _log = logging.getLogger(__name__)
 
 _SHIZUKU_PKG = "moe.shizuku.privileged.api"
 _SHIZUKU_SERVER_PROCESS = "shizuku_server"
+_SHIZUKU_PERMISSION = "moe.shizuku.manager.permission.API_V23"
 
 
 @dataclass
@@ -55,6 +56,7 @@ class NativeAgentBridge:
 
     def __init__(self, config: BridgeConfig) -> None:
         self._config = config
+        self._adb_shell_uid_cache: int | None = None
 
     def run_task(self, goal: str, run_id: str, artifact_dir: Path) -> BridgeOutcome:
         artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -309,11 +311,53 @@ class NativeAgentBridge:
         if not self._is_package_installed(_SHIZUKU_PKG):
             self._install_shizuku()
 
+        self._grant_shizuku_permission()
+
         if self._is_shizuku_server_running():
-            _log.info("Shizuku server already running")
-            return
+            server_uid = self._get_shizuku_server_uid()
+            if server_uid == 2000:
+                _log.info("Shizuku server already running (uid=2000)")
+                return
+
+            adb_shell_uid = self._get_adb_shell_uid()
+            if adb_shell_uid == 0:
+                _log.info(
+                    "Shizuku server already running with uid=%s; restarting as uid 2000",
+                    "unknown" if server_uid is None else str(server_uid),
+                )
+                self._stop_shizuku_server()
+            else:
+                _log.info(
+                    "Shizuku server already running%s",
+                    "" if server_uid is None else f" (uid={server_uid})",
+                )
+                return
 
         self._start_shizuku_server()
+
+    def _grant_shizuku_permission(self) -> None:
+        """Best-effort grant for Shizuku API permission.
+
+        Some setups require manual approval in Shizuku app.  On emulators and
+        many userdebug images, `pm grant` works and removes that manual step.
+        """
+        result = self._run_adb_shell(
+            ["pm", "grant", self._config.package_name, _SHIZUKU_PERMISSION],
+            check=False,
+            capture_output=True,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        if result.returncode == 0:
+            _log.info("Granted Shizuku permission: %s", _SHIZUKU_PERMISSION)
+            return
+
+        stderr = (result.stderr or "").strip()
+        _log.warning(
+            "Failed to grant Shizuku permission (%s). "
+            "Manual approval in Shizuku app may be required. stderr=%s",
+            _SHIZUKU_PERMISSION,
+            stderr,
+        )
 
     def _is_package_installed(self, package: str) -> bool:
         result = self._run_adb_shell(
@@ -353,41 +397,74 @@ class NativeAgentBridge:
         )
         return bool((result.stdout or "").strip())
 
-    def _start_shizuku_server(self) -> None:
-        """Start the Shizuku server via ``app_process``.
+    def _stop_shizuku_server(self) -> None:
+        self._run_adb_shell(
+            [
+                "sh",
+                "-c",
+                f"kill -9 $(pidof {_SHIZUKU_SERVER_PROCESS}) 2>/dev/null || true",
+            ],
+            check=False,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
 
-        Uses the installed Shizuku APK as the classpath and launches
-        ``moe.shizuku.server.ShizukuService`` directly.  This avoids
-        depending on the ``start.sh`` helper (which requires scoped-
-        storage access to ``/sdcard/Android/data/``).
-        """
-        # Resolve the on-device APK path.
+    def _get_shizuku_server_uid(self) -> int | None:
+        pid_raw = self._get_shizuku_pid().strip()
+        if not pid_raw:
+            return None
+
+        pid = pid_raw.split()[0]
         result = self._run_adb_shell(
-            ["pm", "path", _SHIZUKU_PKG],
+            ["cat", f"/proc/{pid}/status"],
             check=False,
             capture_output=True,
             timeout_sec=self._config.adb_command_timeout_sec,
         )
-        apk_line = (result.stdout or "").strip()
-        if not apk_line.startswith("package:"):
-            raise RuntimeError(
-                f"Cannot resolve Shizuku APK on device: {apk_line}"
-            )
-        device_apk = apk_line.split("package:", 1)[1]
+        if result.returncode != 0:
+            return None
 
+        for line in (result.stdout or "").splitlines():
+            if not line.startswith("Uid:"):
+                continue
+            parts = line.split()
+            if len(parts) < 2:
+                return None
+            try:
+                return int(parts[1])
+            except ValueError:
+                return None
+        return None
+
+    def _start_shizuku_server(self) -> None:
+        """Start the Shizuku server.
+
+        Primary path uses the native launcher library shipped inside the
+        installed APK (`lib/<abi>/libshizuku.so`).  This mirrors the modern
+        "Start via ADB" flow and avoids scoped-storage access to start scripts.
+        Falls back to the historical app_process entrypoint for compatibility.
+        """
+        device_apk = self._resolve_shizuku_apk_path()
         _log.info("Starting Shizuku server (APK=%s) …", device_apk)
-        # Launch in a detached shell so it outlives this adb command.
-        # The trailing '&' backgrounds the app_process and the outer
-        # subshell exits immediately.
-        start_cmd = (
-            f"(CLASSPATH={shlex.quote(device_apk)} "
-            f"/system/bin/app_process -Djava.class.path={shlex.quote(device_apk)} "
-            f"/system/bin --nice-name={_SHIZUKU_SERVER_PROCESS} "
-            f"moe.shizuku.server.ShizukuService &)"
-        )
-        # Use raw subprocess to pass the compound shell command.
-        cmd = self._adb_command(["shell", start_cmd])
-        subprocess.run(cmd, check=False, text=True, timeout=10)
+
+        apk_dir = device_apk.rsplit("/base.apk", 1)[0]
+        native_started = self._start_shizuku_server_via_native_lib(apk_dir)
+        if not native_started:
+            _log.warning(
+                "Native Shizuku launcher not found under %s/lib/*/libshizuku.so; "
+                "falling back to app_process entrypoint",
+                apk_dir,
+            )
+            # Backward-compatibility fallback for older builds.
+            start_cmd = (
+                f"(CLASSPATH={shlex.quote(device_apk)} "
+                f"/system/bin/app_process -Djava.class.path={shlex.quote(device_apk)} "
+                f"/system/bin --nice-name={_SHIZUKU_SERVER_PROCESS} "
+                f"moe.shizuku.server.ShizukuService &)"
+            )
+            self._run_shizuku_start_script(
+                start_cmd,
+                timeout_sec=10,
+            )
 
         # Poll until the server process appears.
         deadline = time.monotonic() + self._SHIZUKU_START_TIMEOUT_SEC
@@ -402,6 +479,90 @@ class NativeAgentBridge:
             f"Shizuku server did not start within "
             f"{self._SHIZUKU_START_TIMEOUT_SEC}s"
         )
+
+    def _resolve_shizuku_apk_path(self) -> str:
+        result = self._run_adb_shell(
+            ["pm", "path", _SHIZUKU_PKG],
+            check=False,
+            capture_output=True,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        apk_line = (result.stdout or "").strip()
+        if not apk_line.startswith("package:"):
+            raise RuntimeError(f"Cannot resolve Shizuku APK on device: {apk_line}")
+        return apk_line.split("package:", 1)[1]
+
+    def _start_shizuku_server_via_native_lib(self, apk_dir: str) -> bool:
+        # Try common ABI folders used by package manager extraction.
+        script = (
+            f"APK_DIR={shlex.quote(apk_dir)}; "
+            "for abi in arm64 arm x86_64 x86; do "
+            "  LIB=\"$APK_DIR/lib/$abi/libshizuku.so\"; "
+            "  if [ -f \"$LIB\" ]; then "
+            "    \"$LIB\" >/dev/null 2>&1 & "
+            "    exit 0; "
+            "  fi; "
+            "done; "
+            "exit 1"
+        )
+        result = self._run_shizuku_start_script(
+            script,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        return result.returncode == 0
+
+    def _run_shizuku_start_script(
+        self,
+        script: str,
+        timeout_sec: int | None,
+    ) -> subprocess.CompletedProcess[str]:
+        uid = self._get_adb_shell_uid()
+        if uid == 0:
+            # Some environments expose adb shell as root; start Shizuku as
+            # uid 2000 (shell) to avoid packageName/uid permission failures.
+            for su_args in (
+                ["su", "2000", "sh", "-c", script],
+                ["su", "shell", "sh", "-c", script],
+            ):
+                result = self._run_adb_shell(
+                    su_args,
+                    check=False,
+                    capture_output=True,
+                    timeout_sec=timeout_sec,
+                )
+                if result.returncode == 0:
+                    return result
+            _log.warning(
+                "adb shell is running as root, but could not switch to uid 2000 "
+                "for Shizuku start; retrying without uid switch"
+            )
+
+        return self._run_adb_shell(
+            ["sh", "-c", script],
+            check=False,
+            capture_output=True,
+            timeout_sec=timeout_sec,
+        )
+
+    def _get_adb_shell_uid(self) -> int | None:
+        if self._adb_shell_uid_cache is not None:
+            return self._adb_shell_uid_cache
+
+        result = self._run_adb_shell(
+            ["id", "-u"],
+            check=False,
+            capture_output=True,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        raw = (result.stdout or "").strip()
+        try:
+            uid = int(raw)
+        except ValueError:
+            _log.warning("Unable to parse adb shell uid from %r", raw)
+            return None
+
+        self._adb_shell_uid_cache = uid
+        return uid
 
     def _get_shizuku_pid(self) -> str:
         result = self._run_adb_shell(
