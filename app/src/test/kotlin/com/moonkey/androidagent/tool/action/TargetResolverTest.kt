@@ -22,7 +22,7 @@ class TargetResolverTest {
     }
 
     @Test
-    fun `resolve element_index shifts tap above bottom nav when target overlaps nav strip`() {
+    fun `resolve element_index keeps target center when overlaps bottom nav strip`() {
         val target =
             element(
                 index = 14,
@@ -40,11 +40,9 @@ class TargetResolverTest {
 
         val resolved = TargetResolver.resolve(Target.ElementIndex(14), snapshot)
 
-        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.Resolved::class.java)
-        val point = (resolved as TargetResolver.ResolveResult.Resolved).point
-        assertThat(point.x).isEqualTo(632)
-        assertThat(point.y).isLessThan(2576)
-        assertThat(point.y).isAtLeast(2354)
+        assertThat(resolved).isEqualTo(
+            TargetResolver.ResolveResult.Resolved(point = Point(632, 2576))
+        )
     }
 
     @Test
@@ -71,7 +69,7 @@ class TargetResolverTest {
     }
 
     @Test
-    fun `resolve element_index returns warning when center is occluded`() {
+    fun `resolve element_index keeps center even when smaller clickables overlap center`() {
         val target = element(index = 20, text = "Large card", bounds = Bounds(100, 100, 900, 900))
         val blockers = listOf(
             element(index = 21, text = "OverlayA", bounds = Bounds(120, 120, 880, 320)),
@@ -82,10 +80,22 @@ class TargetResolverTest {
 
         val resolved = TargetResolver.resolve(Target.ElementIndex(20), snapshot)
 
-        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.Resolved::class.java)
-        val result = resolved as TargetResolver.ResolveResult.Resolved
-        assertThat(result.point).isNotEqualTo(Point(500, 500))
-        assertThat(result.warnings).contains("Element center likely occluded; using offset point")
+        assertThat(resolved).isEqualTo(
+            TargetResolver.ResolveResult.Resolved(point = Point(500, 500))
+        )
+    }
+
+    @Test
+    fun `resolve element_index returns center with right-edge neighbor`() {
+        val target = element(index = 7, text = "More options", bounds = Bounds(954, 128, 1080, 254))
+        val edgeNeighbor = element(index = 6, text = "Grid view", bounds = Bounds(890, 128, 1017, 241))
+        val snapshot = snapshotOf(target, edgeNeighbor)
+
+        val resolved = TargetResolver.resolve(Target.ElementIndex(7), snapshot)
+
+        assertThat(resolved).isEqualTo(
+            TargetResolver.ResolveResult.Resolved(point = Point(1017, 191))
+        )
     }
 
     @Test

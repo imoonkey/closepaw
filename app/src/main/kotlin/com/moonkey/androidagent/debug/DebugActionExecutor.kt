@@ -145,7 +145,12 @@ class DebugActionExecutor(private val service: AgentService) {
                 val x = intent.getIntExtra("x", -1)
                 val y = intent.getIntExtra("y", -1)
                 if (x < 0 || y < 0) return null
-                UIAction.LongPressAt(x, y, intent.getIntExtra("duration_ms", 1000).toLong())
+                val useNode = intent.getBooleanExtra("use_node", false)
+                if (useNode) {
+                    UIAction.LongClickNodeAt(x, y)
+                } else {
+                    UIAction.LongPressAt(x, y, intent.getIntExtra("duration_ms", 1000).toLong())
+                }
             }
             "scroll" -> {
                 val direction = intent.getStringExtra("direction") ?: return null
@@ -232,6 +237,12 @@ class DebugActionExecutor(private val service: AgentService) {
                 is UIAction.LongPressAt -> {
                     put("x", action.x); put("y", action.y)
                     put("duration_ms", action.durationMs)
+                    put("use_node", false)
+                }
+                is UIAction.LongClickNodeAt -> {
+                    put("x", action.x); put("y", action.y)
+                    put("duration_ms", intent.getIntExtra("duration_ms", 1000))
+                    put("use_node", true)
                 }
                 is UIAction.ScrollNodeAt -> {
                     put("x", action.x); put("y", action.y)

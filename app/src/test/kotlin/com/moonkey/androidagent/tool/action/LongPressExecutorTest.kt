@@ -16,7 +16,7 @@ import org.junit.Test
 class LongPressExecutorTest {
 
     @Test
-    fun `execute uses swipe-to-self for long press`() = runTest {
+    fun `execute uses gesture long press for coordinate target`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =
             RecordingLongPressPlatform(
@@ -36,14 +36,91 @@ class LongPressExecutorTest {
 
         assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
         assertThat(platform.performedActions).containsExactly(
-            UIAction.Swipe(
-                startX = 200,
-                startY = 300,
-                endX = 200,
-                endY = 300,
+            UIAction.LongPressAt(
+                x = 200,
+                y = 300,
                 durationMs = 900L
             )
         )
+    }
+
+    @Test
+    fun `execute prefers node long click for semantic target`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val platform =
+            RecordingLongPressPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(snapshot)
+            )
+        val executor = LongPressExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.ElementIndex(index = 1),
+                durationMs = 900L,
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions).containsExactly(
+            UIAction.LongClickNodeAt(150, 210)
+        )
+    }
+
+    @Test
+    fun `execute falls back to gesture long press when node long click fails`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val platform =
+            RecordingLongPressPlatform(
+                actionResults = listOf(
+                    ActionResult.Failure("node long click failed"),
+                    ActionResult.Success()
+                ),
+                capturedSnapshots = listOf(snapshot)
+            )
+        val executor = LongPressExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.ElementIndex(index = 1),
+                durationMs = 900L,
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions).containsExactly(
+            UIAction.LongClickNodeAt(150, 210),
+            UIAction.LongPressAt(x = 150, y = 210, durationMs = 900L)
+        ).inOrder()
+    }
+
+    @Test
+    fun `execute marks long press unverified when screen is unchanged`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val platform =
+            RecordingLongPressPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(snapshot)
+            )
+        val executor = LongPressExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.Coordinate(x = 200, y = 300),
+                durationMs = 900L,
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.verified).isFalse()
+        assertThat(success.message).contains("Screen content unchanged after long press")
     }
 
     private fun snapshotWithSingleButton(): ScreenSnapshot {

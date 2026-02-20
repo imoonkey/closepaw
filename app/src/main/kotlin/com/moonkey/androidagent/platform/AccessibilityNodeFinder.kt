@@ -33,7 +33,12 @@ object AccessibilityNodeFinder {
             y: Int
     ): AccessibilityNodeInfo? =
             findActionableNodeAtLocation(root, x, y) { node ->
-                node.isLongClickable && node.isVisibleToUser
+                node.isVisibleToUser && (
+                        node.isLongClickable ||
+                                node.actionList?.any {
+                                    it.id == AccessibilityNodeInfo.ACTION_LONG_CLICK
+                                } == true
+                        )
             }
 
     private fun findActionableNodeAtLocation(

@@ -60,13 +60,37 @@ class NodeActionPerformer(
 
     @Suppress("DEPRECATION")
     suspend fun performNodeLongClickAt(x: Int, y: Int): ActionResult {
-        return performNodeActionAt(
-                nodeFinder = { root -> AccessibilityNodeFinder.findLongClickableNodeAtLocation(root, x, y) },
-                notFoundMessage = "No long-clickable node at ($x,$y)",
-                action = AccessibilityNodeInfo.ACTION_LONG_CLICK,
-                successMessage = "ACTION_LONG_CLICK at ($x,$y)",
-                failureMessage = "ACTION_LONG_CLICK returned false at ($x,$y)"
-        )
+        return onMain {
+            withRoot { root ->
+                val longClickableNode = AccessibilityNodeFinder.findLongClickableNodeAtLocation(root, x, y)
+                if (longClickableNode != null) {
+                    try {
+                        val ok = longClickableNode.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
+                        return@withRoot if (ok) {
+                            ActionResult.Success("ACTION_LONG_CLICK at ($x,$y)")
+                        } else {
+                            ActionResult.Failure("ACTION_LONG_CLICK returned false at ($x,$y)")
+                        }
+                    } finally {
+                        if (longClickableNode !== root) longClickableNode.recycleCompat()
+                    }
+                }
+
+                // Fallback: some views expose long-click action without marking isLongClickable.
+                val clickableNode = AccessibilityNodeFinder.findClickableNodeAtLocation(root, x, y)
+                        ?: return@withRoot ActionResult.Failure("No long-clickable node at ($x,$y)")
+                try {
+                    val ok = clickableNode.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
+                    if (ok) {
+                        ActionResult.Success("ACTION_LONG_CLICK at ($x,$y) via clickable fallback")
+                    } else {
+                        ActionResult.Failure("No long-clickable node at ($x,$y)")
+                    }
+                } finally {
+                    if (clickableNode !== root) clickableNode.recycleCompat()
+                }
+            }
+        }
     }
 
     suspend fun performSetTextOnNodeAt(x: Int, y: Int, text: String, clear: Boolean): ActionResult {

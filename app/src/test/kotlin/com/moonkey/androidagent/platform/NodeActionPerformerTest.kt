@@ -100,4 +100,40 @@ class NodeActionPerformerTest {
 
         assertThat(result).isEqualTo(ActionResult.Failure("No a11y root available"))
     }
+
+    @Test
+    fun `performNodeLongClickAt uses long-clickable target when available`() = runTest {
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val longClickable = mockk<AccessibilityNodeInfo>(relaxed = true)
+        every { AccessibilityNodeFinder.findLongClickableNodeAtLocation(root, 5, 6) } returns longClickable
+        every { longClickable.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK) } returns true
+
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performNodeLongClickAt(5, 6)
+
+        assertThat(result).isEqualTo(ActionResult.Success("ACTION_LONG_CLICK at (5,6)"))
+        verify(exactly = 1) { longClickable.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK) }
+        verify(exactly = 0) { AccessibilityNodeFinder.findClickableNodeAtLocation(any(), any(), any()) }
+        verify(exactly = 1) { longClickable.recycle() }
+        verify(exactly = 1) { root.recycle() }
+    }
+
+    @Test
+    fun `performNodeLongClickAt falls back to clickable target`() = runTest {
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val clickable = mockk<AccessibilityNodeInfo>(relaxed = true)
+        every { AccessibilityNodeFinder.findLongClickableNodeAtLocation(root, 9, 10) } returns null
+        every { AccessibilityNodeFinder.findClickableNodeAtLocation(root, 9, 10) } returns clickable
+        every { clickable.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK) } returns true
+
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performNodeLongClickAt(9, 10)
+
+        assertThat(result).isEqualTo(
+                ActionResult.Success("ACTION_LONG_CLICK at (9,10) via clickable fallback")
+        )
+        verify(exactly = 1) { clickable.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK) }
+        verify(exactly = 1) { clickable.recycle() }
+        verify(exactly = 1) { root.recycle() }
+    }
 }

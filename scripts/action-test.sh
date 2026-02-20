@@ -99,7 +99,7 @@ Options:
   --end-x N, --end-y N     End coords for swipe
   --direction DIR           Scroll direction (up/down/left/right)
   --duration N              Duration in ms (long_press/swipe)
-  --use-node true|false     click: use node action (true) or gesture (false)
+  --use-node true|false     click/long_press: use node action (true) or gesture (false)
   --adb                     Use adb input instead of a11y (L0 baseline)
   --compare                 Run both adb and a11y, compare results
   --tag NAME                Name output subdirectory
@@ -252,6 +252,9 @@ run_a11y_action() {
             extras+=(--ei x "$X" --ei y "$Y")
             if [[ -n "$DURATION_MS" ]]; then
                 extras+=(--ei duration_ms "$DURATION_MS")
+            fi
+            if [[ -n "$USE_NODE" ]]; then
+                extras+=(--ez use_node "$USE_NODE")
             fi
             ;;
         scroll)

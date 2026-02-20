@@ -36,7 +36,7 @@ object TargetResolver {
         }
         val element = snap.elements.firstOrNull { it.index == index }
             ?: return ResolveResult.NotFound(buildElementMissingReason(index, snap))
-        return resolveElementPoint(element, snap)
+        return resolveElementPoint(element)
     }
 
     private fun resolveText(text: String, textIndex: Int, snapshot: ScreenSnapshot?): ResolveResult {
@@ -56,7 +56,7 @@ object TargetResolver {
             ?: return ResolveResult.NotFound(
                 "Text \"$text\" index $textIndex not found (matched ${matches.size} elements)"
             )
-        return resolveElementPoint(element, snap)
+        return resolveElementPoint(element)
     }
 
     private fun buildElementMissingReason(index: Int, snapshot: ScreenSnapshot): String {
@@ -66,53 +66,7 @@ object TargetResolver {
         return "Element not found: index $index. Available: $preview$more"
     }
 
-    private fun resolveElementPoint(
-        element: PerceptionElement,
-        snapshot: ScreenSnapshot
-    ): ResolveResult.Resolved {
-        val center = element.center
-        if (!isPointBlockedBySmallerClickable(center, element, snapshot)) {
-            return ResolveResult.Resolved(center)
-        }
-
-        val b = element.bounds
-        val leftCenter = Point(b.left + 1, b.centerY)
-        val rightCenter = Point(b.right - 1, b.centerY)
-        val topCenter = Point(b.centerX, b.top + 1)
-        val bottomCenter = Point(b.centerX, b.bottom - 1)
-        val candidates = listOf(leftCenter, rightCenter, topCenter, bottomCenter)
-
-        val fallbackPoint = candidates.firstOrNull { point ->
-            !isPointBlockedBySmallerClickable(point, element, snapshot)
-        }
-
-        if (fallbackPoint != null) {
-            return ResolveResult.Resolved(
-                point = fallbackPoint,
-                warnings = listOf("Element center likely occluded; using offset point")
-            )
-        }
-
-        return ResolveResult.Resolved(
-            point = center,
-            warnings = listOf("Element may be occluded; clicking center anyway")
-        )
-    }
-
-    private fun isPointBlockedBySmallerClickable(
-        point: Point,
-        target: PerceptionElement,
-        snapshot: ScreenSnapshot
-    ): Boolean {
-        val targetArea = target.bounds.width.toLong() * target.bounds.height.toLong()
-        return snapshot.elements.any { other ->
-            if (other.index == target.index || !other.isClickable) return@any false
-            val otherArea = other.bounds.width.toLong() * other.bounds.height.toLong()
-            if (otherArea >= targetArea) return@any false
-            point.x >= other.bounds.left &&
-                point.x <= other.bounds.right &&
-                point.y >= other.bounds.top &&
-                point.y <= other.bounds.bottom
-        }
+    private fun resolveElementPoint(element: PerceptionElement): ResolveResult.Resolved {
+        return ResolveResult.Resolved(element.center)
     }
 }
