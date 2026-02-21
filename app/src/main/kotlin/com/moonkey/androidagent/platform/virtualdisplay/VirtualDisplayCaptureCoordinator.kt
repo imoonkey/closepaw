@@ -7,12 +7,17 @@ import android.os.Looper
 import android.util.Log
 import android.view.PixelCopy
 import com.moonkey.androidagent.model.PerceptionElement
+import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
+import com.moonkey.androidagent.trace.A11yTreeDumper
+import com.moonkey.androidagent.trace.TraceJson
+import com.moonkey.androidagent.trace.TraceRecorder
 import com.moonkey.androidagent.util.recycleCompat
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
 
 /** Captures a11y tree and screenshots for the virtual display. */
 internal class VirtualDisplayCaptureCoordinator(
@@ -21,7 +26,8 @@ internal class VirtualDisplayCaptureCoordinator(
         private val imageReaderProvider: () -> ImageReader?,
         private val surfaceController: VirtualDisplaySurfaceController,
         private val switchToImageReader: () -> Unit,
-        private val screenshotProcessor: VirtualDisplayScreenshotProcessor
+        private val screenshotProcessor: VirtualDisplayScreenshotProcessor,
+        private val traceRecorder: TraceRecorder
 ) {
         companion object {
                 private const val TAG = "VDCaptureCoordinator"
@@ -35,13 +41,53 @@ internal class VirtualDisplayCaptureCoordinator(
         }
 
         suspend fun captureA11yTree(): List<PerceptionElement> {
+                return captureA11yTreeWithArtifacts().elements
+        }
+
+        data class A11yCaptureResult(
+                val elements: List<PerceptionElement>,
+                val rawTreeArtifactPath: String?,
+                val sanitizedTreeArtifactPath: String?
+        )
+
+        suspend fun captureA11yTreeWithArtifacts(): A11yCaptureResult {
                 return withContext(Dispatchers.Main) {
-                        val root = windowAccessor.getRootOnDisplay() ?: return@withContext emptyList()
+                        val root = windowAccessor.getRootOnDisplay()
+                                ?: return@withContext A11yCaptureResult(emptyList(), null, null)
                         try {
-                                Perceptor.snapshot(root, config.width, config.height).elements
+                                val rawTreePath = if (traceRecorder.enabled) {
+                                        withContext(Dispatchers.Default) {
+                                                val dump = A11yTreeDumper.dump(root)
+                                                val json = TraceJson.instance.encodeToString(dump)
+                                                traceRecorder.storeText(
+                                                        kind = "raw_a11y_tree",
+                                                        filenameHint = "raw_${System.currentTimeMillis()}.json",
+                                                        content = json,
+                                                        mimeType = "application/json"
+                                                )?.path
+                                        }
+                                } else null
+
+                                val snapshot = Perceptor.snapshot(root, config.width, config.height)
+
+                                val sanitizedTreePath = if (traceRecorder.enabled) {
+                                        val json = Perceptor.toPromptJson(snapshot)
+                                        traceRecorder.storeText(
+                                                kind = "sanitized_a11y_tree",
+                                                filenameHint = "sanitized_${snapshot.timestamp}.json",
+                                                content = json,
+                                                mimeType = "application/json"
+                                        )?.path
+                                } else null
+
+                                A11yCaptureResult(
+                                        elements = snapshot.elements,
+                                        rawTreeArtifactPath = rawTreePath,
+                                        sanitizedTreeArtifactPath = sanitizedTreePath
+                                )
                         } catch (e: Exception) {
                                 Log.w(TAG, "Perceptor.snapshot failed", e)
-                                emptyList()
+                                A11yCaptureResult(emptyList(), null, null)
                         } finally {
                                 root.recycleCompat()
                         }

@@ -86,7 +86,8 @@ class VirtualDisplayPlatform(
                     imageReaderProvider = imageReaderProvider,
                     surfaceController = surfaceController,
                     switchToImageReader = { switchToImageReader() },
-                    screenshotProcessor = screenshotProcessor
+                    screenshotProcessor = screenshotProcessor,
+                    traceRecorder = traceRecorder
             )
     private val viewerTouchHandler =
             VirtualDisplayViewerTouchHandler(
@@ -222,25 +223,39 @@ class VirtualDisplayPlatform(
         val timestamp = System.currentTimeMillis()
         val pc = sessionConfig.perceptionConfig
 
-        val elements =
-                if (pc.capturesAccessibility) captureCoordinator.captureA11yTree() else emptyList()
-        val imageCapture = if (pc.capturesScreenshot) captureCoordinator.captureScreenshot() else null
+        // 1. Capture a11y tree with trace artifacts (when tracing enabled)
+        val a11yResult =
+                if (pc.capturesAccessibility)
+                        captureCoordinator.captureA11yTreeWithArtifacts()
+                else
+                        VirtualDisplayCaptureCoordinator.A11yCaptureResult(emptyList(), null, null)
 
-        Log.d(TAG, "Captured screen: ${elements.size} elements, screenshot=${imageCapture != null}")
+        // 2. Screenshot capture (when config requires it OR trace is enabled for debugging)
+        val shouldCaptureScreenshot = pc.capturesScreenshot || traceRecorder.enabled
+        val imageCapture =
+                if (shouldCaptureScreenshot) captureCoordinator.captureScreenshot() else null
 
+        // 3. Only include screenshot in the snapshot if the perception config wants it
+        val image = if (pc.capturesScreenshot) imageCapture?.image else null
+
+        Log.d(TAG, "Captured screen: ${a11yResult.elements.size} elements, screenshot=${image != null}")
+
+        // 4. Build debug info
         val debug =
-                imageCapture?.tracePath?.let { path ->
+                if (traceRecorder.enabled) {
                     ScreenSnapshotDebug(
-                            rawA11yTreePath = null,
-                            sanitizedA11yTreePath = null,
-                            screenshotPath = path
+                            rawA11yTreePath = a11yResult.rawTreeArtifactPath,
+                            sanitizedA11yTreePath = a11yResult.sanitizedTreeArtifactPath,
+                            screenshotPath = imageCapture?.tracePath
                     )
+                } else {
+                    null
                 }
 
         return ScreenSnapshot(
                 timestamp = timestamp,
-                elements = elements,
-                image = imageCapture?.image,
+                elements = a11yResult.elements,
+                image = image,
                 debug = debug
         )
     }
