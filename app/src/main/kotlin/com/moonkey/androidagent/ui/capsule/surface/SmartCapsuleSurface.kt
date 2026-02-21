@@ -137,7 +137,7 @@ fun SmartCapsuleSurface(
                     inputEnabled = inputEnabled,
                     autoFocusInput = autoFocusInput && mode is CapsuleMode.WaitingForInput,
                     onInputFocusChanged = onInputFocusChanged,
-                    showOpenViewer = mode is CapsuleMode.Hidden && navSpec.showWatch,
+                    showOpenViewer = false, // §1.4: VD viewer reachable via Row1 nav / island, not idle Row3
                     onOpenViewer = { onNavigate(NavAction.OPEN_VIEWER) },
                     onSubmit = {
                         val text = inputText.trim()

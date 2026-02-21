@@ -13,23 +13,17 @@ We prioritize:
 
 ## 1. Implementation vs Design Mismatches (Must Discuss)
 
-### 1.1 Overlay touchability (`FLAG_NOT_TOUCHABLE`) conflicts with interactive capsule model (P0)
+### 1.1 Overlay touchability (`FLAG_NOT_TOUCHABLE`) conflicts with interactive capsule model (P0) — DONE
 
-Mismatch:
-- Design expects actionable overlay controls.
-- Current runtime flag makes overlay capsule non-interactive.
+**Implemented**: commit `25e8587`, verified in `run_20260221_001359` (5-turn success).
 
-User impact:
-- In overlay contexts user cannot directly tap Takeover/Resume/Stop/Done/Close/input.
+Solution — two-layer touchability system:
+1. **Mode-driven baseline** via `shouldCapsuleOverlayBeTouchable(mode)` — only `Hidden` passes touches through.
+2. **Gesture pass-through gate** (`OverlayTouchGate`) — temporarily sets `FLAG_NOT_TOUCHABLE` during `dispatchGesture()` with 50ms IPC settle delay.
 
-System impact:
-- State machine looks healthy, but key transitions become unreachable by user touch.
+Also switched `ActionPriorityOrder` to gesture-first and added self-takeover prevention prompts.
 
-Recommendation:
-- Implement mode-driven touchability policy.
-- Suggested baseline:
-  - Non-touchable: `TakeoverPending`, `Hidden`
-  - Touchable: `Running` (for interaction lock shield), `Takeover`, `WaitingForInput`, `WaitingForAction`, `Done`, `Error`
+Full details: `doc/todo/ui_sota/overlay_touch/impl_summary_claude.md`
 
 Note: `Running` must be touchable to enable the interaction lock shield (§1.3). The capsule UI elements themselves remain non-interactive during Running — only the full-screen touch-eating shield receives touches.
 
@@ -57,20 +51,9 @@ Recommendation:
 - Agent gestures need alternative routing (e.g., dispatch on virtual display layer or coordinate with shield).
 - Takeover mode: overlay must pass touches through to underlying app for user operation.
 
-### 1.4 VD main app viewer icon in Row3 during Idle/Done is unnecessary (P1) — NEW
+### 1.4 VD main app viewer icon in Row3 during Idle/Done is unnecessary (P1) — DONE
 
-Mismatch:
-- Current code: `SmartCapsuleSurface.kt:140` shows 👁 viewer icon in Row3 (next to input) when `mode is Hidden && navSpec.showWatch`.
-- In VD + MAIN_APP + Hidden (idle), this displays a viewer icon to open the virtual display viewer.
-
-Problem:
-- No active task running → virtual display has no meaningful content to show.
-- Visually clutters the input area.
-- Done mode: already excluded by NavSpec (`row2Hidden=true` → `showWatch=false`).
-
-Recommendation:
-- Remove the Row3 viewer icon entirely. Set `showOpenViewer = false` (or remove the conditional block).
-- VD viewer should only be reachable during active task states via Row1 nav button (👁) or island tap.
+**Fixed**: set `showOpenViewer = false` in `SmartCapsuleSurface.kt:140`. VD viewer remains reachable via Row1 nav button (👁) or island tap during active task states.
 
 ## 2. Implementation/Design Already Aligned but Worth Revalidating
 
@@ -132,8 +115,8 @@ Recommendation:
 
 ## 4. Proposed Execution Order
 
-1. P0: finalize touchability policy — mode-driven toggle with Running touchable for shield
-2. P1: remove Row3 viewer icon from VD main app idle
+1. ~~P0: finalize touchability policy — mode-driven toggle with Running touchable for shield~~ ✅ DONE (`25e8587`)
+2. ~~P1: remove Row3 viewer icon from VD main app idle~~ ✅ DONE
 3. P1: A11y island policy already resolved (keep ⊖) — update design docs + tests
 4. P1: unify UserResponse immediate feedback path
 5. P2: harden location-detection diagnostics
