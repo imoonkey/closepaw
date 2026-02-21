@@ -55,58 +55,60 @@ class ClickExecutor(
         }
 
         val attemptTrail = mutableListOf<String>()
+        var lastFailChannel = ""
+        var lastFailReason = ""
 
-        // Primary path: gesture tap
-        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before tap")
-        val tapResult = platform.performAction(UIAction.TapAt(point.x, point.y))
-        var gestureFailReason = ""
-        when (tapResult) {
-            is ActionResult.Success -> {
-                attemptTrail += "gesture_tap: success"
-                return buildSuccessOutcome(
-                    point = point,
-                    channel = "gesture_tap",
-                    warnings = resolvedWarnings,
-                    attemptTrail = attemptTrail,
-                    platform = platform
-                )
-            }
-            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(tapResult.reason)
-            is ActionResult.Failure -> {
-                gestureFailReason = tapResult.reason
-                attemptTrail += "gesture_tap: ${tapResult.reason}"
+        for (channel in ActionPriorityOrder.click) {
+            if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before click attempt")
+            when (channel) {
+                ActionPriorityOrder.ClickChannel.GESTURE_TAP -> {
+                    val tapResult = platform.performAction(UIAction.TapAt(point.x, point.y))
+                    when (tapResult) {
+                        is ActionResult.Success -> {
+                            attemptTrail += "gesture_tap: success"
+                            return buildSuccessOutcome(
+                                point = point,
+                                channel = "gesture_tap",
+                                warnings = resolvedWarnings,
+                                attemptTrail = attemptTrail,
+                                platform = platform
+                            )
+                        }
+                        is ActionResult.Cancelled -> return ActionOutcome.Cancelled(tapResult.reason)
+                        is ActionResult.Failure -> {
+                            lastFailChannel = "gesture_tap"
+                            lastFailReason = tapResult.reason
+                            attemptTrail += "gesture_tap: ${tapResult.reason}"
+                        }
+                    }
+                }
+                ActionPriorityOrder.ClickChannel.NODE_CLICK -> {
+                    if (!target.isSemantic()) continue
+                    val nodeResult = platform.performAction(UIAction.ClickNodeAt(point.x, point.y))
+                    when (nodeResult) {
+                        is ActionResult.Success -> {
+                            attemptTrail += "node_action_click: success"
+                            return buildSuccessOutcome(
+                                point = point,
+                                channel = "node_action_click",
+                                warnings = resolvedWarnings,
+                                attemptTrail = attemptTrail,
+                                platform = platform
+                            )
+                        }
+                        is ActionResult.Cancelled -> return ActionOutcome.Cancelled(nodeResult.reason)
+                        is ActionResult.Failure -> {
+                            lastFailChannel = "node_action_click"
+                            lastFailReason = nodeResult.reason
+                            attemptTrail += "node_action_click: ${nodeResult.reason}"
+                        }
+                    }
+                }
             }
         }
 
-        // Fallback: node action click (only for semantic targets)
-        if (target.isSemantic()) {
-            if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before node click")
-            val nodeResult = platform.performAction(UIAction.ClickNodeAt(point.x, point.y))
-            when (nodeResult) {
-                is ActionResult.Success -> {
-                    attemptTrail += "node_action_click: success"
-                    return buildSuccessOutcome(
-                        point = point,
-                        channel = "node_action_click",
-                        warnings = resolvedWarnings,
-                        attemptTrail = attemptTrail,
-                        platform = platform
-                    )
-                }
-                is ActionResult.Cancelled -> return ActionOutcome.Cancelled(nodeResult.reason)
-                is ActionResult.Failure -> {
-                    attemptTrail += "node_action_click: ${nodeResult.reason}"
-                    return ActionOutcome.Failed(
-                        reason = formatFailure(point, "node_action_click", nodeResult.reason, resolvedWarnings),
-                        attemptTrail = attemptTrail
-                    )
-                }
-            }
-        }
-
-        // Coordinate target with gesture tap failure — no fallback available
         return ActionOutcome.Failed(
-            reason = formatFailure(point, "gesture_tap", gestureFailReason, resolvedWarnings),
+            reason = formatFailure(point, lastFailChannel, lastFailReason, resolvedWarnings),
             attemptTrail = attemptTrail
         )
     }

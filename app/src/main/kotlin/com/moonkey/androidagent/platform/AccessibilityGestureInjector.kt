@@ -7,6 +7,7 @@ import android.graphics.PathMeasure
 import android.os.Build
 import android.util.Log
 import android.view.Display
+import android.view.ViewConfiguration
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +27,6 @@ class AccessibilityGestureInjector(
 ) {
     companion object {
         private const val TAG = "AccessibilityGestureInjector"
-        private const val DEFAULT_GESTURE_DURATION_MS = 100L
         private const val GESTURE_TIMEOUT_MS = 5000L
     }
 
@@ -35,7 +35,8 @@ class AccessibilityGestureInjector(
             visualizer?.showClick(x.toFloat(), y.toFloat())
 
             val path = Path().apply { moveTo(x.toFloat(), y.toFloat()) }
-            val stroke = GestureDescription.StrokeDescription(path, 0, DEFAULT_GESTURE_DURATION_MS)
+            val tapDuration = ViewConfiguration.getTapTimeout().toLong()
+            val stroke = GestureDescription.StrokeDescription(path, 0, tapDuration)
             val gesture = buildGesture(stroke)
 
             dispatchGesture(gesture)

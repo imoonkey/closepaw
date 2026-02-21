@@ -6,6 +6,7 @@ import android.view.Display
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.SystemButtonType
 import com.moonkey.androidagent.platform.UIAction
@@ -32,12 +33,13 @@ class VirtualDisplayInputInjector(
         }
 
         val downTime = SystemClock.uptimeMillis()
+        val tapDuration = ViewConfiguration.getTapTimeout().toLong()
         val down =
                 motionEvent(downTime, downTime, MotionEvent.ACTION_DOWN, x.toFloat(), y.toFloat())
         val up =
                 motionEvent(
                         downTime,
-                        downTime + 50,
+                        downTime + tapDuration,
                         MotionEvent.ACTION_UP,
                         x.toFloat(),
                         y.toFloat()

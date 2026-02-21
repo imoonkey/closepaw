@@ -55,65 +55,64 @@ class LongPressExecutor(
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before dispatch")
 
         val attemptTrail = mutableListOf<String>()
+        var lastFailChannel = ""
+        var lastFailReason = ""
 
-        // Primary path: gesture long press
-        val actionResult = platform.performAction(
-            UIAction.LongPressAt(
-                x = point.x,
-                y = point.y,
-                durationMs = durationMs
-            )
-        )
-
-        var gestureFailReason = ""
-        when (actionResult) {
-            is ActionResult.Success -> {
-                attemptTrail += "gesture_long_press: success"
-                return buildSuccessOutcome(
-                    point = point,
-                    durationMs = durationMs,
-                    channel = "gesture_long_press",
-                    resolvedWarnings = resolvedWarnings,
-                    attemptTrail = attemptTrail,
-                    platform = platform
-                )
-            }
-            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(actionResult.reason)
-            is ActionResult.Failure -> {
-                gestureFailReason = actionResult.reason
-                attemptTrail += "gesture_long_press: ${actionResult.reason}"
+        for (channel in ActionPriorityOrder.longPress) {
+            if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before long press attempt")
+            when (channel) {
+                ActionPriorityOrder.LongPressChannel.GESTURE_LONG_PRESS -> {
+                    val actionResult = platform.performAction(
+                        UIAction.LongPressAt(x = point.x, y = point.y, durationMs = durationMs)
+                    )
+                    when (actionResult) {
+                        is ActionResult.Success -> {
+                            attemptTrail += "gesture_long_press: success"
+                            return buildSuccessOutcome(
+                                point = point,
+                                durationMs = durationMs,
+                                channel = "gesture_long_press",
+                                resolvedWarnings = resolvedWarnings,
+                                attemptTrail = attemptTrail,
+                                platform = platform
+                            )
+                        }
+                        is ActionResult.Cancelled -> return ActionOutcome.Cancelled(actionResult.reason)
+                        is ActionResult.Failure -> {
+                            lastFailChannel = "gesture_long_press"
+                            lastFailReason = actionResult.reason
+                            attemptTrail += "gesture_long_press: ${actionResult.reason}"
+                        }
+                    }
+                }
+                ActionPriorityOrder.LongPressChannel.NODE_LONG_CLICK -> {
+                    if (!target.isSemantic()) continue
+                    val nodeResult = platform.performAction(UIAction.LongClickNodeAt(point.x, point.y))
+                    when (nodeResult) {
+                        is ActionResult.Success -> {
+                            attemptTrail += "node_action_long_click: success"
+                            return buildSuccessOutcome(
+                                point = point,
+                                durationMs = durationMs,
+                                channel = "node_action_long_click",
+                                resolvedWarnings = resolvedWarnings,
+                                attemptTrail = attemptTrail,
+                                platform = platform
+                            )
+                        }
+                        is ActionResult.Cancelled -> return ActionOutcome.Cancelled(nodeResult.reason)
+                        is ActionResult.Failure -> {
+                            lastFailChannel = "node_action_long_click"
+                            lastFailReason = nodeResult.reason
+                            attemptTrail += "node_action_long_click: ${nodeResult.reason}"
+                        }
+                    }
+                }
             }
         }
 
-        // Fallback: node action long click (only for semantic targets)
-        if (target.isSemantic()) {
-            val nodeResult = platform.performAction(UIAction.LongClickNodeAt(point.x, point.y))
-            when (nodeResult) {
-                is ActionResult.Success -> {
-                    attemptTrail += "node_action_long_click: success"
-                    return buildSuccessOutcome(
-                        point = point,
-                        durationMs = durationMs,
-                        channel = "node_action_long_click",
-                        resolvedWarnings = resolvedWarnings,
-                        attemptTrail = attemptTrail,
-                        platform = platform
-                    )
-                }
-                is ActionResult.Cancelled -> return ActionOutcome.Cancelled(nodeResult.reason)
-                is ActionResult.Failure -> {
-                    attemptTrail += "node_action_long_click: ${nodeResult.reason}"
-                    return ActionOutcome.Failed(
-                        reason = formatFailure(point, durationMs, "node_action_long_click", nodeResult.reason, resolvedWarnings),
-                        attemptTrail = attemptTrail
-                    )
-                }
-            }
-        }
-
-        // Coordinate target with gesture failure — no fallback available
         return ActionOutcome.Failed(
-            reason = formatFailure(point, durationMs, "gesture_long_press", gestureFailReason, resolvedWarnings),
+            reason = formatFailure(point, durationMs, lastFailChannel, lastFailReason, resolvedWarnings),
             attemptTrail = attemptTrail
         )
     }

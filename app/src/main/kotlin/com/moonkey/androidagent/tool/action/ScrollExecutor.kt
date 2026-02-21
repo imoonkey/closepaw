@@ -34,40 +34,45 @@ class ScrollExecutor(
         val scrollArea = resolveScrollArea(target, snapshot, platform)
         val attemptTrail = mutableListOf<String>()
 
-        // 1. Primary: gesture swipe within scroll area
-        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before gesture scroll")
-        val swipe = computeSwipeGesture(direction, scrollArea)
-        val gestureResult = platform.performAction(swipe)
-        when (gestureResult) {
-            is ActionResult.Success -> {
-                attemptTrail += "gesture_swipe: success"
-                return buildSuccessOutcome(direction, "gesture_swipe", attemptTrail, platform)
-            }
-            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(gestureResult.reason)
-            is ActionResult.Failure -> {
-                attemptTrail += "gesture_swipe: ${gestureResult.reason}"
+        for (channel in ActionPriorityOrder.scroll) {
+            if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before scroll attempt")
+            when (channel) {
+                ActionPriorityOrder.ScrollChannel.GESTURE_SWIPE -> {
+                    val swipe = computeSwipeGesture(direction, scrollArea)
+                    val gestureResult = platform.performAction(swipe)
+                    when (gestureResult) {
+                        is ActionResult.Success -> {
+                            attemptTrail += "gesture_swipe: success"
+                            return buildSuccessOutcome(direction, "gesture_swipe", attemptTrail, platform)
+                        }
+                        is ActionResult.Cancelled -> return ActionOutcome.Cancelled(gestureResult.reason)
+                        is ActionResult.Failure -> {
+                            attemptTrail += "gesture_swipe: ${gestureResult.reason}"
+                        }
+                    }
+                }
+                ActionPriorityOrder.ScrollChannel.A11Y_SCROLL -> {
+                    val a11yResult = platform.performAction(
+                        UIAction.ScrollNodeAt(scrollArea.centerX, scrollArea.centerY, direction)
+                    )
+                    when (a11yResult) {
+                        is ActionResult.Success -> {
+                            attemptTrail += "a11y_scroll: success"
+                            return buildSuccessOutcome(direction, "a11y_scroll", attemptTrail, platform)
+                        }
+                        is ActionResult.Cancelled -> return ActionOutcome.Cancelled(a11yResult.reason)
+                        is ActionResult.Failure -> {
+                            attemptTrail += "a11y_scroll: ${a11yResult.reason}"
+                        }
+                    }
+                }
             }
         }
 
-        // 2. Fallback: a11y scroll action
-        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before a11y scroll fallback")
-        val a11yResult = platform.performAction(
-            UIAction.ScrollNodeAt(scrollArea.centerX, scrollArea.centerY, direction)
+        return ActionOutcome.Failed(
+            reason = "Scroll $direction failed after all channels",
+            attemptTrail = attemptTrail
         )
-        when (a11yResult) {
-            is ActionResult.Success -> {
-                attemptTrail += "a11y_scroll: success"
-                return buildSuccessOutcome(direction, "a11y_scroll", attemptTrail, platform)
-            }
-            is ActionResult.Cancelled -> return ActionOutcome.Cancelled(a11yResult.reason)
-            is ActionResult.Failure -> {
-                attemptTrail += "a11y_scroll: ${a11yResult.reason}"
-                return ActionOutcome.Failed(
-                    reason = "Scroll $direction failed: ${a11yResult.reason}",
-                    attemptTrail = attemptTrail
-                )
-            }
-        }
     }
 
     private fun resolveScrollArea(

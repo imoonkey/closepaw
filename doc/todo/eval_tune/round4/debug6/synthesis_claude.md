@@ -13,7 +13,7 @@
 
 ## Root Cause Classification
 
-### RC1: DocumentsUI Click Non-Response [Execution] — BrowserMultiply, FilesMoveFile
+### RC1: DocumentsUI Click Non-Response [Execution] — BrowserMultiply, FilesMoveFile ✅ FIXED
 
 **Symptom**: gesture_tap dispatches to correct coordinates on clickable elements, tool reports success, but DocumentsUI doesn't respond. Pre/post a11y trees are IDENTICAL.
 
@@ -29,7 +29,7 @@
 
 **Impact**: 2 tasks (14.3% of total) — both MaxTurnsReached
 
-### RC2: Eval Script False Failure [Evaluation Gap] — ClockTimerEntry
+### RC2: Eval Script False Failure [Evaluation Gap] — ClockTimerEntry 这个不修
 
 **Symptom**: Agent correctly entered all 4 digits (1,6,3,5), timer display shows `00h 16m 35s` exactly matching goal, agent called complete_task with correct answer, but eval reports scripted_success=false.
 
@@ -46,7 +46,9 @@
 
 **Impact**: 1 task (7.1% of total) — false failure inflating error rate
 
-### RC3: Swipe Precision on SeekBar [Execution] — SystemBrightnessMax
+### RC3: Swipe Precision on SeekBar [Execution] — SystemBrightnessMax ✅ FIXED
+
+**Status**: Fixed in `ac02d35` — removed `EDGE_INSET_DP=30` heuristic that silently clamped swipe start coordinates away from screen edges. Also fixed `SwipeExecutor` silently swallowing `ActionResult.Cancelled` (fell through to success path).
 
 **Symptom**: Swipe gestures on brightness slider reach 98% but not 100%.
 
@@ -60,7 +62,7 @@
 
 **Impact**: 1 task (7.1% of total)
 
-### RC4: LLM Tool Call Format Error [Reasoning] — SystemBrightnessMin
+### RC4: LLM Tool Call Format Error [Reasoning] — SystemBrightnessMin 这个不修
 
 **Symptom**: On turn 3, qwen3.5 model output tool calls as plain text instead of structured function calls. No action was taken, session ended prematurely.
 
@@ -111,6 +113,6 @@ This is the single most impactful finding. If DocumentsUI clicks are fixed, 2 ad
 
 2. **Eval verification for ClockTimerEntry** — Inspect the eval script's timer verification logic. The task was completed correctly; the eval metric is wrong.
 
-3. **SeekBar precision** — For slider-type controls, consider using the accessibility `ACTION_SET_PROGRESS` or `ACTION_SCROLL_FORWARD/BACKWARD` actions instead of rawswipe gestures. These are semantically correct and don't depend on pixel precision.
+3. ~~**SeekBar precision**~~ ✅ Fixed — removed hidden edge inset heuristic (`ac02d35`). Swipe coordinates now pass through to gesture API without silent clamping. If precision is still insufficient, consider `ACTION_SET_PROGRESS` as a semantic alternative.
 
 4. **LLM text-as-tool-call guard** — Add validation: if `is_complete=true` and `tool_calls=0` and no `complete_task` was called, flag as an anomaly rather than GoalAchieved. For qwen3.5 specifically, consider parsing assistant text for function-call–like patterns and re-prompting if found.
