@@ -38,18 +38,13 @@ Action:
 - Update round6 design doc / NavSpec doc to reflect this decision.
 - NavSpecTest assertions for A11y ⊖ are now correct behavior.
 
-### 1.3 Interaction lock semantics currently coupled to touchability flag (P1)
+### 1.3 Interaction lock semantics currently coupled to touchability flag (P1) — DONE
 
-Mismatch:
-- There is logic for full-screen lock in running states.
-- With global non-touchable window, lock view cannot truly consume touch.
+**Resolved** by §1.1 overlay touchability fix. The decoupling works across all three scenarios:
 
-**User decision**: A11y Running MUST block user touches to underlying app. Takeover excepted.
-
-Recommendation:
-- After touchability toggle (§1.1): Running overlay should be touchable (to enable full-screen touch-eating shield), but capsule UI itself remains non-interactive in Running.
-- Agent gestures need alternative routing (e.g., dispatch on virtual display layer or coordinate with shield).
-- Takeover mode: overlay must pass touches through to underlying app for user operation.
+1. **Running + no gesture**: `shouldCapsuleOverlayBeTouchable(Running)` → `true`, overlay touchable. `shouldLockUserInteraction()` → `true` (at OTHER_APP), `setInteractionLocked(true)` expands overlay to `MATCH_PARENT` with full-screen `View` eating all user touches via `setOnTouchListener { _, _ -> true }`.
+2. **Running + gesture dispatch**: `OverlayTouchGate` temporarily sets `FLAG_NOT_TOUCHABLE` → gesture passes through → token close restores → shield resumes.
+3. **Takeover**: `shouldLockUserInteraction()` returns `false` (`userOwnsControl = mode is Takeover`) → shield off, overlay shrinks to `WRAP_CONTENT`, user can operate underlying app while capsule buttons (Resume/Stop) remain touchable.
 
 ### 1.4 VD main app viewer icon in Row3 during Idle/Done is unnecessary (P1) — DONE
 
