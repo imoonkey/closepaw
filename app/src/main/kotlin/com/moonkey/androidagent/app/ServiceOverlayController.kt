@@ -88,9 +88,7 @@ class ServiceOverlayController(
             }
         }
         this.onOpenApp = { openMainAppAndHideOverlays() }
-        this.onDismissError = {
-            stateHolder.onDismissError()
-        }
+        this.onDismissError = { dismissError() }
         // Navigation callbacks
         this.onMinimize = {
             showPreference = ShowPreference.ISLAND
@@ -211,6 +209,11 @@ class ServiceOverlayController(
         showPreference = ShowPreference.ISLAND
         updateContext()
         applyVisibility()
+    }
+
+    /** Dismiss the current error state. Callable from both overlay and main-app paths. */
+    fun dismissError() {
+        stateHolder.onDismissError()
     }
 
     fun hideAll() {

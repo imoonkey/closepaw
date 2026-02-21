@@ -229,7 +229,7 @@ class ChatViewModel(
     }
 
     fun dismissError() {
-        AgentService.instance?.capsuleStateHolder?.onDismissError()
+        AgentService.instance?.dismissError()
     }
 
     /** Clear conversation history. */

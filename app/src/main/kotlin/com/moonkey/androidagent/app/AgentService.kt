@@ -81,6 +81,10 @@ class AgentService : AccessibilityService() {
     internal fun getOverlayTouchGate(): com.moonkey.androidagent.platform.OverlayTouchGate? =
             overlayController?.overlayTouchGate
 
+    internal fun dismissError() {
+        overlayController?.dismissError()
+    }
+
     private var eventCollectorJob: Job? = null
 
     fun observeExternalSession(
