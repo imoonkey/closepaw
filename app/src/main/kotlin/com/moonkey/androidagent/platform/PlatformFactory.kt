@@ -38,18 +38,19 @@ object PlatformFactory {
             config: SessionConfig,
             service: AccessibilityService,
             visualizer: ActionVisualizerManager? = null,
-            traceRecorder: TraceRecorder
+            traceRecorder: TraceRecorder,
+            overlayTouchGate: OverlayTouchGate? = null,
     ): AndroidPlatform {
         return when (config.platformMode) {
             PlatformMode.ACCESSIBILITY -> {
                 Log.i(TAG, "Using AccessibilityPlatform (real screen)")
-                AccessibilityPlatform(service, config, visualizer, traceRecorder)
+                AccessibilityPlatform(service, config, visualizer, traceRecorder, overlayTouchGate)
             }
             PlatformMode.VIRTUAL_DISPLAY -> {
                 createVirtualDisplayPlatform(config, service, traceRecorder)
                         ?: run {
                             Log.w(TAG, "Shizuku unavailable, falling back to AccessibilityPlatform")
-                            AccessibilityPlatform(service, config, visualizer, traceRecorder)
+                            AccessibilityPlatform(service, config, visualizer, traceRecorder, overlayTouchGate)
                         }
             }
         }

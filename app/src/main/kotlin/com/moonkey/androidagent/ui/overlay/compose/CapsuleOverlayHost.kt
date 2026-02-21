@@ -23,6 +23,8 @@ import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.capsule.NavAction
 import com.moonkey.androidagent.ui.capsule.surface.SmartCapsuleSurface
 import com.moonkey.androidagent.ui.capsule.surface.smartCapsuleHostPadding
+import com.moonkey.androidagent.app.shouldCapsuleOverlayBeTouchable
+import com.moonkey.androidagent.platform.OverlayTouchGate
 import com.moonkey.androidagent.ui.overlay.CapsuleStateHolder
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
@@ -73,9 +75,30 @@ class CapsuleOverlayHost(
     private val interactionLocked = MutableStateFlow(false)
 
     private var focusJob: Job? = null
+    private var touchabilityJob: Job? = null
     private var transientThoughtJob: Job? = null
     private var lastButtonClickTime = 0L
     private var isFocusable = false
+    private var passThroughDepth = 0
+
+    /** Gate for [AccessibilityGestureInjector] to temporarily pass touches through. */
+    val touchGate: OverlayTouchGate = object : OverlayTouchGate {
+        override fun beginGesturePassThrough(): AutoCloseable {
+            passThroughDepth++
+            Log.d(TAG, "beginGesturePassThrough: depth=$passThroughDepth, isShowing=${composeHost.isShowing()}")
+            applyNotTouchableFlag(forceNotTouchable = true)
+            var closed = false
+            return AutoCloseable {
+                if (closed) return@AutoCloseable
+                closed = true
+                passThroughDepth = (passThroughDepth - 1).coerceAtLeast(0)
+                Log.d(TAG, "endGesturePassThrough: depth=$passThroughDepth")
+                if (passThroughDepth == 0) {
+                    applyBaselineTouchability(stateHolder.mode.value)
+                }
+            }
+        }
+    }
 
     fun isShowing(): Boolean = composeHost.isShowing()
 
@@ -162,11 +185,13 @@ class CapsuleOverlayHost(
             }
         }
         startFocusObserver()
+        startTouchabilityObserver()
         Log.i(TAG, "Capsule overlay shown")
     }
 
     fun hide() {
         stopFocusObserver()
+        stopTouchabilityObserver()
         inputFocused.value = false
         setOverlayFocusable(false)
         composeHost.hide()
@@ -270,13 +295,45 @@ class CapsuleOverlayHost(
                 WindowManager.LayoutParams.TYPE_PHONE
             },
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = if (locked) Gravity.TOP or Gravity.START
             else Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
         }
+
+    private fun startTouchabilityObserver() {
+        touchabilityJob?.cancel()
+        touchabilityJob = scope.launch {
+            stateHolder.mode.collect { mode ->
+                if (passThroughDepth == 0) {
+                    applyBaselineTouchability(mode)
+                }
+            }
+        }
+    }
+
+    private fun stopTouchabilityObserver() {
+        touchabilityJob?.cancel()
+        touchabilityJob = null
+        passThroughDepth = 0
+    }
+
+    private fun applyBaselineTouchability(mode: CapsuleMode) {
+        val touchable = shouldCapsuleOverlayBeTouchable(mode)
+        applyNotTouchableFlag(forceNotTouchable = !touchable)
+    }
+
+    private fun applyNotTouchableFlag(forceNotTouchable: Boolean) {
+        if (!composeHost.isShowing()) return
+        composeHost.updateLayoutParams { params ->
+            params.flags = if (forceNotTouchable) {
+                params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            } else {
+                params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            }
+        }
+    }
 
     private fun debounced(action: () -> Unit) {
         val now = System.currentTimeMillis()

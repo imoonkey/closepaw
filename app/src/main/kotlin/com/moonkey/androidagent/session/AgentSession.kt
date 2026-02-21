@@ -6,6 +6,7 @@ import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.platform.OverlayTouchGate
 import com.moonkey.androidagent.platform.PlatformFactory
 import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.trace.TraceRecorderFactory
@@ -39,7 +40,8 @@ private constructor(
                 service: AccessibilityService,
                 scope: CoroutineScope,
                 apiKeys: Map<String, String> = emptyMap(),
-                visualizer: ActionVisualizerManager? = null
+                visualizer: ActionVisualizerManager? = null,
+                overlayTouchGate: OverlayTouchGate? = null,
         ): AgentSession {
             val sessionId = SessionId.generate()
             val traceRecorder = TraceRecorderFactory.create(service, config, sessionId)
@@ -48,7 +50,8 @@ private constructor(
                             config = config,
                             service = service,
                             visualizer = visualizer,
-                            traceRecorder = traceRecorder
+                            traceRecorder = traceRecorder,
+                            overlayTouchGate = overlayTouchGate,
                     )
             val services =
                     SessionServices.create(

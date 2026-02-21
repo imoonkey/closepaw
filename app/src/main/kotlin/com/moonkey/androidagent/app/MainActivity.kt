@@ -325,6 +325,7 @@ class MainActivity : ComponentActivity() {
 
                     val apiKeys = settingsState.buildApiKeys()
                     val visualizer = service.getActionVisualizer()
+                    val touchGate = service.getOverlayTouchGate()
                     val session =
                             withContext(Dispatchers.Default) {
                                 AgentSession.create(
@@ -332,7 +333,8 @@ class MainActivity : ComponentActivity() {
                                         service = service,
                                         scope = sessionScope,
                                         apiKeys = apiKeys,
-                                        visualizer = visualizer
+                                        visualizer = visualizer,
+                                        overlayTouchGate = touchGate,
                                 )
                             }
 

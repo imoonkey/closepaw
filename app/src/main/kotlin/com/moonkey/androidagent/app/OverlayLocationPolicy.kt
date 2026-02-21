@@ -145,3 +145,12 @@ internal fun shouldLockUserInteraction(
         PlatformMode.VIRTUAL_DISPLAY -> location == OverlayUserLocation.VD_VIEWER
     }
 }
+
+/**
+ * Whether the capsule overlay window should be touchable (i.e. NOT have FLAG_NOT_TOUCHABLE).
+ *
+ * Only [CapsuleMode.Hidden] passes touches through — all other modes need user interaction
+ * (buttons, input fields, or the full-screen touch shield during Running).
+ */
+internal fun shouldCapsuleOverlayBeTouchable(mode: CapsuleMode): Boolean =
+    mode !is CapsuleMode.Hidden

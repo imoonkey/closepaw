@@ -14,14 +14,14 @@ package com.moonkey.androidagent.tool.action
  */
 object ActionPriorityOrder {
 
-    /** click: node_click → gesture_tap */
-    val click = listOf(ClickChannel.NODE_CLICK, ClickChannel.GESTURE_TAP)
+    /** click: gesture_tap → node_click */
+    val click = listOf(ClickChannel.GESTURE_TAP, ClickChannel.NODE_CLICK)
 
-    /** long_press: node_long_click → gesture_long_press */
-    val longPress = listOf(LongPressChannel.NODE_LONG_CLICK, LongPressChannel.GESTURE_LONG_PRESS)
+    /** long_press: gesture_long_press → node_long_click */
+    val longPress = listOf(LongPressChannel.GESTURE_LONG_PRESS, LongPressChannel.NODE_LONG_CLICK)
 
-    /** scroll: a11y_scroll → gesture_swipe */
-    val scroll = listOf(ScrollChannel.A11Y_SCROLL, ScrollChannel.GESTURE_SWIPE)
+    /** scroll: gesture_swipe → a11y_scroll */
+    val scroll = listOf(ScrollChannel.GESTURE_SWIPE, ScrollChannel.A11Y_SCROLL)
 
     enum class ClickChannel { GESTURE_TAP, NODE_CLICK }
     enum class LongPressChannel { GESTURE_LONG_PRESS, NODE_LONG_CLICK }

@@ -11,6 +11,7 @@ import android.view.ViewConfiguration
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -23,11 +24,14 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 class AccessibilityGestureInjector(
         private val service: AccessibilityService,
-        private val visualizer: ActionVisualizerManager? = null
+        private val visualizer: ActionVisualizerManager? = null,
+        private val overlayTouchGate: OverlayTouchGate? = null,
 ) {
     companion object {
         private const val TAG = "AccessibilityGestureInjector"
         private const val GESTURE_TIMEOUT_MS = 5000L
+        /** Delay after setting FLAG_NOT_TOUCHABLE to let WindowManagerService process it. */
+        private const val FLAG_SETTLE_MS = 50L
     }
 
     suspend fun injectTap(x: Int, y: Int): ActionResult {
@@ -98,36 +102,48 @@ class AccessibilityGestureInjector(
     }
 
     private suspend fun dispatchGesture(gesture: GestureDescription): ActionResult {
-        return withTimeoutOrNull(GESTURE_TIMEOUT_MS) {
-            suspendCancellableCoroutine { continuation ->
-                val callback =
-                        object : AccessibilityService.GestureResultCallback() {
-                            override fun onCompleted(gestureDescription: GestureDescription?) {
-                                Log.d(TAG, "dispatchGesture completed")
-                                if (continuation.isActive) {
-                                    continuation.resume(ActionResult.Success("Gesture completed"))
+        val gate = overlayTouchGate
+        val token = gate?.beginGesturePassThrough()
+        if (token != null) {
+            Log.d(TAG, "Touch gate active — FLAG_NOT_TOUCHABLE set, waiting ${FLAG_SETTLE_MS}ms")
+            delay(FLAG_SETTLE_MS)
+        } else if (gate == null) {
+            Log.w(TAG, "overlayTouchGate is NULL — gestures may be consumed by overlay")
+        }
+        try {
+            return withTimeoutOrNull(GESTURE_TIMEOUT_MS) {
+                suspendCancellableCoroutine { continuation ->
+                    val callback =
+                            object : AccessibilityService.GestureResultCallback() {
+                                override fun onCompleted(gestureDescription: GestureDescription?) {
+                                    Log.d(TAG, "dispatchGesture completed")
+                                    if (continuation.isActive) {
+                                        continuation.resume(ActionResult.Success("Gesture completed"))
+                                    }
+                                }
+
+                                override fun onCancelled(gestureDescription: GestureDescription?) {
+                                    Log.w(TAG, "dispatchGesture cancelled")
+                                    if (continuation.isActive) {
+                                        continuation.resume(ActionResult.Cancelled("Gesture cancelled"))
+                                    }
                                 }
                             }
 
-                            override fun onCancelled(gestureDescription: GestureDescription?) {
-                                Log.w(TAG, "dispatchGesture cancelled")
-                                if (continuation.isActive) {
-                                    continuation.resume(ActionResult.Cancelled("Gesture cancelled"))
-                                }
-                            }
-                        }
-
-                val dispatched = service.dispatchGesture(gesture, callback, null)
-                Log.d(TAG, "dispatchGesture dispatched=$dispatched, ${describeGesture(gesture)}")
-                if (!dispatched && continuation.isActive) {
-                    continuation.resume(ActionResult.Failure("Failed to dispatch gesture"))
+                    val dispatched = service.dispatchGesture(gesture, callback, null)
+                    Log.d(TAG, "dispatchGesture dispatched=$dispatched, ${describeGesture(gesture)}")
+                    if (!dispatched && continuation.isActive) {
+                        continuation.resume(ActionResult.Failure("Failed to dispatch gesture"))
+                    }
                 }
             }
+                    ?: run {
+                        Log.w(TAG, "Gesture timed out after ${GESTURE_TIMEOUT_MS}ms")
+                        ActionResult.Failure("Gesture timed out after ${GESTURE_TIMEOUT_MS}ms")
+                    }
+        } finally {
+            token?.close()
         }
-                ?: run {
-                    Log.w(TAG, "Gesture timed out after ${GESTURE_TIMEOUT_MS}ms")
-                    ActionResult.Failure("Gesture timed out after ${GESTURE_TIMEOUT_MS}ms")
-                }
     }
 
     private fun buildGesture(stroke: GestureDescription.StrokeDescription): GestureDescription {

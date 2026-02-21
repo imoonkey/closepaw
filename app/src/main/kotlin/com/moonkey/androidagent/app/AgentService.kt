@@ -78,6 +78,9 @@ class AgentService : AccessibilityService() {
 
     internal fun getActionVisualizer(): ActionVisualizerManager? = actionVisualizer
 
+    internal fun getOverlayTouchGate(): com.moonkey.androidagent.platform.OverlayTouchGate? =
+            overlayController?.overlayTouchGate
+
     private var eventCollectorJob: Job? = null
 
     fun observeExternalSession(
@@ -311,6 +314,7 @@ class AgentService : AccessibilityService() {
                                 platformMode = platformMode
                         )
                 val visualizer = actionVisualizer
+                val touchGate = overlayController?.overlayTouchGate
                 val newSession =
                         withContext(Dispatchers.Default) {
                             AgentSession.create(
@@ -318,7 +322,8 @@ class AgentService : AccessibilityService() {
                                     service = this@AgentService,
                                     scope = scope,
                                     apiKeys = apiKeys,
-                                    visualizer = visualizer
+                                    visualizer = visualizer,
+                                    overlayTouchGate = touchGate,
                             )
                         }
 

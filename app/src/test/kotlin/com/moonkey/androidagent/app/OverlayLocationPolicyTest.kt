@@ -308,4 +308,28 @@ class OverlayLocationPolicyTest {
         assertThat(locked).isTrue()
         assertThat(unlocked).isFalse()
     }
+
+    // ── Capsule overlay touchability ──
+
+    @Test
+    fun `capsule overlay is not touchable when hidden`() {
+        assertThat(shouldCapsuleOverlayBeTouchable(CapsuleMode.Hidden)).isFalse()
+    }
+
+    @Test
+    fun `capsule overlay is touchable in all non-hidden modes`() {
+        val modes = listOf(
+            CapsuleMode.Running("thinking"),
+            CapsuleMode.TakeoverPending("paused"),
+            CapsuleMode.Takeover("paused"),
+            CapsuleMode.WaitingForInput(question = "q", callId = "1"),
+            CapsuleMode.WaitingForAction(instruction = "do", callId = "1"),
+            CapsuleMode.Done("done"),
+            CapsuleMode.Error("error"),
+        )
+        modes.forEach { mode ->
+            assertThat(shouldCapsuleOverlayBeTouchable(mode))
+                .isTrue()
+        }
+    }
 }

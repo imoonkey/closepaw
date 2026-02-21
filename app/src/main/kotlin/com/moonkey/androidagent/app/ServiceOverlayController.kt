@@ -13,6 +13,7 @@ import com.moonkey.androidagent.ui.overlay.compose.CapsuleOverlayHost
 import com.moonkey.androidagent.ui.overlay.compose.GlowOverlayHost
 import com.moonkey.androidagent.ui.overlay.compose.IslandOverlayHost
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
+import com.moonkey.androidagent.platform.OverlayTouchGate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -50,6 +51,10 @@ class ServiceOverlayController(
     // ── Unified state (single source of truth) ──
 
     val stateHolder = CapsuleStateHolder(scope)
+
+    /** Touch gate for gesture injection pass-through. */
+    val overlayTouchGate: OverlayTouchGate
+        get() = capsuleManager.touchGate
 
     // ── Overlay managers ──
 

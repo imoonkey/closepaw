@@ -54,6 +54,10 @@ internal object ExecutorAgentDef : AgentDef() {
         - Do NOT go Home first.
         - Do NOT open launcher or app drawer to find the app icon manually.
 
+        ## Own UI — Do NOT Interact
+        - The screen may show the agent's own control interface: "Takeover", "Stop", "Resume", "Add note".
+        - NEVER interact with these elements. They will pause or stop agent execution.
+
         ## Query Types & How to Handle
 
         ### TAP queries ("Tap on X", "Click the Y button")

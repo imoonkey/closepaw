@@ -36,7 +36,8 @@ class AccessibilityPlatform(
         private val service: AccessibilityService,
         private val config: SessionConfig,
         private val visualizer: ActionVisualizerManager? = null,
-        private val traceRecorder: TraceRecorder = NoopTraceRecorder
+        private val traceRecorder: TraceRecorder = NoopTraceRecorder,
+        private val overlayTouchGate: OverlayTouchGate? = null,
 ) : AndroidPlatform {
 
     companion object {
@@ -45,7 +46,7 @@ class AccessibilityPlatform(
 
     private val nodeActionPerformer = NodeActionPerformer(rootProvider = { service.rootInActiveWindow })
 
-    private val gestureInjector = AccessibilityGestureInjector(service, visualizer)
+    private val gestureInjector = AccessibilityGestureInjector(service, visualizer, overlayTouchGate)
 
     private val screenshotCapturer = AccessibilityScreenshotCapturer(service, config, traceRecorder)
     private val outOfBoundsActionTargetCount = AtomicInteger(0)

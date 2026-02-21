@@ -42,6 +42,12 @@ internal object StandaloneAgentDef : AgentDef() {
         - Do NOT go Home first.
         - Do NOT open launcher or app drawer to find the app icon manually.
 
+        ## Own UI — Do NOT Interact
+        - The screen may show YOUR OWN control interface: buttons like "Takeover", "Stop", "Resume", "Add note", or text fields labeled "Got ideas? Add a note...".
+        - These are your agent capsule controls for the USER, not target-app elements.
+        - NEVER click, type into, or interact with these elements. They will pause or stop your execution.
+        - If you see these elements, IGNORE them and focus on the user's goal (e.g. call `open_app`).
+
 
         ## Core Loop
         1. Observe current screen state (JSON element list)
