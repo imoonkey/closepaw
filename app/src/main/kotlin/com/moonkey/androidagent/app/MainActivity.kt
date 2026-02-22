@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val TAG = "MainActivity"
+        private const val KEY_INTENT_PAYLOAD_CONSUMED = "intent_payload_consumed"
         const val EXTRA_API_KEY = "api_key"
         const val EXTRA_GOAL = "goal"
         const val EXTRA_AUTO_START = "auto_start"
@@ -67,6 +68,7 @@ class MainActivity : ComponentActivity() {
     private var pendingAutoStartGoal: String? = null
     private var pendingGoalRunnable: Runnable? = null
     private var drainPendingRunnable: Runnable? = null
+    private var intentPayloadConsumed = false
     private lateinit var sessionHistoryManager: SessionHistoryManager
     private lateinit var viewModel: ChatViewModel
     private var showSettings by mutableStateOf(false)
@@ -86,6 +88,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        intentPayloadConsumed = savedInstanceState?.getBoolean(KEY_INTENT_PAYLOAD_CONSUMED, false) ?: false
         settingsState = AppSettingsState(AppSettingsStore(applicationContext))
         settingsState.load()
         handleIntent(intent)
@@ -132,6 +135,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         Log.d(TAG, "onNewIntent called")
         setIntent(intent)
+        intentPayloadConsumed = false
         handleIntent(intent)
         AgentService.instance?.onMainAppVisible()
     }
@@ -159,6 +163,11 @@ class MainActivity : ComponentActivity() {
         Log.d(TAG, "onDestroy called, session active: ${currentSession != null}")
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_INTENT_PAYLOAD_CONSUMED, intentPayloadConsumed)
+    }
+
     private fun handleIntent(intent: Intent) {
         val payload = MainActivityIntentPayload.from(intent)
         val applyResult =
@@ -171,6 +180,15 @@ class MainActivity : ComponentActivity() {
                 )
         pendingTraceEnabled = applyResult.pendingTraceEnabled
         pendingTraceRunId = applyResult.pendingTraceRunId
+
+        // Guard: skip action dispatch if this intent was already consumed.
+        // Prevents activity recreation from re-processing stale fresh_session/goal
+        // extras, which would clear an existing session and restart the original goal.
+        if (intentPayloadConsumed) {
+            Log.d(TAG, "Intent payload already consumed, skipping action dispatch")
+            return
+        }
+        intentPayloadConsumed = true
 
         if (payload.freshSession) {
             Log.d(TAG, "Fresh session requested, clearing existing state")

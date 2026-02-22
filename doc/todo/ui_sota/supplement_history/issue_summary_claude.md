@@ -125,9 +125,9 @@ A supplement and a new task are fundamentally the **same operation from the chat
 
 `handleTaskStarted` did steps 2+3 (step 1 was already done by `TaskCompleted`). `handleSupplement` only did a broken step 2 (no close, no new Agent).
 
-### Fix Applied — `insertUserTurn` (commit pending)
+### Fix Applied — `insertUserTurn` + recording + intent guard
 
-Extracted a shared `insertUserTurn(text, timestamp, agentId?)` method that both paths use:
+**Chat UI fix** (`ChatEventReducer.kt`): Extracted a shared `insertUserTurn(text, timestamp, agentId?)` method that both paths use:
 
 ```kotlin
 // ChatEventReducer.kt
@@ -178,7 +178,15 @@ After fix, the same run would produce:
 
 ### Remaining: Recording/Replay
 
-`SessionRecordingService` may not record `SupplementReceived` events — `handleSupplement()` in `AgentSession.kt` only calls `emit()` and `historyManager.addItem()`, with no recording call. When the chat is reconstructed via `restoreMessagesFromRecords`, the supplement may be missing. This needs a follow-up fix to persist the split structure.
+~~`SessionRecordingService` may not record `SupplementReceived` events~~ — **Fixed.** `AgentServiceEventHandler` now calls `recordUserMessage` + `startAgentMessage` for `SupplementReceived`, mirroring the `TaskStarted` pattern. When the chat is reconstructed via `restoreMessagesFromRecords`, supplements are included.
+
+### Issue 3b: Follow-up message after completed task creates new session (debug-run.sh only)
+
+**Symptom**: After a task completes (via `debug-run.sh`), typing a follow-up message in the chat UI starts a brand new session instead of continuing the existing conversation.
+
+**Root Cause**: `debug-run.sh` passes `fresh_session=true` in the intent. When Android destroys and recreates the Activity (common while the agent is controlling another app in the foreground), `handleIntent()` reprocesses the stale intent — calling `clearCurrentSession()` → `Op.Shutdown` → clears chat → creates new session with original goal.
+
+**Fix Applied** (`MainActivity.kt`): Added `intentPayloadConsumed` flag persisted via `savedInstanceState`. Each intent's action dispatch (clear session + start goal) runs only once. `onNewIntent` resets the flag so genuinely new intents are always processed. Settings application remains idempotent and always runs.
 
 ---
 
@@ -189,11 +197,14 @@ After fix, the same run would produce:
 | 1 | Suggestion click ineffective | Action execution | P1 | `gesture_tap` false-success on YouTube suggestions; no fallback to `node_click` | Open |
 | 2 | Agent reverts to 容祖儿 | History management (code bug) | P0 | `HistoryManager.compress()` drops supplement messages — no pin/priority protection | Open |
 | 3 | Supplement at end of chat | UI structure (code bug) | P2 | Single Agent message accumulates all turns; supplement appended after it | **Fixed** |
+| 3b | Follow-up creates new session | Intent lifecycle (code bug) | P1 | Stale `fresh_session=true` intent reprocessed on activity recreation | **Fixed** |
 
 ### Code References
 
 - `HistoryManager.kt` — `compress()`, `removeFirstItem()`
 - `AgentSession.kt:259-276` — `handleSupplement()`
-- `ChatEventReducer.kt` — `insertUserTurn()` (new shared method), `handleSupplement()`, `handleTaskStarted()`
+- `ChatEventReducer.kt` — `insertUserTurn()` (shared method), `handleSupplement()`, `handleTaskStarted()`
+- `AgentServiceEventHandler.kt` — `SupplementReceived` recording (recordUserMessage + startAgentMessage)
+- `MainActivity.kt` — `intentPayloadConsumed` guard, `handleIntent()`, `onSaveInstanceState()`
 - `ResponseItem.kt` — `Message` data class (no pinning support)
 - Action priority: `ActionPriorityOrder` gesture-first ordering
