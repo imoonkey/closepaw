@@ -37,9 +37,19 @@ The OverlayTouchGate worked — `gesture_tap` was dispatched and `dispatchGestur
 
 3. **`ActionPriorityOrder` (gesture-first) prevents automatic fallback.** Since we switched to `gesture_tap → node_click`, and `gesture_tap` reports "success", `node_click` (accessibility `ACTION_CLICK`) is never tried. The `node_click` approach directly invokes the click handler via the accessibility API and would likely have worked.
 
-### Fix Direction
+### Fix Applied — node-first action priority
 
-The system should compare pre/post screen state to detect "false success" and try the next priority action when the screen is unchanged. Alternatively, the success criteria for gesture_tap could include a post-action screen change check.
+Switched `ActionPriorityOrder` from gesture-first to node-first for all dual-path actions:
+
+- **click**: `node_click → gesture_tap` (was `gesture_tap → node_click`)
+- **long_press**: `node_long_click → gesture_long_press` (was `gesture_long_press → node_long_click`)
+- **scroll**: `a11y_scroll → gesture_swipe` (was `gesture_swipe → a11y_scroll`)
+
+For semantic targets (element_index, text), `node_click` (accessibility `ACTION_CLICK`) is tried first — this directly invokes the click handler via the accessibility API and avoids the `gesture_tap` false-success problem. If `node_click` fails, `gesture_tap` is still tried as fallback. For coordinate-only targets, `node_click` is skipped (via `isSemantic()` guard) and `gesture_tap` runs directly.
+
+### Remaining: false-success detection
+
+The deeper issue — `gesture_tap` reporting success when the app doesn't process the tap — is mitigated but not fully solved. A post-action screen-change check could detect false successes and trigger fallback even when `gesture_tap` is used. This is lower priority now that node actions run first.
 
 ---
 
@@ -194,7 +204,7 @@ After fix, the same run would produce:
 
 | # | Issue | Category | Severity | Root Cause | Status |
 |---|-------|----------|----------|------------|--------|
-| 1 | Suggestion click ineffective | Action execution | P1 | `gesture_tap` false-success on YouTube suggestions; no fallback to `node_click` | Open |
+| 1 | Suggestion click ineffective | Action execution | P1 | `gesture_tap` false-success on YouTube suggestions; no fallback to `node_click` | **Fixed** (node-first priority) |
 | 2 | Agent reverts to 容祖儿 | History management (code bug) | P0 | `HistoryManager.compress()` drops supplement messages — no pin/priority protection | Open |
 | 3 | Supplement at end of chat | UI structure (code bug) | P2 | Single Agent message accumulates all turns; supplement appended after it | **Fixed** |
 | 3b | Follow-up creates new session | Intent lifecycle (code bug) | P1 | Stale `fresh_session=true` intent reprocessed on activity recreation | **Fixed** |
@@ -207,4 +217,5 @@ After fix, the same run would produce:
 - `AgentServiceEventHandler.kt` — `SupplementReceived` recording (recordUserMessage + startAgentMessage)
 - `MainActivity.kt` — `intentPayloadConsumed` guard, `handleIntent()`, `onSaveInstanceState()`
 - `ResponseItem.kt` — `Message` data class (no pinning support)
-- Action priority: `ActionPriorityOrder` gesture-first ordering
+- Action priority: `ActionPriorityOrder` node-first ordering (click, long_press, scroll)
+- `ClickExecutor.kt`, `LongPressExecutor.kt`, `ScrollExecutor.kt` — executor doc comments updated

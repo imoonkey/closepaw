@@ -11,9 +11,9 @@ import kotlinx.coroutines.delay
 /**
  * Click executor: resolve target once.
  *
- * Primary path: gesture tap (works on any visible element).
- * Fallback for semantic targets: node ACTION_CLICK (a11y tree dependent).
- * Coordinate targets: gesture tap only, no fallback.
+ * Primary path for semantic targets: node ACTION_CLICK (a11y tree dependent).
+ * Fallback: gesture tap (works on any visible element).
+ * Coordinate targets: gesture tap only (node_click skipped).
  */
 class ClickExecutor(
     private val targetResolver: TargetResolver = TargetResolver

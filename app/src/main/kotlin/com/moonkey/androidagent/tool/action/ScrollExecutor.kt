@@ -10,7 +10,7 @@ import kotlinx.coroutines.delay
 /**
  * Scroll executor: content-direction scroll with optional element targeting.
  *
- * Cascade: gesture swipe first → a11y scroll fallback (matching click/long_press pattern).
+ * Cascade: a11y scroll first → gesture swipe fallback (matching click/long_press pattern).
  * Uses TargetResolver for element resolution (unified targeting).
  */
 class ScrollExecutor(

@@ -10,8 +10,8 @@ import kotlinx.coroutines.delay
 
 /**
  * Long press executor: resolve target once, then:
- * 1) primary: gesture long-press at resolved coordinates
- * 2) fallback for semantic targets: ACTION_LONG_CLICK on the resolved node
+ * 1) primary for semantic targets: ACTION_LONG_CLICK on the resolved node
+ * 2) fallback: gesture long-press at resolved coordinates
  */
 class LongPressExecutor(
     private val targetResolver: TargetResolver = TargetResolver
