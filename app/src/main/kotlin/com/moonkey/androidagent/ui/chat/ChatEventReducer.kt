@@ -54,25 +54,7 @@ internal class ChatEventReducer(
 
     private fun handleTaskStarted(event: TaskStarted) {
         uiState.update { it.copy(showEmptyState = false) }
-
-        messages.add(
-            ChatMessage.User(
-                id = UUID.randomUUID().toString(),
-                timestamp = event.timestamp,
-                text = event.input
-            )
-        )
-
-        streamingBuffer.clear()
-        setCurrentAgentMessageId(event.taskId)
-        messages.add(
-            ChatMessage.Agent(
-                id = event.taskId,
-                timestamp = event.timestamp,
-                contentBlocks = emptyList(),
-                state = AgentMessageState.Thinking
-            )
-        )
+        insertUserTurn(event.input, event.timestamp, agentId = event.taskId)
     }
 
     private fun handleTurnStarted(event: TurnStarted) {
@@ -161,11 +143,42 @@ internal class ChatEventReducer(
     }
 
     private fun handleSupplement(event: SupplementReceived) {
+        insertUserTurn(event.text, event.timestamp)
+    }
+
+    /**
+     * Universal "user message splits the conversation" operation.
+     *
+     * Used by both [handleTaskStarted] (new task after idle) and
+     * [handleSupplement] (mid-task user amendment). The chat UI doesn't
+     * distinguish between the two — both close the current agent segment,
+     * insert a user bubble, and open a fresh agent segment.
+     */
+    private fun insertUserTurn(text: String, timestamp: Long, agentId: String? = null) {
+        // 1. Close current agent message (idempotent if already Complete or absent)
+        updateLastAgentMessage { msg ->
+            msg.copy(state = AgentMessageState.Complete)
+        }
+
+        // 2. Insert user message
         messages.add(
             ChatMessage.User(
                 id = UUID.randomUUID().toString(),
-                timestamp = System.currentTimeMillis(),
-                text = event.text
+                timestamp = timestamp,
+                text = text
+            )
+        )
+
+        // 3. New agent message for subsequent actions
+        val id = agentId ?: "supplement-$timestamp"
+        streamingBuffer.clear()
+        setCurrentAgentMessageId(id)
+        messages.add(
+            ChatMessage.Agent(
+                id = id,
+                timestamp = timestamp,
+                contentBlocks = emptyList(),
+                state = AgentMessageState.Thinking
             )
         )
     }

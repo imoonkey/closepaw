@@ -134,6 +134,17 @@ internal class AgentServiceEventHandler(
             }
             is SupplementReceived -> {
                 Log.i(logTag, "Supplement received: ${event.text.take(30)}")
+                // Same "user message splits conversation" as TaskStarted:
+                // finalize current agent → record user message → start new agent segment
+                recordingService?.recordUserMessage(
+                    UUID.randomUUID().toString(),
+                    event.timestamp,
+                    event.text
+                )
+                recordingService?.startAgentMessage(
+                    "supplement-${event.timestamp}",
+                    event.timestamp
+                )
                 overlay?.onSupplementReceived(event.text)
             }
             is AskUser -> {
