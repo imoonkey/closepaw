@@ -194,9 +194,15 @@ After fix, the same run would produce:
 
 **Symptom**: After a task completes (via `debug-run.sh`), typing a follow-up message in the chat UI starts a brand new session instead of continuing the existing conversation.
 
-**Root Cause**: `debug-run.sh` passes `fresh_session=true` in the intent. When Android destroys and recreates the Activity (common while the agent is controlling another app in the foreground), `handleIntent()` reprocesses the stale intent — calling `clearCurrentSession()` → `Op.Shutdown` → clears chat → creates new session with original goal.
+**Root Cause (layer 1 — intent reprocessing)**: `debug-run.sh` passes `fresh_session=true` in the intent. When Android destroys and recreates the Activity (common while the agent is controlling another app in the foreground), `handleIntent()` reprocesses the stale intent — calling `clearCurrentSession()` → `Op.Shutdown` → clears chat → creates new session with original goal.
 
 **Fix Applied** (`MainActivity.kt`): Added `intentPayloadConsumed` flag persisted via `savedInstanceState`. Each intent's action dispatch (clear session + start goal) runs only once. `onNewIntent` resets the flag so genuinely new intents are always processed. Settings application remains idempotent and always runs.
+
+**Root Cause (layer 2 — debug-run.sh kills session)**: Even with the intent guard, `debug-run.sh` calls `stop_agent` (broadcast) after detecting `TaskCompleted` in the logs. `stop_agent` → `AgentService.stopAgent()` → `Op.Shutdown` → `SessionCompleted` → `sessionCleared()` → `AgentService.session = null`. The session is dead. `MainActivity.currentSession` still holds a stale reference to the shutdown session — follow-up `Op.UserInput` submitted to a dead session with cleaned-up services.
+
+**Fix Applied** (`debug-run.sh` + `AgentSession.kt`):
+- `debug-run.sh`: Removed `stop_agent` call on normal task/session completion. Session remains in Idle state for follow-up. `stop_agent` is only called on error, timeout, or Ctrl+C. Next `debug-run.sh` invocation clears via `fresh_session=true`.
+- `AgentSession.handleUserInput`: Added Shutdown state guard — rejects `Op.UserInput` in Shutdown state instead of attempting to start a task on cleaned-up services.
 
 ---
 
@@ -207,7 +213,7 @@ After fix, the same run would produce:
 | 1 | Suggestion click ineffective | Action execution | P1 | `gesture_tap` false-success on YouTube suggestions; no fallback to `node_click` | **Fixed** (node-first priority) |
 | 2 | Agent reverts to 容祖儿 | History management (code bug) | P0 | `HistoryManager.compress()` drops supplement messages — no pin/priority protection | Open |
 | 3 | Supplement at end of chat | UI structure (code bug) | P2 | Single Agent message accumulates all turns; supplement appended after it | **Fixed** |
-| 3b | Follow-up creates new session | Intent lifecycle (code bug) | P1 | Stale `fresh_session=true` intent reprocessed on activity recreation | **Fixed** |
+| 3b | Follow-up creates new session | Intent lifecycle + debug-run.sh (code bug) | P1 | Layer 1: stale `fresh_session` intent reprocessed. Layer 2: `debug-run.sh` calls `stop_agent` after `TaskCompleted`, killing session | **Fixed** |
 
 ### Code References
 
@@ -219,3 +225,5 @@ After fix, the same run would produce:
 - `ResponseItem.kt` — `Message` data class (no pinning support)
 - Action priority: `ActionPriorityOrder` node-first ordering (click, long_press, scroll)
 - `ClickExecutor.kt`, `LongPressExecutor.kt`, `ScrollExecutor.kt` — executor doc comments updated
+- `debug-run.sh` — removed `stop_agent` on normal completion (session stays Idle for follow-up)
+- `AgentSession.kt:149-152` — Shutdown guard in `handleUserInput`

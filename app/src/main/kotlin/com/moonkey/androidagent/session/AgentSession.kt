@@ -146,6 +146,11 @@ private constructor(
             return
         }
 
+        if (_state.value == SessionState.Shutdown) {
+            Log.w(TAG, "Rejecting UserInput: Session is shut down")
+            return
+        }
+
         if (_state.value == SessionState.Created) {
             services.recordingService.initializeNewSession(
                     sessionId = sessionId.value,
