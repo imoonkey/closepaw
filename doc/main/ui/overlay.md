@@ -41,7 +41,7 @@ Both render `SmartCapsuleSurface` and are driven by `CapsuleMode` from a shared 
 - **CapsuleStateHolder** — single source of truth. Holds `CapsuleMode`, `CapsuleContext`, `PlatformMode`, `turnPhase`, `isAgentMidTurn`, `isStopPending` as `StateFlow`s. All state transitions happen here.
 
 **Overlay host:**
-- **CapsuleOverlayHost** — Compose overlay via `OverlayComposeHost`. Uses `FLAG_NOT_TOUCHABLE` to keep screen gestures pass-through, manages focusability (keyboard) for `WaitingForInput`, debounces button callbacks (300ms), and supports transient supplement confirmation flash.
+- **CapsuleOverlayHost** — Compose overlay via `OverlayComposeHost`. Dynamic touchability: only `Hidden` mode sets `FLAG_NOT_TOUCHABLE` (all other modes are interactive). Manages focusability (keyboard) for `WaitingForInput`, debounces button callbacks (300ms), and supports transient supplement confirmation flash. Touch gate allows temporary pass-through during agent gesture injection.
 
 **Compose rendering:**
 - **SmartCapsuleSurface** — 3-row Compose layout consuming `CapsuleMode` and `CapsuleRenderSpec`
@@ -435,7 +435,9 @@ app/
 
 ## Related Docs
 
+- [State Machine](capsule/state_machine.md) - Formal state vector, transition rules, visibility decision machine
+- [User Flows](capsule/user_flows.md) - Location x platform interaction matrix
 - [Style](style.md) - Color definitions
 - [Tech Design](tech_design.md) - Integration details
-- [User Interaction](user_interaction.md) - User flows
+- [User Interaction](user_interaction.md) - In-app UI, event mapping
 - [Platform](../infra/platform.md) - AccessibilityPlatform integration

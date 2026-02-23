@@ -204,6 +204,8 @@ Task completes with GOAL_ACHIEVED in VirtualDisplay mode:
 
 ## Related Docs
 
+- [State Machine](capsule/state_machine.md) - Formal state vector, transition rules, visibility decision machine
+- [User Flows](capsule/user_flows.md) - Location x platform interaction matrix
 - [Tech Design](tech_design.md) - Technical implementation
 - [Style Guide](style.md) - Design system
 - [Overlay](overlay.md) - Smart Capsule, Edge Glow, Action Visualizer
