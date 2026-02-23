@@ -15,7 +15,6 @@ import com.moonkey.androidagent.platform.PlatformFactory
 import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.trace.TraceRecorderFactory
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -37,8 +36,6 @@ private constructor(
 ) {
     companion object {
         private const val TAG = "AgentSession"
-
-        private const val EVENT_DELIVERY_GRACE_PERIOD_MS = 100L
 
         /** Hot Idle timeout: auto-shutdown after 5 minutes of inactivity. */
         private const val IDLE_TIMEOUT_MS = 300_000L
@@ -205,17 +202,15 @@ private constructor(
     )
 
     init {
-        services.historyManager.setMutationListener { checkpointCoordinator.scheduleCheckpoint() }
-        services.sessionState.todos.setMutationListener { checkpointCoordinator.scheduleCheckpoint() }
-        services.sessionState.scratchpad.setMutationListener { checkpointCoordinator.scheduleCheckpoint() }
+        services.historyManager.setMutationListener { checkpointCoordinator.scheduleCheckpoint(_state.value) }
+        services.sessionState.todos.setMutationListener { checkpointCoordinator.scheduleCheckpoint(_state.value) }
+        services.sessionState.scratchpad.setMutationListener { checkpointCoordinator.scheduleCheckpoint(_state.value) }
     }
 
     private var currentTaskId: String? = null
 
     /** Idle timeout job — auto-triggers Shutdown after [IDLE_TIMEOUT_MS] of inactivity. */
     private var idleTimeoutJob: Job? = null
-
-    private val channelCloseScheduled = AtomicBoolean(false)
 
     suspend fun submit(op: Op) {
         Log.d(TAG, "Received Op: $op (current state: ${_state.value})")
@@ -246,58 +241,62 @@ private constructor(
     }
 
     private suspend fun handleUserInput(op: Op.UserInput) {
-        if (_state.value == SessionState.Running || _state.value == SessionState.Paused) {
-            Log.w(TAG, "Rejecting UserInput: Session is busy")
-            emitStatus("⚠️ Agent is busy. Please wait.")
-            return
-        }
-
-        if (_state.value == SessionState.Shutdown) {
-            Log.w(TAG, "Rejecting UserInput: Session is shut down")
-            return
-        }
-
-        // First task: initialize recording + platform
-        if (_state.value == SessionState.Created) {
-            val recorderSessionId = services.recordingService.getCurrentSessionId()
-            if (recorderSessionId == null || recorderSessionId != sessionId.value) {
-                services.recordingService.initializeNewSession(
-                        sessionId = sessionId.value,
-                        model = config.mainModel
-                )
-            }
-
-            try {
-                services.platform.start()
-            } catch (e: Exception) {
-                Log.e(TAG, "Platform start failed", e)
-                emitStatus("⚠️ Platform initialization failed: ${e.message}")
+        when (_state.value) {
+            SessionState.Running, SessionState.Paused -> {
+                Log.w(TAG, "Rejecting UserInput: Session is busy")
+                emitStatus("⚠️ Agent is busy. Please wait.")
                 return
             }
+            SessionState.Shutdown -> {
+                Log.w(TAG, "Rejecting UserInput: Session is shut down")
+                return
+            }
+            SessionState.Created -> {
+                if (!initializeForFirstTask()) return
+                emit(SessionStarted(sessionId = sessionId, timestamp = now(), goal = op.text))
+            }
+            SessionState.Idle -> {
+                if (!reacquirePlatform()) return
+            }
+        }
+        startTask(op.text)
+    }
 
-            emit(
-                    SessionStarted(
-                            sessionId = sessionId,
-                            timestamp = now(),
-                            goal = op.text
-                    )
+    /** Initialize recording + platform on first [Op.UserInput]. Returns false on failure. */
+    private suspend fun initializeForFirstTask(): Boolean {
+        val recorderSessionId = services.recordingService.getCurrentSessionId()
+        if (recorderSessionId == null || recorderSessionId != sessionId.value) {
+            services.recordingService.initializeNewSession(
+                    sessionId = sessionId.value,
+                    model = config.mainModel
             )
         }
-
-        // Hot Idle follow-up: cancel timeout, re-acquire platform
-        if (_state.value == SessionState.Idle) {
-            cancelIdleTimeout()
-            try {
-                services.platform.start()
-            } catch (e: Exception) {
-                Log.e(TAG, "Platform restart failed on follow-up", e)
-                emitStatus("⚠️ Platform restart failed: ${e.message}")
-                scheduleIdleTimeout() // re-arm so session doesn't leak in Idle
-                return
-            }
-            Log.i(TAG, "Hot Idle follow-up: platform re-acquired")
+        try {
+            services.platform.start()
+        } catch (e: Exception) {
+            Log.e(TAG, "Platform start failed", e)
+            emitStatus("⚠️ Platform initialization failed: ${e.message}")
+            return false
         }
+        return true
+    }
 
+    /** Re-acquire platform for Hot Idle follow-up. Returns false on failure. */
+    private suspend fun reacquirePlatform(): Boolean {
+        cancelIdleTimeout()
+        try {
+            services.platform.start()
+        } catch (e: Exception) {
+            Log.e(TAG, "Platform restart failed on follow-up", e)
+            emitStatus("⚠️ Platform restart failed: ${e.message}")
+            scheduleIdleTimeout() // re-arm so session doesn't leak in Idle
+            return false
+        }
+        Log.i(TAG, "Hot Idle follow-up: platform re-acquired")
+        return true
+    }
+
+    private suspend fun startTask(text: String) {
         val taskId = "task-${System.currentTimeMillis()}"
         currentTaskId = taskId
         _state.value = SessionState.Running
@@ -307,13 +306,13 @@ private constructor(
                         sessionId = sessionId,
                         timestamp = now(),
                         taskId = taskId,
-                        input = op.text
+                        input = text
                 )
         )
 
-        agentRunner.start(op.text, taskId)
+        agentRunner.start(text, taskId)
 
-        Log.i(TAG, "Task started: $taskId, input: ${op.text}")
+        Log.i(TAG, "Task started: $taskId, input: $text")
     }
 
     /**
@@ -491,7 +490,7 @@ private constructor(
                 )
         )
 
-        closeChannelWithDelay()
+        Log.i(TAG, "Session shutdown complete: $sessionId")
     }
 
     private suspend fun handleApproval(op: Op.Approve) {
@@ -532,19 +531,6 @@ private constructor(
     private fun cancelIdleTimeout() {
         idleTimeoutJob?.cancel()
         idleTimeoutJob = null
-    }
-
-    // ===== Channel Lifecycle =====
-
-    private fun closeChannelWithDelay() {
-        if (!channelCloseScheduled.compareAndSet(false, true)) {
-            return
-        }
-
-        scope.launch {
-            delay(EVENT_DELIVERY_GRACE_PERIOD_MS)
-            Log.d(TAG, "Session event stream ended")
-        }
     }
 
     private fun now(): Long = System.currentTimeMillis()

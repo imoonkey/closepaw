@@ -23,12 +23,12 @@ import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.protocol.LLMBackendType
-import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionLlmConfig
-import com.moonkey.androidagent.protocol.SessionState
 import com.moonkey.androidagent.platform.OverlayTouchGate
 import com.moonkey.androidagent.session.AgentSession
+import com.moonkey.androidagent.session.SessionCoordinator
+import com.moonkey.androidagent.session.SubmitResult
 import com.moonkey.androidagent.ui.chat.ChatViewModel
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
@@ -47,7 +47,6 @@ class MainActivity : ComponentActivity() {
         private const val KEY_INTENT_PAYLOAD_CONSUMED = "intent_payload_consumed"
         const val EXTRA_API_KEY = "api_key"
         const val EXTRA_GOAL = "goal"
-        const val EXTRA_AUTO_START = "auto_start"
         const val EXTRA_FRESH_SESSION = "fresh_session"
         const val EXTRA_LLM_BACKEND = "llm_backend" // "openai" or "local"
         const val EXTRA_PERCEPTION_MODE = "perception_mode"
@@ -64,18 +63,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var currentSession: AgentSession? = null
-    private val sessionCreationLock = Any()
-    @Volatile private var sessionCreationInProgress = false
-    private val pendingInputs = mutableListOf<String>()  // guarded by sessionCreationLock
+    private val coordinator = SessionCoordinator(sessionScope)
     private lateinit var settingsState: AppSettingsState
     private var pendingTraceEnabled: Boolean? = null
     private var pendingTraceRunId: String? = null
     private var pendingAutoStartGoal: String? = null
     private var pendingGoalRunnable: Runnable? = null
-    private var drainPendingRunnable: Runnable? = null
     private var intentPayloadConsumed = false
-    private var selectedSessionForReload: SessionInfo? = null
     private lateinit var sessionHistoryManager: SessionHistoryManager
     private lateinit var viewModel: ChatViewModel
     private var showSettings by mutableStateOf(false)
@@ -108,12 +102,9 @@ class MainActivity : ComponentActivity() {
         sessionHistoryManager = SessionHistoryManager.create(sessionStorage, sessionScope)
         viewModel =
                 ChatViewModel(
-                        sessionProvider = { currentSession },
+                        sessionProvider = { coordinator.currentSession },
                         sessionHistoryManager = sessionHistoryManager,
-                        onSessionNeeded = { text -> ensureSessionAndSend(text) },
-                        onTaskCompleted = {
-                            Log.d(TAG, "Task completed; session remains in Idle for follow-up")
-                        }
+                        onSessionNeeded = { text -> ensureSessionAndSend(text) }
                 )
 
         setContent {
@@ -125,11 +116,11 @@ class MainActivity : ComponentActivity() {
                     showSettings = showSettings,
                     onShowSettingsChange = { showSettings = it },
                     onSessionSelect = { session ->
-                        selectedSessionForReload = session
+                        coordinator.selectedSessionForReload = session
                         viewModel.resumeSession(session) {
                             sessionHistoryManager.setActiveSessionId(null)
                             sessionHistoryManager.getRecordingService().clearSessionAndAwait()
-                            currentSession = null
+                            coordinator.detachSession()
                             Log.d(
                                     TAG,
                                     "History session resumed for viewing; cleared recording state"
@@ -137,7 +128,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     onNewSession = {
-                        selectedSessionForReload = null
+                        coordinator.selectedSessionForReload = null
                         viewModel.startNewSession(settingsState.selectedModel, BuildConfig.VERSION_NAME)
                     },
                     onOpenViewer = { openViewer(this@MainActivity) },
@@ -174,11 +165,9 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         pendingGoalRunnable?.let { window.decorView.removeCallbacks(it) }
         pendingGoalRunnable = null
-        drainPendingRunnable?.let { window.decorView.removeCallbacks(it) }
-        drainPendingRunnable = null
         sessionScope.cancel()
         super.onDestroy()
-        Log.d(TAG, "onDestroy called, session active: ${currentSession != null}")
+        Log.d(TAG, "onDestroy called, session active: ${coordinator.currentSession != null}")
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -199,9 +188,6 @@ class MainActivity : ComponentActivity() {
         pendingTraceEnabled = applyResult.pendingTraceEnabled
         pendingTraceRunId = applyResult.pendingTraceRunId
 
-        // Guard: skip action dispatch if this intent was already consumed.
-        // Prevents activity recreation from re-processing stale fresh_session/goal
-        // extras, which would clear an existing session and restart the original goal.
         if (intentPayloadConsumed) {
             Log.d(TAG, "Intent payload already consumed, skipping action dispatch")
             return
@@ -212,7 +198,7 @@ class MainActivity : ComponentActivity() {
             Log.d(TAG, "Fresh session requested, clearing existing state")
             lifecycleScope.launch {
                 clearCurrentSession()
-                selectedSessionForReload = null
+                coordinator.selectedSessionForReload = null
                 payload.goalText?.let {
                     Log.d(TAG, "Goal set from intent: $it")
                     delay(500)
@@ -228,16 +214,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private suspend fun clearCurrentSession() {
-        currentSession?.let { session ->
-            try {
-                session.submit(Op.Shutdown)
-                delay(100)
-                Log.d(TAG, "Existing session shutdown completed")
-            } catch (e: Exception) {
-                Log.w(TAG, "Error shutting down session: ${e.message}")
-            }
-        }
-        currentSession = null
+        coordinator.clearSession()
 
         if (::viewModel.isInitialized) {
             viewModel.clearConversation()
@@ -254,9 +231,9 @@ class MainActivity : ComponentActivity() {
     private fun rebindActiveServiceSessionIfNeeded() {
         val service = AgentService.instance ?: return
         val serviceSession = service.getActiveSession() ?: return
-        if (currentSession === serviceSession) return
+        if (coordinator.currentSession === serviceSession) return
 
-        currentSession = serviceSession
+        coordinator.attachSession(serviceSession)
         sessionHistoryManager.setActiveSessionId(serviceSession.sessionId.value)
         val snapshot = serviceSession.getServices().recordingService.getCurrentSession()
         snapshot?.let {
@@ -275,13 +252,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Validate preconditions (permissions, services), then route input through
+     * the [SessionCoordinator]: submit to existing session, or create a new one.
+     *
+     * Input queuing and drain are handled by the coordinator (event-driven,
+     * no timer-loop).
+     */
     private fun ensureSessionAndSend(
             text: String,
             launchPolicy: SessionLaunchPolicy = SessionLaunchPolicy.AUTO
     ) {
-        if (!validateCloudKeysForSelectedModels()) {
-            return
-        }
+        if (!validateCloudKeysForSelectedModels()) return
 
         if (!Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "Please grant Overlay permission", Toast.LENGTH_LONG).show()
@@ -298,135 +280,95 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        if (currentSession == null) {
-            val shouldCreate =
-                    synchronized(sessionCreationLock) {
-                        if (currentSession != null || sessionCreationInProgress) {
-                            false
-                        } else {
-                            sessionCreationInProgress = true
-                            true
-                        }
-                    }
-            if (!shouldCreate) {
-                lifecycleScope.launch {
-                    val active = currentSession
-                    if (active != null) {
-                        when (active.state.value) {
-                            SessionState.Shutdown -> {
-                                currentSession = null
-                                ensureSessionAndSend(text, launchPolicy)
-                            }
-                            SessionState.Running, SessionState.Paused -> {
-                                enqueuePendingInput(text)
-                            }
-                            else -> active.submit(Op.UserInput(text))
-                        }
-                    } else {
-                        enqueuePendingInput(text)
-                    }
-                }
-                return
-            }
-
-            lifecycleScope.launch {
-                try {
-                    val apiKeys = settingsState.buildApiKeys()
-                    val visualizer = service.getActionVisualizer()
-                    val touchGate = service.getOverlayTouchGate()
-                    val selectedForReload =
-                            if (launchPolicy == SessionLaunchPolicy.FORCE_FRESH) {
-                                null
-                            } else {
-                                selectedSessionForReload
-                            }
-
-                    val reloaded =
-                            if (selectedForReload != null) {
-                                tryReloadSelectedSession(
-                                        service = service,
-                                        apiKeys = apiKeys,
-                                        visualizer = visualizer,
-                                        touchGate = touchGate,
-                                        selected = selectedForReload
-                                )
-                            } else {
-                                null
-                            }
-
-                    val session = if (reloaded != null) {
-                        Log.i(TAG, "Reloaded session ${reloaded.sessionId} from checkpoint")
-                        reloaded
-                    } else if (selectedForReload != null) {
-                        Log.w(
-                                TAG,
-                                "Selected session ${selectedForReload.id} has no reloadable checkpoint"
-                        )
-                        Toast.makeText(
-                                        this@MainActivity,
-                                        "Unable to reload selected session context. Please start a new session or select another history item.",
-                                        Toast.LENGTH_LONG
-                                )
-                                .show()
-                        return@launch
-                    } else {
-                        selectedSessionForReload = null
-                        createFreshSession(service, apiKeys, visualizer, touchGate)
-                    }
-
-                    currentSession = session
-                    pendingTraceEnabled = null
-                    pendingTraceRunId = null
-
-                    sessionHistoryManager.setActiveSessionId(session.sessionId.value)
-                    viewModel.startEventCollection(session)
-
-                    service.observeExternalSession(session, settingsState.platformMode)
-                    session.submit(Op.UserInput(text))
+        lifecycleScope.launch {
+            // Try existing session first
+            when (coordinator.submit(text)) {
+                SubmitResult.SENT -> {
                     pendingAutoStartGoal = null
-                    drainPendingInputs()
-
-                    Log.i(
-                            TAG,
-                            "Session ready with backend=${settingsState.llmBackend} and message sent"
-                    )
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to create session", e)
-                    if (settingsState.llmBackend == LLMBackendType.LOCAL) {
-                        settingsState.updateModelLoadingStatus(
-                                ModelLoadingStatus.Error(e.message ?: "Unknown error")
-                        )
-                    }
-                    Toast.makeText(
-                                    this@MainActivity,
-                                    "Failed to start: ${e.message}",
-                                    Toast.LENGTH_LONG
-                            )
-                            .show()
-                } finally {
-                    synchronized(sessionCreationLock) {
-                        sessionCreationInProgress = false
-                    }
+                    return@launch
                 }
+                SubmitResult.QUEUED -> return@launch
+                SubmitResult.NO_SESSION, SubmitResult.SESSION_DEAD -> { /* create new session */ }
             }
-        } else {
-            pendingAutoStartGoal = null
-            val session = currentSession
-            when (session?.state?.value) {
-                null, SessionState.Shutdown -> {
-                    currentSession = null
-                    ensureSessionAndSend(text, launchPolicy)
-                    return
+
+            // Create new session under coordinator's creation lock
+            try {
+                val created = coordinator.createAndSubmit(text) {
+                    createOrReloadSession(service, launchPolicy)
                 }
-                SessionState.Running, SessionState.Paused -> {
-                    enqueuePendingInput(text)
-                    return
+                if (!created) {
+                    // Creation lock unavailable (another creation in progress).
+                    // Enqueue directly — input drains when session transitions to Idle/Created.
+                    coordinator.enqueue(text)
                 }
-                else -> {
-                    lifecycleScope.launch { session.submit(Op.UserInput(text)) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create session", e)
+                if (settingsState.llmBackend == LLMBackendType.LOCAL) {
+                    settingsState.updateModelLoadingStatus(
+                            ModelLoadingStatus.Error(e.message ?: "Unknown error")
+                    )
                 }
+                Toast.makeText(
+                                this@MainActivity,
+                                "Failed to start: ${e.message}",
+                                Toast.LENGTH_LONG
+                        )
+                        .show()
             }
         }
+    }
+
+    /**
+     * Create or reload a session. Called inside the coordinator's creation lock.
+     * Returns null to abort creation (e.g. non-reloadable checkpoint).
+     */
+    private suspend fun createOrReloadSession(
+            service: AgentService,
+            launchPolicy: SessionLaunchPolicy
+    ): AgentSession? {
+        val apiKeys = settingsState.buildApiKeys()
+        val visualizer = service.getActionVisualizer()
+        val touchGate = service.getOverlayTouchGate()
+        val selectedForReload =
+                if (launchPolicy == SessionLaunchPolicy.FORCE_FRESH) null
+                else coordinator.selectedSessionForReload
+
+        val session = if (selectedForReload != null) {
+            val reloaded = tryReloadSelectedSession(
+                    service = service,
+                    apiKeys = apiKeys,
+                    visualizer = visualizer,
+                    touchGate = touchGate,
+                    selected = selectedForReload
+            )
+            if (reloaded != null) {
+                Log.i(TAG, "Reloaded session ${reloaded.sessionId} from checkpoint")
+                reloaded
+            } else {
+                Log.w(TAG, "Selected session ${selectedForReload.id} has no reloadable checkpoint")
+                Toast.makeText(
+                                this@MainActivity,
+                                "Unable to reload selected session context. Please start a new session or select another history item.",
+                                Toast.LENGTH_LONG
+                        )
+                        .show()
+                return null
+            }
+        } else {
+            coordinator.selectedSessionForReload = null
+            createFreshSession(service, apiKeys, visualizer, touchGate)
+        }
+
+        pendingTraceEnabled = null
+        pendingTraceRunId = null
+        pendingAutoStartGoal = null
+
+        sessionHistoryManager.setActiveSessionId(session.sessionId.value)
+        viewModel.startEventCollection(session)
+        service.observeExternalSession(session, settingsState.platformMode)
+
+        Log.i(TAG, "Session ready with backend=${settingsState.llmBackend} and message sent")
+        return session
     }
 
     private suspend fun tryReloadSelectedSession(
@@ -541,7 +483,8 @@ class MainActivity : ComponentActivity() {
         if (AgentService.instance == null) return
         if (!Settings.canDrawOverlays(this)) return
         if (findMissingCloudKeys(settingsState, modelCatalog).isNotEmpty()) return
-        if (sessionCreationInProgress) return
+        // Clear before dispatching to prevent double-fire from rapid lifecycle callbacks
+        pendingAutoStartGoal = null
         ensureSessionAndSend(pendingGoal)
     }
 
@@ -554,40 +497,6 @@ class MainActivity : ComponentActivity() {
                 }
         pendingGoalRunnable = runnable
         window.decorView.postDelayed(runnable, delayMs)
-    }
-
-    private fun scheduleDrainPendingInputs(delayMs: Long = 200L) {
-        drainPendingRunnable?.let { window.decorView.removeCallbacks(it) }
-        val runnable =
-                Runnable {
-                    drainPendingRunnable = null
-                    drainPendingInputs()
-                }
-        drainPendingRunnable = runnable
-        window.decorView.postDelayed(runnable, delayMs)
-    }
-
-    private fun drainPendingInputs() {
-        val inputs = synchronized(sessionCreationLock) {
-            val copy = pendingInputs.toList()
-            pendingInputs.clear()
-            copy
-        }
-        if (inputs.isEmpty()) return
-        lifecycleScope.launch {
-            inputs.forEach { input -> ensureSessionAndSend(input) }
-        }
-    }
-
-    private fun enqueuePendingInput(text: String) {
-        val shouldScheduleRetry =
-                synchronized(sessionCreationLock) {
-                    pendingInputs.add(text)
-                    pendingInputs.size == 1
-                }
-        if (shouldScheduleRetry) {
-            scheduleDrainPendingInputs()
-        }
     }
 
     private fun validateCloudKeysForSelectedModels(): Boolean {

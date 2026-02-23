@@ -98,8 +98,7 @@ internal fun updateActionBlockForExecution(
 class ChatViewModel(
         private val sessionProvider: () -> AgentSession?,
         private val sessionHistoryManager: SessionHistoryManager? = null,
-        private val onSessionNeeded: ((String) -> Unit)? = null,
-        private val onTaskCompleted: (() -> Unit)? = null
+        private val onSessionNeeded: ((String) -> Unit)? = null
 ) : ViewModel() {
 
     companion object {
@@ -129,8 +128,7 @@ class ChatViewModel(
                     messages = _messages,
                     streamingBuffer = streamingBuffer,
                     stateLock = chatStateLock,
-                    setCurrentAgentMessageId = { currentAgentMessageId = it },
-                    onTaskCompleted = onTaskCompleted
+                    setCurrentAgentMessageId = { currentAgentMessageId = it }
             )
     private val sessionHistoryController =
             ChatSessionHistoryController(

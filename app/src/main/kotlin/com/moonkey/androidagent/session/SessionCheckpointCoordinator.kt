@@ -15,6 +15,7 @@ import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionLlmConfig
+import com.moonkey.androidagent.protocol.SessionState
 
 /**
  * Coordinates building and persisting LLM context snapshots.
@@ -33,8 +34,12 @@ internal class SessionCheckpointCoordinator(
         private const val TAG = "CheckpointCoordinator"
     }
 
-    fun scheduleCheckpoint() {
-        recordingService.scheduleCheckpoint { buildSnapshot(CheckpointState.RUNNING_DIRTY) }
+    fun scheduleCheckpoint(sessionState: SessionState) {
+        val checkpointState = when (sessionState) {
+            SessionState.Idle -> CheckpointState.IDLE_READY
+            else -> CheckpointState.RUNNING_DIRTY
+        }
+        recordingService.scheduleCheckpoint { buildSnapshot(checkpointState) }
     }
 
     suspend fun flushIdleReady(): Boolean {

@@ -18,7 +18,6 @@ data class MainActivityIntentPayload(
         val maxTurns: Int?,
         val goalText: String?,
         val freshSession: Boolean,
-        val autoStart: Boolean,
         val debugMode: Boolean?,
         val traceEnabled: Boolean?,
         val traceRunId: String?
@@ -125,7 +124,6 @@ data class MainActivityIntentPayload(
                     maxTurns = maxTurns,
                     goalText = goalText,
                     freshSession = intent.getBooleanExtra(MainActivity.EXTRA_FRESH_SESSION, false),
-                    autoStart = intent.getBooleanExtra(MainActivity.EXTRA_AUTO_START, false),
                     debugMode = debugMode,
                     traceEnabled = traceEnabled,
                     traceRunId = traceRunId

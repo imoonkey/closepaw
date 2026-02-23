@@ -28,8 +28,7 @@ internal class ChatEventReducer(
     private val messages: SnapshotStateList<ChatMessage>,
     private val streamingBuffer: StringBuilder,
     private val stateLock: Any,
-    private val setCurrentAgentMessageId: (String?) -> Unit,
-    private val onTaskCompleted: (() -> Unit)?
+    private val setCurrentAgentMessageId: (String?) -> Unit
 ) {
     companion object {
         private const val TAG = "ChatViewModel"
@@ -135,7 +134,6 @@ internal class ChatEventReducer(
         appendCompletionToMessages(messages, completionText, event.timestamp, event.taskId)
         streamingBuffer.clear()
         setCurrentAgentMessageId(null)
-        onTaskCompleted?.invoke()
     }
 
     private fun handleError() {
