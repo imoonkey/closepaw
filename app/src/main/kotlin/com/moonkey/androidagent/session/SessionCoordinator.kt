@@ -38,6 +38,9 @@ class SessionCoordinator(private val scope: CoroutineScope) {
 
     var selectedSessionForReload: SessionInfo? = null
 
+    /** File name of the last session that died (Shutdown). Used for auto-reload. */
+    private var lastDeadSessionFileName: String? = null
+
     /**
      * Submit user input to the current session.
      *
@@ -52,6 +55,8 @@ class SessionCoordinator(private val scope: CoroutineScope) {
                 ?: return SubmitResult.NO_SESSION
             return when (session.state.value) {
                 SessionState.Shutdown -> {
+                    lastDeadSessionFileName =
+                        session.getServices().recordingService.getCurrentFileName()
                     teardownLocked()
                     SubmitResult.SESSION_DEAD
                 }
@@ -139,6 +144,18 @@ class SessionCoordinator(private val scope: CoroutineScope) {
         stateObserverJob = null
         currentSession = null
         pendingInputs.clear()
+        lastDeadSessionFileName = null
+    }
+
+    /**
+     * Consume the file name of the last session that died (Shutdown).
+     * Returns the file name and clears it so it's only used once.
+     * Used by callers to set up auto-reload from checkpoint.
+     */
+    fun consumeDeadSessionFileName(): String? {
+        val f = lastDeadSessionFileName
+        lastDeadSessionFileName = null
+        return f
     }
 
     /**
@@ -156,6 +173,7 @@ class SessionCoordinator(private val scope: CoroutineScope) {
                 Log.w(TAG, "Error shutting down session: ${e.message}")
             }
             teardownLocked()
+            lastDeadSessionFileName = null
         } finally {
             mutex.unlock()
         }

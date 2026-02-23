@@ -282,7 +282,8 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             // Try existing session first
-            when (coordinator.submit(text)) {
+            val submitResult = coordinator.submit(text)
+            when (submitResult) {
                 SubmitResult.SENT -> {
                     pendingAutoStartGoal = null
                     return@launch
@@ -291,10 +292,32 @@ class MainActivity : ComponentActivity() {
                 SubmitResult.NO_SESSION, SubmitResult.SESSION_DEAD -> { /* create new session */ }
             }
 
+            // Auto-reload: if session just died and no explicit reload target is set,
+            // recover the dead session's checkpoint so the user keeps context.
+            var autoReload = false
+            if (coordinator.selectedSessionForReload == null
+                && launchPolicy != SessionLaunchPolicy.FORCE_FRESH
+            ) {
+                val deadFileName = coordinator.consumeDeadSessionFileName()
+                val deadSessionId = sessionHistoryManager.getCurrentSessionId()
+                if (deadFileName != null && deadSessionId != null) {
+                    coordinator.selectedSessionForReload = SessionInfo(
+                        id = deadSessionId,
+                        fileName = deadFileName,
+                        startTime = 0,
+                        lastUpdated = 0,
+                        messageCount = 0,
+                        displayTitle = "",
+                        firstUserMessage = ""
+                    )
+                    autoReload = true
+                }
+            }
+
             // Create new session under coordinator's creation lock
             try {
                 val created = coordinator.createAndSubmit(text) {
-                    createOrReloadSession(service, launchPolicy)
+                    createOrReloadSession(service, launchPolicy, autoReload)
                 }
                 if (!created) {
                     // Creation lock unavailable (another creation in progress).
@@ -321,10 +344,14 @@ class MainActivity : ComponentActivity() {
     /**
      * Create or reload a session. Called inside the coordinator's creation lock.
      * Returns null to abort creation (e.g. non-reloadable checkpoint).
+     *
+     * @param autoReload If true, reload failure falls back to a fresh session
+     *   silently instead of aborting with a toast (used for dead-session recovery).
      */
     private suspend fun createOrReloadSession(
             service: AgentService,
-            launchPolicy: SessionLaunchPolicy
+            launchPolicy: SessionLaunchPolicy,
+            autoReload: Boolean = false
     ): AgentSession? {
         val apiKeys = settingsState.buildApiKeys()
         val visualizer = service.getActionVisualizer()
@@ -344,6 +371,10 @@ class MainActivity : ComponentActivity() {
             if (reloaded != null) {
                 Log.i(TAG, "Reloaded session ${reloaded.sessionId} from checkpoint")
                 reloaded
+            } else if (autoReload) {
+                Log.w(TAG, "Auto-reload failed for ${selectedForReload.id}, falling back to fresh session")
+                coordinator.selectedSessionForReload = null
+                createFreshSession(service, apiKeys, visualizer, touchGate)
             } else {
                 Log.w(TAG, "Selected session ${selectedForReload.id} has no reloadable checkpoint")
                 Toast.makeText(
