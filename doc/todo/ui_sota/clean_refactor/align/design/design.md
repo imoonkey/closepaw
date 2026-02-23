@@ -1,7 +1,7 @@
 # Clean Refactor — Aligned Design (Codex + Claude)
 
-Date: 2026-02-23  
-Status: Draft aligned baseline (awaiting Claude review)
+Date: 2026-02-23
+Status: **Complete** — All active decisions (D1–D8, D10) implemented. D9 deferred.
 
 ## 1. Alignment Summary
 
@@ -78,11 +78,20 @@ All production callsites come from `lifecycleScope`, `viewModelScope`, or servic
 
 So introducing actor/channel now adds complexity without solving an observed concurrency bug.
 
+### F8. Follow-up after Shutdown creates a new session, losing context (P1)
+
+When a session dies (Stop button, idle timeout, debug-run stop_agent), sending a follow-up
+message creates a brand new session. The user still sees the same chat on screen and expects
+continuity. Six `Op.Shutdown` trigger paths exist: Smart Capsule stop, STOP_AGENT broadcast,
+AgentService.onDestroy, runAgent session replacement, SessionCoordinator.clearSession, and
+idle timeout (5 min). Of these, Stop button and idle timeout are the cases where a follow-up
+should preserve context.
+
 ---
 
 ## 3. Aligned Refactor Decisions
 
-### D1. Deterministic clear API (P0)
+### D1. Deterministic clear API (P0) ✅
 
 Replace:
 - `fun clearSession()`
@@ -97,7 +106,7 @@ Behavior:
 
 No fire-and-forget mutation after return.
 
-### D2. Preserve user intent during compression (P0)
+### D2. Preserve user intent during compression (P0) ✅
 
 Compression rule:
 1. still truncate old tool outputs aggressively
@@ -106,14 +115,14 @@ Compression rule:
 
 Goal: supplements and user corrections become canonical preserved context.
 
-### D3. Exact session identity matching (P1)
+### D3. Exact session identity matching (P1) ✅
 
 Do not use `contains()`.  
 Parse `session-{timestamp}-{sessionId}.json` and compare exact `sessionId`.
 
 If parse fails: skip file instead of fuzzy matching.
 
-### D4+D5. Extract `SessionCoordinator` with built-in event-driven queue (P1/P2)
+### D4+D5. Extract `SessionCoordinator` with built-in event-driven queue (P1/P2) ✅
 
 Create `SessionCoordinator` to own:
 - selected session for reload
@@ -133,7 +142,7 @@ Implementation choice:
 
 Rationale: simpler, enough for current call graph, easier debugging.
 
-### D6. Deduplicate point-action execution (P1)
+### D6. Deduplicate point-action execution (P1) ✅
 
 Introduce shared point-action execution helper (name flexible, e.g. `PointActionExecutorCore`) for:
 - common target resolve/bounds/fallback/post-capture flow
@@ -144,7 +153,7 @@ Keep thin wrappers:
 
 `ScrollExecutor` stays separate (area-based semantics).
 
-### D7. Targeted `AgentSession` cleanup, not 4-way split (P2)
+### D7. Targeted `AgentSession` cleanup, not 4-way split (P2) ✅
 
 Do now:
 - flatten `handleUserInput` into explicit state `when`
@@ -154,12 +163,26 @@ Do now:
 Do not do now:
 - forced split into `LifecycleController + RuntimeLease + EventPublisher + ...`
 
-### D8. Derive checkpoint schedule state from lifecycle phase (P2)
+### D8. Derive checkpoint schedule state from lifecycle phase (P2) ✅
 
 Keep current checkpoint architecture, but make scheduled snapshot state lifecycle-aware:
 - running/paused -> `RUNNING_DIRTY`
 - idle -> `IDLE_READY`
 - shutdown path remains explicit `flushClosed()`
+
+### D10. Auto-reload session after Shutdown ("cold idle recovery") (P1) ✅
+
+When `SessionCoordinator.submit()` detects a dead session (`SessionState.Shutdown`),
+capture the dying session's recording `fileName` before teardown. On the next user input,
+`ensureSessionAndSend` constructs a `SessionInfo` from the dead ref + the still-set
+`activeSessionId` and routes through the existing `tryReloadSelectedSession` checkpoint
+reload path.
+
+Behavior:
+- Stop button / idle timeout → follow-up auto-reloads checkpoint → context preserved
+- Auto-reload failure → silent fallback to fresh session (no toast)
+- External callers (eval, debug-run) send `fresh_session=true` → `FORCE_FRESH` bypasses auto-reload
+- Explicit actions (New Session, sidebar select, clearSession) clear the dead ref
 
 ---
 
@@ -183,20 +206,23 @@ Decision:
 
 ## 5. Implementation Plan
 
-### Phase A — Must-Fix Correctness
+### Phase A — Must-Fix Correctness ✅ (commit: 6b08111)
 1. D1 deterministic clear API
 2. D2 preserve user messages in compression
 3. D3 exact session id file matching
 
-### Phase B — Structure (parallel tracks)
+### Phase B — Structure (parallel tracks) ✅ (commit: 615eab1)
 1. Track 1: D4+D5 `SessionCoordinator` extraction + built-in queue simplification
 2. Track 2: D6 executor dedup core extraction
 3. Track 3: D7 targeted `AgentSession` flatten + D8 checkpoint scheduled-state derivation
 
-### Phase C — Cleanup
+### Phase C — Cleanup ✅ (commit: 615eab1)
 1. dead code cleanup (`onTaskCompleted` no-op hook, unused `autoStart` payload if still unused)
 
-### Phase D — Optional Follow-up
+### Phase E — Cold Idle Recovery ✅ (commit: 1dd2020)
+1. D10 auto-reload from checkpoint on follow-up after Shutdown
+
+### Phase D — Optional Follow-up (Deferred)
 1. D9 persisted history hierarchy unification (separate RFC)
 
 ---
