@@ -158,6 +158,13 @@ class ChatViewModel(
                         if (shouldHandleReboundEvent(event.timestamp, replayCutoffTimestamp)) {
                             handleEvent(event)
                         }
+                        // Yield to the main looper after streaming deltas so Compose
+                        // can recompose between frames (renders incremental text).
+                        // Without this, rapid deltas batch in the SharedFlow buffer
+                        // and the collector processes them all in one frame.
+                        if (event is MessageDelta) {
+                            kotlinx.coroutines.delay(1)
+                        }
                     }
                 }
     }
