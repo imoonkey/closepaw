@@ -1,14 +1,15 @@
 # Session History Persistence
 
 > Session recording, storage, runtime prompt history, and resume functionality.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-22 (commit: 2d13bb1)
 
 ## Overview
 
-The session history system has two layers:
+The session history system has three layers:
 
 1. **Persistence layer** — automatic recording of chat sessions to disk for browsing and resuming past conversations
 2. **Runtime layer** — in-memory conversation history management for LLM context with token budgeting and truncation
+3. **Checkpoint layer** — session state snapshots for process-death recovery (history + todos + scratchpad)
 
 ---
 
@@ -58,6 +59,7 @@ class SessionHistoryManager(storage, recordingService, scope) {
     fun startNewSession(model: String?, appVersion: String?): String
     fun resumeSession(data: ResumedSessionData)
     fun getCurrentSessionId(): String?
+    fun setActiveSessionId(sessionId: String?)    // Bridge for per-session RS
     fun hasActiveSession(): Boolean
     fun endSession(reason: CompletionReason)
     fun getRecordingService(): SessionRecordingService
@@ -65,6 +67,8 @@ class SessionHistoryManager(storage, recordingService, scope) {
 ```
 
 Session info caching uses `ConcurrentHashMap<String, CachedSessionInfo>` with file modification time checks — entries are re-read only when the file has been updated. Protected by `Mutex` for concurrent access.
+
+**Active session tracking:** Two `SessionRecordingService` instances exist — one in `SessionHistoryManager` (manages sidebar listing) and a per-session one in `SessionServices` (records actual events). `externalActiveSessionId` bridges this gap so the sidebar can correctly identify the active session. Set by `MainActivity` at session lifecycle boundaries (create, rebind, clear).
 
 ### SessionRecordingService
 
@@ -122,15 +126,20 @@ Low-level file I/O operations.
 class SessionStorage(context) {
     suspend fun writeSession(fileName, record: SessionRecord): Result<Unit>
     suspend fun readSession(fileName): Result<SessionRecord>
+    suspend fun writeSnapshot(fileName, snapshot: SessionRuntimeSnapshot): Result<Unit>
+    suspend fun readSnapshot(fileName): Result<SessionRuntimeSnapshot>
     suspend fun listSessionFiles(): List<File>
     suspend fun deleteSession(fileName): Result<Unit>
+    suspend fun deleteSessionPair(fileName): Result<Unit>  // session + context files
     fun generateFileName(sessionId): String
+    fun contextFileNameFor(sessionFileName): String
     fun sessionExists(fileName): Boolean
 }
 ```
 
 - **Storage location**: `/data/data/{package}/files/sessions/`
-- **File naming**: `session-{yyyy-MM-ddTHH-mm-ss}-{uuid}.json`
+- **Session files**: `session-{yyyy-MM-ddTHH-mm-ss}-{uuid}.json`
+- **Context files**: `context-{yyyy-MM-ddTHH-mm-ss}-{uuid}.json` (checkpoint snapshots)
 - **JSON config**: pretty print, ignore unknown keys, encode defaults
 - All I/O on `Dispatchers.IO`
 
@@ -335,7 +344,14 @@ AgentEvent                     SessionRecordingService              File
     │                                    │                            │
     │ TaskCompleted                      │                            │
     │───────────────────────────────────►│ completeAgentMessage()     │
-    │                                    │ completeSession()          │
+    │                                    │───────────────────────────►│
+    │                                    │ (immediate save)           │
+    │                                    │                            │
+    │  (session enters Hot Idle,         │                            │
+    │   follow-up starts new task)       │                            │
+    │                                    │                            │
+    │ SessionCompleted (shutdown only)   │                            │
+    │───────────────────────────────────►│ completeSession()          │
     │                                    │───────────────────────────►│
     │                                    │ (immediate save)           │
 ```
@@ -346,21 +362,23 @@ AgentEvent                     SessionRecordingService              File
 
 ```
 history/
-├── HistoryManager.kt              # Runtime prompt history (token budget, truncation)
+├── HistoryManager.kt              # Runtime prompt history (token budget, truncation, mutation listener)
 ├── HistoryConfig.kt               # Configuration (TruncationPolicy, token budgets)
 ├── ResponseItem.kt                # Conversation items (Message, FunctionCall, FunctionCallOutput)
-├── SessionHistoryManager.kt       # High-level session management (list, load, delete, resume)
+├── SessionHistoryManager.kt       # High-level session management (list, load, delete, resume, active tracking)
 ├── SessionRecordingService.kt     # Real-time event recording (debounced saves)
 ├── AgentMessageBuffer.kt          # Streaming agent message buffer (text + actions)
 ├── SessionRecordMessageMerger.kt  # Merge agent snapshots into SessionRecord
 ├── model/
 │   ├── SessionRecord.kt           # Complete session data + metadata
+│   ├── SessionRuntimeSnapshot.kt  # Checkpoint snapshot (history + todos + scratchpad + config)
+│   ├── HistoryItemConverter.kt    # ResponseItem ↔ serializable conversion for checkpoints
 │   ├── MessageRecord.kt           # Message types + content blocks
-│   ├── SessionInfo.kt             # Lightweight session summary
+│   ├── SessionInfo.kt             # Lightweight session summary (isActive flag)
 │   ├── ScreenStateRecord.kt       # Screen state reference (paths for replay/debug)
 │   └── MessageConverter.kt        # ChatMessage ↔ MessageRecord conversion
 └── storage/
-    └── SessionStorage.kt          # File I/O operations
+    └── SessionStorage.kt          # File I/O operations (session + context files)
 ```
 
 ---
@@ -368,6 +386,8 @@ history/
 ## Related Docs
 
 - [UI User Interaction](../ui/user_interaction.md) - Session history UI
+- [Session State Machine](../ui/session/state_machine.md) - Checkpoint coordination details
+- [Session User Flows](../ui/session/user_flows.md) - Recording coordination across dual RS instances
 - [Protocol](../protocol/protocol.md) - Events that trigger recording
 - [Session](../infra/session.md) - AgentSession lifecycle
 - [Planning](../agent/planning.md) - HistoryManager token budget in agent context

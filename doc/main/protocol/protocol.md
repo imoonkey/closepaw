@@ -1,7 +1,7 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-22 (commit: 2d13bb1)
 
 ## Overview
 
@@ -212,6 +212,7 @@ Both `TaskCompleted` and `SessionCompleted` carry a `reason: CompletionReason`.
 | `TASK_IMPOSSIBLE` | Agent decided task cannot be completed |
 | `ERROR` | Error occurred |
 | `INTERRUPTED` | Session interrupted |
+| `IDLE_TIMEOUT` | Session auto-shutdown after 5-minute idle timeout |
 
 ### Todo Models
 
@@ -231,12 +232,11 @@ enum class TodoStatus { PENDING, IN_PROGRESS, COMPLETED, CANCELLED }
 
 ```kotlin
 sealed interface SessionState {
-    object Created : SessionState
-    object Running : SessionState
-    object Idle : SessionState
-    object Paused : SessionState
-    object Completed : SessionState
-    object Shutdown : SessionState
+    data object Created  : SessionState  // constructed, not yet started
+    data object Running  : SessionState  // actively executing a task
+    data object Idle     : SessionState  // between tasks (Hot Idle)
+    data object Paused   : SessionState  // cooperative takeover
+    data object Shutdown : SessionState  // terminal — all resources released
 }
 ```
 
@@ -244,10 +244,11 @@ sealed interface SessionState {
 |-------|-------------|
 | `Created` | Session initialized, not started |
 | `Running` | Agent actively executing a task |
-| `Idle` | Session active, waiting for user input (no task running) |
+| `Idle` | Between tasks — Hot Idle (lightweight state in memory, expensive resources released) |
 | `Paused` | Execution paused cooperatively (user took over) |
-| `Completed` | Session finished (terminal) |
-| `Shutdown` | User requested stop (terminal) |
+| `Shutdown` | Session terminated, all resources released (terminal) |
+
+> See: [Session State Machine](../ui/session/state_machine.md) for formal transition rules and resource ownership.
 
 ---
 
@@ -383,7 +384,7 @@ protocol/
 ├── AgentEventDomains.kt      # 12 domain marker interfaces
 ├── AgentError.kt             # Error hierarchy (sealed class)
 ├── SessionConfig.kt          # Session configuration (SessionLlmConfig, PlatformMode, etc.)
-├── SessionState.kt           # Session state machine (sealed interface)
+├── SessionState.kt           # Session state machine (5 states: Created/Running/Idle/Paused/Shutdown)
 ├── SessionId.kt              # Session identifier (@JvmInline value class)
 ├── CompletionReason.kt       # Why session/task completed (enum)
 ├── SessionLifecycleEvents.kt # Session started/completed/error/takeover/resumed

@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-22 (commit: 2d13bb1)
 
 ## Overview
 
@@ -163,14 +163,18 @@ Special cases:
 
 ### Executor Fallback Chains
 
+> Priority order centralized in `tool/action/ActionPriorityOrder.kt`
+
 | Action | Attempt 1 | Attempt 2 | On All Fail |
 |--------|-----------|-----------|-------------|
-| click | `TapAt(x,y)` | `ClickNodeAt(x,y)` (semantic targets only) | Failed with trail |
-| long_press | `LongPressAt(x,y,ms)` | `LongClickNodeAt(x,y)` (semantic targets only) | Failed with trail |
+| click | `ClickNodeAt(x,y)` | `TapAt(x,y)` (semantic targets only) | Failed with trail |
+| long_press | `LongClickNodeAt(x,y)` | `LongPressAt(x,y,ms)` (semantic targets only) | Failed with trail |
 | type (with target) | `SetTextOnNodeAt(x,y)` | `TapAt` → `SetTextOnFocused` | Failed with trail |
 | type (no target) | `SetTextOnFocused` | — | Failed |
-| scroll | `Swipe(center→edge)` | `ScrollNodeAt(x,y,direction)` | Failed with trail |
+| scroll | `ScrollNodeAt(x,y,direction)` | `Swipe(center→edge)` | Failed with trail |
 | swipe | `Swipe(start,end)` | — | Failed |
+
+**Node-first priority** (click, long_press, scroll): Accessibility node actions are attempted first because they are more reliable with semantic targets (text/element_index). Gesture injection is the fallback for coordinate-only targets or when node lookup fails.
 
 Successful attempts capture a post-action snapshot after a settle delay and attach a `ToolObservation`.
 
@@ -251,7 +255,8 @@ tool/
 ├── action/                   # Executor layer (mobile_action)
 │   ├── Target.kt             # Targeting sealed interface
 │   ├── ActionOutcome.kt      # Executor result type
-│   ├── ClickExecutor.kt      # Click fallback chain
+│   ├── ActionPriorityOrder.kt # Centralized action priority (node-first vs gesture-first)
+│   ├── ClickExecutor.kt      # Click fallback chain (node-first)
 │   ├── LongPressExecutor.kt  # Long press fallback chain
 │   ├── TypeExecutor.kt       # Focus-then-type flow
 │   ├── ScrollExecutor.kt     # Content-direction scroll cascade

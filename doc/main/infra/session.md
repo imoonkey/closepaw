@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionServices, and session lifecycle.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-22 (commit: 2d13bb1)
 
 ## AgentSession
 
@@ -14,6 +14,8 @@ Thin lifecycle manager. It does not implement planning/action logic directly.
 - Emit `AgentEvent` to UI (SharedFlow with replay=8, buffer=64)
 - Manage session state transitions (`Created`/`Running`/`Paused`/`Idle`/`Shutdown`)
 - Manage per-task lifecycle via `handleUserInput()`
+- Coordinate checkpoint persistence via `SessionCheckpointCoordinator`
+- Manage Hot Idle (platform release, idle timeout, follow-up re-acquisition)
 - Delegate runtime start/stop to `SessionAgentRunner`
 
 ### Key Methods
@@ -28,20 +30,49 @@ class AgentSession {
 
 ### Platform Lifecycle
 
-On first transition from `Created` → `Running` (first `UserInput`), `AgentSession` calls `platform.start()` to initialize platform resources (e.g., virtual display creation). This is a one-time call per session.
+Platform resources are acquired per-task, not per-session:
 
-Platform selection is delegated to `PlatformFactory.create()` based on `SessionConfig.platformMode`.
+- `Created → Running` (first task): `platform.start()`
+- `Running → Idle` (task complete): `platform.stop()` — releases VirtualDisplay, ImageReader
+- `Idle → Running` (follow-up): `platform.start()` — re-acquires resources
+- `Any → Shutdown`: `services.cleanup()` → `platform.stop()`
+
+If `platform.start()` fails on follow-up, session re-arms idle timeout and stays in Idle.
 
 → See: [Platform](platform.md) for `PlatformFactory` and `VirtualDisplayPlatform` details.
 
 ### State Transitions
 
 ```
-Created ──(UserInput + platform.start())──► Running ──(TaskCompleted)──► Idle ──(UserInput)──► Running
-                                                                          │
-                                                                          ▼
-                                                                      Shutdown
+Created ──(UserInput)──► Running ──(Takeover)──► Paused
+                           │  ▲                    │
+                           │  └────(Resume)────────┘
+                           │
+                           └──(TaskCompleted)──► Idle ──(UserInput)──► Running
+                                                  │
+                                 Any ──(Shutdown)──► Shutdown ◄──(IdleTimeout)──┘
 ```
+
+> See: [Session State Machine](../ui/session/state_machine.md) for formal transition table and resource ownership.
+
+### Hot Idle
+
+After task completion, the session enters `Idle` instead of shutting down. Expensive resources (platform, agent runner) are released; lightweight state (history, todos, scratchpad, LLM client) stays in memory for instant follow-up. Auto-shutdown after 5 minutes of inactivity (`IDLE_TIMEOUT_MS = 300_000`).
+
+→ See: [Session User Flows](../ui/session/user_flows.md) for follow-up task flow.
+
+### Checkpoint Coordination
+
+→ See: `session/SessionCheckpointCoordinator.kt`
+
+Persists session state for process-death recovery. Writes `context-*.json` files alongside `session-*.json`. Watches `HistoryManager`, `TodoState`, and `ScratchpadState` mutation listeners to schedule incremental checkpoints.
+
+| CheckpointState | Written when |
+|-----------------|-------------|
+| `IDLE_READY` | Task completion (`flushIdleReady()`) |
+| `CLOSED` | Session shutdown (`flushClosed()`) |
+
+`AgentSession.reload(snapshot)` hydrates a new session from a `SessionRuntimeSnapshot`, restoring history/todos/scratchpad. Returns session in `Created` state.
 
 ---
 
@@ -213,6 +244,8 @@ Suspension bridge between the `ask_user` tool and the UI. Uses `AtomicReference<
 ## Related Docs
 
 - [Agent Overview](../agent/overview.md) - Architecture context
+- [Session State Machine](../ui/session/state_machine.md) - Formal transition rules and resource ownership
+- [Session User Flows](../ui/session/user_flows.md) - Session/task user interaction flows
 - [Protocol](../protocol/protocol.md) - Op/Event details
 - [Tools](tools.md) - Tool execution
 - [LLM](llm.md) - LLM clients in SessionServices

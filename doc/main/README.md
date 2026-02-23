@@ -1,7 +1,7 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-22 (commit: 2d13bb1)
 
 ## Quick Start
 
@@ -45,7 +45,13 @@ doc/main/
     ├── style.md       # Design system: colors, typography, shapes
     ├── tech_design.md # Technical implementation: ViewModel, event reducers
     ├── user_interaction.md # Pages, user flows, event→UI mapping
-    └── overlay.md     # Smart Capsule, Edge Glow, Island, Visualizer
+    ├── overlay.md     # Smart Capsule, Edge Glow, Island, Visualizer
+    ├── capsule/       # Capsule state machine + user flows
+    │   ├── state_machine.md
+    │   └── user_flows.md
+    └── session/       # Session lifecycle state machine + user flows
+        ├── state_machine.md
+        └── user_flows.md
 ```
 
 ---
@@ -78,12 +84,13 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │       └── SubAgentRunner.kt     # AgentDefRegistry + runner + executor preset
 │
 ├── session/                      # Session management
-│   ├── AgentSession.kt           # Lifecycle manager (bootstrap → run → teardown)
+│   ├── AgentSession.kt           # Lifecycle manager (bootstrap → run → Hot Idle → teardown)
 │   ├── SessionAgentRunner.kt     # Mode-based agent runner + delegate tool wiring
 │   ├── SessionServices.kt        # Dependency injection container
+│   ├── SessionCheckpointCoordinator.kt # Checkpoint persistence for process-death recovery
 │   ├── AgentSessionState.kt      # Shared state container
-│   ├── TodoState.kt              # Planning state
-│   └── ScratchpadState.kt        # Key-value memory state
+│   ├── TodoState.kt              # Planning state (with mutation listener)
+│   └── ScratchpadState.kt        # Key-value memory state (with mutation listener)
 │
 ├── tool/                         # Tool system
 │   ├── ToolSpec.kt               # Tool interface
@@ -121,7 +128,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   ├── Op.kt                     # Operations (UI → Agent, 8 ops)
 │   ├── AgentEvent.kt             # Events (Agent → UI, base sealed interface)
 │   ├── AgentEventDomains.kt      # 12 domain marker interfaces
-│   ├── SessionState.kt           # State machine (6 states)
+│   ├── SessionState.kt           # State machine (5 states: Created/Running/Idle/Paused/Shutdown)
 │   ├── SessionConfig.kt          # Session configuration (12 fields)
 │   ├── AgentError.kt             # Error types (11 variants)
 │   ├── ApprovalTypes.kt          # Approval decision types
@@ -214,7 +221,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 | Agent behavior | [loop.md](agent/loop.md), [turn_prompt_anatomy.md](agent/turn_prompt_anatomy.md), [planning.md](agent/planning.md) |
 | Multi-agent | [multiagent.md](agent/multiagent.md) |
 | Adding tools | [tools.md](infra/tools.md) |
-| Session lifecycle | [session.md](infra/session.md) |
+| Session lifecycle | [session.md](infra/session.md), [session/](ui/session/state_machine.md) |
 | Screen perception | [platform.md](infra/platform.md) |
 | LLM integration | [llm.md](infra/llm.md) |
 | UI changes | [tech_design.md](ui/tech_design.md) |
@@ -236,6 +243,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 | **Op** | User intent (UI → Agent) | [protocol.md](protocol/protocol.md) |
 | **AgentEvent** | State notification (Agent → UI) | [protocol.md](protocol/protocol.md) |
 | **SessionConfig** | Compiled settings snapshot for a session | [settings.md](app/settings.md) |
+| **Hot Idle** | Session stays alive between tasks for follow-up | [session/](ui/session/state_machine.md) |
 | **CapsuleMode** | Smart Capsule state (Running, Takeover, etc.) | [overlay.md](ui/overlay.md) |
 | **Context Hygiene** | Token-efficient history management | [planning.md](agent/planning.md) |
 

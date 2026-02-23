@@ -1,7 +1,7 @@
 # Platform Abstraction
 
 > AndroidPlatform, Perceptor, screen perception, and virtual display support.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-22 (commit: 2d13bb1)
 
 ## AndroidPlatform
 
@@ -58,7 +58,7 @@ Shizuku availability and permission are checked at creation time. Fallback is lo
 
 > See: `platform/AccessibilityPlatform.kt`
 
-Implementation using Android Accessibility APIs. Constructor takes `AccessibilityService`, `SessionConfig`, optional `ActionVisualizerManager` (for UI ripple/trail feedback), and `TraceRecorder`.
+Implementation using Android Accessibility APIs. Constructor takes `AccessibilityService`, `SessionConfig`, optional `ActionVisualizerManager` (for UI ripple/trail feedback), optional `OverlayTouchGate` (for gesture pass-through), and `TraceRecorder`.
 
 ### Atomic Platform Principle
 
@@ -84,14 +84,22 @@ override suspend fun performAction(action: UIAction): ActionResult = when (actio
 ```
 
 Visualizer feedback: `ClickNodeAt` and `LongClickNodeAt` trigger `visualizer?.showClick()` before executing the node action, showing ripple effects on-screen.
-`performSwipe()` clamps coordinates to display bounds and applies a right-edge inset for leftward swipes to reduce gesture-nav interception on physical displays.
+`performSwipe()` clamps coordinates to display bounds.
+
+### OverlayTouchGate
+
+> See: `platform/OverlayTouchGate.kt`
+
+Coordinates between overlay touch interception and gesture injection. During `dispatchGesture` calls, the system overlay must become touch-passthrough to avoid intercepting the injected gesture. `OverlayTouchGate` brackets gesture injection with `acquirePassthrough()` / `releasePassthrough()` calls that temporarily set `FLAG_NOT_TOUCHABLE` on overlay windows.
+
+Integrated into `AccessibilityGestureInjector` — all gesture-based actions (tap, long-press, swipe) automatically acquire/release the gate.
 
 ### Component Structure
 
 ```text
 AccessibilityPlatform (orchestrator)
 ├── NodeActionPerformer             # Shared node actions (click/long-click/set-text/scroll/enter)
-├── AccessibilityGestureInjector    # Gesture/global-action dispatch (tap/swipe/system buttons)
+├── AccessibilityGestureInjector    # Gesture/global-action dispatch + OverlayTouchGate integration
 ├── AccessibilityScreenshotCapturer # Screenshot capture + trace persistence
 ├── AppManager                      # Shared installed-app query (PackageManager)
 └── BitmapUtils                     # Shared bitmap scaling + JPEG compression
@@ -384,7 +392,8 @@ platform/
 ├── AndroidPlatform.kt         # Interface (with start/stop lifecycle, DisplayInfo, AppInfo)
 ├── PlatformFactory.kt         # Platform selection (checks SessionConfig.platformMode + Shizuku)
 ├── AccessibilityPlatform.kt   # Implementation using Accessibility APIs
-├── AccessibilityGestureInjector.kt  # Gesture dispatch (tap/swipe/long-press/system buttons)
+├── AccessibilityGestureInjector.kt  # Gesture dispatch + OverlayTouchGate bracket
+├── OverlayTouchGate.kt        # Gesture pass-through for overlay windows
 ├── AccessibilityScreenshotCapturer.kt # Screenshot capture + trace persistence
 ├── AccessibilityNodeFinder.kt # Node search helpers (shared by both platforms)
 ├── NodeActionPerformer.kt     # Shared node action executor (click/text/scroll/enter)

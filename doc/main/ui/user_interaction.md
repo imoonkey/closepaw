@@ -1,7 +1,7 @@
 # UI User Interaction
 
 > Pages, components, and user interaction flows.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-22 (commit: 2d13bb1)
 
 ## Overview
 
@@ -111,7 +111,7 @@ Opens via menu button (≡). Contains session history and settings access.
 | `MessageDelta` | Append to agent bubble, show streaming cursor |
 | `ActionProposed` | Add action card (Proposed state) |
 | `ActionExecuted` | Update action card state + result |
-| `TaskCompleted` | Append completion text, mark bubble Complete |
+| `TaskCompleted` | Append completion text, mark bubble Complete. Session enters Hot Idle (follow-up available). |
 | `SessionError` | Mark bubble Complete |
 | `SupplementReceived` | Add user message for supplement |
 | `ThoughtUpdate` | Update capsule thought text |
@@ -139,7 +139,10 @@ User types in capsule input → taps Send
     └──► Agent response streams in message bubble
                 │
                 └──► Task complete, capsule returns to idle
+                     (session stays alive in Hot Idle for follow-up)
 ```
+
+> See: [Session User Flows](session/user_flows.md) for full session lifecycle, follow-up tasks, reload, and shutdown flows.
 
 ### Takeover Flow
 
@@ -206,6 +209,8 @@ Task completes with GOAL_ACHIEVED in VirtualDisplay mode:
 
 - [State Machine](capsule/state_machine.md) - Formal state vector, transition rules, visibility decision machine
 - [User Flows](capsule/user_flows.md) - Location x platform interaction matrix
+- [Session State Machine](session/state_machine.md) - Session lifecycle state machine (Hot Idle, checkpoint)
+- [Session User Flows](session/user_flows.md) - Session lifecycle user flows (follow-up, reload, shutdown)
 - [Tech Design](tech_design.md) - Technical implementation
 - [Style Guide](style.md) - Design system
 - [Overlay](overlay.md) - Smart Capsule, Edge Glow, Action Visualizer
