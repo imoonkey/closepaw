@@ -18,5 +18,8 @@ enum class CompletionReason {
     ERROR,
 
     /** Session was interrupted. */
-    INTERRUPTED
+    INTERRUPTED,
+
+    /** Session auto-shutdown after idle timeout. */
+    IDLE_TIMEOUT
 }

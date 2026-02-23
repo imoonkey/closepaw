@@ -198,7 +198,8 @@ class SessionRecordingService(
         val completedNormally = when (reason) {
             CompletionReason.GOAL_ACHIEVED, CompletionReason.MAX_TURNS -> true
             CompletionReason.USER_STOPPED, CompletionReason.TASK_IMPOSSIBLE,
-            CompletionReason.ERROR, CompletionReason.INTERRUPTED -> false
+            CompletionReason.ERROR, CompletionReason.INTERRUPTED,
+            CompletionReason.IDLE_TIMEOUT -> false
         }
         val pendingSave: Job? =
                 synchronized(stateLock) {

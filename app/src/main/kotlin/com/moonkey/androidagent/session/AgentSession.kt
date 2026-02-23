@@ -17,6 +17,7 @@ import com.moonkey.androidagent.trace.TraceRecorderFactory
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,9 @@ private constructor(
         private const val TAG = "AgentSession"
 
         private const val EVENT_DELIVERY_GRACE_PERIOD_MS = 100L
+
+        /** Hot Idle timeout: auto-shutdown after 5 minutes of inactivity. */
+        private const val IDLE_TIMEOUT_MS = 300_000L
 
         fun create(
                 config: SessionConfig,
@@ -208,9 +212,11 @@ private constructor(
 
     private var currentTaskId: String? = null
 
-    private val completionEmitted = AtomicBoolean(false)
+    /** Idle timeout job — auto-triggers Shutdown after [IDLE_TIMEOUT_MS] of inactivity. */
+    private var idleTimeoutJob: Job? = null
 
     private val channelCloseScheduled = AtomicBoolean(false)
+
     suspend fun submit(op: Op) {
         Log.d(TAG, "Received Op: $op (current state: ${_state.value})")
 
@@ -251,12 +257,7 @@ private constructor(
             return
         }
 
-        if (_state.value == SessionState.Completed) {
-            Log.w(TAG, "Rejecting UserInput: Session is completed and cannot accept new tasks")
-            emitStatus("⚠️ Session finished. Start a new task to continue.")
-            return
-        }
-
+        // First task: initialize recording + platform
         if (_state.value == SessionState.Created) {
             val recorderSessionId = services.recordingService.getCurrentSessionId()
             if (recorderSessionId == null || recorderSessionId != sessionId.value) {
@@ -283,6 +284,20 @@ private constructor(
             )
         }
 
+        // Hot Idle follow-up: cancel timeout, re-acquire platform
+        if (_state.value == SessionState.Idle) {
+            cancelIdleTimeout()
+            try {
+                services.platform.start()
+            } catch (e: Exception) {
+                Log.e(TAG, "Platform restart failed on follow-up", e)
+                emitStatus("⚠️ Platform restart failed: ${e.message}")
+                scheduleIdleTimeout() // re-arm so session doesn't leak in Idle
+                return
+            }
+            Log.i(TAG, "Hot Idle follow-up: platform re-acquired")
+        }
+
         val taskId = "task-${System.currentTimeMillis()}"
         currentTaskId = taskId
         _state.value = SessionState.Running
@@ -301,6 +316,13 @@ private constructor(
         Log.i(TAG, "Task started: $taskId, input: ${op.text}")
     }
 
+    /**
+     * Handle agent task completion — transition to Hot Idle.
+     *
+     * Releases expensive resources (platform, agent runner) but keeps
+     * lightweight conversation state in memory for instant follow-up.
+     * Schedules idle timeout for auto-shutdown.
+     */
     private suspend fun handleAgentComplete(reason: AgentStopReason) {
         if (_state.value == SessionState.Shutdown) {
             return
@@ -315,6 +337,7 @@ private constructor(
                     else -> null
                 }
 
+        // 1. Emit TaskCompleted (per-task event, not session-level)
         emit(
                 TaskCompleted(
                         sessionId = sessionId,
@@ -325,38 +348,29 @@ private constructor(
                 )
         )
 
+        // 2. Flush checkpoint for process-death recovery
         val checkpointed = checkpointCoordinator.flushIdleReady()
         if (!checkpointed) {
-            _state.value = SessionState.Idle
-            currentTaskId = null
-            agentRunner.clear()
             emitStatus("⚠️ Checkpoint save failed; session kept alive in memory.")
-            Log.e(TAG, "Task $taskId completed but checkpoint failed; keeping session alive")
-            return
+            Log.e(TAG, "Checkpoint save failed for task $taskId; session kept alive in memory")
         }
 
-        _state.value = SessionState.Completed
+        // 3. Transition to Idle (Hot Idle)
+        _state.value = SessionState.Idle
         currentTaskId = null
+
+        // 4. Release expensive resources only
         agentRunner.clear()
-        disableCheckpointMutationListeners()
         try {
-            services.cleanup()
+            services.platform.stop()
         } catch (e: Exception) {
-            Log.e(TAG, "Service cleanup failed after task completion", e)
+            Log.e(TAG, "Platform stop failed after task completion", e)
         }
 
-        if (completionEmitted.compareAndSet(false, true)) {
-            emit(
-                    SessionCompleted(
-                            sessionId = sessionId,
-                            timestamp = now(),
-                            result = resultMessage,
-                            reason = completionReason
-                    )
-            )
-        }
-        closeChannelWithDelay()
-        Log.i(TAG, "Task $taskId completed (reason=$completionReason). Session completed and cleaned up.")
+        // 5. Schedule idle timeout (auto-shutdown after inactivity)
+        scheduleIdleTimeout()
+
+        Log.i(TAG, "Task $taskId completed (reason=$completionReason). Session idle, awaiting follow-up.")
     }
 
     private fun AgentStopReason.toCompletionReason(): CompletionReason =
@@ -438,10 +452,18 @@ private constructor(
     }
 
     private suspend fun handleShutdown() {
+        // Idempotency guard — safe against double-call from timeout + explicit shutdown
+        if (_state.value == SessionState.Shutdown) {
+            Log.d(TAG, "Already shut down, ignoring duplicate Shutdown")
+            return
+        }
+
         Log.i(TAG, "Shutting down session: $sessionId")
 
         val previousState = _state.value
         _state.value = SessionState.Shutdown
+
+        cancelIdleTimeout()
 
         val closedCheckpointSaved = checkpointCoordinator.flushClosed()
         if (!closedCheckpointSaved) {
@@ -455,20 +477,19 @@ private constructor(
 
         services.cleanup()
 
-        if (completionEmitted.compareAndSet(false, true)) {
-            val reason = when (previousState) {
-                SessionState.Running, SessionState.Paused -> CompletionReason.USER_STOPPED
-                else -> CompletionReason.INTERRUPTED
-            }
-            emit(
-                    SessionCompleted(
-                            sessionId = sessionId,
-                            timestamp = now(),
-                            result = null,
-                            reason = reason
-                    )
-            )
+        val reason = when (previousState) {
+            SessionState.Running, SessionState.Paused -> CompletionReason.USER_STOPPED
+            SessionState.Idle -> CompletionReason.IDLE_TIMEOUT
+            else -> CompletionReason.INTERRUPTED
         }
+        emit(
+                SessionCompleted(
+                        sessionId = sessionId,
+                        timestamp = now(),
+                        result = null,
+                        reason = reason
+                )
+        )
 
         closeChannelWithDelay()
     }
@@ -496,6 +517,24 @@ private constructor(
             Log.e(TAG, "Failed to emit event: $event", e)
         }
     }
+
+    // ===== Idle Timeout =====
+
+    private fun scheduleIdleTimeout() {
+        idleTimeoutJob?.cancel()
+        idleTimeoutJob = scope.launch {
+            delay(IDLE_TIMEOUT_MS)
+            Log.i(TAG, "Idle timeout expired, auto-shutting down session $sessionId")
+            handleShutdown()
+        }
+    }
+
+    private fun cancelIdleTimeout() {
+        idleTimeoutJob?.cancel()
+        idleTimeoutJob = null
+    }
+
+    // ===== Channel Lifecycle =====
 
     private fun closeChannelWithDelay() {
         if (!channelCloseScheduled.compareAndSet(false, true)) {

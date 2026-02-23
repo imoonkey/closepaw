@@ -112,16 +112,7 @@ class MainActivity : ComponentActivity() {
                         sessionHistoryManager = sessionHistoryManager,
                         onSessionNeeded = { text -> ensureSessionAndSend(text) },
                         onTaskCompleted = {
-                            lifecycleScope.launch {
-                                delay(50)
-                                val state = currentSession?.state?.value
-                                if (state == SessionState.Completed || state == SessionState.Shutdown) {
-                                    currentSession = null
-                                    Log.d(TAG, "Task completed; cleared terminal session reference")
-                                } else {
-                                    Log.d(TAG, "Task completed (session state=$state)")
-                                }
-                            }
+                            Log.d(TAG, "Task completed; session remains in Idle for follow-up")
                         }
                 )
 
@@ -319,7 +310,7 @@ class MainActivity : ComponentActivity() {
                     val active = currentSession
                     if (active != null) {
                         when (active.state.value) {
-                            SessionState.Completed, SessionState.Shutdown -> {
+                            SessionState.Shutdown -> {
                                 currentSession = null
                                 ensureSessionAndSend(text, launchPolicy)
                             }
@@ -418,7 +409,7 @@ class MainActivity : ComponentActivity() {
             pendingAutoStartGoal = null
             val session = currentSession
             when (session?.state?.value) {
-                null, SessionState.Shutdown, SessionState.Completed -> {
+                null, SessionState.Shutdown -> {
                     currentSession = null
                     ensureSessionAndSend(text, launchPolicy)
                     return

@@ -114,6 +114,7 @@ internal class AgentServiceEventHandler(
                     CompletionReason.TASK_IMPOSSIBLE -> "❌ Task cannot be completed"
                     CompletionReason.ERROR -> "❌ Session ended with error"
                     CompletionReason.INTERRUPTED -> "🛑 Session interrupted"
+                    CompletionReason.IDLE_TIMEOUT -> "💤 Session timed out"
                 }
                 updateStatus(statusMessage)
                 overlay?.onSessionCompleted(event.reason)

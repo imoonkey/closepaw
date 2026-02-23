@@ -219,6 +219,7 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
             CompletionReason.USER_STOPPED -> CapsuleMode.Done("Stopped")
             CompletionReason.ERROR -> CapsuleMode.Error("Error occurred")
             CompletionReason.INTERRUPTED -> CapsuleMode.Done("Interrupted")
+            CompletionReason.IDLE_TIMEOUT -> CapsuleMode.Done("Session timed out")
         }
         setMode(mode)
         if (mode is CapsuleMode.Done) scheduleAutoHide()
@@ -242,7 +243,8 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
                 scheduleAutoHide()
             }
             CompletionReason.USER_STOPPED,
-            CompletionReason.INTERRUPTED -> {
+            CompletionReason.INTERRUPTED,
+            CompletionReason.IDLE_TIMEOUT -> {
                 setMode(CapsuleMode.Hidden)
             }
             CompletionReason.ERROR -> {
