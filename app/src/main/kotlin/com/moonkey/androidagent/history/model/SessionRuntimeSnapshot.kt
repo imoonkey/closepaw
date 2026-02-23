@@ -14,6 +14,13 @@ data class SessionRuntimeSnapshot(
     val lastCheckpointAt: Long
 )
 
+/**
+ * Serializable mirror of [com.moonkey.androidagent.history.ResponseItem] for checkpoint persistence.
+ *
+ * Exists because [ResponseItem.FunctionCall.arguments] is a [org.json.JSONObject] (not
+ * kotlinx-serializable). This type stores it as [FunctionCall.argumentsRawJson] instead.
+ * Conversion is handled by [HistoryItemConverter] (two call-sites: save and reload).
+ */
 @Serializable
 sealed interface PersistedHistoryItem {
     @Serializable

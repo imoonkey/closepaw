@@ -375,7 +375,7 @@ history/
 ├── model/
 │   ├── SessionRecord.kt           # Complete session data + metadata
 │   ├── SessionRuntimeSnapshot.kt  # Checkpoint snapshot (history + todos + scratchpad + config)
-│   ├── HistoryItemConverter.kt    # ResponseItem ↔ serializable conversion for checkpoints
+│   ├── HistoryItemConverter.kt    # ResponseItem ↔ PersistedHistoryItem conversion (JSONObject ↔ String)
 │   ├── MessageRecord.kt           # Message types + content blocks
 │   ├── SessionInfo.kt             # Lightweight session summary (isActive flag)
 │   ├── ScreenStateRecord.kt       # Screen state reference (paths for replay/debug)
