@@ -214,16 +214,15 @@ class HistoryManager(
     
     /**
      * Compress history to fit within token budget.
-     * 
+     *
      * Strategies:
      * 1. Truncate old tool outputs more aggressively
-     * 2. Remove oldest items
-     * 3. Summarize old conversations (future)
+     * 2. Remove oldest non-user items (user messages are preserved to maintain intent)
      */
     @Synchronized
     fun compress(targetTokens: Long) {
         Log.d(TAG, "Compressing history from ${estimateTokenCount()} to $targetTokens tokens")
-        
+
         // Strategy 1: Apply aggressive truncation to older tool outputs
         val threshold = items.size / 2 // First half of history
         for (i in 0 until threshold) {
@@ -233,12 +232,26 @@ class HistoryManager(
             }
         }
         lastTokenEstimate = null
-        
-        // Strategy 2: Remove oldest items until within budget
+
+        // Strategy 2: Remove oldest non-user items until within budget.
+        // User messages are preserved to maintain task intent and corrections.
         while (estimateTokenCount() > targetTokens && items.size > 2) {
-            removeFirstItem()
+            val removeIndex = items.indexOfFirst { item ->
+                item !is ResponseItem.Message || item.role != "user"
+            }
+            if (removeIndex < 0) break // Only user messages left — stop
+
+            val removed = items.removeAt(removeIndex)
+            // If we removed a function call, also remove its paired output
+            if (removed is ResponseItem.FunctionCall) {
+                val outputIndex = items.indexOfFirst {
+                    it is ResponseItem.FunctionCallOutput && it.callId == removed.id
+                }
+                if (outputIndex >= 0) items.removeAt(outputIndex)
+            }
+            lastTokenEstimate = null
         }
-        
+
         Log.d(TAG, "Compression complete, now ${estimateTokenCount()} tokens, ${items.size} items")
         onMutation?.invoke()
     }

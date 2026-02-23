@@ -47,7 +47,7 @@ class ChatSessionHistoryController(
         }
     }
 
-    fun resumeSession(sessionInfo: SessionInfo, onResumed: (() -> Unit)? = null) {
+    fun resumeSession(sessionInfo: SessionInfo, onResumed: (suspend () -> Unit)? = null) {
         val manager = sessionHistoryManager ?: return
         scope.launch {
             manager.loadSession(sessionInfo.id)

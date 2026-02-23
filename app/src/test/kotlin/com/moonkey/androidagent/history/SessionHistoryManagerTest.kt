@@ -74,4 +74,31 @@ class SessionHistoryManagerTest {
         assertThat(record.metadata.model).isEqualTo("gpt-5.2")
         assertThat(record.metadata.appVersion).isEqualTo("1.0")
     }
+
+    @Test
+    fun `loadSession uses exact id match not substring`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val manager = SessionHistoryManager.create(storage, this)
+
+        // Create two sessions with IDs where one is a substring of the other
+        val fullId = "abc-123-def-456"
+        val recording = manager.getRecordingService()
+
+        recording.initializeNewSession(sessionId = fullId, model = "m1", appVersion = "1.0")
+        recording.recordUserMessage(id = "u1", timestamp = 100L, text = "session one")
+        advanceTimeBy(600L)
+        advanceUntilIdle()
+        recording.clearSessionAndAwait()
+
+        // Loading with a partial substring should NOT match
+        val partialResult = manager.loadSession("abc-123")
+        assertThat(partialResult.isFailure).isTrue()
+
+        // Loading with the exact full ID should match
+        val exactResult = manager.loadSession(fullId)
+        assertThat(exactResult.isSuccess).isTrue()
+        assertThat(exactResult.getOrThrow().session.sessionId).isEqualTo(fullId)
+    }
 }

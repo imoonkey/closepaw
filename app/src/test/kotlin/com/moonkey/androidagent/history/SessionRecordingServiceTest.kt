@@ -199,4 +199,38 @@ class SessionRecordingServiceTest {
         assertThat(userMessages).hasSize(1)
         assertThat(userMessages.single().text).isEqualTo("follow up")
     }
+
+    @Test
+    fun `clearSessionAndAwait completes before new session can be created`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val service = SessionRecordingService(storage, this)
+
+        // Create and populate first session
+        val firstId = service.initializeNewSession(sessionId = "first", model = "m1", appVersion = "1.0")
+        service.recordUserMessage(id = "u1", timestamp = 100L, text = "hello from first")
+        advanceTimeBy(600L)
+        advanceUntilIdle()
+
+        // Clear and immediately create a new session
+        service.clearSessionAndAwait()
+        assertThat(service.hasActiveSession()).isFalse()
+        assertThat(service.getCurrentSession()).isNull()
+        assertThat(service.getCurrentFileName()).isNull()
+
+        // New session should survive — not be wiped by a late clear
+        val secondId = service.initializeNewSession(sessionId = "second", model = "m2", appVersion = "1.0")
+        service.recordUserMessage(id = "u2", timestamp = 200L, text = "hello from second")
+        advanceTimeBy(600L)
+        advanceUntilIdle()
+
+        assertThat(service.hasActiveSession()).isTrue()
+        assertThat(service.getCurrentSessionId()).isEqualTo("second")
+
+        val secondFile = requireNotNull(service.getCurrentFileName())
+        val record = storage.readSession(secondFile).getOrThrow()
+        assertThat(record.sessionId).isEqualTo("second")
+        assertThat(record.messages).hasSize(1)
+    }
 }

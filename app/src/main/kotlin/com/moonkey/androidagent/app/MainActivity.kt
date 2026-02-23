@@ -128,7 +128,7 @@ class MainActivity : ComponentActivity() {
                         selectedSessionForReload = session
                         viewModel.resumeSession(session) {
                             sessionHistoryManager.setActiveSessionId(null)
-                            sessionHistoryManager.getRecordingService().clearSession()
+                            sessionHistoryManager.getRecordingService().clearSessionAndAwait()
                             currentSession = null
                             Log.d(
                                     TAG,
@@ -245,7 +245,7 @@ class MainActivity : ComponentActivity() {
 
         if (::sessionHistoryManager.isInitialized) {
             sessionHistoryManager.setActiveSessionId(null)
-            sessionHistoryManager.getRecordingService().clearSession()
+            sessionHistoryManager.getRecordingService().clearSessionAndAwait()
         }
 
         Log.d(TAG, "Current session cleared")

@@ -144,4 +144,59 @@ class HistoryManagerTest {
 
         assertThat(manager.estimateTokenCount()).isAtMost(1_000)
     }
+
+    @Test
+    fun `compress never removes user messages`() {
+        val manager = HistoryManager()
+        // Build a history with user messages interleaved with large tool outputs
+        manager.recordItems(
+            listOf(
+                ResponseItem.Message(role = "user", content = "open settings"),
+                ResponseItem.FunctionCall(id = "call-1", name = "tool", arguments = JSONObject()),
+                ResponseItem.FunctionCallOutput(callId = "call-1", content = "x".repeat(10_000)),
+                ResponseItem.Message(role = "user", content = "set brightness to max"),
+                ResponseItem.FunctionCall(id = "call-2", name = "tool", arguments = JSONObject()),
+                ResponseItem.FunctionCallOutput(callId = "call-2", content = "x".repeat(10_000)),
+                ResponseItem.Message(role = "user", content = "now go back"),
+                ResponseItem.Message(role = "assistant", content = "done")
+            )
+        )
+
+        // Compress to a very small budget to force aggressive removal
+        manager.compress(100)
+
+        val remaining = manager.getAll()
+        val userMessages = remaining.filterIsInstance<ResponseItem.Message>()
+            .filter { it.role == "user" }
+            .map { it.content }
+
+        // All three user messages must survive compression
+        assertThat(userMessages).containsExactly(
+            "open settings",
+            "set brightness to max",
+            "now go back"
+        )
+    }
+
+    @Test
+    fun `compress removes function calls and paired outputs`() {
+        val manager = HistoryManager()
+        manager.recordItems(
+            listOf(
+                ResponseItem.Message(role = "user", content = "do something"),
+                ResponseItem.FunctionCall(id = "call-1", name = "tool", arguments = JSONObject()),
+                ResponseItem.FunctionCallOutput(callId = "call-1", content = "x".repeat(10_000)),
+                ResponseItem.Message(role = "assistant", content = "x".repeat(10_000))
+            )
+        )
+
+        manager.compress(100)
+
+        val remaining = manager.getAll()
+        // Function call and its output should be removed (they are not user messages)
+        val calls = remaining.filterIsInstance<ResponseItem.FunctionCall>()
+        val outputs = remaining.filterIsInstance<ResponseItem.FunctionCallOutput>()
+        assertThat(calls).isEmpty()
+        assertThat(outputs).isEmpty()
+    }
 }

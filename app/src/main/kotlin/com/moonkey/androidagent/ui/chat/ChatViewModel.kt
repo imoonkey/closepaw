@@ -259,7 +259,7 @@ class ChatViewModel(
      * @param sessionInfo The session to resume
      * @param onResumed Callback when session is ready (for UI to reconnect event collection)
      */
-    fun resumeSession(sessionInfo: SessionInfo, onResumed: (() -> Unit)? = null) {
+    fun resumeSession(sessionInfo: SessionInfo, onResumed: (suspend () -> Unit)? = null) {
         eventCollectionJob?.cancel()
         eventCollectionJob = null
         sessionHistoryController.resumeSession(sessionInfo, onResumed)

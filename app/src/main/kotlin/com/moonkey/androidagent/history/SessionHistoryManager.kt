@@ -33,6 +33,9 @@ class SessionHistoryManager(
         
         /** Maximum characters for display title */
         private const val MAX_TITLE_LENGTH = 50
+
+        /** Length of timestamp (19) + separator dash (1) in session filenames */
+        private const val TIMESTAMP_WITH_SEPARATOR_LENGTH = 20
         
         /**
          * Factory method for creating a SessionHistoryManager.
@@ -80,16 +83,15 @@ class SessionHistoryManager(
     
     /**
      * Load a session for resuming.
-     * 
+     *
      * @param sessionId The full session ID to load
      * @return Result containing ResumedSessionData or an error
      */
     suspend fun loadSession(sessionId: String): Result<ResumedSessionData> {
-        // Find the file for this session using full session ID to avoid collisions
         val files = storage.listSessionFiles()
-        val file = files.find { it.name.contains(sessionId) }
+        val file = files.find { extractSessionIdFromFileName(it.name) == sessionId }
             ?: return Result.failure(NoSuchElementException("Session not found: $sessionId"))
-        
+
         return loadSessionByFileName(file.name)
     }
     
@@ -110,16 +112,15 @@ class SessionHistoryManager(
     
     /**
      * Delete a session.
-     * 
+     *
      * @param sessionId The full session ID to delete
      * @return Result indicating success or failure
      */
     suspend fun deleteSession(sessionId: String): Result<Unit> {
-        // Find the file for this session using full session ID to avoid collisions
         val files = storage.listSessionFiles()
-        val file = files.find { it.name.contains(sessionId) }
+        val file = files.find { extractSessionIdFromFileName(it.name) == sessionId }
             ?: return Result.failure(NoSuchElementException("Session not found: $sessionId"))
-        
+
         return storage.deleteSessionPair(file.name).onSuccess {
             cacheMutex.withLock {
                 sessionInfoCache.remove(file.name)
@@ -210,7 +211,26 @@ class SessionHistoryManager(
     }
     
     // ===== Private Helpers =====
-    
+
+    /**
+     * Extract the session ID from a filename.
+     *
+     * Filename format: `session-{yyyy-MM-dd'T'HH-mm-ss}-{sessionId}.json`
+     * The timestamp is 19 chars (e.g. `2024-01-21T14-30-45`).
+     * Returns null if the filename doesn't match the expected pattern.
+     */
+    private fun extractSessionIdFromFileName(fileName: String): String? {
+        // "session-" prefix = 8 chars, timestamp = 19 chars, separator "-" = 1 char
+        val prefix = "session-"
+        val suffix = ".json"
+        if (!fileName.startsWith(prefix) || !fileName.endsWith(suffix)) return null
+        // After "session-" and timestamp (19 chars) and "-", the rest before ".json" is sessionId
+        val withoutPrefix = fileName.removePrefix(prefix)
+        if (withoutPrefix.length <= TIMESTAMP_WITH_SEPARATOR_LENGTH) return null
+        val afterTimestamp = withoutPrefix.substring(TIMESTAMP_WITH_SEPARATOR_LENGTH).removeSuffix(suffix)
+        return afterTimestamp.ifEmpty { null }
+    }
+
     /**
      * Extract SessionInfo from a session file.
      */

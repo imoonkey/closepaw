@@ -256,29 +256,31 @@ class SessionRecordingService(
     fun getCurrentSessionId(): String? = synchronized(stateLock) { currentSession?.sessionId }
 
     /**
-     * Clear session tracking (called when session ends). Waits for any pending save to complete
-     * before clearing.
+     * Clear session tracking (called when session ends).
+     *
+     * Suspends until any pending save/checkpoint jobs complete, then clears
+     * in-memory state synchronously before returning. No fire-and-forget —
+     * callers can safely create a new session immediately after this returns.
      */
-    fun clearSession() {
+    suspend fun clearSessionAndAwait() {
         val (pendingSave, pendingCheckpoint) =
                 synchronized(stateLock) {
-                    val pendingSave = saveJob
+                    val pending = saveJob to checkpointSaveJob
                     saveJob = null
-                    val pendingCheckpoint = checkpointSaveJob
                     checkpointSaveJob = null
-                    pendingSave to pendingCheckpoint
+                    pending
                 }
-        scope.launch {
-            pendingSave?.join()
-            pendingCheckpoint?.join()
-            synchronized(stateLock) {
-                currentSession = null
-                currentFileName = null
-                agentMessageBuffer.clear()
-                contextFileName = null
-            }
-            Log.d(TAG, "Session tracking cleared")
+        pendingSave?.cancel()
+        pendingCheckpoint?.cancel()
+        pendingSave?.join()
+        pendingCheckpoint?.join()
+        synchronized(stateLock) {
+            currentSession = null
+            currentFileName = null
+            agentMessageBuffer.clear()
+            contextFileName = null
         }
+        Log.d(TAG, "Session tracking cleared")
     }
 
     // ===== Checkpoint (LLM context snapshot) =====
