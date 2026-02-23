@@ -3,9 +3,13 @@ package com.moonkey.androidagent.platform.virtualdisplay
 import android.accessibilityservice.AccessibilityService
 import android.graphics.PixelFormat
 import android.media.ImageReader
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.Display
 import android.view.SurfaceView
+import android.view.accessibility.AccessibilityWindowInfo
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.model.ScreenSnapshotDebug
 import com.moonkey.androidagent.platform.ActionResult
@@ -45,11 +49,16 @@ class VirtualDisplayPlatform(
 
         private const val SURFACE_READY_DELAY_MS = 200L
         private const val IMAGE_READER_MAX_IMAGES = 2
+        private const val IME_SUPPRESS_DELAY_MS = 500L
     }
 
     @Volatile private var displayId: Int = Display.INVALID_DISPLAY
     @Volatile private var imageReader: ImageReader? = null
     private var binderDeadListener: Shizuku.OnBinderDeadListener? = null
+
+    // ── IME suppression ──
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val keyboardRestoreToken = Any()
 
     // ── Surface switching (Hybrid Model) ──
     private val displayIdProvider: () -> Int = { displayId }
@@ -98,7 +107,7 @@ class VirtualDisplayPlatform(
             )
 
     override suspend fun start() {
-        check(displayId == Display.INVALID_DISPLAY) { "Already started (displayId=$displayId)" }
+        if (displayId != Display.INVALID_DISPLAY) return // Already running
 
         shizuku.bypassHiddenApis()
 
@@ -147,6 +156,9 @@ class VirtualDisplayPlatform(
      * Must be idempotent. Not safe to call concurrently with captureScreen/performAction.
      */
     override suspend fun stop() {
+        // Restore keyboard first — prevent permanently disabled IME on crash
+        restoreKeyboardNow()
+
         binderDeadListener?.let { shizuku.removeBinderDeadListener(it) }
         binderDeadListener = null
 
@@ -267,42 +279,46 @@ class VirtualDisplayPlatform(
             return ActionResult.Failure("Virtual display not started")
         }
 
-        val result =
-                when (action) {
-                    is UIAction.ClickNodeAt ->
-                            nodeActionPerformer.performNodeClickAt(action.x, action.y)
-                    is UIAction.LongClickNodeAt ->
-                            nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
-                    is UIAction.SetTextOnNodeAt ->
-                            nodeActionPerformer.performSetTextOnNodeAt(
-                                    action.x,
-                                    action.y,
-                                    action.text,
-                                    action.clear
-                            )
-                    is UIAction.SetTextOnFocused ->
-                            nodeActionPerformer.performSetTextOnFocused(action.text, action.clear)
-                    is UIAction.TapAt -> inputInjector.injectTap(action.x, action.y)
-                    is UIAction.LongPressAt ->
-                            inputInjector.injectLongPress(action.x, action.y, action.durationMs)
-                    is UIAction.ScrollNodeAt ->
-                            nodeActionPerformer.performScrollAt(action.x, action.y, action.direction)
-                    is UIAction.Swipe -> performSwipe(action)
-                    is UIAction.SystemButton -> inputInjector.injectSystemButton(action.button)
-                    is UIAction.Wait -> {
-                        delay(action.durationMs)
-                        ActionResult.Success("Waited ${action.durationMs}ms")
-                    }
-                }
+        val suppressIme = action.mayTriggerIme()
+        if (suppressIme) suppressKeyboard()
 
-        // Safety net: dismiss keyboard on main display after text actions.
-        // Even with allowTapToFocus=false, some apps auto-focus fields on window attach.
-        if (action is UIAction.SetTextOnNodeAt || action is UIAction.SetTextOnFocused) {
-            appController.dismissMainDisplayKeyboard()
-        }
+        val result =
+                try {
+                    dispatchAction(action)
+                } finally {
+                    if (suppressIme) scheduleKeyboardRestore()
+                }
 
         return result
     }
+
+    private suspend fun dispatchAction(action: UIAction): ActionResult =
+            when (action) {
+                is UIAction.ClickNodeAt ->
+                        nodeActionPerformer.performNodeClickAt(action.x, action.y)
+                is UIAction.LongClickNodeAt ->
+                        nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
+                is UIAction.SetTextOnNodeAt ->
+                        nodeActionPerformer.performSetTextOnNodeAt(
+                                action.x,
+                                action.y,
+                                action.text,
+                                action.clear
+                        )
+                is UIAction.SetTextOnFocused ->
+                        nodeActionPerformer.performSetTextOnFocused(action.text, action.clear)
+                is UIAction.TapAt -> inputInjector.injectTap(action.x, action.y)
+                is UIAction.LongPressAt ->
+                        inputInjector.injectLongPress(action.x, action.y, action.durationMs)
+                is UIAction.ScrollNodeAt ->
+                        nodeActionPerformer.performScrollAt(action.x, action.y, action.direction)
+                is UIAction.Swipe -> performSwipe(action)
+                is UIAction.SystemButton -> inputInjector.injectSystemButton(action.button)
+                is UIAction.Wait -> {
+                    delay(action.durationMs)
+                    ActionResult.Success("Waited ${action.durationMs}ms")
+                }
+            }
 
     // ===== Action Helpers =====
 
@@ -363,5 +379,72 @@ class VirtualDisplayPlatform(
 
     override suspend fun launchApp(packageName: String): ActionResult {
         return appController.launchApp(packageName)
+    }
+
+    // ── IME Suppression ──────────────────────────────────────────
+
+    /** Actions that can trigger IME on the wrong display. */
+    private fun UIAction.mayTriggerIme(): Boolean =
+            this is UIAction.ClickNodeAt ||
+                    this is UIAction.TapAt ||
+                    this is UIAction.LongClickNodeAt ||
+                    this is UIAction.LongPressAt ||
+                    this is UIAction.SetTextOnNodeAt ||
+                    this is UIAction.SetTextOnFocused
+
+    /**
+     * Suppress keyboard unless the user is already typing on the main screen.
+     * Uses SHOW_MODE_HIDDEN to prevent VD-triggered IME from appearing on display 0.
+     */
+    private fun suppressKeyboard() {
+        if (isKeyboardVisibleOnMainDisplay()) return
+        mainHandler.removeCallbacksAndMessages(keyboardRestoreToken)
+        try {
+            service.softKeyboardController.setShowMode(
+                    AccessibilityService.SHOW_MODE_HIDDEN
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to suppress keyboard", e)
+        }
+    }
+
+    /** Schedule SHOW_MODE_AUTO restore after a debounce delay. */
+    private fun scheduleKeyboardRestore() {
+        mainHandler.removeCallbacksAndMessages(keyboardRestoreToken)
+        mainHandler.postAtTime(
+                { restoreKeyboardNow() },
+                keyboardRestoreToken,
+                SystemClock.uptimeMillis() + IME_SUPPRESS_DELAY_MS
+        )
+    }
+
+    /** Immediately restore keyboard to auto mode. Safe to call multiple times. */
+    private fun restoreKeyboardNow() {
+        mainHandler.removeCallbacksAndMessages(keyboardRestoreToken)
+        try {
+            service.softKeyboardController.setShowMode(
+                    AccessibilityService.SHOW_MODE_AUTO
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to restore keyboard", e)
+        }
+    }
+
+    /** Check if IME window is visible on the main display (display 0). */
+    private fun isKeyboardVisibleOnMainDisplay(): Boolean {
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                val allWindows = service.getWindowsOnAllDisplays()
+                val mainWindows = allWindows.get(Display.DEFAULT_DISPLAY) ?: return false
+                mainWindows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+            } else {
+                service.windows?.any {
+                    it.displayId == Display.DEFAULT_DISPLAY &&
+                            it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD
+                } == true
+            }
+        } catch (_: Exception) {
+            false
+        }
     }
 }

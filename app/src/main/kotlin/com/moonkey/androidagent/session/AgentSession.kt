@@ -281,18 +281,18 @@ private constructor(
         return true
     }
 
-    /** Re-acquire platform for Hot Idle follow-up. Returns false on failure. */
+    /** Ensure platform is ready for Hot Idle follow-up. Returns false on failure. */
     private suspend fun reacquirePlatform(): Boolean {
         cancelIdleTimeout()
         try {
-            services.platform.start()
+            services.platform.start() // Idempotent — no-op if already running
         } catch (e: Exception) {
-            Log.e(TAG, "Platform restart failed on follow-up", e)
-            emitStatus("⚠️ Platform restart failed: ${e.message}")
+            Log.e(TAG, "Platform start failed on follow-up", e)
+            emitStatus("⚠️ Platform start failed: ${e.message}")
             scheduleIdleTimeout() // re-arm so session doesn't leak in Idle
             return false
         }
-        Log.i(TAG, "Hot Idle follow-up: platform re-acquired")
+        Log.i(TAG, "Hot Idle follow-up: platform ready")
         return true
     }
 
@@ -318,8 +318,8 @@ private constructor(
     /**
      * Handle agent task completion — transition to Hot Idle.
      *
-     * Releases expensive resources (platform, agent runner) but keeps
-     * lightweight conversation state in memory for instant follow-up.
+     * Releases agent runner but keeps platform alive (VD apps keep running).
+     * Lightweight conversation state stays in memory for instant follow-up.
      * Schedules idle timeout for auto-shutdown.
      */
     private suspend fun handleAgentComplete(reason: AgentStopReason) {
@@ -358,13 +358,8 @@ private constructor(
         _state.value = SessionState.Idle
         currentTaskId = null
 
-        // 4. Release expensive resources only
+        // 4. Release agent runner only; platform stays alive for follow-up tasks
         agentRunner.clear()
-        try {
-            services.platform.stop()
-        } catch (e: Exception) {
-            Log.e(TAG, "Platform stop failed after task completion", e)
-        }
 
         // 5. Schedule idle timeout (auto-shutdown after inactivity)
         scheduleIdleTimeout()

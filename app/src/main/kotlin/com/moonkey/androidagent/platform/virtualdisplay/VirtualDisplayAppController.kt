@@ -9,7 +9,7 @@ import com.moonkey.androidagent.platform.AppManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** App-level operations on the virtual display (launch/list apps and keyboard dismissal). */
+/** App-level operations on the virtual display (launch/list apps). */
 internal class VirtualDisplayAppController(
         private val service: AccessibilityService,
         private val shizuku: ShizukuClient,
@@ -82,15 +82,6 @@ internal class VirtualDisplayAppController(
                                 Log.e(TAG, "Failed to launch $packageName on display $displayId", e)
                                 ActionResult.Failure("Failed to launch $packageName: ${e.message}")
                         }
-                }
-        }
-
-        /** Dismiss keyboard on display 0 (real screen). Benign if IME is not showing. */
-        fun dismissMainDisplayKeyboard() {
-                try {
-                        shizuku.executeShellCommand(arrayOf("input", "keyevent", "--display", "0", "4"))
-                } catch (e: Exception) {
-                        Log.w(TAG, "Failed to dismiss main display keyboard", e)
                 }
         }
 }
