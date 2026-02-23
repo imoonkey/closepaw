@@ -1,7 +1,7 @@
 # Session Infrastructure
 
-> AgentSession, SessionServices, and session lifecycle.
-> Last updated: 2026-02-22 (commit: 2d13bb1)
+> AgentSession, SessionCoordinator, SessionServices, and session lifecycle.
+> Last updated: 2026-02-23 (commit: 1dd2020)
 
 ## AgentSession
 
@@ -65,14 +65,50 @@ After task completion, the session enters `Idle` instead of shutting down. Expen
 
 → See: `session/SessionCheckpointCoordinator.kt`
 
-Persists session state for process-death recovery. Writes `context-*.json` files alongside `session-*.json`. Watches `HistoryManager`, `TodoState`, and `ScratchpadState` mutation listeners to schedule incremental checkpoints.
+Persists session state for process-death recovery. Writes `context-*.json` files alongside `session-*.json`. Watches `HistoryManager`, `TodoState`, and `ScratchpadState` mutation listeners to schedule incremental checkpoints. Checkpoint state is derived from runtime `SessionState`:
 
-| CheckpointState | Written when |
-|-----------------|-------------|
-| `IDLE_READY` | Task completion (`flushIdleReady()`) |
-| `CLOSED` | Session shutdown (`flushClosed()`) |
+| SessionState | CheckpointState | Written when |
+|--------------|-----------------|-------------|
+| Running/Paused | `RUNNING_DIRTY` | Mutation listener (debounced 500ms) |
+| Idle | `IDLE_READY` | Mutation listener, or force-flushed on TaskCompleted |
+| Shutdown | `CLOSED` | Force-flushed on session shutdown |
 
 `AgentSession.reload(snapshot)` hydrates a new session from a `SessionRuntimeSnapshot`, restoring history/todos/scratchpad. Returns session in `Created` state.
+
+---
+
+## SessionCoordinator
+
+→ See: `session/SessionCoordinator.kt`
+
+Coordinates session lifecycle and input queuing between `MainActivity` and `AgentSession`. Replaces the previous timer-loop drain pattern with an event-driven approach.
+
+**Responsibilities:**
+- Own `currentSession` reference and `selectedSessionForReload`
+- Serialize session creation via internal `Mutex` (tryLock fast-fail for concurrent requests)
+- Queue user inputs during busy state (Running/Paused)
+- Drain queued inputs automatically when session transitions to Idle/Created (StateFlow observation)
+- Capture dead session identity on Shutdown for cold-idle auto-reload
+
+### Key Methods
+
+```kotlin
+class SessionCoordinator(scope: CoroutineScope) {
+    suspend fun submit(text: String): SubmitResult     // Send or queue input
+    suspend fun createAndSubmit(text: String, create)   // Create session under lock
+    fun enqueue(text: String)                           // Direct queue (lock unavailable fallback)
+    fun attachSession(session: AgentSession)            // Rebind from service
+    fun detachSession()                                 // Switch to history viewing
+    suspend fun clearSession()                          // Shutdown + teardown
+    fun consumeDeadSessionFileName(): String?           // One-shot dead session ref for auto-reload
+}
+```
+
+### Cold-Idle Auto-Reload
+
+When `submit()` detects `SessionState.Shutdown`, it captures the dying session's recording `fileName` before teardown. On the next user input, `MainActivity.ensureSessionAndSend` uses this dead ref + the still-set `activeSessionId` to construct a `SessionInfo` and route through the existing checkpoint reload path. If auto-reload fails, falls back to a fresh session silently.
+
+→ See: [Session User Flows](../ui/session/user_flows.md) for the full cold-idle recovery flow.
 
 ---
 

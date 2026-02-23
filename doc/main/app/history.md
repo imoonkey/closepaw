@@ -1,7 +1,7 @@
 # Session History Persistence
 
 > Session recording, storage, runtime prompt history, and resume functionality.
-> Last updated: 2026-02-22 (commit: 2d13bb1)
+> Last updated: 2026-02-23 (commit: 1dd2020)
 
 ## Overview
 
@@ -68,6 +68,8 @@ class SessionHistoryManager(storage, recordingService, scope) {
 
 Session info caching uses `ConcurrentHashMap<String, CachedSessionInfo>` with file modification time checks — entries are re-read only when the file has been updated. Protected by `Mutex` for concurrent access.
 
+**Session lookup:** `loadSession(sessionId)` extracts session IDs from file names using `extractSessionIdFromFileName()` for exact matching (avoids substring collisions with UUID-based IDs).
+
 **Active session tracking:** Two `SessionRecordingService` instances exist — one in `SessionHistoryManager` (manages sidebar listing) and a per-session one in `SessionServices` (records actual events). `externalActiveSessionId` bridges this gap so the sidebar can correctly identify the active session. Set by `MainActivity` at session lifecycle boundaries (create, rebind, clear).
 
 ### SessionRecordingService
@@ -89,6 +91,7 @@ class SessionRecordingService(storage, scope) {
     fun completeAgentMessage()
     fun completeSession(reason: CompletionReason)
     fun clearSession()
+    suspend fun clearSessionAndAwait()   // Cancels + awaits pending saves before returning
 }
 ```
 
@@ -174,7 +177,7 @@ class HistoryManager {
 Key behaviors:
 - **Token estimation**: `TOKENS_PER_CHAR = 0.25f`, rough estimate for context window management
 - **Auto-compression**: triggers at `autoCompressThreshold` (85%) of `maxTokenBudget` (100K tokens)
-- **Two-strategy compression**: (1) aggressive truncation of old function outputs, (2) remove oldest items
+- **Two-strategy compression**: (1) aggressive truncation of old function outputs, (2) remove oldest non-user items. User messages are always preserved to maintain task intent and corrections.
 - **History normalization** (`normalizeHistory`): ensures function call/output pairs are matched; adds placeholders for missing outputs, removes orphaned outputs
 - **Screen observation tagging**: items tagged with `isScreenObservation=true` are later compressed by `PromptBuilder`
 - **Thread-safe**: all methods `@Synchronized`

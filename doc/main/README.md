@@ -1,7 +1,7 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-02-22 (commit: 2d13bb1)
+> Last updated: 2026-02-23 (commit: 1dd2020)
 
 ## Quick Start
 
@@ -85,6 +85,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │
 ├── session/                      # Session management
 │   ├── AgentSession.kt           # Lifecycle manager (bootstrap → run → Hot Idle → teardown)
+│   ├── SessionCoordinator.kt     # Event-driven input queue, cold-idle auto-reload support
 │   ├── SessionAgentRunner.kt     # Mode-based agent runner + delegate tool wiring
 │   ├── SessionServices.kt        # Dependency injection container
 │   ├── SessionCheckpointCoordinator.kt # Checkpoint persistence for process-death recovery
@@ -98,8 +99,9 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   ├── ToolRouter.kt             # Execution state machine
 │   ├── PolicyEngine.kt           # Approval logic
 │   ├── action/                   # Executor layer (mobile_action)
-│   │   ├── ClickExecutor.kt      # Click fallback chain
-│   │   ├── LongPressExecutor.kt  # Long press fallback chain
+│   │   ├── PointActionExecutorCore.kt # Shared click/long-press fallback chain
+│   │   ├── ClickExecutor.kt      # Click thin wrapper (channel mapping)
+│   │   ├── LongPressExecutor.kt  # Long press thin wrapper (channel mapping)
 │   │   ├── TypeExecutor.kt       # Type with focus management
 │   │   ├── ScrollExecutor.kt     # Content-direction scroll cascade
 │   │   ├── SwipeExecutor.kt      # Precision coordinate gestures

@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-02-22 (commit: 2d13bb1)
+> Last updated: 2026-02-23 (commit: 1dd2020)
 
 ## Overview
 
@@ -139,8 +139,9 @@ Special cases:
 ┌───────────────────────────────▼──────────────────────────────┐
 │  Layer 2: ACTION EXECUTORS (the single smart layer)           │
 │                                                               │
-│  ClickExecutor       — gesture tap → node ACTION_CLICK fallback│
-│  LongPressExecutor   — gesture long-press → node fallback      │
+│  PointActionExecutorCore — shared fallback-chain logic         │
+│    ├─ ClickExecutor      — thin wrapper (channel mapping)     │
+│    └─ LongPressExecutor  — thin wrapper (channel mapping)     │
 │  TypeExecutor        — SetTextOnNodeAt → tap-to-focus fallback│
 │  ScrollExecutor      — gesture swipe → node scroll fallback    │
 │  SwipeExecutor       — raw coordinate swipe                    │
@@ -256,8 +257,9 @@ tool/
 │   ├── Target.kt             # Targeting sealed interface
 │   ├── ActionOutcome.kt      # Executor result type
 │   ├── ActionPriorityOrder.kt # Centralized action priority (node-first vs gesture-first)
-│   ├── ClickExecutor.kt      # Click fallback chain (node-first)
-│   ├── LongPressExecutor.kt  # Long press fallback chain
+│   ├── PointActionExecutorCore.kt # Shared fallback-chain logic (click + long_press)
+│   ├── ClickExecutor.kt      # Click thin wrapper (channel mapping)
+│   ├── LongPressExecutor.kt  # Long press thin wrapper (channel mapping)
 │   ├── TypeExecutor.kt       # Focus-then-type flow
 │   ├── ScrollExecutor.kt     # Content-direction scroll cascade
 │   ├── SwipeExecutor.kt      # Precision coordinate gestures

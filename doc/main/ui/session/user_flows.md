@@ -1,7 +1,7 @@
 # Session / Task User Flows
 
 > User-facing flows for session lifecycle, task execution, follow-up, and recovery.
-> Last updated: 2026-02-22
+> Last updated: 2026-02-23
 
 ## 1. Session vs Task
 
@@ -186,6 +186,43 @@ User selects a session from history drawer
 ```
 
 Reload is a **recovery-only path**. Normal follow-ups use Hot Idle (in-memory, no disk I/O).
+
+## 7.1 Cold-Idle Auto-Reload
+
+When a session shuts down (idle timeout, explicit stop, or service destruction), the user may still send a follow-up expecting continuity. The system auto-reloads from checkpoint transparently:
+
+```
+Session is Shutdown (cold idle) — user is still on the session's chat page
+  │
+  User types follow-up → taps Send
+  │
+  ├─ MainActivity.ensureSessionAndSend()
+  │   ├─ coordinator.submit() returns SESSION_DEAD
+  │   ├─ No selectedSessionForReload set (not from sidebar)
+  │   │
+  │   ├─ Auto-reload path:
+  │   │   ├─ coordinator.consumeDeadSessionFileName() → fileName captured at Shutdown
+  │   │   ├─ sessionHistoryManager.getCurrentSessionId() → still set from before
+  │   │   ├─ Construct SessionInfo(id, fileName, ...)
+  │   │   ├─ Set coordinator.selectedSessionForReload
+  │   │   ├─ autoReload = true
+  │   │   │
+  │   │   └─ createOrReloadSession(autoReload=true)
+  │   │       ├─ tryReloadSelectedSession() — same path as section 7
+  │   │       └─ Submit Op.UserInput → normal first-task flow
+  │   │
+  │   └─ If auto-reload fails (checkpoint missing/corrupted):
+  │       ├─ Silent fallback to createFreshSession()
+  │       └─ User gets a fresh session (no error toast)
+  │
+  └─ Contrast with explicit sidebar reload (section 7):
+      └─ On failure: toast + abort (user chose specific session, should know it failed)
+```
+
+Key details:
+- **fileName capture**: `SessionCoordinator` saves `recordingService.getCurrentFileName()` right before teardown in the Shutdown branch. One-shot via `consumeDeadSessionFileName()`.
+- **FORCE_FRESH bypass**: `debug-run.sh` and eval runner send `fresh_session=true` → `FORCE_FRESH` policy skips auto-reload entirely, ensuring clean eval runs.
+- **Transparent to user**: no UI indication of the reload — the follow-up just works as if the session never died.
 
 ## 8. Session History Sidebar
 
