@@ -74,6 +74,12 @@ internal class AgentServiceEventHandler(
             }
             is TaskCompleted -> {
                 Log.i(logTag, "Task completed: ${event.taskId}, reason: ${event.reason}")
+                // Finalize the agent message buffer so the session file
+                // is complete before Hot Idle. Without this, the agent
+                // message stays in the buffer and the on-disk session
+                // record is missing the final text/actions until the
+                // next recordUserMessage() call triggers finalization.
+                recordingService?.completeAgentMessage()
                 overlay?.onTaskCompleted(event.reason, event.result)
             }
             is ActionProposed -> {

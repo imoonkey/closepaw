@@ -457,10 +457,12 @@ while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
     fi
 
     # Check if session finished.
-    # Wait for SessionCompleted so terminal checkpoint flush can finish before STOP_AGENT.
-    if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -qE "AgentSession: Emitted event: SessionCompleted|AgentService: Session completed"; then
+    # Hot Idle: TaskCompleted fires when a task ends (session stays alive).
+    # SessionCompleted fires only on full shutdown (idle timeout / explicit stop).
+    # For debug-run we stop after the first task completes.
+    if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -qE "AgentSession: Emitted event: (SessionCompleted|TaskCompleted)|AgentService: (Session|Task) completed"; then
         echo ""
-        ok "Task/session completed!"
+        ok "Task completed!"
         stop_agent
         break
     fi

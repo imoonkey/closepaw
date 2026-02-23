@@ -127,6 +127,7 @@ class MainActivity : ComponentActivity() {
                     onSessionSelect = { session ->
                         selectedSessionForReload = session
                         viewModel.resumeSession(session) {
+                            sessionHistoryManager.setActiveSessionId(null)
                             sessionHistoryManager.getRecordingService().clearSession()
                             currentSession = null
                             Log.d(
@@ -243,6 +244,7 @@ class MainActivity : ComponentActivity() {
         }
 
         if (::sessionHistoryManager.isInitialized) {
+            sessionHistoryManager.setActiveSessionId(null)
             sessionHistoryManager.getRecordingService().clearSession()
         }
 
@@ -255,6 +257,7 @@ class MainActivity : ComponentActivity() {
         if (currentSession === serviceSession) return
 
         currentSession = serviceSession
+        sessionHistoryManager.setActiveSessionId(serviceSession.sessionId.value)
         val snapshot = serviceSession.getServices().recordingService.getCurrentSession()
         snapshot?.let {
             viewModel.restoreMessagesFromRecords(snapshot.messages)
@@ -375,6 +378,7 @@ class MainActivity : ComponentActivity() {
                     pendingTraceEnabled = null
                     pendingTraceRunId = null
 
+                    sessionHistoryManager.setActiveSessionId(session.sessionId.value)
                     viewModel.startEventCollection(session)
 
                     service.observeExternalSession(session, settingsState.platformMode)

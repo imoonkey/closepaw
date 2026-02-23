@@ -53,6 +53,16 @@ class SessionHistoryManager(
 
     private val sessionInfoCache = ConcurrentHashMap<String, CachedSessionInfo>()
     private val cacheMutex = Mutex()
+
+    /**
+     * Externally-set active session ID.
+     *
+     * The per-session [SessionRecordingService] lives inside [SessionServices],
+     * not inside this manager. This field bridges that gap so the sidebar can
+     * mark the correct session as active.
+     */
+    @Volatile
+    private var externalActiveSessionId: String? = null
     
     /**
      * List all sessions (lightweight, doesn't load full content).
@@ -163,9 +173,21 @@ class SessionHistoryManager(
     
     /**
      * Get current session ID (if any).
+     *
+     * Prefers the externally-set active session ID (from the per-session
+     * recording service). Falls back to this manager's own recording service.
      */
     fun getCurrentSessionId(): String? {
-        return recordingService.getCurrentSessionId()
+        return externalActiveSessionId ?: recordingService.getCurrentSessionId()
+    }
+
+    /**
+     * Set the active session ID from outside this manager.
+     *
+     * Called by [MainActivity] when a session is created or cleared.
+     */
+    fun setActiveSessionId(sessionId: String?) {
+        externalActiveSessionId = sessionId
     }
     
     /**
