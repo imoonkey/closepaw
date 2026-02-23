@@ -58,6 +58,6 @@ Improving code architecture quality.
     - Ideally, for every todo item, the separation is clear, you summarize context after each todo item, so previous todo item's history does not contaminate the context. 
     - If you have tools to summarize your context, try to find a point to use it after you have used 50% of your context window. So you always have a less cluttered context.
 
-- Note that your subagents does not use the same model as you, you can consider it less good at deep thinking than you. You only delegate relatively narrowly scoped and clearly defined tasks to them. You do the design and major code writing yourself.
-
 - each of the `/xxx` mentioned above is a SKILL or AGENT, if you cannot interpret it as skill, read .ai-dev/{skills|agents}/xxx/SKILL.md directly.
+
+- Note that your subagents does not use the same model as you, you can consider it less good at deep thinking than you. You only delegate relatively narrowly scoped and clearly defined tasks to them. You do the design and major code writing yourself.
