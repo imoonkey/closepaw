@@ -3,6 +3,7 @@ package com.moonkey.androidagent.history.storage
 import android.content.Context
 import android.util.Log
 import com.moonkey.androidagent.history.model.SessionRecord
+import com.moonkey.androidagent.history.model.SessionRuntimeSnapshot
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -30,6 +31,7 @@ class SessionStorage(
         private const val TAG = "SessionStorage"
         private const val SESSIONS_DIR = "sessions"
         private const val SESSION_PREFIX = "session-"
+        private const val CONTEXT_PREFIX = "context-"
         private const val SESSION_SUFFIX = ".json"
         
         // DateTimeFormatter is thread-safe unlike SimpleDateFormat
@@ -162,5 +164,88 @@ class SessionStorage(
      */
     fun getSessionFile(fileName: String): File {
         return File(getSessionsDir(), fileName)
+    }
+
+    /**
+     * Generate context snapshot filename that pairs with a session filename.
+     * Shares the same `{ts}-{uuid}` suffix so files can be correlated.
+     */
+    fun contextFileNameFor(sessionFileName: String): String {
+        val suffix = sessionFileName.removePrefix(SESSION_PREFIX)
+        return "$CONTEXT_PREFIX$suffix"
+    }
+
+    /**
+     * Write a runtime snapshot atomically (temp file + rename).
+     */
+    suspend fun writeSnapshot(
+        fileName: String,
+        snapshot: SessionRuntimeSnapshot
+    ): Result<Unit> = withContext(ioDispatcher) {
+        try {
+            val dir = getSessionsDir()
+            val target = File(dir, fileName)
+            val tmp = File(dir, "$fileName.tmp")
+            val jsonString = json.encodeToString(snapshot)
+            tmp.writeText(jsonString)
+            if (!tmp.renameTo(target)) {
+                target.writeText(jsonString)
+                tmp.delete()
+            }
+            Log.d(TAG, "Wrote snapshot to ${target.name}, size=${jsonString.length} bytes")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to write snapshot $fileName", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Read a runtime snapshot from disk.
+     */
+    suspend fun readSnapshot(fileName: String): Result<SessionRuntimeSnapshot> = withContext(ioDispatcher) {
+        try {
+            val file = File(getSessionsDir(), fileName)
+            if (!file.exists()) {
+                return@withContext Result.failure(NoSuchFileException(file))
+            }
+            val jsonString = file.readText()
+            val snapshot = json.decodeFromString<SessionRuntimeSnapshot>(jsonString)
+            Log.d(TAG, "Read snapshot from ${file.name}, items=${snapshot.historyItems.size}")
+            Result.success(snapshot)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read snapshot $fileName", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * List context snapshot files (newest first).
+     */
+    suspend fun listSnapshotFiles(): List<File> = withContext(ioDispatcher) {
+        val dir = getSessionsDir()
+        val files = dir.listFiles { file ->
+            file.isFile &&
+            file.name.startsWith(CONTEXT_PREFIX) &&
+            file.name.endsWith(SESSION_SUFFIX)
+        } ?: emptyArray()
+        files.sortedByDescending { it.lastModified() }
+    }
+
+    /**
+     * Delete both session record and context snapshot for a given session file name.
+     */
+    suspend fun deleteSessionPair(sessionFileName: String): Result<Unit> = withContext(ioDispatcher) {
+        val contextFileName = contextFileNameFor(sessionFileName)
+        val sessionResult = deleteSession(sessionFileName)
+        try {
+            val contextFile = File(getSessionsDir(), contextFileName)
+            if (contextFile.exists()) {
+                contextFile.delete()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to delete context file $contextFileName", e)
+        }
+        sessionResult
     }
 }

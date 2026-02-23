@@ -45,7 +45,7 @@ class LongPressExecutorTest {
     }
 
     @Test
-    fun `execute uses gesture long press as primary for semantic target`() = runTest {
+    fun `execute uses node long click as primary for semantic target`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =
             RecordingLongPressPlatform(
@@ -65,12 +65,12 @@ class LongPressExecutorTest {
 
         assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
         assertThat(platform.performedActions).containsExactly(
-            UIAction.LongPressAt(x = 150, y = 210, durationMs = 900L)
+            UIAction.LongClickNodeAt(150, 210)
         )
     }
 
     @Test
-    fun `execute falls back to node long click when gesture long press fails`() = runTest {
+    fun `execute falls back to gesture long press when node long click fails`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =
             RecordingLongPressPlatform(
@@ -93,8 +93,8 @@ class LongPressExecutorTest {
 
         assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
         assertThat(platform.performedActions).containsExactly(
-            UIAction.LongPressAt(x = 150, y = 210, durationMs = 900L),
-            UIAction.LongClickNodeAt(150, 210)
+            UIAction.LongClickNodeAt(150, 210),
+            UIAction.LongPressAt(x = 150, y = 210, durationMs = 900L)
         ).inOrder()
     }
 

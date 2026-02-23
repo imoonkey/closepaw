@@ -23,6 +23,7 @@ internal fun MainActivityContent(
     showSettings: Boolean,
     onShowSettingsChange: (Boolean) -> Unit,
     onSessionSelect: (com.moonkey.androidagent.history.model.SessionInfo) -> Unit,
+    onNewSession: () -> Unit,
     onOpenViewer: () -> Unit,
     isAccessibilityEnabled: Boolean,
     isOverlayEnabled: Boolean,
@@ -39,9 +40,7 @@ internal fun MainActivityContent(
             appVersion = appVersion,
             onOpenSettings = { onShowSettingsChange(true) },
             onSessionSelect = onSessionSelect,
-            onNewSession = {
-                viewModel.startNewSession(settingsState.selectedModel, appVersion)
-            },
+            onNewSession = onNewSession,
             onDeleteSession = { session -> viewModel.deleteSession(session) },
             onLoadSessions = { viewModel.loadSessions() },
             onOpenViewer = onOpenViewer

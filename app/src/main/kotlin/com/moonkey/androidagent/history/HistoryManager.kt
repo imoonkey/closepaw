@@ -30,6 +30,11 @@ class HistoryManager(
 
     // Token usage tracking (null = needs recalculation, fixes H2 bug)
     private var lastTokenEstimate: Long? = null
+    private var onMutation: (() -> Unit)? = null
+
+    fun setMutationListener(listener: (() -> Unit)?) {
+        onMutation = listener
+    }
 
     /**
      * Add a single item to history.
@@ -41,6 +46,7 @@ class HistoryManager(
         lastTokenEstimate = null
         Log.d(TAG, "Added item: ${item.javaClass.simpleName}, total items: ${items.size}")
         autoCompressIfNeeded()
+        onMutation?.invoke()
     }
 
     /**
@@ -58,6 +64,21 @@ class HistoryManager(
         lastTokenEstimate = null
         Log.d(TAG, "Recorded ${newItems.size} items, total: ${items.size}")
         autoCompressIfNeeded()
+        onMutation?.invoke()
+    }
+
+    /**
+     * Replace the whole history with an externally prepared list.
+     *
+     * Used by session reload to restore an exact checkpoint without re-running
+     * truncation/compression side effects.
+     */
+    @Synchronized
+    fun replaceAll(newItems: List<ResponseItem>) {
+        items.clear()
+        items.addAll(newItems)
+        lastTokenEstimate = null
+        Log.d(TAG, "History replaced, total items: ${items.size}")
     }
 
     /**
@@ -162,6 +183,7 @@ class HistoryManager(
         
         lastTokenEstimate = null // Invalidate cache
         Log.d(TAG, "Dropped last $n user turns, remaining items: ${items.size}")
+        onMutation?.invoke()
     }
     
     /**
@@ -187,6 +209,7 @@ class HistoryManager(
         
         lastTokenEstimate = null // Invalidate cache
         Log.d(TAG, "Removed first item: ${removed.javaClass.simpleName}")
+        onMutation?.invoke()
     }
     
     /**
@@ -217,6 +240,7 @@ class HistoryManager(
         }
         
         Log.d(TAG, "Compression complete, now ${estimateTokenCount()} tokens, ${items.size} items")
+        onMutation?.invoke()
     }
     
     /**

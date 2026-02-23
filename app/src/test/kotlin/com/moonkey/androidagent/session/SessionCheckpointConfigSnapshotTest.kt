@@ -1,0 +1,50 @@
+package com.moonkey.androidagent.session
+
+import com.google.common.truth.Truth.assertThat
+import com.moonkey.androidagent.llm.LocalLLMConfig
+import com.moonkey.androidagent.perception.PerceptionConfig
+import com.moonkey.androidagent.protocol.AgentMode
+import com.moonkey.androidagent.protocol.LLMBackendType
+import com.moonkey.androidagent.protocol.PlatformMode
+import com.moonkey.androidagent.protocol.SessionConfig
+import com.moonkey.androidagent.protocol.SessionLlmConfig
+import org.junit.Test
+
+class SessionCheckpointConfigSnapshotTest {
+
+    @Test
+    fun `config snapshot round trip preserves llm routing`() {
+        val config =
+            SessionConfig(
+                mainModel = "main-model",
+                executorModel = "executor-model",
+                agentMode = AgentMode.BASIC,
+                maxTurns = 42,
+                perceptionConfig = PerceptionConfig.Hybrid(),
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                llm =
+                    SessionLlmConfig(
+                        backendType = LLMBackendType.LOCAL,
+                        localConfig =
+                            LocalLLMConfig(
+                                modelSlug = "LFM2.5-1.2B-Instruct",
+                                quantizationSlug = "Q5_K_M"
+                            )
+                    )
+            )
+
+        val snapshot = config.toConfigSnapshot()
+        val restored = snapshot.toSessionConfig()
+
+        assertThat(restored.mainModel).isEqualTo("main-model")
+        assertThat(restored.executorModel).isEqualTo("executor-model")
+        assertThat(restored.agentMode).isEqualTo(AgentMode.BASIC)
+        assertThat(restored.maxTurns).isEqualTo(42)
+        assertThat(restored.perceptionConfig).isInstanceOf(PerceptionConfig.Hybrid::class.java)
+        assertThat(restored.platformMode).isEqualTo(PlatformMode.VIRTUAL_DISPLAY)
+        assertThat(restored.llm.backendType).isEqualTo(LLMBackendType.LOCAL)
+        assertThat(restored.llm.localConfig?.modelSlug).isEqualTo("LFM2.5-1.2B-Instruct")
+        assertThat(restored.llm.localConfig?.quantizationSlug).isEqualTo("Q5_K_M")
+    }
+}
+

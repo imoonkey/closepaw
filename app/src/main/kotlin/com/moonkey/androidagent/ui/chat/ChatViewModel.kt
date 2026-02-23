@@ -186,7 +186,10 @@ class ChatViewModel(
      */
     fun sendMessage(text: String) {
         val session = sessionProvider()
-        if (session != null) {
+        if (session != null &&
+                session.state.value != SessionState.Completed &&
+                session.state.value != SessionState.Shutdown
+        ) {
             viewModelScope.launch { session.submit(Op.UserInput(text)) }
         } else {
             // No session - request one to be created

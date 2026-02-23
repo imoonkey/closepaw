@@ -110,7 +110,7 @@ class SessionHistoryManager(
         val file = files.find { it.name.contains(sessionId) }
             ?: return Result.failure(NoSuchElementException("Session not found: $sessionId"))
         
-        return storage.deleteSession(file.name).onSuccess {
+        return storage.deleteSessionPair(file.name).onSuccess {
             cacheMutex.withLock {
                 sessionInfoCache.remove(file.name)
             }
@@ -121,7 +121,7 @@ class SessionHistoryManager(
      * Delete a session by file name.
      */
     suspend fun deleteSessionByFileName(fileName: String): Result<Unit> {
-        return storage.deleteSession(fileName).onSuccess {
+        return storage.deleteSessionPair(fileName).onSuccess {
             cacheMutex.withLock {
                 sessionInfoCache.remove(fileName)
             }

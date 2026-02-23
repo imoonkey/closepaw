@@ -74,7 +74,6 @@ internal class AgentServiceEventHandler(
             }
             is TaskCompleted -> {
                 Log.i(logTag, "Task completed: ${event.taskId}, reason: ${event.reason}")
-                recordingService?.completeSession(event.reason)
                 overlay?.onTaskCompleted(event.reason, event.result)
             }
             is ActionProposed -> {
@@ -107,6 +106,7 @@ internal class AgentServiceEventHandler(
             // ===== Session Lifecycle Events =====
             is SessionCompleted -> {
                 Log.i(logTag, "Session completed: ${event.sessionId}, reason: ${event.reason}")
+                recordingService?.completeSession(event.reason)
                 val statusMessage = when (event.reason) {
                     CompletionReason.GOAL_ACHIEVED -> "✅ Goal achieved!"
                     CompletionReason.USER_STOPPED -> "🛑 Agent stopped"

@@ -1,0 +1,71 @@
+package com.moonkey.androidagent.history.model
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class SessionRuntimeSnapshot(
+    val schemaVersion: Int = 1,
+    val sessionId: String,
+    val config: ConversationConfigSnapshot,
+    val historyItems: List<PersistedHistoryItem>,
+    val todos: List<TodoSnapshot>,
+    val scratchpad: Map<String, String>,
+    val checkpointState: CheckpointState,
+    val lastCheckpointAt: Long
+)
+
+@Serializable
+sealed interface PersistedHistoryItem {
+    @Serializable
+    data class Message(
+        val role: String,
+        val content: String,
+        val name: String? = null,
+        val isScreenObservation: Boolean = false
+    ) : PersistedHistoryItem
+
+    @Serializable
+    data class FunctionCall(
+        val id: String,
+        val name: String,
+        val argumentsRawJson: String
+    ) : PersistedHistoryItem
+
+    @Serializable
+    data class FunctionCallOutput(
+        val callId: String,
+        val content: String,
+        val success: Boolean = true,
+        val truncated: Boolean = false
+    ) : PersistedHistoryItem
+}
+
+@Serializable
+data class ConversationConfigSnapshot(
+    val mainModel: String,
+    val executorModel: String? = null,
+    val agentMode: String,
+    val maxTurns: Int,
+    val perceptionMode: String,
+    val platformMode: String,
+    val llmBackendType: String = "OPENAI",
+    val localModelSlug: String? = null,
+    val localQuantizationSlug: String? = null
+)
+
+@Serializable
+data class TodoSnapshot(
+    val description: String,
+    val status: String
+)
+
+@Serializable
+enum class CheckpointState {
+    IDLE_READY,
+    RUNNING_DIRTY,
+    CLOSED
+}
+
+/** IDLE_READY and CLOSED snapshots are safe entry points for follow-up reload. */
+fun CheckpointState.isReloadable(): Boolean =
+    this == CheckpointState.IDLE_READY || this == CheckpointState.CLOSED

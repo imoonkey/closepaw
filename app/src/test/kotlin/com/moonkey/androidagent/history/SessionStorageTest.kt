@@ -2,7 +2,11 @@ package com.moonkey.androidagent.history
 
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.model.MessageRecord
+import com.moonkey.androidagent.history.model.CheckpointState
+import com.moonkey.androidagent.history.model.ConversationConfigSnapshot
+import com.moonkey.androidagent.history.model.PersistedHistoryItem
 import com.moonkey.androidagent.history.model.SessionRecord
+import com.moonkey.androidagent.history.model.SessionRuntimeSnapshot
 import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.test.buildTestContext
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -73,5 +77,47 @@ class SessionStorageTest {
         assertThat(files).hasSize(2)
         assertThat(files[0].name).isEqualTo(file2)
         assertThat(files[1].name).isEqualTo(file1)
+    }
+
+    @Test
+    fun `deleteSessionPair removes both session and context files`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+
+        val record =
+            SessionRecord(
+                sessionId = "session-delete",
+                startTime = 1L,
+                lastUpdated = 2L,
+                messages = emptyList()
+            )
+        val sessionFile = storage.generateFileName(record.sessionId)
+        val contextFile = storage.contextFileNameFor(sessionFile)
+        val snapshot =
+            SessionRuntimeSnapshot(
+                sessionId = record.sessionId,
+                config =
+                    ConversationConfigSnapshot(
+                        mainModel = "m1",
+                        agentMode = "PRO",
+                        maxTurns = 10,
+                        perceptionMode = "accessibility_only",
+                        platformMode = "ACCESSIBILITY"
+                    ),
+                historyItems = listOf(PersistedHistoryItem.Message(role = "user", content = "hi")),
+                todos = emptyList(),
+                scratchpad = emptyMap(),
+                checkpointState = CheckpointState.IDLE_READY,
+                lastCheckpointAt = 3L
+            )
+
+        storage.writeSession(sessionFile, record).getOrThrow()
+        storage.writeSnapshot(contextFile, snapshot).getOrThrow()
+
+        storage.deleteSessionPair(sessionFile).getOrThrow()
+
+        assertThat(storage.readSession(sessionFile).isFailure).isTrue()
+        assertThat(storage.readSnapshot(contextFile).isFailure).isTrue()
     }
 }

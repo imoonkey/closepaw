@@ -5,6 +5,10 @@ package com.moonkey.androidagent.session
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import com.moonkey.androidagent.agent.AgentStopReason
+import com.moonkey.androidagent.history.model.CheckpointState
+import com.moonkey.androidagent.history.model.HistoryItemConverter
+import com.moonkey.androidagent.history.model.SessionRuntimeSnapshot
+import com.moonkey.androidagent.history.model.isReloadable
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.OverlayTouchGate
 import com.moonkey.androidagent.platform.PlatformFactory
@@ -86,6 +90,88 @@ private constructor(
                     services = services
             )
         }
+
+        /**
+         * Reload a session from a persisted [SessionRuntimeSnapshot].
+         *
+         * Hydrates HistoryManager, TodoState, ScratchpadState from the snapshot
+         * and resumes the UI recording service. Returns a session in [SessionState.Created]
+         * state — the first [Op.UserInput] triggers platform start as usual.
+         *
+         * @return the reloaded session, or null if the snapshot is invalid.
+         */
+        fun reload(
+                snapshot: SessionRuntimeSnapshot,
+                service: AccessibilityService,
+                scope: CoroutineScope,
+                apiKeys: Map<String, String> = emptyMap(),
+                visualizer: ActionVisualizerManager? = null,
+                overlayTouchGate: OverlayTouchGate? = null,
+        ): AgentSession? {
+            if (snapshot.schemaVersion != 1) {
+                Log.w(TAG, "Unsupported schema version ${snapshot.schemaVersion}, cannot reload")
+                return null
+            }
+            if (!snapshot.checkpointState.isReloadable()) {
+                Log.w(
+                    TAG,
+                    "Snapshot state is ${snapshot.checkpointState}, expected IDLE_READY or CLOSED"
+                )
+                return null
+            }
+
+            val config = snapshot.config.toSessionConfig()
+            val sessionId = SessionId(snapshot.sessionId)
+            val traceRecorder = TraceRecorderFactory.create(service, config, sessionId)
+            val platform: AndroidPlatform =
+                    PlatformFactory.create(
+                            config = config,
+                            service = service,
+                            visualizer = visualizer,
+                            traceRecorder = traceRecorder,
+                            overlayTouchGate = overlayTouchGate,
+                    )
+            val services =
+                    SessionServices.create(
+                            config = config,
+                            platform = platform,
+                            apiKeys = apiKeys,
+                            context = service,
+                            scope = scope,
+                            traceRecorder = traceRecorder
+                    )
+
+            val historyItems = HistoryItemConverter.fromRecords(snapshot.historyItems)
+            services.historyManager.replaceAll(historyItems)
+
+            val restoredTodos =
+                    snapshot.todos.map { todo ->
+                        val status = try {
+                            TodoStatus.valueOf(todo.status)
+                        } catch (_: IllegalArgumentException) {
+                            TodoStatus.PENDING
+                        }
+                        com.moonkey.androidagent.protocol.Todo(
+                                description = todo.description,
+                                status = status
+                        )
+                    }
+            services.sessionState.todos.update(restoredTodos)
+
+            snapshot.scratchpad.forEach { (key, value) ->
+                services.sessionState.scratchpad.write(key, value)
+            }
+
+            Log.i(TAG, "Reloaded session $sessionId with ${historyItems.size} history items")
+
+            return AgentSession(
+                    sessionId = sessionId,
+                    config = config,
+                    service = service,
+                    scope = scope,
+                    services = services
+            )
+        }
     }
 
     fun getServices(): SessionServices = services
@@ -105,6 +191,20 @@ private constructor(
                     emitEvent = { event -> emit(event) },
                     onComplete = { reason -> handleAgentComplete(reason) }
             )
+
+    private val checkpointCoordinator = SessionCheckpointCoordinator(
+            sessionId = sessionId.value,
+            config = config,
+            historyManager = services.historyManager,
+            sessionState = services.sessionState,
+            recordingService = services.recordingService
+    )
+
+    init {
+        services.historyManager.setMutationListener { checkpointCoordinator.scheduleCheckpoint() }
+        services.sessionState.todos.setMutationListener { checkpointCoordinator.scheduleCheckpoint() }
+        services.sessionState.scratchpad.setMutationListener { checkpointCoordinator.scheduleCheckpoint() }
+    }
 
     private var currentTaskId: String? = null
 
@@ -151,11 +251,20 @@ private constructor(
             return
         }
 
+        if (_state.value == SessionState.Completed) {
+            Log.w(TAG, "Rejecting UserInput: Session is completed and cannot accept new tasks")
+            emitStatus("⚠️ Session finished. Start a new task to continue.")
+            return
+        }
+
         if (_state.value == SessionState.Created) {
-            services.recordingService.initializeNewSession(
-                    sessionId = sessionId.value,
-                    model = config.mainModel
-            )
+            val recorderSessionId = services.recordingService.getCurrentSessionId()
+            if (recorderSessionId == null || recorderSessionId != sessionId.value) {
+                services.recordingService.initializeNewSession(
+                        sessionId = sessionId.value,
+                        model = config.mainModel
+                )
+            }
 
             try {
                 services.platform.start()
@@ -216,11 +325,38 @@ private constructor(
                 )
         )
 
-        _state.value = SessionState.Idle
+        val checkpointed = checkpointCoordinator.flushIdleReady()
+        if (!checkpointed) {
+            _state.value = SessionState.Idle
+            currentTaskId = null
+            agentRunner.clear()
+            emitStatus("⚠️ Checkpoint save failed; session kept alive in memory.")
+            Log.e(TAG, "Task $taskId completed but checkpoint failed; keeping session alive")
+            return
+        }
+
+        _state.value = SessionState.Completed
         currentTaskId = null
         agentRunner.clear()
+        disableCheckpointMutationListeners()
+        try {
+            services.cleanup()
+        } catch (e: Exception) {
+            Log.e(TAG, "Service cleanup failed after task completion", e)
+        }
 
-        Log.i(TAG, "Task $taskId completed (reason=$completionReason). Session Idle.")
+        if (completionEmitted.compareAndSet(false, true)) {
+            emit(
+                    SessionCompleted(
+                            sessionId = sessionId,
+                            timestamp = now(),
+                            result = resultMessage,
+                            reason = completionReason
+                    )
+            )
+        }
+        closeChannelWithDelay()
+        Log.i(TAG, "Task $taskId completed (reason=$completionReason). Session completed and cleaned up.")
     }
 
     private fun AgentStopReason.toCompletionReason(): CompletionReason =
@@ -307,6 +443,12 @@ private constructor(
         val previousState = _state.value
         _state.value = SessionState.Shutdown
 
+        val closedCheckpointSaved = checkpointCoordinator.flushClosed()
+        if (!closedCheckpointSaved) {
+            Log.w(TAG, "Failed to flush CLOSED checkpoint for $sessionId")
+        }
+
+        disableCheckpointMutationListeners()
         services.userResponseChannel.cancel()
 
         agentRunner.shutdown()
@@ -367,4 +509,10 @@ private constructor(
     }
 
     private fun now(): Long = System.currentTimeMillis()
+
+    private fun disableCheckpointMutationListeners() {
+        services.historyManager.setMutationListener(null)
+        services.sessionState.todos.setMutationListener(null)
+        services.sessionState.scratchpad.setMutationListener(null)
+    }
 }

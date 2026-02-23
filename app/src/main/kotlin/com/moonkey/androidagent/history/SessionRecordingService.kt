@@ -6,6 +6,7 @@ import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.model.ScreenStateRecord
 import com.moonkey.androidagent.history.model.SessionMetadata
 import com.moonkey.androidagent.history.model.SessionRecord
+import com.moonkey.androidagent.history.model.SessionRuntimeSnapshot
 import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.protocol.CompletionReason
 import java.util.UUID
@@ -58,8 +59,11 @@ class SessionRecordingService(
                             metadata = SessionMetadata(appVersion = appVersion, model = model)
                     )
             currentFileName = storage.generateFileName(finalSessionId)
+            contextFileName = currentFileName?.let { storage.contextFileNameFor(it) }
             // Reset state
             agentMessageBuffer.clear()
+            checkpointSaveJob?.cancel()
+            checkpointSaveJob = null
         }
 
         Log.i(TAG, "Initialized new session: $finalSessionId, file: $currentFileName")
@@ -77,8 +81,11 @@ class SessionRecordingService(
         synchronized(stateLock) {
             currentSession = data.session
             currentFileName = data.fileName
+            contextFileName = storage.contextFileNameFor(data.fileName)
             // Reset agent message state (we're starting fresh)
             agentMessageBuffer.clear()
+            checkpointSaveJob?.cancel()
+            checkpointSaveJob = null
         }
 
         Log.i(TAG, "Resumed session: ${data.session.sessionId}, file: ${data.fileName}")
@@ -252,21 +259,94 @@ class SessionRecordingService(
      * before clearing.
      */
     fun clearSession() {
-        // Let any pending save complete before clearing state
-        val pendingSave =
+        val (pendingSave, pendingCheckpoint) =
                 synchronized(stateLock) {
-                    val pending = saveJob
+                    val pendingSave = saveJob
                     saveJob = null
-                    pending
+                    val pendingCheckpoint = checkpointSaveJob
+                    checkpointSaveJob = null
+                    pendingSave to pendingCheckpoint
                 }
         scope.launch {
             pendingSave?.join()
+            pendingCheckpoint?.join()
             synchronized(stateLock) {
                 currentSession = null
                 currentFileName = null
                 agentMessageBuffer.clear()
+                contextFileName = null
             }
             Log.d(TAG, "Session tracking cleared")
+        }
+    }
+
+    // ===== Checkpoint (LLM context snapshot) =====
+
+    private var contextFileName: String? = null
+    private var checkpointSaveJob: Job? = null
+
+    /**
+     * Schedule a debounced checkpoint save. Called when HistoryManager, TodoState,
+     * or ScratchpadState mutates.
+     */
+    fun scheduleCheckpoint(snapshotProvider: () -> SessionRuntimeSnapshot) {
+        synchronized(stateLock) {
+            checkpointSaveJob?.cancel()
+            checkpointSaveJob = scope.launch {
+                delay(SAVE_DEBOUNCE_MS)
+                val snapshot = snapshotProvider()
+                saveCheckpoint(snapshot)
+            }
+        }
+    }
+
+    /**
+     * Force-flush a checkpoint immediately (no debounce).
+     * Used on TaskCompleted / Op.Shutdown.
+     */
+    suspend fun forceCheckpoint(snapshot: SessionRuntimeSnapshot): Boolean {
+        val pendingCheckpoint = synchronized(stateLock) {
+            val pending = checkpointSaveJob
+            checkpointSaveJob = null
+            pending
+        }
+        pendingCheckpoint?.join()
+        return saveCheckpoint(snapshot)
+    }
+
+    /** Get the context snapshot filename for the current session. */
+    fun getContextFileName(): String? = synchronized(stateLock) {
+        contextFileName ?: currentFileName?.let { sessionFile ->
+            val name = storage.contextFileNameFor(sessionFile)
+            contextFileName = name
+            name
+        }
+    }
+
+    private suspend fun saveCheckpoint(snapshot: SessionRuntimeSnapshot): Boolean {
+        val fileName = getContextFileName() ?: run {
+            Log.w(TAG, "No context file name for checkpoint")
+            return false
+        }
+        return storage.writeSnapshot(fileName, snapshot).fold(
+            onSuccess = { true },
+            onFailure = { e ->
+                Log.e(TAG, "Failed to save checkpoint", e)
+                false
+            }
+        )
+    }
+
+    private suspend fun save() {
+        val (fileName, session) =
+                synchronized(stateLock) {
+                    val current = currentSession ?: return
+                    val file = currentFileName ?: return
+                    file to current
+                }
+
+        storage.writeSession(fileName, session).onFailure { e ->
+            Log.e(TAG, "Failed to save session", e)
         }
     }
 
@@ -372,19 +452,6 @@ class SessionRecordingService(
         return path?.trim()?.takeIf { it.isNotEmpty() }
     }
 
-    /** Save current state to disk. */
-    private suspend fun save() {
-        val (fileName, session) =
-                synchronized(stateLock) {
-                    val current = currentSession ?: return
-                    val file = currentFileName ?: return
-                    file to current
-                }
-
-        storage.writeSession(fileName, session).onFailure { e ->
-            Log.e(TAG, "Failed to save session", e)
-        }
-    }
 }
 
 /** Data class for resuming a session. */

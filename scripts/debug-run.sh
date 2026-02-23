@@ -456,14 +456,12 @@ while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
         LAST_LOG_LINE=$TOTAL_LINES
     fi
 
-    # Check if task/session finished.
-    # Match explicit event names to avoid false positives from generic status text.
-    # NOTE: Do NOT call stop_agent here. The session should remain in Idle state
-    # so the user can send follow-up messages in the chat UI. The next debug-run.sh
-    # invocation will clear it via fresh_session=true. Only stop on error/timeout.
-    if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -qE "AgentSession: Emitted event: TaskCompleted|AgentService: Received event: TaskCompleted|AgentSession: Emitted event: SessionCompleted|AgentService: Session completed|AgentService: Task completed"; then
+    # Check if session finished.
+    # Wait for SessionCompleted so terminal checkpoint flush can finish before STOP_AGENT.
+    if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -qE "AgentSession: Emitted event: SessionCompleted|AgentService: Session completed"; then
         echo ""
-        ok "Task/session completed! (session kept alive for follow-up)"
+        ok "Task/session completed!"
+        stop_agent
         break
     fi
 

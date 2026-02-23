@@ -13,6 +13,11 @@ class ScratchpadState(
     }
 
     private val lock = Any()
+    private var onMutation: (() -> Unit)? = null
+
+    fun setMutationListener(listener: (() -> Unit)?) {
+        onMutation = listener
+    }
 
     fun write(key: String, value: String) {
         require(key.length <= MAX_KEY_LENGTH) {
@@ -28,18 +33,28 @@ class ScratchpadState(
             }
             data[key] = value
         }
+        onMutation?.invoke()
     }
 
     fun read(key: String): String? = synchronized(lock) { data[key] }
 
-    fun delete(key: String): Boolean = synchronized(lock) { data.remove(key) != null }
+    fun delete(key: String): Boolean {
+        val removed = synchronized(lock) { data.remove(key) != null }
+        if (removed) {
+            onMutation?.invoke()
+        }
+        return removed
+    }
 
     fun list(): List<String> = synchronized(lock) { data.keys.sorted() }
+
+    fun toMap(): Map<String, String> = synchronized(lock) { data.toMap() }
 
     fun clear() {
         synchronized(lock) {
             data.clear()
         }
+        onMutation?.invoke()
     }
 
     fun toPromptContext(): String {

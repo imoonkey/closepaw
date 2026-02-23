@@ -10,6 +10,11 @@ class TodoState(
     private val todos: MutableList<Todo> = mutableListOf()
 ) {
     private val lock = Any()
+    private var onMutation: (() -> Unit)? = null
+
+    fun setMutationListener(listener: (() -> Unit)?) {
+        onMutation = listener
+    }
 
     fun update(newTodos: List<Todo>) {
         require(newTodos.count { it.status == TodoStatus.IN_PROGRESS } <= 1) {
@@ -19,12 +24,14 @@ class TodoState(
             todos.clear()
             todos.addAll(newTodos)
         }
+        onMutation?.invoke()
     }
 
     fun clear() {
         synchronized(lock) {
             todos.clear()
         }
+        onMutation?.invoke()
     }
 
     fun get(): List<Todo> = synchronized(lock) { todos.toList() }
