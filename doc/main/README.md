@@ -38,7 +38,7 @@ doc/main/
 │   └── protocol.md    # Op/AgentEvent, state machine, errors, SessionConfig
 │
 ├── app/               # Application layer (non-agentic)
-│   ├── history.md     # Session history persistence + runtime token management
+│   ├── history.md     # Session history persistence, compression pipeline, runtime token management
 │   └── settings.md    # User settings, preferences, SessionConfig compilation
 │
 └── ui/                # User interface
@@ -247,7 +247,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 | **SessionConfig** | Compiled settings snapshot for a session | [settings.md](app/settings.md) |
 | **Hot Idle** | Session stays alive between tasks for follow-up | [session/](ui/session/state_machine.md) |
 | **CapsuleMode** | Smart Capsule state (Running, Takeover, etc.) | [overlay.md](ui/overlay.md) |
-| **Context Hygiene** | Token-efficient history management | [planning.md](agent/planning.md) |
+| **Context Hygiene** | Token-efficient history management (compression pipeline) | [planning.md](agent/planning.md), [history.md](app/history.md) |
 
 ---
 

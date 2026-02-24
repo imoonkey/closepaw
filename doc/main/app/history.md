@@ -1,14 +1,14 @@
 # Session History Persistence
 
-> Session recording, storage, runtime prompt history, and resume functionality.
-> Last updated: 2026-02-23 (commit: 1dd2020)
+> Session recording, storage, runtime prompt history, compression pipeline, and resume functionality.
+> Last updated: 2026-02-24
 
 ## Overview
 
 The session history system has three layers:
 
 1. **Persistence layer** — automatic recording of chat sessions to disk for browsing and resuming past conversations
-2. **Runtime layer** — in-memory conversation history management for LLM context with token budgeting and truncation
+2. **Runtime layer** — in-memory conversation history management for LLM context with token budgeting, multi-phase compression, and proactive screen downgrade
 3. **Checkpoint layer** — session state snapshots for process-death recovery (history + todos + scratchpad)
 
 ---
@@ -150,62 +150,6 @@ class SessionStorage(context) {
 
 ## Runtime Prompt History
 
-### HistoryManager
-
-> See: `history/HistoryManager.kt`
-
-In-memory conversation history for each active agent session. Stores `ResponseItem` list used as LLM `input`.
-
-```kotlin
-class HistoryManager {
-    fun addItem(item: ResponseItem)
-    fun recordItems(newItems: List<ResponseItem>, policy: TruncationPolicy)
-    fun getAll(): List<ResponseItem>        // Defensive copy
-    fun forPrompt(): List<ResponseItem>     // Normalized for LLM
-    fun size(): Int
-    fun isEmpty(): Boolean
-    fun clear()
-    fun estimateTokenCount(): Long
-    fun isApproachingLimit(maxTokens: Long, warningThreshold: Float = 0.8f): Boolean
-    fun dropLastNUserTurns(n: Int)
-    fun removeFirstItem()
-    fun compress(targetTokens: Long)
-    fun getSummary(): String
-}
-```
-
-Key behaviors:
-- **Token estimation**: `TOKENS_PER_CHAR = 0.25f`, rough estimate for context window management
-- **Auto-compression**: triggers at `autoCompressThreshold` (85%) of `maxTokenBudget` (100K tokens)
-- **Two-strategy compression**: (1) aggressive truncation of old function outputs, (2) remove oldest non-user items. User messages are always preserved to maintain task intent and corrections.
-- **History normalization** (`normalizeHistory`): ensures function call/output pairs are matched; adds placeholders for missing outputs, removes orphaned outputs
-- **Screen observation tagging**: items tagged with `isScreenObservation=true` are later compressed by `PromptBuilder`
-- **Thread-safe**: all methods `@Synchronized`
-
-### HistoryConfig
-
-> See: `history/HistoryConfig.kt`
-
-```kotlin
-data class HistoryConfig(
-    val defaultTruncationPolicy: TruncationPolicy = TruncationPolicy.CONSERVATIVE,
-    val maxTokenBudget: Long = 100_000,
-    val autoCompress: Boolean = true,
-    val autoCompressThreshold: Float = 0.85f
-)
-```
-
-### TruncationPolicy
-
-Defined in `HistoryConfig.kt`:
-
-| Policy | Max Tokens per Output |
-|--------|----------------------|
-| `NONE` | No truncation |
-| `CONSERVATIVE` | 8,000 |
-| `AGGRESSIVE` | 2,000 |
-| `MINIMAL` | 500 |
-
 ### ResponseItem
 
 > See: `history/ResponseItem.kt`
@@ -216,11 +160,211 @@ Sealed class for conversation items:
 sealed class ResponseItem {
     abstract fun estimateTokens(): Long
 
-    data class Message(role, content, name?, isScreenObservation = false) : ResponseItem()
-    data class FunctionCall(id, name, arguments: JSONObject) : ResponseItem()
-    data class FunctionCallOutput(callId, content, success = true, truncated = false) : ResponseItem()
+    data class Message(kind: MessageKind, content: String, name: String? = null) : ResponseItem() {
+        val role: String get() = kind.apiRole  // Derived from kind
+    }
+    data class FunctionCall(id: String, name: String, arguments: JSONObject) : ResponseItem()
+    data class FunctionCallOutput(callId: String, content: String, success: Boolean = true, truncated: Boolean = false) : ResponseItem()
 }
 ```
+
+### MessageKind
+
+> See: `history/ResponseItem.kt`
+
+Explicit message classification that replaces the ambiguous `role: String` + `isScreenObservation: Boolean`.
+
+```kotlin
+enum class MessageKind {
+    USER_INTENT,          // User's task goal or follow-up instruction
+    SCREEN_OBSERVATION,   // Screen state captured each turn
+    ASSISTANT_TEXT,       // Agent reasoning / action description
+    COMPRESSION_DIGEST;   // Breadcrumb inserted when history is evicted
+
+    val apiRole: String get() = when (this) {
+        USER_INTENT, SCREEN_OBSERVATION -> "user"
+        ASSISTANT_TEXT, COMPRESSION_DIGEST -> "assistant"
+    }
+}
+```
+
+**Why:** The previous design used `role == "user"` for both user intent and screen observations. During compression, all `role == "user"` messages were protected — including screen observations, which are the biggest token consumer. Result: compression entered no-op loops and could never reach budget.
+
+### HistoryManager
+
+> See: `history/HistoryManager.kt`
+
+In-memory conversation history for each active agent session. Stores `ResponseItem` list used as LLM `input`.
+
+```kotlin
+class HistoryManager(config: HistoryConfig = HistoryConfig()) {
+    fun addItem(item: ResponseItem)                      // Add + proactive screen downgrade + auto-compress
+    fun recordItems(newItems: List<ResponseItem>, policy) // Batch add
+    fun replaceAll(newItems: List<ResponseItem>)         // Restore exact checkpoint (no side effects)
+    fun getAll(): List<ResponseItem>                     // Defensive copy
+    fun forPrompt(): List<ResponseItem>                  // Normalized for LLM
+    fun size(): Int
+    fun isEmpty(): Boolean
+    fun clear()
+    fun estimateTokenCount(): Long
+    fun isApproachingLimit(maxTokens: Long, warningThreshold: Float = 0.8f): Boolean
+    fun compress(targetTokens: Long): CompressionResult  // Multi-phase compression pipeline
+    fun getSummary(): String                             // Debug summary
+}
+```
+
+Key behaviors:
+- **Token estimation**: `TOKENS_PER_CHAR = 0.25f`, rough estimate for context window management
+- **Proactive screen downgrade**: on every new `SCREEN_OBSERVATION`, downgrades all but last `recentFullScreens` to one-line summaries
+- **Auto-compression**: triggers at `autoCompressThreshold` (85%) of `maxTokenBudget`, compresses down to `compressTargetRatio` (50%)
+- **History normalization** (`forPrompt`): ensures function call/output pairs are matched; adds placeholders for missing outputs, removes orphaned outputs
+- **Thread-safe**: all public methods `@Synchronized`
+- **Mutation listener**: `setMutationListener()` for checkpoint coordination — fires after any state change
+
+### HistoryConfig
+
+> See: `history/HistoryConfig.kt`
+
+```kotlin
+data class HistoryConfig(
+    val defaultTruncationPolicy: TruncationPolicy = TruncationPolicy.CONSERVATIVE,
+    val maxTokenBudget: Long = 100_000,
+    val autoCompress: Boolean = true,
+    val autoCompressThreshold: Float = 0.85f,
+    val compressTargetRatio: Float = 0.5f,
+    val recentFullScreens: Int = 3,
+    val recentWindowSize: Int = 10
+)
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `maxTokenBudget` | 100,000 | Upper bound for estimated token count |
+| `autoCompressThreshold` | 0.85 | Fraction of budget at which auto-compress triggers |
+| `compressTargetRatio` | 0.5 | Fraction of budget to compress DOWN to |
+| `recentFullScreens` | 3 | Number of recent screen observations kept as full JSON |
+| `recentWindowSize` | 10 | Number of tail items protected from eviction |
+
+### TruncationPolicy
+
+| Policy | Max Tokens per Output |
+|--------|----------------------|
+| `NONE` | No truncation |
+| `CONSERVATIVE` | 8,000 |
+| `AGGRESSIVE` | 2,000 |
+| `MINIMAL` | 500 |
+
+Applied on ingestion (`processItem`), not during compression — tool outputs in this agent are typically 13-65 tokens, so compression-phase truncation would be dead code.
+
+---
+
+## Compression Pipeline
+
+> See: `history/HistoryManager.kt` — `compress(targetTokens)`
+
+### Design Principles
+
+1. **`USER_INTENT` is never deleted** — hard invariant, not heuristic. Users issue follow-up requests after task completion; all must survive.
+2. **Screen observations are the primary compression target** — they contain full accessibility tree JSON and dominate token usage.
+3. **Call/output pairing is preserved** — `FunctionCall` and its paired `FunctionCallOutput` are always evicted as an atomic group.
+4. **Compression is deterministic** — no LLM calls, no randomness.
+5. **Compress rarely, compress deep** — compress to 50% of budget to maximize KV cache stability (see below).
+
+### Pipeline Phases
+
+```
+compress(targetTokens)
+│
+├─ Budget check: already ≤ target? → return Noop
+│
+├─ Phase 0: Normalize
+│  └─ Ensure every FunctionCall has a paired FunctionCallOutput
+│     (insert placeholder if missing, remove orphans)
+│
+├─ Phase 1: Screen Downgrade
+│  └─ Keep last recentFullScreens (3) screen observations as full JSON
+│     Rewrite older ones to: "Screen: {N} elements (compressed)"
+│  └─ If ≤ target → return Compressed
+│
+├─ Phase 2: Group-Aware Eviction
+│  └─ Walk items from oldest to newest (outside recentWindowSize tail)
+│  └─ Skip: USER_INTENT, COMPRESSION_DIGEST
+│  └─ Evict whole structural groups:
+│     - Message (SCREEN_OBSERVATION, ASSISTANT_TEXT) → remove
+│     - FunctionCall → remove call + paired output atomically
+│     - Orphaned FunctionCallOutput → remove
+│  └─ Insert one COMPRESSION_DIGEST breadcrumb at eviction point:
+│     "[Compressed] Removed N earlier items: M tool actions, K screen observations. History truncated to save context."
+│
+├─ Phase 3: Hard Guard
+│  └─ Merge adjacent COMPRESSION_DIGEST messages into one
+│  └─ If still over budget and only USER_INTENT + digests remain:
+│     → return BudgetUnreachable
+│
+└─ Return: Compressed(before, after, stepsApplied) or Noop
+```
+
+### CompressionResult
+
+```kotlin
+sealed class CompressionResult {
+    data class Noop(val before: Long, val after: Long) : CompressionResult()
+    data class Compressed(val before: Long, val after: Long, val stepsApplied: Int) : CompressionResult()
+    data class BudgetUnreachable(val after: Long, val minimumPossible: Long) : CompressionResult()
+}
+```
+
+### Proactive Screen Downgrade
+
+Screen downgrade runs not only during `compress()` (Phase 1) but also proactively on every `addItem()` / `recordItems()` that includes a `SCREEN_OBSERVATION`:
+
+```
+addItem(SCREEN_OBSERVATION)
+│
+├─ Add to items list
+├─ downgradeOldScreens()
+│  └─ Find all SCREEN_OBSERVATION indices
+│  └─ If count > recentFullScreens:
+│     └─ For each beyond the last N: rewrite content to one-liner
+│        "Screen state (42 elements):\n```json\n[...]\n```"
+│        → "Screen: 42 elements (compressed)"
+└─ autoCompressIfNeeded()
+```
+
+This means most screen bloat is eliminated before `compress()` ever needs to run. Net token growth per turn is ~275 tokens (assistant text + call + output + screen delta), not ~4K (full screen JSON).
+
+### KV Cache Efficiency
+
+LLM providers cache the KV states of the conversation prefix. When history items are removed from the front, every subsequent token's cache entry is invalidated. Frequent small compressions destroy cache hit rate.
+
+```
+Bad (compress to ~95% → triggers again next turn):
+  Turn 8:  15.3K → compress to ~14.9K → 0.4K headroom
+  Turn 9:  +275 → re-triggers → KV cache invalidated every 1-2 turns
+
+Good (compress to 50% → stable for ~22 turns):
+  Turn 8:  15.3K → compress to 9K → 6.3K headroom
+  Turn 9-30: +~275/turn → KV cache reused for ~22 turns
+```
+
+### Auto-Compress Trigger
+
+```kotlin
+private fun autoCompressIfNeeded() {
+    if (!config.autoCompress) return
+    val trigger = (config.maxTokenBudget * config.autoCompressThreshold).toLong()
+    if (estimateTokenCount() > trigger) {
+        val target = (config.maxTokenBudget * config.compressTargetRatio).toLong()
+        compress(target)
+    }
+}
+```
+
+With 100K budget: trigger at 85K, compress to 50K, stable for many turns.
+
+### Protected Recent Window
+
+The last `recentWindowSize` (default 10) items in the history list are never touched by Phase 2 eviction. Phase 1 may still rewrite old screen payloads if they are outside `recentFullScreens`, even within the protected window.
 
 ---
 
@@ -316,6 +460,16 @@ data class SessionInfo(
 )
 ```
 
+### HistoryItemConverter
+
+> See: `history/model/HistoryItemConverter.kt`
+
+Bidirectional conversion between `ResponseItem` (runtime) and `PersistedHistoryItem` (checkpoint JSON):
+
+- `toRecord(ResponseItem) → PersistedHistoryItem`
+- `fromRecord(PersistedHistoryItem) → ResponseItem`
+- **Backward compatibility**: `resolveMessageKind()` maps legacy checkpoints (`role` + `isScreenObservation` fields) to `MessageKind`
+
 ### MessageConverter
 
 > See: `history/model/MessageConverter.kt`
@@ -365,9 +519,9 @@ AgentEvent                     SessionRecordingService              File
 
 ```
 history/
-├── HistoryManager.kt              # Runtime prompt history (token budget, truncation, mutation listener)
-├── HistoryConfig.kt               # Configuration (TruncationPolicy, token budgets)
-├── ResponseItem.kt                # Conversation items (Message, FunctionCall, FunctionCallOutput)
+├── HistoryManager.kt              # Runtime prompt history (compression pipeline, proactive screen downgrade)
+├── HistoryConfig.kt               # Configuration (TruncationPolicy, token budgets, compression params)
+├── ResponseItem.kt                # Conversation items (MessageKind, Message, FunctionCall, FunctionCallOutput)
 ├── SessionHistoryManager.kt       # High-level session management (list, load, delete, resume, active tracking)
 ├── SessionRecordingService.kt     # Real-time event recording (debounced saves)
 ├── AgentMessageBuffer.kt          # Streaming agent message buffer (text + actions)
@@ -375,7 +529,7 @@ history/
 ├── model/
 │   ├── SessionRecord.kt           # Complete session data + metadata
 │   ├── SessionRuntimeSnapshot.kt  # Checkpoint snapshot (history + todos + scratchpad + config)
-│   ├── HistoryItemConverter.kt    # ResponseItem ↔ PersistedHistoryItem conversion (JSONObject ↔ String)
+│   ├── HistoryItemConverter.kt    # ResponseItem ↔ PersistedHistoryItem conversion (with legacy migration)
 │   ├── MessageRecord.kt           # Message types + content blocks
 │   ├── SessionInfo.kt             # Lightweight session summary (isActive flag)
 │   ├── ScreenStateRecord.kt       # Screen state reference (paths for replay/debug)

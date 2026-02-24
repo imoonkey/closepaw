@@ -115,36 +115,27 @@ scratchpad(action = "list")
 
 ## Context Hygiene (History Compression)
 
-To control token usage, runtime history is kept text-first while preserving recent full screen observations.
+To control token usage, `HistoryManager` proactively downgrades old screen observations and runs a multi-phase compression pipeline when token budget is approached.
 
 ### Key Design Decisions
 
 | Aspect | Approach |
 |--------|----------|
-| **History** | User/assistant messages + function calls + function outputs |
+| **History** | User/assistant messages + function calls + function outputs, classified by `MessageKind` |
 | **Current Screen** | Current turn always includes full screen JSON in observation section |
-| **Screen History** | Each turn records screen JSON as `ResponseItem.Message(isScreenObservation=true)` |
-| **Screen Compression** | `PromptBuilder` keeps recent full screen turns and compresses older ones |
-| **Token Budget** | `HistoryManager` truncates long outputs and auto-compresses by token threshold (18,000 default) |
+| **Screen History** | Each turn records screen JSON as `ResponseItem.Message(kind = SCREEN_OBSERVATION)` |
+| **Screen Compression** | `HistoryManager` proactively downgrades old screens on every `addItem()` |
+| **Token Budget** | `HistoryManager` auto-compresses at 85% of budget, down to 50% (KV cache efficient) |
+| **Compression owner** | Single owner: `HistoryManager`. `PromptBuilder` is read-only pass-through. |
 
-### Screen Compression Output
+### Compression Pipeline
 
-Older recorded screen observations are compressed to one line:
+**Phase 0** — Normalize call/output pairs.
+**Phase 1** — Downgrade old screen observations to one-liners (keeps last `recentFullScreens`).
+**Phase 2** — Group-aware eviction (oldest first, outside `recentWindowSize` tail). Never evicts `USER_INTENT`.
+**Phase 3** — Merge adjacent digests; return `BudgetUnreachable` if impossible.
 
-`Screen: {N} elements (compressed)`
-
-Default retained full observations: `recentFullScreenTurns = 3`.
-
-### HistoryManager
-
-→ See: `history/HistoryManager.kt`
-
-Manages in-memory conversation history with:
-- Token estimation (0.25 tokens per char)
-- Truncation policies: `NONE`, `CONSERVATIVE(8000)`, `AGGRESSIVE(2000)`, `MINIMAL(500)`
-- Auto-compression when token budget is exceeded
-- `forPrompt()` normalizes history (pairs function calls with outputs)
-- `dropLastNUserTurns(n)` for history rollback
+→ Full details: [History Compression Pipeline](../app/history.md#compression-pipeline)
 
 ### Data Flow
 
@@ -154,14 +145,15 @@ Turn N                                  Turn N+1
   |- Perceive: capture screen             |- Perceive: capture screen
   |                                       |
   |- Think: LLM with                      |- Think: LLM with
-  |  - History (including older screens)  |  - History (older screens compressed)
+  |  - History (older screens auto-       |  - History (proactively compressed)
+  |    downgraded by HistoryManager)      |
   |  - Working Memory (todos/scratchpad)  |  - Working Memory (todos/scratchpad)
   |  - Current observation JSON           |  - Current observation JSON
   |                                       |
   |- Act: execute tool                    |- Act: execute tool
   |                                       |
   '- Observe: record full screen JSON     '- Observe: record full screen JSON
-     in history (screen marker=true)         in history (screen marker=true)
+     in history (kind=SCREEN_OBSERVATION)    in history (triggers downgrade of older screens)
 ```
 
 ---
@@ -170,9 +162,10 @@ Turn N                                  Turn N+1
 
 | Problem | Solution |
 |---------|----------|
-| Token explosion from full a11y trees | Keep only recent full observations and compress older ones |
+| Token explosion from full a11y trees | Proactive screen downgrade on every new observation |
 | Stale screen-state confusion | Re-capture every turn and place current observation at input tail |
-| History bloat | Dual strategy: `HistoryManager` budget compression + `PromptBuilder` screen compression |
+| History bloat | Single-owner compression in `HistoryManager` with 4-phase pipeline |
+| KV cache thrashing | Compress to 50% of budget (not 95%) for ~22 turns of stable prefix |
 | Cross-turn data loss | Explicit persistence via scratchpad/todos |
 
 ---

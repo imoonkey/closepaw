@@ -1,7 +1,7 @@
 # Turn Prompt Anatomy
 
 > What each turn sends to the LLM: instructions, input items, and filtered tools.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-24
 
 ## Overview
 
@@ -50,12 +50,12 @@ History items are converted from `ResponseItem` to Responses API `ResponseInputI
 - `ResponseItem.FunctionCall` → `function_call`
 - `ResponseItem.FunctionCallOutput` → `function_call_output`
 
-Screen observations are tagged by `ResponseItem.Message(isScreenObservation = true)`.
-To control growth, `PromptBuilder` keeps only recent full screen observations and compresses older ones to:
+Screen observations are tagged by `ResponseItem.Message(kind = MessageKind.SCREEN_OBSERVATION)`.
+To control growth, `HistoryManager` proactively keeps only the last `recentFullScreens` full screen observations and compresses older ones to:
 
 `Screen: {N} elements (compressed)`
 
-Default retained full observations: `recentFullScreenTurns = 3`.
+Default retained full observations: `recentFullScreens = 3`.
 
 ### 2.2 Memory Section (Optional)
 
@@ -107,8 +107,7 @@ Warnings are prepared in `AgentTurnRunner.buildWarnings(...)`:
 
 After input items are built (so current turn does not duplicate itself), `TurnPlanningPhaseRunner` records the current screen into history as:
 
-- `role = "user"`
-- `isScreenObservation = true`
+- `kind = MessageKind.SCREEN_OBSERVATION`
 - content format: `Screen state (N elements):` + fenced JSON block
 
 This makes the next turn history-aware while still keeping the current prompt deterministic.
