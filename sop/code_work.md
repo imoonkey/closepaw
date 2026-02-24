@@ -6,22 +6,22 @@ Depending on the scope of the system design.
 - If the system design scope is large, break it down to multiple Phases.
 - If the system design scope is reasonable, treat it as one system design & implementation Phase.
 
-For each Phase, generate TODOs for the three steps below.
-
-
-# General Principles
+## General Principles
+Write the design like if you are Linus Torvalds.
+- Design from first principles.
 - 拥抱KISS principle，keep it simple stupid. 避免过度设计，避免过度工程化。嵌套层数不要太深。
-- 设计和实现high readability的code。
-- 设计和实现的过程，不要考虑代码的backward compatibility，最后把陈旧的历史代码可以直接deprecate，我产品还没有release，不需要考虑任何向后兼容。代码质量高，可读性高，只需要反映最新最优的实现，这对我更重要。
+- 大道至简，我希望我的code是minimal nested layers, minimal redundancy。 如果你能用更简单的逻辑实现同样的功能，do it。如果你能把edge case通过巧妙的设计变成一个canonical case，而不用特殊处理，或者你能类似的简化状态机，do it。
+- 设计high readability的code。
+- 设计的过程，不要考虑代码的backward compatibility，最后把陈旧的历史代码可以直接deprecate，我产品还没有release，不需要考虑任何向后兼容。代码质量高，可读性高，只需要反映最新最优的实现，这对我更重要。
 - 阅读我已有的代码，确保你的设计跟现有的codebase是aligned。
 
-- 这个feature对我的项目至关重要，请用 /ultra-think 来设计，深思熟虑，考虑周全。 @.ai-dev/skills/ultra-think/SKILL.md
+- 这个feature对我的项目至关重要，请用 /ultra-think 来设计实现，深思熟虑，考虑周全。 @.ai-dev/skills/ultra-think/SKILL.md
 
 # Code-Step-1: Design & Plan
-For the specified design, come up with a plan to implement the design in multiple phases.
+For the specified design, if not already, come up with a plan to implement the design in multiple phases.
 
 # Code-Step-2: Phased implementation
-At each phase of the execution, repeat the following:
+For each Phase, generate TODOs for the steps below. At each phase of the execution, repeat the following:
 
 - 2.1 start executing the phase using ideally fresh context windows. use /coding-standards skill , /tdd skill when necessary. test and verify.
 - 2.2 Start a new subagent to do an independent review with /code-review skill. write your review to the same folder as the design doc.
@@ -37,9 +37,6 @@ After each stage, or after an important phase within a stage:
 Once visual debug passes:
 4. Start a new subagent to do remove any redundant/legacy/dead code. and do /code-simplifier . Ensure code quality. git commit code changes.
 5. /update-docs . Besides updating doc/{main|dev}, skills/ etc., update the relevant doc/todo/docs with your implementation details. git commit doc changes.
-
-6. if there is next stage, continue to next stage.
-
 
 # Code-Step-4: Final verification
 read all the codes you have written in Code-Step 1-3 above. see if it fully implements the goal/task (e.g., the system design doc). If not, go back to Code-Step-1 to restart planning and implementation.
@@ -60,4 +57,4 @@ Improving code architecture quality.
 
 - each of the `/xxx` mentioned above is a SKILL or AGENT, if you cannot interpret it as skill, read .ai-dev/{skills|agents}/xxx/SKILL.md directly.
 
-- Note that your subagents does not use the same model as you, you can consider it less good at deep thinking than you. You only delegate relatively narrowly scoped and clearly defined tasks to them. You do the design and major code writing yourself.
+- (This one is only true if you are Cursor. If you are not Cursor, ignore this.) Note that your subagents does not use the same model as you, you can consider it less good at deep thinking than you. You only delegate relatively narrowly scoped and clearly defined tasks to them. You do the design and major code writing yourself.
