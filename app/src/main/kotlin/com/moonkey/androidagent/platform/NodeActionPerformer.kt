@@ -290,8 +290,8 @@ class NodeActionPerformer(
 
         /**
          * Check if the found node matches the intended element.
-         * Any one strong identity signal matching is sufficient.
-         * If the hint has no identity fields at all, we trust the finder.
+         * For each identity field provided by hint, the found node must match.
+         * If no identity fields are available, we trust the finder.
          */
         internal fun matchesIntended(
             foundId: String,
@@ -300,19 +300,39 @@ class NodeActionPerformer(
             foundClass: String,
             hint: SemanticTargetHint
         ): Boolean {
-            val hasIdentity = hint.resourceId.isNotBlank() ||
-                    hint.text.isNotBlank() ||
-                    hint.description.isNotBlank()
+            val expectedId = normalizeResourceId(hint.resourceId)
+            val expectedClass = hint.className.trim()
+            val expectedLabels = listOf(hint.text, hint.description).map { it.trim() }.filter { it.isNotBlank() }
+            val hasIdentity = expectedId.isNotBlank() ||
+                    expectedClass.isNotBlank() ||
+                    expectedLabels.isNotEmpty()
             if (!hasIdentity) return true // nothing to verify
 
-            if (hint.resourceId.isNotBlank() &&
-                foundId.contains(hint.resourceId)) return true
-            if (hint.text.isNotBlank() &&
-                foundText == hint.text) return true
-            if (hint.description.isNotBlank() &&
-                foundDesc == hint.description) return true
+            if (expectedId.isNotBlank()) {
+                val foundNormalizedId = normalizeResourceId(foundId)
+                if (foundNormalizedId != expectedId) return false
+            }
 
-            return false
+            if (expectedClass.isNotBlank() &&
+                !foundClass.endsWith(expectedClass)) {
+                return false
+            }
+
+            if (expectedLabels.isNotEmpty()) {
+                val foundLabels = listOf(foundText, foundDesc).map { it.trim() }.filter { it.isNotBlank() }
+                val hasAnyExpectedLabel = expectedLabels.any { expected ->
+                    foundLabels.any { found -> found == expected }
+                }
+                if (!hasAnyExpectedLabel) return false
+            }
+
+            return true
+        }
+
+        private fun normalizeResourceId(id: String): String {
+            val trimmed = id.trim()
+            if (trimmed.isBlank()) return ""
+            return trimmed.substringAfterLast('/')
         }
 
         @Suppress("DEPRECATION")

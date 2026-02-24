@@ -9,7 +9,6 @@ import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
-import io.mockk.mockkStatic
 import io.mockk.unmockkObject
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
@@ -210,6 +209,32 @@ class NodeActionPerformerTest {
             foundDesc = "anything", foundClass = "View", hint = hint
         )
         assertThat(result).isTrue()
+    }
+
+    @Test
+    fun `matchesIntended returns false when resourceId is only substring match`() {
+        val hint = SemanticTargetHint(
+            resourceId = "show_roots", text = "", description = "",
+            className = "", bounds = baseBounds
+        )
+        val result = NodeActionPerformer.matchesIntended(
+            foundId = "com.android.documentsui:id/show_roots_container",
+            foundText = "", foundDesc = "", foundClass = "", hint = hint
+        )
+        assertThat(result).isFalse()
+    }
+
+    @Test
+    fun `matchesIntended returns false when className does not match`() {
+        val hint = SemanticTargetHint(
+            resourceId = "", text = "Show roots", description = "",
+            className = "ImageButton", bounds = baseBounds
+        )
+        val result = NodeActionPerformer.matchesIntended(
+            foundId = "", foundText = "Show roots", foundDesc = "",
+            foundClass = "android.widget.LinearLayout", hint = hint
+        )
+        assertThat(result).isFalse()
     }
 
     // ===== Mismatch guard integration tests =====

@@ -220,14 +220,21 @@ class AccessibilityPlatform(
         if (windows.isNullOrEmpty()) {
             return listOfNotNull(service.rootInActiveWindow)
         }
-        val roots = windows
-            .filter { w ->
-                w.type != AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
-                    w.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD
+        return try {
+            val roots = windows
+                .filter { w ->
+                    w.type != AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
+                        w.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD
+                }
+                .sortedBy { it.layer }
+                .mapNotNull { it.root }
+            roots.ifEmpty { listOfNotNull(service.rootInActiveWindow) }
+        } finally {
+            windows.forEach { window ->
+                runCatching { window.recycle() }
+                    .onFailure { err -> Log.w(TAG, "Window recycle failed (ignored)", err) }
             }
-            .sortedBy { it.layer }
-            .mapNotNull { it.root }
-        return roots.ifEmpty { listOfNotNull(service.rootInActiveWindow) }
+        }
     }
 
     override suspend fun performAction(action: UIAction): ActionResult {
