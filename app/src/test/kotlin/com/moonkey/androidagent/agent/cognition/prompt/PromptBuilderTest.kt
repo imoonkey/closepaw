@@ -41,94 +41,6 @@ class PromptBuilderTest {
         )
     )
 
-    // ── Screen Compression ──────────────────────────────────────────────
-
-    @Test
-    fun `compressOldScreenObservations preserves all items when fewer than threshold`() {
-        val builder = createBuilder()
-        val items = listOf(
-            screenObservation("Screen state (10 elements):\n```json\n[]\n```"),
-            screenObservation("Screen state (20 elements):\n```json\n[]\n```")
-        )
-        val result = builder.compressOldScreenObservations(items)
-        assertThat(result).isEqualTo(items)
-    }
-
-    @Test
-    fun `compressOldScreenObservations compresses oldest when exceeding threshold`() {
-        val builder = createBuilder(recentFullScreenTurns = 2)
-        val items = listOf(
-            screenObservation("Screen state (10 elements):\n```json\n[{\"old\":true}]\n```"),
-            assistantMessage("I'll click element 5"),
-            screenObservation("Screen state (20 elements):\n```json\n[]\n```"),
-            assistantMessage("Done"),
-            screenObservation("Screen state (30 elements):\n```json\n[]\n```")
-        )
-
-        val result = builder.compressOldScreenObservations(items)
-
-        // First screen observation should be compressed
-        val first = result[0] as ResponseItem.Message
-        assertThat(first.content).isEqualTo("Screen: 10 elements (compressed)")
-        assertThat(first.kind).isEqualTo(MessageKind.SCREEN_OBSERVATION)
-
-        // Second and third screen observations should be preserved
-        val second = result[2] as ResponseItem.Message
-        assertThat(second.content).contains("```json")
-
-        val third = result[4] as ResponseItem.Message
-        assertThat(third.content).contains("```json")
-    }
-
-    @Test
-    fun `compressOldScreenObservations never compresses non-screen messages`() {
-        val builder = createBuilder(recentFullScreenTurns = 1)
-        val items = listOf(
-            userIntent("Goal: Open Gmail"),
-            screenObservation("Screen state (10 elements):\n```json\n[]\n```"),
-            assistantMessage("Opening Gmail"),
-            screenObservation("Screen state (20 elements):\n```json\n[]\n```")
-        )
-
-        val result = builder.compressOldScreenObservations(items)
-
-        // Goal message untouched
-        val goal = result[0] as ResponseItem.Message
-        assertThat(goal.content).isEqualTo("Goal: Open Gmail")
-
-        // First screen compressed, second preserved
-        val firstScreen = result[1] as ResponseItem.Message
-        assertThat(firstScreen.content).contains("compressed")
-
-        val secondScreen = result[3] as ResponseItem.Message
-        assertThat(secondScreen.content).contains("```json")
-    }
-
-    @Test
-    fun `compressScreenContent extracts element count`() {
-        val builder = createBuilder()
-        val result = builder.compressScreenContent(
-            "Screen state (42 elements):\n```json\n[{\"index\":0}]\n```"
-        )
-        assertThat(result).isEqualTo("Screen: 42 elements (compressed)")
-    }
-
-    @Test
-    fun `compressScreenContent handles missing element count`() {
-        val builder = createBuilder()
-        val result = builder.compressScreenContent("some text without element count")
-        assertThat(result).isEqualTo("Screen: unknown (compressed)")
-    }
-
-    @Test
-    fun `compressScreenContent handles screenshot-only format`() {
-        val builder = createBuilder()
-        val result = builder.compressScreenContent(
-            "No accessibility tree available for this screen.\nUse coordinate-based actions (x, y)"
-        )
-        assertThat(result).isEqualTo("Screen: screenshot only (compressed)")
-    }
-
     // ── Memory Section ──────────────────────────────────────────────────
 
     @Test
@@ -344,19 +256,12 @@ class PromptBuilderTest {
         historyManager: HistoryManager = HistoryManager(),
         sessionState: AgentSessionState = AgentSessionState(),
         supportsVision: Boolean = true,
-        perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
-        recentFullScreenTurns: Int = 3
+        perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT
     ): PromptBuilder = PromptBuilder(
         historyManager = historyManager,
         sessionState = sessionState,
         supportsVision = supportsVision,
-        perceptionConfig = perceptionConfig,
-        recentFullScreenTurns = recentFullScreenTurns
-    )
-
-    private fun screenObservation(content: String) = ResponseItem.Message(
-        kind = MessageKind.SCREEN_OBSERVATION,
-        content = content
+        perceptionConfig = perceptionConfig
     )
 
     private fun userIntent(content: String) = ResponseItem.Message(

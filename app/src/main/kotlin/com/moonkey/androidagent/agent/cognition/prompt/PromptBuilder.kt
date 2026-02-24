@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.agent.cognition.prompt
 
 import com.moonkey.androidagent.history.HistoryManager
-import com.moonkey.androidagent.history.MessageKind
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenSnapshot
@@ -19,18 +18,15 @@ import com.openai.models.responses.ResponseInputText
  * Builds the complete input items list for one LLM turn.
  *
  * Prompt is a sequential narrative the LLM reads left-to-right:
- *   1. HISTORY  — past turns with screen observation compression
+ *   1. HISTORY  — past turns (compression handled by HistoryManager)
  *   2. MEMORY   — working memory (scratchpad + todos)
  *   3. OBSERVATION — current screen state + warnings + screenshot
- *
- * Replaces the fragmented pipeline of PromptContext → PromptUtils → Turn.buildInputItems().
  */
 internal class PromptBuilder(
     private val historyManager: HistoryManager,
     private val sessionState: AgentSessionState,
     private val supportsVision: Boolean = true,
-    private val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
-    private val recentFullScreenTurns: Int = 3
+    private val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT
 ) {
 
     /**
@@ -52,10 +48,12 @@ internal class PromptBuilder(
 
     // ── History ──────────────────────────────────────────────────────────
 
+    /**
+     * History section is a direct pass-through of [HistoryManager.forPrompt].
+     * Screen compression is handled proactively by HistoryManager on addItem().
+     */
     private fun buildHistorySection(): List<ResponseInputItem> {
-        val history = historyManager.forPrompt()
-        val compressed = compressOldScreenObservations(history)
-        return compressed.mapNotNull { it.toResponseInputItem() }
+        return historyManager.forPrompt().mapNotNull { it.toResponseInputItem() }
     }
 
     // ── Memory ──────────────────────────────────────────────────────────
@@ -155,52 +153,6 @@ internal class PromptBuilder(
         }.trim()
     }
 
-    // ── Screen Compression ──────────────────────────────────────────────
-
-    /**
-     * Keep the last [recentFullScreenTurns] screen observations as-is;
-     * compress older ones to a one-line summary.
-     * Package-visible for testing.
-     */
-    internal fun compressOldScreenObservations(
-        items: List<ResponseItem>
-    ): List<ResponseItem> {
-        val screenIndices = items.withIndex()
-            .filter { (_, item) ->
-                item is ResponseItem.Message && item.kind == MessageKind.SCREEN_OBSERVATION
-            }
-            .map { it.index }
-
-        if (screenIndices.size <= recentFullScreenTurns) return items
-
-        val toCompress = screenIndices.dropLast(recentFullScreenTurns).toSet()
-        return items.mapIndexed { idx, item ->
-            if (idx in toCompress) {
-                val msg = item as ResponseItem.Message
-                msg.copy(content = compressScreenContent(msg.content))
-            } else {
-                item
-            }
-        }
-    }
-
-    /**
-     * Distill a full screen-state message to a compact summary.
-     * Handles both accessibility JSON format and screenshot-only format.
-     * Package-visible for testing.
-     */
-    internal fun compressScreenContent(fullContent: String): String {
-        val count = ELEMENT_COUNT_REGEX.find(fullContent)?.groupValues?.get(1)
-        return if (count != null) {
-            "Screen: $count elements (compressed)"
-        } else if (fullContent.contains("No accessibility tree") ||
-                   fullContent.contains("accessibility tree omitted")) {
-            "Screen: screenshot only (compressed)"
-        } else {
-            "Screen: unknown (compressed)"
-        }
-    }
-
     // ── ResponseItem → ResponseInputItem ────────────────────────────────
 
     private fun ResponseItem.toResponseInputItem(): ResponseInputItem? = when (this) {
@@ -260,8 +212,4 @@ internal class PromptBuilder(
                 )
                 .build()
         )
-
-    companion object {
-        private val ELEMENT_COUNT_REGEX = Regex("""Screen state \((\d+) elements\)""")
-    }
 }

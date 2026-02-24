@@ -6,6 +6,8 @@ import org.junit.Test
 
 class HistoryManagerTest {
 
+    // ── Normalization ────────────────────────────────────────────────────
+
     @Test
     fun `forPrompt adds placeholder output when missing`() {
         val manager = HistoryManager()
@@ -54,52 +56,10 @@ class HistoryManagerTest {
         assertThat(output.truncated).isFalse()
     }
 
-    @Test
-    fun `compress reduces token count and truncates older outputs`() {
-        val manager = HistoryManager()
-        repeat(4) { idx ->
-            manager.addItem(
-                ResponseItem.FunctionCallOutput(
-                    callId = "call-$idx",
-                    content = "x".repeat(10_000)
-                )
-            )
-        }
-
-        val before = manager.estimateTokenCount()
-        val target = before / 2
-        manager.compress(target)
-
-        val after = manager.estimateTokenCount()
-        assertThat(after).isLessThan(before)
-        val outputs = manager.getAll().filterIsInstance<ResponseItem.FunctionCallOutput>()
-        assertThat(outputs).isNotEmpty()
-    }
+    // ── P0: Compression never deletes USER_INTENT ────────────────────────
 
     @Test
-    fun `auto compress keeps token budget bounded`() {
-        val manager = HistoryManager(
-            HistoryConfig(
-                maxTokenBudget = 1_000,
-                autoCompress = true,
-                autoCompressThreshold = 0.5f
-            )
-        )
-
-        repeat(200) { idx ->
-            manager.addItem(
-                ResponseItem.FunctionCallOutput(
-                    callId = "call-$idx",
-                    content = "x".repeat(500)
-                )
-            )
-        }
-
-        assertThat(manager.estimateTokenCount()).isAtMost(1_000)
-    }
-
-    @Test
-    fun `compress never removes USER_INTENT messages`() {
+    fun `P0 compress never removes USER_INTENT messages`() {
         val manager = HistoryManager()
         manager.recordItems(
             listOf(
@@ -114,7 +74,6 @@ class HistoryManagerTest {
             )
         )
 
-        // Compress to a very small budget to force aggressive removal
         manager.compress(100)
 
         val remaining = manager.getAll()
@@ -122,7 +81,6 @@ class HistoryManagerTest {
             .filter { it.kind == MessageKind.USER_INTENT }
             .map { it.content }
 
-        // All three USER_INTENT messages must survive compression
         assertThat(userIntents).containsExactly(
             "open settings",
             "set brightness to max",
@@ -130,9 +88,56 @@ class HistoryManagerTest {
         )
     }
 
+    // ── P0: Screen downgrade keeps last N full, rewrites older ────────────
+
     @Test
-    fun `compress removes function calls and paired outputs`() {
-        val manager = HistoryManager()
+    fun `P0 proactive screen downgrade keeps last N full screens`() {
+        val manager = HistoryManager(HistoryConfig(recentFullScreens = 2))
+
+        // Add 4 screen observations
+        repeat(4) { i ->
+            manager.addItem(ResponseItem.Message(
+                kind = MessageKind.SCREEN_OBSERVATION,
+                content = "Screen state (${10 + i} elements):\n```json\n[]\n```"
+            ))
+        }
+
+        val screens = manager.getAll().filterIsInstance<ResponseItem.Message>()
+            .filter { it.kind == MessageKind.SCREEN_OBSERVATION }
+
+        assertThat(screens).hasSize(4)
+
+        // First 2 should be compressed
+        assertThat(screens[0].content).contains("(compressed)")
+        assertThat(screens[1].content).contains("(compressed)")
+
+        // Last 2 should be full
+        assertThat(screens[2].content).contains("```json")
+        assertThat(screens[3].content).contains("```json")
+    }
+
+    @Test
+    fun `P0 screen downgrade preserves element count in summary`() {
+        val manager = HistoryManager(HistoryConfig(recentFullScreens = 1))
+
+        manager.addItem(ResponseItem.Message(
+            kind = MessageKind.SCREEN_OBSERVATION,
+            content = "Screen state (42 elements):\n```json\n[{\"index\":0}]\n```"
+        ))
+        manager.addItem(ResponseItem.Message(
+            kind = MessageKind.SCREEN_OBSERVATION,
+            content = "Screen state (55 elements):\n```json\n[]\n```"
+        ))
+
+        val first = manager.getAll()[0] as ResponseItem.Message
+        assertThat(first.content).isEqualTo("Screen: 42 elements (compressed)")
+    }
+
+    // ── P0: Call/output pairing survives compression ─────────────────────
+
+    @Test
+    fun `P0 compress removes function calls with their paired outputs`() {
+        val manager = HistoryManager(HistoryConfig(recentWindowSize = 1))
         manager.recordItems(
             listOf(
                 ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "do something"),
@@ -147,8 +152,191 @@ class HistoryManagerTest {
         val remaining = manager.getAll()
         val calls = remaining.filterIsInstance<ResponseItem.FunctionCall>()
         val outputs = remaining.filterIsInstance<ResponseItem.FunctionCallOutput>()
+        // If calls are removed, outputs must also be removed
         assertThat(calls).isEmpty()
         assertThat(outputs).isEmpty()
+    }
+
+    // ── P0: Recent window is protected from eviction ─────────────────────
+
+    @Test
+    fun `P0 recent window items are protected from eviction`() {
+        val manager = HistoryManager(HistoryConfig(recentWindowSize = 4, recentFullScreens = 1))
+
+        // Build history: old items + recent window
+        manager.recordItems(
+            listOf(
+                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "goal"),
+                // Old items (outside recent window)
+                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "x".repeat(5_000)),
+                ResponseItem.FunctionCall(id = "c1", name = "tool", arguments = JSONObject()),
+                ResponseItem.FunctionCallOutput(callId = "c1", content = "x".repeat(5_000)),
+                // Recent window (last 4 items)
+                ResponseItem.Message(kind = MessageKind.SCREEN_OBSERVATION, content = "Screen state (10 elements):\n```json\n[]\n```"),
+                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "recent action"),
+                ResponseItem.FunctionCall(id = "c2", name = "tool", arguments = JSONObject()),
+                ResponseItem.FunctionCallOutput(callId = "c2", content = "recent result")
+            )
+        )
+
+        val result = manager.compress(200)
+
+        // Recent window items should survive
+        val remaining = manager.getAll()
+        val recentAssistant = remaining.any {
+            it is ResponseItem.Message && it.content == "recent action"
+        }
+        val recentCall = remaining.any {
+            it is ResponseItem.FunctionCall && it.id == "c2"
+        }
+        assertThat(recentAssistant).isTrue()
+        assertThat(recentCall).isTrue()
+    }
+
+    // ── P0: Repeated compress is idempotent ──────────────────────────────
+
+    @Test
+    fun `P0 repeated compress is idempotent once stabilized`() {
+        val manager = HistoryManager()
+        manager.recordItems(
+            listOf(
+                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "goal"),
+                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "x".repeat(5_000)),
+                ResponseItem.FunctionCall(id = "c1", name = "tool", arguments = JSONObject()),
+                ResponseItem.FunctionCallOutput(callId = "c1", content = "x".repeat(5_000))
+            )
+        )
+
+        // First compress
+        manager.compress(200)
+        val afterFirst = manager.estimateTokenCount()
+        val itemsAfterFirst = manager.getAll().toList()
+
+        // Second compress — should be a noop
+        val result = manager.compress(200)
+        val afterSecond = manager.estimateTokenCount()
+
+        assertThat(result).isInstanceOf(CompressionResult.Noop::class.java)
+        assertThat(afterSecond).isEqualTo(afterFirst)
+    }
+
+    // ── P0: BudgetUnreachable ────────────────────────────────────────────
+
+    @Test
+    fun `P0 BudgetUnreachable when only USER_INTENT remains`() {
+        val manager = HistoryManager()
+        // Add multiple large USER_INTENT messages
+        repeat(5) { i ->
+            manager.addItem(ResponseItem.Message(
+                kind = MessageKind.USER_INTENT,
+                content = "user intent $i: ${"x".repeat(2_000)}"
+            ))
+        }
+
+        val result = manager.compress(10)
+
+        assertThat(result).isInstanceOf(CompressionResult.BudgetUnreachable::class.java)
+    }
+
+    // ── CompressionResult ────────────────────────────────────────────────
+
+    @Test
+    fun `compress returns Noop when already under budget`() {
+        val manager = HistoryManager()
+        manager.addItem(ResponseItem.Message(
+            kind = MessageKind.USER_INTENT, content = "small"
+        ))
+
+        val result = manager.compress(10_000)
+
+        assertThat(result).isInstanceOf(CompressionResult.Noop::class.java)
+    }
+
+    @Test
+    fun `compress returns Compressed with stats`() {
+        val manager = HistoryManager(HistoryConfig(recentWindowSize = 2, recentFullScreens = 1))
+        manager.recordItems(
+            listOf(
+                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "goal"),
+                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "x".repeat(5_000)),
+                ResponseItem.FunctionCall(id = "c1", name = "tool", arguments = JSONObject()),
+                ResponseItem.FunctionCallOutput(callId = "c1", content = "x".repeat(5_000)),
+                // Recent window (last 2)
+                ResponseItem.Message(kind = MessageKind.SCREEN_OBSERVATION,
+                    content = "Screen state (30 elements):\n```json\n[]\n```"),
+                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "latest")
+            )
+        )
+
+        val before = manager.estimateTokenCount()
+        val result = manager.compress(500)
+
+        assertThat(result).isInstanceOf(CompressionResult.Compressed::class.java)
+        val compressed = result as CompressionResult.Compressed
+        assertThat(compressed.before).isEqualTo(before)
+        assertThat(compressed.after).isLessThan(before)
+        assertThat(compressed.stepsApplied).isGreaterThan(0)
+    }
+
+    // ── COMPRESSION_DIGEST breadcrumb ─────────────────────────────────────
+
+    @Test
+    fun `compress inserts COMPRESSION_DIGEST breadcrumb after eviction`() {
+        val manager = HistoryManager(HistoryConfig(recentWindowSize = 2, recentFullScreens = 1))
+        manager.recordItems(
+            listOf(
+                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "goal"),
+                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "x".repeat(5_000)),
+                ResponseItem.FunctionCall(id = "c1", name = "tool", arguments = JSONObject()),
+                ResponseItem.FunctionCallOutput(callId = "c1", content = "x".repeat(5_000)),
+                // Recent window
+                ResponseItem.Message(kind = MessageKind.SCREEN_OBSERVATION,
+                    content = "Screen state (10 elements):\n```json\n[]\n```"),
+                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "latest")
+            )
+        )
+
+        manager.compress(200)
+
+        val digests = manager.getAll().filterIsInstance<ResponseItem.Message>()
+            .filter { it.kind == MessageKind.COMPRESSION_DIGEST }
+
+        assertThat(digests).isNotEmpty()
+        assertThat(digests[0].content).contains("[Compressed]")
+        assertThat(digests[0].content).contains("Removed")
+    }
+
+    // ── Auto compress ────────────────────────────────────────────────────
+
+    @Test
+    fun `auto compress keeps token budget bounded`() {
+        val manager = HistoryManager(
+            HistoryConfig(
+                maxTokenBudget = 2_000,
+                autoCompress = true,
+                autoCompressThreshold = 0.5f,
+                recentWindowSize = 2
+            )
+        )
+
+        repeat(50) { idx ->
+            manager.addItem(
+                ResponseItem.FunctionCall(
+                    id = "call-$idx", name = "tool", arguments = JSONObject()
+                )
+            )
+            manager.addItem(
+                ResponseItem.FunctionCallOutput(
+                    callId = "call-$idx",
+                    content = "x".repeat(500)
+                )
+            )
+        }
+
+        // Auto-compress triggers at 50% (1000), compresses to target ratio.
+        // Items should be evicted and history should be smaller than budget.
+        assertThat(manager.estimateTokenCount()).isAtMost(2_000)
+        assertThat(manager.getAll().size).isLessThan(100)
     }
 
     @Test
@@ -158,12 +346,17 @@ class HistoryManagerTest {
                 maxTokenBudget = 2_000,
                 autoCompress = true,
                 autoCompressThreshold = 0.85f,
-                compressTargetRatio = 0.5f
+                compressTargetRatio = 0.5f,
+                recentWindowSize = 2
             )
         )
 
-        // Add enough items to exceed the 85% threshold (1700 tokens)
         repeat(20) { idx ->
+            manager.addItem(
+                ResponseItem.FunctionCall(
+                    id = "call-$idx", name = "tool", arguments = JSONObject()
+                )
+            )
             manager.addItem(
                 ResponseItem.FunctionCallOutput(
                     callId = "call-$idx",
@@ -173,9 +366,7 @@ class HistoryManagerTest {
         }
 
         // After auto-compress, should be well below budget
-        // compressTargetRatio = 0.5 targets 1000 tokens, verify it compressed significantly
         assertThat(manager.estimateTokenCount()).isLessThan(2_000)
-        // Items should have been removed — fewer than the 20 we added
-        assertThat(manager.getAll().size).isLessThan(20)
+        assertThat(manager.getAll().size).isLessThan(40)
     }
 }
