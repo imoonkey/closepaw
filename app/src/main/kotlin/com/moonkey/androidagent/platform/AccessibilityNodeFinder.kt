@@ -6,15 +6,15 @@ import com.moonkey.androidagent.util.recycleCompat
 
 object AccessibilityNodeFinder {
     /**
-     * Find the top-most clickable node at the given coordinates.
+     * Find the clickable node whose center is closest to (x, y).
      *
      * Matching strategy:
-     * 1. Only consider nodes containing (x, y)
-     * 2. Traverse children in reverse index order (last child first), which better matches
-     * visual z-order in common Android view hierarchies
-     * 3. Return the first clickable visible node found in that top-down traversal
+     * 1. Collect all clickable+visible nodes whose bounds contain (x, y)
+     * 2. Return the candidate whose center is nearest to (x, y)
      *
-     * Used for ACTION_CLICK approach which works better with some apps.
+     * This correctly resolves overlapping nodes: the click point is the intended
+     * element's center by construction (distance = 0), so it always wins over
+     * any accidentally overlapping sibling.
      */
     fun findClickableNodeAtLocation(
             root: AccessibilityNodeInfo,
@@ -24,8 +24,8 @@ object AccessibilityNodeFinder {
             findActionableNodeAtLocation(root, x, y) { node -> node.isClickable && node.isVisibleToUser }
 
     /**
-     * Find the top-most long-clickable node at the given coordinates. Mirrors
-     * findClickableNodeAtLocation but checks isLongClickable.
+     * Find the top-most long-clickable node whose center is closest to (x, y).
+     * Mirrors findClickableNodeAtLocation but checks isLongClickable.
      */
     fun findLongClickableNodeAtLocation(
             root: AccessibilityNodeInfo,
@@ -47,36 +47,36 @@ object AccessibilityNodeFinder {
             y: Int,
             predicate: (AccessibilityNodeInfo) -> Boolean
     ): AccessibilityNodeInfo? {
-        val bounds = Rect()
+        val candidates = mutableListOf<Pair<AccessibilityNodeInfo, Long>>()
 
-        fun search(node: AccessibilityNodeInfo, shouldRecycle: Boolean): AccessibilityNodeInfo? {
+        fun collect(node: AccessibilityNodeInfo, shouldRecycle: Boolean) {
+            val bounds = Rect()
             node.getBoundsInScreen(bounds)
-
             if (!bounds.contains(x, y)) {
                 if (shouldRecycle) node.recycleCompat()
-                return null
+                return
             }
-
             for (i in node.childCount - 1 downTo 0) {
                 val child = node.getChild(i) ?: continue
-                val childMatch = search(child, shouldRecycle = true)
-                if (childMatch != null) {
-                    if (shouldRecycle) node.recycleCompat()
-                    return childMatch
-                }
+                collect(child, shouldRecycle = true)
             }
-
             if (predicate(node)) {
-                return node
-            }
-
-            if (shouldRecycle) {
+                val cx = (bounds.left + bounds.right) / 2
+                val cy = (bounds.top + bounds.bottom) / 2
+                val dist = (x - cx).toLong() * (x - cx) + (y - cy).toLong() * (y - cy)
+                candidates.add(node to dist)
+            } else if (shouldRecycle) {
                 node.recycleCompat()
             }
-            return null
         }
 
-        return search(root, shouldRecycle = false)
+        collect(root, shouldRecycle = false)
+
+        val winner = candidates.minByOrNull { it.second }?.first
+        for ((node, _) in candidates) {
+            if (node !== winner && node !== root) node.recycleCompat()
+        }
+        return winner
     }
 
     /**

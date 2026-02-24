@@ -284,9 +284,9 @@ class VirtualDisplayPlatform(
     private suspend fun dispatchAction(action: UIAction): ActionResult =
             when (action) {
                 is UIAction.ClickNodeAt ->
-                        nodeActionPerformer.performNodeClickAt(action.x, action.y)
+                        nodeActionPerformer.performNodeClickAt(action.x, action.y, action.semanticHint)
                 is UIAction.LongClickNodeAt ->
-                        nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
+                        nodeActionPerformer.performNodeLongClickAt(action.x, action.y, action.semanticHint)
                 is UIAction.SetTextOnNodeAt ->
                         nodeActionPerformer.performSetTextOnNodeAt(
                                 action.x,

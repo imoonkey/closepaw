@@ -9,11 +9,21 @@ import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.AppInfo
 import com.moonkey.androidagent.platform.DisplayInfo
+import com.moonkey.androidagent.platform.SemanticTargetHint
 import com.moonkey.androidagent.platform.UIAction
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class LongPressExecutorTest {
+
+    private val buttonBounds = Bounds(left = 80, top = 160, right = 220, bottom = 260)
+    private val buttonHint = SemanticTargetHint(
+        resourceId = "button_1",
+        text = "Button",
+        description = "",
+        className = "android.widget.Button",
+        bounds = buttonBounds
+    )
 
     @Test
     fun `execute uses gesture long press for coordinate target`() = runTest {
@@ -65,7 +75,7 @@ class LongPressExecutorTest {
 
         assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
         assertThat(platform.performedActions).containsExactly(
-            UIAction.LongClickNodeAt(150, 210)
+            UIAction.LongClickNodeAt(150, 210, buttonHint)
         )
     }
 
@@ -93,7 +103,7 @@ class LongPressExecutorTest {
 
         assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
         assertThat(platform.performedActions).containsExactly(
-            UIAction.LongClickNodeAt(150, 210),
+            UIAction.LongClickNodeAt(150, 210, buttonHint),
             UIAction.LongPressAt(x = 150, y = 210, durationMs = 900L)
         ).inOrder()
     }

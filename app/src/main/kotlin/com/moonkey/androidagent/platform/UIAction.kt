@@ -1,5 +1,22 @@
 package com.moonkey.androidagent.platform
 
+import com.moonkey.androidagent.model.Bounds
+
+/**
+ * Identity snapshot of the intended target element from perception.
+ *
+ * Threaded from [TargetResolver] through [UIAction] to [NodeActionPerformer]
+ * so the action layer can verify it found the right node before clicking.
+ * Null for coordinate-only targets (no semantic identity available).
+ */
+data class SemanticTargetHint(
+    val resourceId: String,
+    val text: String,
+    val description: String,
+    val className: String,
+    val bounds: Bounds
+)
+
 /**
  * UIAction - Platform-agnostic representation of UI actions.
  * 
@@ -16,7 +33,8 @@ sealed interface UIAction {
      */
     data class ClickNodeAt(
         val x: Int,
-        val y: Int
+        val y: Int,
+        val semanticHint: SemanticTargetHint? = null
     ) : UIAction
 
     /**
@@ -33,7 +51,11 @@ sealed interface UIAction {
     // --- Node-based (AccessibilityNodeInfo.performAction) ---
 
     /** Find node at (x,y), perform ACTION_LONG_CLICK */
-    data class LongClickNodeAt(val x: Int, val y: Int) : UIAction
+    data class LongClickNodeAt(
+        val x: Int,
+        val y: Int,
+        val semanticHint: SemanticTargetHint? = null
+    ) : UIAction
 
     /** Find node at (x,y), perform ACTION_SET_TEXT */
     data class SetTextOnNodeAt(

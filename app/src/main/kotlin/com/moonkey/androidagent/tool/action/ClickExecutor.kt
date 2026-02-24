@@ -26,11 +26,11 @@ class ClickExecutor(
                 ActionPriorityOrder.ClickChannel.NODE_CLICK -> ChannelAttempt(
                     displayName = "node_action_click",
                     requiresSemantic = true
-                ) { UIAction.ClickNodeAt(it.x, it.y) }
+                ) { pt, hint -> UIAction.ClickNodeAt(pt.x, pt.y, hint) }
                 ActionPriorityOrder.ClickChannel.GESTURE_TAP -> ChannelAttempt(
                     displayName = "gesture_tap",
                     requiresSemantic = false
-                ) { UIAction.TapAt(it.x, it.y) }
+                ) { pt, _ -> UIAction.TapAt(pt.x, pt.y) }
             }
         },
         target = target,

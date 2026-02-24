@@ -5,13 +5,15 @@ import com.moonkey.androidagent.model.Bounds
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.Point
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.platform.SemanticTargetHint
 import org.junit.Test
 
 class TargetResolverTest {
 
     @Test
     fun `resolve element_index returns element center when no bottom nav overlap`() {
-        val target = element(index = 1, text = "Play", bounds = Bounds(100, 400, 500, 700))
+        val bounds = Bounds(100, 400, 500, 700)
+        val target = element(index = 1, text = "Play", bounds = bounds)
         val snapshot = snapshotOf(target)
 
         val resolved = TargetResolver.resolve(Target.ElementIndex(1), snapshot)
@@ -19,18 +21,20 @@ class TargetResolverTest {
         assertThat(resolved).isEqualTo(
             TargetResolver.ResolveResult.Resolved(
                 point = Point(300, 550),
-                bounds = Bounds(100, 400, 500, 700)
+                bounds = bounds,
+                semanticHint = hintFor("Play", bounds)
             )
         )
     }
 
     @Test
     fun `resolve element_index keeps target center when overlaps bottom nav strip`() {
+        val targetBounds = Bounds(0, 2353, 1264, 2800)
         val target =
             element(
                 index = 14,
                 text = "Video row",
-                bounds = Bounds(0, 2353, 1264, 2800)
+                bounds = targetBounds
             )
         val nav = listOf(
             element(index = 15, text = "Home", bounds = Bounds(0, 2576, 252, 2744)),
@@ -46,7 +50,8 @@ class TargetResolverTest {
         assertThat(resolved).isEqualTo(
             TargetResolver.ResolveResult.Resolved(
                 point = Point(632, 2576),
-                bounds = Bounds(0, 2353, 1264, 2800)
+                bounds = targetBounds,
+                semanticHint = hintFor("Video row", targetBounds)
             )
         )
     }
@@ -59,7 +64,8 @@ class TargetResolverTest {
                 text = "Video row",
                 bounds = Bounds(0, 2353, 1264, 2800)
             )
-        val create = element(index = 17, text = "Create", bounds = Bounds(505, 2576, 758, 2744))
+        val createBounds = Bounds(505, 2576, 758, 2744)
+        val create = element(index = 17, text = "Create", bounds = createBounds)
         val peers = listOf(
             element(index = 15, text = "Home", bounds = Bounds(0, 2576, 252, 2744)),
             element(index = 16, text = "Shorts", bounds = Bounds(252, 2576, 505, 2744)),
@@ -72,14 +78,16 @@ class TargetResolverTest {
         assertThat(resolved).isEqualTo(
             TargetResolver.ResolveResult.Resolved(
                 point = Point(631, 2660),
-                bounds = Bounds(505, 2576, 758, 2744)
+                bounds = createBounds,
+                semanticHint = hintFor("Create", createBounds)
             )
         )
     }
 
     @Test
     fun `resolve element_index keeps center even when smaller clickables overlap center`() {
-        val target = element(index = 20, text = "Large card", bounds = Bounds(100, 100, 900, 900))
+        val targetBounds = Bounds(100, 100, 900, 900)
+        val target = element(index = 20, text = "Large card", bounds = targetBounds)
         val blockers = listOf(
             element(index = 21, text = "OverlayA", bounds = Bounds(120, 120, 880, 320)),
             element(index = 22, text = "OverlayB", bounds = Bounds(120, 320, 880, 580)),
@@ -92,14 +100,16 @@ class TargetResolverTest {
         assertThat(resolved).isEqualTo(
             TargetResolver.ResolveResult.Resolved(
                 point = Point(500, 500),
-                bounds = Bounds(100, 100, 900, 900)
+                bounds = targetBounds,
+                semanticHint = hintFor("Large card", targetBounds)
             )
         )
     }
 
     @Test
     fun `resolve element_index returns center with right-edge neighbor`() {
-        val target = element(index = 7, text = "More options", bounds = Bounds(954, 128, 1080, 254))
+        val targetBounds = Bounds(954, 128, 1080, 254)
+        val target = element(index = 7, text = "More options", bounds = targetBounds)
         val edgeNeighbor = element(index = 6, text = "Grid view", bounds = Bounds(890, 128, 1017, 241))
         val snapshot = snapshotOf(target, edgeNeighbor)
 
@@ -108,7 +118,8 @@ class TargetResolverTest {
         assertThat(resolved).isEqualTo(
             TargetResolver.ResolveResult.Resolved(
                 point = Point(1017, 191),
-                bounds = Bounds(954, 128, 1080, 254)
+                bounds = targetBounds,
+                semanticHint = hintFor("More options", targetBounds)
             )
         )
     }
@@ -146,4 +157,12 @@ class TargetResolverTest {
             center = Point(bounds.centerX, bounds.centerY)
         )
     }
+
+    private fun hintFor(text: String, bounds: Bounds) = SemanticTargetHint(
+        resourceId = "",
+        text = text,
+        description = "",
+        className = "Button",
+        bounds = bounds
+    )
 }

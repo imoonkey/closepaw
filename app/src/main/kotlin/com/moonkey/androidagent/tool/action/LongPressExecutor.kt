@@ -26,11 +26,11 @@ class LongPressExecutor(
                 ActionPriorityOrder.LongPressChannel.NODE_LONG_CLICK -> ChannelAttempt(
                     displayName = "node_action_long_click",
                     requiresSemantic = true
-                ) { UIAction.LongClickNodeAt(it.x, it.y) }
+                ) { pt, hint -> UIAction.LongClickNodeAt(pt.x, pt.y, hint) }
                 ActionPriorityOrder.LongPressChannel.GESTURE_LONG_PRESS -> ChannelAttempt(
                     displayName = "gesture_long_press",
                     requiresSemantic = false
-                ) { UIAction.LongPressAt(it.x, it.y, durationMs) }
+                ) { pt, _ -> UIAction.LongPressAt(pt.x, pt.y, durationMs) }
             }
         },
         target = target,

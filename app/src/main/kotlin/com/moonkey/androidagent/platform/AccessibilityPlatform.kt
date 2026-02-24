@@ -235,7 +235,7 @@ class AccessibilityPlatform(
             is UIAction.ClickNodeAt -> {
                 recordOutOfBoundsActionTarget("click_node", action.x, action.y)
                 visualizer?.showClick(action.x.toFloat(), action.y.toFloat())
-                nodeActionPerformer.performNodeClickAt(action.x, action.y)
+                nodeActionPerformer.performNodeClickAt(action.x, action.y, action.semanticHint)
             }
             is UIAction.TapAt -> {
                 recordOutOfBoundsActionTarget("tap", action.x, action.y)
@@ -244,7 +244,7 @@ class AccessibilityPlatform(
             is UIAction.LongClickNodeAt -> {
                 recordOutOfBoundsActionTarget("long_click_node", action.x, action.y)
                 visualizer?.showClick(action.x.toFloat(), action.y.toFloat(), longPress = true)
-                nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
+                nodeActionPerformer.performNodeLongClickAt(action.x, action.y, action.semanticHint)
             }
             is UIAction.LongPressAt -> {
                 recordOutOfBoundsActionTarget("long_press", action.x, action.y)

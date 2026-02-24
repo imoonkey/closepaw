@@ -4,6 +4,7 @@ import com.moonkey.androidagent.model.Bounds
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.Point
 import com.moonkey.androidagent.model.ScreenSnapshot
+import com.moonkey.androidagent.platform.SemanticTargetHint
 
 /**
  * Resolves a Target to screen coordinates.
@@ -15,6 +16,7 @@ object TargetResolver {
         data class Resolved(
             val point: Point,
             val bounds: Bounds? = null,
+            val semanticHint: SemanticTargetHint? = null,
             val warnings: List<String> = emptyList()
         ) : ResolveResult
 
@@ -69,6 +71,13 @@ object TargetResolver {
     }
 
     private fun resolveElementPoint(element: PerceptionElement): ResolveResult.Resolved {
-        return ResolveResult.Resolved(element.center, bounds = element.bounds)
+        val hint = SemanticTargetHint(
+            resourceId = element.resourceId,
+            text = element.text,
+            description = element.description,
+            className = element.className,
+            bounds = element.bounds
+        )
+        return ResolveResult.Resolved(element.center, bounds = element.bounds, semanticHint = hint)
     }
 }

@@ -1,12 +1,15 @@
 package com.moonkey.androidagent.platform
 
+import android.graphics.Rect
 import android.os.Build
 import android.view.accessibility.AccessibilityNodeInfo
 import com.google.common.truth.Truth.assertThat
+import com.moonkey.androidagent.model.Bounds
 import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.mockkStatic
 import io.mockk.unmockkObject
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
@@ -135,5 +138,143 @@ class NodeActionPerformerTest {
         verify(exactly = 1) { clickable.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK) }
         verify(exactly = 1) { clickable.recycle() }
         verify(exactly = 1) { root.recycle() }
+    }
+
+    // ===== matchesIntended unit tests =====
+
+    private val baseBounds = Bounds(left = 0, top = 0, right = 100, bottom = 100)
+
+    @Test
+    fun `matchesIntended returns true when resourceId matches`() {
+        val hint = SemanticTargetHint(
+            resourceId = "show_roots", text = "", description = "",
+            className = "ImageButton", bounds = baseBounds
+        )
+        val result = NodeActionPerformer.matchesIntended(
+            foundId = "com.android.documentsui:id/show_roots",
+            foundText = "", foundDesc = "", foundClass = "ImageButton", hint = hint
+        )
+        assertThat(result).isTrue()
+    }
+
+    @Test
+    fun `matchesIntended returns true when text matches`() {
+        val hint = SemanticTargetHint(
+            resourceId = "", text = "Downloads", description = "",
+            className = "TextView", bounds = baseBounds
+        )
+        val result = NodeActionPerformer.matchesIntended(
+            foundId = "", foundText = "Downloads", foundDesc = "",
+            foundClass = "TextView", hint = hint
+        )
+        assertThat(result).isTrue()
+    }
+
+    @Test
+    fun `matchesIntended returns true when description matches`() {
+        val hint = SemanticTargetHint(
+            resourceId = "", text = "", description = "Show roots",
+            className = "ImageButton", bounds = baseBounds
+        )
+        val result = NodeActionPerformer.matchesIntended(
+            foundId = "", foundText = "", foundDesc = "Show roots",
+            foundClass = "ImageButton", hint = hint
+        )
+        assertThat(result).isTrue()
+    }
+
+    @Test
+    fun `matchesIntended returns false when none match`() {
+        val hint = SemanticTargetHint(
+            resourceId = "show_roots", text = "Show roots", description = "Show roots",
+            className = "ImageButton", bounds = baseBounds
+        )
+        val result = NodeActionPerformer.matchesIntended(
+            foundId = "com.android.documentsui:id/dir_row",
+            foundText = "Downloads",
+            foundDesc = "",
+            foundClass = "LinearLayout",
+            hint = hint
+        )
+        assertThat(result).isFalse()
+    }
+
+    @Test
+    fun `matchesIntended returns true when hint has no identity fields`() {
+        val hint = SemanticTargetHint(
+            resourceId = "", text = "", description = "",
+            className = "View", bounds = baseBounds
+        )
+        val result = NodeActionPerformer.matchesIntended(
+            foundId = "anything", foundText = "anything",
+            foundDesc = "anything", foundClass = "View", hint = hint
+        )
+        assertThat(result).isTrue()
+    }
+
+    // ===== Mismatch guard integration tests =====
+
+    @Test
+    fun `performNodeClickAt returns failure on hint mismatch`() = runTest {
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val node = mockk<AccessibilityNodeInfo>(relaxed = true)
+        every { AccessibilityNodeFinder.findClickableNodeAtLocation(root, 73, 191) } returns node
+        every { node.viewIdResourceName } returns "com.android.documentsui:id/dir_row"
+        every { node.text } returns "Downloads"
+        every { node.contentDescription } returns null
+        every { node.className } returns "android.widget.LinearLayout"
+        every { node.getBoundsInScreen(any()) } answers {
+            firstArg<Rect>().set(0, 128, 1080, 225)
+        }
+
+        val hint = SemanticTargetHint(
+            resourceId = "show_roots", text = "", description = "Show roots",
+            className = "ImageButton", bounds = Bounds(0, 128, 147, 254)
+        )
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performNodeClickAt(73, 191, hint)
+
+        assertThat(result).isInstanceOf(ActionResult.Failure::class.java)
+        assertThat((result as ActionResult.Failure).reason).contains("mismatch")
+        verify(exactly = 0) { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+    }
+
+    @Test
+    fun `performNodeClickAt proceeds on hint match`() = runTest {
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val node = mockk<AccessibilityNodeInfo>(relaxed = true)
+        every { AccessibilityNodeFinder.findClickableNodeAtLocation(root, 73, 191) } returns node
+        every { node.viewIdResourceName } returns "com.android.documentsui:id/show_roots"
+        every { node.text } returns null
+        every { node.contentDescription } returns "Show roots"
+        every { node.className } returns "android.widget.ImageButton"
+        every { node.getBoundsInScreen(any()) } answers {
+            firstArg<Rect>().set(0, 128, 147, 254)
+        }
+        every { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) } returns true
+
+        val hint = SemanticTargetHint(
+            resourceId = "show_roots", text = "", description = "Show roots",
+            className = "ImageButton", bounds = Bounds(0, 128, 147, 254)
+        )
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performNodeClickAt(73, 191, hint)
+
+        assertThat(result).isEqualTo(ActionResult.Success("ACTION_CLICK at (73,191)"))
+        verify(exactly = 1) { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+    }
+
+    @Test
+    fun `performNodeClickAt with null hint skips guard`() = runTest {
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val node = mockk<AccessibilityNodeInfo>(relaxed = true)
+        every { AccessibilityNodeFinder.findClickableNodeAtLocation(root, 10, 20) } returns node
+        every { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) } returns true
+
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performNodeClickAt(10, 20, hint = null)
+
+        assertThat(result).isEqualTo(ActionResult.Success("ACTION_CLICK at (10,20)"))
+        verify(exactly = 1) { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
     }
 }

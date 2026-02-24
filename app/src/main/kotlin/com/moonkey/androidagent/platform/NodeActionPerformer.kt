@@ -1,7 +1,9 @@
 package com.moonkey.androidagent.platform
 
+import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import com.moonkey.androidagent.util.recycleCompat
 import kotlinx.coroutines.Dispatchers
@@ -17,14 +19,25 @@ class NodeActionPerformer(
         private val sdkIntProvider: () -> Int = { Build.VERSION.SDK_INT }
 ) {
     @Suppress("DEPRECATION")
-    suspend fun performNodeClickAt(x: Int, y: Int): ActionResult {
-        return performNodeActionAt(
-                nodeFinder = { root -> AccessibilityNodeFinder.findClickableNodeAtLocation(root, x, y) },
-                notFoundMessage = "No clickable node at ($x,$y)",
-                action = AccessibilityNodeInfo.ACTION_CLICK,
-                successMessage = "ACTION_CLICK at ($x,$y)",
-                failureMessage = "ACTION_CLICK returned false at ($x,$y)"
-        )
+    suspend fun performNodeClickAt(x: Int, y: Int, hint: SemanticTargetHint? = null): ActionResult {
+        return onMain {
+            withRoot { root ->
+                val node = AccessibilityNodeFinder.findClickableNodeAtLocation(root, x, y)
+                        ?: return@withRoot ActionResult.Failure("No clickable node at ($x,$y)")
+                try {
+                    val guardResult = logAndGuard(node, x, y, hint, "ACTION_CLICK")
+                    if (guardResult != null) return@withRoot guardResult
+                    val ok = node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    if (ok) {
+                        ActionResult.Success("ACTION_CLICK at ($x,$y)")
+                    } else {
+                        ActionResult.Failure("ACTION_CLICK returned false at ($x,$y)")
+                    }
+                } finally {
+                    if (node !== root) node.recycleCompat()
+                }
+            }
+        }
     }
 
     /**
@@ -59,12 +72,14 @@ class NodeActionPerformer(
     }
 
     @Suppress("DEPRECATION")
-    suspend fun performNodeLongClickAt(x: Int, y: Int): ActionResult {
+    suspend fun performNodeLongClickAt(x: Int, y: Int, hint: SemanticTargetHint? = null): ActionResult {
         return onMain {
             withRoot { root ->
                 val longClickableNode = AccessibilityNodeFinder.findLongClickableNodeAtLocation(root, x, y)
                 if (longClickableNode != null) {
                     try {
+                        val guardResult = logAndGuard(longClickableNode, x, y, hint, "ACTION_LONG_CLICK")
+                        if (guardResult != null) return@withRoot guardResult
                         val ok = longClickableNode.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
                         return@withRoot if (ok) {
                             ActionResult.Success("ACTION_LONG_CLICK at ($x,$y)")
@@ -80,6 +95,8 @@ class NodeActionPerformer(
                 val clickableNode = AccessibilityNodeFinder.findClickableNodeAtLocation(root, x, y)
                         ?: return@withRoot ActionResult.Failure("No long-clickable node at ($x,$y)")
                 try {
+                    val guardResult = logAndGuard(clickableNode, x, y, hint, "ACTION_LONG_CLICK")
+                    if (guardResult != null) return@withRoot guardResult
                     val ok = clickableNode.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)
                     if (ok) {
                         ActionResult.Success("ACTION_LONG_CLICK at ($x,$y) via clickable fallback")
@@ -226,7 +243,78 @@ class NodeActionPerformer(
         return withContext(Dispatchers.Main) { block() }
     }
 
+    /**
+     * Log intended vs found node identity. If hint is non-null and the found node
+     * doesn't match, return [ActionResult.Failure] to trigger gesture fallback.
+     * Returns null when the click should proceed.
+     */
+    private fun logAndGuard(
+        node: AccessibilityNodeInfo,
+        x: Int,
+        y: Int,
+        hint: SemanticTargetHint?,
+        actionLabel: String
+    ): ActionResult? {
+        if (hint == null) return null // coordinate target — no verification
+
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        val foundId = node.viewIdResourceName ?: ""
+        val foundText = node.text?.toString() ?: ""
+        val foundDesc = node.contentDescription?.toString() ?: ""
+        val foundClass = node.className?.toString() ?: ""
+
+        val matches = matchesIntended(foundId, foundText, foundDesc, foundClass, hint)
+        val tag = if (matches) "MATCH" else "MISMATCH"
+
+        Log.d(TAG, "$actionLabel target=($x,$y) " +
+                "intended=[id=${hint.resourceId} text=${hint.text} desc=${hint.description} " +
+                "class=${hint.className} bounds=${hint.bounds}] " +
+                "found=[id=$foundId text=$foundText desc=$foundDesc " +
+                "class=$foundClass bounds=[${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}]] " +
+                "→ $tag")
+
+        return if (matches) {
+            null // proceed with click
+        } else {
+            ActionResult.Failure(
+                "Node identity mismatch at ($x,$y): " +
+                    "intended=[${hint.text.ifBlank { hint.description }}] " +
+                    "found=[$foundText]"
+            )
+        }
+    }
+
     companion object {
+        private const val TAG = "NodeActionPerformer"
+
+        /**
+         * Check if the found node matches the intended element.
+         * Any one strong identity signal matching is sufficient.
+         * If the hint has no identity fields at all, we trust the finder.
+         */
+        internal fun matchesIntended(
+            foundId: String,
+            foundText: String,
+            foundDesc: String,
+            foundClass: String,
+            hint: SemanticTargetHint
+        ): Boolean {
+            val hasIdentity = hint.resourceId.isNotBlank() ||
+                    hint.text.isNotBlank() ||
+                    hint.description.isNotBlank()
+            if (!hasIdentity) return true // nothing to verify
+
+            if (hint.resourceId.isNotBlank() &&
+                foundId.contains(hint.resourceId)) return true
+            if (hint.text.isNotBlank() &&
+                foundText == hint.text) return true
+            if (hint.description.isNotBlank() &&
+                foundDesc == hint.description) return true
+
+            return false
+        }
+
         @Suppress("DEPRECATION")
         private fun scrollActionIds(direction: String): Pair<Int?, Int> {
             return when (direction) {

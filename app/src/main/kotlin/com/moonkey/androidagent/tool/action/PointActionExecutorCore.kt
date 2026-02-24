@@ -5,6 +5,7 @@ import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.DisplayInfo
+import com.moonkey.androidagent.platform.SemanticTargetHint
 import com.moonkey.androidagent.platform.UIAction
 import kotlinx.coroutines.delay
 
@@ -18,7 +19,7 @@ import kotlinx.coroutines.delay
 internal data class ChannelAttempt(
     val displayName: String,
     val requiresSemantic: Boolean,
-    val createAction: (Point) -> UIAction
+    val createAction: (Point, SemanticTargetHint?) -> UIAction
 )
 
 private const val UI_SETTLE_DELAY_MS = 300L
@@ -45,9 +46,11 @@ internal suspend fun executePointAction(
     val displayInfo = platform.getDisplayInfo()
     val resolvedTarget = targetResolver.resolve(target, snapshot)
     val resolvedWarnings: List<String>
+    val semanticHint: SemanticTargetHint?
     val point = when (resolvedTarget) {
         is TargetResolver.ResolveResult.Resolved -> {
             resolvedWarnings = resolvedTarget.warnings
+            semanticHint = resolvedTarget.semanticHint
             resolvedTarget.point
         }
         is TargetResolver.ResolveResult.NotFound -> {
@@ -76,7 +79,7 @@ internal suspend fun executePointAction(
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before $actionName attempt")
         if (channel.requiresSemantic && !target.isSemantic()) continue
 
-        val result = platform.performAction(channel.createAction(point))
+        val result = platform.performAction(channel.createAction(point, semanticHint))
         when (result) {
             is ActionResult.Success -> {
                 attemptTrail += "${channel.displayName}: success"
