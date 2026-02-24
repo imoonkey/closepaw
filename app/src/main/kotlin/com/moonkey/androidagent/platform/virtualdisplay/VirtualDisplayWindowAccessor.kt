@@ -75,4 +75,28 @@ class VirtualDisplayWindowAccessor(
             }
         }
     }
+
+    /**
+     * Get a11y roots from all relevant windows on the virtual display. Caller must recycle all.
+     *
+     * Excludes TYPE_ACCESSIBILITY_OVERLAY (our own overlay) and TYPE_INPUT_METHOD (keyboard).
+     * Remaining windows are sorted by layer for deterministic element ordering across turns.
+     */
+    fun getRootsOnDisplay(): List<AccessibilityNodeInfo> {
+        val windows = getWindowsOnDisplay()
+        return try {
+            windows
+                .filter { w ->
+                    w.type != AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
+                        w.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD
+                }
+                .sortedBy { it.layer }
+                .mapNotNull { it.root }
+        } finally {
+            windows.forEach { window ->
+                runCatching { window.recycle() }
+                    .onFailure { e -> Log.w(TAG, "Window recycle failed (ignored)", e) }
+            }
+        }
+    }
 }

@@ -26,11 +26,8 @@ object Perceptor {
     }
 
     /**
-     * Create a ScreenSnapshot from the accessibility tree.
-     *
-     * Does not store AccessibilityNodeInfo references to prevent memory leaks.
-     * All data needed for action execution (bounds, center, properties) is extracted
-     * and stored in PerceptionElement.
+     * Create a ScreenSnapshot from a single accessibility tree root.
+     * Delegates to the multi-root overload.
      */
     fun snapshot(
         root: AccessibilityNodeInfo?,
@@ -39,34 +36,64 @@ object Perceptor {
         filterConfig: PerceptorFilterConfig = PerceptorFilterConfig.DEFAULT,
         diagnosticsCollector: PerceptorDiagnosticsCollector? = null
     ): ScreenSnapshot {
+        if (root == null) return ScreenSnapshot(System.currentTimeMillis(), emptyList())
+        return snapshot(
+            roots = listOf(root),
+            screenWidthPx = screenWidthPx,
+            screenHeightPx = screenHeightPx,
+            filterConfig = filterConfig,
+            diagnosticsCollector = diagnosticsCollector
+        )
+    }
+
+    /**
+     * Create a ScreenSnapshot from multiple accessibility tree roots (multi-window).
+     *
+     * Traverses all roots with shared dedup state, then applies the standard
+     * enrich → truncate → spatial sort → index pipeline.
+     *
+     * Does not store AccessibilityNodeInfo references to prevent memory leaks.
+     * Roots are NOT recycled — caller is responsible for lifecycle.
+     */
+    fun snapshot(
+        roots: List<AccessibilityNodeInfo>,
+        screenWidthPx: Int? = null,
+        screenHeightPx: Int? = null,
+        filterConfig: PerceptorFilterConfig = PerceptorFilterConfig.DEFAULT,
+        diagnosticsCollector: PerceptorDiagnosticsCollector? = null
+    ): ScreenSnapshot {
         val timestamp = System.currentTimeMillis()
-        if (root == null) return ScreenSnapshot(timestamp, emptyList())
+        if (roots.isEmpty()) return ScreenSnapshot(timestamp, emptyList())
 
         val collected = mutableListOf<PerceptorCandidateElement>()
         val seenKeys = mutableSetOf<String>()
-        // Root is owned by system, don't recycle it.
-        traverse(
-            node = root,
-            elements = collected,
-            seenKeys = seenKeys,
-            shouldRecycle = false,
-            mode = TraversalMode.INTERACTIVE_ONLY,
-            screenWidthPx = screenWidthPx,
-            screenHeightPx = screenHeightPx,
-            filterConfig = filterConfig,
-            diagnosticsCollector = diagnosticsCollector
-        )
-        traverse(
-            node = root,
-            elements = collected,
-            seenKeys = seenKeys,
-            shouldRecycle = false,
-            mode = TraversalMode.ALL,
-            screenWidthPx = screenWidthPx,
-            screenHeightPx = screenHeightPx,
-            filterConfig = filterConfig,
-            diagnosticsCollector = diagnosticsCollector
-        )
+
+        for (root in roots) {
+            traverse(
+                node = root,
+                elements = collected,
+                seenKeys = seenKeys,
+                shouldRecycle = false,
+                mode = TraversalMode.INTERACTIVE_ONLY,
+                screenWidthPx = screenWidthPx,
+                screenHeightPx = screenHeightPx,
+                filterConfig = filterConfig,
+                diagnosticsCollector = diagnosticsCollector
+            )
+        }
+        for (root in roots) {
+            traverse(
+                node = root,
+                elements = collected,
+                seenKeys = seenKeys,
+                shouldRecycle = false,
+                mode = TraversalMode.ALL,
+                screenWidthPx = screenWidthPx,
+                screenHeightPx = screenHeightPx,
+                filterConfig = filterConfig,
+                diagnosticsCollector = diagnosticsCollector
+            )
+        }
 
         val enriched = enrichEmptyTextElements(collected)
         val truncated =

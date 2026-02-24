@@ -1,8 +1,14 @@
 package com.moonkey.androidagent.platform
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.util.DisplayMetrics
 import android.util.Log
+import android.view.WindowManager
+import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.model.ScreenSnapshotDebug
@@ -15,6 +21,7 @@ import com.moonkey.androidagent.trace.NoopTraceRecorder
 import com.moonkey.androidagent.trace.TraceJson
 import com.moonkey.androidagent.trace.TraceRecorder
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
+import com.moonkey.androidagent.util.recycleCompat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -113,17 +120,17 @@ class AccessibilityPlatform(
 
     private suspend fun captureAccessibilityTree(): A11yCaptureResult {
         val display = withContext(Dispatchers.Main) { getDisplayInfo() }
-        var root = withContext(Dispatchers.Main) { service.rootInActiveWindow }
+        var roots = withContext(Dispatchers.Main) { collectRootsOnActiveDisplay() }
         var attempts = 1
-        while (root == null && attempts < 3) {
+        while (roots.isEmpty() && attempts < 3) {
             delay(150)
             attempts += 1
-            root = withContext(Dispatchers.Main) { service.rootInActiveWindow }
+            roots = withContext(Dispatchers.Main) { collectRootsOnActiveDisplay() }
         }
         val capturedAt = System.currentTimeMillis()
-        val windowId = root?.windowId
+        val windowId = roots.firstOrNull()?.windowId
 
-        if (root == null) {
+        if (roots.isEmpty()) {
             val quality = CaptureQuality(
                     attempts = attempts,
                     elementCount = 0,
@@ -142,54 +149,85 @@ class AccessibilityPlatform(
             )
         }
 
-        val rawTreeArtifactPath = if (traceRecorder.enabled) {
-            val dump = withContext(Dispatchers.Default) { A11yTreeDumper.dump(root) }
-            val json = TraceJson.instance.encodeToString(dump)
-            traceRecorder.storeText(
-                            kind = "raw_a11y_tree",
-                            filenameHint = "raw_${System.currentTimeMillis()}.json",
-                            content = json,
-                            mimeType = "application/json"
-                    )
-                    ?.path
-        } else null
+        try {
+            val rawTreeArtifactPath = if (traceRecorder.enabled) {
+                val dump = withContext(Dispatchers.Default) { roots.map { A11yTreeDumper.dump(it) } }
+                val json = TraceJson.instance.encodeToString(dump)
+                traceRecorder.storeText(
+                                kind = "raw_a11y_tree",
+                                filenameHint = "raw_${System.currentTimeMillis()}.json",
+                                content = json,
+                                mimeType = "application/json"
+                        )
+                        ?.path
+            } else null
 
-        val diagnosticsCollector = PerceptorDiagnosticsCollector()
-        val snapshot = Perceptor.snapshot(
-                root = root,
-                screenWidthPx = display.widthPixels,
-                screenHeightPx = display.heightPixels,
-                diagnosticsCollector = diagnosticsCollector
-        )
+            val diagnosticsCollector = PerceptorDiagnosticsCollector()
+            val snapshot = Perceptor.snapshot(
+                    roots = roots,
+                    screenWidthPx = display.widthPixels,
+                    screenHeightPx = display.heightPixels,
+                    diagnosticsCollector = diagnosticsCollector
+            )
 
-        val sanitizedTreeArtifactPath = if (traceRecorder.enabled) {
-            val json = Perceptor.toPromptJson(snapshot)
-            traceRecorder.storeText(
-                            kind = "sanitized_a11y_tree",
-                            filenameHint = "sanitized_${snapshot.timestamp}.json",
-                            content = json,
-                            mimeType = "application/json"
-                    )
-                    ?.path
-        } else null
+            val sanitizedTreeArtifactPath = if (traceRecorder.enabled) {
+                val json = Perceptor.toPromptJson(snapshot)
+                traceRecorder.storeText(
+                                kind = "sanitized_a11y_tree",
+                                filenameHint = "sanitized_${snapshot.timestamp}.json",
+                                content = json,
+                                mimeType = "application/json"
+                        )
+                        ?.path
+            } else null
 
-        val quality = CaptureQuality(
-                attempts = attempts,
-                elementCount = snapshot.elements.size,
-                capturedAt = capturedAt,
-                emptyReason = if (snapshot.elements.isEmpty()) "zero_visible_elements" else null,
-                boundsDiagnostics = diagnosticsCollector.snapshot(),
-                outOfBoundsActionTargetCount = outOfBoundsActionTargetCount.get()
-        )
-        val qualityPath = storeCaptureQualityArtifact(quality)
+            val quality = CaptureQuality(
+                    attempts = attempts,
+                    elementCount = snapshot.elements.size,
+                    capturedAt = capturedAt,
+                    emptyReason = if (snapshot.elements.isEmpty()) "zero_visible_elements" else null,
+                    boundsDiagnostics = diagnosticsCollector.snapshot(),
+                    outOfBoundsActionTargetCount = outOfBoundsActionTargetCount.get()
+            )
+            val qualityPath = storeCaptureQualityArtifact(quality)
 
-        return A11yCaptureResult(
-                elements = snapshot.elements,
-                windowId = windowId,
-                rawTreeArtifactPath = rawTreeArtifactPath,
-                sanitizedTreeArtifactPath = sanitizedTreeArtifactPath,
-                captureQualityArtifactPath = qualityPath
-        )
+            return A11yCaptureResult(
+                    elements = snapshot.elements,
+                    windowId = windowId,
+                    rawTreeArtifactPath = rawTreeArtifactPath,
+                    sanitizedTreeArtifactPath = sanitizedTreeArtifactPath,
+                    captureQualityArtifactPath = qualityPath
+            )
+        } finally {
+            roots.forEach { it.recycleCompat() }
+        }
+    }
+
+    /**
+     * Collect a11y roots from all relevant windows on the active display.
+     *
+     * Excludes TYPE_ACCESSIBILITY_OVERLAY (our own overlay) and TYPE_INPUT_METHOD (keyboard).
+     * Sorted by layer for deterministic element ordering across turns.
+     * Falls back to rootInActiveWindow if window enumeration fails.
+     */
+    private fun collectRootsOnActiveDisplay(): List<AccessibilityNodeInfo> {
+        val windows = try {
+            service.windows
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to get windows, falling back to rootInActiveWindow", e)
+            null
+        }
+        if (windows.isNullOrEmpty()) {
+            return listOfNotNull(service.rootInActiveWindow)
+        }
+        val roots = windows
+            .filter { w ->
+                w.type != AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
+                    w.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD
+            }
+            .sortedBy { it.layer }
+            .mapNotNull { it.root }
+        return roots.ifEmpty { listOfNotNull(service.rootInActiveWindow) }
     }
 
     override suspend fun performAction(action: UIAction): ActionResult {
@@ -260,12 +298,34 @@ class AccessibilityPlatform(
         }
     }
 
+    /**
+     * Return the REAL display dimensions (full screen including nav bar and cutout).
+     *
+     * Accessibility nodes report bounds in full-screen coordinates (getBoundsInScreen),
+     * so the display info used for visibility filtering must match. Using
+     * Resources.displayMetrics.heightPixels gives only the app content area, which
+     * causes elements near the bottom (e.g., bottom toolbar buttons) to be incorrectly
+     * filtered as off-screen.
+     */
     override fun getDisplayInfo(): DisplayInfo {
-        val displayMetrics = service.resources.displayMetrics
+        val wm = service.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val density = service.resources.displayMetrics.density
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val bounds = wm.maximumWindowMetrics.bounds
+            return DisplayInfo(
+                    widthPixels = bounds.width(),
+                    heightPixels = bounds.height(),
+                    density = density
+            )
+        }
+        @Suppress("DEPRECATION")
+        val realMetrics = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        wm.defaultDisplay.getRealMetrics(realMetrics)
         return DisplayInfo(
-                widthPixels = displayMetrics.widthPixels,
-                heightPixels = displayMetrics.heightPixels,
-                density = displayMetrics.density
+                widthPixels = realMetrics.widthPixels,
+                heightPixels = realMetrics.heightPixels,
+                density = density
         )
     }
 

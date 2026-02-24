@@ -94,6 +94,10 @@ sealed class AgentError {
 - `/action-debug` - Debug failed tool executions by isolating action layer
 - `/cog-tune` - Analyze agent cognition using traces and eval results
 - `/ux-visual-debug` - End-to-end UX QA from user perspective via ADB
+- `/align` - Align design between Codex and Claude
+- `/coding-standards` - Android/Kotlin coding conventions (auto-applied during code changes)
+- `/ultra-think` - Deep strategic thinking for high-impact decisions
+- `/ralph-loop` - Start Ralph Loop in current session (`/cancel-ralph` to stop)
 
 ## Git
 

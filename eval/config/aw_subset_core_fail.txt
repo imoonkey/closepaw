@@ -1,1 +1,3 @@
+BrowserMultiply
 FilesMoveFile
+SimpleSmsSend

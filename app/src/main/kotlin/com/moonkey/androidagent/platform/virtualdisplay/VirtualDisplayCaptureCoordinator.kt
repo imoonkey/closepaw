@@ -52,12 +52,14 @@ internal class VirtualDisplayCaptureCoordinator(
 
         suspend fun captureA11yTreeWithArtifacts(): A11yCaptureResult {
                 return withContext(Dispatchers.Main) {
-                        val root = windowAccessor.getRootOnDisplay()
-                                ?: return@withContext A11yCaptureResult(emptyList(), null, null)
+                        val roots = windowAccessor.getRootsOnDisplay()
+                        if (roots.isEmpty()) {
+                                return@withContext A11yCaptureResult(emptyList(), null, null)
+                        }
                         try {
                                 val rawTreePath = if (traceRecorder.enabled) {
                                         withContext(Dispatchers.Default) {
-                                                val dump = A11yTreeDumper.dump(root)
+                                                val dump = roots.map { A11yTreeDumper.dump(it) }
                                                 val json = TraceJson.instance.encodeToString(dump)
                                                 traceRecorder.storeText(
                                                         kind = "raw_a11y_tree",
@@ -68,7 +70,7 @@ internal class VirtualDisplayCaptureCoordinator(
                                         }
                                 } else null
 
-                                val snapshot = Perceptor.snapshot(root, config.width, config.height)
+                                val snapshot = Perceptor.snapshot(roots, config.width, config.height)
 
                                 val sanitizedTreePath = if (traceRecorder.enabled) {
                                         val json = Perceptor.toPromptJson(snapshot)
@@ -89,7 +91,7 @@ internal class VirtualDisplayCaptureCoordinator(
                                 Log.w(TAG, "Perceptor.snapshot failed", e)
                                 A11yCaptureResult(emptyList(), null, null)
                         } finally {
-                                root.recycleCompat()
+                                roots.forEach { it.recycleCompat() }
                         }
                 }
         }

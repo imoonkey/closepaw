@@ -13,8 +13,9 @@ Both analyses independently confirm:
 - **4 failures**: BrowserMultiply, ClockTimerEntry, FilesMoveFile, SimpleSmsSend — all MaxTurnsReached at 30 turns.
 - **10 successes**: All clean or near-optimal. CameraTakePhoto (4T), SystemWifiTurnOn (5T), SystemBrightnessMax (6T), SystemBluetoothTurnOn (6T) are all efficient. Only SystemWifiTurnOff (8T, 3 wasted turns) shows slight inefficiency.
 - **100% goal claim precision**: Agent never falsely claims completion.
-- **0 hard tool failures in successful tasks** (1 total: SimpleSmsSend T1 app name mismatch).
-- **Core bottleneck is strategy/reasoning, not execution**: The tool layer works; the agent doesn't know when to stop or change approach.
+- **0 hard tool crashes** (1 soft failure: SimpleSmsSend T1 app name mismatch).
+- **Tool execution has a critical blind spot**: Actions physically dispatch (no crashes), but the tool conflates "action dispatched" with "action succeeded." In 3/4 failures, the tool reports `success=true` when the UI didn't change — misleading the agent into thinking its actions worked. This is an **execution/observation layer deficiency**, not just a reasoning problem.
+- **Reasoning compounds the execution problem**: Even when the agent could infer failure from unchanged screen state, it lacks loop-detection and strategy-switching discipline. Both layers need fixes.
 
 ---
 
