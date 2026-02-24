@@ -82,12 +82,12 @@ No new state types. No new manager. VD is either running or stopped.
 Resource cost during idle: ~20MB RAM (ImageReader buffers) + minimal GPU
 compositing. Acceptable for a 5-minute idle timeout.
 
-### 5.2 IME Suppression — softKeyboardController pulse
+### 5.2 IME Suppression — synchronous guard around each action
 
 Replace the shell BACK-key hack with the proper AccessibilityService API:
 `SoftKeyboardController.setShowMode()`.
 
-Strategy: **guarded pulse suppression around focus/typing-related actions**.
+Strategy: **guarded synchronous suppression around each individual action**.
 
 Key constraint: `setShowMode(SHOW_MODE_HIDDEN)` is system-wide. If the user
 is actively typing on the main screen (e.g., writing an email), calling
@@ -120,18 +120,25 @@ Uses the same `getWindowsOnAllDisplays()` API already used by
 `getWindowsOnAllDisplays()`, API 31 fallback via `service.windows` with
 `displayId` filter.
 
-**Pulse timing** (when guard allows suppression):
+**Suppress timing** — synchronous, no debounce:
 
 ```
-Action 1:    [--HIDDEN--]
-                         [~~~500ms~~~]
-Action 2:               [--HIDDEN--]     (cancels pending restore)
-                                    [~~~500ms~~~]
-                                                [SHOW_MODE_AUTO restored]
-                                                |
-                                                v  user can type here
-[LLM thinking..............................][Action 3]
+Action 1:    [--HIDDEN--][AUTO]
+                                  user can type freely here
+[LLM thinking..............................][Action 2: [--HIDDEN--][AUTO]]
+                                                                          user can type freely here
 ```
+
+Keyboard is in `SHOW_MODE_HIDDEN` only for the ~100-500ms duration of each
+action execution. Restored to `SHOW_MODE_AUTO` immediately in a `finally`
+block. No Handler, no debounce timer, no delayed callbacks.
+
+> **Design revision note**: The original design used a 500ms debounce
+> (`scheduleKeyboardRestore` via Handler). Testing revealed this blocked the
+> user's keyboard on the main screen during agent execution — rapid action
+> sequences kept resetting the debounce timer, maintaining `SHOW_MODE_HIDDEN`
+> for the entire task duration. Switched to synchronous suppress/restore to
+> eliminate the problem.
 
 **Behavior matrix**:
 
@@ -144,8 +151,8 @@ Action 2:               [--HIDDEN--]     (cancels pending restore)
 
 Changes:
 1. `VirtualDisplayPlatform.performAction()`: apply guarded
-   `suppressKeyboard()` / `scheduleKeyboardRestore()` only for action types
-   likely to trigger IME side effects:
+   `setKeyboardHidden()` / `setKeyboardAuto()` synchronously around action
+   execution, only for action types likely to trigger IME side effects:
    - `ClickNodeAt`
    - `TapAt`
    - `LongClickNodeAt`
@@ -165,11 +172,6 @@ Changes:
 - `FLAG_INPUT_METHOD_EDITOR` is a different API (IME capability subset, API 33)
   and is not required for `setShowMode()`.
 
-**Why pulse, not full-task suppression**: Smart Capsule supplement input
-("Got ideas? Add a note...") needs keyboard during task execution. Pulse
-keeps keyboard available between actions (~1.5-3s gaps during LLM
-thinking).
-
 ### 5.3 Existing typing protocol stays as-is
 
 The current "keyboardless typing" design is already correct:
@@ -182,41 +184,113 @@ No changes needed here. This is done.
 
 ## 6. Implementation Plan
 
-### Phase 1 (lifecycle fix)
+### Phase 1 (lifecycle fix) — ✅ DONE
 
 1. `AgentSession.handleAgentComplete()`: delete `services.platform.stop()`
-   call (lines 363-367).
+   call (lines 363-367). ✅
 2. `VirtualDisplayPlatform.start()`: change `check(...)` assertion to early
-   return (line 101).
-3. Update doc comments that describe Idle as "platform released".
+   return (line 101). ✅
+3. Update doc comments that describe Idle as "platform released". ✅
 
-### Phase 2 (keyboard fix)
+### Phase 2 (keyboard fix) — ✅ DONE
 
-1. `VirtualDisplayPlatform`: add `suppressKeyboard()` and
-   `scheduleKeyboardRestore()` helper methods. Wrap `performAction()`.
-2. `VirtualDisplayPlatform.stop()`: add `SHOW_MODE_AUTO` restore.
+1. `VirtualDisplayPlatform`: add `setKeyboardHidden()` and
+   `setKeyboardAuto()` helper methods. Wrap `performAction()` with
+   synchronous guard + suppress/restore. ✅
+2. `VirtualDisplayPlatform.stop()`: add `SHOW_MODE_AUTO` restore. ✅
 3. Delete `dismissMainDisplayKeyboard()` from
    `VirtualDisplayAppController.kt` and its call site in
-   `VirtualDisplayPlatform.performAction()`.
+   `VirtualDisplayPlatform.performAction()`. ✅
+
+### Phase 2b (keyboard fix revision) — ✅ DONE
+
+Replaced 500ms debounce pattern with synchronous suppress/restore after
+testing revealed the debounce blocked user keyboard during agent execution.
+Removed: `Handler`, `keyboardRestoreToken`, `IME_SUPPRESS_DELAY_MS`,
+`scheduleKeyboardRestore()`. See design revision note in §5.2.
 
 ## 7. Acceptance Criteria
 
 1. VD mode: "open YouTube and play song" → task completes → music keeps
-   playing.
-2. Follow-up task reuses existing VD (no new `createVirtualDisplay` in logs).
+   playing. ⚠️ VD no longer destroyed, but YouTube still stops — likely
+   Android framework PIP behavior, not our code. See §9.
+2. Follow-up task reuses existing VD (no new `createVirtualDisplay` in logs). ✅
 3. VD text input flow: no keyboard appears on main screen (when user is
-   not typing).
+   not typing). ✅
 4. Concurrent use: user typing email on main screen while agent searches
-   YouTube on VD → user's keyboard is not interrupted.
+   YouTube on VD → user's keyboard is not interrupted. ✅ (fixed in Phase 2b)
 5. Smart Capsule supplement input works during agent execution (keyboard
-   available between actions).
-6. Force-kill app during VD task → reopen → keyboard works normally.
-7. `./gradlew test` and `./gradlew lint` pass.
+   available between actions). ✅
+6. Force-kill app during VD task → reopen → keyboard works normally. ✅
+7. `./gradlew test` and `./gradlew lint` pass. ✅
 
 ## 8. Files Changed
 
 | File | Change | ~Lines |
 |---|---|---|
-| `AgentSession.kt` | Remove `platform.stop()` from `handleAgentComplete()` | -5 |
-| `VirtualDisplayPlatform.kt` | `start()` idempotent, keyboard suppress/restore, remove old dismiss call | ~25 |
+| `AgentSession.kt` | Remove `platform.stop()` from `handleAgentComplete()`, update doc comments | -5 |
+| `VirtualDisplayPlatform.kt` | `start()` idempotent, synchronous keyboard suppress/restore with guard, remove old debounce infra | ~30 |
 | `VirtualDisplayAppController.kt` | Remove `dismissMainDisplayKeyboard()` | -6 |
+
+## 9. Open Issue: YouTube Playback Stops
+
+After fixing VD lifecycle (Phase 1), YouTube still stops after a few
+seconds of playback. The user sees a PIP window with paused video on the
+main screen, suggesting YouTube's activity moves from the VD to display 0.
+
+**Investigation result**: No code in our codebase moves apps between
+displays or triggers PIP. Searched all post-task logic, app launch paths,
+intent launching, task management APIs — none target display 0 after task
+completion.
+
+**Likely root cause**: Android framework behavior. When the VD surface
+switches back to ImageReader (headless capture) or when YouTube detects
+it's on a secondary display without active user interaction, YouTube's
+own PIP logic triggers and moves the activity to the main display. This
+is YouTube-specific app behavior interacting with Android's multi-display
+framework, not something our code controls.
+
+**Potential mitigations** (future work):
+- Investigate whether `DISPLAY_FLAGS` can prevent PIP migration.
+- Investigate whether keeping live preview surface active (instead of
+  switching to ImageReader) prevents the behavior.
+- Test with other video apps to determine if this is YouTube-specific.
+
+## 10. Open Issue: Accessibility Actions Steal IME Focus from Main Display
+
+See standalone problem statement: `focus_steal_problem.md`.
+
+**Summary**: When the agent performs `AccessibilityNodeInfo.performAction
+(ACTION_CLICK)` on a focusable node in the VD (e.g., a search box), the
+target app's `requestFocus()` redirects the system-wide IME
+`InputConnection` to the VD. The user's keystrokes on the main screen
+(e.g., composing an email in Gmail) silently stop appearing — they go to
+the VD's focused field instead. Re-tapping the main screen field restores
+input.
+
+**Root cause**: `OWN_DISPLAY_GROUP` (0x800) isolates input event routing
+(touch/key), but accessibility actions bypass the input pipeline. They
+call directly into the target app's View hierarchy via
+`AccessibilityManagerService`, triggering `requestFocus()` →
+`InputMethodManager` InputConnection redirect. This is a fundamental
+Android framework limitation — per-display focus isolation does not cover
+accessibility-triggered focus changes.
+
+**Status**: No fix implemented. Documented as known limitation.
+
+## 11. Open Issue: Same App on VD and Main Display Causes Interference
+
+See standalone problem statement: `vd_app_conflict_problem.md`.
+
+**Summary**: When the agent plays a YouTube video on the VD and the user
+opens YouTube on the main display (display 0), the two instances conflict.
+Android's `singleTask` launch mode moves the existing task to the requesting
+display rather than creating a new instance, stopping VD playback. Audio
+focus and media session are also system-wide singletons, meaning only one
+YouTube instance can hold playback at a time.
+
+**Confirmed behavior**: In Hot Idle mode (normal app flow), YouTube playback
+on VD persists correctly after agent completion. The problem only surfaces
+when the user independently launches the same app on the main display.
+
+**Status**: No fix implemented. Accepted as known platform limitation.

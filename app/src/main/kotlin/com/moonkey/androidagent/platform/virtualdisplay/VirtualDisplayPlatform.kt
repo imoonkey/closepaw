@@ -3,9 +3,6 @@ package com.moonkey.androidagent.platform.virtualdisplay
 import android.accessibilityservice.AccessibilityService
 import android.graphics.PixelFormat
 import android.media.ImageReader
-import android.os.Handler
-import android.os.Looper
-import android.os.SystemClock
 import android.util.Log
 import android.view.Display
 import android.view.SurfaceView
@@ -49,16 +46,11 @@ class VirtualDisplayPlatform(
 
         private const val SURFACE_READY_DELAY_MS = 200L
         private const val IMAGE_READER_MAX_IMAGES = 2
-        private const val IME_SUPPRESS_DELAY_MS = 500L
     }
 
     @Volatile private var displayId: Int = Display.INVALID_DISPLAY
     @Volatile private var imageReader: ImageReader? = null
     private var binderDeadListener: Shizuku.OnBinderDeadListener? = null
-
-    // ── IME suppression ──
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private val keyboardRestoreToken = Any()
 
     // ── Surface switching (Hybrid Model) ──
     private val displayIdProvider: () -> Int = { displayId }
@@ -157,7 +149,7 @@ class VirtualDisplayPlatform(
      */
     override suspend fun stop() {
         // Restore keyboard first — prevent permanently disabled IME on crash
-        restoreKeyboardNow()
+        setKeyboardAuto()
 
         binderDeadListener?.let { shizuku.removeBinderDeadListener(it) }
         binderDeadListener = null
@@ -279,17 +271,14 @@ class VirtualDisplayPlatform(
             return ActionResult.Failure("Virtual display not started")
         }
 
-        val suppressIme = action.mayTriggerIme()
-        if (suppressIme) suppressKeyboard()
+        val suppressIme = action.mayTriggerIme() && !isKeyboardVisibleOnMainDisplay()
+        if (suppressIme) setKeyboardHidden()
 
-        val result =
-                try {
-                    dispatchAction(action)
-                } finally {
-                    if (suppressIme) scheduleKeyboardRestore()
-                }
-
-        return result
+        return try {
+            dispatchAction(action)
+        } finally {
+            if (suppressIme) setKeyboardAuto()
+        }
     }
 
     private suspend fun dispatchAction(action: UIAction): ActionResult =
@@ -392,13 +381,8 @@ class VirtualDisplayPlatform(
                     this is UIAction.SetTextOnNodeAt ||
                     this is UIAction.SetTextOnFocused
 
-    /**
-     * Suppress keyboard unless the user is already typing on the main screen.
-     * Uses SHOW_MODE_HIDDEN to prevent VD-triggered IME from appearing on display 0.
-     */
-    private fun suppressKeyboard() {
-        if (isKeyboardVisibleOnMainDisplay()) return
-        mainHandler.removeCallbacksAndMessages(keyboardRestoreToken)
+    /** Set SHOW_MODE_HIDDEN to prevent VD-triggered IME from appearing on display 0. */
+    private fun setKeyboardHidden() {
         try {
             service.softKeyboardController.setShowMode(
                     AccessibilityService.SHOW_MODE_HIDDEN
@@ -408,19 +392,8 @@ class VirtualDisplayPlatform(
         }
     }
 
-    /** Schedule SHOW_MODE_AUTO restore after a debounce delay. */
-    private fun scheduleKeyboardRestore() {
-        mainHandler.removeCallbacksAndMessages(keyboardRestoreToken)
-        mainHandler.postAtTime(
-                { restoreKeyboardNow() },
-                keyboardRestoreToken,
-                SystemClock.uptimeMillis() + IME_SUPPRESS_DELAY_MS
-        )
-    }
-
-    /** Immediately restore keyboard to auto mode. Safe to call multiple times. */
-    private fun restoreKeyboardNow() {
-        mainHandler.removeCallbacksAndMessages(keyboardRestoreToken)
+    /** Restore keyboard to auto mode. Safe to call multiple times. */
+    private fun setKeyboardAuto() {
         try {
             service.softKeyboardController.setShowMode(
                     AccessibilityService.SHOW_MODE_AUTO
