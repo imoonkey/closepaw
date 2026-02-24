@@ -4,6 +4,7 @@ import android.util.Log
 import com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
 import com.moonkey.androidagent.agent.cognition.prompt.PromptBuilder
+import com.moonkey.androidagent.history.MessageKind
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
@@ -131,7 +132,7 @@ internal class TurnPlanningPhaseRunner(
                 trace.llmResponse(turnId, turnNumber, result)
                 result.content?.let { content ->
                         services.historyManager.addItem(
-                                ResponseItem.Message(role = "assistant", content = content)
+                                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = content)
                         )
                 }
 
@@ -175,9 +176,8 @@ internal class TurnPlanningPhaseRunner(
                         }
                 services.historyManager.addItem(
                         ResponseItem.Message(
-                                role = "user",
-                                content = text.trim(),
-                                isScreenObservation = true
+                                kind = MessageKind.SCREEN_OBSERVATION,
+                                content = text.trim()
                         )
                 )
         }

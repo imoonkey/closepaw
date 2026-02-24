@@ -2,6 +2,7 @@ package com.moonkey.androidagent.agent.cognition.prompt
 
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.history.HistoryManager
+import com.moonkey.androidagent.history.MessageKind
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.Bounds
 import com.moonkey.androidagent.model.PerceptionElement
@@ -69,7 +70,7 @@ class PromptBuilderTest {
         // First screen observation should be compressed
         val first = result[0] as ResponseItem.Message
         assertThat(first.content).isEqualTo("Screen: 10 elements (compressed)")
-        assertThat(first.isScreenObservation).isTrue()
+        assertThat(first.kind).isEqualTo(MessageKind.SCREEN_OBSERVATION)
 
         // Second and third screen observations should be preserved
         val second = result[2] as ResponseItem.Message
@@ -83,7 +84,7 @@ class PromptBuilderTest {
     fun `compressOldScreenObservations never compresses non-screen messages`() {
         val builder = createBuilder(recentFullScreenTurns = 1)
         val items = listOf(
-            userMessage("Goal: Open Gmail"),
+            userIntent("Goal: Open Gmail"),
             screenObservation("Screen state (10 elements):\n```json\n[]\n```"),
             assistantMessage("Opening Gmail"),
             screenObservation("Screen state (20 elements):\n```json\n[]\n```")
@@ -269,7 +270,7 @@ class PromptBuilderTest {
     @Test
     fun `buildInputItems produces history then memory then observation`() {
         val historyManager = HistoryManager()
-        historyManager.addItem(userMessage("Goal: Test"))
+        historyManager.addItem(userIntent("Goal: Test"))
         historyManager.addItem(assistantMessage("I'll test"))
 
         val state = AgentSessionState()
@@ -292,7 +293,7 @@ class PromptBuilderTest {
     @Test
     fun `buildInputItems omits memory when empty`() {
         val historyManager = HistoryManager()
-        historyManager.addItem(userMessage("Goal: Test"))
+        historyManager.addItem(userIntent("Goal: Test"))
 
         val builder = PromptBuilder(
             historyManager = historyManager,
@@ -309,7 +310,7 @@ class PromptBuilderTest {
     @Test
     fun `buildInputItems includes function call pairs from history`() {
         val historyManager = HistoryManager()
-        historyManager.addItem(userMessage("Goal: Test"))
+        historyManager.addItem(userIntent("Goal: Test"))
         historyManager.addItem(assistantMessage("Opening app"))
         historyManager.addItem(
             ResponseItem.FunctionCall(
@@ -354,18 +355,17 @@ class PromptBuilderTest {
     )
 
     private fun screenObservation(content: String) = ResponseItem.Message(
-        role = "user",
-        content = content,
-        isScreenObservation = true
+        kind = MessageKind.SCREEN_OBSERVATION,
+        content = content
     )
 
-    private fun userMessage(content: String) = ResponseItem.Message(
-        role = "user",
+    private fun userIntent(content: String) = ResponseItem.Message(
+        kind = MessageKind.USER_INTENT,
         content = content
     )
 
     private fun assistantMessage(content: String) = ResponseItem.Message(
-        role = "assistant",
+        kind = MessageKind.ASSISTANT_TEXT,
         content = content
     )
 }

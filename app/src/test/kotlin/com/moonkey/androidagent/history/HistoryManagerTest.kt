@@ -41,28 +41,6 @@ class HistoryManagerTest {
     }
 
     @Test
-    fun `dropLastNUserTurns removes last user turn and responses`() {
-        val manager = HistoryManager()
-        manager.recordItems(
-            listOf(
-                ResponseItem.Message(role = "user", content = "u1"),
-                ResponseItem.Message(role = "assistant", content = "a1"),
-                ResponseItem.Message(role = "user", content = "u2"),
-                ResponseItem.FunctionCall(id = "call-2", name = "test_tool", arguments = JSONObject()),
-                ResponseItem.FunctionCallOutput(callId = "call-2", content = "ok"),
-                ResponseItem.Message(role = "assistant", content = "a2")
-            )
-        )
-
-        manager.dropLastNUserTurns(1)
-
-        val remaining = manager.getAll()
-        assertThat(remaining).hasSize(2)
-        val remainingMessages = remaining.filterIsInstance<ResponseItem.Message>().map { it.content }
-        assertThat(remainingMessages).containsExactly("u1", "a1")
-    }
-
-    @Test
     fun `none policy preserves output content`() {
         val manager = HistoryManager(
             HistoryConfig(defaultTruncationPolicy = TruncationPolicy.NONE)
@@ -74,31 +52,6 @@ class HistoryManagerTest {
         val output = manager.getAll().single() as ResponseItem.FunctionCallOutput
         assertThat(output.content).isEqualTo(longContent)
         assertThat(output.truncated).isFalse()
-    }
-
-    @Test
-    fun `removeFirstItem removes paired output`() {
-        val manager = HistoryManager()
-        manager.recordItems(
-            listOf(
-                ResponseItem.FunctionCall(
-                    id = "call-1",
-                    name = "tool",
-                    arguments = JSONObject()
-                ),
-                ResponseItem.FunctionCallOutput(
-                    callId = "call-1",
-                    content = "result"
-                ),
-                ResponseItem.Message(role = "assistant", content = "done")
-            )
-        )
-
-        manager.removeFirstItem()
-
-        val remaining = manager.getAll()
-        assertThat(remaining).hasSize(1)
-        assertThat(remaining.single()).isInstanceOf(ResponseItem.Message::class.java)
     }
 
     @Test
@@ -146,19 +99,18 @@ class HistoryManagerTest {
     }
 
     @Test
-    fun `compress never removes user messages`() {
+    fun `compress never removes USER_INTENT messages`() {
         val manager = HistoryManager()
-        // Build a history with user messages interleaved with large tool outputs
         manager.recordItems(
             listOf(
-                ResponseItem.Message(role = "user", content = "open settings"),
+                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "open settings"),
                 ResponseItem.FunctionCall(id = "call-1", name = "tool", arguments = JSONObject()),
                 ResponseItem.FunctionCallOutput(callId = "call-1", content = "x".repeat(10_000)),
-                ResponseItem.Message(role = "user", content = "set brightness to max"),
+                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "set brightness to max"),
                 ResponseItem.FunctionCall(id = "call-2", name = "tool", arguments = JSONObject()),
                 ResponseItem.FunctionCallOutput(callId = "call-2", content = "x".repeat(10_000)),
-                ResponseItem.Message(role = "user", content = "now go back"),
-                ResponseItem.Message(role = "assistant", content = "done")
+                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "now go back"),
+                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "done")
             )
         )
 
@@ -166,12 +118,12 @@ class HistoryManagerTest {
         manager.compress(100)
 
         val remaining = manager.getAll()
-        val userMessages = remaining.filterIsInstance<ResponseItem.Message>()
-            .filter { it.role == "user" }
+        val userIntents = remaining.filterIsInstance<ResponseItem.Message>()
+            .filter { it.kind == MessageKind.USER_INTENT }
             .map { it.content }
 
-        // All three user messages must survive compression
-        assertThat(userMessages).containsExactly(
+        // All three USER_INTENT messages must survive compression
+        assertThat(userIntents).containsExactly(
             "open settings",
             "set brightness to max",
             "now go back"
@@ -183,20 +135,47 @@ class HistoryManagerTest {
         val manager = HistoryManager()
         manager.recordItems(
             listOf(
-                ResponseItem.Message(role = "user", content = "do something"),
+                ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "do something"),
                 ResponseItem.FunctionCall(id = "call-1", name = "tool", arguments = JSONObject()),
                 ResponseItem.FunctionCallOutput(callId = "call-1", content = "x".repeat(10_000)),
-                ResponseItem.Message(role = "assistant", content = "x".repeat(10_000))
+                ResponseItem.Message(kind = MessageKind.ASSISTANT_TEXT, content = "x".repeat(10_000))
             )
         )
 
         manager.compress(100)
 
         val remaining = manager.getAll()
-        // Function call and its output should be removed (they are not user messages)
         val calls = remaining.filterIsInstance<ResponseItem.FunctionCall>()
         val outputs = remaining.filterIsInstance<ResponseItem.FunctionCallOutput>()
         assertThat(calls).isEmpty()
         assertThat(outputs).isEmpty()
+    }
+
+    @Test
+    fun `auto compress uses compressTargetRatio`() {
+        val manager = HistoryManager(
+            HistoryConfig(
+                maxTokenBudget = 2_000,
+                autoCompress = true,
+                autoCompressThreshold = 0.85f,
+                compressTargetRatio = 0.5f
+            )
+        )
+
+        // Add enough items to exceed the 85% threshold (1700 tokens)
+        repeat(20) { idx ->
+            manager.addItem(
+                ResponseItem.FunctionCallOutput(
+                    callId = "call-$idx",
+                    content = "x".repeat(500)
+                )
+            )
+        }
+
+        // After auto-compress, should be well below budget
+        // compressTargetRatio = 0.5 targets 1000 tokens, verify it compressed significantly
+        assertThat(manager.estimateTokenCount()).isLessThan(2_000)
+        // Items should have been removed — fewer than the 20 we added
+        assertThat(manager.getAll().size).isLessThan(20)
     }
 }

@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.agent.cognition.prompt
 
 import com.moonkey.androidagent.history.HistoryManager
+import com.moonkey.androidagent.history.MessageKind
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenImage
 import com.moonkey.androidagent.model.ScreenSnapshot
@@ -166,7 +167,7 @@ internal class PromptBuilder(
     ): List<ResponseItem> {
         val screenIndices = items.withIndex()
             .filter { (_, item) ->
-                item is ResponseItem.Message && item.isScreenObservation
+                item is ResponseItem.Message && item.kind == MessageKind.SCREEN_OBSERVATION
             }
             .map { it.index }
 

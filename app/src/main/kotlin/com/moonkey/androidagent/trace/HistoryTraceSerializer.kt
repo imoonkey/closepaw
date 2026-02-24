@@ -16,12 +16,10 @@ internal object HistoryTraceSerializer {
             is ResponseItem.Message ->
                 buildJsonObject {
                     put("type", JsonPrimitive("message"))
+                    put("kind", JsonPrimitive(item.kind.name))
                     put("role", JsonPrimitive(item.role))
                     put("content", JsonPrimitive(item.content))
                     item.name?.let { put("name", JsonPrimitive(it)) }
-                    if (item.isScreenObservation) {
-                        put("is_screen_observation", JsonPrimitive(true))
-                    }
                 }
 
             is ResponseItem.FunctionCall ->
@@ -43,4 +41,3 @@ internal object HistoryTraceSerializer {
         }
     }
 }
-

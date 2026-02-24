@@ -105,7 +105,7 @@ class SessionStorageTest {
                         perceptionMode = "accessibility_only",
                         platformMode = "ACCESSIBILITY"
                     ),
-                historyItems = listOf(PersistedHistoryItem.Message(role = "user", content = "hi")),
+                historyItems = listOf(PersistedHistoryItem.Message(kind = "USER_INTENT", content = "hi")),
                 todos = emptyList(),
                 scratchpad = emptyMap(),
                 checkpointState = CheckpointState.IDLE_READY,

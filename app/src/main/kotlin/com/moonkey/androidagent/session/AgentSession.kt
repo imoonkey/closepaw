@@ -414,7 +414,7 @@ private constructor(
 
         services.historyManager.addItem(
             com.moonkey.androidagent.history.ResponseItem.Message(
-                role = "user",
+                kind = com.moonkey.androidagent.history.MessageKind.USER_INTENT,
                 content = text
             )
         )

@@ -25,9 +25,13 @@ data class SessionRuntimeSnapshot(
 sealed interface PersistedHistoryItem {
     @Serializable
     data class Message(
-        val role: String,
+        val kind: String? = null,
         val content: String,
         val name: String? = null,
+        // Legacy fields for backward compatibility with pre-MessageKind checkpoints.
+        // New writes always set `kind` and omit these. HistoryItemConverter.fromRecord
+        // uses role+isScreenObservation to infer kind when kind is absent.
+        val role: String? = null,
         val isScreenObservation: Boolean = false
     ) : PersistedHistoryItem
 

@@ -5,7 +5,10 @@ data class HistoryConfig(
     val defaultTruncationPolicy: TruncationPolicy = TruncationPolicy.CONSERVATIVE,
     val maxTokenBudget: Long = 100_000,
     val autoCompress: Boolean = true,
-    val autoCompressThreshold: Float = 0.85f
+    val autoCompressThreshold: Float = 0.85f,
+    val compressTargetRatio: Float = 0.5f,
+    val recentFullScreens: Int = 3,
+    val recentWindowSize: Int = 10
 )
 
 /** Controls how much tool output to keep in history. */
