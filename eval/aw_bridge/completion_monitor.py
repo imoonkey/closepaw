@@ -9,10 +9,19 @@ import time
 COMPLETED_PATTERN = re.compile(
     r"(AgentSession: Emitted event: TaskCompleted|"
     r"AgentService: Received event: TaskCompleted|"
-    r"AgentSession: Emitted event: SessionCompleted|"
+    # NOTE: "AgentSession: Emitted event: SessionCompleted" is intentionally
+    # excluded — that log line does NOT include the completion reason, so the
+    # USER_STOPPED filter below cannot distinguish teardown events from real
+    # completions.  "AgentService: Session completed" (below) carries the
+    # reason field and fires immediately after.
     r"AgentService: Session completed|"
     r"AgentService: Task completed)"
 )
+# Sessions killed by fresh_session=true or stop_agent emit "Session completed"
+# with reason USER_STOPPED.  These must NOT count as task completions — they
+# are teardown signals for an earlier (often auto-created) session, not the
+# result of the agent finishing the goal.
+_USER_STOPPED_PATTERN = re.compile(r"reason[=:]\s*USER_STOPPED")
 ERROR_PATTERN = re.compile(
     r"(AgentSession: Emitted event: SessionError|"
     r"AgentService: Session error|"
@@ -47,6 +56,8 @@ class LogcatCompletionMonitor:
                     stream.seek(cursor)
                     for line in stream:
                         if COMPLETED_PATTERN.search(line):
+                            if _USER_STOPPED_PATTERN.search(line):
+                                continue
                             reason = reason or _extract_reason(line)
                             return MonitorResult(
                                 bridge_status="completed",

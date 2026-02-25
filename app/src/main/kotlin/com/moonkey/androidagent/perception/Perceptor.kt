@@ -18,8 +18,6 @@ import org.json.JSONObject
  */
 object Perceptor {
 
-    private const val MAX_STRING_LENGTH = 60
-
     private enum class TraversalMode {
         INTERACTIVE_ONLY,
         ALL
@@ -236,10 +234,10 @@ object Perceptor {
             return
         }
 
-        val text = node.text?.toString()?.take(MAX_STRING_LENGTH) ?: ""
-        val desc = node.contentDescription?.toString()?.take(MAX_STRING_LENGTH) ?: ""
-        val hintText = node.hintText?.toString()?.take(MAX_STRING_LENGTH) ?: ""
-        val resourceId = node.viewIdResourceName?.take(MAX_STRING_LENGTH) ?: ""
+        val text = node.text?.toString() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
+        val hintText = node.hintText?.toString() ?: ""
+        val resourceId = node.viewIdResourceName ?: ""
         val clickable = node.isClickable
         val scrollable = node.isScrollable
         val enabled = node.isEnabled

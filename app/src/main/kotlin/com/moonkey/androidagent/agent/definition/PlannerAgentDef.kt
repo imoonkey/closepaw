@@ -86,5 +86,9 @@ internal object PlannerAgentDef : AgentDef() {
         - scratchpad(action="write", key="email_1", value="From: X, Subject: Y")
         - scratchpad(action="write", key="emails_read", value="3")
         - scratchpad(action="read", key="email_1")
+
+        ## Tips
+        - For calendar apps, prefer creating events directly via the "New Event" button and using date fields in the event form, rather than navigating the calendar view to the target date first.
+        - When faced with NumberPicker widgets, type the value directly into the editable text field rather than scrolling incrementally.
         """.trimIndent()
 }

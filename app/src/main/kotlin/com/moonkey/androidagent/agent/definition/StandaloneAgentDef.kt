@@ -72,6 +72,10 @@ internal object StandaloneAgentDef : AgentDef() {
           Optionally pass element_index to scroll within a specific scrollable container.
         - Use action="swipe" with start/end coordinates only for precision gestures (sliders, drag-and-drop, carousels).
 
+        ## Tips
+        - For calendar apps, prefer creating events directly via the "New Event" button and using date fields in the event form, rather than navigating the calendar view to the target date first.
+        - When faced with NumberPicker widgets, type the value directly into the editable text field rather than scrolling incrementally.
+
         ## Device Environment
         - Device: {{device_model}} ({{device_manufacturer}})
         - Screen: {{screen_width}}x{{screen_height}}

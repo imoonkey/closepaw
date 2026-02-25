@@ -45,13 +45,6 @@ class ShellTool : ToolSpec {
         if (command.isEmpty()) {
             return ValidationResult.Invalid("Missing required parameter: command")
         }
-        // Reject shell operators that allow command chaining/injection
-        val dangerousOp = DANGEROUS_OPERATORS.firstOrNull { command.contains(it) }
-        if (dangerousOp != null) {
-            return ValidationResult.Invalid(
-                "Shell operators not allowed: '$dangerousOp'. Run one command at a time."
-            )
-        }
         // Reject destructive commands by first token
         val firstToken = command.split(Regex("\\s+"), limit = 2).first()
             .substringAfterLast('/') // handle full paths like /system/bin/rm
@@ -69,10 +62,6 @@ class ShellTool : ToolSpec {
     companion object {
         private const val TIMEOUT_SECONDS = 10L
         private const val MAX_OUTPUT_CHARS = 4096
-
-        private val DANGEROUS_OPERATORS = listOf(
-            ";", "&&", "||", "`", "$(", ">", "<"
-        )
 
         private val BLOCKED_COMMANDS = setOf(
             "rm", "mv", "cp", "chmod", "chown",

@@ -7,7 +7,7 @@ package com.moonkey.androidagent.perception
  * selection (a11y/screenshot/hybrid) at session level.
  */
 data class PerceptorFilterConfig(
-    val maxElements: Int = 80,
+    val maxElements: Int = 500,
     val minElementSizePx: Int = 5,
     val visibilityThreshold: Float = 0.10f,
     val interactiveVisibilityThreshold: Float = 0.01f,
