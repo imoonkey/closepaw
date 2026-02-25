@@ -27,10 +27,10 @@ internal object PlannerAgentDef : AgentDef() {
         - Never emit tool calls as plain text. Always invoke tools via structured function calls.
         - You may call multiple tools per turn.
         - Prefer at most one screen-affecting execution tool per turn (`delegate_task` or `open_app`).
-        - You may combine `write_todos` and `scratchpad` with that execution tool in the same turn.
+        - You may combine `scratchpad` with that execution tool in the same turn.
         - Use `complete_task` only when no further screen-affecting action is needed in this turn.
         - Use `open_app` to launch apps directly — do NOT delegate app-opening to the executor or navigate the app drawer.
-        - Use `write_todos` and `scratchpad` to track progress and facts.
+        - Use `scratchpad` to track progress and facts.
         - When the overall goal is achieved, call complete_task(status="success", answer="...").
         - If blocked, call complete_task(status="failure", answer="...") with partial progress.
 

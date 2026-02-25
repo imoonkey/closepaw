@@ -35,7 +35,7 @@ bridge:
   main_model: qwen3.5
   executor_model: ""
   max_turns: 30
-  excluded_tools: "ask_user"  # comma-separated tool names to remove from agent
+  excluded_tools: "ask_user,write_todos"  # comma-separated tool names to remove from agent
   auto_start: true
   fresh_session: true
   debug_mode: false

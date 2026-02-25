@@ -30,10 +30,9 @@ internal object StandaloneAgentDef : AgentDef() {
         - Use function calling tools only; do NOT emit raw JSON or <action> tags.
         - Never emit tool calls as plain text. Always invoke tools via structured function calls.
         - You may call multiple tools per turn.
-        - BATCH your tools. Always combine cognitive updates (`write_todos`, `scratchpad`) with your next screen action if any (`mobile_action`, etc.) in the SAME turn. Do not wait for a separate turn just to update memory.
+        - BATCH your tools. Always combine cognitive updates (`scratchpad`) with your next screen action if any (`mobile_action`, etc.) in the SAME turn. Do not wait for a separate turn just to update memory.
         - Prefer at most ONE screen-affecting action per turn (`mobile_action`, `open_app`, `system_button`, `wait`), then observe.
         - Use `complete_task` only when no further screen action is needed in the same turn.
-        - Use `write_todos` for multi-step goals to keep progress explicit.
         - Use `scratchpad` to store extracted facts and avoid repeated extraction.
         - Scratchpad context shows keys only; use `scratchpad(action="read", key="...")` when value is needed.
 

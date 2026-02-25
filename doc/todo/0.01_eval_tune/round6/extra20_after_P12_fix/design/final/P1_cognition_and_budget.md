@@ -35,7 +35,7 @@ The CameraTakeVideo failure is a cognitive verification failure — the agent ch
 ### Design: Two-Part Fix
 
 #### Part A: Fix Implicit Completion in Turn.processResponse
-
+(Qi Note: 不要改。AudioRecorder提前结束是agent在解析tool call的时候有问题。因为Qwen-3.5在返回toolcall的时候有时候不会经过toolcallAPI的format,而是直接写在text message里面,所以我的agent有一个去解析text message来把这个toolcall给extract出来的逻辑,但不知道为什么在audio recorder的那个任务的最后一个turn,llm return text message有action,agent code没有给解析出来。这个不是completion code的逻辑的原因,这儿不要改。)
 Require `complete_task` for completion in all modes. In `Turn.kt:processResponse()`, change:
 
 ```kotlin
@@ -53,7 +53,7 @@ val isComplete = completeTaskCall != null
 The implicit-completion path existed as a convenience for models with weak tool-calling, but it directly causes false success. If the model does not call `complete_task`, it should continue until it does or reaches max turns.
 
 #### Part B: System Prompt Verification Checklist
-
+(Qi Note: 废话太多，别加。)
 Add to `StandaloneAgentDef` system prompt:
 
 ```
@@ -61,8 +61,7 @@ Add to `StandaloneAgentDef` system prompt:
 - Before calling complete_task, re-read the current screen state and verify EACH
   requirement from the original goal against what you actually see on screen.
 - Match specific labels: if the goal says "video", confirm the a11y tree shows "video" not "photo".
-- If you performed an action (rename, save, delete) that should have changed the UI, confirm the
-  change is reflected before declaring success.
+- If you performed an action (rename, save, delete) that should have changed the UI, confirm the change is reflected before declaring success.
 - Never assume success from tool-call results alone — always verify the on-screen outcome.
 ```
 
@@ -80,6 +79,7 @@ A runtime check that extracts required literals from the goal and validates them
 The goal is "Pause the stopwatch." If `initialize_task()` was supposed to start the stopwatch running (so the agent just needs to pause it), but initialization failed or the stopwatch stopped between init and agent start, then the agent's conclusion ("nothing to pause") is correct.
 
 **Action needed**: Check `android_world/task_evals/single/clock.py` for the `ClockStopWatchPausedVerify` task's `initialize_task()` to determine whether this is a task setup issue or cognitive error. This affects whether additional prompt guidance is needed.
+(Qi Note: 你自己来给我看，别等我看。)
 
 ### Files Changed
 
@@ -103,11 +103,10 @@ The goal is "Pause the stopwatch." If `initialize_task()` was supposed to start 
 ## P1-5: Disable write_todos in Eval
 
 ### Problem
-
 `write_todos` consumed 2-5 turns per task with zero contribution to task completion. In turn-budget-constrained tasks, this overhead directly caused failure.
 
 ### Design: Exclude via eval config
-
+(Note: 这个可以。)
 Using the `excluded_tools` mechanism from P0-2:
 
 ```yaml
@@ -157,7 +156,7 @@ However, the prompt guidance line should still be commented out — no point tel
 ---
 
 ## P1-6: Dynamic Turn Budget
-
+(Qi Note: 先不做这个了，太hacky。后面没有明显stall问题了，直接增加max turn就行了。)
 ### Problem
 
 30 turns is tight for multi-step tasks (ExpenseAddMultiple: 2/3 done at turn 30). But increasing to 40+ for all tasks wastes tokens on simple tasks where the agent loops on errors.
