@@ -1,38 +1,43 @@
-# P2 Capability Expansion: Screenshot Perception, Shell Tool
+# P2 Capability Expansion: Per-Task Config, Screen History, Shell Tool
 
-These additions expand the agent's capability surface. Unlike P0/P1 (infrastructure fixes), these add new modalities. They are lower priority because the current eval model (qwen3.5) is text-only, so screenshot perception helps only when switching to a vision-capable model, and the shell tool addresses a narrow set of file-reading tasks.
+These additions expand the agent's capability and eval flexibility. Per-task config overrides enable hybrid perception for canvas-based tasks. Screen history reduction saves tokens. The shell tool addresses file-reading tasks that are impractical via UI.
 
 ---
 
-## P2-7: Hybrid Perception (Screenshot + A11y Tree)
+## P2-7: Per-Task Eval Config Overrides + Hybrid Perception
 
 ### Problem
 
-BrowserDraw and BrowserMaze are impossible with accessibility-only perception. HTML canvas elements expose zero visual content through the a11y tree.
+BrowserDraw and BrowserMaze are impossible with accessibility-only perception. HTML canvas elements expose zero visual content through the a11y tree. These tasks need `perception_mode: hybrid`, but most tasks should stay `accessibility_only` to avoid token cost.
 
-### Reference Findings
+### Reference Findings: Screenshot Handling
 
-All 6 surveyed reference mobile agents (DroidRun, MAI-UI, MobileAgent v3.5, minitap, AutoDevice, AndroidWorld baseline) use screenshots as **environmental input** — captured every turn alongside the a11y tree. None use a dedicated screenshot tool. The consensus is that screenshots are ambient perception, not an on-demand action.
+All 6 surveyed reference mobile agents (DroidRun, MAI-UI, MobileAgent v3.5, minitap, AutoDevice, AndroidWorld baseline) use screenshots as **environmental input** — captured every turn alongside the a11y tree.
+
+**Screenshot compression (pixel dimension reduction)**:
+
+| Agent | Method | Effect |
+|---|---|---|
+| MobileAgent v3 (OWL) | Smart resize, factor=28, max ~1M pixels | Dynamic pixel-budget-aware resizing |
+| MobileAgent v3.5 | Smart resize, factor=16, max 10M pixels | Looser pixel budget |
+| AutoDevice | Scale factor 0.4 | 1440x2560 → 576x1024 |
+| PC-Agent | Scale factor 0.5 | Simple 50% downscale |
+| Agent-S v2.5 | Max edge 2400px | Aspect-ratio preserve |
+| MAI-UI | No resize | Raw screenshot to model |
+| DroidRun | No resize | Provider handles scaling |
+
+Our `PerceptionConfig.maxDimension = 1024` caps the longest edge at 1024px, comparable to AutoDevice's 0.4 scale factor on typical phone screens.
 
 ### Existing Infrastructure
 
-The app already has `PerceptionConfig` in `perception/PerceptionConfig.kt`:
+Screenshot capture and hybrid perception are already fully integrated:
+- `PerceptionConfig` sealed class with `AccessibilityOnly`, `ScreenshotOnly`, `Hybrid` variants
+- Wired into `SessionConfig.perceptionConfig` and eval intent extras
+- Screenshot capture via `AccessibilityService.takeScreenshot()` (API 30+)
 
-```kotlin
-sealed class PerceptionConfig {
-    data object AccessibilityOnly : PerceptionConfig()
-    data class ScreenshotOnly(val maxDimension: Int = 1024, val jpegQuality: Int = 70) : PerceptionConfig()
-    data class Hybrid(val maxDimension: Int = 1024, val jpegQuality: Int = 70) : PerceptionConfig()
-}
-```
+The remaining work is per-task perception override in eval config.
 
-This is already wired into `SessionConfig.perceptionConfig` and eval intent extras for global mode selection. The remaining work is:
-1. Per-task perception override in eval config (canvas tasks use hybrid, others stay a11y-only)
-2. Ensure the selected model actually supports vision; otherwise keep `accessibility_only`
-
-### Design
-
-#### Eval Config Wiring (Per-Task Override)
+### Design: Per-Task Override in Runner
 
 ```yaml
 # eval/config/default.yaml
@@ -44,42 +49,78 @@ bridge:
     BrowserMaze: { perception_mode: hybrid }
 ```
 
-Global `perception_mode` wiring is already in place. The new addition is per-task override resolution in runner.
+In `runner.py`, resolve per-task config before each task:
 
-#### Screenshot Capture
+```python
+def _resolve_task_bridge_config(
+    base: BridgeConfig,
+    task_name: str,
+    overrides: dict[str, dict[str, Any]],
+) -> BridgeConfig:
+    for prefix, fields in overrides.items():
+        if task_name.startswith(prefix):
+            return dataclasses.replace(base, **fields)
+    return base
+```
 
-The agent runs as an AccessibilityService with screen capture permission. Use `AccessibilityService.takeScreenshot()` (API 30+) or `screencap` shell command as fallback. Encode to base64 JPEG (quality 70%, target ~100-200KB per screenshot).
-
-#### LLM Integration
-
-For vision-capable models, add the image as a content part in the LLM request. For text-only models (qwen3.5), screenshot capture is skipped even if `perception_mode` is `hybrid` — the LLM client checks model capability.
-
-### Phased Rollout
-
-1. Wire eval config → intent → PerceptionConfig. Default `accessibility_only`.
-2. Test with a vision-capable model on BrowserDraw/BrowserMaze.
-3. If successful, consider making `hybrid` the default for vision models.
+This uses `dataclasses.replace()` to create a per-task `BridgeConfig` copy with overrides applied. Any `BridgeConfig` field can be overridden per task (perception_mode, max_turns, excluded_tools, etc.).
 
 ### Files Changed
 
 | File | Change |
 |---|---|
-| `eval/config/default.yaml` | Add `perception_mode` field + per-task overrides |
-| `eval/aw_bridge/native_agent_bridge.py` | Pass `perception_mode` via intent extra |
-| `eval/aw_bridge/runner.py` | Add per-task bridge override resolution for `perception_mode` |
-| `app/.../llm/LlmClient.kt` | Validate vision-capability fallback behavior |
+| `eval/config/default.yaml` | Add `task_overrides` section |
+| `eval/aw_bridge/runner.py` | Add `_resolve_task_bridge_config()`, store `task_overrides` in `RunnerConfig`, apply per-task before `run_task()` |
 
 ### Impact
 
-- Unblocks BrowserDraw and BrowserMaze (and any future canvas/visual tasks)
-- Enables richer perception for all tasks when used with vision models
+- Unblocks BrowserDraw and BrowserMaze with hybrid perception
+- Generic mechanism: any BridgeConfig field can be overridden per task
 
 ### Risks
 
-- Token cost: ~1000 tokens per screenshot for vision models
-- Latency: screenshot capture adds ~200ms per turn
-- Not actionable for current eval config (qwen3.5 is text-only) — this is structural preparation
-- Hybrid mode + text-only model: must gracefully skip screenshot to avoid wasted compute
+- Per-task overrides add maintenance burden (need to update when adding new tasks)
+- Token cost: ~1000 tokens per screenshot for hybrid mode tasks
+
+---
+
+## P2-9: Reduce Screen State Retention from 3 to 2 Turns
+
+### Problem
+
+Keeping 3 full screen observations in LLM context is expensive. A11y trees can be hundreds of tokens each. Reference analysis shows most agents keep 2-4 visual turns, with aggressive approaches (AutoDevice, minitap) keeping only 1.
+
+### Reference Findings: Turn History
+
+| Agent | Screenshot history | Text/a11y history |
+|---|---|---|
+| MobileAgent v3.5 | Last 4 turns | Older turns as text summaries |
+| MAI-UI | Last 3 turns (current + 2 prev) | All action text preserved |
+| Agent-S v2.5 | Last 8 image turns | All text preserved |
+| AutoDevice | Current only (1) | History as text narrative |
+| DroidRun Manager | No images | Last 5 action summaries |
+| minitap | Current only (1) | Last 25 thoughts |
+
+### Design
+
+Change `HistoryConfig.recentFullScreens` default from 3 to 2. Both a11y tree and screenshot retention use the same count.
+
+Older screens are automatically compressed to "Screen: N elements (compressed)" by `HistoryManager.downgradeOldScreens()`.
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `app/.../history/HistoryConfig.kt` | Change `recentFullScreens` default from 3 to 2 |
+
+### Impact
+
+- Saves ~200-500 tokens per turn by compressing one more old screen observation
+- Aligns with reference agent practices (MAI-UI uses 3 turns including current = 2 previous)
+
+### Risks
+
+- Agent may lose context about screens 2 turns ago. Mitigated by scratchpad: agent should store important facts before navigating away.
 
 ---
 
@@ -89,84 +130,30 @@ For vision-capable models, add the image as a content part in the LLM request. F
 
 ExpenseAddMultipleFromMarkor: Agent spent 24 turns trying to read `my_expenses.txt` in Markor's EditText. The a11y tree only exposes the currently visible portion of long text. The agent oscillated between scroll/click/long-press without successfully extracting the data.
 
-### Reference Findings
-
-No reference mobile agent provides a shell command or file-reading tool. All handle file content via UI navigation + screen reading. This is because production mobile agents interact via accessibility services without ADB/root access.
-
-However, the user explicitly wants a shell tool for flexibility ("我想设计个shell tool得了，这样灵活度更高"). For eval (where ADB is available) this makes sense, and on-device shell execution works within the app sandbox in production too.
-
 ### Design: Direct Shell Execution (On Device)
 
 Execute via `Runtime.getRuntime().exec()` — no bridge HTTP roundtrip needed. Works in both eval and production (within app sandbox permissions). Shared storage (`/sdcard/Documents/`, `/sdcard/Download/`) is readable.
 
-```kotlin
-class ShellTool : BaseTool() {
-    override val spec = ToolSpec(
-        name = "shell",
-        description = """Execute a shell command on the device.
-            Use for reading file contents, checking device state, or other
-            operations faster via command line than UI navigation.
-            Common uses:
-            - cat /path/to/file (read file contents)
-            - ls /path/to/dir (list directory)
-            - date (check current date/time)""",
-        parameters = listOf(
-            ToolParameter("command", "string", "Shell command to execute", required = true)
-        )
-    )
+Implements the `ToolSpec` interface following existing tool patterns (ScratchpadTool, WaitTool). Uses a custom `ShellInvocation` for execution.
 
-    override suspend fun execute(
-        invocation: ToolInvocation,
-        context: ToolExecutionContext
-    ): ToolExecutionResult {
-        val command = invocation.arguments.getString("command")
-        return withContext(Dispatchers.IO) {
-            try {
-                val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
-                val stdout = process.inputStream.bufferedReader().readText()
-                val stderr = process.errorStream.bufferedReader().readText()
-                val exitCode = process.waitFor()
-                ToolExecutionResult.success(
-                    observation = "exit=$exitCode\n$stdout" +
-                        if (stderr.isNotEmpty()) "\nstderr: $stderr" else ""
-                )
-            } catch (e: Exception) {
-                ToolExecutionResult.failure("Shell execution failed: ${e.message}")
-            }
-        }
-    }
-}
-```
-
-### Safety Constraints (Minimal Required)
+### Safety Constraints
 
 - **Timeout**: 10-second hard limit per command (kill process after timeout)
 - **Output size**: Truncate to 4KB (prevents LLM context overflow)
-- **Destructive command blocklist**: reject commands beginning with `rm`, `mv`, `cp`, `chmod`, `chown`, `pm`, `am force-stop`, `settings put`
+- **Destructive command blocklist**: reject commands matching `rm`, `mv`, `cp`, `chmod`, `chown`, `pm`, `am force-stop`, `settings put`
 
 ### Enablement
 
-Register in `SessionToolingBootstrapper.kt`. Add `"shell"` to `StandaloneAgentDef.allowedTools`.
-
-For eval-specific control, use the `excluded_tools` mechanism from P0-2 in reverse — or add an `additional_tools` config to enable tools not in the default set:
-
-```yaml
-# eval/config/default.yaml
-bridge:
-  additional_tools: ["shell"]  # tools to add beyond the default set
-```
-
-Default: not enabled. Enabled via task override or global config.
+Register unconditionally in `SessionToolingBootstrapper.kt`. Add `"shell"` to `StandaloneAgentDef.allowedTools`. The tool is always available — use `excluded_tools` in eval config to disable it for specific tasks if needed.
 
 ### System Prompt Guidance
 
 Add to StandaloneAgentDef:
 
 ```
-## Shell Tool (shell)
+## Shell Tool
 - Use shell to read file contents directly when UI-based reading is impractical.
 - Example: shell(command="cat /sdcard/Documents/my_file.txt") to read file content.
-- Use shell to check device date/time for relative date calculations.
 - Prefer UI interaction for most tasks. Use shell only when UI is insufficient
   (e.g., reading long text files, checking system state).
 ```
@@ -176,17 +163,16 @@ Add to StandaloneAgentDef:
 | File | Change |
 |---|---|
 | `app/.../tool/impl/ShellTool.kt` | New file — shell command execution tool |
-| `app/.../session/SessionToolingBootstrapper.kt` | Register ShellTool (conditional on config) |
-| `app/.../agent/definition/StandaloneAgentDef.kt` | Add `shell` to allowedTools + prompt guidance |
-| `eval/config/default.yaml` | Add enablement config |
+| `app/.../session/SessionToolingBootstrapper.kt` | Register `ShellTool()` |
+| `app/.../agent/definition/StandaloneAgentDef.kt` | Add `"shell"` to `allowedTools` + prompt guidance |
 
 ### Impact
 
 - ExpenseAddMultipleFromMarkor: Agent can `cat /sdcard/Documents/Markor/my_expenses.txt` in 1 turn instead of 24
-- General: any task requiring file reading, device state checking, or date/time lookup becomes more efficient
+- General: any task requiring file reading or device state checking becomes more efficient
 
 ### Risks
 
-- Security: shell access could be misused (mitigated by timeout, output truncation)
-- Production: shell execution is limited by app sandbox — can't access other apps' private storage. Shared storage is accessible.
-- Model dependency: the model needs to learn when to use shell vs UI. The system prompt guidance addresses this, but weaker models may over-use or under-use the tool.
+- Security: shell access could be misused (mitigated by timeout, output truncation, destructive command blocklist)
+- Production: shell execution is limited by app sandbox — can't access other apps' private storage
+- Model dependency: the model needs to learn when to use shell vs UI. Prompt guidance addresses this.

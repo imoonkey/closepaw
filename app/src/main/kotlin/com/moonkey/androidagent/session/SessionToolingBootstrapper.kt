@@ -9,6 +9,7 @@ import com.moonkey.androidagent.tool.impl.CompleteTaskTool
 import com.moonkey.androidagent.tool.impl.MobileActionTool
 import com.moonkey.androidagent.tool.impl.OpenAppTool
 import com.moonkey.androidagent.tool.impl.ScratchpadTool
+import com.moonkey.androidagent.tool.impl.ShellTool
 import com.moonkey.androidagent.tool.impl.SystemButtonTool
 import com.moonkey.androidagent.tool.impl.WaitTool
 import com.moonkey.androidagent.tool.impl.WriteTodosTool
@@ -46,6 +47,7 @@ internal object SessionToolingBootstrapper {
         register(SystemButtonTool())
         register(WaitTool())
         register(OpenAppTool())
+        register(ShellTool())
         register(WriteTodosTool(sessionState.todos))
         register(ScratchpadTool(sessionState.scratchpad))
     }

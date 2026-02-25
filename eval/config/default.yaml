@@ -42,3 +42,7 @@ bridge:
   trace_enabled: true
   max_wait_seconds: 900
   poll_interval_seconds: 1
+
+  task_overrides:
+    BrowserDraw: { perception_mode: hybrid }
+    BrowserMaze: { perception_mode: hybrid }

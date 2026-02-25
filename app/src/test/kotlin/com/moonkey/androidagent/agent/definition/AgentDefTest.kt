@@ -16,6 +16,7 @@ class AgentDefTest {
                 "wait",
                 "open_app",
                 "scratchpad",
+                "shell",
                 "write_todos",
                 "complete_task",
                 "ask_user"

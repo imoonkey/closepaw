@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 import json
 import logging
@@ -48,6 +48,7 @@ class RunnerConfig:
     emulator_binary_path: str | None
     emulator_boot_timeout_sec: int
     bridge: BridgeConfig
+    task_overrides: dict[str, dict[str, Any]]
 
 
 _PROVIDER_REQUIRED_API_KEY = {
@@ -134,8 +135,15 @@ def main() -> None:
 
         bridge = NativeAgentBridge(config.bridge)
         for task_idx, task_instance in enumerate(task_instances):
+            task_bridge_cfg = _resolve_task_bridge_config(
+                config.bridge, task_instance.task_name, config.task_overrides
+            )
+            task_bridge = (
+                bridge if task_bridge_cfg is config.bridge
+                else NativeAgentBridge(task_bridge_cfg)
+            )
             final_result = _run_one_task_instance(
-                bridge=bridge,
+                bridge=task_bridge,
                 suite_family=config.suite_family,
                 task_instance=task_instance,
                 task_index=task_idx,
@@ -398,6 +406,7 @@ def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig
         emulator_binary_path=_nullable_str(aw_cfg.get("emulator_binary_path")),
         emulator_boot_timeout_sec=int(aw_cfg.get("emulator_boot_timeout_sec", 180)),
         bridge=bridge,
+        task_overrides=dict(bridge_cfg.get("task_overrides", {})),
     )
 
 
@@ -1034,6 +1043,22 @@ def _select_avd_name(config: RunnerConfig, avds: set[str]) -> str:
         sorted(avds),
     )
     return preferred
+
+
+def _resolve_task_bridge_config(
+    base: BridgeConfig,
+    task_name: str,
+    overrides: dict[str, dict[str, Any]],
+) -> BridgeConfig:
+    """Merge per-task overrides into base bridge config.
+
+    Matches by task name prefix; longest prefix wins.
+    """
+    for prefix, fields in sorted(overrides.items(), key=lambda kv: -len(kv[0])):
+        if task_name.startswith(prefix):
+            logging.info("Applying task override for %s (prefix=%s): %s", task_name, prefix, fields)
+            return replace(base, **fields)
+    return base
 
 
 def _safe_config_for_logging(config: RunnerConfig) -> dict[str, Any]:

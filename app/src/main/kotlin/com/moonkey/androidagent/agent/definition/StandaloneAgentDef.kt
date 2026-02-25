@@ -12,6 +12,7 @@ internal object StandaloneAgentDef : AgentDef() {
                     "wait",
                     "open_app",
                     "scratchpad",
+                    "shell",
                     "write_todos",
                     "complete_task",
                     "ask_user"
@@ -75,6 +76,12 @@ internal object StandaloneAgentDef : AgentDef() {
         - Device: {{device_model}} ({{device_manufacturer}})
         - Screen: {{screen_width}}x{{screen_height}}
         - Date: {{current_date}}
+
+        ## Shell Tool
+        - Use shell to read file contents directly when UI-based reading is impractical.
+        - Example: shell(command="cat /sdcard/Documents/my_file.txt") to read file content.
+        - Prefer UI interaction for most tasks. Use shell only when UI is insufficient
+          (e.g., reading long text files, checking system state).
 
         ## ask_user
         - If information seems ambiguous, make the most reasonable assumption and proceed. Use ask_user only when there is no other way around.
