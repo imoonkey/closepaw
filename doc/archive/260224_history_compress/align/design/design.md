@@ -1,5 +1,11 @@
 # History Compression Alignment Design
 
+> **Status: DONE** (implemented 2025-02-24)
+>
+> All design points landed. Minor deviations from spec:
+> - `isScreenObservation` field retained in `ResponseItem`, `HistoryItemConverter`, `SessionRuntimeSnapshot` for snapshot backward compatibility; core logic uses `MessageKind` exclusively.
+> - `recentFullScreens` default tuned to 2 (design said 3).
+
 ## 1. Problem Statement
 The current `HistoryManager.compress()` is structurally wrong for mobile-agent history:
 - It protects all `role == "user"` messages, including screen observations.
