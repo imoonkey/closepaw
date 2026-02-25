@@ -244,9 +244,23 @@ def _run_one_task_instance(
                 env.interaction_cache = trace_parse.answer
 
             if bridge_outcome.bridge_status != "infra_failure":
+                scoring_ctx = _capture_scoring_context(bridge, run_id)
                 scripted_score = float(task.is_successful(env))
+                scoring_ctx["score"] = scripted_score
+                scoring_ctx["scoring_duration_ms"] = int(
+                    (time.time() - scoring_ctx["scoring_timestamp"]) * 1000
+                )
                 scripted_success = scripted_score > 0.5
                 task_status = "success" if scripted_success else "failure"
+                logging.info(
+                    "Scoring: run_id=%s score=%.1f a11y=%s fg=%s elements=%d",
+                    run_id,
+                    scripted_score,
+                    scoring_ctx.get("enabled_a11y_services", "?"),
+                    scoring_ctx.get("foreground_activity", "?"),
+                    scoring_ctx.get("ui_element_count", -1),
+                )
+                _write_scoring_context(artifact_dir, scoring_ctx)
         except Exception as exc:  # pylint: disable=broad-exception-caught
             exception = str(exc)
             logging.exception(
@@ -1043,6 +1057,76 @@ def _select_avd_name(config: RunnerConfig, avds: set[str]) -> str:
         sorted(avds),
     )
     return preferred
+
+
+def _capture_scoring_context(
+    bridge: NativeAgentBridge,
+    run_id: str,
+) -> dict[str, Any]:
+    """Capture device state at scoring time for diagnostics."""
+    ctx: dict[str, Any] = {
+        "scoring_timestamp": time.time(),
+        "run_id": run_id,
+    }
+    cfg = bridge._config  # noqa: SLF001  — internal eval code
+    serial_args = ["-s", cfg.adb_serial] if cfg.adb_serial else []
+    timeout = float(cfg.adb_command_timeout_sec)
+
+    # Foreground activity
+    try:
+        result = subprocess.run(
+            ["adb", *serial_args, "shell", "dumpsys", "activity", "activities"],
+            check=False, text=True, capture_output=True, timeout=timeout,
+        )
+        for line in (result.stdout or "").splitlines():
+            line = line.strip()
+            if "topResumedActivity=" in line or "mResumedActivity=" in line:
+                # Extract ComponentInfo{com.pkg/.Activity} pattern
+                start = line.find("{")
+                end = line.find("}", start)
+                if start >= 0 and end > start:
+                    component = line[start + 1 : end]
+                    pkg, _, activity = component.partition("/")
+                    ctx["foreground_package"] = pkg
+                    ctx["foreground_activity"] = activity
+                break
+    except Exception as exc:
+        ctx["foreground_error"] = str(exc)
+
+    # Enabled accessibility services
+    try:
+        result = subprocess.run(
+            ["adb", *serial_args, "shell", "settings", "get", "secure",
+             "enabled_accessibility_services"],
+            check=False, text=True, capture_output=True, timeout=timeout,
+        )
+        ctx["enabled_a11y_services"] = (result.stdout or "").strip()
+    except Exception as exc:
+        ctx["a11y_error"] = str(exc)
+
+    # UI element count via accessibility dump
+    try:
+        result = subprocess.run(
+            ["adb", *serial_args, "shell", "dumpsys", "accessibility"],
+            check=False, text=True, capture_output=True, timeout=timeout,
+        )
+        # Count "nodeId" occurrences as a proxy for visible UI elements
+        node_count = (result.stdout or "").count("nodeId")
+        ctx["ui_element_count"] = node_count
+    except Exception:
+        ctx["ui_element_count"] = -1
+
+    return ctx
+
+
+def _write_scoring_context(artifact_dir: Path, ctx: dict[str, Any]) -> None:
+    """Write scoring context JSON to artifact directory."""
+    try:
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        path = artifact_dir / "scoring_context.json"
+        path.write_text(json.dumps(ctx, indent=2), encoding="utf-8")
+    except Exception as exc:
+        logging.warning("Failed to write scoring_context.json: %s", exc)
 
 
 def _resolve_task_bridge_config(
