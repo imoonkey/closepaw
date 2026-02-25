@@ -264,7 +264,14 @@ class NodeActionPerformer(
         val foundDesc = node.contentDescription?.toString() ?: ""
         val foundClass = node.className?.toString() ?: ""
 
-        val matches = matchesIntended(foundId, foundText, foundDesc, foundClass, hint)
+        // Bounds match is the strongest identity signal: if the found node occupies exactly
+        // the same rect as the intended element, it IS the correct node. Label mismatches
+        // are expected for container nodes (CardView, LinearLayout) where the Perceptor
+        // aggregates child text but the a11y node itself has no text/contentDescription.
+        val boundsMatch = bounds.left == hint.bounds.left && bounds.top == hint.bounds.top &&
+                bounds.right == hint.bounds.right && bounds.bottom == hint.bounds.bottom
+        val identityMatch = matchesIntended(foundId, foundText, foundDesc, foundClass, hint)
+        val matches = boundsMatch || identityMatch
         val tag = if (matches) "MATCH" else "MISMATCH"
 
         Log.d(TAG, "$actionLabel target=($x,$y) " +
@@ -320,10 +327,15 @@ class NodeActionPerformer(
 
             if (expectedLabels.isNotEmpty()) {
                 val foundLabels = listOf(foundText, foundDesc).map { it.trim() }.filter { it.isNotBlank() }
-                val hasAnyExpectedLabel = expectedLabels.any { expected ->
-                    foundLabels.any { found -> found == expected }
+                // If the found node has no labels at all, it is a container node (CardView,
+                // LinearLayout) whose text comes from children aggregated by the Perceptor.
+                // Only reject when the found node has DIFFERENT text, not when it has NONE.
+                if (foundLabels.isNotEmpty()) {
+                    val hasAnyExpectedLabel = expectedLabels.any { expected ->
+                        foundLabels.any { found -> found == expected }
+                    }
+                    if (!hasAnyExpectedLabel) return false
                 }
-                if (!hasAnyExpectedLabel) return false
             }
 
             return true

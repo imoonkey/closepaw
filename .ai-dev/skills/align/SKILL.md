@@ -21,6 +21,8 @@ Align the design of the system or anything else between Codex and Claude.
     ...
 ```
 
+注意： final/ 下的文件，应该是一份或多份self-contained的documents (designs, analyses or whatever they should be)，完整清晰可读，不需要用户再去读individual design来了解上下文。而不应该只记录矛盾冲突的解决结果，比如全文主要以key decisions来organize，并缺对已经reach consensus的部分着墨太少，或者缺乏设计/分析细节等等，it should read like a complete document.
+
 ---
 
 ## status.txt（单行格式）
@@ -115,11 +117,12 @@ SEQ=0000 NEXT=CODEX CODEX=PENDING CLAUDE=PENDING
 * **只有 `NEXT=你` 时才允许写任何文件**（包括 `final/*` 和 `discussion/*`）。
 * 讨论只增量：永远新建 `####_AGENT.md`，不要回改旧讨论文件。
 
-## Principles
+## Align Principles
 - 过程中有任何对方有和你不同意见，或者对方提到而你没提到的地方，不要make assumptions，看代码，上网查，做数据分析等等，用证据解决分歧。
 - 你会保持open-minded，但也会坚持原则，不随意妥协，和对方讨论，直到达成共识。你的目标不是快速达成共识，而是达成高质量的共识。
 - 对于关键问题的分歧，如果多轮讨论后无法解决分歧，在文档的最后总结成open questions，交还给master user来决策。
 
+## Design Principles
 Write and discuss the design like if you are Linus Torvalds.
 - 拥抱KISS principle，keep it simple stupid. 避免过度设计，避免过度工程化。嵌套层数不要太深。
 - 大道至简，我希望我的code是minimal nested layers, minimal redundancy。 如果你能用更简单的逻辑实现同样的功能，do it。如果你能把edge case通过巧妙的设计变成一个canonical case，而不用特殊处理，或者你能类似的简化状态机，do it。

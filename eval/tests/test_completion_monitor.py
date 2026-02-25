@@ -10,6 +10,7 @@ from eval.aw_bridge.completion_monitor import (
     REASON_PATTERN,
     LogcatCompletionMonitor,
     _extract_reason,
+    _infer_reason,
 )
 
 
@@ -70,6 +71,27 @@ class ErrorPatternTest(unittest.TestCase):
         line = 'Fatal error in agent run'
         self.assertIsNotNone(ERROR_PATTERN.search(line))
 
+    def test_ask_user_blocks_eval(self) -> None:
+        line = (
+            'TurnExecutionPhase: Executing tool: ask_user with args: '
+            '{"type":"action","message":"Please sign in"}'
+        )
+        self.assertIsNotNone(ERROR_PATTERN.search(line))
+
+    def test_agent_anr(self) -> None:
+        line = "ActivityManager: ANR in com.moonkey.androidagent"
+        self.assertIsNotNone(ERROR_PATTERN.search(line))
+
+
+class InferReasonTest(unittest.TestCase):
+    def test_infers_ask_user_blocked(self) -> None:
+        line = "TurnExecutionPhase: Executing tool: ask_user with args: {...}"
+        self.assertEqual(_infer_reason(line), "ASK_USER_BLOCKED")
+
+    def test_infers_agent_anr(self) -> None:
+        line = "ActivityManager: ANR in com.moonkey.androidagent"
+        self.assertEqual(_infer_reason(line), "AGENT_ANR")
+
 
 class LogcatCompletionMonitorTest(unittest.TestCase):
     def test_detects_completed(self) -> None:
@@ -94,6 +116,30 @@ class LogcatCompletionMonitorTest(unittest.TestCase):
             monitor = LogcatCompletionMonitor(max_wait_seconds=1, poll_interval_seconds=0.01)
             result = monitor.wait(logcat)
             self.assertEqual(result.bridge_status, "error")
+
+    def test_detects_ask_user_as_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            logcat = Path(tmp) / "logcat.log"
+            logcat.write_text(
+                "TurnExecutionPhase: Executing tool: ask_user with args: {\"type\":\"action\"}\n",
+                encoding="utf-8",
+            )
+            monitor = LogcatCompletionMonitor(max_wait_seconds=1, poll_interval_seconds=0.01)
+            result = monitor.wait(logcat)
+            self.assertEqual(result.bridge_status, "error")
+            self.assertEqual(result.agent_completion_reason, "ASK_USER_BLOCKED")
+
+    def test_detects_agent_anr_as_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            logcat = Path(tmp) / "logcat.log"
+            logcat.write_text(
+                "ActivityManager: ANR in com.moonkey.androidagent\n",
+                encoding="utf-8",
+            )
+            monitor = LogcatCompletionMonitor(max_wait_seconds=1, poll_interval_seconds=0.01)
+            result = monitor.wait(logcat)
+            self.assertEqual(result.bridge_status, "error")
+            self.assertEqual(result.agent_completion_reason, "AGENT_ANR")
 
     def test_timeout_when_no_signal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

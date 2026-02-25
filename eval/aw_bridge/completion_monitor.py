@@ -16,7 +16,10 @@ COMPLETED_PATTERN = re.compile(
 ERROR_PATTERN = re.compile(
     r"(AgentSession: Emitted event: SessionError|"
     r"AgentService: Session error|"
-    r"Fatal error)"
+    r"Fatal error|"
+    r"TurnExecutionPhase: Executing tool: ask_user|"
+    r"ANR in com\.moonkey\.androidagent|"
+    r"Timeout executing service: ServiceRecord\{[^}]*com\.moonkey\.androidagent/.app.AgentService)"
 )
 REASON_PATTERN = re.compile(r"reason[=:]\s*([A-Za-z_]+)")
 
@@ -51,7 +54,7 @@ class LogcatCompletionMonitor:
                                 matched_line=line.strip(),
                             )
                         if ERROR_PATTERN.search(line):
-                            reason = reason or _extract_reason(line)
+                            reason = reason or _extract_reason(line) or _infer_reason(line)
                             return MonitorResult(
                                 bridge_status="error",
                                 agent_completion_reason=reason,
@@ -74,3 +77,16 @@ def _extract_reason(line: str) -> str | None:
     if not match:
         return None
     return match.group(1)
+
+
+def _infer_reason(line: str) -> str | None:
+    if "Executing tool: ask_user" in line:
+        return "ASK_USER_BLOCKED"
+    if "ANR in com.moonkey.androidagent" in line:
+        return "AGENT_ANR"
+    if (
+        "Timeout executing service: ServiceRecord" in line
+        and "com.moonkey.androidagent/.app.AgentService" in line
+    ):
+        return "AGENT_ANR"
+    return None

@@ -225,6 +225,34 @@ class NodeActionPerformerTest {
     }
 
     @Test
+    fun `matchesIntended returns true when found node has no labels (container node)`() {
+        // Container nodes (CardView, LinearLayout) have no text/desc — their text
+        // comes from child TextViews aggregated by the Perceptor.
+        val hint = SemanticTargetHint(
+            resourceId = "", text = "task.html | 2.23 kB | 18:54", description = "",
+            className = "CardView", bounds = baseBounds
+        )
+        val result = NodeActionPerformer.matchesIntended(
+            foundId = "", foundText = "", foundDesc = "",
+            foundClass = "androidx.cardview.widget.CardView", hint = hint
+        )
+        assertThat(result).isTrue()
+    }
+
+    @Test
+    fun `matchesIntended returns false when found node has different text`() {
+        val hint = SemanticTargetHint(
+            resourceId = "", text = "Show roots", description = "",
+            className = "", bounds = baseBounds
+        )
+        val result = NodeActionPerformer.matchesIntended(
+            foundId = "", foundText = "Downloads", foundDesc = "",
+            foundClass = "", hint = hint
+        )
+        assertThat(result).isFalse()
+    }
+
+    @Test
     fun `matchesIntended returns false when className does not match`() {
         val hint = SemanticTargetHint(
             resourceId = "", text = "Show roots", description = "",
@@ -286,6 +314,33 @@ class NodeActionPerformerTest {
         val result = performer.performNodeClickAt(73, 191, hint)
 
         assertThat(result).isEqualTo(ActionResult.Success("ACTION_CLICK at (73,191)"))
+        verify(exactly = 1) { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
+    }
+
+    @Test
+    fun `performNodeClickAt proceeds when bounds match despite label mismatch`() = runTest {
+        // Container nodes (CardView, LinearLayout) have no text — Perceptor aggregates
+        // child text. Bounds match confirms same node, so click should proceed.
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val node = mockk<AccessibilityNodeInfo>(relaxed = true)
+        every { AccessibilityNodeFinder.findClickableNodeAtLocation(root, 296, 978) } returns node
+        every { node.viewIdResourceName } returns null
+        every { node.text } returns null
+        every { node.contentDescription } returns null
+        every { node.className } returns "androidx.cardview.widget.CardView"
+        every { node.getBoundsInScreen(any()) } answers {
+            firstArg<Rect>().set(64, 678, 529, 1279)
+        }
+        every { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) } returns true
+
+        val hint = SemanticTargetHint(
+            resourceId = "", text = "task.html | 2.23 kB | 18:54", description = "",
+            className = "CardView", bounds = Bounds(64, 678, 529, 1279)
+        )
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performNodeClickAt(296, 978, hint)
+
+        assertThat(result).isEqualTo(ActionResult.Success("ACTION_CLICK at (296,978)"))
         verify(exactly = 1) { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
     }
 
