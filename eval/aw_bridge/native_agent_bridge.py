@@ -40,6 +40,7 @@ class BridgeConfig:
     adb_pull_timeout_sec: int
     api_keys: dict[str, str] | None = None
     shizuku_apk_path: str | None = None
+    excluded_tools: str = ""  # comma-separated tool names to remove from agent
 
 
 @dataclass
@@ -199,6 +200,8 @@ class NativeAgentBridge:
         ]
         if self._config.executor_model:
             extras.extend(["--es", "executor_model", self._config.executor_model])
+        if self._config.excluded_tools:
+            extras.extend(["--es", "excluded_tools", self._config.excluded_tools])
         if self._config.api_keys:
             _KEY_MAP = {
                 "OPENAI_API_KEY": "api_key",
@@ -256,23 +259,30 @@ class NativeAgentBridge:
         )
         current = (result.stdout or "").strip()
 
-        # Strip other accessibility services (e.g. AccessibilityForwarder)
-        # that Android World env setup enables.  We don't use the gRPC
-        # observation path — our agent has its own native a11y service —
-        # so the forwarder is unnecessary overhead and a source of Binder
-        # contention, blocking gRPC calls in onAccessibilityEvent, and
-        # "keeps stopping" crash dialogs.
+        # Keep existing a11y services (including AndroidWorld's AccessibilityForwarder
+        # needed for scoring) and ensure AgentService is also enabled.
         if current and current != "null":
-            parts = [p for p in current.split(":") if p == self._A11Y_SERVICE]
-            current = ":".join(parts)
-
-        if self._A11Y_SERVICE not in current:
-            new_value = self._A11Y_SERVICE
-
+            parts = [p for p in current.split(":") if p]
+            if self._A11Y_SERVICE not in parts:
+                parts.append(self._A11Y_SERVICE)
+                new_value = ":".join(parts)
+                _log.info("Enabling accessibility service (preserving existing): %s", new_value)
+                self._run_adb_shell(
+                    ["settings", "put", "secure",
+                     "enabled_accessibility_services", new_value],
+                    check=False,
+                    timeout_sec=self._config.adb_command_timeout_sec,
+                )
+                self._run_adb_shell(
+                    ["settings", "put", "secure", "accessibility_enabled", "1"],
+                    check=False,
+                    timeout_sec=self._config.adb_command_timeout_sec,
+                )
+        else:
             _log.info("Enabling accessibility service: %s", self._A11Y_SERVICE)
             self._run_adb_shell(
                 ["settings", "put", "secure",
-                 "enabled_accessibility_services", new_value],
+                 "enabled_accessibility_services", self._A11Y_SERVICE],
                 check=False,
                 timeout_sec=self._config.adb_command_timeout_sec,
             )

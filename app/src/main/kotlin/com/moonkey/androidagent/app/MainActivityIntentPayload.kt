@@ -20,7 +20,8 @@ data class MainActivityIntentPayload(
         val freshSession: Boolean,
         val debugMode: Boolean?,
         val traceEnabled: Boolean?,
-        val traceRunId: String?
+        val traceRunId: String?,
+        val excludedTools: Set<String>
 ) {
     companion object {
         fun from(intent: Intent): MainActivityIntentPayload {
@@ -111,6 +112,14 @@ data class MainActivityIntentPayload(
                         it.isNotBlank()
                     }
 
+            val excludedTools =
+                    intent.getStringExtra(MainActivity.EXTRA_EXCLUDED_TOOLS)
+                            ?.split(",")
+                            ?.map { it.trim() }
+                            ?.filter { it.isNotEmpty() }
+                            ?.toSet()
+                            ?: emptySet()
+
             return MainActivityIntentPayload(
                     apiKey = apiKey,
                     openRouterApiKey = openRouterApiKey,
@@ -126,7 +135,8 @@ data class MainActivityIntentPayload(
                     freshSession = intent.getBooleanExtra(MainActivity.EXTRA_FRESH_SESSION, false),
                     debugMode = debugMode,
                     traceEnabled = traceEnabled,
-                    traceRunId = traceRunId
+                    traceRunId = traceRunId,
+                    excludedTools = excludedTools
             )
         }
 

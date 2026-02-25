@@ -2,7 +2,8 @@ package com.moonkey.androidagent.app
 
 internal data class MainActivityIntentApplyResult(
     val pendingTraceEnabled: Boolean?,
-    val pendingTraceRunId: String?
+    val pendingTraceRunId: String?,
+    val pendingExcludedTools: Set<String>
 )
 
 internal fun applyIntentPayloadToSettings(
@@ -10,6 +11,7 @@ internal fun applyIntentPayloadToSettings(
     settingsState: AppSettingsState,
     currentPendingTraceEnabled: Boolean?,
     currentPendingTraceRunId: String?,
+    currentPendingExcludedTools: Set<String>,
     log: (String) -> Unit
 ): MainActivityIntentApplyResult {
     payload.apiKey?.let { key ->
@@ -66,8 +68,14 @@ internal fun applyIntentPayloadToSettings(
             log("Trace run id set from intent: $runId")
         } ?: currentPendingTraceRunId
 
+    val pendingExcludedTools =
+        payload.excludedTools.ifEmpty { currentPendingExcludedTools }.also { tools ->
+            if (tools.isNotEmpty()) log("Excluded tools set from intent: $tools")
+        }
+
     return MainActivityIntentApplyResult(
         pendingTraceEnabled = pendingTraceEnabled,
-        pendingTraceRunId = pendingTraceRunId
+        pendingTraceRunId = pendingTraceRunId,
+        pendingExcludedTools = pendingExcludedTools
     )
 }

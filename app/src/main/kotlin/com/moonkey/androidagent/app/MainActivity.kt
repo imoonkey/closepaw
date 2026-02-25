@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_EXECUTOR_MODEL = "executor_model"
         const val EXTRA_MAX_TURNS = "max_turns"
         const val EXTRA_PLATFORM_MODE = "platform_mode"
+        const val EXTRA_EXCLUDED_TOOLS = "excluded_tools"
         const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
         const val EXTRA_NOVITA_API_KEY = "novita_api_key"
     }
@@ -67,6 +68,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var settingsState: AppSettingsState
     private var pendingTraceEnabled: Boolean? = null
     private var pendingTraceRunId: String? = null
+    private var pendingExcludedTools: Set<String> = emptySet()
     private var pendingAutoStartGoal: String? = null
     private var pendingGoalRunnable: Runnable? = null
     private var intentPayloadConsumed = false
@@ -183,10 +185,12 @@ class MainActivity : ComponentActivity() {
                         settingsState = settingsState,
                         currentPendingTraceEnabled = pendingTraceEnabled,
                         currentPendingTraceRunId = pendingTraceRunId,
+                        currentPendingExcludedTools = pendingExcludedTools,
                         log = { message -> Log.d(TAG, message) }
                 )
         pendingTraceEnabled = applyResult.pendingTraceEnabled
         pendingTraceRunId = applyResult.pendingTraceRunId
+        pendingExcludedTools = applyResult.pendingExcludedTools
 
         if (intentPayloadConsumed) {
             Log.d(TAG, "Intent payload already consumed, skipping action dispatch")
@@ -392,6 +396,7 @@ class MainActivity : ComponentActivity() {
 
         pendingTraceEnabled = null
         pendingTraceRunId = null
+        pendingExcludedTools = emptySet()
         pendingAutoStartGoal = null
 
         sessionHistoryManager.setActiveSessionId(session.sessionId.value)
@@ -478,7 +483,8 @@ class MainActivity : ComponentActivity() {
                                     "hybrid" -> PerceptionConfig.Hybrid()
                                     else -> PerceptionConfig.AccessibilityOnly
                                 },
-                        platformMode = settingsState.platformMode
+                        platformMode = settingsState.platformMode,
+                        excludedTools = pendingExcludedTools
                 )
 
         val session =

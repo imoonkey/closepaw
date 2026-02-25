@@ -372,6 +372,7 @@ def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig
         adb_command_timeout_sec=int(runner_cfg.get("adb_command_timeout_sec", 60)),
         adb_pull_timeout_sec=int(runner_cfg.get("adb_pull_timeout_sec", 300)),
         shizuku_apk_path=_nullable_str(bridge_cfg.get("shizuku_apk_path")),
+        excluded_tools=str(bridge_cfg.get("excluded_tools", "")),
     )
 
     return RunnerConfig(

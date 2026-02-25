@@ -68,20 +68,33 @@ Current eval detection: `completion_monitor.py` detects `"Executing tool: ask_us
 
 ### Design: Two Layers
 
-#### Layer 1: System Prompt Instruction (Primary)
+#### Layer 1: Environment Context in System Prompt (Primary)
 
-Add to `StandaloneAgentDef` and `ExecutorAgentDef` system prompts:
+The root cause of ask_user overuse is that the model lacks basic environment info (especially the current date) and asks the user instead of inferring. Fix this by injecting environment context into the system prompt:
+
+```
+## Device Environment
+- Device: {device_model} ({device_manufacturer})
+- Screen: {screen_width}x{screen_height}
+- Date: {current_date}  (e.g., "2026-02-25, Tuesday")
+```
+
+**Note**: Include date but NOT time. Time changes between requests and would invalidate the LLM's KV cache. Date is sufficient for resolving "tomorrow", "next week", etc.
+
+These values are populated at session start from `Build.MODEL`, `Build.MANUFACTURER`, display metrics, and `LocalDate.now()`.
+
+#### Layer 1b: ask_user Guidance (Lightweight)
+
+Add minimal guidance to `StandaloneAgentDef` system prompt:
 
 ```
 ## ask_user
-- NEVER call ask_user to clarify dates, times, or quantities.
-- Use the device's current date/time for relative references ("tomorrow", "next week").
-- If information seems ambiguous, make the most reasonable assumption and proceed.
-- Only use ask_user when the task is genuinely impossible without physical user intervention
-  (e.g., CAPTCHA, biometric authentication, physical camera positioning).
+- If information seems ambiguous, make the most reasonable assumption and proceed. Use ask_user only when there is no other way around.
+- Use ask_user when the task requires information you genuinely cannot infer from the goal, the screen, or the device environment above.
+- Use ask_user when the task is genuinely impossible without physical user intervention (e.g., CAPTCHA, biometric authentication, physical camera positioning).
 ```
 
-This teaches the model when ask_user is appropriate without removing the tool. The prompt is also correct for production use.
+This keeps ask_user available for legitimately uninferable situations while discouraging it for things the model can figure out on its own (dates, times, quantities).
 
 #### Layer 2: Eval Config Tool Exclusion (Safety Net)
 
@@ -111,11 +124,11 @@ An `EVAL_CLEAN` profile enum was considered but adds abstraction without benefit
 
 | File | Change |
 |---|---|
-| `app/.../agent/definition/StandaloneAgentDef.kt` | Add `## ask_user` guidance to system prompt |
-| `app/.../agent/definition/ExecutorAgentDef.kt` | Add same guidance |
+| `app/.../agent/definition/StandaloneAgentDef.kt` | Add `## Device Environment` (date, device, screen) + `## ask_user` guidance to system prompt |
+| `app/.../agent/definition/ExecutorAgentDef.kt` | Add same |
 | `eval/config/default.yaml` | Add `excluded_tools: ["ask_user"]` |
 | `eval/aw_bridge/native_agent_bridge.py` | Pass `excluded_tools` via intent extra |
-| `app/.../session/SessionAgentRunner.kt` | Apply tool exclusion filter from intent |
+| `app/.../session/SessionAgentRunner.kt` | Apply tool exclusion filter from intent; populate environment context template vars |
 
 ### Impact
 

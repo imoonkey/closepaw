@@ -1,5 +1,7 @@
 package com.moonkey.androidagent.session
 
+import android.content.res.Resources
+import android.os.Build
 import android.util.Log
 import com.moonkey.androidagent.agent.Agent
 import com.moonkey.androidagent.agent.AgentExecutionConfig
@@ -18,6 +20,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 internal class SessionAgentRunner(
     private val scope: CoroutineScope,
@@ -63,8 +68,8 @@ internal class SessionAgentRunner(
             maxTurns = config.maxTurns,
             uiSettleDelayMs = config.actionDelayMs,
             debugMode = config.debugMode,
-            systemPrompt = agentDef.systemPrompt,
-            allowedToolNames = agentDef.allowedTools,
+            systemPrompt = resolvePromptTemplates(agentDef.systemPrompt),
+            allowedToolNames = agentDef.allowedTools - config.excludedTools,
             agentId = sessionId.value,
             agentRole = agentDef.executionRole,
             modelName = modelName
@@ -94,6 +99,18 @@ internal class SessionAgentRunner(
         }
 
         Log.d(TAG, "Started agent for task $taskId")
+    }
+
+    private fun resolvePromptTemplates(prompt: String): String {
+        val dm = try { Resources.getSystem().displayMetrics } catch (_: Exception) { null }
+        val today = LocalDate.now()
+        val dayOfWeek = today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+        return prompt
+            .replace("{{device_model}}", Build.MODEL ?: "unknown")
+            .replace("{{device_manufacturer}}", Build.MANUFACTURER ?: "unknown")
+            .replace("{{screen_width}}", (dm?.widthPixels ?: 0).toString())
+            .replace("{{screen_height}}", (dm?.heightPixels ?: 0).toString())
+            .replace("{{current_date}}", "$today, $dayOfWeek")
     }
 
     private fun ensureDelegationToolRegistered() {

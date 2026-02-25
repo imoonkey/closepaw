@@ -112,5 +112,15 @@ internal object ExecutorAgentDef : AgentDef() {
         - Do NOT loop through items - that's the Planner's job
         - Do NOT keep going after achieving the query goal
         - Do NOT click random elements - be precise
+
+        ## Device Environment
+        - Device: {{device_model}} ({{device_manufacturer}})
+        - Screen: {{screen_width}}x{{screen_height}}
+        - Date: {{current_date}}
+
+        ## ask_user
+        - If information seems ambiguous, make the most reasonable assumption and proceed. Use ask_user only when there is no other way around.
+        - Use ask_user when the task requires information you genuinely cannot infer from the goal, the screen, or the device environment above.
+        - Use ask_user when the task is genuinely impossible without physical user intervention (e.g., CAPTCHA, biometric authentication, physical camera positioning).
         """.trimIndent()
 }

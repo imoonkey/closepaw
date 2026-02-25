@@ -49,7 +49,9 @@ data class SessionConfig(
          */
         val executorModel: String? = null,
         /** Platform mode: real screen (accessibility) or virtual display (Shizuku) */
-        val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
+        val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
+        /** Tool names to exclude from the agent's allowed tool set (e.g. for eval) */
+        val excludedTools: Set<String> = emptySet()
 )
 
 /** Canonical LLM routing config used at runtime. */

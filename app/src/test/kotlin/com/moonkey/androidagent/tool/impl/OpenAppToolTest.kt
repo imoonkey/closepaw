@@ -74,4 +74,40 @@ class OpenAppToolTest {
         val keys = properties.keys().asSequence().toSet()
         assertThat(keys).containsExactly("app_name", "agent_thought")
     }
+
+    @Test
+    fun `alias map contains simple calendar pro`() {
+        assertThat(AppAliases.PACKAGE_MAP["simple calendar pro"])
+            .isEqualTo("com.simplemobiletools.calendar.pro")
+    }
+
+    @Test
+    fun `alias map contains simple calendar`() {
+        assertThat(AppAliases.PACKAGE_MAP["simple calendar"])
+            .isEqualTo("com.simplemobiletools.calendar.pro")
+    }
+
+    @Test
+    fun `alias map contains audio recorder`() {
+        assertThat(AppAliases.PACKAGE_MAP["audio recorder"])
+            .isEqualTo("com.dimowner.audiorecorder")
+    }
+
+    @Test
+    fun `alias map contains pro expense`() {
+        assertThat(AppAliases.PACKAGE_MAP["pro expense"])
+            .isEqualTo("com.arduia.expense")
+    }
+
+    @Test
+    fun `alias map contains markor`() {
+        assertThat(AppAliases.PACKAGE_MAP["markor"])
+            .isEqualTo("net.gsantner.markor")
+    }
+
+    @Test
+    fun `alias map contains simple draw pro`() {
+        assertThat(AppAliases.PACKAGE_MAP["simple draw pro"])
+            .isEqualTo("com.simplemobiletools.draw.pro")
+    }
 }

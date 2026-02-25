@@ -17,7 +17,7 @@ import org.json.JSONObject
 /**
  * Well-known app aliases for name → package resolution.
  */
-private object AppAliases {
+internal object AppAliases {
     val PACKAGE_MAP = mapOf(
         "google maps" to "com.google.android.apps.maps",
         "maps" to "com.google.android.apps.maps",
@@ -43,7 +43,13 @@ private object AppAliases {
         "photos" to "com.google.android.apps.photos",
         "drive" to "com.google.android.apps.docs",
         "keep" to "com.google.android.keep",
-        "google keep" to "com.google.android.keep"
+        "google keep" to "com.google.android.keep",
+        "simple calendar" to "com.simplemobiletools.calendar.pro",
+        "simple calendar pro" to "com.simplemobiletools.calendar.pro",
+        "simple draw pro" to "com.simplemobiletools.draw.pro",
+        "audio recorder" to "com.dimowner.audiorecorder",
+        "pro expense" to "com.arduia.expense",
+        "markor" to "net.gsantner.markor",
     )
 }
 
