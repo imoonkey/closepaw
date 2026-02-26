@@ -20,23 +20,25 @@ class ScratchpadTool(
         """
         Store key-value data for multi-step tasks and cross-app handoffs.
 
-        Scratchpad keys are always shown in context every turn.
-        Use read only when you need the full value for a specific key.
+        Scratchpad is always shown in context every turn (values truncated if long).
+        Use read only when you need the full value for a truncated key.
 
         Good usage:
         - Write facts before navigating away from the current screen
         - Store actual extracted content (not vague references)
         - Use short semantic keys (email_1_subject, total_price)
+        - Capture ALL relevant data from the current screen in a single write call
 
         Actions:
-        - write: Store key=value
+        - write: Store one or more key-value pairs. content is a JSON object string.
+          Example: {"email_subject": "Meeting at 3pm", "sender": "alice@example.com"}
+          If you have multiple fields to store, include them all in a single write call, to minimize tool call turns for the same result.
         - read: Get value for key
         - delete: Remove key
 
         Limits:
         - Max keys: ${ScratchpadState.MAX_ENTRIES}
-        - Max key length: ${ScratchpadState.MAX_KEY_LENGTH} chars
-        - Max value length: ${ScratchpadState.MAX_VALUE_LENGTH} chars
+        - Max value length: ${ScratchpadState.MAX_VALUE_LENGTH} chars per value
         """.trimIndent()
 
     override val parameterSchema: JSONObject =
@@ -48,13 +50,16 @@ class ScratchpadTool(
                     put("enum", JSONArray(listOf("write", "read", "delete")))
                     put("description", "Action to perform")
                 })
+                put("content", JSONObject().apply {
+                    put("type", "string")
+                    put(
+                        "description",
+                        "JSON object string for write. Example: {\"key1\": \"value1\", \"key2\": \"value2\"}"
+                    )
+                })
                 put("key", JSONObject().apply {
                     put("type", "string")
-                    put("description", "Key for write/read/delete")
-                })
-                put("value", JSONObject().apply {
-                    put("type", "string")
-                    put("description", "Value for write action")
+                    put("description", "Key for read/delete")
                 })
                 put("agent_thought", JSONObject().apply {
                     put("type", "string")
@@ -74,20 +79,34 @@ class ScratchpadTool(
         val errors = mutableListOf<String>()
         when (action) {
             "write" -> {
-                val key = params.optString("key", "").trim()
-                val value = params.optString("value", "").trim()
-                if (key.isEmpty()) errors.add("Missing required parameter: key")
-                if (value.isEmpty()) errors.add("Missing required parameter: value")
-                if (key.length > ScratchpadState.MAX_KEY_LENGTH) {
-                    errors.add("key exceeds max length (${ScratchpadState.MAX_KEY_LENGTH})")
-                }
-                if (value.length > ScratchpadState.MAX_VALUE_LENGTH) {
-                    errors.add("value exceeds max length (${ScratchpadState.MAX_VALUE_LENGTH})")
-                }
-                if (key.isNotEmpty()) {
-                    val keys = state.list()
-                    if (!keys.contains(key) && keys.size >= ScratchpadState.MAX_ENTRIES) {
-                        errors.add("scratchpad is full (max ${ScratchpadState.MAX_ENTRIES} entries)")
+                val content = params.optString("content", "").trim()
+                if (content.isEmpty()) {
+                    errors.add("Missing required parameter: content")
+                } else {
+                    // Try parsing JSON to validate early
+                    try {
+                        val json = JSONObject(content)
+                        val existingKeys = state.list().toSet()
+                        var newKeyCount = 0
+                        for (key in json.keys()) {
+                            if (key.length > ScratchpadState.MAX_KEY_LENGTH) {
+                                errors.add("key '$key' exceeds max length (${ScratchpadState.MAX_KEY_LENGTH})")
+                            }
+                            val valStr = json.get(key).toString()
+                            if (valStr.length > ScratchpadState.MAX_VALUE_LENGTH) {
+                                errors.add("value for '$key' exceeds max length (${ScratchpadState.MAX_VALUE_LENGTH})")
+                            }
+                            if (!existingKeys.contains(key)) {
+                                newKeyCount++
+                            }
+                        }
+                        val totalAfter = existingKeys.size + newKeyCount
+                        if (totalAfter > ScratchpadState.MAX_ENTRIES) {
+                            errors.add("would exceed max entries (${ScratchpadState.MAX_ENTRIES}): " +
+                                "current=${existingKeys.size}, adding=$newKeyCount")
+                        }
+                    } catch (e: Exception) {
+                        errors.add("content is not valid JSON: ${e.message}")
                     }
                 }
             }
@@ -103,25 +122,31 @@ class ScratchpadTool(
 
     override fun createInvocation(params: JSONObject): ToolInvocation {
         val action = params.getString("action")
-        val key = params.optString("key", "").trim()
-        val value = params.optString("value", "").trim()
         val agentThought = params.optString("agent_thought", "").trim()
-        val description = buildDescription(action, key, agentThought)
+        val description = buildDescription(action, params, agentThought)
         return ScratchpadInvocation(
             state = state,
             params = params,
             action = action,
-            key = key,
-            value = value,
             description = description
         )
     }
 
-    private fun buildDescription(action: String, key: String, agentThought: String): String {
+    private fun buildDescription(action: String, params: JSONObject, agentThought: String): String {
         val base = when (action) {
-            "write" -> "Write scratchpad key '$key'"
-            "read" -> "Read scratchpad key '$key'"
-            "delete" -> "Delete scratchpad key '$key'"
+            "write" -> {
+                val content = params.optString("content", "")
+                val json = try { JSONObject(content) } catch (_: Exception) { null }
+                val keyCount = json?.length() ?: 0
+                if (keyCount <= 1) {
+                    val key = try { json?.keys()?.next() } catch (_: Exception) { null } ?: "?"
+                    "Write scratchpad key '$key'"
+                } else {
+                    "Write scratchpad: $keyCount keys"
+                }
+            }
+            "read" -> "Read scratchpad key '${params.optString("key", "")}'"
+            "delete" -> "Delete scratchpad key '${params.optString("key", "")}'"
             else -> "Scratchpad action '$action'"
         }
         return appendReason(base, agentThought)
@@ -132,8 +157,6 @@ private class ScratchpadInvocation(
     private val state: ScratchpadState,
     override val params: JSONObject,
     private val action: String,
-    private val key: String,
-    private val value: String,
     private val description: String
 ) : ToolInvocation {
     override val toolName: String = "scratchpad"
@@ -148,10 +171,17 @@ private class ScratchpadInvocation(
         return try {
             val output = when (action) {
                 "write" -> {
-                    state.write(key, value)
-                    "Stored '$key' (${value.length} chars)."
+                    val content = params.optString("content", "")
+                    val json = JSONObject(content)
+                    val storedKeys = mutableListOf<String>()
+                    for (key in json.keys()) {
+                        state.write(key, json.get(key))
+                        storedKeys.add(key)
+                    }
+                    "Stored ${storedKeys.size} keys: ${storedKeys.joinToString(", ")}."
                 }
                 "read" -> {
+                    val key = params.optString("key", "").trim()
                     val readValue = state.read(key)
                     JSONObject().apply {
                         put("action", "read")
@@ -164,6 +194,7 @@ private class ScratchpadInvocation(
                     }.toString()
                 }
                 "delete" -> {
+                    val key = params.optString("key", "").trim()
                     val removed = state.delete(key)
                     JSONObject().apply {
                         put("action", "delete")

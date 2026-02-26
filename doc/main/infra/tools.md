@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-02-23 (commit: 1dd2020)
+> Last updated: 2026-02-26
 
 ## Overview
 
@@ -91,7 +91,7 @@ Determines whether tools need user approval.
 | `wait` | Pause for UI settle | `duration_ms` |
 | `complete_task` | Signal completion | `status`, `answer` |
 | `write_todos` | Todo list management | `todos` array |
-| `scratchpad` | Key-value memory | `action`, `key`, `value` |
+| `scratchpad` | JSON-backed memory | `action`, `content` (JSON string for write) |
 | `delegate_task` | Sub-agent delegation (PRO mode) | `agent_name`, `query` |
 | `ask_user` | Request user help mid-task | `type` (`question`/`action`), `message` |
 

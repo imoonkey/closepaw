@@ -1,7 +1,7 @@
 # Planning State & Context Hygiene
 
 > TodoState, ScratchpadState, and context-compression strategies.
-> Last updated: 2026-02-26 (commit: e2ce450)
+> Last updated: 2026-02-26
 
 ## Planning State System
 
@@ -9,7 +9,7 @@ The agent uses planning-state tools to track progress and share data between pla
 
 `PromptBuilder` injects planning context as a dedicated memory message:
 - Includes todos when todo list is non-empty
-- Includes scratchpad keys when scratchpad is non-empty
+- Includes scratchpad JSON (truncated) when scratchpad is non-empty
 - Omits memory section entirely when both are empty
 
 Runtime warning text (loop warning / final-turn warning) is injected in the observation section by `AgentTurnRunner.buildWarnings(...)`.
@@ -69,24 +69,28 @@ write_todos(
 
 → See: `session/ScratchpadState.kt`
 
-Thread-safe key-value store for intermediate data:
+Thread-safe JSON-backed key-value memory for intermediate data. Internally stores a `JSONObject` — values can be any JSON type (String, Number, Boolean, JSONArray, JSONObject):
 
 ```kotlin
 class ScratchpadState {
-    fun write(key: String, value: String)
-    fun read(key: String): String?
+    fun write(key: String, value: Any)   // Upsert single key-value pair (dict.update semantics)
+    fun read(key: String): Any?          // Returns native JSON type or null
     fun delete(key: String): Boolean
-    fun list(): List<String>
-    fun clear()
-    fun toPromptContext(): String
+    fun list(): List<String>             // Sorted keys
+    fun toJsonObject(): JSONObject       // Deep copy for checkpoint serialization
+    fun toPromptContext(): String        // JSON with per-value truncation
 
     companion object {
         const val MAX_ENTRIES = 20
         const val MAX_KEY_LENGTH = 100
         const val MAX_VALUE_LENGTH = 2048
+        const val DISPLAY_TRUNCATE_LENGTH = 200
+        const val TOTAL_BUDGET = 3000
     }
 }
 ```
+
+`toPromptContext()` renders all keys and values as a JSON object. Values longer than `DISPLAY_TRUNCATE_LENGTH` are truncated with a `// truncated` comment. Total output is capped at `TOTAL_BUDGET` chars — beyond-budget keys show `"..." // use read`.
 
 **Use cases:**
 - Store extracted info from one screen for later turns
@@ -98,17 +102,14 @@ class ScratchpadState {
 → See: `tool/impl/ScratchpadTool.kt`
 
 ```kotlin
-// Write
-scratchpad(action = "write", key = "recipient_email", value = "john@example.com")
+// Write: content is a JSON object string — supports batch writes in a single call
+scratchpad(action = "write", content = """{"recipient_email": "john@example.com", "subject": "Meeting"}""")
 
-// Read
+// Read: returns value for a specific key
 scratchpad(action = "read", key = "recipient_email")
 
-// Delete
+// Delete: removes a key
 scratchpad(action = "delete", key = "recipient_email")
-
-// List all keys
-scratchpad(action = "list")
 ```
 
 ---
@@ -175,7 +176,7 @@ Turn N                                  Turn N+1
 | Event | Description |
 |-------|-------------|
 | `TodosUpdated` | Emitted when todos change (carries `todos: List<Todo>`) |
-| `ScratchpadUpdated` | Emitted on write/delete (carries `key` and `action`) |
+| `ScratchpadUpdated` | Emitted on write/delete/clear (mutation listener) |
 
 → See: [Protocol Events](../protocol/protocol.md#planning-state-events)
 

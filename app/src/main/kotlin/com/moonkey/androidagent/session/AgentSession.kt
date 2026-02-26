@@ -159,8 +159,20 @@ private constructor(
                     }
             services.sessionState.todos.update(restoredTodos)
 
-            snapshot.scratchpad.forEach { (key, value) ->
-                services.sessionState.scratchpad.write(key, value)
+            try {
+                val scratchpadObj = org.json.JSONObject(snapshot.scratchpadJson)
+                if (scratchpadObj.length() > 0) {
+                    scratchpadObj.keys().forEach { key ->
+                        services.sessionState.scratchpad.write(key, scratchpadObj.get(key))
+                    }
+                } else if (!snapshot.scratchpad.isNullOrEmpty()) {
+                    // Migrate legacy Map<String, String> format
+                    snapshot.scratchpad.forEach { (key, value) ->
+                        services.sessionState.scratchpad.write(key, value)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to parse scratchpad checkpoint, starting with empty scratchpad", e)
             }
 
             Log.i(TAG, "Reloaded session $sessionId with ${historyItems.size} history items")

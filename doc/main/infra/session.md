@@ -65,7 +65,7 @@ After task completion, the session enters `Idle` instead of shutting down. Expen
 
 → See: `session/SessionCheckpointCoordinator.kt`
 
-Persists session state for process-death recovery. Writes `context-*.json` files alongside `session-*.json`. Watches `HistoryManager`, `TodoState`, and `ScratchpadState` mutation listeners to schedule incremental checkpoints. Checkpoint state is derived from runtime `SessionState`:
+Persists session state for process-death recovery. Writes `context-*.json` files alongside `session-*.json`. Watches `HistoryManager`, `TodoState`, and `ScratchpadState` mutation listeners to schedule incremental checkpoints. Checkpoint serialization stores scratchpad as `scratchpadJson: String` (raw JSON string) rather than a typed map. Checkpoint state is derived from runtime `SessionState`:
 
 | SessionState | CheckpointState | Written when |
 |--------------|-----------------|-------------|
@@ -73,7 +73,7 @@ Persists session state for process-death recovery. Writes `context-*.json` files
 | Idle | `IDLE_READY` | Mutation listener, or force-flushed on TaskCompleted |
 | Shutdown | `CLOSED` | Force-flushed on session shutdown |
 
-`AgentSession.reload(snapshot)` hydrates a new session from a `SessionRuntimeSnapshot`, restoring history/todos/scratchpad. Returns session in `Created` state.
+`AgentSession.reload(snapshot)` hydrates a new session from a `SessionRuntimeSnapshot`, restoring history/todos/scratchpad (scratchpad is deserialized from the `scratchpadJson` string field). Returns session in `Created` state.
 
 ---
 
@@ -202,7 +202,7 @@ The capsule's TakeoverPending state reflects reality: handover is not instant wh
 
 Shared state container accessible to agent and tools:
 - `TodoState` - current todo list
-- `ScratchpadState` - key-value memory
+- `ScratchpadState` - JSON-backed memory (stores `JSONObject` internally)
 
 ---
 

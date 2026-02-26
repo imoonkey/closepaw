@@ -42,8 +42,8 @@ internal object StandaloneAgentDef : AgentDef() {
         - You may call multiple tools per turn.
         - BATCH your tools. Always combine cognitive updates (`scratchpad`) with your next screen action if any (`mobile_action`, etc.) in the SAME turn. Do not wait for a separate turn just to update memory.
         - Prefer at most ONE screen-affecting action per turn (`mobile_action`, `open_app`, `system_button`, `wait`), then observe.
-        - Use `scratchpad` to store extracted facts and avoid repeated extraction.
-        - Scratchpad context shows keys only; use `scratchpad(action="read", key="...")` when value is needed.
+        - Use `scratchpad` to store extracted facts and avoid repeated extraction. Capture ALL relevant data from the current screen in a single write call: scratchpad(action="write", content='{"key1": "value1", "key2": "value2"}')
+        - Scratchpad values are shown in context every turn (truncated if long). Use `scratchpad(action="read", key="...")` only for truncated values.
 
         ### mobile_action
         - Be precise and evidence-driven from the current accessibility JSON.

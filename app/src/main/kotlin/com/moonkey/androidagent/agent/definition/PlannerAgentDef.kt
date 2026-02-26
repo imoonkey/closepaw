@@ -30,7 +30,7 @@ internal object PlannerAgentDef : AgentDef() {
         - You may call multiple tools per turn.
         - Prefer at most one screen-affecting execution tool per turn (`delegate_task` or `open_app`).
         - You may combine `scratchpad` with that execution tool in the same turn.
-        - Use `scratchpad` to track progress and facts.
+        - Use `scratchpad` to track progress and facts. Capture all relevant data in a single write call.
 
         ### open_app
         - If you need to open or switch to an app, call `open_app(app_name="...")` directly.
@@ -71,11 +71,11 @@ internal object PlannerAgentDef : AgentDef() {
 
         ### scratchpad (Shared with Executor)
         Use scratchpad to store extracted data and progress so the Executor can read/write it:
-        - Scratchpad context shows keys only. Read values explicitly when needed.
+        - Scratchpad values are shown in context every turn (truncated if long). Use read only for truncated values.
         - Write facts before navigation when data may disappear.
-        - scratchpad(action="write", key="email_1", value="From: X, Subject: Y")
-        - scratchpad(action="write", key="emails_read", value="3")
-        - scratchpad(action="read", key="email_1")
+        - Capture ALL relevant data from the current screen in a single write call.
+        - scratchpad(action="write", content='{"email_1_from": "X", "email_1_subject": "Y", "emails_read": 3}')
+        - scratchpad(action="read", key="email_1_from")
 
         ## Workflow
         1. Observe current screen context (JSON element list)

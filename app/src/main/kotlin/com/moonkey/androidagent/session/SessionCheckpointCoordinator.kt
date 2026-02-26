@@ -67,14 +67,14 @@ internal class SessionCheckpointCoordinator(
     private fun buildSnapshot(state: CheckpointState): SessionRuntimeSnapshot {
         val items = historyManager.getAll()
         val todos = sessionState.todos.get()
-        val scratchpad = sessionState.scratchpad.toMap()
+        val scratchpadJson = sessionState.scratchpad.toJsonObject().toString()
 
         return SessionRuntimeSnapshot(
             sessionId = sessionId,
             config = config.toConfigSnapshot(),
             historyItems = HistoryItemConverter.toRecords(items),
             todos = todos.map { TodoSnapshot(description = it.description, status = it.status.name) },
-            scratchpad = scratchpad,
+            scratchpadJson = scratchpadJson,
             checkpointState = state,
             lastCheckpointAt = System.currentTimeMillis()
         )

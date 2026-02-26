@@ -9,7 +9,10 @@ data class SessionRuntimeSnapshot(
     val config: ConversationConfigSnapshot,
     val historyItems: List<PersistedHistoryItem>,
     val todos: List<TodoSnapshot>,
-    val scratchpad: Map<String, String>,
+    val scratchpadJson: String = "{}",
+    // Legacy field: old checkpoints stored scratchpad as Map<String, String>.
+    // Kept for backward-compatible deserialization. New writes use scratchpadJson only.
+    val scratchpad: Map<String, String>? = null,
     val checkpointState: CheckpointState,
     val lastCheckpointAt: Long
 )

@@ -79,7 +79,7 @@ internal object ExecutorAgentDef : AgentDef() {
         ### EXTRACT queries ("Extract sender and subject", "Read the content")
         1. Find the relevant elements in the JSON list
         2. Extract the requested information
-        3. Optionally store in scratchpad: scratchpad(action="write", key="...", value="...")
+        3. Optionally store in scratchpad: scratchpad(action="write", content='{"key": "value"}')
         4. complete_task(status="success", answer="Extracted: [data]")
 
         ### TYPE queries ("Type 'hello' into search")
@@ -97,9 +97,10 @@ internal object ExecutorAgentDef : AgentDef() {
 
         ## Scratchpad (Shared with Planner)
         Use scratchpad to store extracted data so the Planner can access it:
-        - Scratchpad context shows keys only. Use read when you need a stored value.
-        - scratchpad(action="write", key="email_1_sender", value="John Doe")
-        - scratchpad(action="read", key="...")
+        - Scratchpad values are shown in context every turn (truncated if long). Use read only for truncated values.
+        - Capture ALL relevant data from the current screen in a single write call.
+        - scratchpad(action="write", content='{"email_1_sender": "John Doe", "email_1_subject": "Meeting"}')
+        - scratchpad(action="read", key="email_1_sender")
 
         ## Failure Recovery
         If progress stalls:

@@ -22,7 +22,7 @@ class ScratchpadToolTest {
     }
 
     @Test
-    fun `write requires key and value`() {
+    fun `write requires content`() {
         val tool = ScratchpadTool(ScratchpadState())
         val params = JSONObject().put("action", "write")
 
@@ -32,12 +32,27 @@ class ScratchpadToolTest {
     }
 
     @Test
-    fun `write rejects overly long value`() {
+    fun `write rejects invalid JSON content`() {
         val tool = ScratchpadTool(ScratchpadState())
         val params = JSONObject()
             .put("action", "write")
-            .put("key", "key")
-            .put("value", "x".repeat(ScratchpadState.MAX_VALUE_LENGTH + 1))
+            .put("content", "not json")
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+        assertThat((result as ValidationResult.Invalid).errors.joinToString()).contains("not valid JSON")
+    }
+
+    @Test
+    fun `write rejects overly long value in content`() {
+        val tool = ScratchpadTool(ScratchpadState())
+        val content = JSONObject()
+            .put("key", "x".repeat(ScratchpadState.MAX_VALUE_LENGTH + 1))
+            .toString()
+        val params = JSONObject()
+            .put("action", "write")
+            .put("content", content)
 
         val result = tool.validate(params)
 
@@ -45,16 +60,16 @@ class ScratchpadToolTest {
     }
 
     @Test
-    fun `write rejects when scratchpad full`() {
+    fun `write rejects when scratchpad would exceed max entries`() {
         val state = ScratchpadState()
         repeat(ScratchpadState.MAX_ENTRIES) { index ->
             state.write("key$index", "value")
         }
         val tool = ScratchpadTool(state)
+        val content = JSONObject().put("new_key", "value").toString()
         val params = JSONObject()
             .put("action", "write")
-            .put("key", "new")
-            .put("value", "value")
+            .put("content", content)
 
         val result = tool.validate(params)
 
@@ -62,28 +77,77 @@ class ScratchpadToolTest {
     }
 
     @Test
-    fun `execute write and read`() = runTest {
+    fun `write allows upsert on existing key when full`() {
+        val state = ScratchpadState()
+        repeat(ScratchpadState.MAX_ENTRIES) { index ->
+            state.write("key$index", "value")
+        }
+        val tool = ScratchpadTool(state)
+        val content = JSONObject().put("key0", "updated").toString()
+        val params = JSONObject()
+            .put("action", "write")
+            .put("content", content)
+
+        val result = tool.validate(params)
+
+        assertThat(result).isInstanceOf(ValidationResult.Valid::class.java)
+    }
+
+    @Test
+    fun `execute write single key`() = runTest {
         val state = ScratchpadState()
         val tool = ScratchpadTool(state)
-        val writeParams = JSONObject()
+        val content = JSONObject().put("k", "v").toString()
+        val params = JSONObject()
             .put("action", "write")
-            .put("key", "k")
-            .put("value", "v")
+            .put("content", content)
 
-        val writeInvocation = tool.createInvocation(writeParams)
-        val writeResult = writeInvocation.execute(buildContext())
+        val invocation = tool.createInvocation(params)
+        val result = invocation.execute(buildContext())
 
-        assertThat(writeResult).isInstanceOf(ToolExecutionResult.Success::class.java)
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
         assertThat(state.read("k")).isEqualTo("v")
-        assertThat((writeResult as ToolExecutionResult.Success).output).isEqualTo("Stored 'k' (1 chars).")
+        assertThat((result as ToolExecutionResult.Success).output).contains("Stored 1 keys")
+    }
 
-        val readParams = JSONObject()
+    @Test
+    fun `execute write batch keys`() = runTest {
+        val state = ScratchpadState()
+        val tool = ScratchpadTool(state)
+        val content = JSONObject()
+            .put("name", "Apple")
+            .put("price", 3.5)
+            .put("count", 10)
+            .toString()
+        val params = JSONObject()
+            .put("action", "write")
+            .put("content", content)
+
+        val invocation = tool.createInvocation(params)
+        val result = invocation.execute(buildContext())
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
+        assertThat(state.read("name")).isEqualTo("Apple")
+        assertThat(state.read("price").toString()).isEqualTo("3.5")
+        assertThat(state.read("count").toString()).isEqualTo("10")
+        assertThat((result as ToolExecutionResult.Success).output).contains("Stored 3 keys")
+    }
+
+    @Test
+    fun `execute read returns native value`() = runTest {
+        val state = ScratchpadState()
+        state.write("num", 42)
+        val tool = ScratchpadTool(state)
+        val params = JSONObject()
             .put("action", "read")
-            .put("key", "k")
-        val readInvocation = tool.createInvocation(readParams)
-        val readResult = readInvocation.execute(buildContext())
+            .put("key", "num")
 
-        assertThat(readResult).isInstanceOf(ToolExecutionResult.Success::class.java)
+        val invocation = tool.createInvocation(params)
+        val result = invocation.execute(buildContext())
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
+        val output = JSONObject((result as ToolExecutionResult.Success).output)
+        assertThat(output.getInt("value")).isEqualTo(42)
     }
 
     @Test
@@ -94,6 +158,24 @@ class ScratchpadToolTest {
         val result = tool.validate(params)
 
         assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+    }
+
+    @Test
+    fun `description shows key count for batch write`() {
+        val tool = ScratchpadTool(ScratchpadState())
+        val content = JSONObject()
+            .put("a", "1")
+            .put("b", "2")
+            .put("c", "3")
+            .toString()
+        val params = JSONObject()
+            .put("action", "write")
+            .put("content", content)
+
+        val invocation = tool.createInvocation(params)
+        val desc = invocation.getDescription()
+
+        assertThat(desc).contains("3 keys")
     }
 
     private fun buildContext(): ToolExecutionContext {

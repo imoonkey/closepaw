@@ -107,7 +107,7 @@ class SessionStorageTest {
                     ),
                 historyItems = listOf(PersistedHistoryItem.Message(kind = "USER_INTENT", content = "hi")),
                 todos = emptyList(),
-                scratchpad = emptyMap(),
+                scratchpadJson = "{}",
                 checkpointState = CheckpointState.IDLE_READY,
                 lastCheckpointAt = 3L
             )

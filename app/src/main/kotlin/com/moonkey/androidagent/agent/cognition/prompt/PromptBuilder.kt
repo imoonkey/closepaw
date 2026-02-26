@@ -75,7 +75,7 @@ internal class PromptBuilder(
         val todoContext = sessionState.todos.toPromptContext()
         val scratchpadContext = sessionState.scratchpad.toPromptContext()
         val hasTodos = todoContext.isNotEmpty()
-        val hasScratchpad = !scratchpadContext.startsWith("- (empty)")
+        val hasScratchpad = !scratchpadContext.startsWith("(empty)")
 
         if (!hasTodos && !hasScratchpad) return null
 

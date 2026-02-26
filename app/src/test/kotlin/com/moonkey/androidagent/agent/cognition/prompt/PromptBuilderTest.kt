@@ -77,7 +77,7 @@ class PromptBuilderTest {
 
         assertThat(text).isNotNull()
         assertThat(text).contains("### Scratchpad")
-        assertThat(text).contains("- email_count")
+        assertThat(text).contains("\"email_count\": \"5\"")
     }
 
     @Test
