@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.llm
 
 import android.util.Log
+import com.moonkey.androidagent.BuildConfig
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
@@ -40,6 +41,12 @@ class OpenAIResponseClient(
         client = OpenAIOkHttpClient.builder()
             .apiKey(apiKey)
             .apply { baseUrl?.let { baseUrl(it) } }
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    sslSocketFactory(InsecureSslConfig.sslSocketFactory)
+                    trustManager(InsecureSslConfig.trustManager)
+                }
+            }
             .build()
         Log.i(TAG, "OpenAIResponseClient created successfully")
     }

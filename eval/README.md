@@ -88,3 +88,21 @@ If the agent silently falls back to accessibility mode, check logcat for:
 
 - Bridge status (operational) is tracked separately from scripted success (benchmark truth).
 - By default, only infra failures are retried.
+
+## Frozen System Time (freeze_datetime)
+
+AndroidWorld sets the emulator system time to a fixed past date (Oct 2023) for reproducible task scoring. This is controlled by `freeze_datetime` in `eval/config/default.yaml`.
+
+**Why it matters**: Tasks involving dates (calendar events, expense entries) are scored by checking database rows with expected timestamps. If the system time is "now" instead of the fixed date, timestamps won't match and tasks score 0 even when the agent completes them correctly.
+
+**SSL issue**: Freezing the clock to a past date causes HTTPS certificate validation to fail — certificates appear "not yet valid" from the perspective of the emulator's system time. The app handles this via `InsecureSslConfig`, which disables certificate date validation in debug builds (`BuildConfig.DEBUG`). This allows LLM API calls to succeed even with a frozen past system time.
+
+**Bridge compatibility**: The eval bridge (`native_agent_bridge.py`) previously had a `_ensure_device_time_is_sane()` workaround that re-enabled NTP sync before each task, which undid the frozen time. This was removed since `InsecureSslConfig` handles SSL directly.
+
+**Configuration**:
+```yaml
+android_world:
+  freeze_datetime: true  # Recommended for accurate scoring
+```
+
+See `doc/main/infra/llm.md` (InsecureSslConfig section) for implementation details.

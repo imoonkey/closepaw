@@ -156,7 +156,6 @@ class NativeAgentBridge:
 
     def _start_agent(self, goal: str, run_id: str) -> None:
         self.force_stop()
-        self._ensure_device_time_is_sane()
         self._ensure_shizuku()
         self._ensure_accessibility_service()
 
@@ -302,7 +301,6 @@ class NativeAgentBridge:
         _log.info("Accessibility service wait complete")
 
     _SERVICE_BIND_WAIT_SEC = 8
-    _MAX_ALLOWED_TIME_SKEW_SEC = 300
     _SHIZUKU_START_TIMEOUT_SEC = 15
 
     # ── Shizuku lifecycle ────────────────────────────────────────
@@ -589,51 +587,6 @@ class NativeAgentBridge:
             check=False,
             timeout_sec=self._config.adb_command_timeout_sec,
         )
-
-    def _ensure_device_time_is_sane(self) -> None:
-        """Enable network time and validate device clock skew.
-
-        Incorrect device time causes TLS failures (e.g., ERR_CERT_DATE_INVALID)
-        and leads to first-turn LLM request errors.
-        """
-        self._run_adb_shell(
-            ["settings", "put", "global", "auto_time", "1"],
-            check=False,
-            timeout_sec=self._config.adb_command_timeout_sec,
-        )
-        self._run_adb_shell(
-            ["settings", "put", "global", "auto_time_zone", "1"],
-            check=False,
-            timeout_sec=self._config.adb_command_timeout_sec,
-        )
-
-        time.sleep(1)
-        result = self._run_adb_shell(
-            ["date", "+%s"],
-            check=False,
-            capture_output=True,
-            timeout_sec=self._config.adb_command_timeout_sec,
-        )
-        if result.returncode != 0:
-            _log.warning("Unable to read device epoch time: %s", (result.stderr or "").strip())
-            return
-
-        raw_epoch = (result.stdout or "").strip()
-        try:
-            device_epoch = int(raw_epoch)
-        except ValueError:
-            _log.warning("Unexpected device epoch output: %r", raw_epoch)
-            return
-
-        host_epoch = int(time.time())
-        skew = abs(host_epoch - device_epoch)
-        if skew > self._MAX_ALLOWED_TIME_SKEW_SEC:
-            raise RuntimeError(
-                "Device clock skew is too large "
-                f"({skew}s > {self._MAX_ALLOWED_TIME_SKEW_SEC}s). "
-                "This commonly causes TLS failures for LLM calls. "
-                "Ensure emulator/device network time is enabled and synced."
-            )
 
     def _device_trace_dir(self, run_id: str) -> str:
         return (

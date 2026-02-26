@@ -1,0 +1,5 @@
+SimpleCalendarAddOneEvent
+ExpenseAddMultipleFromMarkor
+ClockStopWatchRunning
+ContactsNewContactDraft
+AudioRecorderRecordAudio

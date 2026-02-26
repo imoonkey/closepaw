@@ -22,7 +22,7 @@ android_world:
   emulator_binary_path: null
   emulator_boot_timeout_sec: 180
   perform_emulator_setup: false
-  freeze_datetime: false  # disabled: frozen date (Oct 2023) predates LLM API SSL certs
+  freeze_datetime: true  # AndroidWorld sets system time to Oct 2023; app uses InsecureSslConfig to bypass cert date checks
 
 bridge:
   package_name: com.moonkey.androidagent

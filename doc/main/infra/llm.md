@@ -1,7 +1,7 @@
 # LLM Integration
 
 > LLM clients, model catalog, streaming, and retry infrastructure.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-25 (commit: 85272e8)
 
 ## Overview
 
@@ -88,6 +88,7 @@ Cloud client using OpenAI Responses API with native function calling.
 - Parses `ResponseStreamEvent` variants: `isCreated()`, `isOutputTextDelta()`, `isOutputItemDone()` (for function calls), `isCompleted()`, `isFailed()`
 - Errors classified via `OpenAIErrorClassifier.classify()` before retry decisions
 - Constructor: `OpenAIResponseClient(apiKey, baseUrl?)` — builds `OpenAIOkHttpClient`
+- SSL bypass: In debug builds (`BuildConfig.DEBUG`), uses `InsecureSslConfig` to skip certificate date validation (see [InsecureSslConfig](#insecuresslconfig) below)
 
 ### ChatCompletionClient
 
@@ -100,6 +101,7 @@ Cloud client using OpenAI Chat Completions API. Works with any OpenAI-compatible
 - Converts ResponseInputItem/FunctionTool to Chat Completions types via `ChatCompletionInterop`
 - Tool call deltas arrive incrementally (indexed by `tcDelta.index()`), accumulated in `toolCallBuilders` map, emitted on `finishReason`
 - Constructor: `ChatCompletionClient(apiKey, baseUrl?)` — builds `OpenAIOkHttpClient`
+- SSL bypass: Same `InsecureSslConfig` integration as `OpenAIResponseClient` (debug builds only)
 
 ### ChatCompletionInterop
 
@@ -295,6 +297,17 @@ Classifies raw exceptions into retry-relevant types:
 
 ## Supporting Files
 
+### InsecureSslConfig
+
+> See: `llm/InsecureSslConfig.kt`
+
+Provides SSL configuration that skips certificate date validation. Used in debug/eval builds when the Android emulator's system clock is frozen to a past date (e.g., Oct 2023 for AndroidWorld), which causes normal SSL certificate validation to fail because certs appear "not yet valid."
+
+- **Trust manager**: No-op `X509TrustManager` that accepts all certificates
+- **SSL socket factory**: `SSLContext.getInstance("TLS")` initialized with the trust-all manager
+- **Scope**: Only applied in debug builds via `BuildConfig.DEBUG` check in `OpenAIResponseClient` and `ChatCompletionClient`
+- **Why**: AndroidWorld sets the emulator system time to a fixed past date for reproducible scoring (e.g., calendar event timestamps). Without this bypass, HTTPS connections to LLM APIs fail with certificate validation errors. The eval bridge (`native_agent_bridge.py`) previously worked around this by re-enabling NTP sync (`auto_time=1`), but that defeated `freeze_datetime`. With `InsecureSslConfig`, the bridge workaround was removed and frozen time works end-to-end.
+
 ### LlmLogger
 
 > See: `llm/LlmLogger.kt`
@@ -324,6 +337,7 @@ llm/
 ├── ChatCompletionClient.kt   # Chat Completions API client (OpenRouter, Novita, vLLM, etc.)
 ├── ChatCompletionInterop.kt  # ResponseInputItem ↔ ChatCompletion type conversion
 ├── LFMLLMClient.kt           # Local LFM client (LiquidAI Leap SDK)
+├── InsecureSslConfig.kt      # SSL bypass for frozen-time eval (debug builds only)
 ├── LLMClientFactory.kt       # Catalog-driven client creation with caching
 ├── ModelCatalog.kt            # Model definitions (from llm_models.json)
 ├── CloudLlmRetry.kt          # Non-streaming retry with exponential backoff
