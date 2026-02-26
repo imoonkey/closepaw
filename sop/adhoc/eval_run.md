@@ -5,7 +5,7 @@
 
 
 # eval analysis after run
-- 我用eval runner重新跑了eval/config/aw_subset_group_1.txt。结果在eval/results/20260225_225734/.
+- 我用eval runner重新跑了eval/config/aw_subset_group_1.txt。结果在eval/results/[TODO: last run foldername]/.
 - 用 /cog-tune skill分析每一个task的每一个turn。写到doc/todo/0.01_eval_tune/round7/eval_analysis_[run foldername]/per_task/*_codex.md
 - 总结全部的single task analysis，归纳common problems，提出修改建议。写到doc/todo/0.01_eval_tune/round7/eval_analysis_[run foldername]/*_codex.md。
 - 过程中不要参考doc/todo/0.01_eval_tune/round7/eval_analysis_[run foldername]/ 下的*_claude.md文件，保持分析的独立性和客观性。
