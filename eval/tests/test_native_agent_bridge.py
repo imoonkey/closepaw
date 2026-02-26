@@ -29,6 +29,8 @@ def _bridge_config() -> BridgeConfig:
         adb_command_timeout_sec=60,
         adb_pull_timeout_sec=300,
         api_keys=None,
+        shizuku_apk_path=None,
+        excluded_tools="",
     )
 
 
@@ -54,6 +56,18 @@ class NativeAgentBridgeAccessibilityTest(unittest.TestCase):
                 com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService
         """
         self.assertFalse(
+            NativeAgentBridge._is_service_in_bound_accessibility_services(dumpsys_text)
+        )
+
+    def test_bound_service_parser_detects_mBoundServices_variant(self) -> None:
+        dumpsys_text = """
+            User state[0]
+              mBoundServices:
+                Service[label=Android Agent, componentName=com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService]
+              mEnabledServices:
+                com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService
+        """
+        self.assertTrue(
             NativeAgentBridge._is_service_in_bound_accessibility_services(dumpsys_text)
         )
 

@@ -18,16 +18,12 @@ from eval.aw_bridge.runner_execution import (
     run_one_task_instance,
 )
 from eval.aw_bridge.runner_preflight import (
-    _TASK_REQUIRED_PACKAGES,
+    TASK_REQUIRED_PACKAGES,
     create_env,
     resolve_snapshot_policy,
-    run_adb,
-    run_adb_global,
-    run_adb_shell,
     run_android_world_connectivity_preflight,
     run_preflight_checks,
     should_run_emulator_setup_retry,
-    wait_for_emulator_stability,
 )
 from eval.aw_bridge.task_loader import (
     TaskInstance,
@@ -92,8 +88,8 @@ def main() -> None:
     logging.info("Config: %s", _safe_config_for_logging(config))
 
     ensure_android_world_importable(workspace_root, config.reference_root)
-    _run_android_world_connectivity_preflight(config)
-    env = _create_env(config)
+    run_android_world_connectivity_preflight(config)
+    env = create_env(config)
 
     all_attempt_results: list[TaskResult] = []
     final_results: list[TaskResult] = []
@@ -112,16 +108,16 @@ def main() -> None:
         logging.info("Loaded %d task instances", len(task_instances))
 
         try:
-            task_instances = _run_preflight_checks(config, task_instances, env)
+            task_instances = run_preflight_checks(config, task_instances, env)
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            if _should_run_emulator_setup_retry(config, exc):
+            if should_run_emulator_setup_retry(config, exc):
                 logging.warning(
                     "Preflight failed with recoverable setup issue; retrying once with "
                     "perform_emulator_setup=true"
                 )
                 env.close()
                 config.perform_emulator_setup = True
-                env = _create_env(config)
+                env = create_env(config)
                 task_instances = build_task_instances(
                     suite_family=config.suite_family,
                     n_task_combinations=config.n_task_combinations,
@@ -134,19 +130,19 @@ def main() -> None:
                     "Reloaded %d task instances after emulator setup",
                     len(task_instances),
                 )
-                task_instances = _run_preflight_checks(config, task_instances, env)
+                task_instances = run_preflight_checks(config, task_instances, env)
             else:
                 raise
 
         bridge = NativeAgentBridge(config.bridge)
         for task_idx, task_instance in enumerate(task_instances):
-            task_bridge_cfg = _resolve_task_bridge_config(
+            task_bridge_cfg = resolve_task_bridge_config(
                 config.bridge, task_instance.task_name, config.task_overrides
             )
             task_bridge = bridge if task_bridge_cfg is config.bridge else NativeAgentBridge(
                 task_bridge_cfg
             )
-            final_result = _run_one_task_instance(
+            final_result = run_one_task_instance(
                 bridge=task_bridge,
                 suite_family=config.suite_family,
                 task_instance=task_instance,
@@ -391,19 +387,6 @@ def _safe_config_for_logging(config: RunnerConfig) -> dict[str, Any]:
         keys = bridge.get("api_keys") or {}
         bridge["api_keys"] = {name: "***" for name in keys}
     return safe
-
-
-# Backward-compatible aliases for tests/utilities that import runner internals.
-_create_env = create_env
-_run_preflight_checks = run_preflight_checks
-_run_one_task_instance = run_one_task_instance
-_resolve_task_bridge_config = resolve_task_bridge_config
-_run_android_world_connectivity_preflight = run_android_world_connectivity_preflight
-_run_adb = run_adb
-_run_adb_global = run_adb_global
-_run_adb_shell = run_adb_shell
-_wait_for_emulator_stability = wait_for_emulator_stability
-_should_run_emulator_setup_retry = should_run_emulator_setup_retry
 
 
 if __name__ == "__main__":

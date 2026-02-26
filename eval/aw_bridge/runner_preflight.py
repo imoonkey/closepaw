@@ -55,7 +55,7 @@ class SnapshotCheckReport:
         }
 
 
-_TASK_REQUIRED_PACKAGES: dict[str, tuple[str, ...]] = {
+TASK_REQUIRED_PACKAGES: dict[str, tuple[str, ...]] = {
     "BrowserMultiply": ("com.android.chrome",),
     "ClockTimerEntry": ("com.google.android.deskclock", "com.android.deskclock"),
     "ContactsAddContact": ("com.android.contacts", "com.google.android.contacts"),
@@ -342,7 +342,7 @@ def collect_missing_task_packages(
 ) -> dict[str, list[str]]:
     missing_by_task: dict[str, list[str]] = {}
     for task in task_instances:
-        candidates = _TASK_REQUIRED_PACKAGES.get(task.task_name)
+        candidates = TASK_REQUIRED_PACKAGES.get(task.task_name)
         if not candidates:
             continue
         installed = any(is_package_installed(config, package) for package in candidates)
@@ -438,7 +438,7 @@ def filter_unavailable_task_instances(
     available: list[TaskInstance] = []
     dropped: dict[str, list[str]] = {}
     for task in task_instances:
-        candidates = _TASK_REQUIRED_PACKAGES.get(task.task_name)
+        candidates = TASK_REQUIRED_PACKAGES.get(task.task_name)
         if not candidates:
             available.append(task)
             continue

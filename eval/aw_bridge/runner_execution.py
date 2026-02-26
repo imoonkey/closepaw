@@ -8,7 +8,7 @@ import subprocess
 import time
 from typing import Any
 
-from eval.aw_bridge.native_agent_bridge import BridgeOutcome, NativeAgentBridge
+from eval.aw_bridge.native_agent_bridge import BridgeConfig, BridgeOutcome, NativeAgentBridge
 from eval.aw_bridge.result_schema import ArtifactPaths, TaskResult
 from eval.aw_bridge.task_loader import TaskInstance
 from eval.aw_bridge.trace_parser import empty_trace_result, parse_trace
@@ -151,10 +151,10 @@ def run_one_task_instance(
 
 
 def resolve_task_bridge_config(
-    base: Any,
+    base: BridgeConfig,
     task_name: str,
     overrides: dict[str, dict[str, Any]],
-) -> Any:
+) -> BridgeConfig:
     for prefix, fields in sorted(overrides.items(), key=lambda kv: -len(kv[0])):
         if task_name.startswith(prefix):
             logging.info("Applying task override for %s (prefix=%s): %s", task_name, prefix, fields)

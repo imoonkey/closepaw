@@ -3,12 +3,13 @@ from __future__ import annotations
 import unittest
 
 from eval.aw_bridge.native_agent_bridge import BridgeConfig
-from eval.aw_bridge.runner import RunnerConfig, _should_run_emulator_setup_retry
+from eval.aw_bridge.runner import RunnerConfig
 from eval.aw_bridge.runner_preflight import (
     PreflightError,
     PreflightErrorCode,
     SnapshotPolicy,
     resolve_snapshot_policy,
+    should_run_emulator_setup_retry,
 )
 
 
@@ -34,6 +35,8 @@ def _bridge_config() -> BridgeConfig:
         adb_command_timeout_sec=60,
         adb_pull_timeout_sec=300,
         api_keys=None,
+        shizuku_apk_path=None,
+        excluded_tools="",
     )
 
 
@@ -83,11 +86,11 @@ class RunnerTypedRetryTest(unittest.TestCase):
             PreflightErrorCode.MISSING_TASK_PACKAGES,
             "missing packages",
         )
-        self.assertTrue(_should_run_emulator_setup_retry(config, err))
+        self.assertTrue(should_run_emulator_setup_retry(config, err))
 
     def test_no_retry_for_non_preflight_error(self) -> None:
         config = _runner_config()
-        self.assertFalse(_should_run_emulator_setup_retry(config, RuntimeError("x")))
+        self.assertFalse(should_run_emulator_setup_retry(config, RuntimeError("x")))
 
 
 if __name__ == "__main__":

@@ -280,12 +280,17 @@ class NativeAgentBridge:
     def _enable_accessibility_service_settings(self) -> None:
         current_raw = self._get_secure_setting("enabled_accessibility_services")
         current_services = self._parse_a11y_services(current_raw)
-        if self._A11Y_SERVICE not in current_services:
+        already_listed = self._A11Y_SERVICE in current_services
+        already_enabled = self._get_secure_setting("accessibility_enabled") == "1"
+        if already_listed and already_enabled:
+            return
+        if not already_listed:
             current_services.append(self._A11Y_SERVICE)
         new_value = ":".join(current_services)
         _log.info("Setting enabled_accessibility_services=%s", new_value)
         self._put_secure_setting("enabled_accessibility_services", new_value)
-        self._put_secure_setting("accessibility_enabled", "1")
+        if not already_enabled:
+            self._put_secure_setting("accessibility_enabled", "1")
 
     def _wait_for_accessibility_service_ready(self) -> tuple[bool, str]:
         deadline = time.monotonic() + self._A11Y_READY_TIMEOUT_SEC

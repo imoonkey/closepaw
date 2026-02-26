@@ -7,9 +7,11 @@ from types import SimpleNamespace
 from typing import Any
 
 from eval.aw_bridge.runner import (
-    _create_env,
     _load_config,
-    _run_android_world_connectivity_preflight,
+)
+from eval.aw_bridge.runner_preflight import (
+    create_env,
+    run_android_world_connectivity_preflight,
 )
 from eval.aw_bridge.task_loader import (
     TaskInstance,
@@ -97,9 +99,9 @@ def main() -> None:
     config = _load_config(workspace_root, runner_args)
 
     ensure_android_world_importable(workspace_root, config.reference_root)
-    _run_android_world_connectivity_preflight(config)
+    run_android_world_connectivity_preflight(config)
 
-    env = _create_env(config)
+    env = create_env(config)
     initialized = False
     task_instance: TaskInstance | None = None
     try:

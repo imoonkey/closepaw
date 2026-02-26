@@ -10,11 +10,13 @@ from unittest import mock
 from eval.aw_bridge.native_agent_bridge import BridgeConfig
 from eval.aw_bridge.runner import (
     RunnerConfig,
-    _TASK_REQUIRED_PACKAGES,
-    _run_adb,
-    _run_android_world_connectivity_preflight,
     _validate_required_api_key,
-    _wait_for_emulator_stability,
+)
+from eval.aw_bridge.runner_preflight import (
+    TASK_REQUIRED_PACKAGES,
+    run_adb,
+    run_android_world_connectivity_preflight,
+    wait_for_emulator_stability,
 )
 
 
@@ -40,6 +42,8 @@ def _bridge_config() -> BridgeConfig:
         adb_command_timeout_sec=60,
         adb_pull_timeout_sec=300,
         api_keys=None,
+        shizuku_apk_path=None,
+        excluded_tools="",
     )
 
 
@@ -80,7 +84,7 @@ class RunnerAdbTest(unittest.TestCase):
         config = _runner_config(adb_serial="emulator-5554")
         completed = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="", stderr="")
         with mock.patch("eval.aw_bridge.runner_preflight.subprocess.run", return_value=completed) as run_mock:
-            _run_adb(config, ["devices"], check=False, capture_output=True)
+            run_adb(config, ["devices"], check=False, capture_output=True)
 
         self.assertEqual(run_mock.call_args[1]["timeout"], 60.0)
 
@@ -88,7 +92,7 @@ class RunnerAdbTest(unittest.TestCase):
         config = _runner_config(adb_serial="emulator-5554")
         completed = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="", stderr="")
         with mock.patch("eval.aw_bridge.runner_preflight.subprocess.run", return_value=completed) as run_mock:
-            _run_adb(
+            run_adb(
                 config,
                 ["wait-for-device"],
                 check=False,
@@ -111,7 +115,7 @@ class RunnerConnectivityPreflightTest(unittest.TestCase):
             "eval.aw_bridge.runner_preflight.wait_for_emulator_stability"
         ) as wait_mock:
             with self.assertRaisesRegex(RuntimeError, "must match console_port mapping"):
-                _run_android_world_connectivity_preflight(config)
+                run_android_world_connectivity_preflight(config)
 
         wait_mock.assert_not_called()
 
@@ -128,7 +132,7 @@ class RunnerEmulatorStabilityTest(unittest.TestCase):
         ), mock.patch(
             "eval.aw_bridge.runner_preflight.run_adb_shell", side_effect=[boot_done, whoami]
         ), mock.patch("eval.aw_bridge.runner_preflight.time.sleep"):
-            _wait_for_emulator_stability(config, "emulator-5554")
+            wait_for_emulator_stability(config, "emulator-5554")
 
         first_call = run_adb_mock.call_args_list[0]
         self.assertEqual(first_call[1]["timeout_sec"], 180)
@@ -206,11 +210,11 @@ class RunnerApiKeyValidationTest(unittest.TestCase):
 class RunnerTaskPackageMapTest(unittest.TestCase):
     def test_includes_recipe_and_sms_requirements(self) -> None:
         self.assertEqual(
-            _TASK_REQUIRED_PACKAGES.get("RecipeAddSingleRecipe"),
+            TASK_REQUIRED_PACKAGES.get("RecipeAddSingleRecipe"),
             ("com.flauschcode.broccoli",),
         )
         self.assertEqual(
-            _TASK_REQUIRED_PACKAGES.get("SimpleSmsSend"),
+            TASK_REQUIRED_PACKAGES.get("SimpleSmsSend"),
             ("com.simplemobiletools.smsmessenger",),
         )
 

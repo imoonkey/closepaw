@@ -92,5 +92,5 @@ python3 eval/aw_bridge/prepare_baseline.py \
   --console-port "${CONSOLE_PORT}" \
   --grpc-port "${GRPC_PORT}" \
   --snapshot-policy "${SNAPSHOT_POLICY}" \
-  "${EXTRA_ARGS[@]}"
+  -- "${EXTRA_ARGS[@]}"
 
