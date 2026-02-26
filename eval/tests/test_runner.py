@@ -53,6 +53,7 @@ def _runner_config(**overrides: object) -> RunnerConfig:
         skip_unavailable_tasks=True,
         auto_install_missing_task_apps=False,
         retry_infra_failures=1,
+        snapshot_policy="auto_repair",
         adb_serial=None,
         reference_root=".reference/eval/android_world",
         console_port=5554,
@@ -65,6 +66,7 @@ def _runner_config(**overrides: object) -> RunnerConfig:
         emulator_binary_path=None,
         emulator_boot_timeout_sec=180,
         bridge=_bridge_config(),
+        task_overrides={},
     )
     for name, value in overrides.items():
         setattr(config, name, value)
@@ -77,7 +79,7 @@ class RunnerAdbTest(unittest.TestCase):
     def test_run_adb_uses_default_timeout(self) -> None:
         config = _runner_config(adb_serial="emulator-5554")
         completed = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="", stderr="")
-        with mock.patch("eval.aw_bridge.runner.subprocess.run", return_value=completed) as run_mock:
+        with mock.patch("eval.aw_bridge.runner_preflight.subprocess.run", return_value=completed) as run_mock:
             _run_adb(config, ["devices"], check=False, capture_output=True)
 
         self.assertEqual(run_mock.call_args[1]["timeout"], 60.0)
@@ -85,7 +87,7 @@ class RunnerAdbTest(unittest.TestCase):
     def test_run_adb_honors_timeout_override(self) -> None:
         config = _runner_config(adb_serial="emulator-5554")
         completed = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="", stderr="")
-        with mock.patch("eval.aw_bridge.runner.subprocess.run", return_value=completed) as run_mock:
+        with mock.patch("eval.aw_bridge.runner_preflight.subprocess.run", return_value=completed) as run_mock:
             _run_adb(
                 config,
                 ["wait-for-device"],
@@ -101,10 +103,12 @@ class RunnerConnectivityPreflightTest(unittest.TestCase):
     def test_rejects_serial_console_port_mismatch(self) -> None:
         config = _runner_config(adb_serial="emulator-5556", console_port=5554, auto_start_emulator=False)
         completed = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="", stderr="")
-        with mock.patch("eval.aw_bridge.runner._run_adb_global", return_value=completed), mock.patch(
-            "eval.aw_bridge.runner._is_expected_emulator_online", return_value=True
-        ), mock.patch("eval.aw_bridge.runner._is_local_tcp_port_open", return_value=True), mock.patch(
-            "eval.aw_bridge.runner._wait_for_emulator_stability"
+        with mock.patch("eval.aw_bridge.runner_preflight.run_adb_global", return_value=completed), mock.patch(
+            "eval.aw_bridge.runner_preflight.is_expected_emulator_online", return_value=True
+        ), mock.patch(
+            "eval.aw_bridge.runner_preflight.is_local_tcp_port_open", return_value=True
+        ), mock.patch(
+            "eval.aw_bridge.runner_preflight.wait_for_emulator_stability"
         ) as wait_mock:
             with self.assertRaisesRegex(RuntimeError, "must match console_port mapping"):
                 _run_android_world_connectivity_preflight(config)
@@ -119,11 +123,11 @@ class RunnerEmulatorStabilityTest(unittest.TestCase):
         boot_done = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="1\n", stderr="")
         whoami = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="shell\n", stderr="")
 
-        with mock.patch("eval.aw_bridge.runner._run_adb", return_value=ok) as run_adb_mock, mock.patch(
-            "eval.aw_bridge.runner._is_expected_emulator_online", return_value=True
+        with mock.patch("eval.aw_bridge.runner_preflight.run_adb", return_value=ok) as run_adb_mock, mock.patch(
+            "eval.aw_bridge.runner_preflight.is_expected_emulator_online", return_value=True
         ), mock.patch(
-            "eval.aw_bridge.runner._run_adb_shell", side_effect=[boot_done, whoami]
-        ), mock.patch("eval.aw_bridge.runner.time.sleep"):
+            "eval.aw_bridge.runner_preflight.run_adb_shell", side_effect=[boot_done, whoami]
+        ), mock.patch("eval.aw_bridge.runner_preflight.time.sleep"):
             _wait_for_emulator_stability(config, "emulator-5554")
 
         first_call = run_adb_mock.call_args_list[0]

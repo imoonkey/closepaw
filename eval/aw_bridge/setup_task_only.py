@@ -55,6 +55,7 @@ def _build_runner_like_args(args: argparse.Namespace) -> SimpleNamespace:
         task_random_seed=args.task_random_seed,
         output_root=None,
         adb_serial=args.adb_serial,
+        snapshot_policy=None,
         platform_mode=None,
     )
 

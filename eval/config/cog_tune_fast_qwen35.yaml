@@ -7,6 +7,7 @@ runner:
   skip_unavailable_tasks: true
   auto_install_missing_task_apps: true
   retry_infra_failures: 1
+  snapshot_policy: auto_repair
   stop_agent_after_task: true
   adb_serial: null
   adb_command_timeout_sec: 60

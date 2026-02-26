@@ -238,9 +238,8 @@ class NativeAgentBridge:
         must re-add it before each task launch.  Also grants overlay
         permission which the agent checks before starting a session.
 
-        After enabling, polls ``dumpsys accessibility`` until the service
-        appears in the *Bound services* list so the activity won't race
-        ahead before ``AgentService.instance`` is set.
+        Uses a bounded retry loop with explicit state verification to avoid
+        hanging when the permission/state silently drifts between tasks.
         """
         # Grant overlay (draw-over-other-apps) permission
         self._run_adb_shell(
@@ -249,59 +248,144 @@ class NativeAgentBridge:
             check=False,
             timeout_sec=self._config.adb_command_timeout_sec,
         )
+        last_state = "unknown"
+        for attempt in range(1, self._A11Y_ENABLE_ATTEMPTS + 1):
+            self._enable_accessibility_service_settings()
+            ready, state = self._wait_for_accessibility_service_ready()
+            if ready:
+                _log.info("Accessibility service is ready: %s", state)
+                return
 
+            last_state = state
+            if attempt < self._A11Y_ENABLE_ATTEMPTS:
+                _log.warning(
+                    "Accessibility service not ready (attempt %d/%d): %s; retrying",
+                    attempt,
+                    self._A11Y_ENABLE_ATTEMPTS,
+                    state,
+                )
+                time.sleep(self._A11Y_RETRY_COOLDOWN_SEC)
+
+        raise RuntimeError(
+            "Accessibility service did not become ready after "
+            f"{self._A11Y_ENABLE_ATTEMPTS} attempts. Last state: {last_state}"
+        )
+
+    _A11Y_READY_TIMEOUT_SEC = 12
+    _A11Y_POLL_INTERVAL_SEC = 0.5
+    _A11Y_ENABLE_ATTEMPTS = 2
+    _A11Y_RETRY_COOLDOWN_SEC = 1.0
+    _SHIZUKU_START_TIMEOUT_SEC = 15
+
+    def _enable_accessibility_service_settings(self) -> None:
+        current_raw = self._get_secure_setting("enabled_accessibility_services")
+        current_services = self._parse_a11y_services(current_raw)
+        if self._A11Y_SERVICE not in current_services:
+            current_services.append(self._A11Y_SERVICE)
+        new_value = ":".join(current_services)
+        _log.info("Setting enabled_accessibility_services=%s", new_value)
+        self._put_secure_setting("enabled_accessibility_services", new_value)
+        self._put_secure_setting("accessibility_enabled", "1")
+
+    def _wait_for_accessibility_service_ready(self) -> tuple[bool, str]:
+        deadline = time.monotonic() + self._A11Y_READY_TIMEOUT_SEC
+        last_state = "unknown"
+        while time.monotonic() < deadline:
+            ready, state = self._get_accessibility_service_state()
+            if ready:
+                return True, state
+            last_state = state
+            time.sleep(self._A11Y_POLL_INTERVAL_SEC)
+        return False, last_state
+
+    def _get_accessibility_service_state(self) -> tuple[bool, str]:
+        enabled_raw = self._get_secure_setting("enabled_accessibility_services")
+        enabled_services = self._parse_a11y_services(enabled_raw)
+        global_enabled = self._get_secure_setting("accessibility_enabled") == "1"
+
+        dumpsys = self._run_adb_shell(
+            ["dumpsys", "accessibility"],
+            check=False,
+            capture_output=True,
+            timeout_sec=min(8, self._config.adb_command_timeout_sec),
+        )
+        dumpsys_text = dumpsys.stdout or ""
+        service_bound = (
+            dumpsys.returncode == 0
+            and self._is_service_in_bound_accessibility_services(dumpsys_text)
+        )
+        ready = (
+            self._A11Y_SERVICE in enabled_services
+            and global_enabled
+            and service_bound
+        )
+
+        state = (
+            f"global_enabled={global_enabled}, "
+            f"service_listed={self._A11Y_SERVICE in enabled_services}, "
+            f"service_bound={service_bound}"
+        )
+        if dumpsys.returncode != 0:
+            dumpsys_err = (dumpsys.stderr or "").strip() or f"returncode={dumpsys.returncode}"
+            state = f"{state}, dumpsys_error={dumpsys_err}"
+        return ready, state
+
+    def _get_secure_setting(self, key: str) -> str:
         result = self._run_adb_shell(
-            ["settings", "get", "secure", "enabled_accessibility_services"],
+            ["settings", "get", "secure", key],
             check=False,
             capture_output=True,
             timeout_sec=self._config.adb_command_timeout_sec,
         )
-        current = (result.stdout or "").strip()
-
-        # Keep existing a11y services (including AndroidWorld's AccessibilityForwarder
-        # needed for scoring) and ensure AgentService is also enabled.
-        if current and current != "null":
-            parts = [p for p in current.split(":") if p]
-            if self._A11Y_SERVICE not in parts:
-                parts.append(self._A11Y_SERVICE)
-                new_value = ":".join(parts)
-                _log.info("Enabling accessibility service (preserving existing): %s", new_value)
-                self._run_adb_shell(
-                    ["settings", "put", "secure",
-                     "enabled_accessibility_services", new_value],
-                    check=False,
-                    timeout_sec=self._config.adb_command_timeout_sec,
-                )
-                self._run_adb_shell(
-                    ["settings", "put", "secure", "accessibility_enabled", "1"],
-                    check=False,
-                    timeout_sec=self._config.adb_command_timeout_sec,
-                )
-        else:
-            _log.info("Enabling accessibility service: %s", self._A11Y_SERVICE)
-            self._run_adb_shell(
-                ["settings", "put", "secure",
-                 "enabled_accessibility_services", self._A11Y_SERVICE],
-                check=False,
-                timeout_sec=self._config.adb_command_timeout_sec,
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            raise RuntimeError(
+                f"Failed to read secure setting {key}: "
+                f"returncode={result.returncode}, stderr={stderr}"
             )
-            self._run_adb_shell(
-                ["settings", "put", "secure", "accessibility_enabled", "1"],
-                check=False,
-                timeout_sec=self._config.adb_command_timeout_sec,
+        return (result.stdout or "").strip()
+
+    def _put_secure_setting(self, key: str, value: str) -> None:
+        result = self._run_adb_shell(
+            ["settings", "put", "secure", key, value],
+            check=False,
+            capture_output=True,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            raise RuntimeError(
+                f"Failed to set secure setting {key}: "
+                f"returncode={result.returncode}, stderr={stderr}"
             )
 
-        # Poll until the service is actually bound (not just enabled).
-        # On an emulator under load (AndroidWorld gRPC traffic), binding
-        # can take up to ~6 seconds.  Use a generous fixed sleep because
-        # subprocess-based polling (dumpsys) is unreliable when the gRPC
-        # runtime interferes with fork() handlers.
-        _log.info("Waiting for accessibility service to bind …")
-        time.sleep(self._SERVICE_BIND_WAIT_SEC)
-        _log.info("Accessibility service wait complete")
+    @staticmethod
+    def _parse_a11y_services(raw: str) -> list[str]:
+        value = raw.strip()
+        if not value or value == "null":
+            return []
+        return [part for part in value.split(":") if part]
 
-    _SERVICE_BIND_WAIT_SEC = 8
-    _SHIZUKU_START_TIMEOUT_SEC = 15
+    @classmethod
+    def _is_service_in_bound_accessibility_services(cls, dumpsys_text: str) -> bool:
+        lines = dumpsys_text.splitlines()
+        for index, line in enumerate(lines):
+            if "Bound services" not in line and "mBoundServices" not in line:
+                continue
+            if cls._A11Y_SERVICE in line:
+                return True
+
+            indent = len(line) - len(line.lstrip())
+            for next_line in lines[index + 1:]:
+                stripped = next_line.strip()
+                if not stripped:
+                    continue
+                next_indent = len(next_line) - len(next_line.lstrip())
+                if next_indent <= indent and ":" in stripped:
+                    break
+                if cls._A11Y_SERVICE in stripped:
+                    return True
+        return False
 
     # ── Shizuku lifecycle ────────────────────────────────────────
 
