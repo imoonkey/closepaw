@@ -1,7 +1,7 @@
 # Agent Loop Execution
 
 > ReAct loop, Turn mechanics, and streaming execution.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-26 (commit: e2ce450)
 
 ## ReAct Loop
 
@@ -136,9 +136,9 @@ Defines runtime control/result types:
 → See: `agent/cognition/`
 
 - **Prompt layer**: `PromptBuilder` assembles History → Working Memory → Current Observation input items
-- **Context layer**: `NavigationState` tracks recent screen signatures and actions for loop detection
+- **Context layer**: `NavigationState` tracks recent screen signatures and actions for loop detection. Maintains a sliding window of `MAX_ACTION_HISTORY = 8` recent actions.
 - **Policy layer**: `TurnToolPolicy` arbitrates tool calls — keeps cognitive tools, at most one screen-changing tool, defers `complete_task` when action tools exist
-- **Loop guard**: `LoopDetectionPolicy` emits warnings for unchanged screens, repeated actions, and consecutive scrolls
+- **Loop guard**: `LoopDetectionPolicy` emits warnings for unchanged screens, repeated actions, and consecutive scrolls. Thresholds tuned for balance between false positives and detection speed.
 - **Step guard**: `ExecutorStepPolicy` contributes final-turn warning text when limit is reached, produces narrative summary of attempts
 
 ---
@@ -234,7 +234,13 @@ When trace is enabled, `AgentTrace` emits cognition-focused artifacts organized 
 
 Plus run-level summary: `run_summary.json`
 
-→ See: `trace/AgentTrace.kt`
+### Trace Flush
+
+`TraceRecorder` exposes a `flush()` suspend function that blocks until all enqueued trace events are written to disk. `AgentSession.handleAgentComplete()` calls `flush()` **before** emitting `TaskCompleted`, ensuring trace data is persisted before the eval runner force-stops the process.
+
+`FileTraceRecorder` implements flush via a `CompletableDeferred`-based `WriteOp.Flush` sent through the writer channel. The writer loop completes the deferred after processing all preceding writes. `NoopTraceRecorder.flush()` is a no-op.
+
+→ See: `trace/TraceRecorder.kt`, `trace/FileTraceRecorder.kt`
 
 ---
 

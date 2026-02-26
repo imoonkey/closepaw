@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionCoordinator, SessionServices, and session lifecycle.
-> Last updated: 2026-02-23 (commit: 1dd2020)
+> Last updated: 2026-02-26 (commit: e2ce450)
 
 ## AgentSession
 
@@ -157,6 +157,7 @@ val services = SessionServices.create(config, platform, apiKeys, context, scope,
 Built-in tool registration includes:
 - `mobile_action`, `open_app`, `system_button`, `wait`
 - `write_todos`, `scratchpad`, `complete_task`
+- `shell` (restricted shell command execution)
 
 `delegate_task` and `ask_user` are not part of static built-in registration. They are attached lazily by `SessionAgentRunner.start()` when required.
 
@@ -211,8 +212,18 @@ Shared state container accessible to agent and tools:
 |-------|-------------|
 | `SessionStarted` | First transition from Created → Running (goal) |
 | `TaskStarted` | New task begins (taskId, input) |
-| `TaskCompleted` | Task ends (taskId, result, reason) |
+| `TaskCompleted` | Task ends (taskId, result, reason). Preceded by trace flush. |
 | `SessionCompleted` | Session terminates (result, reason) |
+
+### Task Completion Sequence
+
+`handleAgentComplete()` executes these steps in order:
+1. **Flush trace** — `services.traceRecorder.flush()` ensures all trace data is on disk before the eval runner can force-stop the process
+2. **Emit TaskCompleted** — notifies UI and external listeners
+3. **Checkpoint** — persists session state for recovery
+4. **Transition to Idle** — releases platform resources
+5. **Clear runner** — releases agent reference
+6. **Arm idle timeout** — auto-shutdown after inactivity
 
 → See: [Protocol](../protocol/protocol.md)
 

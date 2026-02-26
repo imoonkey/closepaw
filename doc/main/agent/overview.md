@@ -1,7 +1,7 @@
 # Agent Core Overview
 
 > Design principles, architecture, and package structure for the Android Agent.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-26 (commit: e2ce450)
 
 ## Design Principles
 

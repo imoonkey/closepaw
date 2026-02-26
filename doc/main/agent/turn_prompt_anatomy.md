@@ -1,7 +1,7 @@
 # Turn Prompt Anatomy
 
 > What each turn sends to the LLM: instructions, input items, and filtered tools.
-> Last updated: 2026-02-24
+> Last updated: 2026-02-26 (commit: e2ce450)
 
 ## Overview
 
@@ -30,7 +30,20 @@ System prompt text is sourced from the active `AgentDef` and passed unchanged to
 
 `AgentTurnRunner` enforces prompt presence with `requireNotNull(config.systemPrompt)`.
 
-→ See: `agent/definition/AgentDefRegistry.kt`, `agent/AgentTurnRunner.kt`
+### Prompt Structure
+
+Both `StandaloneAgentDef` and `PlannerAgentDef` follow a standardized section layout:
+
+1. **Role** — Agent identity and core purpose
+2. **Core Loop** — ReAct loop description with turn budget awareness
+3. **Tools** — Calling conventions + per-tool usage guides (`mobile_action`, `open_app`, `shell`, `ask_user`, `complete_task`)
+4. **App Tips** — App-specific guidance organized by category:
+   - **Calendar tips**: Time picker keyboard mode, "Nh" 24-hour format, day-cell navigation
+   - **Expense tips**: Pro Expense category scrolling
+   - **General tips**: Loop warning response strategy, pre-completion self-verification
+5. **Device Environment** — Runtime context (OS version, screen size, locale, installed apps, perception mode)
+
+→ See: `agent/definition/StandaloneAgentDef.kt`, `agent/definition/PlannerAgentDef.kt`
 
 ---
 
@@ -124,7 +137,7 @@ Mode-level allowlists are defined by agent definitions:
 
 | Mode | Available Tools |
 |------|-----------------|
-| Standalone (`BASIC`) | `mobile_action`, `system_button`, `wait`, `open_app`, `write_todos`, `scratchpad`, `complete_task`, `ask_user` |
+| Standalone (`BASIC`) | `mobile_action`, `system_button`, `wait`, `open_app`, `shell`, `write_todos`, `scratchpad`, `complete_task`, `ask_user` |
 | Planner (`PRO` main) | `open_app`, `write_todos`, `scratchpad`, `delegate_task`, `complete_task` |
 | Executor (delegated) | `mobile_action`, `system_button`, `wait`, `open_app`, `scratchpad`, `complete_task`, `ask_user` |
 

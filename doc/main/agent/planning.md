@@ -1,7 +1,7 @@
 # Planning State & Context Hygiene
 
 > TodoState, ScratchpadState, and context-compression strategies.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-02-26 (commit: e2ce450)
 
 ## Planning State System
 
