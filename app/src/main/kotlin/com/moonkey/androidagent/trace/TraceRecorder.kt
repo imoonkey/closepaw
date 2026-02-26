@@ -32,6 +32,9 @@ interface TraceRecorder {
         description: String? = null
     ): TraceArtifactRef?
 
+    /** Block until all enqueued events are written to disk. */
+    suspend fun flush()
+
     suspend fun close()
 }
 
@@ -58,6 +61,8 @@ object NoopTraceRecorder : TraceRecorder {
         mimeType: String?,
         description: String?
     ): TraceArtifactRef? = null
+
+    override suspend fun flush() = Unit
 
     override suspend fun close() = Unit
 }

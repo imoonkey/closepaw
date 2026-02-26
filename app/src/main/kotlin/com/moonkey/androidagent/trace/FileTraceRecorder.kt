@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -32,6 +33,7 @@ internal class FileTraceRecorder(
         data class AppendLine(val line: String) : WriteOp
         data class WriteBytes(val relativePath: String, val bytes: ByteArray) : WriteOp
         data class WriteUtf8(val relativePath: String, val content: String) : WriteOp
+        data class Flush(val done: CompletableDeferred<Unit>) : WriteOp
     }
 
     override val enabled: Boolean = true
@@ -130,6 +132,7 @@ internal class FileTraceRecorder(
                     }
                     is WriteOp.WriteBytes -> writeBytes(op.relativePath, op.bytes)
                     is WriteOp.WriteUtf8 -> writeText(op.relativePath, op.content)
+                    is WriteOp.Flush -> op.done.complete(Unit)
                 }
             }
         } catch (e: Exception) {
@@ -167,6 +170,12 @@ internal class FileTraceRecorder(
         } catch (e: Exception) {
             Log.w(TAG, "Failed to write artifact bytes: $relativePath (${e.message})")
         }
+    }
+
+    override suspend fun flush() {
+        val done = CompletableDeferred<Unit>()
+        channel.send(WriteOp.Flush(done))
+        done.await()
     }
 
     override suspend fun close() {

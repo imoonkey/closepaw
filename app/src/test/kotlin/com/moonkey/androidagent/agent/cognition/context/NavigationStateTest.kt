@@ -22,7 +22,7 @@ class NavigationStateTest {
         }
 
         assertThat(state.recentSignatures).hasSize(10)
-        assertThat(state.recentActions).hasSize(5)
+        assertThat(state.recentActions).hasSize(8)
         assertThat(state.recentSignatures.last().fingerprint)
             .isEqualTo(snapshot("Screen 11").toStateSignature().fingerprint)
     }

@@ -4,7 +4,7 @@ import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.ScreenSnapshot
 
 private const val MAX_SIGNATURE_HISTORY = 10
-private const val MAX_ACTION_HISTORY = 5
+private const val MAX_ACTION_HISTORY = 8
 private const val MAX_SIGNATURE_ELEMENTS = 32
 private const val POSITION_BUCKET_PX = 120
 

@@ -9,12 +9,14 @@ import com.moonkey.androidagent.agent.cognition.context.ScreenSignature
  * Thresholds for deciding whether the agent is looping on UI navigation.
  */
 internal data class LoopDetectionConfig(
-    val similarityThreshold: Double = 0.90,
-    val repeatedScreenWindow: Int = 3,
+    val similarityThreshold: Double = 0.85,
+    val repeatedScreenWindow: Int = 5,
     val repeatedActionWindow: Int = 3,
-    val maxConsecutiveScrollActions: Int = 5,
-    val cycleMatchThreshold: Double = 0.85,
-    val cycleMinOccurrences: Int = 3
+    val maxConsecutiveScrollActions: Int = 4,
+    val cycleMatchThreshold: Double = 0.75,
+    val cycleMinOccurrences: Int = 2,
+    /** Trigger warning when one tool type dominates recent action history. */
+    val toolRepetitionThreshold: Int = 3
 )
 
 /**
@@ -70,6 +72,23 @@ internal class LoopDetectionPolicy(
                 message = "Same action repeated ${config.repeatedActionWindow} times (${latestActions.first()}). Pick an alternative action.",
                 severity = LoopWarningSeverity.WARNING
             )
+        }
+
+        // Tool-type dominance: same tool type (e.g. "shell") used too many times
+        // in recent history, even with other actions interleaved.
+        if (state.recentActions.size >= config.toolRepetitionThreshold) {
+            val toolCounts = state.recentActions
+                .groupingBy { it.substringBefore(":") }
+                .eachCount()
+            val dominant = toolCounts.maxByOrNull { it.value }
+            if (dominant != null && dominant.value >= config.toolRepetitionThreshold) {
+                return LoopWarning(
+                    message = "Tool '${dominant.key}' used ${dominant.value} times in the " +
+                            "last ${state.recentActions.size} actions without progress. " +
+                            "This approach is not working — try a fundamentally different strategy.",
+                    severity = LoopWarningSeverity.WARNING
+                )
+            }
         }
 
         return null

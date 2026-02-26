@@ -46,3 +46,4 @@ bridge:
   task_overrides:
     BrowserDraw: { perception_mode: hybrid }
     BrowserMaze: { perception_mode: hybrid }
+    ExpenseAddMultipleFromGallery: { perception_mode: hybrid }

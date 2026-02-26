@@ -336,7 +336,16 @@ private constructor(
                     else -> null
                 }
 
-        // 1. Emit TaskCompleted (per-task event, not session-level)
+        // 1. Flush trace to disk BEFORE signaling completion — guarantees all trace
+        //    events (including session_stopped + run_summary) are on disk before the
+        //    runner detects TaskCompleted in logcat and force-stops the process.
+        try {
+            services.traceRecorder.flush()
+        } catch (e: Exception) {
+            Log.w(TAG, "Trace flush failed (non-fatal): ${e.message}")
+        }
+
+        // 2. Emit TaskCompleted (per-task event, not session-level)
         emit(
                 TaskCompleted(
                         sessionId = sessionId,
@@ -347,21 +356,21 @@ private constructor(
                 )
         )
 
-        // 2. Flush checkpoint for process-death recovery
+        // 3. Flush checkpoint for process-death recovery
         val checkpointed = checkpointCoordinator.flushIdleReady()
         if (!checkpointed) {
             emitStatus("⚠️ Checkpoint save failed; session kept alive in memory.")
             Log.e(TAG, "Checkpoint save failed for task $taskId; session kept alive in memory")
         }
 
-        // 3. Transition to Idle (Hot Idle)
+        // 4. Transition to Idle (Hot Idle)
         _state.value = SessionState.Idle
         currentTaskId = null
 
-        // 4. Release agent runner only; platform stays alive for follow-up tasks
+        // 5. Release agent runner only; platform stays alive for follow-up tasks
         agentRunner.clear()
 
-        // 5. Schedule idle timeout (auto-shutdown after inactivity)
+        // 6. Schedule idle timeout (auto-shutdown after inactivity)
         scheduleIdleTimeout()
 
         Log.i(TAG, "Task $taskId completed (reason=$completionReason). Session idle, awaiting follow-up.")

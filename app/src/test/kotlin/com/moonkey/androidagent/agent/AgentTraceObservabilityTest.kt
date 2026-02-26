@@ -182,6 +182,8 @@ private class RecordingTraceRecorder : TraceRecorder {
                 )
         }
 
+        override suspend fun flush() = Unit
+
         override suspend fun close() = Unit
 
         fun findStored(filenameHint: String): String? = storedTexts[filenameHint]
