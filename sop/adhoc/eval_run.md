@@ -1,3 +1,3 @@
-1. 从eval/config/aw_fullset.txt 挑20个eval/config/aw_subset_core.txt里没有的task，写到eval/config/aw_subset_group_1.txt。
-2. 然后用eval runner跑它。注意，过程中间,task之间可能会不知道为什么丢掉accessibility权限,这时候会卡住。如果在一个任务等待卡很久,那你可能需要再去手动给Android的Agent App grant一下accessibility permission，可能甚至需要你手动停止runner process再重跑一遍(这时候不要再重跑已经跑完的任务，缩小你的任务集合)。当然如果你看一看我的runner的这个脚本有什么问题,把这个问题能根治那是更好的。跑完这20个任务。
-3. 然后用 /cog-tune skill分析每一个task的每一个turn。写到doc/todo/0.01_eval_tune/round6/extra20_after_P12_fix/*_codex.md
+1. commit your code。
+2. 然后用eval runner重新跑eval/config/aw_quick5.txt。注意，过程中间,task之间可能会不知道为什么丢掉accessibility权限,这时候会卡住。如果在一个任务等待卡很久,那你可能需要再去手动给Android的Agent App grant一下accessibility permission，可能甚至需要你手动停止runner process再重跑一遍(这时候不要再重跑已经跑完的任务，缩小你的任务集合)。这个issue应该是已经fix了，letting you know just in case。跑完这5个任务。
+3. 然后用 /cog-tune skill分析每一个task的每一个turn。写到doc/todo/0.01_eval_tune/round7/eval_analysis_[run foldername]/*_claude.md
