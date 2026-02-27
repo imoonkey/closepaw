@@ -230,6 +230,9 @@ echo 'PLATFORM_MODE=virtual_display' >> .env
 # Run a smoke subset
 eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/aw_subset_smoke.txt
 
+# Run specific tasks
+eval/.venv/bin/python eval/aw_bridge/runner.py --tasks "TaskA,TaskB"
+
 # Virtual-display eval run
 eval/.venv/bin/python eval/aw_bridge/runner.py --platform-mode virtual_display --tasks-file eval/config/aw_subset_smoke.txt
 
@@ -238,7 +241,42 @@ eval/.venv/bin/python eval/aw_bridge/setup_task_only.py --task FilesMoveFile
 ```
 
 Use `eval/.venv/bin/python` for eval commands to avoid dependency drift with the app environment.
-→ See: `eval/README.md`
+
+### Key CLI Arguments
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--tasks` / `--tasks-file` | none | Tasks to run (comma-separated or file) |
+| `--snapshot-policy` | `auto_repair` | `strict` / `auto_repair` / `best_effort` / `off` |
+| `--platform-mode` | `accessibility` | `accessibility` or `virtual_display` |
+| `--adb-serial` | auto-detected | Target device serial |
+| `--config` | `eval/config/default.yaml` | Config file path |
+
+### Snapshot Policy
+
+Controls baseline snapshot management: `strict` (fail on missing), `auto_repair` (create missing, default), `best_effort` (warn and continue), `off` (skip checks).
+
+### Baseline Preparation
+
+```bash
+scripts/prepare_baseline.sh --avd AndroidWorldAvd
+```
+
+Wipes emulator, installs apps, generates snapshots. Run before first eval or when snapshots are corrupted.
+
+### Task Overrides
+
+Per-task config overrides in `eval/config/default.yaml` under `bridge.task_overrides`.
+Prefix matching on task name; any `BridgeConfig` field can be overridden:
+
+```yaml
+bridge:
+  task_overrides:
+    BrowserDraw: { perception_mode: hybrid }
+    ExpenseAddMultipleFromGallery: { perception_mode: hybrid }
+```
+
+> See: `eval/README.md` for full reference, `doc/main/eval/eval.md` for architecture
 
 ## Inspection Tool (Replay v2)
 

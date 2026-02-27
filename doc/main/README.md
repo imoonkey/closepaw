@@ -52,6 +52,9 @@ doc/main/
     └── session/       # Session lifecycle state machine + user flows
         ├── state_machine.md
         └── user_flows.md
+
+├── eval/              # Evaluation & benchmarking
+│   └── eval.md        # Eval runner architecture, AndroidWorld bridge
 ```
 
 ---
@@ -231,6 +234,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 | Overlays | [overlay.md](ui/overlay.md) |
 | History persistence | [history.md](app/history.md) |
 | Settings | [settings.md](app/settings.md) |
+| Evaluation | [eval.md](eval/eval.md) |
 
 ---
 
