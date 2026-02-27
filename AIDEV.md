@@ -87,12 +87,11 @@ sealed class AgentError {
 - `/build-fix` - Fix Gradle errors incrementally
 - `/update-docs` - Sync docs with code changes
 - `/tdd` - Test-driven development for core logic
-- `/visual-debug` - Debug agent with visual inspection
 - `/code-review` - Systematic code review
 - `/strategic-compact` - Context compaction at task boundaries
 - `/orchestrate` - Chain skills/agents for complex workflows
 - `/action-debug` - Debug failed tool executions by isolating action layer
-- `/cog-tune` - Analyze agent cognition using traces and eval results
+- `/cog-tune` - Analyze agent cognition using traces and eval results (includes quick visual debug)
 - `/ux-visual-debug` - End-to-end UX QA from user perspective via ADB
 - `/align` - Align design between Codex and Claude
 - `/coding-standards` - Android/Kotlin coding conventions (auto-applied during code changes)

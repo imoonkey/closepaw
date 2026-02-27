@@ -22,7 +22,7 @@ planner -> tdd -> code-review -> verify
 ### bugfix
 Bug investigation and fix:
 ```
-visual-debug -> build-fix -> code-review -> verify
+cog-tune -> build-fix -> code-review -> verify
 ```
 
 ### refactor
@@ -34,7 +34,7 @@ planner -> code-review -> tdd -> verify
 ### ui
 UI-focused development:
 ```
-planner -> visual-debug -> code-review -> verify
+planner -> cog-tune -> code-review -> verify
 ```
 
 ## Execution Pattern
@@ -106,11 +106,11 @@ Executes:
 
 Executes:
 
-1. **Visual Fix** (`/visual-debug`)
+1. **Cog Tune** (`/cog-tune`)
    - Captures debug data
    - Turn-by-turn analysis
    - Identifies root cause
-   - Output: `HANDOFF: visual-debug -> build-fix`
+   - Output: `HANDOFF: cog-tune -> build-fix`
 
 2. **Build Fix** (`/build-fix`)
    - Fixes any build errors from changes
@@ -174,13 +174,13 @@ Specify custom sequence of skills to chain together.
 | `code-review` | Systematic review |
 | `verify` | Pre-commit quality gates |
 | `build-fix` | Fix Gradle errors |
-| `visual-debug` | Debug with screenshots |
+| `cog-tune` | Debug agent cognition + visual debug |
 | `update-docs` | Sync documentation |
 
 ## Tips
 
 1. **Start with plan** for complex features
 2. **Always end with verify** before commit
-3. **Use visual-debug** for agent behavior bugs
+3. **Use cog-tune** for agent behavior bugs
 4. **Keep handoffs concise** - focus on what next step needs
 5. **Run verify between steps** if needed for confidence

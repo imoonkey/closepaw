@@ -31,10 +31,10 @@ For each Phase, generate TODOs for the steps below. At each phase of the executi
 
 # Code-Step-3: Verification and Wrap up
 After each stage, or after an important phase within a stage:
-3. /visual-debug , run `./scripts/setup.sh && ./scripts/debug-run.sh --basic --vd "play a [fill in some singer name, change every time] song on youtube"` and check the `debug-output` to make sure it works end to end on at least on case (note sometimes when the run output itself says sucess, it may just failed quitely, check the actual debug-output trace to verify). `./scripts/setup.sh` is needed to install the new app on test phone after any code change, don't just run debug-run.sh with old version app. If the run is not successful, write a review, and go back to Code-Step-2 to implement.
-    - 注意 /visual-debug针对的是 AI agent的行为的test。在你没有work on improving agent itself，而是实现一个我的product的其他方面的时候(app UX, smart capsule UX etc.)，可以考虑 /ux-visual-debug skill。这个skill刚刚实现，还在alpha test阶段，如果有问题的话，小问题可以修复，有大问题就先跳过就好了。
+3. /cog-tune (quick debug) , run `./scripts/setup.sh && ./scripts/debug-run.sh --basic --vd "play a [fill in some singer name, change every time] song on youtube"` and check the `debug-output` to make sure it works end to end on at least on case (note sometimes when the run output itself says sucess, it may just failed quitely, check the actual debug-output trace to verify). `./scripts/setup.sh` is needed to install the new app on test phone after any code change, don't just run debug-run.sh with old version app. If the run is not successful, write a review, and go back to Code-Step-2 to implement.
+    - 注意 /cog-tune针对的是 AI agent的行为的test。在你没有work on improving agent itself，而是实现一个我的product的其他方面的时候(app UX, smart capsule UX etc.)，可以考虑 /ux-visual-debug skill。这个skill刚刚实现，还在alpha test阶段，如果有问题的话，小问题可以修复，有大问题就先跳过就好了。
 
-Once visual debug passes:
+Once cog-tune (quick debug) passes:
 4. Start a new subagent to do remove any redundant/legacy/dead code. and do /code-simplifier . Ensure code quality. git commit code changes.
 5. /update-docs . Besides updating doc/{main|dev}, skills/ etc., update the relevant doc/todo/docs with your implementation details. git commit doc changes.
 

@@ -92,7 +92,7 @@ Output in `debug-output/run_<timestamp>/`:
 - `agent.log` - Full agent log
 - `trace/` - JSONL trace + replay artifacts
 
-See [Visual Debugging Guide](../../scripts/agent_process_visual_debug.md) for systematic debugging workflow.
+See [Visual Debug Guide](visual_debug_guide.md) for systematic debugging workflow.
 
 ### 3.1 Direct Action Debug (Execution Layer)
 
@@ -218,7 +218,7 @@ echo 'PLATFORM_MODE=virtual_display' >> .env
 ## Detailed Documentation
 
 - **[Scripts README](../../scripts/README.md)** - Complete script reference and options
-- **[Visual Debugging Guide](../../scripts/agent_process_visual_debug.md)** - Step-by-step debugging methodology
+- **[Visual Debug Guide](visual_debug_guide.md)** - Step-by-step debugging methodology
 
 ## Evaluation Harness (AndroidWorld Bridge)
 

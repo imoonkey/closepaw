@@ -9,7 +9,27 @@ description: Analyze Android Agent cognition using debug-run traces/replay artif
 
 Improve agent cognition by inspecting debug-run traces, eval metrics/results, screenshots/screen observations, LLM inputs/outputs, and tool calls, then applying generalizable prompt/context/tool changes backed by evidence.
 
-## Workflow
+## Quick Debug (lightweight entry)
+
+For simple "agent did something wrong" cases that don't need full eval analysis, use this abbreviated flow:
+
+1. **Run debug session**: `./scripts/setup.sh && ./scripts/debug-run.sh "goal"`
+2. **Turn-by-turn check**: For each turn, compare the screenshot (`turn_N.png`) against the log (`turn_N_log.txt`):
+   - Does the agent perceive the target element? (Perception)
+   - Does it choose the right action? (Reasoning)
+   - Does the action succeed? (Execution)
+   - Does it observe the result correctly? (Observation)
+3. **Quick diagnostics**:
+   ```bash
+   grep -E "click|type|scroll|swipe|back|home" debug-output/run_*/agent.log
+   grep "ActionResult\|ToolCallResult" debug-output/run_*/agent.log
+   grep "ERROR\|Exception" debug-output/run_*/agent.log
+   ```
+4. **Fix and verify**: Apply targeted fix, then re-run `./scripts/setup.sh && ./scripts/debug-run.sh "goal"`.
+
+If the issue is unclear after this quick pass, proceed to the full workflow below.
+
+## Full Workflow
 
 ### 1. Set scope and guardrails
 
@@ -121,7 +141,7 @@ Provide a report with:
 
 - Cognition roadmap: `doc/todo/cognition/design_proposal.md`
 - Trace/replay design: `doc/todo/tracking/final_design_codex.md`
-- Debug workflow: `scripts/agent_process_visual_debug.md`
+- Debug workflow guide: `doc/dev/visual_debug_guide.md`
 - Debug run script: `scripts/debug-run.sh`
 - Action test harness: `scripts/action-test.sh`
 - Replay compiler: `inspection_tool/replay_compiler.py`

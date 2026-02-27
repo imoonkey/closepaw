@@ -92,7 +92,7 @@ Output in `debug-output/run_<timestamp>/`:
 - `llm_screens/` - LLM screenshots (if debug mode)
 - `trace/` - JSONL trace + replay artifacts
 
-See **[agent_process_visual_debug.md](./agent_process_visual_debug.md)** for detailed debugging workflow.
+See **[Visual Debug Guide](../doc/dev/visual_debug_guide.md)** for detailed debugging workflow.
 
 ### `logs.sh` - View Filtered Logs
 

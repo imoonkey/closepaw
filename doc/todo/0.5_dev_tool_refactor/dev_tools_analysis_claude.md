@@ -177,18 +177,18 @@ The `.md` file in scripts/ is odd — it's documentation, not a script. It shoul
 
 ### Skill Changes
 
-| Priority | Action | Rationale |
-|----------|--------|-----------|
-| **P1** | Merge /visual-debug into /cog-tune | Overlapping scope, visual-debug references stale output format, cog-tune already covers the full workflow |
-| **P2** | Update /visual-debug references to current trace format | If not merging: at minimum fix `debug-output/agent.log` and `turn_N.png` references to use `trace/` directory |
-| **P3** | Validate /ux-visual-debug with a real run | The skill spec looks solid but hasn't been exercised; validate scenarios work before investing more |
+| Priority | Action | Status |
+|----------|--------|--------|
+| **P1** | Merge /visual-debug into /cog-tune (added "Quick Debug" section, removed visual-debug skill) | **DONE** |
+| **P2** | N/A (P1 was done, so P2 is moot) | **DONE** |
+| **P3** | Validate /ux-visual-debug with a real run | Pending |
 
 ### Script/Folder Changes
 
-| Priority | Action | Rationale |
-|----------|--------|-----------|
-| **P2** | Move `scripts/agent_process_visual_debug.md` to `doc/dev/` | Documentation shouldn't live in scripts/ |
-| **P3** | No folder renames needed | inspection_tool/, eval/, scripts/ boundaries are reasonable despite imperfect naming |
+| Priority | Action | Status |
+|----------|--------|--------|
+| **P2** | Move `scripts/agent_process_visual_debug.md` to `doc/dev/visual_debug_guide.md` | **DONE** |
+| **P3** | No folder renames needed | N/A |
 
 ### What NOT to Change
 

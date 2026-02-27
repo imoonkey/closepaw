@@ -11,8 +11,8 @@ Two modes:
 1. **AI-Interactive Mode** (primary) — Claude drives testing via screenshot-analyze-act loops, adapting to actual screen state.
 2. **Scenario Mode** (deterministic) — JSON-defined step sequences for smoke tests and CI regression.
 
-Keep this separate from `visual-debug`:
-- `visual-debug`: inspect agent reasoning/perception/tool chain.
+Keep this separate from `cog-tune`:
+- `cog-tune`: inspect agent reasoning/perception/tool chain.
 - `ux-visual-debug`: inspect app UX behavior and interaction quality.
 
 ---
@@ -248,7 +248,7 @@ python3 .ai-dev/skills/ux-visual-debug/scripts/adb_ux_runner.py \
 - `references/scenario_agent_parallel_example.json` — Parallel agent linkage example
 - `references/scenario_template.json` — Blank template
 
-### visual-debug Linkage
+### cog-tune Linkage
 
 When `--agent-goal` is set, the runner coordinates with `scripts/debug-run.sh`:
 - `parallel`: Agent runs while UX scenario executes user interactions simultaneously.
