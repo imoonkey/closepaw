@@ -54,6 +54,7 @@ class BridgeOutcome:
 
 class NativeAgentBridge:
     _A11Y_SERVICE = "com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService"
+    _A11Y_SERVICE_LABEL = "Android Agent"
 
     def __init__(self, config: BridgeConfig) -> None:
         self._config = config
@@ -248,6 +249,15 @@ class NativeAgentBridge:
             check=False,
             timeout_sec=self._config.adb_command_timeout_sec,
         )
+        # Start the app to clear Android's force-stopped state.
+        # force_stop() puts the app in a state where Android won't auto-start
+        # services (including accessibility).  Starting the activity clears
+        # this flag so the framework can bind our AccessibilityService.
+        self._run_adb_shell(
+            ["am", "start", "-n", self._config.activity, "-W"],
+            check=False,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
         last_state = "unknown"
         for attempt in range(1, self._A11Y_ENABLE_ATTEMPTS + 1):
             self._enable_accessibility_service_settings()
@@ -264,6 +274,11 @@ class NativeAgentBridge:
                     self._A11Y_ENABLE_ATTEMPTS,
                     state,
                 )
+                # Fully reset accessibility to force the framework to rebind.
+                # Toggle off the service list AND disable global accessibility
+                # so AccessibilityManagerService tears down all bindings.
+                self._toggle_accessibility_service_off()
+                self._put_secure_setting("accessibility_enabled", "0")
                 time.sleep(self._A11Y_RETRY_COOLDOWN_SEC)
 
         raise RuntimeError(
@@ -271,9 +286,9 @@ class NativeAgentBridge:
             f"{self._A11Y_ENABLE_ATTEMPTS} attempts. Last state: {last_state}"
         )
 
-    _A11Y_READY_TIMEOUT_SEC = 12
+    _A11Y_READY_TIMEOUT_SEC = 15
     _A11Y_POLL_INTERVAL_SEC = 0.5
-    _A11Y_ENABLE_ATTEMPTS = 2
+    _A11Y_ENABLE_ATTEMPTS = 3
     _A11Y_RETRY_COOLDOWN_SEC = 1.0
     _SHIZUKU_START_TIMEOUT_SEC = 15
 
@@ -291,6 +306,16 @@ class NativeAgentBridge:
         self._put_secure_setting("enabled_accessibility_services", new_value)
         if not already_enabled:
             self._put_secure_setting("accessibility_enabled", "1")
+
+    def _toggle_accessibility_service_off(self) -> None:
+        """Remove the agent's a11y service from settings to force Android to rebind on re-enable."""
+        current_raw = self._get_secure_setting("enabled_accessibility_services")
+        services = self._parse_a11y_services(current_raw)
+        if self._A11Y_SERVICE in services:
+            services.remove(self._A11Y_SERVICE)
+            new_value = ":".join(services) if services else "null"
+            _log.info("Toggling off: setting enabled_accessibility_services=%s", new_value)
+            self._put_secure_setting("enabled_accessibility_services", new_value)
 
     def _wait_for_accessibility_service_ready(self) -> tuple[bool, str]:
         deadline = time.monotonic() + self._A11Y_READY_TIMEOUT_SEC
@@ -373,11 +398,17 @@ class NativeAgentBridge:
 
     @classmethod
     def _is_service_in_bound_accessibility_services(cls, dumpsys_text: str) -> bool:
+        # Match on the full component name, the package name, or the service
+        # label.  Different Android versions format Bound services differently:
+        # some include componentName=pkg/class, others only show
+        # label=<app-name> without the package or component name.
+        package = cls._A11Y_SERVICE.split("/")[0]
+        markers = (cls._A11Y_SERVICE, package, cls._A11Y_SERVICE_LABEL)
         lines = dumpsys_text.splitlines()
         for index, line in enumerate(lines):
             if "Bound services" not in line and "mBoundServices" not in line:
                 continue
-            if cls._A11Y_SERVICE in line:
+            if any(m in line for m in markers):
                 return True
 
             indent = len(line) - len(line.lstrip())
@@ -388,7 +419,7 @@ class NativeAgentBridge:
                 next_indent = len(next_line) - len(next_line.lstrip())
                 if next_indent <= indent and ":" in stripped:
                     break
-                if cls._A11Y_SERVICE in stripped:
+                if any(m in stripped for m in markers):
                     return True
         return False
 
