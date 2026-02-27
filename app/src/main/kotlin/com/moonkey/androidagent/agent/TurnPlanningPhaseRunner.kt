@@ -43,7 +43,8 @@ internal class TurnPlanningPhaseRunner(
                 turnId: String,
                 turnNumber: Int,
                 snapshot: ScreenSnapshot,
-                warnings: List<String>
+                warnings: List<String>,
+                blockedActions: Set<String> = emptySet()
         ): PlanningPhaseOutput {
                 eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PLANNING)
                 eventDispatcher.status("🧠 Thinking...")
@@ -71,7 +72,9 @@ internal class TurnPlanningPhaseRunner(
                         promptBuilder.buildInputItems(
                                 snapshot = snapshot,
                                 image = snapshot.image,
-                                warnings = warnings
+                                warnings = warnings,
+                                turnNumber = turnNumber,
+                                maxTurns = config.maxTurns
                         )
 
                 // Record screen observation for future turns (after prompt built)
@@ -136,7 +139,7 @@ internal class TurnPlanningPhaseRunner(
                         )
                 }
 
-                val arbitration = turnPolicyEngine.arbitrateToolCalls(result.toolCalls)
+                val arbitration = turnPolicyEngine.arbitrateToolCalls(result.toolCalls, blockedActions)
                 trace.arbitrationDecision(
                         turnId = turnId,
                         turnNumber = turnNumber,

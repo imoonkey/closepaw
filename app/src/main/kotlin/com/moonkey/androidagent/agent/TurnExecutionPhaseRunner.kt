@@ -256,30 +256,42 @@ internal class TurnExecutionPhaseRunner(
                         is ToolCallResult.Cancelled -> "Cancelled: ${result.reason}"
                 }
 
-        private fun classifyAction(toolCall: ToolCallRequest): String {
-                when (ToolName.from(toolCall.name)) {
-                        ToolName.Wait -> return "mobile_action:wait"
-                        ToolName.SystemButton -> return "mobile_action:system_button"
-                        else -> Unit
-                }
+        private fun classifyAction(toolCall: ToolCallRequest): String =
+                classifyActionSignature(toolCall)
+}
 
-                if (toolCall.name != ToolName.MobileAction.raw) {
-                        return toolCall.name.lowercase()
-                }
+/**
+ * Produces a stable action signature string for a tool call.
+ *
+ * Used by [TurnExecutionPhaseRunner] to populate [NavigationState.recentActions]
+ * and by [com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy] to match
+ * blocked actions during loop escalation.
+ *
+ * Format examples: "mobile_action:click", "scroll:down", "shell", "open_app".
+ */
+internal fun classifyActionSignature(toolCall: ToolCallRequest): String {
+        when (ToolName.from(toolCall.name)) {
+                ToolName.Wait -> return "mobile_action:wait"
+                ToolName.SystemButton -> return "mobile_action:system_button"
+                else -> Unit
+        }
 
-                val action = toolCall.arguments.optString("action", "").trim().lowercase()
-                val mobileActionName = MobileActionName.from(action)
-                return when (mobileActionName) {
-                        MobileActionName.Scroll -> {
-                                val direction =
-                                        toolCall.arguments
-                                                .optString("direction", "")
-                                                .trim()
-                                                .lowercase()
-                                "scroll:${direction.ifBlank { "unknown" }}"
-                        }
-                        MobileActionName.Swipe -> "mobile_action:swipe"
-                        else -> "mobile_action:${mobileActionName.canonical}"
+        if (toolCall.name != ToolName.MobileAction.raw) {
+                return toolCall.name.lowercase()
+        }
+
+        val action = toolCall.arguments.optString("action", "").trim().lowercase()
+        val mobileActionName = MobileActionName.from(action)
+        return when (mobileActionName) {
+                MobileActionName.Scroll -> {
+                        val direction =
+                                toolCall.arguments
+                                        .optString("direction", "")
+                                        .trim()
+                                        .lowercase()
+                        "scroll:${direction.ifBlank { "unknown" }}"
                 }
+                MobileActionName.Swipe -> "mobile_action:swipe"
+                else -> "mobile_action:${mobileActionName.canonical}"
         }
 }

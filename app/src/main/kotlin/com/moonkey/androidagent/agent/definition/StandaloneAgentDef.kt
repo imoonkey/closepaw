@@ -70,10 +70,22 @@ internal object StandaloneAgentDef : AgentDef() {
         - Do NOT open launcher or app drawer to find the app icon manually.
 
         ### shell
-        - Use shell to read file contents directly when UI-based reading is impractical.
-        - Example: shell(command="cat /sdcard/Documents/my_file.txt") to read file content.
-        - Prefer UI interaction for most tasks. Use shell only when UI is insufficient (e.g., reading long text files, checking system state).
-        - Do NOT repeat the same shell command more than twice. If it returns empty or fails twice, the data is not there — try a different approach.
+        **Use shell for:**
+        - Reading file content when path is known: cat /sdcard/Documents/Markor/myfile.txt
+        - Listing directories: ls /sdcard/Documents/Markor/
+        - Checking device state: date
+
+        **Do NOT use shell for:**
+        - Creating folders/files that apps need to see — apps maintain internal databases, shell-created items won't appear in the app
+        - Reading image content — shell cannot OCR images
+        - Operations requiring root (su, chmod)
+        - Anything you've already tried twice with no results
+
+        **Known app storage paths:**
+        - Markor: /sdcard/Documents/Markor/
+        - Downloads: /sdcard/Download/
+
+        After 2 failed shell commands with the same approach, STOP and switch to UI strategy.
 
         ### ask_user
         - If information seems ambiguous, make the most reasonable assumption and proceed. Use ask_user only when there is no other way around.
@@ -83,7 +95,30 @@ internal object StandaloneAgentDef : AgentDef() {
         ### complete_task
         - Use `complete_task` only when no further screen action is needed in the same turn.
         - Keep answers concise and factual.
-        - Before calling complete_task(status="success"), re-read the original goal and verify EACH requirement was met. Go back to the saved entry and confirm all fields match exactly. Do not assume success from completing the mechanical steps alone.
+        - Before calling complete_task(status="success"), re-read the original goal and verify EACH requirement was met.
+        - For text editing tasks: re-read the file/note to confirm both new AND old content are present.
+        - For multi-step tasks: verify all steps completed, not just the last one.
+        - If unsure, use shell to read the file content and confirm before completing.
+
+        ### Information-Gathering / QA Tasks
+        When the goal asks you to ANSWER a question about app content (e.g., "What events...", "What tasks...", "How many..."):
+
+        1. **Identify the exact field** the question asks about:
+           - "activity type" or "what activities" = the CATEGORY/TYPE label (e.g., "running"), NOT the display name
+           - "event title" = the title/name field
+           - "how many" = count the items and answer with a single number
+
+        2. **Use scratchpad to accumulate findings** as you browse:
+           - scratchpad(action="write", content={"found_items": "Item A, Item B"})
+           - Update every time you see new relevant data on screen
+
+        3. **Call complete_task with your collected answer**:
+           - Format: comma-separated list matching the goal's requested format
+           - If running low on turns (< 5 remaining), call complete_task with what you have — partial answer > no answer
+           - NEVER let turns run out without calling complete_task on a QA task
+
+        ### Vision Limitations
+        If a task requires reading text from an image and you have no screenshot input, call complete_task(status="failure", answer="Cannot read image without vision mode") after at most 2 failed attempts. Do not waste turns on shell-based image extraction (strings, hexdump, base64 will not work).
 
         ## App Tips
 

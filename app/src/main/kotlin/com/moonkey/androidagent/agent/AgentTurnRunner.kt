@@ -1,20 +1,24 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
-import com.moonkey.androidagent.agent.cognition.context.LoopWarning
 import com.moonkey.androidagent.agent.cognition.context.LoopWarningSeverity
+import com.moonkey.androidagent.agent.cognition.policy.EscalationLevel
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
 import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
 import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionPolicy
+import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionResult
 import com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.ScreenStatePhase
 import com.moonkey.androidagent.session.SessionServices
+import com.moonkey.androidagent.tool.ToolName
 import com.moonkey.androidagent.trace.AgentTrace
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
+import org.json.JSONObject
 
 /**
  * Executes one full agent turn and returns the next-loop decision.
@@ -82,34 +86,49 @@ internal class AgentTurnRunner(
                                                 prepareTurn(turnNumber, nextState, snapshot)
                                         nextState = preparedTurn.nextState
 
-                                        val planningResult =
-                                                planningPhaseRunner.runPlanningPhase(
-                                                        turnId = turnId,
-                                                        turnNumber = turnNumber,
-                                                        snapshot = snapshot,
-                                                        warnings = preparedTurn.warnings
-                                                )
-
-                                        val actionForNextTurn =
+                                        // Tier 3: force task completion with failure status
+                                        if (preparedTurn.escalation == EscalationLevel.FORCE_COMPLETE) {
+                                                Log.w(TAG, "Turn $turnNumber: FORCE_COMPLETE — injecting synthetic complete_task(status=failure)")
+                                                eventDispatcher.status("🛑 Loop escalation: forcing task completion (failure)")
+                                                val syntheticCall = buildSyntheticFailureCompletion()
                                                 executionPhaseRunner.executeActions(
                                                         turnId = turnId,
                                                         turnNumber = turnNumber,
                                                         initialSnapshot = snapshot,
-                                                        toolCallsToExecute =
-                                                                planningResult
-                                                                        .arbitration
-                                                                        .selectedToolCalls
+                                                        toolCallsToExecute = listOf(syntheticCall)
                                                 )
-                                        nextState =
-                                                nextState.copy(
-                                                        previousActionSignature = actionForNextTurn
-                                                )
+                                                TurnOutcome.Complete("Task failed: agent stuck in loop after ${config.maxTurns} attempts")
+                                        } else {
+                                                val planningResult =
+                                                        planningPhaseRunner.runPlanningPhase(
+                                                                turnId = turnId,
+                                                                turnNumber = turnNumber,
+                                                                snapshot = snapshot,
+                                                                warnings = preparedTurn.warnings,
+                                                                blockedActions = preparedTurn.blockedActions
+                                                        )
 
-                                        decideTurnOutcome(
-                                                turnNumber = turnNumber,
-                                                result = planningResult.turnResult,
-                                                arbitration = planningResult.arbitration
-                                        )
+                                                val actionForNextTurn =
+                                                        executionPhaseRunner.executeActions(
+                                                                turnId = turnId,
+                                                                turnNumber = turnNumber,
+                                                                initialSnapshot = snapshot,
+                                                                toolCallsToExecute =
+                                                                        planningResult
+                                                                                .arbitration
+                                                                                .selectedToolCalls
+                                                        )
+                                                nextState =
+                                                        nextState.copy(
+                                                                previousActionSignature = actionForNextTurn
+                                                        )
+
+                                                decideTurnOutcome(
+                                                        turnNumber = turnNumber,
+                                                        result = planningResult.turnResult,
+                                                        arbitration = planningResult.arbitration
+                                                )
+                                        }
                                 }
                         } catch (e: Exception) {
                                 handleTurnFailure(turnId, turnNumber, e)
@@ -123,7 +142,9 @@ internal class AgentTurnRunner(
 
         private data class PreparedTurn(
                 val nextState: TurnRunnerState,
-                val warnings: List<String>
+                val warnings: List<String>,
+                val escalation: EscalationLevel = EscalationLevel.NONE,
+                val blockedActions: Set<String> = emptySet()
         )
 
         private suspend fun capturePreTurnSnapshot(
@@ -179,13 +200,40 @@ internal class AgentTurnRunner(
                                 snapshot = snapshot,
                                 previousAction = state.previousActionSignature
                         )
-                val nextState = state.copy(navigationState = navigationState)
 
-                val loopWarning = loopDetectionPolicy.detect(navigationState)
-                loopWarning?.let {
-                        Log.w(TAG, "Turn $turnNumber loop warning: ${it.message}")
+                val loopResult = loopDetectionPolicy.detect(navigationState)
+                loopResult.warning?.let {
+                        Log.w(TAG, "Turn $turnNumber loop warning [${loopResult.escalation}]: ${it.message}")
                         eventDispatcher.status("⚠️ ${it.message}")
                 }
+
+                // Update loop escalation state on NavigationState.
+                // Increment consecutiveLoopTurns on CRITICAL warnings; reset on no warning.
+                val updatedNavState = when {
+                        loopResult.warning?.severity == LoopWarningSeverity.CRITICAL -> {
+                                val newLoopTurns = navigationState.consecutiveLoopTurns + 1
+                                // At BLOCK level, collect recent action signatures to block
+                                val newBlocked = if (loopResult.escalation >= EscalationLevel.BLOCK) {
+                                        navigationState.recentActions.takeLast(3).toSet()
+                                } else {
+                                        emptySet()
+                                }
+                                navigationState.copy(
+                                        consecutiveLoopTurns = newLoopTurns,
+                                        blockedActions = newBlocked
+                                )
+                        }
+                        loopResult.warning == null -> {
+                                // No loop detected — reset escalation state
+                                navigationState.copy(
+                                        consecutiveLoopTurns = 0,
+                                        blockedActions = emptySet()
+                                )
+                        }
+                        else -> navigationState // WARNING-level: don't change escalation counters
+                }
+
+                val nextState = state.copy(navigationState = updatedNavState)
 
                 val stepDecision =
                         executorStepPolicy.evaluate(
@@ -193,27 +241,39 @@ internal class AgentTurnRunner(
                                 delegatedQuery = config.goal,
                                 history = services.historyManager.getAll()
                         )
-                val warnings = buildWarnings(loopWarning, stepDecision)
+                val warnings = buildWarnings(loopResult, stepDecision)
 
                 return PreparedTurn(
                         nextState = nextState,
-                        warnings = warnings
+                        warnings = warnings,
+                        escalation = loopResult.escalation,
+                        blockedActions = updatedNavState.blockedActions
                 )
         }
 
         /**
          * Build plain-text warning strings for the current observation.
          *
-         * Per review: only loop warnings and final-turn warning. Turn budget approaching warnings
-         * are intentionally omitted (less noise).
+         * Tier 1 (ADVISORY): standard loop warning.
+         * Tier 2 (BLOCK): mandatory strategy-change directive listing blocked actions.
+         * Tier 3 (FORCE_COMPLETE): not needed here (turn is short-circuited in executeTurn).
          */
         private fun buildWarnings(
-                loopWarning: LoopWarning?,
+                loopResult: LoopDetectionResult,
                 stepDecision: ExecutorStepDecision
         ): List<String> = buildList {
-                loopWarning?.let {
-                        val emoji = if (it.severity == LoopWarningSeverity.CRITICAL) "🚨" else "⚠️"
-                        add("$emoji ${it.message}")
+                loopResult.warning?.let { warning ->
+                        if (loopResult.escalation >= EscalationLevel.BLOCK) {
+                                val blocked = loopResult.warning.message
+                                add("🚨 LOOP ESCALATION — You are stuck and MUST change strategy.\n" +
+                                        "$blocked\n" +
+                                        "Your recent actions are now BLOCKED. You MUST try a fundamentally " +
+                                        "different approach (e.g. go back, use search, try a different menu, " +
+                                        "or use shell). Do NOT repeat any variation of your recent actions.")
+                        } else {
+                                val emoji = if (warning.severity == LoopWarningSeverity.CRITICAL) "🚨" else "⚠️"
+                                add("$emoji ${warning.message}")
+                        }
                 }
                 if (stepDecision is ExecutorStepDecision.ForceStop) {
                         add("🛑 FINAL TURN (${config.maxTurns}). Complete now or report progress.")
@@ -245,6 +305,24 @@ internal class AgentTurnRunner(
                 return TurnOutcome.Error(
                         message = classification.message,
                         recoverable = classification.recoverable
+                )
+        }
+
+        /**
+         * Build a synthetic `complete_task(status="failure")` tool call for Tier 3 forced completion.
+         *
+         * Uses normal tool execution path so the completion is recorded in history and trace
+         * identically to an LLM-initiated completion.
+         */
+        private fun buildSyntheticFailureCompletion(): ToolCallRequest {
+                val args = JSONObject().apply {
+                        put("status", "failure")
+                        put("answer", "Task could not be completed: agent detected stuck in a repeated action loop.")
+                }
+                return ToolCallRequest(
+                        id = "forced_${UUID.randomUUID()}",
+                        name = ToolName.CompleteTask.raw,
+                        arguments = args
                 )
         }
 }

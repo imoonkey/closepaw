@@ -2,6 +2,7 @@ package com.moonkey.androidagent.agent.cognition.policy
 
 import com.moonkey.androidagent.agent.ToolCallRequest
 import com.moonkey.androidagent.agent.TurnResult
+import com.moonkey.androidagent.agent.classifyActionSignature
 import com.moonkey.androidagent.tool.ToolName
 
 private val COMPLETE_TASK_TOOL = ToolName.CompleteTask.raw
@@ -28,11 +29,18 @@ internal data class CompletionDecision(val shouldComplete: Boolean, val summary:
 internal class TurnToolPolicy {
     /**
      * Arbitration rule:
+     * - Filter out tool calls whose action signature is blocked by loop escalation.
      * - Keep all non-screen-changing (cognitive) tools.
      * - Keep at most one screen-changing tool (first one wins).
      * - Keep `complete_task` only when no screen-changing tool is selected.
+     *
+     * @param blockedActions Action signatures (e.g. "scroll:down", "mobile_action:click")
+     *   to reject due to loop escalation. Empty set means no blocking.
      */
-    fun arbitrateToolCalls(toolCalls: List<ToolCallRequest>): ToolArbitrationResult {
+    fun arbitrateToolCalls(
+        toolCalls: List<ToolCallRequest>,
+        blockedActions: Set<String> = emptySet()
+    ): ToolArbitrationResult {
         if (toolCalls.isEmpty()) {
             return ToolArbitrationResult(
                 selectedToolCalls = emptyList(),
@@ -54,7 +62,14 @@ internal class TurnToolPolicy {
                                 !ToolName.from(call.name).isScreenChanging
                 }
 
-        val selectedScreen = screenCalls.firstOrNull()
+        // Loop escalation: filter out screen calls whose action signature is blocked
+        val allowedScreenCalls = if (blockedActions.isEmpty()) {
+            screenCalls
+        } else {
+            screenCalls.filter { classifyActionSignature(it) !in blockedActions }
+        }
+
+        val selectedScreen = allowedScreenCalls.firstOrNull()
         val selectedCompletion = if (selectedScreen == null) completionCall else null
         val selectedToolCalls =
                 buildList {

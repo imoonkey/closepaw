@@ -20,10 +20,11 @@ class LoopDetectionPolicyTest {
             state = state.advance(snapshot(label = "Inbox"), previousAction = null)
         }
 
-        val warning = policy.detect(state)
+        val result = policy.detect(state)
 
-        assertThat(warning).isNotNull()
-        assertThat(warning?.severity).isEqualTo(LoopWarningSeverity.CRITICAL)
+        assertThat(result.warning).isNotNull()
+        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.CRITICAL)
+        assertThat(result.escalation).isEqualTo(EscalationLevel.ADVISORY)
     }
 
     @Test
@@ -35,10 +36,10 @@ class LoopDetectionPolicyTest {
             state = state.advance(snapshot(label = "Inbox-$index"), previousAction = "scroll:up")
         }
 
-        val warning = policy.detect(state)
+        val result = policy.detect(state)
 
-        assertThat(warning).isNotNull()
-        assertThat(warning?.message).contains("consecutive scroll")
+        assertThat(result.warning).isNotNull()
+        assertThat(result.warning?.message).contains("consecutive scroll")
     }
 
     @Test
@@ -55,11 +56,11 @@ class LoopDetectionPolicyTest {
             state = state.advance(snapshot(label = "Screen-$index"), previousAction = "mobile_action:click")
         }
 
-        val warning = policy.detect(state)
+        val result = policy.detect(state)
 
-        assertThat(warning).isNotNull()
-        assertThat(warning?.severity).isEqualTo(LoopWarningSeverity.WARNING)
-        assertThat(warning?.message).contains("Same action repeated")
+        assertThat(result.warning).isNotNull()
+        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.WARNING)
+        assertThat(result.warning?.message).contains("Same action repeated")
     }
 
     @Test
@@ -76,10 +77,59 @@ class LoopDetectionPolicyTest {
         state = state.advance(snapshot(label = "Inbox "), previousAction = null)
         state = state.advance(snapshot(label = "Inbox  "), previousAction = null)
 
-        val warning = policy.detect(state)
+        val result = policy.detect(state)
 
-        assertThat(warning).isNotNull()
-        assertThat(warning?.severity).isEqualTo(LoopWarningSeverity.CRITICAL)
+        assertThat(result.warning).isNotNull()
+        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.CRITICAL)
+    }
+
+    @Test
+    fun `escalation reaches BLOCK after consecutiveLoopTurns threshold`() {
+        val policy = LoopDetectionPolicy(
+            LoopDetectionConfig(blockEscalationThreshold = 2)
+        )
+        var state = NavigationState()
+
+        // Build up 3 identical screens to trigger CRITICAL warning
+        repeat(3) {
+            state = state.advance(snapshot(label = "Stuck"), previousAction = null)
+        }
+        // Simulate that 2 consecutive CRITICAL loop turns have already occurred
+        state = state.copy(consecutiveLoopTurns = 2)
+
+        val result = policy.detect(state)
+
+        assertThat(result.warning).isNotNull()
+        assertThat(result.escalation).isEqualTo(EscalationLevel.BLOCK)
+    }
+
+    @Test
+    fun `escalation reaches FORCE_COMPLETE after high consecutiveLoopTurns`() {
+        val policy = LoopDetectionPolicy(
+            LoopDetectionConfig(forceCompleteEscalationThreshold = 5)
+        )
+        var state = NavigationState()
+
+        repeat(3) {
+            state = state.advance(snapshot(label = "Stuck"), previousAction = null)
+        }
+        state = state.copy(consecutiveLoopTurns = 5)
+
+        val result = policy.detect(state)
+
+        assertThat(result.warning).isNotNull()
+        assertThat(result.escalation).isEqualTo(EscalationLevel.FORCE_COMPLETE)
+    }
+
+    @Test
+    fun `no escalation when no warning detected`() {
+        val policy = LoopDetectionPolicy()
+        val state = NavigationState()
+
+        val result = policy.detect(state)
+
+        assertThat(result.warning).isNull()
+        assertThat(result.escalation).isEqualTo(EscalationLevel.NONE)
     }
 
     private fun snapshot(label: String): ScreenSnapshot {

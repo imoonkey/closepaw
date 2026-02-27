@@ -13,11 +13,19 @@ private const val POSITION_BUCKET_PX = 120
  *
  * It acts as the agent's short-term spatial memory, using simplified [ScreenSignature]s to robustly
  * identify if the agent is revisiting the same states or repeating actions.
+ *
+ * Loop escalation state ([consecutiveLoopTurns], [blockedActions]) is managed by
+ * [com.moonkey.androidagent.agent.cognition.policy.LoopDetectionPolicy] and consumed by
+ * [com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy] to block repeated actions.
  */
 internal data class NavigationState(
         val recentSignatures: List<ScreenSignature> = emptyList(),
         val consecutiveScrollActions: Int = 0,
-        val recentActions: List<String> = emptyList()
+        val recentActions: List<String> = emptyList(),
+        /** Number of consecutive turns where a CRITICAL loop warning fired with no screen progress. */
+        val consecutiveLoopTurns: Int = 0,
+        /** Action signatures blocked by loop escalation (Tier 2+). */
+        val blockedActions: Set<String> = emptySet()
 ) {
     fun advance(snapshot: ScreenSnapshot, previousAction: String?): NavigationState {
         val signature = snapshot.toSignature()

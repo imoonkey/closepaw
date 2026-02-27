@@ -35,15 +35,19 @@ internal class PromptBuilder(
      * @param snapshot  Current screen capture
      * @param image     Optional screenshot (attached when using OpenAI backend)
      * @param warnings  Plain-text warning strings (loop detection, final turn, etc.)
+     * @param turnNumber Current turn number (1-based)
+     * @param maxTurns  Maximum turns allowed for this session
      */
     fun buildInputItems(
         snapshot: ScreenSnapshot,
         image: ScreenImage?,
-        warnings: List<String> = emptyList()
+        warnings: List<String> = emptyList(),
+        turnNumber: Int = 0,
+        maxTurns: Int = 0
     ): List<ResponseInputItem> = buildList {
         addAll(buildHistorySection())
         buildMemorySection()?.let { add(it) }
-        add(buildObservationSection(snapshot, image, warnings))
+        add(buildObservationSection(snapshot, image, warnings, turnNumber, maxTurns))
     }
 
     // ── History ──────────────────────────────────────────────────────────
@@ -100,9 +104,11 @@ internal class PromptBuilder(
     private fun buildObservationSection(
         snapshot: ScreenSnapshot,
         image: ScreenImage?,
-        warnings: List<String>
+        warnings: List<String>,
+        turnNumber: Int,
+        maxTurns: Int
     ): ResponseInputItem {
-        val text = buildObservationText(snapshot, image, warnings)
+        val text = buildObservationText(snapshot, image, warnings, turnNumber, maxTurns)
         return if (image != null && supportsVision) {
             imageUserMessage(text, image)
         } else {
@@ -123,10 +129,18 @@ internal class PromptBuilder(
     internal fun buildObservationText(
         snapshot: ScreenSnapshot,
         image: ScreenImage?,
-        warnings: List<String>
+        warnings: List<String>,
+        turnNumber: Int = 0,
+        maxTurns: Int = 0
     ): String {
         return buildString {
-            // Warnings first — prime interpretation before JSON
+            // Turn budget — always shown so agent can plan resource usage
+            if (turnNumber > 0 && maxTurns > 0) {
+                appendLine("Turn $turnNumber/$maxTurns")
+                appendLine()
+            }
+
+            // Warnings — prime interpretation before JSON
             for (warning in warnings) {
                 appendLine(warning)
             }
