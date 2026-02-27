@@ -20,7 +20,11 @@ internal data class ToolArbitrationResult(
 )
 
 /** Result of deciding whether the current turn should end the whole task. */
-internal data class CompletionDecision(val shouldComplete: Boolean, val summary: String?)
+internal data class CompletionDecision(
+        val shouldComplete: Boolean,
+        val summary: String?,
+        val success: Boolean
+)
 
 /**
  * Turn-level policy for two questions: 1) If the model returned multiple tool calls, which one do
@@ -99,13 +103,15 @@ internal class TurnToolPolicy {
     ): CompletionDecision {
         val shouldComplete = turnResult.isComplete && !arbitration.hasScreenAction
         if (!shouldComplete) {
-            return CompletionDecision(shouldComplete = false, summary = null)
+            return CompletionDecision(shouldComplete = false, summary = null, success = false)
         }
         val completeTaskCall = turnResult.toolCalls.find { it.name == COMPLETE_TASK_TOOL }
+        val status = completeTaskCall?.arguments?.optString("status", "success")?.trim()?.lowercase()
+        val success = status != "failure"
         val summary =
                 completeTaskCall?.arguments?.optString("answer")?.takeIf { it.isNotBlank() }
                         ?: completeTaskCall?.arguments?.optString("summary") ?: turnResult.content
                                 ?: "Goal achieved"
-        return CompletionDecision(shouldComplete = true, summary = summary)
+        return CompletionDecision(shouldComplete = true, summary = summary, success = success)
     }
 }

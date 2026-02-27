@@ -121,6 +121,7 @@ class TurnToolPolicyTest {
 
         assertThat(decision.shouldComplete).isFalse()
         assertThat(decision.summary).isNull()
+        assertThat(decision.success).isFalse()
     }
 
     @Test
@@ -139,6 +140,7 @@ class TurnToolPolicyTest {
 
         assertThat(decision.shouldComplete).isTrue()
         assertThat(decision.summary).isEqualTo("final answer")
+        assertThat(decision.success).isTrue()
     }
 
     @Test
@@ -158,6 +160,71 @@ class TurnToolPolicyTest {
 
         assertThat(decision.shouldComplete).isTrue()
         assertThat(decision.summary).isEqualTo("done")
+        assertThat(decision.success).isTrue()
+    }
+
+    @Test
+    fun `decideCompletion marks status failure as unsuccessful completion`() {
+        val calls =
+                listOf(
+                        toolCall(
+                                name = "complete_task",
+                                arguments = JSONObject("""{"status":"failure","answer":"cannot finish"}""")
+                        )
+                )
+        val turnResult = TurnResult(content = "fallback", toolCalls = calls, isComplete = true)
+        val arbitration = engine.arbitrateToolCalls(calls)
+
+        val decision = engine.decideCompletion(turnResult, arbitration)
+
+        assertThat(decision.shouldComplete).isTrue()
+        assertThat(decision.success).isFalse()
+        assertThat(decision.summary).isEqualTo("cannot finish")
+    }
+
+    @Test
+    fun `arbitrateToolCalls blocks matching action signatures`() {
+        val calls =
+                listOf(
+                        toolCall(name = "scratchpad"),
+                        ToolCallRequest(
+                                id = "scroll-down",
+                                name = "mobile_action",
+                                arguments = JSONObject("""{"action":"scroll","direction":"down"}""")
+                        ),
+                        ToolCallRequest(
+                                id = "scroll-up",
+                                name = "mobile_action",
+                                arguments = JSONObject("""{"action":"scroll","direction":"up"}""")
+                        )
+                )
+
+        val result = engine.arbitrateToolCalls(calls, blockedActions = setOf("scroll:down"))
+
+        assertThat(result.selectedToolCalls.map { it.id })
+                .containsExactly("call-scratchpad", "scroll-up")
+                .inOrder()
+        assertThat(result.hasScreenAction).isTrue()
+        assertThat(result.droppedToolCalls.map { it.id }).contains("scroll-down")
+    }
+
+    @Test
+    fun `arbitrateToolCalls keeps cognitive tools when all screen tools are blocked`() {
+        val calls =
+                listOf(
+                        toolCall(name = "scratchpad"),
+                        ToolCallRequest(
+                                id = "scroll-down",
+                                name = "mobile_action",
+                                arguments = JSONObject("""{"action":"scroll","direction":"down"}""")
+                        )
+                )
+
+        val result = engine.arbitrateToolCalls(calls, blockedActions = setOf("scroll:down"))
+
+        assertThat(result.selectedToolCalls.map { it.id }).containsExactly("call-scratchpad")
+        assertThat(result.hasScreenAction).isFalse()
+        assertThat(result.droppedToolCalls.map { it.id }).contains("scroll-down")
     }
 
     private fun toolCall(name: String, arguments: JSONObject = JSONObject()): ToolCallRequest {

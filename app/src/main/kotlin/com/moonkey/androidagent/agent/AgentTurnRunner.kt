@@ -90,14 +90,18 @@ internal class AgentTurnRunner(
                                         if (preparedTurn.escalation == EscalationLevel.FORCE_COMPLETE) {
                                                 Log.w(TAG, "Turn $turnNumber: FORCE_COMPLETE — injecting synthetic complete_task(status=failure)")
                                                 eventDispatcher.status("🛑 Loop escalation: forcing task completion (failure)")
-                                                val syntheticCall = buildSyntheticFailureCompletion()
+                                                val syntheticCall =
+                                                        buildSyntheticFailureCompletion(turnNumber)
                                                 executionPhaseRunner.executeActions(
                                                         turnId = turnId,
                                                         turnNumber = turnNumber,
                                                         initialSnapshot = snapshot,
                                                         toolCallsToExecute = listOf(syntheticCall)
                                                 )
-                                                TurnOutcome.Complete("Task failed: agent stuck in loop after ${config.maxTurns} attempts")
+                                                TurnOutcome.Complete(
+                                                        message = "Task failed: agent stuck in a repeated action loop at turn $turnNumber.",
+                                                        success = false
+                                                )
                                         } else {
                                                 val planningResult =
                                                         planningPhaseRunner.runPlanningPhase(
@@ -208,13 +212,16 @@ internal class AgentTurnRunner(
                 }
 
                 // Update loop escalation state on NavigationState.
-                // Increment consecutiveLoopTurns on CRITICAL warnings; reset on no warning.
+                // Increment consecutiveLoopTurns on CRITICAL warnings; reset otherwise.
                 val updatedNavState = when {
                         loopResult.warning?.severity == LoopWarningSeverity.CRITICAL -> {
                                 val newLoopTurns = navigationState.consecutiveLoopTurns + 1
-                                // At BLOCK level, collect recent action signatures to block
+                                // At BLOCK level, collect recent action signatures to block.
+                                // Exclude navigational escape actions so agent can still back out.
                                 val newBlocked = if (loopResult.escalation >= EscalationLevel.BLOCK) {
-                                        navigationState.recentActions.takeLast(3).toSet()
+                                        navigationState.recentActions.takeLast(3)
+                                                .filterNot(::isEscapeActionSignature)
+                                                .toSet()
                                 } else {
                                         emptySet()
                                 }
@@ -223,14 +230,13 @@ internal class AgentTurnRunner(
                                         blockedActions = newBlocked
                                 )
                         }
-                        loopResult.warning == null -> {
-                                // No loop detected — reset escalation state
+                        else -> {
+                                // No critical loop this turn — reset escalation state
                                 navigationState.copy(
                                         consecutiveLoopTurns = 0,
                                         blockedActions = emptySet()
                                 )
                         }
-                        else -> navigationState // WARNING-level: don't change escalation counters
                 }
 
                 val nextState = state.copy(navigationState = updatedNavState)
@@ -264,9 +270,8 @@ internal class AgentTurnRunner(
         ): List<String> = buildList {
                 loopResult.warning?.let { warning ->
                         if (loopResult.escalation >= EscalationLevel.BLOCK) {
-                                val blocked = loopResult.warning.message
                                 add("🚨 LOOP ESCALATION — You are stuck and MUST change strategy.\n" +
-                                        "$blocked\n" +
+                                        "${warning.message}\n" +
                                         "Your recent actions are now BLOCKED. You MUST try a fundamentally " +
                                         "different approach (e.g. go back, use search, try a different menu, " +
                                         "or use shell). Do NOT repeat any variation of your recent actions.")
@@ -291,7 +296,7 @@ internal class AgentTurnRunner(
                 }
                 val summary = completion.summary ?: "Goal achieved"
                 Log.i(TAG, "Turn $turnNumber: Task marked as complete - $summary")
-                return TurnOutcome.Complete(summary)
+                return TurnOutcome.Complete(message = summary, success = completion.success)
         }
 
         private fun handleTurnFailure(
@@ -314,15 +319,24 @@ internal class AgentTurnRunner(
          * Uses normal tool execution path so the completion is recorded in history and trace
          * identically to an LLM-initiated completion.
          */
-        private fun buildSyntheticFailureCompletion(): ToolCallRequest {
+        private fun buildSyntheticFailureCompletion(turnNumber: Int): ToolCallRequest {
                 val args = JSONObject().apply {
                         put("status", "failure")
-                        put("answer", "Task could not be completed: agent detected stuck in a repeated action loop.")
+                        put(
+                                "answer",
+                                "Task could not be completed for goal '${config.goal}': " +
+                                        "detected repeated action loop at turn $turnNumber."
+                        )
                 }
                 return ToolCallRequest(
                         id = "forced_${UUID.randomUUID()}",
                         name = ToolName.CompleteTask.raw,
                         arguments = args
                 )
+        }
+
+        private fun isEscapeActionSignature(signature: String): Boolean {
+                return signature.startsWith("mobile_action:system_button:") ||
+                        signature.startsWith("open_app:")
         }
 }

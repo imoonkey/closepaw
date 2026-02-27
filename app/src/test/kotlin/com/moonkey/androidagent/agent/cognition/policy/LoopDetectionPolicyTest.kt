@@ -94,8 +94,9 @@ class LoopDetectionPolicyTest {
         repeat(3) {
             state = state.advance(snapshot(label = "Stuck"), previousAction = null)
         }
-        // Simulate that 2 consecutive CRITICAL loop turns have already occurred
-        state = state.copy(consecutiveLoopTurns = 2)
+        // Simulate that 1 consecutive CRITICAL loop turn has already occurred.
+        // Current turn should be the second and trigger BLOCK.
+        state = state.copy(consecutiveLoopTurns = 1)
 
         val result = policy.detect(state)
 
@@ -113,7 +114,8 @@ class LoopDetectionPolicyTest {
         repeat(3) {
             state = state.advance(snapshot(label = "Stuck"), previousAction = null)
         }
-        state = state.copy(consecutiveLoopTurns = 5)
+        // Current turn is included in escalation computation.
+        state = state.copy(consecutiveLoopTurns = 4)
 
         val result = policy.detect(state)
 
@@ -130,6 +132,49 @@ class LoopDetectionPolicyTest {
 
         assertThat(result.warning).isNull()
         assertThat(result.escalation).isEqualTo(EscalationLevel.NONE)
+    }
+
+    @Test
+    fun `first critical turn remains advisory before block threshold`() {
+        val policy = LoopDetectionPolicy(
+            LoopDetectionConfig(blockEscalationThreshold = 2)
+        )
+        var state = NavigationState()
+        repeat(3) {
+            state = state.advance(snapshot(label = "Stuck"), previousAction = null)
+        }
+        state = state.copy(consecutiveLoopTurns = 0)
+
+        val result = policy.detect(state)
+
+        assertThat(result.warning).isNotNull()
+        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.CRITICAL)
+        assertThat(result.escalation).isEqualTo(EscalationLevel.ADVISORY)
+    }
+
+    @Test
+    fun `warning severity does not escalate even with high prior loop turns`() {
+        val policy = LoopDetectionPolicy(
+            LoopDetectionConfig(
+                cycleMinOccurrences = 99,
+                repeatedScreenWindow = 99,
+                repeatedActionWindow = 3
+            )
+        )
+        var state = NavigationState()
+        repeat(3) { index ->
+            state = state.advance(
+                snapshot = snapshot(label = "Screen-$index"),
+                previousAction = "mobile_action:click"
+            )
+        }
+        state = state.copy(consecutiveLoopTurns = 10)
+
+        val result = policy.detect(state)
+
+        assertThat(result.warning).isNotNull()
+        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.WARNING)
+        assertThat(result.escalation).isEqualTo(EscalationLevel.ADVISORY)
     }
 
     private fun snapshot(label: String): ScreenSnapshot {

@@ -71,7 +71,8 @@ internal class LoopDetectionPolicy(
             return LoopDetectionResult(warning, EscalationLevel.ADVISORY)
         }
 
-        val loopTurns = state.consecutiveLoopTurns
+        // Include current turn so thresholds mean "after N consecutive critical loop turns".
+        val loopTurns = state.consecutiveLoopTurns + 1
         val escalation = when {
             loopTurns >= config.forceCompleteEscalationThreshold -> EscalationLevel.FORCE_COMPLETE
             loopTurns >= config.blockEscalationThreshold -> EscalationLevel.BLOCK

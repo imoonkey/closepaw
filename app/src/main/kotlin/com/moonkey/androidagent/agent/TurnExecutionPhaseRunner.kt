@@ -4,10 +4,8 @@ import android.util.Log
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
-import com.moonkey.androidagent.perception.toSummary
 import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.session.SessionServices
-import com.moonkey.androidagent.tool.MobileActionName
 import com.moonkey.androidagent.tool.SimpleToolRouterContext
 import com.moonkey.androidagent.tool.ToolCallResult
 import com.moonkey.androidagent.tool.ToolName
@@ -44,16 +42,13 @@ internal class TurnExecutionPhaseRunner(
                 delay(200)
 
                 var currentSnapshot = initialSnapshot
-                var actionForNextTurn: String? = null
+                val actionForNextTurn = selectActionSignatureForNextTurn(toolCallsToExecute)
                 Log.d(
                         TAG,
                         "Using turn snapshot for actions: ${currentSnapshot.elements.size} elements"
                 )
 
                 for (toolCall in toolCallsToExecute) {
-                        if (actionForNextTurn == null) {
-                                actionForNextTurn = classifyAction(toolCall)
-                        }
                         currentSnapshot =
                                 executeSingleToolCall(
                                         turnId = turnId,
@@ -217,9 +212,14 @@ internal class TurnExecutionPhaseRunner(
                                         accessibilityTree = accessibilityTree,
                                         elementCount = snapshot.elements.size,
                                         summary =
-                                                snapshot.toSummary(
-                                                        services.platform.getCurrentPackageName()
-                                                ),
+                                                buildString {
+                                                        append(
+                                                                services.platform.getCurrentPackageName()
+                                                                        ?: "unknown app"
+                                                        )
+                                                        append(" | elements=")
+                                                        append(snapshot.elements.size)
+                                                },
                                         snapshot = snapshot
                                 ),
                         snapshot = snapshot
@@ -256,42 +256,4 @@ internal class TurnExecutionPhaseRunner(
                         is ToolCallResult.Cancelled -> "Cancelled: ${result.reason}"
                 }
 
-        private fun classifyAction(toolCall: ToolCallRequest): String =
-                classifyActionSignature(toolCall)
-}
-
-/**
- * Produces a stable action signature string for a tool call.
- *
- * Used by [TurnExecutionPhaseRunner] to populate [NavigationState.recentActions]
- * and by [com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy] to match
- * blocked actions during loop escalation.
- *
- * Format examples: "mobile_action:click", "scroll:down", "shell", "open_app".
- */
-internal fun classifyActionSignature(toolCall: ToolCallRequest): String {
-        when (ToolName.from(toolCall.name)) {
-                ToolName.Wait -> return "mobile_action:wait"
-                ToolName.SystemButton -> return "mobile_action:system_button"
-                else -> Unit
-        }
-
-        if (toolCall.name != ToolName.MobileAction.raw) {
-                return toolCall.name.lowercase()
-        }
-
-        val action = toolCall.arguments.optString("action", "").trim().lowercase()
-        val mobileActionName = MobileActionName.from(action)
-        return when (mobileActionName) {
-                MobileActionName.Scroll -> {
-                        val direction =
-                                toolCall.arguments
-                                        .optString("direction", "")
-                                        .trim()
-                                        .lowercase()
-                        "scroll:${direction.ifBlank { "unknown" }}"
-                }
-                MobileActionName.Swipe -> "mobile_action:swipe"
-                else -> "mobile_action:${mobileActionName.canonical}"
-        }
 }

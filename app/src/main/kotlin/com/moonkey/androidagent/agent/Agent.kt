@@ -100,8 +100,13 @@ class Agent(
                     delay(config.uiSettleDelayMs)
                 }
                 is TurnOutcome.Complete -> {
-                    eventDispatcher.status("✅ Goal achieved!")
-                    stopReason = AgentStopReason.GoalAchieved(result.message)
+                    if (result.success) {
+                        eventDispatcher.status("✅ Goal achieved!")
+                        stopReason = AgentStopReason.GoalAchieved(result.message)
+                    } else {
+                        eventDispatcher.status("❌ Task failed: ${result.message}")
+                        stopReason = AgentStopReason.Error(result.message)
+                    }
                     break
                 }
                 is TurnOutcome.Error -> {
