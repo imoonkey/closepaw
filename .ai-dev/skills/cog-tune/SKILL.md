@@ -20,25 +20,36 @@ Improve agent cognition by inspecting debug-run traces, eval metrics/results, sc
 
 ### 2. Prepare evidence data
 
+**Virtualenvs** — two separate venvs, use the right one:
+- `eval/.venv/bin/python` — for all scripts under `eval/`
+- `inspection_tool/.venv/bin/python` — for all scripts under `inspection_tool/`
+
 Pick one or both entry points:
 
 - **Debug-run entry**:
   - Use latest run or a provided run directory under `debug-output/`.
-  - Use inspection tool virtualenv for inspection scripts: `inspection_tool/.venv/bin/python ...`
+  - Run a debug session with specific config when needed:
+    - `./scripts/debug-run.sh "goal"` (default: basic mode, accessibility-only)
+    - `./scripts/debug-run.sh --pro "goal"` (planner+executor mode)
+    - `./scripts/debug-run.sh --hybrid "goal"` (a11y + screenshot perception)
+    - `./scripts/debug-run.sh --main-model <model> --executor-model <model> "goal"`
   - If derived replay files are missing/outdated, compile them:
     - `inspection_tool/.venv/bin/python inspection_tool/replay_compiler.py <run_dir>/trace`
   - Optional helper: `python3 .ai-dev/skills/cog-tune/scripts/prepare_cog_review.py --latest`
     - Produces a `cognition_review.md` with per-step artifact paths.
+  - Token/context budget analysis:
+    - `inspection_tool/.venv/bin/python inspection_tool/a11y_token_stats.py --run-dir <run_dir>`
+    - Outputs CSV with raw vs. sanitized a11y tree token counts per turn. Use for diagnosing **Context** root causes (context window overflow, prompt bloat).
 
 - **Eval entry (`eval/results/`)**:
   - Select a run directory: `eval/results/<timestamp>/`
-  - Use eval virtualenv for all eval scripts: `eval/.venv/bin/python ...`
   - Summarize metrics:
     - `eval/.venv/bin/python eval/analysis/summarize.py --run-dir <eval_run_dir>`
   - Compare against baseline run when available:
     - `eval/.venv/bin/python eval/analysis/compare_runs.py --base <base_eval_run_dir> --new <eval_run_dir>`
   - Use `per_task.jsonl` to identify candidate failures/regressions (for example: `scripted_success=false`, high `tool_failures`, `MaxTurnsReached`, long `duration_sec`).
   - For selected tasks, follow `artifact_paths.trace_dir` and inspect traces step-by-step like debug runs.
+  - When traces are missing but logcat exists, check `eval/aw_bridge/completion_monitor.py` for the completion/error patterns it matches — this helps diagnose trace capture infra bugs vs. actual agent failures.
 
 ### 3. Inspect cognition step-by-step
 
@@ -63,10 +74,10 @@ Bucket issues before changing prompts:
 - **Perception** (missing/incorrect a11y data)
 - **Context** (missing/overloaded system/user context)
 - **Reasoning** (bad choice despite correct inputs)
-- **Execution** (tool call failure or wrong target)
+- **Execution** (tool call failure or wrong target) — use `./scripts/action-test.sh` to isolate and reproduce action-level failures independently of the agent
 - **Observation** (post-action state not captured)
 - **Orchestration** (multi-agent handoff gaps)
-- **Evaluation gap** (metric selection/run config mismatch, flaky task set, or benchmark harness artifact)
+- **Evaluation gap** (metric selection/run config mismatch, flaky task set, or benchmark harness artifact) — use `eval/aw_bridge/setup_task_only.py --task <TaskName>` to run task setup in isolation and manually verify the environment state
 
 ### 5. Apply changes (minimal, generalizable)
 
@@ -83,7 +94,13 @@ Use `rg` to locate prompt or tool definition text before edits.
 ### 6. Validate and generalize
 
 - Re-run at least one additional task to avoid overfitting.
-- Re-run a relevant eval subset (for example `eval/config/aw_subset_smoke.txt` or `eval/config/aw_subset_core.txt`) when tuning from eval.
+- Re-run a relevant eval subset when tuning from eval. Task config files in `eval/config/`:
+  - `aw_fullset.txt` — complete task set
+  - `aw_subset_core.txt` — core subset for baseline
+  - `aw_subset_group_1.txt`, `aw_subset_group_2.txt` — 20 tasks each, non-overlapping, for incremental testing
+  - `aw_subset_smoke.txt` — 5-task quick smoke test
+- Run eval: `eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/<task_file>`
+- Parallel runner (`eval/aw_bridge/parallel_runner.py`) exists but is WIP — not validated for production use yet.
 - Recompute/compare metrics:
   - `eval/.venv/bin/python eval/analysis/summarize.py --run-dir <eval_run_dir>`
   - `eval/.venv/bin/python eval/analysis/compare_runs.py --base <base_eval_run_dir> --new <eval_run_dir>`
@@ -105,8 +122,18 @@ Provide a report with:
 - Cognition roadmap: `doc/todo/cognition/design_proposal.md`
 - Trace/replay design: `doc/todo/tracking/final_design_codex.md`
 - Debug workflow: `scripts/agent_process_visual_debug.md`
+- Debug run script: `scripts/debug-run.sh`
+- Action test harness: `scripts/action-test.sh`
 - Replay compiler: `inspection_tool/replay_compiler.py`
+- Token stats analyzer: `inspection_tool/a11y_token_stats.py`
 - Eval harness: `eval/README.md`
+- Eval architecture: `doc/main/eval/eval.md`
+- Eval runner: `eval/aw_bridge/runner.py`
+- Eval bridge config: `eval/aw_bridge/native_agent_bridge.py` (agent_mode, perception_mode, platform_mode, excluded_tools, model selection)
+- Eval completion monitor: `eval/aw_bridge/completion_monitor.py`
+- Eval preflight / snapshot policy: `eval/aw_bridge/runner_preflight.py`
+- Eval per-task lifecycle: `eval/aw_bridge/runner_execution.py`
+- Eval task setup (standalone): `eval/aw_bridge/setup_task_only.py`
 - Eval summarizer: `eval/analysis/summarize.py`
 - Eval run comparator: `eval/analysis/compare_runs.py`
 
