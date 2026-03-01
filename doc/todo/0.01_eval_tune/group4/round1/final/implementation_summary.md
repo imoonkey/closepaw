@@ -46,7 +46,7 @@ Research of 5 reference mobile agent implementations (AutoDevice, MobileAgent-E/
 - `./gradlew clean assembleDebug lint test` — all pass
 - Code review: APPROVE (0 HIGH, 1 MEDIUM addressed, 4 LOW/NITPICK)
 
-## Expected Impact
+## Expected Impact (pre-eval)
 
 **Group 4**: 7/19 (36.8%) → target 11-14/19 (58-74%)
 - Anti-loop FP fixes: +3 tasks (RetroPlayingQueue, RecipeAddMultipleRecipesFromMarkor, RecipeDeleteMultipleRecipesWithNoise)
@@ -55,3 +55,37 @@ Research of 5 reference mobile agent implementations (AutoDevice, MobileAgent-E/
 - Vision overrides: +1-2 tasks (MarkorTranscribeVideo, RecipeAddMultipleRecipesFromImage)
 
 **Group 2/3 regressions**: Progress-aware detection should maintain or improve prior fixes. ForceComplete count should drop further.
+
+---
+
+## Actual Results (Round 1 Re-eval)
+
+**Run ID**: 20260227_222506
+**Tasks**: 28 (20 group 4 + 8 group 2/3 re-runs)
+**Result**: 14/27 scored tasks passing (**51.9%**), adjusted 14/25 = **56.0%** excluding 3 infra errors
+**Scripted Success Rate**: 46.4% (includes infra failures as 0)
+**Goal Claim Precision**: 61.1%
+
+### What improved
+- **Loop detection FP**: Zero false positive loop terminations — progress-gate fix working correctly
+- **Calendar tasks**: 4/5 passing (vs ~0/5 before). 1 failure was LLM infra timeout, not agent error
+- **Recipe tasks**: 3/5 passing. Failures are turn exhaustion (image) and reasoning (duplicates)
+
+### Remaining failures by root cause
+
+| Category | Count | Tasks |
+|----------|-------|-------|
+| FalseCompletion | 5 | ExpenseDeleteDuplicates2, RecipeAddMultipleRecipesFromMarkor, RecipeDeleteDuplicateRecipes2, RetroPlaylistDuration, SportsTrackerActivitiesOnDate |
+| ActionFailure | 2 | MarkorAddNoteHeader, MarkorEditNote |
+| NavigationFailure | 3 | MarkorMergeNotes, OsmAndMarker, OsmAndTrack |
+| PerceptionGap | 1 | MarkorTranscribeVideo |
+| TurnExhaustion | 1 | RecipeAddMultipleRecipesFromImage |
+| InfraError | 3 | SimpleCalendarEventsInNextWeek, SimpleSmsReplyMostRecent, VlcCreateTwoPlaylists |
+
+### Top issues for Round 2
+1. **P1**: `type(clear=false)` replaces content instead of inserting — code fix in `NodeActionPerformer.setTextOnNode()` (2 tasks)
+2. **P3**: Markor navigation tip + shell guardrail prompt (1 task)
+3. **P7**: OpenTracks app tip + general QA verify prompt (1 task)
+4. **P4**: OsmAnd hybrid mode override (2 tasks)
+
+Full analysis: `round2/eval_analysis_20260227_222506/common_problems_claude.md`

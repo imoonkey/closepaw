@@ -203,6 +203,19 @@ class NodeActionPerformer(
             return ActionResult.Failure("ACTION_SET_TEXT failed")
         }
 
+        // Post-action verification: re-read node text to detect silent failures
+        // (e.g., NumberPicker EditText accepts setText but doesn't commit the value).
+        if (node.refresh()) {
+            val actualText = node.text?.toString() ?: ""
+            if (actualText != text && !actualText.contains(text)) {
+                return ActionResult.Failure(
+                        "Type action failed: value did not change to '$text' " +
+                                "(actual: '$actualText'). This field may be read-only or a " +
+                                "NumberPicker. Try scroll gestures or a different approach."
+                )
+            }
+        }
+
         return ActionResult.Success("Text entered: $text")
     }
 

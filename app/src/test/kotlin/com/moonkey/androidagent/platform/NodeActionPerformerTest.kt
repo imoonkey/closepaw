@@ -62,6 +62,8 @@ class NodeActionPerformerTest {
         every { AccessibilityNodeFinder.findNodeAtLocation(root, 1, 2) } returns node
         every { node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, any()) } returnsMany
                 listOf(true, true)
+        every { node.refresh() } returns true
+        every { node.text } returns "hello"
 
         val performer = NodeActionPerformer(rootProvider = { root })
         val result = performer.performSetTextOnNodeAt(1, 2, "hello", clear = true)
@@ -69,6 +71,26 @@ class NodeActionPerformerTest {
         assertThat(result).isEqualTo(ActionResult.Success("Text entered: hello"))
         verify(exactly = 2) { node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, any()) }
         verify(exactly = 0) { node.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS) }
+        verify(exactly = 1) { node.recycle() }
+        verify(exactly = 1) { root.recycle() }
+    }
+
+    @Test
+    fun `performSetTextOnNodeAt returns failure when value did not change`() = runTest {
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val node = mockk<AccessibilityNodeInfo>(relaxed = true)
+
+        every { AccessibilityNodeFinder.findNodeAtLocation(root, 5, 10) } returns node
+        every { node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, any()) } returns true
+        every { node.refresh() } returns true
+        // Simulate NumberPicker: setText reports success but value doesn't change
+        every { node.text } returns "22"
+
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performSetTextOnNodeAt(5, 10, "27", clear = false)
+
+        assertThat(result).isInstanceOf(ActionResult.Failure::class.java)
+        assertThat((result as ActionResult.Failure).reason).contains("value did not change")
         verify(exactly = 1) { node.recycle() }
         verify(exactly = 1) { root.recycle() }
     }

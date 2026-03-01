@@ -99,6 +99,9 @@ internal object StandaloneAgentDef : AgentDef() {
         - For text editing tasks: re-read the file/note to confirm both new AND old content are present.
         - For multi-step tasks: verify all steps completed, not just the last one.
         - If unsure, use shell to read the file content and confirm before completing.
+        - Call complete_task as soon as core operations are done. Do NOT run a post-completion
+          verification pass that resembles the original workflow — this wastes turns and may
+          trigger loop detection. Verify BEFORE calling complete_task, not after.
 
         ### Information-Gathering / QA Tasks
         When the goal asks you to ANSWER a question about app content (e.g., "What events...", "What tasks...", "How many..."):
@@ -123,10 +126,16 @@ internal object StandaloneAgentDef : AgentDef() {
         ## App Tips
 
         ### Calendar
-        - Prefer creating events directly via the "New Event" button and using date fields in the event form, rather than navigating the calendar view to the target date first.
-        - For time pickers, ALWAYS switch to text/keyboard input mode (tap the keyboard/edit icon at the bottom of the time picker dialog) and type the time value directly. Do NOT tap numbers on the clock face — element indices do not correspond to hour values.
-        - In Simple Calendar Pro monthly view: to navigate to a specific date, tap directly on the DAY NUMBER cell in the calendar grid. The header arrows change months. Do NOT use the header date to navigate to a specific day.
-        - After saving an event, open it again to verify start time, end time, date, title, and description all match the goal.
+        - For date-query tasks (what events on date X), switch to Agenda or Event List view
+          using the "Change view" button. The monthly grid cells have NO a11y labels — you
+          CANNOT identify dates from them.
+        - For navigating to a specific date: use the day-by-day forward/back arrows in daily
+          view (reliable but slow), NOT the monthly grid cells or NumberPicker dialogs.
+        - NumberPicker spinners do NOT respond to type actions reliably. Avoid date pickers
+          that use NumberPicker spinners. Use Agenda view + scroll instead.
+        - Prefer creating events via the "New Event" button with date fields in the form.
+        - For time pickers, switch to text/keyboard input mode (tap keyboard icon at bottom
+          of the time picker dialog) and type the time value directly.
 
         ### Expense
         - After saving an expense entry, verify it shows the correct name, amount, and category.
@@ -134,7 +143,34 @@ internal object StandaloneAgentDef : AgentDef() {
 
         ### General
         - In task descriptions, "Nh" format means 24-hour time. "5h" = 05:00 (5 AM), "13h" = 13:00, "20h" = 20:00. Never add 12 to hours below 12.
-        - When faced with NumberPicker widgets, type the value directly into the editable text field rather than scrolling incrementally.
+
+        ### File Operations
+        - When a task specifies a filename, match it EXACTLY — do NOT select files containing
+          the target name as a substring (e.g., for 'report.md', do NOT select '2023_report.md').
+        - In scrollable file lists, scroll through ALL visible items before selecting, especially
+          if your first match is only a partial match. Use scratchpad to track candidates.
+        - For newest/oldest file tasks: file managers display MODIFICATION time, not creation time.
+          Use shell `stat` to check actual creation timestamps before acting.
+        - For destructive operations (delete, move), verify the EXACT target before committing.
+          Use shell `ls` or `stat` for metadata. This costs 1 turn but prevents wrong-file errors.
+
+        ### Form Filling
+        - Use type with element_index directly — do NOT click to focus first. Separate
+          click-to-focus wastes a turn.
+        - For multi-item tasks, estimate total turns needed upfront. If your estimate exceeds
+          80% of the turn budget, use the most compact strategy.
+
+        ### Multi-Item Operations
+        - Prefer batch selection: long-press first item, tap additional items to accumulate,
+          then perform the action once for all.
+        - Record your working workflow to scratchpad after the first successful item, then
+          replicate exactly for remaining items. Do NOT re-explore the UI.
+
+        ### Working Memory
+        - For survey tasks (find duplicates, identify items), scan the full list ONCE and write
+          findings to scratchpad. Then execute from scratchpad without re-surveying.
+        - Once you commit to a destructive flow (reached confirmation dialog), follow through.
+          Do NOT cancel and re-verify mid-flow — verify BEFORE entering the flow.
 
         ## Device Environment
         - Device: {{device_model}} ({{device_manufacturer}})

@@ -49,3 +49,5 @@ bridge:
     BrowserMaze: { perception_mode: hybrid }
     ExpenseAddMultipleFromGallery: { perception_mode: hybrid }
     MarkorTranscribeReceipt: { perception_mode: hybrid }
+    MarkorTranscribeVideo: { perception_mode: hybrid }
+    RecipeAddMultipleRecipesFromImage: { perception_mode: hybrid }

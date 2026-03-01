@@ -14,7 +14,7 @@ internal data class LoopDetectionConfig(
     val repeatedActionWindow: Int = 3,
     val maxConsecutiveScrollActions: Int = 4,
     val cycleMatchThreshold: Double = 0.75,
-    val cycleMinOccurrences: Int = 2,
+    val cycleMinOccurrences: Int = 3,
     /** Trigger warning when one tool type dominates recent action history. */
     val toolRepetitionThreshold: Int = 3,
     /** Consecutive CRITICAL-warning turns before Tier 2 (action blocking). */
@@ -55,6 +55,14 @@ internal data class LoopDetectionResult(
 internal class LoopDetectionPolicy(
     private val config: LoopDetectionConfig = LoopDetectionConfig()
 ) {
+    companion object {
+        /**
+         * Minimum token differences between matching screens to count as content progress.
+         * 1 token diff can be position-bucket noise; 2+ means real content change.
+         */
+        private const val MIN_PROGRESS_TOKEN_DIFF = 2
+    }
+
     /**
      * Detect loop patterns and compute escalation level.
      *
@@ -66,7 +74,8 @@ internal class LoopDetectionPolicy(
         val warning = detectWarning(state) ?: return LoopDetectionResult(null, EscalationLevel.NONE)
 
         // Escalation is only driven by CRITICAL warnings + no screen progress.
-        // WARNING-level issues (scroll count, tool dominance) stay advisory.
+        // WARNING-level issues (scroll count, tool dominance, progress-downgraded)
+        // stay advisory.
         if (warning.severity != LoopWarningSeverity.CRITICAL) {
             return LoopDetectionResult(warning, EscalationLevel.ADVISORY)
         }
@@ -82,8 +91,12 @@ internal class LoopDetectionPolicy(
     }
 
     /**
-     * Core heuristic checks — unchanged from original implementation.
-     * Returns a [LoopWarning] when a loop pattern is detected, null otherwise.
+     * Core heuristic checks.
+     *
+     * Two types of results:
+     * - CRITICAL: suspicious pattern with NO content progress → drives escalation.
+     * - WARNING: suspicious pattern WITH content progress, or advisory-level checks
+     *   (scroll count, action repetition, tool dominance) → injected as LLM guidance.
      */
     private fun detectWarning(state: NavigationState): LoopWarning? {
         // Multi-state cycle detection: check if the current screen has appeared
@@ -95,6 +108,20 @@ internal class LoopDetectionPolicy(
                 it.similarityTo(current) >= config.cycleMatchThreshold
             }
             if (matchCount >= config.cycleMinOccurrences) {
+                // Progress gate: check if matching screens show content-level changes.
+                // If content is changing between visits, this is legitimate repetitive
+                // work (e.g., returning to a list after processing each item).
+                val matchingScreens = state.recentSignatures.filter {
+                    it.similarityTo(current) >= config.cycleMatchThreshold
+                }
+                if (hasProgressInGroup(matchingScreens)) {
+                    return LoopWarning(
+                        message = "Screen layout recurring ($matchCount times) but content " +
+                                "is changing between visits — continuing. Switch approach " +
+                                "if no further progress.",
+                        severity = LoopWarningSeverity.WARNING
+                    )
+                }
                 return LoopWarning(
                     message = "Cycle detected: this screen has appeared $matchCount times " +
                             "in the last ${state.recentSignatures.size} turns. " +
@@ -107,6 +134,14 @@ internal class LoopDetectionPolicy(
 
         val latestSignatures = state.recentSignatures.takeLast(config.repeatedScreenWindow)
         if (latestSignatures.size == config.repeatedScreenWindow && latestSignatures.isStable(config.similarityThreshold)) {
+            // Progress gate: even with similar layout, content may be changing.
+            if (hasProgressInGroup(latestSignatures)) {
+                return LoopWarning(
+                    message = "Screen layout is stable but content is changing — " +
+                            "continuing. Switch approach if no further progress.",
+                    severity = LoopWarningSeverity.WARNING
+                )
+            }
             return LoopWarning(
                 message = "Screen state looks unchanged for ${config.repeatedScreenWindow} turns. Try a different strategy (back, search, filter, or open menu).",
                 severity = LoopWarningSeverity.CRITICAL
@@ -146,6 +181,23 @@ internal class LoopDetectionPolicy(
         }
 
         return null
+    }
+
+    /**
+     * Check if a group of similar/matching screens shows content-level progress.
+     *
+     * Returns true if any consecutive pair in the group differs by at least
+     * [MIN_PROGRESS_TOKEN_DIFF] tokens (symmetric difference). This means the
+     * screen layout is similar but the actual content has changed — e.g., a
+     * different song selected, a different form field visible, an item added/removed.
+     */
+    private fun hasProgressInGroup(screens: List<ScreenSignature>): Boolean {
+        if (screens.size < 2) return false
+        return screens.zipWithNext().any { (a, b) ->
+            val diff = a.tokens.subtract(b.tokens).size +
+                    b.tokens.subtract(a.tokens).size
+            diff >= MIN_PROGRESS_TOKEN_DIFF
+        }
     }
 }
 
