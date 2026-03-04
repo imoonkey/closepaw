@@ -129,7 +129,11 @@ Use `rg` to locate prompt or tool definition text before edits.
 
 ## Output format
 
-Provide a report with:
+**Per-task analysis**: Follow the template in `assets/per_task_analysis_template.md`.
+
+**Common problems summary** (when synthesizing for /autotune): Follow `.ai-dev/skills/autotune/assets/common_problems_template.md`.
+
+**Overall report** (when doing a full analysis, not per-task):
 
 - **Summary**: what went wrong, and evidence (step IDs, artifact paths, run IDs, metric deltas)
 - **Root cause**: category + reasoning

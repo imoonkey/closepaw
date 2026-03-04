@@ -1,0 +1,2180 @@
+{
+  "tasks": {
+    "AudioRecorderRecordAudio": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260225_161442": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_161521": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_162502": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_183513": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 9
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        },
+        "20260226_125433": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 8
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 7
+        },
+        "20260226_181757": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260226_182527": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260226_183544": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260226_183819": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260226_185323": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "AudioRecorderRecordAudioWithFileName": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 14
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260226_125433": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260226_134903": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "BrowserDraw": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 21
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 1
+        },
+        "20260226_125433": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "BrowserMaze": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 18
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260226_125433": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 17
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "BrowserMultiply": {
+      "runs": {
+        "20260223_154150": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260224_124554": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260224_124622": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260224_185404": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260224_191056": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260224_204600": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 19
+        },
+        "20260224_211437": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 28
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "CameraTakePhoto": {
+      "runs": {
+        "20260223_154150": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 4
+        },
+        "20260224_204600": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 3
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 3
+        }
+      },
+      "recent_rate": "3/3",
+      "status": "fixed"
+    },
+    "CameraTakeVideo": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 6
+        },
+        "20260225_224602": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        },
+        "20260226_125433": {
+          "score": 0.0,
+          "status": "timeout",
+          "turns": 0
+        },
+        "20260226_134214": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 7
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 7
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "ClockStopWatchPausedVerify": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 4
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 3
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 3
+        }
+      },
+      "recent_rate": "2/3",
+      "status": "improving"
+    },
+    "ClockStopWatchRunning": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 4
+        },
+        "20260225_161442": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_161521": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 4
+        },
+        "20260225_162502": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 4
+        },
+        "20260225_183513": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 4
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 4
+        },
+        "20260225_225734": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 4
+        }
+      },
+      "recent_rate": "2/3",
+      "status": "improving"
+    },
+    "ClockTimerEntry": {
+      "runs": {
+        "20260223_154150": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260224_124554": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260224_124622": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 7
+        },
+        "20260224_204600": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 7
+        },
+        "20260224_211437": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 15
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "ContactsAddContact": {
+      "runs": {
+        "20260223_154150": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 10
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 10
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "ContactsNewContactDraft": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 9
+        },
+        "20260225_161442": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_161521": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_162502": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 11
+        },
+        "20260225_183513": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 11
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 8
+        },
+        "20260225_225734": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 11
+        }
+      },
+      "recent_rate": "2/3",
+      "status": "improving"
+    },
+    "ExpenseAddMultiple": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_224602": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 24
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 24
+        }
+      },
+      "recent_rate": "2/3",
+      "status": "improving"
+    },
+    "ExpenseAddMultipleFromGallery": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260226_134903": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260226_181757": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260226_182527": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260226_185323": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "ExpenseAddMultipleFromMarkor": {
+      "runs": {
+        "20260224_222320": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_161442": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_161521": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_162502": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_183513": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 23
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 19
+        },
+        "20260226_134903": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 17
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "ExpenseAddSingle": {
+      "runs": {
+        "20260223_154150": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 10
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 11
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "ExpenseDeleteDuplicates": {
+      "runs": {
+        "20260224_222320": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 14
+        },
+        "20260225_224602": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 11
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 21
+        }
+      },
+      "recent_rate": "2/3",
+      "status": "improving"
+    },
+    "ExpenseDeleteDuplicates2": {
+      "runs": {
+        "20260226_215731": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_142214": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 17
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 28
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "ExpenseDeleteMultiple": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 12
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "ExpenseDeleteMultiple2": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "ExpenseDeleteSingle": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "FilesDeleteFile": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 27
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "FilesMoveFile": {
+      "runs": {
+        "20260223_154150": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260224_124554": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260224_124622": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260224_164945": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260224_170617": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260224_171706": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260224_185404": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260224_191056": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 21
+        },
+        "20260224_211437": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 20
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "regressed"
+    },
+    "MarkorAddNoteHeader": {
+      "runs": {
+        "20260226_215731": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 26
+        },
+        "20260227_142214": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 9
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 28
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "MarkorChangeNoteContent": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 17
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "MarkorCreateFolder": {
+      "runs": {
+        "20260226_215731": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_142214": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        }
+      },
+      "recent_rate": "1/2",
+      "status": "improving"
+    },
+    "MarkorCreateNote": {
+      "runs": {
+        "20260223_154150": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 8
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 8
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "MarkorCreateNoteAndSms": {
+      "runs": {
+        "20260227_161048": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 17
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 16
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "MarkorCreateNoteFromClipboard": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 9
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "MarkorDeleteAllNotes": {
+      "runs": {
+        "20260227_161048": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 8
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 10
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "MarkorDeleteNewestNote": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 7
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 8
+        }
+      },
+      "recent_rate": "1/2",
+      "status": "improving"
+    },
+    "MarkorDeleteNote": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "MarkorEditNote": {
+      "runs": {
+        "20260226_215731": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_142214": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 9
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 10
+        },
+        "20260301_012237": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 10
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "MarkorMergeNotes": {
+      "runs": {
+        "20260227_002312": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_142214": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 21
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 23
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "MarkorMoveNote": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 12
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "1/2",
+      "status": "improving"
+    },
+    "MarkorTranscribeReceipt": {
+      "runs": {
+        "20260227_002312": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_142214": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 12
+        }
+      },
+      "recent_rate": "1/2",
+      "status": "improving"
+    },
+    "MarkorTranscribeVideo": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 16
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "NotesMeetingAttendeeCount": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "NotesRecipeIngredientCount": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "OpenAppTaskEval": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 3
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "OsmAndFavorite": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 8
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "OsmAndMarker": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "OsmAndTrack": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "RecipeAddMultipleRecipes": {
+      "runs": {
+        "20260226_215731": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_142214": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 13
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "RecipeAddMultipleRecipesFromImage": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 16
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "RecipeAddMultipleRecipesFromMarkor": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 16
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "RecipeAddSingleRecipe": {
+      "runs": {
+        "20260223_154150": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 17
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 17
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "RecipeDeleteDuplicateRecipes": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 13
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "RecipeDeleteDuplicateRecipes2": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 27
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 29
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "RecipeDeleteMultipleRecipes": {
+      "runs": {
+        "20260227_161048": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 14
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 14
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "RecipeDeleteMultipleRecipesWithConstraint": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 4
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "RecipeDeleteMultipleRecipesWithNoise": {
+      "runs": {
+        "20260227_161048": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 23
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 21
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "RecipeDeleteSingleRecipe": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "RetroCreatePlaylist": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 28
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "RetroPlayingQueue": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 9
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 17
+        }
+      },
+      "recent_rate": "1/2",
+      "status": "improving"
+    },
+    "RetroPlaylistDuration": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "RetroSavePlaylist": {
+      "runs": {
+        "20260227_002312": {
+          "score": 0.5,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_142214": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "1/2",
+      "status": "improving"
+    },
+    "SaveCopyOfReceiptTaskEval": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 15
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "SimpleCalendarAddOneEvent": {
+      "runs": {
+        "20260224_225315": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_161442": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_161521": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260225_162502": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_183513": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_210502": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_222122": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 19
+        },
+        "20260225_224602": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 21
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 21
+        }
+      },
+      "recent_rate": "2/3",
+      "status": "improving"
+    },
+    "SimpleCalendarAddOneEventInTwoWeeks": {
+      "runs": {
+        "20260224_230158": {
+          "score": 0.0,
+          "status": "error",
+          "turns": 0
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 22
+        },
+        "20260225_225734": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 22
+        }
+      },
+      "recent_rate": "2/3",
+      "status": "improving"
+    },
+    "SimpleCalendarAddOneEventRelativeDay": {
+      "runs": {
+        "20260224_230158": {
+          "score": 0.0,
+          "status": "error",
+          "turns": 0
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 17
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "SimpleCalendarAddOneEventTomorrow": {
+      "runs": {
+        "20260224_230158": {
+          "score": 0.0,
+          "status": "error",
+          "turns": 0
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 27
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 29
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "SimpleCalendarAddRepeatingEvent": {
+      "runs": {
+        "20260224_230158": {
+          "score": 0.0,
+          "status": "error",
+          "turns": 0
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 20
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "SimpleCalendarAnyEventsOnDate": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 13
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 8
+        }
+      },
+      "recent_rate": "1/2",
+      "status": "improving"
+    },
+    "SimpleCalendarDeleteEvents": {
+      "runs": {
+        "20260224_230158": {
+          "score": 0.0,
+          "status": "error",
+          "turns": 0
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 13
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "SimpleCalendarDeleteEventsOnRelativeDay": {
+      "runs": {
+        "20260224_230158": {
+          "score": 0.0,
+          "status": "error",
+          "turns": 0
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "SimpleCalendarDeleteOneEvent": {
+      "runs": {
+        "20260224_230158": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260225_224602": {
+          "score": 0.0,
+          "status": "timeout",
+          "turns": 0
+        },
+        "20260225_225734": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260226_134903": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 18
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "SimpleCalendarEventOnDateAtTime": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 11
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        }
+      },
+      "recent_rate": "1/2",
+      "status": "improving"
+    },
+    "SimpleCalendarEventsInNextWeek": {
+      "runs": {
+        "20260227_002312": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_142214": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 11
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "timeout",
+          "turns": 0
+        },
+        "20260301_012237": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 27
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "SimpleCalendarEventsOnDate": {
+      "runs": {
+        "20260226_215731": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_142214": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 17
+        }
+      },
+      "recent_rate": "1/2",
+      "status": "improving"
+    },
+    "SimpleCalendarLocationOfEvent": {
+      "runs": {
+        "20260227_161048": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "SimpleCalendarNextEvent": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "SimpleCalendarNextMeetingWithPerson": {
+      "runs": {
+        "20260227_161048": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "SimpleDrawProCreateDrawing": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 28
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "SimpleSmsReply": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 7
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "SimpleSmsReplyMostRecent": {
+      "runs": {
+        "20260227_161048": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 10
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 6
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 8
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "SimpleSmsResend": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 11
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "SimpleSmsSend": {
+      "runs": {
+        "20260223_154150": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260224_124554": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 17
+        },
+        "20260224_124622": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 0
+        },
+        "20260224_185404": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 8
+        },
+        "20260224_191056": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 9
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 9
+        }
+      },
+      "recent_rate": "3/3",
+      "status": "fixed"
+    },
+    "SimpleSmsSendClipboardContent": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 12
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "SimpleSmsSendReceivedAddress": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 11
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "SportsTrackerActivitiesOnDate": {
+      "runs": {
+        "20260227_002312": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 5
+        },
+        "20260227_142214": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 5
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 5
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    },
+    "SystemBluetoothTurnOff": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "SystemBluetoothTurnOn": {
+      "runs": {
+        "20260223_154150": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "SystemBrightnessMax": {
+      "runs": {
+        "20260223_154150": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 6
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "SystemBrightnessMin": {
+      "runs": {
+        "20260223_154150": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 7
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 7
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "SystemCopyToClipboard": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 16
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "SystemWifiTurnOff": {
+      "runs": {
+        "20260223_154150": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 8
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 15
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "SystemWifiTurnOn": {
+      "runs": {
+        "20260223_154150": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        },
+        "20260224_211437": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        }
+      },
+      "recent_rate": "2/2",
+      "status": "fixed"
+    },
+    "TasksDueOnDate": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 3
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "TasksHighPriorityTasks": {
+      "runs": {
+        "20260227_002312": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260227_142214": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 17
+        },
+        "20260227_222506": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
+        }
+      },
+      "recent_rate": "1/3",
+      "status": "improving"
+    },
+    "TurnOffWifiAndTurnOnBluetooth": {
+      "runs": {
+        "20260226_215731": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 8
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "TurnOnWifiAndOpenApp": {
+      "runs": {
+        "20260227_002312": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
+        }
+      },
+      "recent_rate": "1/1",
+      "status": "fixed"
+    },
+    "VlcCreatePlaylist": {
+      "runs": {
+        "20260227_002312": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260227_142214": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        }
+      },
+      "recent_rate": "0/2",
+      "status": "stuck"
+    },
+    "VlcCreateTwoPlaylists": {
+      "runs": {
+        "20260227_161048": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260227_222506": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        },
+        "20260301_012237": {
+          "score": 0.0,
+          "status": "infra_failure",
+          "turns": 0
+        }
+      },
+      "recent_rate": "0/3",
+      "status": "stuck"
+    }
+  },
+  "runs": {
+    "20260223_154150": {
+      "round": 1,
+      "total": 14,
+      "passed": 10,
+      "rate": 0.714
+    },
+    "20260224_124554": {
+      "round": 2,
+      "total": 4,
+      "passed": 1,
+      "rate": 0.25
+    },
+    "20260224_124622": {
+      "round": 3,
+      "total": 4,
+      "passed": 1,
+      "rate": 0.25
+    },
+    "20260224_164945": {
+      "round": 4,
+      "total": 1,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260224_170617": {
+      "round": 5,
+      "total": 1,
+      "passed": 1,
+      "rate": 1.0
+    },
+    "20260224_171706": {
+      "round": 6,
+      "total": 1,
+      "passed": 1,
+      "rate": 1.0
+    },
+    "20260224_185404": {
+      "round": 7,
+      "total": 3,
+      "passed": 1,
+      "rate": 0.333
+    },
+    "20260224_191056": {
+      "round": 8,
+      "total": 3,
+      "passed": 2,
+      "rate": 0.667
+    },
+    "20260224_204600": {
+      "round": 9,
+      "total": 3,
+      "passed": 1,
+      "rate": 0.333
+    },
+    "20260224_211437": {
+      "round": 10,
+      "total": 14,
+      "passed": 11,
+      "rate": 0.786
+    },
+    "20260224_222320": {
+      "round": 11,
+      "total": 14,
+      "passed": 1,
+      "rate": 0.071
+    },
+    "20260224_225315": {
+      "round": 12,
+      "total": 1,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260224_230158": {
+      "round": 13,
+      "total": 7,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260225_161442": {
+      "round": 14,
+      "total": 5,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260225_161521": {
+      "round": 15,
+      "total": 7,
+      "passed": 1,
+      "rate": 0.143
+    },
+    "20260225_162502": {
+      "round": 16,
+      "total": 5,
+      "passed": 2,
+      "rate": 0.4
+    },
+    "20260225_183513": {
+      "round": 17,
+      "total": 5,
+      "passed": 2,
+      "rate": 0.4
+    },
+    "20260225_210502": {
+      "round": 18,
+      "total": 1,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260225_222122": {
+      "round": 19,
+      "total": 1,
+      "passed": 1,
+      "rate": 1.0
+    },
+    "20260225_224602": {
+      "round": 20,
+      "total": 24,
+      "passed": 4,
+      "rate": 0.167
+    },
+    "20260225_225734": {
+      "round": 21,
+      "total": 24,
+      "passed": 6,
+      "rate": 0.25
+    },
+    "20260226_125433": {
+      "round": 22,
+      "total": 7,
+      "passed": 1,
+      "rate": 0.143
+    },
+    "20260226_134214": {
+      "round": 23,
+      "total": 1,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260226_134903": {
+      "round": 24,
+      "total": 20,
+      "passed": 16,
+      "rate": 0.8
+    },
+    "20260226_181757": {
+      "round": 25,
+      "total": 4,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260226_182527": {
+      "round": 26,
+      "total": 4,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260226_183544": {
+      "round": 27,
+      "total": 2,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260226_183819": {
+      "round": 28,
+      "total": 2,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260226_185323": {
+      "round": 29,
+      "total": 2,
+      "passed": 1,
+      "rate": 0.5
+    },
+    "20260226_215731": {
+      "round": 30,
+      "total": 20,
+      "passed": 14,
+      "rate": 0.7
+    },
+    "20260227_002312": {
+      "round": 31,
+      "total": 21,
+      "passed": 13,
+      "rate": 0.619
+    },
+    "20260227_142214": {
+      "round": 32,
+      "total": 14,
+      "passed": 4,
+      "rate": 0.286
+    },
+    "20260227_161048": {
+      "round": 33,
+      "total": 21,
+      "passed": 7,
+      "rate": 0.333
+    },
+    "20260227_222506": {
+      "round": 34,
+      "total": 29,
+      "passed": 13,
+      "rate": 0.448
+    },
+    "20260301_012237": {
+      "round": 35,
+      "total": 16,
+      "passed": 2,
+      "rate": 0.125
+    }
+  }
+}
