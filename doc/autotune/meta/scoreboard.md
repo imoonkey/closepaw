@@ -1,101 +1,101 @@
 # Scoreboard
 
-| Task | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 | R10 | R11 | R12 | R13 | R14 | R15 | R16 | R17 | R18 | R19 | R20 | R21 | R22 | R23 | R24 | R25 | R26 | R27 | R28 | R29 | R30 | R31 | R32 | R33 | R34 | R35 | R36 | Recent | Status |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| AudioRecorderRecordAudio |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  | 0.0 | 0.0 | 0.0 | 0.0 |  |  | 0.0 | **1.0** | **1.0** |  | **1.0** | 0.0 | 0.0 | 0.0 | 0.0 | **1.0** |  |  |  |  |  |  |  | 1/3 | improving |
-| AudioRecorderRecordAudioWithFileName |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  | 0/3 | stuck |
-| BrowserDraw |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  | 0/3 | stuck |
-| BrowserMaze |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
-| BrowserMultiply | 0.0 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0/3 | stuck |
-| CameraTakePhoto | **1.0** |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 3/3 | fixed |
-| CameraTakeVideo |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | **1.0** | **1.0** | 0.0 | 0.0 | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
-| ClockStopWatchPausedVerify |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
-| ClockStopWatchRunning |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  | 0.0 | **1.0** | **1.0** | **1.0** |  |  | 0.0 | **1.0** |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
-| ClockTimerEntry | 0.0 | 0.0 | 0.0 |  |  |  |  |  | 0.0 | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0/3 | stuck |
-| ContactsAddContact | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
-| ContactsNewContactDraft |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  | 0.0 | 0.0 | **1.0** | **1.0** |  |  | 0.0 | **1.0** |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
-| ExpenseAddMultiple |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | **1.0** | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
-| ExpenseAddMultipleFromGallery |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  |  | 0.0 | 0.0 | 0.0 |  |  | 0.0 |  |  |  |  |  |  |  | 0/3 | stuck |
-| ExpenseAddMultipleFromMarkor |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  | 0.0 | 0.0 | 0.0 | 0.0 |  |  | 0.0 | 0.0 |  |  | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  | 0/3 | stuck |
-| ExpenseAddSingle | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
-| ExpenseDeleteDuplicates |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  | **1.0** | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
-| ExpenseDeleteDuplicates2 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | 0.0 |  | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
-| ExpenseDeleteMultiple |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| ExpenseDeleteMultiple2 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| ExpenseDeleteSingle |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| FilesDeleteFile |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| FilesMoveFile | 0.0 | 0.0 | 0.0 | 0.0 | **1.0** | **1.0** | 0.0 | **1.0** |  | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | regressed |
-| MarkorAddNoteHeader |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | 0.0 |  | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
-| MarkorChangeNoteContent |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| MarkorCreateFolder |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | **1.0** |  |  |  |  | 1/2 | improving |
-| MarkorCreateNote | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | 3/3 | fixed |
-| MarkorCreateNoteAndSms |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  | 2/2 | fixed |
-| MarkorCreateNoteFromClipboard |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| MarkorDeleteAllNotes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  | 2/2 | fixed |
-| MarkorDeleteNewestNote |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  | 1/2 | improving |
-| MarkorDeleteNote |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| MarkorEditNote |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | 0.0 |  | 0.0 | **1.0** | **1.0** | 2/3 | improving |
-| MarkorMergeNotes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
-| MarkorMoveNote |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  | 1/2 | improving |
-| MarkorTranscribeReceipt |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  |  |  | 1/2 | improving |
-| MarkorTranscribeVideo |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  | 0/3 | stuck |
-| NotesMeetingAttendeeCount |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| NotesRecipeIngredientCount |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| OpenAppTaskEval |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| OsmAndFavorite |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| OsmAndMarker |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  | 0/3 | stuck |
-| OsmAndTrack |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  | 0/3 | stuck |
-| RecipeAddMultipleRecipes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | 0.0 |  | **1.0** |  |  | 1/3 | improving |
-| RecipeAddMultipleRecipesFromImage |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
-| RecipeAddMultipleRecipesFromMarkor |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
-| RecipeAddSingleRecipe | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
-| RecipeDeleteDuplicateRecipes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| RecipeDeleteDuplicateRecipes2 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
-| RecipeDeleteMultipleRecipes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  | 2/2 | fixed |
-| RecipeDeleteMultipleRecipesWithConstraint |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| RecipeDeleteMultipleRecipesWithNoise |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  | 2/2 | fixed |
-| RecipeDeleteSingleRecipe |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| RetroCreatePlaylist |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| RetroPlayingQueue |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  | 1/2 | improving |
-| RetroPlaylistDuration |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
-| RetroSavePlaylist |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.5 | **1.0** |  |  |  |  | 1/2 | improving |
-| SaveCopyOfReceiptTaskEval |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| SimpleCalendarAddOneEvent |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | **1.0** | **1.0** | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
-| SimpleCalendarAddOneEventInTwoWeeks |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | **1.0** |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
-| SimpleCalendarAddOneEventRelativeDay |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
-| SimpleCalendarAddOneEventTomorrow |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
-| SimpleCalendarAddRepeatingEvent |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
-| SimpleCalendarAnyEventsOnDate |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  | 1/2 | improving |
-| SimpleCalendarDeleteEvents |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
-| SimpleCalendarDeleteEventsOnRelativeDay |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
-| SimpleCalendarDeleteOneEvent |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
-| SimpleCalendarEventOnDateAtTime |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  | 1/2 | improving |
-| SimpleCalendarEventsInNextWeek |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  | 0.0 | **1.0** |  | 1/3 | improving |
-| SimpleCalendarEventsOnDate |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | **1.0** |  |  |  |  | 1/2 | improving |
-| SimpleCalendarLocationOfEvent |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  | 2/2 | fixed |
-| SimpleCalendarNextEvent |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| SimpleCalendarNextMeetingWithPerson |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  | 2/2 | fixed |
-| SimpleDrawProCreateDrawing |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| SimpleSmsReply |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| SimpleSmsReplyMostRecent |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | 0.0 | 0.0 |  | 1/3 | improving |
-| SimpleSmsResend |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| SimpleSmsSend | 0.0 | **1.0** | **1.0** |  |  |  | **1.0** | **1.0** |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 3/3 | fixed |
-| SimpleSmsSendClipboardContent |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| SimpleSmsSendReceivedAddress |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| SportsTrackerActivitiesOnDate |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
-| SystemBluetoothTurnOff |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| SystemBluetoothTurnOn | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
-| SystemBrightnessMax | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
-| SystemBrightnessMin | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
-| SystemCopyToClipboard |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| SystemWifiTurnOff | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
-| SystemWifiTurnOn | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
-| TasksDueOnDate |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| TasksHighPriorityTasks |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  | **1.0** |  |  | 1/3 | improving |
-| TurnOffWifiAndTurnOnBluetooth |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
-| TurnOnWifiAndOpenApp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  | 1/1 | fixed |
-| VlcCreatePlaylist |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  |  |  | 0.0 | 0/3 | stuck |
-| VlcCreateTwoPlaylists |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
+| Task | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 | R10 | R11 | R12 | R13 | R14 | R15 | R16 | R17 | R18 | R19 | R20 | R21 | R22 | R23 | R24 | R25 | R26 | R27 | R28 | R29 | R30 | R31 | R32 | R33 | R34 | R35 | R36 | R37 | Recent | Status |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| AudioRecorderRecordAudio |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  | 0.0 | 0.0 | 0.0 | 0.0 |  |  | 0.0 | **1.0** | **1.0** |  | **1.0** | 0.0 | 0.0 | 0.0 | 0.0 | **1.0** |  |  |  |  |  |  |  |  | 1/3 | improving |
+| AudioRecorderRecordAudioWithFileName |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  |  | 0/3 | stuck |
+| BrowserDraw |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  |  | 0/3 | stuck |
+| BrowserMaze |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
+| BrowserMultiply | 0.0 | 0.0 | 0.0 |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0/3 | stuck |
+| CameraTakePhoto | **1.0** |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 3/3 | fixed |
+| CameraTakeVideo |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | **1.0** | **1.0** | 0.0 | 0.0 | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
+| ClockStopWatchPausedVerify |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
+| ClockStopWatchRunning |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  | 0.0 | **1.0** | **1.0** | **1.0** |  |  | 0.0 | **1.0** |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
+| ClockTimerEntry | 0.0 | 0.0 | 0.0 |  |  |  |  |  | 0.0 | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0/3 | stuck |
+| ContactsAddContact | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
+| ContactsNewContactDraft |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  | 0.0 | 0.0 | **1.0** | **1.0** |  |  | 0.0 | **1.0** |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
+| ExpenseAddMultiple |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | **1.0** | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
+| ExpenseAddMultipleFromGallery |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  |  | 0.0 | 0.0 | 0.0 |  |  | 0.0 |  |  |  |  |  |  |  |  | 0/3 | stuck |
+| ExpenseAddMultipleFromMarkor |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  | 0.0 | 0.0 | 0.0 | 0.0 |  |  | 0.0 | 0.0 |  |  | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  |  | 0/3 | stuck |
+| ExpenseAddSingle | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
+| ExpenseDeleteDuplicates |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  | **1.0** | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
+| ExpenseDeleteDuplicates2 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | 0.0 |  | 0.0 | 0.0 | 0.0 |  | 0/3 | stuck |
+| ExpenseDeleteMultiple |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| ExpenseDeleteMultiple2 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| ExpenseDeleteSingle |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| FilesDeleteFile |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| FilesMoveFile | 0.0 | 0.0 | 0.0 | 0.0 | **1.0** | **1.0** | 0.0 | **1.0** |  | 0.0 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | regressed |
+| MarkorAddNoteHeader |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | 0.0 |  | 0.0 | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
+| MarkorChangeNoteContent |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| MarkorCreateFolder |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | **1.0** |  |  |  |  |  | 1/2 | improving |
+| MarkorCreateNote | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** | 3/3 | fixed |
+| MarkorCreateNoteAndSms |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  |  | 2/2 | fixed |
+| MarkorCreateNoteFromClipboard |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| MarkorDeleteAllNotes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  |  | 2/2 | fixed |
+| MarkorDeleteNewestNote |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  |  | 1/2 | improving |
+| MarkorDeleteNote |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| MarkorEditNote |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | 0.0 |  | 0.0 | **1.0** | **1.0** | **1.0** | 3/3 | fixed |
+| MarkorMergeNotes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  | 0.0 | 0.0 | 0.0 |  | 0/3 | stuck |
+| MarkorMoveNote |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  |  | 1/2 | improving |
+| MarkorTranscribeReceipt |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  |  |  |  | 1/2 | improving |
+| MarkorTranscribeVideo |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  |  | 0/3 | stuck |
+| NotesMeetingAttendeeCount |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| NotesRecipeIngredientCount |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| OpenAppTaskEval |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| OsmAndFavorite |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| OsmAndMarker |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  |  | 0/3 | stuck |
+| OsmAndTrack |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 |  |  | 0/3 | stuck |
+| RecipeAddMultipleRecipes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | 0.0 |  | **1.0** |  |  |  | 1/3 | improving |
+| RecipeAddMultipleRecipesFromImage |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 |  | 0/3 | stuck |
+| RecipeAddMultipleRecipesFromMarkor |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 |  | 0/3 | stuck |
+| RecipeAddSingleRecipe | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
+| RecipeDeleteDuplicateRecipes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| RecipeDeleteDuplicateRecipes2 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 |  | 0/3 | stuck |
+| RecipeDeleteMultipleRecipes |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  | **1.0** | 3/3 | fixed |
+| RecipeDeleteMultipleRecipesWithConstraint |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| RecipeDeleteMultipleRecipesWithNoise |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  |  | 2/2 | fixed |
+| RecipeDeleteSingleRecipe |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| RetroCreatePlaylist |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | **1.0** | 2/2 | fixed |
+| RetroPlayingQueue |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  |  | 1/2 | improving |
+| RetroPlaylistDuration |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0/3 | stuck |
+| RetroSavePlaylist |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.5 | **1.0** |  |  |  |  | **1.0** | 2/3 | improving |
+| SaveCopyOfReceiptTaskEval |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| SimpleCalendarAddOneEvent |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | **1.0** | **1.0** | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
+| SimpleCalendarAddOneEventInTwoWeeks |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | **1.0** |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/3 | improving |
+| SimpleCalendarAddOneEventRelativeDay |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
+| SimpleCalendarAddOneEventTomorrow |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
+| SimpleCalendarAddRepeatingEvent |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
+| SimpleCalendarAnyEventsOnDate |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  |  | 1/2 | improving |
+| SimpleCalendarDeleteEvents |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
+| SimpleCalendarDeleteEventsOnRelativeDay |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
+| SimpleCalendarDeleteOneEvent |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  |  |  |  |  |  | 0.0 | 0.0 |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  | 1/3 | improving |
+| SimpleCalendarEventOnDateAtTime |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | **1.0** |  |  |  | 1/2 | improving |
+| SimpleCalendarEventsInNextWeek |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  | 0.0 | **1.0** |  |  | 1/3 | improving |
+| SimpleCalendarEventsOnDate |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 |  | **1.0** |  |  |  |  |  | 1/2 | improving |
+| SimpleCalendarLocationOfEvent |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  |  | 2/2 | fixed |
+| SimpleCalendarNextEvent |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| SimpleCalendarNextMeetingWithPerson |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | **1.0** |  |  |  | 2/2 | fixed |
+| SimpleDrawProCreateDrawing |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| SimpleSmsReply |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| SimpleSmsReplyMostRecent |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** | 0.0 | 0.0 |  |  | 1/3 | improving |
+| SimpleSmsResend |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| SimpleSmsSend | 0.0 | **1.0** | **1.0** |  |  |  | **1.0** | **1.0** |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 3/3 | fixed |
+| SimpleSmsSendClipboardContent |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| SimpleSmsSendReceivedAddress |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| SportsTrackerActivitiesOnDate |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  | 0.0 | 0.0 | 0.0 | **1.0** | 1/3 | improving |
+| SystemBluetoothTurnOff |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| SystemBluetoothTurnOn | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
+| SystemBrightnessMax | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
+| SystemBrightnessMin | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
+| SystemCopyToClipboard |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| SystemWifiTurnOff | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
+| SystemWifiTurnOn | **1.0** |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 2/2 | fixed |
+| TasksDueOnDate |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| TasksHighPriorityTasks |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  | **1.0** |  |  |  | 1/3 | improving |
+| TurnOffWifiAndTurnOnBluetooth |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  |  | 1/1 | fixed |
+| TurnOnWifiAndOpenApp |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | **1.0** |  |  |  |  |  |  | 1/1 | fixed |
+| VlcCreatePlaylist |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 |  |  |  | 0.0 |  | 0/3 | stuck |
+| VlcCreateTwoPlaylists |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |  | 0.0 | 0.0 | 0.0 | 0.0 |  | 0/3 | stuck |
 
 ## Run Summary
 
@@ -137,3 +137,4 @@
 | R34 (20260227_222506) | 2026-02-27 | 29 | 13 | 44.8% |
 | R35 (20260301_012237) | 2026-03-01 | 16 | 2 | 12.5% |
 | R36 (20260303_232753) | 2026-03-03 | 12 | 2 | 16.7% |
+| R37 (20260304_033425) | 2026-03-04 | 8 | 6 | 75.0% |

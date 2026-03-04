@@ -1,5 +1,12 @@
 # MarkorAddNoteHeader
 
+## AT-R2 (20260304_033425) — FAIL
+- Score: 0.0
+- Turns: 15/30
+- FalseCompletion: P4 cursor positioning tip worked (Special Keys → Document Start), but agent typed `\n` instead of `\n\n` for blank line. Declared success at turn 15 without verifying whitespace. Same `\n` vs `\n\n` bug as R1, now with false completion (worse: R1 at least tried to fix).
+- keyboard_visible flag NOT observed in trace — APK rebuild concern persists.
+- See `round_2/20260304_033425/per_task/MarkorAddNoteHeader_claude.md` for details.
+
 ## AT-R1 (20260303_232753) — FAIL
 - Score: 0.0
 - Turns: 30/30

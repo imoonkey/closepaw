@@ -1,5 +1,11 @@
 # RetroPlaylistDuration
 
+## AT-R2 (20260304_033425) — FAIL
+- Score: 0.0
+- Turns: 30/30
+- TurnExhaustion: Agent pre-read individual song durations via Details dialog (~3 turns each) instead of iterative add-and-check. Added only 2 songs, self-reported failure. 6 wasted turns (shell commands, tab bouncing). P5 Retro tips helped with song addition pattern but duration strategy guidance was insufficient.
+- See `round_2/20260304_033425/per_task/RetroPlaylistDuration_claude.md` for details.
+
 ## AT-R1 (20260303_232753) — FAIL
 - Score: 0.0
 - Turns: 30/30
