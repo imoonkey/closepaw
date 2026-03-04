@@ -55,6 +55,8 @@
 
 **Priority**: HIGH - these tasks are very close to passing
 
+**Decision**: Option A — add per-task `max_turns` override in eval config for long multi-item tasks.
+
 ### P2-R3: Capability-Blocked Tasks (3 tasks)
 **Affected**: MarkorTranscribeVideo, OsmAndMarker, OsmAndTrack
 
@@ -69,21 +71,22 @@
 
 **Priority**: LOW - requires fundamental capability additions
 
+**Decision**: Add to `cannot_handle_group.txt` now. Revisit when capabilities expand.
+
 ### P3-R3: File Operation Workflow Gaps (2 tasks)
 **Affected**: MarkorAddNoteHeader, MarkorMergeNotes
 
-**Root Cause**: Agent doesn't effectively use shell for file operations when UI proves difficult:
-- MarkorAddNoteHeader: Couldn't rename file (never tried `mv` command), newline normalization issue
-- MarkorMergeNotes: Typed content via UI instead of using `cat file1 > merged && cat file2 >> merged`
+**Root Cause**: Agent tries shell for file operations but shell access is unreliable in Markor context — commands fail or Markor doesn't refresh after shell writes, wasting turns.
+- MarkorAddNoteHeader: Couldn't rename file via UI or shell, newline normalization issue
+- MarkorMergeNotes: Typed content via UI instead of merging, shell approach also unreliable
 
 **Fix Proposal**:
-- Strengthen Markor shell tip: "For file operations (rename, merge, prepend text), prefer shell commands. Examples:
-  - Rename: `mv /sdcard/Documents/Markor/old.txt /sdcard/Documents/Markor/new.txt`
-  - Merge: `cat file1.txt > merged.txt && echo '' >> merged.txt && cat file2.txt >> merged.txt`
-  - Prepend text: `echo 'header\n' | cat - file.txt > temp && mv temp file.txt`"
-- Fix newline handling in type action: investigate why `\n\n` is reduced to `\n`
+- Remove shell suggestion from Markor tip — agent should stick to pure UI for Markor tasks to avoid wasting turns on failing shell commands
+- Keep investigating UI-based rename (long-press context menu from file list) and merge workflows
 
-**Priority**: HIGH - shell-based approach would solve both tasks
+**Priority**: MEDIUM - removing shell tip prevents turn waste; underlying UI workflow still needs discovery
+
+**Decision**: Remove shell suggestion from Markor prompt. Shell access keeps failing, causing turn waste. Force pure-UI approach for Markor.
 
 ### P4-R3: Text Precision Errors (1 task)
 **Affected**: SimpleSmsReplyMostRecent
@@ -95,6 +98,8 @@
 - Investigate if this is actually the failure cause (could also be SMS sending on emulator)
 
 **Priority**: MEDIUM
+
+**Decision**: Not a real issue. Ignore — likely LLM flake or emulator timing, not systematic.
 
 ### P5-R3: App-Specific Workflow Discovery (2 tasks)
 **Affected**: RetroPlaylistDuration, SportsTrackerActivitiesOnDate
@@ -109,6 +114,8 @@
 
 **Priority**: MEDIUM
 
+**Decision**: Agree — include in autotune round for /cog-tune investigation. Don't add tips until we verify the actual UI workflow from traces.
+
 ### P6-R3: VLC Infrastructure (1 task)
 **Affected**: VlcCreateTwoPlaylists
 
@@ -120,20 +127,24 @@
 
 **Priority**: MEDIUM (infra fix, not agent fix)
 
-## Summary of Next Steps
+**Decision**: Fix now. Add `os.path.exists()` check in `_clear_playlist_dbs()`. No reason to keep deferring an infra bug.
 
-### Must Fix (directly unblocks task passes):
-1. **Markor shell tips** (P3-R3): Explicit rename/merge shell commands in prompt
-2. **Newline handling**: Debug why `\n\n` becomes `\n` in type action
-3. **Max turns increase**: For Recipe tasks, increase to 45-50 turns
-4. **VLC init fix**: Handle missing app_db directory gracefully
+## Summary of Next Steps (with decisions)
 
-### Should Fix (improves behavior):
-5. **Retro Music + OpenTracks app tips** (P5-R3)
-6. **Text precision prompt** (P4-R3)
-7. **Post-delete verification** prompt for delete tasks
-8. **Strategy-pivot strengthening**: Current prompt is too weak
+### Approved for Autotune Round 1:
+1. **Max turns override** (P1-R3): Per-task `max_turns` in eval config for multi-item tasks (Recipe*, ExpenseDeleteDuplicates2)
+2. **Cannot-handle exclusion** (P2-R3): Add MarkorTranscribeVideo, OsmAndMarker, OsmAndTrack to `cannot_handle_group.txt`
+3. **Markor: remove shell tip** (P3-R3): Remove shell suggestion from Markor prompt — shell access unreliable, causes turn waste. Force pure-UI.
+4. **VLC init fix** (P6-R3): Add `os.path.exists()` guard in `_clear_playlist_dbs()`
 
-### Accept as Capability Gap:
-9. MarkorTranscribeVideo - needs video frame extraction
-10. OsmAndMarker / OsmAndTrack - needs map widget interaction
+### Include in eval for investigation (no code fix):
+5. **RetroPlaylistDuration, SportsTrackerActivitiesOnDate** (P5-R3): Run with /cog-tune to discover actual UI workflows before adding tips
+
+### Not fixing:
+6. **Text precision** (P4-R3): Not a real issue — ignore
+7. **Strategy-pivot strengthening**: Deferred — needs deeper investigation
+8. **Newline handling**: Deferred — Android framework level, low ROI
+
+### Capability gaps (excluded from eval):
+9. MarkorTranscribeVideo — needs video frame extraction
+10. OsmAndMarker / OsmAndTrack — needs map widget interaction
