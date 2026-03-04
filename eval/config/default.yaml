@@ -36,7 +36,7 @@ bridge:
   main_model: qwen3.5
   executor_model: ""
   max_turns: 30
-  excluded_tools: "ask_user,write_todos"  # comma-separated tool names to remove from agent
+  excluded_tools: "ask_user"  # comma-separated tool names to remove from agent
   auto_start: true
   fresh_session: true
   debug_mode: false
@@ -52,7 +52,5 @@ bridge:
     MarkorTranscribeVideo: { perception_mode: hybrid }
     RecipeAddMultipleRecipesFromImage: { perception_mode: hybrid, max_turns: 50 }
     RecipeAddMultipleRecipesFromMarkor: { max_turns: 50 }
-    RecipeDeleteDuplicateRecipes2: { max_turns: 50 }
-    ExpenseDeleteDuplicates2: { max_turns: 50 }
     OsmAndMarker: { perception_mode: hybrid }
     OsmAndTrack: { perception_mode: hybrid }

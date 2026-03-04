@@ -86,13 +86,13 @@ If the app is not found, suggestions will be provided.
         JSONObject().apply {
             put("type", "object")
             put("properties", JSONObject().apply {
-                put("app_name", JSONObject().apply {
-                    put("type", "string")
-                    put("description", "Name of the app to open (e.g., 'Gmail', 'Settings', 'Chrome'). Case-insensitive.")
-                })
                 put("agent_thought", JSONObject().apply {
                     put("type", "string")
                     put("description", "Brief reason for this action")
+                })
+                put("app_name", JSONObject().apply {
+                    put("type", "string")
+                    put("description", "Name of the app to open (e.g., 'Gmail', 'Settings', 'Chrome'). Case-insensitive.")
                 })
             })
             put("required", JSONArray(listOf("app_name")))

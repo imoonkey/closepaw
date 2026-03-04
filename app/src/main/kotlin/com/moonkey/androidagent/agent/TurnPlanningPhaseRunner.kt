@@ -170,6 +170,9 @@ internal class TurnPlanningPhaseRunner(
                                         appendLine(
                                                 "Screen state (${snapshot.elements.size} elements):"
                                         )
+                                        if (snapshot.keyboardVisible) {
+                                                appendLine("keyboard_visible: true")
+                                        }
                                         appendLine("```json")
                                         appendLine(screenJson)
                                         append("```")

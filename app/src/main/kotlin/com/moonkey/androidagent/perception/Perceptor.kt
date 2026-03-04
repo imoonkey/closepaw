@@ -65,6 +65,7 @@ object Perceptor {
 
         val collected = mutableListOf<PerceptorCandidateElement>()
         val seenKeys = mutableSetOf<String>()
+        val keyboardFlag = booleanArrayOf(false)
 
         for (root in roots) {
             traverse(
@@ -76,7 +77,8 @@ object Perceptor {
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
-                diagnosticsCollector = diagnosticsCollector
+                diagnosticsCollector = diagnosticsCollector,
+                keyboardFlag = keyboardFlag
             )
         }
         for (root in roots) {
@@ -89,7 +91,8 @@ object Perceptor {
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
-                diagnosticsCollector = diagnosticsCollector
+                diagnosticsCollector = diagnosticsCollector,
+                keyboardFlag = keyboardFlag
             )
         }
 
@@ -107,7 +110,12 @@ object Perceptor {
                 rowSnapRatio = filterConfig.rowSnapScreenRatio
             )
         val indexed = sorted.mapIndexed { index, candidate -> candidate.element.copy(index = index) }
-        return ScreenSnapshot(timestamp = timestamp, elements = indexed, textEnriched = true)
+        return ScreenSnapshot(
+            timestamp = timestamp,
+            elements = indexed,
+            textEnriched = true,
+            keyboardVisible = keyboardFlag[0]
+        )
     }
 
     /** Convert Snapshot to JSON string for LLM Prompting */
@@ -209,7 +217,8 @@ object Perceptor {
         screenWidthPx: Int?,
         screenHeightPx: Int?,
         filterConfig: PerceptorFilterConfig,
-        diagnosticsCollector: PerceptorDiagnosticsCollector?
+        diagnosticsCollector: PerceptorDiagnosticsCollector?,
+        keyboardFlag: BooleanArray
     ) {
         // Collection cap: stop collecting once we have enough candidates for scoring.
         // 2x maxElements gives applyTruncation a good pool while bounding traversal work.
@@ -228,7 +237,8 @@ object Perceptor {
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
-                diagnosticsCollector = diagnosticsCollector
+                diagnosticsCollector = diagnosticsCollector,
+                keyboardFlag = keyboardFlag
             )
             if (shouldRecycle) node.recycleCompat()
             return
@@ -249,6 +259,7 @@ object Perceptor {
         val rangeInfo = node.rangeInfo?.let { RangeInfo(current = it.current, min = it.min, max = it.max) }
 
         if (filterConfig.filterKeyboard && isKnownKeyboardNode(resourceId)) {
+            keyboardFlag[0] = true
             if (shouldRecycle) node.recycleCompat()
             return
         }
@@ -342,7 +353,8 @@ object Perceptor {
             screenWidthPx = screenWidthPx,
             screenHeightPx = screenHeightPx,
             filterConfig = filterConfig,
-            diagnosticsCollector = diagnosticsCollector
+            diagnosticsCollector = diagnosticsCollector,
+            keyboardFlag = keyboardFlag
         )
         if (shouldRecycle) node.recycleCompat()
     }
@@ -355,7 +367,8 @@ object Perceptor {
         screenWidthPx: Int?,
         screenHeightPx: Int?,
         filterConfig: PerceptorFilterConfig,
-        diagnosticsCollector: PerceptorDiagnosticsCollector?
+        diagnosticsCollector: PerceptorDiagnosticsCollector?,
+        keyboardFlag: BooleanArray
     ) {
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
@@ -368,7 +381,8 @@ object Perceptor {
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
-                diagnosticsCollector = diagnosticsCollector
+                diagnosticsCollector = diagnosticsCollector,
+                keyboardFlag = keyboardFlag
             )
         }
     }

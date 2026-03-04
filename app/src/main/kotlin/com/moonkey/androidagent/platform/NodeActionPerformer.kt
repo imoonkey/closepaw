@@ -194,7 +194,8 @@ class NodeActionPerformer(
             combined = text
         } else {
             // clear=false: insert text at cursor position, preserving existing content
-            val existing = node.text?.toString() ?: ""
+            // Hint text check: empty fields display hint text via node.text — treat as empty
+            val existing = if (node.isShowingHintText) "" else (node.text?.toString() ?: "")
             val selStart = node.textSelectionStart
             val selEnd = node.textSelectionEnd
             val insertAt = if (selStart >= 0) selStart.coerceAtMost(existing.length) else existing.length

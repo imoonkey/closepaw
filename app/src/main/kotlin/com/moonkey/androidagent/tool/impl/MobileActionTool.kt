@@ -261,14 +261,14 @@ Actions:
 
     private fun buildSchema(): JSONObject {
         val properties = JSONObject().apply {
+            put("agent_thought", JSONObject().apply {
+                put("type", "string")
+                put("description", "Brief reason for why this action is being performed")
+            })
             put("action", JSONObject().apply {
                 put("type", "string")
                 put("enum", JSONArray(listOf("click", "long_press", "scroll", "swipe", "type")))
                 put("description", "The action to perform")
-            })
-            put("agent_thought", JSONObject().apply {
-                put("type", "string")
-                put("description", "Brief reason for why this action is being performed")
             })
             put("element_index", JSONObject().apply {
                 put("type", "integer")

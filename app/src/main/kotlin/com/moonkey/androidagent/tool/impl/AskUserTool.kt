@@ -53,6 +53,10 @@ Do NOT use for:
     override val parameterSchema: JSONObject = JSONObject().apply {
         put("type", "object")
         put("properties", JSONObject().apply {
+            put("agent_thought", JSONObject().apply {
+                put("type", "string")
+                put("description", "Brief reason for asking the user")
+            })
             put("type", JSONObject().apply {
                 put("type", "string")
                 put("enum", JSONArray(listOf("question", "action")))
@@ -61,10 +65,6 @@ Do NOT use for:
             put("message", JSONObject().apply {
                 put("type", "string")
                 put("description", "The question to ask or instruction for the user. Be clear and specific.")
-            })
-            put("agent_thought", JSONObject().apply {
-                put("type", "string")
-                put("description", "Brief reason for asking the user")
             })
         })
         put("required", JSONArray(listOf("type", "message")))

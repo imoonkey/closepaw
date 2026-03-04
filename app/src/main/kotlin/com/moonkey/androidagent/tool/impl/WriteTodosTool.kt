@@ -31,6 +31,10 @@ class WriteTodosTool(
         JSONObject().apply {
             put("type", "object")
             put("properties", JSONObject().apply {
+                put("agent_thought", JSONObject().apply {
+                    put("type", "string")
+                    put("description", "Brief reason for this update. When changing the plan, explain what changed and why.")
+                })
                 put("todos", JSONObject().apply {
                     put("type", "array")
                     put("description", "Full list of todo items")
@@ -50,10 +54,6 @@ class WriteTodosTool(
                         put("required", JSONArray(listOf("description", "status")))
                         put("additionalProperties", false)
                     })
-                })
-                put("agent_thought", JSONObject().apply {
-                    put("type", "string")
-                    put("description", "Brief reason for this update. When changing the plan, explain what changed and why.")
                 })
             })
             put("required", JSONArray(listOf("todos")))

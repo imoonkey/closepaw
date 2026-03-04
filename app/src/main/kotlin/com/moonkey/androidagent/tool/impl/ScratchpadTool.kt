@@ -45,6 +45,10 @@ class ScratchpadTool(
         JSONObject().apply {
             put("type", "object")
             put("properties", JSONObject().apply {
+                put("agent_thought", JSONObject().apply {
+                    put("type", "string")
+                    put("description", "Brief reason for why this action is being performed")
+                })
                 put("action", JSONObject().apply {
                     put("type", "string")
                     put("enum", JSONArray(listOf("write", "read", "delete")))
@@ -60,10 +64,6 @@ class ScratchpadTool(
                 put("key", JSONObject().apply {
                     put("type", "string")
                     put("description", "Key for read/delete")
-                })
-                put("agent_thought", JSONObject().apply {
-                    put("type", "string")
-                    put("description", "Brief reason for why this action is being performed")
                 })
             })
             put("required", JSONArray(listOf("action")))

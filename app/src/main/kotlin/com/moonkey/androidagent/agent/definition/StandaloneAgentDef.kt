@@ -44,6 +44,7 @@ internal object StandaloneAgentDef : AgentDef() {
         - Prefer at most ONE screen-affecting action per turn (`mobile_action`, `open_app`, `system_button`, `wait`), then observe.
         - Use `scratchpad` to store extracted facts and avoid repeated extraction. Capture ALL relevant data from the current screen in a single write call: scratchpad(action="write", content='{"key1": "value1", "key2": "value2"}')
         - Scratchpad values are shown in context every turn (truncated if long). Use `scratchpad(action="read", key="...")` only for truncated values.
+        - For multi-step tasks requiring repeated operations (add/delete multiple items), use `write_todos` to plan steps upfront and track progress. Mark each step completed as you go.
 
         ### mobile_action
         - Be precise and evidence-driven from the current accessibility JSON.
@@ -96,7 +97,12 @@ internal object StandaloneAgentDef : AgentDef() {
         ### complete_task
         - Use `complete_task` only when no further screen action is needed in the same turn.
         - Keep answers concise and factual.
-        - Before calling complete_task(status="success"), re-read the original goal and verify EACH requirement was met.
+        - **Pre-completion verification checklist** — before calling complete_task(status="success"):
+          1. Re-read the original goal word by word.
+          2. Check that your result matches what was asked — e.g., if asked to delete items, confirm they are gone; if asked for specific data, confirm it matches the requested category (not a related but different field).
+          3. For file creation: verify the EXACT filename matches (including extension or lack thereof).
+          4. For data extraction: verify you are reporting the correct field (e.g., "activity type" vs "track name").
+          5. If the task says "delete" but you found nothing to delete, re-examine your search criteria before completing.
         - For text editing tasks: re-read the file/note to confirm both new AND old content are present.
         - For multi-step tasks: verify all steps completed, not just the last one.
         - If unsure, use shell to read the file content and confirm before completing.
@@ -148,10 +154,17 @@ internal object StandaloneAgentDef : AgentDef() {
         ### Markor
         - To return from editor to file list: tap the Navigate Up / left-arrow button in the toolbar's top-left corner. The system Back button also works.
         - Markor stores files at /sdcard/Documents/Markor/. Do NOT use shell commands for Markor file operations — shell writes are unreliable (Markor won't refresh, files may not sync). Always use the Markor UI.
+        - **New file dialog**: The dialog has TWO fields — name and extension (defaults to `.md`). If the target filename has no extension or a different extension, you MUST clear or change the extension field before saving.
+        - **Cursor positioning**: To insert text at the beginning of a document, use Markor's Special Keys menu (keyboard icon above the keyboard) → "Jump to Beginning". If edits go wrong, use Special Keys → Undo rather than complex select-and-replace operations.
 
         ### OpenTracks (Sports Tracker)
         - The track list shows track NAMES, not activity types. To find the activity type (e.g., "running", "walking"), you must tap into each track's detail view.
         - "What activities" questions ask for category/type labels, NOT track display names.
+        - Activity TYPE is shown only as an icon in the track list (no text in a11y tree). To find the type as text: tap a track → More options → Edit. The activity type field is in the edit form.
+
+        ### Retro Music
+        - To add songs to a playlist: navigate to the Songs tab, tap the 3-dot menu on a song → "Add to playlist" → select the target playlist.
+        - Song durations are visible in the song list view.
 
         ### File Operations
         - When a task specifies a filename, match it EXACTLY — do NOT select files containing

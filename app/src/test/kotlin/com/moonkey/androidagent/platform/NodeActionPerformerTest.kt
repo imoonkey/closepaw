@@ -366,6 +366,100 @@ class NodeActionPerformerTest {
         verify(exactly = 1) { node.performAction(AccessibilityNodeInfo.ACTION_CLICK) }
     }
 
+    // ===== Hint text contamination tests (P1) =====
+
+    @Test
+    fun `performSetTextOnNodeAt clear=false with hint text treats existing as empty`() = runTest {
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val node = mockk<AccessibilityNodeInfo>(relaxed = true)
+
+        every { AccessibilityNodeFinder.findNodeAtLocation(root, 100, 200) } returns node
+        // Field is showing hint text "Playlist name" — should be treated as empty
+        every { node.isShowingHintText } returns true
+        every { node.text } returnsMany listOf(
+            "Playlist name",         // cursor positioning read (existing skipped due to hint)
+            "Ultimate Fails Series"  // after refresh: post-action verification
+        )
+        every { node.hintText } returns "Playlist name"
+        every { node.textSelectionStart } returns -1
+        every { node.textSelectionEnd } returns -1
+        every { node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, any()) } returns true
+        every { node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, any()) } returns true
+        every { node.refresh() } returns true
+
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performSetTextOnNodeAt(100, 200, "Ultimate Fails Series", clear = false)
+
+        // With the fix, existing="" so combined="Ultimate Fails Series" — matches post-verification
+        assertThat(result).isEqualTo(ActionResult.Success("Text entered: Ultimate Fails Series"))
+    }
+
+    @Test
+    fun `performSetTextOnNodeAt clear=false with real text preserves existing`() = runTest {
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val node = mockk<AccessibilityNodeInfo>(relaxed = true)
+
+        every { AccessibilityNodeFinder.findNodeAtLocation(root, 100, 200) } returns node
+        every { node.isShowingHintText } returns false
+        every { node.text } returnsMany listOf(
+            "Hello ",          // first read: existing text
+            "Hello World",     // cursor positioning read
+            "Hello World"      // after refresh: post-action verification
+        )
+        every { node.textSelectionStart } returns 6  // cursor at end of "Hello "
+        every { node.textSelectionEnd } returns 6
+        every { node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, any()) } returns true
+        every { node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, any()) } returns true
+        every { node.refresh() } returns true
+
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performSetTextOnNodeAt(100, 200, "World", clear = false)
+
+        assertThat(result).isEqualTo(ActionResult.Success("Text entered: World"))
+    }
+
+    @Test
+    fun `performSetTextOnNodeAt clear=true with hint text works normally`() = runTest {
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val node = mockk<AccessibilityNodeInfo>(relaxed = true)
+
+        every { AccessibilityNodeFinder.findNodeAtLocation(root, 100, 200) } returns node
+        every { node.isShowingHintText } returns true
+        // clear=true: node.text is only read at post-verification (after refresh)
+        every { node.text } returns "My Playlist"
+        every { node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, any()) } returns true
+        every { node.refresh() } returns true
+
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performSetTextOnNodeAt(100, 200, "My Playlist", clear = true)
+
+        assertThat(result).isEqualTo(ActionResult.Success("Text entered: My Playlist"))
+    }
+
+    @Test
+    fun `performSetTextOnNodeAt clear=false empty field no hint`() = runTest {
+        val root = mockk<AccessibilityNodeInfo>(relaxed = true)
+        val node = mockk<AccessibilityNodeInfo>(relaxed = true)
+
+        every { AccessibilityNodeFinder.findNodeAtLocation(root, 100, 200) } returns node
+        every { node.isShowingHintText } returns false
+        every { node.text } returnsMany listOf(
+            "",              // first read: empty field
+            "typed text",    // cursor positioning read
+            "typed text"     // after refresh: verification
+        )
+        every { node.textSelectionStart } returns -1
+        every { node.textSelectionEnd } returns -1
+        every { node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, any()) } returns true
+        every { node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, any()) } returns true
+        every { node.refresh() } returns true
+
+        val performer = NodeActionPerformer(rootProvider = { root })
+        val result = performer.performSetTextOnNodeAt(100, 200, "typed text", clear = false)
+
+        assertThat(result).isEqualTo(ActionResult.Success("Text entered: typed text"))
+    }
+
     @Test
     fun `performNodeClickAt with null hint skips guard`() = runTest {
         val root = mockk<AccessibilityNodeInfo>(relaxed = true)

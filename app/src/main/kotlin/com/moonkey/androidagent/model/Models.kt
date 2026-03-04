@@ -44,7 +44,8 @@ data class ScreenSnapshot(
     val elements: List<PerceptionElement>,   // Always present (may be empty)
     val image: ScreenImage? = null,
     val debug: ScreenSnapshotDebug? = null,
-    val textEnriched: Boolean = false
+    val textEnriched: Boolean = false,
+    val keyboardVisible: Boolean = false
 ) {
     /** True when accessibility elements were found */
     val hasElements: Boolean get() = elements.isNotEmpty()

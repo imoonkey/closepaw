@@ -1,3 +1,5 @@
 MarkorTranscribeVideo
 OsmAndMarker
 OsmAndTrack
+ExpenseDeleteDuplicates2
+RecipeDeleteDuplicateRecipes2

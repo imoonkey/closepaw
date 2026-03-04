@@ -47,6 +47,10 @@ class DelegateTaskTool(
     override val parameterSchema: JSONObject = JSONObject().apply {
         put("type", "object")
         put("properties", JSONObject().apply {
+            put("agent_thought", JSONObject().apply {
+                put("type", "string")
+                put("description", "Brief reason for this delegation")
+            })
             put("agent_name", JSONObject().apply {
                 put("type", "string")
                 put("description", "Name of sub-agent to run")
@@ -63,10 +67,6 @@ class DelegateTaskTool(
                 put("type", "array")
                 put("description", "Optional short notes to preserve context")
                 put("items", JSONObject().apply { put("type", "string") })
-            })
-            put("agent_thought", JSONObject().apply {
-                put("type", "string")
-                put("description", "Brief reason for this delegation")
             })
         })
         put("required", JSONArray(listOf("agent_name", "query")))

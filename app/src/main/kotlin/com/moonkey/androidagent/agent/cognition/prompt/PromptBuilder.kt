@@ -150,6 +150,9 @@ internal class PromptBuilder(
             if (perceptionConfig.capturesAccessibility) {
                 val screenJson = Perceptor.toPromptJson(snapshot)
                 appendLine("Screen state (${snapshot.elements.size} elements):")
+                if (snapshot.keyboardVisible) {
+                    appendLine("keyboard_visible: true (BACK will dismiss keyboard first, not navigate back)")
+                }
                 appendLine("```json")
                 appendLine(screenJson)
                 append("```")
