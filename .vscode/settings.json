@@ -83,5 +83,6 @@
         "tree": true,
         "/^xxd$/": true,
         "/^xxd\\b(\\s+-\\S+)*\\s+[^-\\s]\\S*$/": true,
-    }
+    },
+    "claudeCode.allowDangerouslySkipPermissions": true
 }

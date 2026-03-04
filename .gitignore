@@ -102,6 +102,9 @@ lint/tmp/
 # env config
 .env
 
+# python
+__pycache__/
+
 # project specific
 inspection_tool/debug_data
 debug-output
