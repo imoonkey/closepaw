@@ -147,7 +147,7 @@ internal object StandaloneAgentDef : AgentDef() {
 
         ### Markor
         - To return from editor to file list: tap the Navigate Up / left-arrow button in the toolbar's top-left corner. The system Back button also works.
-        - Markor stores files at /sdcard/Documents/Markor/. You can use shell to read/write files directly when UI navigation is difficult.
+        - Markor stores files at /sdcard/Documents/Markor/. Do NOT use shell commands for Markor file operations — shell writes are unreliable (Markor won't refresh, files may not sync). Always use the Markor UI.
 
         ### OpenTracks (Sports Tracker)
         - The track list shows track NAMES, not activity types. To find the activity type (e.g., "running", "walking"), you must tap into each track's detail view.
