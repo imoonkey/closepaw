@@ -180,7 +180,9 @@ class NodeActionPerformer(
     }
 
     private fun setTextOnNode(node: AccessibilityNodeInfo, text: String, clear: Boolean): ActionResult {
+        val combined: String
         if (clear) {
+            // clear=true: replace entire field content
             val clearArgs =
                     Bundle().apply {
                         putCharSequence(
@@ -189,13 +191,22 @@ class NodeActionPerformer(
                         )
                     }
             node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, clearArgs)
+            combined = text
+        } else {
+            // clear=false: insert text at cursor position, preserving existing content
+            val existing = node.text?.toString() ?: ""
+            val selStart = node.textSelectionStart
+            val selEnd = node.textSelectionEnd
+            val insertAt = if (selStart >= 0) selStart.coerceAtMost(existing.length) else existing.length
+            val deleteEnd = if (selEnd >= 0) selEnd.coerceAtMost(existing.length) else insertAt
+            combined = existing.substring(0, insertAt) + text + existing.substring(deleteEnd)
         }
 
         val args =
                 Bundle().apply {
                     putCharSequence(
                             AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                            text
+                            combined
                     )
                 }
         val ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
@@ -203,11 +214,28 @@ class NodeActionPerformer(
             return ActionResult.Failure("ACTION_SET_TEXT failed")
         }
 
+        // Place cursor after inserted text when not clearing
+        if (!clear) {
+            val insertAt = run {
+                val existing = node.text?.toString() ?: ""
+                val s = node.textSelectionStart
+                if (s >= 0) s.coerceAtMost(existing.length) else combined.length - text.length
+            }
+            val newCursor = (insertAt.coerceAtLeast(0) + text.length).coerceAtMost(combined.length)
+            node.performAction(
+                    AccessibilityNodeInfo.ACTION_SET_SELECTION,
+                    Bundle().apply {
+                        putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newCursor)
+                        putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newCursor)
+                    }
+            )
+        }
+
         // Post-action verification: re-read node text to detect silent failures
         // (e.g., NumberPicker EditText accepts setText but doesn't commit the value).
         if (node.refresh()) {
             val actualText = node.text?.toString() ?: ""
-            if (actualText != text && !actualText.contains(text)) {
+            if (actualText != combined && !actualText.contains(text)) {
                 return ActionResult.Failure(
                         "Type action failed: value did not change to '$text' " +
                                 "(actual: '$actualText'). This field may be read-only or a " +

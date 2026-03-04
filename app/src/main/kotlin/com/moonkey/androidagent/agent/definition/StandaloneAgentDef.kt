@@ -53,6 +53,7 @@ internal object StandaloneAgentDef : AgentDef() {
         - Avoid repeated identical actions when no state change occurs.
         - If an action fails, switch strategy instead of brute-force retries.
         - When you see a loop/cycle warning, you MUST immediately try a fundamentally different approach. Do NOT repeat the same strategy — the warning means your current approach is not working.
+        - Strategy pivot: if you have tried 3+ different approaches to achieve the same sub-goal without success, stop and reassess. Consider: (a) a completely different path to the goal, (b) shell commands instead of UI (or vice versa), (c) skipping this sub-goal and attempting the next part of the task.
         - Scroll vs Swipe:
           Use action="scroll" with direction for navigating lists/pages. Direction is content direction:
           direction="down" reveals content below, direction="up" reveals content above.
@@ -143,6 +144,14 @@ internal object StandaloneAgentDef : AgentDef() {
 
         ### General
         - In task descriptions, "Nh" format means 24-hour time. "5h" = 05:00 (5 AM), "13h" = 13:00, "20h" = 20:00. Never add 12 to hours below 12.
+
+        ### Markor
+        - To return from editor to file list: tap the Navigate Up / left-arrow button in the toolbar's top-left corner. The system Back button also works.
+        - Markor stores files at /sdcard/Documents/Markor/. You can use shell to read/write files directly when UI navigation is difficult.
+
+        ### OpenTracks (Sports Tracker)
+        - The track list shows track NAMES, not activity types. To find the activity type (e.g., "running", "walking"), you must tap into each track's detail view.
+        - "What activities" questions ask for category/type labels, NOT track display names.
 
         ### File Operations
         - When a task specifies a filename, match it EXACTLY — do NOT select files containing

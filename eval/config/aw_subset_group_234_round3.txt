@@ -1,0 +1,15 @@
+ExpenseDeleteDuplicates2
+MarkorAddNoteHeader
+MarkorEditNote
+MarkorMergeNotes
+MarkorTranscribeVideo
+OsmAndMarker
+OsmAndTrack
+RecipeAddMultipleRecipesFromImage
+RecipeAddMultipleRecipesFromMarkor
+RecipeDeleteDuplicateRecipes2
+RetroPlaylistDuration
+SimpleCalendarEventsInNextWeek
+SimpleSmsReplyMostRecent
+SportsTrackerActivitiesOnDate
+VlcCreateTwoPlaylists

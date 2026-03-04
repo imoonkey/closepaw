@@ -57,6 +57,11 @@ def run_one_task_instance(
         trace_parse = empty_trace_result()
 
         try:
+            # Defensively reset stale state from prior runs (e.g., VLC "already called" bug)
+            try:
+                task.tear_down(env)
+            except Exception:
+                pass
             task.initialize_task(env)
             initialized = True
 

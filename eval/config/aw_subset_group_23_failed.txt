@@ -1,0 +1,13 @@
+ExpenseDeleteDuplicates2
+MarkorAddNoteHeader
+MarkorCreateFolder
+MarkorEditNote
+RecipeAddMultipleRecipes
+SimpleCalendarEventsOnDate
+MarkorMergeNotes
+MarkorTranscribeReceipt
+RetroSavePlaylist
+SimpleCalendarEventsInNextWeek
+SportsTrackerActivitiesOnDate
+TasksHighPriorityTasks
+VlcCreatePlaylist

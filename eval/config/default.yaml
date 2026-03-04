@@ -51,3 +51,5 @@ bridge:
     MarkorTranscribeReceipt: { perception_mode: hybrid }
     MarkorTranscribeVideo: { perception_mode: hybrid }
     RecipeAddMultipleRecipesFromImage: { perception_mode: hybrid }
+    OsmAndMarker: { perception_mode: hybrid }
+    OsmAndTrack: { perception_mode: hybrid }
