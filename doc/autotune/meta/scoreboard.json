@@ -608,6 +608,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260303_232753": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 9
         }
       },
       "recent_rate": "0/3",
@@ -729,6 +734,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260303_232753": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
         }
       },
       "recent_rate": "0/3",
@@ -772,9 +782,14 @@
           "score": 1.0,
           "status": "completed",
           "turns": 8
+        },
+        "20260303_232753": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 9
         }
       },
-      "recent_rate": "2/2",
+      "recent_rate": "3/3",
       "status": "fixed"
     },
     "MarkorCreateNoteAndSms": {
@@ -868,9 +883,14 @@
           "score": 1.0,
           "status": "completed",
           "turns": 10
+        },
+        "20260303_232753": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 11
         }
       },
-      "recent_rate": "1/3",
+      "recent_rate": "2/3",
       "status": "improving"
     },
     "MarkorMergeNotes": {
@@ -894,6 +914,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 23
+        },
+        "20260303_232753": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 22
         }
       },
       "recent_rate": "0/3",
@@ -1075,6 +1100,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260303_232753": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 35
         }
       },
       "recent_rate": "0/3",
@@ -1096,6 +1126,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260303_232753": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 35
         }
       },
       "recent_rate": "0/3",
@@ -1144,6 +1179,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260303_232753": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 45
         }
       },
       "recent_rate": "0/3",
@@ -1243,6 +1283,11 @@
           "turns": 30
         },
         "20260301_012237": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260303_232753": {
           "score": 0.0,
           "status": "completed",
           "turns": 30
@@ -1766,6 +1811,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260303_232753": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 15
         }
       },
       "recent_rate": "0/3",
@@ -1938,9 +1988,14 @@
           "score": 0.0,
           "status": "infra_failure",
           "turns": 0
+        },
+        "20260303_232753": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 19
         }
       },
-      "recent_rate": "0/2",
+      "recent_rate": "0/3",
       "status": "stuck"
     },
     "VlcCreateTwoPlaylists": {
@@ -1959,6 +2014,11 @@
           "score": 0.0,
           "status": "infra_failure",
           "turns": 0
+        },
+        "20260303_232753": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
         }
       },
       "recent_rate": "0/3",
@@ -2175,6 +2235,12 @@
       "total": 16,
       "passed": 2,
       "rate": 0.125
+    },
+    "20260303_232753": {
+      "round": 36,
+      "total": 12,
+      "passed": 2,
+      "rate": 0.167
     }
   }
 }
