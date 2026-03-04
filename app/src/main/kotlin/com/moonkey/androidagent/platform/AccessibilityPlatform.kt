@@ -97,13 +97,15 @@ class AccessibilityPlatform(
                 timestamp = timestamp,
                 elements = elements,
                 image = image,
-                debug = debug
+                debug = debug,
+                keyboardVisible = a11yResult.keyboardVisible
         )
     }
 
     private data class A11yCaptureResult(
             val elements: List<PerceptionElement>,
             val windowId: Int?,
+            val keyboardVisible: Boolean,
             val rawTreeArtifactPath: String?,
             val sanitizedTreeArtifactPath: String?,
             val captureQualityArtifactPath: String?
@@ -120,14 +122,16 @@ class AccessibilityPlatform(
 
     private suspend fun captureAccessibilityTree(): A11yCaptureResult {
         val display = withContext(Dispatchers.Main) { getDisplayInfo() }
-        var roots = withContext(Dispatchers.Main) { collectRootsOnActiveDisplay() }
+        var windowRoots = withContext(Dispatchers.Main) { collectRootsOnActiveDisplay() }
         var attempts = 1
-        while (roots.isEmpty() && attempts < 3) {
+        while (windowRoots.roots.isEmpty() && attempts < 3) {
             delay(150)
             attempts += 1
-            roots = withContext(Dispatchers.Main) { collectRootsOnActiveDisplay() }
+            windowRoots = withContext(Dispatchers.Main) { collectRootsOnActiveDisplay() }
         }
         val capturedAt = System.currentTimeMillis()
+        val roots = windowRoots.roots
+        val keyboardVisible = windowRoots.keyboardVisible
         val windowId = roots.firstOrNull()?.windowId
 
         if (roots.isEmpty()) {
@@ -143,6 +147,7 @@ class AccessibilityPlatform(
             return A11yCaptureResult(
                     elements = emptyList(),
                     windowId = null,
+                    keyboardVisible = keyboardVisible,
                     rawTreeArtifactPath = null,
                     sanitizedTreeArtifactPath = null,
                     captureQualityArtifactPath = qualityPath
@@ -194,6 +199,7 @@ class AccessibilityPlatform(
             return A11yCaptureResult(
                     elements = snapshot.elements,
                     windowId = windowId,
+                    keyboardVisible = keyboardVisible,
                     rawTreeArtifactPath = rawTreeArtifactPath,
                     sanitizedTreeArtifactPath = sanitizedTreeArtifactPath,
                     captureQualityArtifactPath = qualityPath
@@ -203,14 +209,22 @@ class AccessibilityPlatform(
         }
     }
 
+    private data class WindowRoots(
+            val roots: List<AccessibilityNodeInfo>,
+            val keyboardVisible: Boolean
+    )
+
     /**
      * Collect a11y roots from all relevant windows on the active display.
      *
      * Excludes TYPE_ACCESSIBILITY_OVERLAY (our own overlay) and TYPE_INPUT_METHOD (keyboard).
      * Sorted by layer for deterministic element ordering across turns.
      * Falls back to rootInActiveWindow if window enumeration fails.
+     *
+     * Also detects keyboard visibility from the window type list (TYPE_INPUT_METHOD present),
+     * since keyboard nodes are filtered from roots and won't be seen by Perceptor.
      */
-    private fun collectRootsOnActiveDisplay(): List<AccessibilityNodeInfo> {
+    private fun collectRootsOnActiveDisplay(): WindowRoots {
         val windows = try {
             service.windows
         } catch (e: Exception) {
@@ -218,9 +232,13 @@ class AccessibilityPlatform(
             null
         }
         if (windows.isNullOrEmpty()) {
-            return listOfNotNull(service.rootInActiveWindow)
+            return WindowRoots(
+                roots = listOfNotNull(service.rootInActiveWindow),
+                keyboardVisible = false
+            )
         }
         return try {
+            val keyboardVisible = windows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
             val roots = windows
                 .filter { w ->
                     w.type != AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
@@ -228,7 +246,10 @@ class AccessibilityPlatform(
                 }
                 .sortedBy { it.layer }
                 .mapNotNull { it.root }
-            roots.ifEmpty { listOfNotNull(service.rootInActiveWindow) }
+            WindowRoots(
+                roots = roots.ifEmpty { listOfNotNull(service.rootInActiveWindow) },
+                keyboardVisible = keyboardVisible
+            )
         } finally {
             windows.forEach { window ->
                 runCatching { window.recycle() }

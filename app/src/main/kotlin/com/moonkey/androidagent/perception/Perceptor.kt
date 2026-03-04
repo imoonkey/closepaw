@@ -65,7 +65,6 @@ object Perceptor {
 
         val collected = mutableListOf<PerceptorCandidateElement>()
         val seenKeys = mutableSetOf<String>()
-        val keyboardFlag = booleanArrayOf(false)
 
         for (root in roots) {
             traverse(
@@ -77,8 +76,7 @@ object Perceptor {
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
-                diagnosticsCollector = diagnosticsCollector,
-                keyboardFlag = keyboardFlag
+                diagnosticsCollector = diagnosticsCollector
             )
         }
         for (root in roots) {
@@ -91,8 +89,7 @@ object Perceptor {
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
-                diagnosticsCollector = diagnosticsCollector,
-                keyboardFlag = keyboardFlag
+                diagnosticsCollector = diagnosticsCollector
             )
         }
 
@@ -113,8 +110,7 @@ object Perceptor {
         return ScreenSnapshot(
             timestamp = timestamp,
             elements = indexed,
-            textEnriched = true,
-            keyboardVisible = keyboardFlag[0]
+            textEnriched = true
         )
     }
 
@@ -217,8 +213,7 @@ object Perceptor {
         screenWidthPx: Int?,
         screenHeightPx: Int?,
         filterConfig: PerceptorFilterConfig,
-        diagnosticsCollector: PerceptorDiagnosticsCollector?,
-        keyboardFlag: BooleanArray
+        diagnosticsCollector: PerceptorDiagnosticsCollector?
     ) {
         // Collection cap: stop collecting once we have enough candidates for scoring.
         // 2x maxElements gives applyTruncation a good pool while bounding traversal work.
@@ -237,8 +232,7 @@ object Perceptor {
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
-                diagnosticsCollector = diagnosticsCollector,
-                keyboardFlag = keyboardFlag
+                diagnosticsCollector = diagnosticsCollector
             )
             if (shouldRecycle) node.recycleCompat()
             return
@@ -259,7 +253,6 @@ object Perceptor {
         val rangeInfo = node.rangeInfo?.let { RangeInfo(current = it.current, min = it.min, max = it.max) }
 
         if (filterConfig.filterKeyboard && isKnownKeyboardNode(resourceId)) {
-            keyboardFlag[0] = true
             if (shouldRecycle) node.recycleCompat()
             return
         }
@@ -353,8 +346,7 @@ object Perceptor {
             screenWidthPx = screenWidthPx,
             screenHeightPx = screenHeightPx,
             filterConfig = filterConfig,
-            diagnosticsCollector = diagnosticsCollector,
-            keyboardFlag = keyboardFlag
+            diagnosticsCollector = diagnosticsCollector
         )
         if (shouldRecycle) node.recycleCompat()
     }
@@ -367,8 +359,7 @@ object Perceptor {
         screenWidthPx: Int?,
         screenHeightPx: Int?,
         filterConfig: PerceptorFilterConfig,
-        diagnosticsCollector: PerceptorDiagnosticsCollector?,
-        keyboardFlag: BooleanArray
+        diagnosticsCollector: PerceptorDiagnosticsCollector?
     ) {
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
@@ -381,8 +372,7 @@ object Perceptor {
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
-                diagnosticsCollector = diagnosticsCollector,
-                keyboardFlag = keyboardFlag
+                diagnosticsCollector = diagnosticsCollector
             )
         }
     }

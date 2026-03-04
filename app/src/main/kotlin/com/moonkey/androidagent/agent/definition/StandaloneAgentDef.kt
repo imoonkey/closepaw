@@ -156,6 +156,7 @@ internal object StandaloneAgentDef : AgentDef() {
         - Markor stores files at /sdcard/Documents/Markor/. Do NOT use shell commands for Markor file operations — shell writes are unreliable (Markor won't refresh, files may not sync). Always use the Markor UI.
         - **New file dialog**: The dialog has TWO fields — name and extension (defaults to `.md`). If the target filename has no extension or a different extension, you MUST clear or change the extension field before saving.
         - **Cursor positioning**: To insert text at the beginning of a document, use Markor's Special Keys menu (keyboard icon above the keyboard) → "Jump to Beginning". If edits go wrong, use Special Keys → Undo rather than complex select-and-replace operations.
+        - **Blank lines**: When the task says "blank line" or "empty line", use `\n\n` (double newline). A single `\n` creates a line break, NOT a blank line.
 
         ### OpenTracks (Sports Tracker)
         - The track list shows track NAMES, not activity types. To find the activity type (e.g., "running", "walking"), you must tap into each track's detail view.
@@ -165,6 +166,7 @@ internal object StandaloneAgentDef : AgentDef() {
         ### Retro Music
         - To add songs to a playlist: navigate to the Songs tab, tap the 3-dot menu on a song → "Add to playlist" → select the target playlist.
         - Song durations are visible in the song list view.
+        - **Duration targets**: For playlist duration targets, use iterative add-and-check: add songs one by one, navigate to playlist view to read the running total (visible as "N Songs / MM:SS"), stop when target is reached. Do NOT pre-read individual song durations.
 
         ### File Operations
         - When a task specifies a filename, match it EXACTLY — do NOT select files containing
