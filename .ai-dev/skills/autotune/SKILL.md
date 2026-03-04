@@ -22,7 +22,7 @@ Automated fix → eval → analyze loop. Each invocation does one full iteration
 
 Apply changes from the previous round's approved `## Next Steps`.
 
-- Follow `sop/code_work.md`.
+- **Follow the full `sop/code_work.md` process** (design/plan → phased implementation with /tdd /coding-standards, /code-review → /cog-tune quick debug → code simplification → /update-docs). Do NOT skip any steps in the SOP.
 - Commit: `feat(agent): autotune round N — <summary>`.
 - Round 0: skip this step.
 
@@ -32,7 +32,7 @@ Select tasks for this round. Full universe: `eval/config/aw_fullset.txt`.
 
 Selection rules:
 1. **Directly affected**: Tasks whose failure root cause matches what was just fixed.
-2. (Optional) **Regression canaries**: A few passing tasks to catch regressions.
+2. (Optional) **Regression canaries**: Only include if explicitly requested. Do not add by default.
 3. (Optional) **Stuck tasks**: Re-test if you have a new idea.
 4. **Budget**: ~5-10 tasks normally, up to 20 for regression sweeps.
 
@@ -45,6 +45,8 @@ eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/autotune
 ```
 
 Monitor for stalls. If a task hangs (no output for several minutes), check accessibility permission on the device. If needed, stop the runner, remove completed tasks from the config, and re-run the remainder.
+
+**Overlap with Step 4**: You do NOT need to wait for the full run to finish. As soon as a task completes, start its `/cog-tune` analysis (Step 4.1) in parallel while remaining tasks continue running.
 
 ### Step 4 — Analyze
 

@@ -14,11 +14,11 @@ Improve agent cognition by inspecting debug-run traces, eval metrics/results, sc
 For simple "agent did something wrong" cases that don't need full eval analysis, use this abbreviated flow:
 
 1. **Run debug session**: `./scripts/setup.sh && ./scripts/debug-run.sh "goal"`
-2. **Turn-by-turn check**: For each turn, compare the screenshot (`turn_N.png`) against the log (`turn_N_log.txt`):
-   - Does the agent perceive the target element? (Perception)
-   - Does it choose the right action? (Reasoning)
-   - Does the action succeed? (Execution)
-   - Does it observe the result correctly? (Observation)
+2. **Turn-by-turn check**: For each turn, inspect all three layers — even if the tool reports success:
+   - **Reasoning**: Does the agent choose the right action given the screen state?
+   - **Grounding**: Are the action type and parameters correct? (right element, right text, right coordinates)
+   - **Execution**: Compare `turn_N.png` (before) vs `turn_N+1.png` (after) — did the screen actually change as expected? Do NOT trust tool success status alone; inspect screenshots when in doubt.
+   - **Observation**: Does the agent correctly interpret the post-action state?
 3. **Quick diagnostics**:
    ```bash
    grep -E "click|type|scroll|swipe|back|home" debug-output/run_*/agent.log
@@ -78,6 +78,13 @@ Use `trace/derived/steps.jsonl` plus artifacts in `trace/artifacts/`:
 - **World**: `screenshot`, `tool_observation_screen`, `raw_a11y_tree`, `sanitized_a11y_tree`
 - **Mind**: `llm_system_prompt`, `llm_user_context`, `llm_full_prompt`, `llm_input_items`, `llm_history`, `llm_tool_calls`
 - **Act/Observe**: `tool_call_args`, `tool_result`, `tool_observation_screen`
+
+**CRITICAL — Verify every turn, not just failed ones:**
+
+For each turn, evaluate all three layers:
+1. **Reasoning**: Did the agent choose the correct action given the screen state and goal? Was the logic sound?
+2. **Grounding**: Did the agent select the right action type and parameters to implement its reasoning? (e.g., correct element ID, correct text, correct coordinates)
+3. **Execution**: Did the action actually succeed on the device? **Do NOT trust `tool_result` alone** — a tool may report success while the UI did not change. Always compare the **before screenshot** (`turn_N.png`) with the **after screenshot** (`turn_N+1.png` or `tool_observation_screen`). If in doubt, inspect the screenshot image directly to confirm the screen state changed as expected.
 
 Always cross-check image evidence with a11y trees. If they disagree, document the mismatch explicitly and avoid conclusions based on only one modality.
 

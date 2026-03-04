@@ -25,12 +25,18 @@ Principle: **compact by default**. Only include optional sections when they add 
 
 <!-- Include for failures or when turns > 20. For clean passes, skip this section. -->
 
-### Turn {N}
-- **Action**: `{tool_call with key args}`
-- **Result**: {outcome}
-- **Assessment**: {Good|Neutral|Bad} — {why}
+| Turn | Action | Screen Changed? | Reasoning | Grounding | Execution | Note |
+|------|--------|-----------------|-----------|-----------|-----------|------|
+| {N} | `{tool_call}` | {Y/N} | {G/B} | {G/B} | {G/B} | {short note or —} |
+| ... | ... | ... | ... | ... | ... | ... |
 
-<!-- Group uneventful turns: "Turns 5-8: navigated to target screen without issues." -->
+<!-- G = Good, B = Bad. Group uneventful turns: "3-7 | navigated to target | Y | G | G | G | —" -->
+
+### Key Turns
+
+<!-- Expand only turns with a Bad rating or surprising behavior. Skip if table is self-explanatory. -->
+
+**Turn {N}** — {1-2 sentence explanation: what went wrong in reasoning/grounding/execution, what was on screen, what should have happened instead.}
 
 ## What Worked
 
@@ -69,7 +75,9 @@ Principle: **compact by default**. Only include optional sections when they add 
 |----------|---------|
 | Success | Task passed cleanly |
 | PerceptionGap | Agent couldn't see/parse a UI element |
-| ActionFailure | Action executed but had wrong effect |
+| ReasoningError | Agent saw the screen correctly but chose the wrong action |
+| GroundingError | Agent reasoned correctly but selected wrong action type/params (wrong element, wrong text, wrong coordinates) |
+| ActionFailure | Action executed but had wrong effect (tool reported success but screen didn't change as expected) |
 | FalseCompletion | Agent claimed success but scorer disagreed |
 | NavigationFailure | Agent couldn't reach the right screen |
 | TurnExhaustion | Correct approach but ran out of turns |
