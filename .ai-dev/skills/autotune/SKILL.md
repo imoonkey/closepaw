@@ -58,6 +58,8 @@ For each task in the run:
 5. Append to `doc/autotune/meta/changelog.md`.
 6. Update `doc/autotune/meta/issues.md` (new issues, resolved issues, parked tasks).
 
+Note: <agent> = your name, e.g., claude, codex (do your analysis independently, don't look at other agents' analyses even if they exist).
+
 ### STOP
 
 Present to human:
