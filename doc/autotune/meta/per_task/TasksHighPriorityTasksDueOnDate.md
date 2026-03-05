@@ -1,6 +1,6 @@
 # TasksHighPriorityTasksDueOnDate
 
-## AT-R3 (20260304_152742) - PASS (codex)
+## AT-R3 (20260304_152742) - PASS
 - Score: 1.0
 - Turns: 21/30
-- Delta: No prior local eval run for this task; baseline recorded.
+- First run, passed. Tasks app task — benefits from R4 date-label tip as regression canary.

@@ -1,6 +1,7 @@
 # RecipeDeleteDuplicateRecipes3
 
-## AT-R3 (20260304_152742) - FAIL (codex)
+## AT-R3 (20260304_152742) - FAIL
 - Score: 0.0
 - Turns: 30/30
-- Delta: No prior local eval run for this task; baseline recorded.
+- Root cause: TurnExhaustion. Agent correctly identified duplicates but ran out of turns mid-deletion. Many duplicates to process.
+- R4 fix: Set max_turns=50. Park if still failing.

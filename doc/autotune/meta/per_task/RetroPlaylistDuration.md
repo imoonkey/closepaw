@@ -1,9 +1,10 @@
 # RetroPlaylistDuration
 
-## AT-R3 (20260304_152742) - FAIL (codex)
+## AT-R3 (20260304_152742) - FAIL
 - Score: 0.0
 - Turns: 30/30
-- Delta: vs 20260304_033425: still FAIL at 30 turns; late strategy pivot did not improve outcome.
+- Root cause: TurnExhaustion. R2 strategy tip present but agent wasted 12 turns pre-reading durations before pivoting to iterative add at turn 19. Only ~5 songs added. 3-round persistent failure.
+- R4 fix: Replace old strategy tip with batch-select app tip (long-press multi-select on Songs tab). Set max_turns=45.
 
 ## AT-R3 (20260304_152742) — FAIL
 - Score: 0.0
