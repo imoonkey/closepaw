@@ -1,7 +1,7 @@
 # Session History Persistence
 
 > Session recording, storage, runtime prompt history, compression pipeline, and resume functionality.
-> Last updated: 2026-02-24
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## Overview
 

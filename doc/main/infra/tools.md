@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-02-26
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## Overview
 
@@ -94,10 +94,13 @@ Determines whether tools need user approval.
 | `scratchpad` | JSON-backed memory | `action`, `content` (JSON string for write) |
 | `delegate_task` | Sub-agent delegation (PRO mode) | `agent_name`, `query` |
 | `ask_user` | Request user help mid-task | `type` (`question`/`action`), `message` |
+| `shell` | Execute file-related shell commands | `command`, optional `timeout_ms` |
 
 `delegate_task` is registered lazily only when the selected agent definition requires delegation.
 
 `ask_user` is registered lazily in `SessionAgentRunner.start()`. It suspends the agent coroutine via `UserResponseChannel` (CompletableDeferred) until the user responds through the capsule UI, or times out after 5 minutes. See [session.md](session.md) for `UserResponseChannel` details.
+
+`shell` executes file-related shell commands on the device (cat, ls, stat). Restricted to read-only file operations — non-file commands (date, dumpsys, input, am) are explicitly blocked. Runs via `Runtime.exec()` with a configurable timeout (default 10s, max 30s). Returns stdout/stderr combined output.
 
 ### mobile_action Actions
 
@@ -279,7 +282,8 @@ tool/
     ├── WriteTodosTool.kt
     ├── ScratchpadTool.kt
     ├── DelegateTaskTool.kt
-    └── AskUserTool.kt
+    ├── AskUserTool.kt
+    └── ShellTool.kt
 ```
 
 ---

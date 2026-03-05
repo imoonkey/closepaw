@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## Overview
 

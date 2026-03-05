@@ -1,7 +1,7 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-02-23 (commit: 1dd2020)
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## Quick Start
 
@@ -79,6 +79,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   ├── AgentRuntimeTypes.kt      # AgentStopReason, TurnOutcome, TurnRunnerState
 │   ├── AgentExecutionConfig.kt   # Agent runtime configuration
 │   ├── AgentEventDispatcher.kt   # AgentEvent emission helpers
+│   ├── ActionSignature.kt        # Stable action signatures for loop detection/blocking
 │   ├── ActionDescriptionFormatter.kt # Tool action descriptions
 │   ├── Turn.kt                   # LLM call wrapper (OpenAI Responses API)
 │   ├── definition/               # AgentDef: Planner/Executor/Standalone
@@ -122,7 +123,8 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │       ├── CompleteTaskTool.kt
 │       ├── WriteTodosTool.kt
 │       ├── ScratchpadTool.kt
-│       └── DelegateTaskTool.kt
+│       ├── DelegateTaskTool.kt
+│       └── ShellTool.kt
 │
 ├── trace/                        # Structured trace events and artifacts
 │   ├── AgentTrace.kt             # Runtime-to-trace bridge
@@ -161,7 +163,8 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │       └── ...                   # Config, transports, shell, viewer touch
 │
 ├── perception/                   # Screen perception
-│   ├── Perceptor.kt              # A11y tree → ScreenSnapshot
+│   ├── Perceptor.kt              # A11y tree → ScreenSnapshot (multi-root support)
+│   ├── PerceptorFilterConfig.kt  # Element filtering config (maxElements, thresholds)
 │   └── ScreenSummary.kt          # Compact observation summary
 │
 ├── llm/                          # LLM integration

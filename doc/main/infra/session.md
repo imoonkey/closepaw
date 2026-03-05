@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionCoordinator, SessionServices, and session lifecycle.
-> Last updated: 2026-02-26 (commit: e2ce450)
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## AgentSession
 
@@ -157,7 +157,7 @@ val services = SessionServices.create(config, platform, apiKeys, context, scope,
 Built-in tool registration includes:
 - `mobile_action`, `open_app`, `system_button`, `wait`
 - `write_todos`, `scratchpad`, `complete_task`
-- `shell` (restricted shell command execution)
+- `shell` (restricted file-related shell command execution)
 
 `delegate_task` and `ask_user` are not part of static built-in registration. They are attached lazily by `SessionAgentRunner.start()` when required.
 

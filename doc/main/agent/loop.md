@@ -1,7 +1,7 @@
 # Agent Loop Execution
 
 > ReAct loop, Turn mechanics, and streaming execution.
-> Last updated: 2026-02-26 (commit: e2ce450)
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## ReAct Loop
 
@@ -125,7 +125,7 @@ Encapsulates a single LLM call with streaming.
 
 Defines runtime control/result types:
 - `AgentStopReason` — `GoalAchieved`, `UserRequested`, `MaxTurnsReached`, `Error`
-- `TurnOutcome` — `Continue`, `Complete`, `Error(recoverable)`, `Cancelled`
+- `TurnOutcome` — `Continue`, `Complete(message, success)`, `Error(recoverable)`, `Cancelled`
 - `TurnRunnerState` — cross-turn state: `navigationState`, `previousActionSignature`
 - `TurnExecutionResult` — `outcome` + `nextState`
 
@@ -136,9 +136,13 @@ Defines runtime control/result types:
 → See: `agent/cognition/`
 
 - **Prompt layer**: `PromptBuilder` assembles History → Working Memory → Current Observation input items
-- **Context layer**: `NavigationState` tracks recent screen signatures and actions for loop detection. Maintains a sliding window of `MAX_ACTION_HISTORY = 8` recent actions.
-- **Policy layer**: `TurnToolPolicy` arbitrates tool calls — keeps cognitive tools, at most one screen-changing tool, defers `complete_task` when action tools exist
-- **Loop guard**: `LoopDetectionPolicy` emits warnings for unchanged screens, repeated actions, and consecutive scrolls. Thresholds tuned for balance between false positives and detection speed.
+- **Context layer**: `NavigationState` tracks recent screen signatures and actions for loop detection. Maintains a sliding window of `MAX_ACTION_HISTORY = 8` recent actions. Also tracks `consecutiveLoopTurns` and `blockedActions` for loop escalation.
+- **Policy layer**: `TurnToolPolicy` arbitrates tool calls — keeps cognitive tools, at most one screen-changing tool, defers `complete_task` when action tools exist. Can block specific action signatures during loop escalation.
+- **Loop guard**: `LoopDetectionPolicy` returns `LoopDetectionResult` with both warning and escalation level. Three tiers of intervention:
+  - **Tier 1 (ADVISORY)**: warning text injected into LLM prompt
+  - **Tier 2 (BLOCK)**: after 2 consecutive CRITICAL loop turns, block repeated action signatures + strategy-change directive
+  - **Tier 3 (FORCE_COMPLETE)**: after 5 consecutive loop turns, force `complete_task(status=failure)`
+- **Action signatures**: `ActionSignature.classifyActionSignature()` produces stable signatures (e.g., `mobile_action:click:idx=12`, `open_app:markor`) for loop detection and action blocking
 - **Step guard**: `ExecutorStepPolicy` contributes final-turn warning text when limit is reached, produces narrative summary of attempts
 
 ---
@@ -205,7 +209,7 @@ Recoverable errors allow the loop to continue; fatal errors stop the agent.
 
 | Condition | Result |
 |-----------|--------|
-| `complete_task` selected without non-completion tool | `GoalAchieved` |
+| `complete_task` selected without non-completion tool | `GoalAchieved` (success=true) or `Error` (success=false) |
 | Text-only response with no tool calls | `GoalAchieved` |
 | Max turns reached | `MaxTurnsReached` |
 | User interrupt/stop signal | `UserRequested` |

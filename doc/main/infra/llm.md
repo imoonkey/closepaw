@@ -1,7 +1,7 @@
 # LLM Integration
 
 > LLM clients, model catalog, streaming, and retry infrastructure.
-> Last updated: 2026-02-26 (commit: e2ce450)
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## Overview
 

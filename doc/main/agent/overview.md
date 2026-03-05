@@ -1,7 +1,7 @@
 # Agent Core Overview
 
 > Design principles, architecture, and package structure for the Android Agent.
-> Last updated: 2026-02-26 (commit: e2ce450)
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## Design Principles
 
@@ -80,6 +80,7 @@ com.moonkey.androidagent/
 │   ├── AgentRuntimeTypes.kt            # Stop reasons, turn outcomes, turn state
 │   ├── AgentExecutionConfig.kt         # Runtime config + AgentExecutionRole
 │   ├── AgentEventDispatcher.kt         # Event emission helpers
+│   ├── ActionSignature.kt             # Stable action signature for loop detection/blocking
 │   ├── ActionDescriptionFormatter.kt   # Human-readable tool descriptions
 │   ├── Turn.kt                         # LLM call wrapper (streaming + sync)
 │   ├── definition/                     # Agent role definitions

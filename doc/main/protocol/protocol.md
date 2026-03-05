@@ -1,7 +1,7 @@
 # Agent Protocol Reference
 
 > Op/Event communication protocol, state machine, errors, and configuration.
-> Last updated: 2026-02-22 (commit: 2d13bb1)
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## Overview
 
@@ -269,7 +269,8 @@ data class SessionConfig(
     val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT,
     val mainModel: String = "glm-5",
     val executorModel: String? = null,
-    val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
+    val platformMode: PlatformMode = PlatformMode.ACCESSIBILITY,
+    val excludedTools: Set<String> = emptySet()
 )
 ```
 
@@ -286,6 +287,7 @@ data class SessionConfig(
 | `traceRunId` | Explicit trace folder/run id for correlating artifacts |
 | `perceptionConfig` | Perception mode: `AccessibilityOnly`, `ScreenshotOnly`, or `Hybrid` |
 | `platformMode` | `ACCESSIBILITY` (default) or `VIRTUAL_DISPLAY` (Shizuku-based) |
+| `excludedTools` | Tool names to exclude from the agent's allowed set (e.g., for eval) |
 
 ### SessionLlmConfig
 

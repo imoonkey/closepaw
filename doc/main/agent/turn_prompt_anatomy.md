@@ -1,7 +1,7 @@
 # Turn Prompt Anatomy
 
 > What each turn sends to the LLM: instructions, input items, and filtered tools.
-> Last updated: 2026-02-26 (commit: e2ce450)
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## Overview
 

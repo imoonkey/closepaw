@@ -1,7 +1,7 @@
 # Platform Abstraction
 
 > AndroidPlatform, Perceptor, screen perception, and virtual display support.
-> Last updated: 2026-02-22 (commit: 2d13bb1)
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## AndroidPlatform
 
@@ -301,15 +301,16 @@ Converts raw `AccessibilityNodeInfo` tree into semantic `ScreenSnapshot`.
 
 ### Responsibilities
 
-- Traverse accessibility tree with proper node recycling
+- Traverse accessibility tree(s) with proper node recycling
+- Support multi-root snapshots (multiple a11y windows) via `snapshot(roots: List<AccessibilityNodeInfo>)`
 - Extract element data (bounds, text, class) without storing raw nodes
 - Filter off-screen elements and tiny elements
 - Filter keyboard/IME nodes (Gboard, Samsung, SwiftKey)
 - Clip bounds to screen dimensions
-- Limit to `MAX_ELEMENTS` for token budget
+- Limit to `MAX_ELEMENTS` (default 500) for token budget
 - Generate JSON for LLM prompts via `toPromptJson()`
 
-Both platforms reuse `Perceptor.snapshot()` — `AccessibilityPlatform` passes `service.rootInActiveWindow`, `VirtualDisplayPlatform` passes the root from `VirtualDisplayWindowAccessor.getRootOnDisplay()` with explicit width/height.
+Both platforms reuse `Perceptor.snapshot()` — `AccessibilityPlatform` passes `service.rootInActiveWindow`, `VirtualDisplayPlatform` passes roots from `VirtualDisplayWindowAccessor.getRootsOnDisplay()` with explicit width/height.
 
 ### Prompt JSON Example
 
@@ -348,6 +349,8 @@ Controls which perception modalities the agent captures each turn.
 | `Hybrid(maxDimension, jpegQuality)` | Both modalities. Richest perception, highest token cost. |
 
 Properties: `capturesAccessibility`, `capturesScreenshot`, `screenshotMaxDimension`, `screenshotJpegQuality`.
+
+`PerceptorFilterConfig` controls element filtering: `maxElements` (default 500), `minElementSizePx`, `visibilityThreshold`.
 
 ---
 
@@ -421,7 +424,10 @@ platform/
 
 perception/
 ├── PerceptionConfig.kt        # Capture mode (AccessibilityOnly, ScreenshotOnly, Hybrid)
-├── Perceptor.kt               # A11y tree → ScreenSnapshot (shared by both platforms)
+├── Perceptor.kt               # A11y tree → ScreenSnapshot (shared by both platforms, multi-root support)
+├── PerceptorFilterConfig.kt   # Element filtering config (maxElements, size/visibility thresholds)
+├── PerceptorInternals.kt      # Internal traversal helpers
+├── PerceptorDiagnostics.kt    # Capture diagnostics collector
 └── ScreenSummary.kt           # Text summary for history
 ```
 

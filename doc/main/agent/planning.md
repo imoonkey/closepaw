@@ -1,7 +1,7 @@
 # Planning State & Context Hygiene
 
 > TodoState, ScratchpadState, and context-compression strategies.
-> Last updated: 2026-02-26
+> Last updated: 2026-03-05 (commit: 0b5b379)
 
 ## Planning State System
 
@@ -73,7 +73,7 @@ Thread-safe JSON-backed key-value memory for intermediate data. Internally store
 
 ```kotlin
 class ScratchpadState {
-    fun write(key: String, value: Any)   // Upsert single key-value pair (dict.update semantics)
+    fun write(key: String, value: Any)   // Upsert single key-value pair
     fun read(key: String): Any?          // Returns native JSON type or null
     fun delete(key: String): Boolean
     fun list(): List<String>             // Sorted keys
