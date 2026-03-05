@@ -1,5 +1,10 @@
 # RetroPlaylistDuration
 
+## AT-R3 (20260304_152742) - FAIL (codex)
+- Score: 0.0
+- Turns: 30/30
+- Delta: vs 20260304_033425: still FAIL at 30 turns; late strategy pivot did not improve outcome.
+
 ## AT-R3 (20260304_152742) — FAIL
 - Score: 0.0
 - Turns: 30/30

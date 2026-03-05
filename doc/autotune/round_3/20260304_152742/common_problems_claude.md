@@ -122,3 +122,8 @@ Both tasks wasted turns on shell commands trying to access app databases (always
 ### Accept / Park
 3. **RetroPlaylistDuration** (P2): 3-round persistent failure. The strategy tip is correct but qwen3.5 doesn't follow it. Accept as model limitation for now.
 4. **RecipeDeleteDuplicateRecipes3**: First run, may benefit from max_turns increase. Not a code/prompt issue.
+
+
+# Qi Notes
+1. 这个可以加generic app tip，但不要太overfit to task. 最终还是为了真实世界有效性，不是为了benchmark分高。
+2. 

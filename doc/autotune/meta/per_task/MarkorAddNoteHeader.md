@@ -1,5 +1,10 @@
 # MarkorAddNoteHeader
 
+## AT-R3 (20260304_152742) - PASS (codex)
+- Score: 1.0
+- Turns: 27/30
+- Delta: vs 20260304_033425: flipped FAIL->PASS by correctly inserting blank line and finishing rename; still high-turn.
+
 ## AT-R3 (20260304_152742) — PASS
 - Score: 1.0
 - P1 blank line tip (`\n\n`) worked. 2-round stuck bug finally resolved.
