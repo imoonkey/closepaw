@@ -2,6 +2,21 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 3 — Analysis & R4 Prep (2026-03-05)
+- **Aligned analysis**: Claude + Codex independent analyses, cross-reviewed and aligned via /double-design /align
+- **Root causes**: FalseCompletion (3 Tasks app), TurnExhaustion (2), InfraError (1), fragile passes (2 SportsTracker at 28-30 turns)
+- **Per-app success rate** (loose, last 3 runs): 7 apps at 100%, Vlc 0%, Tasks 50%, Browser/OsmAnd 33%
+- **Never-succeeded pattern analysis**: 22 tasks across 7 patterns. Largest clusters: cross-app import (5), complex dedup (3), non-standard UI (5)
+- **R4 approved fixes**:
+  1. Generic date-label tip + QA scratchpad guardrail (P1, 3 tasks)
+  2. Shell tool restricted to Files only (P2)
+  3. Repetitive-task guidance: use write_todo, commit to working approach (P2)
+  4. RetroPlaylistDuration: batch-select app tip + max_turns=45 (P2)
+  5. RecipeDeleteDuplicateRecipes3: max_turns=50, park if still failing (P2)
+  6. Timeout finalization observability (P3)
+  7. Per-app success rate added to scoreboard.py
+- **R4 task selection**: 9 tasks (3 Tasks failures, 2 fragile SportsTracker, 1 Retro, 1 Recipe, 1 SportsTracker infra, 1 Tasks canary)
+
 ## Autotune Round 3 (2026-03-04, run 20260304_152742, commit 63e3a0a)
 - **Task selection rationale**: 22 group_5 never-run tasks (full sweep) + 3 targeted fixes (MarkorAddNoteHeader P1 blank line, RetroPlaylistDuration P2 duration strategy, MarkorEditNote keyboard_visible canary)
 - **Tasks run**: 25
