@@ -1,5 +1,10 @@
 # RetroPlaylistDuration
 
+## AT-R3 (20260304_152742) — FAIL
+- Score: 0.0
+- Turns: 30/30
+- TurnExhaustion/ReasoningError: P2 duration strategy tip present in prompt but agent still wasted 12 turns pre-reading durations before pivoting to iterative add at turn 19. Only ~5 songs added. Never checked playlist running total. 3-round persistent failure. May be qwen3.5 model limitation.
+
 ## AT-R2 (20260304_033425) — FAIL
 - Score: 0.0
 - Turns: 30/30

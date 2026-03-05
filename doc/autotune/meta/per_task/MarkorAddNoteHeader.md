@@ -1,5 +1,10 @@
 # MarkorAddNoteHeader
 
+## AT-R3 (20260304_152742) — PASS
+- Score: 1.0
+- P1 blank line tip (`\n\n`) worked. 2-round stuck bug finally resolved.
+- Fix: commit 63e3a0a added Markor tip "When the task says 'blank line' or 'empty line', use `\n\n`"
+
 ## AT-R2 (20260304_033425) — FAIL
 - Score: 0.0
 - Turns: 15/30

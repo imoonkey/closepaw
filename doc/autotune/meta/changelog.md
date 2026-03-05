@@ -2,6 +2,21 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 3 (2026-03-04, run 20260304_152742, commit 63e3a0a)
+- **Task selection rationale**: 22 group_5 never-run tasks (full sweep) + 3 targeted fixes (MarkorAddNoteHeader P1 blank line, RetroPlaylistDuration P2 duration strategy, MarkorEditNote keyboard_visible canary)
+- **Tasks run**: 25
+- **Fixes applied**: P1 Markor blank line tip (`\n\n`), P2 Retro Music iterative add-and-check tip, Q3 keyboard_visible detection (window-type-based instead of broken node traversal)
+- **Result**: 19/25 (76%)
+- **Net new passes**: MarkorAddNoteHeader (0→1), NotesIsTodo (new→1), NotesTodoItemCount (new→1), RecipeAddMultipleRecipesFromMarkor2 (new→1), RecipeDeleteSingleWithRecipeWithNoise (new→1), SimpleCalendarEventsInTimeRange (new→1), SimpleCalendarFirstEventAfterStartTime (new→1), SportsTrackerActivityDuration (new→1), SportsTrackerLongestDistanceActivity (new→1), SportsTrackerTotalDistanceForCategoryOverInterval (new→1), SportsTrackerTotalDurationForCategoryThisWeek (new→1), SystemBluetoothTurnOffVerify (new→1), SystemBluetoothTurnOnVerify (new→1), SystemBrightnessMaxVerify (new→1), SystemBrightnessMinVerify (new→1), SystemWifiTurnOffVerify (new→1), SystemWifiTurnOnVerify (new→1), TasksHighPriorityTasksDueOnDate (new→1)
+- **Regressions**: none
+- **Key findings**:
+  - P1 blank line tip effective — MarkorAddNoteHeader finally passes after 2 rounds stuck
+  - P2 duration strategy tip ineffective — RetroPlaylistDuration still 0 (agent ignores tip, qwen3.5 limitation)
+  - Group 5 sweep: 17/22 passing on first run (77%)
+  - Tasks app date reasoning is the main new problem — 3/4 Tasks app queries fail
+  - SportsTracker expansion strong: 4/5 new tasks passing
+- **Moved to cannot_handle**: none
+
 ## Autotune Round 2 (2026-03-04, run 20260304_033425, commit eadbf03)
 - **Task selection rationale**: 8 directly affected tasks from R1 approved fixes (P1 hint text, P2 completion verification, P3-P4 Markor tips, P5 app workflow tips, Q3 keyboard flag, Q7 agent_thought, Q12 write_todos)
 - **Tasks run**: 8
