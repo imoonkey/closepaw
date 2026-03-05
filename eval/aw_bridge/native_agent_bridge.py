@@ -92,6 +92,10 @@ class NativeAgentBridge:
 
             if self._config.stop_agent_after_task:
                 self.stop_agent()
+                # Allow trace flush before killing. On timeout, the agent may
+                # still be mid-turn; the STOP broadcast triggers graceful
+                # shutdown which flushes session_stopped + run_summary to disk.
+                time.sleep(3)
                 self.force_stop()
 
             return BridgeOutcome(

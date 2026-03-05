@@ -72,12 +72,13 @@ internal object StandaloneAgentDef : AgentDef() {
         - Do NOT open launcher or app drawer to find the app icon manually.
 
         ### shell
-        **Use shell for:**
-        - Reading file content when path is known: cat /sdcard/Documents/Markor/myfile.txt
+        **Use shell ONLY for file-related operations:**
+        - Reading file content: cat /sdcard/Documents/Markor/myfile.txt
         - Listing directories: ls /sdcard/Documents/Markor/
-        - Checking device state: date
+        - Checking file metadata: stat /path/to/file
 
         **Do NOT use shell for:**
+        - Anything unrelated to reading/listing files (e.g., date, dumpsys, input, am)
         - Creating folders/files that apps need to see — apps maintain internal databases, shell-created items won't appear in the app
         - Reading image content — shell cannot OCR images
         - Operations requiring root (su, chmod)
@@ -122,7 +123,9 @@ internal object StandaloneAgentDef : AgentDef() {
            - scratchpad(action="write", content={"found_items": "Item A, Item B"})
            - Update every time you see new relevant data on screen
 
-        3. **Call complete_task with your collected answer**:
+        3. **Verify before completing**: For count/list questions, review your scratchpad entries. Each item must have concrete evidence (screen text, element content). Do not guess or estimate counts.
+
+        4. **Call complete_task with your collected answer**:
            - Format: comma-separated list matching the goal's requested format
            - If running low on turns (< 5 remaining), call complete_task with what you have — partial answer > no answer
            - NEVER let turns run out without calling complete_task on a QA task
@@ -131,6 +134,10 @@ internal object StandaloneAgentDef : AgentDef() {
         If a task requires reading text from an image and you have no screenshot input, call complete_task(status="failure", answer="Cannot read image without vision mode") after at most 2 failed attempts. Do not waste turns on shell-based image extraction (strings, hexdump, base64 will not work).
 
         ## App Tips
+
+        ### Date Labels
+        - Some apps show relative date labels (day of week, "tomorrow", "Mon", "Oct 22") instead of absolute dates. Use the device date in your context to map between the goal's absolute date and the UI labels.
+        - Example: if today is Tuesday Oct 10 and the goal says "Oct 16", that is next Monday — look for "Mon" or "Oct 16" in the UI.
 
         ### Calendar
         - For date-query tasks (what events on date X), switch to Agenda or Event List view
@@ -164,9 +171,8 @@ internal object StandaloneAgentDef : AgentDef() {
         - Activity TYPE is shown only as an icon in the track list (no text in a11y tree). To find the type as text: tap a track → More options → Edit. The activity type field is in the edit form.
 
         ### Retro Music
-        - To add songs to a playlist: navigate to the Songs tab, tap the 3-dot menu on a song → "Add to playlist" → select the target playlist.
+        - To add songs to a playlist: go to the Songs tab, long-press a song to start selection mode, then tap additional songs to select multiple at once. Use "Add to playlist" from the menu to add them in batch.
         - Song durations are visible in the song list view.
-        - **Duration targets**: For playlist duration targets, use iterative add-and-check: add songs one by one, navigate to playlist view to read the running total (visible as "N Songs / MM:SS"), stop when target is reached. Do NOT pre-read individual song durations.
 
         ### File Operations
         - When a task specifies a filename, match it EXACTLY — do NOT select files containing
@@ -189,6 +195,7 @@ internal object StandaloneAgentDef : AgentDef() {
           then perform the action once for all.
         - Record your working workflow to scratchpad after the first successful item, then
           replicate exactly for remaining items. Do NOT re-explore the UI.
+        - For repetitive multi-step tasks (deleting many items, adding many entries, etc.), use write_todos to plan and track progress. Once you find an effective working approach, commit to it — do not explore alternatives mid-execution.
 
         ### Working Memory
         - For survey tasks (find duplicates, identify items), scan the full list ONCE and write

@@ -52,5 +52,7 @@ bridge:
     MarkorTranscribeVideo: { perception_mode: hybrid }
     RecipeAddMultipleRecipesFromImage: { perception_mode: hybrid, max_turns: 50 }
     RecipeAddMultipleRecipesFromMarkor: { max_turns: 50 }
+    RecipeDeleteDuplicateRecipes3: { max_turns: 50 }
+    RetroPlaylistDuration: { max_turns: 45 }
     OsmAndMarker: { perception_mode: hybrid }
     OsmAndTrack: { perception_mode: hybrid }

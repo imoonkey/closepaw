@@ -18,13 +18,13 @@ class ShellTool : ToolSpec {
 
     override val description: String =
         """
-        Execute a shell command on the device.
-        Use for reading file contents, checking device state, or other
-        operations faster via command line than UI navigation.
+        Execute a shell command on the device for file-related operations only.
+        Use for reading file contents, listing directories, or checking file metadata.
+        Do NOT use for non-file operations (date, dumpsys, input, am, etc.).
         Common uses:
         - cat /path/to/file (read file contents)
         - ls /path/to/dir (list directory)
-        - date (check current date/time)
+        - stat /path/to/file (check file metadata)
         """.trimIndent()
 
     override val parameterSchema: JSONObject =
