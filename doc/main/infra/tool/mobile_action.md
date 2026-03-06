@@ -121,9 +121,11 @@ Current promotion rule:
 
 - if the resolved semantic element is not clickable and not long-clickable
 - find the smallest clickable or long-clickable container that contains its bounds
-- click that container center instead
+- within that container, search for actionable children materially smaller than the container (< 80% area)
+- pick the child closest to the original resolved point; use its center as the click point
+- if no qualifying child exists, fall back to the container center
 
-This exists because many Android lists expose text nodes as children inside a clickable row.
+This exists because many Android lists expose text nodes as children inside a clickable row. The child-hotspot selection avoids the failure mode where `container.center` lands on a dead zone for `ACTION_CLICK` (e.g., Files app row center).
 
 ### long_press
 
@@ -171,7 +173,7 @@ For `click` and `long_press`, the pipeline is:
 
 1. Resolve target to a point and optional semantic hint.
 2. Bounds-check the resolved point against display size.
-3. For semantic targets, promote non-actionable child nodes to an actionable container when possible.
+3. For semantic targets, promote non-actionable child nodes to an actionable container, then select the nearest actionable child hotspot within that container (falling back to container center if no child qualifies).
 4. Dispatch the first channel.
 5. Capture post-action screen state after settle delay.
 6. If unchanged, retry post-capture once with a longer delay.
@@ -270,9 +272,11 @@ Some apps wire open/select/drag behavior in unusual ways. That is not automatica
 
 But if we can detect the pattern cleanly and route to a more faithful mechanism without app-specific hacks everywhere, that is still worth implementing.
 
-## Current known hard case: Files row open
+## Known hard case: Files row open (addressed)
 
-As of 2026-03-06, the cleanest unresolved `click` case is the Files `task.html` row open path documented in:
+As of 2026-03-06, the Files `task.html` row open regression was traced to `refinePointActionTarget()` rewriting the click point to `container.center`, which lands on a dead zone for semantic open. The fix (`04618f3`) now selects the nearest actionable child hotspot within the promoted container instead. Validation pending via clean Files probe and Browser eval.
+
+Original investigation:
 
 - [qi_note.md](/Users/moonkey/workspace/android-agent-workspace/androidagent/doc/autotune/round_5/20260306_003753/click/qi_note.md)
 - the fresh probe summary that accompanies this note

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-03-06: Click Hotspot Selection Fix
+
+**What changed:**
+- `refinePointActionTarget()` now searches for the nearest actionable child within a promoted container instead of defaulting to `container.center`.
+- Added `findBestActionableChild()` with 80% area threshold and distance-based scoring.
+- Added diagnostic logging for target promotion decisions.
+
+**Why:**
+- Files app regression: `container.center` landed on a dead zone where `ACTION_CLICK` was accepted but had no effect. The icon hotspot worked. Fix generalizes to any compound row without app-specific workarounds.
+
+**Key files:** `app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt`
+
 ## 2026-03-06: Local Parallel Eval Workflow
 
 **What changed:**
