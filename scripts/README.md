@@ -22,7 +22,7 @@ Perception mode:
     ./scripts/debug-run.sh --hybrid "goal"
 
 Eval:
-    ./scripts/prepare_baseline.sh --avd AndroidWorldAvd
+    ./scripts/prepare_parallel_baselines.sh
     ./scripts/eval_parallel.sh eval/config/aw_subset_smoke.txt
 
 View logs:
@@ -117,6 +117,7 @@ Use this before the first eval run on a new AndroidWorld AVD, or when app
 snapshots are corrupted.
 
 ```bash
+./scripts/prepare_parallel_baselines.sh
 ./scripts/prepare_baseline.sh --avd AndroidWorldAvd --console-port 5554 --grpc-port 8554 --adb-serial emulator-5554
 ./scripts/prepare_baseline.sh --avd AndroidWorldAvd2 --console-port 5556 --grpc-port 8556 --adb-serial emulator-5556
 ```
@@ -125,6 +126,20 @@ What it does:
 - Kills the existing emulator on that serial
 - Starts the AVD with `-wipe-data`
 - Runs `eval/aw_bridge/prepare_baseline.py` to install benchmark apps and create snapshots
+- Handles empty passthrough args safely under `set -u`
+
+### `prepare_parallel_baselines.sh` - Prepare the Supported Dual-AVD Pair
+
+Use this as the standard one-time setup before local parallel eval.
+
+```bash
+./scripts/prepare_parallel_baselines.sh
+```
+
+What it does:
+- Runs `prepare_baseline.sh` for `AndroidWorldAvd` on `emulator-5554` / gRPC `8554`
+- Runs `prepare_baseline.sh` for `AndroidWorldAvd2` on `emulator-5556` / gRPC `8556`
+- Leaves both emulators baseline-prepared for `./scripts/eval_parallel.sh`
 
 ### `eval_parallel.sh` - Run Local 2-Device Parallel Eval
 
@@ -139,6 +154,7 @@ baseline-prepared.
 What it does:
 - Starts or reuses `AndroidWorldAvd` on `emulator-5554` / gRPC `8554`
 - Starts or reuses `AndroidWorldAvd2` on `emulator-5556` / gRPC `8556`
+- Verifies both AVDs exist and refuses conflicting same-AVD reuse across the two ports
 - Launches `eval/aw_bridge/parallel_runner.py`
 - Writes canonical results to `eval/results/<timestamp>/` with shard debug data under `parallel/`
 

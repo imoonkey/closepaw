@@ -225,7 +225,7 @@ class ChatCompletionClient(
             if (!retryResult.failureEmitted) {
                 trySend(LLMStreamEvent.Failed(error.message ?: "Unknown error"))
             }
-            close(error)
+            close()
         }
 
         awaitClose { Log.d(TAG, "Streaming flow closed") }

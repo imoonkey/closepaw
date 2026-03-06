@@ -51,6 +51,9 @@ eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/autotune
 Parallel preconditions:
 - `AndroidWorldAvd` is baseline-prepared on `emulator-5554` / gRPC `8554`
 - `AndroidWorldAvd2` is baseline-prepared on `emulator-5556` / gRPC `8556`
+- Use `./scripts/prepare_parallel_baselines.sh` for the one-time dual-AVD prep path
+- `./scripts/eval_parallel.sh` does not create `AndroidWorldAvd2`; that AVD must already exist
+- If you only see one emulator window, treat it as a startup failure on the second device, not a normal parallel state
 - If either device is unavailable, use the serial fallback instead of improvising
 
 Monitor for stalls. If a task hangs (no output for several minutes), check accessibility permission on the device. If needed, stop the runner, remove completed tasks from the config, and re-run the remainder.

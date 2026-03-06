@@ -63,7 +63,10 @@ Use `eval/.venv/bin/python` for eval-related commands to avoid dependency/versio
 For the validated 2-device path, prepare both AVDs once, then use the helper:
 
 ```bash
-# One-time baseline prep per AVD
+# One-time baseline prep for both AVDs
+./scripts/prepare_parallel_baselines.sh
+
+# Equivalent explicit per-AVD commands
 ./scripts/prepare_baseline.sh --avd AndroidWorldAvd --console-port 5554 --grpc-port 8554 --adb-serial emulator-5554
 ./scripts/prepare_baseline.sh --avd AndroidWorldAvd2 --console-port 5556 --grpc-port 8556 --adb-serial emulator-5556
 
@@ -76,9 +79,10 @@ Defaults for the helper:
 - Device A: `AndroidWorldAvd` -> `emulator-5554` / console `5554` / gRPC `8554`
 - Device B: `AndroidWorldAvd2` -> `emulator-5556` / console `5556` / gRPC `8556`
 
-`scripts/eval_parallel.sh` starts missing emulators, then runs
-`eval/aw_bridge/parallel_runner.py`. Baseline prep remains a separate,
-per-AVD workflow.
+`scripts/eval_parallel.sh` starts missing emulators, validates that the two
+devices use distinct AVDs/ports, and refuses to launch if an AVD is already
+running on the wrong serial. Baseline prep remains a separate workflow; use
+`./scripts/prepare_parallel_baselines.sh` for the standard dual-emulator setup.
 
 ### CLI Arguments
 
@@ -143,6 +147,9 @@ See `SnapshotPolicy` enum and `PreflightError` / `PreflightErrorCode` in `runner
 For a clean emulator baseline:
 
 ```bash
+./scripts/prepare_parallel_baselines.sh
+
+# Or prepare each AVD explicitly
 ./scripts/prepare_baseline.sh --avd AndroidWorldAvd --console-port 5554 --grpc-port 8554 --adb-serial emulator-5554
 ./scripts/prepare_baseline.sh --avd AndroidWorldAvd2 --console-port 5556 --grpc-port 8556 --adb-serial emulator-5556
 ```
@@ -150,7 +157,9 @@ For a clean emulator baseline:
 This kills any existing emulator, starts a clean one with `-wipe-data`, then runs
 `prepare_baseline.py` to install required apps and generate snapshots.
 
-Options: `--avd`, `--console-port`, `--grpc-port`, `--adb-serial`, `--snapshot-policy`.
+Options: `prepare_baseline.sh` supports `--avd`, `--console-port`, `--grpc-port`,
+`--adb-serial`, `--snapshot-policy`. `prepare_parallel_baselines.sh` wraps the
+supported two-device contract and runs the same prep sequentially for both AVDs.
 
 When to use: before the first eval run on a new emulator, or when snapshots are
 corrupted. For local parallel eval, both AVDs must satisfy this baseline

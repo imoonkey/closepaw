@@ -19,7 +19,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -85,13 +87,18 @@ internal class SessionAgentRunner(
         val newAgentJob = scope.launch {
             try {
                 val result = newAgent.run()
-                onComplete(result)
+                deliverCompletion(result)
             } catch (e: CancellationException) {
-                Log.d(TAG, "Agent cancelled")
-                onComplete(AgentStopReason.UserRequested)
+                if (signal.isCompleted) {
+                    Log.d(TAG, "Agent cancelled by user request")
+                    deliverCompletion(AgentStopReason.UserRequested)
+                } else {
+                    Log.e(TAG, "Agent cancelled unexpectedly", e)
+                    deliverCompletion(AgentStopReason.Error(e.message ?: "Agent cancelled"))
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Agent error", e)
-                onComplete(AgentStopReason.Error(e.message ?: "Unknown error"))
+                deliverCompletion(AgentStopReason.Error(e.message ?: "Unknown error"))
             }
         }
         synchronized(stateLock) {
@@ -99,6 +106,12 @@ internal class SessionAgentRunner(
         }
 
         Log.d(TAG, "Started agent for task $taskId")
+    }
+
+    private suspend fun deliverCompletion(reason: AgentStopReason) {
+        withContext(NonCancellable) {
+            onComplete(reason)
+        }
     }
 
     private fun resolvePromptTemplates(prompt: String): String {

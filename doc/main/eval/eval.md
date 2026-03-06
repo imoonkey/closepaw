@@ -175,7 +175,9 @@ The supported local contract is two prepared emulators:
 | B | `emulator-5556` | `5556` | `8556` | `AndroidWorldAvd2` |
 
 Use `./scripts/prepare_baseline.sh` once per AVD, then run
-`./scripts/eval_parallel.sh eval/config/<task_file>`.
+`./scripts/eval_parallel.sh eval/config/<task_file>`. The standard one-time prep
+path is `./scripts/prepare_parallel_baselines.sh`, which prepares both supported
+AVDs sequentially before parallel runs.
 
 ## Result Schema
 

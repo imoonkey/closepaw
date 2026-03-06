@@ -167,7 +167,7 @@ class OpenAIResponseClient(
             if (!retryResult.failureEmitted) {
                 trySend(LLMStreamEvent.Failed(error.message ?: "Unknown error"))
             }
-            close(error)
+            close()
         }
 
         awaitClose {

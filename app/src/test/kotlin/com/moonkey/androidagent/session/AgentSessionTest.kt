@@ -19,6 +19,8 @@ import com.openai.models.responses.ResponseInputItem
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -75,6 +77,29 @@ class AgentSessionTest {
                         job.cancel()
                 }
         }
+
+        @Test
+        fun `streaming failure still emits task completed error`() = runTest {
+                val session =
+                        buildSession(
+                                scope = this,
+                                captureDelayMs = 0L,
+                                llmDelayMs = 0L,
+                                llmClient = FailingStreamingSessionTestLLMClient()
+                        )
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isNotEqualTo(SessionState.Running)
+                val completed = events.filterIsInstance<TaskCompleted>().single()
+                assertThat(completed.reason).isEqualTo(CompletionReason.ERROR)
+                assertThat(completed.result).contains("synthetic stream failure")
+
+                job.cancel()
+        }
 }
 
 private fun buildSession(
@@ -82,7 +107,8 @@ private fun buildSession(
         captureDelayMs: Long,
         llmDelayMs: Long,
         maxTurns: Int = 2,
-        agentMode: AgentMode = AgentMode.PRO
+        agentMode: AgentMode = AgentMode.PRO,
+        llmClient: LLMClient? = null
 ): AgentSession {
         val toolRegistry = ToolRegistry()
         val policyEngine = PolicyEngine()
@@ -93,7 +119,7 @@ private fun buildSession(
                 ModelCatalog.fromJson(
                         """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
                 )
-        val testLlm = SessionTestLLMClient(llmDelayMs)
+        val testLlm = llmClient ?: SessionTestLLMClient(llmDelayMs)
         val services =
                 SessionServices(
                         toolRegistry = toolRegistry,
@@ -143,5 +169,27 @@ private class SessionTestLLMClient(private val delayMs: Long) : LLMClient() {
                 }
                 emit(LLMStreamEvent.TextDelta("done"))
                 emit(LLMStreamEvent.Completed)
+        }
+}
+
+private class FailingStreamingSessionTestLLMClient : LLMClient() {
+        override suspend fun chatWithTools(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+        ): ResponsesResult {
+                throw UnsupportedOperationException("Not used in this test")
+        }
+
+        override fun chatWithToolsStreaming(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+        ): Flow<LLMStreamEvent> = callbackFlow {
+                trySend(LLMStreamEvent.Failed("synthetic stream failure"))
+                close(RuntimeException("synthetic stream failure"))
+                awaitClose {}
         }
 }

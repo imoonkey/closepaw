@@ -89,9 +89,78 @@ resolve_emulator_bin() {
   fi
 }
 
+list_avds() {
+  resolve_emulator_bin
+  "${EMULATOR_BIN}" -list-avds
+}
+
+ensure_avd_exists() {
+  local avd_name="$1"
+  if ! list_avds | grep -Fxq "${avd_name}"; then
+    echo "AVD does not exist: ${avd_name}" >&2
+    echo "Available AVDs:" >&2
+    list_avds >&2
+    exit 1
+  fi
+}
+
+adb_device_state() {
+  local serial="$1"
+  adb devices | awk -v serial="${serial}" '$1 == serial { print $2 }'
+}
+
 adb_device_online() {
   local serial="$1"
   adb devices | awk '$2 == "device" { print $1 }' | grep -Fxq "${serial}"
+}
+
+running_avd_name() {
+  local serial="$1"
+  local raw=""
+  raw="$(adb -s "${serial}" emu avd name 2>/dev/null || true)"
+  printf '%s\n' "${raw}" | awk 'NF && $0 != "OK" { print; exit }'
+}
+
+find_running_serial_for_avd() {
+  local wanted_avd="$1"
+  local serial=""
+  local current_avd=""
+
+  while read -r serial; do
+    [[ -n "${serial}" ]] || continue
+    current_avd="$(running_avd_name "${serial}")"
+    if [[ "${current_avd}" == "${wanted_avd}" ]]; then
+      echo "${serial}"
+      return 0
+    fi
+  done < <(adb devices | awk '$2 == "device" { print $1 }')
+
+  return 1
+}
+
+validate_parallel_contract() {
+  if [[ "${AVD_A}" == "${AVD_B}" ]]; then
+    echo "Device A and device B must use different AVD names." >&2
+    exit 1
+  fi
+
+  if [[ "${CONSOLE_PORT_A}" == "${CONSOLE_PORT_B}" ]]; then
+    echo "Device A and device B must use different console ports." >&2
+    exit 1
+  fi
+
+  if [[ "${GRPC_PORT_A}" == "${GRPC_PORT_B}" ]]; then
+    echo "Device A and device B must use different gRPC ports." >&2
+    exit 1
+  fi
+
+  if [[ "${ADB_SERIAL_A}" == "${ADB_SERIAL_B}" ]]; then
+    echo "Device A and device B must use different adb serials." >&2
+    exit 1
+  fi
+
+  ensure_avd_exists "${AVD_A}"
+  ensure_avd_exists "${AVD_B}"
 }
 
 start_emulator_if_needed() {
@@ -101,10 +170,31 @@ start_emulator_if_needed() {
   local console_port="$4"
   local grpc_port="$5"
   local log_path="/tmp/androidagent_eval_parallel_${adb_serial}.log"
+  local device_state=""
+  local active_avd=""
+  local other_serial=""
 
-  if adb_device_online "${adb_serial}"; then
-    echo "[parallel-eval] Reusing ${label}: ${adb_serial}"
+  device_state="$(adb_device_state "${adb_serial}")"
+
+  if [[ -n "${device_state}" ]]; then
+    if [[ "${device_state}" == "device" ]]; then
+      active_avd="$(running_avd_name "${adb_serial}")"
+      if [[ -n "${active_avd}" && "${active_avd}" != "${avd_name}" ]]; then
+        echo "Expected ${adb_serial} to run ${avd_name}, but it is running ${active_avd}." >&2
+        exit 1
+      fi
+      echo "[parallel-eval] Reusing ${label}: ${adb_serial}"
+    else
+      echo "[parallel-eval] Reusing ${label}: ${adb_serial} (current adb state: ${device_state})"
+    fi
     return
+  fi
+
+  other_serial="$(find_running_serial_for_avd "${avd_name}" || true)"
+  if [[ -n "${other_serial}" && "${other_serial}" != "${adb_serial}" ]]; then
+    echo "AVD ${avd_name} is already running on ${other_serial}; refusing to start a second copy for ${adb_serial}." >&2
+    echo "Stop the existing emulator or use distinct AVD names for the two parallel devices." >&2
+    exit 1
   fi
 
   resolve_emulator_bin
@@ -275,6 +365,7 @@ if [[ -z "${ADB_SERIAL_B}" ]]; then
 fi
 
 adb start-server >/dev/null
+validate_parallel_contract
 
 start_emulator_if_needed "device A" "${AVD_A}" "${ADB_SERIAL_A}" "${CONSOLE_PORT_A}" "${GRPC_PORT_A}"
 start_emulator_if_needed "device B" "${AVD_B}" "${ADB_SERIAL_B}" "${CONSOLE_PORT_B}" "${GRPC_PORT_B}"

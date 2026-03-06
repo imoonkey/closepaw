@@ -36,3 +36,7 @@ None.
 ## Recommendation
 
 CHANGES_REQUESTED
+
+## Post-Debug TODO
+
+1. After the current dual-emulator debug work is complete and `eval_parallel` is confirmed working end-to-end, fold the operational knowledge back into the repo instead of leaving it only in run logs/chat context. Concretely: fix any remaining startup/prep gaps in `scripts/eval_parallel.sh` and `scripts/prepare_baseline.sh`, and update the relevant skill/docs so the documented path reliably boots both emulators, prepares their baselines, and then runs `eval_parallel` without manual recovery steps.
