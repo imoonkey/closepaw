@@ -136,6 +136,10 @@ Special cases:
 
 ## mobile_action Architecture
 
+Deep dive:
+
+- [mobile_action.md](/Users/moonkey/workspace/android-agent-workspace/androidagent/doc/main/infra/tool/mobile_action.md)
+
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Layer 1: TOOL CONTRACT                                       │
