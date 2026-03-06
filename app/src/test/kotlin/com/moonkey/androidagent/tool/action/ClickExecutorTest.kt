@@ -247,6 +247,58 @@ class ClickExecutorTest {
     }
 
     @Test
+    fun `execute picks single actionable child hotspot instead of container center`() = runTest {
+        val snapshot = snapshotWithRowAndSingleClickableChild()
+        val changedSnapshot = snapshotWithRowAndSingleClickableChild(childLabel = "Opened")
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(changedSnapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.Text(text = "task.html", textIndex = 0),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        // Should click the icon child (94, 763) not the container center (540, 763)
+        val clickAction = platform.performedActions.first() as UIAction.ClickNodeAt
+        assertThat(clickAction.x).isEqualTo(94)
+        assertThat(clickAction.y).isEqualTo(763)
+    }
+
+    @Test
+    fun `execute falls back to container when two children are ambiguously close`() = runTest {
+        val snapshot = snapshotWithRowAndTwoCloseChildren()
+        val changedSnapshot = snapshotWithRowAndTwoCloseChildren(titleLabel = "Opened")
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(changedSnapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.Text(text = "task.html", textIndex = 0),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        // Should fall back to container center (540, 763), not either child
+        val clickAction = platform.performedActions.first() as UIAction.ClickNodeAt
+        assertThat(clickAction.x).isEqualTo(540)
+        assertThat(clickAction.y).isEqualTo(763)
+    }
+
+    @Test
     fun `execute falls back when node click succeeds but has no observable effect`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val changedSnapshot = snapshotWithSingleButton(label = "Tapped")
@@ -419,6 +471,89 @@ class ClickExecutorTest {
                     isLongClickable = false,
                     bounds = titleBounds,
                     center = Point(titleBounds.centerX, titleBounds.centerY)
+                )
+            )
+        )
+    }
+
+    /** Row with one clickable icon child — child hotspot should be selected. */
+    private fun snapshotWithRowAndSingleClickableChild(
+        childLabel: String = "file_icon"
+    ): ScreenSnapshot {
+        val rowBounds = Bounds(left = 0, top = 667, right = 1080, bottom = 859)
+        val titleBounds = Bounds(left = 189, top = 706, right = 364, bottom = 763)
+        val iconBounds = Bounds(left = 24, top = 697, right = 164, bottom = 829)
+        return ScreenSnapshot(
+            timestamp = 1L,
+            elements = listOf(
+                PerceptionElement(
+                    index = 17, text = "task.html | 03:33", resourceId = "item_root",
+                    className = "android.widget.LinearLayout", description = "",
+                    isClickable = true, isEditable = false, isScrollable = false,
+                    isEnabled = true, isFocused = false, isLongClickable = false,
+                    bounds = rowBounds, center = Point(rowBounds.centerX, rowBounds.centerY)
+                ),
+                PerceptionElement(
+                    index = 18, text = "task.html", resourceId = "title",
+                    className = "android.widget.TextView", description = "",
+                    isClickable = false, isEditable = false, isScrollable = false,
+                    isEnabled = true, isFocused = false, isLongClickable = false,
+                    bounds = titleBounds, center = Point(titleBounds.centerX, titleBounds.centerY)
+                ),
+                PerceptionElement(
+                    index = 19, text = childLabel, resourceId = "icon",
+                    className = "android.widget.ImageView", description = "File icon",
+                    isClickable = true, isEditable = false, isScrollable = false,
+                    isEnabled = true, isFocused = false, isLongClickable = false,
+                    bounds = iconBounds, center = Point(iconBounds.centerX, iconBounds.centerY)
+                )
+            )
+        )
+    }
+
+    /**
+     * Row with two clickable children at similar distance from the title text.
+     * Ambiguity guard should fall back to container.
+     */
+    private fun snapshotWithRowAndTwoCloseChildren(
+        titleLabel: String = "task.html"
+    ): ScreenSnapshot {
+        val rowBounds = Bounds(left = 0, top = 667, right = 1080, bottom = 859)
+        val titleBounds = Bounds(left = 350, top = 706, right = 550, bottom = 763)
+        // Left child: center ~(94, 763), distance from title center (450, 734) ≈ 358
+        val leftChildBounds = Bounds(left = 24, top = 697, right = 164, bottom = 829)
+        // Right child: center ~(900, 763), distance from title center (450, 734) ≈ 452
+        val rightChildBounds = Bounds(left = 830, top = 697, right = 970, bottom = 829)
+        return ScreenSnapshot(
+            timestamp = 1L,
+            elements = listOf(
+                PerceptionElement(
+                    index = 17, text = "task.html | 03:33", resourceId = "item_root",
+                    className = "android.widget.LinearLayout", description = "",
+                    isClickable = true, isEditable = false, isScrollable = false,
+                    isEnabled = true, isFocused = false, isLongClickable = false,
+                    bounds = rowBounds, center = Point(rowBounds.centerX, rowBounds.centerY)
+                ),
+                PerceptionElement(
+                    index = 18, text = titleLabel, resourceId = "title",
+                    className = "android.widget.TextView", description = "",
+                    isClickable = false, isEditable = false, isScrollable = false,
+                    isEnabled = true, isFocused = false, isLongClickable = false,
+                    bounds = titleBounds, center = Point(titleBounds.centerX, titleBounds.centerY)
+                ),
+                PerceptionElement(
+                    index = 19, text = "icon", resourceId = "icon",
+                    className = "android.widget.ImageView", description = "File icon",
+                    isClickable = true, isEditable = false, isScrollable = false,
+                    isEnabled = true, isFocused = false, isLongClickable = false,
+                    bounds = leftChildBounds, center = Point(leftChildBounds.centerX, leftChildBounds.centerY)
+                ),
+                PerceptionElement(
+                    index = 20, text = "more", resourceId = "overflow",
+                    className = "android.widget.ImageButton", description = "More options",
+                    isClickable = true, isEditable = false, isScrollable = false,
+                    isEnabled = true, isFocused = false, isLongClickable = false,
+                    bounds = rightChildBounds, center = Point(rightChildBounds.centerX, rightChildBounds.centerY)
                 )
             )
         )

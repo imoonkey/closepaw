@@ -137,6 +137,33 @@ class LongPressExecutorTest {
         assertThat(success.message).doesNotContain("unchanged")
     }
 
+    @Test
+    fun `execute picks clickable-only child hotspot for long press`() = runTest {
+        val snapshot = snapshotWithRowAndClickableOnlyChild()
+        val changedSnapshot = snapshotWithRowAndClickableOnlyChild(childLabel = "Selected")
+        val platform =
+            RecordingLongPressPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(changedSnapshot)
+            )
+        val executor = LongPressExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.Text(text = "task.html", textIndex = 0),
+                durationMs = 900L,
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        // Should pick the clickable-only icon child (94, 763), not container center (540, 763)
+        val action = platform.performedActions.first() as UIAction.LongClickNodeAt
+        assertThat(action.x).isEqualTo(94)
+        assertThat(action.y).isEqualTo(763)
+    }
+
     private fun snapshotWithSingleButton(label: String = "Button"): ScreenSnapshot {
         val bounds = Bounds(left = 80, top = 160, right = 220, bottom = 260)
         return ScreenSnapshot(
@@ -159,6 +186,41 @@ class LongPressExecutorTest {
                         center = Point(bounds.centerX, bounds.centerY)
                     )
                 )
+        )
+    }
+
+    /** Row with a clickable-only child (isLongClickable=false). Long press should still pick it. */
+    private fun snapshotWithRowAndClickableOnlyChild(
+        childLabel: String = "file_icon"
+    ): ScreenSnapshot {
+        val rowBounds = Bounds(left = 0, top = 667, right = 1080, bottom = 859)
+        val titleBounds = Bounds(left = 189, top = 706, right = 364, bottom = 763)
+        val iconBounds = Bounds(left = 24, top = 697, right = 164, bottom = 829)
+        return ScreenSnapshot(
+            timestamp = 1L,
+            elements = listOf(
+                PerceptionElement(
+                    index = 17, text = "task.html | 03:33", resourceId = "item_root",
+                    className = "android.widget.LinearLayout", description = "",
+                    isClickable = true, isEditable = false, isScrollable = false,
+                    isEnabled = true, isFocused = false, isLongClickable = true,
+                    bounds = rowBounds, center = Point(rowBounds.centerX, rowBounds.centerY)
+                ),
+                PerceptionElement(
+                    index = 18, text = "task.html", resourceId = "title",
+                    className = "android.widget.TextView", description = "",
+                    isClickable = false, isEditable = false, isScrollable = false,
+                    isEnabled = true, isFocused = false, isLongClickable = false,
+                    bounds = titleBounds, center = Point(titleBounds.centerX, titleBounds.centerY)
+                ),
+                PerceptionElement(
+                    index = 19, text = childLabel, resourceId = "icon",
+                    className = "android.widget.ImageView", description = "File icon",
+                    isClickable = true, isEditable = false, isScrollable = false,
+                    isEnabled = true, isFocused = false, isLongClickable = false,
+                    bounds = iconBounds, center = Point(iconBounds.centerX, iconBounds.centerY)
+                )
+            )
         )
     }
 }
