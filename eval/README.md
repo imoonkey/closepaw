@@ -16,6 +16,7 @@ This folder contains the Tier 0/1 evaluation implementation described in
   - snapshot policy for baseline management (strict / auto_repair / best_effort / off)
   - per-task config overrides (e.g., perception mode per task)
   - baseline preparation script (`scripts/prepare_baseline.sh`)
+  - dual-emulator launcher for local parallel eval (`scripts/eval_parallel.sh`)
   - setup-only mode for task inspection (`setup_task_only.py`)
 
 ## Module Structure
@@ -57,6 +58,28 @@ eval/.venv/bin/python eval/aw_bridge/runner.py \
 
 Use `eval/.venv/bin/python` for eval-related commands to avoid dependency/version drift.
 
+### Local Parallel Eval
+
+For the validated 2-device path, prepare both AVDs once, then use the helper:
+
+```bash
+# One-time baseline prep per AVD
+./scripts/prepare_baseline.sh --avd AndroidWorldAvd --console-port 5554 --grpc-port 8554 --adb-serial emulator-5554
+./scripts/prepare_baseline.sh --avd AndroidWorldAvd2 --console-port 5556 --grpc-port 8556 --adb-serial emulator-5556
+
+# Normal parallel eval run
+./scripts/eval_parallel.sh eval/config/aw_subset_smoke.txt
+```
+
+Defaults for the helper:
+
+- Device A: `AndroidWorldAvd` -> `emulator-5554` / console `5554` / gRPC `8554`
+- Device B: `AndroidWorldAvd2` -> `emulator-5556` / console `5556` / gRPC `8556`
+
+`scripts/eval_parallel.sh` starts missing emulators, then runs
+`eval/aw_bridge/parallel_runner.py`. Baseline prep remains a separate,
+per-AVD workflow.
+
 ### CLI Arguments
 
 | Flag | Default | Description |
@@ -80,7 +103,25 @@ Each run writes to:
 
 - `summary.json`: aggregated metrics
 - `per_task.jsonl`: one JSON record per attempt
-- `artifacts/<run_id>/`: logcat, pulled trace, scoring context, and parser metadata
+- per-task artifact locations come from `artifact_paths` in `per_task.jsonl`
+
+Parallel runs keep the same top-level contract and add shard debug artifacts:
+
+```text
+eval/results/<timestamp>/
+  summary.json
+  per_task.jsonl
+  parallel/
+    shard_manifest.json
+    shards/
+      shard_00_emulator_5554/
+        run/<worker_timestamp>/artifacts/<run_id>/
+      shard_01_emulator_5556/
+        run/<worker_timestamp>/artifacts/<run_id>/
+```
+
+Serial runs still write artifacts directly under `artifacts/<run_id>/` in the
+top-level run directory.
 
 ## Snapshot Policy
 
@@ -102,7 +143,8 @@ See `SnapshotPolicy` enum and `PreflightError` / `PreflightErrorCode` in `runner
 For a clean emulator baseline:
 
 ```bash
-scripts/prepare_baseline.sh --avd AndroidWorldAvd
+./scripts/prepare_baseline.sh --avd AndroidWorldAvd --console-port 5554 --grpc-port 8554 --adb-serial emulator-5554
+./scripts/prepare_baseline.sh --avd AndroidWorldAvd2 --console-port 5556 --grpc-port 8556 --adb-serial emulator-5556
 ```
 
 This kills any existing emulator, starts a clean one with `-wipe-data`, then runs
@@ -110,7 +152,9 @@ This kills any existing emulator, starts a clean one with `-wipe-data`, then run
 
 Options: `--avd`, `--console-port`, `--grpc-port`, `--adb-serial`, `--snapshot-policy`.
 
-When to use: before the first eval run on a new emulator, or when snapshots are corrupted.
+When to use: before the first eval run on a new emulator, or when snapshots are
+corrupted. For local parallel eval, both AVDs must satisfy this baseline
+contract before you use `./scripts/eval_parallel.sh`.
 
 ## Task Overrides
 
@@ -211,6 +255,9 @@ If the agent silently falls back to accessibility mode, check logcat for:
 - By default, only infra failures are retried (`retry_infra_failures` in config, default: 1).
 - `auto_install_missing_task_apps` (default: true) attempts to install missing app APKs automatically.
 - `skip_unavailable_tasks` (default: true) skips tasks whose required packages aren't installed.
+- `runner.perform_bridge_setup` is an internal config knob. Serial runs leave it
+  `true`; parallel workers set it to `false` so the supervisor can build once
+  and install once per device.
 
 ## Frozen System Time (freeze_datetime)
 

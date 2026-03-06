@@ -21,6 +21,10 @@ Perception mode:
     ./scripts/debug-run.sh --screenshot-only "goal"
     ./scripts/debug-run.sh --hybrid "goal"
 
+Eval:
+    ./scripts/prepare_baseline.sh --avd AndroidWorldAvd
+    ./scripts/eval_parallel.sh eval/config/aw_subset_smoke.txt
+
 View logs:
     ./scripts/logs.sh                                # All agent logs
     ./scripts/logs.sh orch                           # Orchestration logs
@@ -106,6 +110,37 @@ Stream filtered logcat output for quick log viewing.
 ./scripts/logs.sh action               # Action execution logs
 ./scripts/logs.sh all                  # Unfiltered all logs
 ```
+
+### `prepare_baseline.sh` - Create a Clean Eval Baseline
+
+Use this before the first eval run on a new AndroidWorld AVD, or when app
+snapshots are corrupted.
+
+```bash
+./scripts/prepare_baseline.sh --avd AndroidWorldAvd --console-port 5554 --grpc-port 8554 --adb-serial emulator-5554
+./scripts/prepare_baseline.sh --avd AndroidWorldAvd2 --console-port 5556 --grpc-port 8556 --adb-serial emulator-5556
+```
+
+What it does:
+- Kills the existing emulator on that serial
+- Starts the AVD with `-wipe-data`
+- Runs `eval/aw_bridge/prepare_baseline.py` to install benchmark apps and create snapshots
+
+### `eval_parallel.sh` - Run Local 2-Device Parallel Eval
+
+Use this for the supported local parallel path after both AVDs have already been
+baseline-prepared.
+
+```bash
+./scripts/eval_parallel.sh eval/config/aw_subset_smoke.txt
+./scripts/eval_parallel.sh --tasks "BrowserDraw,FilesMoveFile"
+```
+
+What it does:
+- Starts or reuses `AndroidWorldAvd` on `emulator-5554` / gRPC `8554`
+- Starts or reuses `AndroidWorldAvd2` on `emulator-5556` / gRPC `8556`
+- Launches `eval/aw_bridge/parallel_runner.py`
+- Writes canonical results to `eval/results/<timestamp>/` with shard debug data under `parallel/`
 
 ## Configuration
 

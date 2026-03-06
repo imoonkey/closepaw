@@ -41,8 +41,17 @@ Subtract `eval/config/cannot_handle_group.txt`. Write to `eval/config/autotune_r
 ### Step 3 — Run
 
 ```bash
+# Preferred when both baseline-prepared emulators are available:
+./scripts/eval_parallel.sh eval/config/autotune_round_N.txt
+
+# Fallback: single-device serial run
 eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/autotune_round_N.txt
 ```
+
+Parallel preconditions:
+- `AndroidWorldAvd` is baseline-prepared on `emulator-5554` / gRPC `8554`
+- `AndroidWorldAvd2` is baseline-prepared on `emulator-5556` / gRPC `8556`
+- If either device is unavailable, use the serial fallback instead of improvising
 
 Monitor for stalls. If a task hangs (no output for several minutes), check accessibility permission on the device. If needed, stop the runner, remove completed tasks from the config, and re-run the remainder.
 

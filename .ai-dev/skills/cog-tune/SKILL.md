@@ -127,7 +127,12 @@ Use `rg` to locate prompt or tool definition text before edits.
   - `aw_subset_group_1.txt`, `aw_subset_group_2.txt` — 20 tasks each, non-overlapping, for incremental testing
   - `aw_subset_smoke.txt` — 5-task quick smoke test
 - Run eval: `eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/<task_file>`
-- Parallel runner (`eval/aw_bridge/parallel_runner.py`) exists but is WIP — not validated for production use yet.
+- Parallel eval is supported for the local 2-device path via
+  `./scripts/eval_parallel.sh eval/config/<task_file>` when both baseline-prepared
+  emulators are available (`AndroidWorldAvd` on `emulator-5554`, `AndroidWorldAvd2`
+  on `emulator-5556`).
+- Parallel runs still write canonical `eval/results/<timestamp>/summary.json` and
+  `per_task.jsonl`; shard-specific debug data lives under `parallel/`.
 - Recompute/compare metrics:
   - `eval/.venv/bin/python eval/analysis/summarize.py --run-dir <eval_run_dir>`
   - `eval/.venv/bin/python eval/analysis/compare_runs.py --base <base_eval_run_dir> --new <eval_run_dir>`

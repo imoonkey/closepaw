@@ -44,6 +44,7 @@ pull trace artifacts, aggregate metrics).
 | `result_schema.py` | `TaskResult` dataclass, metric aggregation (`summarize_results`) |
 | `prepare_baseline.py` | Snapshot generation for clean emulator baselines |
 | `setup_task_only.py` | Task setup without agent execution (debugging aid) |
+| `parallel_runner.py` | Supervisor for 2-device local parallel eval, shard setup, result merge |
 
 ## Configuration
 
@@ -53,7 +54,8 @@ Top-level orchestration settings loaded from YAML + CLI overrides.
 
 Key fields: `suite_family`, `output_root`, `task_random_seed`,
 `n_task_combinations`, `skip_unavailable_tasks`,
-`auto_install_missing_task_apps`, `retry_infra_failures`, `snapshot_policy`.
+`auto_install_missing_task_apps`, `perform_bridge_setup`,
+`retry_infra_failures`, `snapshot_policy`.
 
 ### BridgeConfig
 
@@ -71,6 +73,7 @@ suite_family: android_world
 
 runner:
   output_root: eval/results
+  perform_bridge_setup: true
   snapshot_policy: auto_repair
   retry_infra_failures: 1
   # ...
@@ -150,6 +153,30 @@ full emulator setup is warranted.
 8. **Result** -- Build `TaskResult`, append to `per_task.jsonl`.
 9. **Retry** -- If `infra_failure` and retries remain, go to step 1.
 
+## Local Parallel Flow
+
+`parallel_runner.py` keeps `runner.py` as the single-device engine. The
+supervisor:
+
+1. Shards the selected tasks across explicit device tuples.
+2. Builds the agent APK once and installs it once per device when
+   `runner.perform_bridge_setup=true`.
+3. Writes worker config overlays with `runner.perform_bridge_setup=false` and
+   `android_world.auto_start_emulator=false`.
+4. Launches one `runner.py` subprocess per device.
+5. Merges shard outputs back into the normal `eval/results/<timestamp>/`
+   contract.
+
+The supported local contract is two prepared emulators:
+
+| Device | Serial | Console Port | gRPC Port | Default AVD |
+|--------|--------|--------------|-----------|-------------|
+| A | `emulator-5554` | `5554` | `8554` | `AndroidWorldAvd` |
+| B | `emulator-5556` | `5556` | `8556` | `AndroidWorldAvd2` |
+
+Use `./scripts/prepare_baseline.sh` once per AVD, then run
+`./scripts/eval_parallel.sh eval/config/<task_file>`.
+
 ## Result Schema
 
 ### TaskResult
@@ -178,12 +205,28 @@ full emulator setup is warranted.
 
 ### Output Layout
 
-```
+```text
 eval/results/<timestamp>/
-  summary.json              # Aggregated metrics
-  per_task.jsonl             # One JSON record per attempt
-  artifacts/<run_id>/        # Per-attempt artifacts
-    logcat.txt
-    trace/                   # Pulled from device
-    scoring_context.json     # AndroidWorld scoring details
+  summary.json             # Aggregated metrics
+  per_task.jsonl           # One JSON record per attempt
 ```
+
+Parallel runs add shard debug artifacts without changing the top-level files:
+
+```text
+eval/results/<timestamp>/
+  summary.json
+  per_task.jsonl
+  parallel/
+    shard_manifest.json
+    shards/
+      shard_00_emulator_5554/
+        run/<worker_timestamp>/artifacts/<run_id>/
+      shard_01_emulator_5556/
+        run/<worker_timestamp>/artifacts/<run_id>/
+```
+
+Serial runs keep per-attempt artifacts under `artifacts/<run_id>/` in the
+top-level run directory. Parallel runs keep the canonical top-level metrics
+files, while each `per_task.jsonl` row points at the shard-local artifact paths
+through `artifact_paths`.
