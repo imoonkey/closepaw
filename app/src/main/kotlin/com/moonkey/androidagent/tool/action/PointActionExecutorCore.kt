@@ -9,6 +9,8 @@ import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.DisplayInfo
 import com.moonkey.androidagent.platform.SemanticTargetHint
 import com.moonkey.androidagent.platform.UIAction
+import android.util.Log
+
 /**
  * Channel attempt descriptor for the point-action fallback loop.
  *
@@ -23,6 +25,9 @@ internal data class ChannelAttempt(
 )
 
 private const val UI_SETTLE_DELAY_MS = 300L
+private const val TAG = "PointActionCore"
+/** Max child-to-container area ratio. Excludes near-full-size overlays. */
+private const val MAX_CHILD_AREA_FRACTION = 8L // out of 10 → 80%
 
 /**
  * Core executor for point-based actions (click, long press).
@@ -190,16 +195,25 @@ private fun refinePointActionTarget(
     val element = findResolvedElement(target, resolved, snap.elements) ?: return resolved
     if (element.isClickable || element.isLongClickable) return resolved
     val container = findBestActionableContainer(element.bounds, snap.elements) ?: return resolved
+
+    val child = findBestActionableChild(resolved.point, container, snap.elements)
+    val finalTarget = child ?: container
+    val source = if (child != null) "child" else "container"
+
+    Log.d(TAG, "refinePointActionTarget: original=(${resolved.point.x},${resolved.point.y}) " +
+        "element=[${element.bounds}] container=[${container.bounds}] " +
+        "final=$source [${finalTarget.bounds}] point=(${finalTarget.center.x},${finalTarget.center.y})")
+
     val hint = SemanticTargetHint(
-        resourceId = container.resourceId,
-        text = container.text,
-        description = container.description,
-        className = container.className,
-        bounds = container.bounds
+        resourceId = finalTarget.resourceId,
+        text = finalTarget.text,
+        description = finalTarget.description,
+        className = finalTarget.className,
+        bounds = finalTarget.bounds
     )
     return TargetResolver.ResolveResult.Resolved(
-        point = container.center,
-        bounds = container.bounds,
+        point = finalTarget.center,
+        bounds = finalTarget.bounds,
         semanticHint = hint,
         warnings = resolved.warnings
     )
@@ -236,6 +250,34 @@ private fun findBestActionableContainer(
             compareBy<PerceptionElement> { it.bounds.area() }
                 .thenBy { it.index }
         )
+}
+
+/**
+ * Within a promoted container, find the closest actionable child to [originalPoint].
+ *
+ * Only considers children materially smaller than the container (< 80% area)
+ * to avoid picking a near-full-size overlay or the container itself.
+ */
+private fun findBestActionableChild(
+    originalPoint: Point,
+    container: PerceptionElement,
+    elements: List<PerceptionElement>
+): PerceptionElement? {
+    val containerArea = container.bounds.area()
+    if (containerArea <= 0) return null
+    return elements
+        .asSequence()
+        .filter { it.isClickable || it.isLongClickable }
+        .filter { container.bounds.contains(it.bounds) }
+        .filterNot { it.bounds == container.bounds }
+        .filter { it.bounds.area() < containerArea * MAX_CHILD_AREA_FRACTION / 10 }
+        .minByOrNull { distanceSq(originalPoint, it.center) }
+}
+
+private fun distanceSq(a: Point, b: Point): Long {
+    val dx = (a.x - b.x).toLong()
+    val dy = (a.y - b.y).toLong()
+    return dx * dx + dy * dy
 }
 
 private fun Bounds.contains(other: Bounds): Boolean {
