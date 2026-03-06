@@ -261,7 +261,8 @@ private fun findBestActionableContainer(
  * Only considers children materially smaller than the container (< 80% area)
  * to avoid picking a near-full-size overlay or the container itself.
  *
- * Action-specific: for click, only clickable children; for long_press, only long-clickable.
+ * Action-specific: for click, only clickable children; for long_press, clickable or
+ * long-clickable (matching platform's clickable fallback in NodeActionPerformer).
  * Ambiguity guard: if the nearest and runner-up are similarly close, falls back to null
  * (caller uses container) to avoid misrouting onto overflow/toggle controls.
  */
@@ -276,7 +277,7 @@ private fun findBestActionableChild(
     val isLongPress = actionName == "long_press"
     val candidates = elements
         .asSequence()
-        .filter { if (isLongPress) it.isLongClickable else it.isClickable }
+        .filter { if (isLongPress) (it.isClickable || it.isLongClickable) else it.isClickable }
         .filter { container.bounds.contains(it.bounds) }
         .filterNot { it.bounds == container.bounds }
         .filter { it.bounds.area() < containerArea * MAX_CHILD_AREA_FRACTION / 10 }
