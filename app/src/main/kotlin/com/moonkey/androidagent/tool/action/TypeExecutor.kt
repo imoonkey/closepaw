@@ -59,14 +59,15 @@ class TypeExecutor(
         )
         if (directResult is ActionResult.Success) {
             attemptTrail.add("SetTextOnNodeAt: success")
-            delay(UI_SETTLE_DELAY_MS)
-            val post = runCatching { platform.captureScreen() }.getOrNull()
-            val observation = post?.let { buildObservation(it, platform) }
+            val analysis = capturePostActionAnalysis(snapshot, platform, UI_SETTLE_DELAY_MS)
             return ActionOutcome.Success(
-                message = "Typed into element at (${point.x},${point.y})",
-                observation = observation,
+                message = formatActionMessage(
+                    "Typed into element at (${point.x},${point.y})",
+                    analysis.warnings
+                ),
+                observation = analysis.observation,
                 attemptTrail = attemptTrail,
-                verified = true
+                verified = analysis.changeResult == UiChangeDetector.ChangeResult.Changed
             )
         }
         attemptTrail.add("SetTextOnNodeAt: ${(directResult as? ActionResult.Failure)?.reason ?: "failed"}")
@@ -97,14 +98,15 @@ class TypeExecutor(
         val focusedResult = platform.performAction(UIAction.SetTextOnFocused(inputText, clear))
         if (focusedResult is ActionResult.Success) {
             attemptTrail.add("TapToFocus+SetTextOnFocused: success")
-            delay(UI_SETTLE_DELAY_MS)
-            val post = runCatching { platform.captureScreen() }.getOrNull()
-            val observation = post?.let { buildObservation(it, platform) }
+            val analysis = capturePostActionAnalysis(snapshot, platform, UI_SETTLE_DELAY_MS)
             return ActionOutcome.Success(
-                message = "Typed via tap-to-focus at (${point.x},${point.y})",
-                observation = observation,
+                message = formatActionMessage(
+                    "Typed via tap-to-focus at (${point.x},${point.y})",
+                    analysis.warnings
+                ),
+                observation = analysis.observation,
                 attemptTrail = attemptTrail,
-                verified = true
+                verified = analysis.changeResult == UiChangeDetector.ChangeResult.Changed
             )
         }
         attemptTrail.add("SetTextOnFocused: ${(focusedResult as? ActionResult.Failure)?.reason ?: "failed"}")
@@ -125,14 +127,12 @@ class TypeExecutor(
         val result = platform.performAction(UIAction.SetTextOnFocused(inputText, clear))
         if (result is ActionResult.Success) {
             attemptTrail.add("SetTextOnFocused: success")
-            delay(UI_SETTLE_DELAY_MS)
-            val post = runCatching { platform.captureScreen() }.getOrNull()
-            val observation = post?.let { buildObservation(it, platform) }
+            val analysis = capturePostActionAnalysis(snapshot, platform, UI_SETTLE_DELAY_MS)
             return ActionOutcome.Success(
-                message = "Typed into focused field",
-                observation = observation,
+                message = formatActionMessage("Typed into focused field", analysis.warnings),
+                observation = analysis.observation,
                 attemptTrail = attemptTrail,
-                verified = true
+                verified = analysis.changeResult == UiChangeDetector.ChangeResult.Changed
             )
         }
         attemptTrail.add("SetTextOnFocused: ${(result as? ActionResult.Failure)?.reason ?: "failed"}")

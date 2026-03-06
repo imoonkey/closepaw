@@ -53,15 +53,20 @@ class SwipeExecutor {
             )
         }
 
-        delay(max(MIN_SETTLE_DELAY_MS, (durationMs * 0.75).toLong()))
-        val post = runCatching { platform.captureScreen() }.getOrNull()
-        val observation = post?.let { buildObservation(it, platform) }
+        val analysis = capturePostActionAnalysis(
+            preSnapshot = snapshot,
+            platform = platform,
+            settleDelayMs = max(MIN_SETTLE_DELAY_MS, (durationMs * 0.75).toLong())
+        )
 
         return ActionOutcome.Success(
-            message = "Swiped ($sx,$sy)→($ex,$ey) over ${durationMs}ms",
-            observation = observation,
+            message = formatActionMessage(
+                "Swiped ($sx,$sy)→($ex,$ey) over ${durationMs}ms",
+                analysis.warnings
+            ),
+            observation = analysis.observation,
             attemptTrail = listOf("swipe: success"),
-            verified = true
+            verified = analysis.changeResult == UiChangeDetector.ChangeResult.Changed
         )
     }
 }

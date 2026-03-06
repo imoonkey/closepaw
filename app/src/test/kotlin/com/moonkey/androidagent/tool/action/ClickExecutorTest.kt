@@ -28,10 +28,11 @@ class ClickExecutorTest {
     @Test
     fun `execute dispatches a single gesture tap on success`() = runTest {
         val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Tapped")
         val platform =
             RecordingPlatform(
                 actionResults = listOf(ActionResult.Success()),
-                capturedSnapshots = listOf(snapshot)
+                capturedSnapshots = listOf(changedSnapshot)
             )
         val executor = ClickExecutor()
 
@@ -50,10 +51,11 @@ class ClickExecutorTest {
     @Test
     fun `execute uses node click as primary for semantic target`() = runTest {
         val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Pressed")
         val platform =
             RecordingPlatform(
                 actionResults = listOf(ActionResult.Success()),
-                capturedSnapshots = listOf(snapshot)
+                capturedSnapshots = listOf(changedSnapshot)
             )
         val executor = ClickExecutor()
 
@@ -74,13 +76,14 @@ class ClickExecutorTest {
     @Test
     fun `execute falls back to gesture tap when node action click fails`() = runTest {
         val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Fallback")
         val platform =
             RecordingPlatform(
                 actionResults = listOf(
                     ActionResult.Failure("gesture tap failed"),
                     ActionResult.Success()
                 ),
-                capturedSnapshots = listOf(snapshot)
+                capturedSnapshots = listOf(changedSnapshot)
             )
         val executor = ClickExecutor()
 
@@ -143,7 +146,32 @@ class ClickExecutorTest {
         assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
         val success = outcome as ActionOutcome.Success
         assertThat(success.message).contains("Warning: Post-action capture failed")
+        assertThat(success.verified).isFalse()
         assertThat(platform.performedActions).containsExactly(UIAction.TapAt(100, 200))
+    }
+
+    @Test
+    fun `execute marks success unverified when post-action screen is unchanged`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(snapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.Coordinate(x = 100, y = 200),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.verified).isFalse()
+        assertThat(success.message).contains("Warning: No observable screen change detected after action")
     }
 
     @Test
@@ -192,7 +220,7 @@ class ClickExecutorTest {
         assertThat(platform.performedActions).isEmpty()
     }
 
-    private fun snapshotWithSingleButton(): ScreenSnapshot {
+    private fun snapshotWithSingleButton(label: String = "Button"): ScreenSnapshot {
         val bounds = Bounds(left = 80, top = 160, right = 220, bottom = 260)
         return ScreenSnapshot(
             timestamp = 1L,
@@ -200,7 +228,7 @@ class ClickExecutorTest {
                 listOf(
                     PerceptionElement(
                         index = 1,
-                        text = "Button",
+                        text = label,
                         resourceId = "button_1",
                         className = "android.widget.Button",
                         description = "",

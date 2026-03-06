@@ -28,10 +28,11 @@ class LongPressExecutorTest {
     @Test
     fun `execute uses gesture long press for coordinate target`() = runTest {
         val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Selected")
         val platform =
             RecordingLongPressPlatform(
                 actionResults = listOf(ActionResult.Success()),
-                capturedSnapshots = listOf(snapshot)
+                capturedSnapshots = listOf(changedSnapshot)
             )
         val executor = LongPressExecutor()
 
@@ -57,10 +58,11 @@ class LongPressExecutorTest {
     @Test
     fun `execute uses node long click as primary for semantic target`() = runTest {
         val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Selected")
         val platform =
             RecordingLongPressPlatform(
                 actionResults = listOf(ActionResult.Success()),
-                capturedSnapshots = listOf(snapshot)
+                capturedSnapshots = listOf(changedSnapshot)
             )
         val executor = LongPressExecutor()
 
@@ -82,13 +84,14 @@ class LongPressExecutorTest {
     @Test
     fun `execute falls back to gesture long press when node long click fails`() = runTest {
         val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Selected")
         val platform =
             RecordingLongPressPlatform(
                 actionResults = listOf(
                     ActionResult.Failure("gesture long press failed"),
                     ActionResult.Success()
                 ),
-                capturedSnapshots = listOf(snapshot)
+                capturedSnapshots = listOf(changedSnapshot)
             )
         val executor = LongPressExecutor()
 
@@ -109,12 +112,13 @@ class LongPressExecutorTest {
     }
 
     @Test
-    fun `execute always marks long press as verified`() = runTest {
+    fun `execute marks long press verified when post-action screen changes`() = runTest {
         val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Selected")
         val platform =
             RecordingLongPressPlatform(
                 actionResults = listOf(ActionResult.Success()),
-                capturedSnapshots = listOf(snapshot)
+                capturedSnapshots = listOf(changedSnapshot)
             )
         val executor = LongPressExecutor()
 
@@ -133,7 +137,7 @@ class LongPressExecutorTest {
         assertThat(success.message).doesNotContain("unchanged")
     }
 
-    private fun snapshotWithSingleButton(): ScreenSnapshot {
+    private fun snapshotWithSingleButton(label: String = "Button"): ScreenSnapshot {
         val bounds = Bounds(left = 80, top = 160, right = 220, bottom = 260)
         return ScreenSnapshot(
             timestamp = 1L,
@@ -141,7 +145,7 @@ class LongPressExecutorTest {
                 listOf(
                     PerceptionElement(
                         index = 1,
-                        text = "Button",
+                        text = label,
                         resourceId = "button_1",
                         className = "android.widget.Button",
                         description = "",

@@ -55,32 +55,44 @@ object UiChangeDetector {
      * elements (games, custom GL views, WebView content, etc.).
      */
     private fun fingerprint(snapshot: ScreenSnapshot): Long {
+        var hash = FNV_OFFSET_BASIS
+        hash = mix(hash, snapshot.keyboardVisible.hashCode().toLong())
+        hash = mix(hash, snapshot.textEnriched.hashCode().toLong())
         val elements = snapshot.elements
         if (elements.isNotEmpty()) {
-            return fingerprintFromElements(elements)
+            return fingerprintFromElements(elements, hash)
         }
         // Fallback: perceptual hash of screenshot (for empty a11y trees)
-        return snapshot.image?.let { fingerprintFromImage(it) } ?: 0L
+        return snapshot.image?.let { mix(hash, fingerprintFromImage(it)) } ?: hash
     }
 
     /**
      * FNV-1a hash over sorted elements' stable fields.
      * Includes: resourceId, className, text, description, bounds, isFocused, isEnabled.
      */
-    private fun fingerprintFromElements(elements: List<PerceptionElement>): Long {
-        var hash = FNV_OFFSET_BASIS
+    private fun fingerprintFromElements(elements: List<PerceptionElement>, seed: Long): Long {
+        var hash = seed
         for (element in elements.sortedBy { it.index }) {
             hash = mix(hash, element.index.toLong())
             hash = mix(hash, element.resourceId.hashCode().toLong())
             hash = mix(hash, element.className.hashCode().toLong())
             hash = mix(hash, element.text.hashCode().toLong())
             hash = mix(hash, element.description.hashCode().toLong())
+            hash = mix(hash, element.hintText.hashCode().toLong())
             hash = mix(hash, element.bounds.left.toLong())
             hash = mix(hash, element.bounds.top.toLong())
             hash = mix(hash, element.bounds.right.toLong())
             hash = mix(hash, element.bounds.bottom.toLong())
             hash = mix(hash, element.isFocused.hashCode().toLong())
             hash = mix(hash, element.isEnabled.hashCode().toLong())
+            hash = mix(hash, element.isSelected.hashCode().toLong())
+            hash = mix(hash, element.isChecked.hashCode().toLong())
+            hash = mix(hash, element.isCheckable.hashCode().toLong())
+            element.rangeInfo?.let { range ->
+                hash = mix(hash, range.current.toBits().toLong())
+                hash = mix(hash, range.min.toBits().toLong())
+                hash = mix(hash, range.max.toBits().toLong())
+            }
         }
         return hash
     }

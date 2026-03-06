@@ -5,8 +5,6 @@ import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.UIAction
-import kotlinx.coroutines.delay
-
 /**
  * Scroll executor: content-direction scroll with optional element targeting.
  *
@@ -42,8 +40,23 @@ class ScrollExecutor(
                     val gestureResult = platform.performAction(swipe)
                     when (gestureResult) {
                         is ActionResult.Success -> {
-                            attemptTrail += "gesture_swipe: success"
-                            return buildSuccessOutcome(direction, "gesture_swipe", attemptTrail, platform)
+                            val outcome = buildSuccessOutcome(
+                                direction = direction,
+                                channel = "gesture_swipe",
+                                attemptTrail = attemptTrail,
+                                preSnapshot = snapshot,
+                                platform = platform
+                            )
+                            when (outcome) {
+                                is ActionOutcome.Success -> {
+                                    attemptTrail += "gesture_swipe: success"
+                                    return outcome.copy(attemptTrail = attemptTrail.toList())
+                                }
+                                is ActionOutcome.Failed -> {
+                                    attemptTrail += "gesture_swipe: ${outcome.reason}"
+                                }
+                                is ActionOutcome.Cancelled -> return outcome
+                            }
                         }
                         is ActionResult.Cancelled -> return ActionOutcome.Cancelled(gestureResult.reason)
                         is ActionResult.Failure -> {
@@ -57,8 +70,23 @@ class ScrollExecutor(
                     )
                     when (a11yResult) {
                         is ActionResult.Success -> {
-                            attemptTrail += "a11y_scroll: success"
-                            return buildSuccessOutcome(direction, "a11y_scroll", attemptTrail, platform)
+                            val outcome = buildSuccessOutcome(
+                                direction = direction,
+                                channel = "a11y_scroll",
+                                attemptTrail = attemptTrail,
+                                preSnapshot = snapshot,
+                                platform = platform
+                            )
+                            when (outcome) {
+                                is ActionOutcome.Success -> {
+                                    attemptTrail += "a11y_scroll: success"
+                                    return outcome.copy(attemptTrail = attemptTrail.toList())
+                                }
+                                is ActionOutcome.Failed -> {
+                                    attemptTrail += "a11y_scroll: ${outcome.reason}"
+                                }
+                                is ActionOutcome.Cancelled -> return outcome
+                            }
                         }
                         is ActionResult.Cancelled -> return ActionOutcome.Cancelled(a11yResult.reason)
                         is ActionResult.Failure -> {
@@ -69,8 +97,13 @@ class ScrollExecutor(
             }
         }
 
+        val noEffect = attemptTrail.any { it.contains("no observable effect") }
         return ActionOutcome.Failed(
-            reason = "Scroll $direction failed after all channels",
+            reason = if (noEffect) {
+                "Scroll $direction had no observable effect after all channels"
+            } else {
+                "Scroll $direction failed after all channels"
+            },
             attemptTrail = attemptTrail
         )
     }
@@ -97,16 +130,25 @@ class ScrollExecutor(
         direction: String,
         channel: String,
         attemptTrail: List<String>,
+        preSnapshot: ScreenSnapshot?,
         platform: AndroidPlatform
-    ): ActionOutcome.Success {
-        delay(UI_SETTLE_DELAY_MS)
-        val post = runCatching { platform.captureScreen() }.getOrNull()
-        val observation = post?.let { buildObservation(it, platform) }
+    ): ActionOutcome {
+        val analysis = capturePostActionAnalysis(
+            preSnapshot = preSnapshot,
+            platform = platform,
+            settleDelayMs = UI_SETTLE_DELAY_MS
+        )
+        if (analysis.changeResult == UiChangeDetector.ChangeResult.Unchanged) {
+            return ActionOutcome.Failed(
+                reason = "Scroll $direction via $channel had no observable effect",
+                attemptTrail = attemptTrail
+            )
+        }
         return ActionOutcome.Success(
-            message = "Scrolled $direction via $channel",
-            observation = observation,
+            message = formatActionMessage("Scrolled $direction via $channel", analysis.warnings),
+            observation = analysis.observation,
             attemptTrail = attemptTrail,
-            verified = true
+            verified = analysis.changeResult == UiChangeDetector.ChangeResult.Changed
         )
     }
 

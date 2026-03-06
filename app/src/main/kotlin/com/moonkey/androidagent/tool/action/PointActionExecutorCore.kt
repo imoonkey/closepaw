@@ -7,8 +7,6 @@ import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.DisplayInfo
 import com.moonkey.androidagent.platform.SemanticTargetHint
 import com.moonkey.androidagent.platform.UIAction
-import kotlinx.coroutines.delay
-
 /**
  * Channel attempt descriptor for the point-action fallback loop.
  *
@@ -88,6 +86,7 @@ internal suspend fun executePointAction(
                     channelName = channel.displayName,
                     resolvedWarnings = resolvedWarnings,
                     attemptTrail = attemptTrail,
+                    preSnapshot = snapshot,
                     platform = platform,
                     formatSuccess = formatSuccess
                 )
@@ -123,25 +122,24 @@ private suspend fun buildPointActionSuccess(
     channelName: String,
     resolvedWarnings: List<String>,
     attemptTrail: List<String>,
+    preSnapshot: ScreenSnapshot?,
     platform: AndroidPlatform,
     formatSuccess: (Point, String, List<String>) -> String
 ): ActionOutcome.Success {
-    delay(UI_SETTLE_DELAY_MS)
-    val postResult = runCatching { platform.captureScreen() }
-    val postSnapshot = postResult.getOrNull()
-    val observation = postSnapshot?.let { buildObservation(it, platform) }
-    val captureWarning = postResult.exceptionOrNull()?.message?.let { reason ->
-        "Post-action capture failed: $reason"
-    }
+    val analysis = capturePostActionAnalysis(
+        preSnapshot = preSnapshot,
+        platform = platform,
+        settleDelayMs = UI_SETTLE_DELAY_MS
+    )
     val allWarnings = buildList {
         addAll(resolvedWarnings)
-        if (captureWarning != null) add(captureWarning)
+        addAll(analysis.warnings)
     }
     return ActionOutcome.Success(
         message = formatSuccess(point, channelName, allWarnings),
-        observation = observation,
+        observation = analysis.observation,
         attemptTrail = attemptTrail,
-        verified = true
+        verified = analysis.changeResult == UiChangeDetector.ChangeResult.Changed
     )
 }
 
