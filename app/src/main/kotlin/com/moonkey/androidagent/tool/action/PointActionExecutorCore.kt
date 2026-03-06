@@ -28,6 +28,8 @@ private const val UI_SETTLE_DELAY_MS = 300L
 private const val TAG = "PointActionCore"
 /** Max child-to-container area ratio. Excludes near-full-size overlays. */
 private const val MAX_CHILD_AREA_FRACTION = 8L // out of 10 → 80%
+/** If runner-up is within this ratio of the nearest, selection is ambiguous → fall back to container. */
+private const val AMBIGUITY_DISTANCE_RATIO = 2L // nearest must be < 1/2 the runner-up distance (squared)
 
 /**
  * Core executor for point-based actions (click, long press).
@@ -54,7 +56,7 @@ internal suspend fun executePointAction(
     val semanticHint: SemanticTargetHint?
     val point = when (resolvedTarget) {
         is TargetResolver.ResolveResult.Resolved -> {
-            val refinedTarget = refinePointActionTarget(target, resolvedTarget, snapshot)
+            val refinedTarget = refinePointActionTarget(actionName, target, resolvedTarget, snapshot)
             resolvedWarnings = refinedTarget.warnings
             semanticHint = refinedTarget.semanticHint
             refinedTarget.point
@@ -187,6 +189,7 @@ private fun isWithinDisplayBounds(point: Point, displayInfo: DisplayInfo): Boole
 private fun Target.isSemantic(): Boolean = this is Target.ElementIndex || this is Target.Text
 
 private fun refinePointActionTarget(
+    actionName: String,
     target: Target,
     resolved: TargetResolver.ResolveResult.Resolved,
     snapshot: ScreenSnapshot?
@@ -196,7 +199,7 @@ private fun refinePointActionTarget(
     if (element.isClickable || element.isLongClickable) return resolved
     val container = findBestActionableContainer(element.bounds, snap.elements) ?: return resolved
 
-    val child = findBestActionableChild(resolved.point, container, snap.elements)
+    val child = findBestActionableChild(actionName, resolved.point, container, snap.elements)
     val finalTarget = child ?: container
     val source = if (child != null) "child" else "container"
 
@@ -257,21 +260,40 @@ private fun findBestActionableContainer(
  *
  * Only considers children materially smaller than the container (< 80% area)
  * to avoid picking a near-full-size overlay or the container itself.
+ *
+ * Action-specific: for click, only clickable children; for long_press, only long-clickable.
+ * Ambiguity guard: if the nearest and runner-up are similarly close, falls back to null
+ * (caller uses container) to avoid misrouting onto overflow/toggle controls.
  */
 private fun findBestActionableChild(
+    actionName: String,
     originalPoint: Point,
     container: PerceptionElement,
     elements: List<PerceptionElement>
 ): PerceptionElement? {
     val containerArea = container.bounds.area()
     if (containerArea <= 0) return null
-    return elements
+    val isLongPress = actionName == "long_press"
+    val candidates = elements
         .asSequence()
-        .filter { it.isClickable || it.isLongClickable }
+        .filter { if (isLongPress) it.isLongClickable else it.isClickable }
         .filter { container.bounds.contains(it.bounds) }
         .filterNot { it.bounds == container.bounds }
         .filter { it.bounds.area() < containerArea * MAX_CHILD_AREA_FRACTION / 10 }
-        .minByOrNull { distanceSq(originalPoint, it.center) }
+        .map { it to distanceSq(originalPoint, it.center) }
+        .sortedBy { it.second }
+        .take(2)
+        .toList()
+
+    if (candidates.isEmpty()) return null
+    val (nearest, nearestDist) = candidates[0]
+    // Single candidate: unambiguous
+    if (candidates.size == 1) return nearest
+    // Multiple: nearest must be clearly closer than runner-up (< half the distance squared)
+    val (_, runnerUpDist) = candidates[1]
+    if (nearestDist * AMBIGUITY_DISTANCE_RATIO <= runnerUpDist) return nearest
+    Log.d(TAG, "findBestActionableChild: ambiguous (nearest=$nearestDist, runnerUp=$runnerUpDist), using container")
+    return null
 }
 
 private fun distanceSq(a: Point, b: Point): Long {
