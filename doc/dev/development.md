@@ -1,6 +1,6 @@
 # Development Guide
 
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-03-06 (uncommitted)
 
 This guide covers the development workflow for Android Agent - building, testing, and debugging.
 
@@ -68,6 +68,17 @@ For faster iteration, run a single test class:
 ```bash
 ./gradlew test --tests "com.moonkey.androidagent.history.HistoryManagerTest"
 ```
+
+### Prompt Ownership
+
+When tuning the agent's cognition, edit the narrowest owner:
+
+- Core cross-tool behavior: `agent/definition/StandaloneAgentDef.kt` and `PlannerAgentDef.kt`
+- Tool-local semantics: tool `description` strings in `tool/impl/*.kt`
+- App-specific guidance: `app/src/main/assets/app_skills/<package>/SKILL.md`
+
+The active app skill is loaded fresh each turn from the foreground package and inserted into the
+prompt between Working Memory and Observation.
 
 ### 3. Device Test
 

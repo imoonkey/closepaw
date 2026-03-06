@@ -18,9 +18,20 @@ class ShellTool : ToolSpec {
 
     override val description: String =
         """
-        Execute a shell command on the device for file-related operations only.
-        Use for reading file contents, listing directories, or checking file metadata.
-        Do NOT use for non-file operations (date, dumpsys, input, am, etc.).
+        Execute a shell command on the device for file-oriented inspection only.
+        Use for reading file contents, listing directories, or checking file metadata when the file is accessible from shell.
+
+        Scope:
+        - Read file contents: cat /path/to/file
+        - List directories: ls /path/to/dir
+        - Inspect metadata: stat /path/to/file
+
+        Do NOT use for:
+        - UI control, app launching, taps, swipes, or system navigation
+        - Protected app-internal storage you are unlikely to access
+        - OCR, image reading, or non-file commands such as date, dumpsys, input, am
+        - Destructive or state-changing commands
+
         Common uses:
         - cat /path/to/file (read file contents)
         - ls /path/to/dir (list directory)

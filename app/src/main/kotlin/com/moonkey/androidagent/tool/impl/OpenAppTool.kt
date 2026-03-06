@@ -79,6 +79,7 @@ class OpenAppTool : ToolSpec {
 
     override val description: String = """
 Launch an app by name. Always use this to open apps — do NOT navigate the app drawer or home screen manually.
+If the target app is already in the foreground, this returns success without relaunching it.
 If the app is not found, suggestions will be provided.
 """.trimIndent()
 

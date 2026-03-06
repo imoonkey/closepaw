@@ -2,6 +2,9 @@ package com.moonkey.androidagent.session
 
 import android.content.Context
 import android.util.Log
+import com.moonkey.androidagent.agent.cognition.prompt.AppSkillRepository
+import com.moonkey.androidagent.agent.cognition.prompt.AssetAppSkillRepository
+import com.moonkey.androidagent.agent.cognition.prompt.EmptyAppSkillRepository
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.SessionRecordingService
 import com.moonkey.androidagent.llm.LLMClient
@@ -40,7 +43,7 @@ import kotlinx.coroutines.CoroutineScope
  * val services = SessionServices.create(localConfig, platform, context = context)
  * ```
  */
-class SessionServices(
+class SessionServices internal constructor(
         val toolRegistry: ToolRegistry,
         val toolRouter: ToolRouter,
         val historyManager: HistoryManager,
@@ -53,6 +56,7 @@ class SessionServices(
         val llmClientFactory: LLMClientFactory,
         val traceRecorder: TraceRecorder,
         val recordingService: SessionRecordingService,
+        internal val appSkillRepository: AppSkillRepository = EmptyAppSkillRepository,
         val userResponseChannel: UserResponseChannel = UserResponseChannel()
 ) {
     companion object {
@@ -97,6 +101,7 @@ class SessionServices(
             val history = SessionHistoryBootstrapper.create(context, scope)
             val historyManager = history.historyManager
             val recordingService = history.recordingService
+            val appSkillRepository = AssetAppSkillRepository(context.assets)
 
             Log.i(TAG, "SessionServices created successfully")
 
@@ -112,13 +117,14 @@ class SessionServices(
                     modelCatalog = modelCatalog,
                     llmClientFactory = llmClientFactory,
                     traceRecorder = traceRecorder,
-                    recordingService = recordingService
+                    recordingService = recordingService,
+                    appSkillRepository = appSkillRepository
             )
         }
     }
 
     /** Create a copy with optionally replaced services. */
-    fun copy(
+    internal fun copy(
             toolRegistry: ToolRegistry = this.toolRegistry,
             toolRouter: ToolRouter = this.toolRouter,
             historyManager: HistoryManager = this.historyManager,
@@ -131,6 +137,7 @@ class SessionServices(
             llmClientFactory: LLMClientFactory = this.llmClientFactory,
             traceRecorder: TraceRecorder = this.traceRecorder,
             recordingService: SessionRecordingService = this.recordingService,
+            appSkillRepository: AppSkillRepository = this.appSkillRepository,
             userResponseChannel: UserResponseChannel = this.userResponseChannel
     ): SessionServices {
         return SessionServices(
@@ -146,6 +153,7 @@ class SessionServices(
                 llmClientFactory = llmClientFactory,
                 traceRecorder = traceRecorder,
                 recordingService = recordingService,
+                appSkillRepository = appSkillRepository,
                 userResponseChannel = userResponseChannel
         )
     }

@@ -250,6 +250,43 @@ class PromptBuilderTest {
         assertThat(items).hasSize(5)
     }
 
+    @Test
+    fun `buildInputItems inserts app skill between memory and observation`() {
+        val historyManager = HistoryManager()
+        historyManager.addItem(userIntent("Goal: Update note"))
+
+        val state = AgentSessionState()
+        state.todos.update(listOf(Todo(description = "Edit note", status = TodoStatus.PENDING)))
+
+        val builder = PromptBuilder(
+            historyManager = historyManager,
+            sessionState = state,
+            supportsVision = true
+        )
+
+        val appSkillText = """
+            ## App Skill
+            Package: net.gsantner.markor
+
+            # Markor Skill
+            - Use the Markor UI for file changes.
+        """.trimIndent()
+
+        val items = builder.buildInputItems(
+            snapshot = emptySnapshot,
+            image = null,
+            appSkill = appSkillText
+        )
+
+        assertThat(items).hasSize(4)
+        assertThat(items[1].asEasyInputMessage().content().asTextInput())
+            .contains("## Working Memory")
+        assertThat(items[2].asEasyInputMessage().content().asTextInput())
+            .isEqualTo(appSkillText)
+        assertThat(items[3].asEasyInputMessage().content().asTextInput())
+            .contains("Screen state")
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────
 
     private fun createBuilder(

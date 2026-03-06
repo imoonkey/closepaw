@@ -1,7 +1,7 @@
 # Turn Prompt Anatomy
 
 > What each turn sends to the LLM: instructions, input items, and filtered tools.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Last updated: 2026-03-06 (uncommitted)
 
 ## Overview
 
@@ -32,16 +32,18 @@ System prompt text is sourced from the active `AgentDef` and passed unchanged to
 
 ### Prompt Structure
 
-Both `StandaloneAgentDef` and `PlannerAgentDef` follow a standardized section layout:
+The standalone and planner prompts now keep only cross-tool policy in the system prompt:
 
-1. **Role** — Agent identity and core purpose
-2. **Core Loop** — ReAct loop description with turn budget awareness
-3. **Tools** — Calling conventions + per-tool usage guides (`mobile_action`, `open_app`, `shell`, `ask_user`, `complete_task`)
-4. **App Tips** — App-specific guidance organized by category:
-   - **Calendar tips**: Time picker keyboard mode, "Nh" 24-hour format, day-cell navigation
-   - **Expense tips**: Pro Expense category scrolling
-   - **General tips**: Loop warning response strategy, pre-completion self-verification
-5. **Device Environment** — Runtime context (OS version, screen size, locale, installed apps, perception mode)
+1. **Role** — Agent identity and success criteria
+2. **Critical Rules** — Turn-shape, evidence, retry/pivot, and coordination policy
+3. **Execution Loop** — Observe → act/delegate → verify
+4. **Working Memory** — How to use todos and scratchpad
+5. **Task Modes** — Manipulation, information gathering, blocked/unsupported handling
+6. **Completion** — Verification doctrine before `complete_task`
+7. **Device Environment** — Runtime context (device, screen, date)
+
+Tool-local semantics now live in tool descriptions, and app-specific guidance lives in
+`app/src/main/assets/app_skills/<package>/SKILL.md`.
 
 → See: `agent/definition/StandaloneAgentDef.kt`, `agent/definition/PlannerAgentDef.kt`
 
@@ -49,11 +51,13 @@ Both `StandaloneAgentDef` and `PlannerAgentDef` follow a standardized section la
 
 ## 2. Input Items Composition
 
-`PromptBuilder.buildInputItems(snapshot, image, warnings)` constructs the full `input` list in fixed order:
+`PromptBuilder.buildInputItems(snapshot, image, warnings, ..., appSkill)` constructs the full
+`input` list in fixed order:
 
 1. **History section** (`HistoryManager.forPrompt()`, normalized)
 2. **Memory section** (optional single user message)
-3. **Current observation section** (screen JSON + optional screenshot)
+3. **App skill section** (optional single user message)
+4. **Current observation section** (screen JSON + optional screenshot)
 
 ### 2.1 History Section
 
@@ -88,7 +92,22 @@ When todos or scratchpad keys exist, a single user message is inserted:
 - Omitted when both todo list and scratchpad are empty.
 - Scratchpad exposes keys only (not values) in the memory section.
 
-### 2.3 Observation Section
+### 2.3 App Skill Section (Optional)
+
+When the foreground package matches an asset under `app_skills/<package>/SKILL.md`,
+`TurnPlanningPhaseRunner` loads the whole file through `AppSkillRepository` and injects:
+
+```text
+## App Skill
+Package: net.gsantner.markor
+
+...full SKILL.md contents...
+```
+
+This keeps app knowledge out of the static system prompt while ensuring the active app's guidance
+is adjacent to the current observation.
+
+### 2.4 Observation Section
 
 Final user message always includes current screen JSON:
 
@@ -160,6 +179,7 @@ Conceptual shape of one request:
     {"type": "function_call", "id": "...", "name": "write_todos", "arguments": "{...}"},
     {"type": "function_call_output", "call_id": "...", "output": "Success: ..."},
     {"role": "user", "content": "## Working Memory\n..."},
+    {"role": "user", "content": "## App Skill\nPackage: net.gsantner.markor\n..."},
     {"role": "user", "content": "Screen state (16 elements):\n```json\n...\n```"}
   ],
   "tools": [

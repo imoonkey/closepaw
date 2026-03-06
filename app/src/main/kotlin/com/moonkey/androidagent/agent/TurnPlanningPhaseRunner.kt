@@ -43,6 +43,7 @@ internal class TurnPlanningPhaseRunner(
                 turnId: String,
                 turnNumber: Int,
                 snapshot: ScreenSnapshot,
+                currentPackageName: String?,
                 warnings: List<String>,
                 blockedActions: Set<String> = emptySet()
         ): PlanningPhaseOutput {
@@ -68,13 +69,15 @@ internal class TurnPlanningPhaseRunner(
                                 supportsVision = model.supportsVision,
                                 perceptionConfig = services.config.perceptionConfig
                         )
+                val appSkill = buildAppSkillMessage(currentPackageName)
                 val inputItems =
                         promptBuilder.buildInputItems(
                                 snapshot = snapshot,
                                 image = snapshot.image,
                                 warnings = warnings,
                                 turnNumber = turnNumber,
-                                maxTurns = config.maxTurns
+                                maxTurns = config.maxTurns,
+                                appSkill = appSkill
                         )
 
                 // Record screen observation for future turns (after prompt built)
@@ -151,6 +154,17 @@ internal class TurnPlanningPhaseRunner(
                 emitAgentThought(arbitration.selectedToolCalls, turnNumber)
 
                 return PlanningPhaseOutput(turnResult = result, arbitration = arbitration)
+        }
+
+        private fun buildAppSkillMessage(currentPackageName: String?): String? {
+                val packageName = currentPackageName?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+                val skillBody = services.appSkillRepository.load(packageName) ?: return null
+                return buildString {
+                        appendLine("## App Skill")
+                        appendLine("Package: $packageName")
+                        appendLine()
+                        append(skillBody)
+                }.trim()
         }
 
         /**

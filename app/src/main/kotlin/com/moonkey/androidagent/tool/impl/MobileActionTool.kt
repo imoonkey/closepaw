@@ -34,6 +34,11 @@ Specify EXACTLY ONE targeting method per action:
 - text + text_index: visible text on screen
 - x, y: absolute pixel coordinates (last resort)
 
+Targeting guidance:
+- Prefer element_index or text when the current screen state provides a clear match.
+- Use x,y only when the target is visible but inaccessible through the tree.
+- Do not combine selectors or probe blank screen regions.
+
 Actions:
 - click: Tap target. Example: {"action":"click","element_index":3}
 - long_press: Long press target. Example: {"action":"long_press","text":"Delete"}

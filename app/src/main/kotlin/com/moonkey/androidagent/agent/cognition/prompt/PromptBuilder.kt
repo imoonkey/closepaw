@@ -20,7 +20,8 @@ import com.openai.models.responses.ResponseInputText
  * Prompt is a sequential narrative the LLM reads left-to-right:
  *   1. HISTORY  — past turns (compression handled by HistoryManager)
  *   2. MEMORY   — working memory (scratchpad + todos)
- *   3. OBSERVATION — current screen state + warnings + screenshot
+ *   3. APP SKILL — active package guidance loaded per turn
+ *   4. OBSERVATION — current screen state + warnings + screenshot
  */
 internal class PromptBuilder(
     private val historyManager: HistoryManager,
@@ -37,16 +38,19 @@ internal class PromptBuilder(
      * @param warnings  Plain-text warning strings (loop detection, final turn, etc.)
      * @param turnNumber Current turn number (1-based)
      * @param maxTurns  Maximum turns allowed for this session
+     * @param appSkill Optional app-specific skill block for the foreground package
      */
     fun buildInputItems(
         snapshot: ScreenSnapshot,
         image: ScreenImage?,
         warnings: List<String> = emptyList(),
         turnNumber: Int = 0,
-        maxTurns: Int = 0
+        maxTurns: Int = 0,
+        appSkill: String? = null
     ): List<ResponseInputItem> = buildList {
         addAll(buildHistorySection())
         buildMemorySection()?.let { add(it) }
+        appSkill?.trim()?.takeIf { it.isNotEmpty() }?.let { add(textUserMessage(it)) }
         add(buildObservationSection(snapshot, image, warnings, turnNumber, maxTurns))
     }
 

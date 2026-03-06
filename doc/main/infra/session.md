@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionCoordinator, SessionServices, and session lifecycle.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Last updated: 2026-03-06 (uncommitted)
 
 ## AgentSession
 
@@ -132,6 +132,7 @@ Dependency-injection container for all session-scoped services. Created via fact
 | `llmClientFactory` | Factory for creating LLM clients (cached by provider) |
 | `traceRecorder` | Trace persistence sink |
 | `recordingService` | Session history recording |
+| `appSkillRepository` | Loads `app_skills/<package>/SKILL.md` assets for per-turn prompt injection |
 | `userResponseChannel` | Suspension bridge for `ask_user` tool (CompletableDeferred) |
 
 ### Bootstrappers
@@ -143,6 +144,10 @@ Creation is split into three bootstrappers:
 | `SessionLlmBootstrapper` | `ModelCatalog` (from `assets/llm_models.json`), `LLMClientFactory`, `LLMClient` |
 | `SessionToolingBootstrapper` | `PolicyEngine`, `AgentSessionState`, `ToolRegistry`, `ToolRouter` |
 | `SessionHistoryBootstrapper` | `HistoryManager` (maxTokenBudget=18,000, AGGRESSIVE truncation), `SessionRecordingService` |
+
+`SessionServices.create(...)` also wires `AssetAppSkillRepository(context.assets)` directly. The
+planning runner uses it every turn to load package-scoped app guidance without storing app-skill
+state in the session itself.
 
 ### Cleanup
 

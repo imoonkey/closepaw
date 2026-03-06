@@ -40,6 +40,10 @@ internal class AgentTurnRunner(
         companion object {
                 private const val TAG = "AgentTurnRunner"
         }
+        private data class PreTurnContext(
+                val snapshot: ScreenSnapshot,
+                val currentPackageName: String?
+        )
         private val loopDetectionPolicy by lazy { LoopDetectionPolicy() }
         private val executorStepPolicy by lazy {
                 ExecutorStepPolicy(maxSteps = config.maxTurns, narrativeSummaryOnLimit = true)
@@ -78,7 +82,8 @@ internal class AgentTurnRunner(
 
                 val outcome =
                         try {
-                                val snapshot = capturePreTurnSnapshot(turnId, turnNumber)
+                                val preTurnContext = capturePreTurnSnapshot(turnId, turnNumber)
+                                val snapshot = preTurnContext.snapshot
                                 if (isTurnCancelled()) {
                                         TurnOutcome.Cancelled
                                 } else {
@@ -108,6 +113,8 @@ internal class AgentTurnRunner(
                                                                 turnId = turnId,
                                                                 turnNumber = turnNumber,
                                                                 snapshot = snapshot,
+                                                                currentPackageName =
+                                                                        preTurnContext.currentPackageName,
                                                                 warnings = preparedTurn.warnings,
                                                                 blockedActions = preparedTurn.blockedActions
                                                         )
@@ -154,7 +161,7 @@ internal class AgentTurnRunner(
         private suspend fun capturePreTurnSnapshot(
                 turnId: String,
                 turnNumber: Int
-        ): ScreenSnapshot {
+        ): PreTurnContext {
                 eventDispatcher.status("👀 Scanning screen...")
                 val snapshot = services.platform.captureScreen()
                 val currentPackage = services.platform.getCurrentPackageName()
@@ -169,7 +176,7 @@ internal class AgentTurnRunner(
                         traceRunId = services.config.traceRunId
                 )
                 logSnapshotElements(turnNumber, snapshot)
-                return snapshot
+                return PreTurnContext(snapshot = snapshot, currentPackageName = currentPackage)
         }
 
         private fun logSnapshotElements(turnNumber: Int, snapshot: ScreenSnapshot) {

@@ -1,7 +1,7 @@
 # Planning State & Context Hygiene
 
 > TodoState, ScratchpadState, and context-compression strategies.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Last updated: 2026-03-06 (uncommitted)
 
 ## Planning State System
 
@@ -11,8 +11,12 @@ The agent uses planning-state tools to track progress and share data between pla
 - Includes todos when todo list is non-empty
 - Includes scratchpad JSON (truncated) when scratchpad is non-empty
 - Omits memory section entirely when both are empty
+- Keeps the memory block ahead of any active app-skill block and the final observation block
 
 Runtime warning text (loop warning / final-turn warning) is injected in the observation section by `AgentTurnRunner.buildWarnings(...)`.
+
+App-specific guidance is loaded separately per turn from
+`app/src/main/assets/app_skills/<foreground-package>/SKILL.md` and injected after working memory.
 
 → See: `agent/cognition/prompt/PromptBuilder.kt`, `agent/AgentTurnRunner.kt`
 
@@ -149,6 +153,7 @@ Turn N                                  Turn N+1
   |  - History (older screens auto-       |  - History (proactively compressed)
   |    downgraded by HistoryManager)      |
   |  - Working Memory (todos/scratchpad)  |  - Working Memory (todos/scratchpad)
+  |  - App Skill (if active package has one) |  - App Skill (if active package has one)
   |  - Current observation JSON           |  - Current observation JSON
   |                                       |
   |- Act: execute tool                    |- Act: execute tool

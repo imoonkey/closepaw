@@ -1,11 +1,14 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Last updated: 2026-03-06 (uncommitted)
 
 ## Overview
 
 Tools are the agent's interface to the Android device. Every tool execution follows a state machine lifecycle with validation, policy checks, and observation capture.
+
+Tool descriptions are also the canonical owner of tool-local prompt semantics. Cross-tool behavior
+stays in agent system prompts; app-specific behavior lives in `app_skills/<package>/SKILL.md`.
 
 ---
 
@@ -100,7 +103,10 @@ Determines whether tools need user approval.
 
 `ask_user` is registered lazily in `SessionAgentRunner.start()`. It suspends the agent coroutine via `UserResponseChannel` (CompletableDeferred) until the user responds through the capsule UI, or times out after 5 minutes. See [session.md](session.md) for `UserResponseChannel` details.
 
-`shell` executes file-related shell commands on the device (cat, ls, stat). Restricted to read-only file operations — non-file commands (date, dumpsys, input, am) are explicitly blocked. Runs via `Runtime.exec()` with a configurable timeout (default 10s, max 30s). Returns stdout/stderr combined output.
+`shell` executes file-oriented inspection commands on the device (cat, ls, stat). It is restricted
+to non-destructive file inspection; UI control, app launching, OCR, and protected app-internal
+storage access are out of scope. Runs via `Runtime.exec()` with a configurable timeout (default
+10s, max 30s). Returns stdout/stderr combined output.
 
 ### mobile_action Actions
 
