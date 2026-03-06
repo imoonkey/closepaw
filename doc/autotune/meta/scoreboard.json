@@ -1253,10 +1253,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260305_151648": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 50
         }
       },
-      "recent_rate": "0/1",
-      "status": "new"
+      "recent_rate": "0/2",
+      "status": "stuck"
     },
     "RecipeDeleteMultipleRecipes": {
       "runs": {
@@ -1391,6 +1396,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260305_151648": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 45
         }
       },
       "recent_rate": "0/3",
@@ -1923,10 +1933,15 @@
           "score": 0.0,
           "status": "timeout",
           "turns": 0
+        },
+        "20260305_151648": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
         }
       },
-      "recent_rate": "0/1",
-      "status": "new"
+      "recent_rate": "0/2",
+      "status": "stuck"
     },
     "SportsTrackerActivitiesOnDate": {
       "runs": {
@@ -1981,9 +1996,14 @@
           "score": 1.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260305_151648": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
         }
       },
-      "recent_rate": "1/1",
+      "recent_rate": "2/2",
       "status": "fixed"
     },
     "SportsTrackerTotalDistanceForCategoryOverInterval": {
@@ -1992,10 +2012,15 @@
           "score": 1.0,
           "status": "completed",
           "turns": 28
+        },
+        "20260305_151648": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
         }
       },
-      "recent_rate": "1/1",
-      "status": "fixed"
+      "recent_rate": "1/2",
+      "status": "regressed"
     },
     "SportsTrackerTotalDurationForCategoryThisWeek": {
       "runs": {
@@ -2182,10 +2207,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260305_151648": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
         }
       },
-      "recent_rate": "0/1",
-      "status": "new"
+      "recent_rate": "0/2",
+      "status": "stuck"
     },
     "TasksDueNextWeek": {
       "runs": {
@@ -2193,10 +2223,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 6
+        },
+        "20260305_151648": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 6
         }
       },
-      "recent_rate": "0/1",
-      "status": "new"
+      "recent_rate": "0/2",
+      "status": "stuck"
     },
     "TasksDueOnDate": {
       "runs": {
@@ -2236,10 +2271,15 @@
           "score": 1.0,
           "status": "completed",
           "turns": 21
+        },
+        "20260305_151648": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 9
         }
       },
-      "recent_rate": "1/1",
-      "status": "fixed"
+      "recent_rate": "1/2",
+      "status": "regressed"
     },
     "TasksIncompleteTasksOnDate": {
       "runs": {
@@ -2247,10 +2287,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 2
+        },
+        "20260305_151648": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 3
         }
       },
-      "recent_rate": "0/1",
-      "status": "new"
+      "recent_rate": "0/2",
+      "status": "stuck"
     },
     "TurnOffWifiAndTurnOnBluetooth": {
       "runs": {
@@ -2550,6 +2595,12 @@
       "total": 26,
       "passed": 19,
       "rate": 0.731
+    },
+    "20260305_151648": {
+      "round": 39,
+      "total": 9,
+      "passed": 1,
+      "rate": 0.111
     }
   }
 }

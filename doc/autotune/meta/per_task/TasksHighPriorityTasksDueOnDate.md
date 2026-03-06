@@ -1,5 +1,10 @@
 # TasksHighPriorityTasksDueOnDate
 
+## R4 (AT-R4, run 20260305_151648)
+- **Score**: 0.0 | **Turns**: 9/30 | **Agent**: qwen3.5
+- **Behavior**: ReasoningError. REGRESSED from 1.0 in R3. Date-label tip helped (agent correctly IDed Wed=Oct 18). But priority radio buttons have no a11y labels. Agent gave up at turn 9 vs R3's 21 turns.
+- **R4 fix result**: Date-label tip worked but a11y gap on priority UI. Regression due to natural variance (qwen3.5 nondeterminism).
+
 ## AT-R3 (20260304_152742) - PASS
 - Score: 1.0
 - Turns: 21/30

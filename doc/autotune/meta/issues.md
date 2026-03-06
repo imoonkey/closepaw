@@ -1,13 +1,16 @@
 # Global Issues
 
 ## Open
-- [ ] **Tasks app date reasoning** — TasksCompletedTasksForDate, TasksDueNextWeek, TasksIncompleteTasksOnDate. Agent cannot map between absolute dates in goals (e.g., "October 16, 2023") and relative date labels in the Tasks app UI ("Mon", "Tue", "Oct 22"). Leads to navigation failure, hallucination, and missing date filters. Need system prompt tip for date computation. (NEW: AT-R3 P1)
-- [ ] **Duration-constrained playlist strategy** — RetroPlaylistDuration. 3-round persistent failure. P2 tip added in R2 but agent (qwen3.5) doesn't follow it. May be model capability limitation. (UPDATED: AT-R3, tip ineffective)
-- [ ] **Turn budget pressure on repetitive tasks** — RecipeDeleteDuplicateRecipes3, SportsTrackerActivitiesCountForWeek. Tasks requiring many repetitive actions (4-5 turns each) exceed 30-turn budget. SportsTracker could benefit from name heuristic tip. (NEW: AT-R3 P3)
+- [ ] **Tasks app premature completion without scroll** — TasksDueNextWeek, TasksIncompleteTasksOnDate, TasksCompletedTasksForDate. Agent answers enumeration/count questions from a single viewport without scrolling. Date-label tip works but scroll-before-answer is the primary blocker. (NEW: AT-R4 P1)
+- [ ] **Tasks app priority perception gap** — TasksHighPriorityTasksDueOnDate. Priority radio buttons have no a11y text labels. Agent cannot determine priority level. REGRESSED in R4 (1.0→0.0, natural variance). (NEW: AT-R4 P2)
+- [ ] **Tasks app completed-tasks navigation** — TasksCompletedTasksForDate. Agent cannot find "Show completed" filter toggle. (NEW: AT-R4 P1 sub-issue)
+- [ ] **Premature shell pivot on SportsTracker** — SportsTrackerTotalDistanceForCategoryOverInterval. Agent abandons working UI Edit workflow too early and wastes turns on shell. REGRESSED in R4 (1.0→0.0). (NEW: AT-R4 P3)
 - [ ] **Markor file extension default** — MarkorMergeNotes. New file dialog has separate extension field defaulting to `.md`. Agent doesn't clear it when target has no extension. Need app tip. (UNCHANGED: AT-R1)
 - [ ] **SSE error classification** — RecipeAddMultipleRecipesFromImage. Retry infra exists (CloudStreamRetryRunner, MAX_RETRIES=5) but SSE stream disconnects may be classified as non-retryable by OpenAIErrorClassifier. Check error classification logic. (UNCHANGED: AT-R1)
 
 ## Resolved
+- [x] **Tasks app date reasoning** — Date-label tip added AT-R4 (commit 7a85be5). Partially effective: TasksIncompleteTasksOnDate now computes date map correctly. But tasks still fail due to no-scroll and navigation issues. Downgraded from primary blocker to sub-issue. (RESOLVED partially: AT-R4, was AT-R3 P1)
+- [x] **Timeout finalization observability** — Fixed AT-R4 (commit 7a85be5). 3s delay between stop_agent and force_stop. SportsTrackerActivitiesCountForWeek now emits session_stopped correctly (was InfraError → FalseCompletion). (RESOLVED: AT-R4, was AT-R3 P3)
 - [x] **`\n` vs `\n\n` blank line interpretation** — Fixed AT-R3 (commit 63e3a0a). Markor blank line tip added. MarkorAddNoteHeader 0→1 after 2 rounds stuck. (RESOLVED: AT-R3, was AT-R2 P1)
 - [x] **FalseCompletion on formatting tasks** — Resolved by blank line fix. MarkorAddNoteHeader now passes correctly. (RESOLVED: AT-R3, was AT-R2 Q1)
 - [x] **Keyboard visibility flag broken** — Fixed AT-R3 (commit 63e3a0a). Moved detection from Perceptor node traversal to window-type check in AccessibilityPlatform. Also fixed captureScreen() which never propagated keyboardVisible. (RESOLVED: AT-R3, was AT-R2 Q3)
@@ -29,3 +32,5 @@
 - OsmAndTrack — map UI inaccessible via accessibility service (added AT-R1)
 - ExpenseDeleteDuplicates2 — ambiguous "exact duplicate" definition + visually identical noise entries with different hidden fields (added AT-R1)
 - RecipeDeleteDuplicateRecipes2 — intentional same-description noise trap, agent over-deleted (4 instead of 1), information asymmetry (added AT-R1)
+- RecipeDeleteDuplicateRecipes3 — structurally impossible at any reasonable turn budget: 10+ duplicates × 4 turns/deletion = 40+ productive turns minimum (added AT-R4)
+- RetroPlaylistDuration — qwen3.5-blocked: 7 consecutive 0.0, model cannot execute multi-step batch-select workflow due to duplicate "More options" grounding error (added AT-R4)

@@ -2,6 +2,22 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 4 (2026-03-05, run 20260305_151648, commit 7a85be5)
+- **Task selection rationale**: 3 Tasks failures (P1 targets), 1 Tasks canary, 1 Retro (P2), 1 Recipe (P2 max_turns), 1 SportsTracker infra (P3), 2 fragile SportsTracker (P2)
+- **Tasks run**: 9
+- **Fixes applied**: P1 date-label tip + QA scratchpad guardrail, P2 shell restricted to files, P2 repetitive-task guidance, P2 Retro batch-select tip, P2 max_turns=50/45, P3 stop_agent→force_stop 3s delay
+- **Result**: 1/9 (11%)
+- **Net new passes**: none
+- **Regressions**: TasksHighPriorityTasksDueOnDate (1.0→0.0, natural variance), SportsTrackerTotalDistanceForCategoryOverInterval (1.0→0.0, premature shell pivot)
+- **Key findings**:
+  - Date-label tip partially effective: TasksIncompleteTasksOnDate now does date computation (R3: zero filtering → R4: correct filtering), but still 0.0 due to no-scroll
+  - QA scratchpad guardrail partially effective: TasksDueNextWeek used it but contradicted own count
+  - write_todos guidance counterproductive: RecipeDeleteDuplicateRecipes3 wasted 18% of turns on standalone write_todos calls
+  - Retro batch-select tip partially followed but qwen3.5 cannot distinguish duplicate "More options" buttons
+  - Infra P3 fix confirmed: SportsTrackerActivitiesCountForWeek now terminates cleanly (was InfraError → now FalseCompletion)
+  - Both regressions attributed to qwen3.5 natural variance, not prompt changes
+- **Moved to cannot_handle**: RecipeDeleteDuplicateRecipes3 (structurally impossible at any reasonable turn budget), RetroPlaylistDuration (qwen3.5-blocked, 7 consecutive 0.0)
+
 ## Autotune Round 3 — Analysis & R4 Prep (2026-03-05)
 - **Aligned analysis**: Claude + Codex independent analyses, cross-reviewed and aligned via /double-design /align
 - **Root causes**: FalseCompletion (3 Tasks app), TurnExhaustion (2), InfraError (1), fragile passes (2 SportsTracker at 28-30 turns)

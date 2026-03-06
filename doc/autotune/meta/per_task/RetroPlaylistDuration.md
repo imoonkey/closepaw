@@ -1,5 +1,10 @@
 # RetroPlaylistDuration
 
+## R4 (AT-R4, run 20260305_151648)
+- **Score**: 0.0 | **Turns**: 45/45 | **Agent**: qwen3.5
+- **Behavior**: TurnExhaustion (7th consecutive 0.0). Agent attempted batch-select but hit duplicate "More options" grounding error. Only 2 songs added (06:37 vs 45-50min target).
+- **R4 fix result**: batch-select tip + max_turns=45 applied. Tip partially followed but model can't execute. Recommend park as qwen3.5-blocked.
+
 ## AT-R3 (20260304_152742) - FAIL
 - Score: 0.0
 - Turns: 30/30
