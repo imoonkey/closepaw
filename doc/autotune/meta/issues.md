@@ -1,6 +1,8 @@
 # Global Issues
 
 ## Open
+- [ ] **Literal target verification before completion** — AudioRecorderRecordAudioWithFileName, MarkorMergeNotes, OsmAndMarker. Agent claims success after approximate artifact creation or adjacent-action execution without verifying the exact requested end state. (NEW: GPT-5.4 smoke)
+- [ ] **Cross-app destination binding on import/logging tasks** — ExpenseAddMultipleFromGallery, ExpenseAddMultipleFromMarkor. Agent extracts source data correctly but loses the required destination app/object, then mistakes preexisting or same-app state for success. (NEW: GPT-5.4 smoke)
 - [ ] **Tasks app premature completion without scroll** — TasksDueNextWeek, TasksIncompleteTasksOnDate, TasksCompletedTasksForDate. Agent answers enumeration/count questions from a single viewport without scrolling. Date-label tip works but scroll-before-answer is the primary blocker. (NEW: AT-R4 P1)
 - [ ] **Tasks app priority perception gap** — TasksHighPriorityTasksDueOnDate. Priority radio buttons have no a11y text labels. Agent cannot determine priority level. REGRESSED in R4 (1.0→0.0, natural variance). (NEW: AT-R4 P2)
 - [ ] **Tasks app completed-tasks navigation** — TasksCompletedTasksForDate. Agent cannot find "Show completed" filter toggle. (NEW: AT-R4 P1 sub-issue)

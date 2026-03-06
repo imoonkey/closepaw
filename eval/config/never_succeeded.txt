@@ -6,7 +6,6 @@ ExpenseAddMultipleFromGallery
 ExpenseAddMultipleFromMarkor
 ExpenseDeleteDuplicates2
 MarkorMergeNotes
-MarkorTranscribeVideo
 OsmAndMarker
 OsmAndTrack
 RecipeAddMultipleRecipesFromImage

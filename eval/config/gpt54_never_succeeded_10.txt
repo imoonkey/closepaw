@@ -1,0 +1,10 @@
+AudioRecorderRecordAudioWithFileName
+BrowserDraw
+BrowserMultiply
+ClockTimerEntry
+ExpenseAddMultipleFromGallery
+ExpenseAddMultipleFromMarkor
+ExpenseDeleteDuplicates2
+MarkorMergeNotes
+OsmAndMarker
+OsmAndTrack

@@ -2,6 +2,27 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 5 (2026-03-06, run 20260306_003753, commit 5f01e95, GPT-5.4 smoke)
+- **Key changes** (7a85be5→5f01e95):
+  - `refactor: split prompt ownership across tools and app skills` (02844a5) — moved app-specific tips out of monolithic agent def into per-app SKILL.md files under `assets/app_skills/`; tool descriptions now own their own guidance (ShellTool, CompleteTaskTool, etc.); added AppSkillRepository + PromptBuilder injection
+  - Shell tool restriction relaxed: was files-only, now general with permission caveat; removed hardcoded storage paths from prompt
+  - `feat(eval): add local parallel eval entrypoint` (68d1f88) + 3 follow-up fixes (da92d97, a3187ac, 456d3aa) — parallel eval runner with per-task baselines, but still unstable so R5 ran serial
+  - GPT-5.4 model entry added (OpenAI `response` API), new `gpt54_never_succeeded.yaml` eval config
+  - Parked RecipeDeleteDuplicateRecipes3 + RetroPlaylistDuration to `cannot_handle`
+- **Task selection rationale**: serial 10-task smoke from `never_succeeded` because parallel eval is still unstable
+- **Tasks run**: 10
+- **Config**: `eval/config/gpt54_never_succeeded.yaml` + temporary 10-task subset file, OpenAI provider
+- **Result**: 2/10 (20%)
+- **Net new passes**: BrowserMultiply, ClockTimerEntry
+- **Key findings**:
+  - Main blocker cluster is generic exact-target verification, not app-specific workflow discovery
+  - Cross-app source/destination binding remains weak on import/logging tasks
+  - BrowserDraw result was contaminated by emulator developer overlays (`pointer_location`, `show_touches`) discovered mid-run and turned off after the task
+  - ExpenseDeleteDuplicates2 and OsmAndTrack reconfirm existing `cannot_handle` calls
+  - OsmAndMarker made partial progress beyond older totally-blocked runs but still false-completed on the final map action
+- **Moved to cannot_handle**: none
+  Existing parked calls were reconfirmed, not expanded.
+
 ## Autotune Round 4 (2026-03-05, run 20260305_151648, commit 7a85be5)
 - **Task selection rationale**: 3 Tasks failures (P1 targets), 1 Tasks canary, 1 Retro (P2), 1 Recipe (P2 max_turns), 1 SportsTracker infra (P3), 2 fragile SportsTracker (P2)
 - **Tasks run**: 9
