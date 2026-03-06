@@ -14,6 +14,7 @@ from unittest import mock
 import pytest
 
 from eval.aw_bridge.parallel_runner import (
+    _build_summary_config,
     _build_and_install_bridge_once_per_device,
     DeviceSpec,
     ShardResult,
@@ -22,7 +23,9 @@ from eval.aw_bridge.parallel_runner import (
     merge_results,
     parse_device_spec,
     resolve_task_list,
+    run_supervisor_bridge_setup,
     shard_tasks,
+    should_perform_bridge_setup,
     task_result_from_dict,
     validate_device_specs,
 )
@@ -187,7 +190,12 @@ class TestCreateWorkerConfig:
 
     @staticmethod
     def _default_args(**overrides: object) -> argparse.Namespace:
-        defaults = {"suite": None, "n_task_combinations": None, "task_random_seed": None}
+        defaults = {
+            "suite": None,
+            "n_task_combinations": None,
+            "task_random_seed": None,
+            "output_root": "eval/results",
+        }
         defaults.update(overrides)
         return argparse.Namespace(**defaults)
 
@@ -532,3 +540,92 @@ class TestBuildAndInstallBridgeOncePerDevice:
             mock.call(cfg0, apk_path),
             mock.call(cfg1, apk_path),
         ]
+
+
+class TestRunSupervisorBridgeSetup:
+    def test_runs_when_enabled(self, tmp_path: Path) -> None:
+        base_config = {"runner": {"perform_bridge_setup": True}}
+
+        with mock.patch(
+            "eval.aw_bridge.parallel_runner._build_and_install_bridge_once_per_device"
+        ) as install_mock:
+            performed = run_supervisor_bridge_setup([], tmp_path, base_config)
+
+        assert performed is True
+        install_mock.assert_called_once_with([], tmp_path)
+
+    def test_skips_when_disabled(self, tmp_path: Path) -> None:
+        base_config = {"runner": {"perform_bridge_setup": False}}
+
+        with mock.patch(
+            "eval.aw_bridge.parallel_runner._build_and_install_bridge_once_per_device"
+        ) as install_mock:
+            performed = run_supervisor_bridge_setup([], tmp_path, base_config)
+
+        assert performed is False
+        install_mock.assert_not_called()
+
+    def test_defaults_to_enabled_when_flag_missing(self, tmp_path: Path) -> None:
+        with mock.patch(
+            "eval.aw_bridge.parallel_runner._build_and_install_bridge_once_per_device"
+        ) as install_mock:
+            performed = run_supervisor_bridge_setup([], tmp_path, {})
+
+        assert performed is True
+        install_mock.assert_called_once_with([], tmp_path)
+
+
+class TestBuildSummaryConfig:
+    @staticmethod
+    def _args(**overrides: object) -> argparse.Namespace:
+        defaults = {
+            "suite": None,
+            "output_root": "eval/results",
+            "n_task_combinations": None,
+            "task_random_seed": None,
+        }
+        defaults.update(overrides)
+        return argparse.Namespace(**defaults)
+
+    def test_applies_cli_overrides(self) -> None:
+        base_config = {
+            "suite_family": "android_world",
+            "runner": {
+                "output_root": "eval/custom",
+                "perform_bridge_setup": True,
+                "n_task_combinations": 1,
+                "task_random_seed": 30,
+            },
+        }
+        args = self._args(
+            suite="custom_suite",
+            output_root="eval/results",
+            n_task_combinations=5,
+            task_random_seed=99,
+        )
+
+        summary_cfg = _build_summary_config(
+            base_config,
+            args,
+            [DeviceSpec("emulator-5554", 5554, 8554)],
+        )
+
+        assert summary_cfg["suite_family"] == "custom_suite"
+        assert summary_cfg["runner"]["output_root"] == "eval/results"
+        assert summary_cfg["runner"]["n_task_combinations"] == 5
+        assert summary_cfg["runner"]["task_random_seed"] == 99
+        assert summary_cfg["runner"]["perform_bridge_setup"] is True
+        assert summary_cfg["parallel"]["worker_perform_bridge_setup"] is False
+        assert summary_cfg["parallel"]["worker_auto_start_emulator"] is False
+
+    def test_preserves_disabled_bridge_setup(self) -> None:
+        base_config = {"runner": {"perform_bridge_setup": False}}
+
+        summary_cfg = _build_summary_config(
+            base_config,
+            self._args(),
+            [DeviceSpec("emulator-5554", 5554, 8554)],
+        )
+
+        assert should_perform_bridge_setup(base_config) is False
+        assert summary_cfg["runner"]["perform_bridge_setup"] is False

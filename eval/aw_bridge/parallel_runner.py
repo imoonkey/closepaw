@@ -276,6 +276,22 @@ def _build_and_install_bridge_once_per_device(
         install_bridge_apk(worker_config, apk_path)
 
 
+def should_perform_bridge_setup(base_config: dict[str, Any]) -> bool:
+    runner_cfg = base_config.get("runner") or {}
+    return bool(runner_cfg.get("perform_bridge_setup", True))
+
+
+def run_supervisor_bridge_setup(
+    shard_results: list[ShardResult],
+    workspace_root: Path,
+    base_config: dict[str, Any],
+) -> bool:
+    if not should_perform_bridge_setup(base_config):
+        return False
+    _build_and_install_bridge_once_per_device(shard_results, workspace_root)
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Subprocess launch & signal handling
 # ---------------------------------------------------------------------------
@@ -528,8 +544,14 @@ def _build_summary_config(
 ) -> dict[str, Any]:
     cfg = copy.deepcopy(base_config)
     runner_cfg = cfg.setdefault("runner", {})
+    if args.suite is not None:
+        cfg["suite_family"] = args.suite
     runner_cfg["output_root"] = args.output_root
-    runner_cfg["perform_bridge_setup"] = True
+    runner_cfg["perform_bridge_setup"] = should_perform_bridge_setup(base_config)
+    if args.n_task_combinations is not None:
+        runner_cfg["n_task_combinations"] = args.n_task_combinations
+    if args.task_random_seed is not None:
+        runner_cfg["task_random_seed"] = args.task_random_seed
 
     parallel_cfg = cfg.setdefault("parallel", {})
     parallel_cfg["devices"] = [
@@ -540,6 +562,7 @@ def _build_summary_config(
         }
         for device in devices
     ]
+    parallel_cfg["worker_perform_bridge_setup"] = False
     parallel_cfg["worker_auto_start_emulator"] = False
     return cfg
 
@@ -589,7 +612,13 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     # 7. Build once, install once per device
-    _build_and_install_bridge_once_per_device(shard_results, workspace_root)
+    if run_supervisor_bridge_setup(shard_results, workspace_root, base_config):
+        print("[parallel] Built and installed bridge APK once per device.")
+    else:
+        print(
+            "[parallel] Skipping bridge APK build/install "
+            "(runner.perform_bridge_setup=false)"
+        )
 
     # 8. Install signal handlers
     global _active_workers  # noqa: PLW0603
