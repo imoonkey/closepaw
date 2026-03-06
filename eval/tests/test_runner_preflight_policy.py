@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from eval.aw_bridge.native_agent_bridge import BridgeConfig
 from eval.aw_bridge.runner import RunnerConfig
@@ -9,6 +10,7 @@ from eval.aw_bridge.runner_preflight import (
     PreflightErrorCode,
     SnapshotPolicy,
     resolve_snapshot_policy,
+    run_preflight_checks,
     should_run_emulator_setup_retry,
 )
 
@@ -49,6 +51,7 @@ def _runner_config(**overrides: object) -> RunnerConfig:
         use_identical_params=False,
         skip_unavailable_tasks=False,
         auto_install_missing_task_apps=False,
+        perform_bridge_setup=True,
         retry_infra_failures=1,
         snapshot_policy="auto_repair",
         adb_serial=None,
@@ -93,6 +96,49 @@ class RunnerTypedRetryTest(unittest.TestCase):
         self.assertFalse(should_run_emulator_setup_retry(config, RuntimeError("x")))
 
 
+class RunnerPreflightBridgeSetupFlagTest(unittest.TestCase):
+    def test_skips_bridge_setup_when_disabled(self) -> None:
+        config = _runner_config(
+            skip_unavailable_tasks=True,
+            auto_install_missing_task_apps=False,
+            perform_bridge_setup=False,
+        )
+        task_instances = [object()]
+
+        with mock.patch("eval.aw_bridge.runner_preflight.ensure_adb_device_ready"), mock.patch(
+            "eval.aw_bridge.runner_preflight.ensure_task_app_snapshots"
+        ), mock.patch(
+            "eval.aw_bridge.runner_preflight.filter_unavailable_task_instances",
+            return_value=task_instances,
+        ), mock.patch(
+            "eval.aw_bridge.runner_preflight.build_and_install_bridge"
+        ) as build_mock:
+            returned = run_preflight_checks(config, task_instances, env=object())
+
+        self.assertEqual(returned, task_instances)
+        build_mock.assert_not_called()
+
+    def test_runs_bridge_setup_when_enabled(self) -> None:
+        config = _runner_config(
+            skip_unavailable_tasks=True,
+            auto_install_missing_task_apps=False,
+            perform_bridge_setup=True,
+        )
+        task_instances = [object()]
+
+        with mock.patch("eval.aw_bridge.runner_preflight.ensure_adb_device_ready"), mock.patch(
+            "eval.aw_bridge.runner_preflight.ensure_task_app_snapshots"
+        ), mock.patch(
+            "eval.aw_bridge.runner_preflight.filter_unavailable_task_instances",
+            return_value=task_instances,
+        ), mock.patch(
+            "eval.aw_bridge.runner_preflight.build_and_install_bridge"
+        ) as build_mock:
+            returned = run_preflight_checks(config, task_instances, env=object())
+
+        self.assertEqual(returned, task_instances)
+        build_mock.assert_called_once_with(config)
+
+
 if __name__ == "__main__":
     unittest.main()
-

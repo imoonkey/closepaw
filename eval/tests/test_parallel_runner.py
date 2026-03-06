@@ -9,13 +9,16 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
 from eval.aw_bridge.parallel_runner import (
+    _build_and_install_bridge_once_per_device,
     DeviceSpec,
     ShardResult,
     create_worker_config,
+    filter_active_device_shards,
     merge_results,
     parse_device_spec,
     resolve_task_list,
@@ -140,6 +143,26 @@ class TestShardTasks:
         assert result == [["t0", "t2"], ["t1", "t3"]]
 
 
+class TestFilterActiveDeviceShards:
+    def test_filters_empty_shards(self) -> None:
+        devices = [
+            DeviceSpec("emulator-5554", 5554, 8554),
+            DeviceSpec("emulator-5556", 5556, 8556),
+            DeviceSpec("emulator-5558", 5558, 8558),
+        ]
+        active_devices, active_shards = filter_active_device_shards(
+            devices,
+            [["T0"], [], ["T2"]],
+        )
+        assert active_devices == [devices[0], devices[2]]
+        assert active_shards == [["T0"], ["T2"]]
+
+    def test_raises_when_all_shards_empty(self) -> None:
+        devices = [DeviceSpec("emulator-5554", 5554, 8554)]
+        with pytest.raises(ValueError, match="No task shards contain runnable tasks"):
+            filter_active_device_shards(devices, [[]])
+
+
 # ---------------------------------------------------------------------------
 # create_worker_config
 # ---------------------------------------------------------------------------
@@ -149,8 +172,16 @@ class TestCreateWorkerConfig:
     def _base_config() -> dict:
         return {
             "suite_family": "android_world",
-            "runner": {"output_root": "eval/results", "adb_serial": None},
-            "android_world": {"console_port": 5554, "grpc_port": 8554},
+            "runner": {
+                "output_root": "eval/results",
+                "adb_serial": None,
+                "perform_bridge_setup": True,
+            },
+            "android_world": {
+                "console_port": 5554,
+                "grpc_port": 8554,
+                "auto_start_emulator": True,
+            },
             "bridge": {"llm_backend": "openai"},
         }
 
@@ -166,15 +197,19 @@ class TestCreateWorkerConfig:
         cfg = create_worker_config(base, device, "shards/s0/run", self._default_args())
         assert cfg["runner"]["adb_serial"] == "emulator-5556"
         assert cfg["runner"]["output_root"] == "shards/s0/run"
+        assert cfg["runner"]["perform_bridge_setup"] is False
         assert cfg["android_world"]["console_port"] == 5556
         assert cfg["android_world"]["grpc_port"] == 8556
+        assert cfg["android_world"]["auto_start_emulator"] is False
 
     def test_does_not_mutate_base(self) -> None:
         base = self._base_config()
         device = DeviceSpec("emulator-5556", 5556, 8556)
         create_worker_config(base, device, "shards/s0/run", self._default_args())
         assert base["runner"]["adb_serial"] is None
+        assert base["runner"]["perform_bridge_setup"] is True
         assert base["android_world"]["console_port"] == 5554
+        assert base["android_world"]["auto_start_emulator"] is True
 
     def test_forwards_suite_override(self) -> None:
         base = self._base_config()
@@ -209,7 +244,9 @@ class TestCreateWorkerConfig:
         device = DeviceSpec("emulator-5554", 5554, 8554)
         cfg = create_worker_config(base, device, "out", self._default_args())
         assert cfg["runner"]["adb_serial"] == "emulator-5554"
+        assert cfg["runner"]["perform_bridge_setup"] is False
         assert cfg["android_world"]["console_port"] == 5554
+        assert cfg["android_world"]["auto_start_emulator"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -463,3 +500,35 @@ class TestMergeResults:
         ])
         result = merge_results([sr0], tmp_path)
         assert result["shards"][0]["duration_sec"] == 100.0  # 1100 - 1000
+
+
+class TestBuildAndInstallBridgeOncePerDevice:
+    def test_builds_once_and_installs_for_each_worker(self, tmp_path: Path) -> None:
+        d0 = DeviceSpec("emulator-5554", 5554, 8554)
+        d1 = DeviceSpec("emulator-5556", 5556, 8556)
+        sr0 = _make_shard_result(tmp_path, 0, d0, ["T0"], rows=[])
+        sr1 = _make_shard_result(tmp_path, 1, d1, ["T1"], rows=[])
+        apk_path = tmp_path / "app-debug.apk"
+        cfg0 = object()
+        cfg1 = object()
+
+        with mock.patch(
+            "eval.aw_bridge.parallel_runner.build_bridge_apk",
+            return_value=apk_path,
+        ) as build_mock, mock.patch(
+            "eval.aw_bridge.parallel_runner.load_config_from_path",
+            side_effect=[cfg0, cfg1],
+        ) as load_mock, mock.patch(
+            "eval.aw_bridge.parallel_runner.install_bridge_apk",
+        ) as install_mock:
+            _build_and_install_bridge_once_per_device([sr0, sr1], tmp_path)
+
+        build_mock.assert_called_once_with(tmp_path)
+        assert load_mock.call_args_list == [
+            mock.call(tmp_path, sr0.config_path),
+            mock.call(tmp_path, sr1.config_path),
+        ]
+        assert install_mock.call_args_list == [
+            mock.call(cfg0, apk_path),
+            mock.call(cfg1, apk_path),
+        ]

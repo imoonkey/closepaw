@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-from eval.aw_bridge.runner import _load_config
+from eval.aw_bridge.runner import load_config
 from eval.aw_bridge.runner_preflight import (
     SnapshotPolicy,
     collect_required_app_names,
@@ -108,7 +108,7 @@ def main() -> None:
     args = _parse_args()
     workspace_root = Path(__file__).resolve().parents[2]
     runner_args = _build_runner_like_args(args)
-    config = _load_config(workspace_root, runner_args)
+    config = load_config(workspace_root, runner_args)
 
     if args.console_port is not None:
         config.console_port = int(args.console_port)
@@ -171,4 +171,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

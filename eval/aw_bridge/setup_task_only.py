@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from eval.aw_bridge.runner import (
-    _load_config,
+    load_config,
 )
 from eval.aw_bridge.runner_preflight import (
     create_env,
@@ -96,7 +96,7 @@ def main() -> None:
     workspace_root = Path(__file__).resolve().parents[2]
 
     runner_args = _build_runner_like_args(args)
-    config = _load_config(workspace_root, runner_args)
+    config = load_config(workspace_root, runner_args)
 
     ensure_android_world_importable(workspace_root, config.reference_root)
     run_android_world_connectivity_preflight(config)

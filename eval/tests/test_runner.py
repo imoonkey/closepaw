@@ -6,11 +6,14 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
+import argparse
 
 from eval.aw_bridge.native_agent_bridge import BridgeConfig
 from eval.aw_bridge.runner import (
     RunnerConfig,
     _validate_required_api_key,
+    load_config,
+    load_config_from_path,
 )
 from eval.aw_bridge.runner_preflight import (
     TASK_REQUIRED_PACKAGES,
@@ -56,6 +59,7 @@ def _runner_config(**overrides: object) -> RunnerConfig:
         use_identical_params=False,
         skip_unavailable_tasks=True,
         auto_install_missing_task_apps=False,
+        perform_bridge_setup=True,
         retry_infra_failures=1,
         snapshot_policy="auto_repair",
         adb_serial=None,
@@ -217,6 +221,88 @@ class RunnerTaskPackageMapTest(unittest.TestCase):
             TASK_REQUIRED_PACKAGES.get("SimpleSmsSend"),
             ("com.simplemobiletools.smsmessenger",),
         )
+
+
+class RunnerConfigLoadingTest(unittest.TestCase):
+    def _write_config(self, root: Path, perform_bridge_setup: str | None = None) -> Path:
+        config_dir = root / "eval" / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        perform_bridge_line = (
+            f"  perform_bridge_setup: {perform_bridge_setup}\n"
+            if perform_bridge_setup is not None
+            else ""
+        )
+        config_path = config_dir / "test.yaml"
+        config_path.write_text(
+            (
+                "suite_family: android_world\n"
+                "runner:\n"
+                "  output_root: eval/results\n"
+                "  task_random_seed: 30\n"
+                "  n_task_combinations: 1\n"
+                "  use_identical_params: false\n"
+                "  skip_unavailable_tasks: true\n"
+                "  auto_install_missing_task_apps: true\n"
+                f"{perform_bridge_line}"
+                "android_world:\n"
+                "  console_port: 5554\n"
+                "  grpc_port: 8554\n"
+                "  auto_start_emulator: false\n"
+                "bridge:\n"
+                "  llm_backend: openai\n"
+                "  package_name: com.moonkey.androidagent\n"
+                "  activity: com.moonkey.androidagent/.app.MainActivity\n"
+                "  agent_mode: basic\n"
+                "  perception_mode: accessibility_only\n"
+                "  platform_mode: accessibility\n"
+                "  main_model: minimax-m2.5\n"
+                "  executor_model: \"\"\n"
+                "  max_turns: 30\n"
+                "  auto_start: true\n"
+                "  fresh_session: true\n"
+                "  debug_mode: false\n"
+                "  trace_enabled: true\n"
+                "  max_wait_seconds: 900\n"
+                "  poll_interval_seconds: 1\n"
+            ),
+            encoding="utf-8",
+        )
+        return config_path
+
+    def _args_for(self, config_path: Path) -> argparse.Namespace:
+        return argparse.Namespace(
+            config=str(config_path),
+            suite=None,
+            tasks=None,
+            tasks_file=None,
+            n_task_combinations=None,
+            task_random_seed=None,
+            output_root=None,
+            adb_serial=None,
+            snapshot_policy=None,
+            platform_mode=None,
+        )
+
+    def test_perform_bridge_setup_defaults_true(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = self._write_config(root)
+            config = load_config(root, self._args_for(config_path))
+        self.assertTrue(config.perform_bridge_setup)
+
+    def test_perform_bridge_setup_can_be_disabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = self._write_config(root, perform_bridge_setup="false")
+            config = load_config(root, self._args_for(config_path))
+        self.assertFalse(config.perform_bridge_setup)
+
+    def test_load_config_from_path_uses_same_defaults(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = self._write_config(root)
+            config = load_config_from_path(root, config_path)
+        self.assertTrue(config.perform_bridge_setup)
 
 
 if __name__ == "__main__":

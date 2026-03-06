@@ -6,6 +6,7 @@ runner:
   use_identical_params: false
   skip_unavailable_tasks: true
   auto_install_missing_task_apps: true
+  perform_bridge_setup: true
   retry_infra_failures: 1
   snapshot_policy: auto_repair
   stop_agent_after_task: true

@@ -42,6 +42,7 @@ class RunnerConfig:
     use_identical_params: bool
     skip_unavailable_tasks: bool
     auto_install_missing_task_apps: bool
+    perform_bridge_setup: bool
     retry_infra_failures: int
     snapshot_policy: str
     adb_serial: str | None
@@ -71,7 +72,7 @@ _API_KEY_NAMES = ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "NOVITA_API_KEY")
 def main() -> None:
     args = _parse_args()
     workspace_root = Path(__file__).resolve().parents[2]
-    config = _load_config(workspace_root, args)
+    config = load_config(workspace_root, args)
 
     api_keys = _load_api_keys(workspace_root)
     config.bridge.api_keys = api_keys or None
@@ -190,7 +191,7 @@ def _resolve_selected_tasks(workspace_root: Path, args: argparse.Namespace) -> l
     return None
 
 
-def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig:
+def load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig:
     config_path = (workspace_root / args.config).resolve()
     if not config_path.exists():
         raise FileNotFoundError(f"Config not found: {config_path}")
@@ -247,6 +248,7 @@ def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig
         use_identical_params=bool(runner_cfg.get("use_identical_params", False)),
         skip_unavailable_tasks=bool(runner_cfg.get("skip_unavailable_tasks", True)),
         auto_install_missing_task_apps=bool(runner_cfg.get("auto_install_missing_task_apps", True)),
+        perform_bridge_setup=bool(runner_cfg.get("perform_bridge_setup", True)),
         retry_infra_failures=int(runner_cfg.get("retry_infra_failures", 1)),
         snapshot_policy=snapshot_policy,
         adb_serial=_nullable_str(args.adb_serial or runner_cfg.get("adb_serial")),
@@ -262,6 +264,24 @@ def _load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig
         emulator_boot_timeout_sec=int(aw_cfg.get("emulator_boot_timeout_sec", 180)),
         bridge=bridge,
         task_overrides=dict(bridge_cfg.get("task_overrides", {})),
+    )
+
+
+def load_config_from_path(workspace_root: Path, config_path: str | Path) -> RunnerConfig:
+    return load_config(
+        workspace_root,
+        argparse.Namespace(
+            config=str(config_path),
+            suite=None,
+            tasks=None,
+            tasks_file=None,
+            n_task_combinations=None,
+            task_random_seed=None,
+            output_root=None,
+            adb_serial=None,
+            snapshot_policy=None,
+            platform_mode=None,
+        ),
     )
 
 
@@ -391,4 +411,3 @@ def _safe_config_for_logging(config: RunnerConfig) -> dict[str, Any]:
 
 if __name__ == "__main__":
     main()
-

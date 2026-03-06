@@ -110,7 +110,8 @@ def run_preflight_checks(
         ensure_task_packages_installed(config, task_instances)
 
     # Bridge setup after benchmark app setup preflight.
-    build_and_install_bridge(config)
+    if config.perform_bridge_setup:
+        build_and_install_bridge(config)
     return task_instances
 
 
@@ -702,16 +703,24 @@ def select_avd_name(config: RunnerConfig, avds: set[str]) -> str:
     return preferred
 
 
-def build_and_install_bridge(config: RunnerConfig) -> None:
-    workspace_root = Path(__file__).resolve().parents[2]
-    gradlew = workspace_root / "gradlew"
-    apk_path = workspace_root / "app" / "build" / "outputs" / "apk" / "debug" / "app-debug.apk"
-    package = config.bridge.package_name
+def resolve_workspace_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def resolve_debug_apk_path(workspace_root: Path | None = None) -> Path:
+    root = workspace_root or resolve_workspace_root()
+    return root / "app" / "build" / "outputs" / "apk" / "debug" / "app-debug.apk"
+
+
+def build_bridge_apk(workspace_root: Path | None = None) -> Path:
+    root = workspace_root or resolve_workspace_root()
+    gradlew = root / "gradlew"
+    apk_path = resolve_debug_apk_path(root)
 
     logging.info("Building agent APK ...")
     result = subprocess.run(
         [str(gradlew), ":app:assembleDebug", "--quiet"],
-        cwd=str(workspace_root),
+        cwd=str(root),
         capture_output=True,
         text=True,
         timeout=300,
@@ -722,13 +731,22 @@ def build_and_install_bridge(config: RunnerConfig) -> None:
             f"Gradle build failed:\n{result.stderr or result.stdout}",
         )
     logging.info("Agent APK built successfully")
+    return apk_path
 
-    logging.info("Installing agent APK ...")
+
+def install_bridge_apk(config: RunnerConfig, apk_path: Path) -> None:
+    package = config.bridge.package_name
+    logging.info("Installing agent APK on %s ...", config.adb_serial or "default device")
     run_adb(config, ["install", "-r", "-t", str(apk_path)], check=True, timeout_sec=120)
     logging.info("Agent APK installed")
 
     run_adb_shell(config, ["appops", "set", package, "SYSTEM_ALERT_WINDOW", "allow"], check=False)
     logging.info("Overlay permission granted")
+
+
+def build_and_install_bridge(config: RunnerConfig) -> None:
+    apk_path = build_bridge_apk()
+    install_bridge_apk(config, apk_path)
 
 
 def should_run_emulator_setup_retry(config: RunnerConfig, exc: Exception) -> bool:
