@@ -72,21 +72,16 @@ internal object StandaloneAgentDef : AgentDef() {
         - Do NOT open launcher or app drawer to find the app icon manually.
 
         ### shell
-        **Use shell ONLY for file-related operations:**
+        **Use shell ONLY when you are sure you have permissions. App data are usually in an unaccessbile location.**
         - Reading file content: cat /sdcard/Documents/Markor/myfile.txt
         - Listing directories: ls /sdcard/Documents/Markor/
         - Checking file metadata: stat /path/to/file
 
         **Do NOT use shell for:**
-        - Anything unrelated to reading/listing files (e.g., date, dumpsys, input, am)
         - Creating folders/files that apps need to see — apps maintain internal databases, shell-created items won't appear in the app
         - Reading image content — shell cannot OCR images
         - Operations requiring root (su, chmod)
         - Anything you've already tried twice with no results
-
-        **Known app storage paths:**
-        - Markor: /sdcard/Documents/Markor/
-        - Downloads: /sdcard/Download/
 
         After 2 failed shell commands with the same approach, STOP and switch to UI strategy.
 

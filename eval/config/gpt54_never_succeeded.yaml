@@ -1,0 +1,57 @@
+suite_family: android_world
+runner:
+  output_root: eval/results
+  task_random_seed: 30
+  n_task_combinations: 1
+  use_identical_params: false
+  skip_unavailable_tasks: true
+  auto_install_missing_task_apps: true
+  retry_infra_failures: 1
+  snapshot_policy: auto_repair
+  stop_agent_after_task: true
+  adb_serial: null
+  adb_command_timeout_sec: 60
+  adb_pull_timeout_sec: 300
+
+android_world:
+  reference_root: .reference/eval/android_world
+  console_port: 5554
+  grpc_port: 8554
+  adb_path: /usr/local/bin/adb
+  auto_start_emulator: true
+  emulator_avd_name: AndroidWorldAvd
+  emulator_binary_path: null
+  emulator_boot_timeout_sec: 180
+  perform_emulator_setup: false
+  freeze_datetime: true
+
+bridge:
+  package_name: com.moonkey.androidagent
+  activity: com.moonkey.androidagent/.app.MainActivity
+  llm_backend: openai
+  agent_mode: basic
+  perception_mode: accessibility_only
+  platform_mode: accessibility
+  main_model: gpt-5.4
+  executor_model: ""
+  max_turns: 30
+  excluded_tools: "ask_user"
+  auto_start: true
+  fresh_session: true
+  debug_mode: false
+  trace_enabled: true
+  max_wait_seconds: 900
+  poll_interval_seconds: 1
+
+  task_overrides:
+    BrowserDraw: { perception_mode: hybrid }
+    BrowserMaze: { perception_mode: hybrid }
+    ExpenseAddMultipleFromGallery: { perception_mode: hybrid }
+    MarkorTranscribeReceipt: { perception_mode: hybrid }
+    MarkorTranscribeVideo: { perception_mode: hybrid }
+    RecipeAddMultipleRecipesFromImage: { perception_mode: hybrid, max_turns: 50 }
+    RecipeAddMultipleRecipesFromMarkor: { max_turns: 50 }
+    RecipeDeleteDuplicateRecipes3: { max_turns: 50 }
+    RetroPlaylistDuration: { max_turns: 45 }
+    OsmAndMarker: { perception_mode: hybrid }
+    OsmAndTrack: { perception_mode: hybrid }
