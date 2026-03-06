@@ -110,3 +110,11 @@
 ### Accept as Capability Gap
 - **RecipeDeleteDuplicateRecipes3**: Park. 10+ duplicates at 4 turns/deletion exceeds any reasonable turn budget.
 - **RetroPlaylistDuration**: Park as qwen3.5-blocked. 7 consecutive failures, persistent grounding error with duplicate UI elements.
+
+
+# Qi Note
+1. 我看了一眼 StandaloneAgentDef.kt，现在的prompt结构乱得跟屎山一样。需要仔细重构。有很多之前tuning round，为了解决一些task具体问题，往里面这塞一句，那补一句。一是逻辑不清晰，二是有些detail是overfit的。就这prompt都把agent搞糊涂了。参考 sop/adhoc/reference_analysis.md里的mobile agents，分别分析他们的system prompt段落结构，然后设计一个我的system prompt结构的refactor。另外我现在system prompt和tool prompt都和heavy，有很多重复。你看看reference里面都是怎么处理这个问题的。是tool description/params都写得很简单，把更多instruction放在system prompt里，还是每个tool都写得很详细？还是都写得很详细，有大量overlap？ 写doc/autotune/round_4/prompt_refactor/*_claude.md里。
+
+2. 整理所有现在不能success的task到一个eval/config里。GPT-5.4今天刚发布，我想把一次都没成功过的task给GPT-5.4跑一下，用openai provider不要用openrouter provider。
+
+3. 上面这些tip都太hacky了，不准备加。

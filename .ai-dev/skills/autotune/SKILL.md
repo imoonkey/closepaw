@@ -50,9 +50,11 @@ Monitor for stalls. If a task hangs (no output for several minutes), check acces
 
 ### Step 4 — Analyze
 
-For each task in the run:
+For each task in the run (Use subagent so you have cleaner context):
 1. Run `/cog-tune` (eval entry). Write per-task analysis to `doc/autotune/round_N/<run_id>/per_task/<TaskName>_<agent>.md`.
 2. Append a short entry to `doc/autotune/meta/per_task/<TaskName>.md` — score, turns, one-line behavior delta vs previous run. Newest on top.
+
+Once done with all tasks:
 3. Summarize into `doc/autotune/round_N/<run_id>/common_problems_<agent>.md` following `assets/common_problems_template.md`. Must include a `## Next Steps` section.
 4. Run `python scripts/scoreboard.py` to regenerate `doc/autotune/meta/scoreboard.json` and `doc/autotune/meta/scoreboard.md`.
 5. Append to `doc/autotune/meta/changelog.md`.
