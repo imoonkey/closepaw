@@ -11,21 +11,34 @@ internal data class PostActionAnalysis(
     val warnings: List<String>
 )
 
+private const val RETRY_SETTLE_DELAY_MS = 500L
+
 internal suspend fun capturePostActionAnalysis(
     preSnapshot: ScreenSnapshot?,
     platform: AndroidPlatform,
     settleDelayMs: Long
 ): PostActionAnalysis {
-    delay(settleDelayMs)
+    val captures = mutableListOf<CaptureAttempt>()
+    captures += captureAttempt(platform, settleDelayMs)
 
-    val postResult = runCatching { platform.captureScreen() }
-    val postSnapshot = postResult.getOrNull()
+    val firstSnapshot = captures.last().snapshot
+    val initialResult = if (firstSnapshot == null) {
+        UiChangeDetector.ChangeResult.Unverifiable
+    } else {
+        UiChangeDetector.compare(preSnapshot, firstSnapshot)
+    }
+
+    if (initialResult == UiChangeDetector.ChangeResult.Unchanged) {
+        captures += captureAttempt(platform, RETRY_SETTLE_DELAY_MS)
+    }
+
+    val finalAttempt = captures.last()
+    val postSnapshot = finalAttempt.snapshot
     val observation = postSnapshot?.let { buildObservation(it, platform) }
 
     val warnings = mutableListOf<String>()
-    val captureFailure = postResult.exceptionOrNull()?.message
-    if (captureFailure != null) {
-        warnings += "Post-action capture failed: $captureFailure"
+    captures.mapNotNullTo(warnings) { attempt ->
+        attempt.failureMessage?.let { "Post-action capture failed: $it" }
     }
 
     val changeResult = if (postSnapshot == null) {
@@ -39,7 +52,7 @@ internal suspend fun capturePostActionAnalysis(
         UiChangeDetector.ChangeResult.Unchanged ->
             warnings += "No observable screen change detected after action"
         UiChangeDetector.ChangeResult.Unverifiable -> {
-            if (captureFailure == null) {
+            if (captures.none { it.failureMessage != null }) {
                 warnings += "Post-action change check unavailable"
             }
         }
@@ -49,5 +62,22 @@ internal suspend fun capturePostActionAnalysis(
         observation = observation,
         changeResult = changeResult,
         warnings = warnings
+    )
+}
+
+private data class CaptureAttempt(
+    val snapshot: ScreenSnapshot?,
+    val failureMessage: String?
+)
+
+private suspend fun captureAttempt(
+    platform: AndroidPlatform,
+    delayMs: Long
+): CaptureAttempt {
+    delay(delayMs)
+    val result = runCatching { platform.captureScreen() }
+    return CaptureAttempt(
+        snapshot = result.getOrNull(),
+        failureMessage = result.exceptionOrNull()?.message
     )
 }

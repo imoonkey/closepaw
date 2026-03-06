@@ -151,12 +151,47 @@ class ClickExecutorTest {
     }
 
     @Test
-    fun `execute marks success unverified when post-action screen is unchanged`() = runTest {
+    fun `execute fails when all click channels have no observable effect`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =
             RecordingPlatform(
+                actionResults = listOf(ActionResult.Success(), ActionResult.Success()),
+                capturedSnapshots = listOf(snapshot, snapshot, snapshot, snapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.ElementIndex(index = 1),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
+        val failed = outcome as ActionOutcome.Failed
+        assertThat(failed.reason).contains("had no observable effect after all channels")
+        assertThat(failed.attemptTrail)
+            .containsAtLeast(
+                "node_action_click: click via node_action_click had no observable effect",
+                "gesture_tap: click via gesture_tap had no observable effect"
+            )
+        assertThat(platform.performedActions)
+            .containsExactly(
+                UIAction.ClickNodeAt(150, 210, buttonHint),
+                UIAction.TapAt(150, 210)
+            )
+            .inOrder()
+    }
+
+    @Test
+    fun `execute allows delayed post-action change without warning`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Pressed")
+        val platform =
+            RecordingPlatform(
                 actionResults = listOf(ActionResult.Success()),
-                capturedSnapshots = listOf(snapshot)
+                capturedSnapshots = listOf(snapshot, changedSnapshot)
             )
         val executor = ClickExecutor()
 
@@ -170,8 +205,110 @@ class ClickExecutorTest {
 
         assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
         val success = outcome as ActionOutcome.Success
-        assertThat(success.verified).isFalse()
-        assertThat(success.message).contains("Warning: No observable screen change detected after action")
+        assertThat(success.verified).isTrue()
+        assertThat(success.message).doesNotContain("No observable")
+    }
+
+    @Test
+    fun `execute promotes text target to containing clickable row`() = runTest {
+        val snapshot = snapshotWithClickableRow()
+        val changedSnapshot = snapshotWithClickableRow(rowLabel = "Opened")
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(changedSnapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.Text(text = "task.html", textIndex = 0),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions)
+            .containsExactly(
+                UIAction.ClickNodeAt(
+                    540,
+                    763,
+                    SemanticTargetHint(
+                        resourceId = "item_root",
+                        text = "task.html | 03:33, 2.23 kB, HTML document",
+                        description = "",
+                        className = "android.widget.LinearLayout",
+                        bounds = Bounds(0, 667, 1080, 859)
+                    )
+                )
+            )
+            .inOrder()
+    }
+
+    @Test
+    fun `execute falls back when node click succeeds but has no observable effect`() = runTest {
+        val snapshot = snapshotWithSingleButton()
+        val changedSnapshot = snapshotWithSingleButton(label = "Tapped")
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Success(), ActionResult.Success()),
+                capturedSnapshots = listOf(snapshot, snapshot, snapshot, changedSnapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.ElementIndex(index = 1),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions)
+            .containsExactly(
+                UIAction.ClickNodeAt(150, 210, buttonHint),
+                UIAction.TapAt(150, 210)
+            )
+            .inOrder()
+    }
+
+    @Test
+    fun `execute promotes element index target to containing clickable row`() = runTest {
+        val snapshot = snapshotWithClickableRow()
+        val changedSnapshot = snapshotWithClickableRow(rowLabel = "Opened")
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(changedSnapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.ElementIndex(index = 18),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        assertThat(platform.performedActions)
+            .containsExactly(
+                UIAction.ClickNodeAt(
+                    540,
+                    763,
+                    SemanticTargetHint(
+                        resourceId = "item_root",
+                        text = "task.html | 03:33, 2.23 kB, HTML document",
+                        description = "",
+                        className = "android.widget.LinearLayout",
+                        bounds = Bounds(0, 667, 1080, 859)
+                    )
+                )
+            )
+            .inOrder()
     }
 
     @Test
@@ -242,6 +379,48 @@ class ClickExecutorTest {
                         center = Point(bounds.centerX, bounds.centerY)
                     )
                 )
+        )
+    }
+
+    private fun snapshotWithClickableRow(
+        rowLabel: String = "task.html | 03:33, 2.23 kB, HTML document"
+    ): ScreenSnapshot {
+        val rowBounds = Bounds(left = 0, top = 667, right = 1080, bottom = 859)
+        val titleBounds = Bounds(left = 189, top = 706, right = 364, bottom = 763)
+        return ScreenSnapshot(
+            timestamp = 1L,
+            elements = listOf(
+                PerceptionElement(
+                    index = 17,
+                    text = rowLabel,
+                    resourceId = "item_root",
+                    className = "android.widget.LinearLayout",
+                    description = "",
+                    isClickable = true,
+                    isEditable = false,
+                    isScrollable = false,
+                    isEnabled = true,
+                    isFocused = false,
+                    isLongClickable = false,
+                    bounds = rowBounds,
+                    center = Point(rowBounds.centerX, rowBounds.centerY)
+                ),
+                PerceptionElement(
+                    index = 18,
+                    text = "task.html",
+                    resourceId = "title",
+                    className = "android.widget.TextView",
+                    description = "",
+                    isClickable = false,
+                    isEditable = false,
+                    isScrollable = false,
+                    isEnabled = true,
+                    isFocused = false,
+                    isLongClickable = false,
+                    bounds = titleBounds,
+                    center = Point(titleBounds.centerX, titleBounds.centerY)
+                )
+            )
         )
     }
 }

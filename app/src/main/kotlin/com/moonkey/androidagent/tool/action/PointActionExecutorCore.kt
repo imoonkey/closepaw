@@ -1,5 +1,7 @@
 package com.moonkey.androidagent.tool.action
 
+import com.moonkey.androidagent.model.Bounds
+import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.Point
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.ActionResult
@@ -47,9 +49,10 @@ internal suspend fun executePointAction(
     val semanticHint: SemanticTargetHint?
     val point = when (resolvedTarget) {
         is TargetResolver.ResolveResult.Resolved -> {
-            resolvedWarnings = resolvedTarget.warnings
-            semanticHint = resolvedTarget.semanticHint
-            resolvedTarget.point
+            val refinedTarget = refinePointActionTarget(target, resolvedTarget, snapshot)
+            resolvedWarnings = refinedTarget.warnings
+            semanticHint = refinedTarget.semanticHint
+            refinedTarget.point
         }
         is TargetResolver.ResolveResult.NotFound -> {
             return ActionOutcome.Failed(
@@ -80,8 +83,8 @@ internal suspend fun executePointAction(
         val result = platform.performAction(channel.createAction(point, semanticHint))
         when (result) {
             is ActionResult.Success -> {
-                attemptTrail += "${channel.displayName}: success"
-                return buildPointActionSuccess(
+                val outcome = buildPointActionOutcome(
+                    actionName = actionName,
                     point = point,
                     channelName = channel.displayName,
                     resolvedWarnings = resolvedWarnings,
@@ -90,6 +93,18 @@ internal suspend fun executePointAction(
                     platform = platform,
                     formatSuccess = formatSuccess
                 )
+                when (outcome) {
+                    is ActionOutcome.Success -> {
+                        attemptTrail += "${channel.displayName}: success"
+                        return outcome.copy(attemptTrail = attemptTrail.toList())
+                    }
+                    is ActionOutcome.Failed -> {
+                        lastFailChannel = channel.displayName
+                        lastFailReason = outcome.reason
+                        attemptTrail += "${channel.displayName}: ${outcome.reason}"
+                    }
+                    is ActionOutcome.Cancelled -> return outcome
+                }
             }
             is ActionResult.Cancelled -> return ActionOutcome.Cancelled(result.reason)
             is ActionResult.Failure -> {
@@ -101,7 +116,15 @@ internal suspend fun executePointAction(
     }
 
     return ActionOutcome.Failed(
-        reason = formatFailure(point, lastFailChannel, lastFailReason, resolvedWarnings),
+        reason = if (attemptTrail.any { it.contains("no observable effect") }) {
+            formatActionMessage(
+                "${actionName.replace('_', ' ').replaceFirstChar { it.uppercase() }} at " +
+                    "(${point.x},${point.y}) had no observable effect after all channels",
+                resolvedWarnings
+            )
+        } else {
+            formatFailure(point, lastFailChannel, lastFailReason, resolvedWarnings)
+        },
         attemptTrail = attemptTrail
     )
 }
@@ -117,7 +140,8 @@ internal fun formatActionMessage(base: String, warnings: List<String>): String {
     }
 }
 
-private suspend fun buildPointActionSuccess(
+private suspend fun buildPointActionOutcome(
+    actionName: String,
     point: Point,
     channelName: String,
     resolvedWarnings: List<String>,
@@ -125,12 +149,18 @@ private suspend fun buildPointActionSuccess(
     preSnapshot: ScreenSnapshot?,
     platform: AndroidPlatform,
     formatSuccess: (Point, String, List<String>) -> String
-): ActionOutcome.Success {
+): ActionOutcome {
     val analysis = capturePostActionAnalysis(
         preSnapshot = preSnapshot,
         platform = platform,
         settleDelayMs = UI_SETTLE_DELAY_MS
     )
+    if (analysis.changeResult == UiChangeDetector.ChangeResult.Unchanged) {
+        return ActionOutcome.Failed(
+            reason = "${actionName.replace('_', ' ')} via $channelName had no observable effect",
+            attemptTrail = attemptTrail
+        )
+    }
     val allWarnings = buildList {
         addAll(resolvedWarnings)
         addAll(analysis.warnings)
@@ -150,3 +180,71 @@ private fun isWithinDisplayBounds(point: Point, displayInfo: DisplayInfo): Boole
 }
 
 private fun Target.isSemantic(): Boolean = this is Target.ElementIndex || this is Target.Text
+
+private fun refinePointActionTarget(
+    target: Target,
+    resolved: TargetResolver.ResolveResult.Resolved,
+    snapshot: ScreenSnapshot?
+): TargetResolver.ResolveResult.Resolved {
+    val snap = snapshot ?: return resolved
+    val element = findResolvedElement(target, resolved, snap.elements) ?: return resolved
+    if (element.isClickable || element.isLongClickable) return resolved
+    val container = findBestActionableContainer(element.bounds, snap.elements) ?: return resolved
+    val hint = SemanticTargetHint(
+        resourceId = container.resourceId,
+        text = container.text,
+        description = container.description,
+        className = container.className,
+        bounds = container.bounds
+    )
+    return TargetResolver.ResolveResult.Resolved(
+        point = container.center,
+        bounds = container.bounds,
+        semanticHint = hint,
+        warnings = resolved.warnings
+    )
+}
+
+private fun findResolvedElement(
+    target: Target,
+    resolved: TargetResolver.ResolveResult.Resolved,
+    elements: List<PerceptionElement>
+): PerceptionElement? {
+    return when (target) {
+        is Target.Coordinate -> null
+        is Target.ElementIndex -> elements.firstOrNull { it.index == target.index }
+        is Target.Text -> {
+            val bounds = resolved.bounds
+            elements.firstOrNull { it.bounds == bounds } ?: elements.firstOrNull {
+                it.text.equals(target.text, ignoreCase = true) ||
+                    it.description.equals(target.text, ignoreCase = true)
+            }
+        }
+    }
+}
+
+private fun findBestActionableContainer(
+    childBounds: Bounds,
+    elements: List<PerceptionElement>
+): PerceptionElement? {
+    return elements
+        .asSequence()
+        .filter { it.isClickable || it.isLongClickable }
+        .filter { it.bounds.contains(childBounds) }
+        .filterNot { it.bounds == childBounds }
+        .minWithOrNull(
+            compareBy<PerceptionElement> { it.bounds.area() }
+                .thenBy { it.index }
+        )
+}
+
+private fun Bounds.contains(other: Bounds): Boolean {
+    return left <= other.left &&
+        top <= other.top &&
+        right >= other.right &&
+        bottom >= other.bottom
+}
+
+private fun Bounds.area(): Long {
+    return (right - left).toLong() * (bottom - top).toLong()
+}

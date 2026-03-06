@@ -20,7 +20,7 @@ class ScrollExecutorTest {
         val snapshot = scrollableSnapshot("Item 1")
         val platform = RecordingScrollPlatform(
             actionResults = listOf(ActionResult.Success(), ActionResult.Success()),
-            capturedSnapshots = listOf(snapshot, snapshot)
+            capturedSnapshots = listOf(snapshot, snapshot, snapshot, snapshot)
         )
 
         val outcome = ScrollExecutor().execute(
@@ -53,7 +53,7 @@ class ScrollExecutorTest {
         val changedSnapshot = scrollableSnapshot("Item 5")
         val platform = RecordingScrollPlatform(
             actionResults = listOf(ActionResult.Success()),
-            capturedSnapshots = listOf(changedSnapshot)
+            capturedSnapshots = listOf(snapshot, changedSnapshot)
         )
 
         val outcome = ScrollExecutor().execute(
