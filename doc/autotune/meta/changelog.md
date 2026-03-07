@@ -2,6 +2,16 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Post-R5 Click Deep Dive (2026-03-06)
+
+- **Scope**: Investigated click reliability on Files RecyclerView across all four transports, then validated with BrowserMultiply eval.
+- **Transport experiment** (`edb4acd`, `55976dd`): 2x2 agent-loop matrix + 8 isolated action-debug tests + secondary display smoke test. Result: `node_action_click` is 8/8 reliable; `dispatchGesture` false-succeeds; Shizuku `injectInputEvent` false-succeeded (likely test setup issue). Current priority `node_click → gesture_tap` confirmed correct. VD priority swap design (`vd_action_priority_design.md`) rejected — core premise invalidated.
+- **BrowserMultiply eval** (A11Y: `20260306_230038`, VD: `20260306_232810`): Both 0/1, MaxTurnsReached.
+  - **First-click-after-launch**: `node_action_click` on `task.html` returns true but UI unchanged after 1800ms. Same click works after other interactions (long_press). Reproducible in both modes. Root cause unknown.
+  - **Unchanged-fallback double-click**: When click succeeds but screen content stays the same (random number repeats), `UiChangeDetector` sees Unchanged → fallback to `gesture_tap` → extra click overwrites next value. Planned fix: treat Unchanged as warning, not channel failure.
+- **Experiment doc moved** to `doc/main/infra/tool/click_transport_experiment.md` as permanent SOTA reference.
+- **Key files**: `doc/main/infra/tool/mobile_action.md`, `doc/main/infra/tool/click_transport_experiment.md`, `app/.../debug/DebugActionExecutor.kt`, `scripts/action-test.sh`
+
 ## Autotune Round 5 (2026-03-06, run 20260306_003753, commit 5f01e95, GPT-5.4 smoke)
 - **Key changes** (7a85be5→5f01e95):
   - `refactor: split prompt ownership across tools and app skills` (02844a5) — moved app-specific tips out of monolithic agent def into per-app SKILL.md files under `assets/app_skills/`; tool descriptions now own their own guidance (ShellTool, CompleteTaskTool, etc.); added AppSkillRepository + PromptBuilder injection

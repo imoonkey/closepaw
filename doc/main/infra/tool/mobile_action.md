@@ -295,6 +295,10 @@ Transport reliability on Files RecyclerView (API 34 emulator, `edb4acd`):
 
 -> Full experiment with setup details and raw data: `doc/main/infra/tool/click_transport_experiment.md`
 
+**4. First-click-after-launch failure** — Reproduced in BrowserMultiply eval (A11Y: `20260306_230038` T2, VD: `20260306_232810` T2-T3). `node_action_click` on `task.html` returns `true` but UI does not change, even after 1800ms verify window. After other interactions on the same Files screen (e.g. `long_press` → context menu → dismiss), the same `node_action_click` succeeds. Both A11Y and VD modes show identical behavior. Root cause unknown — the a11y tree is identical before and after the failed click.
+
+**5. Unchanged-fallback double-click** — When `UiChangeDetector` sees `Unchanged` after `node_action_click`, the executor falls through to `gesture_tap` as a "retry". If the click actually succeeded but the screen content happened to stay the same (e.g. a button that shows a random number and the same number appears twice), this causes a spurious second click. Observed in BrowserMultiply A11Y run T16: 4th button click produced the same number → detector saw `Unchanged` → fell back to `gesture_tap` → extra click overwrote the 5th number. Planned fix: treat `Unchanged` as a warning in the success message, not as a channel failure that triggers fallback.
+
 ## Why this documentation matters
 
 `mobile_action` is not just a schema. It is the foundation of the agent's physical reliability.
