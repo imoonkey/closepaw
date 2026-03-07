@@ -481,6 +481,24 @@ def merge_results(
         for row in all_rows:
             f.write(json.dumps(row, ensure_ascii=True) + "\n")
 
+    # Create top-level artifacts/ with symlinks so the inspection server
+    # (which expects <run_dir>/artifacts/<task_id>/trace/) can find them.
+    top_artifacts = run_dir / "artifacts"
+    top_artifacts.mkdir(exist_ok=True)
+    for sr in shard_results:
+        shard_run_dir = _find_shard_run_dir(sr)
+        if not shard_run_dir:
+            continue
+        shard_artifacts = shard_run_dir / "artifacts"
+        if not shard_artifacts.is_dir():
+            continue
+        for task_dir in shard_artifacts.iterdir():
+            if not task_dir.is_dir():
+                continue
+            link = top_artifacts / task_dir.name
+            if not link.exists():
+                link.symlink_to(task_dir.resolve())
+
     # Select final attempt per task instance: group by (task_name, seed),
     # take the highest attempt number (runner.py already resolved retries
     # within each shard; this handles the cross-shard view).
