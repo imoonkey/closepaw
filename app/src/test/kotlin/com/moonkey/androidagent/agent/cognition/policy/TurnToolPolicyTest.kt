@@ -87,7 +87,7 @@ class TurnToolPolicyTest {
     }
 
     @Test
-    fun `arbitrateToolCalls keeps only first screen affecting tool`() {
+    fun `arbitrateToolCalls keeps all screen affecting tools`() {
         val calls =
                 listOf(
                         toolCall(name = "delegate_task"),
@@ -98,10 +98,10 @@ class TurnToolPolicyTest {
         val result = engine.arbitrateToolCalls(calls)
 
         assertThat(result.selectedToolCalls.map { it.name })
-                .containsExactly("scratchpad", "delegate_task")
+                .containsExactly("scratchpad", "delegate_task", "mobile_action")
                 .inOrder()
         assertThat(result.hasScreenAction).isTrue()
-        assertThat(result.droppedToolCalls.map { it.name }).containsExactly("mobile_action")
+        assertThat(result.droppedToolCalls).isEmpty()
     }
 
     @Test

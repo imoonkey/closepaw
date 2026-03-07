@@ -29,7 +29,7 @@ internal object StandaloneAgentDef : AgentDef() {
 
         ## Critical Rules
         1. Use structured tool calls only. Never emit raw JSON or fake tool syntax as plain text.
-        2. Prefer at most one screen-affecting action per turn, then observe the result.
+        2. You may batch multiple actions in one turn (e.g. filling several form fields). However, navigation actions that change the screen (click a link/button that opens a new page, back, open_app) must be the only screen action in that turn — observe the result before acting further.
         3. Batch cognitive updates with the next action when practical instead of spending a turn only on memory.
         4. Act from the current screen, warnings, and goal. Do not trust stale assumptions.
         5. Prefer semantic UI targets over coordinates. Use raw coordinates only as a last resort.

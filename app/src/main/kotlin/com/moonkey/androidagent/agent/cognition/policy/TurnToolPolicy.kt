@@ -9,7 +9,8 @@ private val COMPLETE_TASK_TOOL = ToolName.CompleteTask.raw
 /**
  * Result of choosing which tool calls from one LLM turn should actually execute.
  *
- * The runtime may execute multiple cognitive tools and at most one screen-changing tool per turn.
+ * The runtime may execute multiple cognitive and screen-changing tools per turn.
+ * Navigation isolation (single-action for click/back/open_app) is enforced at the prompt layer.
  */
 internal data class ToolArbitrationResult(
         val selectedToolCalls: List<ToolCallRequest>,
@@ -33,8 +34,11 @@ internal class TurnToolPolicy {
     /**
      * Arbitration rule:
      * - Keep all non-screen-changing (cognitive) tools.
-     * - Keep at most one screen-changing tool (first one wins).
+     * - Keep all screen-changing tools (multi-action per turn).
      * - Keep `complete_task` only when no screen-changing tool is selected.
+     *
+     * Navigation isolation (click-to-navigate, back, open_app should be alone)
+     * is enforced at the prompt layer, not here.
      */
     fun arbitrateToolCalls(
         toolCalls: List<ToolCallRequest>
@@ -60,12 +64,12 @@ internal class TurnToolPolicy {
                                 !ToolName.from(call.name).isScreenChanging
                 }
 
-        val selectedScreen = screenCalls.firstOrNull()
-        val selectedCompletion = if (selectedScreen == null) completionCall else null
+        val hasScreenAction = screenCalls.isNotEmpty()
+        val selectedCompletion = if (!hasScreenAction) completionCall else null
         val selectedToolCalls =
                 buildList {
                         addAll(cognitiveCalls)
-                        selectedScreen?.let(::add)
+                        addAll(screenCalls)
                         selectedCompletion?.let(::add)
                 }
 
@@ -75,7 +79,7 @@ internal class TurnToolPolicy {
         return ToolArbitrationResult(
                 selectedToolCalls = selectedToolCalls,
                 hasCompletionTool = hasCompletionTool,
-                hasScreenAction = selectedScreen != null,
+                hasScreenAction = hasScreenAction,
                 droppedToolCalls = droppedToolCalls
         )
     }

@@ -49,23 +49,29 @@ internal class TurnExecutionPhaseRunner(
                 )
 
                 for (toolCall in toolCallsToExecute) {
-                        currentSnapshot =
-                                executeSingleToolCall(
-                                        turnId = turnId,
-                                        turnNumber = turnNumber,
-                                        toolCall = toolCall,
-                                        currentSnapshot = currentSnapshot
-                                )
+                        val result = executeSingleToolCall(
+                                turnId = turnId,
+                                turnNumber = turnNumber,
+                                toolCall = toolCall,
+                                currentSnapshot = currentSnapshot
+                        )
+                        currentSnapshot = result.snapshot
+                        if (!result.success) {
+                                Log.w(TAG, "Action ${toolCall.name} failed; aborting remaining actions in this turn")
+                                break
+                        }
                 }
                 return actionForNextTurn
         }
+
+        private data class SingleToolCallResult(val snapshot: ScreenSnapshot, val success: Boolean)
 
         private suspend fun executeSingleToolCall(
                 turnId: String,
                 turnNumber: Int,
                 toolCall: ToolCallRequest,
                 currentSnapshot: ScreenSnapshot
-        ): ScreenSnapshot {
+        ): SingleToolCallResult {
                 Log.d(TAG, "Executing tool: ${toolCall.name} with args: ${toolCall.arguments}")
                 trace.toolCall(turnId, turnNumber, toolCall)
 
@@ -149,7 +155,10 @@ internal class TurnExecutionPhaseRunner(
                         )
                 )
                 eventDispatcher.status("✓ ${toolCall.name} executed")
-                return snapshotForNextTool
+                return SingleToolCallResult(
+                        snapshot = snapshotForNextTool,
+                        success = toolResult is ToolCallResult.Success
+                )
         }
 
         private suspend fun emitApprovalRequired(details: ApprovalDetails) {
