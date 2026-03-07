@@ -1,5 +1,12 @@
 # TasksDueNextWeek
 
+## R7 (run 20260307_025501, qwen3.5)
+- **Score**: 0.0 | **Turns**: 7/30
+- **Behavior**: FalseCompletion. Answered "20" after full scroll-through of task list. Significant behavioral improvement: used scratchpad, scrolled 4x (confirmed end-of-list), correctly resolved relative date labels to Oct 16-22 range. Failure likely due to overcounting across overlapping scroll boundaries — no dedup strategy for items visible in consecutive viewports.
+- **Delta vs R6**: Major improvement in methodology — 7 turns (vs 2), full scrolling (vs none), scratchpad with structured date reasoning (vs none). Still wrong answer, but failure mode shifted from "didn't try" to "counted incorrectly."
+- **Notable**: No org.tasks app skill was injected despite being mentioned as new in R7. Agent operated without app-specific guidance.
+- **Key gap**: Needs scroll-boundary deduplication protocol for count tasks.
+
 ## R6 (run 20260307_003831, gpt-5.4)
 - **Score**: 0.0 | **Turns**: 2/30
 - **Behavior**: ReasoningError. Answered "4" from single viewport without scrolling or date reasoning.

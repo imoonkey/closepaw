@@ -1,5 +1,11 @@
 # RecipeAddMultipleRecipesFromMarkor
 
+## R7 (run 20260307_025501, qwen3.5)
+- **Score**: 0.0 | **Turns**: 50/50 | MaxTurnsReached
+- **Behavior**: TurnExhaustion. Completed 2/3 recipes (Thai Peanut Noodle Salad, Garlic Butter Shrimp saved successfully). 3rd recipe (BBQ Chicken Quesadillas) was mid-fill at turn 50 — needed ~5 more turns for ingredients, directions, save.
+- **Delta vs R6**: Major behavioral improvement. Loop detection warnings removed; agent used all 50 turns instead of self-terminating at 22. Went from 1 partial recipe to 2 complete + 1 partial. Score unchanged (0.0) because scorer requires all 3.
+- **Key issue**: 2 turns wasted on Cook button misclick (turn 22). Per-recipe cost (~15 turns) makes 3 recipes in 50 turns extremely tight.
+
 ## R6 (run 20260307_003831, gpt-5.4)
 - **Score**: 0.0 | **Turns**: 22/50
 - **Behavior**: FalseCompletion. Added 1/3 recipes, self-terminated citing hallucinated loop warning with 28 turns remaining.

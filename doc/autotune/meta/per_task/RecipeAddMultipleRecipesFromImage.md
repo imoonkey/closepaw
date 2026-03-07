@@ -1,5 +1,10 @@
 # RecipeAddMultipleRecipesFromImage
 
+## R7 (run 20260307_025501, qwen3.5)
+- **Score**: 0.0 | **Turns**: 50/50
+- **Behavior**: TurnExhaustion. Completed 2/3 recipes perfectly, was 3 turns from finishing recipe 3 when max turns hit. Zero loops, zero wasted actions.
+- **Delta vs R6**: Massive cognition improvement — no navigation traps, no loops (R6: 32 turns, stuck after recipe 1). Removing loop warnings had no negative effect. Failure is now purely a turn-budget problem (~54 turns needed for 3 recipes).
+
 ## R6 (run 20260307_003831, gpt-5.4)
 - **Score**: 0.0 | **Turns**: 32/50
 - **Behavior**: NavigationFailure. Extracted 3 recipes from image, saved 1 to Broccoli, got trapped in detail view trying to add recipe 2.

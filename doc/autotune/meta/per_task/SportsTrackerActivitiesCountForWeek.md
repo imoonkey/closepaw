@@ -1,5 +1,11 @@
 # SportsTrackerActivitiesCountForWeek
 
+## R7 (run 20260307_025501, qwen3.5)
+- **Score**: 0.0 | **Turns**: 30/30
+- **Behavior**: TurnExhaustion + FalseCompletion. Agent correctly used edit flow (R6 skill fix landed), checking 5 of 14 tracks via More -> Edit. Found 1 running ("Trying and failing to keep up with John"). But 14 tracks x 4-5 turns/track = 56-70 turns needed vs 30 available. Answered "1" on final turn with 9 tracks unchecked.
+- **Delta vs R6**: Major improvement in approach — agent no longer guesses from titles, correctly follows edit flow. But the fundamental turn budget problem makes this task unsolvable via UI-only inspection. Needs shell/DB query path or honest incomplete reporting.
+- **Key insight**: This task is structurally infeasible with the edit-flow approach at 30 max turns. The only viable path is shell-based SQLite query to retrieve all activity types at once.
+
 ## R6 (run 20260307_003831, gpt-5.4)
 - **Score**: 0.0 | **Turns**: 5/30
 - **Behavior**: ReasoningError. Inferred activity type from title text, answered "1" (wrong). A11y tree doesn't expose sport type icon.

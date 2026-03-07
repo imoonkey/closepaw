@@ -1,5 +1,12 @@
 # TasksCompletedTasksForDate
 
+## R7 (run 20260307_025501, qwen3.5)
+- **Score**: 0.0 | **Turns**: 14/30
+- **Behavior**: StateCorruption + SelfContradiction. Date mapping fixed (Tmrw = Oct 16 correct). Agent clicked checkboxes to "inspect" state, which toggled them and corrupted app state. Wrote "Organize files and folders = COMPLETED" to scratchpad, then answered "No completed tasks" -- self-contradiction.
+- **Delta vs R6**: Date mapping improved (no longer picks wrong date). New failure mode: state mutation via checkbox clicks + contradicts own evidence.
+- **Skill injection**: org.tasks app skill was **not injected** despite existing in assets. Skill guidance was unavailable.
+- **Fix needed**: (1) Fix skill injection pipeline for org.tasks. (2) Add read-only rule for information tasks: never click toggles to inspect state. (3) Scratchpad consistency check before completion.
+
 ## R6 (run 20260307_003831, gpt-5.4)
 - **Score**: 0.0 | **Turns**: 11/30
 - **Behavior**: FalseCompletion. Misread relative date labels, picked task from wrong date.

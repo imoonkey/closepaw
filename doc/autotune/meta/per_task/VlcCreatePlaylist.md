@@ -1,5 +1,11 @@
 # VlcCreatePlaylist
 
+## R7 (run 20260307_025501, qwen3.5) — PASS
+- **Score**: 1.0 | **Turns**: 20/30
+- **Behavior**: Success. Canary pass sustained. Same long-press > add-to-playlist workflow. No hint text contamination.
+- **Delta vs R6**: Turns 14→20. Core workflow identical (turns 1-14). Extra turns from verification navigation overhead (5 turns to navigate to Playlists tab and verify) plus 1 grounding error (stale element index on turn 15, recovered). Normal variance for qwen3.5 vs gpt-5.4.
+- See `round_7/20260307_025501/per_task/VlcCreatePlaylist_claude.md` for details.
+
 ## R6 (run 20260307_003831, gpt-5.4) — PASS
 - **Score**: 1.0 | **Turns**: 14/30
 - **Behavior**: Success. FIRST-EVER PASS. Used multi-select + overflow menu + verify pattern.

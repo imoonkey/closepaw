@@ -2,6 +2,26 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 7 (2026-03-07, run 20260307_025501, qwen3.5, loop detection redesign)
+- **Key changes** (9e6c9c7):
+  - Loop detection redesign: deleted all WARNING-level advisory warnings (tool dominance, scroll spam, action repetition, cycle detection). Kept only stable-screen detection (Jaccard >= 0.95, 5 turns). Removed Tier 2 (BLOCK) and Tier 3 (FORCE_COMPLETE). -445 lines of code.
+  - System prompt rule 6 rewritten: "if the same action fails twice, try a different approach" (was: "after failure or loop warning, pivot immediately")
+  - Created org.tasks app skill with date-label mapping and scroll guidance
+  - Updated /prompt-tune skill to cover system warnings as prompt layer
+- **Task selection rationale**: same 8 tasks as R6 for direct comparison
+- **Tasks run**: 8
+- **Config**: serial single-device, model qwen3.5
+- **Result**: 1/8 (12.5%), total score 1.5/8
+- **Net new passes**: none
+- **Score improvements**: VlcCreateTwoPlaylists 0.0→0.5 (completed 1/2 playlists)
+- **Regressions**: none
+- **Key findings**:
+  - Loop detection removal confirmed effective: RecipeAddMultipleRecipesFromMarkor used all 50 turns and saved 2/3 recipes (R6: self-terminated at turn 22 with 1/3 partial). VlcCreateTwoPlaylists 0.0→0.5.
+  - Dominant root cause shifted from ReasoningError/FalseCompletion to **TurnExhaustion** (4/7 failures). The 1-action-per-turn architecture is now the primary bottleneck.
+  - Tasks app org.tasks skill was not injected — need to verify package name on emulator.
+  - Two Tasks app tasks (TasksCompletedTasksForDate, TasksIncompleteTasksOnDate) corrupted app state by clicking checkboxes to inspect state.
+- **Moved to cannot_handle**: none
+
 ## Autotune Round 6 (2026-03-07, run 20260307_003831, GPT-5.4, never-succeeded subset)
 - **Key changes**: none (eval-only round, no code changes since R5)
 - **Task selection rationale**: never_succeeded.txt minus gpt54_never_succeeded_10.txt (already run in R5) minus cannot_handle_group.txt = 8 tasks

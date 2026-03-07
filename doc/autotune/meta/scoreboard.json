@@ -1267,6 +1267,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 32
+        },
+        "20260307_025501": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 50
         }
       },
       "recent_rate": "0/3",
@@ -1303,6 +1308,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 22
+        },
+        "20260307_025501": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 50
         }
       },
       "recent_rate": "0/3",
@@ -2073,6 +2083,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 5
+        },
+        "20260307_025501": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
         }
       },
       "recent_rate": "0/3",
@@ -2352,6 +2367,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 11
+        },
+        "20260307_025501": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 14
         }
       },
       "recent_rate": "0/3",
@@ -2373,6 +2393,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 2
+        },
+        "20260307_025501": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 7
         }
       },
       "recent_rate": "0/3",
@@ -2442,6 +2467,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 2
+        },
+        "20260307_025501": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 11
         }
       },
       "recent_rate": "0/3",
@@ -2490,9 +2520,14 @@
           "score": 1.0,
           "status": "completed",
           "turns": 14
+        },
+        "20260307_025501": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 20
         }
       },
-      "recent_rate": "1/3",
+      "recent_rate": "2/3",
       "status": "improving"
     },
     "VlcCreateTwoPlaylists": {
@@ -2521,10 +2556,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 22
+        },
+        "20260307_025501": {
+          "score": 0.5,
+          "status": "completed",
+          "turns": 30
         }
       },
       "recent_rate": "0/3",
-      "status": "stuck"
+      "status": "improving"
     }
   },
   "runs": {
@@ -2824,6 +2864,12 @@
     },
     "20260307_003831": {
       "round": 50,
+      "total": 8,
+      "passed": 1,
+      "rate": 0.125
+    },
+    "20260307_025501": {
+      "round": 51,
       "total": 8,
       "passed": 1,
       "rate": 0.125
