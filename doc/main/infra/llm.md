@@ -1,7 +1,7 @@
 # LLM Integration
 
 > LLM clients, model catalog, streaming, and retry infrastructure.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Last updated: 2026-03-06 (uncommitted)
 
 ## Overview
 
@@ -195,12 +195,15 @@ class ModelCatalog private constructor(entries: Map<String, ModelEntry>) {
     fun names(): Set<String>
     val size: Int
     operator fun contains(name: String): Boolean
+    fun withBaseUrlOverrides(overrides: Map<LLMProvider, String>): ModelCatalog
 
     companion object {
         fun fromJson(jsonString: String): ModelCatalog
     }
 }
 ```
+
+`withBaseUrlOverrides()` returns a new catalog with provider-level base URL overrides applied to entries that don't already have an explicit `baseUrl`. Used by `SessionLlmBootstrapper` to inject runtime base URL overrides (e.g. local proxy) without modifying `llm_models.json`.
 
 Thread-safe after construction — the entry map is immutable.
 
@@ -231,8 +234,10 @@ class LLMClientFactory(
 
 Session startup creates the LLM stack in this order:
 1. Load `llm_models.json` into `ModelCatalog` (cached per `AssetManager`)
-2. Build `LLMClientFactory` with env-key resolver
-3. Create runtime client from `SessionConfig.llm.backendType`
+2. Extract provider base URL overrides from `apiKeys` map (`__BASE_URL_<PROVIDER>` convention)
+3. Apply overrides via `ModelCatalog.withBaseUrlOverrides()` — entries without an explicit `baseUrl` inherit the provider override
+4. Build `LLMClientFactory` with env-key resolver
+5. Create runtime client from `SessionConfig.llm.backendType`
 
 Behavior details:
 - If `llm_models.json` is missing/malformed, bootstrap falls back to a minimal built-in catalog (`glm-5`)

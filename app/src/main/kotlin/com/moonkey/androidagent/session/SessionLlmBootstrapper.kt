@@ -7,6 +7,7 @@ import android.util.Log
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
+import com.moonkey.androidagent.llm.LLMProvider
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.protocol.AgentMode
@@ -34,7 +35,14 @@ internal object SessionLlmBootstrapper {
     ): SessionLlmBootstrap {
         requireOffMainThread()
         val backend = config.llm.backendType
-        val modelCatalog = getOrLoadModelCatalog(context)
+        val baseCatalog = getOrLoadModelCatalog(context)
+
+        // Extract provider base URL overrides from apiKeys (__BASE_URL_<PROVIDER> convention)
+        val baseUrlOverrides = extractBaseUrlOverrides(apiKeys)
+        val modelCatalog = baseCatalog.withBaseUrlOverrides(baseUrlOverrides)
+        if (baseUrlOverrides.isNotEmpty()) {
+            Log.d(TAG, "Applied provider base URL overrides: $baseUrlOverrides")
+        }
         Log.d(TAG, "Loaded ModelCatalog with ${modelCatalog.size} models: ${modelCatalog.names()}")
 
         val llmClientFactory =
@@ -122,6 +130,21 @@ internal object SessionLlmBootstrapper {
             }
         }
     }
+
+    private const val BASE_URL_PREFIX = "__BASE_URL_"
+
+    private fun extractBaseUrlOverrides(apiKeys: Map<String, String>): Map<LLMProvider, String> =
+            apiKeys.entries
+                    .filter { it.key.startsWith(BASE_URL_PREFIX) }
+                    .mapNotNull { (key, value) ->
+                        try {
+                            LLMProvider.valueOf(key.removePrefix(BASE_URL_PREFIX)) to value
+                        } catch (_: IllegalArgumentException) {
+                            Log.w(TAG, "Unknown provider in base URL override key: $key")
+                            null
+                        }
+                    }
+                    .toMap()
 
     private const val FALLBACK_CATALOG_JSON =
             """

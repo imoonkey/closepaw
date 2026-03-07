@@ -26,6 +26,10 @@ internal fun applyIntentPayloadToSettings(
         settingsState.updateNovitaApiKey(key)
         log("Novita API key set from intent")
     }
+    payload.openaiBaseUrl?.let { url ->
+        settingsState.updateOpenaiBaseUrl(url)
+        log("OpenAI base URL override set from intent: $url")
+    }
     payload.backendType?.let {
         settingsState.updateBackend(it)
         log("LLM backend set from intent: $it")

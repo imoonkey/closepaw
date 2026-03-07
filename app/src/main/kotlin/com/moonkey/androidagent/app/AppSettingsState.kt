@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.moonkey.androidagent.llm.LLMProvider
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.PlatformMode
@@ -44,6 +45,10 @@ class AppSettingsState(private val store: AppSettingsStore) {
     var executorModel by mutableStateOf<String?>(null)
         private set
     var platformMode by mutableStateOf(AppSettingsStore.DEFAULT_PLATFORM_MODE)
+        private set
+
+    /** Transient base URL override for OPENAI provider (set from intent, not persisted). */
+    var openaiBaseUrl by mutableStateOf("")
         private set
 
     fun load() {
@@ -108,11 +113,26 @@ class AppSettingsState(private val store: AppSettingsStore) {
         store.saveNovitaApiKey(key)
     }
 
-    /** Build a map of provider env var name → API key for [SessionServices.create]. */
+    fun updateOpenaiBaseUrl(url: String) {
+        openaiBaseUrl = url
+    }
+
+    /**
+     * Build a map of provider env var name → API key for [SessionServices.create].
+     *
+     * Also includes provider base URL overrides with `__BASE_URL_<PROVIDER>` keys,
+     * extracted by [SessionLlmBootstrapper] at catalog load time.
+     */
     fun buildApiKeys(): Map<String, String> = buildMap {
         if (apiKey.isNotBlank()) put("OPENAI_API_KEY", apiKey)
         if (openRouterApiKey.isNotBlank()) put("OPENROUTER_API_KEY", openRouterApiKey)
         if (novitaApiKey.isNotBlank()) put("NOVITA_API_KEY", novitaApiKey)
+        if (openaiBaseUrl.isNotBlank()) put("__BASE_URL_OPENAI", openaiBaseUrl)
+    }
+
+    /** Build provider → base URL override map from intent-supplied values. */
+    fun buildBaseUrlOverrides(): Map<LLMProvider, String> = buildMap {
+        if (openaiBaseUrl.isNotBlank()) put(LLMProvider.OPENAI, openaiBaseUrl)
     }
 
     fun updateMaxTurns(value: Int) {

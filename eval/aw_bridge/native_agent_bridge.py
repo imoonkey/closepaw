@@ -216,6 +216,10 @@ class NativeAgentBridge:
                 val = self._config.api_keys.get(env_name)
                 if val:
                     extras.extend(["--es", extra_name, val])
+            # Forward provider base URL overrides
+            base_url = self._config.api_keys.get("OPENAI_BASE_URL")
+            if base_url:
+                extras.extend(["--es", "openai_base_url", base_url])
 
         self._run_adb_shell(
             ["input", "keyevent", "KEYCODE_HOME"],

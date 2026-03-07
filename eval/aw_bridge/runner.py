@@ -67,6 +67,7 @@ _PROVIDER_REQUIRED_API_KEY = {
 }
 
 _API_KEY_NAMES = ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "NOVITA_API_KEY")
+_ENV_EXTRAS = ("OPENAI_BASE_URL",)
 
 
 def main() -> None:
@@ -328,6 +329,8 @@ def _nullable_str(value: Any) -> str | None:
 
 
 def _load_api_keys(workspace_root: Path) -> dict[str, str]:
+    """Load API keys and env extras (e.g. OPENAI_BASE_URL) from .env and environment."""
+    _ALL_ENV_NAMES = _API_KEY_NAMES + _ENV_EXTRAS
     keys: dict[str, str] = {}
     env_file = workspace_root / ".env"
     if env_file.is_file():
@@ -338,9 +341,9 @@ def _load_api_keys(workspace_root: Path) -> dict[str, str]:
             name, _, value = line.partition("=")
             name = name.strip()
             value = value.strip().strip("\"'")
-            if name in _API_KEY_NAMES and value:
+            if name in _ALL_ENV_NAMES and value:
                 keys[name] = value
-    for name in _API_KEY_NAMES:
+    for name in _ALL_ENV_NAMES:
         val = os.environ.get(name)
         if val:
             keys[name] = val

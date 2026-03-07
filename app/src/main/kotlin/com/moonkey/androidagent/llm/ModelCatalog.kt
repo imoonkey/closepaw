@@ -111,6 +111,21 @@ class ModelCatalog private constructor(private val entries: Map<String, ModelEnt
     /** Check if a model name exists. */
     operator fun contains(name: String): Boolean = name in entries
 
+    /**
+     * Return a new catalog with provider-level base URL overrides applied.
+     *
+     * Only overrides entries that don't already have an explicit [ModelEntry.baseUrl].
+     * Returns `this` if [overrides] is empty.
+     */
+    fun withBaseUrlOverrides(overrides: Map<LLMProvider, String>): ModelCatalog {
+        if (overrides.isEmpty()) return this
+        val overridden = entries.mapValues { (_, entry) ->
+            val override = overrides[entry.provider]
+            if (override != null && entry.baseUrl == null) entry.copy(baseUrl = override) else entry
+        }
+        return ModelCatalog(LinkedHashMap(overridden))
+    }
+
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
 

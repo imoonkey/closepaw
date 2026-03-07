@@ -9,6 +9,7 @@ data class MainActivityIntentPayload(
         val apiKey: String?,
         val openRouterApiKey: String?,
         val novitaApiKey: String?,
+        val openaiBaseUrl: String?,
         val backendType: LLMBackendType?,
         val agentMode: AgentMode?,
         val perceptionMode: String?,
@@ -35,6 +36,11 @@ data class MainActivityIntentPayload(
 
             val novitaApiKey =
                     intent.getStringExtra(MainActivity.EXTRA_NOVITA_API_KEY)?.takeIf {
+                        it.isNotBlank()
+                    }
+
+            val openaiBaseUrl =
+                    intent.getStringExtra(MainActivity.EXTRA_OPENAI_BASE_URL)?.takeIf {
                         it.isNotBlank()
                     }
 
@@ -124,6 +130,7 @@ data class MainActivityIntentPayload(
                     apiKey = apiKey,
                     openRouterApiKey = openRouterApiKey,
                     novitaApiKey = novitaApiKey,
+                    openaiBaseUrl = openaiBaseUrl,
                     backendType = backendType,
                     agentMode = agentMode,
                     perceptionMode = perceptionMode,

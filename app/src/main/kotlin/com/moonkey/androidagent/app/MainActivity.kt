@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_EXCLUDED_TOOLS = "excluded_tools"
         const val EXTRA_OPENROUTER_API_KEY = "openrouter_api_key"
         const val EXTRA_NOVITA_API_KEY = "novita_api_key"
+        const val EXTRA_OPENAI_BASE_URL = "openai_base_url"
     }
 
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())

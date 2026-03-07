@@ -381,6 +381,11 @@ if [[ -n "${NOVITA_API_KEY:-}" ]]; then
     INTENT_EXTRAS="$INTENT_EXTRAS --es novita_api_key '$SAFE_NOVITA_KEY'"
 fi
 
+if [[ -n "${OPENAI_BASE_URL:-}" ]]; then
+    SAFE_OPENAI_BASE_URL=$(escape_shell_arg "$OPENAI_BASE_URL")
+    INTENT_EXTRAS="$INTENT_EXTRAS --es openai_base_url '$SAFE_OPENAI_BASE_URL'"
+fi
+
 # Clear any previous trace folder for this run id (best-effort)
 DEVICE_TRACE_DIR="/sdcard/Android/data/$PACKAGE/files/inspection-trace/$RUN_ID"
 adb shell "rm -rf '$DEVICE_TRACE_DIR'" >/dev/null 2>&1 || true

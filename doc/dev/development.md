@@ -139,6 +139,20 @@ Create `.env` in project root:
 OPENAI_API_KEY=sk-proj-your-key-here
 ```
 
+### Provider Base URL Override (Local Proxy)
+
+To route OPENAI-provider models through a local OpenAI-compatible proxy (e.g. for quota management or model routing):
+
+```bash
+# In .env — emulator uses 10.0.2.2 to reach host localhost
+OPENAI_BASE_URL=http://10.0.2.2:18080/v1
+
+# For real device, use the host machine's LAN IP
+# OPENAI_BASE_URL=http://192.168.x.x:18080/v1
+```
+
+This works for both `debug-run.sh` and the eval runner. The URL is passed as an intent extra and applied at session bootstrap via `ModelCatalog.withBaseUrlOverrides()` — no changes to `llm_models.json` needed. Requires `android:usesCleartextTraffic="true"` in the manifest (already enabled).
+
 ### LLM Backend Selection
 
 You can choose between cloud (OpenAI) and local (on-device) LLM backends:

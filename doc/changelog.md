@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-03-06: Provider Base URL Override (Local Proxy Support)
+
+**What changed:**
+- Added `OPENAI_BASE_URL` support in `.env` to route OPENAI-provider models through a local proxy without modifying `llm_models.json`
+- New `ModelCatalog.withBaseUrlOverrides()` applies provider-level base URL overrides at session bootstrap via `__BASE_URL_<PROVIDER>` convention in the `apiKeys` map
+- Full intent chain: `.env` → `debug-run.sh` / eval runner → intent extra → `AppSettingsState` → `SessionLlmBootstrapper` → `ModelCatalog` → client creation
+- Eval runner (`native_agent_bridge.py`) now forwards `openai_base_url` intent extra
+- Enabled `android:usesCleartextTraffic="true"` in manifest for HTTP proxy connections
+
+**Why:**
+- Route gpt-5.4/gpt-5.2 through a local OpenAI-compatible proxy (e.g. for quota management) as a script-level config, not baked into the model catalog
+
+**Key files:** `session/SessionLlmBootstrapper.kt`, `llm/ModelCatalog.kt`, `app/AppSettingsState.kt`, `app/MainActivityIntentPayload.kt`, `eval/aw_bridge/native_agent_bridge.py`, `eval/aw_bridge/runner.py`, `scripts/debug-run.sh`, `AndroidManifest.xml`
+
 ## 2026-03-06: BrowserMultiply Eval — Two New Click Issues
 
 **What changed:**
