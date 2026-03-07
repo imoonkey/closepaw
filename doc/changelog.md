@@ -1,6 +1,18 @@
 # Changelog
 
-## 2026-03-06: Click Hotspot Selection Fix
+## 2026-03-06: Harden Post-Action Change Detection (`5ee310a`)
+
+**What changed:**
+- Excluded `isFocused` from `UiChangeDetector` fingerprint — RecyclerView items gain focus on `ACTION_CLICK` without actually navigating, causing false-positive "Changed" verdicts.
+- Extended `PostActionAnalysis` verify window from 800ms (300+500) to 1800ms (300+500+1000) with a third retry round for slow transitions like intent resolution.
+- Documented `gesture_tap` false-success pattern on Files RecyclerView items: `dispatchGesture()` accepted but UI unchanged. This is a platform limitation, not a runtime bug.
+
+**Why:**
+- The two bugs compounded: the detector reported success on the first channel (node click + isFocused false positive), so the runtime never fell through to retry or fallback. With both fixes, node click now correctly retries and succeeds within the 1800ms window.
+
+**Key files:** `app/.../tool/action/UiChangeDetector.kt`, `app/.../tool/action/PostActionAnalysis.kt`, `doc/main/infra/tool/mobile_action.md`
+
+## 2026-03-06: Click Hotspot Selection Fix (`04618f3`)
 
 **What changed:**
 - `refinePointActionTarget()` now searches for the nearest actionable child within a promoted container instead of defaulting to `container.center`.
@@ -12,7 +24,7 @@
 
 **Key files:** `app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt`
 
-## 2026-03-06: Local Parallel Eval Workflow
+## 2026-03-06: Local Parallel Eval Workflow (`68d1f88`..`456d3aa`)
 
 **What changed:**
 - Hardened `eval/aw_bridge/parallel_runner.py` so the supervisor owns one-time APK build/install, honors `runner.perform_bridge_setup`, and merges results back into `eval/results/<run_id>/`.
@@ -22,7 +34,7 @@
 **Why:**
 - Cut eval wall-clock time with a real local parallel path without creating a second result format or breaking downstream tooling such as `scoreboard.py` and eval analysis flows.
 
-## 2026-03-06: Prompt Ownership Refactor
+## 2026-03-06: Prompt Ownership Refactor (`02844a5`)
 
 **What changed:**
 - Added asset-backed app skills under `app/src/main/assets/app_skills/` and load them per turn from the current foreground package.

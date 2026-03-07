@@ -175,8 +175,8 @@ For `click` and `long_press`, the pipeline is:
 2. Bounds-check the resolved point against display size.
 3. For semantic targets, promote non-actionable child nodes to an actionable container, then select the nearest actionable child hotspot within that container (falling back to container center if no child qualifies).
 4. Dispatch the first channel.
-5. Capture post-action screen state after settle delay.
-6. If unchanged, retry post-capture once with a longer delay.
+5. Capture post-action screen state after settle delay (300ms).
+6. If unchanged, retry at +500ms; if still unchanged, final retry at +1000ms (1800ms total budget).
 7. If still unchanged:
    - treat that channel as a no-op
    - continue to fallback
@@ -232,7 +232,7 @@ That is a tooling limitation, not a semantic proof of success.
 - description
 - hint text
 - bounds
-- focus/enabled/selected/checked/checkable state
+- enabled/selected/checked/checkable state (NOT isFocused — excluded to prevent false positives from transient focus shifts on list item click)
 - range info
 - keyboard visibility
 - screenshot perceptual hash if the a11y tree is empty
@@ -272,26 +272,23 @@ Some apps wire open/select/drag behavior in unusual ways. That is not automatica
 
 But if we can detect the pattern cleanly and route to a more faithful mechanism without app-specific hacks everywhere, that is still worth implementing.
 
-## Known hard case: Files row open (addressed)
+## Known hard case: Files row open (partially addressed)
 
-As of 2026-03-06, the Files `task.html` row open regression was traced to `refinePointActionTarget()` rewriting the click point to `container.center`, which lands on a dead zone for semantic open. The fix (`04618f3`) now selects the nearest actionable child hotspot within the promoted container instead. Validation pending via clean Files probe and Browser eval.
+As of 2026-03-06, the Files `task.html` row open regression was traced to two separate issues:
 
-Original investigation:
+**1. Container-center dead zone** — `refinePointActionTarget()` rewriting the click point to `container.center`. Fixed (`04618f3`) by selecting the nearest actionable child hotspot within the promoted container.
 
-- [qi_note.md](/Users/moonkey/workspace/android-agent-workspace/androidagent/doc/autotune/round_5/20260306_003753/click/qi_note.md)
-- the fresh probe summary that accompanies this note
+**2. UiChangeDetector false positive** — `ACTION_CLICK` on RecyclerView items triggers `isFocused` state change without actually opening the file. The detector incorrectly reported "Changed". Fixed (`5ee310a`) by excluding `isFocused` from the fingerprint and extending the verify window to 1800ms.
 
-Key observed pattern:
+**3. Remaining platform limitation** — `gesture_tap` (via `AccessibilityService.dispatchGesture()`) is a false success on Files RecyclerView items: accepted by the framework but produces no UI change. `node_action_click` (via `performAction(ACTION_CLICK)`) works but may require the app/RecyclerView to be "warm". VD's `injectInputEvent` (Shizuku/InputManager) works like real touch and is not affected.
 
-- same Files row
-- no overlay window visible
-- `node_action_click` on row/title center: accepted, unchanged
-- `node_action_click` on icon hotspot: changed
-- `gesture_tap`: accepted, unchanged
-- `adb tap`: unchanged
-- `long_press`: changed
+Device validation (action-test.sh):
 
-That pattern does not look like a generic click regression. It looks like a narrower hotspot-selection problem layered on top of app/widget-specific mechanism differences.
+| Path | action_accepted | ui_changed |
+|------|----------------|------------|
+| L1 node action (ACTION_CLICK) | success | **changed** |
+| L1 gesture tap (dispatchGesture) | success | **unchanged** (false success) |
+| L0 adb (input tap, warm) | n/a | changed |
 
 ## Why this documentation matters
 
