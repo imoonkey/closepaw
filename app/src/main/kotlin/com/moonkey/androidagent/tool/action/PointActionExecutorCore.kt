@@ -162,12 +162,6 @@ private suspend fun buildPointActionOutcome(
         platform = platform,
         settleDelayMs = UI_SETTLE_DELAY_MS
     )
-    if (analysis.changeResult == UiChangeDetector.ChangeResult.Unchanged) {
-        return ActionOutcome.Failed(
-            reason = "${actionName.replace('_', ' ')} via $channelName had no observable effect",
-            attemptTrail = attemptTrail
-        )
-    }
     val allWarnings = buildList {
         addAll(resolvedWarnings)
         addAll(analysis.warnings)

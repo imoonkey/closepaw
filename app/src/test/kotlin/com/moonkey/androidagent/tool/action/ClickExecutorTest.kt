@@ -151,12 +151,12 @@ class ClickExecutorTest {
     }
 
     @Test
-    fun `execute fails when all click channels have no observable effect`() = runTest {
+    fun `execute succeeds unverified when all click channels have no observable effect`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =
             RecordingPlatform(
-                actionResults = listOf(ActionResult.Success(), ActionResult.Success()),
-                capturedSnapshots = listOf(snapshot, snapshot, snapshot, snapshot)
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(snapshot, snapshot, snapshot)
             )
         val executor = ClickExecutor()
 
@@ -168,20 +168,15 @@ class ClickExecutorTest {
                 isCancelled = { false }
             )
 
-        assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
-        val failed = outcome as ActionOutcome.Failed
-        assertThat(failed.reason).contains("had no observable effect after all channels")
-        assertThat(failed.attemptTrail)
-            .containsAtLeast(
-                "node_action_click: click via node_action_click had no observable effect",
-                "gesture_tap: click via gesture_tap had no observable effect"
-            )
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.verified).isFalse()
+        assertThat(success.message).contains("No observable")
+        // Only first channel tried — no fallback on unchanged
         assertThat(platform.performedActions)
             .containsExactly(
-                UIAction.ClickNodeAt(150, 210, buttonHint),
-                UIAction.TapAt(150, 210)
+                UIAction.ClickNodeAt(150, 210, buttonHint)
             )
-            .inOrder()
     }
 
     @Test
@@ -299,13 +294,12 @@ class ClickExecutorTest {
     }
 
     @Test
-    fun `execute falls back when node click succeeds but has no observable effect`() = runTest {
+    fun `execute succeeds unverified on first channel when unchanged — no fallback`() = runTest {
         val snapshot = snapshotWithSingleButton()
-        val changedSnapshot = snapshotWithSingleButton(label = "Tapped")
         val platform =
             RecordingPlatform(
-                actionResults = listOf(ActionResult.Success(), ActionResult.Success()),
-                capturedSnapshots = listOf(snapshot, snapshot, snapshot, changedSnapshot)
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(snapshot, snapshot, snapshot)
             )
         val executor = ClickExecutor()
 
@@ -318,12 +312,13 @@ class ClickExecutorTest {
             )
 
         assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.verified).isFalse()
+        // Only node_click — no fallback to gesture_tap
         assertThat(platform.performedActions)
             .containsExactly(
-                UIAction.ClickNodeAt(150, 210, buttonHint),
-                UIAction.TapAt(150, 210)
+                UIAction.ClickNodeAt(150, 210, buttonHint)
             )
-            .inOrder()
     }
 
     @Test
