@@ -12,6 +12,7 @@ internal data class PostActionAnalysis(
 )
 
 private const val RETRY_SETTLE_DELAY_MS = 500L
+private const val SLOW_TRANSITION_DELAY_MS = 1000L
 
 internal suspend fun capturePostActionAnalysis(
     preSnapshot: ScreenSnapshot?,
@@ -21,15 +22,22 @@ internal suspend fun capturePostActionAnalysis(
     val captures = mutableListOf<CaptureAttempt>()
     captures += captureAttempt(platform, settleDelayMs)
 
-    val firstSnapshot = captures.last().snapshot
-    val initialResult = if (firstSnapshot == null) {
+    var latestResult = if (captures.last().snapshot == null) {
         UiChangeDetector.ChangeResult.Unverifiable
     } else {
-        UiChangeDetector.compare(preSnapshot, firstSnapshot)
+        UiChangeDetector.compare(preSnapshot, captures.last().snapshot)
     }
 
-    if (initialResult == UiChangeDetector.ChangeResult.Unchanged) {
+    // Retry with increasing delays for slow transitions (e.g. intent resolution).
+    // Total budget: settleDelayMs (300) + 500 + 1000 = 1800ms.
+    if (latestResult == UiChangeDetector.ChangeResult.Unchanged) {
         captures += captureAttempt(platform, RETRY_SETTLE_DELAY_MS)
+        latestResult = captures.last().snapshot?.let {
+            UiChangeDetector.compare(preSnapshot, it)
+        } ?: UiChangeDetector.ChangeResult.Unverifiable
+    }
+    if (latestResult == UiChangeDetector.ChangeResult.Unchanged) {
+        captures += captureAttempt(platform, SLOW_TRANSITION_DELAY_MS)
     }
 
     val finalAttempt = captures.last()

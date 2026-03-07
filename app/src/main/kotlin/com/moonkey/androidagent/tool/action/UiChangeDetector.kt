@@ -67,8 +67,11 @@ object UiChangeDetector {
     }
 
     /**
-     * FNV-1a hash over sorted elements' stable fields.
-     * Includes: resourceId, className, text, description, bounds, isFocused, isEnabled.
+     * FNV-1a hash over sorted elements' structural fields.
+     *
+     * Excludes transient state (isFocused) — a focus shift after click does NOT
+     * indicate meaningful UI navigation and causes false-positive change detection
+     * (e.g. RecyclerView item gains focus without opening).
      */
     private fun fingerprintFromElements(elements: List<PerceptionElement>, seed: Long): Long {
         var hash = seed
@@ -83,7 +86,7 @@ object UiChangeDetector {
             hash = mix(hash, element.bounds.top.toLong())
             hash = mix(hash, element.bounds.right.toLong())
             hash = mix(hash, element.bounds.bottom.toLong())
-            hash = mix(hash, element.isFocused.hashCode().toLong())
+            // isFocused excluded: transient, causes false positives on list item click
             hash = mix(hash, element.isEnabled.hashCode().toLong())
             hash = mix(hash, element.isSelected.hashCode().toLong())
             hash = mix(hash, element.isChecked.hashCode().toLong())
