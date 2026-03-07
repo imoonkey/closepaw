@@ -1,5 +1,10 @@
 # TasksCompletedTasksForDate
 
+## R6 (run 20260307_003831, gpt-5.4)
+- **Score**: 0.0 | **Turns**: 11/30
+- **Behavior**: FalseCompletion. Misread relative date labels, picked task from wrong date.
+- **Delta vs R4**: Reached completed-tasks view (navigation fixed), but date-label mapping still broken.
+
 ## R4 (AT-R4, run 20260305_151648)
 - **Score**: 0.0 | **Turns**: 30/30 | **Agent**: qwen3.5
 - **Behavior**: NavigationFailure. Same as R3 -- never found completed-tasks view. Wasted 30 turns exploring menus.

@@ -1,5 +1,10 @@
 # VlcCreateTwoPlaylists
 
+## R6 (run 20260307_003831, gpt-5.4)
+- **Score**: 0.0 | **Turns**: 22/30
+- **Behavior**: ReasoningError. Used inefficient one-at-a-time approach instead of multi-select; only got first playlist partially done.
+- **Delta vs R1**: No hint text contamination, but failed on strategy — didn't reuse the multi-select pattern that worked in VlcCreatePlaylist.
+
 ## AT-R1 (20260303_232753) — FAIL
 - Score: 0.0
 - Turns: 30/30

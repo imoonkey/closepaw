@@ -1,5 +1,10 @@
 # RecipeAddMultipleRecipesFromImage
 
+## R6 (run 20260307_003831, gpt-5.4)
+- **Score**: 0.0 | **Turns**: 32/50
+- **Behavior**: NavigationFailure. Extracted 3 recipes from image, saved 1 to Broccoli, got trapped in detail view trying to add recipe 2.
+- **Delta vs R1**: No hint text contamination (gpt-5.4 model switch), but new navigation trap after first save.
+
 ## AT-R1 (20260303_232753) — FAIL
 - Score: 0.0
 - Turns: 35/50

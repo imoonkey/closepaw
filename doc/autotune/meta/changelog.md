@@ -2,6 +2,20 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 6 (2026-03-07, run 20260307_003831, GPT-5.4, never-succeeded subset)
+- **Key changes**: none (eval-only round, no code changes since R5)
+- **Task selection rationale**: never_succeeded.txt minus gpt54_never_succeeded_10.txt (already run in R5) minus cannot_handle_group.txt = 8 tasks
+- **Tasks run**: 8
+- **Config**: `eval/config/gpt54_never_succeeded.yaml`, model gpt-5.4, serial single-device
+- **Result**: 1/8 (12.5%)
+- **Net new passes**: VlcCreatePlaylist (first-ever success)
+- **Key findings**:
+  - VlcCreatePlaylist: agent used multi-select → overflow menu → add to playlist → verify pattern. Clean 14-turn execution.
+  - Tasks app cluster (3/3 fail): premature completion remains the blocker. Agent answers in 2-11 turns without scrolling, date reasoning, or status filtering. GPT-5.4 ignores existing date-label tip.
+  - Multi-item workflow endurance (3/3 fail): RecipeAddMultipleRecipesFromMarkor self-terminated after 1/3 citing hallucinated loop warning. RecipeAddMultipleRecipesFromImage got trapped in detail view. VlcCreateTwoPlaylists used one-at-a-time instead of multi-select.
+  - SportsTrackerActivitiesCountForWeek: a11y tree doesn't expose sport type, agent guessed from titles.
+- **Moved to cannot_handle**: none
+
 ## Post-R5 Click Deep Dive (2026-03-06)
 
 - **Scope**: Investigated click reliability on Files RecyclerView across all four transports, then validated with BrowserMultiply eval.

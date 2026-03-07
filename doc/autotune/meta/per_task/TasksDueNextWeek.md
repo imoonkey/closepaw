@@ -1,5 +1,10 @@
 # TasksDueNextWeek
 
+## R6 (run 20260307_003831, gpt-5.4)
+- **Score**: 0.0 | **Turns**: 2/30
+- **Behavior**: ReasoningError. Answered "4" from single viewport without scrolling or date reasoning.
+- **Delta vs R4**: Regression — fewer turns (2 vs 6), no scratchpad usage, no date-label mapping attempted.
+
 ## R4 (AT-R4, run 20260305_151648)
 - **Score**: 0.0 | **Turns**: 6/30 | **Agent**: qwen3.5
 - **Behavior**: FalseCompletion. Used scratchpad (R4 guardrail) but contradicted own count (13 in scratchpad, submitted 14). Date-label tip helped (correctly mapped "next week" to Oct 16-22). Still shallow scan without full scroll.

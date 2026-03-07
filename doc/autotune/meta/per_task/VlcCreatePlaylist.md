@@ -1,5 +1,10 @@
 # VlcCreatePlaylist
 
+## R6 (run 20260307_003831, gpt-5.4) — PASS
+- **Score**: 1.0 | **Turns**: 14/30
+- **Behavior**: Success. FIRST-EVER PASS. Used multi-select + overflow menu + verify pattern.
+- **Delta vs R1**: No hint text contamination (gpt-5.4), correct playlist name. Clean workflow.
+
 ## AT-R1 (20260303_232753) — FAIL
 - Score: 0.0
 - Turns: 19/30
