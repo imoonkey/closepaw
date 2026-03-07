@@ -10,6 +10,9 @@ import com.moonkey.androidagent.platform.AccessibilityGestureInjector
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.NodeActionPerformer
 import com.moonkey.androidagent.platform.UIAction
+import com.moonkey.androidagent.platform.virtualdisplay.ShizukuClient
+import com.moonkey.androidagent.platform.virtualdisplay.ShizukuRuntimeGateway
+import com.moonkey.androidagent.platform.virtualdisplay.VirtualDisplayInputInjector
 import com.moonkey.androidagent.tool.action.UiChangeDetector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -34,6 +37,28 @@ class DebugActionExecutor(private val service: AgentService) {
     private val nodePerformer = NodeActionPerformer(rootProvider = { service.rootInActiveWindow })
     private val gestureInjector = AccessibilityGestureInjector(service, visualizer = null)
 
+    /** Lazily initialized Shizuku injector for testing input injection on any display. */
+    private var shizukuInjector: VirtualDisplayInputInjector? = null
+    private var targetDisplayId: Int = 0
+
+    private fun getOrCreateShizukuInjector(): VirtualDisplayInputInjector? {
+        val existing = shizukuInjector
+        if (existing != null) return existing
+        return try {
+            val client = ShizukuClient()
+            if (!client.isAvailable() || !client.hasPermission()) {
+                Log.w(TAG, "Shizuku not available or no permission")
+                return null
+            }
+            // Must bypass hidden API restrictions before using IInputManager
+            ShizukuRuntimeGateway().bypassHiddenApis()
+            VirtualDisplayInputInjector(client) { targetDisplayId }.also { shizukuInjector = it }
+        } catch (e: Exception) {
+            Log.w(TAG, "Shizuku not available for debug injection", e)
+            null
+        }
+    }
+
     suspend fun execute(intent: Intent, context: Context) {
         val dir = prepareOutputDir(context)
 
@@ -45,6 +70,8 @@ class DebugActionExecutor(private val service: AgentService) {
 
         val settleMs = intent.getIntExtra("settle_ms", DEFAULT_SETTLE_MS).toLong()
         val captureTree = intent.getBooleanExtra("capture_tree", true)
+        val useShizuku = intent.getBooleanExtra("use_shizuku", false)
+        targetDisplayId = intent.getIntExtra("display_id", 0)
 
         val uiAction = parseAction(actionName, intent)
         if (uiAction == null) {
@@ -58,7 +85,7 @@ class DebugActionExecutor(private val service: AgentService) {
 
         // Execute
         val startMs = System.currentTimeMillis()
-        val result = performAction(uiAction)
+        val result = if (useShizuku) performShizukuAction(uiAction) else performAction(uiAction)
         val elapsedMs = System.currentTimeMillis() - startMs
 
         // Settle
@@ -119,6 +146,16 @@ class DebugActionExecutor(private val service: AgentService) {
             is UIAction.Wait -> {
                 delay(action.durationMs); ActionResult.Success()
             }
+        }
+    }
+
+    private fun performShizukuAction(action: UIAction): ActionResult {
+        val injector = getOrCreateShizukuInjector()
+            ?: return ActionResult.Failure("Shizuku injector unavailable")
+        return when (action) {
+            is UIAction.TapAt -> injector.injectTap(action.x, action.y)
+            is UIAction.ClickNodeAt -> injector.injectTap(action.x, action.y)
+            else -> ActionResult.Failure("Shizuku mode only supports tap/click, got ${action::class.simpleName}")
         }
     }
 

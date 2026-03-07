@@ -69,11 +69,12 @@ adb_broadcast() {
 # ── Parse args ──
 
 ACTION=""
-MODE="a11y"       # a11y | adb | compare
+MODE="a11y"       # a11y | adb | compare | shizuku
 TAG=""
 OPEN_IMAGES=false
 SETTLE_MS=350
 CAPTURE_TREE=true
+DISPLAY_ID=0
 
 # Action-specific
 X=""; Y=""
@@ -101,6 +102,8 @@ Options:
   --duration N              Duration in ms (long_press/swipe)
   --use-node true|false     click/long_press: use node action (true) or gesture (false)
   --adb                     Use adb input instead of a11y (L0 baseline)
+  --shizuku                 Use Shizuku IInputManager.injectInputEvent (requires Shizuku)
+  --display-id N            Target display ID for Shizuku injection (default: 0)
   --compare                 Run both adb and a11y, compare results
   --tag NAME                Name output subdirectory
   --open                    Auto-open screenshots after test
@@ -126,6 +129,8 @@ while [[ $# -gt 0 ]]; do
         --duration)   DURATION_MS="$2"; shift 2 ;;
         --use-node)   USE_NODE="$2"; shift 2 ;;
         --adb)        MODE="adb"; shift ;;
+        --shizuku)    MODE="shizuku"; shift ;;
+        --display-id) DISPLAY_ID="$2"; shift 2 ;;
         --compare)    MODE="compare"; shift ;;
         --tag)        TAG="$2"; shift 2 ;;
         --open)       OPEN_IMAGES=true; shift ;;
@@ -233,6 +238,9 @@ run_a11y_action() {
     local -a extras=(--es action "$ACTION" --ei settle_ms "$SETTLE_MS")
     if ! $CAPTURE_TREE; then
         extras+=(--ez capture_tree false)
+    fi
+    if [[ "$MODE" == "shizuku" ]]; then
+        extras+=(--ez use_shizuku true --ei display_id "$DISPLAY_ID")
     fi
 
     case "$ACTION" in
@@ -369,5 +377,6 @@ run_compare() {
 case "$MODE" in
     adb)     run_adb_action ;;
     a11y)    run_a11y_action ;;
+    shizuku) run_a11y_action ;;  # uses same broadcast path with use_shizuku=true
     compare) run_compare ;;
 esac

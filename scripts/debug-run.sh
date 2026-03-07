@@ -15,7 +15,7 @@
 #
 # Environment Variables:
 #   LLM_BACKEND: "openai" (default) or "local" - selects LLM backend
-#   AGENT_MODE: "pro" (default) or "basic" - selects execution mode
+#   AGENT_MODE: "basic" (default) or "pro" - selects execution mode
 #   PERCEPTION_MODE: "accessibility_only" (default), "screenshot_only", or "hybrid"
 #   MAIN_MODEL: Override main model name (key from llm_models.json)
 #   EXECUTOR_MODEL: Override executor model name (key from llm_models.json)
@@ -207,7 +207,7 @@ if [[ "$USE_LOCAL" == "true" ]]; then
 fi
 
 # Determine execution mode
-AGENT_MODE="${AGENT_MODE:-pro}"
+AGENT_MODE="${AGENT_MODE:-basic}"
 if [[ -n "$FORCED_AGENT_MODE" ]]; then
     AGENT_MODE="$FORCED_AGENT_MODE"
 fi
