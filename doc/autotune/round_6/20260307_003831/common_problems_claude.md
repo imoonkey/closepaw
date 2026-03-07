@@ -51,12 +51,11 @@
 
 **Affected**: RecipeAddMultipleRecipesFromImage, RecipeAddMultipleRecipesFromMarkor, VlcCreateTwoPlaylists
 
-**Root Cause**: Agent struggles with repetitive multi-item workflows. RecipeAddMultipleRecipesFromMarkor self-terminated after 1/3 recipes citing a hallucinated "loop warning" with 28 turns remaining. RecipeAddMultipleRecipesFromImage got trapped in a detail view after saving recipe 1 and couldn't find the "add new" path. VlcCreateTwoPlaylists used an inefficient one-at-a-time file-add approach instead of the multi-select strategy that worked in VlcCreatePlaylist.
+**Root Cause**: Agent struggles with repetitive multi-item workflows due to loop detection false positives. RecipeAddMultipleRecipesFromMarkor self-terminated after 1/3 recipes at turn 22/50 — the system injected a tool dominance warning ("mobile_action used 7 times without progress") and the agent obeyed system prompt rule 6 ("after loop warning, pivot immediately"). This was initially misdiagnosed as a "hallucinated loop warning" but was a real system-injected advisory. RecipeAddMultipleRecipesFromImage got trapped in a detail view after saving recipe 1 (27 tool dominance warnings accumulated). VlcCreateTwoPlaylists used an inefficient one-at-a-time file-add approach instead of the multi-select strategy that worked in VlcCreatePlaylist (17 warnings). See `loop_detection_redesign_claude.md` for full analysis.
 
 **Proposed Fix**:
-- Add multi-item workflow guidance: "When adding N items, use the same proven add→save→back→add flow each time. Never try to create a new item from an edit/detail view."
-- Address phantom loop detection: the agent fabricated a loop warning to justify quitting early. Either (a) the system prompt should clarify what constitutes a real loop (3+ identical actions with no screen change), or (b) examine whether the system prompt's repetition guardrail text is being misinterpreted
-- For VLC specifically: the Video tab multi-select approach that worked for 2 files should be the default strategy for any playlist creation
+- Primary: delete loop detection WARNING advisories — see `loop_detection_redesign_claude.md`
+- Secondary: after loop detection fix, re-evaluate whether multi-item guidance is still needed
 
 ---
 
@@ -75,17 +74,24 @@
 ## Next Steps
 
 ### Must Fix
-1. **Tasks app completion guardrail**: Strengthen the Tasks app skill with scroll-before-answer and date-reasoning instructions. Also add a generic "verify before answer" prompt for information-retrieval tasks.
-   - Targets: TasksDueNextWeek, TasksIncompleteTasksOnDate, TasksCompletedTasksForDate
-   - Implementation: `assets/app_skills/tasks.md` + possibly `CompleteTaskTool` description
+1. **Loop detection redesign**: Delete all WARNING-level advisory warnings (tool dominance, scroll spam, action repetition, cycle detection). Keep only stable-screen factual warning (similarity 0.95, 5 turns) and final-turn warning. Rewrite system prompt rule 6 to remove "loop warning" reference. See full design: `loop_detection_redesign_claude.md`.
+   - Targets: RecipeAddMultipleRecipesFromMarkor, RecipeAddMultipleRecipesFromImage, VlcCreateTwoPlaylists
+   - Implementation: `LoopDetectionPolicy.kt`, `AgentTurnRunner.kt`, `NavigationState.kt`, `TurnToolPolicy.kt`, `StandaloneAgentDef.kt`
+   - Owner layer: infra + core prompt
 
 ### Should Fix
-2. **Multi-item workflow resilience**: Add guidance for repetitive add-N-items workflows (consistent add→save→back→add pattern, turn budget awareness, no premature self-termination). Clarify what constitutes a real loop vs. normal repetitive work.
-   - Targets: RecipeAddMultipleRecipesFromImage, RecipeAddMultipleRecipesFromMarkor, VlcCreateTwoPlaylists
-   - Implementation: System prompt or agent policy
-3. **OpenTracks drill-down tip**: Add app skill tip that activity type requires detail-screen inspection.
+2. **Tasks app skill (restore lost date-label tip)**: The R4 date-label tip was in the monolithic system prompt but dropped during the prompt refactor — Tasks app never got its own `SKILL.md`. Create `app_skills/org.tasks/SKILL.md` with: (a) date-label mapping guidance (relative labels like Today/Tmrw/Wed → use device date to resolve), (b) "scroll if you need more information beyond the current viewport" for list queries.
+   - Targets: TasksDueNextWeek, TasksIncompleteTasksOnDate, TasksCompletedTasksForDate
+   - Implementation: `app/src/main/assets/app_skills/org.tasks/SKILL.md`
+   - Owner layer: app skill: org.tasks
+3. **OpenTracks activity type tip**: Already present in `de.dennisguse.opentracks/SKILL.md` — verify it's sufficient. If the agent still guesses from titles, strengthen the wording.
    - Targets: SportsTrackerActivitiesCountForWeek
-   - Implementation: `assets/app_skills/opentracks.md`
+   - Implementation: `app/src/main/assets/app_skills/de.dennisguse.opentracks/SKILL.md`
+   - Owner layer: app skill: de.dennisguse.opentracks
+
+### Housekeeping
+4. **Update `/prompt-tune` skill**: After loop detection redesign, update the skill to cover system warnings as a prompt layer. System-injected warnings (stable screen, final turn) are part of the LLM's input and follow the same ownership/facts-not-opinions principles. Reflect the new SOTA: warnings state facts only, no strategy suggestions.
+   - Implementation: `.claude/skills/prompt-tune/SKILL.md`
 
 ### Accept as Capability Gap
-- None new. All 7 failures are addressable with prompt/skill improvements.
+- None new. All 7 failures are addressable with infra/prompt/skill improvements.
