@@ -1,5 +1,7 @@
 # VD Action Priority Design
 
+> **Status: Not proceeding.** Experiment (`doc/main/infra/tool/click_transport_experiment.md`) showed Shizuku `injectInputEvent` false-succeeds on Files RecyclerView (0/3), invalidating the core premise that VD tap is more reliable than node click. Current priority `node_click → gesture_tap` confirmed correct for both A11Y and VD modes.
+
 ## Problem
 
 The current `ActionPriorityOrder` is a static, platform-agnostic config:

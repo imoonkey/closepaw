@@ -280,15 +280,20 @@ As of 2026-03-06, the Files `task.html` row open regression was traced to two se
 
 **2. UiChangeDetector false positive** — `ACTION_CLICK` on RecyclerView items triggers `isFocused` state change without actually opening the file. The detector incorrectly reported "Changed". Fixed (`5ee310a`) by excluding `isFocused` from the fingerprint and extending the verify window to 1800ms.
 
-**3. Remaining platform limitation** — `gesture_tap` (via `AccessibilityService.dispatchGesture()`) is a false success on Files RecyclerView items: accepted by the framework but produces no UI change. `node_action_click` (via `performAction(ACTION_CLICK)`) works but may require the app/RecyclerView to be "warm". VD's `injectInputEvent` (Shizuku/InputManager) works like real touch and is not affected.
+**3. Remaining platform limitation** — `gesture_tap` (via `AccessibilityService.dispatchGesture()`) is a false success on Files RecyclerView items: accepted by the framework but produces no UI change. `node_action_click` (via `performAction(ACTION_CLICK)`) is the only reliable channel for this surface, working in both A11Y and VD modes.
 
-Device validation (action-test.sh):
+Transport reliability on Files RecyclerView (API 34 emulator, `edb4acd`):
 
-| Path | action_accepted | ui_changed |
-|------|----------------|------------|
-| L1 node action (ACTION_CLICK) | success | **changed** |
-| L1 gesture tap (dispatchGesture) | success | **unchanged** (false success) |
-| L0 adb (input tap, warm) | n/a | changed |
+| Transport | Display 0 | VD Secondary Display |
+|-----------|-----------|---------------------|
+| `node_action_click` | ✅ 8/8 | ✅ (via a11y, display-agnostic) |
+| `adb shell input tap` | ✅ | ❌ (secondary display routing) |
+| `dispatchGesture` | ❌ false success | N/A |
+| Shizuku `injectInputEvent` | ❌ false success* | ❌* |
+
+\*Shizuku results may reflect test setup issues (ad-hoc initialization outside normal VD lifecycle) rather than a transport-level limitation. On most other app surfaces, all four transports work correctly. This is scoped to Files RecyclerView.
+
+-> Full experiment with setup details and raw data: `doc/main/infra/tool/click_transport_experiment.md`
 
 ## Why this documentation matters
 
