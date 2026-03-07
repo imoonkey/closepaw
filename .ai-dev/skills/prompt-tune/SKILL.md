@@ -37,6 +37,7 @@ For each proposed fix from the diagnosis, determine ownership:
 | Cross-tool behavioral policy | Core prompt | `agent/definition/StandaloneAgentDef.kt` |
 | Tool-local mechanics/parameters | Tool description | `tool/impl/<ToolName>Tool.kt` |
 | App-specific workflow/pitfall | App skill | `assets/app_skills/<package>/SKILL.md` |
+| System-injected warning text | Infra | `agent/cognition/policy/LoopDetectionPolicy.kt`, `ExecutorStepPolicy.kt` |
 | None of the above | Remove | Do not add anywhere |
 
 Use the decision tree in `references/ownership_model.md` when ownership is ambiguous.
@@ -119,6 +120,7 @@ Find all with: `ls app/src/main/assets/app_skills/`
 ### Context management
 - Keep system prompt stable; move task-specific detail into user context (app skills) or artifacts.
 - Trim redundant history; summarize and point to artifacts for evidence.
+- **System-injected warnings** (stable screen, final turn) are part of the LLM's input. They must state facts only ("Screen has not changed for 5 turns"), never opinions or strategy suggestions ("Try a different approach"). The LLM is the reasoning engine — give it facts and let it decide.
 
 ### Sources
 - [Anthropic prompt engineering overview](https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview)

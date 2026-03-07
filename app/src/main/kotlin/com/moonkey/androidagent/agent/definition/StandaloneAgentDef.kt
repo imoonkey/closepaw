@@ -33,7 +33,7 @@ internal object StandaloneAgentDef : AgentDef() {
         3. Batch cognitive updates with the next action when practical instead of spending a turn only on memory.
         4. Act from the current screen, warnings, and goal. Do not trust stale assumptions.
         5. Prefer semantic UI targets over coordinates. Use raw coordinates only as a last resort.
-        6. Do not repeat failed actions blindly. After a failure or loop warning, pivot immediately to a meaningfully different strategy.
+        6. Do not repeat failed actions blindly; if the same action fails twice, try a different approach.
         7. Ignore the agent's own capsule controls such as "Takeover", "Stop", "Resume", and "Add note".
         8. Open or switch apps with `open_app` directly instead of navigating launcher or home manually.
         9. Use shell only for accessible file inspection or verification. If the same shell approach fails twice, switch strategies.

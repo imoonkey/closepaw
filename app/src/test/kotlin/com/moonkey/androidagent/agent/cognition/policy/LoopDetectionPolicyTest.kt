@@ -12,193 +12,37 @@ import org.junit.Test
 class LoopDetectionPolicyTest {
 
     @Test
-    fun `detect flags repeated screen signatures`() {
-        val policy = LoopDetectionPolicy()
-        var state = NavigationState()
-
-        repeat(3) {
-            state = state.advance(snapshot(label = "Inbox"), previousAction = null)
-        }
-
-        val result = policy.detect(state)
-
-        assertThat(result.warning).isNotNull()
-        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.CRITICAL)
-        assertThat(result.escalation).isEqualTo(EscalationLevel.ADVISORY)
-    }
-
-    @Test
-    fun `detect flags excessive scrolling`() {
+    fun `detect returns no warning when screens differ`() {
         val policy = LoopDetectionPolicy()
         var state = NavigationState()
 
         repeat(5) { index ->
-            state = state.advance(snapshot(label = "Inbox-$index"), previousAction = "scroll:up")
+            state = state.advance(snapshot(label = "Screen-$index"), previousAction = null)
         }
-
-        val result = policy.detect(state)
-
-        assertThat(result.warning).isNotNull()
-        assertThat(result.warning?.message).contains("consecutive scroll")
-    }
-
-    @Test
-    fun `detect flags repeated identical action`() {
-        val policy =
-            LoopDetectionPolicy(
-                LoopDetectionConfig(
-                    repeatedScreenWindow = 4
-                )
-            )
-        var state = NavigationState()
-
-        repeat(3) { index ->
-            state = state.advance(snapshot(label = "Screen-$index"), previousAction = "mobile_action:click")
-        }
-
-        val result = policy.detect(state)
-
-        assertThat(result.warning).isNotNull()
-        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.WARNING)
-        assertThat(result.warning?.message).contains("Same action repeated")
-    }
-
-    @Test
-    fun `detect treats near-identical screens as repeated`() {
-        val policy =
-            LoopDetectionPolicy(
-                LoopDetectionConfig(
-                    similarityThreshold = 0.80
-                )
-            )
-        var state = NavigationState()
-
-        state = state.advance(snapshot(label = "Inbox"), previousAction = null)
-        state = state.advance(snapshot(label = "Inbox "), previousAction = null)
-        state = state.advance(snapshot(label = "Inbox  "), previousAction = null)
-
-        val result = policy.detect(state)
-
-        assertThat(result.warning).isNotNull()
-        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.CRITICAL)
-    }
-
-    @Test
-    fun `escalation reaches BLOCK after consecutiveLoopTurns threshold`() {
-        val policy = LoopDetectionPolicy(
-            LoopDetectionConfig(blockEscalationThreshold = 2)
-        )
-        var state = NavigationState()
-
-        // Build up 3 identical screens to trigger CRITICAL warning
-        repeat(3) {
-            state = state.advance(snapshot(label = "Stuck"), previousAction = null)
-        }
-        // Simulate that 1 consecutive CRITICAL loop turn has already occurred.
-        // Current turn should be the second and trigger BLOCK.
-        state = state.copy(consecutiveLoopTurns = 1)
-
-        val result = policy.detect(state)
-
-        assertThat(result.warning).isNotNull()
-        assertThat(result.escalation).isEqualTo(EscalationLevel.BLOCK)
-    }
-
-    @Test
-    fun `escalation reaches FORCE_COMPLETE after high consecutiveLoopTurns`() {
-        val policy = LoopDetectionPolicy(
-            LoopDetectionConfig(forceCompleteEscalationThreshold = 5)
-        )
-        var state = NavigationState()
-
-        repeat(3) {
-            state = state.advance(snapshot(label = "Stuck"), previousAction = null)
-        }
-        // Current turn is included in escalation computation.
-        state = state.copy(consecutiveLoopTurns = 4)
-
-        val result = policy.detect(state)
-
-        assertThat(result.warning).isNotNull()
-        assertThat(result.escalation).isEqualTo(EscalationLevel.FORCE_COMPLETE)
-    }
-
-    @Test
-    fun `no escalation when no warning detected`() {
-        val policy = LoopDetectionPolicy()
-        val state = NavigationState()
 
         val result = policy.detect(state)
 
         assertThat(result.warning).isNull()
-        assertThat(result.escalation).isEqualTo(EscalationLevel.NONE)
     }
 
     @Test
-    fun `first critical turn remains advisory before block threshold`() {
-        val policy = LoopDetectionPolicy(
-            LoopDetectionConfig(blockEscalationThreshold = 2)
-        )
+    fun `detect warns when screen unchanged for 5 turns`() {
+        val policy = LoopDetectionPolicy()
         var state = NavigationState()
-        repeat(3) {
+
+        repeat(5) {
             state = state.advance(snapshot(label = "Stuck"), previousAction = null)
         }
-        state = state.copy(consecutiveLoopTurns = 0)
-
-        val result = policy.detect(state)
-
-        assertThat(result.warning).isNotNull()
-        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.CRITICAL)
-        assertThat(result.escalation).isEqualTo(EscalationLevel.ADVISORY)
-    }
-
-    @Test
-    fun `warning severity does not escalate even with high prior loop turns`() {
-        val policy = LoopDetectionPolicy(
-            LoopDetectionConfig(
-                cycleMinOccurrences = 99,
-                repeatedScreenWindow = 99,
-                repeatedActionWindow = 3
-            )
-        )
-        var state = NavigationState()
-        repeat(3) { index ->
-            state = state.advance(
-                snapshot = snapshot(label = "Screen-$index"),
-                previousAction = "mobile_action:click"
-            )
-        }
-        state = state.copy(consecutiveLoopTurns = 10)
 
         val result = policy.detect(state)
 
         assertThat(result.warning).isNotNull()
         assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.WARNING)
-        assertThat(result.escalation).isEqualTo(EscalationLevel.ADVISORY)
+        assertThat(result.warning?.message).contains("not changed for 5 turns")
     }
 
     @Test
-    fun `cycle detection downgrades to WARNING when content changes between visits`() {
-        // cycleMinOccurrences=3 needs 3 screens matching at Jaccard >= 0.75.
-        // With N shared tokens + 1 varying: Jaccard = N/(N+2). Need N>=6 for >= 0.75.
-        val policy = LoopDetectionPolicy(LoopDetectionConfig(toolRepetitionThreshold = 99))
-        var state = NavigationState()
-
-        // 3 screens with 7 shared elements + 1 varying → Jaccard = 7/9 ≈ 0.78 ≥ 0.75
-        state = state.advance(snapshotWithProgress(7, "Item A"), previousAction = null)
-        state = state.advance(snapshotWithProgress(7, "Item B"), previousAction = "mobile_action:click")
-        state = state.advance(snapshotWithProgress(7, "Item C"), previousAction = "mobile_action:click")
-
-        val result = policy.detect(state)
-
-        // Cycle fires (3 matches at >= 0.75) but progress gate detects content change → WARNING
-        assertThat(result.warning).isNotNull()
-        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.WARNING)
-        assertThat(result.escalation).isEqualTo(EscalationLevel.ADVISORY)
-    }
-
-    @Test
-    fun `cycle detection stays CRITICAL when same screen repeats with no content change`() {
+    fun `detect requires full window before warning`() {
         val policy = LoopDetectionPolicy()
         var state = NavigationState()
 
@@ -208,53 +52,84 @@ class LoopDetectionPolicyTest {
 
         val result = policy.detect(state)
 
-        assertThat(result.warning).isNotNull()
-        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.CRITICAL)
+        assertThat(result.warning).isNull()
     }
 
     @Test
-    fun `cycle detection downgrades with progress even at high consecutive loop turns`() {
-        val policy = LoopDetectionPolicy(LoopDetectionConfig(
-            cycleMinOccurrences = 3,
-            toolRepetitionThreshold = 99
-        ))
+    fun `detect does not warn when screens are similar but below threshold`() {
+        // Default threshold is 0.95 — screens with minor differences should not trigger
+        val policy = LoopDetectionPolicy()
         var state = NavigationState()
 
-        // 3 screens with same layout but different content
-        state = state.advance(snapshotWithProgress(7, "Item A"), previousAction = null)
-        state = state.advance(snapshotWithProgress(7, "Item B"), previousAction = "mobile_action:click")
-        state = state.advance(snapshotWithProgress(7, "Item C"), previousAction = "mobile_action:click")
-        state = state.copy(consecutiveLoopTurns = 10)
+        repeat(5) { index ->
+            // Each screen has the same layout element but different varying content
+            state = state.advance(snapshotWithProgress(3, "Item $index"), previousAction = null)
+        }
+
+        val result = policy.detect(state)
+
+        // Jaccard = 3/(3+2) = 0.6 < 0.95, so no warning
+        assertThat(result.warning).isNull()
+    }
+
+    @Test
+    fun `detect warns with near-identical screens above 0_95 threshold`() {
+        val policy = LoopDetectionPolicy()
+        var state = NavigationState()
+
+        // Use many shared elements so Jaccard is very high even with 1 varying element
+        // 20 shared + 1 varying → Jaccard = 20/22 ≈ 0.91, still under 0.95
+        // Need ~40 shared: 40/42 ≈ 0.952 >= 0.95
+        // But simpler: use identical screens
+        repeat(5) {
+            state = state.advance(snapshot(label = "Identical"), previousAction = "mobile_action:click")
+        }
 
         val result = policy.detect(state)
 
         assertThat(result.warning).isNotNull()
         assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.WARNING)
-        // Even with high consecutiveLoopTurns, WARNING stays ADVISORY
-        assertThat(result.escalation).isEqualTo(EscalationLevel.ADVISORY)
     }
 
     @Test
-    fun `stable screen downgrades to WARNING when content changes`() {
-        // isStable needs pairwise Jaccard >= 0.85 across window.
-        // With N shared tokens + 1 varying: Jaccard = N/(N+2). Need N>=12 for >= 0.85.
-        val policy = LoopDetectionPolicy(LoopDetectionConfig(
-            repeatedScreenWindow = 3,
-            cycleMinOccurrences = 99,  // suppress cycle check
-            toolRepetitionThreshold = 99
-        ))
-        var state = NavigationState()
-
-        state = state.advance(snapshotWithProgress(13, "Detail A"), previousAction = null)
-        state = state.advance(snapshotWithProgress(13, "Detail B"), previousAction = "mobile_action:click")
-        state = state.advance(snapshotWithProgress(13, "Detail C"), previousAction = "mobile_action:click")
+    fun `no warning on empty state`() {
+        val policy = LoopDetectionPolicy()
+        val state = NavigationState()
 
         val result = policy.detect(state)
 
-        // isStable fires (pairwise sim >= 0.85) but progress gate detects content change → WARNING
-        assertThat(result.warning).isNotNull()
-        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.WARNING)
-        assertThat(result.escalation).isEqualTo(EscalationLevel.ADVISORY)
+        assertThat(result.warning).isNull()
+    }
+
+    @Test
+    fun `consecutive scroll actions do not trigger warning`() {
+        // Scroll spam check was removed — only stable screen matters
+        val policy = LoopDetectionPolicy()
+        var state = NavigationState()
+
+        repeat(5) { index ->
+            state = state.advance(snapshot(label = "Screen-$index"), previousAction = "scroll:up")
+        }
+
+        val result = policy.detect(state)
+
+        // Screens differ, so no warning even with 5 consecutive scrolls
+        assertThat(result.warning).isNull()
+    }
+
+    @Test
+    fun `repeated identical actions do not trigger warning if screens differ`() {
+        // Action repetition check was removed
+        val policy = LoopDetectionPolicy()
+        var state = NavigationState()
+
+        repeat(5) { index ->
+            state = state.advance(snapshot(label = "Screen-$index"), previousAction = "mobile_action:click")
+        }
+
+        val result = policy.detect(state)
+
+        assertThat(result.warning).isNull()
     }
 
     private fun snapshot(label: String): ScreenSnapshot {
@@ -284,7 +159,6 @@ class LoopDetectionPolicyTest {
     /**
      * Snapshot with [sharedCount] stable elements + 1 varying element.
      * Jaccard between two snapshots = sharedCount / (sharedCount + 2).
-     * Need sharedCount >= 6 for cycle (>= 0.75), sharedCount >= 12 for isStable (>= 0.85).
      */
     private fun snapshotWithProgress(sharedCount: Int, varyingLabel: String): ScreenSnapshot {
         val sharedElements = (0 until sharedCount).map { i ->

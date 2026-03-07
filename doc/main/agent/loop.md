@@ -136,13 +136,10 @@ Defines runtime control/result types:
 → See: `agent/cognition/`
 
 - **Prompt layer**: `PromptBuilder` assembles History → Working Memory → Current Observation input items
-- **Context layer**: `NavigationState` tracks recent screen signatures and actions for loop detection. Maintains a sliding window of `MAX_ACTION_HISTORY = 8` recent actions. Also tracks `consecutiveLoopTurns` and `blockedActions` for loop escalation.
-- **Policy layer**: `TurnToolPolicy` arbitrates tool calls — keeps cognitive tools, at most one screen-changing tool, defers `complete_task` when action tools exist. Can block specific action signatures during loop escalation.
-- **Loop guard**: `LoopDetectionPolicy` returns `LoopDetectionResult` with both warning and escalation level. Three tiers of intervention:
-  - **Tier 1 (ADVISORY)**: warning text injected into LLM prompt
-  - **Tier 2 (BLOCK)**: after 2 consecutive CRITICAL loop turns, block repeated action signatures + strategy-change directive
-  - **Tier 3 (FORCE_COMPLETE)**: after 5 consecutive loop turns, force `complete_task(status=failure)`
-- **Action signatures**: `ActionSignature.classifyActionSignature()` produces stable signatures (e.g., `mobile_action:click:idx=12`, `open_app:markor`) for loop detection and action blocking
+- **Context layer**: `NavigationState` tracks recent screen signatures and actions for loop detection. Maintains a sliding window of `MAX_ACTION_HISTORY = 8` recent actions.
+- **Policy layer**: `TurnToolPolicy` arbitrates tool calls — keeps cognitive tools, at most one screen-changing tool, defers `complete_task` when action tools exist.
+- **Loop guard**: `LoopDetectionPolicy` detects stable screens (near-identical for 5 consecutive turns at Jaccard >= 0.95) and emits a factual warning. No strategy suggestions — the LLM decides what to do. Turn limit is the only hard stop mechanism.
+- **Action signatures**: `ActionSignature.classifyActionSignature()` produces stable signatures (e.g., `mobile_action:click:idx=12`, `open_app:markor`) for loop detection
 - **Step guard**: `ExecutorStepPolicy` contributes final-turn warning text when limit is reached, produces narrative summary of attempts
 
 ---

@@ -44,8 +44,7 @@ internal class TurnPlanningPhaseRunner(
                 turnNumber: Int,
                 snapshot: ScreenSnapshot,
                 currentPackageName: String?,
-                warnings: List<String>,
-                blockedActions: Set<String> = emptySet()
+                warnings: List<String>
         ): PlanningPhaseOutput {
                 eventDispatcher.turnPhaseChanged(turnId, TurnPhase.PLANNING)
                 eventDispatcher.status("🧠 Thinking...")
@@ -142,7 +141,7 @@ internal class TurnPlanningPhaseRunner(
                         )
                 }
 
-                val arbitration = turnPolicyEngine.arbitrateToolCalls(result.toolCalls, blockedActions)
+                val arbitration = turnPolicyEngine.arbitrateToolCalls(result.toolCalls)
                 trace.arbitrationDecision(
                         turnId = turnId,
                         turnNumber = turnNumber,
