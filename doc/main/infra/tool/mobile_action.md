@@ -177,10 +177,8 @@ For `click` and `long_press`, the pipeline is:
 4. Dispatch the first channel.
 5. Capture post-action screen state after settle delay (300ms).
 6. If unchanged, retry at +500ms; if still unchanged, final retry at +1000ms (1800ms total budget).
-7. If still unchanged:
-   - treat that channel as a no-op
-   - continue to fallback
-8. If all channels are no-op or fail, return failure.
+7. If still unchanged: return success with `verified=false` and warning. No fallback to next channel.
+8. If the channel dispatch itself fails (not accepted), try the next channel.
 
 This is the critical current behavior: dispatch acceptance alone is not enough for success.
 
@@ -203,15 +201,9 @@ This is the strongest action success:
 
 ### Accepted but unchanged
 
-For point actions and scroll, this is now treated as channel failure, not final success.
+For point actions, this is now treated as unverified success — the action returns `Success` with `verified=false` and a warning message. The LLM sees the warning and can decide whether to retry.
 
-The old failure mode was:
-
-- `ACTION_CLICK=true`
-- tool reports success
-- UI did nothing
-
-The current runtime instead falls through to the next channel, and if every channel is unchanged it returns failure.
+Previous behavior (before `2042beb`) treated `Unchanged` as channel failure and fell through to the next channel. This caused double-click bugs when the click actually succeeded but screen content happened to stay the same (e.g. a random number repeating).
 
 ### Unverifiable
 
@@ -297,7 +289,7 @@ Transport reliability on Files RecyclerView (API 34 emulator, `edb4acd`):
 
 **4. First-click-after-launch failure** — Reproduced in BrowserMultiply eval (A11Y: `20260306_230038` T2, VD: `20260306_232810` T2-T3). `node_action_click` on `task.html` returns `true` but UI does not change, even after 1800ms verify window. After other interactions on the same Files screen (e.g. `long_press` → context menu → dismiss), the same `node_action_click` succeeds. Both A11Y and VD modes show identical behavior. Root cause unknown — the a11y tree is identical before and after the failed click.
 
-**5. Unchanged-fallback double-click** — When `UiChangeDetector` sees `Unchanged` after `node_action_click`, the executor falls through to `gesture_tap` as a "retry". If the click actually succeeded but the screen content happened to stay the same (e.g. a button that shows a random number and the same number appears twice), this causes a spurious second click. Observed in BrowserMultiply A11Y run T16: 4th button click produced the same number → detector saw `Unchanged` → fell back to `gesture_tap` → extra click overwrote the 5th number. Planned fix: treat `Unchanged` as a warning in the success message, not as a channel failure that triggers fallback.
+**5. Unchanged-fallback double-click** — Fixed in `2042beb`. Previously, when `UiChangeDetector` saw `Unchanged` after `node_action_click`, the executor fell through to `gesture_tap` as a "retry". If the click actually succeeded but the screen content happened to stay the same (e.g. a button that shows a random number and the same number appears twice), this caused a spurious second click. Observed in BrowserMultiply A11Y run T16: 4th button click produced the same number → detector saw `Unchanged` → fell back to `gesture_tap` → extra click overwrote the 5th number. Fix: `Unchanged` now returns `Success` with `verified=false` and a warning — the LLM decides whether to retry, no automatic fallback.
 
 ## Why this documentation matters
 

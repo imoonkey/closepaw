@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-03-07: Fix Unchanged-Fallback Double-Click (`2042beb`)
+
+**What changed:**
+- `PointActionExecutorCore.buildPointActionOutcome()` no longer treats `Unchanged` as channel failure. Returns `ActionOutcome.Success` with `verified=false` and warning instead.
+- No automatic fallback to next channel (e.g. `gesture_tap`) when `node_action_click` succeeds but screen content stays the same.
+- Updated `mobile_action.md` pipeline docs and "Accepted but unchanged" semantics.
+
+**Why:**
+- When a click succeeds but the screen content happens to stay the same (e.g. random number repeats), the old logic fell through to `gesture_tap` causing a spurious second click. Observed in BrowserMultiply A11Y T16: 4th button click repeated the same number → extra click overwrote the 5th number.
+
+**Key files:** `PointActionExecutorCore.kt`, `ClickExecutorTest.kt`, `doc/main/infra/tool/mobile_action.md`
+
 ## 2026-03-06: Provider Base URL Override (Local Proxy Support)
 
 **What changed:**
