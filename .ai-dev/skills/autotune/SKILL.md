@@ -22,6 +22,7 @@ Automated fix → eval → analyze loop. Each invocation does one full iteration
 
 Apply changes from the previous round's approved `## Next Steps`.
 
+- For prompt, tool description, or app skill changes, use `/prompt-tune` to determine the correct ownership layer before editing.
 - **Follow the full `sop/code_work.md` process** (design/plan → phased implementation with /tdd /coding-standards, /code-review → /cog-tune quick debug → code simplification → /update-docs). Do NOT skip any steps in the SOP.
 - Commit: `feat(agent): autotune round N — <summary>`.
 - Round 0: skip this step.

@@ -62,6 +62,7 @@ Mandatory sections are marked with **(required)**. Others: include when they add
 1. **<Fix name>**: Brief description
    - Targets: TaskA, TaskB
    - Implementation: [code path / prompt section / config change]
+   - Owner layer: [core prompt | tool desc: <tool> | app skill: <package> | infra]  <!-- use /prompt-tune ownership model -->
 
 ### Should Fix
 2. **<Fix name>**: Brief description

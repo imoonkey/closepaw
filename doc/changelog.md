@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-07: Add `/prompt-tune` Skill
+
+**What changed:**
+- New skill at `.claude/skills/prompt-tune/` with `SKILL.md` and `references/ownership_model.md`.
+- Encodes the three-layer ownership model from the Round 4 prompt refactor design: core system prompt → tool descriptions → app skills.
+- Provides a 5-step workflow: classify ownership → read target → apply change → anti-pattern check → validate.
+- Includes a decision tree for ownership classification and an anti-pattern table.
+- Absorbed `llm_best_practices.md` content (was a dead reference under cog-tune).
+- Updated `/cog-tune` SKILL.md: replaced "External best practices" section with "Related skills" pointing to `/prompt-tune`.
+
+**Why:**
+- Separates diagnosis (`/cog-tune`) from treatment (`/prompt-tune`). Cog-tune analyzes traces and classifies root causes; prompt-tune applies the actual prompt/tool-desc/app-skill changes with ownership guardrails.
+
+**Key files:** `.claude/skills/prompt-tune/SKILL.md`, `.claude/skills/prompt-tune/references/ownership_model.md`, `.claude/skills/cog-tune/SKILL.md`
+
 ## 2026-03-07: Fix Unchanged-Fallback Double-Click (`2042beb`)
 
 **What changed:**

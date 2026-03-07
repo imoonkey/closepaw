@@ -173,6 +173,6 @@ Use `rg` to locate prompt or tool definition text before edits.
 - Eval summarizer: `eval/analysis/summarize.py`
 - Eval run comparator: `eval/analysis/compare_runs.py`
 
-## External best practices
+## Related skills
 
-See `references/llm_best_practices.md` for prompt/tool/multi-agent guidance and sources.
+- `/prompt-tune` — Apply prompt, tool description, and app skill changes based on this skill's diagnosis. Enforces the three-layer ownership model. Use after analysis is complete.
