@@ -1,5 +1,15 @@
 # MarkorAddNoteHeader
 
+## R9 (GPT-5.4, 20260307, full baseline) — FAIL
+- Score: 0.0 | Turns: 16 | ActionFailure — GPT-5.4 correctly sent \n\n but action layer swallowed double newline. Different from R2/R3 fix.
+
+## AT-R8 (20260307_061407) — FAIL (gpt-5.4)
+- Score: 0.0
+- Turns: 16/30
+- ActionFailure + FalseCompletion: GPT-5.4 correctly sends `\n\n` (unlike R2), but `ACTION_SET_TEXT` collapses `\n\n` to `\n` in Markor's EditText. Agent retried at turn 14 with same result, then declared success. **Different failure mode from R2** — not a reasoning error but an action layer bug. R3 blank-line tip absent from prompt but irrelevant since model already uses `\n\n`.
+- Key finding: `NodeActionPerformer.setTextOnNode()` post-action verification uses `contains()` which misses newline normalization. Needs exact-match or newline-aware check.
+- See `round_9/20260307_050909/per_task/MarkorAddNoteHeader_claude.md` for details.
+
 ## AT-R3 (20260304_152742) - PASS (codex)
 - Score: 1.0
 - Turns: 27/30

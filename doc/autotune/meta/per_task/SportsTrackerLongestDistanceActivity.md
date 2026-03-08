@@ -1,5 +1,8 @@
 # SportsTrackerLongestDistanceActivity
 
+## R9 (GPT-5.4, 20260307, full baseline) — FAIL
+- Score: 0.0 | Turns: 30 | TurnExhaustion — checked 4/7 tracks, didn't reach mountain biking one. Same pattern as R4.
+
 ## R4 (AT-R4, run 20260305_151648)
 - **Score**: 1.0 | **Turns**: 30/30 | **Agent**: qwen3.5
 - **Behavior**: Success (fragile). Same as R3 -- still at turn limit. Agent checked 4 of 7 tracks.

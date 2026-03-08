@@ -2,6 +2,27 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 9 (2026-03-07, runs 050909–080143, GPT-5.4, full baseline eval-only)
+- **Key changes**: none (eval-only round, no code changes since R8)
+- **Task selection rationale**: Full eval across all 116 tasks (groups 0-5) — first comprehensive GPT-5.4 baseline with R8 code changes
+- **Tasks run**: 116
+- **Config**: `eval/config/gpt54_never_succeeded.yaml`, model GPT-5.4, serial single-device, snapshot_policy best_effort
+- **Result**: 77.5/116 (66.8%)
+- **Score breakdown**: G0=12/14 (86%), G1=14/20 (70%), G2=15/20 (75%), G3=15.5/20 (78%), G4=10/20 (50%), G5=11/22 (50%)
+- **Net new passes**: 65 tasks passing on first GPT-5.4 full eval
+- **Regressions**: VlcCreateTwoPlaylists 0.5→0.0 (VLC skill NOT injected), RetroSavePlaylist regression from R2 (GPT-5.4 gets stuck in empty playlist view)
+- **Key findings**:
+  - **App skill injection still broken (CRITICAL)**: Tasks skill injected in 1/6 runs. VLC skill never injected. Same root cause as R8 — package name timing.
+  - **FalseCompletion dominant failure mode (47%)**: ~18 tasks. Name-based guessing, incomplete scans, no post-verification.
+  - **Calendar date picker navigation (HIGH)**: 7 tasks affected — can't reliably navigate to specific dates or resolve relative times.
+  - **Action layer newline bug**: MarkorAddNoteHeader — `\n\n` swallowed by ACTION_SET_TEXT. Different from R3 reasoning fix; this is an action layer bug in NodeActionPerformer.
+  - **Cross-app destination binding**: ExpenseAddMultipleFromMarkor created file in Markor instead of opening Pro Expense.
+  - **Retro Music song addition flow**: RetroSavePlaylist stuck in empty playlist view. Working pattern (Songs → find → long-press → Add to playlist) not followed.
+  - **SportsTracker per-item inspection cost**: 4-5 turns per track × 7 tracks exhausts 30-turn budget.
+  - **A11y tree timestamp/property gaps**: MarkorDeleteNewestNote had swapped modification times in a11y vs screenshot.
+- **Moved to cannot_handle**: none
+- **Failure distribution**: FalseCompletion 47%, ReasoningError 18%, TurnExhaustion 13%, ActionFailure 10%, cannot_handle 8%, PerceptionGap 4%
+
 ## Autotune Round 8 (2026-03-07, runs 050909–080143, GPT-5.4, multi-action + app skills)
 - **Key changes** (de28c00):
   - Multi-action per turn (Minitap-style): TurnToolPolicy allows all screen-changing tools (was: first only). TurnExecutionPhaseRunner has abort-on-first-failure. System prompt rule 2 rewritten with navigation isolation rule.

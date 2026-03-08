@@ -1,5 +1,8 @@
 # RetroSavePlaylist
 
+## R9 (GPT-5.4, 20260307, full baseline) — FAIL
+- Score: 0.0 | Turns: 20 | ReasoningError — created playlist but got stuck in empty playlist view, never navigated to Songs to add tracks. Regression from R2.
+
 ## AT-R2 (20260304_033425) — PASS
 - Score: 1.0
 - Turns: 30/30 (MaxTurnsReached but scored 1.0 via device state)
