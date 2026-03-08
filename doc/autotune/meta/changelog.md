@@ -2,6 +2,28 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 8 (2026-03-07, runs 050909–080143, GPT-5.4, multi-action + app skills)
+- **Key changes** (de28c00):
+  - Multi-action per turn (Minitap-style): TurnToolPolicy allows all screen-changing tools (was: first only). TurnExecutionPhaseRunner has abort-on-first-failure. System prompt rule 2 rewritten with navigation isolation rule.
+  - Tasks app skill rewrite: org.tasks/SKILL.md with "don't click checkboxes" + date resolution + reading task state guidance
+  - VLC app skill created: org.videolan.vlc/SKILL.md with multi-select pattern (long-press + tap) + playlist creation
+  - Cog-tune quality upgrade: per_task_analysis_template.md with mandatory turn-by-turn table, perception checks, false-success detection
+  - autotune skill enforces subagent-per-task for analysis
+- **Task selection rationale**: Full eval across all 116 tasks (groups 0-5) — first comprehensive GPT-5.4 baseline
+- **Tasks run**: 116
+- **Config**: `eval/config/gpt54_never_succeeded.yaml`, model GPT-5.4, serial single-device, snapshot_policy best_effort
+- **Result**: 77.5/116 (66.8%)
+- **Score breakdown**: G0=12/14 (86%), G1=14/20 (70%), G2=15/20 (75%), G3=15.5/20 (78%), G4=10/20 (50%), G5=11/22 (50%)
+- **Net new passes**: 65 tasks passing on first GPT-5.4 full eval run
+- **Regressions**: VlcCreateTwoPlaylists 0.5→0.0 (VLC skill NOT injected; 1 playlist w/ 1 file vs R7's 1 playlist w/ 4 files)
+- **Key findings**:
+  - **App skill injection unreliable (CRITICAL)**: Tasks skill injected in 1/6 runs. VLC skill never injected. Package name timing issue in AccessibilityPlatform.getCurrentPackageName() → AgentTurnRunner pipeline.
+  - **Multi-action works mechanically**: RecipeAddMultipleRecipesFromMarkor used 5-action batch turns (50→29 turns). But GPT-5.4 rarely emits multiple tool calls unprompted (3/29 turns batched for Recipe, 0/29 for VLC).
+  - **FalseCompletion epidemic (~18 tasks)**: Dominant failure mode for info-extraction tasks. Agent guesses answers without verifying metadata (priority, sport type, completion status).
+  - **A11y tree missing `checked` property**: Tasks.org checkboxes expose `checked=N/A`. Skill's "read checked property" guidance impossible to follow.
+  - **Model-level improvement**: GPT-5.4 naturally avoids destructive checkbox clicking (R7 qwen3.5 wasted 6/11 turns on it). No prompt needed.
+- **Moved to cannot_handle**: none
+
 ## Autotune Round 7 (2026-03-07, run 20260307_025501, qwen3.5, loop detection redesign)
 - **Key changes** (9e6c9c7):
   - Loop detection redesign: deleted all WARNING-level advisory warnings (tool dominance, scroll spam, action repetition, cycle detection). Kept only stable-screen detection (Jaccard >= 0.95, 5 turns). Removed Tier 2 (BLOCK) and Tier 3 (FORCE_COMPLETE). -445 lines of code.

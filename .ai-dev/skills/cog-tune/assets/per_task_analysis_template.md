@@ -23,7 +23,7 @@ Principle: **compact by default**. Only include optional sections when they add 
 
 ## Turn-by-Turn Analysis
 
-<!-- MANDATORY for failures and turns > 20. For clean passes under 20 turns, may skip. -->
+<!-- MANDATORY for failures and turns > 10. For clean passes under 10 turns, may skip. -->
 <!-- CRITICAL: Do NOT rely solely on tool success/failure status. Compare pre-action and post-action
      screen state for EVERY turn to verify whether the action actually took effect. A click can report
      "success" while the screen remains unchanged (false success). -->

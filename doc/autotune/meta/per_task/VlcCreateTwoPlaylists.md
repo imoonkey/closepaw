@@ -1,5 +1,8 @@
 # VlcCreateTwoPlaylists
 
+## R8 (GPT-5.4, 20260307)
+Score: 0.0 | Turns: 29 | REGRESSION. VLC app skill NOT injected. Created 1 playlist with 1 file (R7: 1 playlist fully). Multi-action not used by model.
+
 ## R7 (run 20260307_025501, qwen3.5)
 - **Score**: 0.5 | **Turns**: 30/30
 - **Behavior**: TurnExhaustion. Correct one-file-at-a-time workflow. Completed playlist 1 perfectly (4/4 files, turns 1-22). Started playlist 2, created it and added 2/4 files (turns 23-30), then hit max turns. One wasted turn (19) from empty LLM response.

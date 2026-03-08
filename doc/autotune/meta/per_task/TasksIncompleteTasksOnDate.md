@@ -1,5 +1,8 @@
 # TasksIncompleteTasksOnDate
 
+## R8 (GPT-5.4, 20260307)
+Score: 0.0 | Turns: 11 | False completion. App skill injection status unclear.
+
 ## R6 (run 20260307_003831, gpt-5.4)
 - **Score**: 0.0 | **Turns**: 2/30
 - **Behavior**: ReasoningError. Listed 8 items without filtering by date cutoff or completion status.

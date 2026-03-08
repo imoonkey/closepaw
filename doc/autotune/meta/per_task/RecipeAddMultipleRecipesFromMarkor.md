@@ -1,5 +1,8 @@
 # RecipeAddMultipleRecipesFromMarkor
 
+## R8 (GPT-5.4, 20260307)
+Score: 0.0 | Turns: 29 | Multi-action batching worked (5-action turns). Turn count dropped 50->29. But reasoning error: overwrote recipe 1 instead of creating recipe 2.
+
 ## R7 (run 20260307_025501, qwen3.5)
 - **Score**: 0.0 | **Turns**: 50/50 | MaxTurnsReached
 - **Behavior**: TurnExhaustion. Completed 2/3 recipes (Thai Peanut Noodle Salad, Garlic Butter Shrimp saved successfully). 3rd recipe (BBQ Chicken Quesadillas) was mid-fill at turn 50 — needed ~5 more turns for ingredients, directions, save.

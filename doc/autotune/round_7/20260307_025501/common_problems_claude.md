@@ -188,7 +188,11 @@ Claude Reply:
 ### Should Fix
 3. **Multi-action per turn (Minitap-style)**: Allow multiple `mobile_action` calls per turn. Keep per-action re-capture + add abort-on-first-failure. Prompt adds navigation isolation rule (click that navigates to new screen must be alone in turn).
    - Targets: RecipeAddMultipleRecipesFromImage, RecipeAddMultipleRecipesFromMarkor, VlcCreateTwoPlaylists
-   - Implementation: `TurnToolPolicy.kt` (remove 1-screen-action cap), `TurnExecutionPhaseRunner.kt` (abort-on-failure), `StandaloneAgentDef.kt` (navigation isolation rule)
+   - Implementation (~15-20 lines code change + test updates):
+     - `TurnToolPolicy.kt` L63: `screenCalls.firstOrNull()` → keep all `screenCalls`. Update KDoc L12.
+     - `TurnExecutionPhaseRunner.kt` L51: add abort-on-failure check in for loop (break if `toolResult is ToolCallResult.Error`).
+     - `StandaloneAgentDef.kt` L32: replace "Prefer at most one screen-affecting action per turn" with navigation isolation rule.
+     - `TurnToolPolicyTest.kt`: update test expectations (no longer drop 2nd screen action).
    - Owner layer: core prompt + infra
    - Risk: element stability — monitor in R8 eval
 

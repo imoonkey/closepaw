@@ -1,5 +1,8 @@
 # SportsTrackerActivitiesCountForWeek
 
+## R8 (GPT-5.4, 20260307)
+Score: 0.0 | Turns: 4 | Much fewer turns (4 vs 30). FalseCompletion persists.
+
 ## R7 (run 20260307_025501, qwen3.5)
 - **Score**: 0.0 | **Turns**: 30/30
 - **Behavior**: TurnExhaustion + FalseCompletion. Agent correctly used edit flow (R6 skill fix landed), checking 5 of 14 tracks via More -> Edit. Found 1 running ("Trying and failing to keep up with John"). But 14 tracks x 4-5 turns/track = 56-70 turns needed vs 30 available. Answered "1" on final turn with 9 tracks unchecked.

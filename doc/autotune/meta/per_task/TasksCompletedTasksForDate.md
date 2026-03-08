@@ -1,5 +1,8 @@
 # TasksCompletedTasksForDate
 
+## R8 (GPT-5.4, 20260307)
+Score: 0.0 | Turns: 8 | App skill now injected but a11y tree lacks `checked` property; agent still can't distinguish completed tasks. Accidental checkbox click persists.
+
 ## R7 (run 20260307_025501, qwen3.5)
 - **Score**: 0.0 | **Turns**: 14/30
 - **Behavior**: StateCorruption + SelfContradiction. Date mapping fixed (Tmrw = Oct 16 correct). Agent clicked checkboxes to "inspect" state, which toggled them and corrupted app state. Wrote "Organize files and folders = COMPLETED" to scratchpad, then answered "No completed tasks" -- self-contradiction.
