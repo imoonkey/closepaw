@@ -426,7 +426,7 @@ perception/
 ├── PerceptionConfig.kt        # Capture mode (AccessibilityOnly, ScreenshotOnly, Hybrid)
 ├── Perceptor.kt               # A11y tree → ScreenSnapshot (shared by both platforms, multi-root support)
 ├── PerceptorFilterConfig.kt   # Element filtering config (maxElements, size/visibility thresholds)
-├── PerceptorInternals.kt      # Internal traversal helpers
+├── PerceptorInternals.kt      # Internal traversal helpers, whitespace normalization (preserves paragraph breaks with `\n\n`)
 ├── PerceptorDiagnostics.kt    # Capture diagnostics collector
 └── ScreenSummary.kt           # Text summary for history
 ```
