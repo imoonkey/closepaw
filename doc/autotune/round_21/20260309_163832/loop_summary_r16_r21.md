@@ -2,9 +2,9 @@
 
 ## Overview
 
-本次 autotune loop 由 Ralph Loop 驱动，从 Round 16 开始，至 Round 21 结束，共 6 轮。目标是修复 R8/R9 full eval 中剩余的 9 个失败任务（`r8r9_remaining_active_machine_verified.txt`），使用 gpt-5.4 模型，以 machine-verified eval traces 为唯一证据来源。
+本次 autotune loop 由 Ralph Loop 驱动，从 Round 16 开始，至 Round 21 结束，共 6 轮。目标是修复 R8/R9 full eval 中剩余的 20 个失败任务（`r8r9_remaining_active_machine_verified.txt` seed 状态），使用 gpt-5.4 模型，以 machine-verified eval traces 为唯一证据来源。
 
-**最终结果：9 个任务全部解决** — 8 个通过 eval 验证修复，1 个经分析后移入 cannot_handle。
+**最终结果：20 → 0 remaining** — 13 个通过 eval 验证修复，7 个移入 cannot_handle。
 
 ## Timeline
 
@@ -25,8 +25,11 @@
 |------|----------|-----------|-----|
 | TasksCompletedTasksForDate | R16 | qwen3.5 toggle-click 问题 | gpt-5.4 模型升级 |
 | TasksDueNextWeek | R16 | qwen3.5 off-by-1 计数 | gpt-5.4 模型升级 |
+| MarkorAddNoteHeader | R16 | qwen3.5 能力不足 | gpt-5.4 模型升级 |
+| SimpleCalendarEventsInNextWeek | R16 | qwen3.5 能力不足 | gpt-5.4 模型升级 |
 | NotesIsTodo | R17 | 未测试 | 新增 eval 覆盖 |
 | TasksIncompleteTasksOnDate | R17 | 日期标签混淆（"Tmrw" chip vs due date） | Tasks.org skill 日期标签规则 |
+| SystemBrightnessMax | R17 | qwen3.5 能力不足 | gpt-5.4 模型升级 |
 | TurnOnWifiAndOpenApp | R19 | shell `svc wifi enable` 无权限 | Settings skill UI 回退策略 |
 | RecipeAddMultipleRecipes | R20 | Edit-as-Create（覆盖已有食谱） | 新建 Broccoli app skill |
 | RecipeAddMultipleRecipesFromMarkor | R20 | 同上 | 同上 |
@@ -80,20 +83,42 @@
 
 ### Eval Config
 - `default.yaml`: max_turns=50 for 4 tasks
-- `cannot_handle_group.txt`: 11 → 14 entries (+7 new, some pre-existing)
+- `cannot_handle_group.txt`: 7 → 14 entries (+7 new this loop)
 
 ### Control Plane
 - `loop_state.json`: status=complete, stop_reason=stop_success
 - `scoreboard.json` / `scoreboard.md`: updated after each round
 - `changelog.md`: 6 new entries (R16-R21)
 - `issues.md`: 7 new parked entries, several open issues updated
-- `per_task/*.md`: updated for all 9 active tasks + supporting tasks
+- `per_task/*.md`: updated for all 20 active tasks + supporting tasks
+
+## R8 Full Eval → Tuning Loops 全局总结
+
+R8 是 gpt-5.4 的全量 eval（6 组 run 合并）：**116 任务，77.5 通过 (66.8%)**，38.5 失败。R8/R9 failure union 共 42 个任务。
+
+经过两轮 tuning loop（纯 app skill 调优，零代码改动）：
+
+| 阶段 | 模型 | 轮次 | 修复 | Park |
+|------|------|------|------|------|
+| fully-autotune (R1-R15) | qwen3.5 | 15 轮 | 15 | 7 |
+| autotune-loop (R16-R21) | gpt-5.4 | 6 轮 | 13 | 7 |
+| **合计** | — | **21 轮** | **28** | **14** |
+
+### 42 个 union 任务最终状态
+
+| 状态 | 数量 | 任务 |
+|------|------|------|
+| **FIXED** | 28 | TasksCompletedTasksForDate, TasksDueNextWeek, TasksDueOnDate, TasksHighPriorityTasks, TasksHighPriorityTasksDueOnDate, TasksIncompleteTasksOnDate, MarkorAddNoteHeader, MarkorMergeNotes, NotesIsTodo, SystemBrightnessMax, TurnOnWifiAndOpenApp, RecipeAddMultipleRecipes, RecipeAddMultipleRecipesFromMarkor, RecipeAddMultipleRecipesFromMarkor2, ExpenseAddMultipleFromMarkor, FilesMoveFile, RetroSavePlaylist, VlcCreateTwoPlaylists, SimpleCalendarAddOneEventRelativeDay, SimpleCalendarDeleteEvents, SimpleCalendarEventOnDateAtTime, SimpleCalendarEventsInNextWeek, SimpleCalendarEventsInTimeRange, SimpleCalendarEventsOnDate, SimpleCalendarNextEvent, SportsTrackerActivitiesCountForWeek, SportsTrackerLongestDistanceActivity, SportsTrackerTotalDurationForCategoryThisWeek |
+| **PARKED** | 14 | AudioRecorderRecordAudioWithFileName, BrowserDraw, BrowserMaze, ExpenseAddMultipleFromGallery, ExpenseDeleteDuplicates2, MarkorDeleteNewestNote, MarkorTranscribeVideo, OsmAndMarker, OsmAndTrack, RecipeAddMultipleRecipesFromImage, RecipeDeleteDuplicateRecipes2, RecipeDeleteDuplicateRecipes3, RetroPlaylistDuration, SportsTrackerTotalDistanceForCategoryOverInterval |
+| FAILING | 0 | — |
+
+**理论最高通过率**：(77.5 + 28) / 116 = **90.9%**（扣除 14 个 cannot_handle 后为 105.5/102 ≈ 100%+ 超额，实际需要 full eval 验证）。
 
 ## Final State
 
 ```
-Active backlog:   0 remaining (was 9)
-Fixed:            8 tasks (eval-verified 1.0)
+Active backlog:   0 remaining (was 20)
+Fixed:            13 tasks (eval-verified 1.0)
 Parked:           7 tasks added to cannot_handle this loop (14 total)
 Loop status:      complete (stop_success)
 Model:            gpt-5.4

@@ -1,14 +1,10 @@
 {
-  "goal": "Fix the remaining unresolved tasks from the full R8/R9 failure union using machine-verified eval traces as the source of truth.",
+  "goal": "Unpark and fix 13 previously-parked tasks from cannot_handle_group.txt (excluding MarkorTranscribeVideo).",
   "mode": "auto",
   "next_round": 22,
-  "status": "complete",
-  "stop_reason": "All active tasks resolved. 2 passed (MarkorMergeNotes, TasksHighPriorityTasksDueOnDate), 1 parked (ExpenseAddMultipleFromGallery — 12 consecutive failures, capability gap). Active backlog empty.",
-  "last_round": {
-    "round": 21,
-    "run_id": "20260309_163832",
-    "result": "all_resolved",
-    "recommended_action": "stop_success",
-    "summary_path": "doc/autotune/round_21/20260309_163832/common_problems_claude.md"
-  }
+  "status": "active",
+  "stop_reason": null,
+  "active_backlog_file": "eval/config/unpark_active.txt",
+  "loop_name": "unpark_cannot_handle",
+  "last_round": null
 }
