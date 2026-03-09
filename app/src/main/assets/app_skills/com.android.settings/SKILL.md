@@ -6,9 +6,10 @@ description: App-specific guidance for Android Settings.
 # Android Settings Skill
 
 ## System Toggles (Wi-Fi, Bluetooth)
-For tasks that require toggling system settings, prefer shell commands for reliability:
-- Wi-Fi: `svc wifi enable` / `svc wifi disable`
-- Bluetooth: `svc bluetooth enable` / `svc bluetooth disable`
+Navigate the Settings UI to toggle system settings:
+- Wi-Fi: Network & internet → Internet → tap the Wi-Fi row to toggle
+- Bluetooth: Connected devices → Connection preferences → Bluetooth → toggle
+Shell commands (`svc wifi enable`) require ADB-level permissions and fail from the agent process. Use UI navigation instead.
 After toggling, verify the state before declaring success.
 
 ## Brightness
