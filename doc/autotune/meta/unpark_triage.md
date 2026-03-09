@@ -1,13 +1,25 @@
 # Unpark Triage — R22+ Loop
 
+Treat the notes below as reference, the hypothesis and suggested fixes may not be accurate or complete. Do your own research/analysis from first principle thinking.
+
 ## Priority Tier 1: Has passed before (try first)
 
 | Task | Park Reason | Ever Passed | Hypothesis | Suggested First Fix |
 |------|-------------|-------------|-----------|---------------------|
 | BrowserDraw | Canvas pixel-level drawing beyond a11y | Yes (1/3) | Prior park cited infra pollution (Chrome first-run, developer settings pointer_location/show_touches). Not a fundamental capability gap — passed once with hybrid perception. | Ensure emulator developer settings are clean; verify hybrid perception_mode is set; add Browser app skill for drawing page navigation |
-| BrowserMaze | Canvas pixel-level maze navigation | Yes (1/3) | Same infra pollution as BrowserDraw. Passed once with hybrid perception. Maze navigation via screenshot is feasible if agent reaches the page. | Same as BrowserDraw — clean env + hybrid perception |
+| ~~BrowserMaze~~ | ~~Canvas pixel-level maze navigation~~ | ~~Yes (1/3)~~ | **FIXED R22** — Chrome skill + hybrid perception worked. Passed 27 turns. | ~~N/A~~ |
 | SportsTrackerTotalDistanceForCategoryOverInterval | Agent ignores scroll guidance, misses kayaking tracks below fold | Yes (1/3) | Passed once in R38. Recent failures: agent never scrolls. Skill already has scroll guidance but agent ignores it. | Strengthen OpenTracks skill scroll instruction to CRITICAL; consider adding explicit "you MUST scroll to see all tracks" |
 | MarkorDeleteNewestNote | Shell can't access files, UI shows modification time not creation time | Yes (1/3) | Passed once in R34. Recent issue: a11y tree timestamp perception gap — swapped vs screenshot. With gpt-5.4 + better perception, might resolve. | Add Markor skill guidance: "newest note = most recently modified in list; sort by modified date descending, first item is newest" |
+
+### R22 Attempt Log
+
+**BrowserDraw (0.0)**: Created Chrome skill + hybrid perception. Agent spent all 30 turns in Files app — kept hitting hamburger/nav button (x<150 danger zone) instead of task.html row. Never reached Chrome. **Root cause**: Files app left-edge click issue. Fix needed: add Files app skill warning about hamburger zone; or use element_index targeting instead of coordinates.
+
+**BrowserMaze (1.0)**: PASSED. Chrome skill + hybrid perception. Agent opened Files → task.html → Chrome, navigated maze using direction buttons with screenshot feedback in 27 turns.
+
+**MarkorDeleteNewestNote (0.0)**: Agent correctly sorted by Date as instructed, but deleted wrong note. Markor Date sort = modification time. For this task, one older note was edited after creation, giving it a later modification time than the actually-newest note. The skill's "modification time == creation time for fresh files" assumption was wrong — some pre-existing notes have been modified. **Root cause**: Fundamental mismatch between modification time and creation time. Shell stat/ls don't work. Need alternative approach.
+
+**SportsTracker (0.0)**: Agent scrolled DOWN but never UP. Missed kayaking tracks above initial scroll position. Found only 2 kayaking tracks (6518m), but likely missed tracks at top of list. **Root cause**: Unidirectional scrolling. Fix: skill must say "scroll to TOP first, then scroll down through entire list."
 
 ## Priority Tier 2: Never passed, but plausibly fixable
 

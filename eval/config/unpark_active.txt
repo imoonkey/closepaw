@@ -1,6 +1,5 @@
 AudioRecorderRecordAudioWithFileName
 BrowserDraw
-BrowserMaze
 ExpenseAddMultipleFromGallery
 ExpenseDeleteDuplicates2
 MarkorDeleteNewestNote

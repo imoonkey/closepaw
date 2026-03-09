@@ -17,5 +17,12 @@ The new-file dialog has two fields: **name** and **extension** (defaults to `.md
 
 ## Identifying Newest/Oldest Notes
 - Do NOT rely solely on filename or alphabetical order to determine which note is newest.
-- **Important**: Markor's "Date" sort shows modification time, NOT creation time. "Newest note" usually means most recently created.
-- To find the newest/oldest note by creation time, use `shell_command`: `stat -c '%W %n' /storage/emulated/0/Documents/markor/*` (the `%W` field is birth/creation time). If stat fails, fall back to `ls -lt` (which shows modification time — warn in scratchpad that this may differ from creation time).
+- **Shell access does NOT work** for Markor files (scoped storage). Do NOT attempt `stat` or `ls` — they will fail or return empty results.
+- **Use Markor's UI sort instead**: tap the 3-dot menu → Sort → Date. This sorts by modification time descending.
+- For newly created notes (no manual edits after creation), modification time == creation time, so the top note after Date sort is the newest.
+- **Workflow for "delete newest note"**:
+  1. Open Markor
+  2. Sort by Date (3-dot menu → Sort → Date, newest first)
+  3. Long-press the FIRST note in the list
+  4. Tap Delete → confirm
+- Do NOT guess which note is newest based on filename or list position in alphabetical sort.

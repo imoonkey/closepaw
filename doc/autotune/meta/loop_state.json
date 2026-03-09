@@ -1,10 +1,19 @@
 {
   "goal": "Unpark and fix 13 previously-parked tasks from cannot_handle_group.txt (excluding MarkorTranscribeVideo).",
   "mode": "auto",
-  "next_round": 22,
+  "next_round": 23,
   "status": "active",
   "stop_reason": null,
   "active_backlog_file": "eval/config/unpark_active.txt",
   "loop_name": "unpark_cannot_handle",
-  "last_round": null
+  "last_round": 22,
+  "round_history": {
+    "R22": {
+      "tasks": ["BrowserDraw", "BrowserMaze", "MarkorDeleteNewestNote", "SportsTrackerTotalDistanceForCategoryOverInterval"],
+      "results": {"BrowserDraw": 0.0, "BrowserMaze": 1.0, "MarkorDeleteNewestNote": 0.0, "SportsTrackerTotalDistanceForCategoryOverInterval": 0.0},
+      "passed": ["BrowserMaze"],
+      "fixes_applied": ["Created Chrome app skill (com.android.chrome/SKILL.md)", "Updated Markor skill: shell stat removed, use Sort by Date instead", "Updated OpenTracks skill: CRITICAL scroll emphasis"],
+      "eval_run": "20260309_190216"
+    }
+  }
 }
