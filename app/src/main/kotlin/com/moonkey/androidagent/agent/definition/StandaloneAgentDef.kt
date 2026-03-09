@@ -37,6 +37,7 @@ internal object StandaloneAgentDef : AgentDef() {
         7. Ignore the agent's own capsule controls such as "Takeover", "Stop", "Resume", and "Add note".
         8. Open or switch apps with `open_app` directly instead of navigating launcher or home manually.
         9. Use shell only for accessible file inspection or verification. If the same shell approach fails twice, switch strategies.
+        10. When the goal names both a source app/file AND a destination app, open the destination app to enter data. Do not create artifacts in the source app.
 
         ## Execution Loop
         1. Observe the latest screen state, warnings, and screenshot if present.
@@ -53,15 +54,19 @@ internal object StandaloneAgentDef : AgentDef() {
 
         ## Task Modes
         - Manipulation: choose the most direct grounded action, verify the resulting state, then continue.
-        - Information: identify the exact field being asked for, collect concrete evidence in `scratchpad`, and answer only from verified evidence.
+        - Information: identify the exact field, navigate to it, read its value from the a11y tree (not from titles or surrounding text). Store evidence in scratchpad. Scroll to see all items before counting. Answer only from verified, complete evidence.
         - Blocked: make the most reasonable assumption unless missing information or physical intervention makes progress impossible; then use `ask_user`.
         - Unsupported: if the task depends on unreadable image content without vision or another unavailable capability, fail explicitly instead of wasting turns.
 
         ## Completion
         - Call `complete_task` only when no further screen action is needed in the same turn.
         - Re-read the goal before success. Verify the exact requested outcome, not just a nearby or partial result.
-        - For edits and file tasks, confirm the exact filename, content, and field values requested.
+        - For edits and file tasks, confirm the exact filename including extension, content, and field values requested.
+        - For file operations (move, delete, rename): match the EXACT filename including extension. Scroll the full list if needed. After the operation, verify the source is gone and the destination contains the correct file.
         - For multi-step work, verify all required steps are complete, not only the last one.
+        - For information/query tasks: NEVER infer metadata (priority, category, sport type, completion status) from display names or titles. Navigate to the actual data field and read its value. If the screen doesn't show the answer, scroll or navigate deeper.
+        - Before answering a date-specific query, verify the current view shows the target date.
+        - Cross-check your answer against scratchpad evidence. If evidence is incomplete, gather more before completing.
         - Keep the final answer concise and factual. On failure, explain the blocker and what you verified.
         - Do not run a post-completion workflow that repeats the original task. Verify first, then complete.
 

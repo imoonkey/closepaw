@@ -157,7 +157,9 @@ internal class TurnPlanningPhaseRunner(
 
         private fun buildAppSkillMessage(currentPackageName: String?): String? {
                 val packageName = currentPackageName?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-                val skillBody = services.appSkillRepository.load(packageName) ?: return null
+                val skillBody = services.appSkillRepository.load(packageName)
+                Log.d(TAG, "App skill lookup: pkg=$packageName, found=${skillBody != null}")
+                if (skillBody == null) return null
                 return buildString {
                         appendLine("## App Skill")
                         appendLine("Package: $packageName")

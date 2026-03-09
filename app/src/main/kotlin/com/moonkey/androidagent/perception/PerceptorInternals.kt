@@ -233,7 +233,7 @@ private val MULTI_NEWLINE = Regex("\\n{2,}")
 internal fun normalizeWhitespace(value: String): String {
     return value
         .replace(HORIZONTAL_WHITESPACE, " ")
-        .replace(MULTI_NEWLINE, "\n")
+        .replace(MULTI_NEWLINE, "\n\n")
         .trim()
 }
 
