@@ -22,6 +22,11 @@ To identify completed vs incomplete tasks:
 5. The remaining tasks are incomplete
 Do NOT guess completion status from visual appearance or task names.
 
+## Reading Due Date in Detail View
+- The task detail view shows multiple date-like fields stacked vertically. The **due date** is the line showing a full date like "Saturday, October 7" (day-of-week + month + day).
+- Below it you may see a standalone day name like "Wednesday" — this is the START DATE or a repeat field, NOT the due date. Ignore it for due-date queries.
+- Always use the full-format date line (e.g., "Saturday, October 7") to determine the actual due date, not the bare day name below it.
+
 ## Reading Task Priority
 - Priority is shown as a colored indicator on each task row (not as text).
 - To check a task's priority: tap the task to open its detail view, then look for the priority radio buttons.
