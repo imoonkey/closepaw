@@ -1,19 +1,27 @@
 {
   "goal": "Unpark and fix 13 previously-parked tasks from cannot_handle_group.txt (excluding MarkorTranscribeVideo).",
   "mode": "auto",
-  "next_round": 23,
+  "next_round": 24,
   "status": "active",
   "stop_reason": null,
   "active_backlog_file": "eval/config/unpark_active.txt",
   "loop_name": "unpark_cannot_handle",
-  "last_round": 22,
+  "last_round": 23,
   "round_history": {
     "R22": {
       "tasks": ["BrowserDraw", "BrowserMaze", "MarkorDeleteNewestNote", "SportsTrackerTotalDistanceForCategoryOverInterval"],
       "results": {"BrowserDraw": 0.0, "BrowserMaze": 1.0, "MarkorDeleteNewestNote": 0.0, "SportsTrackerTotalDistanceForCategoryOverInterval": 0.0},
       "passed": ["BrowserMaze"],
-      "fixes_applied": ["Created Chrome app skill (com.android.chrome/SKILL.md)", "Updated Markor skill: shell stat removed, use Sort by Date instead", "Updated OpenTracks skill: CRITICAL scroll emphasis"],
+      "fixes_applied": ["Created Chrome app skill", "Updated Markor skill: use Sort by Date", "Updated OpenTracks skill: CRITICAL scroll emphasis"],
       "eval_run": "20260309_190216"
+    },
+    "R23": {
+      "tasks": ["BrowserDraw", "MarkorDeleteNewestNote", "SportsTrackerTotalDistanceForCategoryOverInterval", "RecipeDeleteDuplicateRecipes3"],
+      "results": {"BrowserDraw": 0.0, "MarkorDeleteNewestNote": 0.0, "SportsTrackerTotalDistanceForCategoryOverInterval": 0.0, "RecipeDeleteDuplicateRecipes3": 0.0},
+      "passed": [],
+      "fixes_applied": ["Created Files app skill", "Markor skill: clearer post-sort guidance", "OpenTracks: scroll to TOP first", "Broccoli: bulk delete guidance", "RecipeDeleteDuplicateRecipes3 max_turns 50->60"],
+      "eval_run": "20260309_192810",
+      "notes": "BrowserDraw: agent reached Chrome but UI overlay covered canvas. MarkorDeleteNewestNote: Date sort is ASCENDING, agent picked first (oldest) not last (newest). SportsTracker: scroll-up failed, answered 0 but wrong."
     }
   }
 }

@@ -16,3 +16,11 @@ description: App-specific guidance for Broccoli recipe manager.
 
 ## Scrollable UI Elements
 - The category row in the expense/recipe form scrolls horizontally. Swipe left to reveal more categories before concluding a category is unavailable.
+
+## Deleting Duplicate Recipes
+When asked to delete duplicate recipes:
+1. **Scroll the entire recipe list first** to see all recipes. The list may be long (30+ items).
+2. Identify true duplicates: recipes with IDENTICAL title AND description. Variations with different servings or prep time are NOT duplicates.
+3. To delete: long-press a recipe → Delete (or swipe to delete if supported). If no long-press option, open the recipe → tap 3-dot menu → Delete.
+4. Keep exactly ONE copy of each unique recipe. Delete the extras.
+5. Be careful with similar-looking recipes that have different titles or descriptions — those are NOT duplicates.

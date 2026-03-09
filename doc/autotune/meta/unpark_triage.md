@@ -21,6 +21,16 @@ Treat the notes below as reference, the hypothesis and suggested fixes may not b
 
 **SportsTracker (0.0)**: Agent scrolled DOWN but never UP. Missed kayaking tracks above initial scroll position. Found only 2 kayaking tracks (6518m), but likely missed tracks at top of list. **Root cause**: Unidirectional scrolling. Fix: skill must say "scroll to TOP first, then scroll down through entire list."
 
+### R23 Attempt Log
+
+**BrowserDraw (0.0)**: Files nav FIXED (no hamburger issue this time — Files skill helped). Agent reached Chrome and opened task.html. However, **Android Agent UI overlay covered the canvas and target colors** at the bottom of the screen. Agent couldn't see what colors to draw. **Root cause**: Agent UI overlay occlusion. This is an infra/config issue, not a skill issue. May need to auto-minimize agent overlay during hybrid perception tasks.
+
+**MarkorDeleteNewestNote (0.0)**: **Critical discovery**: Markor Date sort is ASCENDING (oldest first), NOT descending. Two notes visible after sort: `fine_jelly_final.md` (15:34, first/top) and `final_friendly_king.md` (15:17, second). Agent deleted the first item (15:34) thinking it was newest. But first = oldest in ascending sort! Agent should have deleted the LAST item. **Fix**: Skill must tell agent to enable "Reverse order" or pick the LAST item after Date sort.
+
+**SportsTracker (0.0)**: Agent attempted scroll-up (per updated skill) but scroll failed with "no observable effect." Then scrolled down and found 0 kayaking tracks for Oct 9-10. Answered 0, eval said wrong. **Root cause**: Either (a) kayaking tracks exist above initial view and scroll-up truly failed, or (b) agent misidentified activity types. The scroll infrastructure may not support upward scrolling in OpenTracks.
+
+**RecipeDeleteDuplicateRecipes3 (0.0)**: Used 53/60 turns, false completion. Agent navigated through 30+ recipes but either deleted the wrong one or missed the true duplicate. Need to investigate trace for exact failure.
+
 ## Priority Tier 2: Never passed, but plausibly fixable
 
 | Task | Park Reason | Ever Passed | Hypothesis | Suggested First Fix |
