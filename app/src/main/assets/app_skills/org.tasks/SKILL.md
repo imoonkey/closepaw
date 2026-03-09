@@ -25,7 +25,7 @@ Do NOT guess completion status from visual appearance or task names.
 ## Reading Task Priority
 - Priority is shown as a colored indicator on each task row (not as text).
 - To check a task's priority: tap the task to open its detail view, then look for the priority radio buttons.
-- The 4 radio buttons are ordered left-to-right: **High** (1st/leftmost), **Medium** (2nd), **Low** (3rd), **None** (4th/rightmost). Leftmost checked = High priority.
+- The 4 radio buttons are ordered left-to-right: **None** (1st/leftmost), **Low** (2nd), **Medium** (3rd), **High** (4th/rightmost). Rightmost checked = High priority.
 - For priority queries with many tasks: budget ~3 turns per task. Start checking immediately and use scratchpad to record findings as you go.
 - Before answering, verify scratchpad shows priority results for ALL candidates in the candidate list. If any candidate is unchecked, check it before completing.
 
