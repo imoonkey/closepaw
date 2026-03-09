@@ -1,3 +1,7 @@
+## R20 (20260309_150119) — gpt-5.4
+- Score: 0.0, Turns: 23
+- Image read from thumbnail, hallucinated. Only 2/3 recipes. PARKING.
+
 ## R19 (20260309_143418) — gpt-5.4
 - Score: 0.0, Turns: 32
 - Perception: image OCR hallucination (6 rewrites), extracted 2/3 recipes

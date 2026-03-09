@@ -1,3 +1,7 @@
+## R20 (20260309_150119) — gpt-5.4
+- Score: 0.0, Turns: 16
+- Still no scroll on category RecyclerView. Need Pro Expense skill.
+
 ## R19 (20260309_143418) — gpt-5.4
 - Score: 0.0, Turns: 19
 - Reasoning: failed to scroll category RecyclerView, gave up prematurely

@@ -59,3 +59,5 @@
 - BrowserDraw — pixel-level canvas drawing beyond accessibility service capability, even in hybrid mode (added AT-R18)
 - BrowserMaze — pixel-level canvas maze navigation beyond accessibility capability (added AT-R18)
 - SportsTrackerTotalDistanceForCategoryOverInterval — 3 consecutive failures (R16-R18) despite targeted skill fixes; agent consistently ignores scroll guidance; needs structural scroll enforcement (added AT-R18)
+- MarkorDeleteNewestNote — shell stat/ls can't access Markor's storage path; Markor UI only shows modification time, not creation time; no viable path to determine "newest by creation time"; 4 consecutive 0.0 (added AT-R20)
+- RecipeAddMultipleRecipesFromImage — image OCR from Gallery thumbnails is fundamentally unreliable; agent reads small text and hallucinates recipe content; 5+ consecutive 0.0 across rounds (added AT-R20)

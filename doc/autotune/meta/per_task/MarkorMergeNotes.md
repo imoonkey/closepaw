@@ -1,3 +1,7 @@
+## R20 (20260309_150119) — gpt-5.4
+- Score: 0.0, Turns: 23
+- UI path worked, content correct\! But .md extension not cleared. Solvable.
+
 ## R19 (20260309_143418) — gpt-5.4
 - Score: 0.0, Turns: 17
 - Skill regression: shell-write guidance caused UI dialog abandonment, shell lacks permissions

@@ -9,3 +9,5 @@ AudioRecorderRecordAudioWithFileName
 BrowserDraw
 BrowserMaze
 SportsTrackerTotalDistanceForCategoryOverInterval
+MarkorDeleteNewestNote
+RecipeAddMultipleRecipesFromImage

@@ -1,3 +1,7 @@
+## R20 (20260309_150119) — gpt-5.4
+- Score: 0.0, Turns: 10
+- stat failed (shell can't access files). Agent guessed by list position. PARKING.
+
 ## R19 (20260309_143418) — gpt-5.4
 - Score: 0.0, Turns: 10
 - Perception/Skill: used modification-time sort, picked wrong note (creation-time differs)

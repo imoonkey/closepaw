@@ -2,6 +2,22 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 20 (2026-03-09, run 20260309_150119, gpt-5.4, broccoli skill + revert markor shell-write)
+
+**Fixes applied**: (1) New Broccoli app skill: multi-recipe navigation, leave unmapped fields empty, (2) Revert Markor shell-write guidance (R19 regression), add extension-clearing and stat for creation-time, (3) Tasks.org: strengthen scroll exhaustion + enforce all-candidates-checked, (4) Settings: prefer UI over shell for Wi-Fi/Bluetooth.
+
+**Results**: 3/8 pass (37.5%). RecipeAddMultipleRecipes, RecipeAddMultipleRecipesFromMarkor, RecipeAddMultipleRecipesFromMarkor2 — all first pass with Broccoli skill.
+
+**Key findings**:
+- **Broccoli skill: 3/3 success** — Edit-as-create eliminated, all 3 Recipe tasks pass.
+- **MarkorMergeNotes**: Content 100% correct, UI path worked, but agent didn't clear `.md` extension. Skill guidance exists but was ignored.
+- **MarkorDeleteNewestNote**: `stat` command fails — shell can't access Markor's file storage. Parked to `cannot_handle`.
+- **RecipeAddMultipleRecipesFromImage**: Image OCR still hallucinating from thumbnail. Parked to `cannot_handle`.
+- **TasksHighPriorityTasksDueOnDate**: Better mechanics (exhaustive scroll, all candidates checked) but same wrong answer. Possible priority scale inversion (4th=High, not 1st).
+- **ExpenseAddMultipleFromGallery**: Still no category scroll despite scrollable container. Need Pro Expense skill.
+
+**Backlog change**: 8 → 3 active (3 Recipe passed, 2 parked).
+
 ## Autotune Round 19 (2026-03-09, run 20260309_143418, gpt-5.4, scratchpad merge + markor shell-write + newest-note strategy)
 
 **Fixes applied**: (1) Tasks.org skill: scratchpad accumulation rule — "never overwrite candidate list on scroll", (2) Markor skill: shell-write preference for merge/content tasks, (3) Markor skill: newest-note identification via date-sort, (4) Eval config: max_turns=50 for RecipeAddMultipleRecipes, RecipeAddMultipleRecipesFromMarkor2, TasksHighPriorityTasksDueOnDate.

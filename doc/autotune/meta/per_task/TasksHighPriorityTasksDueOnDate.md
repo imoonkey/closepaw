@@ -1,3 +1,7 @@
+## R20 (20260309_150119) — gpt-5.4
+- Score: 0.0, Turns: 25
+- Better mechanics (exhaustive scroll, all candidates checked). Same wrong answer — priority scale may be inverted.
+
 ## R19 (20260309_143418) — gpt-5.4
 - Score: 0.0, Turns: 18
 - Reasoning: incomplete scroll + checked 3/4 candidates, missed eval task below fold

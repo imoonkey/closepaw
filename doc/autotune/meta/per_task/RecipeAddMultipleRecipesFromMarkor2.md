@@ -1,3 +1,7 @@
+## R20 (20260309_150119) — gpt-5.4
+- Score: 1.0, Turns: 31
+- PASS. Broccoli skill + no Source fabrication.
+
 ## R19 (20260309_143418) — gpt-5.4
 - Score: 0.0, Turns: 24
 - Reasoning: fabricated Source field value not in input data
