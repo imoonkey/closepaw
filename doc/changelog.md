@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-03-09: Autotune Rounds 10-14 — qwen3.5 Targeted Tuning (0→20/22)
+
+**What changed:**
+- System prompt (`StandaloneAgentDef.kt`): added cross-app destination rule (#10), strengthened Information mode anti-hallucination, expanded Completion section with file-ops verification + date verification + scratchpad cross-checking. Later softened anti-hallucination to defer to app skill guidance.
+- Perception (`PerceptorInternals.kt:236`): changed `MULTI_NEWLINE` replacement from `"\n"` to `"\n\n"` to preserve paragraph breaks in a11y tree.
+- Debug logging (`TurnPlanningPhaseRunner.kt:158`): added `Log.d` for app skill lookup results.
+- New/updated app skills:
+  - `com.simplemobiletools.calendar.pro` — NumberPicker scroll, 24h format, date verification
+  - `code.name.monkey.retromusic` — Songs tab add flow
+  - `org.tasks` — diff-based completion detection, overflow menu location, priority turn budget, date reasoning example, partial-answer guidance
+  - `de.dennisguse.opentracks` — Edit-based activity type checking with smart name filtering
+- Eval config (`default.yaml`): added `max_turns: 50` for SportsTracker tasks + TasksHighPriorityTasks.
+
+**Why:**
+- Targeted tuning of 22 tasks that failed in R8/R9 (qwen3.5 model). Improved from 0/22 to 20/22 (90.9%) across 5 rounds.
+
+**Key files:** `StandaloneAgentDef.kt`, `PerceptorInternals.kt`, `TurnPlanningPhaseRunner.kt`, `app/src/main/assets/app_skills/`, `eval/config/default.yaml`
+
 ## 2026-03-07: Add `/prompt-tune` Skill
 
 **What changed:**

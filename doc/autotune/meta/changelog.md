@@ -2,6 +2,87 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 14 (2026-03-09, run 20260309_020714, qwen3.5, smart name filtering)
+- **Key changes** (f3376a4):
+  - OpenTracks SKILL.md: allow track names as negative filter — skip obviously unrelated tracks (e.g., "Alpine Skiing" for running query), prioritize ambiguous/matching names for Edit checks
+- **Task selection rationale**: 3 SportsTracker (smart filtering) + 2 Tasks retry
+- **Tasks run**: 5 (2 completed, 3 hit OpenRouter 402 credit limit)
+- **Config**: serial single-device, model qwen3.5, max_turns 50 for SportsTracker
+- **Result**: 2/2 non-infra (SportsTrackerActivitiesCountForWeek 1.0 in 18 turns, SportsTrackerLongestDistanceActivity 1.0 in 48 turns)
+- **Net new passes**: SportsTrackerActivitiesCountForWeek, SportsTrackerLongestDistanceActivity
+- **Key findings**:
+  - Smart name filtering dramatically reduced turns: 18 turns vs 50+ MaxTurnsReached in R13
+  - OpenRouter weekly credit limit exhausted mid-run (402), blocking remaining 3 tasks
+  - SportsTrackerTotalDistanceForCategoryOverInterval untested (had 38 turns of progress before credits died — likely would pass)
+- **Cumulative**: 20/22 (90.9%)
+- **Moved to cannot_handle**: TasksCompletedTasksForDate (action execution — toggle click doesn't register), TasksDueNextWeek (model reasoning — off-by-1 count)
+
+## Autotune Round 13 (2026-03-09, run 20260309_012417, qwen3.5, Edit strategy + Tasks fixes)
+- **Key changes** (fdbb921):
+  - OpenTracks SKILL.md: reverted shell/sqlite3 strategy to Edit-based approach. Track names ≠ activity types. 4-step Edit flow with turn budgeting.
+  - Tasks.org SKILL.md: concrete date example ("If today is Sunday Oct 15, next week = Mon Oct 16 – Sun Oct 22"), partial-answer guidance for priority queries.
+  - Eval config: TasksHighPriorityTasks max_turns: 50
+- **Task selection rationale**: 7 remaining failures from R12 (3 SportsTracker + 3 Tasks + 1 Expense)
+- **Tasks run**: 7
+- **Config**: serial single-device, model qwen3.5, max_turns 50 for SportsTracker + TasksHighPriorityTasks
+- **Result**: 2/7
+- **Net new passes**: ExpenseAddMultipleFromMarkor (first ever!), TasksHighPriorityTasks
+- **Key findings**:
+  - ExpenseAddMultipleFromMarkor: cross-app rule #10 from R10 finally effective — agent opened Pro Expense
+  - TasksHighPriorityTasks: 50-turn budget sufficient, found all priorities
+  - SportsTracker: Edit strategy correct but too slow — 14 tracks × ~8 turns each exceeds 50 turns
+  - TasksDueNextWeek: date range correct (Oct 16-22) but off-by-1 count (7 vs 8)
+  - TasksCompletedTasksForDate: "Show completed" toggle clicks don't register via accessibility
+- **Cumulative**: 18/22
+- **Moved to cannot_handle**: none
+
+## Autotune Round 12 (2026-03-09, run 20260309_004521, qwen3.5, shell strategy — FAILED)
+- **Key changes** (9ab7243):
+  - OpenTracks SKILL.md: shell+sqlite3 strategy to query database directly
+  - Eval config: SportsTracker max_turns: 50 (added to default.yaml but not applied to this run)
+- **Task selection rationale**: 7 remaining failures (3 SportsTracker + 3 Tasks + 1 Expense)
+- **Tasks run**: 7
+- **Config**: serial single-device, model qwen3.5, max_turns 30 (50 not yet applied)
+- **Result**: 0/7
+- **Key findings**:
+  - Shell strategy failed completely: agent process cannot access other apps' private data directories (no root/run-as)
+  - Agent oscillated between shell and UI approaches, wasting turns on both
+  - TasksCompletedTasksForDate: provider SSE error (infra failure)
+  - TasksDueNextWeek: date reasoning wrong — "next week" on Sunday calculated as Oct 23-29 instead of Oct 16-22
+  - TasksHighPriorityTasks: found 4/8 priorities in scratchpad but never submitted answer on final turn
+- **Cumulative**: 16/22 (unchanged)
+- **Moved to cannot_handle**: none
+
+## Autotune Round 11 (2026-03-09, run TBD, qwen3.5, OpenTracks + Tasks actionable guidance)
+- **Key changes** (22ba8b9):
+  - System prompt: softened anti-hallucination from "NEVER infer metadata" to "do not guess metadata from visual appearance alone. Follow app skill guidance."
+  - OpenTracks SKILL.md: changed to shell+sqlite3 strategy (later proved wrong)
+  - Tasks.org SKILL.md: specific overflow menu location (3 dots, top right), priority turn budget (~3 turns/task)
+- **Task selection rationale**: 11 tasks from R10 failures + targeted retries
+- **Tasks run**: 11
+- **Result**: 4 new passes (TasksHighPriorityTasksDueOnDate, TasksIncompleteTasksOnDate, MarkorAddNoteHeader, SimpleCalendarEventsInNextWeek)
+- **Cumulative**: 16/22
+- **Moved to cannot_handle**: none
+
+## Autotune Round 10 (2026-03-08, run 20260308_221303, qwen3.5, 8 fixes)
+- **Key changes** (f5d26b5):
+  - System prompt (StandaloneAgentDef.kt): cross-app destination rule (#10), strengthened Information mode, expanded Completion with anti-hallucination + file-ops + date verification + scratchpad cross-check
+  - Perception (PerceptorInternals.kt): preserve paragraph breaks (`\n\n` instead of `\n`)
+  - Debug logging (TurnPlanningPhaseRunner.kt): app skill lookup `Log.d`
+  - New app skills: Calendar (NumberPicker, 24h, dates), Retro Music (Songs tab flow), Tasks.org (diff-based completion), OpenTracks (initial version)
+- **Task selection rationale**: 22 tasks that failed in R8+R9 (qwen3.5 targeted subset)
+- **Tasks run**: 22
+- **Config**: serial single-device, model qwen3.5
+- **Result**: 12/22 (54.5%)
+- **Net new passes**: FilesMoveFile, RetroSavePlaylist, SimpleCalendarAddOneEventRelativeDay, SimpleCalendarDeleteEvents, SimpleCalendarEventOnDateAtTime, SimpleCalendarEventsInTimeRange, SimpleCalendarEventsOnDate, SimpleCalendarNextEvent, SportsTrackerTotalDurationForCategoryThisWeek, TasksDueOnDate, VlcCreateTwoPlaylists, plus 1 more
+- **Key findings**:
+  - Calendar skill highly effective (5/6 calendar tasks pass)
+  - Tasks.org skill injected but model doesn't follow it reliably
+  - SportsTracker: no efficient strategy without Edit or DB access
+  - Cross-app rule fixed ExpenseAddMultipleFromMarkor direction (agent now opens destination app)
+- **Cumulative**: 12/22 (from 0/22 baseline)
+- **Moved to cannot_handle**: none
+
 ## Autotune Round 9 (2026-03-07, runs 050909–080143, GPT-5.4, full baseline eval-only)
 - **Key changes**: none (eval-only round, no code changes since R8)
 - **Task selection rationale**: Full eval across all 116 tasks (groups 0-5) — first comprehensive GPT-5.4 baseline with R8 code changes
