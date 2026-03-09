@@ -2,6 +2,25 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 17 (2026-03-09, run 20260309_132808, gpt-5.4, date/scroll skill fixes)
+- **Key changes** (192d3c8):
+  - OpenTracks SKILL.md: date-label-to-absolute-date mapping, require checking ALL tracks on target dates
+  - Tasks SKILL.md: due date = standalone label (not chip text), scroll-to-end mandate for info queries
+  - Eval bridge: translate localhost→10.0.2.2 for emulator API access
+- **Task selection rationale**: 3 R16 failures + 4 untested from active backlog
+- **Tasks run**: 7
+- **Config**: serial single-device, model gpt-5.4
+- **Result**: 3.5/7 (50%)
+- **Net new passes**: NotesIsTodo (1.0), SystemBrightnessMax (1.0), TasksIncompleteTasksOnDate (1.0, date-label fix worked)
+- **Partial**: TurnOnWifiAndOpenApp (0.5, Wi-Fi perception error)
+- **Key findings**:
+  - Tasks date-label fix effective (TasksIncompleteTasksOnDate 0.0→1.0)
+  - SportsTracker: date mapping fixed but still doesn't scroll
+  - TasksHighPriority: priority scale inverted (rightmost=None, agent read as High)
+  - AudioRecorder: rename = display name only, evaluator checks filesystem
+  - TurnOnWifiAndOpenApp: assumed Wi-Fi on from tile appearance
+- **Infra**: localhost→10.0.2.2 translation eliminates need for adb reverse
+
 ## Autotune Round 16 (2026-03-09, run 20260309_125810, gpt-5.4, model switch + port forwarding)
 - **Key changes**: Model switch from qwen3.5 to gpt-5.4 in eval/config/default.yaml. Added adb reverse port forwarding for localhost proxy.
 - **Task selection rationale**: 7 tasks from active backlog — mix of previously stuck Tasks.org tasks + retries

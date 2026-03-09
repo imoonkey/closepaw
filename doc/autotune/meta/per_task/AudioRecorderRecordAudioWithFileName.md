@@ -1,5 +1,8 @@
 # AudioRecorderRecordAudioWithFileName
 
+## R17 (gpt-5.4, 20260309_132808)
+- Score: 0.0 | Turns: 10 | AppBehaviorMismatch — UI rename worked but only changes display name, not filesystem. Evaluator checks filesystem.
+
 ## AT-R5-GPT54 (20260306_003753) — FAIL
 - Score: 0.0
 - Turns: 9/30

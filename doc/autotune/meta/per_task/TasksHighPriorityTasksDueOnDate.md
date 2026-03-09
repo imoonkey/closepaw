@@ -1,5 +1,8 @@
 # TasksHighPriorityTasksDueOnDate
 
+## R17 (gpt-5.4, 20260309_132808)
+- Score: 0.0 | Turns: 13 | ReasoningError — priority scale inverted (rightmost=None, agent read as High). Also insufficient scroll + candidate loss.
+
 ## R16 (gpt-5.4, 20260309_125810)
 - Score: 0.0 | Turns: 15 | FalseCompletion — found pre-existing "Renew Driver's License" but never scrolled to see dynamically-created task below fold. Priority logic correct.
 

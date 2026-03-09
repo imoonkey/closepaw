@@ -1,14 +1,14 @@
 {
   "goal": "Fix the remaining unresolved tasks from the full R8/R9 failure union using machine-verified eval traces as the source of truth.",
   "mode": "auto",
-  "next_round": 17,
+  "next_round": 18,
   "status": "running",
   "stop_reason": null,
   "last_round": {
-    "round": 16,
-    "run_id": "20260309_125810",
+    "round": 17,
+    "run_id": "20260309_132808",
     "result": "improved",
     "recommended_action": "continue",
-    "summary_path": "doc/autotune/round_16/20260309_125810/common_problems_claude.md"
+    "summary_path": "doc/autotune/round_17/20260309_132808/common_problems_claude.md"
   }
 }

@@ -1,5 +1,8 @@
 # SportsTrackerTotalDistanceForCategoryOverInterval
 
+## R17 (gpt-5.4, 20260309_132808)
+- Score: 0.0 | Turns: 36/50 | NavigationError — date mapping now correct (Mon=Oct9, Tue=Oct10) but didn't scroll. Missed kayaking tracks below fold. Answer: 0 (wrong).
+
 ## R16 (gpt-5.4, 20260309_125810)
 - Score: 0.0 | Turns: 24/50 | ReasoningError — date mapping. Confused "Yesterday" (Oct 14) with target range (Oct 9-10). Never checked Tuesday tracks. Answer: 4828 (wrong).
 

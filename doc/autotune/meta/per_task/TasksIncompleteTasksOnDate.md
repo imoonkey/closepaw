@@ -1,5 +1,8 @@
 # TasksIncompleteTasksOnDate
 
+## R17 (gpt-5.4, 20260309_132808)
+- Score: 1.0 | Turns: 10 | GoalAchieved — NEW PASS. Date-label fix from R16→R17 worked. Agent correctly used standalone date label, ignored chip text.
+
 ## R16 (gpt-5.4, 20260309_125810)
 - Score: 0.0 | Turns: 8 | ReasoningError — included "Back Up Computer Files" (due Sat/Oct 21) because "Tmrw" chip confused as due date instead of actual "Sat" label.
 

@@ -219,7 +219,11 @@ class NativeAgentBridge:
             # Forward provider base URL overrides
             base_url = self._config.api_keys.get("OPENAI_BASE_URL")
             if base_url:
-                extras.extend(["--es", "openai_base_url", base_url])
+                # Translate localhost to 10.0.2.2 for the Android emulator
+                emulator_url = base_url.replace("://localhost", "://10.0.2.2").replace(
+                    "://127.0.0.1", "://10.0.2.2"
+                )
+                extras.extend(["--es", "openai_base_url", emulator_url])
 
         self._run_adb_shell(
             ["input", "keyevent", "KEYCODE_HOME"],
