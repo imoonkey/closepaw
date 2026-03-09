@@ -139,24 +139,26 @@ object Perceptor {
         val jsonArray = JSONArray()
 
         for (elem in elements) {
-            val mergedText = mergedText(elem)
+            val promptText = mergedText(elem)
             val textIndex =
                 getOccurrenceIndex(
-                    value = mergedText,
+                    value = promptText,
                     counts = textCounts,
-                    normalize = { it.trim().lowercase() }
+                    normalize = ::normalizeForMatching
                 )
             val descIndex =
                 getOccurrenceIndex(
                     value = elem.description,
                     counts = descCounts,
-                    normalize = { it.trim().lowercase() }
+                    normalize = ::normalizeForMatching
                 )
             val obj =
                 JSONObject().apply {
                     put("index", elem.index)
-                    put("text", mergedText)
-                    if (textIndex != null) put("text_index", textIndex)
+                    if (promptText.isNotBlank()) {
+                        put("text", promptText)
+                        if (textIndex != null) put("text_index", textIndex)
+                    }
                     if (elem.description.isNotBlank()) {
                         put("desc", elem.description)
                         if (descIndex != null) put("desc_index", descIndex)
@@ -306,10 +308,10 @@ object Perceptor {
                 val element =
                     PerceptionElement(
                         index = -1,
-                        text = normalizeWhitespace(text),
+                        text = text,
                         resourceId = resourceId,
                         className = className,
-                        description = normalizeWhitespace(desc),
+                        description = desc,
                         isClickable = clickable,
                         isEditable = editable,
                         isScrollable = scrollable,
@@ -329,7 +331,7 @@ object Perceptor {
                                 y = (boundsRect.top + boundsRect.bottom) / 2
                             ),
                         isSelected = selected,
-                        hintText = normalizeWhitespace(hintText),
+                        hintText = hintText,
                         isChecked = checked,
                         isCheckable = checkable,
                         rangeInfo = rangeInfo

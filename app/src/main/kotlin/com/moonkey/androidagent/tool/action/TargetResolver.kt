@@ -5,6 +5,8 @@ import com.moonkey.androidagent.model.PerceptionElement
 import com.moonkey.androidagent.model.Point
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.SemanticTargetHint
+import com.moonkey.androidagent.perception.mergedText
+import com.moonkey.androidagent.perception.normalizeForMatching
 
 /**
  * Resolves a Target to screen coordinates.
@@ -52,9 +54,17 @@ object TargetResolver {
                 "Cannot use text targeting: no elements on screen. Use coordinate (x, y) instead."
             )
         }
-        val matches = snap.elements.filter {
-            it.text.equals(text, ignoreCase = true) ||
-                it.description.equals(text, ignoreCase = true)
+        val normalizedTarget = normalizeForMatching(text)
+        val promptMatches = snap.elements.filter { element ->
+            normalizeForMatching(mergedText(element)) == normalizedTarget
+        }
+        val matches = if (promptMatches.isNotEmpty()) {
+            promptMatches
+        } else {
+            snap.elements.filter { element ->
+                normalizeForMatching(element.description) == normalizedTarget ||
+                    normalizeForMatching(element.hintText) == normalizedTarget
+            }
         }
         val element = matches.getOrNull(textIndex)
             ?: return ResolveResult.NotFound(

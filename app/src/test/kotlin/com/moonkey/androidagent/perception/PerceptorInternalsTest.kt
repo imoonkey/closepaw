@@ -8,34 +8,6 @@ import org.junit.Test
 
 class PerceptorInternalsTest {
 
-    // --- extractIdSuffix ---
-
-    @Test
-    fun `extractIdSuffix returns suffix after slash`() {
-        assertThat(extractIdSuffix("com.example.app:id/icon_thumb")).isEqualTo("icon_thumb")
-    }
-
-    @Test
-    fun `extractIdSuffix returns suffix after colon when no slash`() {
-        assertThat(extractIdSuffix("com.example:my_button")).isEqualTo("my_button")
-    }
-
-    @Test
-    fun `extractIdSuffix returns full string when no slash or colon`() {
-        assertThat(extractIdSuffix("plain_id")).isEqualTo("plain_id")
-    }
-
-    @Test
-    fun `extractIdSuffix returns blank for blank input`() {
-        assertThat(extractIdSuffix("")).isEqualTo("")
-        assertThat(extractIdSuffix("   ")).isEqualTo("   ")
-    }
-
-    @Test
-    fun `extractIdSuffix handles trailing slash`() {
-        assertThat(extractIdSuffix("com.example:id/")).isEqualTo("")
-    }
-
     // --- mergedText ---
 
     @Test
@@ -57,15 +29,28 @@ class PerceptorInternalsTest {
     }
 
     @Test
-    fun `mergedText falls back to resourceId suffix`() {
+    fun `mergedText returns empty when only resourceId is present`() {
         val elem = element(text = "", description = "", hintText = "", resourceId = "pkg:id/search_btn")
-        assertThat(mergedText(elem)).isEqualTo("search_btn")
+        assertThat(mergedText(elem)).isEqualTo("")
     }
 
     @Test
     fun `mergedText returns empty when all blank`() {
         val elem = element(text = "", description = "", hintText = "", resourceId = "")
         assertThat(mergedText(elem)).isEqualTo("")
+    }
+
+    // --- normalizeForMatching ---
+
+    @Test
+    fun `normalizeForMatching trims and lowercases for matching`() {
+        assertThat(normalizeForMatching("  Save  ")).isEqualTo("save")
+    }
+
+    @Test
+    fun `normalizeForMatching preserves internal whitespace`() {
+        assertThat(normalizeForMatching("A  B")).isEqualTo("a  b")
+        assertThat(normalizeForMatching("A\tB")).isEqualTo("a\tb")
     }
 
     // --- shouldOutputResourceIds ---
@@ -116,34 +101,6 @@ class PerceptorInternalsTest {
             element(isClickable = false, resourceId = "pkg:id/label")
         )
         assertThat(shouldOutputResourceIds(elements, 0.20f)).isFalse()
-    }
-
-    // --- normalizeWhitespace ---
-
-    @Test
-    fun `normalizeWhitespace collapses horizontal whitespace`() {
-        assertThat(normalizeWhitespace("hello   world")).isEqualTo("hello world")
-        assertThat(normalizeWhitespace("hello\t\tworld")).isEqualTo("hello world")
-    }
-
-    @Test
-    fun `normalizeWhitespace collapses multiple newlines`() {
-        assertThat(normalizeWhitespace("a\n\n\nb")).isEqualTo("a\nb")
-    }
-
-    @Test
-    fun `normalizeWhitespace preserves single newline`() {
-        assertThat(normalizeWhitespace("a\nb")).isEqualTo("a\nb")
-    }
-
-    @Test
-    fun `normalizeWhitespace trims`() {
-        assertThat(normalizeWhitespace("  hello  ")).isEqualTo("hello")
-    }
-
-    @Test
-    fun `normalizeWhitespace handles empty string`() {
-        assertThat(normalizeWhitespace("")).isEqualTo("")
     }
 
     // --- enrichEmptyTextElements ---

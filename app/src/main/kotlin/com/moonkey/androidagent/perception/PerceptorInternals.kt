@@ -110,7 +110,6 @@ internal fun mergedText(elem: PerceptionElement): String {
     return elem.text
         .ifBlank { elem.description }
         .ifBlank { elem.hintText }
-        .ifBlank { extractIdSuffix(elem.resourceId) }
 }
 
 internal fun shouldOutputResourceIds(
@@ -123,13 +122,7 @@ internal fun shouldOutputResourceIds(
     return (withId.toFloat() / actionable.size.toFloat()) >= densityThreshold
 }
 
-internal fun extractIdSuffix(resourceId: String): String {
-    if (resourceId.isBlank()) return resourceId
-    val slash = resourceId.substringAfterLast('/')
-    if (slash != resourceId) return slash
-    val colon = resourceId.substringAfterLast(':')
-    return if (colon != resourceId) colon else resourceId
-}
+internal fun normalizeForMatching(value: String): String = value.trim().lowercase()
 
 internal fun clipBoundsToScreen(
     rect: Rect,
@@ -225,16 +218,6 @@ internal fun buildElementKey(
         append(',')
         append(rect.bottom)
     }
-}
-
-private val HORIZONTAL_WHITESPACE = Regex("[ \\t]+")
-private val MULTI_NEWLINE = Regex("\\n{2,}")
-
-internal fun normalizeWhitespace(value: String): String {
-    return value
-        .replace(HORIZONTAL_WHITESPACE, " ")
-        .replace(MULTI_NEWLINE, "\n\n")
-        .trim()
 }
 
 private fun contains(container: Bounds, child: Bounds): Boolean {

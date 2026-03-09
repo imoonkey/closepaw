@@ -133,6 +133,64 @@ class TargetResolverTest {
         assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.NotFound::class.java)
     }
 
+    @Test
+    fun `resolve text matches prompt text with matching normalization`() {
+        val bounds = Bounds(100, 400, 500, 700)
+        val snapshot = snapshotOf(element(index = 1, text = " Save ", bounds = bounds))
+
+        val resolved = TargetResolver.resolve(Target.Text("save", 0), snapshot)
+
+        assertThat(resolved).isEqualTo(
+            TargetResolver.ResolveResult.Resolved(
+                point = Point(300, 550),
+                bounds = bounds,
+                semanticHint = hintFor(" Save ", bounds)
+            )
+        )
+    }
+
+    @Test
+    fun `resolve text matches hint when no prompt text matches`() {
+        val bounds = Bounds(100, 400, 500, 700)
+        val snapshot = snapshotOf(
+            element(
+                index = 1,
+                text = "",
+                description = "",
+                hintText = "Search",
+                bounds = bounds
+            )
+        )
+
+        val resolved = TargetResolver.resolve(Target.Text("Search", 0), snapshot)
+
+        assertThat(resolved).isEqualTo(
+            TargetResolver.ResolveResult.Resolved(
+                point = Point(300, 550),
+                bounds = bounds,
+                semanticHint = hintFor("", bounds)
+            )
+        )
+    }
+
+    @Test
+    fun `resolve text does not match resource id suffix when no visible text exists`() {
+        val bounds = Bounds(100, 400, 500, 700)
+        val snapshot = snapshotOf(
+            element(
+                index = 1,
+                text = "",
+                description = "",
+                resourceId = "pkg:id/icon_thumb",
+                bounds = bounds
+            )
+        )
+
+        val resolved = TargetResolver.resolve(Target.Text("icon_thumb", 0), snapshot)
+
+        assertThat(resolved).isInstanceOf(TargetResolver.ResolveResult.NotFound::class.java)
+    }
+
     private fun snapshotOf(vararg elements: PerceptionElement): ScreenSnapshot {
         return ScreenSnapshot(
             timestamp = 0L,
@@ -140,13 +198,20 @@ class TargetResolverTest {
         )
     }
 
-    private fun element(index: Int, text: String, bounds: Bounds): PerceptionElement {
+    private fun element(
+        index: Int,
+        text: String,
+        bounds: Bounds,
+        description: String = "",
+        hintText: String = "",
+        resourceId: String = ""
+    ): PerceptionElement {
         return PerceptionElement(
             index = index,
             text = text,
-            resourceId = "",
+            resourceId = resourceId,
             className = "Button",
-            description = "",
+            description = description,
             isClickable = true,
             isEditable = false,
             isScrollable = false,
@@ -154,7 +219,8 @@ class TargetResolverTest {
             isFocused = false,
             isLongClickable = false,
             bounds = bounds,
-            center = Point(bounds.centerX, bounds.centerY)
+            center = Point(bounds.centerX, bounds.centerY),
+            hintText = hintText
         )
     }
 

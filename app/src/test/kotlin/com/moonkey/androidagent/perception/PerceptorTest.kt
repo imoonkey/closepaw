@@ -12,6 +12,35 @@ import org.junit.Test
 class PerceptorTest {
 
     @Test
+    fun `toPromptJson preserves raw whitespace in fields`() {
+        val rawText = "  hello\t\tworld\n\ncode block\n"
+        val rawDescription = "  button   label  "
+        val rawHint = "  enter  value  "
+        val element = PerceptionElement(
+            index = 0,
+            text = rawText,
+            resourceId = "pkg:id/input",
+            className = "EditText",
+            description = rawDescription,
+            isClickable = true,
+            isEditable = true,
+            isScrollable = false,
+            isEnabled = true,
+            isFocused = true,
+            isLongClickable = false,
+            bounds = Bounds(left = 0, top = 0, right = 300, bottom = 120),
+            center = Point(x = 150, y = 60),
+            hintText = rawHint
+        )
+        val snapshot = ScreenSnapshot(timestamp = 0L, elements = listOf(element))
+        val obj = JSONArray(Perceptor.toPromptJson(snapshot)).getJSONObject(0)
+
+        assertThat(obj.getString("text")).isEqualTo(rawText)
+        assertThat(obj.getString("desc")).isEqualTo(rawDescription)
+        assertThat(obj.getString("hint_text")).isEqualTo(rawHint)
+    }
+
+    @Test
     fun `toPromptJson includes explicit booleans and state fields`() {
         val element = PerceptionElement(
             index = 0,
@@ -76,7 +105,21 @@ class PerceptorTest {
     }
 
     @Test
-    fun `toPromptJson applies text fallback chain`() {
+    fun `toPromptJson canonicalizes text_index for matching only`() {
+        val first = element(index = 0, text = " Save ")
+        val second = element(index = 1, text = "save")
+        val snapshot = ScreenSnapshot(timestamp = 0L, elements = listOf(first, second))
+
+        val array = JSONArray(Perceptor.toPromptJson(snapshot))
+
+        assertThat(array.getJSONObject(0).getString("text")).isEqualTo(" Save ")
+        assertThat(array.getJSONObject(0).getInt("text_index")).isEqualTo(0)
+        assertThat(array.getJSONObject(1).getString("text")).isEqualTo("save")
+        assertThat(array.getJSONObject(1).getInt("text_index")).isEqualTo(1)
+    }
+
+    @Test
+    fun `toPromptJson uses only visible text fallback chain`() {
         val fromHint = element(
             index = 0,
             text = "",
@@ -95,7 +138,8 @@ class PerceptorTest {
         val array = JSONArray(Perceptor.toPromptJson(snapshot))
 
         assertThat(array.getJSONObject(0).getString("text")).isEqualTo("Search")
-        assertThat(array.getJSONObject(1).getString("text")).isEqualTo("icon_thumb")
+        assertThat(array.getJSONObject(1).has("text")).isFalse()
+        assertThat(array.getJSONObject(1).getString("id")).isEqualTo("com.example.app:id/icon_thumb")
     }
 
     @Test
