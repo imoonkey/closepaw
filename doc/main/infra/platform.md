@@ -1,7 +1,7 @@
 # Platform Abstraction
 
-> AndroidPlatform, Perceptor, screen perception, and virtual display support.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> AndroidPlatform, action execution, capture wiring, and virtual display support.
+> Last updated: 2026-03-09 (commit: f23287d)
 
 ## AndroidPlatform
 
@@ -293,54 +293,27 @@ All methods check `isVisibleToUser` to avoid clicking invisible nodes. Properly 
 
 ---
 
-## Perceptor
+## Perception Integration
 
-> See: `perception/Perceptor.kt`
+Detailed perception pipeline, prompt JSON contract, and text-targeting semantics live in [perception.md](perception.md).
 
-Converts raw `AccessibilityNodeInfo` tree into semantic `ScreenSnapshot`.
+Platform-side responsibilities:
 
-### Responsibilities
+- `AccessibilityPlatform` collects roots from relevant windows on the active display, excludes overlay / IME windows, retries empty-root capture up to 3 times, and marks `keyboardVisible`.
+- `VirtualDisplayPlatform` collects display-scoped roots via `VirtualDisplayWindowAccessor` and reuses the same `Perceptor.snapshot()` pipeline.
+- Both platforms can attach screenshots and trace artifacts around the shared `ScreenSnapshot` boundary returned by `captureScreen()`.
 
-- Traverse accessibility tree(s) with proper node recycling
-- Support multi-root snapshots (multiple a11y windows) via `snapshot(roots: List<AccessibilityNodeInfo>)`
-- Extract element data (bounds, text, class) without storing raw nodes
-- Filter off-screen elements and tiny elements
-- Filter keyboard/IME nodes (Gboard, Samsung, SwiftKey)
-- Clip bounds to screen dimensions
-- Limit to `MAX_ELEMENTS` (default 500) for token budget
-- Generate JSON for LLM prompts via `toPromptJson()`
+Perception text semantics at the platform boundary:
 
-Both platforms reuse `Perceptor.snapshot()` — `AccessibilityPlatform` passes `service.rootInActiveWindow`, `VirtualDisplayPlatform` passes roots from `VirtualDisplayWindowAccessor.getRootsOnDisplay()` with explicit width/height.
+- Capture is lossless by default: `PerceptionElement.text`, `description`, and `hintText` preserve raw accessibility values.
+- Prompt `text` uses `text -> description -> hintText`.
+- `resourceId` may be emitted as `id`, but it is not a text fallback.
 
-### Prompt JSON Example
-
-```json
-{
-  "index": 0,
-  "text": "Settings",
-  "text_index": 0,
-  "class": "android.widget.TextView",
-  "clickable": true,
-  "focused": false,
-  "long_clickable": false,
-  "bounds": [0, 100, 1080, 150],
-  "center": [540, 125]
-}
-```
-
-Notes:
-- `text` is merged text with fallback chain: `text -> desc -> hint_text -> resource_id suffix`.
-- `text_index` is emitted for any non-empty merged text; `desc_index` is emitted when `desc` is present.
-- Boolean fields `clickable` / `editable` / `scrollable` are always emitted explicitly.
-- `id` is emitted conditionally when actionable-node id density on current snapshot crosses the threshold.
-
----
-
-## PerceptionConfig
+### PerceptionConfig
 
 > See: `perception/PerceptionConfig.kt`
 
-Controls which perception modalities the agent captures each turn.
+`PerceptionConfig` still controls which modalities `captureScreen()` returns:
 
 | Variant | Description |
 |---------|-------------|
@@ -348,30 +321,24 @@ Controls which perception modalities the agent captures each turn.
 | `ScreenshotOnly(maxDimension, jpegQuality)` | Screenshot only. For apps with poor a11y support. |
 | `Hybrid(maxDimension, jpegQuality)` | Both modalities. Richest perception, highest token cost. |
 
-Properties: `capturesAccessibility`, `capturesScreenshot`, `screenshotMaxDimension`, `screenshotJpegQuality`.
+Helpers: `capturesAccessibility`, `capturesScreenshot`, `screenshotMaxDimension`, `screenshotJpegQuality`.
 
-`PerceptorFilterConfig` controls element filtering: `maxElements` (default 500), `minElementSizePx`, `visibilityThreshold`.
-
----
-
-## ScreenSnapshot
+### ScreenSnapshot Boundary
 
 > See: `model/Models.kt`
 
 ```kotlin
 data class ScreenSnapshot(
     val timestamp: Long,
-    val elements: List<PerceptionElement>?,  // null in screenshot-only mode
+    val elements: List<PerceptionElement>,
     val image: ScreenImage? = null,
-    val debug: ScreenSnapshotDebug? = null
-) {
-    init { require(elements != null || image != null) { "..." } }
-    val hasAccessibility: Boolean get() = !elements.isNullOrEmpty()
-    val hasScreenshot: Boolean get() = image != null
-}
+    val debug: ScreenSnapshotDebug? = null,
+    val textEnriched: Boolean = false,
+    val keyboardVisible: Boolean = false
+)
 ```
 
-At least one modality (a11y tree or screenshot) must be present.
+`elements` is always present and may be empty. `image` is optional. `debug`, `textEnriched`, and `keyboardVisible` are shared downstream by prompt building, observations, traces, and UI-change detection.
 
 ---
 
@@ -426,15 +393,18 @@ perception/
 ├── PerceptionConfig.kt        # Capture mode (AccessibilityOnly, ScreenshotOnly, Hybrid)
 ├── Perceptor.kt               # A11y tree → ScreenSnapshot (shared by both platforms, multi-root support)
 ├── PerceptorFilterConfig.kt   # Element filtering config (maxElements, size/visibility thresholds)
-├── PerceptorInternals.kt      # Internal traversal helpers, whitespace normalization (preserves paragraph breaks with `\n\n`)
+├── PerceptorInternals.kt      # Internal traversal helpers
 ├── PerceptorDiagnostics.kt    # Capture diagnostics collector
 └── ScreenSummary.kt           # Text summary for history
 ```
+
+Perception package details: see [Perception](perception.md) for the full capture pipeline, prompt JSON contract, and text-targeting behavior.
 
 ---
 
 ## Related Docs
 
+- [Perception](perception.md) - Perceptor pipeline, `ScreenSnapshot`, and text semantics
 - [Tools](tools.md) - Tool execution and executor architecture
 - [Loop](../agent/loop.md) - Perception in ReAct loop
 - [Planning](../agent/planning.md) - Context hygiene

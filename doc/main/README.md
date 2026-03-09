@@ -1,7 +1,7 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Last updated: 2026-03-09 (commit: f23287d)
 
 ## Quick Start
 
@@ -31,7 +31,8 @@ doc/main/
 ├── infra/             # Agent infrastructure
 │   ├── session.md     # AgentSession, SessionServices, lifecycle
 │   ├── tools.md       # Tool system, ToolRouter, ToolRegistry, PolicyEngine
-│   ├── platform.md    # AndroidPlatform, VirtualDisplay, Perceptor, perception
+│   ├── platform.md    # AndroidPlatform, action dispatch, capture wiring, VirtualDisplay
+│   ├── perception.md  # Perceptor, ScreenSnapshot, prompt shaping, text semantics
 │   └── llm.md         # LLM clients, ModelCatalog, retry infrastructure
 │
 ├── protocol/          # Communication contracts
@@ -163,8 +164,10 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │       └── ...                   # Config, transports, shell, viewer touch
 │
 ├── perception/                   # Screen perception
+│   ├── PerceptionConfig.kt       # Session-level modality selection
 │   ├── Perceptor.kt              # A11y tree → ScreenSnapshot (multi-root support)
 │   ├── PerceptorFilterConfig.kt  # Element filtering config (maxElements, thresholds)
+│   ├── PerceptorDiagnostics.kt   # Capture diagnostics counters
 │   └── ScreenSummary.kt          # Compact observation summary
 │
 ├── llm/                          # LLM integration
@@ -230,7 +233,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 | Multi-agent | [multiagent.md](agent/multiagent.md) |
 | Adding tools | [tools.md](infra/tools.md) |
 | Session lifecycle | [session.md](infra/session.md), [session/](ui/session/state_machine.md) |
-| Screen perception | [platform.md](infra/platform.md) |
+| Screen perception | [perception.md](infra/perception.md), [platform.md](infra/platform.md) |
 | LLM integration | [llm.md](infra/llm.md) |
 | UI changes | [tech_design.md](ui/tech_design.md) |
 | Design system | [style.md](ui/style.md) |

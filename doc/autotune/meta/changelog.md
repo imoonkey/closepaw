@@ -2,6 +2,22 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Post-R14 Perception Fidelity Follow-up (2026-03-09)
+- **Scope**: Landed the perception fidelity cleanup that R14 identified, plus permanent docs for the new contract. No new eval run.
+- **Key changes**:
+  - `fix: preserve raw perception text semantics` (`f23287d`)
+    - `Perceptor` now preserves raw `text`, `description`, and `hintText` values without capture-time whitespace normalization.
+    - Prompt `text` now follows visible/accessibility semantics only: `text -> description -> hintText`.
+    - `resourceId` suffix is no longer treated as prompt text or text-targetable content.
+    - `TargetResolver` now matches prompt-text semantics first, then falls back to `description` / `hintText` only when prompt-text matching finds nothing.
+  - `docs: document perception text semantics` (`21b4bfd`)
+    - Added `doc/main/infra/perception.md` as the dedicated SOTA doc for perception.
+    - Updated `doc/main/README.md` navigation and narrowed `doc/main/infra/platform.md` to platform-side perception integration.
+    - Added detailed design record at `doc/autotune/round_14/percetion_fidelity_codex.md`.
+- **Why**:
+  - R10's newline-preservation tweak fixed only one symptom. The deeper issue was that capture and prompt shaping were still conflating fidelity, matching, and resource-id fallback.
+  - This follow-up makes perception lossless by default and aligns what the model sees in prompt JSON with what `Target.Text` can actually resolve.
+
 ## Autotune Round 14 (2026-03-09, run 20260309_020714, qwen3.5, smart name filtering)
 - **Key changes** (f3376a4):
   - OpenTracks SKILL.md: allow track names as negative filter — skip obviously unrelated tracks (e.g., "Alpine Skiing" for running query), prioritize ambiguous/matching names for Edit checks

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-09: Perception High-Fidelity Capture and Text Targeting Alignment (`f23287d`)
+
+**What changed:**
+- `Perceptor` capture now keeps raw `text`, `description`, and `hintText` without capture-time whitespace normalization.
+- Prompt `text` now reflects visible/accessibility text semantics only (`text -> description -> hintText`) and no longer falls back to `resourceId` suffix.
+- Added downstream-only `normalizeForMatching()` and used it for `text_index` / `desc_index` grouping and `TargetResolver` text lookup.
+- `TargetResolver` now prioritizes prompt-text semantics first, then falls back to `description` / `hintText` when needed.
+- Added dedicated perception/targeting tests, a new `doc/main/infra/perception.md` SOTA doc, and a perception-specific design note at `doc/autotune/round_14/percetion_fidelity_codex.md`.
+
+**Why:**
+- Preserve accessibility observations as source-of-truth and avoid irreversible capture-time rewriting.
+- Fix drift between what the model sees in prompt JSON and what `text` targeting can actually resolve.
+
+**Key files:** `Perceptor.kt`, `PerceptorInternals.kt`, `TargetResolver.kt`, `PerceptorTest.kt`, `TargetResolverTest.kt`, `doc/main/infra/perception.md`, `doc/autotune/round_14/percetion_fidelity_codex.md`
+
 ## 2026-03-09: Autotune Rounds 10-14 — qwen3.5 Targeted Tuning (0→20/22)
 
 **What changed:**
