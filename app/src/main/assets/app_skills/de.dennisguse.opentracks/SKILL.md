@@ -33,8 +33,9 @@ The track list uses relative day labels (Today, Yesterday, Monday, Tuesday, etc.
 3. Only include tracks whose day label falls within the target range — "Yesterday" is always device_date − 1, not a synonym for any target date
 
 ## Strategy for Counting/Aggregating
-1. Scroll the full list to identify all tracks whose day label maps to the target date range
-2. For date-range queries, check ALL tracks on target dates — do not skip based on name alone
-3. Check activity type via Edit for each candidate track
-4. Record each finding in scratchpad immediately
-5. If running low on turns, submit your best answer from scratchpad evidence
+1. Scroll down repeatedly until scroll has no effect — the track list is often longer than one screen
+2. Identify all tracks whose day label maps to the target date range
+3. For date-range queries, check ALL tracks on target dates — do not skip based on name alone
+4. Check activity type via Edit for each candidate track
+5. Record each finding in scratchpad immediately
+6. If running low on turns, submit your best answer from scratchpad evidence
