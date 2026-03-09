@@ -1,0 +1,7 @@
+SportsTrackerActivitiesCountForWeek
+SportsTrackerLongestDistanceActivity
+SportsTrackerTotalDistanceForCategoryOverInterval
+TasksCompletedTasksForDate
+TasksDueNextWeek
+TasksHighPriorityTasks
+ExpenseAddMultipleFromMarkor

@@ -57,3 +57,8 @@ bridge:
     RetroPlaylistDuration: { max_turns: 45 }
     OsmAndMarker: { perception_mode: hybrid }
     OsmAndTrack: { perception_mode: hybrid }
+    SportsTrackerActivitiesCountForWeek: { max_turns: 50 }
+    SportsTrackerLongestDistanceActivity: { max_turns: 50 }
+    SportsTrackerTotalDistanceForCategoryOverInterval: { max_turns: 50 }
+    SportsTrackerTotalDurationForCategoryThisWeek: { max_turns: 50 }
+    TasksHighPriorityTasks: { max_turns: 50 }
