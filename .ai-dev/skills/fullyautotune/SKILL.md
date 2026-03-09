@@ -1,3 +1,8 @@
+---
+name: fullyautotune
+description: Fully automated multi-round `/autotune` loop. Use when you want to keep iterating on a targeted eval set without waiting for human review between rounds.
+---
+
 Given a targeted optimization target, e.g., a list of eval tasks to run successfully, run the /autotune process automatically multiple rounds.
 
 # Principles
