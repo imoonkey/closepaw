@@ -1,5 +1,8 @@
 # SportsTrackerTotalDistanceForCategoryOverInterval
 
+## R18 (gpt-5.4, 20260309_135649)
+- Score: 0.0 | Turns: 35/50 | NavigationError — 3rd consecutive failure. Dates correct, activity type checks correct, but ZERO scrolls. Missed kayaking tracks below fold. Candidate for cannot_handle.
+
 ## R17 (gpt-5.4, 20260309_132808)
 - Score: 0.0 | Turns: 36/50 | NavigationError — date mapping now correct (Mon=Oct9, Tue=Oct10) but didn't scroll. Missed kayaking tracks below fold. Answer: 0 (wrong).
 

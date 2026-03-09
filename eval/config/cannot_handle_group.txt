@@ -5,3 +5,7 @@ ExpenseDeleteDuplicates2
 RecipeDeleteDuplicateRecipes2
 RecipeDeleteDuplicateRecipes3
 RetroPlaylistDuration
+AudioRecorderRecordAudioWithFileName
+BrowserDraw
+BrowserMaze
+SportsTrackerTotalDistanceForCategoryOverInterval

@@ -2,6 +2,23 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 18 (2026-03-09, run 20260309_135649, gpt-5.4, priority scale + scroll + settings)
+- **Key changes** (4555232):
+  - Tasks SKILL.md: priority radio button order (High, Med, Low, None left-to-right)
+  - Both skills: scroll-until-stuck strengthening
+  - New com.android.settings SKILL.md with shell toggle preference
+- **Tasks run**: 9 (3 retries + 6 new from backlog)
+- **Config**: serial single-device, model gpt-5.4
+- **Result**: 0.5/9 — no new full passes
+- **Key findings**:
+  - Priority scale fix WORKED (TasksHighPriority correctly read leftmost=High)
+  - Scroll guidance STILL IGNORED by SportsTracker (3rd consecutive failure)
+  - TasksHighPriority: priority correct but scratchpad overwrite on scroll lost candidates
+  - MarkorDeleteNewestNote: agent logic correct, timestamp mismatch (mod vs creation time)
+  - MarkorMergeNotes: .md extension + auto heading template broke content match
+  - Browser/Expense/Recipe: hard tasks, need deeper investigation or cannot_handle
+- **Moved to cannot_handle**: AudioRecorderRecordAudioWithFileName (scoped storage), BrowserDraw (canvas), BrowserMaze (canvas), SportsTrackerTotalDistanceForCategoryOverInterval (3× scroll failure)
+
 ## Autotune Round 17 (2026-03-09, run 20260309_132808, gpt-5.4, date/scroll skill fixes)
 - **Key changes** (192d3c8):
   - OpenTracks SKILL.md: date-label-to-absolute-date mapping, require checking ALL tracks on target dates

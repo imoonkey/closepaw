@@ -1,8 +1,4 @@
-SportsTrackerTotalDistanceForCategoryOverInterval
 TasksHighPriorityTasksDueOnDate
-AudioRecorderRecordAudioWithFileName
-BrowserDraw
-BrowserMaze
 ExpenseAddMultipleFromGallery
 MarkorDeleteNewestNote
 MarkorMergeNotes

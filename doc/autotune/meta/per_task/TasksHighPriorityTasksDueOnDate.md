@@ -1,5 +1,8 @@
 # TasksHighPriorityTasksDueOnDate
 
+## R18 (gpt-5.4, 20260309_135649)
+- Score: 0.0 | Turns: 21 | Priority scale fix worked (correctly read leftmost=High). But scratchpad overwrite on scroll lost "Learn to Play Guitar" candidate. Answer: "Renew Driver's License" (partial — missed dynamically-created task).
+
 ## R17 (gpt-5.4, 20260309_132808)
 - Score: 0.0 | Turns: 13 | ReasoningError — priority scale inverted (rightmost=None, agent read as High). Also insufficient scroll + candidate loss.
 

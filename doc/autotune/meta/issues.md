@@ -50,3 +50,7 @@
 - RecipeDeleteDuplicateRecipes2 — intentional same-description noise trap, agent over-deleted (4 instead of 1), information asymmetry (added AT-R1)
 - RecipeDeleteDuplicateRecipes3 — structurally impossible at any reasonable turn budget: 10+ duplicates × 4 turns/deletion = 40+ productive turns minimum (added AT-R4)
 - RetroPlaylistDuration — qwen3.5-blocked: 7 consecutive 0.0, model cannot execute multi-step batch-select workflow due to duplicate "More options" grounding error (added AT-R4)
+- AudioRecorderRecordAudioWithFileName — scoped storage prevents filesystem rename; UI rename only changes display name; evaluator checks filesystem (added AT-R18)
+- BrowserDraw — pixel-level canvas drawing beyond accessibility service capability, even in hybrid mode (added AT-R18)
+- BrowserMaze — pixel-level canvas maze navigation beyond accessibility capability (added AT-R18)
+- SportsTrackerTotalDistanceForCategoryOverInterval — 3 consecutive failures (R16-R18) despite targeted skill fixes; agent consistently ignores scroll guidance; needs structural scroll enforcement (added AT-R18)
