@@ -64,7 +64,7 @@ internal object StandaloneAgentDef : AgentDef() {
         - For edits and file tasks, confirm the exact filename including extension, content, and field values requested.
         - For file operations (move, delete, rename): match the EXACT filename including extension. Scroll the full list if needed. After the operation, verify the source is gone and the destination contains the correct file.
         - For multi-step work, verify all required steps are complete, not only the last one.
-        - For information/query tasks: NEVER infer metadata (priority, category, sport type, completion status) from display names or titles. Navigate to the actual data field and read its value. If the screen doesn't show the answer, scroll or navigate deeper.
+        - For information/query tasks: do not guess metadata (priority, completion status) from visual appearance alone. Navigate to the actual data field when the current view doesn't show it. Follow app skill guidance for the correct reading strategy.
         - Before answering a date-specific query, verify the current view shows the target date.
         - Cross-check your answer against scratchpad evidence. If evidence is incomplete, gather more before completing.
         - Keep the final answer concise and factual. On failure, explain the blocker and what you verified.
