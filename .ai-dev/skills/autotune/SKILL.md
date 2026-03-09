@@ -1,16 +1,26 @@
 ---
 name: autotune
-description: Automated eval-tune loop. Applies approved fixes, selects tasks, runs eval, analyzes results with /cog-tune, and stops for human review. Use to iterate on agent quality without manual orchestration.
+description: One eval-tune round. Applies approved fixes, selects tasks, runs eval, analyzes results, and updates loop state. Standalone use stops for human review; `/autotune-loop` can orchestrate repeated rounds.
 ---
 
 # AutoTune
 
-Automated fix → eval → analyze loop. Each invocation does one full iteration and stops for human review.
+One full fix → eval → analyze round.
 
 ## When to Use
 
 - After reviewing a previous round's `common_problems_<agent>.md` and approving the proposed next steps.
 - To kick off round 0 on a fresh task set (skips the fix step).
+- When `/autotune-loop` needs one orchestrated round worker.
+
+## Modes
+
+`/autotune` has two modes:
+
+- **Manual mode**: default for standalone `/autotune`. Do one round, update `loop_state.json` with `status: "waiting_review"` and `last_round.recommended_action: "wait_human"`, then stop for human review.
+- **Orchestrated mode**: only when invoked from `/autotune-loop`. Do the same round work, update `loop_state.json` with the round verdict, and return control to the loop controller.
+
+Invocation context decides the mode. Do not infer orchestrated behavior from a stale `doc/autotune/meta/loop_state.json` alone.
 
 ## Loop
 
@@ -22,6 +32,7 @@ Automated fix → eval → analyze loop. Each invocation does one full iteration
 
 Apply changes from the previous round's approved `## Next Steps`.
 
+- Every proposed change must pass `.ai-dev/skills/autotune/references/tuning_principles.md`.
 - For prompt, tool description, or app skill changes, use `/prompt-tune` to determine the correct ownership layer before editing.
 - **Use `/implement` skill** for all code changes. Do NOT skip any steps in the implementation workflow.
 - Commit: `feat(agent): autotune round N — <summary>`.
@@ -34,10 +45,12 @@ Select tasks for this round. Full universe: `eval/config/aw_fullset.txt`.
 Selection rules:
 1. **Directly affected**: Tasks whose failure root cause matches what was just fixed.
 2. (Optional) **Regression canaries**: Only include if explicitly requested. Do not add by default.
-3. (Optional) **Stuck tasks**: Re-test if you have a new idea.
+3. (Optional) **Stuck tasks**: Re-test only if you have a new idea and the change still passes the shared tuning principles.
 4. **Budget**: ~5-10 tasks normally, up to 20 for regression sweeps.
 
-Subtract `eval/config/cannot_handle_group.txt`. Write to `eval/config/autotune_round_N.txt`.
+Use `doc/autotune/meta/scoreboard.json` to judge whether a targeted retry is still productive.
+
+Subtract `eval/config/cannot_handle_group.txt`. Write the selected tasks to `eval/config/autotune_round_N.txt`.
 
 ### Step 3 — Run
 
@@ -72,8 +85,22 @@ Once done with all tasks:
 4. Run `python scripts/scoreboard.py` to regenerate `doc/autotune/meta/scoreboard.json` and `doc/autotune/meta/scoreboard.md`.
 5. Append to `doc/autotune/meta/changelog.md`.
 6. Update `doc/autotune/meta/issues.md` (new issues, resolved issues, parked tasks).
+7. Update `doc/autotune/meta/loop_state.json` as the final control-plane handoff for this round.
+
+Escalate to `/double-design` only when at least one of these is true:
+- The same task cluster has failed for 2+ rounds with no progress.
+- The proposed fix touches the core prompt or major tool semantics.
+- A capability-gap candidate needs confirmation before being parked.
 
 Note: <agent> = your name, e.g., claude, codex (do your analysis independently, don't look at other agents' analyses even if they exist).
+
+## Loop State Contract
+
+`doc/autotune/meta/loop_state.json` is the only control-plane file for the current loop.
+
+- In **manual mode**, set `status` to `waiting_review`, keep `mode` as `manual`, and set `last_round.recommended_action` to `wait_human`.
+- In **orchestrated mode**, write the round verdict into `last_round` and return. `/autotune-loop` decides whether to continue or stop.
+- Do not create a separate `round_verdict.json`.
 
 ### STOP
 
@@ -93,6 +120,7 @@ Wait for approval before the next `/autotune`.
 - Design: `doc/todo/0.01_autotune/design.md`
 - Scoreboard (SOT): `doc/autotune/meta/scoreboard.json`
 - Scoreboard (view): `doc/autotune/meta/scoreboard.md`
+- Loop state: `doc/autotune/meta/loop_state.json`
 - Global issues: `doc/autotune/meta/issues.md`
 - Changelog: `doc/autotune/meta/changelog.md`
 - Per-task changelogs: `doc/autotune/meta/per_task/<TaskName>.md`
@@ -103,3 +131,5 @@ Wait for approval before the next `/autotune`.
 - Eval runner: `eval/aw_bridge/runner.py`
 - Cog-tune skill: `.ai-dev/skills/cog-tune/SKILL.md`
 - Implement skill: `.ai-dev/skills/implement/SKILL.md`
+- Shared tuning principles: `.ai-dev/skills/autotune/references/tuning_principles.md`
+- Loop controller: `.ai-dev/skills/autotune-loop/SKILL.md`

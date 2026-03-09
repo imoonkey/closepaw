@@ -9,6 +9,14 @@ description: Apply prompt, tool description, and app skill changes based on cog-
 
 Treatment skill for agent cognition issues. Takes a diagnosis (from `/cog-tune` or `/autotune` analysis) and applies the change to the correct ownership layer. Prevents prompt drift, duplication, and overfit patches.
 
+## Principles
+
+Every prompt, tool-description, or app-skill change must satisfy the shared tuning gates in `../autotune/references/tuning_principles.md`.
+
+- **Anti-overfit**: reject patches that only help one eval task.
+- **Token minimalism**: keep the smallest instruction that still changes behavior.
+- **Generalization**: prefer rules that also help unseen real-user tasks in the same workflow family.
+
 ## When to Use
 
 - After `/cog-tune` produces a diagnosis with proposed changes
@@ -71,7 +79,7 @@ Before finalizing, verify:
 
 - [ ] **No duplication**: The same rule does not appear in multiple layers.
 - [ ] **No cross-layer leakage**: Core prompt has no app-specific content. Tool descriptions have no cross-tool policy. App skills have no tool API docs.
-- [ ] **No overfit**: The change is generalizable, not a one-off patch for a single eval task. If it only helps one task and could hurt others, reconsider.
+- [ ] **No overfit**: The change passes `../autotune/references/tuning_principles.md` and is generalizable, not a one-off patch for a single eval task.
 - [ ] **Conciseness**: Core prompt stays under ~100 lines. App skills stay under ~20 lines. Tool descriptions stay focused on tool-local semantics.
 - [ ] **No phantom rules**: Avoid adding rules that address hypothetical problems. Every rule should trace to observed evidence.
 
@@ -101,6 +109,7 @@ Before finalizing, verify:
 
 ### Design reference
 - Ownership model design: `doc/autotune/round_4/prompt_refactor/final/design.md`
+- Shared tuning principles: `.ai-dev/skills/autotune/references/tuning_principles.md`
 
 ### Existing app skills
 Find all with: `ls app/src/main/assets/app_skills/`

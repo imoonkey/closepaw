@@ -2,6 +2,19 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Loop Contract Restructure (2026-03-09)
+- **Scope**: Renamed the autonomous loop skill from `fullyautotune` to `autotune-loop` and aligned the repo-local autotune workflow to the final responsibility split.
+- **Key changes**:
+  - Added `doc/autotune/meta/loop_state.json` as the single control-plane file for the current loop run.
+  - Added `.ai-dev/skills/autotune/references/tuning_principles.md` and linked it from `/autotune` and `/prompt-tune`.
+  - Rewrote `/autotune` around explicit manual vs orchestrated modes and made `loop_state.json` the end-of-round handoff.
+  - Replaced `fullyautotune` with `autotune-loop`, a thin controller over `loop_state.json`, `scoreboard.json`, and `/autotune`.
+  - Updated `AIDEV.md` to document `/autotune`, `/autotune-loop`, and `/prompt-tune`.
+- **Why**:
+  - The previous setup blurred ownership between `ralph-loop`, `fullyautotune`, and `autotune`.
+  - The new contract makes `ralph-loop` generic, keeps domain policy in `autotune-loop`, and keeps round work in `autotune`.
+
+
 ## Post-R14 Perception Fidelity Follow-up (2026-03-09)
 - **Scope**: Landed the perception fidelity cleanup that R14 identified, plus permanent docs for the new contract. No new eval run.
 - **Key changes**:

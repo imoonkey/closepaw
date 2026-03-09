@@ -83,6 +83,9 @@ sealed class AgentError {
 
 ## Agent Skills
 - `/plan` - Create implementation plan before coding
+- `/autotune` - Run one eval-tune round and stop for human review by default
+- `/autotune-loop` - Run autonomous multi-round autotune via `loop_state.json`
+- `/prompt-tune` - Apply prompt, tool, and app-skill changes in the correct ownership layer
 - `/verify` - Run build + lint + tests
 - `/build-fix` - Fix Gradle errors incrementally
 - `/update-docs` - Sync docs with code changes
