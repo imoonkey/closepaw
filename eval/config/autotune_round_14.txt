@@ -1,0 +1,5 @@
+SportsTrackerActivitiesCountForWeek
+SportsTrackerLongestDistanceActivity
+SportsTrackerTotalDistanceForCategoryOverInterval
+TasksCompletedTasksForDate
+TasksDueNextWeek

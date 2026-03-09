@@ -6,7 +6,7 @@ description: App-specific guidance for OpenTracks.
 # OpenTracks Skill
 
 ## Important: Activity Type vs Track Name
-Track names are user-provided labels and do NOT reliably indicate the activity type category. A track named "Skill work" could be categorized as "Running". The activity type is only visible in the Edit screen.
+Track names are user-chosen labels. They often hint at the activity type but are NOT guaranteed to match (e.g., a track named "Skill work" could be categorized as "Running"). The authoritative activity type is only visible in the Edit screen.
 
 ## Reading Activity Type
 To check a track's activity type category:
@@ -15,17 +15,20 @@ To check a track's activity type category:
 3. Read the Activity type field
 4. Press back twice to return to the list
 
-This costs ~4 turns per track. For queries requiring many checks, work efficiently:
-- Start checking immediately — do not waste turns on planning
-- Record each finding in scratchpad as you go
-- Skip tracks outside the target date range (visible in list view)
-- The list view shows distance and duration, which can help filter without opening Edit
+This costs ~4 turns per track. Combine scratchpad writes with navigation actions in the same turn to save turns.
+
+## Smart Filtering to Save Turns
+When searching for a specific activity type (e.g., "running"), prioritize checking:
+1. Tracks with ambiguous names or names matching the target (check these via Edit first)
+2. Skip tracks with names clearly unrelated to the target (e.g., "Alpine Skiing" or "Bicycle Adventure" for a running query)
+3. Always verify the actual count via Edit — do not count tracks based on name alone
 
 ## Reading Distance/Duration
 Click a track to see its Stats tab — shows distance, moving time, etc. No need to enter Edit for these.
 
 ## Strategy for Counting/Aggregating
-1. First scan the list view to identify tracks in the target date range
-2. Check activity type via Edit for date-matching tracks only
-3. Record findings in scratchpad
-4. Compute answer from scratchpad evidence
+1. Scroll the full list to identify all tracks in the target date range
+2. Prioritize ambiguous/matching names first, skip obviously unrelated names
+3. Check activity type via Edit for prioritized tracks
+4. Record each finding in scratchpad immediately
+5. If running low on turns, submit your best answer from scratchpad evidence
