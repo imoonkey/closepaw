@@ -34,6 +34,7 @@ Do NOT guess completion status from visual appearance or task names.
 - For counting or listing queries: scroll through the full list before answering — a single viewport may not show all items.
 - Do NOT answer "0" or "none" without scrolling the full task list.
 - Store findings in scratchpad before answering.
+- **Scratchpad accumulation rule**: when scanning a scrollable list, accumulate candidates across scroll positions. Never overwrite the full candidate list on scroll — only append new entries or remove specific entries with explicit reasoning.
 
 ## Modifying Tasks
 - Only click checkboxes when the goal explicitly requires changing completion status.

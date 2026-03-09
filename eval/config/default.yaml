@@ -61,4 +61,7 @@ bridge:
     SportsTrackerLongestDistanceActivity: { max_turns: 50 }
     SportsTrackerTotalDistanceForCategoryOverInterval: { max_turns: 50 }
     SportsTrackerTotalDurationForCategoryThisWeek: { max_turns: 50 }
+    RecipeAddMultipleRecipes: { max_turns: 50 }
+    RecipeAddMultipleRecipesFromMarkor2: { max_turns: 50 }
     TasksHighPriorityTasks: { max_turns: 50 }
+    TasksHighPriorityTasksDueOnDate: { max_turns: 50 }
