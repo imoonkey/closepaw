@@ -1,3 +1,7 @@
+## R19 (20260309_143418) — gpt-5.4
+- Score: 0.0, Turns: 32
+- Reasoning: Edit-as-create — same pattern, overwrote recipe 1
+
 # RecipeAddMultipleRecipesFromMarkor
 
 ## R8 (GPT-5.4, 20260307)

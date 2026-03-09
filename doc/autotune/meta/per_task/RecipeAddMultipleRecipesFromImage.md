@@ -1,3 +1,7 @@
+## R19 (20260309_143418) — gpt-5.4
+- Score: 0.0, Turns: 32
+- Perception: image OCR hallucination (6 rewrites), extracted 2/3 recipes
+
 # RecipeAddMultipleRecipesFromImage
 
 ## R7 (run 20260307_025501, qwen3.5)

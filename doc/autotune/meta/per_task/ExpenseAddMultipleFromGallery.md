@@ -1,3 +1,7 @@
+## R19 (20260309_143418) — gpt-5.4
+- Score: 0.0, Turns: 19
+- Reasoning: failed to scroll category RecyclerView, gave up prematurely
+
 # ExpenseAddMultipleFromGallery
 
 ## AT-R5-GPT54 (20260306_003753) — FAIL

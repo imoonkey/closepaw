@@ -2,6 +2,22 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 19 (2026-03-09, run 20260309_143418, gpt-5.4, scratchpad merge + markor shell-write + newest-note strategy)
+
+**Fixes applied**: (1) Tasks.org skill: scratchpad accumulation rule — "never overwrite candidate list on scroll", (2) Markor skill: shell-write preference for merge/content tasks, (3) Markor skill: newest-note identification via date-sort, (4) Eval config: max_turns=50 for RecipeAddMultipleRecipes, RecipeAddMultipleRecipesFromMarkor2, TasksHighPriorityTasksDueOnDate.
+
+**Results**: 1/9 pass (11.1%). TurnOnWifiAndOpenApp first-ever pass (1.0). All others 0.0.
+
+**Key findings**:
+- **Markor shell-write REGRESSED**: Agent canceled working UI dialog to attempt shell (which lacks permissions). Fix was counterproductive.
+- **Broccoli Edit-as-Create**: 3 Recipe tasks failed because agent clicks Edit on existing recipe instead of navigating back to create new one. Needs Broccoli app skill.
+- **MarkorDeleteNewestNote**: Agent used date-sort correctly but Markor shows modification time, not creation time. Need shell `stat` for creation time.
+- **RecipeAddMultipleRecipesFromImage**: Image OCR unstable — 6 scratchpad rewrites with wildly different recipe names. Only 2/3 recipes extracted.
+- **TasksHighPriorityTasksDueOnDate**: Scratchpad accumulation partially worked (append on scroll) but agent overwrote when switching to priority-checking phase. Also stopped scrolling too early.
+- **TurnOnWifiAndOpenApp**: Settings skill injected, shell `svc wifi enable` failed (permissions), agent gracefully fell back to UI navigation. First pass.
+
+**Backlog change**: 9 → 8 active (TurnOnWifiAndOpenApp resolved).
+
 ## Autotune Round 18 (2026-03-09, run 20260309_135649, gpt-5.4, priority scale + scroll + settings)
 - **Key changes** (4555232):
   - Tasks SKILL.md: priority radio button order (High, Med, Low, None left-to-right)

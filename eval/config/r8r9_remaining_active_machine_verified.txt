@@ -6,4 +6,3 @@ RecipeAddMultipleRecipes
 RecipeAddMultipleRecipesFromImage
 RecipeAddMultipleRecipesFromMarkor
 RecipeAddMultipleRecipesFromMarkor2
-TurnOnWifiAndOpenApp
