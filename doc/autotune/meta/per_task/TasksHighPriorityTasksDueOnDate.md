@@ -1,5 +1,8 @@
 # TasksHighPriorityTasksDueOnDate
 
+## R16 (gpt-5.4, 20260309_125810)
+- Score: 0.0 | Turns: 15 | FalseCompletion — found pre-existing "Renew Driver's License" but never scrolled to see dynamically-created task below fold. Priority logic correct.
+
 ## R4 (AT-R4, run 20260305_151648)
 - **Score**: 0.0 | **Turns**: 9/30 | **Agent**: qwen3.5
 - **Behavior**: ReasoningError. REGRESSED from 1.0 in R3. Date-label tip helped (agent correctly IDed Wed=Oct 18). But priority radio buttons have no a11y labels. Agent gave up at turn 9 vs R3's 21 turns.

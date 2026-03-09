@@ -2,6 +2,21 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 16 (2026-03-09, run 20260309_125810, gpt-5.4, model switch + port forwarding)
+- **Key changes**: Model switch from qwen3.5 to gpt-5.4 in eval/config/default.yaml. Added adb reverse port forwarding for localhost proxy.
+- **Task selection rationale**: 7 tasks from active backlog — mix of previously stuck Tasks.org tasks + retries
+- **Tasks run**: 7
+- **Config**: serial single-device, model gpt-5.4, max_turns 30 (50 for SportsTracker)
+- **Result**: 4/7 (57%)
+- **Net new passes**: TasksCompletedTasksForDate (first pass ever), TasksDueNextWeek (first pass ever)
+- **Confirmed passes**: MarkorAddNoteHeader, SimpleCalendarEventsInNextWeek
+- **Key findings**:
+  - gpt-5.4 resolves qwen3.5's toggle-click and off-by-1 counting issues on Tasks.org
+  - SportsTracker date reasoning still broken — confused "Yesterday" with target date
+  - TasksHighPriority: correct priority logic but didn't scroll to see dynamically-created task
+  - TasksIncomplete: "Tmrw" chip text confused with actual due date label
+- **Infra note**: First run failed 0/7 — localhost:18080 proxy unreachable from emulator. Fixed with `adb reverse tcp:18080 tcp:18080`.
+
 ## Autotune Loop Contract Restructure (2026-03-09)
 - **Scope**: Renamed the autonomous loop skill from `fullyautotune` to `autotune-loop` and aligned the repo-local autotune workflow to the final responsibility split.
 - **Key changes**:

@@ -34,7 +34,7 @@ bridge:
   perception_mode: accessibility_only
   platform_mode: accessibility
   # shizuku_apk_path: eval/tools/shizuku.apk  # required if auto-installing Shizuku for virtual_display
-  main_model: qwen3.5
+  main_model: gpt-5.4
   executor_model: ""
   max_turns: 30
   excluded_tools: "ask_user"  # comma-separated tool names to remove from agent

@@ -1,0 +1,7 @@
+SportsTrackerTotalDistanceForCategoryOverInterval
+TasksHighPriorityTasksDueOnDate
+TasksIncompleteTasksOnDate
+AudioRecorderRecordAudioWithFileName
+NotesIsTodo
+SystemBrightnessMax
+TurnOnWifiAndOpenApp

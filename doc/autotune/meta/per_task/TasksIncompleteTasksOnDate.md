@@ -1,5 +1,8 @@
 # TasksIncompleteTasksOnDate
 
+## R16 (gpt-5.4, 20260309_125810)
+- Score: 0.0 | Turns: 8 | ReasoningError — included "Back Up Computer Files" (due Sat/Oct 21) because "Tmrw" chip confused as due date instead of actual "Sat" label.
+
 ## R8 (GPT-5.4, 20260307)
 Score: 0.0 | Turns: 11 | False completion. App skill injection status unclear.
 
