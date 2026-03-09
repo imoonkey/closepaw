@@ -82,7 +82,7 @@ For each task in the run (**MUST use a separate subagent per task** for cleaner 
 
 Once done with all tasks:
 3. Summarize into `doc/autotune/round_N/<run_id>/common_problems_<agent>.md` following `assets/common_problems_template.md`. Must include a `## Next Steps` section.
-4. Run `python scripts/scoreboard.py` to regenerate `doc/autotune/meta/scoreboard.json` and `doc/autotune/meta/scoreboard.md`.
+4. Run `python3.12 scripts/scoreboard.py` to regenerate `doc/autotune/meta/scoreboard.json` and `doc/autotune/meta/scoreboard.md`.
 5. Append to `doc/autotune/meta/changelog.md`.
 6. Update `doc/autotune/meta/issues.md` (new issues, resolved issues, parked tasks).
 7. Update `doc/autotune/meta/loop_state.json` as the final control-plane handoff for this round.

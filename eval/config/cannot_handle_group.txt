@@ -5,5 +5,3 @@ ExpenseDeleteDuplicates2
 RecipeDeleteDuplicateRecipes2
 RecipeDeleteDuplicateRecipes3
 RetroPlaylistDuration
-TasksCompletedTasksForDate
-TasksDueNextWeek

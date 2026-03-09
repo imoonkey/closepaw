@@ -1,0 +1,7 @@
+MarkorAddNoteHeader
+SimpleCalendarEventsInNextWeek
+SportsTrackerTotalDistanceForCategoryOverInterval
+TasksCompletedTasksForDate
+TasksDueNextWeek
+TasksHighPriorityTasksDueOnDate
+TasksIncompleteTasksOnDate

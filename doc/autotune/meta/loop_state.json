@@ -1,8 +1,8 @@
 {
-  "goal": "Improve the targeted remaining autotune tasks without overfitting eval-specific behavior.",
-  "mode": "manual",
-  "next_round": 15,
-  "status": "waiting_review",
+  "goal": "Fix the remaining unresolved tasks from the full R8/R9 failure union using machine-verified eval traces as the source of truth.",
+  "mode": "auto",
+  "next_round": 16,
+  "status": "running",
   "stop_reason": null,
   "last_round": {
     "round": 14,
