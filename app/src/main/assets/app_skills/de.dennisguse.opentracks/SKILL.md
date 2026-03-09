@@ -26,9 +26,15 @@ When searching for a specific activity type (e.g., "running"), prioritize checki
 ## Reading Distance/Duration
 Click a track to see its Stats tab — shows distance, moving time, etc. No need to enter Edit for these.
 
+## Date Labels
+The track list uses relative day labels (Today, Yesterday, Monday, Tuesday, etc.). Before filtering by date range:
+1. Determine the device date from the status bar or "Today" label
+2. Map each relative label to an absolute date (e.g., if Today=Oct 15 Sun, then Tuesday=Oct 10, Yesterday=Oct 14)
+3. Only include tracks whose day label falls within the target range — "Yesterday" is always device_date − 1, not a synonym for any target date
+
 ## Strategy for Counting/Aggregating
-1. Scroll the full list to identify all tracks in the target date range
-2. Prioritize ambiguous/matching names first, skip obviously unrelated names
-3. Check activity type via Edit for prioritized tracks
+1. Scroll the full list to identify all tracks whose day label maps to the target date range
+2. For date-range queries, check ALL tracks on target dates — do not skip based on name alone
+3. Check activity type via Edit for each candidate track
 4. Record each finding in scratchpad immediately
 5. If running low on turns, submit your best answer from scratchpad evidence

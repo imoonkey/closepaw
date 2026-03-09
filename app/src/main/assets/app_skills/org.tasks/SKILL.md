@@ -7,8 +7,10 @@ description: App-specific guidance for Tasks.org.
 
 ## Navigation & Date Resolution
 - Task list shows relative date labels (Today, Tmrw, Wed, Thu, etc.). Resolve these to absolute dates using the device date before filtering. Write the resolved dates in scratchpad.
+- The task's due date is the standalone date label on the right side of the task row. Chips or tags below the title row (like "Tmrw") are subtask reminders, NOT the primary due date.
 - "Due next week" = the very next Monday through Sunday. If today is Sunday Oct 15, next week = Mon Oct 16 – Sun Oct 22.
 - Same-name day labels (e.g. "Tue") may refer to this week or next week. Check surrounding date context or section headers to disambiguate.
+- **For all information-retrieval queries**: scroll to the very end of the task list before answering. The list is often longer than one screen. Never treat an initial viewport as complete.
 
 ## Determining Task Completion Status
 Tasks.org does NOT expose checkbox state in the accessibility tree.
