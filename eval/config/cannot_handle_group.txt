@@ -11,3 +11,4 @@ BrowserMaze
 SportsTrackerTotalDistanceForCategoryOverInterval
 MarkorDeleteNewestNote
 RecipeAddMultipleRecipesFromImage
+ExpenseAddMultipleFromGallery

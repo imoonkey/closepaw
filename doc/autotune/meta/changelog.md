@@ -2,6 +2,20 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 21 (2026-03-09, runs 20260309_153628 + 20260309_161737 + 20260309_163832, gpt-5.4, priority scale + due date + extension + expense skill)
+
+**Fixes applied**: (1) Tasks.org skill: corrected priority scale from "1st=High, 4th=None" to "1st=None, 4th=High" (was wrong since R18), (2) Tasks.org skill: added "Reading Due Date in Detail View" section — use full-format date ("Saturday, October 7"), not bare day name ("Wednesday"), (3) Markor skill: promoted extension clearing to CRITICAL section with concrete example, (4) New Pro Expense skill: category scroll guidance for horizontally scrollable RecyclerView.
+
+**Results**: 2/3 pass (66.7%). MarkorMergeNotes 0.0→1.0 (extension fix), TasksHighPriorityTasksDueOnDate 0.0→1.0 (priority + due date fix). ExpenseAddMultipleFromGallery 0.0 (12th consecutive failure, parked).
+
+**Key findings**:
+- **Priority scale was inverted since R18**: The R18 documentation said "1st=High, 4th=None" — this was WRONG. R16 trace comparison confirmed 4th=High. Fixed in R21.
+- **Due date field disambiguation**: Task detail view has multiple date fields. "Saturday, October 7" is the due date, "Wednesday" below it is the start/repeat field. Agent misread the wrong field until skill guidance was added.
+- **MarkorMergeNotes**: Extension CRITICAL section effective — agent now clears the `.md` extension field correctly.
+- **ExpenseAddMultipleFromGallery**: 12 consecutive failures (0/12). Multi-item image-to-expense workflow exceeds turn budget + image perception unreliable. Parked to cannot_handle.
+
+**Backlog change**: 3 → 0 active (2 passed, 1 parked). **All active tasks resolved.**
+
 ## Autotune Round 20 (2026-03-09, run 20260309_150119, gpt-5.4, broccoli skill + revert markor shell-write)
 
 **Fixes applied**: (1) New Broccoli app skill: multi-recipe navigation, leave unmapped fields empty, (2) Revert Markor shell-write guidance (R19 regression), add extension-clearing and stat for creation-time, (3) Tasks.org: strengthen scroll exhaustion + enforce all-candidates-checked, (4) Settings: prefer UI over shell for Wi-Fi/Bluetooth.

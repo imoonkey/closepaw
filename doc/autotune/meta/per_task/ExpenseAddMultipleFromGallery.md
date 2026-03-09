@@ -1,3 +1,7 @@
+## R21 (20260309_161737) — gpt-5.4 — PARKED
+- Score: 0.0, Turns: 28
+- Added 3/6+ expenses but ran out of turns. Image has many expenses; agent needs to open gallery, read image, switch to Pro Expense, enter each expense. 30 turns insufficient. 12 consecutive failures (0/12). Parked to cannot_handle.
+
 ## R20 (20260309_150119) — gpt-5.4
 - Score: 0.0, Turns: 16
 - Still no scroll on category RecyclerView. Need Pro Expense skill.

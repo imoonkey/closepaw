@@ -1,14 +1,14 @@
 {
   "goal": "Fix the remaining unresolved tasks from the full R8/R9 failure union using machine-verified eval traces as the source of truth.",
   "mode": "auto",
-  "next_round": 21,
-  "status": "running",
-  "stop_reason": null,
+  "next_round": 22,
+  "status": "complete",
+  "stop_reason": "All active tasks resolved. 2 passed (MarkorMergeNotes, TasksHighPriorityTasksDueOnDate), 1 parked (ExpenseAddMultipleFromGallery — 12 consecutive failures, capability gap). Active backlog empty.",
   "last_round": {
-    "round": 20,
-    "run_id": "20260309_150119",
-    "result": "significant_improvement",
-    "recommended_action": "continue",
-    "summary_path": "doc/autotune/round_20/20260309_150119/common_problems_claude.md"
+    "round": 21,
+    "run_id": "20260309_163832",
+    "result": "all_resolved",
+    "recommended_action": "stop_success",
+    "summary_path": "doc/autotune/round_21/20260309_163832/common_problems_claude.md"
   }
 }

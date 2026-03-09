@@ -1,3 +1,7 @@
+## R21 (20260309_153628) — gpt-5.4 — PASS
+- Score: 1.0, Turns: 20
+- Extension CRITICAL section worked. Agent correctly cleared the .md extension field when creating the extensionless target file.
+
 ## R20 (20260309_150119) — gpt-5.4
 - Score: 0.0, Turns: 23
 - UI path worked, content correct\! But .md extension not cleared. Solvable.

@@ -1,3 +1,15 @@
+## R21 (20260309_163832) — gpt-5.4 — PASS
+- Score: 1.0, Turns: 26
+- Due date disambiguation fix worked. Agent correctly used full-format date ("Saturday, October 7") to exclude Back Up Computer Files (due Oct 7, not Oct 18). Answered "Marketing Campaign Launch" correctly.
+
+## R21 retry1 (20260309_161737) — gpt-5.4
+- Score: 0.0, Turns: 23
+- Priority scale fix correct (4th=High). But agent included "Back Up Computer Files" — misread "Wednesday" field in detail view as due date (actual due date is "Saturday, October 7"). Added due date disambiguation to skill.
+
+## R21 initial (20260309_153628) — gpt-5.4
+- Score: 0.0, Turns: 1
+- LLM API infra error (OpenAIIoException). Transient proxy issue, not agent problem.
+
 ## R20 (20260309_150119) — gpt-5.4
 - Score: 0.0, Turns: 25
 - Better mechanics (exhaustive scroll, all candidates checked). Same wrong answer — priority scale may be inverted.
