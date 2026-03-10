@@ -1,22 +1,34 @@
 {
   "goal": "Unpark round 2: Fix 8 re-parked tasks using corrected root cause analysis from post-R30 deep dive.",
   "mode": "auto",
-  "next_round": 31,
+  "next_round": 32,
   "status": "active",
   "stop_reason": null,
   "active_backlog_file": "eval/config/unpark_active.txt",
   "loop_name": "unpark_cannot_handle_r2",
-  "last_round": 30,
+  "last_round": 31,
   "prior_loop": {
     "name": "unpark_cannot_handle",
     "rounds": "R22-R30",
     "result": "4 fixed, 9 re-parked"
   },
-  "round_history": {},
+  "round_history": {
+    "31": {
+      "run_id": "20260309_235826",
+      "tasks": ["AudioRecorderRecordAudioWithFileName", "ExpenseDeleteDuplicates2", "ExpenseAddMultipleFromGallery", "OsmAndMarker"],
+      "results": {
+        "AudioRecorderRecordAudioWithFileName": {"score": 1.0, "turns": 8, "status": "pass"},
+        "ExpenseDeleteDuplicates2": {"score": 1.0, "turns": 26, "status": "pass"},
+        "ExpenseAddMultipleFromGallery": {"score": 0.0, "turns": 13, "status": "fail"},
+        "OsmAndMarker": {"score": null, "turns": 0, "status": "infra_failure"}
+      },
+      "recommended_action": "continue"
+    }
+  },
   "summary": {
     "total_started": 9,
-    "fixed": [],
+    "fixed": ["AudioRecorderRecordAudioWithFileName", "ExpenseDeleteDuplicates2"],
     "re_parked": [],
-    "remaining": 9
+    "remaining": 7
   }
 }

@@ -1,6 +1,9 @@
 # AudioRecorderRecordAudioWithFileName
 
-**Status: cannot_handle** — UI rename ≠ filesystem rename (scoped storage). Re-parked R25.
+**Status: FIXED R31** — Removed "strip .m4a" from skill. Agent types filename verbatim, evaluator gets expected double extension.
+
+## R31 (20260309_235826) — gpt-5.4 — FIXED
+- Score: 1.0 | Turns: 8 | Fix: removed "strip .m4a" from skill. Evaluator expected double extension `.m4a.m4a`. Old skill was wrong about extension handling.
 
 ## R25 (20260309_201619) — gpt-5.4 — RE-PARKED
 - Score: 0.0 | Turns: 9 | ScopedStorage — recorded, stopped, renamed via UI (9 turns). Evaluator checks filesystem at `/storage/emulated/0/Android/data/`. UI rename only changes display name. No fix without code changes.

@@ -2,6 +2,20 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 31 (2026-03-10, run 20260309_235826, gpt-5.4, unpark_r2 Tier 1)
+
+**Fixes applied**: (1) AudioRecorder: remove "strip .m4a" from skill, (2) Pro Expense: add "open detail view, compare ALL fields", (3) Gallery: new skill for full-screen image reading, (4) OsmAnd: coord fallback in skill, (5) ExpenseDeleteDuplicates2 max_turns 50→60.
+
+**Results**: 2/4 pass (50%, 2/2 excluding infra). AudioRecorderRecordAudioWithFileName 0.0→1.0 (FIXED). ExpenseDeleteDuplicates2 0.0→1.0 (FIXED). ExpenseAddMultipleFromGallery 0.0 (wrong image file). OsmAndMarker INFRA_FAILURE (no map_markers table).
+
+**Key findings**:
+- **AudioRecorder FIXED**: Old skill said "strip .m4a" but evaluator expected double extension. Verbatim filename typing works.
+- **ExpenseDelete2 FIXED**: Detail view comparison catches all fields, not just name+amount from list view.
+- **ExpenseAddGallery**: Gallery skill was on wrong package (com.google.android.apps.photos vs com.simplemobiletools.gallery.pro). Agent opened wrong image file.
+- **OsmAndMarker**: `map_markers_db` lazily created. Snapshot needs manual marker add to initialize DB.
+
+**Backlog change**: 9 → 7 remaining (2 fixed).
+
 ## Autotune Round 30 (2026-03-09, run 20260309_215257, gpt-5.4, unpark loop final round)
 
 **Fixes applied**: (1) RecipeAddMultipleRecipesFromImage max_turns=60 + hybrid perception, (2) ExpenseAddMultipleFromGallery max_turns=60.

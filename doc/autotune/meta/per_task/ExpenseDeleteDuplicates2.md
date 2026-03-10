@@ -1,6 +1,9 @@
 # ExpenseDeleteDuplicates2
 
-**Status: cannot_handle** — Scroll gap prevents reliable 100% list coverage. Agent consistently finds 41/42 items, missing the duplicate's partner. Re-parked R28.
+**Status: FIXED R31** — Added "open detail view, compare ALL fields" to skill. Agent correctly identified true duplicate by matching all fields.
+
+## R31 (20260309_235826) — gpt-5.4 — FIXED
+- Score: 1.0 | Turns: 26 | Fix: skill now instructs agent to open detail view for each same-name entry, compare ALL fields (name, amount, category, note). Previous runs only compared list-view fields.
 
 ## R28 (20260309_210911) — gpt-5.4 — RE-PARKED
 - Score: 0.0 | Turns: 33 | ScrollGap — found "Pest Control | 234.63" duplicate pair, deleted one. Evaluator says wrong — may be wrong pair or scroll gap.

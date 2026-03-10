@@ -1,3 +1,6 @@
+## R31 (20260309_235826) — gpt-5.4
+- Score: 0.0 | Turns: 13/60 | WrongFile — opened `old_expenses_6.jpg` instead of `expenses.jpg`. Gallery skill was on wrong package (`com.google.android.apps.photos` vs `com.simplemobiletools.gallery.pro`). Agent gave up early citing overlay obstruction.
+
 ## R30 (20260309_215257) — gpt-5.4 — RE-PARKED
 - Score: 0.0 | Turns: 19 | FieldAlignment + ImagePerception — 3rd failure. Only added 2 expenses (Mortgage, Shoes). Specialty Foods amount unreadable from image. Error at turn 19/60.
 
