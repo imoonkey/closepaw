@@ -32,18 +32,18 @@ The track list uses relative day labels (Today, Yesterday, Monday, Tuesday, etc.
 2. Map each relative label to an absolute date (e.g., if Today=Oct 15 Sun, then Tuesday=Oct 10, Yesterday=Oct 14)
 3. Only include tracks whose day label falls within the target range — "Yesterday" is always device_date − 1, not a synonym for any target date
 
-## CRITICAL: You MUST Scroll the Track List
-The track list is almost ALWAYS longer than one screen. **You MUST scroll to the TOP first, then scroll DOWN repeatedly until the list stops moving.** Failure to see the complete list is the #1 cause of wrong answers.
+## CRITICAL: You MUST Scroll the ENTIRE Track List
+The track list is almost ALWAYS longer than one screen. The app opens showing the most recent tracks at the top. You MUST scroll DOWN repeatedly until the list stops moving to see ALL tracks.
 
 **Mandatory scroll procedure:**
-1. First, scroll UP 2-3 times to ensure you are at the very top of the list
-2. Record all visible tracks in scratchpad
-3. Then scroll DOWN repeatedly (at least 3-4 times) until the view no longer changes
-4. Record any new tracks found while scrolling down
-5. Only after completing this full top-to-bottom scan, proceed with analysis
+1. Record all tracks visible on the initial screen in scratchpad
+2. Scroll DOWN repeatedly (at least 5-6 times) until the view no longer changes
+3. After each scroll, record any NEW tracks that appear
+4. Only after the list stops scrolling, proceed with analysis
+5. If you have fewer than 10 tracks total, scroll more — there are likely more tracks below
 
 ## Strategy for Counting/Aggregating
-1. **FIRST: complete the full scroll procedure above** — start from TOP, scroll to BOTTOM
+1. **FIRST: complete the full scroll procedure above** — scan the entire list top to bottom
 2. Identify all tracks whose day label maps to the target date range
 3. For date-range queries, check ALL tracks on target dates — do not skip based on name alone
 4. Check activity type via Edit for each candidate track

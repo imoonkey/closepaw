@@ -1,11 +1,7 @@
-AudioRecorderRecordAudioWithFileName
-BrowserDraw
 ExpenseAddMultipleFromGallery
 ExpenseDeleteDuplicates2
 OsmAndMarker
-OsmAndTrack
 RecipeAddMultipleRecipesFromImage
 RecipeDeleteDuplicateRecipes2
 RecipeDeleteDuplicateRecipes3
 RetroPlaylistDuration
-SportsTrackerTotalDistanceForCategoryOverInterval

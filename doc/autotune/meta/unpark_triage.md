@@ -41,6 +41,18 @@ Treat the notes below as reference, the hypothesis and suggested fixes may not b
 
 **RetroPlaylistDuration (0.0)**: Agent created playlist "Reggae Rhythms 51" but hit Error at turn 24. Couldn't complete song selection within the turn budget. Need more turns and better strategy guidance.
 
+### R25 Attempt Log
+
+**AudioRecorderRecordAudioWithFileName (0.0)**: Agent correctly recorded, stopped, and renamed via UI (9 turns). File appeared as "presentation_fGwr" in the recording list. But evaluator checks filesystem at `/storage/emulated/0/Android/data/com.dimowner.audiorecorder/files/Music/records/`. **UI rename only changes display name, not filesystem filename.** Agent process cannot access another app's private `Android/data/` directory. **RE-PARKED**: Structural limitation — no way to rename filesystem file without root or code changes.
+
+**ExpenseDeleteDuplicates2 (0.0)**: Agent scanned ~30 of 42 expenses, found no exact duplicates. Task has 2 identical entries + 3 perturbations (same name, different amounts) among 40 noise rows. Agent stopped scrolling too early — missed the actual duplicate pair. **Root cause**: Insufficient scrolling. Skill needs stronger emphasis on scrolling the ENTIRE list (42+ items), and explicit warning that there will be same-name items with different amounts (perturbations) alongside the true identical pair.
+
+**RetroPlaylistDuration (0.0)**: Agent couldn't read song durations from accessibility tree (not exposed inline). Found one song = 00:49 via details dialog. Gave up at turn 19 saying durations don't support a 45-50 min playlist. **Root cause**: (1) Durations not in a11y tree, (2) checking each song individually is turn-expensive, (3) agent misunderstood that short test songs can still combine to target duration. Need hybrid perception to read durations from screenshot, or a strategy to batch-add songs and check total.
+
+**SportsTrackerTotalDistanceForCategoryOverInterval (1.0)**: **PASSED!** 45 turns used. The simplified downward-only scroll guidance (5-6 scrolls) worked — agent found all kayaking tracks and computed correct total distance (6502m).
+
+**Re-parked**: BrowserDraw (3 consecutive failures R22-R24: Files nav fixed R23+, but color perception limitation in hybrid mode prevents correct drawing), AudioRecorderRecordAudioWithFileName (UI rename ≠ filesystem rename, structural limitation).
+
 ## Priority Tier 2: Never passed, but plausibly fixable
 
 | Task | Park Reason | Ever Passed | Hypothesis | Suggested First Fix |

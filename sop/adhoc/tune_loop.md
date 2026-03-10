@@ -2,7 +2,7 @@
 
 # R22+: Unpark cannot_handle
 
-## Step 1: One-time setup (run manually, NOT ralph-loop)
+## (Done) Step 1: One-time setup (run manually, NOT ralph-loop)
 
 Prepare the unpark loop. Do the following:
 
@@ -38,7 +38,7 @@ Prepare the unpark loop. Do the following:
 
 ## Step 2: Ralph loop (copy-paste this)
 
-/ralph-loop "Run /autotune-loop for this repo.
+/ralph-loop:ralph-loop "Run /autotune-loop for this repo.
 
   Context:
   This is an unpark loop targeting 13 previously-parked tasks. The setup has already been done:
@@ -79,12 +79,9 @@ Prepare the unpark loop. Do the following:
   Stop condition:
   - Stop when every task in eval/config/unpark_active.txt is either fixed with eval evidence or
     re-parked with a concrete, updated reason.
-  - When loop_state.json status=complete, output <promise>AUTOTUNE_LOOP_COMPLETE</promise>."
+  - When loop_state.json status=complete, output <promise>AUTOTUNE_LOOP_COMPLETE</promise>." --max-iterations 10 --completion-promise "AUTOTUNE_LOOP_COMPLETE"
 
-  --max-iterations 15
-  --completion-promise "AUTOTUNE_LOOP_COMPLETE"
-
-# R16-21
+# (Done) R16-21
  /ralph-loop "Run /autotune-loop for this repo.
 
   Goal:

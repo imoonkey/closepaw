@@ -1,2 +1,5 @@
 MarkorTranscribeVideo
 MarkorDeleteNewestNote
+OsmAndTrack
+BrowserDraw
+AudioRecorderRecordAudioWithFileName
