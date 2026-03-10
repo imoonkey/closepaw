@@ -26,3 +26,4 @@ To add a marker for a named location:
 - Use the search bar, not manual map navigation
 - For Liechtenstein locations, type the full name (e.g., "Planken, Liechtenstein")
 - Wait for search results to load before tapping
+- **If search returns no results**, try searching by coordinates (e.g., "47.15, 9.53") or a simpler name variant

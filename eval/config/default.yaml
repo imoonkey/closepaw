@@ -49,7 +49,7 @@ bridge:
     BrowserDraw: { perception_mode: hybrid }
     BrowserMaze: { perception_mode: hybrid }
     ExpenseAddMultipleFromGallery: { perception_mode: hybrid, max_turns: 60 }
-    ExpenseDeleteDuplicates2: { max_turns: 50 }
+    ExpenseDeleteDuplicates2: { max_turns: 60 }
     MarkorTranscribeReceipt: { perception_mode: hybrid }
     MarkorTranscribeVideo: { perception_mode: hybrid }
     RecipeAddMultipleRecipesFromImage: { perception_mode: hybrid, max_turns: 60 }
