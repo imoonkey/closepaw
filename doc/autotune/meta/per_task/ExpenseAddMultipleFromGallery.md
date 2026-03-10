@@ -1,3 +1,8 @@
+**Status: FIXED R32** — Correct Gallery package skill + filename verification.
+
+## R32 (20260310_001826) — gpt-5.4 — FIXED
+- Score: 1.0 | Turns: 27 | Fix: Gallery skill on correct package (com.simplemobiletools.gallery.pro), filename verification in title bar.
+
 ## R31 (20260309_235826) — gpt-5.4
 - Score: 0.0 | Turns: 13/60 | WrongFile — opened `old_expenses_6.jpg` instead of `expenses.jpg`. Gallery skill was on wrong package (`com.google.android.apps.photos` vs `com.simplemobiletools.gallery.pro`). Agent gave up early citing overlay obstruction.
 

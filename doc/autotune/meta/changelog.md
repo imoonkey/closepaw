@@ -2,6 +2,20 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 32 (2026-03-10, run 20260310_001826, gpt-5.4, unpark_r2 R31 retries + Tier 2)
+
+**Fixes applied**: (1) Gallery skill on correct package com.simplemobiletools.gallery.pro, (2) OsmAnd snapshot fixed (map_markers_db), (3) Retro Music add-all-prune strategy, (4) Broccoli scratchpad tracking + 7 fields, (5) RecipeDelete3 max_turns 80, (6) RetroPlaylistDuration max_turns 60.
+
+**Results**: 2/4 pass (50%). ExpenseAddMultipleFromGallery 0.0→1.0 (FIXED). RecipeDeleteDuplicateRecipes3 0.0→1.0 (FIXED). OsmAndMarker 0.0 (wrong search result). RetroPlaylistDuration 0.0 (add-to-playlist not in a11y tree).
+
+**Key findings**:
+- **ExpenseAddGallery FIXED**: Correct Gallery package skill with filename verification solved wrong-image issue.
+- **RecipeDelete3 FIXED**: Scratchpad tracking + 80 turns sufficient for systematic 7-field comparison.
+- **OsmAndMarker**: Offline search for small villages unreliable. Agent picked country-level result. Need "SHOW ON MAP" → pin interaction.
+- **RetroPlaylistDuration**: "Add to playlist" button in multi-select toolbar not exposed in a11y tree. Need per-song context menu fallback.
+
+**Backlog change**: 7 → 5 remaining (2 fixed). Cumulative: 4/9 fixed in R31-R32.
+
 ## Autotune Round 31 (2026-03-10, run 20260309_235826, gpt-5.4, unpark_r2 Tier 1)
 
 **Fixes applied**: (1) AudioRecorder: remove "strip .m4a" from skill, (2) Pro Expense: add "open detail view, compare ALL fields", (3) Gallery: new skill for full-screen image reading, (4) OsmAnd: coord fallback in skill, (5) ExpenseDeleteDuplicates2 max_turns 50→60.

@@ -1,6 +1,9 @@
 # RecipeDeleteDuplicateRecipes3
 
-**Status: cannot_handle** — Turn budget structurally insufficient (complexity 3.4, 30+ recipes to scan and compare). Re-parked R27.
+**Status: FIXED R32** — Scratchpad tracking + 80 turn budget. Agent checked all 7 fields.
+
+## R32 (20260310_001826) — gpt-5.4 — FIXED
+- Score: 1.0 | Turns: 45 | Fix: scratchpad tracking emphasis, compare all 7 fields, max_turns 80.
 
 ## R27 (20260309_204943) — gpt-5.4 — RE-PARKED
 - Score: 0.0 | Turns: 49 | FalseCompletion — claimed no duplicates found. 3rd consecutive failure.

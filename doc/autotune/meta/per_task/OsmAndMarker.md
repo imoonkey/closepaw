@@ -2,6 +2,9 @@
 
 **Status: cannot_handle** — OsmAnd search unreliable for small localities + Marker button not in a11y tree + recurring infra failures ("no such table: map_markers"). Re-parked R27.
 
+## R32 (20260310_001826) — gpt-5.4
+- Score: 0.0 | Turns: 9 | WrongResult — infra fixed (map_markers_db restored). Agent searched "Planken, Liechtenstein" but no village POI found. Picked "Liechtenstein" country result → marker at country centroid, ~47km off target. Agent falsely claimed GoalAchieved.
+
 ## R31 (20260309_235826) — gpt-5.4 — INFRA_FAILURE
 - Score: N/A | Turns: 0 | InfraFailure — `sqlite3.OperationalError: no such table: map_markers`. The `map_markers_db` is lazily created by OsmAnd only on first marker add. Snapshot doesn't have it. Need manual marker creation on emulator + re-snapshot.
 

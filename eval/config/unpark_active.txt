@@ -1,7 +1,5 @@
-ExpenseAddMultipleFromGallery
 OsmAndMarker
 OsmAndTrack
 RetroPlaylistDuration
-RecipeDeleteDuplicateRecipes3
 MarkorDeleteNewestNote
 BrowserDraw

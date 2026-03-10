@@ -1,6 +1,9 @@
 # RetroPlaylistDuration
 
-**Status: cannot_handle** — Song durations not accessible via any perception mode (a11y tree OR screenshot). Re-parked R26.
+**Status: active** — Add-all-prune strategy blocked by "Add to playlist" button not in a11y tree.
+
+## R32 (20260310_001826) — gpt-5.4
+- Score: 0.0 | Turns: 60/60 | A11yGap — "Add to playlist" in multi-select toolbar not in a11y tree. Agent tried coordinate taps at wrong y-position (status bar y=91 vs toolbar y=211). Created playlist but 0 songs added. New strategy: use per-song 3-dot menu instead.
 
 ## R26 (20260309_203139) — gpt-5.4 — RE-PARKED
 - Score: 0.0 | Turns: 8 | PerceptionGap — gave up at turn 8/50. Can't read durations from a11y OR screenshot. Hybrid didn't help. 3rd consecutive failure.
