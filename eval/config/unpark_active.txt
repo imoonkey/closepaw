@@ -4,4 +4,3 @@ OsmAndMarker
 RecipeAddMultipleRecipesFromImage
 RecipeDeleteDuplicateRecipes2
 RecipeDeleteDuplicateRecipes3
-RetroPlaylistDuration

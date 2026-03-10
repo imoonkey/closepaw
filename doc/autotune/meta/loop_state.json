@@ -1,12 +1,12 @@
 {
   "goal": "Unpark and fix 13 previously-parked tasks from cannot_handle_group.txt (excluding MarkorTranscribeVideo).",
   "mode": "auto",
-  "next_round": 26,
+  "next_round": 27,
   "status": "active",
   "stop_reason": null,
   "active_backlog_file": "eval/config/unpark_active.txt",
   "loop_name": "unpark_cannot_handle",
-  "last_round": 25,
+  "last_round": 26,
   "round_history": {
     "R22": {
       "tasks": ["BrowserDraw", "BrowserMaze", "MarkorDeleteNewestNote", "SportsTrackerTotalDistanceForCategoryOverInterval"],
@@ -25,22 +25,28 @@
       "results": {"BrowserDraw": 0.0, "MarkorDeleteNewestNote": 0.0, "OsmAndMarker": 0.0, "RetroPlaylistDuration": 0.0},
       "passed": [],
       "eval_run": "20260309_194958",
-      "re_parked": ["MarkorDeleteNewestNote"],
-      "notes": "BrowserDraw: reached Chrome, drew wrong colors (vision limitation). MarkorDeleteNewestNote: re-parked after 3 failures. OsmAndMarker: Marker button not in a11y tree. RetroPlaylist: Error at turn 24."
+      "re_parked": ["MarkorDeleteNewestNote"]
     },
     "R25": {
       "tasks": ["AudioRecorderRecordAudioWithFileName", "ExpenseDeleteDuplicates2", "RetroPlaylistDuration", "SportsTrackerTotalDistanceForCategoryOverInterval"],
       "results": {"AudioRecorderRecordAudioWithFileName": 0.0, "ExpenseDeleteDuplicates2": 0.0, "RetroPlaylistDuration": 0.0, "SportsTrackerTotalDistanceForCategoryOverInterval": 1.0},
       "passed": ["SportsTrackerTotalDistanceForCategoryOverInterval"],
       "eval_run": "20260309_201619",
-      "re_parked": ["BrowserDraw", "AudioRecorderRecordAudioWithFileName"],
-      "notes": "SportsTracker FIXED with downward scroll guidance (45 turns). AudioRecorder re-parked: UI rename != filesystem rename. BrowserDraw re-parked: 3 failures, color perception limitation. Expense: missed duplicates (insufficient scroll). RetroPlaylist: durations not in a11y tree."
+      "re_parked": ["BrowserDraw", "AudioRecorderRecordAudioWithFileName"]
+    },
+    "R26": {
+      "tasks": ["ExpenseDeleteDuplicates2", "OsmAndMarker", "RecipeDeleteDuplicateRecipes3", "RetroPlaylistDuration"],
+      "results": {"ExpenseDeleteDuplicates2": 0.0, "OsmAndMarker": 0.0, "RecipeDeleteDuplicateRecipes3": 0.0, "RetroPlaylistDuration": 0.0},
+      "passed": [],
+      "eval_run": "20260309_203139",
+      "re_parked": ["RetroPlaylistDuration"],
+      "notes": "0/4 passed. Expense: found 41/42 items, missed duplicate. OsmAnd: infra retry, still failed. Recipe3: 59/60 turns, false success. RetroPlaylist: re-parked after 3 failures (durations not accessible via a11y or screenshot)."
     }
   },
   "summary": {
     "total_started": 13,
     "fixed": ["BrowserMaze", "SportsTrackerTotalDistanceForCategoryOverInterval"],
-    "re_parked": ["MarkorDeleteNewestNote", "OsmAndTrack", "BrowserDraw", "AudioRecorderRecordAudioWithFileName"],
-    "remaining": 7
+    "re_parked": ["MarkorDeleteNewestNote", "OsmAndTrack", "BrowserDraw", "AudioRecorderRecordAudioWithFileName", "RetroPlaylistDuration"],
+    "remaining": 6
   }
 }

@@ -3,3 +3,4 @@ MarkorDeleteNewestNote
 OsmAndTrack
 BrowserDraw
 AudioRecorderRecordAudioWithFileName
+RetroPlaylistDuration

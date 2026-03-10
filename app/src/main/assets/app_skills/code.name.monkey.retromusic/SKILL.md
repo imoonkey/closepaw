@@ -16,9 +16,9 @@ description: App-specific guidance for Retro Music player.
 
 ## Duration-Constrained Playlists
 When creating a playlist with a target total duration (e.g., 45-50 minutes):
-1. First, go to the Songs tab and note each song's duration (shown next to the song title)
-2. Record all song names and durations in scratchpad
-3. Calculate which combination of songs fits the target duration range
-4. Then select those specific songs and add them to the playlist
-5. Do NOT blindly add songs one by one hoping to hit the target — plan first, then execute
-6. Song durations are visible in the Songs list view without opening each song
+1. First, go to the Songs tab. **Song durations are visible on screen but NOT in the accessibility tree.** You must read durations from the screenshot (visual perception).
+2. Record all song names and their durations in scratchpad. Scroll through the entire song list.
+3. Calculate which combination of songs fits the target duration range.
+4. Then select those specific songs and add them to the playlist.
+5. Do NOT blindly add songs one by one hoping to hit the target — plan first, then execute.
+6. If you can't read durations visually, open each song's details (3-dot menu → Details) to find the duration field.

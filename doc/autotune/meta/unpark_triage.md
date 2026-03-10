@@ -53,6 +53,16 @@ Treat the notes below as reference, the hypothesis and suggested fixes may not b
 
 **Re-parked**: BrowserDraw (3 consecutive failures R22-R24: Files nav fixed R23+, but color perception limitation in hybrid mode prevents correct drawing), AudioRecorderRecordAudioWithFileName (UI rename ≠ filesystem rename, structural limitation).
 
+### R26 Attempt Log
+
+**ExpenseDeleteDuplicates2 (0.0)**: Agent found 41 of 42 items (improved from 30 in R25). Still no exact duplicate pair found. The missing 42nd entry is likely one half of the duplicate pair. The agent may be losing items during scroll transitions. **Root cause**: Scroll coverage still insufficient by 1 item. May need approach change: use "All" expenses view instead of "Recent", or systematically compare amounts after full scan.
+
+**OsmAndMarker (0.0)**: Infra failure on first attempt (score=None), retried and scored 0.0 at 17 turns. Agent claimed success but evaluator disagreed. Need trace investigation.
+
+**RecipeDeleteDuplicateRecipes3 (0.0)**: Used 59 of 60 turns, claimed success but evaluator scored 0.0. Near-miss on turn budget. The agent is spending too many turns navigating and not enough on efficient deletion.
+
+**RetroPlaylistDuration (0.0)**: **RE-PARKED after 3 consecutive failures (R24, R25, R26).** Agent gave up at turn 8 out of 50 — couldn't read durations from accessibility tree OR screenshot. Hybrid perception didn't help. **Park reason**: Song durations not accessible via any available perception mode. Agent can't plan duration-constrained playlist without knowing individual song lengths.
+
 ## Priority Tier 2: Never passed, but plausibly fixable
 
 | Task | Park Reason | Ever Passed | Hypothesis | Suggested First Fix |
