@@ -20,10 +20,12 @@ description: App-specific guidance for Broccoli recipe manager.
 ## Deleting Duplicate Recipes
 When asked to delete duplicate recipes:
 1. **Scroll the entire recipe list first** to see all recipes. The list may be long (30+ items).
-2. **CRITICAL: Multiple recipes may share the SAME title** but differ in hidden fields (servings, prep time, description). These are NOT duplicates.
-3. To find true duplicates among same-titled recipes:
+2. **Use scratchpad systematically**: record each recipe's title as you scroll. Group same-title entries.
+3. **CRITICAL: Multiple recipes may share the SAME title** but differ in hidden fields (servings, prep time, description). These are NOT duplicates.
+4. To find true duplicates among same-titled recipes:
    a. Open EACH recipe with the same title one at a time
-   b. Record ALL visible fields in scratchpad: title, description, servings, prep time
-   c. Compare the recorded fields — only TWO entries that match on ALL visible fields are the true exact duplicates
-4. To delete: open the duplicate recipe → tap 3-dot menu → Delete. Keep exactly ONE copy.
-5. Do NOT delete recipes just because they share a title — you must verify ALL fields match.
+   b. Record ALL 7 fields in scratchpad: title, description, servings, prep time, source, categories, ingredients
+   c. Compare the recorded fields — only TWO entries that match on ALL fields are the true exact duplicates
+5. To delete: open the duplicate recipe → tap 3-dot menu → Delete. Keep exactly ONE copy.
+6. Do NOT delete recipes just because they share a title — you must verify ALL fields match.
+7. **Track progress in scratchpad**: mark which groups you've checked and which duplicates you've already deleted.
