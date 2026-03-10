@@ -31,6 +31,16 @@ Treat the notes below as reference, the hypothesis and suggested fixes may not b
 
 **RecipeDeleteDuplicateRecipes3 (0.0)**: Used 53/60 turns, false completion. Agent navigated through 30+ recipes but either deleted the wrong one or missed the true duplicate. Need to investigate trace for exact failure.
 
+### R24 Attempt Log
+
+**BrowserDraw (0.0)**: Agent successfully opened Files → task.html → Chrome (Files skill worked!). Drew on canvas and submitted. But wrong colors — agent couldn't accurately identify which palette colors matched the 3 target colors. **Root cause**: Color perception limitation in hybrid mode. gpt-5.4 vision can't reliably match colors from screenshot palette to targets.
+
+**MarkorDeleteNewestNote (0.0)**: **RE-PARKED after 3 consecutive failures.** R22: wrong sort assumption. R23: ascending vs descending confusion. R24: timestamps not visible for one note, agent still picked wrong one. **Park reason**: Agent cannot reliably determine "newest" note. Markor's UI shows modification time but the evaluator uses `ls -ll -au` change_time (access time). These may diverge. Shell access from agent process fails for Markor's storage directory. No remaining fix ideas without code changes.
+
+**OsmAndMarker (0.0)**: Agent found Planken, Liechtenstein on map. But the "Marker" button was NOT present in the accessibility tree. Agent tried element_index 15 which was out of bounds (only 0-14 existed). The marker action may not be accessible via a11y. **Root cause**: OsmAnd's marker action is not exposed in a11y tree from the location detail sheet. Need to investigate if there's an alternative path (e.g., context menu, long-press).
+
+**RetroPlaylistDuration (0.0)**: Agent created playlist "Reggae Rhythms 51" but hit Error at turn 24. Couldn't complete song selection within the turn budget. Need more turns and better strategy guidance.
+
 ## Priority Tier 2: Never passed, but plausibly fixable
 
 | Task | Park Reason | Ever Passed | Hypothesis | Suggested First Fix |

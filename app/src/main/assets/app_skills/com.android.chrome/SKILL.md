@@ -20,11 +20,13 @@ Dismiss these as fast as possible to save turns.
 
 ## Drawing Tasks (Canvas Pages)
 When the page shows a canvas with target colors at the top and a color palette below:
-1. Look at the screenshot to identify the target colors shown at the top of the page
-2. For each target color, find and tap the matching color button in the palette
-3. After selecting a color, draw on the canvas using `swipe` gestures
-4. Repeat for all target colors — each color must appear on the canvas
-5. After drawing with all required colors, tap the Submit button
+1. **First, scroll down in Chrome** if the canvas or target colors are not fully visible — the agent UI overlay at the bottom may obscure content. Swipe up on the page to reveal more.
+2. Look at the screenshot to identify the 3 target colors shown at the top of the page
+3. For each target color, find and tap the matching color button in the palette below the canvas
+4. After selecting a color, draw on the canvas using `swipe` gestures (swipe within the canvas area)
+5. Repeat for all 3 target colors — each color must appear on the canvas
+6. After drawing with all required colors, tap the Submit button
+7. If you cannot see the target colors or canvas, try scrolling the page or using the accessibility tree to identify color elements
 
 ## Maze Tasks
 When the page shows a grid maze with an X and directional buttons:

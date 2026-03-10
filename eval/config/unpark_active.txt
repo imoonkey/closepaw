@@ -2,7 +2,6 @@ AudioRecorderRecordAudioWithFileName
 BrowserDraw
 ExpenseAddMultipleFromGallery
 ExpenseDeleteDuplicates2
-MarkorDeleteNewestNote
 OsmAndMarker
 OsmAndTrack
 RecipeAddMultipleRecipesFromImage

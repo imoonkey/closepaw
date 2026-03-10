@@ -1,27 +1,38 @@
 {
   "goal": "Unpark and fix 13 previously-parked tasks from cannot_handle_group.txt (excluding MarkorTranscribeVideo).",
   "mode": "auto",
-  "next_round": 24,
+  "next_round": 25,
   "status": "active",
   "stop_reason": null,
   "active_backlog_file": "eval/config/unpark_active.txt",
   "loop_name": "unpark_cannot_handle",
-  "last_round": 23,
+  "last_round": 24,
   "round_history": {
     "R22": {
       "tasks": ["BrowserDraw", "BrowserMaze", "MarkorDeleteNewestNote", "SportsTrackerTotalDistanceForCategoryOverInterval"],
       "results": {"BrowserDraw": 0.0, "BrowserMaze": 1.0, "MarkorDeleteNewestNote": 0.0, "SportsTrackerTotalDistanceForCategoryOverInterval": 0.0},
       "passed": ["BrowserMaze"],
-      "fixes_applied": ["Created Chrome app skill", "Updated Markor skill: use Sort by Date", "Updated OpenTracks skill: CRITICAL scroll emphasis"],
       "eval_run": "20260309_190216"
     },
     "R23": {
       "tasks": ["BrowserDraw", "MarkorDeleteNewestNote", "SportsTrackerTotalDistanceForCategoryOverInterval", "RecipeDeleteDuplicateRecipes3"],
       "results": {"BrowserDraw": 0.0, "MarkorDeleteNewestNote": 0.0, "SportsTrackerTotalDistanceForCategoryOverInterval": 0.0, "RecipeDeleteDuplicateRecipes3": 0.0},
       "passed": [],
-      "fixes_applied": ["Created Files app skill", "Markor skill: clearer post-sort guidance", "OpenTracks: scroll to TOP first", "Broccoli: bulk delete guidance", "RecipeDeleteDuplicateRecipes3 max_turns 50->60"],
-      "eval_run": "20260309_192810",
-      "notes": "BrowserDraw: agent reached Chrome but UI overlay covered canvas. MarkorDeleteNewestNote: Date sort is ASCENDING, agent picked first (oldest) not last (newest). SportsTracker: scroll-up failed, answered 0 but wrong."
+      "eval_run": "20260309_192810"
+    },
+    "R24": {
+      "tasks": ["BrowserDraw", "MarkorDeleteNewestNote", "OsmAndMarker", "RetroPlaylistDuration"],
+      "results": {"BrowserDraw": 0.0, "MarkorDeleteNewestNote": 0.0, "OsmAndMarker": 0.0, "RetroPlaylistDuration": 0.0},
+      "passed": [],
+      "eval_run": "20260309_194958",
+      "re_parked": ["MarkorDeleteNewestNote"],
+      "notes": "BrowserDraw: reached Chrome, drew wrong colors (vision limitation). MarkorDeleteNewestNote: re-parked after 3 failures. OsmAndMarker: Marker button not in a11y tree. RetroPlaylist: Error at turn 24."
     }
+  },
+  "summary": {
+    "total_started": 13,
+    "fixed": ["BrowserMaze"],
+    "re_parked": ["MarkorDeleteNewestNote"],
+    "remaining": 11
   }
 }
