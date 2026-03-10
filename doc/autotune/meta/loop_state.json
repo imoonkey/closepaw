@@ -1,12 +1,12 @@
 {
   "goal": "Unpark and fix 13 previously-parked tasks from cannot_handle_group.txt (excluding MarkorTranscribeVideo).",
   "mode": "auto",
-  "next_round": 29,
-  "status": "active",
-  "stop_reason": null,
+  "next_round": null,
+  "status": "stop_success",
+  "stop_reason": "All tasks either fixed with eval evidence or re-parked with concrete reasons. 4 fixed, 9 re-parked, 0 remaining.",
   "active_backlog_file": "eval/config/unpark_active.txt",
   "loop_name": "unpark_cannot_handle",
-  "last_round": 28,
+  "last_round": 30,
   "round_history": {
     "R22": {
       "tasks": ["BrowserDraw", "BrowserMaze", "MarkorDeleteNewestNote", "SportsTrackerTotalDistanceForCategoryOverInterval"],
@@ -53,14 +53,27 @@
       "results": {"ExpenseAddMultipleFromGallery": 0.0, "ExpenseDeleteDuplicates2": 0.0, "RecipeAddMultipleRecipesFromImage": 0.0, "RecipeDeleteDuplicateRecipes2": 1.0},
       "passed": ["RecipeDeleteDuplicateRecipes2"],
       "eval_run": "20260309_210555",
-      "re_parked": ["ExpenseDeleteDuplicates2"],
-      "notes": "Recipe2 FIXED with updated Broccoli skill (compare all fields). ExpenseDelete re-parked: 3 real failures (R25/R26/R28), scroll can't cover all 42 items. ExpenseGallery/RecipeImage: 1st attempts, both hit 30-turn limit."
+      "re_parked": ["ExpenseDeleteDuplicates2"]
+    },
+    "R29": {
+      "tasks": ["ExpenseAddMultipleFromGallery", "RecipeAddMultipleRecipesFromImage"],
+      "results": {"ExpenseAddMultipleFromGallery": 0.0, "RecipeAddMultipleRecipesFromImage": 0.0},
+      "passed": [],
+      "eval_run": "20260309_214131"
+    },
+    "R30": {
+      "tasks": ["ExpenseAddMultipleFromGallery", "RecipeAddMultipleRecipesFromImage"],
+      "results": {"ExpenseAddMultipleFromGallery": 0.0, "RecipeAddMultipleRecipesFromImage": 1.0},
+      "passed": ["RecipeAddMultipleRecipesFromImage"],
+      "eval_run": "20260309_220036",
+      "re_parked": ["ExpenseAddMultipleFromGallery"],
+      "notes": "RecipeImage FIXED with hybrid+60 turns. ExpenseGallery re-parked after 3 failures (field alignment + turn budget)."
     }
   },
   "summary": {
     "total_started": 13,
-    "fixed": ["BrowserMaze", "SportsTrackerTotalDistanceForCategoryOverInterval", "RecipeDeleteDuplicateRecipes2"],
-    "re_parked": ["MarkorDeleteNewestNote", "OsmAndTrack", "BrowserDraw", "AudioRecorderRecordAudioWithFileName", "RetroPlaylistDuration", "OsmAndMarker", "RecipeDeleteDuplicateRecipes3", "ExpenseDeleteDuplicates2"],
-    "remaining": 2
+    "fixed": ["BrowserMaze", "SportsTrackerTotalDistanceForCategoryOverInterval", "RecipeDeleteDuplicateRecipes2", "RecipeAddMultipleRecipesFromImage"],
+    "re_parked": ["MarkorDeleteNewestNote", "OsmAndTrack", "BrowserDraw", "AudioRecorderRecordAudioWithFileName", "RetroPlaylistDuration", "OsmAndMarker", "RecipeDeleteDuplicateRecipes3", "ExpenseDeleteDuplicates2", "ExpenseAddMultipleFromGallery"],
+    "remaining": 0
   }
 }

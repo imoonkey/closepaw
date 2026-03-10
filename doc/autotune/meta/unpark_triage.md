@@ -83,6 +83,27 @@ Treat the notes below as reference, the hypothesis and suggested fixes may not b
 
 **RecipeDeleteDuplicateRecipes2 (1.0)**: **PASSED!** 41 turns out of 50. Updated Broccoli skill guided agent to open each same-titled recipe, compare ALL visible fields, and identify the true duplicate pair.
 
+### R29 Attempt Log
+
+**ExpenseAddMultipleFromGallery (0.0)**: 2nd attempt. 36/50 turns, GoalAchieved but evaluator says wrong. Agent added expenses but had field alignment issues. Turn budget still tight for 6 expenses.
+
+**RecipeAddMultipleRecipesFromImage (0.0)**: 2nd attempt. 29/50 turns. Agent claimed success but evaluator disagreed. Likely incomplete or incorrect recipe data from image.
+
+### R30 Attempt Log (Final)
+
+**ExpenseAddMultipleFromGallery (0.0)**: **RE-PARKED after 3 failures (R28, R29, R30).** 19/60 turns, Error. Agent continues to struggle with field alignment in Pro Expense (name/note field confusion) and reading expenses from gallery images. **Park reason**: Persistent field alignment issues + image-to-form data entry unreliable.
+
+**RecipeAddMultipleRecipesFromImage (1.0)**: **PASSED!** 27/60 turns. Hybrid perception + increased max_turns worked. Agent successfully read recipe data from image and entered it into Broccoli app.
+
+## Unpark Loop Complete
+
+**Final Results**: 4 fixed, 9 re-parked (+ MarkorTranscribeVideo pre-existing = 10 total in cannot_handle)
+
+| Status | Tasks |
+|--------|-------|
+| **FIXED** | BrowserMaze, SportsTrackerTotalDistanceForCategoryOverInterval, RecipeDeleteDuplicateRecipes2, RecipeAddMultipleRecipesFromImage |
+| **Re-parked** | MarkorDeleteNewestNote, OsmAndTrack, BrowserDraw, AudioRecorderRecordAudioWithFileName, RetroPlaylistDuration, OsmAndMarker, RecipeDeleteDuplicateRecipes3, ExpenseDeleteDuplicates2, ExpenseAddMultipleFromGallery |
+
 ## Priority Tier 2: Never passed, but plausibly fixable
 
 | Task | Park Reason | Ever Passed | Hypothesis | Suggested First Fix |
