@@ -73,6 +73,16 @@ Treat the notes below as reference, the hypothesis and suggested fixes may not b
 
 **RecipeDeleteDuplicateRecipes3 (0.0)**: **RE-PARKED after 3 consecutive failures (R23, R26, R27).** 49 of 60 turns used, false success. Agent navigated 30+ recipes but couldn't efficiently identify and delete the correct duplicate. **Park reason**: Turn budget structurally insufficient (complexity 3.4, 30+ recipes to scan and compare).
 
+### R28 Attempt Log
+
+**ExpenseAddMultipleFromGallery (0.0)**: 1st attempt. Agent used 30 turns (max) and hit Error. Hybrid perception active. Need to investigate what went wrong.
+
+**ExpenseDeleteDuplicates2 (0.0)**: **RE-PARKED after 3 real failures (R25, R26, R28).** Agent found 41/42 items consistently but misses the duplicate's partner during scroll transitions. The scroll mechanism can't guarantee 100% coverage. R27 excluded (unfair test: bad name-sort guidance). **Park reason**: Scroll gap prevents finding all 42 items; 1 missing item is always the duplicate.
+
+**RecipeAddMultipleRecipesFromImage (0.0)**: 1st attempt. Agent used 30 turns (max). Need more turns + investigation.
+
+**RecipeDeleteDuplicateRecipes2 (1.0)**: **PASSED!** 41 turns out of 50. Updated Broccoli skill guided agent to open each same-titled recipe, compare ALL visible fields, and identify the true duplicate pair.
+
 ## Priority Tier 2: Never passed, but plausibly fixable
 
 | Task | Park Reason | Ever Passed | Hypothesis | Suggested First Fix |

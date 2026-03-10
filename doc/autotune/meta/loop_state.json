@@ -1,12 +1,12 @@
 {
   "goal": "Unpark and fix 13 previously-parked tasks from cannot_handle_group.txt (excluding MarkorTranscribeVideo).",
   "mode": "auto",
-  "next_round": 28,
+  "next_round": 29,
   "status": "active",
   "stop_reason": null,
   "active_backlog_file": "eval/config/unpark_active.txt",
   "loop_name": "unpark_cannot_handle",
-  "last_round": 27,
+  "last_round": 28,
   "round_history": {
     "R22": {
       "tasks": ["BrowserDraw", "BrowserMaze", "MarkorDeleteNewestNote", "SportsTrackerTotalDistanceForCategoryOverInterval"],
@@ -46,14 +46,21 @@
       "results": {"ExpenseDeleteDuplicates2": 0.0, "OsmAndMarker": 0.0, "RecipeDeleteDuplicateRecipes2": 0.0, "RecipeDeleteDuplicateRecipes3": 0.0},
       "passed": [],
       "eval_run": "20260309_204943",
-      "re_parked": ["OsmAndMarker", "RecipeDeleteDuplicateRecipes3"],
-      "notes": "0/4 passed. Expense: bad guidance (name sort doesn't exist), 3rd failure but unfair test. OsmAnd: 3 failures, re-parked. Recipe3: 3 failures, re-parked. Recipe2: 1st attempt, ran out of turns comparing variations."
+      "re_parked": ["OsmAndMarker", "RecipeDeleteDuplicateRecipes3"]
+    },
+    "R28": {
+      "tasks": ["ExpenseAddMultipleFromGallery", "ExpenseDeleteDuplicates2", "RecipeAddMultipleRecipesFromImage", "RecipeDeleteDuplicateRecipes2"],
+      "results": {"ExpenseAddMultipleFromGallery": 0.0, "ExpenseDeleteDuplicates2": 0.0, "RecipeAddMultipleRecipesFromImage": 0.0, "RecipeDeleteDuplicateRecipes2": 1.0},
+      "passed": ["RecipeDeleteDuplicateRecipes2"],
+      "eval_run": "20260309_210555",
+      "re_parked": ["ExpenseDeleteDuplicates2"],
+      "notes": "Recipe2 FIXED with updated Broccoli skill (compare all fields). ExpenseDelete re-parked: 3 real failures (R25/R26/R28), scroll can't cover all 42 items. ExpenseGallery/RecipeImage: 1st attempts, both hit 30-turn limit."
     }
   },
   "summary": {
     "total_started": 13,
-    "fixed": ["BrowserMaze", "SportsTrackerTotalDistanceForCategoryOverInterval"],
-    "re_parked": ["MarkorDeleteNewestNote", "OsmAndTrack", "BrowserDraw", "AudioRecorderRecordAudioWithFileName", "RetroPlaylistDuration", "OsmAndMarker", "RecipeDeleteDuplicateRecipes3"],
-    "remaining": 4
+    "fixed": ["BrowserMaze", "SportsTrackerTotalDistanceForCategoryOverInterval", "RecipeDeleteDuplicateRecipes2"],
+    "re_parked": ["MarkorDeleteNewestNote", "OsmAndTrack", "BrowserDraw", "AudioRecorderRecordAudioWithFileName", "RetroPlaylistDuration", "OsmAndMarker", "RecipeDeleteDuplicateRecipes3", "ExpenseDeleteDuplicates2"],
+    "remaining": 2
   }
 }
