@@ -1,6 +1,9 @@
 # OsmAndTrack
 
-**Status: active** — Agent used wrong workflow (Navigation instead of "Plan a route" → save GPX).
+**Status: active** — Correct workflow (Plan a route) but general search tab fails due to proximity. Need Address tab.
+
+## R34 (20260310_012156) — gpt-5.4
+- Score: 0.0 | Turns: 22 | SearchFail — Correctly used "Plan a route" workflow. But general search tab is proximity-based and map was far from Liechtenstein. Address tab (structured offline lookup) was visible but never used. No waypoints added, no GPX saved.
 
 ## R33 (20260310_004519) — gpt-5.4
 - Score: 0.0 | Turns: 44 | WrongWorkflow — Agent used Navigation/Directions to set waypoints, then couldn't find "save as track". Correct path: hamburger → "Plan a route" → add points → Save. Evaluator checks for .gpx file with trkpt matching target coords in order.

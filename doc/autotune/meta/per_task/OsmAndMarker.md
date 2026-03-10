@@ -1,6 +1,9 @@
 # OsmAndMarker
 
-**Status: active** — Offline geocoder sends village names to wrong continent. Need coord-first strategy.
+**Status: active** — Offline general search is proximity-based, fails when map far from Liechtenstein. Need Address tab or COORDINATES SEARCH.
+
+## R34 (20260310_012156) — gpt-5.4
+- Score: 0.0 | Turns: 29 | SearchFail — All name searches returned "Could not find anything" or country-level "Liechtenstein". Agent saw COORDINATES SEARCH button but didn't use it. Never tried coords unlike R33. Need explicit Address tab / coord search guidance.
 
 ## R33 (20260310_004519) — gpt-5.4
 - Score: 0.0 | Turns: 28 | OfflineGeocode — agent used "SHOW ON MAP" per skill, but offline geocoder sent map to Ghana/Africa. Agent tried coords `47.18, 9.54` which resolved correctly to Liechtenstein, but then abandoned them. Need coord-first priority.

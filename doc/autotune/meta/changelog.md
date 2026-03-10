@@ -2,6 +2,16 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 34 (2026-03-10, run 20260310_012156, gpt-5.4, OsmAnd pair)
+
+**Fixes applied**: OsmAnd skill rewrite — coord verification, "Plan a route" for GPX tracks, warn about SHOW ON MAP unreliability.
+
+**Results**: 0/2 pass. OsmAndMarker 0.0 (general search proximity-based, agent didn't try coords). OsmAndTrack 0.0 (right workflow but search failed in general tab).
+
+**Key finding**: Both tasks share same root cause — OsmAnd general search tab is proximity-based. Address tab does structured offline lookup regardless of map position. Agent needs explicit "switch to Address tab" guidance.
+
+**Backlog**: 2 remaining (OsmAndMarker, OsmAndTrack). R35 = final attempt with Address tab fix.
+
 ## Autotune Round 33 (2026-03-10, run 20260310_004519, gpt-5.4, all 5 remaining)
 
 **Fixes applied**: (1) OsmAnd: "SHOW ON MAP" → pin strategy, routing guidance, (2) Retro Music: per-song 3-dot "Add to playlist" as primary method, (3) OsmAndTrack max_turns 80.
