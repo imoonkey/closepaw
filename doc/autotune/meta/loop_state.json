@@ -1,79 +1,22 @@
 {
-  "goal": "Unpark and fix 13 previously-parked tasks from cannot_handle_group.txt (excluding MarkorTranscribeVideo).",
+  "goal": "Unpark round 2: Fix 8 re-parked tasks using corrected root cause analysis from post-R30 deep dive.",
   "mode": "auto",
-  "next_round": null,
-  "status": "stop_success",
-  "stop_reason": "All tasks either fixed with eval evidence or re-parked with concrete reasons. 4 fixed, 9 re-parked, 0 remaining.",
+  "next_round": 31,
+  "status": "active",
+  "stop_reason": null,
   "active_backlog_file": "eval/config/unpark_active.txt",
-  "loop_name": "unpark_cannot_handle",
+  "loop_name": "unpark_cannot_handle_r2",
   "last_round": 30,
-  "round_history": {
-    "R22": {
-      "tasks": ["BrowserDraw", "BrowserMaze", "MarkorDeleteNewestNote", "SportsTrackerTotalDistanceForCategoryOverInterval"],
-      "results": {"BrowserDraw": 0.0, "BrowserMaze": 1.0, "MarkorDeleteNewestNote": 0.0, "SportsTrackerTotalDistanceForCategoryOverInterval": 0.0},
-      "passed": ["BrowserMaze"],
-      "eval_run": "20260309_190216"
-    },
-    "R23": {
-      "tasks": ["BrowserDraw", "MarkorDeleteNewestNote", "SportsTrackerTotalDistanceForCategoryOverInterval", "RecipeDeleteDuplicateRecipes3"],
-      "results": {"BrowserDraw": 0.0, "MarkorDeleteNewestNote": 0.0, "SportsTrackerTotalDistanceForCategoryOverInterval": 0.0, "RecipeDeleteDuplicateRecipes3": 0.0},
-      "passed": [],
-      "eval_run": "20260309_192810"
-    },
-    "R24": {
-      "tasks": ["BrowserDraw", "MarkorDeleteNewestNote", "OsmAndMarker", "RetroPlaylistDuration"],
-      "results": {"BrowserDraw": 0.0, "MarkorDeleteNewestNote": 0.0, "OsmAndMarker": 0.0, "RetroPlaylistDuration": 0.0},
-      "passed": [],
-      "eval_run": "20260309_194958",
-      "re_parked": ["MarkorDeleteNewestNote"]
-    },
-    "R25": {
-      "tasks": ["AudioRecorderRecordAudioWithFileName", "ExpenseDeleteDuplicates2", "RetroPlaylistDuration", "SportsTrackerTotalDistanceForCategoryOverInterval"],
-      "results": {"AudioRecorderRecordAudioWithFileName": 0.0, "ExpenseDeleteDuplicates2": 0.0, "RetroPlaylistDuration": 0.0, "SportsTrackerTotalDistanceForCategoryOverInterval": 1.0},
-      "passed": ["SportsTrackerTotalDistanceForCategoryOverInterval"],
-      "eval_run": "20260309_201619",
-      "re_parked": ["BrowserDraw", "AudioRecorderRecordAudioWithFileName"]
-    },
-    "R26": {
-      "tasks": ["ExpenseDeleteDuplicates2", "OsmAndMarker", "RecipeDeleteDuplicateRecipes3", "RetroPlaylistDuration"],
-      "results": {"ExpenseDeleteDuplicates2": 0.0, "OsmAndMarker": 0.0, "RecipeDeleteDuplicateRecipes3": 0.0, "RetroPlaylistDuration": 0.0},
-      "passed": [],
-      "eval_run": "20260309_203139",
-      "re_parked": ["RetroPlaylistDuration"]
-    },
-    "R27": {
-      "tasks": ["ExpenseDeleteDuplicates2", "OsmAndMarker", "RecipeDeleteDuplicateRecipes2", "RecipeDeleteDuplicateRecipes3"],
-      "results": {"ExpenseDeleteDuplicates2": 0.0, "OsmAndMarker": 0.0, "RecipeDeleteDuplicateRecipes2": 0.0, "RecipeDeleteDuplicateRecipes3": 0.0},
-      "passed": [],
-      "eval_run": "20260309_204943",
-      "re_parked": ["OsmAndMarker", "RecipeDeleteDuplicateRecipes3"]
-    },
-    "R28": {
-      "tasks": ["ExpenseAddMultipleFromGallery", "ExpenseDeleteDuplicates2", "RecipeAddMultipleRecipesFromImage", "RecipeDeleteDuplicateRecipes2"],
-      "results": {"ExpenseAddMultipleFromGallery": 0.0, "ExpenseDeleteDuplicates2": 0.0, "RecipeAddMultipleRecipesFromImage": 0.0, "RecipeDeleteDuplicateRecipes2": 1.0},
-      "passed": ["RecipeDeleteDuplicateRecipes2"],
-      "eval_run": "20260309_210555",
-      "re_parked": ["ExpenseDeleteDuplicates2"]
-    },
-    "R29": {
-      "tasks": ["ExpenseAddMultipleFromGallery", "RecipeAddMultipleRecipesFromImage"],
-      "results": {"ExpenseAddMultipleFromGallery": 0.0, "RecipeAddMultipleRecipesFromImage": 0.0},
-      "passed": [],
-      "eval_run": "20260309_214131"
-    },
-    "R30": {
-      "tasks": ["ExpenseAddMultipleFromGallery", "RecipeAddMultipleRecipesFromImage"],
-      "results": {"ExpenseAddMultipleFromGallery": 0.0, "RecipeAddMultipleRecipesFromImage": 1.0},
-      "passed": ["RecipeAddMultipleRecipesFromImage"],
-      "eval_run": "20260309_220036",
-      "re_parked": ["ExpenseAddMultipleFromGallery"],
-      "notes": "RecipeImage FIXED with hybrid+60 turns. ExpenseGallery re-parked after 3 failures (field alignment + turn budget)."
-    }
+  "prior_loop": {
+    "name": "unpark_cannot_handle",
+    "rounds": "R22-R30",
+    "result": "4 fixed, 9 re-parked"
   },
+  "round_history": {},
   "summary": {
-    "total_started": 13,
-    "fixed": ["BrowserMaze", "SportsTrackerTotalDistanceForCategoryOverInterval", "RecipeDeleteDuplicateRecipes2", "RecipeAddMultipleRecipesFromImage"],
-    "re_parked": ["MarkorDeleteNewestNote", "OsmAndTrack", "BrowserDraw", "AudioRecorderRecordAudioWithFileName", "RetroPlaylistDuration", "OsmAndMarker", "RecipeDeleteDuplicateRecipes3", "ExpenseDeleteDuplicates2", "ExpenseAddMultipleFromGallery"],
-    "remaining": 0
+    "total_started": 9,
+    "fixed": [],
+    "re_parked": [],
+    "remaining": 9
   }
 }

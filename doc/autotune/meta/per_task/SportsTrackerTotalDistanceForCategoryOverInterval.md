@@ -1,5 +1,16 @@
 # SportsTrackerTotalDistanceForCategoryOverInterval
 
+**Status: FIXED R25** — Downward-only scroll guidance (5-6 scrolls) resolved the scroll coverage issue.
+
+## R25 (20260309_201619) — gpt-5.4 — FIXED
+- Score: 1.0 | Turns: 45 | Success — downward-only scroll guidance worked. Found all kayaking tracks, computed 6502m correctly.
+
+## R23 (20260309_192810) — gpt-5.4
+- Score: 0.0 | Turns: 46 | ScrollFailure — scroll-up attempt "no observable effect." Scrolled down, found 0 kayaking tracks. Answered "0."
+
+## R22 (20260309_190216) — gpt-5.4
+- Score: 0.0 | Turns: 48 | ScrollCoverage — scrolled DOWN but never UP. Found 2 kayaking tracks (6518m), missed others above fold.
+
 ## R18 (gpt-5.4, 20260309_135649)
 - Score: 0.0 | Turns: 35/50 | NavigationError — 3rd consecutive failure. Dates correct, activity type checks correct, but ZERO scrolls. Missed kayaking tracks below fold. Candidate for cannot_handle.
 

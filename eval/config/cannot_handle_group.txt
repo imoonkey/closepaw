@@ -1,10 +1,1 @@
 MarkorTranscribeVideo
-MarkorDeleteNewestNote
-OsmAndTrack
-BrowserDraw
-AudioRecorderRecordAudioWithFileName
-RetroPlaylistDuration
-OsmAndMarker
-RecipeDeleteDuplicateRecipes3
-ExpenseDeleteDuplicates2
-ExpenseAddMultipleFromGallery

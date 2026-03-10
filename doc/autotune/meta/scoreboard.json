@@ -127,6 +127,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 10
+        },
+        "20260309_201619": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 9
         }
       },
       "recent_rate": "0/3",
@@ -188,10 +193,25 @@
           "score": 0.0,
           "status": "completed",
           "turns": 29
+        },
+        "20260309_190216": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260309_192810": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 28
+        },
+        "20260309_194958": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 29
         }
       },
-      "recent_rate": "1/3",
-      "status": "improving"
+      "recent_rate": "0/3",
+      "status": "stuck"
     },
     "BrowserMaze": {
       "runs": {
@@ -229,6 +249,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260309_190216": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 27
         }
       },
       "recent_rate": "1/3",
@@ -689,6 +714,21 @@
           "score": 0.0,
           "status": "completed",
           "turns": 28
+        },
+        "20260309_210911": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260309_213307": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 36
+        },
+        "20260309_215257": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 19
         }
       },
       "recent_rate": "0/3",
@@ -858,6 +898,26 @@
           "score": 0.0,
           "status": "completed",
           "turns": 9
+        },
+        "20260309_201619": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 14
+        },
+        "20260309_203139": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 16
+        },
+        "20260309_204943": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 15
+        },
+        "20260309_210911": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 33
         }
       },
       "recent_rate": "0/3",
@@ -1211,6 +1271,21 @@
           "score": 0.0,
           "status": "completed",
           "turns": 10
+        },
+        "20260309_190216": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 7
+        },
+        "20260309_192810": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 7
+        },
+        "20260309_194958": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 7
         }
       },
       "recent_rate": "0/3",
@@ -1539,6 +1614,21 @@
           "score": 0.0,
           "status": "completed",
           "turns": 8
+        },
+        "20260309_194958": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 23
+        },
+        "20260309_203139": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 17
+        },
+        "20260309_204943": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 27
         }
       },
       "recent_rate": "0/3",
@@ -1667,10 +1757,25 @@
           "score": 0.0,
           "status": "completed",
           "turns": 23
+        },
+        "20260309_210911": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260309_213307": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 29
+        },
+        "20260309_215257": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 27
         }
       },
-      "recent_rate": "0/3",
-      "status": "stuck"
+      "recent_rate": "1/3",
+      "status": "improving"
     },
     "RecipeAddMultipleRecipesFromMarkor": {
       "runs": {
@@ -1817,10 +1922,20 @@
           "score": 0.0,
           "status": "completed",
           "turns": 25
+        },
+        "20260309_204943": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
+        },
+        "20260309_210911": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 41
         }
       },
-      "recent_rate": "0/3",
-      "status": "stuck"
+      "recent_rate": "1/3",
+      "status": "improving"
     },
     "RecipeDeleteDuplicateRecipes3": {
       "runs": {
@@ -1838,6 +1953,21 @@
           "score": 0.0,
           "status": "completed",
           "turns": 36
+        },
+        "20260309_192810": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 53
+        },
+        "20260309_203139": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 59
+        },
+        "20260309_204943": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 49
         }
       },
       "recent_rate": "0/3",
@@ -2018,6 +2148,21 @@
           "turns": 45
         },
         "20260307_071709": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 8
+        },
+        "20260309_194958": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 24
+        },
+        "20260309_201619": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 19
+        },
+        "20260309_203139": {
           "score": 0.0,
           "status": "completed",
           "turns": 8
@@ -2972,10 +3117,25 @@
           "score": 0.0,
           "status": "completed",
           "turns": 35
+        },
+        "20260309_190216": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 48
+        },
+        "20260309_192810": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 46
+        },
+        "20260309_201619": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 45
         }
       },
-      "recent_rate": "0/3",
-      "status": "stuck"
+      "recent_rate": "1/3",
+      "status": "improving"
     },
     "SportsTrackerTotalDurationForCategoryThisWeek": {
       "runs": {
@@ -4181,6 +4341,60 @@
       "total": 1,
       "passed": 1,
       "rate": 1.0
+    },
+    "20260309_190216": {
+      "round": 75,
+      "total": 4,
+      "passed": 1,
+      "rate": 0.25
+    },
+    "20260309_192810": {
+      "round": 76,
+      "total": 4,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260309_194958": {
+      "round": 77,
+      "total": 4,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260309_201619": {
+      "round": 78,
+      "total": 4,
+      "passed": 1,
+      "rate": 0.25
+    },
+    "20260309_203139": {
+      "round": 79,
+      "total": 5,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260309_204943": {
+      "round": 80,
+      "total": 5,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260309_210911": {
+      "round": 81,
+      "total": 4,
+      "passed": 1,
+      "rate": 0.25
+    },
+    "20260309_213307": {
+      "round": 82,
+      "total": 2,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260309_215257": {
+      "round": 83,
+      "total": 2,
+      "passed": 1,
+      "rate": 0.5
     }
   }
 }

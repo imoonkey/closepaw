@@ -1,5 +1,16 @@
 # OsmAndMarker
 
+**Status: cannot_handle** — OsmAnd search unreliable for small localities + Marker button not in a11y tree + recurring infra failures ("no such table: map_markers"). Re-parked R27.
+
+## R27 (20260309_204943) — gpt-5.4 — RE-PARKED
+- Score: 0.0 | Turns: 27 | SearchFailure + InfraFailure — attempt 0: infra_failure. Attempt 1: searched "Planken, Liechtenstein" but OsmAnd opened blank/wrong view. 3rd consecutive failure.
+
+## R26 (20260309_203139) — gpt-5.4
+- Score: 0.0 | Turns: 17 | InfraFailure + FalseSuccess — attempt 0: infra_failure. Attempt 1: agent claimed success, evaluator disagreed.
+
+## R24 (20260309_194958) — gpt-5.4
+- Score: 0.0 | Turns: 23 | A11yGap — found Planken on map. Marker button NOT in a11y tree (only 0-14 elements, tried index 15). Exception: "no such table: map_markers."
+
 ## AT-R5-GPT54 (20260306_003753) — FAIL
 - Score: 0.0
 - Turns: 21/30

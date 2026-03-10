@@ -2,6 +2,114 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 30 (2026-03-09, run 20260309_215257, gpt-5.4, unpark loop final round)
+
+**Fixes applied**: (1) RecipeAddMultipleRecipesFromImage max_turns=60 + hybrid perception, (2) ExpenseAddMultipleFromGallery max_turns=60.
+
+**Results**: 1/2 pass (50%). RecipeAddMultipleRecipesFromImage 0.0→1.0 (FIXED, 27/60 turns). ExpenseAddMultipleFromGallery 0.0 (3rd failure, Error at turn 19).
+
+**Key findings**:
+- **RecipeAddMultipleRecipesFromImage FIXED**: Hybrid perception + 60 turns sufficient. Agent read recipe data from image and entered into Broccoli.
+- **ExpenseAddMultipleFromGallery RE-PARKED**: Persistent field alignment (name/note confusion) + image perception unreliable for expense amounts. 3 failures across R28-R30.
+
+**Backlog change**: 2 → 0 active (1 passed, 1 re-parked). **Unpark loop complete.**
+
+## Autotune Round 29 (2026-03-09, run 20260309_213307, gpt-5.4, unpark loop)
+
+**Fixes applied**: (1) ExpenseAddMultipleFromGallery max_turns=50, (2) RecipeAddMultipleRecipesFromImage max_turns=50 + hybrid.
+
+**Results**: 0/2 pass (0%). Both failed — ExpenseGallery field alignment, RecipeImage only added 2 recipes.
+
+**Backlog change**: 2 → 2 active (no change).
+
+## Autotune Round 28 (2026-03-09, run 20260309_210911, gpt-5.4, unpark loop)
+
+**Fixes applied**: (1) RecipeDeleteDuplicateRecipes2 max_turns=50, (2) Broccoli skill field comparison guidance, (3) Pro Expense perturbed group strategy (reverted name-sort), (4) ExpenseAddMultipleFromGallery + RecipeAddMultipleRecipesFromImage added to backlog.
+
+**Results**: 1/4 pass (25%). RecipeDeleteDuplicateRecipes2 0.0→1.0 (FIXED, 41/50 turns). ExpenseDeleteDuplicates2 0.0 (3rd real failure, re-parked). ExpenseAddMultipleFromGallery 0.0 (1st attempt). RecipeAddMultipleRecipesFromImage 0.0 (1st attempt).
+
+**Key findings**:
+- **RecipeDeleteDuplicateRecipes2 FIXED**: Broccoli field comparison skill worked — agent opened each same-titled recipe, compared all visible fields, identified true duplicate.
+- **ExpenseDeleteDuplicates2 RE-PARKED**: Found "Pest Control" duplicate pair but evaluator disagreed. Scroll gap prevents 100% list coverage.
+
+**Backlog change**: 4 → 2 active (1 passed, 1 re-parked).
+
+## Autotune Round 27 (2026-03-09, run 20260309_204943, gpt-5.4, unpark loop)
+
+**Fixes applied**: (1) Pro Expense skill: sort by NAME in Filter (WRONG — doesn't exist), (2) RecipeDeleteDuplicateRecipes2 added to backlog.
+
+**Results**: 0/4 pass (0%). ExpenseDeleteDuplicates2 wasted all turns on nonexistent name sort (unfair failure). OsmAndMarker 3rd failure (re-parked). RecipeDeleteDuplicateRecipes3 3rd failure (re-parked). RecipeDeleteDuplicateRecipes2 ran out of turns at 30.
+
+**Key findings**:
+- **Bad guidance self-inflicted**: Pro Expense name-sort doesn't exist. Must revert to scroll approach.
+- **OsmAndMarker RE-PARKED**: Search unreliable + marker button not in a11y tree + infra failures.
+- **RecipeDeleteDuplicateRecipes3 RE-PARKED**: Turn budget structurally insufficient for 30+ recipes.
+
+**Backlog change**: 5 → 2 active (0 passed, 3 re-parked).
+
+## Autotune Round 26 (2026-03-09, run 20260309_203139, gpt-5.4, unpark loop)
+
+**Fixes applied**: (1) Pro Expense full-list scroll emphasis (10+ scrolls), (2) RetroMusic hybrid perception + duration strategy, (3) OsmAnd marker alternative path investigation.
+
+**Results**: 0/4 pass (0%). ExpenseDeleteDuplicates2 41/42 items (improved). OsmAndMarker infra failure + false success. RecipeDeleteDuplicateRecipes3 near-miss at 59/60 turns. RetroPlaylistDuration gave up at turn 8.
+
+**Key findings**:
+- **RetroPlaylistDuration RE-PARKED**: Song durations inaccessible via any perception mode (a11y, screenshot, details dialog). 3 consecutive failures.
+
+**Backlog change**: 6 → 5 active (0 passed, 1 re-parked).
+
+## Autotune Round 25 (2026-03-09, run 20260309_201619, gpt-5.4, unpark loop)
+
+**Fixes applied**: (1) OpenTracks downward-only scroll (5-6 scrolls), (2) AudioRecorder skill, (3) RetroMusic hybrid perception + duration skill, (4) Pro Expense scroll emphasis.
+
+**Results**: 1/4 pass (25%). SportsTrackerTotalDistanceForCategoryOverInterval 0.0→1.0 (FIXED, 45 turns). AudioRecorder 0.0 (scoped storage). RetroPlaylistDuration 0.0 (perception gap). ExpenseDeleteDuplicates2 0.0 (scroll coverage).
+
+**Key findings**:
+- **SportsTracker FIXED**: Downward-only scroll guidance resolved the 3-round failure streak from R16-R18.
+- **AudioRecorder RE-PARKED**: UI rename ≠ filesystem rename. Structural limitation.
+- **BrowserDraw RE-PARKED** (from R24): Color perception limitation in hybrid mode, 3 consecutive failures.
+
+**Backlog change**: 8 → 6 active (1 passed, 2 re-parked).
+
+## Autotune Round 24 (2026-03-09, run 20260309_194958, gpt-5.4, unpark loop)
+
+**Fixes applied**: (1) Markor skill: ascending/descending + Reverse Order guidance, (2) OsmAnd marker investigation, (3) RetroMusic max_turns increase.
+
+**Results**: 0/4 pass (0%). BrowserDraw 3rd failure (color perception). MarkorDeleteNewestNote 3rd failure (timestamps diverge). OsmAndMarker marker button not in a11y tree. RetroPlaylistDuration Error at turn 24.
+
+**Key findings**:
+- **BrowserDraw RE-PARKED**: 3 consecutive failures with different root causes each round (R22: nav, R23: overlay, R24: color). Color perception is fundamental model limitation.
+- **MarkorDeleteNewestNote RE-PARKED**: Evaluator uses access time, Markor shows modification time. No fix without code changes.
+
+**Backlog change**: 10 → 8 active (0 passed, 2 re-parked).
+
+## Autotune Round 23 (2026-03-09, run 20260309_192810, gpt-5.4, unpark loop)
+
+**Fixes applied**: (1) Files app skill: hamburger zone warning (x<150), (2) Markor sort guidance update, (3) OpenTracks scroll-to-top-first, (4) RecipeDeleteDuplicateRecipes3 added to backlog.
+
+**Results**: 0/4 pass (0%). BrowserDraw reached Chrome but overlay occlusion. MarkorDeleteNewestNote ascending sort confusion. SportsTracker scroll-up failed. RecipeDeleteDuplicateRecipes3 53/60 turns, false completion.
+
+**Key findings**:
+- **Files app skill working**: BrowserDraw no longer trapped in hamburger zone.
+- **Scroll-up infrastructure limitation**: OpenTracks scroll-up produces "no observable effect." Need downward-only strategy.
+- **Markor ascending sort**: Date sort is ascending by default. Need Reverse Order or pick LAST item.
+
+**Backlog change**: 10 → 10 active (no change).
+
+## Autotune Round 22 (2026-03-09, run 20260309_190216, gpt-5.4, unpark loop start)
+
+**Fixes applied**: (1) Chrome app skill with hybrid perception for canvas-based tasks, (2) Markor skill: sort guidance for newest note identification, (3) OpenTracks scroll emphasis, (4) Hybrid perception overrides for Browser* tasks.
+
+**Results**: 1/4 pass (25%). BrowserMaze 0.0→1.0 (FIXED, 27 turns). BrowserDraw 0.0 (Files nav trap). MarkorDeleteNewestNote 0.0 (wrong note). SportsTracker 0.0 (unidirectional scroll).
+
+**Key findings**:
+- **BrowserMaze FIXED**: Chrome skill + hybrid perception enabled Files → task.html → Chrome → maze navigation.
+- **BrowserDraw blocked by Files hamburger zone**: Agent spent all 30 turns clicking x<150 left edge instead of file row.
+- **MarkorDeleteNewestNote**: Modification time ≠ creation time for pre-existing notes.
+- **SportsTracker**: Scrolled down but never up, missed kayaking tracks above fold.
+
+**Backlog change**: 13 tasks unparked → 10 active after R22 (1 passed, OsmAndTrack pre-excluded as structurally impossible).
+
 ## Autotune Round 21 (2026-03-09, runs 20260309_153628 + 20260309_161737 + 20260309_163832, gpt-5.4, priority scale + due date + extension + expense skill)
 
 **Fixes applied**: (1) Tasks.org skill: corrected priority scale from "1st=High, 4th=None" to "1st=None, 4th=High" (was wrong since R18), (2) Tasks.org skill: added "Reading Due Date in Detail View" section — use full-format date ("Saturday, October 7"), not bare day name ("Wednesday"), (3) Markor skill: promoted extension clearing to CRITICAL section with concrete example, (4) New Pro Expense skill: category scroll guidance for horizontally scrollable RecyclerView.

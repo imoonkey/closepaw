@@ -1,6 +1,18 @@
 # ExpenseDeleteDuplicates2
 
-**Status: cannot_handle** — Ambiguous "exact duplicate" definition + visually identical noise entries with different hidden fields. Moved AT-R1.
+**Status: cannot_handle** — Scroll gap prevents reliable 100% list coverage. Agent consistently finds 41/42 items, missing the duplicate's partner. Re-parked R28.
+
+## R28 (20260309_210911) — gpt-5.4 — RE-PARKED
+- Score: 0.0 | Turns: 33 | ScrollGap — found "Pest Control | 234.63" duplicate pair, deleted one. Evaluator says wrong — may be wrong pair or scroll gap.
+
+## R27 (20260309_204943) — gpt-5.4 — UNFAIR (bad guidance)
+- Score: 0.0 | Turns: 15 | BadGuidance — told to sort by NAME in Filter, but Pro Expense only supports date sorting. Wasted all turns. Excluded from failure count.
+
+## R26 (20260309_203139) — gpt-5.4
+- Score: 0.0 | Turns: 16 | ScrollGap — found 41/42 items (improved from 30). Missing 42nd = likely one half of duplicate pair.
+
+## R25 (20260309_201619) — gpt-5.4
+- Score: 0.0 | Turns: 14 | ScrollCoverage — scanned ~30/42 expenses, found no duplicates. Stopped too early.
 
 ## AT-R5-GPT54 (20260306_003753) — FAIL → confirms cannot_handle
 - Score: 0.0

@@ -1,5 +1,13 @@
 # RecipeDeleteDuplicateRecipes2
 
+**Status: FIXED R28** — Broccoli field comparison skill guided agent to open each same-titled recipe, compare ALL visible fields, and identify true duplicate pair.
+
+## R28 (20260309_210911) — gpt-5.4 — FIXED
+- Score: 1.0 | Turns: 41/50 | Success — Broccoli skill field comparison worked. Opened each same-titled recipe, compared all visible fields, found true duplicate.
+
+## R27 (20260309_204943) — gpt-5.4
+- Score: 0.0 | Turns: 30 | TurnExhaustion — 1st unpark attempt. Identified "Caprese" recipes, started comparing but ran out of turns at 30. Fix: increase max_turns to 50.
+
 ## R8 (GPT-5.4, 20260307)
 Score: 0.0 | Turns: 25 | ReasoningError — deleted wrong recipes.
 

@@ -1,5 +1,16 @@
 # RetroPlaylistDuration
 
+**Status: cannot_handle** — Song durations not accessible via any perception mode (a11y tree OR screenshot). Re-parked R26.
+
+## R26 (20260309_203139) — gpt-5.4 — RE-PARKED
+- Score: 0.0 | Turns: 8 | PerceptionGap — gave up at turn 8/50. Can't read durations from a11y OR screenshot. Hybrid didn't help. 3rd consecutive failure.
+
+## R25 (20260309_201619) — gpt-5.4
+- Score: 0.0 | Turns: 19 | PerceptionGap — found one song = 00:49 via details dialog. Gave up saying songs too short. Misunderstood short songs can combine.
+
+## R24 (20260309_194958) — gpt-5.4
+- Score: 0.0 | Turns: 24 | TurnExhaustion — created playlist, found 2 durations via details. Hit Error at turn 24. Hybrid perception + duration strategy skill added.
+
 ## R4 (AT-R4, run 20260305_151648)
 - **Score**: 0.0 | **Turns**: 45/45 | **Agent**: qwen3.5
 - **Behavior**: TurnExhaustion (7th consecutive 0.0). Agent attempted batch-select but hit duplicate "More options" grounding error. Only 2 songs added (06:37 vs 45-50min target).

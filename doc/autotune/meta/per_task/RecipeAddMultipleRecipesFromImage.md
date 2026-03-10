@@ -1,3 +1,12 @@
+## R30 (20260309_215257) — gpt-5.4 — FIXED
+- Score: 1.0 | Turns: 27/60 | Success — hybrid perception + 60 turns worked. Read recipe data from image, entered into Broccoli.
+
+## R29 (20260309_213307) — gpt-5.4
+- Score: 0.0 | Turns: 29 | IncompleteData — only added 2 recipes (Avocado Toast, Veggie Soup). Image likely has more. 678s duration (slow turns).
+
+## R28 (20260309_210911) — gpt-5.4
+- Score: 0.0 | Turns: 30 | IncompleteData — added Veggie Omelette + Veggie Soup. 4 tool failures. Evaluator says wrong.
+
 ## R20 (20260309_150119) — gpt-5.4
 - Score: 0.0, Turns: 23
 - Image read from thumbnail, hallucinated. Only 2/3 recipes. PARKING.

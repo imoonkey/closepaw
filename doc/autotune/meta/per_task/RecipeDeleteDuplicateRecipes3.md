@@ -1,5 +1,16 @@
 # RecipeDeleteDuplicateRecipes3
 
+**Status: cannot_handle** — Turn budget structurally insufficient (complexity 3.4, 30+ recipes to scan and compare). Re-parked R27.
+
+## R27 (20260309_204943) — gpt-5.4 — RE-PARKED
+- Score: 0.0 | Turns: 49 | FalseCompletion — claimed no duplicates found. 3rd consecutive failure.
+
+## R26 (20260309_203139) — gpt-5.4
+- Score: 0.0 | Turns: 59 | TurnExhaustion — used 59/60 turns. Claimed success, evaluator disagrees. Near-miss on budget.
+
+## R23 (20260309_192810) — gpt-5.4
+- Score: 0.0 | Turns: 53 | FalseCompletion — used 53/60 turns. Navigated 30+ recipes, either deleted wrong one or missed true duplicate.
+
 ## R4 (AT-R4, run 20260305_151648)
 - **Score**: 0.0 | **Turns**: 50/50 | **Agent**: qwen3.5
 - **Behavior**: TurnExhaustion. write_todos over-use (9 calls = 18% budget waste). 8 deletions vs ~4 in R3, still insufficient for 10+ duplicates.

@@ -1,3 +1,12 @@
+## R30 (20260309_215257) — gpt-5.4 — RE-PARKED
+- Score: 0.0 | Turns: 19 | FieldAlignment + ImagePerception — 3rd failure. Only added 2 expenses (Mortgage, Shoes). Specialty Foods amount unreadable from image. Error at turn 19/60.
+
+## R29 (20260309_213307) — gpt-5.4
+- Score: 0.0 | Turns: 36 | FieldAlignment — added expenses but wrong data. Created duplicate Mortgage, tried to fix. Name/note field confusion persists.
+
+## R28 (20260309_210911) — gpt-5.4
+- Score: 0.0 | Turns: 30 | TurnExhaustion — 1st unpark attempt. Added 3/6 expenses (Mortgage, Shoes, Furnishing). Error at turn 30.
+
 ## R21 (20260309_161737) — gpt-5.4 — PARKED
 - Score: 0.0, Turns: 28
 - Added 3/6+ expenses but ran out of turns. Image has many expenses; agent needs to open gallery, read image, switch to Pro Expense, enter each expense. 30 turns insufficient. 12 consecutive failures (0/12). Parked to cannot_handle.
