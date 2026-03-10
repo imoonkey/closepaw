@@ -16,10 +16,9 @@ description: App-specific guidance for Pro Expense.
 
 ## Finding and Deleting Duplicate Expenses
 When asked to delete duplicate expenses:
-1. **CRITICAL: The expense list has 40+ items.** You MUST scroll repeatedly (at least 8-10 times) until the list stops moving. Record EVERY expense (name, exact amount including decimals, category) in scratchpad.
-2. **Watch for same-name traps**: There may be 3-4 entries with the SAME name but DIFFERENT amounts. These are NOT duplicates. Only TWO entries with the EXACT SAME name AND the EXACT SAME amount are true duplicates.
-3. Compare all recorded entries from scratchpad to find the matching pair.
-4. Once you find a matching pair, delete exactly ONE of them (either one is fine).
-5. To delete: swipe the expense left, or long-press → Delete, or open it → Delete.
-6. Do NOT delete entries that merely look similar but have different amounts.
-7. If you haven't found duplicates yet, you probably haven't scrolled far enough — keep scrolling!
+1. Go to the Expense Logs view (open menu → Expense Logs), NOT the "Recent" section on Home.
+2. **Scroll the ENTIRE list** (40+ items, scroll at least 10 times until the view stops changing). Record EVERY expense name and EXACT amount in scratchpad after each scroll.
+3. **Look for the "perturbed" group**: Several entries will share the SAME name (e.g., 4-5 "Jeans" entries). The true duplicate pair is WITHIN this group — two entries with the EXACT SAME amount. The others have different amounts (they are decoys).
+4. If you find a name that appears 4+ times but NO two amounts match, you likely missed 1 entry during scrolling. Go back and scroll more slowly through that section.
+5. Once you find TWO entries with IDENTICAL name AND amount, delete exactly ONE.
+6. To delete: swipe the expense left, or long-press → Delete, or open it → Delete.

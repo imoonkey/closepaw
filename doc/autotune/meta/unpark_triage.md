@@ -63,6 +63,16 @@ Treat the notes below as reference, the hypothesis and suggested fixes may not b
 
 **RetroPlaylistDuration (0.0)**: **RE-PARKED after 3 consecutive failures (R24, R25, R26).** Agent gave up at turn 8 out of 50 — couldn't read durations from accessibility tree OR screenshot. Hybrid perception didn't help. **Park reason**: Song durations not accessible via any available perception mode. Agent can't plan duration-constrained playlist without knowing individual song lengths.
 
+### R27 Attempt Log
+
+**ExpenseDeleteDuplicates2 (0.0)**: Bad guidance — told agent to sort by NAME in Filter, but Pro Expense Filter only supports date sorting. Agent wasted all 15 turns trying to find nonexistent name sort option. **Root cause**: Incorrect skill guidance. Not a fair 3rd failure — corrected skill for R28.
+
+**OsmAndMarker (0.0)**: **RE-PARKED after 3 consecutive failures (R24, R26, R27).** Infra failure on first attempt. Retry: agent searched for "Planken, Liechtenstein" but OsmAnd opened blank/wrong view, couldn't find location or create marker. **Park reason**: OsmAnd search doesn't reliably resolve small localities; Marker button not accessible in a11y tree.
+
+**RecipeDeleteDuplicateRecipes2 (0.0)**: 1st attempt. Agent identified "Caprese" recipes appearing multiple times, started comparing them but ran out of turns at 30. Needed more turns to open each variation and compare fields. **Fix**: Increase max_turns to 50 for this task.
+
+**RecipeDeleteDuplicateRecipes3 (0.0)**: **RE-PARKED after 3 consecutive failures (R23, R26, R27).** 49 of 60 turns used, false success. Agent navigated 30+ recipes but couldn't efficiently identify and delete the correct duplicate. **Park reason**: Turn budget structurally insufficient (complexity 3.4, 30+ recipes to scan and compare).
+
 ## Priority Tier 2: Never passed, but plausibly fixable
 
 | Task | Park Reason | Ever Passed | Hypothesis | Suggested First Fix |

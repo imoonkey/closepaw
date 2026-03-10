@@ -1,6 +1,4 @@
 ExpenseAddMultipleFromGallery
 ExpenseDeleteDuplicates2
-OsmAndMarker
 RecipeAddMultipleRecipesFromImage
 RecipeDeleteDuplicateRecipes2
-RecipeDeleteDuplicateRecipes3

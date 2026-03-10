@@ -4,3 +4,5 @@ OsmAndTrack
 BrowserDraw
 AudioRecorderRecordAudioWithFileName
 RetroPlaylistDuration
+OsmAndMarker
+RecipeDeleteDuplicateRecipes3
