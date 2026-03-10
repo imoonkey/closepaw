@@ -1,3 +1,5 @@
 MarkorTranscribeVideo
 MarkorDeleteNewestNote
 BrowserDraw
+OsmAndMarker
+OsmAndTrack

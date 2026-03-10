@@ -1,6 +1,9 @@
 # OsmAndMarker
 
-**Status: active** — Offline general search is proximity-based, fails when map far from Liechtenstein. Need Address tab or COORDINATES SEARCH.
+**Status: cannot_handle** — Offline map data doesn't support reliable locality search. Agent follows skill correctly but coords are outside 0.001-degree evaluator tolerance. RE-PARKED R35.
+
+## R35 (20260310_013847) — gpt-5.4 — RE-PARKED
+- Score: 0.0 | Turns: 15 | StructuralMapData — Agent followed Address tab guidance, used coordinate fallback (47.19, 9.55), clicked Marker. But coords are ~0.007 degrees off from evaluator target (47.1859, 9.5452). Tolerance is 0.001. Agent can't know exact coordinates. Structural.
 
 ## R34 (20260310_012156) — gpt-5.4
 - Score: 0.0 | Turns: 29 | SearchFail — All name searches returned "Could not find anything" or country-level "Liechtenstein". Agent saw COORDINATES SEARCH button but didn't use it. Never tried coords unlike R33. Need explicit Address tab / coord search guidance.

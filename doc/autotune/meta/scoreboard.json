@@ -1679,6 +1679,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 29
+        },
+        "20260310_013847": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 15
         }
       },
       "recent_rate": "0/3",
@@ -1720,6 +1725,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 22
+        },
+        "20260310_013847": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 25
         }
       },
       "recent_rate": "0/3",
@@ -4491,6 +4501,12 @@
     },
     "20260310_012156": {
       "round": 87,
+      "total": 2,
+      "passed": 0,
+      "rate": 0.0
+    },
+    "20260310_013847": {
+      "round": 88,
       "total": 2,
       "passed": 0,
       "rate": 0.0

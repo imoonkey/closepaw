@@ -1,6 +1,9 @@
 # OsmAndTrack
 
-**Status: active** — Correct workflow (Plan a route) but general search tab fails due to proximity. Need Address tab.
+**Status: cannot_handle** — Offline map Address search can't resolve Liechtenstein village names. Agent has no coordinates to fall back to. RE-PARKED R35.
+
+## R35 (20260310_013847) — gpt-5.4 — RE-PARKED
+- Score: 0.0 | Turns: 25 | StructuralMapData — Agent correctly used Plan a route + Address tab per skill. But Address search couldn't find Schonberg/Triesen/Bendern. No coordinates available for fallback. Structural.
 
 ## R34 (20260310_012156) — gpt-5.4
 - Score: 0.0 | Turns: 22 | SearchFail — Correctly used "Plan a route" workflow. But general search tab is proximity-based and map was far from Liechtenstein. Address tab (structured offline lookup) was visible but never used. No waypoints added, no GPX saved.

@@ -2,6 +2,16 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 35 (2026-03-10, run 20260310_013847, gpt-5.4, OsmAnd final attempt)
+
+**Fixes applied**: OsmAnd skill restructured — Address tab as primary search, explicit SHOW ON MAP warning.
+
+**Results**: 0/2 pass. OsmAndMarker RE-PARKED (coord tolerance structural). OsmAndTrack RE-PARKED (map data structural).
+
+**Both agents followed skill correctly** — used Address tab, Plan a route, coord fallback. Failures are structural: offline map data doesn't index Liechtenstein villages, and coordinate search produces coords outside 0.001-degree evaluator tolerance.
+
+**Loop complete (R31-R35)**: 5/9 fixed, 4 re-parked. unpark_active.txt empty.
+
 ## Autotune Round 34 (2026-03-10, run 20260310_012156, gpt-5.4, OsmAnd pair)
 
 **Fixes applied**: OsmAnd skill rewrite — coord verification, "Plan a route" for GPX tracks, warn about SHOW ON MAP unreliability.
