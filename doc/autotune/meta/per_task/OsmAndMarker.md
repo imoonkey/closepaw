@@ -1,6 +1,9 @@
 # OsmAndMarker
 
-**Status: cannot_handle** — OsmAnd search unreliable for small localities + Marker button not in a11y tree + recurring infra failures ("no such table: map_markers"). Re-parked R27.
+**Status: active** — Offline geocoder sends village names to wrong continent. Need coord-first strategy.
+
+## R33 (20260310_004519) — gpt-5.4
+- Score: 0.0 | Turns: 28 | OfflineGeocode — agent used "SHOW ON MAP" per skill, but offline geocoder sent map to Ghana/Africa. Agent tried coords `47.18, 9.54` which resolved correctly to Liechtenstein, but then abandoned them. Need coord-first priority.
 
 ## R32 (20260310_001826) — gpt-5.4
 - Score: 0.0 | Turns: 9 | WrongResult — infra fixed (map_markers_db restored). Agent searched "Planken, Liechtenstein" but no village POI found. Picked "Liechtenstein" country result → marker at country centroid, ~47km off target. Agent falsely claimed GoalAchieved.

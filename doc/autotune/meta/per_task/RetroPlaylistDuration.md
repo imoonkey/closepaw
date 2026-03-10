@@ -1,6 +1,9 @@
 # RetroPlaylistDuration
 
-**Status: active** — Add-all-prune strategy blocked by "Add to playlist" button not in a11y tree.
+**Status: FIXED R33** — Per-song 3-dot menu "Add to playlist" + add-all-then-prune strategy.
+
+## R33 (20260310_004519) — gpt-5.4 — FIXED
+- Score: 1.0 | Turns: 57 | Fix: per-song context menu "Add to playlist" as primary method bypasses a11y gap in multi-select toolbar.
 
 ## R32 (20260310_001826) — gpt-5.4
 - Score: 0.0 | Turns: 60/60 | A11yGap — "Add to playlist" in multi-select toolbar not in a11y tree. Agent tried coordinate taps at wrong y-position (status bar y=91 vs toolbar y=211). Created playlist but 0 songs added. New strategy: use per-song 3-dot menu instead.

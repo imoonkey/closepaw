@@ -1,3 +1,6 @@
+## R33 (20260310_004519) — gpt-5.4 — RE-PARKED (evaluator false negative)
+- Score: 0.0 | Turns: 7 | EvalBug — Agent correctly identified and deleted newest note (fine_jelly_final.md at 15:34). Evaluator uses `ls -au` (atime) to compare pre/post file lists. Markor's delete mutates surviving files' atimes, causing evaluator comparison to fail. This is an evaluator bug, not an agent issue. Cannot fix.
+
 ## R24 (20260309_194958) — gpt-5.4 — RE-PARKED
 - Score: 0.0 | Turns: 7 | PerceptionGap — 3rd consecutive failure. Timestamps not visible for one note, still picked wrong one. RE-PARKED: modification time vs access time mismatch.
 

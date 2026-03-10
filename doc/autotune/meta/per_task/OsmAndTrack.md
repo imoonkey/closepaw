@@ -1,6 +1,9 @@
 # OsmAndTrack
 
-**Status: cannot_handle** — OsmAnd route/search UI does not reliably expose exact locality waypoints through the accessible flow needed to build ordered tracks.
+**Status: active** — Agent used wrong workflow (Navigation instead of "Plan a route" → save GPX).
+
+## R33 (20260310_004519) — gpt-5.4
+- Score: 0.0 | Turns: 44 | WrongWorkflow — Agent used Navigation/Directions to set waypoints, then couldn't find "save as track". Correct path: hamburger → "Plan a route" → add points → Save. Evaluator checks for .gpx file with trkpt matching target coords in order.
 
 ## AT-R5-GPT54 (20260306_003753) — FAIL → confirms cannot_handle
 - Score: 0.0

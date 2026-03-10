@@ -1,6 +1,9 @@
 # BrowserDraw
 
-**Status: cannot_handle** — Color perception limitation in hybrid mode. Agent reaches Chrome but can't match palette colors to target colors. 3 consecutive failures R22-R24 with different root causes each round (nav trap → overlay occlusion → color perception). Re-parked R25.
+**Status: cannot_handle** — A11y click doesn't fire JS DOM events in Chrome WebView. `ctx.strokeStyle` never changes. Platform limitation.
+
+## R33 (20260310_004519) — gpt-5.4 — RE-PARKED
+- Score: 0.0 | Turns: 30 | PlatformLimit — a11y click doesn't trigger JS DOM events in Chrome canvas. Structural limitation, no agent-side fix.
 
 ## R24 (20260309_194958) — gpt-5.4 — RE-PARKED
 - Score: 0.0 | Turns: 29 | ColorPerception — reached Chrome, drew on canvas, submitted. Wrong colors — gpt-5.4 can't reliably match palette colors. 3rd consecutive failure.

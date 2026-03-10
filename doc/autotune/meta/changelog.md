@@ -2,6 +2,21 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Autotune Round 33 (2026-03-10, run 20260310_004519, gpt-5.4, all 5 remaining)
+
+**Fixes applied**: (1) OsmAnd: "SHOW ON MAP" → pin strategy, routing guidance, (2) Retro Music: per-song 3-dot "Add to playlist" as primary method, (3) OsmAndTrack max_turns 80.
+
+**Results**: 1/5 pass (20%, 1/3 excluding re-parks). RetroPlaylistDuration 0.0→1.0 (FIXED). OsmAndMarker 0.0 (offline geocoder → Ghana). OsmAndTrack 0.0 (wrong workflow). MarkorDeleteNewestNote RE-PARKED (evaluator atime bug). BrowserDraw RE-PARKED (platform limitation).
+
+**Key findings**:
+- **RetroPlaylistDuration FIXED**: Per-song context menu bypassed a11y gap. Add-all-prune strategy worked.
+- **OsmAndMarker**: Offline geocoder maps village names to wrong continent. Need coord-first approach.
+- **OsmAndTrack**: Agent used Navigation instead of "Plan a route" → save GPX. Need workflow-specific guidance.
+- **MarkorDeleteNewestNote**: Agent correct, evaluator atime bug. RE-PARKED.
+- **BrowserDraw**: A11y click doesn't fire JS DOM events. RE-PARKED.
+
+**Backlog change**: 5 → 2 remaining (1 fixed, 2 re-parked). Cumulative: 5/9 fixed, 2 re-parked, 2 remaining.
+
 ## Autotune Round 32 (2026-03-10, run 20260310_001826, gpt-5.4, unpark_r2 R31 retries + Tier 2)
 
 **Fixes applied**: (1) Gallery skill on correct package com.simplemobiletools.gallery.pro, (2) OsmAnd snapshot fixed (map_markers_db), (3) Retro Music add-all-prune strategy, (4) Broccoli scratchpad tracking + 7 fields, (5) RecipeDelete3 max_turns 80, (6) RetroPlaylistDuration max_turns 60.
