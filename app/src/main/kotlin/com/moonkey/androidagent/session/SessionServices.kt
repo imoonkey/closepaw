@@ -61,7 +61,7 @@ class SessionServices internal constructor(
         val recordingService: SessionRecordingService,
         internal val appSkillRepository: AppSkillRepository = EmptyAppSkillRepository,
         val userResponseChannel: UserResponseChannel = UserResponseChannel(),
-        val memoryStore: MemoryStore = MemoryStore(java.io.File(""), readOnly = true),
+        val memoryStore: MemoryStore = MemoryStore(java.io.File("")),
         val memoryRecaller: MemoryRecaller = MemoryRecaller(memoryStore)
 ) {
     companion object {
@@ -108,10 +108,9 @@ class SessionServices internal constructor(
             val recordingService = history.recordingService
             val appSkillRepository = AssetAppSkillRepository(context.assets)
 
-            // Memory system — readOnly in eval/debug-run mode
+            // Memory system — always writable; eval isolation via adb rm before batch runs
             val memoryDir = java.io.File(context.filesDir ?: java.io.File("/tmp"), "memory")
-            val isEvalMode = config.traceRunId != null
-            val memoryStore = MemoryStore(memoryDir, readOnly = isEvalMode)
+            val memoryStore = MemoryStore(memoryDir)
             val memoryRecaller = MemoryRecaller(memoryStore)
             toolRegistry.register(RememberExperienceTool(memoryStore))
 

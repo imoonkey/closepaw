@@ -14,7 +14,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class MemoryStore(
     private val memoryDir: File,
-    private val readOnly: Boolean = false,
     val maxContentLength: Int = DEFAULT_MAX_CONTENT_LENGTH
 ) {
     companion object {
@@ -35,7 +34,6 @@ class MemoryStore(
 
     @Synchronized
     fun appendAppMemory(packageName: String, content: String) {
-        if (readOnly) return
         val safeName = validatePackageName(packageName) ?: return
         val file = File(File(memoryDir, APPS_DIR), "$safeName.md")
         appendEntry(file, "# App Memory: $safeName", content, APP_ENTRY_CAP)
@@ -44,14 +42,12 @@ class MemoryStore(
 
     @Synchronized
     fun appendUserPref(content: String) {
-        if (readOnly) return
         appendEntry(File(memoryDir, USER_PREFS_FILE), "# User Preferences", content, USER_PREFS_ENTRY_CAP)
         writtenThisSession.set(true)
     }
 
     @Synchronized
     fun appendDeviceMemory(content: String) {
-        if (readOnly) return
         appendEntry(File(memoryDir, DEVICE_FILE), "# Device", content, DEVICE_ENTRY_CAP)
         writtenThisSession.set(true)
     }

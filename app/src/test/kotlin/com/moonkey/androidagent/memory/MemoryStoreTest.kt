@@ -74,24 +74,10 @@ class MemoryStoreTest {
     }
 
     @Test
-    fun `readOnly mode skips writes`() {
-        val readOnly = MemoryStore(memoryDir, readOnly = true)
-        readOnly.appendAppMemory("com.test", "should not be saved")
-        assertThat(store.readAppMemory("com.test")).isNull()
-    }
-
-    @Test
     fun `hasWrittenThisSession tracks writes`() {
         assertThat(store.hasWrittenThisSession()).isFalse()
         store.appendAppMemory("com.test", "something")
         assertThat(store.hasWrittenThisSession()).isTrue()
-    }
-
-    @Test
-    fun `readOnly mode does not set hasWrittenThisSession`() {
-        val readOnly = MemoryStore(memoryDir, readOnly = true)
-        readOnly.appendAppMemory("com.test", "ignored")
-        assertThat(readOnly.hasWrittenThisSession()).isFalse()
     }
 
     @Test
