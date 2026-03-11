@@ -12,6 +12,7 @@ BUILD_TOOLS="33.0.0"
 SYSTEM_IMAGE="system-images;android-${API_LEVEL};google_apis;x86_64"
 PLATFORM="platforms;android-${API_LEVEL}"
 AVD_NAME="AndroidWorldAvd"
+AVD_NAME_2="AndroidWorldAvd2"
 AVD_DEVICE="pixel_6"
 
 log() { echo "[provision] $*"; }
@@ -20,7 +21,7 @@ log() { echo "[provision] $*"; }
 log "Installing system packages..."
 sudo apt-get update -qq
 sudo apt-get install -y -qq \
-  curl wget unzip software-properties-common \
+  curl wget unzip software-properties-common autossh tmux \
   libdrm2 libxkbcommon0 libgbm1 libasound2 libnss3 libxcursor1 \
   libpulse0 libxshmfence1 libdbus-glib-1-2 libgl1-mesa-glx \
   libxcb-xinerama0 libxrender1 xvfb
@@ -116,18 +117,20 @@ fi
 log "adb: $(adb version | head -1)"
 log "emulator: $(emulator -version 2>&1 | head -1)"
 
-# ─── 6. Create AVD ───────────────────────────────────────────────────
-if emulator -list-avds | grep -Fxq "${AVD_NAME}"; then
-  log "AVD ${AVD_NAME} already exists."
-else
-  log "Creating AVD: ${AVD_NAME}..."
-  echo "no" | avdmanager create avd \
-    --force \
-    --name "${AVD_NAME}" \
-    --device "${AVD_DEVICE}" \
-    --package "${SYSTEM_IMAGE}"
-  log "AVD created."
-fi
+# ─── 6. Create AVDs ──────────────────────────────────────────────────
+for avd in "${AVD_NAME}" "${AVD_NAME_2}"; do
+  if emulator -list-avds | grep -Fxq "${avd}"; then
+    log "AVD ${avd} already exists."
+  else
+    log "Creating AVD: ${avd}..."
+    echo "no" | avdmanager create avd \
+      --force \
+      --name "${avd}" \
+      --device "${AVD_DEVICE}" \
+      --package "${SYSTEM_IMAGE}"
+    log "AVD ${avd} created."
+  fi
+done
 
 # ─── 7. Write environment profile ────────────────────────────────────
 PROFILE_FILE="${HOME}/.android-agent-env"

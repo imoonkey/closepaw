@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenAI proxy SSH tunnel to laptop (autossh)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment="AUTOSSH_GATETIME=0"
+ExecStart=/usr/bin/autossh -M 0 -N -o "ServerAliveInterval 30" -o "ServerAliveCountMax 3" -o "ExitOnForwardFailure yes" -L 18080:127.0.0.1:18080 moonkey@100.95.23.122
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

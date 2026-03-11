@@ -7,7 +7,7 @@ Remote eval worker running on `qiguo-ld1` (Ubuntu 18.04, i9-7900X, 62G RAM).
 - JDK 17: `/usr/lib/jvm/java-17-openjdk-amd64`
 - Python 3.11: `python3.11` (deadsnakes PPA)
 - Android SDK: `~/android-sdk` (provisioned with pinned emulator 32.1.15 for glibc 2.27 compat)
-- AVD: `AndroidWorldAvd` (Pixel 6, API 33, x86_64)
+- AVD: `AndroidWorldAvd`, `AndroidWorldAvd2` (Pixel 6, API 33, x86_64)
 - Repo: `~/androidagent`
 - Eval venv: `~/androidagent/eval/.venv`
 - Env profile: `~/.android-agent-env` (sourced from `.bashrc`)
@@ -79,6 +79,71 @@ eval/.venv/bin/python eval/aw_bridge/runner.py \
 ls eval/results/
 cat eval/results/<timestamp>/summary.json
 ```
+
+## Dual-Emulator Parallel Eval
+
+### One-time setup
+
+```bash
+# Baseline prep for both AVDs
+./scripts/prepare_baseline.sh --headless --config eval/config/remote.yaml
+./scripts/prepare_baseline.sh --headless --config eval/config/remote.yaml \
+  --avd AndroidWorldAvd2 --console-port 5556 --grpc-port 8556 --adb-serial emulator-5556
+```
+
+### Running parallel eval
+
+```bash
+./scripts/eval_parallel.sh --headless --config eval/config/remote.yaml \
+  --tasks-file eval/config/<task_file>
+```
+
+Same device layout as local: `AndroidWorldAvd` on `emulator-5554` and `AndroidWorldAvd2` on `emulator-5556`.
+
+## Long-Running Eval (tmux)
+
+Use the tmux wrapper to survive SSH disconnects:
+
+```bash
+# Start eval in a tmux session
+./scripts/remote/eval_tmux.sh --tasks-file eval/config/<task_file>
+
+# Detach: Ctrl-b d
+# Reattach later: tmux attach -t eval
+# Check if running: tmux has-session -t eval 2>/dev/null && echo "running" || echo "no session"
+```
+
+## Tunnel Management
+
+The proxy tunnel can be managed as a systemd user service (auto-reconnects via autossh):
+
+```bash
+# Install service (one-time)
+./scripts/remote/proxy_tunnel.sh install
+
+# Start/stop/status
+./scripts/remote/proxy_tunnel.sh start
+./scripts/remote/proxy_tunnel.sh stop
+./scripts/remote/proxy_tunnel.sh status
+
+# View logs
+./scripts/remote/proxy_tunnel.sh logs
+```
+
+Or start manually (foreground):
+```bash
+./scripts/remote/proxy_tunnel.sh manual [laptop-tailscale-ip]
+```
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Tunnel dropped | `./scripts/remote/proxy_tunnel.sh status` then `start` |
+| Emulator hung | `adb -s emulator-5554 emu kill`, then re-run |
+| Stale checkout | `git pull && ./gradlew assembleDebug` |
+| Second emulator won't start | Check `emulator -list-avds` shows `AndroidWorldAvd2` |
+| Out of disk | `du -sh ~/android-sdk ~/.android` — AVD snapshots can be large |
 
 ## Config
 

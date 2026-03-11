@@ -83,14 +83,21 @@ One nuance remained in agent behavior: `ExpenseAddSingle` scored `1.0`, but the 
 
 ## Remaining Work
 
-### Phase 2: Dual Emulator (not started)
-- Create `AndroidWorldAvd2`, second baseline prep
-- Test `eval_parallel.sh` with two emulators on remote
+### Phase 2: Dual Emulator (scripts ready, needs remote testing)
+- `provision.sh` now creates both `AndroidWorldAvd` and `AndroidWorldAvd2`
+- Baseline prep: run `prepare_baseline.sh` twice with different ports
+- Parallel eval: `eval_parallel.sh --headless --config eval/config/remote.yaml`
+- **Needs**: run on `qiguo-ld1` to verify dual-emulator boot and parallel eval
+- Design: `doc/todo/remote_emulator/phase23/phase2_claude.md`
 
-### Phase 3: Operational Hardening (not started)
-- `autossh` or systemd service for persistent tunnel
-- Proxy health check before eval (`curl http://127.0.0.1:18080/`)
-- tmux/systemd wrapper for long-running eval
+### Phase 3: Operational Hardening (scripts ready, needs remote testing)
+- `scripts/remote/eval_tmux.sh` — tmux wrapper for long-running eval
+- `scripts/remote/openai-proxy-tunnel.service` — systemd user unit with autossh
+- `scripts/remote/proxy_tunnel.sh` — service manager (install/start/stop/status/logs/manual)
+- `provision.sh` now installs `autossh` and `tmux`
+- `doc/dev/remote_eval_worker.md` — extended with dual-emulator, tmux, tunnel management, troubleshooting sections
+- **Needs**: install autossh on `qiguo-ld1`, test service lifecycle and tmux wrapper
+- Design: `doc/todo/remote_emulator/phase23/phase3_claude.md`
 
 ### Phase 4: System Upgrade (deferred)
 - Ubuntu 18.04 → 22.04 LTS (blocked on needing local access for safety)
