@@ -23,6 +23,7 @@ GRPC_PORT_B="8556"
 ADB_SERIAL_B=""
 
 EMULATOR_BIN="${EMULATOR_BIN:-}"
+HEADLESS="${HEADLESS:-}"
 POSITIONAL_ARGS=()
 
 usage() {
@@ -60,6 +61,7 @@ Options:
   --grpc-port-b PORT            gRPC port for device B
   --adb-serial-b SERIAL         ADB serial for device B (default: emulator-<console-port-b>)
   --emulator-bin PATH           Emulator binary (otherwise autodetected or EMULATOR_BIN)
+  --headless                    Run emulators headless (-no-window -no-audio)
   -h, --help                    Show this help
 
 Examples:
@@ -83,6 +85,8 @@ resolve_emulator_bin() {
     EMULATOR_BIN="${HOME}/Library/Android/sdk/emulator/emulator"
   elif [[ -x "${HOME}/Android/Sdk/emulator/emulator" ]]; then
     EMULATOR_BIN="${HOME}/Android/Sdk/emulator/emulator"
+  elif [[ -x "${HOME}/android-sdk/emulator/emulator" ]]; then
+    EMULATOR_BIN="${HOME}/android-sdk/emulator/emulator"
   else
     echo "Cannot find emulator binary. Use --emulator-bin or set EMULATOR_BIN." >&2
     exit 1
@@ -199,14 +203,20 @@ start_emulator_if_needed() {
 
   resolve_emulator_bin
   echo "[parallel-eval] Starting ${label}: avd=${avd_name} serial=${adb_serial} console=${console_port} grpc=${grpc_port}"
-  "${EMULATOR_BIN}" \
-    -avd "${avd_name}" \
-    -port "${console_port}" \
-    -grpc "${grpc_port}" \
-    -no-snapshot-load \
-    -no-snapshot-save \
-    -no-boot-anim \
-    >"${log_path}" 2>&1 &
+
+  local -a emu_args=(
+    -avd "${avd_name}"
+    -port "${console_port}"
+    -grpc "${grpc_port}"
+    -no-snapshot-load
+    -no-snapshot-save
+    -no-boot-anim
+  )
+  if [[ -n "${HEADLESS}" ]]; then
+    emu_args+=(-no-window -no-audio)
+  fi
+
+  "${EMULATOR_BIN}" "${emu_args[@]}" >"${log_path}" 2>&1 &
   echo "[parallel-eval] Emulator log: ${log_path}"
 }
 
@@ -309,6 +319,10 @@ while [[ $# -gt 0 ]]; do
     --emulator-bin)
       EMULATOR_BIN="$2"
       shift 2
+      ;;
+    --headless)
+      HEADLESS=1
+      shift
       ;;
     -h|--help)
       usage

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON_BIN="${ROOT_DIR}/eval/.venv/bin/python"
 
 CONFIG="eval/config/default.yaml"
 AVD_NAME="AndroidWorldAvd"
@@ -10,6 +11,7 @@ GRPC_PORT="8554"
 ADB_SERIAL=""
 EMULATOR_BIN="${EMULATOR_BIN:-}"
 SNAPSHOT_POLICY="auto_repair"
+HEADLESS="${HEADLESS:-}"
 
 EXTRA_ARGS=()
 
@@ -30,6 +32,7 @@ Options:
   --adb-serial SERIAL        ADB serial (default: emulator-<console-port>)
   --emulator-bin PATH        Emulator binary path
   --snapshot-policy POLICY   Snapshot policy for prepare_baseline.py
+  --headless                 Run emulator headless (-no-window -no-audio)
   -h, --help                 Show this help
 
 Examples:
@@ -57,6 +60,8 @@ while [[ $# -gt 0 ]]; do
       EMULATOR_BIN="$2"; shift 2 ;;
     --snapshot-policy)
       SNAPSHOT_POLICY="$2"; shift 2 ;;
+    --headless)
+      HEADLESS=1; shift ;;
     *)
       EXTRA_ARGS+=("$1")
       shift ;;
@@ -79,6 +84,8 @@ if [[ -z "${EMULATOR_BIN}" ]]; then
     EMULATOR_BIN="${HOME}/Library/Android/sdk/emulator/emulator"
   elif [[ -x "${HOME}/Android/Sdk/emulator/emulator" ]]; then
     EMULATOR_BIN="${HOME}/Android/Sdk/emulator/emulator"
+  elif [[ -x "${HOME}/android-sdk/emulator/emulator" ]]; then
+    EMULATOR_BIN="${HOME}/android-sdk/emulator/emulator"
   else
     echo "Cannot find emulator binary. Use --emulator-bin." >&2
     exit 1
@@ -104,14 +111,20 @@ adb -s "${ADB_SERIAL}" emu kill >/dev/null 2>&1 || true
 sleep 2
 
 echo "[baseline] Starting clean emulator: avd=${AVD_NAME} port=${CONSOLE_PORT} grpc=${GRPC_PORT}"
-"${EMULATOR_BIN}" \
-  -avd "${AVD_NAME}" \
-  -port "${CONSOLE_PORT}" \
-  -grpc "${GRPC_PORT}" \
-  -no-snapshot \
-  -wipe-data \
-  -no-boot-anim \
-  >/dev/null 2>&1 &
+
+EMU_ARGS=(
+  -avd "${AVD_NAME}"
+  -port "${CONSOLE_PORT}"
+  -grpc "${GRPC_PORT}"
+  -no-snapshot
+  -wipe-data
+  -no-boot-anim
+)
+if [[ -n "${HEADLESS}" ]]; then
+  EMU_ARGS+=(-no-window -no-audio)
+fi
+
+"${EMULATOR_BIN}" "${EMU_ARGS[@]}" >/dev/null 2>&1 &
 
 echo "[baseline] Waiting for adb device ${ADB_SERIAL}"
 adb -s "${ADB_SERIAL}" wait-for-device
@@ -134,8 +147,15 @@ fi
 
 echo "[baseline] Running prepare_baseline.py"
 cd "${ROOT_DIR}"
+
+if [[ -x "${PYTHON_BIN}" ]]; then
+  PYTHON_CMD="${PYTHON_BIN}"
+else
+  PYTHON_CMD="python3"
+fi
+
 PREPARE_CMD=(
-  python3
+  "${PYTHON_CMD}"
   eval/aw_bridge/prepare_baseline.py
   --config "${CONFIG}"
   --adb-serial "${ADB_SERIAL}"
