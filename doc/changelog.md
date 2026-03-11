@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-03-11: Cross-Session Memory System V1
+
+**What changed:**
+- New `memory/` package: `MemoryStore` (file I/O, entry caps, path traversal protection, atomic writes) and `MemoryRecaller` (elastic-budget recall per turn).
+- New `RememberExperienceTool`: LLM-callable tool with `[workflow]`/`[pitfall]`/`[verification]` kind tags. Auto-allowed, cognitive tool (non-screen-changing).
+- Recall injected into prompt between working memory and app skill via new `recalledMemory` param in `PromptBuilder.buildInputItems()`.
+- Elastic budget: device 1KB + user_prefs 1.5KB + app gets remainder up to 3.5KB, total ≤6KB. Newest entries kept on truncation.
+- Failure auto-retain hook in `Agent.kt`: when task fails and LLM never called `remember_experience`, auto-saves a `[pitfall]` entry.
+- Storage: `<filesDir>/memory/apps/<package>.md`, `user_prefs.md`, `device.md`. Entry caps: 30/app, 20/user_prefs, 10/device.
+- Added `ToolName.RememberExperience` variant, `StandaloneAgentDef` allowedTools + Long-Term Memory system prompt section.
+
+**Why:**
+- Let the agent learn from experience across sessions. App-specific quirks, pitfalls, and verification strategies persist as markdown and are recalled when the same app is foregrounded.
+
+**Key files:** `memory/MemoryStore.kt`, `memory/MemoryRecaller.kt`, `tool/impl/RememberExperienceTool.kt`, `agent/Agent.kt`, `agent/TurnPlanningPhaseRunner.kt`, `agent/cognition/prompt/PromptBuilder.kt`, `agent/definition/StandaloneAgentDef.kt`, `session/SessionServices.kt`, `tool/ToolName.kt`
+
+**Design:** `doc/todo/0.5_memory/final/design.md`
+
 ## 2026-03-10: OpenClaw Family Common Capability Analysis
 
 **What changed:**
