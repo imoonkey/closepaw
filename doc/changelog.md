@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-03-10: OpenClaw Family Common Capability Analysis
+
+**What changed:**
+- Added a new comparative analysis doc at `doc/todo/0.5_openclaw/common/common_capabilities_analysis_cn_codex.md`.
+- Distinguished core OpenClaw-family runtimes from adjacent ecosystem projects in `.reference/claws/`.
+- Summarized the shared capability stack across OpenClaw variants: ingress surfaces, sessioned runtime, tools/execution, memory/workspace, autonomy/scheduling, ops, and security boundaries.
+- Mapped platform boundaries into three buckets: desktop/cloud-specific strengths, Android-portable capabilities, and mobile-native advantages that desktop/cloud agents do not naturally own.
+
+**Why:**
+- Provide a clearer product and architecture frame for deciding what Android Agent should absorb from OpenClaw-family systems versus what should be reinterpreted natively for a phone-first agent.
+
+**Key files:** `doc/todo/0.5_openclaw/common/common_capabilities_analysis_cn_codex.md`, `doc/changelog.md`
+
 ## 2026-03-09: Perception High-Fidelity Capture and Text Targeting Alignment (`f23287d`)
 
 **What changed:**
