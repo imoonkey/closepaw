@@ -36,6 +36,20 @@
 
 **Design:** `doc/todo/remote_emulator/remote_emulator_eval_codex.md`
 
+## 2026-03-11: Memory Auto-Retain Fallback Fix (`faf18ab`)
+
+**What changed:**
+- Auto-retain pitfall hook now tracks `lastKnownPackage` through the agent turn loop and uses it as fallback when `getCurrentPackageName()` returns null at failure time (e.g. a11y tree has 0 elements).
+- Added logging for auto-retain writes.
+
+**Why:**
+- When a task fails with 0 accessibility elements, `getCurrentPackageName()` returned null, silently skipping the pitfall memory write. E2E testing on local emulator with gpt-5.4 revealed this gap.
+
+**E2E verification:** Memory recall confirmed working — seeded `com.android.settings.md` was injected as `## Recalled Memory` into LLM prompt and visible to model.
+
+**Key files:** `agent/Agent.kt`
+**Commit:** `faf18ab`
+
 ## 2026-03-11: Cross-Session Memory System V1
 
 **What changed:**
