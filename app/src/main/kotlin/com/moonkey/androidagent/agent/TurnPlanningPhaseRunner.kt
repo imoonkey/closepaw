@@ -69,6 +69,7 @@ internal class TurnPlanningPhaseRunner(
                                 perceptionConfig = services.config.perceptionConfig
                         )
                 val appSkill = buildAppSkillMessage(currentPackageName)
+                val recalledMemory = services.memoryRecaller.recall(currentPackageName)
                 val inputItems =
                         promptBuilder.buildInputItems(
                                 snapshot = snapshot,
@@ -76,7 +77,8 @@ internal class TurnPlanningPhaseRunner(
                                 warnings = warnings,
                                 turnNumber = turnNumber,
                                 maxTurns = config.maxTurns,
-                                appSkill = appSkill
+                                appSkill = appSkill,
+                                recalledMemory = recalledMemory
                         )
 
                 // Record screen observation for future turns (after prompt built)

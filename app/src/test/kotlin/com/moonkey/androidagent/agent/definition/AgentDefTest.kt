@@ -19,7 +19,8 @@ class AgentDefTest {
                 "shell",
                 "write_todos",
                 "complete_task",
-                "ask_user"
+                "ask_user",
+                "remember_experience"
             )
         assertThat(StandaloneAgentDef.requiresDelegationToolRegistration).isFalse()
         assertThat(StandaloneAgentDef.systemPrompt).contains("standalone Android automation agent")

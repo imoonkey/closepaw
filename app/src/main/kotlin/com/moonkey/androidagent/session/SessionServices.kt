@@ -10,12 +10,15 @@ import com.moonkey.androidagent.history.SessionRecordingService
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
 import com.moonkey.androidagent.llm.ModelCatalog
+import com.moonkey.androidagent.memory.MemoryRecaller
+import com.moonkey.androidagent.memory.MemoryStore
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
+import com.moonkey.androidagent.tool.impl.RememberExperienceTool
 import com.moonkey.androidagent.trace.TraceRecorder
 import kotlinx.coroutines.CoroutineScope
 
@@ -57,7 +60,9 @@ class SessionServices internal constructor(
         val traceRecorder: TraceRecorder,
         val recordingService: SessionRecordingService,
         internal val appSkillRepository: AppSkillRepository = EmptyAppSkillRepository,
-        val userResponseChannel: UserResponseChannel = UserResponseChannel()
+        val userResponseChannel: UserResponseChannel = UserResponseChannel(),
+        val memoryStore: MemoryStore = MemoryStore(java.io.File("")),
+        val memoryRecaller: MemoryRecaller = MemoryRecaller(memoryStore)
 ) {
     companion object {
         private const val TAG = "SessionServices"
@@ -103,6 +108,13 @@ class SessionServices internal constructor(
             val recordingService = history.recordingService
             val appSkillRepository = AssetAppSkillRepository(context.assets)
 
+            // Memory system — readOnly in eval/debug-run mode
+            val memoryDir = java.io.File(context.filesDir ?: java.io.File("/tmp"), "memory")
+            val isEvalMode = config.traceRunId != null
+            val memoryStore = MemoryStore(memoryDir, readOnly = isEvalMode)
+            val memoryRecaller = MemoryRecaller(memoryStore)
+            toolRegistry.register(RememberExperienceTool(memoryStore))
+
             Log.i(TAG, "SessionServices created successfully")
 
             return SessionServices(
@@ -118,7 +130,9 @@ class SessionServices internal constructor(
                     llmClientFactory = llmClientFactory,
                     traceRecorder = traceRecorder,
                     recordingService = recordingService,
-                    appSkillRepository = appSkillRepository
+                    appSkillRepository = appSkillRepository,
+                    memoryStore = memoryStore,
+                    memoryRecaller = memoryRecaller
             )
         }
     }
@@ -138,7 +152,9 @@ class SessionServices internal constructor(
             traceRecorder: TraceRecorder = this.traceRecorder,
             recordingService: SessionRecordingService = this.recordingService,
             appSkillRepository: AppSkillRepository = this.appSkillRepository,
-            userResponseChannel: UserResponseChannel = this.userResponseChannel
+            userResponseChannel: UserResponseChannel = this.userResponseChannel,
+            memoryStore: MemoryStore = this.memoryStore,
+            memoryRecaller: MemoryRecaller = this.memoryRecaller
     ): SessionServices {
         return SessionServices(
                 toolRegistry = toolRegistry,
@@ -154,7 +170,9 @@ class SessionServices internal constructor(
                 traceRecorder = traceRecorder,
                 recordingService = recordingService,
                 appSkillRepository = appSkillRepository,
-                userResponseChannel = userResponseChannel
+                userResponseChannel = userResponseChannel,
+                memoryStore = memoryStore,
+                memoryRecaller = memoryRecaller
         )
     }
 

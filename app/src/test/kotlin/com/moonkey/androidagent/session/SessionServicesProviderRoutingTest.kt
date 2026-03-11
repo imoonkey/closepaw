@@ -76,6 +76,7 @@ class SessionServicesProviderRoutingTest {
     val context = mockk<Context>(relaxed = true)
     val assets = mockk<AssetManager>()
     every { context.assets } returns assets
+    every { context.filesDir } returns java.io.File(System.getProperty("java.io.tmpdir"), "test-agent")
     every { assets.open("llm_models.json") } answers
             {
               ByteArrayInputStream(CATALOG_JSON.toByteArray())

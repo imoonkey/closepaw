@@ -14,7 +14,7 @@ sealed class ToolName(
         get() =
             when (this) {
                 MobileAction, OpenApp, Wait, SystemButton, DelegateTask -> true
-                CompleteTask, WriteTodos, Scratchpad -> false
+                CompleteTask, WriteTodos, Scratchpad, RememberExperience -> false
                 is Unknown -> true
             }
 
@@ -58,6 +58,11 @@ sealed class ToolName(
         canonical = "delegate_task",
         displayName = "Delegate task"
     )
+    data object RememberExperience : ToolName(
+        raw = "remember_experience",
+        canonical = "remember_experience",
+        displayName = "Remember experience"
+    )
     data class Unknown(private val name: String) : ToolName(
         raw = name,
         canonical = normalizeName(name),
@@ -75,6 +80,7 @@ sealed class ToolName(
                 WriteTodos.canonical -> WriteTodos
                 Scratchpad.canonical -> Scratchpad
                 DelegateTask.canonical -> DelegateTask
+                RememberExperience.canonical -> RememberExperience
                 else -> Unknown(raw)
             }
         }

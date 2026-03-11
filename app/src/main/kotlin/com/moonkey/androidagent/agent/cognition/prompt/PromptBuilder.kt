@@ -39,6 +39,7 @@ internal class PromptBuilder(
      * @param turnNumber Current turn number (1-based)
      * @param maxTurns  Maximum turns allowed for this session
      * @param appSkill Optional app-specific skill block for the foreground package
+     * @param recalledMemory Optional recalled long-term memory block
      */
     fun buildInputItems(
         snapshot: ScreenSnapshot,
@@ -46,10 +47,12 @@ internal class PromptBuilder(
         warnings: List<String> = emptyList(),
         turnNumber: Int = 0,
         maxTurns: Int = 0,
-        appSkill: String? = null
+        appSkill: String? = null,
+        recalledMemory: String? = null
     ): List<ResponseInputItem> = buildList {
         addAll(buildHistorySection())
         buildMemorySection()?.let { add(it) }
+        recalledMemory?.trim()?.takeIf { it.isNotEmpty() }?.let { add(textUserMessage(it)) }
         appSkill?.trim()?.takeIf { it.isNotEmpty() }?.let { add(textUserMessage(it)) }
         add(buildObservationSection(snapshot, image, warnings, turnNumber, maxTurns))
     }

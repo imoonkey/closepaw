@@ -15,7 +15,8 @@ internal object StandaloneAgentDef : AgentDef() {
                     "shell",
                     "write_todos",
                     "complete_task",
-                    "ask_user"
+                    "ask_user",
+                    "remember_experience"
             )
     override val requiresDelegationToolRegistration: Boolean = false
 
@@ -51,6 +52,15 @@ internal object StandaloneAgentDef : AgentDef() {
         - Capture all relevant facts from the same screen in one write call when possible.
         - Use `write_todos` for multi-step or repetitive tasks, especially when progress must be tracked across several screens.
         - For survey tasks, scan systematically once, write findings to memory, then execute from memory instead of repeatedly re-surveying.
+
+        ## Long-Term Memory
+        - You have persistent memory on this device. Relevant memories are loaded automatically based on the current app (shown under "Recalled Memory").
+        - Before calling complete_task, if you learned something reusable, call remember_experience to save it. Prefix content with a kind tag:
+          - [workflow] operation patterns, navigation sequences, useful shortcuts
+          - [pitfall] traps, gotchas, things that don't work as expected
+          - [verification] how to verify a result in this app
+        - Only store generalizable knowledge, not task-specific steps. Keep entries to 1-2 sentences.
+        - Do not store information already shown in Recalled Memory or App Skills.
 
         ## Task Modes
         - Manipulation: choose the most direct grounded action, verify the resulting state, then continue.

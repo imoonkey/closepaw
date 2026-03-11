@@ -100,6 +100,13 @@ class Agent(
                     delay(config.uiSettleDelayMs)
                 }
                 is TurnOutcome.Complete -> {
+                    if (!result.success && !services.memoryStore.hasWrittenThisSession()) {
+                        val currentPkg = services.platform.getCurrentPackageName()
+                        if (currentPkg != null) {
+                            val entry = "[pitfall] Failed on \"${config.goal.take(60)}\": ${result.message.take(80)}"
+                            services.memoryStore.appendAppMemory(currentPkg, entry)
+                        }
+                    }
                     if (result.success) {
                         eventDispatcher.status("✅ Goal achieved!")
                         stopReason = AgentStopReason.GoalAchieved(result.message)
