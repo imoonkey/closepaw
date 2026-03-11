@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-03-11: Remote Eval Worker Hardening and Validation
+
+**What changed:**
+- Hardened remote eval config loading so `android_world.adb_path` and emulator paths are expanded before use.
+- Routed eval preflight ADB calls through the configured binary instead of assuming `adb` is on `PATH`.
+- Pinned remote provisioning to emulator `32.1.15` from `emulator-linux_x64-10696886.zip` for Ubuntu 18.04 compatibility.
+- Updated the remote worker docs to reflect the actual stale-checkout proxy failure mode and the validated rerun outcome.
+- Re-ran the five previously failing app tasks on `qiguo-ld1` after syncing the fixed bridge path; all five passed in `eval/results/20260311_102822`.
+
+**Why:**
+- Remove remote-only setup drift around ADB resolution, emulator versioning, and proxy routing so remote eval failures surface as real task behavior instead of infra noise.
+
+**Key files:** `eval/aw_bridge/runner.py`, `eval/aw_bridge/runner_preflight.py`, `eval/tests/test_runner.py`, `scripts/remote/provision.sh`, `doc/dev/remote_eval_worker.md`, `doc/todo/remote_emulator/implementation_summary.md`
+**Verification:** `eval/.venv/bin/python -m unittest eval.tests.test_runner eval.tests.test_runner_preflight_policy`, `bash -n scripts/remote/provision.sh`, `./gradlew assembleDebug lint test`, remote rerun `eval/results/20260311_102822` (`5/5` scripted success)
+**Commit:** `76ee8ba`
+**Next:** Harden remote worker operations (`autossh`/service wrapper, dual-emulator path) and investigate the `ExpenseAddSingle` agent-side verification gap.
+**Blockers:** None
+
 ## 2026-03-11: Remote Emulator Eval Worker
 
 **What changed:**

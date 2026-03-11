@@ -1,6 +1,6 @@
 # Remote Emulator Eval — Implementation Summary
 
-Date: 2026-03-10
+Date: 2026-03-11
 Branch: `task/remote-emulator` (commit `947fee6`)
 Design doc: `remote_emulator_eval_codex.md` (this folder)
 
@@ -11,7 +11,7 @@ Phase 1 of the migration plan is complete: `qiguo-ld1` can run single-emulator e
 ### Files Changed
 
 **New files:**
-- `eval/config/remote.yaml` — remote-specific eval config (`adb_path: ~/android-sdk/platform-tools/adb`)
+- `eval/config/remote.yaml` — remote-specific eval config (`adb_path: ~/android-sdk/platform-tools/adb`, expanded by `runner.py`)
 - `scripts/remote/provision.sh` — one-shot provisioning script for the remote worker
 - `scripts/remote/proxy_tunnel.sh` — SSH tunnel helper (remote → laptop proxy)
 - `doc/dev/remote_eval_worker.md` — runbook for operating the remote eval worker
@@ -45,10 +45,10 @@ Chose **方案 B** (SSH tunnel) for simplicity:
 
 | Problem | Solution |
 |---------|----------|
-| glibc 2.27 vs emulator requiring 2.30 | Used older emulator 32.1.15 (`emulator-linux_x64-10696886.zip`) |
+| glibc 2.27 vs emulator requiring 2.30 | Pinned emulator 32.1.15 via `emulator-linux_x64-10696886.zip` instead of latest `sdkmanager` emulator |
 | `python3` → system Python 3.6 | `eval/.venv/bin/python` with `--without-pip` bootstrap via `get-pip.py` |
 | `pkg_resources` gone in setuptools 82+ | Pinned `setuptools<82`, used `--no-build-isolation` |
-| `/usr/local/bin/adb` not found | Created `eval/config/remote.yaml` with remote adb path |
+| `/usr/local/bin/adb` not found | Created `eval/config/remote.yaml` with remote adb path and expanded it in `runner.py` |
 | Protobuf `state_pb2` missing | Compiled protos on remote with `grpc_tools.protoc` |
 | Proxy bound to 127.0.0.1 only | Changed `proxy.js` to use `process.env.COPILOT_PROXY_BIND \|\| '0.0.0.0'` |
 
@@ -59,7 +59,27 @@ Ran 8 tasks from `aw_subset_smoke.txt`:
 - **3/8 passed** (system-level tasks: SystemClock, SystemBluetooth, SystemWifi)
 - **5/8 failed** (app tasks: BrowserMultiply, ClockTimerEntry, ContactsAddContact, ExpenseAddSingle, MarkorCreateNote)
 
-App task failures are likely snapshot/baseline related (fresh wipe-data boot, apps may need additional setup), not infrastructure issues. The infra path is validated.
+Follow-up trace inspection showed the app-task failures were not task regressions. All five stopped on turn 1 with `OpenAIIoException` because `OPENAI_BASE_URL=http://localhost:18080/v1` was configured but the remote proxy tunnel was not listening on `qiguo-ld1:18080`. This should be treated as infra setup failure, not a benchmark capability gap.
+
+That first diagnosis turned out to be incomplete. The remote worker was still running a stale checkout where `eval/aw_bridge/native_agent_bridge.py` forwarded `OPENAI_BASE_URL=http://localhost:18080/v1` unchanged into the emulator. That made the app try `localhost:18080` from inside Android instead of the host alias `10.0.2.2:18080`, so all five app tasks died on turn 1 with `OpenAIIoException`.
+
+### Follow-up Validation Rerun
+
+After syncing the remote worker to the current bridge/runner code, reran the five failed app tasks as `eval/results/20260311_102822`:
+
+- **5/5 passed**
+- `BrowserMultiply` — success
+- `ClockTimerEntry` — success
+- `ContactsAddContact` — success
+- `ExpenseAddSingle` — success
+- `MarkorCreateNote` — success
+
+Metrics:
+- `scripted_success_rate`: `1.0`
+- `infra_failure_rate`: `0.0`
+- `goal_claim_precision`: `1.0`
+
+One nuance remained in agent behavior: `ExpenseAddSingle` scored `1.0`, but the agent text still reported it could not visually verify the saved category. That is a task-level verification-quality issue, not a remote worker infra blocker.
 
 ## Remaining Work
 
@@ -69,8 +89,8 @@ App task failures are likely snapshot/baseline related (fresh wipe-data boot, ap
 
 ### Phase 3: Operational Hardening (not started)
 - `autossh` or systemd service for persistent tunnel
+- Proxy health check before eval (`curl http://127.0.0.1:18080/`)
 - tmux/systemd wrapper for long-running eval
-- Investigate app task failures from smoke eval
 
 ### Phase 4: System Upgrade (deferred)
 - Ubuntu 18.04 → 22.04 LTS (blocked on needing local access for safety)
