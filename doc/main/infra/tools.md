@@ -98,6 +98,7 @@ Determines whether tools need user approval.
 | `delegate_task` | Sub-agent delegation (PRO mode) | `agent_name`, `query` |
 | `ask_user` | Request user help mid-task | `type` (`question`/`action`), `message` |
 | `shell` | Execute file-related shell commands | `command`, optional `timeout_ms` |
+| `remember_experience` | Save reusable learning to long-term memory | `category`, `content`, optional `package_name` |
 
 `delegate_task` is registered lazily only when the selected agent definition requires delegation.
 
@@ -107,6 +108,10 @@ Determines whether tools need user approval.
 to non-destructive file inspection; UI control, app launching, OCR, and protected app-internal
 storage access are out of scope. Runs via `Runtime.exec()` with a configurable timeout (default
 10s, max 30s). Returns stdout/stderr combined output.
+
+`remember_experience` writes a timestamped entry to the persistent memory store. Categories: `app` (requires `package_name`), `user_pref`, `device`. Content is prefixed with kind tags (`[workflow]`, `[pitfall]`, `[verification]`). Classified as cognitive (non-screen-changing) and auto-allowed. Registered eagerly in `SessionServices.create()`.
+
+→ See: [agent/memory.md](../agent/memory.md) for the full memory system.
 
 ### mobile_action Actions
 

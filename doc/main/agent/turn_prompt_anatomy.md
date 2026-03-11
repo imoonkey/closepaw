@@ -55,9 +55,10 @@ Tool-local semantics now live in tool descriptions, and app-specific guidance li
 `input` list in fixed order:
 
 1. **History section** (`HistoryManager.forPrompt()`, normalized)
-2. **Memory section** (optional single user message)
-3. **App skill section** (optional single user message)
-4. **Current observation section** (screen JSON + optional screenshot)
+2. **Working memory section** (optional — todos + scratchpad)
+3. **Recalled memory section** (optional — cross-session memories from `MemoryRecaller`)
+4. **App skill section** (optional single user message)
+5. **Current observation section** (screen JSON + optional screenshot)
 
 ### 2.1 History Section
 
@@ -74,7 +75,7 @@ To control growth, `HistoryManager` proactively keeps only the last `recentFullS
 
 Default retained full observations: `recentFullScreens = 3`.
 
-### 2.2 Memory Section (Optional)
+### 2.2 Working Memory Section (Optional)
 
 When todos or scratchpad keys exist, a single user message is inserted:
 
@@ -88,6 +89,24 @@ When todos or scratchpad keys exist, a single user message is inserted:
 - key_a
 - key_b
 ```
+
+### 2.3 Recalled Memory Section (Optional)
+
+When `MemoryRecaller.recall(currentPackageName)` returns content, it is injected as a single user message after working memory. This provides cross-session learnings to the LLM.
+
+```text
+## Recalled Memory
+
+These are learnings from previous sessions. Use them to avoid repeating mistakes.
+
+### App: com.android.settings
+- [2026-03-11] [workflow] Developer Options is under System > Developer Options
+- [2026-03-11] [pitfall] "About phone" scroll position resets on back-navigate
+```
+
+The recaller uses an elastic budget (device 1KB + user_prefs 1.5KB + app remainder, total ≤6KB). Newest entries are kept on truncation.
+
+→ See: [memory.md](memory.md) for full memory system details.
 
 - Omitted when both todo list and scratchpad are empty.
 - Scratchpad exposes keys only (not values) in the memory section.

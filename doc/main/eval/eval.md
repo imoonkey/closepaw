@@ -232,3 +232,22 @@ Serial runs keep per-attempt artifacts under `artifacts/<run_id>/` in the
 top-level run directory. Parallel runs keep the canonical top-level metrics
 files, while each `per_task.jsonl` row points at the shard-local artifact paths
 through `artifact_paths`.
+
+## Remote Eval Worker
+
+For long-running eval batches, a headless emulator can run on a remote machine (e.g. `qiguo-ld1`) while the dev machine drives orchestration.
+
+### Setup
+
+- `scripts/remote/provision.sh` — one-shot remote setup (JDK 17, Python 3.11, Android SDK, AVD)
+- `scripts/remote/proxy_tunnel.sh` — SSH tunnel for LLM proxy access
+- `eval/config/remote.yaml` — remote-specific config with correct `adb_path`, `emulator_path`
+
+### Key Details
+
+- ADB path and emulator path are expanded from config before use (no assumption of `PATH` availability)
+- Preflight ADB calls route through the configured binary
+- Emulator pinned to `32.1.15` (`emulator-linux_x64-10696886.zip`) for Ubuntu 18.04 compatibility
+- `prepare_baseline.sh` and `eval_parallel.sh` support `--headless` flag for remote
+
+→ See: `doc/dev/remote_eval_worker.md` for operational runbook.

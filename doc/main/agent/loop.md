@@ -135,7 +135,8 @@ Defines runtime control/result types:
 
 → See: `agent/cognition/`
 
-- **Prompt layer**: `PromptBuilder` assembles History → Working Memory → Current Observation input items
+- **Prompt layer**: `PromptBuilder` assembles History → Working Memory → Recalled Memory → App Skill → Current Observation input items
+- **Memory layer**: `MemoryRecaller.recall(currentPackageName)` injects cross-session learnings per turn; `Agent.kt` auto-retains `[pitfall]` entries on failure
 - **Context layer**: `NavigationState` tracks recent screen signatures and actions for loop detection. Maintains a sliding window of `MAX_ACTION_HISTORY = 8` recent actions.
 - **Policy layer**: `TurnToolPolicy` arbitrates tool calls — keeps cognitive tools, at most one screen-changing tool, defers `complete_task` when action tools exist.
 - **Loop guard**: `LoopDetectionPolicy` detects stable screens (near-identical for 5 consecutive turns at Jaccard >= 0.95) and emits a factual warning. No strategy suggestions — the LLM decides what to do. Turn limit is the only hard stop mechanism.
@@ -238,6 +239,12 @@ Plus run-level summary: `run_summary.json`
 ### Trace Flush
 
 `TraceRecorder` exposes a `flush()` suspend function that blocks until all enqueued trace events are written to disk. `AgentSession.handleAgentComplete()` calls `flush()` **before** emitting `TaskCompleted`, ensuring trace data is persisted before the eval runner force-stops the process.
+
+### Memory Auto-Retain
+
+Before trace flush, `Agent.kt` checks for failed tasks where the LLM never voluntarily called `remember_experience`. If both conditions hold, it auto-saves a `[pitfall]` entry using `lastKnownPackage` as fallback when `getCurrentPackageName()` returns null.
+
+→ See: [memory.md](memory.md) for details.
 
 `FileTraceRecorder` implements flush via a `CompletableDeferred`-based `WriteOp.Flush` sent through the writer channel. The writer loop completes the deferred after processing all preceding writes. `NoopTraceRecorder.flush()` is a no-op.
 

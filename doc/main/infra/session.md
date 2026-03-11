@@ -134,6 +134,8 @@ Dependency-injection container for all session-scoped services. Created via fact
 | `recordingService` | Session history recording |
 | `appSkillRepository` | Loads `app_skills/<package>/SKILL.md` assets for per-turn prompt injection |
 | `userResponseChannel` | Suspension bridge for `ask_user` tool (CompletableDeferred) |
+| `memoryStore` | Persistent cross-session memory I/O (`memory/MemoryStore.kt`) |
+| `memoryRecaller` | Elastic-budget recall for per-turn prompt injection (`memory/MemoryRecaller.kt`) |
 
 ### Bootstrappers
 

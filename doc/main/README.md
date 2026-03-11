@@ -1,7 +1,7 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-03-09 (commit: f23287d)
+> Last updated: 2026-03-11 (commit: 2a35d90)
 
 ## Quick Start
 
@@ -26,7 +26,8 @@ doc/main/
 │   ├── loop.md        # ReAct loop, Turn, streaming execution
 │   ├── turn_prompt_anatomy.md # Per-turn OpenAI prompt/input/tools breakdown
 │   ├── multiagent.md  # Multi-agent system, Planner-Executor, delegation
-│   └── planning.md    # TodoState, ScratchpadState, context hygiene
+│   ├── planning.md    # TodoState, ScratchpadState, context hygiene
+│   └── memory.md      # Cross-session memory (MemoryStore, recall, auto-retain)
 │
 ├── infra/             # Agent infrastructure
 │   ├── session.md     # AgentSession, SessionServices, lifecycle
@@ -125,7 +126,12 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │       ├── WriteTodosTool.kt
 │       ├── ScratchpadTool.kt
 │       ├── DelegateTaskTool.kt
+│       ├── RememberExperienceTool.kt
 │       └── ShellTool.kt
+│
+├── memory/                          # Cross-session persistent memory
+│   ├── MemoryStore.kt               # File I/O, entry caps, thread safety
+│   └── MemoryRecaller.kt            # Elastic-budget recall per turn
 │
 ├── trace/                        # Structured trace events and artifacts
 │   ├── AgentTrace.kt             # Runtime-to-trace bridge
@@ -230,6 +236,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 | Area | Start With |
 |------|------------|
 | Agent behavior | [loop.md](agent/loop.md), [turn_prompt_anatomy.md](agent/turn_prompt_anatomy.md), [planning.md](agent/planning.md) |
+| Memory system | [memory.md](agent/memory.md) |
 | Multi-agent | [multiagent.md](agent/multiagent.md) |
 | Adding tools | [tools.md](infra/tools.md) |
 | Session lifecycle | [session.md](infra/session.md), [session/](ui/session/state_machine.md) |
@@ -258,6 +265,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 | **Hot Idle** | Session stays alive between tasks for follow-up | [session/](ui/session/state_machine.md) |
 | **CapsuleMode** | Smart Capsule state (Running, Takeover, etc.) | [overlay.md](ui/overlay.md) |
 | **Context Hygiene** | Token-efficient history management (compression pipeline) | [planning.md](agent/planning.md), [history.md](app/history.md) |
+| **Cross-Session Memory** | Persistent app-specific learnings recalled per turn | [memory.md](agent/memory.md) |
 
 ---
 
