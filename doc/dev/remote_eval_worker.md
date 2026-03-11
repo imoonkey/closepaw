@@ -33,12 +33,22 @@ Expected response:
 {"status":"ok"}
 ```
 
-### 2. SSH into the remote
+### 2. Sync code
+
+Push local changes and pull on the remote before every eval run:
 
 ```bash
+# On laptop
+git push
+
+# On remote
 ssh qiguo@qiguo-ld1
 cd ~/androidagent
+git pull
+./gradlew assembleDebug  # rebuild APK if code changed
 ```
+
+A stale checkout is a silent failure mode — the eval will run but produce wrong results (see Notes).
 
 ### 3. Run smoke eval (single emulator)
 
@@ -55,7 +65,15 @@ eval/.venv/bin/python eval/aw_bridge/runner.py \
   --tasks-file eval/config/aw_subset_smoke.txt
 ```
 
-### 4. Check results
+### 4. Run full eval (single emulator)
+
+```bash
+eval/.venv/bin/python eval/aw_bridge/runner.py \
+  --config eval/config/remote.yaml \
+  --tasks-file eval/config/autotune_round_N.txt
+```
+
+### 5. Check results
 
 ```bash
 ls eval/results/

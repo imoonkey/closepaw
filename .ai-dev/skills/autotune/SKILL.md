@@ -55,11 +55,18 @@ Subtract `eval/config/cannot_handle_group.txt`. Write the selected tasks to `eva
 ### Step 3 — Run
 
 ```bash
-# Preferred when both baseline-prepared emulators are available:
+# Preferred, set up both baseline-prepared emulators first:
 ./scripts/eval_parallel.sh eval/config/autotune_round_N.txt
 
 # Fallback: single-device serial run
 eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/autotune_round_N.txt
+
+# Remote eval on qiguo-ld1 (sync code first: git push → git pull + assembleDebug):
+# Requires SSH reverse tunnel for gpt-* models; OpenRouter models work without it.
+# See doc/dev/remote_eval_worker.md for full setup.
+eval/.venv/bin/python eval/aw_bridge/runner.py \
+  --config eval/config/remote.yaml \
+  --tasks-file eval/config/autotune_round_N.txt
 ```
 
 Parallel preconditions:
@@ -129,6 +136,8 @@ Wait for approval before the next `/autotune`.
 - Exclusions: `eval/config/cannot_handle_group.txt`
 - Scoreboard script: `scripts/scoreboard.py`
 - Eval runner: `eval/aw_bridge/runner.py`
+- Eval remote config: `eval/config/remote.yaml`
+- Remote eval worker runbook: `doc/dev/remote_eval_worker.md`
 - Cog-tune skill: `.ai-dev/skills/cog-tune/SKILL.md`
 - Implement skill: `.ai-dev/skills/implement/SKILL.md`
 - Shared tuning principles: `.ai-dev/skills/autotune/references/tuning_principles.md`
