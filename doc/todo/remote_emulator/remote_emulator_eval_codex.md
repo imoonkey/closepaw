@@ -3,7 +3,7 @@ status: draft
 # 远端 Emulator Eval 迁移评估 (Codex)
 
 Date: 2026-03-09  
-Target host: `qiguo-ld1`  
+Target host: `qiguo-ld1`   (`ssh qiguo@qiguo-ld1`)
 Goal: 把 Android Agent 的 AndroidWorld eval 从本地 laptop 迁到家里的 `qiguo-ld1`，降低本地内存压力，并为后续双 emulator 并行 eval 留出容量。
 
 ## 1. 结论先说
