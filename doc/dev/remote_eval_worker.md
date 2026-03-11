@@ -14,24 +14,25 @@ Remote eval worker running on `qiguo-ld1` (Ubuntu 18.04, i9-7900X, 62G RAM).
 
 ## Running Eval
 
-### 1. Start SSH tunnel for LLM proxy
+### 1. Ensure LLM proxy tunnel (gpt-* models only)
 
-From the laptop:
+The autossh service manages the tunnel automatically (see [Tunnel Management](#tunnel-management)).
+Skip this step for OpenRouter models — they don't need the proxy.
+
 ```bash
-ssh -f -N -R 18080:127.0.0.1:18080 qiguo@qiguo-ld1
+# On qiguo-ld1: check if tunnel is running
+./scripts/remote/proxy_tunnel.sh status
+
+# If not running:
+./scripts/remote/proxy_tunnel.sh start
 ```
 
-This makes `localhost:18080` on ld1 forward to the laptop's proxy.
-
-Verify on `qiguo-ld1` before running eval:
+Verify proxy is reachable:
 ```bash
 curl -sS --max-time 3 http://127.0.0.1:18080/
 ```
 
-Expected response:
-```json
-{"status":"ok"}
-```
+Expected: `{"status":"ok"}`
 
 ### 2. Sync code
 
@@ -160,4 +161,4 @@ Or start manually (foreground):
 - Emulator 32.1.15 is used (not latest) due to glibc 2.27 on Ubuntu 18.04
 - The `--headless` flag adds `-no-window -no-audio` to emulator
 - SSH tunnel must be active for `gpt-*` models (OpenRouter models work without it)
-- The tunnel will drop if the laptop sleeps — re-establish before eval runs
+- The autossh service auto-reconnects if the tunnel drops; requires laptop cproxy to be running
