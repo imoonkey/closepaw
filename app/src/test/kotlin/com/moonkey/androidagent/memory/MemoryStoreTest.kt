@@ -115,4 +115,16 @@ class MemoryStoreTest {
         assertThat(entries[0]).contains("First entry")
         assertThat(entries[1]).contains("Second entry")
     }
+
+    @Test
+    fun `rejects path traversal in package name`() {
+        store.appendAppMemory("../../etc/passwd", "malicious content")
+        assertThat(store.readAppMemory("../../etc/passwd")).isNull()
+    }
+
+    @Test
+    fun `rejects package name with slashes`() {
+        store.appendAppMemory("com/test/app", "content")
+        assertThat(store.readAppMemory("com/test/app")).isNull()
+    }
 }

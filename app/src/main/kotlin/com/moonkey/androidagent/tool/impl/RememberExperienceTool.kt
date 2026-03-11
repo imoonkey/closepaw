@@ -72,8 +72,12 @@ class RememberExperienceTool(
         if (content.length > store.maxContentLength) {
             return ValidationResult.Invalid("content too long (max ${store.maxContentLength} chars)")
         }
-        if (category == "app" && params.optString("package_name", "").trim().isEmpty()) {
-            return ValidationResult.Invalid("package_name required when category = app")
+        if (category == "app") {
+            val pkg = params.optString("package_name", "").trim()
+            if (pkg.isEmpty()) return ValidationResult.Invalid("package_name required when category = app")
+            if (!pkg.matches(Regex("^[a-zA-Z0-9_.]+$"))) {
+                return ValidationResult.Invalid("package_name contains invalid characters")
+            }
         }
         return ValidationResult.Valid
     }

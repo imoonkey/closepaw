@@ -61,7 +61,7 @@ class SessionServices internal constructor(
         val recordingService: SessionRecordingService,
         internal val appSkillRepository: AppSkillRepository = EmptyAppSkillRepository,
         val userResponseChannel: UserResponseChannel = UserResponseChannel(),
-        val memoryStore: MemoryStore = MemoryStore(java.io.File("")),
+        val memoryStore: MemoryStore = MemoryStore(java.io.File(""), readOnly = true),
         val memoryRecaller: MemoryRecaller = MemoryRecaller(memoryStore)
 ) {
     companion object {
