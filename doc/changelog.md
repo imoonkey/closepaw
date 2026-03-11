@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-03-11: Remote Emulator Eval Worker
+
+**What changed:**
+- Provisioned `qiguo-ld1` (Ubuntu 18.04, i9-7900X, 62G RAM) as a remote Android eval worker with headless emulator.
+- New `scripts/remote/provision.sh`: one-shot setup (JDK 17, Python 3.11, Android SDK, AVD).
+- New `scripts/remote/proxy_tunnel.sh`: SSH tunnel helper for LLM proxy access.
+- New `eval/config/remote.yaml`: remote-specific eval config with correct adb path.
+- Modified `scripts/prepare_baseline.sh` and `scripts/eval_parallel.sh`: added `--headless` flag, venv Python preference, `~/android-sdk` emulator search path.
+- Changed cproxy `proxy.js` bind from `127.0.0.1` to `0.0.0.0` so remote workers can connect directly.
+- New `doc/dev/remote_eval_worker.md`: operational runbook.
+
+**Why:**
+- Move eval compute off the laptop onto a dedicated machine with more CPU/RAM and KVM support for faster x86_64 emulation.
+
+**Key files:** `scripts/remote/provision.sh`, `scripts/remote/proxy_tunnel.sh`, `eval/config/remote.yaml`, `scripts/prepare_baseline.sh`, `scripts/eval_parallel.sh`, `doc/dev/remote_eval_worker.md`
+
+**Design:** `doc/todo/remote_emulator/remote_emulator_eval_codex.md`
+
 ## 2026-03-11: Cross-Session Memory System V1
 
 **What changed:**
