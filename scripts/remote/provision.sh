@@ -5,6 +5,8 @@ set -euo pipefail
 
 ANDROID_SDK_ROOT="${HOME}/android-sdk"
 CMDLINE_TOOLS_ZIP="commandlinetools-linux-11076708_latest.zip"
+PINNED_EMULATOR_ZIP="emulator-linux_x64-10696886.zip"
+PINNED_EMULATOR_VERSION="32.1.15"
 API_LEVEL="33"
 BUILD_TOOLS="33.0.0"
 SYSTEM_IMAGE="system-images;android-${API_LEVEL};google_apis;x86_64"
@@ -88,10 +90,28 @@ yes | sdkmanager --licenses >/dev/null 2>&1 || true
 log "Installing SDK packages..."
 sdkmanager --install \
   "platform-tools" \
-  "emulator" \
   "${PLATFORM}" \
   "build-tools;${BUILD_TOOLS}" \
   "${SYSTEM_IMAGE}"
+
+EMULATOR_BIN="${ANDROID_SDK_ROOT}/emulator/emulator"
+current_emulator_version=""
+if [[ -x "${EMULATOR_BIN}" ]]; then
+  current_emulator_version="$("${EMULATOR_BIN}" -version 2>/dev/null | head -1 || true)"
+fi
+
+if [[ "${current_emulator_version}" == *"${PINNED_EMULATOR_VERSION}"* ]]; then
+  log "Pinned emulator ${PINNED_EMULATOR_VERSION} already installed."
+else
+  log "Installing pinned emulator ${PINNED_EMULATOR_VERSION} for Ubuntu 18.04 compatibility..."
+  cd /tmp
+  wget -q "https://dl.google.com/android/repository/${PINNED_EMULATOR_ZIP}" -O emulator.zip
+  rm -rf emulator-tmp
+  unzip -qo emulator.zip -d emulator-tmp
+  rm -rf "${ANDROID_SDK_ROOT}/emulator"
+  mv emulator-tmp/emulator "${ANDROID_SDK_ROOT}/emulator"
+  rm -rf emulator.zip emulator-tmp
+fi
 
 log "adb: $(adb version | head -1)"
 log "emulator: $(emulator -version 2>&1 | head -1)"

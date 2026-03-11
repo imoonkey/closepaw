@@ -18,6 +18,7 @@ from eval.aw_bridge.runner import (
 from eval.aw_bridge.runner_preflight import (
     TASK_REQUIRED_PACKAGES,
     run_adb,
+    run_adb_global,
     run_android_world_connectivity_preflight,
     wait_for_emulator_stability,
 )
@@ -106,6 +107,28 @@ class RunnerAdbTest(unittest.TestCase):
 
         self.assertEqual(run_mock.call_args[1]["timeout"], 222.0)
 
+    def test_run_adb_uses_configured_binary(self) -> None:
+        config = _runner_config(adb_serial="emulator-5554", adb_path="/opt/android/platform-tools/adb")
+        completed = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="", stderr="")
+        with mock.patch("eval.aw_bridge.runner_preflight.subprocess.run", return_value=completed) as run_mock:
+            run_adb(config, ["devices"], check=False, capture_output=True)
+
+        self.assertEqual(
+            run_mock.call_args[0][0],
+            ["/opt/android/platform-tools/adb", "-s", "emulator-5554", "devices"],
+        )
+
+    def test_run_adb_global_uses_configured_binary(self) -> None:
+        config = _runner_config(adb_path="/opt/android/platform-tools/adb")
+        completed = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="", stderr="")
+        with mock.patch("eval.aw_bridge.runner_preflight.subprocess.run", return_value=completed) as run_mock:
+            run_adb_global(config, ["start-server"], check=False, capture_output=True)
+
+        self.assertEqual(
+            run_mock.call_args[0][0],
+            ["/opt/android/platform-tools/adb", "start-server"],
+        )
+
 
 class RunnerConnectivityPreflightTest(unittest.TestCase):
     def test_rejects_serial_console_port_mismatch(self) -> None:
@@ -165,11 +188,12 @@ class RunnerApiKeyValidationTest(unittest.TestCase):
             }
         )
 
-        _validate_required_api_key(
-            config,
-            {"OPENROUTER_API_KEY": "ok"},
-            workspace_root=workspace,
-        )
+        with mock.patch("eval.aw_bridge.runner.socket.create_connection"):
+            _validate_required_api_key(
+                config,
+                {"OPENROUTER_API_KEY": "ok"},
+                workspace_root=workspace,
+            )
 
     def test_missing_provider_key_raises(self) -> None:
         config = _runner_config()
@@ -210,6 +234,53 @@ class RunnerApiKeyValidationTest(unittest.TestCase):
                 workspace_root=workspace,
             )
 
+    def test_openai_base_url_must_be_reachable_for_openai_provider(self) -> None:
+        config = _runner_config()
+        config.bridge.llm_backend = "openai"
+        config.bridge.main_model = "gpt-5.4"
+        workspace = self._workspace_with_catalog({"gpt-5.4": {"provider": "OPENAI"}})
+
+        with mock.patch(
+            "eval.aw_bridge.runner.socket.create_connection",
+            side_effect=ConnectionRefusedError("refused"),
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "OPENAI_BASE_URL is configured but not reachable",
+            ):
+                _validate_required_api_key(
+                    config,
+                    {
+                        "OPENAI_API_KEY": "ok",
+                        "OPENAI_BASE_URL": "http://localhost:18080/v1",
+                    },
+                    workspace_root=workspace,
+                )
+
+    def test_openai_base_url_accepts_emulator_alias(self) -> None:
+        config = _runner_config()
+        config.bridge.llm_backend = "openai"
+        config.bridge.main_model = "gpt-5.4"
+        workspace = self._workspace_with_catalog({"gpt-5.4": {"provider": "OPENAI"}})
+
+        mocked_socket = mock.MagicMock()
+        mocked_socket.__enter__.return_value = mocked_socket
+        mocked_socket.__exit__.return_value = False
+        with mock.patch(
+            "eval.aw_bridge.runner.socket.create_connection",
+            return_value=mocked_socket,
+        ) as connect_mock:
+            _validate_required_api_key(
+                config,
+                {
+                    "OPENAI_API_KEY": "ok",
+                    "OPENAI_BASE_URL": "http://10.0.2.2:18080/v1",
+                },
+                workspace_root=workspace,
+            )
+
+        connect_mock.assert_called_once_with(("127.0.0.1", 18080), timeout=2.0)
+
 
 class RunnerTaskPackageMapTest(unittest.TestCase):
     def test_includes_recipe_and_sms_requirements(self) -> None:
@@ -224,7 +295,12 @@ class RunnerTaskPackageMapTest(unittest.TestCase):
 
 
 class RunnerConfigLoadingTest(unittest.TestCase):
-    def _write_config(self, root: Path, perform_bridge_setup: str | None = None) -> Path:
+    def _write_config(
+        self,
+        root: Path,
+        perform_bridge_setup: str | None = None,
+        adb_path: str | None = None,
+    ) -> Path:
         config_dir = root / "eval" / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
         perform_bridge_line = (
@@ -232,6 +308,7 @@ class RunnerConfigLoadingTest(unittest.TestCase):
             if perform_bridge_setup is not None
             else ""
         )
+        adb_path_line = f"  adb_path: {adb_path}\n" if adb_path is not None else ""
         config_path = config_dir / "test.yaml"
         config_path.write_text(
             (
@@ -247,6 +324,7 @@ class RunnerConfigLoadingTest(unittest.TestCase):
                 "android_world:\n"
                 "  console_port: 5554\n"
                 "  grpc_port: 8554\n"
+                f"{adb_path_line}"
                 "  auto_start_emulator: false\n"
                 "bridge:\n"
                 "  llm_backend: openai\n"
@@ -303,6 +381,14 @@ class RunnerConfigLoadingTest(unittest.TestCase):
             config_path = self._write_config(root)
             config = load_config_from_path(root, config_path)
         self.assertTrue(config.perform_bridge_setup)
+
+    def test_load_config_expands_adb_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with mock.patch.dict("os.environ", {"HOME": "/tmp/remote-home"}, clear=False):
+                config_path = self._write_config(root, adb_path="~/android-sdk/platform-tools/adb")
+                config = load_config(root, self._args_for(config_path))
+        self.assertEqual(config.adb_path, "/tmp/remote-home/android-sdk/platform-tools/adb")
 
 
 if __name__ == "__main__":

@@ -91,6 +91,10 @@ def create_env(config: RunnerConfig) -> Any:
     return env_launcher.load_and_setup_env(**kwargs)
 
 
+def resolve_adb_binary(config: RunnerConfig) -> str:
+    return config.adb_path or "adb"
+
+
 def run_preflight_checks(
     config: RunnerConfig,
     task_instances: list[TaskInstance],
@@ -476,7 +480,7 @@ def run_adb(
     capture_output: bool = False,
     timeout_sec: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    cmd = ["adb"]
+    cmd = [resolve_adb_binary(config)]
     if config.adb_serial:
         cmd.extend(["-s", config.adb_serial])
     cmd.extend(args)
@@ -507,7 +511,7 @@ def run_adb_global(
         else float(config.bridge.adb_command_timeout_sec)
     )
     return subprocess.run(
-        ["adb", *args],
+        [resolve_adb_binary(config), *args],
         check=check,
         text=True,
         capture_output=capture_output,

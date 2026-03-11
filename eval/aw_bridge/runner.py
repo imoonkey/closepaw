@@ -7,7 +7,9 @@ import json
 import logging
 import os
 from pathlib import Path
+import socket
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 
@@ -256,12 +258,12 @@ def load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig:
         reference_root=str(aw_cfg.get("reference_root", ".reference/eval/android_world")),
         console_port=int(aw_cfg.get("console_port", 5554)),
         grpc_port=int(aw_cfg.get("grpc_port", 8554)),
-        adb_path=_nullable_str(aw_cfg.get("adb_path")),
+        adb_path=_nullable_path_str(aw_cfg.get("adb_path")),
         perform_emulator_setup=bool(aw_cfg.get("perform_emulator_setup", False)),
         freeze_datetime=bool(aw_cfg.get("freeze_datetime", False)),
         auto_start_emulator=bool(aw_cfg.get("auto_start_emulator", True)),
         emulator_avd_name=str(aw_cfg.get("emulator_avd_name", "AndroidWorldAvd")),
-        emulator_binary_path=_nullable_str(aw_cfg.get("emulator_binary_path")),
+        emulator_binary_path=_nullable_path_str(aw_cfg.get("emulator_binary_path")),
         emulator_boot_timeout_sec=int(aw_cfg.get("emulator_boot_timeout_sec", 180)),
         bridge=bridge,
         task_overrides=dict(bridge_cfg.get("task_overrides", {})),
@@ -328,6 +330,13 @@ def _nullable_str(value: Any) -> str | None:
     return text or None
 
 
+def _nullable_path_str(value: Any) -> str | None:
+    text = _nullable_str(value)
+    if text is None:
+        return None
+    return os.path.expanduser(os.path.expandvars(text))
+
+
 def _load_api_keys(workspace_root: Path) -> dict[str, str]:
     """Load API keys and env extras (e.g. OPENAI_BASE_URL) from .env and environment."""
     _ALL_ENV_NAMES = _API_KEY_NAMES + _ENV_EXTRAS
@@ -371,6 +380,37 @@ def _validate_required_api_key(
             f"{', '.join(missing)}. Models={models}. "
             "Add keys to .env or environment variables."
         )
+    _validate_openai_base_url(api_keys, required_keys)
+
+
+def _validate_openai_base_url(api_keys: dict[str, str], required_keys: set[str]) -> None:
+    if "OPENAI_API_KEY" not in required_keys:
+        return
+
+    base_url = api_keys.get("OPENAI_BASE_URL")
+    if not base_url:
+        return
+
+    parsed = urlparse(base_url)
+    if not parsed.scheme or not parsed.hostname:
+        raise RuntimeError(f"Invalid OPENAI_BASE_URL: {base_url}")
+
+    host = parsed.hostname
+    if host in {"localhost", "127.0.0.1", "::1", "10.0.2.2"}:
+        host = "127.0.0.1"
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+
+    try:
+        with socket.create_connection((host, port), timeout=2.0):
+            return
+    except OSError as exc:
+        hint = ""
+        if port == 18080 and host == "127.0.0.1":
+            hint = " Start the local proxy or establish the SSH tunnel before running eval."
+        raise RuntimeError(
+            "OPENAI_BASE_URL is configured but not reachable from the eval host: "
+            f"{base_url} ({host}:{port}).{hint}"
+        ) from exc
 
 
 def _resolve_required_api_keys_for_models(config: RunnerConfig, workspace_root: Path) -> set[str]:
