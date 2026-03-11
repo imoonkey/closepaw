@@ -64,6 +64,7 @@ class Agent(
         var stopReason: AgentStopReason? = null
         var turnRunnerState = TurnRunnerState()
         var recoverableRetryCount = 0
+        var lastKnownPackage: String? = null
         while (shouldContinue()) {
             if (pauseState.value) {
                 // Signal that the agent is actually paused (current turn done)
@@ -94,6 +95,8 @@ class Agent(
 
             val turnExecution = turnRunner.executeTurn(turnId, turnCount, turnRunnerState)
             turnRunnerState = turnExecution.nextState
+            // Track foreground package for auto-retain fallback
+            services.platform.getCurrentPackageName()?.let { lastKnownPackage = it }
             when (val result = turnExecution.outcome) {
                 is TurnOutcome.Continue -> {
                     recoverableRetryCount = 0
@@ -101,10 +104,11 @@ class Agent(
                 }
                 is TurnOutcome.Complete -> {
                     if (!result.success && !services.memoryStore.hasWrittenThisSession()) {
-                        val currentPkg = services.platform.getCurrentPackageName()
-                        if (currentPkg != null) {
+                        val pkg = services.platform.getCurrentPackageName() ?: lastKnownPackage
+                        if (pkg != null) {
                             val entry = "[pitfall] Failed on \"${config.goal.take(60)}\": ${result.message.take(80)}"
-                            services.memoryStore.appendAppMemory(currentPkg, entry)
+                            services.memoryStore.appendAppMemory(pkg, entry)
+                            Log.i(TAG, "Auto-retained pitfall memory for $pkg")
                         }
                     }
                     if (result.success) {
