@@ -1,6 +1,7 @@
 # Global Issues
 
 ## Open
+- [ ] **Token optimization in progress** — R39 (prompt optimization loop) cut 1,518 tokens safely. Tool descriptions have most room for further cuts (ScratchpadTool 315t, RememberExperienceTool 274t, DelegateTaskTool 260t, MobileActionTool 559t). (NEW: R39)
 - [ ] **Broccoli Edit-as-Create (CRITICAL)** — RecipeAddMultipleRecipes, RecipeAddMultipleRecipesFromMarkor, RecipeAddMultipleRecipesFromMarkor2. After saving recipe 1, agent clicks Edit instead of navigating back to list to create new recipe. Overwrites existing record. Need Broccoli app skill with multi-recipe navigation guidance. (NEW: AT-R19 P1)
 - [ ] **Broccoli Source/Categories fabrication** — RecipeAddMultipleRecipesFromMarkor2. Agent fills Source field with `recipes.txt` (not in input data). Evaluator does exact-match on all fields. Need skill guidance: leave unmapped fields empty. (NEW: AT-R19 P1 sub-issue)
 - [ ] **Markor shell-write regression** — MarkorMergeNotes. R19 skill change "prefer shell_command for merge tasks" caused agent to cancel working UI dialog. Shell lacks permissions. Must revert. (NEW: AT-R19 P2, self-inflicted)

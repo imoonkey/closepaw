@@ -1,13 +1,13 @@
 {
   "system_prompt": {
-    "chars": 5410,
-    "tokens": 1076,
-    "lines": 62
+    "chars": 3489,
+    "tokens": 715,
+    "lines": 48
   },
   "tool_descriptions": {
     "total": {
-      "chars": 10830,
-      "tokens": 2422
+      "chars": 10298,
+      "tokens": 2313
     },
     "tools": {
       "AskUserTool": {
@@ -32,10 +32,10 @@
         "params_tokens": 100
       },
       "MobileActionTool": {
-        "chars": 2596,
-        "tokens": 606,
-        "lines": 107,
-        "description_tokens": 272,
+        "chars": 2355,
+        "tokens": 559,
+        "lines": 102,
+        "description_tokens": 225,
         "params_tokens": 334
       },
       "OpenAppTool": {
@@ -60,10 +60,10 @@
         "params_tokens": 90
       },
       "ShellTool": {
-        "chars": 934,
-        "tokens": 205,
-        "lines": 29,
-        "description_tokens": 180,
+        "chars": 643,
+        "tokens": 143,
+        "lines": 23,
+        "description_tokens": 117,
         "params_tokens": 25
       },
       "SystemButtonTool": {
@@ -91,11 +91,11 @@
   },
   "app_skills": {
     "total": {
-      "chars": 18470,
-      "tokens": 4141
+      "chars": 13893,
+      "tokens": 3093
     },
     "count": 16,
-    "avg_tokens": 258,
+    "avg_tokens": 193,
     "skills": {
       "code.name.monkey.retromusic": {
         "chars": 986,
@@ -113,14 +113,14 @@
         "lines": 17
       },
       "com.arduia.expense": {
-        "chars": 1330,
-        "tokens": 286,
-        "lines": 27
+        "chars": 816,
+        "tokens": 185,
+        "lines": 24
       },
       "com.dimowner.audiorecorder": {
-        "chars": 933,
-        "tokens": 216,
-        "lines": 23
+        "chars": 468,
+        "tokens": 113,
+        "lines": 14
       },
       "com.flauschcode.broccoli": {
         "chars": 1353,
@@ -128,9 +128,9 @@
         "lines": 25
       },
       "com.google.android.apps.nbu.files": {
-        "chars": 1044,
-        "tokens": 238,
-        "lines": 24
+        "chars": 631,
+        "tokens": 138,
+        "lines": 18
       },
       "com.google.android.apps.photos": {
         "chars": 575,
@@ -153,24 +153,24 @@
         "lines": 18
       },
       "de.dennisguse.opentracks": {
-        "chars": 1642,
-        "tokens": 369,
-        "lines": 32
+        "chars": 996,
+        "tokens": 211,
+        "lines": 25
       },
       "net.gsantner.markor": {
-        "chars": 1464,
-        "tokens": 338,
-        "lines": 27
+        "chars": 821,
+        "tokens": 195,
+        "lines": 23
       },
       "net.osmand": {
-        "chars": 1871,
-        "tokens": 456,
-        "lines": 32
+        "chars": 1037,
+        "tokens": 253,
+        "lines": 25
       },
       "org.tasks": {
-        "chars": 2455,
-        "tokens": 559,
-        "lines": 42
+        "chars": 1393,
+        "tokens": 319,
+        "lines": 30
       },
       "org.videolan.vlc": {
         "chars": 901,

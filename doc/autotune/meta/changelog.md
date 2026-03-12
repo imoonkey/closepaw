@@ -2,6 +2,16 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Prompt Optimization Round 91/R39 (2026-03-12, run 20260312_094821, gpt-5.4, 51-task sweep)
+
+**Fixes applied**: Cut 1,518 tokens — system prompt -361 (33.5%), tool descriptions -109 (4.5%), app skills -1,048 (25.3%). Always-on: 3,498 → 3,028 tokens.
+
+**Results**: 30/51 pass (58.8%). **No regressions from token cuts.** 1 flaky failure (MarkorMoveNote, was 2/3). 2 improvements (RetroCreatePlaylist, RetroSavePlaylist). 20 expected failures (all pre-existing 0/3 or 1/3).
+
+**Key takeaway**: 1,518 tokens safely removed. Tool descriptions have the most room for further cuts (only 4.5% reduced so far). System prompt and app skills are leaner. Continue oscillation: look for more cuts in tool descriptions, then verify.
+
+**Token counts**: System prompt 715, Tool descriptions 2,313, App skills 3,093 (avg 193/skill), Always-on 3,028.
+
 ## Skill Generalization Round 38 (2026-03-12, run 20260312_000547, gpt-5.4, confirmation round)
 
 **Fixes applied**: None — final confirmation round for 3 remaining tasks.
