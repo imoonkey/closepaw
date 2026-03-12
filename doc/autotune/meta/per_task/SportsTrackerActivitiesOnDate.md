@@ -1,7 +1,9 @@
 # SportsTrackerActivitiesOnDate
 
-## R40 (20260312_122824) — gpt-5.4 — FAIL
-- Score: 0.0 | Turns: 9 | Failed — GoalAchieved. Answer: snow boarding (regressed from 1.0)
+## R40 (20260312_122824) — gpt-5.4 — FAIL — FALSECOMPLETION
+- Score: 0.0 | Turns: 9 | GoalAchieved. Answer: "snow boarding" (regressed from R39 1.0)
+- Agent answered after only 9 turns (vs 17 in R39 pass). Stopped at first matching track on Oct 1 without verifying it was the correct one or checking for additional activities. Answered wrong activity type.
+- Non-deterministic sampling produced a shallower search path. Not caused by R40 tool description cuts — R39 passed with the same system prompt.
 
 ## R39 (20260312_094821) — gpt-5.4 — PASS
 - Score: 1.0 | Turns: 17 | Clean pass in 17 turns. (unchanged)

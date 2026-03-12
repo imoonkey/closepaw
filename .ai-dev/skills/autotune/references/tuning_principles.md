@@ -24,11 +24,12 @@ Does this help real users, not just eval tasks?
 
 ## 2. Token Minimalism
 
-Is every token earning its keep?
+Is every token earning its keep? You should maximize usefulness per token.
 
 - Core prompt target: about 80-100 lines.
 - App skills target: under 20 lines when possible because they load every turn in the foreground app.
 - Say the same thing in fewer words whenever clarity stays intact.
+
 
 ## 3. Generalization
 

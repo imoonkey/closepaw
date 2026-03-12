@@ -2,8 +2,12 @@
 
 **Status: FIXED R31** — Removed "strip .m4a" from skill. Agent types filename verbatim, evaluator gets expected double extension.
 
-## R39 (20260312_094821) — gpt-5.4 — FAIL
-- Score: 0.0 | Turns: 29 | Failed — Error. Answer: I recorded a clip in Audio Recorder, but I could not comp... (regressed from 1.0)
+## R39 (20260312_094821) — gpt-5.4 — FAIL — POSSIBLE R39 CUT REGRESSION
+- Score: 0.0 | Turns: 29 | Error. Agent said "I recorded a clip but could not complete rename."
+- **Trace-verified**: Agent recorded audio successfully but spent 29 turns unable to find the rename UI — tried overflow menus, long-press, toolbar actions, coordinate taps. Never found the rename option.
+- **R31 passed** with 8 turns using detailed skill guidance (22 lines). R39 ran with simplified skill (14 lines, -8 lines from R39 cut). The cut removed explicit rename procedure guidance ("Do not strip or add any extension — type it verbatim", recording duration tips, post-rename verification).
+- **Failure mode change**: R31 fix was about filename typing. R39 failure is about finding the rename UI itself — a different issue. Possibly the detailed skill had enough context for the agent to navigate to rename, while the condensed skill didn't.
+- **Also**: scoped storage limitation (R25/R17) may still apply — even if rename UI is found, it only changes display name, not filesystem. R31 pass may have been lucky (evaluator got expected double extension `presentation_fGwr.m4a.m4a`).
 
 ## R31 (20260309_235826) — gpt-5.4 — FIXED
 - Score: 1.0 | Turns: 8 | Fix: removed "strip .m4a" from skill. Evaluator expected double extension `.m4a.m4a`. Old skill was wrong about extension handling.

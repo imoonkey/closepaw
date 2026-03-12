@@ -1,31 +1,20 @@
 
-# R39+: Prompt Optimization (system prompt + tool descriptions + app skills)
+# R41+: Success Rate Recovery (add-back phase)
 
 ## Step 1: One-time setup
 
-1. **Read goal + starting point**: `doc/autotune/round_39/prompt_optimization_goal.md` and `doc/autotune/round_39/starting_point.md`.
-2. **Update `doc/autotune/meta/loop_state.json`**: new loop `prompt_optimization`, R39+, status active.
-3. **Prepare task list**: `eval/config/aw_fullset.txt` minus `eval/config/cannot_handle_group.txt` → `eval/config/autotune_round_39.txt`.
-4. **Verify remote parallel env**:
+1. **Read goal + starting point**: `doc/autotune/round_41/prompt_optimization_goal.md` and `doc/autotune/round_41/starting_point.md`.
+2. **Read trace-verified analysis**: `doc/autotune/round_39/r39_failure_analysis.md` and Codex review `doc/autotune/round_39/r39_failure_analysis_review_codex.md`.
+3. **Read per-task files** for all failing tasks: `doc/autotune/meta/per_task/*.md`.
+4. **Update `doc/autotune/meta/loop_state.json`**: new loop `success_rate_recovery`, R41+, status active.
+5. **Prepare task list**: `eval/config/aw_fullset.txt` minus `eval/config/cannot_handle_group.txt` (OsmAnd×2 only).
+6. **Verify remote parallel env**:
    ```bash
-   # SSH connectivity
    ssh qiguo@qiguo-ld1 'echo ok'
-
-   # Code synced
    git push
    ssh qiguo@qiguo-ld1 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
-
-   # Both AVDs exist
    ssh qiguo@qiguo-ld1 'source ~/.android-agent-env && emulator -list-avds'
-   # Expected: AndroidWorldAvd, AndroidWorldAvd2
-
-   # Baselines prepared (if not, run prepare_baseline for each)
-   ssh qiguo@qiguo-ld1 'ls ~/androidagent/eval/results/ | tail -3'
-
-   # Proxy tunnel (for gpt-* models)
    ssh qiguo@qiguo-ld1 'cd ~/androidagent && ./scripts/remote/proxy_tunnel.sh status'
-
-   # Token baseline
    python3 scripts/token_counts.py
    ```
 
@@ -34,12 +23,23 @@
 /ralph-loop:ralph-loop "Run /autotune-loop. One round per iteration. --remote --parallel 2. Model: gpt-5.4.
 Must read:
 - /autotune skill steps to follow exactly, e.g., do not skip Step 4.
-- Goal: doc/autotune/round_39/prompt_optimization_goal.md.
-- Start: doc/autotune/round_39/starting_point.md.
+- Goal: doc/autotune/round_41/prompt_optimization_goal.md.
+- Start: doc/autotune/round_41/starting_point.md.
 - MUST read tuning_principles.md before every change.
-Process: cut first, eval, then add back only what's necessary (general, minimal). Oscillate until balanced.
-Track token counts (system prompt, tool descriptions, app skills) each round.
-Stop when no further cuts/improvements possible. <promise>AUTOTUNE_LOOP_COMPLETE</promise>." --max-iterations 20 --completion-promise "AUTOTUNE_LOOP_COMPLETE"
+Process: add-back phase. Apply targeted general additions, eval, analyze. Revert what doesn't help.
+Track token counts each round.
+Stop when all historically-passing tasks pass again (or remaining failures justified as non-generalizable).
+<promise>AUTOTUNE_LOOP_COMPLETE</promise>." --max-iterations 20 --completion-promise "AUTOTUNE_LOOP_COMPLETE"
+
+# (Done) R39-40: Prompt Token Optimization (cut phase, -992 tokens, -28.4%)
+
+## (Done) Step 1: One-time setup
+
+1. **Read goal + starting point**: `doc/autotune/round_39/prompt_optimization_goal.md` and `doc/autotune/round_39/starting_point.md`.
+2. **Update `doc/autotune/meta/loop_state.json`**: new loop `prompt_optimization`, R39+, status active.
+3. **Prepare task list**: `eval/config/aw_fullset.txt` minus `eval/config/cannot_handle_group.txt` → `eval/config/autotune_round_39.txt`.
+
+## (Done) Step 2: Ralph loop (completed R39-R40, stop_success)
 
 # (Done) R36-38: App Skill Generalization
 

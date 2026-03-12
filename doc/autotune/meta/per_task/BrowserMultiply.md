@@ -1,7 +1,9 @@
 # BrowserMultiply
 
-## R39 (20260312_094821) — gpt-5.4 — FAIL
-- Score: 0.0 | Turns: 12 | Failed — Error. (regressed from 1.0)
+## R39 (20260312_094821) — gpt-5.4 — FAIL — INFRA ERROR
+- Score: 0.0 | Turns: 12 | Error (regressed from 1.0)
+- **Trace-verified (Codex review)**: NOT first-click bug. A11y tree confirms click worked: page showed `9` before click (`sanitized_a11y_tree/172`), `10` after click (`sanitized_a11y_tree/183`). Session then died at turn 12 with `LLM error: OpenAIIoException - Stream failed` in trace.jsonl. This is an infra/API interruption, not an action layer bug.
+- **Not a regression from R39 cuts.** R36 also had Error stop — flaky infra pattern.
 
 ## R37 (20260311_232252) — gpt-5.4 — PASS
 - Score: 1.0 | Flaky — passed after R36 failure. No skill changes between rounds.

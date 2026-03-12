@@ -2,8 +2,11 @@
 
 **Status: FIXED R33** — Per-song 3-dot menu "Add to playlist" + add-all-then-prune strategy.
 
-## R39 (20260312_094821) — gpt-5.4 — FAIL
-- Score: 0.0 | Turns: 2 | Failed — Error. Answer: I’m blocked because the provided songs are not available ... (unchanged)
+## R39 (20260312_094821) — gpt-5.4 — FAIL — REASONING ERROR
+- Score: 0.0 | Turns: 2 | Error. Agent said "I’m blocked because the provided songs are not available."
+- **Trace-verified (Codex review)**: NOT a perception gap. Goal says "using the provided songs" — meaning songs already in the app’s library, not externally provided data. Agent misunderstood the phrasing, thought it needed a song list to be injected into the prompt, and gave up at turn 2 without even navigating to the Songs tab.
+- **Not a prompt-builder/context-packing bug.** The task design is slightly ambiguous ("provided songs" is unclear), but the agent should have explored the Songs tab before giving up.
+- R37 entry below also diagnosed as "perception gap" — that diagnosis may have been correct for R37 (agent actually navigated and couldn’t find durations), but R39 is purely a comprehension/reasoning failure at turn 2.
 
 ## R37 (20260311_232252) — gpt-5.4 — NONE (ACCEPTED REGRESSION)
 - Score: None | Error — same perception gap. Agent can't find song durations in a11y tree. Removed duration-constrained playlist algorithm was eval-specific. Accepted regression.
