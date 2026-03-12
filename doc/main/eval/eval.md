@@ -239,8 +239,10 @@ For long-running eval batches, a headless emulator can run on a remote machine (
 
 ### Setup
 
-- `scripts/remote/provision.sh` — one-shot remote setup (JDK 17, Python 3.11, Android SDK, AVD)
-- `scripts/remote/proxy_tunnel.sh` — SSH tunnel for LLM proxy access
+- `scripts/remote/provision.sh` — one-shot remote setup (JDK 17, Python 3.11, Android SDK, dual AVDs)
+- `scripts/remote/proxy_tunnel.sh` — autossh tunnel service manager (install/start/stop/status)
+- `scripts/remote/openai-proxy-tunnel.service` — systemd user unit with auto-reconnect
+- `scripts/remote/eval_tmux.sh` — tmux wrapper for SSH-disconnect-safe eval runs
 - `eval/config/remote.yaml` — remote-specific config with correct `adb_path`, `emulator_path`
 
 ### Key Details
@@ -249,5 +251,7 @@ For long-running eval batches, a headless emulator can run on a remote machine (
 - Preflight ADB calls route through the configured binary
 - Emulator pinned to `32.1.15` (`emulator-linux_x64-10696886.zip`) for Ubuntu 18.04 compatibility
 - `prepare_baseline.sh` and `eval_parallel.sh` support `--headless` flag for remote
+- Dual-emulator parallel eval: same layout as local (`AndroidWorldAvd` + `AndroidWorldAvd2`)
+- Proxy tunnel managed via autossh systemd service (sources keychain for passphrase-protected SSH keys)
 
-→ See: `doc/dev/remote_eval_worker.md` for operational runbook.
+-> See: `doc/dev/remote_eval_worker.md` for operational runbook.

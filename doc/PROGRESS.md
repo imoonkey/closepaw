@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-03-11: Remote Eval Worker Phase 2 & 3
+
+**What changed:**
+- Phase 2 (Dual Emulator): `provision.sh` now creates both `AndroidWorldAvd` and `AndroidWorldAvd2`. Runbook extended with dual-emulator baseline prep and parallel eval commands.
+- Phase 3 (Operational Hardening): New `eval_tmux.sh` tmux wrapper for SSH-disconnect-safe eval. New `openai-proxy-tunnel.service` systemd unit with autossh auto-reconnect. `proxy_tunnel.sh` rewritten as service manager (install/start/stop/status/logs/manual). `provision.sh` now installs `autossh` and `tmux`.
+- Updated `/cog-tune` and `/autotune` skills with remote eval commands and references.
+- Added explicit git push/pull sync step to remote eval runbook.
+- Remote smoke test: AVD2 created, autossh service verified active, proxy reachable. Required keychain env sourcing fix for passphrase-protected SSH keys.
+
+**Why:**
+- Enable parallel eval on remote to cut wall-clock time, and harden operations so long-running evals survive SSH disconnects and tunnel drops.
+
+**Key files:** `scripts/remote/provision.sh`, `scripts/remote/eval_tmux.sh`, `scripts/remote/openai-proxy-tunnel.service`, `scripts/remote/proxy_tunnel.sh`, `doc/dev/remote_eval_worker.md`, `.ai-dev/skills/autotune/SKILL.md`, `.ai-dev/skills/cog-tune/SKILL.md`
+**Verification:** `bash -n` on all scripts, remote smoke test (AVD2 created, autossh active, proxy ok)
+**Commit:** `afa9713..ced92dc`
+**Next:** Run dual-emulator baseline prep and parallel eval end-to-end on `qiguo-ld1`. Ubuntu 22.04 upgrade deferred.
+**Blockers:** None
+
 ## 2026-03-11: Remote Eval Worker Hardening and Validation
 
 **What changed:**
