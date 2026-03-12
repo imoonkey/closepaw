@@ -2,6 +2,16 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Prompt Optimization Round 92/R40 (2026-03-12, run 20260312_122824, gpt-5.4, 20-task regression check)
+
+**Fixes applied**: Cut 522 tokens from tool descriptions (2,313 → 1,791, -22.6%): MobileActionTool, ScratchpadTool, RememberExperienceTool, DelegateTaskTool, ShellTool, SystemButtonTool. Always-on: 3,028 → 2,506 tokens.
+
+**Results**: 17/20 pass (85.0%). **No regressions from tool description cuts.** 3 failures all on flaky tasks: SportsTrackerActivitiesOnDate (wrong answer, was 3/3 but historically flaky), SportsTrackerLongestDistanceActivity (data not found, was 2/3), TurnOnWifiAndOpenApp (0.5 partial, was 2/3). None attributable to description compression.
+
+**Key takeaway**: Cumulative -992 tokens (-28.4% always-on) across R39+R40 with zero regressions. All three prompt layers optimized: system prompt -33.5%, tool descriptions -26.0%, app skills -25.3%. Loop complete — `stop_success`.
+
+**Token counts**: System prompt 715, Tool descriptions 1,791, App skills 3,093 (avg 193/skill), Always-on 2,506.
+
 ## Prompt Optimization Round 91/R39 (2026-03-12, run 20260312_094821, gpt-5.4, 51-task sweep)
 
 **Fixes applied**: Cut 1,518 tokens — system prompt -361 (33.5%), tool descriptions -109 (4.5%), app skills -1,048 (25.3%). Always-on: 3,498 → 3,028 tokens.

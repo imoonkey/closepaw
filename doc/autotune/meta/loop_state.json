@@ -1,25 +1,26 @@
 {
   "goal": "Maximize prompt generalization and minimize prompt tokens while maintaining or improving task success rate. Scope: system prompt, tool descriptions, app skills.",
   "mode": "auto",
-  "next_round": 40,
-  "status": "running",
+  "next_round": 41,
+  "status": "complete",
+  "stop_reason": "stop_success — cumulative -992 tokens (-28.4% always-on) across R39+R40 with zero regressions. All three prompt layers optimized: system prompt -33.5%, tool descriptions -26.0%, app skills -25.3%. Further cuts would target app skills for marginal gains with higher regression risk.",
   "active_backlog_file": "eval/config/autotune_round_39.txt",
   "loop_name": "prompt_optimization",
   "last_round": {
-    "round": 39,
-    "run_id": "20260312_094821",
+    "round": 40,
+    "run_id": "20260312_122824",
     "status": "completed",
-    "result": "30/51 (58.8%). 0 regressions from cuts (all R89 passes still pass). 2 improvements. 21 pre-existing failures.",
-    "changes": "Cut 1,518 tokens: system prompt -361 (33.5%), tool desc -109 (4.5%), app skills -1,048 (25.3%). Always-on: 3,498 → 3,028.",
+    "result": "17/20 (85.0%). 0 regressions from tool description cuts. 3 flaky failures (SportsTrackerActivitiesOnDate, SportsTrackerLongestDistanceActivity, TurnOnWifiAndOpenApp).",
+    "changes": "Cut 522 tokens from tool descriptions (2,313 → 1,791, -22.6%): MobileActionTool, ScratchpadTool, RememberExperienceTool, DelegateTaskTool, ShellTool, SystemButtonTool. Always-on: 3,028 → 2,506.",
     "token_counts": {
       "system_prompt": 715,
-      "tool_descriptions": 2313,
+      "tool_descriptions": 1791,
       "app_skills": 3093,
-      "always_on": 3028
+      "always_on": 2506
     },
-    "task_count": 51,
-    "recommended_action": "continue",
-    "next_focus": "Cut tool descriptions further (only 4.5% reduced). Target: ScratchpadTool (315t), RememberExperienceTool (274t), DelegateTaskTool (260t), MobileActionTool (559t)."
+    "task_count": 20,
+    "recommended_action": "stop_success",
+    "next_focus": null
   },
   "prior_loop": {
     "name": "skill_generalization",

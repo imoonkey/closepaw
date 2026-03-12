@@ -6,8 +6,8 @@
   },
   "tool_descriptions": {
     "total": {
-      "chars": 10298,
-      "tokens": 2313
+      "chars": 7971,
+      "tokens": 1791
     },
     "tools": {
       "AskUserTool": {
@@ -25,17 +25,17 @@
         "params_tokens": 69
       },
       "DelegateTaskTool": {
-        "chars": 1141,
-        "tokens": 260,
-        "lines": 51,
-        "description_tokens": 160,
+        "chars": 762,
+        "tokens": 169,
+        "lines": 41,
+        "description_tokens": 69,
         "params_tokens": 100
       },
       "MobileActionTool": {
-        "chars": 2355,
-        "tokens": 559,
-        "lines": 102,
-        "description_tokens": 225,
+        "chars": 1875,
+        "tokens": 444,
+        "lines": 98,
+        "description_tokens": 110,
         "params_tokens": 334
       },
       "OpenAppTool": {
@@ -46,31 +46,31 @@
         "params_tokens": 0
       },
       "RememberExperienceTool": {
-        "chars": 1273,
-        "tokens": 274,
-        "lines": 47,
-        "description_tokens": 152,
+        "chars": 863,
+        "tokens": 194,
+        "lines": 35,
+        "description_tokens": 72,
         "params_tokens": 122
       },
       "ScratchpadTool": {
-        "chars": 1421,
-        "tokens": 315,
-        "lines": 55,
-        "description_tokens": 224,
+        "chars": 817,
+        "tokens": 186,
+        "lines": 40,
+        "description_tokens": 96,
         "params_tokens": 90
       },
       "ShellTool": {
-        "chars": 643,
-        "tokens": 143,
-        "lines": 23,
-        "description_tokens": 117,
+        "chars": 307,
+        "tokens": 64,
+        "lines": 13,
+        "description_tokens": 39,
         "params_tokens": 25
       },
       "SystemButtonTool": {
-        "chars": 440,
-        "tokens": 100,
-        "lines": 28,
-        "description_tokens": 56,
+        "chars": 322,
+        "tokens": 72,
+        "lines": 19,
+        "description_tokens": 28,
         "params_tokens": 44
       },
       "WaitTool": {

@@ -5,25 +5,25 @@
 | Layer | Tokens | Lines |
 |-------|--------|-------|
 | System prompt | 715 | 48 |
-| Tool descriptions (total) | 2,313 | — |
+| Tool descriptions (total) | 1,791 | — |
 | App skills (total) | 3,093 | — |
 | App skills (avg per skill) | 193 | — |
-| **Always-on (prompt + tools)** | **3,028** | — |
+| **Always-on (prompt + tools)** | **2,506** | — |
 
 ## Tool Descriptions + Params
 
 | Tool | Desc | Params | Total |
 |------|------|--------|-------|
-| MobileActionTool | 225 | 334 | 559 |
-| ScratchpadTool | 224 | 90 | 315 |
-| RememberExperienceTool | 152 | 122 | 274 |
-| DelegateTaskTool | 160 | 100 | 260 |
+| MobileActionTool | 110 | 334 | 444 |
+| RememberExperienceTool | 72 | 122 | 194 |
 | AskUserTool | 105 | 87 | 193 |
+| ScratchpadTool | 96 | 90 | 186 |
 | WriteTodosTool | 69 | 104 | 173 |
+| DelegateTaskTool | 69 | 100 | 169 |
 | CompleteTaskTool | 95 | 69 | 164 |
-| ShellTool | 117 | 25 | 143 |
-| SystemButtonTool | 56 | 44 | 100 |
 | WaitTool | 28 | 49 | 77 |
+| SystemButtonTool | 28 | 44 | 72 |
+| ShellTool | 39 | 25 | 64 |
 | OpenAppTool | 55 | 0 | 55 |
 
 ## App Skills
