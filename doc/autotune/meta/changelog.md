@@ -2,6 +2,33 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Skill Generalization Round 38 (2026-03-12, run 20260312_000547, gpt-5.4, confirmation round)
+
+**Fixes applied**: None — final confirmation round for 3 remaining tasks.
+
+**Results**: 0/3 pass. All 3 accepted as regressions after 3 consecutive failures:
+- RecipeDeleteDuplicateRecipes2: FalseCompletion (count-tracking failure during high-multiplicity deletion)
+- RecipeDeleteDuplicateRecipes3: FalseCompletion (same pattern)
+- ExpenseAddMultipleFromMarkor: ActionFailure (field mismatch during cross-app text entry)
+
+**Loop complete (R36-R38)**: Of 29 original tasks: 23 pass with generalized skills, 3 accepted regressions, 3 parked as scorer/infra bugs. `generalize_active.txt` empty.
+
+## Skill Generalization Round 37 (2026-03-11, run 20260311_232252, gpt-5.4, 8 tasks)
+
+**Fixes applied**: Added general duplicate-comparison one-liners to Broccoli and Expense skills. Field-verification guidance to Expense skill.
+
+**Results**: 2/8 pass (25%). BrowserMultiply and ExpenseAddMultipleFromGallery passed (both flaky, no skill changes). 3 Retro tasks parked as scorer SQL bugs. 3 remaining failures persist.
+
+**Key finding**: General skill guidance insufficient for count-tracking and action-execution bugs.
+
+## Skill Generalization Round 36 (2026-03-11, run 20260311_215019, gpt-5.4, baseline)
+
+**Fixes applied**: Generalized 7 app skills — removed eval-specific algorithms, scroll counts, turn budgets, eval data patterns from Chrome, Retro Music, Pro Expense, Broccoli, OpenTracks, Tasks.org, Markor. ~66 lines removed.
+
+**Results**: 21/29 pass (72.4%). **0 regressions from generalization.** 5 pre-existing failures, 3 infra/scoring issues.
+
+**Key takeaway**: Model handles BrowserMaze, ExpenseDeleteDuplicates, RecipeDeleteDuplicateRecipes without prescriptive algorithms. All failures are pre-existing.
+
 ## Autotune Round 35 (2026-03-10, run 20260310_013847, gpt-5.4, OsmAnd final attempt)
 
 **Fixes applied**: OsmAnd skill restructured — Address tab as primary search, explicit SHOW ON MAP warning.

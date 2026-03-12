@@ -2,6 +2,10 @@
 
 **Status: FIXED R31** — Added "open detail view, compare ALL fields" to skill. Agent correctly identified true duplicate by matching all fields.
 
+
+## R36 (20260311_215019) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 12 | Success — duplicates found and deleted without prescriptive algorithm
+
 ## R31 (20260309_235826) — gpt-5.4 — FIXED
 - Score: 1.0 | Turns: 26 | Fix: skill now instructs agent to open detail view for each same-name entry, compare ALL fields (name, amount, category, note). Previous runs only compared list-view fields.
 

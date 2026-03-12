@@ -2,6 +2,13 @@
 
 **Status: FIXED R33** — Per-song 3-dot menu "Add to playlist" + add-all-then-prune strategy.
 
+
+## R37 (20260311_232252) — gpt-5.4 — NONE (ACCEPTED REGRESSION)
+- Score: None | Error — same perception gap. Agent can't find song durations in a11y tree. Removed duration-constrained playlist algorithm was eval-specific. Accepted regression.
+
+## R36 (20260311_215019) — gpt-5.4 — NONE
+- Score: None | Turns: 9 | Error — agent blocked, can't find song durations in a11y tree. Scorer SQL bug too
+
 ## R33 (20260310_004519) — gpt-5.4 — FIXED
 - Score: 1.0 | Turns: 57 | Fix: per-song context menu "Add to playlist" as primary method bypasses a11y gap in multi-select toolbar.
 

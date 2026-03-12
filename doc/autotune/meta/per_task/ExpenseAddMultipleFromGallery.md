@@ -29,6 +29,13 @@
 
 # ExpenseAddMultipleFromGallery
 
+
+## R37 (20260311_232252) — gpt-5.4 — PASS
+- Score: 1.0 | Flaky — passed after R36 failure. No skill changes between rounds.
+
+## R36 (20260311_215019) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 27 | GoalAchieved but scorer 0.0. Pre-existing tool/perception issue
+
 ## AT-R5-GPT54 (20260306_003753) — FAIL
 - Score: 0.0
 - Turns: 17/30

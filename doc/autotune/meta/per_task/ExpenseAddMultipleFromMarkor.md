@@ -1,5 +1,15 @@
 # ExpenseAddMultipleFromMarkor
 
+
+## R38 (20260312_000547) — gpt-5.4 — FAIL → ACCEPTED REGRESSION
+- Score: 0.0 | 3rd consecutive failure. Action execution bug — element_index mismatch during cross-app text entry. General "re-read fields" guidance insufficient. Accepted regression.
+
+## R37 (20260311_232252) — gpt-5.4 — FAIL
+- Score: 0.0 | GoalAchieved but scorer 0.0. Same field mismatch pattern — note text enters name field, agent recovers target but doesn't re-verify corrupted field.
+
+## R36 (20260311_215019) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 19 | GoalAchieved but scorer 0.0. Field mismatch — note typed into name field
+
 ## R9 (GPT-5.4, 20260307, full baseline) — FAIL
 - Score: 0.0 | Turns: 17 | FalseCompletion — never opened Pro Expense app; created text file in Markor instead. Cross-app destination binding failure (same as R5).
 

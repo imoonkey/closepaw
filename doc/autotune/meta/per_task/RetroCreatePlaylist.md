@@ -1,5 +1,12 @@
 # RetroCreatePlaylist
 
+
+## R37 (20260311_232252) — gpt-5.4 — NONE (SCORER BUG)
+- Score: None | GoalAchieved but score=None. Same scorer SQL syntax error. Agent likely succeeded. Parked as infra issue.
+
+## R36 (20260311_215019) — gpt-5.4 — NONE
+- Score: None | Turns: 23 | GoalAchieved but score=None. Scorer SQL syntax error
+
 ## AT-R2 (20260304_033425) — PASS
 - Score: 1.0
 - Turns: 19/30

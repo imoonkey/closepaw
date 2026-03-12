@@ -17,6 +17,10 @@
 
 # RecipeAddMultipleRecipesFromImage
 
+
+## R36 (20260311_215019) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 30 | Success — hybrid perception
+
 ## R7 (run 20260307_025501, qwen3.5)
 - **Score**: 0.0 | **Turns**: 50/50
 - **Behavior**: TurnExhaustion. Completed 2/3 recipes perfectly, was 3 turns from finishing recipe 3 when max turns hit. Zero loops, zero wasted actions.

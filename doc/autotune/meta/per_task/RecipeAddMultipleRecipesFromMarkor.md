@@ -8,6 +8,10 @@
 
 # RecipeAddMultipleRecipesFromMarkor
 
+
+## R36 (20260311_215019) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 22 | Success
+
 ## R8 (GPT-5.4, 20260307)
 Score: 0.0 | Turns: 29 | Multi-action batching worked (5-action turns). Turn count dropped 50->29. But reasoning error: overwrote recipe 1 instead of creating recipe 2.
 

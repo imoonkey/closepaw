@@ -2,6 +2,16 @@
 
 **Status: FIXED R28** — Broccoli field comparison skill guided agent to open each same-titled recipe, compare ALL visible fields, and identify true duplicate pair.
 
+
+## R38 (20260312_000547) — gpt-5.4 — FAIL → ACCEPTED REGRESSION
+- Score: 0.0 | FalseCompletion. 3rd consecutive failure. Agent loses count during high-multiplicity duplicate deletion. Accepted regression.
+
+## R37 (20260311_232252) — gpt-5.4 — FAIL
+- Score: 0.0 | GoalAchieved but scorer 0.0. Same pattern — duplicate count tracking failure during list reindexing.
+
+## R36 (20260311_215019) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 22 | GoalAchieved but scorer 0.0. Agent compared title+desc only, missed field-level differences
+
 ## R28 (20260309_210911) — gpt-5.4 — FIXED
 - Score: 1.0 | Turns: 41/50 | Success — Broccoli skill field comparison worked. Opened each same-titled recipe, compared all visible fields, found true duplicate.
 

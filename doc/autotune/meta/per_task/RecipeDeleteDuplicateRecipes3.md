@@ -2,6 +2,16 @@
 
 **Status: FIXED R32** — Scratchpad tracking + 80 turn budget. Agent checked all 7 fields.
 
+
+## R38 (20260312_000547) — gpt-5.4 — FAIL → ACCEPTED REGRESSION
+- Score: 0.0 | FalseCompletion. 3rd consecutive failure. Same count-tracking failure during high-multiplicity duplicate deletion. Accepted regression.
+
+## R37 (20260311_232252) — gpt-5.4 — FAIL
+- Score: 0.0 | GoalAchieved but scorer 0.0. Same pattern — loses count during deletion of 5+ copy groups.
+
+## R36 (20260311_215019) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 60 | GoalAchieved but scorer 0.0. Lost count during high-multiplicity deletion
+
 ## R32 (20260310_001826) — gpt-5.4 — FIXED
 - Score: 1.0 | Turns: 45 | Fix: scratchpad tracking emphasis, compare all 7 fields, max_turns 80.
 
