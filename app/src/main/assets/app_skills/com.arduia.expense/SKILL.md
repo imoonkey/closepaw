@@ -8,6 +8,7 @@ description: App-specific guidance for Pro Expense.
 ## Adding Expenses
 - Tap the FAB (floating action button) to add a new expense.
 - **Fill ALL 4 fields**: name → amount → category → note → save. Do not skip any field. Avoid parallel writes to prevent field misalignment.
+- Before tapping Save, re-read the name and amount fields on screen to confirm they match the intended values — field focus issues can silently overwrite the wrong field.
 
 ## Category Selection
 - The category row is a horizontally scrollable RecyclerView. It shows only 5 categories at a time.
