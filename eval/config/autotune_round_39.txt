@@ -13,6 +13,10 @@ SimpleCalendarDeleteEventsOnRelativeDay
 SimpleCalendarDeleteOneEvent
 CameraTakePhoto
 CameraTakeVideo
+ClockStopWatchPausedVerify
+ClockStopWatchRunning
+ClockTimerEntry
+ContactsNewContactDraft
 ExpenseAddMultiple
 ExpenseAddMultipleFromGallery
 ExpenseAddMultipleFromMarkor
@@ -57,6 +61,8 @@ RetroCreatePlaylist
 RetroPlayingQueue
 RetroPlaylistDuration
 RetroSavePlaylist
+SimpleSmsReplyMostRecent
+SimpleSmsSend
 SystemBluetoothTurnOff
 SystemBluetoothTurnOffVerify
 SystemBluetoothTurnOn
