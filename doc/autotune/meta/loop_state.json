@@ -1,35 +1,17 @@
 {
-  "goal": "Unpark round 2: Fix 8 re-parked tasks using corrected root cause analysis from post-R30 deep dive.",
+  "goal": "Generalize overfitted app skills: remove task-specific language from 4 skills (Chrome, Retro Music, Pro Expense, Broccoli), retest 29 impacted tasks.",
   "mode": "auto",
-  "next_round": null,
-  "status": "complete",
-  "stop_reason": "stop_success",
-  "active_backlog_file": "eval/config/unpark_active.txt",
-  "loop_name": "unpark_cannot_handle_r2",
-  "last_round": 35,
+  "next_round": 36,
+  "status": "active",
+  "stop_reason": null,
+  "active_backlog_file": "eval/config/generalize_active.txt",
+  "loop_name": "skill_generalization",
+  "last_round": null,
   "prior_loop": {
-    "name": "unpark_cannot_handle",
-    "rounds": "R22-R30",
-    "result": "4 fixed, 9 re-parked"
+    "name": "unpark_cannot_handle_r2",
+    "rounds": "R31-R35",
+    "result": "5 fixed, 4 re-parked"
   },
-  "round_history": {
-    "31": { "run_id": "20260309_235826", "recommended_action": "continue" },
-    "32": { "run_id": "20260310_001826", "recommended_action": "continue" },
-    "33": { "run_id": "20260310_004519", "recommended_action": "continue" },
-    "34": { "run_id": "20260310_012156", "recommended_action": "continue" },
-    "35": {
-      "run_id": "20260310_013847",
-      "results": {
-        "OsmAndMarker": {"score": 0.0, "turns": 15, "status": "re_parked"},
-        "OsmAndTrack": {"score": 0.0, "turns": 25, "status": "re_parked"}
-      },
-      "recommended_action": "stop_success"
-    }
-  },
-  "summary": {
-    "total_started": 9,
-    "fixed": ["AudioRecorderRecordAudioWithFileName", "ExpenseDeleteDuplicates2", "ExpenseAddMultipleFromGallery", "RecipeDeleteDuplicateRecipes3", "RetroPlaylistDuration"],
-    "re_parked": ["MarkorDeleteNewestNote", "BrowserDraw", "OsmAndMarker", "OsmAndTrack"],
-    "remaining": 0
-  }
+  "round_history": {},
+  "plan_file": "doc/autotune/round_36/generalization_plan.md"
 }
