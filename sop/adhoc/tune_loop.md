@@ -64,23 +64,23 @@ RetroSavePlaylist
 /ralph-loop:ralph-loop "Run /autotune-loop. Follow /autotune-loop and /autotune steps exactly — do NOT skip steps (especially /autotune step 4 analysis).
 
 Context:
-- Goal: generalize overfitted app skills. R36 fix step will edit 4 skills to remove task-specific language, keeping only general guidance.
-- 29 tasks in eval/config/generalize_active.txt. These are impacted by the skill edits.
+- Goal: generalize app skills so they help real users, not just pass eval benchmarks.
+- A well-generalized skill describes app behavior, UI patterns, interaction mechanics, and platform quirks. It does NOT prescribe solver algorithms or reference eval-specific data patterns.
+- Read doc/autotune/round_36/generalization_plan.md for the full framing and known starting points.
+- 29 tasks in eval/config/generalize_active.txt.
 - doc/autotune/meta/loop_state.json initialized (R36+, skill_generalization).
-- Prior rounds R10-R35 tuned these skills with task-specific language; this loop intentionally removes that.
-- The skills were overfitted: Chrome had Drawing Tasks / Maze Tasks sections, Retro Music had Duration-Constrained Playlists, Expense had duplicate-finding jargon, Broccoli had duplicate-detection eval patterns.
 
 Rules:
 - Execute exactly one /autotune round per Ralph iteration. Follow every /autotune step in order.
-- R36 fix step: read doc/autotune/round_36/generalization_plan.md. Edit the 4 overfitted skill files — remove task-specific sections, keep/reorganize into general guidance. Commit, push to remote, sync.
+- R36 fix step: read doc/autotune/round_36/generalization_plan.md. Audit and edit overfitted skill files — remove task-specific sections, keep/reorganize into general guidance. Also check other skills if you notice similar patterns. Commit, push to remote, sync.
 - R36 eval: run all 29 tasks as baseline — measure how many pass with generalized skills.
-- R37+: for failures, analyze traces and add GENERAL (not task-specific) guidance to skills. No eval-task jargon. Think: what would help a real user doing something similar?
+- R37+: for failures, analyze traces. Only add GENERAL guidance — ask 'would a real user of this app benefit from this?' If the answer is only 'an eval task runner', don't add it. Accept the regression instead.
 - Model: gpt-5.4.
 - Run eval on remote: `eval/.venv/bin/python eval/aw_bridge/runner.py --config eval/config/remote.yaml --tasks-file eval/config/generalize_active.txt`
 - After eval, sync results to laptop: `rsync -avz qiguo@qiguo-ld1:~/androidagent/eval/results/<run_id>/ eval/results/<run_id>/`
 - After eval, do /autotune step 4 analysis — read traces, compare scripted vs claimed.
 - If a task passes (scripted_score=1.0), remove from generalize_active.txt.
-- If a task fails 3 rounds with no progress and only task-specific fixes remain, accept the regression and document in issues.md.
+- If a task fails 3 rounds and the only fix would be task-specific language, accept the regression and document in issues.md.
 - Stop when generalize_active.txt is empty OR no further general improvements are possible. Output <promise>AUTOTUNE_LOOP_COMPLETE</promise>." --max-iterations 15 --completion-promise "AUTOTUNE_LOOP_COMPLETE"
 
 # (Done) R31+: Unpark Round 2 (corrected root causes)
