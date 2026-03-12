@@ -1,17 +1,24 @@
 {
-  "goal": "Generalize overfitted app skills: remove task-specific language from 4 skills (Chrome, Retro Music, Pro Expense, Broccoli), retest 29 impacted tasks.",
+  "goal": "Generalize overfitted app skills: remove task-specific language, retest impacted tasks.",
   "mode": "auto",
-  "next_round": 36,
+  "next_round": 37,
   "status": "active",
   "stop_reason": null,
   "active_backlog_file": "eval/config/generalize_active.txt",
   "loop_name": "skill_generalization",
-  "last_round": null,
+  "last_round": 36,
   "prior_loop": {
     "name": "unpark_cannot_handle_r2",
     "rounds": "R31-R35",
     "result": "5 fixed, 4 re-parked"
   },
-  "round_history": {},
+  "round_history": {
+    "R36": {
+      "run_id": "20260311_215019",
+      "changes": "Generalized 7 skills (Chrome, Retro Music, Pro Expense, Broccoli, OpenTracks, Tasks.org, Markor) — removed eval-specific algorithms, scroll counts, turn budgets, eval data patterns",
+      "result": "21/29 passed (72.4%). 0 regressions from generalization. 5 pre-existing failures, 3 infra/scoring issues.",
+      "remaining": 8
+    }
+  },
   "plan_file": "doc/autotune/round_36/generalization_plan.md"
 }
