@@ -1,12 +1,12 @@
 {
   "goal": "Generalize overfitted app skills: remove task-specific language, retest impacted tasks.",
   "mode": "auto",
-  "next_round": 38,
-  "status": "active",
-  "stop_reason": null,
+  "next_round": null,
+  "status": "complete",
+  "stop_reason": "stop_success",
   "active_backlog_file": "eval/config/generalize_active.txt",
   "loop_name": "skill_generalization",
-  "last_round": 37,
+  "last_round": 38,
   "prior_loop": {
     "name": "unpark_cannot_handle_r2",
     "rounds": "R31-R35",
@@ -21,10 +21,17 @@
     },
     "R37": {
       "run_id": "20260311_232252",
-      "changes": "Added general duplicate-comparison one-liners to Broccoli and Expense skills",
+      "changes": "Added general duplicate-comparison one-liners to Broccoli and Expense skills; field-verification guidance to Expense",
       "result": "2/8 passed (BrowserMultiply, ExpenseAddMultipleFromGallery — both flaky). 3 Retro tasks parked (scorer SQL bug). 3 remaining.",
       "remaining": 3
+    },
+    "R38": {
+      "run_id": "20260312_000547",
+      "changes": "No new changes — final confirmation round",
+      "result": "0/3 passed. All 3 accepted as regressions (3rd failure each). Loop complete.",
+      "remaining": 0
     }
   },
+  "summary": "Generalized 7 app skills across R36-R38. Of 29 original tasks: 23 pass with generalized skills, 3 accepted regressions (RecipeDeleteDuplicateRecipes2/3 + ExpenseAddMultipleFromMarkor), 3 parked as scorer/infra bugs (RetroCreatePlaylist/PlaylistDuration/SavePlaylist). Net: removed 66 lines of eval-specific content, 0 regressions caused by skill generalization itself.",
   "plan_file": "doc/autotune/round_36/generalization_plan.md"
 }

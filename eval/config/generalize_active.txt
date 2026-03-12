@@ -1,3 +1,2 @@
-ExpenseAddMultipleFromMarkor
-RecipeDeleteDuplicateRecipes2
-RecipeDeleteDuplicateRecipes3
+# Empty — all tasks resolved or accepted as regressions.
+# See doc/autotune/round_36/issues.md for details.
