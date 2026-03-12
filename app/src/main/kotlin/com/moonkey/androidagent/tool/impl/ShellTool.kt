@@ -19,7 +19,6 @@ class ShellTool : ToolSpec {
     override val description: String =
         """
         Execute a shell command on the device for file-oriented inspection only.
-        Use for reading file contents, listing directories, or checking file metadata when the file is accessible from shell.
 
         Scope:
         - Read file contents: cat /path/to/file
@@ -31,11 +30,6 @@ class ShellTool : ToolSpec {
         - Protected app-internal storage you are unlikely to access
         - OCR, image reading, or non-file commands such as date, dumpsys, input, am
         - Destructive or state-changing commands
-
-        Common uses:
-        - cat /path/to/file (read file contents)
-        - ls /path/to/dir (list directory)
-        - stat /path/to/file (check file metadata)
         """.trimIndent()
 
     override val parameterSchema: JSONObject =
