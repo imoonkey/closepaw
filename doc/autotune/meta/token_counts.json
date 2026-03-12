@@ -1,0 +1,182 @@
+{
+  "system_prompt": {
+    "chars": 5410,
+    "tokens": 1076,
+    "lines": 62
+  },
+  "tool_descriptions": {
+    "total": {
+      "chars": 10830,
+      "tokens": 2422
+    },
+    "tools": {
+      "AskUserTool": {
+        "chars": 871,
+        "tokens": 193,
+        "lines": 38,
+        "description_tokens": 105,
+        "params_tokens": 87
+      },
+      "CompleteTaskTool": {
+        "chars": 777,
+        "tokens": 164,
+        "lines": 30,
+        "description_tokens": 95,
+        "params_tokens": 69
+      },
+      "DelegateTaskTool": {
+        "chars": 1141,
+        "tokens": 260,
+        "lines": 51,
+        "description_tokens": 160,
+        "params_tokens": 100
+      },
+      "MobileActionTool": {
+        "chars": 2596,
+        "tokens": 606,
+        "lines": 107,
+        "description_tokens": 272,
+        "params_tokens": 334
+      },
+      "OpenAppTool": {
+        "chars": 257,
+        "tokens": 55,
+        "lines": 3,
+        "description_tokens": 55,
+        "params_tokens": 0
+      },
+      "RememberExperienceTool": {
+        "chars": 1273,
+        "tokens": 274,
+        "lines": 47,
+        "description_tokens": 152,
+        "params_tokens": 122
+      },
+      "ScratchpadTool": {
+        "chars": 1421,
+        "tokens": 315,
+        "lines": 55,
+        "description_tokens": 224,
+        "params_tokens": 90
+      },
+      "ShellTool": {
+        "chars": 934,
+        "tokens": 205,
+        "lines": 29,
+        "description_tokens": 180,
+        "params_tokens": 25
+      },
+      "SystemButtonTool": {
+        "chars": 440,
+        "tokens": 100,
+        "lines": 28,
+        "description_tokens": 56,
+        "params_tokens": 44
+      },
+      "WaitTool": {
+        "chars": 337,
+        "tokens": 77,
+        "lines": 19,
+        "description_tokens": 28,
+        "params_tokens": 49
+      },
+      "WriteTodosTool": {
+        "chars": 783,
+        "tokens": 173,
+        "lines": 44,
+        "description_tokens": 69,
+        "params_tokens": 104
+      }
+    }
+  },
+  "app_skills": {
+    "total": {
+      "chars": 18470,
+      "tokens": 4141
+    },
+    "count": 16,
+    "avg_tokens": 258,
+    "skills": {
+      "code.name.monkey.retromusic": {
+        "chars": 986,
+        "tokens": 228,
+        "lines": 19
+      },
+      "com.android.chrome": {
+        "chars": 729,
+        "tokens": 176,
+        "lines": 20
+      },
+      "com.android.settings": {
+        "chars": 670,
+        "tokens": 129,
+        "lines": 17
+      },
+      "com.arduia.expense": {
+        "chars": 1330,
+        "tokens": 286,
+        "lines": 27
+      },
+      "com.dimowner.audiorecorder": {
+        "chars": 933,
+        "tokens": 216,
+        "lines": 23
+      },
+      "com.flauschcode.broccoli": {
+        "chars": 1353,
+        "tokens": 285,
+        "lines": 25
+      },
+      "com.google.android.apps.nbu.files": {
+        "chars": 1044,
+        "tokens": 238,
+        "lines": 24
+      },
+      "com.google.android.apps.photos": {
+        "chars": 575,
+        "tokens": 127,
+        "lines": 16
+      },
+      "com.google.android.calendar": {
+        "chars": 565,
+        "tokens": 109,
+        "lines": 12
+      },
+      "com.simplemobiletools.calendar.pro": {
+        "chars": 1083,
+        "tokens": 233,
+        "lines": 22
+      },
+      "com.simplemobiletools.gallery.pro": {
+        "chars": 869,
+        "tokens": 193,
+        "lines": 18
+      },
+      "de.dennisguse.opentracks": {
+        "chars": 1642,
+        "tokens": 369,
+        "lines": 32
+      },
+      "net.gsantner.markor": {
+        "chars": 1464,
+        "tokens": 338,
+        "lines": 27
+      },
+      "net.osmand": {
+        "chars": 1871,
+        "tokens": 456,
+        "lines": 32
+      },
+      "org.tasks": {
+        "chars": 2455,
+        "tokens": 559,
+        "lines": 42
+      },
+      "org.videolan.vlc": {
+        "chars": 901,
+        "tokens": 199,
+        "lines": 17
+      }
+    }
+  }
+}

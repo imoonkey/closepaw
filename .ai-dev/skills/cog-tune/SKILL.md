@@ -131,7 +131,7 @@ Use `rg` to locate prompt or tool definition text before edits.
   `./scripts/eval_parallel.sh eval/config/<task_file>` when both baseline-prepared
   emulators are available (`AndroidWorldAvd` on `emulator-5554`, `AndroidWorldAvd2`
   on `emulator-5556`).
-- Remote eval on `qiguo-ld1` (see `doc/dev/remote_eval_worker.md`):
+- Remote eval on `qiguo-ld1` (see `/autotune` skill Step 3 for `--remote` usage):
   ```bash
   # Sync code first: git push (laptop) → git pull + ./gradlew assembleDebug (remote)
   eval/.venv/bin/python eval/aw_bridge/runner.py \
@@ -174,7 +174,7 @@ Use `rg` to locate prompt or tool definition text before edits.
 - Eval architecture: `doc/main/eval/eval.md`
 - Eval runner: `eval/aw_bridge/runner.py`
 - Eval remote config: `eval/config/remote.yaml`
-- Remote eval worker runbook: `doc/dev/remote_eval_worker.md`
+- Remote eval: see `/autotune` skill Step 3
 - Eval bridge config: `eval/aw_bridge/native_agent_bridge.py` (agent_mode, perception_mode, platform_mode, excluded_tools, model selection)
 - Eval completion monitor: `eval/aw_bridge/completion_monitor.py`
 - Eval preflight / snapshot policy: `eval/aw_bridge/runner_preflight.py`

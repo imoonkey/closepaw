@@ -32,7 +32,7 @@ Invocation context decides the mode. Do not infer orchestrated behavior from a s
 
 Apply changes from the previous round's approved `## Next Steps`.
 
-- Every proposed change must pass `.ai-dev/skills/autotune/references/tuning_principles.md`.
+- **MUST read `references/tuning_principles.md` before making any change.** Every proposed change must pass its three gates (anti-overfit, token minimalism, generalization).
 - For prompt, tool description, or app skill changes, use `/prompt-tune` to determine the correct ownership layer before editing.
 - **Use `/implement` skill** for all code changes. Do NOT skip any steps in the implementation workflow.
 - Commit: `feat(agent): autotune round N — <summary>`.
@@ -54,28 +54,12 @@ Subtract `eval/config/cannot_handle_group.txt`. Write the selected tasks to `eva
 
 ### Step 3 — Run
 
-```bash
-# Preferred, set up both baseline-prepared emulators first:
-./scripts/eval_parallel.sh eval/config/autotune_round_N.txt
+Read `references/eval_runner.md` for the exact commands for each configuration.
 
-# Fallback: single-device serial run
-eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/autotune_round_N.txt
-
-# Remote eval on qiguo-ld1 (sync code first: git push → git pull + assembleDebug):
-# Requires SSH reverse tunnel for gpt-* models; OpenRouter models work without it.
-# See doc/dev/remote_eval_worker.md for full setup.
-eval/.venv/bin/python eval/aw_bridge/runner.py \
-  --config eval/config/remote.yaml \
-  --tasks-file eval/config/autotune_round_N.txt
-```
-
-Parallel preconditions:
-- `AndroidWorldAvd` is baseline-prepared on `emulator-5554` / gRPC `8554`
-- `AndroidWorldAvd2` is baseline-prepared on `emulator-5556` / gRPC `8556`
-- Use `./scripts/prepare_parallel_baselines.sh` for the one-time dual-AVD prep path
-- `./scripts/eval_parallel.sh` does not create `AndroidWorldAvd2`; that AVD must already exist
-- If you only see one emulator window, treat it as a startup failure on the second device, not a normal parallel state
-- If either device is unavailable, use the serial fallback instead of improvising
+| Flag | Effect |
+|------|--------|
+| `--remote` | Run eval on `qiguo@qiguo-ld1` instead of local machine |
+| `--parallel N` | Use N emulators in parallel (currently max 2). Falls back to serial if parallel startup fails |
 
 Monitor for stalls. If a task hangs (no output for several minutes), check accessibility permission on the device. If needed, stop the runner, remove completed tasks from the config, and re-run the remainder.
 
@@ -90,9 +74,10 @@ For each task in the run (**MUST use a separate subagent per task** for cleaner 
 Once done with all tasks:
 3. Summarize into `doc/autotune/round_N/<run_id>/common_problems_<agent>.md` following `assets/common_problems_template.md`. Must include a `## Next Steps` section.
 4. Run `python3.12 scripts/scoreboard.py` to regenerate `doc/autotune/meta/scoreboard.json` and `doc/autotune/meta/scoreboard.md`.
-5. Append to `doc/autotune/meta/changelog.md`.
-6. Update `doc/autotune/meta/issues.md` (new issues, resolved issues, parked tasks).
-7. Update `doc/autotune/meta/loop_state.json` as the final control-plane handoff for this round.
+5. Run `python3.12 scripts/token_counts.py` to regenerate `doc/autotune/meta/token_counts.json` and `doc/autotune/meta/token_counts.md`.
+6. Append to `doc/autotune/meta/changelog.md`.
+7. Update `doc/autotune/meta/issues.md` (new issues, resolved issues, parked tasks).
+8. Update `doc/autotune/meta/loop_state.json` as the final control-plane handoff for this round.
 
 Escalate to `/double-design` only when at least one of these is true:
 - The same task cluster has failed for 2+ rounds with no progress.
@@ -137,7 +122,6 @@ Wait for approval before the next `/autotune`.
 - Scoreboard script: `scripts/scoreboard.py`
 - Eval runner: `eval/aw_bridge/runner.py`
 - Eval remote config: `eval/config/remote.yaml`
-- Remote eval worker runbook: `doc/dev/remote_eval_worker.md`
 - Cog-tune skill: `.ai-dev/skills/cog-tune/SKILL.md`
 - Implement skill: `.ai-dev/skills/implement/SKILL.md`
 - Shared tuning principles: `.ai-dev/skills/autotune/references/tuning_principles.md`

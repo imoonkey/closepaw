@@ -254,4 +254,4 @@ For long-running eval batches, a headless emulator can run on a remote machine (
 - Dual-emulator parallel eval: same layout as local (`AndroidWorldAvd` + `AndroidWorldAvd2`)
 - Proxy tunnel managed via autossh systemd service (sources keychain for passphrase-protected SSH keys)
 
--> See: `doc/dev/remote_eval_worker.md` for operational runbook.
+-> See: `/autotune` skill Step 3 for remote eval operational details.

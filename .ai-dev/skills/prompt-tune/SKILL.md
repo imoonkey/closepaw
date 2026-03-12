@@ -11,7 +11,7 @@ Treatment skill for agent cognition issues. Takes a diagnosis (from `/cog-tune` 
 
 ## Principles
 
-Every prompt, tool-description, or app-skill change must satisfy the shared tuning gates in `../autotune/references/tuning_principles.md`.
+**MUST read `../autotune/references/tuning_principles.md` before applying any change.** Every prompt, tool-description, or app-skill change must satisfy its three gates:
 
 - **Anti-overfit**: reject patches that only help one eval task.
 - **Token minimalism**: keep the smallest instruction that still changes behavior.
