@@ -1,5 +1,11 @@
 # VlcCreatePlaylist
 
+## R40 (20260312_122824) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 13 | Clean pass in 13 turns. (unchanged)
+
+## R39 (20260312_094821) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 15 | Clean pass in 15 turns. (unchanged)
+
 ## R7 (run 20260307_025501, qwen3.5) — PASS
 - **Score**: 1.0 | **Turns**: 20/30
 - **Behavior**: Success. Canary pass sustained. Same long-press > add-to-playlist workflow. No hint text contamination.

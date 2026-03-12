@@ -2,6 +2,9 @@
 
 **Status: cannot_handle** — A11y click doesn't fire JS DOM events in Chrome WebView. `ctx.strokeStyle` never changes. Platform limitation.
 
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 30 | Failed — Error. Answer: I opened Downloads/task.html in Files, chose Chrome, and ... (unchanged)
+
 ## R33 (20260310_004519) — gpt-5.4 — RE-PARKED
 - Score: 0.0 | Turns: 30 | PlatformLimit — a11y click doesn't trigger JS DOM events in Chrome canvas. Structural limitation, no agent-side fix.
 

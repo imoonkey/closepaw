@@ -1,3 +1,8 @@
+
+
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 7 | Failed — GoalAchieved. Answer: Deleted the newest note in Markor. (unchanged)
+
 ## R33 (20260310_004519) — gpt-5.4 — RE-PARKED (evaluator false negative)
 - Score: 0.0 | Turns: 7 | EvalBug — Agent correctly identified and deleted newest note (fine_jelly_final.md at 15:34). Evaluator uses `ls -au` (atime) to compare pre/post file lists. Markor's delete mutates surviving files' atimes, causing evaluator comparison to fail. This is an evaluator bug, not an agent issue. Cannot fix.
 

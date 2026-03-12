@@ -2,6 +2,9 @@
 
 **Status: cannot_handle** — Offline map Address search can't resolve Liechtenstein village names. Agent has no coordinates to fall back to. RE-PARKED R35.
 
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 34 | Failed — Error. Answer: I’m blocked in OsmAnd. I verified the app is in route/sea... (unchanged)
+
 ## R35 (20260310_013847) — gpt-5.4 — RE-PARKED
 - Score: 0.0 | Turns: 25 | StructuralMapData — Agent correctly used Plan a route + Address tab per skill. But Address search couldn't find Schonberg/Triesen/Bendern. No coordinates available for fallback. Structural.
 

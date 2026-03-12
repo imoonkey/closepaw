@@ -2,6 +2,9 @@
 
 **Status: FIXED R25** — Downward-only scroll guidance (5-6 scrolls) resolved the scroll coverage issue.
 
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 14 | Failed — GoalAchieved. Answer: 2832 (regressed from 1.0)
+
 ## R25 (20260309_201619) — gpt-5.4 — FIXED
 - Score: 1.0 | Turns: 45 | Success — downward-only scroll guidance worked. Found all kayaking tracks, computed 6502m correctly.
 

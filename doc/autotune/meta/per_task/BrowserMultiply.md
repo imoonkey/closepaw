@@ -1,5 +1,7 @@
 # BrowserMultiply
 
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 12 | Failed — Error. (regressed from 1.0)
 
 ## R37 (20260311_232252) — gpt-5.4 — PASS
 - Score: 1.0 | Flaky — passed after R36 failure. No skill changes between rounds.

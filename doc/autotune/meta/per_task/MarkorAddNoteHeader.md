@@ -1,5 +1,11 @@
 # MarkorAddNoteHeader
 
+## R40 (20260312_122824) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 28 | Clean pass in 28 turns. (unchanged)
+
+## R39 (20260312_094821) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 21 | Clean pass in 21 turns. (unchanged)
+
 ## R16 (gpt-5.4, 20260309_125810) — PASS
 - Score: 1.0 | Turns: 13 | GoalAchieved — Clean pass with gpt-5.4 via local proxy. Text insertion and rename both successful.
 

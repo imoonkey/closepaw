@@ -1,5 +1,11 @@
 # SportsTrackerActivitiesOnDate
 
+## R40 (20260312_122824) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 9 | Failed — GoalAchieved. Answer: snow boarding (regressed from 1.0)
+
+## R39 (20260312_094821) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 17 | Clean pass in 17 turns. (unchanged)
+
 ## AT-R2 (20260304_033425) — PASS
 - Score: 1.0
 - Turns: 16/30

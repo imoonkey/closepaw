@@ -2,6 +2,8 @@
 
 **Status: FIXED R32** — Scratchpad tracking + 80 turn budget. Agent checked all 7 fields.
 
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 50 | Failed — GoalAchieved. Answer: Done — I deleted the extra exact duplicates and verified ... (unchanged)
 
 ## R38 (20260312_000547) — gpt-5.4 — FAIL → ACCEPTED REGRESSION
 - Score: 0.0 | Over-deletion at scale. 3rd consecutive failure. Accepted regression.

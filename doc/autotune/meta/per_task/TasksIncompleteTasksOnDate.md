@@ -1,5 +1,8 @@
 # TasksIncompleteTasksOnDate
 
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 18 | Failed — GoalAchieved. Answer: Change Air Filter, Clean Out Fridge, Renew Driver's Licen... (regressed from 1.0)
+
 ## R17 (gpt-5.4, 20260309_132808)
 - Score: 1.0 | Turns: 10 | GoalAchieved — NEW PASS. Date-label fix from R16→R17 worked. Agent correctly used standalone date label, ignored chip text.
 

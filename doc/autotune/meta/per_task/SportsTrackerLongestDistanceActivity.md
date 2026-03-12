@@ -1,5 +1,11 @@
 # SportsTrackerLongestDistanceActivity
 
+## R40 (20260312_122824) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 25 | Failed — GoalAchieved. Answer: 0 (regressed from 1.0)
+
+## R39 (20260312_094821) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 29 | Clean pass in 29 turns. (unchanged)
+
 ## R9 (GPT-5.4, 20260307, full baseline) — FAIL
 - Score: 0.0 | Turns: 30 | TurnExhaustion — checked 4/7 tracks, didn't reach mountain biking one. Same pattern as R4.
 

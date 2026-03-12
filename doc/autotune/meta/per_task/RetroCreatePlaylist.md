@@ -1,5 +1,10 @@
 # RetroCreatePlaylist
 
+## R40 (20260312_122824) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 21 | Clean pass in 21 turns. (unchanged)
+
+## R39 (20260312_094821) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 22 | Clean pass in 22 turns. (improved from 0.0)
 
 ## R37 (20260311_232252) — gpt-5.4 — NONE (SCORER BUG)
 - Score: None | GoalAchieved but score=None. Same scorer SQL syntax error. Agent likely succeeded. Parked as infra issue.

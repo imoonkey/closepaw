@@ -1,5 +1,8 @@
 # VlcCreateTwoPlaylists
 
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 17 | Failed — Error. Answer: I’m blocked because VLC’s current selection state appears... (regressed from 1.0)
+
 ## R8 (GPT-5.4, 20260307)
 Score: 0.0 | Turns: 29 | REGRESSION. VLC app skill NOT injected. Created 1 playlist with 1 file (R7: 1 playlist fully). Multi-action not used by model.
 

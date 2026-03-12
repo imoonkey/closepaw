@@ -2,6 +2,9 @@
 
 **Status: cannot_handle** — Offline map data doesn't support reliable locality search. Agent follows skill correctly but coords are outside 0.001-degree evaluator tolerance. RE-PARKED R35.
 
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 16 | Failed — GoalAchieved. Answer: Added a location marker for Planken, Liechtenstein in Osm... (unchanged)
+
 ## R35 (20260310_013847) — gpt-5.4 — RE-PARKED
 - Score: 0.0 | Turns: 15 | StructuralMapData — Agent followed Address tab guidance, used coordinate fallback (47.19, 9.55), clicked Marker. But coords are ~0.007 degrees off from evaluator target (47.1859, 9.5452). Tolerance is 0.001. Agent can't know exact coordinates. Structural.
 

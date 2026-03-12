@@ -2,6 +2,8 @@
 
 **Status: FIXED R33** — Per-song 3-dot menu "Add to playlist" + add-all-then-prune strategy.
 
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 2 | Failed — Error. Answer: I’m blocked because the provided songs are not available ... (unchanged)
 
 ## R37 (20260311_232252) — gpt-5.4 — NONE (ACCEPTED REGRESSION)
 - Score: None | Error — same perception gap. Agent can't find song durations in a11y tree. Removed duration-constrained playlist algorithm was eval-specific. Accepted regression.

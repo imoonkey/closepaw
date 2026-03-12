@@ -1,27 +1,45 @@
-# SimpleCalendarEventsInNextWeek -- R91 (R39 eval run 20260312_094821)
+# SimpleCalendarEventsInNextWeek — Cog-Tune Analysis
 
-**Score: 0.0 | Turns: 5/30 | GoalAchieved (false positive)**
+**Score**: 0.0 | **Turns**: 5/30 | **Reason**: GoalAchieved | **Duration**: 46s
 
-## Root Cause: Cognition -- "next week" date boundary misinterpretation
+**Goal**: List events in the next week in Simple Calendar.
 
-Device date is 2023-10-15 (Sunday). "Next week" starting Monday = Mon Oct 16 -- Sun Oct 22.
-The correct events are: Product demo (Oct 18), Movie night (Oct 22).
-The agent listed 18 events from Oct 23--27, treating "next week" as the *following* Monday--Sunday
-rather than the immediately upcoming one. The event list view clearly showed Oct 18 and Oct 22
-events before the Oct 23 section, so the data was visible -- the agent simply applied the wrong
-date boundary.
+## Root Cause
 
-## R91 prompt cuts -- not a contributing factor
+**Category**: FalseCompletion
 
-The removed line ("Due next week = the very next Monday through Sunday") was in the Tasks.org skill,
-not the Simple Calendar skill. Simple Calendar has its own skill file. The agent never lacked
-domain-specific guidance here; it made a general reasoning error about relative week semantics
-when "today" is the last day of the current week (Sunday).
+Device date was 2023-10-15 (Sunday). "Next week" = Mon Oct 16 through Sun Oct 22. The agent instead listed 18 events from Oct 23–27, treating "next week" as the *following* Monday–Sunday block. The correct events (Product demo Oct 18, Movie night Oct 22) were visible in the event list before the Oct 23 section — the data was present but the agent applied the wrong date boundary. This is a "today = last day of the week" edge case that consistently trips relative-week reasoning.
 
-## History: flaky (1/3 recent, "regressed" in scoreboard)
+## Turn-by-Turn Analysis
 
-Passed R11 (qwen3.5), R16 (gpt-5.4). Failed R10, R39. Historically 3/10 overall. The task is
-inherently fragile because "next week" interpretation depends on the model's date reasoning,
-which varies across seeds and models.
+| Turn | Action | Screen Changed? | Reasoning | Grounding | Execution | Note |
+|------|--------|-----------------|-----------|-----------|-----------|------|
+| 1-2 | Launch Simple Calendar, view event list | Yes | Correct | Good | OK | Events shown in list view |
+| 3-4 | Identify "next week" date range, scan events | No | Wrong boundary | Failed | Wrong range | Oct 23–27 used instead of Oct 16–22 |
+| 5 | Report Oct 23–27 events, declare GoalAchieved | — | False | Failed | FalseCompletion | Wrong week; correct events skipped |
 
-**One-line summary:** Cognition error -- agent counted Oct 23--27 events instead of Oct 16--22; unrelated to R91 prompt cuts.
+### Key Turns
+
+**Turn 3** — Date boundary calculation fails. Agent is on Sunday Oct 15 and calculates "next week" as starting next Monday (Oct 23) rather than the immediately upcoming Monday (Oct 16). This off-by-one-week error is a known failure mode when the current day is a Sunday.
+
+**Turn 5** — Agent reports events from the wrong week without noticing that Oct 16–22 events exist earlier in the list. GoalAchieved declared.
+
+## What Worked
+
+- App launched and event list was successfully reached
+- Agent correctly used a list/agenda view rather than monthly grid
+- Event list navigation was mechanically correct
+
+## What Didn't Work
+
+- "Next week" boundary calculated as Oct 23 instead of Oct 16 (Sunday edge case)
+- Events for the correct week (Oct 16–22) were visible but agent skipped them
+- No date anchoring to confirm today's exact date before calculating
+- FalseCompletion: wrong week's events reported as answer
+
+## Recommendations
+
+- Add to Simple Calendar app skill: "When calculating 'next week', note that if today is Sunday, 'next week' starts tomorrow (the immediately upcoming Monday), NOT the Monday after that."
+- Prompt-level fix: "Before answering date-range queries, navigate to today's date in the calendar to confirm the exact current date, then calculate the target range."
+- The removed Tasks.org skill line ("next week = very next Monday through Sunday") did not cause this — the gap is in Simple Calendar's skill or the general date reasoning layer
+- Historical pattern: 3/10 overall pass rate — this task is inherently fragile under relative week semantics; fixing the Sunday edge case would materially improve it

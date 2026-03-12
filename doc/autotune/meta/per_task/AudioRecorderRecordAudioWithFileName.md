@@ -2,6 +2,9 @@
 
 **Status: FIXED R31** — Removed "strip .m4a" from skill. Agent types filename verbatim, evaluator gets expected double extension.
 
+## R39 (20260312_094821) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 29 | Failed — Error. Answer: I recorded a clip in Audio Recorder, but I could not comp... (regressed from 1.0)
+
 ## R31 (20260309_235826) — gpt-5.4 — FIXED
 - Score: 1.0 | Turns: 8 | Fix: removed "strip .m4a" from skill. Evaluator expected double extension `.m4a.m4a`. Old skill was wrong about extension handling.
 
