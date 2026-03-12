@@ -17,5 +17,8 @@ description: App-specific guidance for Broccoli recipe manager.
 ## Scrollable UI Elements
 - The category row in the recipe form scrolls horizontally. Swipe left to reveal more categories before concluding a category is unavailable.
 
+## Comparing Recipes
+- Recipes with the same title may differ in other fields (servings, prep time, description, ingredients). Open each recipe to compare all fields before concluding they are identical.
+
 ## Deleting Recipes
 - To delete a recipe: open it → tap 3-dot menu → Delete.

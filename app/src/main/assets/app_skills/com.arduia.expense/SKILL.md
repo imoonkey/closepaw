@@ -18,5 +18,8 @@ description: App-specific guidance for Pro Expense.
 - The "Recent" section on the Home screen shows only a few entries. For a complete view, open the menu → Expense Logs.
 - The Expense Logs list may be longer than one screen — scroll down to see all entries.
 
+## Comparing Expenses
+- Expenses with the same name may differ in amount, category, or note. Open each expense to compare all fields before concluding they are identical.
+
 ## Deleting Expenses
 - Swipe an expense left, or long-press → Delete, or open it → Delete.
