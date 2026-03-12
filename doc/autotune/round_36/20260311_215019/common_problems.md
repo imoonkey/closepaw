@@ -63,11 +63,11 @@ This is the first round of the skill generalization loop. Comparing against pre-
 
 ## Common Problems
 
-### P1: Duplicate Detection Failure — MED — 2 tasks
+### P1: Over-Deletion of Visually-Identical Noise Rows — MED — 2 tasks
 
 **Affected**: RecipeDeleteDuplicateRecipes2, RecipeDeleteDuplicateRecipes3
 
-**Root Cause**: Without the prescriptive 7-field comparison algorithm, the agent compares recipes by title+description visible in the list view only. For high-multiplicity duplicate groups (5+ copies), the agent loses count during deletion as list reindexing shifts items. Agent claims GoalAchieved without accurate verification.
+**Root Cause**: Without the prescriptive 7-field comparison algorithm, the agent compares recipes by title+description visible in the list view only. The eval setup fills noise with same-title-same-description entries that differ only in hidden DB fields (servings, ingredients, directions). Agent cannot distinguish target duplicates from noise rows and over-deletes: task 2 deleted 4 (needed 1), task 3 deleted 11 (needed 1). Scorer's `validate_rows_removal_integrity` fails because noise rows are missing.
 
 **Proposed Fix**:
 - Added general one-liner to Broccoli skill: "Recipes with the same title may differ in other fields — open each to compare all fields." [app skill: com.flauschcode.broccoli]

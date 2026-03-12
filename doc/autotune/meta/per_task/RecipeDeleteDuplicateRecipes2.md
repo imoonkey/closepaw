@@ -4,13 +4,13 @@
 
 
 ## R38 (20260312_000547) — gpt-5.4 — FAIL → ACCEPTED REGRESSION
-- Score: 0.0 | FalseCompletion. 3rd consecutive failure. Agent loses count during high-multiplicity duplicate deletion. Accepted regression.
+- Score: 0.0 | Over-deletion of visually-identical noise rows. 3rd consecutive failure. Accepted regression.
 
 ## R37 (20260311_232252) — gpt-5.4 — FAIL
-- Score: 0.0 | GoalAchieved but scorer 0.0. Same pattern — duplicate count tracking failure during list reindexing.
+- Score: 0.0 | GoalAchieved but scorer 0.0. Same over-deletion pattern — noise rows share title+desc but differ in hidden DB fields.
 
 ## R36 (20260311_215019) — gpt-5.4 — FAIL
-- Score: 0.0 | Turns: 22 | GoalAchieved but scorer 0.0. Agent compared title+desc only, missed field-level differences
+- Score: 0.0 | Turns: 22 | Over-deleted: 4 deletions (3 noise + 1 target) when 1 needed. Noise rows share title+desc but differ in hidden DB fields (servings, ingredients).
 
 ## R28 (20260309_210911) — gpt-5.4 — FIXED
 - Score: 1.0 | Turns: 41/50 | Success — Broccoli skill field comparison worked. Opened each same-titled recipe, compared all visible fields, found true duplicate.

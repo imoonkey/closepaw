@@ -4,13 +4,13 @@
 
 
 ## R38 (20260312_000547) — gpt-5.4 — FAIL → ACCEPTED REGRESSION
-- Score: 0.0 | FalseCompletion. 3rd consecutive failure. Same count-tracking failure during high-multiplicity duplicate deletion. Accepted regression.
+- Score: 0.0 | Over-deletion at scale. 3rd consecutive failure. Accepted regression.
 
 ## R37 (20260311_232252) — gpt-5.4 — FAIL
-- Score: 0.0 | GoalAchieved but scorer 0.0. Same pattern — loses count during deletion of 5+ copy groups.
+- Score: 0.0 | GoalAchieved but scorer 0.0. Same over-deletion pattern — 30-item noise pool with same-title-same-desc entries.
 
 ## R36 (20260311_215019) — gpt-5.4 — FAIL
-- Score: 0.0 | Turns: 60 | GoalAchieved but scorer 0.0. Lost count during high-multiplicity deletion
+- Score: 0.0 | Turns: 60 | Over-deleted: 11 deletions (9 Butternut noise + 1 Avocado Toast + 1 target) when 1 needed. 30-item noise pool.
 
 ## R32 (20260310_001826) — gpt-5.4 — FIXED
 - Score: 1.0 | Turns: 45 | Fix: scratchpad tracking emphasis, compare all 7 fields, max_turns 80.
