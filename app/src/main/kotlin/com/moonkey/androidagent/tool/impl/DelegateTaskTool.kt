@@ -31,17 +31,7 @@ class DelegateTaskTool(
         Available agents:
         ${registry.getDirectoryPrompt()}
 
-        ## Query Format (ATOMIC intents):
-        - TAP: "Tap on the 'Send' button", "Tap the first email in the list"
-        - SCROLL: "Scroll down to reveal more items", "Scroll up"
-        - EXTRACT: "Extract sender, subject from current email view"
-        - TYPE: "Type 'hello' into the search field"
-        - BACK: "Press back to return to previous screen"
-
-        BAD: "Open app, navigate to settings, change theme" (too many steps!)
-        GOOD: "Tap on the Settings icon" (one atomic action)
-
-        The executor will ground your semantic intent to the actual UI element.
+        Query must be a single atomic intent: "Tap the Send button", "Scroll down", "Extract sender and subject", "Type 'hello' into search". NOT multi-step ("Open app, navigate to settings, change theme").
         """.trimIndent()
 
     override val parameterSchema: JSONObject = JSONObject().apply {

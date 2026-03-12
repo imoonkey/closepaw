@@ -26,20 +26,16 @@ class MobileActionTool : ToolSpec {
     override val name: String = "mobile_action"
 
     override val description: String = """
-Perform touch interactions on the mobile device screen.
+Perform touch interactions on the device screen.
 
-Targeting (for click, long_press, type):
-Specify EXACTLY ONE targeting method per action:
-- element_index: index from current screen state (preferred)
-- text + text_index: visible text on screen
-- x, y: absolute pixel coordinates (last resort)
+Targeting (click, long_press, type): specify EXACTLY ONE — element_index (preferred), text, or x/y coordinates.
 
 Actions:
-- click: Tap target. Example: {"action":"click","element_index":3}
-- long_press: Long press target. Example: {"action":"long_press","text":"Delete"}
-- type: Type text. Example: {"action":"type","input_text":"hello","element_index":5}
-- scroll: Scroll in a direction. Uses content direction (direction="down" reveals content below). Optionally target a scrollable element with element_index. Example: {"action":"scroll","direction":"down"} or {"action":"scroll","direction":"down","element_index":2}
-- swipe: Precision coordinate gesture for sliders, drag-and-drop, etc. Requires explicit start/end coordinates. Example: {"action":"swipe","start":[100,500],"end":[400,500]}
+- click: Tap element
+- long_press: Long press element
+- type: Type text into element (or focused field if no target)
+- scroll: Scroll content direction (direction="down" reveals content below). Optional element_index for specific scrollable.
+- swipe: Precision coordinate gesture (sliders, drag-and-drop). Requires start/end [x,y].
 """.trimIndent()
 
     override val parameterSchema: JSONObject by lazy { buildSchema() }

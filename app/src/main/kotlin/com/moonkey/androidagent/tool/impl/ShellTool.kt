@@ -18,18 +18,8 @@ class ShellTool : ToolSpec {
 
     override val description: String =
         """
-        Execute a shell command on the device for file-oriented inspection only.
-
-        Scope:
-        - Read file contents: cat /path/to/file
-        - List directories: ls /path/to/dir
-        - Inspect metadata: stat /path/to/file
-
-        Do NOT use for:
-        - UI control, app launching, taps, swipes, or system navigation
-        - Protected app-internal storage you are unlikely to access
-        - OCR, image reading, or non-file commands such as date, dumpsys, input, am
-        - Destructive or state-changing commands
+        Execute a shell command on the device for file-oriented inspection only (cat, ls, stat).
+        Do NOT use for UI control, app launching, protected app storage, or state-changing commands.
         """.trimIndent()
 
     override val parameterSchema: JSONObject =

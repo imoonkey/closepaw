@@ -20,17 +20,8 @@ class SystemButtonTool : ToolSpec {
     override val name: String = "system_button"
 
     override val description: String = """
-Press an Android system button. This does not require element targeting.
-
-Buttons:
-- back
-- home
-- enter (sends IME enter to the currently focused editable field)
-- recents
-
-Examples:
-- system_button(button="back")
-- system_button(button="home")
+Press an Android system button (no element targeting needed).
+Buttons: back, home, enter (IME enter to focused field), recents.
 """.trimIndent()
 
     override val parameterSchema: JSONObject = JSONObject().apply {

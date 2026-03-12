@@ -18,27 +18,12 @@ class ScratchpadTool(
 
     override val description: String =
         """
-        Store key-value data for multi-step tasks and cross-app handoffs.
+        Key-value store for multi-step tasks and cross-app handoffs. Shown in context every turn.
 
-        Scratchpad is always shown in context every turn (values truncated if long).
-        Use read only when you need the full value for a truncated key.
+        Write all relevant data from the current screen before navigating away. Use short semantic keys. Store actual content, not vague references.
 
-        Good usage:
-        - Write facts before navigating away from the current screen
-        - Store actual extracted content (not vague references)
-        - Use short semantic keys (email_1_subject, total_price)
-        - Capture ALL relevant data from the current screen in a single write call
-
-        Actions:
-        - write: Store one or more key-value pairs. content is a JSON object string.
-          Example: {"email_subject": "Meeting at 3pm", "sender": "alice@example.com"}
-          If you have multiple fields to store, include them all in a single write call, to minimize tool call turns for the same result.
-        - read: Get value for key
-        - delete: Remove key
-
-        Limits:
-        - Max keys: ${ScratchpadState.MAX_ENTRIES}
-        - Max value length: ${ScratchpadState.MAX_VALUE_LENGTH} chars per value
+        Actions: write (content = JSON object string), read (key), delete (key).
+        Use read only for truncated values. Limits: ${ScratchpadState.MAX_ENTRIES} keys, ${ScratchpadState.MAX_VALUE_LENGTH} chars/value.
         """.trimIndent()
 
     override val parameterSchema: JSONObject =

@@ -18,22 +18,10 @@ class RememberExperienceTool(
 
     override val description: String =
         """
-        Save a reusable learning to long-term memory.
+        Save a reusable learning to long-term memory. Call alongside complete_task when you learned something useful for future tasks.
 
-        Call this before complete_task when you learned something that would help
-        in future tasks. You can call this alongside complete_task in the same turn.
-
-        Prefix content with a kind tag:
-        - [workflow] operation patterns, navigation sequences, useful shortcuts
-        - [pitfall] traps, gotchas, things that don't work as expected
-        - [verification] how to verify a result in this app
-
-        What NOT to save:
-        - Task-specific steps (use scratchpad instead)
-        - Temporary data that won't help future tasks
-        - Information already in Recalled Memory or App Skills
-
-        Keep entries to 1-2 sentences. Generalize -- don't reference specific task details.
+        Prefix with tag: [workflow] navigation/shortcuts, [pitfall] gotchas, [verification] how to verify results.
+        Don't save task-specific steps or info already in App Skills. Keep to 1-2 generalized sentences.
         """.trimIndent()
 
     override val parameterSchema: JSONObject =
