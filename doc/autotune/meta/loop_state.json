@@ -1,32 +1,32 @@
 {
   "goal": "Pass all 20 remaining tasks. Do not stop until at least 18/20 pass.",
   "mode": "auto",
-  "next_round": 49,
+  "next_round": 50,
   "status": "active",
   "active_backlog_file": "eval/config/autotune_round_45.txt",
   "loop_name": "full_pass",
   "current_round": null,
   "last_round": {
-    "number": 48,
-    "run_id": "20260313_150530",
-    "pass_rate": "11/18",
-    "score": 0.611,
-    "recovered": ["TasksDueNextWeek", "VlcCreateTwoPlaylists"],
-    "regressions": ["RecipeDeleteDuplicateRecipes3", "RetroCreatePlaylist", "MarkorMoveNote", "TasksIncompleteTasksOnDate", "SportsTrackerTotalDistanceForCategoryOverInterval"],
+    "number": 49,
+    "run_id": "20260313_155839",
+    "pass_rate": "7/18",
+    "score": 0.389,
+    "recovered": ["RetroCreatePlaylist"],
+    "regressions": ["SimpleCalendarEventsInNextWeek", "RecipeDeleteDuplicateRecipes2", "TasksCompletedTasksForDate", "TasksDueNextWeek", "VlcCreateTwoPlaylists"],
     "still_failing": [
       "RetroPlaylistDuration",
       "SportsTrackerActivitiesCountForWeek"
     ],
     "key_findings": [
-      "11/18 = best single-run score so far",
-      "2 persistent failures recovered: TasksDueNextWeek (80 turns worked, 47t used), VlcCreateTwoPlaylists (0.5, ungroup helped)",
-      "Combined R45-R48: 16/18 passed at least once. Only RetroPlaylistDuration and SportsTrackerActivitiesCountForWeek have never passed since R44",
-      "RetroPlaylistDuration: agent followed CRITICAL rules but hit 43:40/45min (1:20 short). Never scrolled Songs list for more songs, burned 20 turns re-adding duplicates",
-      "SportsTrackerActivitiesCountForWeek: checked 5/14 tracks, scratchpad checklist truncated at 400 chars, answered 0 prematurely at turn 40/100",
-      "R49 fixes: scratchpad DISPLAY_TRUNCATE_LENGTH 400→600, RetroMusic scroll+duplicate awareness, OpenTracks compact scratchpad format"
+      "7/18 regression from R48's 11/18 — nondeterminism dominated",
+      "Scratchpad truncation fix WORKED: SportsTracker checklist fully visible at 591/600 chars",
+      "SportsTrackerCount: PURE COGNITION FAILURE — agent saw mandate, saw unchecked list, had 67 turns left, still answered 0 after 4 checks. Prompt fixes cannot solve this.",
+      "RetroPlaylistDuration: NEW failure mode — hit 50:16 (16s over max) and declared success. Need overshoot recovery.",
+      "Combined R45-R49: 16/18 passed at least once. Same 2 never-pass since R44.",
+      "R50 fix: RetroMusic overshoot recovery guidance (remove songs if over target)"
     ],
     "recommended_action": "continue",
-    "token_delta": "+200 display tokens (scratchpad truncation increase)"
+    "token_delta": "minimal (1 line added)"
   },
   "prior_loop": {
     "name": "success_rate_recovery",

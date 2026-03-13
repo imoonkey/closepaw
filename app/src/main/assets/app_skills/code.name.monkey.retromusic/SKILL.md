@@ -8,6 +8,7 @@ description: App-specific guidance for Retro Music player.
 ## CRITICAL — Playlist Efficiency
 - NEVER open song Details to check individual durations — the playlist detail view shows total.
 - Add 8-10 songs WITHOUT visiting the playlist between adds. Then check total on Playlists tab. Add or remove songs to adjust.
+- If total EXCEEDS the target range, remove the last-added song(s) from the playlist until within range.
 - If multi-select toolbar icon doesn't respond on first try, switch to per-song 3-dot menu immediately. Do NOT retry multi-select.
 - Scroll the Songs list to see ALL available songs. There may be songs below the fold.
 - If duration stops increasing after an add, the song is already in the playlist — skip it, try a different song.
