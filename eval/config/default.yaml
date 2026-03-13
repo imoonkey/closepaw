@@ -68,3 +68,5 @@ bridge:
     RecipeAddMultipleRecipesFromMarkor2: { max_turns: 50 }
     TasksHighPriorityTasks: { max_turns: 50 }
     TasksHighPriorityTasksDueOnDate: { max_turns: 50 }
+    TasksDueNextWeek: { max_turns: 50 }
+    VlcCreateTwoPlaylists: { max_turns: 50 }
