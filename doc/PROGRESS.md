@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-03-13: Memory V2 Design Note Capture
+
+**What changed:**
+- Added `doc/todo/0.5_memory/memory_v2_note.md` to preserve the agreed Memory V2 design discussion and final sketch.
+- Captured the scope-first persistent memory layout (`user.md`, `device.md`, `apps/<package>.md`) and the decision to reuse existing session history instead of adding a separate session-log memory layer in v2.
+
+**Why:**
+- Preserve the current design consensus in-repo so implementation can proceed from one concrete source of truth instead of scattered chat context.
+
+**Key files:** `doc/todo/0.5_memory/memory_v2_note.md`
+**Verification:** `./gradlew assembleDebug lint test`
+**Commit:** pending
+**Next:** Use this note as the basis for the production-ready Memory V2 implementation design and build-out.
+**Blockers:** None
+
 ## 2026-03-13: Eval Config Overlay Loading
 
 **What changed:**
