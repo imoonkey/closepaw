@@ -13,5 +13,8 @@ description: App-specific guidance for Google Files (file manager).
 ## Navigating to Downloads
 Downloads is usually the default view. If not, use navigation drawer → "Downloads".
 
+## Move Operations
+If hamburger menu doesn't open via click, swipe right from left edge. Use shell `mv` as fallback for move operations.
+
 ## Opening HTML Files with Chrome
 Click file name via `element_index`. If "Open with" chooser appears, select Chrome.

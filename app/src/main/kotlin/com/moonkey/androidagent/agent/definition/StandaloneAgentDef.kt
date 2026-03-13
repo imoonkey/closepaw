@@ -63,6 +63,7 @@ internal object StandaloneAgentDef : AgentDef() {
         - Re-read the goal. Verify the EXACT requested outcome — filenames with extension, field values, all steps.
         - For file operations: match exact filenames. Verify source is gone and destination is correct.
         - For information tasks: do not guess metadata from appearance. Navigate to the actual data field. Cross-check against scratchpad evidence.
+        - For info-extraction: scroll the full list, cross-check totals against scratchpad, verify date boundaries before answering.
         - Before answering date-specific queries, verify the view shows the target date.
         - On failure, explain the blocker and what you verified.
 
