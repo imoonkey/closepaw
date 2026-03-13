@@ -1,5 +1,11 @@
 # TasksDueNextWeek
 
+## R42 (20260312_185423) — gpt-5.4 — FAIL — DUPLICATE COUNTING
+- Score: 0.0 | Turns: 8 | GoalAchieved (false completion) | Duration: 82s
+- Agent answer: 14 | Correct: 6. R42 date computation rule worked (computed Oct 16-22 in Turn 1, scratchpad used). Full list scrolled. But counted every visible row with a next-week date label, including recurring/duplicate task instances. Same failure as R41 (answer=13), slightly worse.
+- R42 prompt change ("compute date range first") had zero effect — agent already computed dates correctly in R41. Root cause is deduplication, not date computation.
+- **Next fix**: Add Tasks.org deduplication guidance: "deduplicate by task name, count each unique name only once."
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 6 | Failed — GoalAchieved. Answer: 13 (correct: 6)
 - Targeted by R41 info-extraction verification fix. Agent now scrolls full list (3 scrolls, end confirmed), uses scratchpad (2 writes), and computes correct date range (Oct 16-22). Major behavioral improvement over R39.

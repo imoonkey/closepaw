@@ -1,5 +1,9 @@
 # FilesMoveFile
 
+## R42 (20260312_185423) — gpt-5.4 — PASS — REGRESSION CANARY
+- Score: 1.0 | Turns: 19 | GoalAchieved | Duration: 161s
+- Regression canary holds. Agent moved file correctly using Documents UI. New documentsui skill was available but pass is model-native — FilesMoveFile already passed in R41 without the skill. No regression from R42 changes.
+
 ## R41 (20260312_173354) — gpt-5.4 — PASS — SEARCH-BASED DISAMBIGUATION
 - Score: 1.0 | Turns: 20 | GoalAchieved | Duration: 151s
 - **Root cause of fix**: Agent used Documents UI search to find exact `holiday_photos.jpg` instead of grabbing decoy `holiday_photos_ZYUM.jpg`. In turn 6, agent explicitly noted the visible file was a "close variant" and searched for the exact filename before selecting. This is the same failure point as R9/R39 — the agent just made a better decision this time.

@@ -1,8 +1,8 @@
 {
   "system_prompt": {
-    "chars": 3622,
-    "tokens": 740,
-    "lines": 49
+    "chars": 3839,
+    "tokens": 785,
+    "lines": 50
   },
   "tool_descriptions": {
     "total": {
@@ -91,11 +91,11 @@
   },
   "app_skills": {
     "total": {
-      "chars": 14031,
-      "tokens": 3122
+      "chars": 14640,
+      "tokens": 3254
     },
-    "count": 16,
-    "avg_tokens": 195,
+    "count": 17,
+    "avg_tokens": 191,
     "skills": {
       "code.name.monkey.retromusic": {
         "chars": 986,
@@ -142,9 +142,14 @@
         "tokens": 109,
         "lines": 12
       },
+      "com.google.android.documentsui": {
+        "chars": 421,
+        "tokens": 89,
+        "lines": 14
+      },
       "com.simplemobiletools.calendar.pro": {
-        "chars": 1083,
-        "tokens": 233,
+        "chars": 1093,
+        "tokens": 231,
         "lines": 22
       },
       "com.simplemobiletools.gallery.pro": {
@@ -153,14 +158,14 @@
         "lines": 18
       },
       "de.dennisguse.opentracks": {
-        "chars": 996,
-        "tokens": 211,
+        "chars": 990,
+        "tokens": 219,
         "lines": 25
       },
       "net.gsantner.markor": {
-        "chars": 821,
-        "tokens": 195,
-        "lines": 23
+        "chars": 1005,
+        "tokens": 232,
+        "lines": 26
       },
       "net.osmand": {
         "chars": 1037,

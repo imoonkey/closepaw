@@ -1,3 +1,5 @@
+MarkorMoveNote
 MarkorTranscribeVideo
 OsmAndMarker
 OsmAndTrack
+SportsTrackerActivitiesCountForWeek

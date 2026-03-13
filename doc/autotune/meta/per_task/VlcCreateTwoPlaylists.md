@@ -1,12 +1,12 @@
 # VlcCreateTwoPlaylists
 
-## R41 (20260312_173354) — FAIL
-- Score: 0.0 | Turns: 29/30 | Stop: Error (framework auto-termination)
-- VLC skill NOT injected (same as R8). Agent used one-at-a-time workflow.
+## R41 (20260312_173354) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 29/30 | Stop: Agent self-terminated (failure)
+- VLC skill WAS injected (confirmed in llm_input_items from turn 2). Contradicts initial claim; first confirmed fail WITH skill.
+- Agent navigated via Browse > Internal memory > VLCVideos (file browser). In this view, long-press opens a single-file context menu, NOT multi-select mode. The skill teaches multi-select but it only works in Audio/Video library views, not the file browser.
 - Created "Ultimate Fails Series" with 2/4 files. "Adventure Marathon" never started.
-- Wasted ~9 turns on duplicate-add attempts (re-adding files already in playlist, hitting CANCEL).
-- Long-press targeted "More Actions" icon instead of file row, producing context menu instead of multi-select.
-- Without skill injection, this task cannot pass within 30 turns.
+- Wasted ~8 turns on duplicate-add attempts (re-adding files already in playlist, hitting CANCEL instead of moving to next file).
+- Fix path: Update VLC skill to clarify that multi-select requires Audio/Video library view, not Browse view. Or teach one-at-a-time workflow explicitly for Browser view.
 
 ## R39 (20260312_094821) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 17 | Failed — Error. Answer: I’m blocked because VLC’s current selection state appears... (regressed from 1.0)

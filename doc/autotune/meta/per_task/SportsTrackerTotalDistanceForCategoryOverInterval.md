@@ -1,6 +1,12 @@
 # SportsTrackerTotalDistanceForCategoryOverInterval
 
-**Status: REGRESSED R41** — Smart Filtering in app skill causes agent to skip tracks by name, never scroll.
+**Status: STILL FAILING** — Checked all 5 visible tracks (improvement) but never scrolled for more. A11y gap on Edit form.
+
+## R42 (20260312_185423) — gpt-5.4 — FAIL — IMPROVED BEHAVIOR
+- Score: 0.0 | Turns: 37 | GoalAchieved (false completion) | Duration: 313s
+- R42 skill change (Smart Filtering → exhaustive-check) succeeded: agent checked all 5 visible tracks in Oct 9-10 range (R41 checked 2/5). But never scrolled down to discover additional tracks below the fold. Correct answer is 6502m (kayaking tracks exist further down).
+- **A11y gap**: OpenTracks Edit form has complete a11y tree failure — zero form fields exposed. Agent hallucinated all 5 activity types from track names (all happened to be correct, but fragile). screenshot_input was disabled.
+- **Next fix**: Strengthen scroll-first requirement + checklist protocol. If scroll-first doesn't help in R43, park due to a11y gap.
 
 ## R41 (20260312_173354) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 16 | Failed — GoalAchieved. Answer: 0 (wrong)

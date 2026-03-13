@@ -4,11 +4,11 @@
 
 | Layer | Tokens | Lines |
 |-------|--------|-------|
-| System prompt | 740 | 49 |
+| System prompt | 785 | 50 |
 | Tool descriptions (total) | 1,791 | — |
-| App skills (total) | 3,122 | — |
-| App skills (avg per skill) | 195 | — |
-| **Always-on (prompt + tools)** | **2,531** | — |
+| App skills (total) | 3,254 | — |
+| App skills (avg per skill) | 191 | — |
+| **Always-on (prompt + tools)** | **2,576** | — |
 
 ## Tool Descriptions + Params
 
@@ -33,11 +33,11 @@
 | org.tasks | 319 | 30 |
 | com.flauschcode.broccoli | 285 | 25 |
 | net.osmand | 253 | 25 |
-| com.simplemobiletools.calendar.pro | 233 | 22 |
+| net.gsantner.markor | 232 | 26 |
+| com.simplemobiletools.calendar.pro | 231 | 22 |
 | code.name.monkey.retromusic | 228 | 19 |
-| de.dennisguse.opentracks | 211 | 25 |
+| de.dennisguse.opentracks | 219 | 25 |
 | org.videolan.vlc | 199 | 17 |
-| net.gsantner.markor | 195 | 23 |
 | com.simplemobiletools.gallery.pro | 193 | 18 |
 | com.arduia.expense | 185 | 24 |
 | com.android.chrome | 176 | 20 |
@@ -46,4 +46,5 @@
 | com.google.android.apps.photos | 127 | 16 |
 | com.dimowner.audiorecorder | 113 | 14 |
 | com.google.android.calendar | 109 | 12 |
+| com.google.android.documentsui | 89 | 14 |
 

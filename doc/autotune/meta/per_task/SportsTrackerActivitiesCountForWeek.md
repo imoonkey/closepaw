@@ -1,5 +1,13 @@
 # SportsTrackerActivitiesCountForWeek
 
+**Status: PARKED (structurally infeasible — 14 tracks × 6 turns = 84, exceeds 50-turn budget)**
+
+## R42 (20260312_185423) — gpt-5.4 — FAIL — IMPROVED BEHAVIOR
+- Score: 0.0 | Turns: 24 | GoalAchieved (false completion) | Duration: 194s
+- R42 skill change succeeded: agent now uses Edit to read authoritative activity type (was name-based in R41). Checked 3/14 tracks, found 1 running, then stopped despite 26 remaining turns. Violated skill instruction to "open Edit for ALL tracks."
+- **Improvement over R41**: R41 checked 0 tracks via Edit (pure name inference, 5 turns). R42 checked 3 via Edit (24 turns). Correct direction but incomplete.
+- **Structural issue**: 14 tracks × 6 turns/track = 84 turns needed. Even with perfect compliance, exceeds 50-turn budget. After 3 consecutive rounds of partial improvement (R41→R42), parking per cannot_handle criteria.
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 5/50 | GoalAchieved. Answer: 0
 - **Behavior**: FalseCompletion (name-based inference). Agent opened OpenTracks, dismissed 2 intro screens, saw 14 this-week tracks, scrolled once, found no track names containing "run"/"running" within the week (Mon Oct 9 -- Sun Oct 15), and answered "0" without checking a single track's Edit view.

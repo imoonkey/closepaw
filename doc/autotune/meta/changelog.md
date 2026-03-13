@@ -2,6 +2,16 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Success Rate Recovery Round 2/R42 (2026-03-12, run 20260312_185423, gpt-5.4, 8-task targeted)
+
+**Fixes applied**: (1) Memory cleanup — deleted poisoned Markor memory from emulator. (2) OpenTracks: replaced Smart Filtering with exhaustive-check ("open Edit for ALL tracks"). (3) System prompt: added date computation rule ("Next week = Monday immediately after today through following Sunday"). (4) Markor: added File Selection section (substring matching + post-move verification). (5) SimpleCalendar: strengthened "Nh" notation to imperative MUST/ALWAYS. (6) New documentsui SKILL.md for Files app. Always-on: 2,531 → 2,576 tokens (+1.8%).
+
+**Results**: 4/8 pass (50.0%). 3 recoveries: MarkorMergeNotes (1.0, was 0.0 — memory cleanup), SimpleCalendarAddOneEventRelativeDay (1.0, was 0.0 — MUST language), SimpleCalendarEventsInNextWeek (1.0, was 0.0 — date computation rule). 0 regressions. 4 still failing: MarkorMoveNote (grounding error — 3rd consecutive, parking), SportsTrackerActivitiesCountForWeek (checked 3/14 via Edit — improved but structurally infeasible, parking), SportsTrackerTotalDistanceForCategoryOverInterval (checked 5/5 visible but no scroll + a11y gap on Edit), TasksDueNextWeek (duplicate counting — 14 vs 6).
+
+**Key findings**: (1) Imperative MUST/ALWAYS language effectively overrides gpt-5.4 priors. (2) Memory poisoning was sole blocker for MarkorMergeNotes. (3) OpenTracks Edit form has complete a11y tree failure — zero fields exposed. (4) SportsTrackerActivitiesCountForWeek structurally needs 84 turns (14 tracks × 6), exceeds 50-turn budget.
+
+**Token counts**: System prompt 785, Tool descriptions 1,791, App skills 3,254 (avg 191/skill), Always-on 2,576.
+
 ## Success Rate Recovery Round 1/R41 (2026-03-12, run 20260312_173354, gpt-5.4, 23-task failure set)
 
 **Fixes applied**: System prompt: added info-extraction verification line (+25 tokens). Files skill: added move operations fallback (+29 tokens). Markor extension field guidance was already present. Always-on: 2,506 → 2,531 tokens (+1.0%).

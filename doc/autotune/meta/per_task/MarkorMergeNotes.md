@@ -1,3 +1,8 @@
+# MarkorMergeNotes
+
+## R42 (20260312_185423) — gpt-5.4 — PASS — RECOVERED
+- Score: 1.0 | Turns: 19 | GoalAchieved | Duration: 148s
+- **RECOVERED from R41 (was 0.0).** R41 failure was caused by poisoned recalled memory overriding skill guidance. R42 fix: cleared all agent memory from emulator before eval. Without poisoned memory, agent correctly created extensionless file `mIObBbo4`, following Markor skill guidance.
 
 ## R41 (20260312_173354) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 21 | Failed — GoalAchieved (false completion)
