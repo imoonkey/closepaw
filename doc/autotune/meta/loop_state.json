@@ -1,33 +1,31 @@
 {
   "goal": "Pass all 20 remaining tasks. Do not stop until at least 18/20 pass.",
   "mode": "auto",
-  "next_round": 47,
+  "next_round": 48,
   "status": "active",
   "active_backlog_file": "eval/config/autotune_round_45.txt",
   "loop_name": "full_pass",
   "current_round": null,
   "last_round": {
-    "number": 46,
-    "run_id": "20260313_125245",
-    "pass_rate": "6/18",
-    "score": 0.333,
-    "recovered": ["RecipeAddMultipleRecipesFromMarkor2", "RecipeDeleteDuplicateRecipes2", "SportsTrackerLongestDistanceActivity"],
-    "regressions": ["ExpenseAddMultipleFromMarkor", "MarkorMoveNote", "RetroCreatePlaylist", "RetroSavePlaylist", "TasksCompletedTasksForDate", "TasksIncompleteTasksOnDate", "TurnOnWifiAndOpenApp"],
+    "number": 47,
+    "run_id": "20260313_134636",
+    "pass_rate": "7/18",
+    "score": 0.389,
+    "recovered": ["RecipeDeleteDuplicateRecipes3", "SportsTrackerLongestDistanceActivity"],
+    "regressions": ["MarkorMoveNote", "RecipeDeleteDuplicateRecipes2", "RetroCreatePlaylist", "RetroSavePlaylist", "SportsTrackerTotalDistanceForCategoryOverInterval", "TasksCompletedTasksForDate", "TasksIncompleteTasksOnDate"],
     "still_failing": [
-      "RecipeDeleteDuplicateRecipes3", "RetroPlaylistDuration",
+      "RecipeDeleteDuplicateRecipes3_recovered", "RetroPlaylistDuration",
       "SportsTrackerActivitiesCountForWeek", "TasksDueNextWeek",
       "VlcCreateTwoPlaylists"
     ],
     "key_findings": [
-      "High nondeterminism: 7 regressions from model variance, NOT from R46 changes",
-      "Turn increases worked: SportsTrackerLongest 50->60 enabled full verification (RECOVERED)",
-      "Broccoli verification fix worked: RecipeAdd browse-list instead of search (RECOVERED)",
-      "TasksDueNextWeek: verification mandate now followed (6/12 checked vs 1/12 in R45) but 30 turns insufficient",
-      "SportsTrackerCount: agent checked 3/14 then stopped at 26/100 turns — ignoring exhaustive mandate",
-      "Combined R45+R46: 13/18 tasks CAN pass, 5 persistent failures remain"
+      "High nondeterminism continues: 7 regressions from model variance in previously-passing tasks",
+      "Combined R45-R47: 14/18 tasks have passed at least once (same as R44-R46)",
+      "4 persistent never-pass: RetroPlaylistDuration (per-song too slow, multi-select broken), SportsTrackerActivitiesCountForWeek (agent stops checking early, answers 0), TasksDueNextWeek (needs ~64 turns but only had 50), VlcCreateTwoPlaylists (search auto-plays, groups scatter files)",
+      "R48 fixes: RetroMusic CRITICAL section for batching, VLC ungroup guidance, OpenTracks stronger mandate, TasksDueNextWeek turns 60->80"
     ],
     "recommended_action": "continue",
-    "token_delta": "minimal (skill wording only)"
+    "token_delta": "minimal (skill wording changes)"
   },
   "prior_loop": {
     "name": "success_rate_recovery",

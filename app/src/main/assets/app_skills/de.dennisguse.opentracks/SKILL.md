@@ -17,7 +17,7 @@ For any count or sum by activity type:
 2. Write all tracks in the date range to scratchpad as a checklist.
 3. Open Edit for EVERY track on the checklist. Mark each checked. You cannot skip any — names are unreliable.
 4. Activity types must match EXACTLY — "biking" is NOT "mountain biking".
-5. Do NOT call complete_task until every track is marked checked.
+5. Do NOT call complete_task until every track is marked checked. Answering with 0 before checking all tracks is almost certainly wrong — names are misleading by design.
 
 ## Reading Distance/Duration
 Click a track to see its Stats tab — shows distance, moving time. No need for Edit.

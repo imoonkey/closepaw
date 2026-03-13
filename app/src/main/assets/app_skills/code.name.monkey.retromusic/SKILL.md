@@ -5,17 +5,18 @@ description: App-specific guidance for Retro Music player.
 
 # Retro Music Skill
 
+## CRITICAL — Playlist Efficiency
+- NEVER open song Details to check individual durations — the playlist detail view shows total.
+- Add 8-10 songs WITHOUT visiting the playlist between adds. Then check total on Playlists tab. Add or remove songs to adjust.
+- If multi-select toolbar icon doesn't respond on first try, switch to per-song 3-dot menu immediately. Do NOT retry multi-select.
+
 ## Song Discovery
 "Provided songs" or "available songs" means the songs in the app's music library. Navigate to the Songs tab to find them.
 
 ## Adding Songs to Playlists
-- **Multi-select (preferred)**: From Songs tab, long-press a song → tap additional songs → look for "Add to playlist" icon button in the selection toolbar (NOT under "More options"). If no icon is visible, use per-song fallback.
-- **Per-song fallback**: 3-dot menu on a song → "Add to playlist" → select target.
+- **Multi-select**: From Songs tab, long-press a song → tap additional → "Add to playlist" icon in selection toolbar.
+- **Per-song fallback**: 3-dot menu on a song → "Add to playlist" → select target. Go directly to the next song.
 - The playlist's own "Add to playlist" button adds the PLAYLIST to another playlist, NOT songs into it.
-
-## Playlist Duration
-- The playlist detail view shows total duration. No need to inspect individual song durations.
-- To reach a target duration: add a batch of songs, check total on playlist detail, add or remove to adjust.
 
 ## Navigation
 - Bottom tabs: Home, Songs, Albums, Artists, Playlists.

@@ -2,6 +2,22 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Full Pass Round 5/R48 (2026-03-13, gpt-5.4, 18-task set)
+
+**Fixes applied**: (1) RetroMusic: CRITICAL section — NEVER check individual durations, add 8-10 songs before checking total, abandon multi-select after 1 failed try. (2) VLC: Ungroup videos before selecting scattered files. (3) OpenTracks: Stronger mandate — "answering 0 before checking all tracks is almost certainly wrong". (4) TasksDueNextWeek: max_turns 60→80. (5) RetroPlaylistDuration: max_turns already 80 from earlier.
+
+**Diagnosis**: (RetroPlaylistDuration) multi-select toolbar icon not clickable via a11y, per-song costs ~7 turns/song, agent checks duration after every add. (VlcCreateTwoPlaylists) search results don't support multi-select, files scattered across groups. (SportsTrackerCount) agent checks 3-7/14 tracks then answers 0, violating mandate. (TasksDueNextWeek) needs ~64 turns for 14 candidates at 4 turns each, had 50.
+
+## Full Pass Round 4/R47 (2026-03-13, run 20260313_134636, gpt-5.4, 18-task set)
+
+**Results**: 7/18 pass (38.9%). 2 recoveries: RecipeDeleteDuplicateRecipes3, SportsTrackerLongestDistanceActivity. 7 regressions from nondeterminism.
+
+**Key findings**: (1) Combined R45-R47: 14/18 passed at least once — same 4 persistent failures. (2) Nondeterminism ~30%: 7 regressions each round from tasks that CAN pass. (3) 4 never-pass tasks need targeted fixes, not more rounds.
+
+## Full Pass Round 3/R46 (2026-03-13, run 20260313_125245, gpt-5.4, 18-task set)
+
+**Results**: 8/18 pass (44.4%). 3 recoveries: RecipeAddMultipleRecipesFromMarkor2, RecipeDeleteDuplicateRecipes2, SportsTrackerLongestDistanceActivity. 7 regressions from nondeterminism.
+
 ## Full Pass Round 2/R45 (2026-03-13, run 20260313_112654, gpt-5.4, 18-task set)
 
 **Fixes applied**: (1) Tasks.org: CRITICAL section at top — completion toggle + detail-view verification. (2) Calendar: day-by-day scanning mandate for date range queries. (3) VLC: CRITICAL section mandating library tabs over Browse. (4) RetroMusic: multi-select preferred, playlist duration building. (5) Park BrowserDraw + MarkorDeleteNewestNote. (6) RecipeDeleteDup2: max_turns 50→60. App skills: 3,569 → ~3,530 (net reduction from consolidation).
