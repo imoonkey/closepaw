@@ -2,6 +2,14 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Full Pass Round 2/R45 (2026-03-13, run 20260313_112654, gpt-5.4, 18-task set)
+
+**Fixes applied**: (1) Tasks.org: CRITICAL section at top — completion toggle + detail-view verification. (2) Calendar: day-by-day scanning mandate for date range queries. (3) VLC: CRITICAL section mandating library tabs over Browse. (4) RetroMusic: multi-select preferred, playlist duration building. (5) Park BrowserDraw + MarkorDeleteNewestNote. (6) RecipeDeleteDup2: max_turns 50→60. App skills: 3,569 → ~3,530 (net reduction from consolidation).
+
+**Results**: 10/18 pass (55.6%). 4 recoveries: ExpenseAddMultipleFromMarkor (1.0, agent correctly opened Pro Expense), SimpleCalendarEventsInNextWeek (1.0, day-by-day scanning worked), TasksCompletedTasksForDate (1.0, toggle protocol followed), TasksIncompleteTasksOnDate (1.0, toggle protocol followed). 0 regressions. 8 still failing.
+
+**Key findings**: (1) CRITICAL sections at skill top: 3/4 targeted tasks recovered — top-placement strategy is effective! (2) TasksDueNextWeek: agent verified 1 task, proved labels unreliable, then answered from 7 unverified labels with 21 turns remaining. (3) RetroPlaylistDuration: multi-select toolbar "Add to playlist" button not found; agent fell back to per-song (4-6 turns each), only added 4/15 songs. (4) SportsTrackerLongestDistance: 7/8 tracks checked, 3 turns short of completion. (5) Recipe tasks: Broccoli search can't find long titles, over-deletion from profile tracking drift.
+
 ## Full Pass Round 1/R44 (2026-03-13, run 20260313_095409, gpt-5.4, 20-task full set)
 
 **Fixes applied**: (1) ScratchpadState DISPLAY_TRUNCATE_LENGTH 200→400 (platform fix for R43 truncation bug). (2) Tasks.org: completion toggle for both completed/incomplete, due-date detail-view mandate, compact dedup. (3) Broccoli: prescriptive full-field comparison for duplicates, post-save verification. (4) OpenTracks: exact activity type matching, mandatory exhaustive coverage for extrema. (5) RetroMusic: "provided songs" = in-app library. (6) VLC: library-view vs Browse distinction. (7) ProExpense: strip selection labels from data. (8) SimpleCalendar: scratchpad-anchored date range discipline. (9) Settings: explicit post-toggle verification. (10) Markor: exact filename matching, shell metadata re-enabled. App skills: 3,384 → 3,569 (+185). Always-on unchanged at 2,576.
