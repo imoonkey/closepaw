@@ -6,8 +6,8 @@
 |-------|--------|-------|
 | System prompt | 785 | 50 |
 | Tool descriptions (total) | 1,791 | — |
-| App skills (total) | 3,384 | — |
-| App skills (avg per skill) | 199 | — |
+| App skills (total) | 3,569 | — |
+| App skills (avg per skill) | 209 | — |
 | **Always-on (prompt + tools)** | **2,576** | — |
 
 ## Tool Descriptions + Params
@@ -30,19 +30,19 @@
 
 | Package | Tokens | Lines |
 |---------|--------|-------|
-| org.tasks | 398 | 34 |
-| com.flauschcode.broccoli | 285 | 25 |
-| de.dennisguse.opentracks | 270 | 29 |
+| org.tasks | 439 | 34 |
+| de.dennisguse.opentracks | 282 | 30 |
+| com.simplemobiletools.calendar.pro | 279 | 25 |
+| com.flauschcode.broccoli | 266 | 29 |
 | net.osmand | 253 | 25 |
-| net.gsantner.markor | 232 | 26 |
-| com.simplemobiletools.calendar.pro | 231 | 22 |
-| code.name.monkey.retromusic | 228 | 19 |
-| org.videolan.vlc | 199 | 17 |
+| net.gsantner.markor | 251 | 26 |
+| com.arduia.expense | 230 | 27 |
+| org.videolan.vlc | 224 | 21 |
+| code.name.monkey.retromusic | 219 | 22 |
 | com.simplemobiletools.gallery.pro | 193 | 18 |
-| com.arduia.expense | 185 | 24 |
 | com.android.chrome | 176 | 20 |
 | com.google.android.apps.nbu.files | 167 | 21 |
-| com.android.settings | 129 | 17 |
+| com.android.settings | 152 | 17 |
 | com.google.android.apps.photos | 127 | 16 |
 | com.dimowner.audiorecorder | 113 | 14 |
 | com.google.android.calendar | 109 | 12 |

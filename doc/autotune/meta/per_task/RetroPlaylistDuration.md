@@ -2,6 +2,9 @@
 
 **Status: FIXED R33** — Per-song 3-dot menu "Add to playlist" + add-all-then-prune strategy.
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 60 | 60 turns with Error, need trace analysis
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL — REASONING ERROR (repeat of R39)
 - Score: 0.0 | Turns: 5 | Error. Identical to R39 — agent misunderstood "using the provided songs" as requiring an external song list, never navigated beyond Home screen.
 - Hybrid perception (screenshots) active but irrelevant — agent never reached a screen where durations would appear.

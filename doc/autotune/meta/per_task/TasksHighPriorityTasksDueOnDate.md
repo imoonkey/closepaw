@@ -1,5 +1,8 @@
 
 
+### R44 (20260313_095409)
+- Score: 1.0 | Turns: 26 | RECOVERED — detail-view verification mandate followed
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 19/50 | REGRESSION from R39 (1.0).
 - Same failure as R21 retry1: agent included "Back Up Computer Files" whose detail view shows due="Saturday, October 7" (not Oct 18). Relied on list-view "Wed" label without verifying full-format due date in detail view. Skill guidance was present but not applied.

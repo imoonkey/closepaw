@@ -1,5 +1,8 @@
 # VlcCreateTwoPlaylists
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 30 | Used Browse file browser instead of Video tab despite skill
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 29/30 | Stop: Agent self-terminated (failure)
 - VLC skill WAS injected (confirmed in llm_input_items from turn 2). Contradicts initial claim; first confirmed fail WITH skill.

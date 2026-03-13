@@ -2,6 +2,9 @@
 
 **Status: PARKED (structurally infeasible — 14 tracks × 6 turns = 84, exceeds 50-turn budget)**
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 30 | Used only 30/50 turns, incomplete coverage
+
 ## R42 (20260312_185423) — gpt-5.4 — FAIL — IMPROVED BEHAVIOR
 - Score: 0.0 | Turns: 24 | GoalAchieved (false completion) | Duration: 194s
 - R42 skill change succeeded: agent now uses Edit to read authoritative activity type (was name-based in R41). Checked 3/14 tracks, found 1 running, then stopped despite 26 remaining turns. Violated skill instruction to "open Edit for ALL tracks."

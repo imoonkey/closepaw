@@ -1,5 +1,8 @@
 # TasksDueNextWeek
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 7 | Premature answer in 7 turns, no detail-view verification
+
 ## R43 (20260312_194856) — gpt-5.4 — FAIL — SCRATCHPAD TRUNCATION
 - Score: 0.0 | Turns: 7 | GoalAchieved (false completion) | Duration: ~80s
 - Agent answer: 13 | Correct: 6. Dedup guidance followed initially (8 unique in scratchpad), but scratchpad truncated to ~200 chars at answer time. Agent fell back to counting raw visible rows. Even 8 is wrong (correct 6) — date resolution across recurring instances still broken.

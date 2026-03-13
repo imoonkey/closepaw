@@ -1,5 +1,8 @@
 # TasksCompletedTasksForDate
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 28 | A11y gap + navigation derailment
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 12/30 | GoalAchieved (false completion). Answer: "Schedule Dentist Appointment, Water Plants"
 - Agent correctly read "Show completed" checkbox as checked=true; planned scratchpad diff strategy (ON vs OFF list)

@@ -1,5 +1,8 @@
 
 
+### R44 (20260313_095409)
+- Score: 1.0 | Turns: 6 | RECOVERED — toggle verification rule followed
+
 ## R40 (20260312_122824) — gpt-5.4 — FAIL
 - Score: 0.5 | Turns: 6 | Failed — GoalAchieved. Answer: Wi‑Fi is on and the Settings app is open. (regressed from 1.0)
 

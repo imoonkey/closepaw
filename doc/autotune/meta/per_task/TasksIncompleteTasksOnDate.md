@@ -1,5 +1,8 @@
 # TasksIncompleteTasksOnDate
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 14 | Skipped toggle protocol, listed all visible tasks as incomplete
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 8 | GoalAchieved (wrong answer). Agent scanned full list, date reasoning correct, but included completed tasks. A11y tree checkbox `ImageView` elements expose no `checked`/`checkable` state — agent cannot distinguish complete from incomplete. Same root cause as R39. Behavior improved (systematic scroll + scratchpad, only 8 turns), but platform gap remains blocking.
 

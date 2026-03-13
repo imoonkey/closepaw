@@ -2,6 +2,16 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Full Pass Round 1/R44 (2026-03-13, run 20260313_095409, gpt-5.4, 20-task full set)
+
+**Fixes applied**: (1) ScratchpadState DISPLAY_TRUNCATE_LENGTH 200→400 (platform fix for R43 truncation bug). (2) Tasks.org: completion toggle for both completed/incomplete, due-date detail-view mandate, compact dedup. (3) Broccoli: prescriptive full-field comparison for duplicates, post-save verification. (4) OpenTracks: exact activity type matching, mandatory exhaustive coverage for extrema. (5) RetroMusic: "provided songs" = in-app library. (6) VLC: library-view vs Browse distinction. (7) ProExpense: strip selection labels from data. (8) SimpleCalendar: scratchpad-anchored date range discipline. (9) Settings: explicit post-toggle verification. (10) Markor: exact filename matching, shell metadata re-enabled. App skills: 3,384 → 3,569 (+185). Always-on unchanged at 2,576.
+
+**Results**: 6/20 pass (30.0%). 4 recoveries: MarkorMoveNote (1.0, exact filename fix), SportsTrackerTotalDistanceForCategoryOverInterval (1.0, scroll+exhaustive worked — was 0/3 and previously parked!), TasksHighPriorityTasksDueOnDate (1.0, detail-view mandate followed), TurnOnWifiAndOpenApp (1.0, toggle verification rule). 0 regressions. 14 still failing.
+
+**Key findings**: (1) Skill guidance is ignored in ~30% of cases — SimpleCalendar (no date range), TasksIncomplete (no toggle), VLC (used Browse not Video tab), TasksDueNextWeek (no detail view). This is the #1 systemic issue. (2) Prescriptive Broccoli comparison WORKED (agent opened recipes, compared fields) but turn budget too tight (50/50, 61/80). (3) BrowserDraw and MarkorDeleteNewestNote are permanently blocked (platform/evaluator). (4) ExpenseAddMultipleFromMarkor agent misread "pro expense" as a Markor note name. (5) 4/10 app skill fixes produced direct recoveries — good ROI.
+
+**Token counts**: System prompt 785, Tool descriptions 1,791, App skills 3,569 (avg 209/skill), Always-on 2,576.
+
 ## Success Rate Recovery Round 3/R43 (2026-03-12, run 20260312_194856, gpt-5.4, 6-task targeted)
 
 **Fixes applied**: (1) Tasks.org: deduplication guidance — "deduplicate by task name, count unique only." (2) OpenTracks: 4-step scroll-first checklist protocol. App skills: 3,254 → 3,384 (+130). Always-on unchanged at 2,576.

@@ -2,6 +2,9 @@
 
 **Status: PARKED** — 3 consecutive rounds of scroll instruction escalation (R41-R43) without compliance + a11y gap on Edit form.
 
+### R44 (20260313_095409)
+- Score: 1.0 | Turns: 50 | RECOVERED — scroll + exhaustive check worked
+
 ## R43 (20260312_194856) — gpt-5.4 — FAIL — SCROLL PROTOCOL IGNORED
 - Score: 0.0 | Turns: 35 | GoalAchieved (false completion) | Duration: ~300s
 - 4-step scroll-first protocol injected. Agent followed steps 2-4 (checklist, Edit, mark checked) but skipped step 1 (scroll). Checked all 5 visible tracks, found no kayaking, answered 0. Kayaking tracks below fold.

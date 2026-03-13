@@ -1,5 +1,8 @@
 # SimpleCalendarEventsInNextWeek
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 13 | Ignored date range scratchpad rule, included events outside window
+
 ## R43 (20260312_194856) — gpt-5.4 — FAIL — NONDETERMINISTIC REGRESSION
 - Score: 0.0 | Turns: 10 | GoalAchieved (false completion) | Duration: ~90s
 - Answer: "Meeting with Bob, Product demo, Movie night" (correct: "Product demo, Movie night"). Agent had correct answer in scratchpad but overrode it after scrolling up and seeing "Meeting with Bob" with off-screen date header. No R43 changes affected this — model variance.

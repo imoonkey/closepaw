@@ -2,6 +2,9 @@
 
 **Status: FIXED R32** — Scratchpad tracking + 80 turn budget. Agent checked all 7 fields.
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 61 | Full-field comparison followed but ran out of turns (61/80)
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 59/80 | GoalAchieved | Over-deleted BSS noise pool (4 of 5 removed, some unique). Correctly handled Avocado Toast (1 dup deleted) and Pan-Seared Salmon (1 dup deleted). Ghost-delete issue: ~10 BSS deletion attempts in T5-24 only registered 2. Without field-comparison algorithm, agent defaults to title+desc matching and cannot distinguish noise rows. Known issue confirmed.
 

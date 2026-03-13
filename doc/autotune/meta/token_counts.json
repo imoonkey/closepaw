@@ -91,16 +91,16 @@
   },
   "app_skills": {
     "total": {
-      "chars": 15223,
-      "tokens": 3384
+      "chars": 15978,
+      "tokens": 3569
     },
     "count": 17,
-    "avg_tokens": 199,
+    "avg_tokens": 209,
     "skills": {
       "code.name.monkey.retromusic": {
-        "chars": 986,
-        "tokens": 228,
-        "lines": 19
+        "chars": 939,
+        "tokens": 219,
+        "lines": 22
       },
       "com.android.chrome": {
         "chars": 729,
@@ -108,14 +108,14 @@
         "lines": 20
       },
       "com.android.settings": {
-        "chars": 670,
-        "tokens": 129,
+        "chars": 785,
+        "tokens": 152,
         "lines": 17
       },
       "com.arduia.expense": {
-        "chars": 816,
-        "tokens": 185,
-        "lines": 24
+        "chars": 1024,
+        "tokens": 230,
+        "lines": 27
       },
       "com.dimowner.audiorecorder": {
         "chars": 468,
@@ -123,9 +123,9 @@
         "lines": 14
       },
       "com.flauschcode.broccoli": {
-        "chars": 1353,
-        "tokens": 285,
-        "lines": 25
+        "chars": 1237,
+        "tokens": 266,
+        "lines": 29
       },
       "com.google.android.apps.nbu.files": {
         "chars": 769,
@@ -148,9 +148,9 @@
         "lines": 14
       },
       "com.simplemobiletools.calendar.pro": {
-        "chars": 1093,
-        "tokens": 231,
-        "lines": 22
+        "chars": 1278,
+        "tokens": 279,
+        "lines": 25
       },
       "com.simplemobiletools.gallery.pro": {
         "chars": 869,
@@ -158,13 +158,13 @@
         "lines": 18
       },
       "de.dennisguse.opentracks": {
-        "chars": 1213,
-        "tokens": 270,
-        "lines": 29
+        "chars": 1278,
+        "tokens": 282,
+        "lines": 30
       },
       "net.gsantner.markor": {
-        "chars": 1005,
-        "tokens": 232,
+        "chars": 1073,
+        "tokens": 251,
         "lines": 26
       },
       "net.osmand": {
@@ -173,14 +173,14 @@
         "lines": 25
       },
       "org.tasks": {
-        "chars": 1753,
-        "tokens": 398,
+        "chars": 1964,
+        "tokens": 439,
         "lines": 34
       },
       "org.videolan.vlc": {
-        "chars": 901,
-        "tokens": 199,
-        "lines": 17
+        "chars": 967,
+        "tokens": 224,
+        "lines": 21
       }
     }
   }

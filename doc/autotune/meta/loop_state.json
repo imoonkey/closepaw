@@ -2,27 +2,33 @@
   "goal": "Pass all 20 remaining tasks. Do not stop until at least 18/20 pass.",
   "mode": "auto",
   "next_round": 45,
-  "status": "running",
+  "status": "active",
   "active_backlog_file": "eval/config/autotune_round_44.txt",
   "loop_name": "full_pass",
-  "current_round": {
+  "current_round": null,
+  "last_round": {
     "number": 44,
-    "status": "running",
-    "started_at": "2026-03-13T16:35:00Z",
-    "fixes_applied": [
-      "ScratchpadState: DISPLAY_TRUNCATE_LENGTH 200→400 (platform fix for scratchpad truncation)",
-      "Tasks.org: stronger completion-status toggle, due-date verification mandate, compact dedup",
-      "Broccoli: prescriptive full-field comparison for duplicates, post-save verification",
-      "OpenTracks: exact activity type matching, mandatory exhaustive coverage for extrema",
-      "RetroMusic: 'provided songs' = in-app library clarification",
-      "VLC: library-view vs Browse distinction, video tab for video playlists",
-      "ProExpense: strip selection labels from data fields",
-      "SimpleCalendar: stronger date range rule with scratchpad discipline",
-      "Settings: explicit toggle verification",
-      "Markor: exact filename matching, shell metadata access re-enabled"
-    ]
+    "run_id": "20260313_095409",
+    "pass_rate": "6/20",
+    "score": 0.30,
+    "recovered": ["MarkorMoveNote", "SportsTrackerTotalDistanceForCategoryOverInterval", "TasksHighPriorityTasksDueOnDate", "TurnOnWifiAndOpenApp"],
+    "regressions": [],
+    "still_failing": [
+      "BrowserDraw", "ExpenseAddMultipleFromMarkor", "MarkorDeleteNewestNote",
+      "RecipeAddMultipleRecipesFromMarkor2", "RecipeDeleteDuplicateRecipes2",
+      "RecipeDeleteDuplicateRecipes3", "RetroPlaylistDuration",
+      "SimpleCalendarEventsInNextWeek", "SportsTrackerActivitiesCountForWeek",
+      "SportsTrackerLongestDistanceActivity", "TasksCompletedTasksForDate",
+      "TasksDueNextWeek", "TasksIncompleteTasksOnDate", "VlcCreateTwoPlaylists"
+    ],
+    "key_findings": [
+      "Skill guidance ignored in ~30% of cases (systemic issue)",
+      "Prescriptive Broccoli comparison worked but needs more turns",
+      "4/10 skill fixes produced recoveries — good ROI"
+    ],
+    "recommended_action": "continue",
+    "token_delta": "+185 app skill tokens"
   },
-  "last_round": null,
   "prior_loop": {
     "name": "success_rate_recovery",
     "rounds": "R41-R43",

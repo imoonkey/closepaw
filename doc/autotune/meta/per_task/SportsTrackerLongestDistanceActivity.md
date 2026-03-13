@@ -1,5 +1,8 @@
 # SportsTrackerLongestDistanceActivity
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 50 | Full 50 turns used, inexact type match or incomplete coverage
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL — WRONG_ANSWER / ActivityTypeMismatch
 - Score: 0.0 | Turns: 16 | GoalAchieved. Answer: "18668" (wrong)
 - Agent checked 2 of 8 tracks this week. Found "Scenic Cycling" with Edit activity type "biking" (11.60 mi) and equated "biking" with "mountain biking". These are distinct types in OpenTracks. The correct mountain biking track was likely among the unchecked tracks ("Road Bike Ride", etc.).

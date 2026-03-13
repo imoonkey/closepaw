@@ -1,4 +1,7 @@
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 24 | Silent save failure for Pan-Seared Salmon, agent claimed success
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL — REGRESSION
 - Score: 0.0 | Turns: 34/50 | GoalAchieved but scorer 0.0
 - Pan-Seared Salmon with Quinoa silently failed to save in Broccoli (twice). SAVE click reported success, detail view displayed correctly, but recipe not persisted to DB. Beef Stir Fry and Raspberry Almond Smoothie saved successfully using identical workflow.

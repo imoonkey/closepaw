@@ -1,4 +1,7 @@
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 8 | Agent correctly deleted but evaluator scored 0 (atime bug)
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL (evaluator false negative, 3rd consecutive)
 - Score: 0.0 | Turns: 8 | EvalBug — Identical to R33/R39. Agent sorted by Date, read timestamps (fine_jelly_final.md=15:34, final_friendly_king.md=15:17), correctly deleted the one with the later mtime. Evaluator scored 0.0. Post-deletion: surviving file's timestamp mutated from 15:17 to 15:34 (filesystem side-effect). 0/8 lifetime. Should remain in cannot_handle_group.txt — no prompt/skill fix possible for evaluator mismatch.
 

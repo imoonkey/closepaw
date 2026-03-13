@@ -1,5 +1,8 @@
 # RetroSavePlaylist
 
+### R44 (20260313_095409)
+- Score: 1.0 | Turns: 29 | Stable pass
+
 ## R39 (20260312_094821) — gpt-5.4 — PASS
 - Score: 1.0 | Turns: 30 | Clean pass in 30 turns. (improved from 0.0)
 

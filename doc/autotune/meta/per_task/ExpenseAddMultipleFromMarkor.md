@@ -1,5 +1,8 @@
 # ExpenseAddMultipleFromMarkor
 
+### R44 (20260313_095409)
+- Score: 0.0 | Turns: 15 | Agent stayed in Markor, didn't open Pro Expense app
+
 ## R41 (20260312_173354) — gpt-5.4 — FAIL — SCORER MISMATCH (known)
 - Score: 0.0 | Turns: 19/30 | GoalAchieved but scorer 0.0. Lifetime: 1/18 (6%).
 - **Trace-verified**: Same correct execution as R39. Agent read Markor, extracted both reimbursable rows to scratchpad, opened Pro Expense, entered Laundry ($96.3, Clothes, "Urgent. Reimbursable.") and Car Insurance ($303.01, Transportation, "I may repeat this. Reimbursable."). Both visible in Recent list at completion. No element staleness, no field mismatch.
