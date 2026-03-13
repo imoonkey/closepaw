@@ -20,7 +20,7 @@
 
 ## Step 2: Ralph loop (copy-paste this)
 
-/ralph-loop:ralph-loop "Run /autotune-loop. One round per iteration. --remote --parallel 2. Model: gpt-5.4.
+/ralph-loop:ralph-loop "Run /autotune-loop --remote --parallel 2.  One round per iteration. Model: gpt-5.4.
 Must read:
 - /autotune skill steps to follow exactly, e.g., do not skip Step 4.
 - Goal: doc/autotune/round_41/prompt_optimization_goal.md.

@@ -1,31 +1,15 @@
 {
-  "goal": "Maximize prompt generalization and minimize prompt tokens while maintaining or improving task success rate. Scope: system prompt, tool descriptions, app skills.",
+  "goal": "Recover all historically-passing tasks while maintaining prompt generalization. Targeted add-back phase.",
   "mode": "auto",
   "next_round": 41,
-  "status": "complete",
-  "stop_reason": "stop_success — cumulative -992 tokens (-28.4% always-on) across R39+R40 with zero true regressions. All three prompt layers optimized: system prompt -33.5%, tool descriptions -26.0%, app skills -25.3%. Further cuts would target app skills for marginal gains with higher regression risk.",
-  "active_backlog_file": "eval/config/autotune_round_39.txt",
-  "loop_name": "prompt_optimization",
-  "last_round": {
-    "round": 40,
-    "run_id": "20260312_132005_merged",
-    "status": "completed",
-    "result": "32/51 (62.7%, up from R39 30/51). 6 improvements, 4 flaky regressions (seed variance). Net +2 passing tasks.",
-    "changes": "Cut 522 tokens from tool descriptions (2,313 → 1,791, -22.6%): MobileActionTool, ScratchpadTool, RememberExperienceTool, DelegateTaskTool, ShellTool, SystemButtonTool. Always-on: 3,028 → 2,506.",
-    "token_counts": {
-      "system_prompt": 715,
-      "tool_descriptions": 1791,
-      "app_skills": 3093,
-      "always_on": 2506
-    },
-    "task_count": 51,
-    "recommended_action": "stop_success",
-    "next_focus": null
-  },
+  "status": "active",
+  "active_backlog_file": "eval/config/autotune_round_41.txt",
+  "loop_name": "success_rate_recovery",
+  "last_round": null,
   "prior_loop": {
-    "name": "skill_generalization",
-    "rounds": "R36-R38",
-    "result": "23/29 pass with generalized skills, 3 accepted regressions, 3 scorer bugs fixed post-loop"
+    "name": "prompt_optimization",
+    "rounds": "R39-R40",
+    "result": "-992 tokens (-28.4% always-on), zero confirmed regressions. 30/51 pass R39, 32/51 pass R40."
   },
-  "plan_file": "doc/autotune/round_39/prompt_optimization_goal.md"
+  "plan_file": "doc/autotune/round_41/prompt_optimization_goal.md"
 }
