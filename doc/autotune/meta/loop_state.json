@@ -1,11 +1,27 @@
 {
   "goal": "Pass all 20 remaining tasks. Do not stop until at least 18/20 pass.",
   "mode": "auto",
-  "next_round": 44,
-  "status": "active",
+  "next_round": 45,
+  "status": "running",
   "active_backlog_file": "eval/config/autotune_round_44.txt",
   "loop_name": "full_pass",
-  "current_round": null,
+  "current_round": {
+    "number": 44,
+    "status": "running",
+    "started_at": "2026-03-13T16:35:00Z",
+    "fixes_applied": [
+      "ScratchpadState: DISPLAY_TRUNCATE_LENGTH 200→400 (platform fix for scratchpad truncation)",
+      "Tasks.org: stronger completion-status toggle, due-date verification mandate, compact dedup",
+      "Broccoli: prescriptive full-field comparison for duplicates, post-save verification",
+      "OpenTracks: exact activity type matching, mandatory exhaustive coverage for extrema",
+      "RetroMusic: 'provided songs' = in-app library clarification",
+      "VLC: library-view vs Browse distinction, video tab for video playlists",
+      "ProExpense: strip selection labels from data fields",
+      "SimpleCalendar: stronger date range rule with scratchpad discipline",
+      "Settings: explicit toggle verification",
+      "Markor: exact filename matching, shell metadata access re-enabled"
+    ]
+  },
   "last_round": null,
   "prior_loop": {
     "name": "success_rate_recovery",
