@@ -12,6 +12,9 @@ The new-file dialog has **name** and **extension** fields (extension defaults to
 - No extension needed: clear the extension field with `clear: true` and empty `input_text: ""`.
 - Different extension: change the extension field accordingly.
 
+## File Selection
+File names may include randomized prefixes. Scan ALL visible entries and match the target name as a substring. After move/copy, verify the file is gone from source.
+
 ## Editing Tips
 - Insert at beginning: Special Keys → Jump to Beginning.
 - Undo: Special Keys → Undo.

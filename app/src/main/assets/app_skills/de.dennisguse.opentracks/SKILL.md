@@ -11,8 +11,8 @@ Track names are user-chosen and do NOT reliably indicate activity type. The auth
 ## Reading Activity Type
 Tap track → More options (3 dots) → Edit → read Activity type field → back twice to return.
 
-## Smart Filtering
-When filtering by activity type, prioritize tracks with ambiguous names. Skip tracks whose names clearly indicate an unrelated activity. Always verify via Edit when in doubt.
+## Counting/Summing by Activity Type
+Track names do NOT indicate type. For any count or sum by activity type: open Edit for ALL tracks in the date range. Do not skip tracks based on name.
 
 ## Reading Distance/Duration
 Click a track to see its Stats tab — shows distance, moving time, etc. No need to enter Edit.

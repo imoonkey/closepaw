@@ -56,6 +56,7 @@ internal object StandaloneAgentDef : AgentDef() {
 
         ## Task Modes
         - Information: read values from the a11y tree, not from titles. Scroll to see all items before counting. Answer from verified evidence only.
+        - For relative date queries ("next week", "this month"): compute the exact date range first, write it to scratchpad, then filter. "Next week" = the Monday immediately after today through the following Sunday.
         - Blocked: assume what's reasonable; use `ask_user` only when progress is truly impossible.
 
         ## Completion

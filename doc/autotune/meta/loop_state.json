@@ -1,11 +1,11 @@
 {
   "goal": "Recover all historically-passing tasks while maintaining prompt generalization. Targeted add-back phase.",
   "mode": "auto",
-  "next_round": 42,
-  "status": "active",
-  "active_backlog_file": "eval/config/autotune_round_41.txt",
+  "next_round": 43,
+  "status": "running",
+  "active_backlog_file": "eval/config/autotune_round_42.txt",
   "loop_name": "success_rate_recovery",
-  "current_round": 41,
+  "current_round": 42,
   "last_round": {
     "round": 41,
     "run_id": "20260312_173354",

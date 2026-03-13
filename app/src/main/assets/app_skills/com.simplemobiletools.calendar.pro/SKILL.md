@@ -12,7 +12,7 @@ description: App-specific guidance for Simple Calendar Pro.
 
 ## Date & Time
 - Use the device date context to map relative labels and requested absolute dates.
-- "Nh" notation uses 24-hour format: "5h" = 05:00, "17h" = 17:00.
+- "Nh" notation ALWAYS means 24-hour format: "5h" MUST be 05:00, NOT 17:00.
 - For date pickers with NumberPicker spinners: use scroll/swipe gestures, NOT type(). NumberPicker widgets reject typed input.
 - Before answering a date-specific query, confirm the current view shows the target date.
 

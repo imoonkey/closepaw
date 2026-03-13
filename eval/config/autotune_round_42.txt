@@ -1,0 +1,8 @@
+MarkorMergeNotes
+MarkorMoveNote
+SimpleCalendarAddOneEventRelativeDay
+SimpleCalendarEventsInNextWeek
+SportsTrackerActivitiesCountForWeek
+SportsTrackerTotalDistanceForCategoryOverInterval
+TasksDueNextWeek
+FilesMoveFile
