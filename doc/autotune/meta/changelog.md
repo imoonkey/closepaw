@@ -2,6 +2,16 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Success Rate Recovery Round 3/R43 (2026-03-12, run 20260312_194856, gpt-5.4, 6-task targeted)
+
+**Fixes applied**: (1) Tasks.org: deduplication guidance — "deduplicate by task name, count unique only." (2) OpenTracks: 4-step scroll-first checklist protocol. App skills: 3,254 → 3,384 (+130). Always-on unchanged at 2,576.
+
+**Results**: 3/6 pass (50.0%). 0 recoveries. 1 nondeterministic regression: SimpleCalendarEventsInNextWeek (0.0, was 1.0 — agent had correct answer in scratchpad but overrode it with ambiguous scrolled data; no R43 changes affected this task). 2 still failing: SportsTrackerTotalDistanceForCategoryOverInterval (scroll protocol step 1 ignored; parking), TasksDueNextWeek (dedup partially worked but scratchpad truncated at answer time; platform bug).
+
+**Key findings**: (1) OpenTracks scroll-first instruction failed 3 consecutive rounds — parking. (2) TasksDueNextWeek dedup guidance was followed initially (8 unique in scratchpad) but scratchpad was truncated to ~200 chars at answer time, destroying working memory. Platform-level bug. (3) SimpleCalendarEventsInNextWeek regression is model variance, not code-caused.
+
+**Token counts**: System prompt 785, Tool descriptions 1,791, App skills 3,384 (avg 199/skill), Always-on 2,576.
+
 ## Success Rate Recovery Round 2/R42 (2026-03-12, run 20260312_185423, gpt-5.4, 8-task targeted)
 
 **Fixes applied**: (1) Memory cleanup — deleted poisoned Markor memory from emulator. (2) OpenTracks: replaced Smart Filtering with exhaustive-check ("open Edit for ALL tracks"). (3) System prompt: added date computation rule ("Next week = Monday immediately after today through following Sunday"). (4) Markor: added File Selection section (substring matching + post-move verification). (5) SimpleCalendar: strengthened "Nh" notation to imperative MUST/ALWAYS. (6) New documentsui SKILL.md for Files app. Always-on: 2,531 → 2,576 tokens (+1.8%).

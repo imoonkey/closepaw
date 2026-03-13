@@ -1,5 +1,9 @@
 # FilesMoveFile
 
+## R43 (20260312_194856) — gpt-5.4 — PASS — REGRESSION CANARY
+- Score: 1.0 | Turns: 18 | GoalAchieved | Duration: 173s
+- Stable across R41-R43 (3 consecutive passes).
+
 ## R42 (20260312_185423) — gpt-5.4 — PASS — REGRESSION CANARY
 - Score: 1.0 | Turns: 19 | GoalAchieved | Duration: 161s
 - Regression canary holds. Agent moved file correctly using Documents UI. New documentsui skill was available but pass is model-native — FilesMoveFile already passed in R41 without the skill. No regression from R42 changes.

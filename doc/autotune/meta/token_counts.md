@@ -6,8 +6,8 @@
 |-------|--------|-------|
 | System prompt | 785 | 50 |
 | Tool descriptions (total) | 1,791 | — |
-| App skills (total) | 3,254 | — |
-| App skills (avg per skill) | 191 | — |
+| App skills (total) | 3,384 | — |
+| App skills (avg per skill) | 199 | — |
 | **Always-on (prompt + tools)** | **2,576** | — |
 
 ## Tool Descriptions + Params
@@ -30,13 +30,13 @@
 
 | Package | Tokens | Lines |
 |---------|--------|-------|
-| org.tasks | 319 | 30 |
+| org.tasks | 398 | 34 |
 | com.flauschcode.broccoli | 285 | 25 |
+| de.dennisguse.opentracks | 270 | 29 |
 | net.osmand | 253 | 25 |
 | net.gsantner.markor | 232 | 26 |
 | com.simplemobiletools.calendar.pro | 231 | 22 |
 | code.name.monkey.retromusic | 228 | 19 |
-| de.dennisguse.opentracks | 219 | 25 |
 | org.videolan.vlc | 199 | 17 |
 | com.simplemobiletools.gallery.pro | 193 | 18 |
 | com.arduia.expense | 185 | 24 |

@@ -91,11 +91,11 @@
   },
   "app_skills": {
     "total": {
-      "chars": 14640,
-      "tokens": 3254
+      "chars": 15223,
+      "tokens": 3384
     },
     "count": 17,
-    "avg_tokens": 191,
+    "avg_tokens": 199,
     "skills": {
       "code.name.monkey.retromusic": {
         "chars": 986,
@@ -158,9 +158,9 @@
         "lines": 18
       },
       "de.dennisguse.opentracks": {
-        "chars": 990,
-        "tokens": 219,
-        "lines": 25
+        "chars": 1213,
+        "tokens": 270,
+        "lines": 29
       },
       "net.gsantner.markor": {
         "chars": 1005,
@@ -173,9 +173,9 @@
         "lines": 25
       },
       "org.tasks": {
-        "chars": 1393,
-        "tokens": 319,
-        "lines": 30
+        "chars": 1753,
+        "tokens": 398,
+        "lines": 34
       },
       "org.videolan.vlc": {
         "chars": 901,

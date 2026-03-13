@@ -1,5 +1,9 @@
 # TasksDueNextWeek
 
+## R43 (20260312_194856) — gpt-5.4 — FAIL — SCRATCHPAD TRUNCATION
+- Score: 0.0 | Turns: 7 | GoalAchieved (false completion) | Duration: ~80s
+- Agent answer: 13 | Correct: 6. Dedup guidance followed initially (8 unique in scratchpad), but scratchpad truncated to ~200 chars at answer time. Agent fell back to counting raw visible rows. Even 8 is wrong (correct 6) — date resolution across recurring instances still broken.
+
 ## R42 (20260312_185423) — gpt-5.4 — FAIL — DUPLICATE COUNTING
 - Score: 0.0 | Turns: 8 | GoalAchieved (false completion) | Duration: 82s
 - Agent answer: 14 | Correct: 6. R42 date computation rule worked (computed Oct 16-22 in Turn 1, scratchpad used). Full list scrolled. But counted every visible row with a next-week date label, including recurring/duplicate task instances. Same failure as R41 (answer=13), slightly worse.

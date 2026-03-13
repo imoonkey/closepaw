@@ -3,3 +3,4 @@ MarkorTranscribeVideo
 OsmAndMarker
 OsmAndTrack
 SportsTrackerActivitiesCountForWeek
+SportsTrackerTotalDistanceForCategoryOverInterval

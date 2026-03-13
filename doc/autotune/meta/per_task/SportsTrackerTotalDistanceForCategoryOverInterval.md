@@ -1,6 +1,11 @@
 # SportsTrackerTotalDistanceForCategoryOverInterval
 
-**Status: STILL FAILING** — Checked all 5 visible tracks (improvement) but never scrolled for more. A11y gap on Edit form.
+**Status: PARKED** — 3 consecutive rounds of scroll instruction escalation (R41-R43) without compliance + a11y gap on Edit form.
+
+## R43 (20260312_194856) — gpt-5.4 — FAIL — SCROLL PROTOCOL IGNORED
+- Score: 0.0 | Turns: 35 | GoalAchieved (false completion) | Duration: ~300s
+- 4-step scroll-first protocol injected. Agent followed steps 2-4 (checklist, Edit, mark checked) but skipped step 1 (scroll). Checked all 5 visible tracks, found no kayaking, answered 0. Kayaking tracks below fold.
+- **Parking**: 3 rounds of escalating guidance without scroll compliance + a11y gap on Edit screens.
 
 ## R42 (20260312_185423) — gpt-5.4 — FAIL — IMPROVED BEHAVIOR
 - Score: 0.0 | Turns: 37 | GoalAchieved (false completion) | Duration: 313s

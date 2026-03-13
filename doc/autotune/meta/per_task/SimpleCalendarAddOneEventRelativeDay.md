@@ -1,5 +1,9 @@
 # SimpleCalendarAddOneEventRelativeDay
 
+## R43 (20260312_194856) — gpt-5.4 — PASS — STABLE
+- Score: 1.0 | Turns: 29 | GoalAchieved | Duration: ~150s
+- MUST/ALWAYS language continues to work. Near budget limit (29/30 turns) but succeeded.
+
 ## R42 (20260312_185423) — gpt-5.4 — PASS — RECOVERED
 - Score: 1.0 | Turns: 17 | GoalAchieved | Duration: 150s
 - **RECOVERED from R41 (was 0.0).** R41/R39/R9 failure: agent interpreted "5h" as 17:00. R42 fix: strengthened SimpleCalendar skill from informational to imperative ("ALWAYS means 24-hour format: '5h' MUST be 05:00, NOT 17:00"). Agent correctly created event at 05:00-06:00 on Oct 19.

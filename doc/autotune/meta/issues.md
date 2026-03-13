@@ -1,9 +1,11 @@
 # Global Issues
 
 ## Open
-- [ ] **Tasks.org duplicate counting (NEW R42)** — TasksDueNextWeek. Tasks.org shows recurring/sub-task instances as separate rows. Agent counted 14 instead of 6 unique tasks. Needs deduplication guidance in Tasks.org skill: "deduplicate by task name, count each unique name only once."
-- [ ] **OpenTracks no-scroll despite skill instruction (NEW R42)** — SportsTrackerTotalDistanceForCategoryOverInterval. Agent checked all 5 visible tracks (R42 improvement) but never scrolled to find more. Skill says "scroll the entire list" but agent ignores it. Needs stronger scroll-first + checklist protocol.
-- [ ] **OpenTracks Edit form a11y tree failure (NEW R42)** — SportsTrackerTotalDistanceForCategoryOverInterval. OpenTracks TrackEditActivity exposes zero form fields to accessibility API. Agent hallucinated all 5 activity types from track names (happened to be correct). Infra-level PerceptionGap — no fix without screenshot_input or app fix.
+- [ ] **Scratchpad truncation platform bug (NEW R43)** — TasksDueNextWeek. Working memory truncates scratchpad values to ~200 chars, destroying deduplicated task lists at answer time. Agent wrote 8 unique tasks to scratchpad but couldn't read them back. Critical infrastructure bug that undermines any working-memory-dependent strategy.
+- [ ] **SimpleCalendarEventsInNextWeek nondeterministic (NEW R43)** — Agent had correct answer in scratchpad but overrode it after scrolling. Model variance, not code-caused. Accept as nondeterministic.
+- [x] **Tasks.org duplicate counting (R42→PARTIAL R43)** — Dedup guidance added. Agent partially followed it (8 unique in scratchpad) but scratchpad truncation prevented use at answer time. Root cause shifted to platform bug.
+- [x] **OpenTracks no-scroll despite skill instruction (R42→PARKED R43)** — 3 rounds of escalating scroll guidance without compliance. Parking.
+- [ ] **OpenTracks Edit form a11y tree failure (NEW R42)** — OpenTracks TrackEditActivity exposes zero form fields to accessibility API. Infra-level PerceptionGap.
 - [x] **Poisoned recalled memory (R41→RESOLVED R42)** — MarkorMergeNotes. Cleared all agent memory from emulator. MarkorMergeNotes recovered to 1.0.
 - [x] **Smart Filtering conflict (R41→RESOLVED R42)** — SportsTrackerTotalDistanceForCategoryOverInterval. Replaced Smart Filtering with exhaustive-check guidance. Agent now checks all visible tracks (5/5 vs 2/5). Scroll issue remains separate.
 - [x] **Semantic date reasoning (R41→RESOLVED R42)** — SimpleCalendarEventsInNextWeek recovered via date computation rule. TasksDueNextWeek date computation now correct but duplicate counting remains.
@@ -58,6 +60,7 @@
 ## Parked (cannot_handle)
 - MarkorMoveNote — 3 consecutive failures (R39-R42). Substring matching guidance added R42 but agent picks first match among multiple candidates. Further disambiguation (prefer randomized prefix) would be eval-specific. (UPDATED: R42, was R39)
 - SportsTrackerActivitiesCountForWeek — Structurally infeasible: 14 tracks × 6 turns/track = 84 turns, exceeds 50-turn budget. R42 showed improved behavior (uses Edit, checked 3/14) but even perfect compliance can't complete. (NEW: R42)
+- SportsTrackerTotalDistanceForCategoryOverInterval — 3 rounds of escalating scroll instruction (R41-R43) without compliance. Agent follows checklist steps 2-4 but consistently skips step 1 (scroll). Combined with a11y gap on Edit form (zero fields exposed). (NEW: R43, was R25 FIXED then RE-REGRESSED R41)
 - MarkorTranscribeVideo — continuous (video) vision/OCR capability beyond current perception mode
 - OsmAndMarker — search unreliable for small localities + marker button not in a11y tree + recurring infra failures ("no such table: map_markers"). Unpark loop R24-R27: 3 consecutive failures. (UPDATED: AT-R27, was AT-R1)
 - OsmAndTrack — map UI inaccessible via accessibility service. Route planner degrades to country-level for small localities. (UNCHANGED: AT-R1)

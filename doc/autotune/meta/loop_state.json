@@ -1,37 +1,35 @@
 {
   "goal": "Recover all historically-passing tasks while maintaining prompt generalization. Targeted add-back phase.",
   "mode": "auto",
-  "next_round": 43,
+  "next_round": 44,
   "status": "running",
   "active_backlog_file": "eval/config/autotune_round_43.txt",
   "loop_name": "success_rate_recovery",
-  "current_round": 42,
+  "current_round": 43,
   "last_round": {
-    "round": 42,
-    "run_id": "20260312_185423",
+    "round": 43,
+    "run_id": "20260312_194856",
     "model": "gpt-5.4",
-    "tasks_evaluated": 8,
-    "pass_rate": "4/8 (50.0%)",
-    "passes": ["FilesMoveFile", "MarkorMergeNotes", "SimpleCalendarAddOneEventRelativeDay", "SimpleCalendarEventsInNextWeek"],
-    "recoveries": ["MarkorMergeNotes", "SimpleCalendarAddOneEventRelativeDay", "SimpleCalendarEventsInNextWeek"],
-    "regressions": [],
-    "parked": ["MarkorMoveNote", "SportsTrackerActivitiesCountForWeek"],
+    "tasks_evaluated": 6,
+    "pass_rate": "3/6 (50.0%)",
+    "passes": ["FilesMoveFile", "MarkorMergeNotes", "SimpleCalendarAddOneEventRelativeDay"],
+    "recoveries": [],
+    "regressions": ["SimpleCalendarEventsInNextWeek"],
+    "parked": ["SportsTrackerTotalDistanceForCategoryOverInterval"],
     "key_findings": [
-      "3 recovered: memory cleanup, MUST language, date computation rule all worked.",
-      "0 regressions across 8 tasks.",
-      "MarkorMoveNote parked: 3 consecutive failures, remaining fix eval-specific.",
-      "SportsTrackerActivitiesCountForWeek parked: structurally infeasible (84 turns needed, 50 budget).",
-      "SportsTrackerTotalDistanceForCategoryOverInterval: improved (5/5 visible checked) but no scroll + a11y gap on Edit.",
-      "TasksDueNextWeek: duplicate counting (14 vs 6), needs Tasks.org dedup guidance."
+      "0 recoveries. 1 nondeterministic regression (SimpleCalendarEventsInNextWeek).",
+      "SportsTrackerTotalDistanceForCategoryOverInterval parked: 3 rounds of scroll instruction without compliance + a11y gap.",
+      "TasksDueNextWeek: dedup guidance partially worked (8 unique in scratchpad) but scratchpad truncated at answer time. Platform bug.",
+      "SimpleCalendarEventsInNextWeek regression is nondeterministic — agent had correct answer in scratchpad but overrode it."
     ],
     "next_steps": [
-      "Add Tasks.org deduplication guidance to SKILL.md",
-      "Strengthen OpenTracks scroll-first + checklist protocol",
-      "If SportsTrackerTotalDistanceForCategoryOverInterval still fails R43, park due to a11y gap"
+      "Investigate scratchpad truncation platform bug (working_memory value length limit)",
+      "Consider parking TasksDueNextWeek if truncation is unfixable",
+      "SimpleCalendarEventsInNextWeek: no code change needed — nondeterministic regression"
     ],
-    "token_delta": "+45 always-on (2531 -> 2576)",
-    "recommended_action": "continue",
-    "analysis_file": "doc/autotune/round_42/20260312_185423/common_problems_claude.md"
+    "token_delta": "+0 always-on (2576), +130 app skills (3254 -> 3384)",
+    "recommended_action": "stop_assess",
+    "analysis_file": "doc/autotune/round_43/20260312_194856/common_problems_claude.md"
   },
   "prior_loop": {
     "name": "prompt_optimization",
