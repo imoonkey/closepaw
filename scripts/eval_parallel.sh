@@ -122,7 +122,7 @@ running_avd_name() {
   local serial="$1"
   local raw=""
   raw="$(adb -s "${serial}" emu avd name 2>/dev/null || true)"
-  printf '%s\n' "${raw}" | awk 'NF && $0 != "OK" { print; exit }'
+  printf '%s\n' "${raw}" | tr -d '\r' | awk 'NF && $0 != "OK" { print; exit }'
 }
 
 find_running_serial_for_avd() {
