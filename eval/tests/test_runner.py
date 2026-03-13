@@ -304,7 +304,7 @@ class RunnerTaskPackageMapTest(unittest.TestCase):
 
 
 class RunnerConfigLoadingTest(unittest.TestCase):
-    def _write_config(
+    def _write_default_config(
         self,
         root: Path,
         perform_bridge_setup: str | None = None,
@@ -318,7 +318,7 @@ class RunnerConfigLoadingTest(unittest.TestCase):
             else ""
         )
         adb_path_line = f"  adb_path: {adb_path}\n" if adb_path is not None else ""
-        config_path = config_dir / "test.yaml"
+        config_path = config_dir / "default.yaml"
         config_path.write_text(
             (
                 "suite_family: android_world\n"
@@ -351,9 +351,19 @@ class RunnerConfigLoadingTest(unittest.TestCase):
                 "  trace_enabled: true\n"
                 "  max_wait_seconds: 900\n"
                 "  poll_interval_seconds: 1\n"
+                "  task_overrides:\n"
+                "    BrowserDraw:\n"
+                "      perception_mode: hybrid\n"
             ),
             encoding="utf-8",
         )
+        return config_path
+
+    def _write_overlay_config(self, root: Path, body: str = "") -> Path:
+        config_dir = root / "eval" / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / "test.yaml"
+        config_path.write_text(body, encoding="utf-8")
         return config_path
 
     def _args_for(self, config_path: Path) -> argparse.Namespace:
@@ -373,21 +383,28 @@ class RunnerConfigLoadingTest(unittest.TestCase):
     def test_perform_bridge_setup_defaults_true(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = self._write_config(root)
+            self._write_default_config(root)
+            config_path = self._write_overlay_config(root)
             config = load_config(root, self._args_for(config_path))
         self.assertTrue(config.perform_bridge_setup)
 
     def test_perform_bridge_setup_can_be_disabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = self._write_config(root, perform_bridge_setup="false")
+            self._write_default_config(root)
+            config_path = self._write_overlay_config(
+                root,
+                "runner:\n"
+                "  perform_bridge_setup: false\n",
+            )
             config = load_config(root, self._args_for(config_path))
         self.assertFalse(config.perform_bridge_setup)
 
     def test_load_config_from_path_uses_same_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            config_path = self._write_config(root)
+            self._write_default_config(root)
+            config_path = self._write_overlay_config(root)
             config = load_config_from_path(root, config_path)
         self.assertTrue(config.perform_bridge_setup)
 
@@ -395,9 +412,46 @@ class RunnerConfigLoadingTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             with mock.patch.dict("os.environ", {"HOME": "/tmp/remote-home"}, clear=False):
-                config_path = self._write_config(root, adb_path="~/android-sdk/platform-tools/adb")
+                self._write_default_config(root)
+                config_path = self._write_overlay_config(
+                    root,
+                    "android_world:\n"
+                    "  adb_path: ~/android-sdk/platform-tools/adb\n",
+                )
                 config = load_config(root, self._args_for(config_path))
         self.assertEqual(config.adb_path, "/tmp/remote-home/android-sdk/platform-tools/adb")
+
+    def test_overlay_config_deep_merges_default_yaml(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._write_default_config(root, perform_bridge_setup="true", adb_path="/usr/local/bin/adb")
+            config_path = self._write_overlay_config(
+                root,
+                (
+                    "runner:\n"
+                    "  perform_bridge_setup: false\n"
+                    "bridge:\n"
+                    "  main_model: gpt-5.4\n"
+                    "  task_overrides:\n"
+                    "    BrowserDraw:\n"
+                    "      max_turns: 60\n"
+                    "    BrowserMaze:\n"
+                    "      perception_mode: hybrid\n"
+                ),
+            )
+            config = load_config(root, self._args_for(config_path))
+
+        self.assertFalse(config.perform_bridge_setup)
+        self.assertEqual(config.adb_path, "/usr/local/bin/adb")
+        self.assertEqual(config.bridge.main_model, "gpt-5.4")
+        self.assertEqual(
+            config.task_overrides["BrowserDraw"],
+            {"perception_mode": "hybrid", "max_turns": 60},
+        )
+        self.assertEqual(
+            config.task_overrides["BrowserMaze"],
+            {"perception_mode": "hybrid"},
+        )
 
 
 if __name__ == "__main__":

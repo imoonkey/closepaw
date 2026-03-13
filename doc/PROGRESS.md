@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-03-13: Eval Config Overlay Loading
+
+**What changed:**
+- Eval config loading now always starts from `eval/config/default.yaml` and deep-merges any explicitly requested config on top.
+- Parallel eval now uses the same merged config path as serial eval, so worker shard configs inherit default settings before device-specific overrides apply.
+- `eval/config/remote.yaml` was reduced to an override-only file that keeps just the remote ADB path.
+- Updated eval docs to describe override semantics and added regression tests for nested config merging.
+
+**Why:**
+- Remove duplicated config copies, keep remote config minimal, and make config variants inherit new default settings automatically instead of drifting.
+
+**Key files:** `eval/aw_bridge/runner.py`, `eval/aw_bridge/parallel_runner.py`, `eval/config/remote.yaml`, `eval/tests/test_runner.py`, `eval/tests/test_parallel_runner.py`, `eval/README.md`, `doc/main/eval/eval.md`, `doc/dev/development.md`
+**Verification:** `eval/.venv/bin/python -m pytest eval/tests/test_runner.py eval/tests/test_parallel_runner.py`, `git diff --check -- doc/dev/development.md doc/main/eval/eval.md eval/README.md eval/aw_bridge/parallel_runner.py eval/aw_bridge/runner.py eval/config/remote.yaml eval/tests/test_parallel_runner.py eval/tests/test_runner.py`
+**Commit:** pending
+**Next:** Keep future eval config variants override-only unless they intentionally replace the default baseline.
+**Blockers:** None
+
 ## 2026-03-13: Eval Memory Hygiene
 
 **What changed:**

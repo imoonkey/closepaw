@@ -27,7 +27,7 @@ from typing import Any, TextIO
 
 import yaml
 
-from eval.aw_bridge.runner import load_config_from_path
+from eval.aw_bridge.runner import load_config_dict, load_config_from_path
 from eval.aw_bridge.jsonl_utils import read_jsonl
 from eval.aw_bridge.result_schema import ArtifactPaths, TaskResult, summarize_results
 from eval.aw_bridge.runner_preflight import build_bridge_apk, install_bridge_apk
@@ -184,11 +184,7 @@ def filter_active_device_shards(
 # ---------------------------------------------------------------------------
 
 def _load_base_config(workspace_root: Path, config_path: str) -> dict[str, Any]:
-    path = (workspace_root / config_path).resolve()
-    if not path.exists():
-        raise FileNotFoundError(f"Config not found: {path}")
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    return raw  # type: ignore[return-value]
+    return load_config_dict(workspace_root, config_path)
 
 
 def create_worker_config(

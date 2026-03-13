@@ -14,6 +14,7 @@ from unittest import mock
 import pytest
 
 from eval.aw_bridge.parallel_runner import (
+    _load_base_config,
     _build_summary_config,
     _build_and_install_bridge_once_per_device,
     DeviceSpec,
@@ -255,6 +256,45 @@ class TestCreateWorkerConfig:
         assert cfg["runner"]["perform_bridge_setup"] is False
         assert cfg["android_world"]["console_port"] == 5554
         assert cfg["android_world"]["auto_start_emulator"] is False
+
+
+class TestLoadBaseConfig:
+    def test_overlay_config_deep_merges_default_yaml(self, tmp_path: Path) -> None:
+        config_dir = tmp_path / "eval" / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        (config_dir / "default.yaml").write_text(
+            (
+                "runner:\n"
+                "  perform_bridge_setup: true\n"
+                "android_world:\n"
+                "  adb_path: /usr/local/bin/adb\n"
+                "bridge:\n"
+                "  task_overrides:\n"
+                "    BrowserDraw:\n"
+                "      perception_mode: hybrid\n"
+            ),
+            encoding="utf-8",
+        )
+        (config_dir / "remote.yaml").write_text(
+            (
+                "android_world:\n"
+                "  adb_path: ~/android-sdk/platform-tools/adb\n"
+                "bridge:\n"
+                "  task_overrides:\n"
+                "    BrowserDraw:\n"
+                "      max_turns: 60\n"
+            ),
+            encoding="utf-8",
+        )
+
+        cfg = _load_base_config(tmp_path, "eval/config/remote.yaml")
+
+        assert cfg["runner"]["perform_bridge_setup"] is True
+        assert cfg["android_world"]["adb_path"] == "~/android-sdk/platform-tools/adb"
+        assert cfg["bridge"]["task_overrides"]["BrowserDraw"] == {
+            "perception_mode": "hybrid",
+            "max_turns": 60,
+        }
 
 
 # ---------------------------------------------------------------------------

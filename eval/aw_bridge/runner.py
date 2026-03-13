@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from dataclasses import asdict, dataclass
 from datetime import datetime
 import json
@@ -70,6 +71,7 @@ _PROVIDER_REQUIRED_API_KEY = {
 
 _API_KEY_NAMES = ("OPENAI_API_KEY", "OPENROUTER_API_KEY", "NOVITA_API_KEY")
 _ENV_EXTRAS = ("OPENAI_BASE_URL",)
+_DEFAULT_CONFIG_PATH = Path("eval/config/default.yaml")
 
 
 def main() -> None:
@@ -194,11 +196,46 @@ def _resolve_selected_tasks(workspace_root: Path, args: argparse.Namespace) -> l
     return None
 
 
+def _resolve_config_path(workspace_root: Path, config_path: str | Path) -> Path:
+    return (workspace_root / Path(config_path)).resolve()
+
+
+def _read_config_mapping(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise FileNotFoundError(f"Config not found: {path}")
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"Config root must be a mapping: {path}")
+    return raw
+
+
+def _deep_merge_mappings(
+    base: dict[str, Any],
+    override: dict[str, Any],
+) -> dict[str, Any]:
+    merged = copy.deepcopy(base)
+    for key, override_value in override.items():
+        base_value = merged.get(key)
+        if isinstance(base_value, dict) and isinstance(override_value, dict):
+            merged[key] = _deep_merge_mappings(base_value, override_value)
+        else:
+            merged[key] = copy.deepcopy(override_value)
+    return merged
+
+
+def load_config_dict(workspace_root: Path, config_path: str | Path) -> dict[str, Any]:
+    """Load ``default.yaml`` and deep-merge any non-default override config on top."""
+    default_path = _resolve_config_path(workspace_root, _DEFAULT_CONFIG_PATH)
+    requested_path = _resolve_config_path(workspace_root, config_path)
+    default_cfg = _read_config_mapping(default_path)
+    if requested_path == default_path:
+        return default_cfg
+    override_cfg = _read_config_mapping(requested_path)
+    return _deep_merge_mappings(default_cfg, override_cfg)
+
+
 def load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig:
-    config_path = (workspace_root / args.config).resolve()
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config not found: {config_path}")
-    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    raw = load_config_dict(workspace_root, args.config)
 
     suite_family = args.suite or raw.get("suite_family", "android_world")
     runner_cfg = raw.get("runner", {})

@@ -277,6 +277,10 @@ Use `eval/.venv/bin/python` for eval commands to avoid dependency drift with the
 | `--adb-serial` | auto-detected | Target device serial |
 | `--config` | `eval/config/default.yaml` | Config file path |
 
+Any non-default `--config` file is loaded as a deep override on top of
+`eval/config/default.yaml`, so override files only need to include changed
+fields.
+
 ### Snapshot Policy
 
 Controls baseline snapshot management: `strict` (fail on missing), `auto_repair` (create missing, default), `best_effort` (warn and continue), `off` (skip checks).

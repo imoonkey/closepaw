@@ -96,6 +96,10 @@ bridge:
     ExpenseAddMultipleFromGallery: { perception_mode: hybrid }
 ```
 
+Any non-default `--config` file is loaded as a deep override on top of
+`eval/config/default.yaml`, so config variants only need to include changed
+fields.
+
 ### Task Overrides
 
 Per-task config overrides under `bridge.task_overrides`.  Resolved by
@@ -247,7 +251,7 @@ For long-running eval batches, a headless emulator can run on a remote machine (
 - `scripts/remote/proxy_tunnel.sh` — autossh tunnel service manager (install/start/stop/status)
 - `scripts/remote/openai-proxy-tunnel.service` — systemd user unit with auto-reconnect
 - `scripts/remote/eval_tmux.sh` — tmux wrapper for SSH-disconnect-safe eval runs
-- `eval/config/remote.yaml` — remote-specific config with correct `adb_path`, `emulator_path`
+- `eval/config/remote.yaml` — remote-specific overrides (currently just `adb_path`)
 
 ### Key Details
 

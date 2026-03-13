@@ -99,6 +99,10 @@ running on the wrong serial. Baseline prep remains a separate workflow; use
 | `--snapshot-policy` | `auto_repair` | Snapshot management policy |
 | `--platform-mode` | `accessibility` | `accessibility` or `virtual_display` |
 
+Any non-default `--config` file is loaded as a deep override on top of
+`eval/config/default.yaml`, so override files only need to include changed
+fields.
+
 ## Output Layout
 
 Each run writes to:
