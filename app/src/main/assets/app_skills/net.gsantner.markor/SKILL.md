@@ -13,13 +13,13 @@ The new-file dialog has **name** and **extension** fields (extension defaults to
 - Different extension: change the extension field accordingly.
 
 ## File Selection
-File names may include randomized prefixes. Scan ALL visible entries and match the target name as a substring. After move/copy, verify the file is gone from source.
+When a full filename is given (e.g., `BlJB_shy_king_copy.md`), match it EXACTLY — scroll all entries to find the precise match. Only use substring matching when a partial name is given. After move/copy, verify the file is gone from source.
 
 ## Editing Tips
 - Insert at beginning: Special Keys → Jump to Beginning.
 - Undo: Special Keys → Undo.
 
 ## File Sorting
-- **Shell does NOT work** for Markor files (scoped storage). Do not attempt `stat` or `ls`.
 - Sort by date: 3-dot menu → Sort → Date. Default is ascending (oldest first).
 - Read actual timestamps next to files to determine order.
+- Shell `ls -lt` works for Markor files in shared storage for metadata verification.

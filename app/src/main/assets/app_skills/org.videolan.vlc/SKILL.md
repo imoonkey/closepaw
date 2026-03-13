@@ -6,11 +6,15 @@ description: App-specific guidance for VLC media player.
 # VLC Skill
 
 ## Creating Playlists
-- To create a playlist: Audio tab → Playlists → use menu or FAB to create new playlist → name it → add songs.
-- Adding songs to a playlist: navigate to the songs, long-press one to enter selection mode, then tap additional songs to select them all at once. Use "Add to playlist" to add the entire selection in one step.
+- Audio playlists: Audio tab → Playlists → create new → name it.
+- Video playlists: use the **Video tab** (library view), NOT Browse > file browser.
 
-## Multi-Select Pattern
-- Long-press the first item to enter selection mode (toolbar changes to show selection count).
-- Once in selection mode, tap additional items to add them to the selection — no need to long-press each one.
-- This dramatically reduces the number of turns needed when adding multiple files to a playlist.
-- After selecting all desired items, use the overflow menu or action bar to perform the batch operation (e.g. "Add to playlist").
+## Adding Files to Playlists
+- **Library views (Audio/Video tabs)**: Multi-select works. Long-press first item → tap additional items → overflow menu → "Add to playlist".
+- **Browse (file browser)**: Multi-select does NOT work here. Long-press opens a single-file context menu → "Add to playlist" → select target. Repeat per file.
+- If VLC shows "already in playlist" or a duplicate dialog, the file is already added — move to the next one.
+
+## Multi-Select in Library Views
+- Long-press first item to enter selection mode (toolbar shows selection count).
+- Tap additional items to add them — no need to long-press each one.
+- After selecting all items, use overflow menu for batch operation.

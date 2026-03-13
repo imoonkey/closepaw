@@ -9,8 +9,11 @@ description: App-specific guidance for Pro Expense.
 - Tap FAB to add. **Fill ALL 4 fields**: name → amount → category → note → save.
 - Before saving, re-read name and amount fields — field focus issues can silently overwrite the wrong field.
 
+## Reading Data from Source Files
+When a source file uses labels or tags to indicate which items to process (e.g., "Reimbursable"), those labels are selection criteria — enter only the actual field values, not the labels.
+
 ## Category Selection
-- Category row scrolls horizontally (5 visible at a time). **Scroll left/right to reveal all categories before selecting.**
+- Category row scrolls horizontally (5 visible at a time). Scroll left/right to reveal all before selecting.
 - Match category text exactly.
 
 ## Viewing All Expenses

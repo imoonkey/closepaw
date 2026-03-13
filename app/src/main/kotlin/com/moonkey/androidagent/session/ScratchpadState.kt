@@ -16,7 +16,7 @@ class ScratchpadState {
         const val MAX_VALUE_LENGTH = 2048
 
         /** Per-value char limit before truncation in prompt display. */
-        const val DISPLAY_TRUNCATE_LENGTH = 200
+        const val DISPLAY_TRUNCATE_LENGTH = 400
 
         /** Total char budget for the entire scratchpad prompt section. */
         const val TOTAL_BUDGET = 3000

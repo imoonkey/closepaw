@@ -7,15 +7,18 @@ description: App-specific guidance for Simple Calendar Pro.
 
 ## Monthly View Navigation
 - Month grid cells have NO per-cell accessibility nodes. Do not click coordinates to select dates.
-- Tap the day-number cell text to open a specific day. Use the < > header arrows only to change months.
+- Tap the day-number cell text to open a specific day. Use < > header arrows only to change months.
 - Always verify the displayed month/date matches the target before reading or creating events.
 
 ## Date & Time
 - Use the device date context to map relative labels and requested absolute dates.
-- "Nh" notation ALWAYS means 24-hour format: "5h" MUST be 05:00, NOT 17:00.
-- For date pickers with NumberPicker spinners: use scroll/swipe gestures, NOT type(). NumberPicker widgets reject typed input.
+- "Nh" notation ALWAYS means 24-hour format: "5h" = 05:00, NOT 17:00.
+- For NumberPicker spinners: use scroll/swipe gestures, NOT type().
 - Before answering a date-specific query, confirm the current view shows the target date.
 
+## Date Range Queries
+For "next week" or similar: compute the exact date range FIRST, write it to scratchpad (e.g., `"range: Oct 16-22"`), then browse. Only include events whose date falls within this range. Once the range is written, do NOT revise it based on visual scrolling.
+
 ## Event Management
-- Prefer editing event date and time fields directly instead of incrementally scrolling picker widgets.
-- After saving an event, reopen or inspect it to verify the title, date, start time, end time, and description.
+- Prefer editing date/time fields directly over incrementally scrolling picker widgets.
+- After saving an event, reopen or inspect it to verify title, date, start/end time, and description.
