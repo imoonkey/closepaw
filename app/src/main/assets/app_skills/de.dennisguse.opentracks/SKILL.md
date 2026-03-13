@@ -12,7 +12,11 @@ Track names are user-chosen and do NOT reliably indicate activity type. The auth
 Tap track → More options (3 dots) → Edit → read Activity type field → back twice to return.
 
 ## Counting/Summing by Activity Type
-Track names do NOT indicate type. For any count or sum by activity type: open Edit for ALL tracks in the date range. Do not skip tracks based on name.
+Track names do NOT indicate type. For any count or sum by activity type:
+1. FIRST scroll the entire track list end-to-end. The initial view may not show all tracks.
+2. Write all tracks in the date range to scratchpad as a checklist.
+3. Open Edit for EVERY track on the list. Mark each checked in scratchpad.
+4. Do NOT call complete_task until every track is marked checked.
 
 ## Reading Distance/Duration
 Click a track to see its Stats tab — shows distance, moving time, etc. No need to enter Edit.

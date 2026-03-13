@@ -24,6 +24,10 @@ Do NOT guess completion status from appearance.
 ## Reading Task Priority
 - To check priority: tap the task → look for priority radio buttons. Left-to-right: **None**, **Low**, **Medium**, **High**.
 
+## Counting Tasks
+- Tasks.org shows recurring tasks and sub-task instances as separate rows with the same name. When counting: deduplicate by task name — count each unique name only once.
+- Day-of-week labels before the "Today" marker refer to past dates. Only count tasks that appear AFTER the "Today" or "Tmrw" marker and fall within the target date range.
+
 ## Information Tasks
 - Do NOT click checkboxes when the goal is to read information.
 - Do NOT answer "0" or "none" without scrolling the full list.
