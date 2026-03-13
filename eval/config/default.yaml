@@ -60,8 +60,8 @@ bridge:
     RetroPlaylistDuration: { max_turns: 60, perception_mode: hybrid }
     OsmAndMarker: { perception_mode: hybrid }
     OsmAndTrack: { perception_mode: hybrid, max_turns: 80 }
-    SportsTrackerActivitiesCountForWeek: { max_turns: 50 }
-    SportsTrackerLongestDistanceActivity: { max_turns: 50 }
+    SportsTrackerActivitiesCountForWeek: { max_turns: 100 }
+    SportsTrackerLongestDistanceActivity: { max_turns: 60 }
     SportsTrackerTotalDistanceForCategoryOverInterval: { max_turns: 50 }
     SportsTrackerTotalDurationForCategoryThisWeek: { max_turns: 50 }
     RecipeAddMultipleRecipes: { max_turns: 50 }

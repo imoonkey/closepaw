@@ -20,7 +20,7 @@ description: App-specific guidance for Tasks.org.
 
 ## Counting Tasks
 - Recurring tasks and sub-tasks appear as separate rows with the same name. Maintain a set of unique names in scratchpad using compact format (e.g., `"unique: A, B, C"`). Write SKIP next to duplicates.
-- After computing a date range, verify each task falls within it by checking section headers.
+- For "how many" queries: you MUST open EVERY candidate task's detail view to confirm its absolute date before counting it. Relative day labels ("Mon", "Thu") do NOT tell you which week. Do NOT shortcut — verify all candidates even if it takes many turns.
 
 ## Information Tasks
 - Do NOT click checkboxes when the goal is to read information.

@@ -8,7 +8,7 @@ description: App-specific guidance for Broccoli recipe manager.
 ## Adding Recipes
 - To add: navigate to recipe list (Navigate Up / back), then tap FAB for new recipe.
 - Never use "Edit" on an existing recipe to create a different one.
-- After saving, navigate to list and search for the title to verify it was saved. If not found, retry.
+- After saving, go back to the recipe list and scroll to verify the recipe appears. If search doesn't find it (long titles may fail search), browse the full list instead.
 
 ## Filling Recipe Fields
 - Only fill fields with direct mappings in source data (title, description, servings, prep time, ingredients, directions).

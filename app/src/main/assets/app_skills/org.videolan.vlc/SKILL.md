@@ -10,7 +10,7 @@ For ALL playlist operations, use the **Audio** or **Video** library tabs. NEVER 
 
 ## Creating Playlists
 - Audio playlists: Audio tab → Playlists → create new → name it.
-- Video playlists: Video tab → long-press to select files → overflow → "Add to playlist".
+- Video playlists: stay on the **Video tab** → long-press files to select → overflow → "Add to playlist" → create new playlist when prompted. Do NOT navigate to Playlists tab or settings first.
 
 ## Adding Files to Playlists
 - Long-press first item in library view → tap additional items → overflow menu → "Add to playlist".
