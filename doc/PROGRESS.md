@@ -13,7 +13,7 @@
 
 **Key files:** `eval/aw_bridge/native_agent_bridge.py`, `eval/aw_bridge/runner.py`, `eval/config/default.yaml`, `eval/config/remote.yaml`, `eval/config/gpt54_never_succeeded.yaml`, `eval/tests/test_native_agent_bridge.py`, `eval/tests/test_runner.py`, `doc/main/agent/memory.md`, `doc/main/eval/eval.md`, `eval/README.md`
 **Verification:** `./gradlew assembleDebug test`, `./gradlew lint`, `python3 -m pytest eval/tests/test_native_agent_bridge.py eval/tests/test_runner.py eval/tests/test_runner_preflight_policy.py`
-**Commit:** pending
+**Commit:** `7f18cdb`
 **Next:** Keep future eval configs and task overrides aligned with the same clean-memory contract.
 **Blockers:** None
 
