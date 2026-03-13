@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-03-13: Eval Memory Hygiene
+
+**What changed:**
+- Eval bridge now clears `files/memory` before each task launch.
+- Eval configs now exclude `remember_experience` by default so the memory tool is not exposed during eval.
+- Updated eval and memory docs to document the clean-eval contract.
+- Added regression tests for config loading and bridge cleanup/launch behavior.
+
+**Why:**
+- Prevent `RememberExperience` and persisted memory from contaminating eval runs while keeping the app runtime logic simple.
+
+**Key files:** `eval/aw_bridge/native_agent_bridge.py`, `eval/aw_bridge/runner.py`, `eval/config/default.yaml`, `eval/config/remote.yaml`, `eval/config/gpt54_never_succeeded.yaml`, `eval/tests/test_native_agent_bridge.py`, `eval/tests/test_runner.py`, `doc/main/agent/memory.md`, `doc/main/eval/eval.md`, `eval/README.md`
+**Verification:** `./gradlew assembleDebug test`, `./gradlew lint`, `python3 -m pytest eval/tests/test_native_agent_bridge.py eval/tests/test_runner.py eval/tests/test_runner_preflight_policy.py`
+**Commit:** pending
+**Next:** Keep future eval configs and task overrides aligned with the same clean-memory contract.
+**Blockers:** None
+
 ## 2026-03-11: Remote Eval Worker Phase 2 & 3
 
 **What changed:**

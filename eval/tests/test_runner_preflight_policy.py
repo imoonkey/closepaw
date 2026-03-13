@@ -39,6 +39,7 @@ def _bridge_config() -> BridgeConfig:
         api_keys=None,
         shizuku_apk_path=None,
         excluded_tools="",
+        clear_memory_before_task=True,
     )
 
 

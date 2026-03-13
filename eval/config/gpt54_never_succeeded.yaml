@@ -35,7 +35,8 @@ bridge:
   main_model: gpt-5.4
   executor_model: ""
   max_turns: 30
-  excluded_tools: "ask_user"
+  excluded_tools: "ask_user,remember_experience"
+  clear_memory_before_task: true
   auto_start: true
   fresh_session: true
   debug_mode: false

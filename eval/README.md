@@ -179,6 +179,10 @@ bridge:
 Semantics: prefix matching on task name (longest prefix wins). Any `BridgeConfig`
 field can be overridden: `perception_mode`, `max_turns`, `excluded_tools`, etc.
 
+By default eval excludes `remember_experience` and clears the app's persistent
+memory directory before each task launch (`clear_memory_before_task: true`), so
+cross-task long-term memory cannot leak into results.
+
 See `resolve_task_bridge_config()` in `runner_execution.py`.
 
 ## Setup-Only Mode

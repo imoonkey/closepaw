@@ -31,10 +31,66 @@ def _bridge_config() -> BridgeConfig:
         api_keys=None,
         shizuku_apk_path=None,
         excluded_tools="",
+        clear_memory_before_task=True,
     )
 
 
 class NativeAgentBridgeAccessibilityTest(unittest.TestCase):
+    def test_clear_long_term_memory_uses_run_as(self) -> None:
+        bridge = NativeAgentBridge(_bridge_config())
+        ok = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(bridge, "_run_adb_shell", return_value=ok) as shell_mock:
+            bridge._clear_long_term_memory()
+
+        shell_mock.assert_called_once_with(
+            ["run-as", "com.moonkey.androidagent", "rm", "-rf", "files/memory"],
+            check=False,
+            capture_output=True,
+            timeout_sec=60,
+        )
+
+    def test_start_agent_clears_memory_and_forwards_excluded_tools(self) -> None:
+        cfg = _bridge_config()
+        cfg.excluded_tools = "ask_user,remember_experience"
+        bridge = NativeAgentBridge(cfg)
+        ok = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(bridge, "force_stop"), mock.patch.object(
+            bridge, "_clear_long_term_memory"
+        ) as clear_mock, mock.patch.object(
+            bridge, "_ensure_shizuku"
+        ), mock.patch.object(
+            bridge, "_ensure_accessibility_service"
+        ), mock.patch.object(
+            bridge, "_run_adb_shell", return_value=ok
+        ) as shell_mock:
+            bridge._start_agent(goal="Open Settings", run_id="run-1")
+
+        clear_mock.assert_called_once_with()
+        start_args = shell_mock.call_args_list[-1][0][0]
+        self.assertIn("excluded_tools", start_args)
+        self.assertIn("ask_user,remember_experience", start_args)
+
+    def test_start_agent_skips_memory_clear_when_disabled(self) -> None:
+        cfg = _bridge_config()
+        cfg.clear_memory_before_task = False
+        bridge = NativeAgentBridge(cfg)
+        ok = subprocess.CompletedProcess(args=["adb"], returncode=0, stdout="", stderr="")
+
+        with mock.patch.object(bridge, "force_stop"), mock.patch.object(
+            bridge, "_clear_long_term_memory"
+        ) as clear_mock, mock.patch.object(
+            bridge, "_ensure_shizuku"
+        ), mock.patch.object(
+            bridge, "_ensure_accessibility_service"
+        ), mock.patch.object(
+            bridge, "_run_adb_shell", return_value=ok
+        ):
+            bridge._start_agent(goal="Open Settings", run_id="run-1")
+
+        clear_mock.assert_not_called()
+
     def test_bound_service_parser_detects_service(self) -> None:
         dumpsys_text = """
             User state[0]

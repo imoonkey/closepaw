@@ -108,7 +108,8 @@ class SessionServices internal constructor(
             val recordingService = history.recordingService
             val appSkillRepository = AssetAppSkillRepository(context.assets)
 
-            // Memory system — always writable; eval isolation via adb rm before batch runs
+            // Memory system — eval hygiene is handled by the eval bridge clearing files/memory
+            // before each task launch.
             val memoryDir = java.io.File(context.filesDir ?: java.io.File("/tmp"), "memory")
             val memoryStore = MemoryStore(memoryDir)
             val memoryRecaller = MemoryRecaller(memoryStore)

@@ -102,10 +102,20 @@ History → Working Memory → **Recalled Memory** → App Skill → Observation
 
 ## Eval Isolation
 
-Memory is always writable. For eval runs, clear memory before batch via:
+Eval hygiene relies on two simpler guarantees:
+
+- `remember_experience` is excluded from eval `excluded_tools`, so the agent cannot
+  voluntarily write long-term memory during the task.
+- The eval bridge clears `files/memory` before each task launch, so prompt recall
+  always starts from an empty store and cross-task leakage cannot accumulate.
+
+Failure auto-retain may still write at the very end of a failed task, but that
+state is removed again before the next task starts.
+
+Manual cleanup remains available if needed:
 
 ```bash
-adb shell rm -rf /data/data/com.moonkey.androidagent/files/memory/
+adb shell run-as com.moonkey.androidagent rm -rf files/memory
 ```
 
 ## Design Doc

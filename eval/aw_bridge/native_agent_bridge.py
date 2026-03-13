@@ -41,6 +41,7 @@ class BridgeConfig:
     api_keys: dict[str, str] | None = None
     shizuku_apk_path: str | None = None
     excluded_tools: str = ""  # comma-separated tool names to remove from agent
+    clear_memory_before_task: bool = True
 
 
 @dataclass
@@ -161,6 +162,8 @@ class NativeAgentBridge:
 
     def _start_agent(self, goal: str, run_id: str) -> None:
         self.force_stop()
+        if self._config.clear_memory_before_task:
+            self._clear_long_term_memory()
         self._ensure_shizuku()
         self._ensure_accessibility_service()
 
@@ -242,6 +245,25 @@ class NativeAgentBridge:
             ],
             check=True,
             timeout_sec=self._config.adb_command_timeout_sec,
+        )
+
+    def _clear_long_term_memory(self) -> None:
+        result = self._run_adb_shell(
+            ["run-as", self._config.package_name, "rm", "-rf", "files/memory"],
+            check=False,
+            capture_output=True,
+            timeout_sec=self._config.adb_command_timeout_sec,
+        )
+        if result.returncode == 0:
+            _log.info("Cleared long-term memory for %s", self._config.package_name)
+            return
+
+        stderr = (result.stderr or "").strip()
+        stdout = (result.stdout or "").strip()
+        detail = stderr or stdout or f"returncode={result.returncode}"
+        raise RuntimeError(
+            "Failed to clear long-term memory before eval task launch: "
+            f"{detail}"
         )
 
     def _ensure_accessibility_service(self) -> None:
