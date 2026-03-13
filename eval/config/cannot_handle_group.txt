@@ -1,6 +1,3 @@
-MarkorMoveNote
 MarkorTranscribeVideo
 OsmAndMarker
 OsmAndTrack
-SportsTrackerActivitiesCountForWeek
-SportsTrackerTotalDistanceForCategoryOverInterval

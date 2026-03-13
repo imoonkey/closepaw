@@ -1,4 +1,39 @@
 
+# R44+: Full Pass (20 remaining tasks)
+
+## Step 1: One-time setup
+
+1. **Read prior context**: `doc/autotune/round_41/prompt_optimization_goal.md`, `doc/autotune/meta/loop_state.json`, and per-task files for all 20 tasks in `doc/autotune/meta/per_task/*.md`.
+2. **Read tuning principles**: `doc/autotune/meta/tuning_principles.md`.
+3. **Update `doc/autotune/meta/loop_state.json`**: new loop `full_pass`, R44+, status active, backlog `eval/config/autotune_round_44.txt`.
+4. **Verify remote parallel env**:
+   ```bash
+   ssh qiguo@qiguo-ld1 'echo ok'
+   git push
+   ssh qiguo@qiguo-ld1 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
+   ssh qiguo@qiguo-ld1 'source ~/.android-agent-env && emulator -list-avds'
+   ssh qiguo@qiguo-ld1 'cd ~/androidagent && ./scripts/remote/proxy_tunnel.sh status'
+   python3 scripts/token_counts.py
+   ```
+
+## Step 2: Ralph loop (copy-paste this)
+
+/ralph-loop:ralph-loop "Run /autotune-loop --remote --parallel 2. One round per iteration. Model: gpt-5.4.
+Must read:
+- /autotune skill steps to follow exactly, e.g., do not skip Step 4.
+- MUST read tuning_principles.md before every change.
+- Per-task files in doc/autotune/meta/per_task/*.md for diagnosis context.
+Task list: eval/config/autotune_round_44.txt (20 tasks).
+Goal: all 20 tasks pass. Your goal is to pass all 20, sometimes later round may pick a smaller subset, do not only pick failed tasks from there, and call it done. You will decide your group from the original 20 tasks, and their follow-up rounds successes (check scoreboard.json). Do NOT stop until at least 18 out of 20 passes. Each of this task has past before based on scoreboard. Adimittly a couple of them were borderline pass or based on overfitted app skill prompt, but majority should be passable with prompts following the tuning principles. 
+
+Process: diagnose via /cog-tune, apply targeted fixes, eval, analyze. Revert what doesn't help. 
+
+
+Track token counts each round. Keep prompts generalizable.
+<promise>AUTOTUNE_LOOP_COMPLETE</promise>." --max-iterations 30 --completion-promise "AUTOTUNE_LOOP_COMPLETE"
+
+# (Done) R41-43: Success Rate Recovery (add-back phase, 3 recovered, 5 parked)
+
 # R41+: Success Rate Recovery (add-back phase)
 
 ## Step 1: One-time setup
