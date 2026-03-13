@@ -1,5 +1,12 @@
 
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 19/50 | REGRESSION from R39 (1.0).
+- Same failure as R21 retry1: agent included "Back Up Computer Files" whose detail view shows due="Saturday, October 7" (not Oct 18). Relied on list-view "Wed" label without verifying full-format due date in detail view. Skill guidance was present but not applied.
+- Answer: "Marketing Campaign Launch, Back Up Computer Files" (expected: "Marketing Campaign Launch" only).
+- Priority reading correct (4th radio = High). Due-date disambiguation was the sole failure point.
+- Recommendation: add explicit "verify due date in detail view" step to skill when task goal filters by date.
+
 ## R39 (20260312_094821) — gpt-5.4 — PASS
 - Score: 1.0 | Turns: 27 | Clean pass in 27 turns. (unchanged)
 

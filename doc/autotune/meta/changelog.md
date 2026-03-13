@@ -2,6 +2,18 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Success Rate Recovery Round 1/R41 (2026-03-12, run 20260312_173354, gpt-5.4, 23-task failure set)
+
+**Fixes applied**: System prompt: added info-extraction verification line (+25 tokens). Files skill: added move operations fallback (+29 tokens). Markor extension field guidance was already present. Always-on: 2,506 → 2,531 tokens (+1.0%).
+
+**Results**: 4/23 pass (17.4%). 3 recoveries vs prior rounds: AudioRecorderRecordAudioWithFileName (1.0, was 0.0 — timing luck), FilesMoveFile (1.0, was 0.0 — model-native search, not skill), BrowserMultiply (1.0, was 0.0 — first-click bug absent). 1 non-deterministic: SportsTrackerActivitiesOnDate (1.0). 1 regression: RecipeAddMultipleRecipesFromMarkor2 (0.0, was 1.0 in R39 — Broccoli silent save failure).
+
+**Info-extraction fix impact**: 1/6 targets showed behavioral improvement (TasksDueNextWeek: now scrolls + scratchpad). 5/6 targets unchanged. Root causes are deeper than verification: semantic date reasoning errors, model instruction ignoring, conflicting app skill guidance.
+
+**Key findings**: (1) Poisoned recalled memory in MarkorMergeNotes overrides correct skill. (2) OpenTracks Smart Filtering conflicts with exhaustive-check system prompt. (3) gpt-5.4 ignores explicit skill instructions when its priors produce "plausible" answers. (4) Files skill was applied to wrong package (nbu.files vs documentsui).
+
+**Token counts**: System prompt 740, Tool descriptions 1,791, App skills 3,122 (avg 195/skill), Always-on 2,531.
+
 ## Prompt Optimization Round 92/R40 (2026-03-12, runs 20260312_121327+122824+132005 merged, gpt-5.4, 51-task sweep)
 
 **Fixes applied**: Cut 522 tokens from tool descriptions (2,313 → 1,791, -22.6%): MobileActionTool, ScratchpadTool, RememberExperienceTool, DelegateTaskTool, ShellTool, SystemButtonTool. Always-on: 3,028 → 2,506 tokens.

@@ -1,5 +1,8 @@
 # TasksIncompleteTasksOnDate
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 8 | GoalAchieved (wrong answer). Agent scanned full list, date reasoning correct, but included completed tasks. A11y tree checkbox `ImageView` elements expose no `checked`/`checkable` state — agent cannot distinguish complete from incomplete. Same root cause as R39. Behavior improved (systematic scroll + scratchpad, only 8 turns), but platform gap remains blocking.
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 18 | Failed — GoalAchieved. Answer: Change Air Filter, Clean Out Fridge, Renew Driver's Licen... (regressed from 1.0)
 

@@ -1,5 +1,8 @@
 # BrowserMultiply
 
+## R41 (20260312_173354) — gpt-5.4
+**Score**: 1.0 | **Turns**: 21 | **Behavior**: Clean pass — Files->Chrome->click-5x->scratchpad->compute product->submit->Success; no first-click bug, no infra errors
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL — INFRA ERROR
 - Score: 0.0 | Turns: 12 | Error (regressed from 1.0)
 - **Trace-verified (Codex review)**: NOT first-click bug. A11y tree confirms click worked: page showed `9` before click (`sanitized_a11y_tree/172`), `10` after click (`sanitized_a11y_tree/183`). Session then died at turn 12 with `LLM error: OpenAIIoException - Stream failed` in trace.jsonl. This is an infra/API interruption, not an action layer bug.

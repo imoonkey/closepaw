@@ -1,4 +1,9 @@
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL — REGRESSION
+- Score: 0.0 | Turns: 34/50 | GoalAchieved but scorer 0.0
+- Pan-Seared Salmon with Quinoa silently failed to save in Broccoli (twice). SAVE click reported success, detail view displayed correctly, but recipe not persisted to DB. Beef Stir Fry and Raspberry Almond Smoothie saved successfully using identical workflow.
+- Agent detected failure on verification search but still declared complete_task(success) — false completion.
+- Likely cause: race condition between batched typing (5 fields in one turn) and SAVE click, or emulator flakiness. Not seen in R39/R36.
 
 ## R39 (20260312_094821) — gpt-5.4 — PASS
 - Score: 1.0 | Turns: 26 | Clean pass in 26 turns. (unchanged)

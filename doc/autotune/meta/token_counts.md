@@ -4,11 +4,11 @@
 
 | Layer | Tokens | Lines |
 |-------|--------|-------|
-| System prompt | 715 | 48 |
+| System prompt | 740 | 49 |
 | Tool descriptions (total) | 1,791 | — |
-| App skills (total) | 3,093 | — |
-| App skills (avg per skill) | 193 | — |
-| **Always-on (prompt + tools)** | **2,506** | — |
+| App skills (total) | 3,122 | — |
+| App skills (avg per skill) | 195 | — |
+| **Always-on (prompt + tools)** | **2,531** | — |
 
 ## Tool Descriptions + Params
 
@@ -41,7 +41,7 @@
 | com.simplemobiletools.gallery.pro | 193 | 18 |
 | com.arduia.expense | 185 | 24 |
 | com.android.chrome | 176 | 20 |
-| com.google.android.apps.nbu.files | 138 | 18 |
+| com.google.android.apps.nbu.files | 167 | 21 |
 | com.android.settings | 129 | 17 |
 | com.google.android.apps.photos | 127 | 16 |
 | com.dimowner.audiorecorder | 113 | 14 |

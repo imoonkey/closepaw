@@ -2,6 +2,9 @@
 
 **Status: cannot_handle** — A11y click doesn't fire JS DOM events in Chrome WebView. `ctx.strokeStyle` never changes. Platform limitation.
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL (unblocked for test)
+- Score: 0.0 | Turns: 30 | PlatformLimit — a11y swipe produced one faint teal hairline; palette clicks didn't change strokeStyle. 22 turns spent retrying draw with no effect. Cognition correct, action layer blocked. Still cannot_handle.
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 30 | Failed — Error. Answer: I opened Downloads/task.html in Files, chose Chrome, and ... (unchanged)
 

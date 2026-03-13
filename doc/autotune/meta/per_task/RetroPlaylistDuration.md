@@ -2,6 +2,13 @@
 
 **Status: FIXED R33** — Per-song 3-dot menu "Add to playlist" + add-all-then-prune strategy.
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL — REASONING ERROR (repeat of R39)
+- Score: 0.0 | Turns: 5 | Error. Identical to R39 — agent misunderstood "using the provided songs" as requiring an external song list, never navigated beyond Home screen.
+- Hybrid perception (screenshots) active but irrelevant — agent never reached a screen where durations would appear.
+- Ran 2 shell commands (`ls /sdcard/Download`, `find /sdcard`) searching for task asset files; found nothing; gave up.
+- Recalled memory from prior failures likely reinforced the wrong interpretation (multiple pitfall entries echoing "provided songs are not available").
+- NOT the known a11y/platform duration limitation — agent never got far enough to encounter it.
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL — REASONING ERROR
 - Score: 0.0 | Turns: 2 | Error. Agent said "I’m blocked because the provided songs are not available."
 - **Trace-verified (Codex review)**: NOT a perception gap. Goal says "using the provided songs" — meaning songs already in the app’s library, not externally provided data. Agent misunderstood the phrasing, thought it needed a song list to be injected into the prompt, and gave up at turn 2 without even navigating to the Songs tab.

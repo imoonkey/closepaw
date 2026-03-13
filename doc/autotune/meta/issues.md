@@ -1,6 +1,10 @@
 # Global Issues
 
 ## Open
+- [ ] **Poisoned recalled memory (NEW R41)** — MarkorMergeNotes. Prior failed run saved memory entry naming `mIObBbo4.md` as correct. This overrides the correct Markor skill guidance. Must delete the memory entry from the emulator. Also: strengthen skill language to imperative.
+- [ ] **Smart Filtering conflict (NEW R41)** — SportsTrackerTotalDistanceForCategoryOverInterval. OpenTracks app skill "Smart Filtering" tells agent to skip tracks by name, directly conflicting with system prompt "scroll the full list." Must remove Smart Filtering and replace with exhaustive-check guidance.
+- [ ] **Semantic date reasoning (NEW R41)** — SimpleCalendarEventsInNextWeek, TasksDueNextWeek. Agent computes wrong "next week" boundary when today is Sunday. Needs explicit date computation rule in system prompt. TasksDueNextWeek also has duplicate counting issue.
+- [ ] **Files skill wrong package (NEW R41)** — FilesMoveFile uses `com.google.android.documentsui`, not `com.google.android.apps.nbu.files`. The R41 Files skill change was never loaded. Need documentsui skill.
 - [x] **Token optimization complete** — R39+R40 cut cumulative 992 always-on tokens (-28.4%): system prompt -33.5%, tool descriptions -26.0%, app skills -25.3%. Zero regressions confirmed across 51-task sweep (R39) and 20-task regression check (R40). (RESOLVED: R40)
 - [ ] **Broccoli Edit-as-Create (CRITICAL)** — RecipeAddMultipleRecipes, RecipeAddMultipleRecipesFromMarkor, RecipeAddMultipleRecipesFromMarkor2. After saving recipe 1, agent clicks Edit instead of navigating back to list to create new recipe. Overwrites existing record. Need Broccoli app skill with multi-recipe navigation guidance. (NEW: AT-R19 P1)
 - [ ] **Broccoli Source/Categories fabrication** — RecipeAddMultipleRecipesFromMarkor2. Agent fills Source field with `recipes.txt` (not in input data). Evaluator does exact-match on all fields. Need skill guidance: leave unmapped fields empty. (NEW: AT-R19 P1 sub-issue)

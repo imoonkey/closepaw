@@ -1,5 +1,13 @@
 # VlcCreateTwoPlaylists
 
+## R41 (20260312_173354) — FAIL
+- Score: 0.0 | Turns: 29/30 | Stop: Error (framework auto-termination)
+- VLC skill NOT injected (same as R8). Agent used one-at-a-time workflow.
+- Created "Ultimate Fails Series" with 2/4 files. "Adventure Marathon" never started.
+- Wasted ~9 turns on duplicate-add attempts (re-adding files already in playlist, hitting CANCEL).
+- Long-press targeted "More Actions" icon instead of file row, producing context menu instead of multi-select.
+- Without skill injection, this task cannot pass within 30 turns.
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 17 | Failed — Error. Answer: I’m blocked because VLC’s current selection state appears... (regressed from 1.0)
 

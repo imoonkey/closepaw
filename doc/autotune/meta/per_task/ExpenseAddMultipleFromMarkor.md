@@ -1,5 +1,11 @@
 # ExpenseAddMultipleFromMarkor
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL — SCORER MISMATCH (known)
+- Score: 0.0 | Turns: 19/30 | GoalAchieved but scorer 0.0. Lifetime: 1/18 (6%).
+- **Trace-verified**: Same correct execution as R39. Agent read Markor, extracted both reimbursable rows to scratchpad, opened Pro Expense, entered Laundry ($96.3, Clothes, "Urgent. Reimbursable.") and Car Insurance ($303.01, Transportation, "I may repeat this. Reimbursable."). Both visible in Recent list at completion. No element staleness, no field mismatch.
+- **Root cause**: Unchanged from R39 — scorer note-suffix mismatch. Agent copies full note; scorer expects note without ". Reimbursable." suffix.
+- **Additionally**: `scoring_context.json` shows `ui_element_count: 0` at scoring time.
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL — SCORER/TASK DESIGN ISSUE
 - Score: 0.0 | Turns: 21 | GoalAchieved but scorer 0.0.
 - **Trace-verified (Codex review)**: Agent executed correctly. Read Markor file, extracted 2 reimbursable rows to scratchpad, opened Pro Expense, entered both expenses with correct names, amounts, and categories. Final UI shows both `Car Insurance | 303.01` and `Laundry | 96.3` in Recent.

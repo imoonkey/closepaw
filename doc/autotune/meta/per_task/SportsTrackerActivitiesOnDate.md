@@ -1,5 +1,10 @@
 # SportsTrackerActivitiesOnDate
 
+## R41 (20260312_173354) — gpt-5.4 — PASS
+- Score: 1.0 | Turns: 17 | GoalAchieved. Answer: "snow boarding, cycling"
+- Clean pass matching R39 pattern: 17 turns, both Oct 1 tracks verified via Edit dialog. Scratchpad used at turns 6/10/16 to persist track names and confirmed types.
+- Confirms R40 failure was sampling variance (9-turn shallow path), not a prompt regression. No prompt change between R40 and R41.
+
 ## R40 (20260312_122824) — gpt-5.4 — FAIL — FALSECOMPLETION
 - Score: 0.0 | Turns: 9 | GoalAchieved. Answer: "snow boarding" (regressed from R39 1.0)
 - Agent answered after only 9 turns (vs 17 in R39 pass). Stopped at first matching track on Oct 1 without verifying it was the correct one or checking for additional activities. Answered wrong activity type.

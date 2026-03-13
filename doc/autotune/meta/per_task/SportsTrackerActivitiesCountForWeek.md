@@ -1,5 +1,12 @@
 # SportsTrackerActivitiesCountForWeek
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 5/50 | GoalAchieved. Answer: 0
+- **Behavior**: FalseCompletion (name-based inference). Agent opened OpenTracks, dismissed 2 intro screens, saw 14 this-week tracks, scrolled once, found no track names containing "run"/"running" within the week (Mon Oct 9 -- Sun Oct 15), and answered "0" without checking a single track's Edit view.
+- **Info-extraction guidance present**: System prompt line 42 ("scroll the full list, cross-check totals against scratchpad, verify date boundaries") was present but ignored. App Skill directive ("verify via Edit") also ignored.
+- **Delta vs R39**: Same failure pattern (name-based, 5 turns). R39 found 1 run-like name outside the week and answered "1". R41 found 0 run-like names in-week and answered "0". Neither verified via Edit.
+- **Structural issue**: Even with correct Edit-based approach, 14 tracks x ~4 turns = 56 turns exceeds 50-turn budget. Task remains structurally infeasible via UI. Should be in cannot_handle_group.txt.
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 5 | Failed — GoalAchieved. Answer: 1 (regressed from 1.0)
 

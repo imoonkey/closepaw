@@ -2,6 +2,9 @@
 
 **Status: FIXED R28** — Broccoli field comparison skill guided agent to open each same-titled recipe, compare ALL visible fields, and identify true duplicate pair.
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 19/50 | GoalAchieved — under-deleted (2 of 4 needed). Deleted 2 "An ideal recipe..." Capreses, left 3 remaining. Agent misread post-deletion screen as complete. Same known issue: no prescriptive field-comparison algorithm, cannot distinguish noise rows from true duplicates.
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 27 | Failed — GoalAchieved. Answer: Done — I deleted the extra exact duplicate recipes and ve... (unchanged)
 

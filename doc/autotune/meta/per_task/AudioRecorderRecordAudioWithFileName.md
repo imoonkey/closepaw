@@ -2,6 +2,9 @@
 
 **Status: FIXED R31** — Removed "strip .m4a" from skill. Agent types filename verbatim, evaluator gets expected double extension.
 
+## R41 (20260312_173354) — gpt-5.4
+**Score**: 1.0 | **Turns**: 9 | **Behavior**: App presented "New name" dialog on stop (bypassed rename UI hunt that failed in R39); typed filename verbatim with extension, 72s clean pass
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL — POSSIBLE R39 CUT REGRESSION
 - Score: 0.0 | Turns: 29 | Error. Agent said "I recorded a clip but could not complete rename."
 - **Trace-verified**: Agent recorded audio successfully but spent 29 turns unable to find the rename UI — tried overflow menus, long-press, toolbar actions, coordinate taps. Never found the rename option.

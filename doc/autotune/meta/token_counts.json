@@ -1,8 +1,8 @@
 {
   "system_prompt": {
-    "chars": 3489,
-    "tokens": 715,
-    "lines": 48
+    "chars": 3622,
+    "tokens": 740,
+    "lines": 49
   },
   "tool_descriptions": {
     "total": {
@@ -91,11 +91,11 @@
   },
   "app_skills": {
     "total": {
-      "chars": 13893,
-      "tokens": 3093
+      "chars": 14031,
+      "tokens": 3122
     },
     "count": 16,
-    "avg_tokens": 193,
+    "avg_tokens": 195,
     "skills": {
       "code.name.monkey.retromusic": {
         "chars": 986,
@@ -128,9 +128,9 @@
         "lines": 25
       },
       "com.google.android.apps.nbu.files": {
-        "chars": 631,
-        "tokens": 138,
-        "lines": 18
+        "chars": 769,
+        "tokens": 167,
+        "lines": 21
       },
       "com.google.android.apps.photos": {
         "chars": 575,

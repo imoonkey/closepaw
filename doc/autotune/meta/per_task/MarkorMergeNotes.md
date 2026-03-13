@@ -1,4 +1,11 @@
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 21 | Failed — GoalAchieved (false completion)
+- Same root cause as R39/R20/R5/R1: agent kept `.md` extension, creating `mIObBbo4.md` instead of `mIObBbo4`
+- Skill guidance was correctly injected but overridden by **poisoned recalled memory** that explicitly mentions `mIObBbo4.md` as a success pattern (saved by a prior failed run)
+- Agent thought: "Keep the default markdown extension for the new note" — never analyzed whether goal filename has an extension
+- Fix: delete poisoned memory entry + strengthen skill with explicit decision rule based on goal filename
+- See `round_41/20260312_173354/per_task/MarkorMergeNotes_claude.md` for full trace analysis
 
 ## R39 (20260312_094821) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 19 | Failed — GoalAchieved. Answer: Done — I created and saved the merged Markor note as mIOb... (regressed from 1.0)

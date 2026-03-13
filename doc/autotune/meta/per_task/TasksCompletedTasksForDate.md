@@ -1,5 +1,13 @@
 # TasksCompletedTasksForDate
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 12/30 | GoalAchieved (false completion). Answer: "Schedule Dentist Appointment, Water Plants"
+- Agent correctly read "Show completed" checkbox as checked=true; planned scratchpad diff strategy (ON vs OFF list)
+- Turn 6: text-match for "More options" failed. Turn 7: recovered via coords but landed in date picker instead of overflow menu
+- Root cause: NavigationDerailment — accidental date picker activation broke the diff workflow. Agent guessed answer from date proximity
+- A11y gap persists: per-task completion checkboxes (ImageView) expose no checked/checkable state
+- Lifetime: 2/10 (20%). Remains in cannot_handle_group
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 6 | Failed — GoalAchieved. Answer: Water Plants (regressed from 1.0)
 

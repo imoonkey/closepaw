@@ -1,6 +1,11 @@
 # SportsTrackerTotalDistanceForCategoryOverInterval
 
-**Status: FIXED R25** — Downward-only scroll guidance (5-6 scrolls) resolved the scroll coverage issue.
+**Status: REGRESSED R41** — Smart Filtering in app skill causes agent to skip tracks by name, never scroll.
+
+## R41 (20260312_173354) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 16 | Failed — GoalAchieved. Answer: 0 (wrong)
+- SmartFilteringOverreach + NoScroll. Agent checked only 2/5 visible tracks in date range (Road Riding, Sailing Excursion). Skipped City Stroll, Morning Walk, Brisk Walk because names "clearly indicate an unrelated activity." Never scrolled. App skill's Smart Filtering contradicts system prompt's "scroll the full list" instruction. Info-extraction verification fix present in prompt but ineffective against app-skill shortcut.
+- Fix needed: Remove/weaken Smart Filtering guidance; for sum/count tasks, mandate checking ALL items in range regardless of name.
 
 ## R39 (20260312_094821) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 14 | Failed — GoalAchieved. Answer: 2832 (regressed from 1.0)

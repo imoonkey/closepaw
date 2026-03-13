@@ -1,5 +1,12 @@
 # TasksDueNextWeek
 
+## R41 (20260312_173354) — gpt-5.4 — FAIL
+- Score: 0.0 | Turns: 6 | Failed — GoalAchieved. Answer: 13 (correct: 6)
+- Targeted by R41 info-extraction verification fix. Agent now scrolls full list (3 scrolls, end confirmed), uses scratchpad (2 writes), and computes correct date range (Oct 16-22). Major behavioral improvement over R39.
+- Failure mode shifted from "premature answer without scrolling" (R39) to "overcounting due to duplicate task entries." Tasks.org shows recurring/duplicate tasks with same name but different date labels. Agent counted 13 visible rows instead of 6 unique tasks.
+- App skill guidance "check section headers to disambiguate" was not followed. Agent did not open detail views or use list sort position relative to Today/Tmrw markers to verify dates.
+- Pattern: same overcounting bug as R7 (answered 20) and R8 (answered 12). The deduplication gap identified in R7 remains unresolved.
+
 ## R39 (20260312_094821) — gpt-5.4 — FAIL
 - Score: 0.0 | Turns: 5 | Failed — GoalAchieved. Answer: 9 (regressed from 1.0)
 
