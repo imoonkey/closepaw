@@ -5,16 +5,18 @@ description: App-specific guidance for VLC media player.
 
 # VLC Skill
 
+## CRITICAL — Use Library Tabs, Not Browse
+For ALL playlist operations, use the **Audio** or **Video** library tabs. NEVER use Browse (file browser) — multi-select does not work there.
+
 ## Creating Playlists
 - Audio playlists: Audio tab → Playlists → create new → name it.
-- Video playlists: use the **Video tab** (library view), NOT Browse > file browser.
+- Video playlists: Video tab → long-press to select files → overflow → "Add to playlist".
 
 ## Adding Files to Playlists
-- **Library views (Audio/Video tabs)**: Multi-select works. Long-press first item → tap additional items → overflow menu → "Add to playlist".
-- **Browse (file browser)**: Multi-select does NOT work here. Long-press opens a single-file context menu → "Add to playlist" → select target. Repeat per file.
+- Long-press first item in library view → tap additional items → overflow menu → "Add to playlist".
 - If VLC shows "already in playlist" or a duplicate dialog, the file is already added — move to the next one.
 
-## Multi-Select in Library Views
+## Multi-Select
 - Long-press first item to enter selection mode (toolbar shows selection count).
-- Tap additional items to add them — no need to long-press each one.
+- Tap additional items — no need to long-press each one.
 - After selecting all items, use overflow menu for batch operation.

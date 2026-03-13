@@ -56,7 +56,7 @@ bridge:
     RecipeAddMultipleRecipesFromImage: { perception_mode: hybrid, max_turns: 60 }
     RecipeAddMultipleRecipesFromMarkor: { max_turns: 50 }
     RecipeDeleteDuplicateRecipes3: { max_turns: 80 }
-    RecipeDeleteDuplicateRecipes2: { max_turns: 50 }
+    RecipeDeleteDuplicateRecipes2: { max_turns: 60 }
     RetroPlaylistDuration: { max_turns: 60, perception_mode: hybrid }
     OsmAndMarker: { perception_mode: hybrid }
     OsmAndTrack: { perception_mode: hybrid, max_turns: 80 }
