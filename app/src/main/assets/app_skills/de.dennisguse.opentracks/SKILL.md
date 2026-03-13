@@ -14,8 +14,8 @@ Tap track → More options (3 dots) → Edit → read Activity type field → ba
 ## Counting/Summing by Activity Type
 For any count or sum by activity type:
 1. FIRST scroll the entire track list end-to-end. There are ALWAYS items below the fold.
-2. Write all tracks in the date range to scratchpad as a checklist.
-3. Open Edit for EVERY track on the checklist. Mark each checked. You cannot skip any — names are unreliable.
+2. Write all tracks in the date range to scratchpad. Use compact format: `"unchecked: Name1, Name2, ..."` and `"checked: Name1=type, Name2=type, ..."`. Move names from unchecked to checked as you go.
+3. Open Edit for EVERY track on the checklist. You cannot skip any — names are unreliable.
 4. Activity types must match EXACTLY — "biking" is NOT "mountain biking".
 5. Do NOT call complete_task until every track is marked checked. Answering with 0 before checking all tracks is almost certainly wrong — names are misleading by design.
 
