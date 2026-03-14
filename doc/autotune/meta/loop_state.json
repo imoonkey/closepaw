@@ -1,32 +1,29 @@
 {
   "goal": "Pass all 20 remaining tasks. Do not stop until at least 18/20 pass.",
   "mode": "auto",
-  "next_round": 50,
+  "next_round": 51,
   "status": "active",
   "active_backlog_file": "eval/config/autotune_round_45.txt",
   "loop_name": "full_pass",
   "current_round": null,
   "last_round": {
-    "number": 49,
-    "run_id": "20260313_155839",
-    "pass_rate": "7/18",
-    "score": 0.389,
-    "recovered": ["RetroCreatePlaylist"],
-    "regressions": ["SimpleCalendarEventsInNextWeek", "RecipeDeleteDuplicateRecipes2", "TasksCompletedTasksForDate", "TasksDueNextWeek", "VlcCreateTwoPlaylists"],
-    "still_failing": [
-      "RetroPlaylistDuration",
-      "SportsTrackerActivitiesCountForWeek"
-    ],
+    "number": 50,
+    "run_id": "20260313_164547",
+    "pass_rate": "13/18",
+    "score": 0.722,
+    "recovered": ["RetroPlaylistDuration", "SportsTrackerActivitiesCountForWeek", "TasksDueNextWeek", "VlcCreateTwoPlaylists", "TasksIncompleteTasksOnDate"],
+    "regressions": ["RetroCreatePlaylist", "TasksCompletedTasksForDate"],
+    "still_failing": [],
     "key_findings": [
-      "7/18 regression from R48's 11/18 — nondeterminism dominated",
-      "Scratchpad truncation fix WORKED: SportsTracker checklist fully visible at 591/600 chars",
-      "SportsTrackerCount: PURE COGNITION FAILURE — agent saw mandate, saw unchecked list, had 67 turns left, still answered 0 after 4 checks. Prompt fixes cannot solve this.",
-      "RetroPlaylistDuration: NEW failure mode — hit 50:16 (16s over max) and declared success. Need overshoot recovery.",
-      "Combined R45-R49: 16/18 passed at least once. Same 2 never-pass since R44.",
-      "R50 fix: RetroMusic overshoot recovery guidance (remove songs if over target)"
+      "13/18 = NEW RECORD — best single-run ever!",
+      "ALL 18 tasks have now passed at least once in R45-R50",
+      "RetroPlaylistDuration (1.0, 76t) and SportsTrackerActivitiesCountForWeek (1.0, 92t) — BOTH persistent 0% failures recovered!",
+      "5 failures all from nondeterminism: MarkorMoveNote (wrong file), RetroCreatePlaylist (wrong order), TasksCompleted (incomplete), RecipeDeleteDup2 (missed dupes), SportsTrackerTotalDist (didn't scroll)",
+      "3 of 5 failures share root cause: incomplete scrolling — LLM cognition issue, not skill gap",
+      "R51 fix: RetroMusic song ordering guidance (add in goal-specified order)"
     ],
     "recommended_action": "continue",
-    "token_delta": "minimal (1 line added)"
+    "token_delta": "minimal"
   },
   "prior_loop": {
     "name": "success_rate_recovery",

@@ -17,6 +17,7 @@ description: App-specific guidance for Retro Music player.
 "Provided songs" or "available songs" means the songs in the app's music library. Navigate to the Songs tab to find them.
 
 ## Adding Songs to Playlists
+- If the goal specifies songs in a particular order, add them in that order — NOT in the order they appear on screen.
 - **Multi-select**: From Songs tab, long-press a song → tap additional → "Add to playlist" icon in selection toolbar.
 - **Per-song fallback**: 3-dot menu on a song → "Add to playlist" → select target. Go directly to the next song.
 - The playlist's own "Add to playlist" button adds the PLAYLIST to another playlist, NOT songs into it.
