@@ -6,12 +6,11 @@ description: App-specific guidance for Tasks.org.
 # Tasks.org Skill
 
 ## CRITICAL — Follow These Every Time
-**Completion status protocol** (MUST follow for any completed/incomplete query):
-1. Scroll down repeatedly until content stops changing. Write ALL visible task titles to scratchpad as `before_list`.
-2. Tap overflow menu (3 dots) → "Show completed" to toggle. Use element_index, NOT coordinates — the button is near date chips that open the date picker by accident.
-3. Scroll the full list again top-to-bottom. Write ALL visible task titles to scratchpad as `after_list`.
-4. Compare: if `after_list` has MORE items → you turned completed ON; extra items are completed tasks. If FEWER → you turned completed OFF; missing items are completed tasks.
-5. Do NOT answer until BOTH `before_list` AND `after_list` are in scratchpad and the diff is explicitly computed. Skipping any step = wrong answer.
+**Completion status**: The list view does NOT show completion state. To check if a task is completed:
+1. First ensure completed tasks are visible: tap overflow (3 dots) → "Show completed". Use element_index, NOT coordinates. If the list shrinks, tap again to restore it.
+2. Open each candidate task's detail view → **scroll down** in the detail view.
+3. At the bottom: if you see `Completion YYYY-MM-DD HH:MM` → the task IS completed. If you only see `Created` and `Modified` (no `Completion`) → the task is NOT completed.
+4. This also gives you the exact due date (visible in the detail view). Check both completion status AND date in one visit.
 
 **Due dates**: List-view day labels are ambiguous across weeks. For ANY date-filtered query, open EACH candidate's detail view and read the full-format date (day-of-week + month + day). A bare day name below it is the start date, not the due date.
 
