@@ -107,8 +107,11 @@ class Agent(
                         val pkg = services.platform.getCurrentPackageName() ?: lastKnownPackage
                         if (pkg != null) {
                             val entry = "Failed on \"${config.goal.take(60)}\": ${result.message.take(80)}"
-                            services.memoryStore.appendAppOperationalNote(pkg, entry)
-                            Log.i(TAG, "Auto-retained app memory for $pkg")
+                            if (services.memoryStore.appendAppOperationalNote(pkg, entry)) {
+                                Log.i(TAG, "Auto-retained app memory for $pkg")
+                            } else {
+                                Log.w(TAG, "Failed to auto-retain app memory for $pkg")
+                            }
                         }
                     }
                     if (result.success) {

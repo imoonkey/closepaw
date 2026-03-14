@@ -136,8 +136,20 @@ private class RememberExperienceInvocation(
     override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
         if (context.isCancelled()) return ToolExecutionResult.Cancelled()
         return try {
-            store.append(scope = scope, section = section, content = content, packageName = packageName)
-            textToolSuccess(output = "Saved to long-term memory (${scope.wireValue}/${section.wireValue}).")
+            val saved =
+                store.append(
+                    scope = scope,
+                    section = section,
+                    content = content,
+                    packageName = packageName
+                )
+            if (!saved) {
+                ToolExecutionResult.Failure("Failed to save memory.")
+            } else {
+                textToolSuccess(
+                    output = "Saved to long-term memory (${scope.wireValue}/${section.wireValue})."
+                )
+            }
         } catch (e: Exception) {
             ToolExecutionResult.Failure("Failed to save memory: ${e.message}", e)
         }

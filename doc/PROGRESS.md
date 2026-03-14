@@ -7,6 +7,7 @@
 - Added a shared `MemorySchema` and rewrote `MemoryStore` to write canonical fixed-section markdown with full timestamps.
 - Simplified `MemoryRecaller` to deterministic full-file recall for user, device, and current app memory.
 - Redesigned `remember_experience` around `scope + section` routing instead of V1 `category + [kind]`.
+- Memory writes now propagate explicit success/failure so `remember_experience` and failure auto-retain do not silently report success on failed saves.
 - Updated failure auto-retain to write app `Operational Notes`, refreshed prompt guidance, and added regression tests for store, recall, prompt ordering, and tool validation/execution.
 - Updated the main memory doc and added an implementation plan for this task.
 

@@ -40,48 +40,58 @@ class MemoryStore(
     fun hasWrittenThisSession(): Boolean = writtenThisSession.get()
 
     @Synchronized
-    fun append(scope: MemoryScope, section: MemorySection, content: String, packageName: String? = null) {
+    fun append(
+        scope: MemoryScope,
+        section: MemorySection,
+        content: String,
+        packageName: String? = null
+    ): Boolean {
         if (!MemorySchema.isSectionAllowed(scope, section)) {
             Log.w(TAG, "Rejected invalid memory section $section for scope $scope")
-            return
+            return false
         }
         try {
-            val spec = buildSpec(scope, packageName) ?: return
+            val spec = buildSpec(scope, packageName) ?: return false
             val normalizedContent = normalizeContent(content).take(maxContentLength)
             if (normalizedContent.isEmpty()) {
                 Log.w(TAG, "Rejected empty memory content for $scope/$section")
-                return
+                return false
             }
             val sections = loadSections(spec)
             sections.getValue(section).add(formatEntry(normalizedContent))
             if (writeCanonicalDocument(spec, sections)) {
                 writtenThisSession.set(true)
+                return true
             }
+            return false
         } catch (e: IOException) {
             Log.w(TAG, "Memory write failed for $scope/$section", e)
+            return false
         }
     }
 
-    fun appendUserFact(content: String) = append(MemoryScope.USER, MemorySection.FACTS, content)
+    fun appendUserFact(content: String): Boolean =
+        append(MemoryScope.USER, MemorySection.FACTS, content)
 
-    fun appendUserPreference(content: String) =
+    fun appendUserPreference(content: String): Boolean =
         append(MemoryScope.USER, MemorySection.PREFERENCES, content)
 
-    fun appendDeviceFact(content: String) = append(MemoryScope.DEVICE, MemorySection.FACTS, content)
+    fun appendDeviceFact(content: String): Boolean =
+        append(MemoryScope.DEVICE, MemorySection.FACTS, content)
 
-    fun appendDevicePitfall(content: String) =
+    fun appendDevicePitfall(content: String): Boolean =
         append(MemoryScope.DEVICE, MemorySection.PITFALLS, content)
 
-    fun appendDeviceVerification(content: String) =
+    fun appendDeviceVerification(content: String): Boolean =
         append(MemoryScope.DEVICE, MemorySection.VERIFICATION, content)
 
-    fun appendAppSkillOverride(packageName: String, content: String) =
+    fun appendAppSkillOverride(packageName: String, content: String): Boolean =
         append(MemoryScope.APP, MemorySection.APP_SKILL_OVERRIDES, content, packageName)
 
-    fun appendAppPreference(packageName: String, content: String) =
+    fun appendAppPreference(packageName: String, content: String): Boolean =
         append(MemoryScope.APP, MemorySection.PREFERENCES, content, packageName)
 
-    fun appendAppOperationalNote(packageName: String, content: String) =
+    fun appendAppOperationalNote(packageName: String, content: String): Boolean =
         append(MemoryScope.APP, MemorySection.OPERATIONAL_NOTES, content, packageName)
 
     @Synchronized
