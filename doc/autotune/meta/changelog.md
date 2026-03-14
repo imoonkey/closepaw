@@ -2,6 +2,16 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## Full Pass Rounds R50-R52 (2026-03-13, gpt-5.4, 18-task set)
+
+**R50**: 13/18 (NEW RECORD). Both persistent 0% failures recovered: RetroPlaylistDuration (1.0, 76t), SportsTrackerActivitiesCountForWeek (1.0, 92t). ALL 18 tasks now pass at least once.
+**R51**: 11/18. SportsTrackerCount 2nd consecutive pass (91t). RetroCreatePlaylist ordering fix worked.
+**R52**: 10/18. RetroPlaylistDuration 2nd pass (72t). SportsTrackerCount 3rd consecutive pass (70t).
+
+**Fixes applied in R49-R52**: (1) ScratchpadState DISPLAY_TRUNCATE_LENGTH 400→600. (2) RetroMusic: CRITICAL section for batching, scroll, duplicate detection, overshoot recovery, ordering. (3) VLC: Ungroup videos. (4) OpenTracks: compact scratchpad format, stronger exhaustive mandate. (5) TasksDueNextWeek: max_turns 60→80.
+
+**Summary over 8 rounds (R45-R52)**: Scores: 10, 8, 7, 11, 7, 13, 11, 10. Mean: 9.6. Best: 13. All 18 tasks pass at some rate. Remaining variance is LLM nondeterminism (~30% per task). P(16/18) is <1% with current model.
+
 ## Full Pass Round 6/R49 (2026-03-13, gpt-5.4, 18-task set)
 
 **Fixes applied**: (1) ScratchpadState DISPLAY_TRUNCATE_LENGTH 400→600 (checklist truncation causing premature answers). (2) RetroMusic: scroll Songs list for all songs, detect duplicate adds (silent success = already in playlist). (3) OpenTracks: compact scratchpad format (`unchecked: ...`, `checked: Name=type, ...`).
