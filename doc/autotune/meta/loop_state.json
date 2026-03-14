@@ -1,28 +1,30 @@
 {
   "goal": "Pass all 20 remaining tasks. Do not stop until at least 18/20 pass.",
   "mode": "auto",
-  "next_round": 55,
-  "status": "active",
+  "next_round": 57,
+  "status": "paused",
   "active_backlog_file": "eval/config/autotune_round_45.txt",
   "loop_name": "full_pass",
-  "current_round": 54,
+  "current_round": 56,
   "last_round": {
-    "number": 53,
-    "run_id": "20260313_191014",
-    "pass_rate": "8/18",
-    "score": 0.444,
-    "recovered": [],
-    "regressions": ["RecipeAddMultipleRecipesFromMarkor2", "TasksHighPriorityTasksDueOnDate", "SportsTrackerLongestDistanceActivity"],
-    "still_failing": ["MarkorMoveNote", "VlcCreateTwoPlaylists", "RecipeDeleteDuplicateRecipes2", "RecipeDeleteDuplicateRecipes3", "TasksCompletedTasksForDate", "TasksIncompleteTasksOnDate", "TasksDueNextWeek", "SportsTrackerTotalDistanceForCategoryOverInterval", "TurnOnWifiAndOpenApp"],
+    "number": 56,
+    "run_id": "20260313_222137",
+    "pass_rate": "11/18",
+    "score": 0.611,
+    "recovered": ["MarkorMoveNote", "VlcCreateTwoPlaylists"],
+    "regressions": ["ExpenseAddMultipleFromMarkor"],
+    "still_failing": ["RecipeDeleteDuplicateRecipes2", "RecipeDeleteDuplicateRecipes3", "TasksCompletedTasksForDate", "TasksIncompleteTasksOnDate", "TurnOnWifiAndOpenApp"],
     "key_findings": [
-      "8/18 — below average. 9 rounds (R45-R53) scores: 10, 8, 7, 11, 7, 13, 11, 10, 8. Mean: 9.4/18. Best: 13/18 (R50).",
-      "VlcCreateTwoPlaylists 1/9 (11%) missing from results - likely crashed.",
-      "MarkorMoveNote 1/9 (11%) - agent always picks substring match without scrolling.",
-      "Applied targeted fixes for R54: Markor scroll-before-select, VLC correct ungroup path + multi-playlist, Tasks.org scratchpad-based diff protocol, Broccoli list-card pre-filter + delete-in-place.",
-      "R54 first attempt (20260313_201210) corrupted by duplicate eval runner - 2/18. Discarded. Re-running as R54b (20260313_203814)."
+      "12 rounds (R45-R56) scores: 10, 8, 7, 11, 7, 13, 11, 10, 8, 9, 11, 11. Mean: 9.7/18. Best: 13/18 (R50).",
+      "MarkorMoveNote: 3 consecutive passes after scroll-before-select fix. Stable.",
+      "VlcCreateTwoPlaylists: 2/3 passes (1.0, 0.5) after ungroup+ordering fix. Improved but not stable.",
+      "Tasks.org completion detection rewrite (detail-view Completion field) committed but NOT YET EVALUATED in any round.",
+      "RecipeDel2/3: 2/12 (17%) — persistent. Agent claims GoalAchieved with wrong answers.",
+      "TasksCompleted/Incomplete: 2/12 (17%) — persistent. New fix unevaluated.",
+      "TurnOnWifiAndOpenApp: 5/12 (42%) — nondeterministic, always scores 0.5 when failing."
     ],
-    "recommended_action": "analyze R54b results after skill fixes",
-    "token_delta": "+8 lines Markor, +6 lines VLC, +7 lines Tasks.org, +1 line Broccoli (net +18 app skill tokens)"
+    "recommended_action": "Run R57 with latest APK to evaluate Tasks.org completion-detection rewrite",
+    "token_delta": "none since R54 fixes"
   },
   "prior_loop": {
     "name": "success_rate_recovery",

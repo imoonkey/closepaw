@@ -2,6 +2,22 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## R54b-R56 (2026-03-13, gpt-5.4, 18-task set)
+
+**R54b** (20260313_203814): 9/18. First run with Markor scroll-before-select + VLC ungroup/multi-playlist + Tasks.org scratchpad diff + Broccoli pre-filter fixes. MarkorMoveNote RECOVERED (1.0, was 11%). TasksDueNextWeek RECOVERED (1.0). RetroPlaylistDuration passed (1.0). VlcCreateTwoPlaylists still 0.0. Tasks.org completion tasks still 0.0. RecipeDel2/3 still 0.0.
+
+**R55** (20260313_213602): 11/18. VlcCreateTwoPlaylists RECOVERED (1.0, was 11%). SimpleCalendarEventsInNextWeek recovered. MarkorMoveNote 2nd consecutive pass. TasksDueNextWeek regressed (0.0). SportsTotalDist regressed (0.0).
+
+**R56** (20260313_222137): 11/18. MarkorMoveNote 3rd consecutive pass — fix is stable. ExpenseAddMultipleFromMarkor regressed (0.0). VlcCreateTwoPlaylists partial (0.5). TasksDueNextWeek recovered (1.0).
+
+**R55 additional fix**: VLC selection ordering guidance (select files in goal-specified order, not screen order). Tasks.org scroll mandate strengthened.
+
+**R56 code note**: Tasks.org completion-detection rewrite (detail-view `Completion` field instead of toggle-diff) was committed (`1dba286`) and built on remote but R56 ran with OLD code (toggle-diff). The new approach is untested.
+
+**Per-task pass rates (R45-R56, 12 rounds)**: ExpenseAdd 10/12 (83%), RecipeAddMarkor2 10/12 (83%), SportsLongest 10/12 (83%), HighPriority 10/12 (83%), RetroSave 8/12 (67%), RetroCreate 7/12 (58%), SportsCount 7/12 (58%), SimpleCalendar 5/12 (42%), RetroPlaylist 5/12 (42%), TurnOnWifi 5/12 (42%), SportsTotalDist 5/12 (42%), TasksDueNext 5/12 (42%), MarkorMove 4/12 (33%), VlcCreate 3/12 (25%), RecipeDel2 2/12 (17%), RecipeDel3 2/12 (17%), TasksCompleted 2/12 (17%), TasksIncomplete 2/12 (17%).
+
+**Summary (12 rounds R45-R56)**: Scores: 10, 8, 7, 11, 7, 13, 11, 10, 8, 9, 11, 11. Mean: 9.7. Best: 13 (R50). Markor and VLC fixes confirmed effective. Tasks.org completion tasks and RecipeDel remain persistent failures.
+
 ## R53-R54 (2026-03-13, gpt-5.4, 18-task set)
 
 **R53**: 8/18. MarkorMoveNote still failing (11%), VlcCreateTwoPlaylists crashed (11%), Tasks.org completion tasks at 22%. Diagnosed 6 bottom-performing tasks.
