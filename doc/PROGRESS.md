@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-03-13: Memory V2 Implementation
+
+**What changed:**
+- Replaced the V1 memory layout with V2 scope-first files: `memory/user.md`, `memory/device.md`, and `memory/apps/<package>.md`.
+- Added a shared `MemorySchema` and rewrote `MemoryStore` to write canonical fixed-section markdown with full timestamps.
+- Simplified `MemoryRecaller` to deterministic full-file recall for user, device, and current app memory.
+- Redesigned `remember_experience` around `scope + section` routing instead of V1 `category + [kind]`.
+- Updated failure auto-retain to write app `Operational Notes`, refreshed prompt guidance, and added regression tests for store, recall, prompt ordering, and tool validation/execution.
+- Updated the main memory doc and added an implementation plan for this task.
+
+**Why:**
+- Bring runtime behavior in line with the agreed Memory V2 design: KISS scope-first files, deterministic recall, and no extra session-log memory layer.
+
+**Key files:** `app/src/main/kotlin/com/moonkey/androidagent/memory/MemorySchema.kt`, `app/src/main/kotlin/com/moonkey/androidagent/memory/MemoryStore.kt`, `app/src/main/kotlin/com/moonkey/androidagent/memory/MemoryRecaller.kt`, `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/RememberExperienceTool.kt`, `app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt`, `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/StandaloneAgentDef.kt`, `doc/main/agent/memory.md`, `doc/todo/0.5_memory/memory_v2_implementation_plan.md`
+**Verification:** `./gradlew assembleDebug testDebugUnitTest`, `./gradlew assembleDebug lint test`
+**Commit:** pending
+**Next:** Merge the worktree once full verification stays green.
+**Blockers:** None
+
 ## 2026-03-13: Memory V2 Design Note Capture
 
 **What changed:**

@@ -1,123 +1,160 @@
 # Cross-Session Memory System
 
-> Persistent learning across sessions. The agent remembers app-specific workflows, pitfalls, and verification strategies.
-> Last updated: 2026-03-11 (commit: faf18ab)
+> Persistent learning across sessions using scope-first markdown files.
+> Last updated: 2026-03-13
 
 ## Overview
 
-The memory system lets the agent accumulate experience over time. When it encounters the same app again, prior learnings are automatically injected into the prompt — no user action needed.
+Memory V2 keeps long-term memory deliberately small and deterministic:
 
-```
-Session 1: Agent navigates Settings, learns "Developer Options is under System"
-Session 2: Agent sees Settings → recalled memory injected → skips exploration
-```
+- `user.md` stores cross-app user facts and preferences.
+- `device.md` stores device-wide facts, pitfalls, and verification hints.
+- `apps/<package>.md` stores app-local overrides, preferences, and operational notes.
 
-Three components:
+The agent does not keep a second session-log memory layer. Per-session evidence already lives in session history, and durable notes are promoted directly into these persistent files.
+
+Core components:
 
 | Component | Role | File |
 |-----------|------|------|
-| **MemoryStore** | File I/O, entry caps, thread safety | `memory/MemoryStore.kt` |
-| **MemoryRecaller** | Elastic-budget recall per turn | `memory/MemoryRecaller.kt` |
-| **RememberExperienceTool** | LLM-callable tool for voluntary writes | `tool/impl/RememberExperienceTool.kt` |
+| **MemorySchema** | Shared scope/section vocabulary | `memory/MemorySchema.kt` |
+| **MemoryStore** | Canonical markdown read/write + validation | `memory/MemoryStore.kt` |
+| **MemoryRecaller** | Deterministic prompt recall | `memory/MemoryRecaller.kt` |
+| **RememberExperienceTool** | Typed write path for durable learnings | `tool/impl/RememberExperienceTool.kt` |
 
 ## Storage Model
 
-Markdown files under `<filesDir>/memory/`:
+Files live under `<filesDir>/memory/`:
 
-```
+```text
 memory/
+  user.md
+  device.md
   apps/
-    com.android.settings.md    # per-app memories
-    com.google.android.clock.md
-  user_prefs.md                # cross-app user preferences
-  device.md                    # device-specific facts
+    com.android.settings.md
+    org.tasks.md
 ```
 
-Each file is a markdown list with timestamped entries:
+Each file has a fixed section layout and timestamped bullets:
+
+```markdown
+# User Memory
+
+## Facts
+- [2026-03-13 18:32:34 EDT] User's name is Qi.
+
+## Preferences
+- [2026-03-13 18:32:34 EDT] Prefer search over scrolling when possible.
+```
+
+```markdown
+# Device Memory
+
+## Facts
+- [2026-03-13 18:32:34 EDT] Device uses gesture navigation.
+
+## Pitfalls
+- [2026-03-13 18:32:34 EDT] BACK may dismiss keyboard before leaving screen.
+
+## Verification
+- [2026-03-13 18:32:34 EDT] Re-check page title after BACK on OEM settings screens.
+```
 
 ```markdown
 # App Memory: com.android.settings
+> Local delta over app skill. If conflict exists, trust this file.
 
-- [2026-03-11] [workflow] Developer Options is under System > Developer Options
-- [2026-03-11] [pitfall] "About phone" scroll position resets on back-navigate
+## App Skill Overrides
+- [2026-03-13 18:32:34 EDT] Search is more reliable than scrolling on this build.
+
+## Preferences
+- [2026-03-13 18:32:34 EDT] User prefers search when available.
+
+## Operational Notes
+- [2026-03-13 18:32:34 EDT] Developer Options is under System.
+- [2026-03-13 18:32:34 EDT] BACK may dismiss keyboard first.
 ```
 
-Entry caps prevent unbounded growth: 30/app, 20/user_prefs, 10/device. Oldest entries are evicted first via atomic temp-file rewrite.
+Notes:
+
+- All entries use full timestamps: `[YYYY-MM-DD HH:MM:SS TZ]`.
+- App `Operational Notes` are plain-language bullets. They do not use inline `[pitfall]` or `[verification]` tags.
+- If app memory conflicts with the shipped app skill, trust app memory.
 
 ## Write Paths
 
-### 1. Voluntary (LLM calls `remember_experience`)
+### 1. Voluntary writes via `remember_experience`
 
-The system prompt instructs the agent to call `remember_experience` before `complete_task` when it learns something reusable. Three kind tags:
+`remember_experience` stays as a dedicated memory tool. It does not collapse into generic file writing.
 
-- `[workflow]` — navigation sequences, operation patterns, shortcuts
-- `[pitfall]` — traps, gotchas, things that don't work as expected
-- `[verification]` — how to verify a result in this app
+Parameters:
 
-The tool is classified as cognitive (non-screen-changing) and auto-allowed by PolicyEngine.
+- `scope`: `user`, `device`, or `app`
+- `section`: one of the fixed sections allowed for that scope
+- `content`: 1-2 durable sentences
+- `package_name`: required only for `scope=app`
 
-### 2. Failure auto-retain (Agent.kt)
+Allowed section matrix:
 
-When a task fails (`TurnOutcome.Complete` with `success=false`) and the LLM never called `remember_experience` during the session, the agent auto-saves a `[pitfall]` entry:
+| Scope | Allowed sections |
+|------|-------------------|
+| `user` | `facts`, `preferences` |
+| `device` | `facts`, `pitfalls`, `verification` |
+| `app` | `app_skill_overrides`, `preferences`, `operational_notes` |
+
+The store normalizes legacy inline kind prefixes away on write, so app operational notes stay plain-language even if the model emits an older `[pitfall]`-style prefix.
+
+### 2. Failure auto-retain
+
+When a task fails and the model never called `remember_experience`, `Agent.kt` writes one fallback entry into the current app's `Operational Notes` section:
 
 ```kotlin
 if (!result.success && !services.memoryStore.hasWrittenThisSession()) {
     val pkg = services.platform.getCurrentPackageName() ?: lastKnownPackage
     if (pkg != null) {
-        val entry = "[pitfall] Failed on \"${config.goal.take(60)}\": ${result.message.take(80)}"
-        services.memoryStore.appendAppMemory(pkg, entry)
+        val entry = "Failed on \"${config.goal.take(60)}\": ${result.message.take(80)}"
+        services.memoryStore.appendAppOperationalNote(pkg, entry)
     }
 }
 ```
 
-`lastKnownPackage` is tracked through the turn loop as a fallback for when `getCurrentPackageName()` returns null (e.g., 0 a11y elements at failure time).
+This keeps the promotion path tied to task outcome without introducing a separate episodic memory store.
 
 ## Recall Path
 
-Each turn, `TurnPlanningPhaseRunner` calls `memoryRecaller.recall(currentPackageName)`. The recaller uses an elastic budget:
+Each planning turn, `TurnPlanningPhaseRunner` calls `memoryRecaller.recall(currentPackageName)`.
 
-| Source | Budget | Priority |
-|--------|--------|----------|
-| Device | 1 KB | First (always loaded) |
-| User prefs | 1.5 KB | Second |
-| Current app | Remainder (up to 3.5 KB) | Third (gets leftover) |
-| **Total** | **≤ 6 KB** | |
+Recall is deterministic and scope-first:
 
-Truncation keeps newest entries (tail), drops oldest (head).
+1. Load `user.md` if it exists.
+2. Load `device.md` if it exists.
+3. Load `apps/<current-package>.md` if it exists.
 
-The result is injected as a `## Recalled Memory` user message in `PromptBuilder.buildInputItems()`, positioned between working memory and app skill:
+The recaller injects the full file contents as a `## Recalled Memory` block between working memory and app skill:
 
-```
-History → Working Memory → **Recalled Memory** → App Skill → Observation
+```text
+History -> Working Memory -> Recalled Memory -> App Skill -> Observation
 ```
 
-→ See: [turn_prompt_anatomy.md](turn_prompt_anatomy.md) for full injection order.
+There is no vector search, SQLite, or cross-app recall in V2.
 
-## Security
+## Security and Validation
 
-- Package names validated against `^[a-zA-Z0-9_.]+$` (rejects path traversal)
-- Content truncated to `maxContentLength` (default 2000 chars)
-- Atomic writes via temp file + rename to prevent corruption on crash
-- All file I/O is `@Synchronized`
+- Package names are validated against `^[a-zA-Z0-9_.]+$`.
+- Content is truncated to `maxContentLength` (default 2000 chars).
+- Writes use temp-file replacement to avoid partial-file corruption.
+- File I/O is synchronized in `MemoryStore`.
 
 ## Eval Isolation
 
-Eval hygiene relies on two simpler guarantees:
+Eval hygiene still relies on two guarantees:
 
-- `remember_experience` is excluded from eval `excluded_tools`, so the agent cannot
-  voluntarily write long-term memory during the task.
-- The eval bridge clears `files/memory` before each task launch, so prompt recall
-  always starts from an empty store and cross-task leakage cannot accumulate.
+- `remember_experience` is excluded from eval tool exposure by config.
+- The eval bridge clears `files/memory` before each task launch.
 
-Failure auto-retain may still write at the very end of a failed task, but that
-state is removed again before the next task starts.
+That keeps prompt recall empty at task start and prevents cross-task contamination during eval runs.
 
-Manual cleanup remains available if needed:
+## Design References
 
-```bash
-adb shell run-as com.moonkey.androidagent rm -rf files/memory
-```
-
-## Design Doc
-
-→ See: `doc/todo/0.5_memory/final/design.md`
+- Current design note: `doc/todo/0.5_memory/memory_v2_note.md`
+- This task's implementation plan: `doc/todo/0.5_memory/memory_v2_implementation_plan.md`
