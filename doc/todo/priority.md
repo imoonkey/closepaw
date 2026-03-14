@@ -16,5 +16,5 @@
 4. login auth (openclaw 怎么用的openai auth而不走api key?参考一下)
 5. 想想release还差啥。
 6. run tasks on 60 common apps. 构建60个app的skills。
-8.
 7. 定时任务。
+8. 消息通知处理 (可以用户自己指定app？)
