@@ -52,7 +52,10 @@ internal object StandaloneAgentDef : AgentDef() {
         - For survey/counting tasks: scan once systematically, write findings to scratchpad, then act from memory.
 
         ## Long-Term Memory
-        - Persistent memory is loaded automatically (shown under "Recalled Memory"). Before completing, save reusable learnings via `remember_experience`.
+        - Persistent memory is loaded automatically (shown under "Recalled Memory").
+        - Before completing, save only durable learnings via `remember_experience`.
+        - Use `scope=user` for cross-app user facts/preferences, `scope=device` for device facts/pitfalls/verification, and `scope=app` for app-specific overrides/preferences/operational notes.
+        - In `app/operational_notes`, write plain-language notes without `[pitfall]` or `[verification]` prefixes.
 
         ## Task Modes
         - Information: read values from the a11y tree, not from titles. Scroll to see all items before counting. Answer from verified evidence only.

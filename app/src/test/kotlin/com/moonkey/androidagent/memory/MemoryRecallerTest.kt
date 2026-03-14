@@ -31,61 +31,63 @@ class MemoryRecallerTest {
     }
 
     @Test
-    fun `recall includes app memory when package matches`() {
-        store.appendAppMemory("com.example.app", "[pitfall] Button is hidden behind keyboard")
+    fun `recall includes full app memory file when package matches`() {
+        store.appendAppOperationalNote("com.example.app", "Button is hidden behind keyboard")
         val result = recaller.recall("com.example.app")
         assertThat(result).isNotNull()
         assertThat(result).contains("## Recalled Memory")
-        assertThat(result).contains("### App: com.example.app")
-        assertThat(result).contains("[pitfall] Button is hidden behind keyboard")
+        assertThat(result).contains("# App Memory: com.example.app")
+        assertThat(result).contains("## Operational Notes")
+        assertThat(result).contains("Button is hidden behind keyboard")
     }
 
     @Test
-    fun `recall includes user prefs and device memory`() {
-        store.appendUserPref("Prefers English")
-        store.appendDeviceMemory("Pixel 7, 1080x2400")
+    fun `recall includes user and device memory`() {
+        store.appendUserPreference("Prefers English")
+        store.appendDeviceFact("Pixel 7, 1080x2400")
         val result = recaller.recall(null)
         assertThat(result).isNotNull()
-        assertThat(result).contains("### Device")
+        assertThat(result).contains("# User Memory")
+        assertThat(result).contains("## Preferences")
+        assertThat(result).contains("# Device Memory")
+        assertThat(result).contains("## Facts")
         assertThat(result).contains("Pixel 7, 1080x2400")
-        assertThat(result).contains("### User Preferences")
         assertThat(result).contains("Prefers English")
     }
 
     @Test
     fun `recall does not include unrelated app memory`() {
-        store.appendAppMemory("com.other.app", "Some memory")
+        store.appendAppOperationalNote("com.other.app", "Some memory")
         val result = recaller.recall("com.example.app")
         assertThat(result).isNull()
     }
 
     @Test
-    fun `recall combines all available sources`() {
-        store.appendDeviceMemory("Test device")
-        store.appendUserPref("Test pref")
-        store.appendAppMemory("com.test", "Test app memory")
+    fun `recall combines all available sources in deterministic order`() {
+        store.appendUserPreference("Test pref")
+        store.appendDeviceFact("Test device")
+        store.appendAppOperationalNote("com.test", "Test app memory")
         val result = recaller.recall("com.test")!!
-        assertThat(result).contains("### Device")
-        assertThat(result).contains("### User Preferences")
-        assertThat(result).contains("### App: com.test")
+        assertThat(result.indexOf("# User Memory")).isLessThan(result.indexOf("# Device Memory"))
+        assertThat(result.indexOf("# Device Memory")).isLessThan(result.indexOf("# App Memory: com.test"))
     }
 
     @Test
-    fun `recall respects total budget`() {
-        // Fill up memory with entries (within cap, but large content)
-        for (i in 1..30) {
-            store.appendAppMemory("com.test", "[workflow] ${"x".repeat(200)} entry $i")
-        }
-        val result = recaller.recall("com.test")!!
-        // Total should be within 6KB + header overhead
-        assertThat(result.toByteArray().size).isLessThan(7000)
+    fun `recall omits missing files but keeps existing ones`() {
+        store.appendDevicePitfall("BACK may dismiss keyboard first")
+
+        val result = recaller.recall(null)!!
+
+        assertThat(result).contains("# Device Memory")
+        assertThat(result).doesNotContain("# User Memory")
+        assertThat(result).doesNotContain("# App Memory:")
     }
 
     @Test
     fun `recall header text is correct`() {
-        store.appendAppMemory("com.test", "Test")
+        store.appendAppOperationalNote("com.test", "Test")
         val result = recaller.recall("com.test")!!
         assertThat(result).startsWith("## Recalled Memory")
-        assertThat(result).contains("learnings from previous sessions")
+        assertThat(result).contains("durable learnings from previous sessions")
     }
 }

@@ -251,7 +251,7 @@ class PromptBuilderTest {
     }
 
     @Test
-    fun `buildInputItems inserts app skill between memory and observation`() {
+    fun `buildInputItems inserts recalled memory and app skill before observation`() {
         val historyManager = HistoryManager()
         historyManager.addItem(userIntent("Goal: Update note"))
 
@@ -275,15 +275,25 @@ class PromptBuilderTest {
         val items = builder.buildInputItems(
             snapshot = emptySnapshot,
             image = null,
+            recalledMemory = """
+                ## Recalled Memory
+
+                # User Memory
+
+                ## Preferences
+                - [2026-03-13 18:32:34 EDT] Prefer search over scrolling.
+            """.trimIndent(),
             appSkill = appSkillText
         )
 
-        assertThat(items).hasSize(4)
+        assertThat(items).hasSize(5)
         assertThat(items[1].asEasyInputMessage().content().asTextInput())
             .contains("## Working Memory")
         assertThat(items[2].asEasyInputMessage().content().asTextInput())
-            .isEqualTo(appSkillText)
+            .contains("## Recalled Memory")
         assertThat(items[3].asEasyInputMessage().content().asTextInput())
+            .isEqualTo(appSkillText)
+        assertThat(items[4].asEasyInputMessage().content().asTextInput())
             .contains("Screen state")
     }
 

@@ -106,9 +106,9 @@ class Agent(
                     if (!result.success && !services.memoryStore.hasWrittenThisSession()) {
                         val pkg = services.platform.getCurrentPackageName() ?: lastKnownPackage
                         if (pkg != null) {
-                            val entry = "[pitfall] Failed on \"${config.goal.take(60)}\": ${result.message.take(80)}"
-                            services.memoryStore.appendAppMemory(pkg, entry)
-                            Log.i(TAG, "Auto-retained pitfall memory for $pkg")
+                            val entry = "Failed on \"${config.goal.take(60)}\": ${result.message.take(80)}"
+                            services.memoryStore.appendAppOperationalNote(pkg, entry)
+                            Log.i(TAG, "Auto-retained app memory for $pkg")
                         }
                     }
                     if (result.success) {
