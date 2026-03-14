@@ -11,12 +11,12 @@ For ALL playlist operations, use the **Audio** or **Video** library tabs. NEVER 
 ## Creating Playlists
 - Audio playlists: Audio tab → Playlists → create new → name it.
 - Video playlists: stay on the **Video tab** → long-press files to select → overflow → "Add to playlist" → create new playlist when prompted.
-- If videos are **grouped**, use overflow menu (3 dots, top right) → **Ungroup** to get a flat list BEFORE selecting files.
+- If videos are **grouped** (entries show "Video group: …, N videos"), you MUST ungroup first: overflow menu → **Group videos** → **Do not group videos**. Verify every video appears individually.
 
 ## Adding Files to Playlists
 - Find files by scrolling the Video/Audio library list. Do NOT use the search feature — search results may auto-play on tap.
-- Long-press first item in library view → tap additional items → overflow menu → "Add to playlist".
-- If VLC shows "already in playlist" or a duplicate dialog, the file is already added — move to the next one.
+- Long-press first item → tap additional items → overflow menu → "Add to playlist".
+- **Multiple playlists**: work one at a time. Scroll to the top of the list before starting each new playlist's selection. Select ONLY that playlist's files.
 
 ## Multi-Select
 - Long-press first item to enter selection mode (toolbar shows selection count).

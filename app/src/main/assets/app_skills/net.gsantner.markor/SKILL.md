@@ -12,8 +12,10 @@ The new-file dialog has **name** and **extension** fields (extension defaults to
 - No extension needed: clear the extension field with `clear: true` and empty `input_text: ""`.
 - Different extension: change the extension field accordingly.
 
-## File Selection
-When a full filename is given (e.g., `BlJB_shy_king_copy.md`), match it EXACTLY — scroll all entries to find the precise match. Only use substring matching when a partial name is given. After move/copy, verify the file is gone from source.
+## CRITICAL — File Selection
+When a filename is given, you MUST **scroll the entire file list** before selecting — the exact file may be below the fold.
+- Match the EXACT full filename only. `prefix_foo.md` is NOT `foo.md` — partial substring matches are wrong.
+- After move/copy, verify the file is gone from source and present in destination.
 
 ## Editing Tips
 - Insert at beginning: Special Keys → Jump to Beginning.

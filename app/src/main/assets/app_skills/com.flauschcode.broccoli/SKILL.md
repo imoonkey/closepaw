@@ -15,10 +15,11 @@ description: App-specific guidance for Broccoli recipe manager.
 - Leave **Source** and **Categories** empty unless source data explicitly provides them.
 
 ## Comparing Recipes (Duplicate Detection)
-Same-titled recipes may differ in hidden fields. To identify true duplicates:
-1. For each group sharing a title, open EACH recipe and record ALL fields: title, description, servings, prep time, ingredients, directions.
-2. Two recipes are duplicates ONLY if ALL fields match.
-3. NEVER delete based on list-card matching alone.
+Same-titled recipes may differ in hidden fields. Efficient approach:
+1. Scan the list. Group recipes by title. Cards show title + description — if two same-title cards have DIFFERENT descriptions, they cannot be duplicates (skip opening them).
+2. For same-title-same-description recipes: open the FIRST, record all fields (servings, prep time, ingredients, directions) to scratchpad. Open EACH subsequent one and compare.
+3. If ALL fields match → delete the current recipe immediately (3-dot → Delete) while still viewing it. This avoids re-navigation.
+4. Two recipes are duplicates ONLY if ALL fields match. NEVER delete on title alone.
 
 ## Deleting Recipes
 - Open recipe → 3-dot menu → Delete.

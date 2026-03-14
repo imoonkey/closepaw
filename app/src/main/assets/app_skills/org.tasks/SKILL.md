@@ -6,7 +6,12 @@ description: App-specific guidance for Tasks.org.
 # Tasks.org Skill
 
 ## CRITICAL — Follow These Every Time
-**Completion status**: Tasks.org does NOT expose checkbox state. For ANY completed/incomplete query: (1) tap overflow (3 dots, top right) → "Show completed" toggle, (2) with toggle ON note all visible tasks, (3) toggle OFF — disappeared tasks are completed, remaining are incomplete. If you open the date picker by mistake, press Back and retry the overflow menu.
+**Completion status protocol** (MUST follow for any completed/incomplete query):
+1. Scroll the FULL task list. Write ALL visible task titles to scratchpad as `before_list`.
+2. Tap overflow menu (3 dots) → "Show completed" to toggle. Use element_index, NOT coordinates — the button is near date chips that open the date picker by accident.
+3. Scroll the full list again. Write ALL visible task titles to scratchpad as `after_list`.
+4. Compare: if `after_list` has MORE items → you turned completed ON; extra items are completed tasks. If FEWER → you turned completed OFF; missing items are completed tasks.
+5. Do NOT answer until both lists are in scratchpad and the diff is computed.
 
 **Due dates**: List-view day labels are ambiguous across weeks. For ANY date-filtered query, open EACH candidate's detail view and read the full-format date (day-of-week + month + day). A bare day name below it is the start date, not the due date.
 
