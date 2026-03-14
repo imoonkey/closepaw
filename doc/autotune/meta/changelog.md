@@ -2,6 +2,16 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## R53-R54 (2026-03-13, gpt-5.4, 18-task set)
+
+**R53**: 8/18. MarkorMoveNote still failing (11%), VlcCreateTwoPlaylists crashed (11%), Tasks.org completion tasks at 22%. Diagnosed 6 bottom-performing tasks.
+
+**R54 fixes applied**: (1) Markor: CRITICAL scroll-before-select, remove eval-specific example filename. (2) VLC: correct ungroup path (Group videos → Do not group), multi-playlist workflow (scroll to top between playlists). (3) Tasks.org: explicit scratchpad-based before/after diff protocol for Show completed toggle. (4) Broccoli: list-card pre-filter for duplicate detection (skip opening recipes with different descriptions), delete-in-place guidance.
+
+**R54 first attempt**: corrupted by duplicate eval runner (2/18). Discarded. Re-running as R54b (20260313_203814).
+
+**Per-task pass rates (R45-R53, 9 rounds)**: ExpenseAdd 88%, RecipeAdd 88%, SimpleCalendar 88%, SportsLongest 88%, HighPriority 88%, RetroSave 77%, RetroCreate 44%, SportsCount 44%, TurnOnWifi 44%, RetroPlaylist 33%, SportsTotalDist 33%, TasksDueNext 33%, RecipeDel2 22%, RecipeDel3 22%, TasksCompleted 22%, TasksIncomplete 22%, MarkorMove 11%, VlcCreate 11%.
+
 ## Full Pass Rounds R50-R52 (2026-03-13, gpt-5.4, 18-task set)
 
 **R50**: 13/18 (NEW RECORD). Both persistent 0% failures recovered: RetroPlaylistDuration (1.0, 76t), SportsTrackerActivitiesCountForWeek (1.0, 92t). ALL 18 tasks now pass at least once.

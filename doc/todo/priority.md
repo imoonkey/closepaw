@@ -11,7 +11,7 @@
  - 不该分workflow/pitfall，应该分scope（user/app）和kind（fact/preference/event/note/summary/knowledge/task)
 
 
-2. session 管理
+2. session 管理 check
 3. 安全，权限管理，tool approval
 4. login auth (openclaw 怎么用的openai auth而不走api key?参考一下)
 5. 想想release还差啥。
