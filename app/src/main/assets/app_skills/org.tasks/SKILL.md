@@ -7,11 +7,11 @@ description: App-specific guidance for Tasks.org.
 
 ## CRITICAL — Follow These Every Time
 **Completion status protocol** (MUST follow for any completed/incomplete query):
-1. Scroll the FULL task list. Write ALL visible task titles to scratchpad as `before_list`.
+1. Scroll down repeatedly until content stops changing. Write ALL visible task titles to scratchpad as `before_list`.
 2. Tap overflow menu (3 dots) → "Show completed" to toggle. Use element_index, NOT coordinates — the button is near date chips that open the date picker by accident.
-3. Scroll the full list again. Write ALL visible task titles to scratchpad as `after_list`.
+3. Scroll the full list again top-to-bottom. Write ALL visible task titles to scratchpad as `after_list`.
 4. Compare: if `after_list` has MORE items → you turned completed ON; extra items are completed tasks. If FEWER → you turned completed OFF; missing items are completed tasks.
-5. Do NOT answer until both lists are in scratchpad and the diff is computed.
+5. Do NOT answer until BOTH `before_list` AND `after_list` are in scratchpad and the diff is explicitly computed. Skipping any step = wrong answer.
 
 **Due dates**: List-view day labels are ambiguous across weeks. For ANY date-filtered query, open EACH candidate's detail view and read the full-format date (day-of-week + month + day). A bare day name below it is the start date, not the due date.
 

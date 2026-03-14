@@ -15,6 +15,7 @@ For ALL playlist operations, use the **Audio** or **Video** library tabs. NEVER 
 
 ## Adding Files to Playlists
 - Find files by scrolling the Video/Audio library list. Do NOT use the search feature — search results may auto-play on tap.
+- If the goal specifies files in a particular order, select them in THAT order (not screen order). VLC preserves selection order as playlist track order.
 - Long-press first item → tap additional items → overflow menu → "Add to playlist".
 - **Multiple playlists**: work one at a time. Scroll to the top of the list before starting each new playlist's selection. Select ONLY that playlist's files.
 
