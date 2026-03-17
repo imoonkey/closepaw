@@ -36,6 +36,7 @@ Apply changes from the previous round's approved `## Next Steps`.
 - For prompt, tool description, or app skill changes, use `/prompt-tune` to determine the correct ownership layer before editing.
 - **Use `/implement` skill** for all code changes. Do NOT skip any steps in the implementation workflow.
 - Commit: `feat(agent): autotune round N — <summary>`.
+- **Sync & rebuild**: After committing, push to remote and rebuild the APK so the eval runs against the new code. See Step 3 for the exact commands.
 - Round 0: skip this step.
 
 ### Step 2 — Prepare
@@ -53,6 +54,13 @@ Use `doc/autotune/meta/scoreboard.json` to judge whether a targeted retry is sti
 Subtract `eval/config/cannot_handle_group.txt`. Write the selected tasks to `eval/config/autotune_round_N.txt`.
 
 ### Step 3 — Run
+
+**Pre-flight: sync & rebuild** (MANDATORY if Step 1 made any changes):
+```bash
+git push
+ssh qiguo@qiguo-ld1 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
+```
+Skip only if this round had no code/prompt/skill changes (e.g., round 0 with no fix step). Running eval on stale code wastes an entire round.
 
 Read `references/eval_runner.md` for the exact commands for each configuration.
 

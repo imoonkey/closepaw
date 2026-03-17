@@ -28,6 +28,7 @@ For each Ralph iteration:
 2. If `status == "complete"`, emit `<promise>AUTOTUNE_LOOP_COMPLETE</promise>` and exit.
 3. Ensure the active loop run is marked `mode: "auto"` and `status: "running"` before delegating the round.
 4. Invoke exactly one orchestrated `/autotune` round.
+   - **Verify sync**: After `/autotune` Step 1 commits changes, confirm the remote has the latest code and APK rebuilt (`git push` + remote `git pull && ./gradlew assembleDebug`) BEFORE the eval runs. `/autotune` Step 3 owns this, but if running `--remote`, double-check the remote is up to date. Running eval on stale code wastes the entire round.
 5. Re-read `doc/autotune/meta/loop_state.json`.
 6. If `last_round.recommended_action` is `stop_success` or `stop_exhausted`, set `status` to `complete`, persist `stop_reason`, emit `<promise>AUTOTUNE_LOOP_COMPLETE</promise>`, and exit.
 7. Otherwise exit normally and let `ralph-loop` re-feed the next iteration.
