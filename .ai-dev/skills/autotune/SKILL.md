@@ -71,9 +71,18 @@ Read `references/eval_runner.md` for the exact commands for each configuration.
 
 Monitor for stalls. If a task hangs (no output for several minutes), check accessibility permission on the device. If needed, stop the runner, remove completed tasks from the config, and re-run the remainder.
 
-**Overlap with Step 4**: You do NOT need to wait for the full run to finish. As soon as a task completes, start its `/cog-tune` analysis (Step 4.1) in parallel while remaining tasks continue running.
+**Post-run: pull results to local** (MANDATORY for `--remote` runs):
+```bash
+# Pull eval results from remote to local
+rsync -avz qiguo@qiguo-ld1:~/androidagent/eval/results/ eval/results/
+```
+All analysis in Step 4 reads from local `eval/results/`. If you skip this pull, Step 4 will either fail or analyze stale data.
+
+**Overlap with Step 4**: You do NOT need to wait for the full run to finish. As soon as a task completes, start its `/cog-tune` analysis (Step 4.1) in parallel while remaining tasks continue running. For remote runs, pull incrementally as tasks finish.
 
 ### Step 4 — Analyze
+
+**All analysis artifacts MUST be written locally** (not on the remote). The analysis writes to `doc/autotune/round_N/` and `doc/autotune/meta/` — these must end up in the local repo for commit. If running analysis from the local machine (normal case), this happens automatically. Do NOT skip writing per-task analysis or the common problems summary.
 
 For each task in the run (**MUST use a separate subagent per task** for cleaner context — do NOT analyze multiple tasks in one agent):
 1. Run `/cog-tune` (eval entry). **MUST read the cog-tune/SKILL.md, and follow "Inspect cognition step-by-step" section steps**. Write per-task analysis to `doc/autotune/round_N/<run_id>/per_task/<TaskName>_<agent>.md` following the template `assets/per_task_analysis_template.md`.

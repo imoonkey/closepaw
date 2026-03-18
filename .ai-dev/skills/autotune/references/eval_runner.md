@@ -79,6 +79,16 @@ ssh qiguo@qiguo-ld1 'cd ~/androidagent && ./scripts/eval_parallel.sh \
 
 Same parallel preconditions as local, plus `--headless` adds `-no-window -no-audio`. If parallel startup fails, fallback to single-emulator serial run.
 
+## Pulling Results After Remote Runs
+
+After any `--remote` run completes (or incrementally as tasks finish), pull results to local:
+
+```bash
+rsync -avz qiguo@qiguo-ld1:~/androidagent/eval/results/ eval/results/
+```
+
+All Step 4 analysis reads from local `eval/results/`. Skipping this means analysis fails or uses stale data.
+
 ## Troubleshooting
 
 | Problem | Fix |

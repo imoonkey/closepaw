@@ -1,5 +1,1 @@
-BrowserDraw
-MarkorDeleteNewestNote
 MarkorTranscribeVideo
-OsmAndMarker
-OsmAndTrack
