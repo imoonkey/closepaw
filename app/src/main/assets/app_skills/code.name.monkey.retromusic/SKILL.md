@@ -3,25 +3,12 @@ name: code.name.monkey.retromusic
 description: App-specific guidance for Retro Music player.
 ---
 
-# Retro Music Skill
-
-## CRITICAL — Playlist Efficiency
-- NEVER open song Details to check individual durations — the playlist detail view shows total.
-- Add 8-10 songs WITHOUT visiting the playlist between adds. Then check total on Playlists tab. Add or remove songs to adjust.
-- If total EXCEEDS the target range, remove the last-added song(s) from the playlist until within range.
-- If multi-select toolbar icon doesn't respond on first try, switch to per-song 3-dot menu immediately. Do NOT retry multi-select.
-- Scroll the Songs list to see ALL available songs. There may be songs below the fold.
-- If duration stops increasing after an add, the song is already in the playlist — skip it, try a different song.
-
-## Song Discovery
-"Provided songs" or "available songs" means the songs in the app's music library. Navigate to the Songs tab to find them.
-
-## Adding Songs to Playlists
-- If the goal specifies songs in a particular order, add them in that order — NOT in the order they appear on screen.
-- **Multi-select**: From Songs tab, long-press a song → tap additional → "Add to playlist" icon in selection toolbar.
-- **Per-song fallback**: 3-dot menu on a song → "Add to playlist" → select target. Go directly to the next song.
-- The playlist's own "Add to playlist" button adds the PLAYLIST to another playlist, NOT songs into it.
+- Playlist detail view shows total duration. Add songs from the Songs tab, not from inside the playlist.
+- The "Add to playlist" button on a playlist row adds the PLAYLIST to another playlist, not songs into it.
+- If multi-select toolbar doesn't respond, use per-song 3-dot menu → "Add to playlist" as fallback.
+- If the goal specifies songs in a particular order, add them in that order — not screen order.
+- "Provided songs" or "available songs" means songs in the app's music library (Songs tab).
 
 ## Navigation
 - Bottom tabs: Home, Songs, Albums, Artists, Playlists.
-- Create playlist first (Playlists tab), then go to Songs tab to add songs.
+- Create playlists from Playlists tab, then add songs from Songs tab.

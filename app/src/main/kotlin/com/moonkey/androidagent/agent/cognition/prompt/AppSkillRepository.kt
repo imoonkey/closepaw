@@ -25,7 +25,9 @@ internal class AssetAppSkillRepository(
 
         val assetPath = "$APP_SKILLS_ROOT/$normalizedPackage/SKILL.md"
         return try {
-            assets.open(assetPath).bufferedReader().use { it.readText().trim() }.ifEmpty { null }
+            assets.open(assetPath).bufferedReader().use { it.readText().trim() }
+                .let(::stripFrontmatter)
+                .ifEmpty { null }
         } catch (_: FileNotFoundException) {
             null
         } catch (e: IOException) {
@@ -38,5 +40,9 @@ internal class AssetAppSkillRepository(
         private const val TAG = "AssetAppSkillRepo"
         private const val APP_SKILLS_ROOT = "app_skills"
         private val PACKAGE_NAME_REGEX = Regex("^[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+$")
+        private val FRONTMATTER_REGEX = Regex("\\A---\\s*\\n.*?\\n---\\s*\\n?", RegexOption.DOT_MATCHES_ALL)
+
+        private fun stripFrontmatter(content: String): String =
+            content.replace(FRONTMATTER_REGEX, "").trim()
     }
 }

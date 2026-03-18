@@ -68,10 +68,10 @@ Always read the current content of the target file first. Understand what alread
 
 **App skills** (`app/src/main/assets/app_skills/<package>/SKILL.md`):
 - Use full package name as directory name.
-- Follow the standard format (see existing skills like `net.gsantner.markor/SKILL.md`).
+- **Follow `references/app_skill.md`** for content principles, structure, tier budgets, and CRITICAL protocol.
 - Content: stable app-specific rules, non-obvious workflows, app-specific pitfalls, app-specific shell caveats.
-- Keep concise — the entire file is loaded every turn when the app is foreground.
-- No tool API docs, no global retry policy, no duplicated core prompt rules.
+- Keep concise — the entire file is loaded every turn when the app is foreground. Hard cap: 20 lines.
+- No tool API docs, no global retry policy, no duplicated core prompt rules, no solver algorithms.
 
 ### 4. Anti-pattern check
 
@@ -110,6 +110,7 @@ Before finalizing, verify:
 ### Design reference
 - Ownership model design: `doc/autotune/round_4/prompt_refactor/final/design.md`
 - Shared tuning principles: `.ai-dev/skills/autotune/references/tuning_principles.md`
+- App skill writing guide: `.ai-dev/skills/prompt-tune/references/app_skill.md`
 
 ### Existing app skills
 Find all with: `ls app/src/main/assets/app_skills/`

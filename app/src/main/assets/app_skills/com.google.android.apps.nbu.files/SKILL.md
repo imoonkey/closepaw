@@ -3,18 +3,7 @@ name: com.google.android.apps.nbu.files
 description: App-specific guidance for Google Files (file manager).
 ---
 
-# Google Files Skill
-
-## Opening Files
-- Use `element_index` on the file name, NOT coordinate-based clicks.
-- AVOID clicking near left edge (x < 150) — the hamburger menu overlaps that area.
-- If side drawer opens accidentally, press Back to close it, then retry with element_index.
-
-## Navigating to Downloads
-Downloads is usually the default view. If not, use navigation drawer → "Downloads".
-
-## Move Operations
-If hamburger menu doesn't open via click, swipe right from left edge. Use shell `mv` as fallback for move operations.
-
-## Opening HTML Files with Chrome
-Click file name via `element_index`. If "Open with" chooser appears, select Chrome.
+- Use `element_index` on file names, NOT coordinate clicks. Left edge (x < 150) overlaps the hamburger menu.
+- If the side drawer opens accidentally, press Back to close it.
+- Home "Downloads" is the default view. If not visible, use the navigation drawer.
+- For move operations: if the hamburger menu won't open via click, swipe right from left edge. Shell `mv` works as fallback.
