@@ -9,13 +9,14 @@ description: App-specific guidance for Tasks.org.
 
 ## Dates
 - List-view day labels are ambiguous across weeks. For date-filtered queries, open each candidate's detail view and read the full-format date (day-of-week + month + day).
-- The due date is the standalone label on the right of the task row. Chips below the title are subtask reminders, NOT the due date.
-- A bare day name below the full-format date in the detail view is the start date, not the due date.
+- In detail view: the first date (full-format like "Tuesday, October 3") is the DUE date. A second bare day name below it is the START date — do NOT confuse them.
+- Chips below the title in list view are subtask reminders, NOT the due date.
 - For "due next week" / "due on date": scroll the FULL task list, open EVERY task detail to read its exact due date, and record to scratchpad before answering. Do not skip tasks or assume from list-view labels.
 
 ## Priority
 - Tap a task → priority radio buttons. Left-to-right: None, Low, Medium, High.
 
 ## Other
-- Recurring tasks and sub-tasks appear as separate rows with the same name.
+- Recurring tasks and sub-tasks appear as separate rows with the same name. When counting unique tasks, deduplicate by name.
 - Do NOT click checkboxes when the goal is to read information.
+- For completion queries: scroll detail view to the VERY bottom to find Created/Modified/Completion metadata. If scroll stops early, swipe up to ensure all metadata is visible.
