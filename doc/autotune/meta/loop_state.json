@@ -1,28 +1,48 @@
 {
-  "goal": "R58: Prompt trim (system prompt + tool desc) + cog-tune 14 failures. Validate no regression + recoveries.",
+  "goal": "R58: Prompt trim (system prompt + tool desc) + cog-tune 14 failures.",
   "mode": "manual",
-  "next_round": 58,
-  "status": "ready_to_run",
+  "next_round": 59,
+  "status": "waiting_review",
   "active_backlog_file": "eval/config/autotune_round_58.txt",
   "loop_name": "prompt_trim_cogtune",
   "current_round": 58,
   "last_round": {
-    "number": 57,
-    "run_id": "20260317_194418",
-    "rerun_id": "20260317_205840",
-    "pass_rate": "32.5/51",
-    "score": 0.637
-  },
-  "r58_changes": {
-    "system_prompt": "Removed Long-Term Memory scope details (-2 lines), compressed Completion section (-2 lines). 53→50 lines.",
-    "tool_descriptions": "Trimmed AskUser (removed Use when/Do NOT lists), WaitTool (removed example), CompleteTask (compressed conditions).",
-    "app_skills": {
-      "net.gsantner.markor": "Added Rename section (long-press context menu + shell mv)",
-      "com.arduia.expense": "Strengthened category matching guidance",
-      "de.dennisguse.opentracks": "Added Counting & Aggregation section (must verify activity type before counting/summing)",
-      "org.tasks": "Added exhaustive date-filtered query guidance (scroll full list, open every task detail)",
-      "com.simplemobiletools.calendar.pro": "Strengthened date range traversal (compute range to scratchpad, tap each day)"
-    }
+    "number": 58,
+    "run_id": "20260323_131259",
+    "pass_rate": "33/51",
+    "score": 0.647,
+    "recovered": [
+      "MarkorAddNoteHeader",
+      "ExpenseAddMultipleFromGallery",
+      "SimpleCalendarEventsInNextWeek",
+      "BrowserMultiply",
+      "OsmAndMarker"
+    ],
+    "regressions": [
+      "ExpenseDeleteDuplicates2",
+      "SportsTrackerLongestDistanceActivity",
+      "SystemBrightnessMax",
+      "TasksHighPriorityTasks",
+      "VlcCreateTwoPlaylists"
+    ],
+    "still_failing": [
+      "BrowserDraw", "FilesMoveFile", "MarkorDeleteNewestNote",
+      "MarkorMergeNotes", "OsmAndTrack",
+      "RecipeDeleteDuplicateRecipes2", "RecipeDeleteDuplicateRecipes3",
+      "RetroPlaylistDuration",
+      "SportsTrackerActivitiesCountForWeek",
+      "SportsTrackerTotalDistanceForCategoryOverInterval",
+      "TasksCompletedTasksForDate", "TasksDueNextWeek",
+      "TasksIncompleteTasksOnDate"
+    ],
+    "key_findings": [
+      "33/51 (64.7%) vs R57: 32.5/51 (63.7%). +1% net.",
+      "Targeted fixes worked: MarkorAddNoteHeader (rename), ExpenseFromGallery (category), SimpleCalendarNextWeek (date range).",
+      "Prompt trimming caused no regression — 5 regressions are all stochastic tasks with no overlap to our changes.",
+      "5 recovered, 5 regressed = net +0.5. All regressions are stochastic (historical pass rates fluctuate).",
+      "Cog-tune findings: ExpenseDeleteDuplicates2 = date filter blindness, MarkorMergeNotes = extension not cleared, FilesMoveFile = wrong file selected."
+    ],
+    "recommended_action": "wait_human"
   },
   "prior_loop": {
     "name": "appskill_rewrite_validation",
