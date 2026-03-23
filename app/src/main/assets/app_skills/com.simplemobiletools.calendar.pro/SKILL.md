@@ -10,7 +10,7 @@ description: App-specific guidance for Simple Calendar Pro.
 ## Date & Time
 - "Nh" notation ALWAYS means 24-hour format: "5h" = 05:00, NOT 17:00.
 - For NumberPicker spinners: use scroll/swipe gestures, NOT type().
-- For date range queries, navigate to EACH day individually — the month grid does not expose event data.
+- For date range queries ("next week", "this month"): compute the exact date range to scratchpad, then tap EACH day individually to check for events. The month grid does not expose event data.
 
 ## Events
 - Verify the displayed date matches the target before reading or creating events.

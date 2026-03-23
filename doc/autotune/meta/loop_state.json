@@ -1,44 +1,33 @@
 {
-  "goal": "Validate app skill rewrite (366→126 lines, -65.6%). Compare against R39/R40 baseline.",
+  "goal": "R58: Prompt trim (system prompt + tool desc) + cog-tune 14 failures. Validate no regression + recoveries.",
   "mode": "manual",
   "next_round": 58,
-  "status": "waiting_review",
-  "active_backlog_file": "eval/config/autotune_round_57.txt",
-  "loop_name": "appskill_rewrite_validation",
-  "current_round": 57,
+  "status": "ready_to_run",
+  "active_backlog_file": "eval/config/autotune_round_58.txt",
+  "loop_name": "prompt_trim_cogtune",
+  "current_round": 58,
   "last_round": {
     "number": 57,
     "run_id": "20260317_194418",
     "rerun_id": "20260317_205840",
     "pass_rate": "32.5/51",
-    "score": 0.637,
-    "recovered": [],
-    "regressions": [],
-    "still_failing": [
-      "BrowserDraw", "BrowserMultiply", "ExpenseAddMultipleFromGallery",
-      "FilesMoveFile", "MarkorAddNoteHeader", "MarkorDeleteNewestNote",
-      "MarkorMergeNotes", "OsmAndMarker", "OsmAndTrack",
-      "RecipeDeleteDuplicateRecipes2", "RecipeDeleteDuplicateRecipes3",
-      "RetroPlaylistDuration", "SimpleCalendarEventsInNextWeek",
-      "SportsTrackerActivitiesCountForWeek",
-      "SportsTrackerTotalDistanceForCategoryOverInterval",
-      "TasksCompletedTasksForDate", "TasksDueNextWeek",
-      "TasksIncompleteTasksOnDate"
-    ],
-    "key_findings": [
-      "App skill rewrite VALIDATED: 32.5/51 (63.7%) vs R39: 30/51, R40: 32/51. No regression.",
-      "YAML frontmatter stripping verified working in traces.",
-      "App skill tokens: 3,569 → 2,300 (-35.6%).",
-      "All 4 unparked tasks failed as expected — reparked.",
-      "All 18 failures match pre-existing patterns. No new failure modes."
-    ],
-    "recommended_action": "wait_human",
-    "token_delta": "app skills: 3,569 → 2,300 (-35.6%)"
+    "score": 0.637
+  },
+  "r58_changes": {
+    "system_prompt": "Removed Long-Term Memory scope details (-2 lines), compressed Completion section (-2 lines). 53→50 lines.",
+    "tool_descriptions": "Trimmed AskUser (removed Use when/Do NOT lists), WaitTool (removed example), CompleteTask (compressed conditions).",
+    "app_skills": {
+      "net.gsantner.markor": "Added Rename section (long-press context menu + shell mv)",
+      "com.arduia.expense": "Strengthened category matching guidance",
+      "de.dennisguse.opentracks": "Added Counting & Aggregation section (must verify activity type before counting/summing)",
+      "org.tasks": "Added exhaustive date-filtered query guidance (scroll full list, open every task detail)",
+      "com.simplemobiletools.calendar.pro": "Strengthened date range traversal (compute range to scratchpad, tap each day)"
+    }
   },
   "prior_loop": {
-    "name": "full_pass",
-    "rounds": "R45-R56",
-    "result": "Mean 9.7/18. MarkorMoveNote and VlcCreateTwoPlaylists recovered. Tasks.org completion-detection rewrite committed but unevaluated."
+    "name": "appskill_rewrite_validation",
+    "rounds": "R57",
+    "result": "App skill rewrite validated: 32.5/51 (63.7%). No regression vs R39/R40."
   },
   "plan_file": null
 }

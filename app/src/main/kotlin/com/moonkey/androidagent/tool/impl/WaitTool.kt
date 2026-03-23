@@ -21,9 +21,6 @@ class WaitTool : ToolSpec {
 
     override val description: String = """
 Wait for UI updates to settle when transitions, animations, or async loading are in progress.
-
-Example:
-- wait(duration_ms=1500)
 """.trimIndent()
 
     override val parameterSchema: JSONObject = JSONObject().apply {

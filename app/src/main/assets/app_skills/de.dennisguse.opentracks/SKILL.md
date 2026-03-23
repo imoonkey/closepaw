@@ -14,3 +14,7 @@ description: App-specific guidance for OpenTracks sport tracker.
 
 ## Date Labels
 - Track list uses relative labels (Today, Yesterday, Monday, etc.). Map each to an absolute date using the device date.
+- For date-ranged queries: compute the exact date range to scratchpad first, then filter tracks by their absolute dates.
+
+## Counting & Aggregation
+- For "how many X activities" or "total distance for X": you MUST check the activity type of each candidate track via Edit before counting or summing. Do not assume from track names.

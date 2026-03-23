@@ -39,15 +39,7 @@ Ask the user for help. Two types:
 - question: Ask a question and wait for a text answer.
 - action: Ask the user to perform a physical action (login, permission, captcha) and wait for confirmation.
 
-Use when:
-- Login or authentication is required
-- Ambiguous choice needs user preference
-- Permission prompt appears that you cannot handle
-- Captcha or human verification is needed
-
-Do NOT use for:
-- Progress updates (use agent_thought parameter instead)
-- Things you can determine from the screen
+Use only when truly blocked (login, ambiguous choice, captcha). Do not use for progress updates or things you can determine from the screen.
 """.trimIndent()
 
     override val parameterSchema: JSONObject = JSONObject().apply {

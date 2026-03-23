@@ -28,12 +28,8 @@ class CompleteTaskTool : ToolSpec {
     override val description: String = """
 Call this when you have finished working on the task. Call ONLY after verifying the exact requested outcome.
 
-Use success only when:
-- no further screen action is needed in this turn
-- the result matches the user's request, not just a related screen state
-- multi-step tasks have all required steps completed
-
-Use failure when you are blocked or the task is unsupported. Always provide a helpful answer that explains what you verified, what you tried, and why it did not work.
+Use success when the result fully matches the user's request and no further screen action is needed.
+Use failure when blocked or unsupported. Explain what you verified, tried, and why it failed.
 """.trimIndent()
     
     override val parameterSchema: JSONObject = JSONObject().apply {

@@ -16,23 +16,19 @@
 
 **Key files:** `app/src/main/kotlin/com/moonkey/androidagent/memory/MemorySchema.kt`, `app/src/main/kotlin/com/moonkey/androidagent/memory/MemoryStore.kt`, `app/src/main/kotlin/com/moonkey/androidagent/memory/MemoryRecaller.kt`, `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/RememberExperienceTool.kt`, `app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt`, `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/StandaloneAgentDef.kt`, `doc/main/agent/memory.md`, `doc/todo/0.5_memory/memory_v2_implementation_plan.md`
 **Verification:** `./gradlew assembleDebug testDebugUnitTest`, `./gradlew assembleDebug lint test`
-**Commit:** pending
-**Next:** Merge the worktree once full verification stays green.
+**Commit:** `56aded7`
 **Blockers:** None
 
 ## 2026-03-13: Memory V2 Design Note Capture
 
 **What changed:**
 - Added `doc/todo/0.5_memory/memory_v2_note.md` to preserve the agreed Memory V2 design discussion and final sketch.
-- Captured the scope-first persistent memory layout (`user.md`, `device.md`, `apps/<package>.md`) and the decision to reuse existing session history instead of adding a separate session-log memory layer in v2.
 
 **Why:**
 - Preserve the current design consensus in-repo so implementation can proceed from one concrete source of truth instead of scattered chat context.
 
 **Key files:** `doc/todo/0.5_memory/memory_v2_note.md`
-**Verification:** `./gradlew assembleDebug lint test`
-**Commit:** pending
-**Next:** Use this note as the basis for the production-ready Memory V2 implementation design and build-out.
+**Commit:** `79b28a9`
 **Blockers:** None
 
 ## 2026-03-13: Eval Config Overlay Loading
@@ -40,16 +36,12 @@
 **What changed:**
 - Eval config loading now always starts from `eval/config/default.yaml` and deep-merges any explicitly requested config on top.
 - Parallel eval now uses the same merged config path as serial eval, so worker shard configs inherit default settings before device-specific overrides apply.
-- `eval/config/remote.yaml` was reduced to an override-only file that keeps just the remote ADB path.
-- Updated eval docs to describe override semantics and added regression tests for nested config merging.
 
 **Why:**
 - Remove duplicated config copies, keep remote config minimal, and make config variants inherit new default settings automatically instead of drifting.
 
-**Key files:** `eval/aw_bridge/runner.py`, `eval/aw_bridge/parallel_runner.py`, `eval/config/remote.yaml`, `eval/tests/test_runner.py`, `eval/tests/test_parallel_runner.py`, `eval/README.md`, `doc/main/eval/eval.md`, `doc/dev/development.md`
-**Verification:** `eval/.venv/bin/python -m pytest eval/tests/test_runner.py eval/tests/test_parallel_runner.py`, `git diff --check -- doc/dev/development.md doc/main/eval/eval.md eval/README.md eval/aw_bridge/parallel_runner.py eval/aw_bridge/runner.py eval/config/remote.yaml eval/tests/test_parallel_runner.py eval/tests/test_runner.py`
-**Commit:** pending
-**Next:** Keep future eval config variants override-only unless they intentionally replace the default baseline.
+**Key files:** `eval/aw_bridge/runner.py`, `eval/aw_bridge/parallel_runner.py`, `eval/config/remote.yaml`
+**Commit:** `2fbfeb2`
 **Blockers:** None
 
 ## 2026-03-13: Eval Memory Hygiene

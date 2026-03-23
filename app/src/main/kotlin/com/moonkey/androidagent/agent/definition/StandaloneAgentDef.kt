@@ -54,8 +54,6 @@ internal object StandaloneAgentDef : AgentDef() {
         ## Long-Term Memory
         - Persistent memory is loaded automatically (shown under "Recalled Memory").
         - Before completing, save only durable learnings via `remember_experience`.
-        - Use `scope=user` for cross-app user facts/preferences, `scope=device` for device facts/pitfalls/verification, and `scope=app` for app-specific overrides/preferences/operational notes.
-        - In `app/operational_notes`, write plain-language notes without `[pitfall]` or `[verification]` prefixes.
 
         ## Task Modes
         - Information: read values from the a11y tree, not from titles. Scroll to see all items before counting. Answer from verified evidence only.
@@ -64,11 +62,9 @@ internal object StandaloneAgentDef : AgentDef() {
 
         ## Completion
         - Call `complete_task` only when no further screen action is needed in the same turn.
-        - Re-read the goal. Verify the EXACT requested outcome — filenames with extension, field values, all steps.
-        - For file operations: match exact filenames. Verify source is gone and destination is correct.
-        - For information tasks: do not guess metadata from appearance. Navigate to the actual data field. Cross-check against scratchpad evidence.
-        - For info-extraction: scroll the full list, cross-check totals against scratchpad, verify date boundaries before answering.
-        - Before answering date-specific queries, verify the view shows the target date.
+        - Re-read the goal. Verify the EXACT requested outcome — filenames with extension, field values, all items.
+        - For file operations: verify source is gone and destination exists with correct name.
+        - For information tasks: navigate to the actual data field, don't guess from appearance. Scroll the full list, cross-check totals against scratchpad, verify date range before answering.
         - On failure, explain the blocker and what you verified.
 
         ## Device Environment
