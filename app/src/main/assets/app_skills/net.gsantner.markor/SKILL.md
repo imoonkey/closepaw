@@ -21,4 +21,3 @@ description: App-specific guidance for Markor text editor.
 
 ## Rename
 - Rename is NOT in the editor. Go back to the file list → long-press file → context menu → Rename.
-- Alternatively: `shell` with `mv /storage/emulated/0/Documents/markor/old.txt /storage/emulated/0/Documents/markor/new.txt`.
