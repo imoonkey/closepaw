@@ -15,3 +15,4 @@
 
 ## R8 (GPT-5.4, 20260307)
 Score: 0.0 | Turns: 6 | ActionFailure — agent used slider but didn't reach max.
+- R58 (20260323): score=0.0, turns=8, reason=GoalAchieved, ans="Brightness is set essentially to maximum. The display brightness slider now read"

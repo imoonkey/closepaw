@@ -44,3 +44,4 @@ Score: 0.0 | Turns: 25 | ReasoningError — deleted wrong recipes.
 ## R3 (20260301_012237) — FAIL
 - Score: 0.0
 - Root cause: Index shift + turn exhaustion
+- R58 (20260323): score=0.0, turns=58, reason=GoalAchieved, ans="Done — I removed the confirmed exact duplicate recipes while leaving one copy of"

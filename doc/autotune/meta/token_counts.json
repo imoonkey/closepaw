@@ -1,27 +1,27 @@
 {
   "system_prompt": {
-    "chars": 4162,
-    "tokens": 858,
-    "lines": 53
+    "chars": 3668,
+    "tokens": 754,
+    "lines": 49
   },
   "tool_descriptions": {
     "total": {
-      "chars": 8115,
-      "tokens": 1815
+      "chars": 7750,
+      "tokens": 1734
     },
     "tools": {
       "AskUserTool": {
-        "chars": 871,
-        "tokens": 193,
-        "lines": 38,
-        "description_tokens": 105,
+        "chars": 713,
+        "tokens": 160,
+        "lines": 30,
+        "description_tokens": 73,
         "params_tokens": 87
       },
       "CompleteTaskTool": {
-        "chars": 777,
-        "tokens": 164,
-        "lines": 30,
-        "description_tokens": 95,
+        "chars": 605,
+        "tokens": 126,
+        "lines": 26,
+        "description_tokens": 57,
         "params_tokens": 69
       },
       "DelegateTaskTool": {
@@ -74,10 +74,10 @@
         "params_tokens": 44
       },
       "WaitTool": {
-        "chars": 337,
-        "tokens": 77,
-        "lines": 19,
-        "description_tokens": 28,
+        "chars": 302,
+        "tokens": 67,
+        "lines": 16,
+        "description_tokens": 18,
         "params_tokens": 49
       },
       "WriteTodosTool": {
@@ -91,11 +91,11 @@
   },
   "app_skills": {
     "total": {
-      "chars": 10313,
-      "tokens": 2300
+      "chars": 11388,
+      "tokens": 2540
     },
     "count": 17,
-    "avg_tokens": 135,
+    "avg_tokens": 149,
     "skills": {
       "code.name.monkey.retromusic": {
         "chars": 743,
@@ -113,8 +113,8 @@
         "lines": 14
       },
       "com.arduia.expense": {
-        "chars": 702,
-        "tokens": 166,
+        "chars": 803,
+        "tokens": 187,
         "lines": 12
       },
       "com.dimowner.audiorecorder": {
@@ -148,8 +148,8 @@
         "lines": 8
       },
       "com.simplemobiletools.calendar.pro": {
-        "chars": 723,
-        "tokens": 167,
+        "chars": 811,
+        "tokens": 187,
         "lines": 18
       },
       "com.simplemobiletools.gallery.pro": {
@@ -158,14 +158,14 @@
         "lines": 10
       },
       "de.dennisguse.opentracks": {
-        "chars": 739,
-        "tokens": 169,
-        "lines": 17
+        "chars": 1070,
+        "tokens": 240,
+        "lines": 21
       },
       "net.gsantner.markor": {
-        "chars": 815,
-        "tokens": 189,
-        "lines": 21
+        "chars": 925,
+        "tokens": 217,
+        "lines": 24
       },
       "net.osmand": {
         "chars": 761,
@@ -173,9 +173,9 @@
         "lines": 18
       },
       "org.tasks": {
-        "chars": 1140,
-        "tokens": 259,
-        "lines": 21
+        "chars": 1585,
+        "tokens": 359,
+        "lines": 23
       },
       "org.videolan.vlc": {
         "chars": 851,

@@ -56,3 +56,4 @@
 - Score: 1.0
 - Turns: 21/30
 - First run, passed. Tasks app task — benefits from R4 date-label tip as regression canary.
+- R58 (20260323): score=1.0, turns=21, reason=GoalAchieved

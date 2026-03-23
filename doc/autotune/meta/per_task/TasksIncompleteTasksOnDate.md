@@ -43,3 +43,4 @@ Score: 0.0 | Turns: 11 | False completion. App skill injection status unclear.
 - Turns: 2/30
 - Root cause: FalseCompletion. Answered immediately (2 turns) without any date filtering — included tasks past cutoff. No evidence gathering.
 - R4 fix: Generic date-label tip + QA scratchpad guardrail.
+- R58 (20260323): score=0.0, turns=30, reason=GoalAchieved, ans="Attend training session"

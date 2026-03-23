@@ -31,3 +31,4 @@
 ## R3 (20260301_012237) — FAIL
 - Score: 0.0
 - Root cause: Activity type extraction
+- R58 (20260323): score=1.0, turns=18, reason=GoalAchieved

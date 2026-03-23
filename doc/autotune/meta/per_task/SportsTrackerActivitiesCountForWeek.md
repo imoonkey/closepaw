@@ -49,3 +49,4 @@ Score: 0.0 | Turns: 4 | Much fewer turns (4 vs 30). FalseCompletion persists.
 - Turns: 0/30 (bridge timeout — no session_stopped event)
 - Root cause: InfraError + TurnExhaustion. Agent ran many actions checking each track's type but session didn't terminate cleanly.
 - R4 fix: Timeout finalization observability (session_stopped instrumentation + run summary flush).
+- R58 (20260323): score=0.0, turns=32, reason=GoalAchieved, ans="0"

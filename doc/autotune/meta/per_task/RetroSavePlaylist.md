@@ -23,3 +23,4 @@
 - Score: 1.0
 - Turns: 30/30 (MaxTurnsReached but scored 1.0 via device state)
 - First eval. P1 hint text fix working. Song addition clean. Export flow cost 12 turns with navigation confusion. Never called complete_task — scored by device state. Marginal pass.
+- R58 (20260323): score=1.0, turns=30, reason=Error

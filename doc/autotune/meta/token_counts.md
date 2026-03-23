@@ -4,11 +4,11 @@
 
 | Layer | Tokens | Lines |
 |-------|--------|-------|
-| System prompt | 858 | 53 |
-| Tool descriptions (total) | 1,815 | — |
-| App skills (total) | 2,300 | — |
-| App skills (avg per skill) | 135 | — |
-| **Always-on (prompt + tools)** | **2,673** | — |
+| System prompt | 754 | 49 |
+| Tool descriptions (total) | 1,734 | — |
+| App skills (total) | 2,540 | — |
+| App skills (avg per skill) | 149 | — |
+| **Always-on (prompt + tools)** | **2,488** | — |
 
 ## Tool Descriptions + Params
 
@@ -16,13 +16,13 @@
 |------|------|--------|-------|
 | MobileActionTool | 110 | 334 | 444 |
 | RememberExperienceTool | 110 | 108 | 218 |
-| AskUserTool | 105 | 87 | 193 |
 | ScratchpadTool | 96 | 90 | 186 |
 | WriteTodosTool | 69 | 104 | 173 |
 | DelegateTaskTool | 69 | 100 | 169 |
-| CompleteTaskTool | 95 | 69 | 164 |
-| WaitTool | 28 | 49 | 77 |
+| AskUserTool | 73 | 87 | 160 |
+| CompleteTaskTool | 57 | 69 | 126 |
 | SystemButtonTool | 28 | 44 | 72 |
+| WaitTool | 18 | 49 | 67 |
 | ShellTool | 39 | 25 | 64 |
 | OpenAppTool | 55 | 0 | 55 |
 
@@ -30,15 +30,15 @@
 
 | Package | Tokens | Lines |
 |---------|--------|-------|
-| org.tasks | 259 | 21 |
+| org.tasks | 359 | 23 |
+| de.dennisguse.opentracks | 240 | 21 |
+| net.gsantner.markor | 217 | 24 |
 | org.videolan.vlc | 193 | 18 |
-| net.gsantner.markor | 189 | 21 |
+| com.arduia.expense | 187 | 12 |
 | com.flauschcode.broccoli | 187 | 13 |
+| com.simplemobiletools.calendar.pro | 187 | 18 |
 | net.osmand | 179 | 18 |
-| de.dennisguse.opentracks | 169 | 17 |
 | code.name.monkey.retromusic | 168 | 15 |
-| com.simplemobiletools.calendar.pro | 167 | 18 |
-| com.arduia.expense | 166 | 12 |
 | com.android.settings | 112 | 14 |
 | com.google.android.apps.nbu.files | 112 | 10 |
 | com.simplemobiletools.gallery.pro | 96 | 10 |

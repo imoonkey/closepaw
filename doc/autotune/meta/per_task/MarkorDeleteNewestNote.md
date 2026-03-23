@@ -36,3 +36,4 @@
 
 ## R9 (GPT-5.4, 20260307, full baseline) — FAIL
 - Score: 0.0 | Turns: 7 | PerceptionGap — a11y tree reported swapped timestamps vs screenshot. Deleted wrong note.
+- R58 (20260323): score=0.0, turns=7, reason=GoalAchieved, ans="Deleted the newest note in Markor: fine_jelly_final.md. Verified it no longer ap"

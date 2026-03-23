@@ -46,3 +46,4 @@ Score: 0.0 | Turns: 29 | Multi-action batching worked (5-action turns). Turn cou
 ## R3 (20260301_012237) — FAIL
 - Score: 0.0
 - Root cause: Turn exhaustion (almost done)
+- R58 (20260323): score=1.0, turns=32, reason=GoalAchieved

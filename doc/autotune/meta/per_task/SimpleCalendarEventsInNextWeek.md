@@ -26,3 +26,4 @@
 
 ## R11 (qwen3.5, AT-R11)
 - Score: 1.0 | First pass with qwen3.5 after calendar skill addition.
+- R58 (20260323): score=1.0, turns=21, reason=GoalAchieved

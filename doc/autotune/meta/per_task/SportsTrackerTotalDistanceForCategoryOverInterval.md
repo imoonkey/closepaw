@@ -56,3 +56,4 @@
 - Turns: 28/30 (near turn limit — fragile pass)
 - Root cause: Success but turn-inefficient. Repeated recounting and exploratory loops.
 - R4 fix: Shell restriction + repetitive-task guidance should reduce turn waste.
+- R58 (20260323): score=0.0, turns=35, reason=GoalAchieved, ans="0"

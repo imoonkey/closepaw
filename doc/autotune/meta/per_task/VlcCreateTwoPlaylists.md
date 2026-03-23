@@ -40,3 +40,4 @@ Score: 0.0 | Turns: 29 | REGRESSION. VLC app skill NOT injected. Created 1 playl
 
 ## R3 (20260301_012237) — INFRA
 - Infra error: app_db directory missing
+- R58 (20260323): score=0.5, turns=31, reason=GoalAchieved

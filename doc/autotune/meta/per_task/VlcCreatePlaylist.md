@@ -29,3 +29,4 @@
 
 ## R3 (20260301_012237) — INFRA
 - Infra error: app_db directory missing
+- R58 (20260323): score=1.0, turns=11, reason=GoalAchieved

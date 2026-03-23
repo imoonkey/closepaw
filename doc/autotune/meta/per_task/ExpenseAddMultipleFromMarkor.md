@@ -43,3 +43,4 @@
 - Turns: 17/30
 - FalseCompletion: Same destination-binding failure as R5. Agent extracted the correct reimbursable rows but created a new `pro expense.txt` file inside Markor instead of opening the Pro Expense app. Never attempted `open_app("Pro Expense")`.
 - See `round_9/20260307_050909/per_task/ExpenseAddMultipleFromMarkor_claude.md` for details.
+- R58 (20260323): score=1.0, turns=18, reason=GoalAchieved

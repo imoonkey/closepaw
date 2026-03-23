@@ -42,7 +42,8 @@
       "5 recovered, 5 regressed = net +0.5. All regressions are stochastic (historical pass rates fluctuate).",
       "Cog-tune findings: ExpenseDeleteDuplicates2 = date filter blindness, MarkorMergeNotes = extension not cleared, FilesMoveFile = wrong file selected."
     ],
-    "recommended_action": "wait_human"
+    "recommended_action": "wait_human",
+    "token_delta": "always-on: 2,673 → 2,488 (-6.9%). System prompt: 858 → 754 (-12.1%)."
   },
   "prior_loop": {
     "name": "appskill_rewrite_validation",

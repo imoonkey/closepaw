@@ -20,3 +20,4 @@
 
 ## R9 (GPT-5.4, 20260307, full baseline) — FAIL
 - Score: 0.0 | Turns: 24 | ReasoningError — interpreted "5h" as 17:00 instead of 05:00. Everything else correct.
+- R58 (20260323): score=1.0, turns=27, reason=GoalAchieved

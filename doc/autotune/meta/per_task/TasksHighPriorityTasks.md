@@ -9,3 +9,4 @@
 
 ## R8 (GPT-5.4, 20260307)
 Score: 0.0 | Turns: 2 | FalseCompletion in 2 turns — guessed from task name without checking priority field. App skill NOT injected.
+- R58 (20260323): score=0.0, turns=22, reason=GoalAchieved, ans="Finish Project Proposal"

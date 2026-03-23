@@ -50,3 +50,4 @@
 ## R3 (20260301_012237) — FAIL
 - Score: 0.0
 - Root cause: Newline normalization + rename UI
+- R58 (20260323): score=1.0, turns=15, reason=GoalAchieved

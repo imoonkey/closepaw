@@ -29,3 +29,4 @@
 - Score: 1.0
 - Turns: 12
 - What changed: P1 fix (type clear=false) resolved text duplication.
+- R58 (20260323): score=1.0, turns=7, reason=GoalAchieved

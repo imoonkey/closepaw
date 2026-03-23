@@ -55,3 +55,4 @@ Score: 0.0 | Turns: 7 | App skill NOT injected. Agent over-counted (12 vs correc
 - Turns: 6/30
 - Root cause: FalseCompletion. Returned count after shallow scan without date-window verification. Tasks app relative date labels prevent reliable date mapping.
 - R4 fix: Generic date-label tip + QA scratchpad guardrail.
+- R58 (20260323): score=0.0, turns=26, reason=GoalAchieved, ans="1"

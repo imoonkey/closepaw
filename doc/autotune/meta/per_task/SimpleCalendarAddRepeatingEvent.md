@@ -11,4 +11,4 @@
 
 ## R39 (20260312_094821) — gpt-5.4 — PASS
 - Score: 1.0 | Turns: 22 | Clean pass in 22 turns. (unchanged)
-
+- R58 (20260323): score=1.0, turns=22, reason=GoalAchieved

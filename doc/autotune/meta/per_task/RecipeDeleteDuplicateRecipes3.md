@@ -46,3 +46,4 @@
 - Turns: 30/30
 - Root cause: TurnExhaustion. Agent correctly identified duplicates but ran out of turns mid-deletion. Many duplicates to process.
 - R4 fix: Set max_turns=50. Park if still failing.
+- R58 (20260323): score=0.0, turns=77, reason=GoalAchieved, ans="Deleted the confirmed exact duplicate recipes while leaving one instance of each"

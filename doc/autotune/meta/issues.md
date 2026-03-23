@@ -1,6 +1,9 @@
 # Global Issues
 
 ## Open
+- [ ] **DocumentsUI exact filename match (NEW R58)** — FilesMoveFile. Agent selects noise file `holiday_photos_ZYUM.jpg` instead of exact `holiday_photos.jpg`. DocumentsUI skill needs "scroll full list or use search for exact name" guidance.
+- [ ] **Expense date filter blindness (NEW R58)** — ExpenseDeleteDuplicates2. Expense Logs view filtered to "Oct 1-15" hides duplicates with timestamps outside range. Need "widen date filter before duplicate scan" guidance.
+- [ ] **Markor extension clearing nondeterministic (UPDATED R58)** — MarkorMergeNotes. Agent intermittently ignores existing skill guidance about clearing `.md` extension. Existing skill has correct procedure but model variance causes skips.
 - [ ] **Scratchpad truncation platform bug (NEW R43)** — TasksDueNextWeek. Working memory truncates scratchpad values to ~200 chars, destroying deduplicated task lists at answer time. Agent wrote 8 unique tasks to scratchpad but couldn't read them back. Critical infrastructure bug that undermines any working-memory-dependent strategy.
 - [ ] **SimpleCalendarEventsInNextWeek nondeterministic (NEW R43)** — Agent had correct answer in scratchpad but overrode it after scrolling. Model variance, not code-caused. Accept as nondeterministic.
 - [x] **Tasks.org duplicate counting (R42→PARTIAL R43)** — Dedup guidance added. Agent partially followed it (8 unique in scratchpad) but scratchpad truncation prevented use at answer time. Root cause shifted to platform bug.

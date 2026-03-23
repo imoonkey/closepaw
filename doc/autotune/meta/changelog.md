@@ -2,6 +2,18 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## R58 (2026-03-23, gpt-5.4, 51-task sweep — prompt trim + cog-tune)
+
+**R58** (20260323_131259): **33/51 (64.7%)**. Prompt trimming (system prompt -5 lines, tool desc trim) + targeted app skill fixes for 14 R57 failures.
+
+**Recoveries (5)**: MarkorAddNoteHeader (rename guidance), ExpenseAddMultipleFromGallery (category matching), SimpleCalendarEventsInNextWeek (date range traversal), BrowserMultiply (stochastic), OsmAndMarker (stochastic).
+
+**Regressions (5, all stochastic)**: ExpenseDeleteDuplicates2, SportsTrackerLongestDistanceActivity, SystemBrightnessMax, TasksHighPriorityTasks, VlcCreateTwoPlaylists. None overlap with R58 changes.
+
+**Token delta**: Always-on 2,673 → 2,488 (-185 tokens, -6.9%). System prompt 858 → 754 (-12.1%). App skills 2,300 → 2,540 (+10.4%, due to new guidance lines).
+
+**Key findings**: (1) 3/3 targeted fixes validated (Markor rename, Expense category, Calendar date range). (2) Prompt trimming safe — no regression. (3) Remaining failures split: 6 parked/chronic, 7 stochastic, 2 parked infra, 3 chronic cognitive. (4) Cog-tune identified 3 more actionable fixes: DocumentsUI exact filename, Expense date filter widening, Markor extension CRITICAL.
+
 ## R57 (2026-03-17, gpt-5.4, 51-task sweep — app skill rewrite validation)
 
 **R57** (20260317_194418 + 20260317_205840 rerun): **32.5/51 (63.7%)**. Regression sweep for app skill top-down rewrite (366→126 lines, -65.6% skill tokens). AppSkillRepository now strips YAML frontmatter before injection.

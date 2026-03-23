@@ -32,3 +32,4 @@
 - Turns: 28/30
 - InfraError: Task never reached the drawing page. Chrome first-run stayed blocked, and the emulator had `pointer_location=1` plus `show_touches=1`, polluting all hybrid screenshots with the Android developer touch overlay.
 - See `round_5/20260306_003753/per_task/BrowserDraw_codex.md` for details.
+- R58 (20260323): score=0.0, turns=30, reason=MaxTurnsReached, ans="None"

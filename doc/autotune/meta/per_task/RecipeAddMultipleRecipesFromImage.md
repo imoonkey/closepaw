@@ -48,3 +48,4 @@
 ## R3 (20260301_012237) — FAIL
 - Score: 0.0
 - Root cause: Turn exhaustion (2/3 done)
+- R58 (20260323): score=1.0, turns=23, reason=GoalAchieved

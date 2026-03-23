@@ -33,3 +33,4 @@
 - Score: 1.0
 - Turns: 48/50
 - Delta: No prior local eval run for this task; baseline recorded.
+- R58 (20260323): score=1.0, turns=33, reason=GoalAchieved

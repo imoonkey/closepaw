@@ -23,3 +23,4 @@
 - Turns: 28/30
 - GPT-5.4 reached the route planner and tried route search, address search, locality-first search, and increased-radius recovery, but the UI still degraded to generic `Country Liechtenstein` rather than the requested locality waypoints. It failed safely instead of false-completing.
 - See `round_5/20260306_003753/per_task/OsmAndTrack_codex.md` for details.
+- R58 (20260323): score=0.0, turns=57, reason=Error, ans="I’m blocked from completing this exactly in OsmAnd’s current offline state. I ve"

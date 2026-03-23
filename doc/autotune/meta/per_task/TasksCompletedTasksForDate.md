@@ -46,3 +46,4 @@ Score: 0.0 | Turns: 8 | App skill now injected but a11y tree lacks `checked` pro
 - Turns: 30/30
 - Root cause: FalseCompletion. Looped trying to find completed tasks for a specific date, submitted unverified answer. Tasks app shows relative date labels; agent can't map absolute dates to UI.
 - R4 fix: Generic date-label tip + QA scratchpad guardrail.
+- R58 (20260323): score=0.0, turns=29, reason=GoalAchieved, ans="None"

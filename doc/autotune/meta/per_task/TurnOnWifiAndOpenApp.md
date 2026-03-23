@@ -20,3 +20,4 @@
 
 ## R17 (gpt-5.4, 20260309_132808)
 - Score: 0.5 | Turns: 5 | PerceptionError — opened Settings (0.5) but assumed Wi-Fi was on from "Internet" tile appearance. Status bar showed "No internet".
+- R58 (20260323): score=1.0, turns=5, reason=GoalAchieved

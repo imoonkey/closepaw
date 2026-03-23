@@ -91,6 +91,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 9
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 9
         }
       },
       "recent_rate": "3/3",
@@ -172,6 +177,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 10
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 9
         }
       },
       "recent_rate": "3/3",
@@ -278,6 +288,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
         }
       },
       "recent_rate": "0/3",
@@ -344,6 +359,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 23
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 16
         }
       },
       "recent_rate": "3/3",
@@ -465,10 +485,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 22
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 23
         }
       },
-      "recent_rate": "1/3",
-      "status": "regressed"
+      "recent_rate": "2/3",
+      "status": "improving"
     },
     "CameraTakePhoto": {
       "runs": {
@@ -670,6 +695,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 7
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 4
         }
       },
       "recent_rate": "3/3",
@@ -793,6 +823,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 27
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 26
         }
       },
       "recent_rate": "3/3",
@@ -919,10 +954,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 28
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 32
         }
       },
       "recent_rate": "2/3",
-      "status": "regressed"
+      "status": "improving"
     },
     "ExpenseAddMultipleFromMarkor": {
       "runs": {
@@ -1030,9 +1070,14 @@
           "score": 1.0,
           "status": "completed",
           "turns": 22
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 18
         }
       },
-      "recent_rate": "1/3",
+      "recent_rate": "2/3",
       "status": "improving"
     },
     "ExpenseAddSingle": {
@@ -1107,6 +1152,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 11
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 20
         }
       },
       "recent_rate": "3/3",
@@ -1193,10 +1243,15 @@
           "score": 1.0,
           "status": "completed",
           "turns": 16
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 11
         }
       },
-      "recent_rate": "3/3",
-      "status": "fixed"
+      "recent_rate": "2/3",
+      "status": "regressed"
     },
     "ExpenseDeleteMultiple": {
       "runs": {
@@ -1363,10 +1418,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 21
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 19
         }
       },
-      "recent_rate": "2/3",
-      "status": "regressed"
+      "recent_rate": "1/3",
+      "status": "improving"
     },
     "MarkorAddNoteHeader": {
       "runs": {
@@ -1444,10 +1504,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 21
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 15
         }
       },
       "recent_rate": "2/3",
-      "status": "regressed"
+      "status": "improving"
     },
     "MarkorChangeNoteContent": {
       "runs": {
@@ -1496,6 +1561,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 5
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 7
         }
       },
       "recent_rate": "3/3",
@@ -1671,6 +1741,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 7
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 7
         }
       },
       "recent_rate": "0/3",
@@ -1745,6 +1820,11 @@
           "turns": 8
         },
         "20260317_194418": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 7
+        },
+        "20260323_131259": {
           "score": 1.0,
           "status": "completed",
           "turns": 7
@@ -1844,10 +1924,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 21
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 21
         }
       },
-      "recent_rate": "1/3",
-      "status": "improving"
+      "recent_rate": "0/3",
+      "status": "stuck"
     },
     "MarkorMoveNote": {
       "runs": {
@@ -1895,10 +1980,15 @@
           "score": 1.0,
           "status": "completed",
           "turns": 20
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 19
         }
       },
-      "recent_rate": "2/3",
-      "status": "improving"
+      "recent_rate": "3/3",
+      "status": "fixed"
     },
     "MarkorTranscribeReceipt": {
       "runs": {
@@ -1933,6 +2023,11 @@
           "turns": 1
         },
         "20260317_205840": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 16
+        },
+        "20260323_131259": {
           "score": 1.0,
           "status": "completed",
           "turns": 16
@@ -2005,6 +2100,11 @@
           "turns": 1
         },
         "20260317_205840": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 2
+        },
+        "20260323_131259": {
           "score": 1.0,
           "status": "completed",
           "turns": 2
@@ -2179,10 +2279,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 2
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 14
         }
       },
-      "recent_rate": "0/3",
-      "status": "stuck"
+      "recent_rate": "1/3",
+      "status": "improving"
     },
     "OsmAndTrack": {
       "runs": {
@@ -2245,6 +2350,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 29
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 57
         }
       },
       "recent_rate": "0/3",
@@ -2311,6 +2421,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 21
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 18
         }
       },
       "recent_rate": "2/3",
@@ -2407,6 +2522,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 39
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 23
         }
       },
       "recent_rate": "2/3",
@@ -2488,6 +2608,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 21
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 32
         }
       },
       "recent_rate": "2/3",
@@ -2549,9 +2674,14 @@
           "score": 1.0,
           "status": "completed",
           "turns": 36
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 33
         }
       },
-      "recent_rate": "1/3",
+      "recent_rate": "2/3",
       "status": "improving"
     },
     "RecipeAddSingleRecipe": {
@@ -2677,6 +2807,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 54
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 58
         }
       },
       "recent_rate": "0/3",
@@ -2758,6 +2893,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 76
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 77
         }
       },
       "recent_rate": "0/3",
@@ -2934,6 +3074,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 18
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 19
         }
       },
       "recent_rate": "2/3",
@@ -2980,6 +3125,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 18
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 14
         }
       },
       "recent_rate": "2/3",
@@ -3091,6 +3241,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 78
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 80
         }
       },
       "recent_rate": "0/3",
@@ -3152,6 +3307,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 27
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 30
         }
       },
       "recent_rate": "3/3",
@@ -3249,6 +3409,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 29
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 23
         }
       },
       "recent_rate": "2/3",
@@ -3346,6 +3511,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 27
         }
       },
       "recent_rate": "3/3",
@@ -3428,6 +3598,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 23
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 22
         }
       },
       "recent_rate": "2/3",
@@ -3500,6 +3675,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 22
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 29
         }
       },
       "recent_rate": "3/3",
@@ -3679,10 +3859,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 13
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 21
         }
       },
-      "recent_rate": "0/3",
-      "status": "stuck"
+      "recent_rate": "1/3",
+      "status": "improving"
     },
     "SimpleCalendarEventsInTimeRange": {
       "runs": {
@@ -3715,6 +3900,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 15
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 12
         }
       },
       "recent_rate": "3/3",
@@ -4063,6 +4253,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 13
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 32
         }
       },
       "recent_rate": "0/3",
@@ -4124,10 +4319,15 @@
           "score": 1.0,
           "status": "completed",
           "turns": 20
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 18
         }
       },
-      "recent_rate": "2/3",
-      "status": "improving"
+      "recent_rate": "3/3",
+      "status": "fixed"
     },
     "SportsTrackerActivityDuration": {
       "runs": {
@@ -4211,10 +4411,15 @@
           "score": 1.0,
           "status": "completed",
           "turns": 41
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 21
         }
       },
       "recent_rate": "1/3",
-      "status": "improving"
+      "status": "regressed"
     },
     "SportsTrackerTotalDistanceForCategoryOverInterval": {
       "runs": {
@@ -4347,10 +4552,15 @@
           "score": 0.0,
           "status": "completed",
           "turns": 25
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 35
         }
       },
-      "recent_rate": "1/3",
-      "status": "improving"
+      "recent_rate": "0/3",
+      "status": "stuck"
     },
     "SportsTrackerTotalDurationForCategoryThisWeek": {
       "runs": {
@@ -4483,10 +4693,15 @@
           "score": 1.0,
           "status": "completed",
           "turns": 11
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 8
         }
       },
-      "recent_rate": "3/3",
-      "status": "fixed"
+      "recent_rate": "2/3",
+      "status": "regressed"
     },
     "SystemBrightnessMaxVerify": {
       "runs": {
@@ -4727,6 +4942,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 30
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 29
         }
       },
       "recent_rate": "0/3",
@@ -4838,6 +5058,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 65
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 26
         }
       },
       "recent_rate": "0/3",
@@ -4920,10 +5145,15 @@
           "score": 1.0,
           "status": "completed",
           "turns": 42
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 22
         }
       },
-      "recent_rate": "3/3",
-      "status": "fixed"
+      "recent_rate": "2/3",
+      "status": "regressed"
     },
     "TasksHighPriorityTasksDueOnDate": {
       "runs": {
@@ -5026,10 +5256,15 @@
           "score": 1.0,
           "status": "completed",
           "turns": 36
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 21
         }
       },
-      "recent_rate": "2/3",
-      "status": "improving"
+      "recent_rate": "3/3",
+      "status": "fixed"
     },
     "TasksIncompleteTasksOnDate": {
       "runs": {
@@ -5112,6 +5347,11 @@
           "score": 0.0,
           "status": "completed",
           "turns": 14
+        },
+        "20260323_131259": {
+          "score": 0.0,
+          "status": "completed",
+          "turns": 30
         }
       },
       "recent_rate": "0/3",
@@ -5184,10 +5424,15 @@
           "score": 1.0,
           "status": "completed",
           "turns": 5
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 5
         }
       },
-      "recent_rate": "2/3",
-      "status": "improving"
+      "recent_rate": "3/3",
+      "status": "fixed"
     },
     "VlcCreatePlaylist": {
       "runs": {
@@ -5235,6 +5480,11 @@
           "score": 1.0,
           "status": "completed",
           "turns": 10
+        },
+        "20260323_131259": {
+          "score": 1.0,
+          "status": "completed",
+          "turns": 11
         }
       },
       "recent_rate": "3/3",
@@ -5306,10 +5556,15 @@
           "score": 0.5,
           "status": "completed",
           "turns": 33
+        },
+        "20260323_131259": {
+          "score": 0.5,
+          "status": "completed",
+          "turns": 31
         }
       },
       "recent_rate": "0/3",
-      "status": "improving"
+      "status": "stuck"
     }
   },
   "runs": {
@@ -5912,6 +6167,12 @@
       "total": 19,
       "passed": 10,
       "rate": 0.526
+    },
+    "20260323_131259": {
+      "round": 101,
+      "total": 51,
+      "passed": 33,
+      "rate": 0.647
     }
   }
 }

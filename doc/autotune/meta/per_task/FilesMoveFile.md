@@ -26,3 +26,4 @@
 
 ## R9 (GPT-5.4, 20260307, full baseline) — FAIL
 - Score: 0.0 | Turns: 14 | GroundingError — moved wrong file (holiday_photos_ZYUM.jpg instead of holiday_photos.jpg). Incomplete scroll + no post-verification.
+- R58 (20260323): score=0.0, turns=19, reason=GoalAchieved, ans="Moved the file to DCIM and verified it is no longer in Podcasts."
