@@ -4,18 +4,18 @@
 
 | Layer | Tokens | Lines |
 |-------|--------|-------|
-| System prompt | 785 | 50 |
-| Tool descriptions (total) | 1,791 | — |
-| App skills (total) | 3,569 | — |
-| App skills (avg per skill) | 209 | — |
-| **Always-on (prompt + tools)** | **2,576** | — |
+| System prompt | 858 | 53 |
+| Tool descriptions (total) | 1,815 | — |
+| App skills (total) | 2,300 | — |
+| App skills (avg per skill) | 135 | — |
+| **Always-on (prompt + tools)** | **2,673** | — |
 
 ## Tool Descriptions + Params
 
 | Tool | Desc | Params | Total |
 |------|------|--------|-------|
 | MobileActionTool | 110 | 334 | 444 |
-| RememberExperienceTool | 72 | 122 | 194 |
+| RememberExperienceTool | 110 | 108 | 218 |
 | AskUserTool | 105 | 87 | 193 |
 | ScratchpadTool | 96 | 90 | 186 |
 | WriteTodosTool | 69 | 104 | 173 |
@@ -30,21 +30,21 @@
 
 | Package | Tokens | Lines |
 |---------|--------|-------|
-| org.tasks | 439 | 34 |
-| de.dennisguse.opentracks | 282 | 30 |
-| com.simplemobiletools.calendar.pro | 279 | 25 |
-| com.flauschcode.broccoli | 266 | 29 |
-| net.osmand | 253 | 25 |
-| net.gsantner.markor | 251 | 26 |
-| com.arduia.expense | 230 | 27 |
-| org.videolan.vlc | 224 | 21 |
-| code.name.monkey.retromusic | 219 | 22 |
-| com.simplemobiletools.gallery.pro | 193 | 18 |
-| com.android.chrome | 176 | 20 |
-| com.google.android.apps.nbu.files | 167 | 21 |
-| com.android.settings | 152 | 17 |
-| com.google.android.apps.photos | 127 | 16 |
-| com.dimowner.audiorecorder | 113 | 14 |
-| com.google.android.calendar | 109 | 12 |
-| com.google.android.documentsui | 89 | 14 |
+| org.tasks | 259 | 21 |
+| org.videolan.vlc | 193 | 18 |
+| net.gsantner.markor | 189 | 21 |
+| com.flauschcode.broccoli | 187 | 13 |
+| net.osmand | 179 | 18 |
+| de.dennisguse.opentracks | 169 | 17 |
+| code.name.monkey.retromusic | 168 | 15 |
+| com.simplemobiletools.calendar.pro | 167 | 18 |
+| com.arduia.expense | 166 | 12 |
+| com.android.settings | 112 | 14 |
+| com.google.android.apps.nbu.files | 112 | 10 |
+| com.simplemobiletools.gallery.pro | 96 | 10 |
+| com.android.chrome | 71 | 8 |
+| com.google.android.apps.photos | 67 | 9 |
+| com.google.android.documentsui | 59 | 8 |
+| com.dimowner.audiorecorder | 55 | 8 |
+| com.google.android.calendar | 51 | 8 |
 

@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Unparked task — still can't handle, reparking.
+
 # BrowserDraw
 
 **Status: cannot_handle** — A11y click doesn't fire JS DOM events in Chrome WebView. `ctx.strokeStyle` never changes. Platform limitation.

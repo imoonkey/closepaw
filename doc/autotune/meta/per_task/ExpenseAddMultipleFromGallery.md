@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Historically flaky task, nondeterministic failure.
+
 **Status: FIXED R32** — Correct Gallery package skill + filename verification.
 
 ## R39 (20260312_094821) — gpt-5.4 — PASS

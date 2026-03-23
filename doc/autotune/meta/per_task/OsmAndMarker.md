@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Unparked task — still can't handle, reparking.
+
 # OsmAndMarker
 
 **Status: cannot_handle** — Offline map data doesn't support reliable locality search. Agent follows skill correctly but coords are outside 0.001-degree evaluator tolerance. RE-PARKED R35.

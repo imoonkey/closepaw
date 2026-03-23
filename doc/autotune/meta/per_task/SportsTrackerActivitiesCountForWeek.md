@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Structurally infeasible — 14 tracks x 6 turns = 84, exceeds 50-turn budget.
+
 # SportsTrackerActivitiesCountForWeek
 
 **Status: PARKED (structurally infeasible — 14 tracks × 6 turns = 84, exceeds 50-turn budget)**

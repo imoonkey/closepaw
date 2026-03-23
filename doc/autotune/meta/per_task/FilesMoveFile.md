@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Filename mismatch nondeterminism — agent picked wrong file with randomized prefix.
+
 # FilesMoveFile
 
 ## R43 (20260312_194856) — gpt-5.4 — PASS — REGRESSION CANARY

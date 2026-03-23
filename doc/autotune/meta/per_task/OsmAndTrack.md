@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Unparked task — still can't handle, reparking.
+
 # OsmAndTrack
 
 **Status: cannot_handle** — Offline map Address search can't resolve Liechtenstein village names. Agent has no coordinates to fall back to. RE-PARKED R35.

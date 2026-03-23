@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Action layer newline collapse nondeterminism — ACTION_SET_TEXT collapses \n\n to \n.
+
 # MarkorAddNoteHeader
 
 ## R40 (20260312_122824) — gpt-5.4 — PASS

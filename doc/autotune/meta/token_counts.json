@@ -1,13 +1,13 @@
 {
   "system_prompt": {
-    "chars": 3839,
-    "tokens": 785,
-    "lines": 50
+    "chars": 4162,
+    "tokens": 858,
+    "lines": 53
   },
   "tool_descriptions": {
     "total": {
-      "chars": 7971,
-      "tokens": 1791
+      "chars": 8115,
+      "tokens": 1815
     },
     "tools": {
       "AskUserTool": {
@@ -46,11 +46,11 @@
         "params_tokens": 0
       },
       "RememberExperienceTool": {
-        "chars": 863,
-        "tokens": 194,
-        "lines": 35,
-        "description_tokens": 72,
-        "params_tokens": 122
+        "chars": 1007,
+        "tokens": 218,
+        "lines": 40,
+        "description_tokens": 110,
+        "params_tokens": 108
       },
       "ScratchpadTool": {
         "chars": 817,
@@ -91,96 +91,96 @@
   },
   "app_skills": {
     "total": {
-      "chars": 15978,
-      "tokens": 3569
+      "chars": 10313,
+      "tokens": 2300
     },
     "count": 17,
-    "avg_tokens": 209,
+    "avg_tokens": 135,
     "skills": {
       "code.name.monkey.retromusic": {
-        "chars": 939,
-        "tokens": 219,
-        "lines": 22
+        "chars": 743,
+        "tokens": 168,
+        "lines": 15
       },
       "com.android.chrome": {
-        "chars": 729,
-        "tokens": 176,
-        "lines": 20
+        "chars": 316,
+        "tokens": 71,
+        "lines": 8
       },
       "com.android.settings": {
-        "chars": 785,
-        "tokens": 152,
-        "lines": 17
+        "chars": 556,
+        "tokens": 112,
+        "lines": 14
       },
       "com.arduia.expense": {
-        "chars": 1024,
-        "tokens": 230,
-        "lines": 27
-      },
-      "com.dimowner.audiorecorder": {
-        "chars": 468,
-        "tokens": 113,
-        "lines": 14
-      },
-      "com.flauschcode.broccoli": {
-        "chars": 1237,
-        "tokens": 266,
-        "lines": 29
-      },
-      "com.google.android.apps.nbu.files": {
-        "chars": 769,
-        "tokens": 167,
-        "lines": 21
-      },
-      "com.google.android.apps.photos": {
-        "chars": 575,
-        "tokens": 127,
-        "lines": 16
-      },
-      "com.google.android.calendar": {
-        "chars": 565,
-        "tokens": 109,
+        "chars": 702,
+        "tokens": 166,
         "lines": 12
       },
+      "com.dimowner.audiorecorder": {
+        "chars": 248,
+        "tokens": 55,
+        "lines": 8
+      },
+      "com.flauschcode.broccoli": {
+        "chars": 894,
+        "tokens": 187,
+        "lines": 13
+      },
+      "com.google.android.apps.nbu.files": {
+        "chars": 499,
+        "tokens": 112,
+        "lines": 10
+      },
+      "com.google.android.apps.photos": {
+        "chars": 317,
+        "tokens": 67,
+        "lines": 9
+      },
+      "com.google.android.calendar": {
+        "chars": 258,
+        "tokens": 51,
+        "lines": 8
+      },
       "com.google.android.documentsui": {
-        "chars": 421,
-        "tokens": 89,
-        "lines": 14
+        "chars": 285,
+        "tokens": 59,
+        "lines": 8
       },
       "com.simplemobiletools.calendar.pro": {
-        "chars": 1278,
-        "tokens": 279,
-        "lines": 25
-      },
-      "com.simplemobiletools.gallery.pro": {
-        "chars": 869,
-        "tokens": 193,
+        "chars": 723,
+        "tokens": 167,
         "lines": 18
       },
+      "com.simplemobiletools.gallery.pro": {
+        "chars": 466,
+        "tokens": 96,
+        "lines": 10
+      },
       "de.dennisguse.opentracks": {
-        "chars": 1278,
-        "tokens": 282,
-        "lines": 30
+        "chars": 739,
+        "tokens": 169,
+        "lines": 17
       },
       "net.gsantner.markor": {
-        "chars": 1073,
-        "tokens": 251,
-        "lines": 26
+        "chars": 815,
+        "tokens": 189,
+        "lines": 21
       },
       "net.osmand": {
-        "chars": 1037,
-        "tokens": 253,
-        "lines": 25
+        "chars": 761,
+        "tokens": 179,
+        "lines": 18
       },
       "org.tasks": {
-        "chars": 1964,
-        "tokens": 439,
-        "lines": 34
+        "chars": 1140,
+        "tokens": 259,
+        "lines": 21
       },
       "org.videolan.vlc": {
-        "chars": 967,
-        "tokens": 224,
-        "lines": 21
+        "chars": 851,
+        "tokens": 193,
+        "lines": 18
       }
     }
   }

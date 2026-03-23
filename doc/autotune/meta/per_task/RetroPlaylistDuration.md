@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Reasoning error or turn exhaustion — persistent comprehension/navigation failure.
+
 # RetroPlaylistDuration
 
 **Status: FIXED R33** — Per-song 3-dot menu "Add to playlist" + add-all-then-prune strategy.

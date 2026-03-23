@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Scroll compliance nondeterminism — agent skips scroll-first protocol, misses below-fold tracks.
+
 # SportsTrackerTotalDistanceForCategoryOverInterval
 
 **Status: PARKED** — 3 consecutive rounds of scroll instruction escalation (R41-R43) without compliance + a11y gap on Edit form.

@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Persistent failure — over-deletion of noise rows with same title+desc but different hidden DB fields.
+
 # RecipeDeleteDuplicateRecipes2
 
 **Status: FIXED R28** — Broccoli field comparison skill guided agent to open each same-titled recipe, compare ALL visible fields, and identify true duplicate pair.

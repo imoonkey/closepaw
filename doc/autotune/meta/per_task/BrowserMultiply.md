@@ -1,3 +1,7 @@
+## R57 (20260317_194418/20260317_205840) — gpt-5.4 — FAIL
+- Score: 0.0 | Context: app skill rewrite validation sweep (-65.6% skill tokens)
+- Historically flaky task, likely infra/API interruption or nondeterminism.
+
 # BrowserMultiply
 
 ## R41 (20260312_173354) — gpt-5.4

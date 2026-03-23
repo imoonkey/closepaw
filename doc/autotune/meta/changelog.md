@@ -2,6 +2,20 @@
 
 Rounds before autotune are reconstructed from doc/todo/0.01_eval_tune/ history.
 
+## R57 (2026-03-17, gpt-5.4, 51-task sweep — app skill rewrite validation)
+
+**R57** (20260317_194418 + 20260317_205840 rerun): **32.5/51 (63.7%)**. Regression sweep for app skill top-down rewrite (366→126 lines, -65.6% skill tokens). AppSkillRepository now strips YAML frontmatter before injection.
+
+**Baseline comparison**: R39: 30/51 (58.8%), R40: 32/51 (62.7%). **R57 matches or exceeds baseline — NO REGRESSION from skill rewrite.**
+
+**Infra issue**: Proxy tunnel dropped mid-run (~20:09-20:13), causing 18 tasks to fail with `OpenAIIoException`. These were re-run in a separate pass (20260317_205840). RetroPlayingQueue also re-run due to framework crash.
+
+**Unparked tasks (4/4 failed, reparking)**: BrowserDraw 0.0, MarkorDeleteNewestNote 0.0, OsmAndMarker 0.0, OsmAndTrack 0.0. All reparked to cannot_handle_group.txt.
+
+**Key findings**: (1) Skill injection verified — YAML frontmatter correctly stripped, content preserved in LLM context. (2) All failures match pre-existing patterns; no new failure modes introduced. (3) App skill tokens: 3,569 → 2,300 (-35.6%). (4) Tasks.org completion-detection rewrite (detail-view Completion field) still failing — both TasksCompletedTasksForDate and TasksIncompleteTasksOnDate scored 0.0. (5) RecipeDeleteDuplicateRecipes2/3 remain persistent failures.
+
+**Token counts**: System prompt 858, Tool descriptions 1,815, App skills 2,300 (avg 135/skill, was 209), Always-on 2,673.
+
 ## R54b-R56 (2026-03-13, gpt-5.4, 18-task set)
 
 **R54b** (20260313_203814): 9/18. First run with Markor scroll-before-select + VLC ungroup/multi-playlist + Tasks.org scratchpad diff + Broccoli pre-filter fixes. MarkorMoveNote RECOVERED (1.0, was 11%). TasksDueNextWeek RECOVERED (1.0). RetroPlaylistDuration passed (1.0). VlcCreateTwoPlaylists still 0.0. Tasks.org completion tasks still 0.0. RecipeDel2/3 still 0.0.
