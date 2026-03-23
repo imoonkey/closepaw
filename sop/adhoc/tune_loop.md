@@ -8,11 +8,11 @@
 3. **Update `doc/autotune/meta/loop_state.json`**: new loop `full_pass`, R44+, status active, backlog `eval/config/autotune_round_44.txt`.
 4. **Verify remote parallel env**:
    ```bash
-   ssh qiguo@qiguo-ld1 'echo ok'
+   ssh qiguo@desktop 'echo ok'
    git push
-   ssh qiguo@qiguo-ld1 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
-   ssh qiguo@qiguo-ld1 'source ~/.android-agent-env && emulator -list-avds'
-   ssh qiguo@qiguo-ld1 'cd ~/androidagent && ./scripts/remote/proxy_tunnel.sh status'
+   ssh qiguo@desktop 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
+   ssh qiguo@desktop 'source ~/.android-agent-env && emulator -list-avds'
+   ssh qiguo@desktop 'cd ~/androidagent && ./scripts/remote/proxy_tunnel.sh status'
    python3 scripts/token_counts.py
    ```
 
@@ -45,11 +45,11 @@ Track token counts each round. Keep prompts generalizable.
 5. **Prepare task list**: `eval/config/aw_fullset.txt` minus `eval/config/cannot_handle_group.txt` (OsmAnd×2 only).
 6. **Verify remote parallel env**:
    ```bash
-   ssh qiguo@qiguo-ld1 'echo ok'
+   ssh qiguo@desktop 'echo ok'
    git push
-   ssh qiguo@qiguo-ld1 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
-   ssh qiguo@qiguo-ld1 'source ~/.android-agent-env && emulator -list-avds'
-   ssh qiguo@qiguo-ld1 'cd ~/androidagent && ./scripts/remote/proxy_tunnel.sh status'
+   ssh qiguo@desktop 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
+   ssh qiguo@desktop 'source ~/.android-agent-env && emulator -list-avds'
+   ssh qiguo@desktop 'cd ~/androidagent && ./scripts/remote/proxy_tunnel.sh status'
    python3 scripts/token_counts.py
    ```
 

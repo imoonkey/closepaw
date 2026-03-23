@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Sync local code to remote qiguo-ld1: push, pull, rebuild, check proxy tunnel.
+# Sync local code to remote desktop: push, pull, rebuild, check proxy tunnel.
 set -euo pipefail
 
-REMOTE="qiguo@qiguo-ld1"
+REMOTE="qiguo@desktop"
 REMOTE_DIR="~/androidagent"
 
 echo "==> git push"

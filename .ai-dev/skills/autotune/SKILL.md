@@ -58,7 +58,7 @@ Subtract `eval/config/cannot_handle_group.txt`. Write the selected tasks to `eva
 **Pre-flight: sync & rebuild** (MANDATORY if Step 1 made any changes):
 ```bash
 git push
-ssh qiguo@qiguo-ld1 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
+ssh qiguo@desktop 'cd ~/androidagent && git pull && ./gradlew assembleDebug'
 ```
 Skip only if this round had no code/prompt/skill changes (e.g., round 0 with no fix step). Running eval on stale code wastes an entire round.
 
@@ -66,7 +66,7 @@ Read `references/eval_runner.md` for the exact commands for each configuration.
 
 | Flag | Effect |
 |------|--------|
-| `--remote` | Run eval on `qiguo@qiguo-ld1` instead of local machine |
+| `--remote` | Run eval on `qiguo@desktop` instead of local machine |
 | `--parallel N` | Use N emulators in parallel (currently max 2). Falls back to serial if parallel startup fails |
 
 Monitor for stalls. If a task hangs (no output for several minutes), check accessibility permission on the device. If needed, stop the runner, remove completed tasks from the config, and re-run the remainder.
@@ -74,7 +74,7 @@ Monitor for stalls. If a task hangs (no output for several minutes), check acces
 **Post-run: pull results to local** (MANDATORY for `--remote` runs):
 ```bash
 # Pull eval results from remote to local
-rsync -avz qiguo@qiguo-ld1:~/androidagent/eval/results/ eval/results/
+rsync -avz qiguo@desktop:~/androidagent/eval/results/ eval/results/
 ```
 All analysis in Step 4 reads from local `eval/results/`. If you skip this pull, Step 4 will either fail or analyze stale data.
 

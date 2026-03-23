@@ -131,7 +131,7 @@ Use `rg` to locate prompt or tool definition text before edits.
   `./scripts/eval_parallel.sh eval/config/<task_file>` when both baseline-prepared
   emulators are available (`AndroidWorldAvd` on `emulator-5554`, `AndroidWorldAvd2`
   on `emulator-5556`).
-- Remote eval on `qiguo-ld1` (see `/autotune` skill Step 3 for `--remote` usage):
+- Remote eval on `desktop` (see `/autotune` skill Step 3 for `--remote` usage):
   ```bash
   # Sync code first: git push (laptop) → git pull + ./gradlew assembleDebug (remote)
   eval/.venv/bin/python eval/aw_bridge/runner.py \

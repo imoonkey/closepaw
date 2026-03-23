@@ -3,7 +3,7 @@
 # Tunnels: remote adb server (5037) + scrcpy data ports (27183-27184).
 set -euo pipefail
 
-REMOTE="qiguo@qiguo-ld1"
+REMOTE="qiguo@desktop"
 LOCAL_ADB_PORT=15037
 REMOTE_ADB_PORT=5037
 SCRCPY_VIDEO_PORT=27183

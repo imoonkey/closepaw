@@ -1,4 +1,4 @@
-# Remote worker overrides for qiguo-ld1.
+# Remote worker overrides for desktop.
 # runner.py and parallel_runner.py load eval/config/default.yaml first, then
 # deep-merge this file on top.
 

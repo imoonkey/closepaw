@@ -243,7 +243,7 @@ through `artifact_paths`.
 
 ## Remote Eval Worker
 
-For long-running eval batches, a headless emulator can run on a remote machine (e.g. `qiguo-ld1`) while the dev machine drives orchestration.
+For long-running eval batches, a headless emulator can run on a remote machine (e.g. `desktop`) while the dev machine drives orchestration.
 
 ### Setup
 

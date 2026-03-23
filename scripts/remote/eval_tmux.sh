@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run eval inside a tmux session so it survives SSH disconnects.
-# Run on the remote eval worker (qiguo-ld1).
+# Run on the remote eval worker (desktop).
 #
 # Usage:
 #   ./scripts/remote/eval_tmux.sh --tasks-file eval/config/autotune_round_N.txt
