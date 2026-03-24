@@ -245,84 +245,21 @@ echo 'PLATFORM_MODE=virtual_display' >> .env
 - **[Scripts README](../../scripts/README.md)** - Complete script reference and options
 - **[Visual Debug Guide](visual_debug_guide.md)** - Step-by-step debugging methodology
 
-## Evaluation Harness (AndroidWorld Bridge)
+## Evaluation Harness
 
-`eval/` contains the Python harness for batch evaluation and trace summary generation.
-
-### Quick Start
+-> See: `eval/README.md` for full reference, `doc/main/eval/eval.md` for architecture.
 
 ```bash
-# Run a smoke subset
+# Quick start
 eval/.venv/bin/python eval/aw_bridge/runner.py --tasks-file eval/config/aw_subset_smoke.txt
-
-# Run specific tasks
 eval/.venv/bin/python eval/aw_bridge/runner.py --tasks "TaskA,TaskB"
 
-# Virtual-display eval run
-eval/.venv/bin/python eval/aw_bridge/runner.py --platform-mode virtual_display --tasks-file eval/config/aw_subset_smoke.txt
-
-# Setup-only for one AndroidWorld task (no agent run)
+# Setup-only for one task (no agent run)
 eval/.venv/bin/python eval/aw_bridge/setup_task_only.py --task FilesMoveFile
 ```
 
-Use `eval/.venv/bin/python` for eval commands to avoid dependency drift with the app environment.
-
-### Key CLI Arguments
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--tasks` / `--tasks-file` | none | Tasks to run (comma-separated or file) |
-| `--snapshot-policy` | `auto_repair` | `strict` / `auto_repair` / `best_effort` / `off` |
-| `--platform-mode` | `accessibility` | `accessibility` or `virtual_display` |
-| `--adb-serial` | auto-detected | Target device serial |
-| `--config` | `eval/config/default.yaml` | Config file path |
-
-Any non-default `--config` file is loaded as a deep override on top of
-`eval/config/default.yaml`, so override files only need to include changed
-fields.
-
-### Snapshot Policy
-
-Controls baseline snapshot management: `strict` (fail on missing), `auto_repair` (create missing, default), `best_effort` (warn and continue), `off` (skip checks).
-
-### Baseline Preparation
-
-```bash
-scripts/prepare_baseline.sh --avd AndroidWorldAvd
-```
-
-Wipes emulator, installs apps, generates snapshots. Run before first eval or when snapshots are corrupted.
-
-### Task Overrides
-
-Per-task config overrides in `eval/config/default.yaml` under `bridge.task_overrides`.
-Prefix matching on task name; any `BridgeConfig` field can be overridden:
-
-```yaml
-bridge:
-  task_overrides:
-    BrowserDraw: { perception_mode: hybrid }
-    ExpenseAddMultipleFromGallery: { perception_mode: hybrid }
-```
-
-> See: `eval/README.md` for full reference, `doc/main/eval/eval.md` for architecture
+Use `eval/.venv/bin/python` for eval commands. Config override files are deep-merged on top of `eval/config/default.yaml`.
 
 ## Inspection Tool (Replay v2)
 
-The Inspection Tool is a web-based trace viewer for debugging agent sessions. It provides a step-by-step replay of the agent's execution, including screenshots, accessibility trees, and tool calls.
-
-### Running the Tool
-
-```bash
-./inspection_tool/serve.sh
-```
-
-Then open [http://localhost:8000](http://localhost:8000).
-
-### Features
-
-- **Step-by-step Replay**: Navigate through each turn of the conversation.
-- **Visual State**: View screenshots and accessibility trees side-by-side.
-- **Tool Calls**: See exact tool parameters and outputs.
-- **Performance Stats**: Analyze token usage and latency (using `a11y_token_stats.py`).
-- **Auto-Compilation**: Automatically compiles raw traces into a viewable format.
+Web-based trace viewer: `./inspection_tool/serve.sh` → [http://localhost:8000](http://localhost:8000). Step-by-step replay with screenshots, a11y trees, tool calls, and token stats.

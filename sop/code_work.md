@@ -15,7 +15,7 @@ Write the design like if you are Linus Torvalds.
 - 设计的过程，不要考虑代码的backward compatibility，最后把陈旧的历史代码可以直接deprecate，我产品还没有release，不需要考虑任何向后兼容。代码质量高，可读性高，只需要反映最新最优的实现，这对我更重要。
 - 阅读我已有的代码，确保你的设计跟现有的codebase是aligned。
 
-- 这个feature对我的项目至关重要，请用 /ultra-think 来设计实现，深思熟虑，考虑周全。 @.ai-dev/skills/ultra-think/SKILL.md
+- 这个feature对我的项目至关重要，请用 /ultra-think 来设计实现，深思熟虑，考虑周全。 @.claude/skills/ultra-think/SKILL.md
 
 # Code-Step-1: Design & Plan
 For the specified design, if not already, come up with a plan to implement the design in multiple phases.
@@ -55,6 +55,6 @@ Improving code architecture quality.
     - Ideally, for every todo item, the separation is clear, you summarize context after each todo item, so previous todo item's history does not contaminate the context. 
     - If you have tools to summarize your context, try to find a point to use it after you have used 50% of your context window. So you always have a less cluttered context.
 
-- each of the `/xxx` mentioned above is a SKILL or AGENT, if you cannot interpret it as skill, read .ai-dev/{skills|agents}/xxx/SKILL.md directly.
+- each of the `/xxx` mentioned above is a SKILL or AGENT, if you cannot interpret it as skill, read .claude/{skills|agents}/xxx/SKILL.md directly.
 
 - (This one is only true if you are Cursor. If you are not Cursor, ignore this.) Note that your subagents does not use the same model as you, you can consider it less good at deep thinking than you. You only delegate relatively narrowly scoped and clearly defined tasks to them. You do the design and major code writing yourself.

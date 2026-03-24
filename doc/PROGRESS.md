@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-03-24: Doc structure alignment with /init-all and /update-doc standards
+
+**What changed:**
+- Renamed `AIDEV.md` → `CLAUDE.md` as source of truth; `AGENTS.md`, `GEMINI.md`, `.cursorrules` now symlink to `CLAUDE.md`
+- Renamed `.ai-dev/` → `.claude/` as source of truth directory; `.agents/`, `.codex/` now symlink to `.claude/`
+- Rewrote `CLAUDE.md` from 106 → 46 lines following pointer convention (≤50 lines, no embedded architecture/patterns)
+- Split 5 oversized doc/main/ files (>300 line limit):
+  - `app/history.md` (550) → `app/history/{overview,persistence,runtime,models}.md` (316 total)
+  - `ui/overlay.md` (443) → `ui/overlay.md` (144) + `ui/capsule/architecture.md` (116)
+  - `protocol/protocol.md` (419) → `protocol/{overview,events,config}.md` (297 total)
+  - `infra/platform.md` (410) → `infra/platform.md` (152) + `infra/virtual_display.md` (74)
+  - `infra/llm.md` (366) → trimmed to 138 lines
+- Trimmed `doc/dev/development.md` from 328 → 265 lines
+- Fixed archive naming: `diff_review` → `260206_diff_review`, `future_features.md` → `260206_future_features/`
+- Updated all `.ai-dev/` → `.claude/` references in skill files, sop files, and PROGRESS.md
+- Updated all cross-references from deleted files to new split locations
+
+**Why:**
+- Align with `/init-all` (CLAUDE.md as authority, ≤50 lines pointer doc, symlink direction) and `/update-doc` (≤300 line docs, YYYYMMDD archive naming) standards
+
+**Key files:** `CLAUDE.md`, `.claude/`, `doc/main/README.md`, `doc/main/app/history/`, `doc/main/protocol/`, `doc/main/infra/virtual_display.md`, `doc/main/ui/capsule/architecture.md`
+**Verification:** All README.md cross-reference links verified
+**Commit:** pending
+**Blockers:** None
+
 ## 2026-03-13: Memory V2 Implementation
 
 **What changed:**
@@ -73,7 +98,7 @@
 **Why:**
 - Enable parallel eval on remote to cut wall-clock time, and harden operations so long-running evals survive SSH disconnects and tunnel drops.
 
-**Key files:** `scripts/remote/provision.sh`, `scripts/remote/eval_tmux.sh`, `scripts/remote/openai-proxy-tunnel.service`, `scripts/remote/proxy_tunnel.sh`, `doc/dev/remote_eval_worker.md`, `.ai-dev/skills/autotune/SKILL.md`, `.ai-dev/skills/cog-tune/SKILL.md`
+**Key files:** `scripts/remote/provision.sh`, `scripts/remote/eval_tmux.sh`, `scripts/remote/openai-proxy-tunnel.service`, `scripts/remote/proxy_tunnel.sh`, `doc/dev/remote_eval_worker.md`, `.claude/skills/autotune/SKILL.md`, `.claude/skills/cog-tune/SKILL.md`
 **Verification:** `bash -n` on all scripts, remote smoke test (AVD2 created, autossh active, proxy ok)
 **Commit:** `afa9713..ced92dc`
 **Next:** Run dual-emulator baseline prep and parallel eval end-to-end on `qiguo-ld1`. Ubuntu 22.04 upgrade deferred.

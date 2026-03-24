@@ -121,7 +121,7 @@ Wait for approval before the next `/autotune`.
 
 ## Templates
 
-- Per-task analysis: `.ai-dev/skills/cog-tune/assets/per_task_analysis_template.md` (owned by /cog-tune)
+- Per-task analysis: `.claude/skills/cog-tune/assets/per_task_analysis_template.md` (owned by /cog-tune)
 - Common problems summary: `assets/common_problems_template.md` (owned by /autotune)
 
 ## Key Files
@@ -139,7 +139,7 @@ Wait for approval before the next `/autotune`.
 - Scoreboard script: `scripts/scoreboard.py`
 - Eval runner: `eval/aw_bridge/runner.py`
 - Eval remote config: `eval/config/remote.yaml`
-- Cog-tune skill: `.ai-dev/skills/cog-tune/SKILL.md`
-- Implement skill: `.ai-dev/skills/implement/SKILL.md`
-- Shared tuning principles: `.ai-dev/skills/autotune/references/tuning_principles.md`
-- Loop controller: `.ai-dev/skills/autotune-loop/SKILL.md`
+- Cog-tune skill: `.claude/skills/cog-tune/SKILL.md`
+- Implement skill: `.claude/skills/implement/SKILL.md`
+- Shared tuning principles: `.claude/skills/autotune/references/tuning_principles.md`
+- Loop controller: `.claude/skills/autotune-loop/SKILL.md`

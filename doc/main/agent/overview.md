@@ -118,7 +118,7 @@ com.moonkey.androidagent/
 │   └── (→ See: infra/tools.md)
 │
 ├── protocol/                           # Communication contracts
-│   └── (→ See: protocol/protocol.md)
+│   └── (→ See: protocol/overview.md)
 │
 ├── platform/                           # Android platform abstraction
 │   └── (→ See: infra/platform.md)
@@ -133,7 +133,7 @@ com.moonkey.androidagent/
 │   └── (→ See: agent/turn_prompt_anatomy.md)
 │
 ├── history/                            # Session history persistence
-│   └── (→ See: app/history.md)
+│   └── (→ See: app/history/overview.md)
 │
 ├── model/                              # Domain models
 │   └── Models.kt                       # ScreenSnapshot, PerceptionElement, Bounds, Point
@@ -154,4 +154,4 @@ com.moonkey.androidagent/
 - [Planning State](planning.md) - Todos, scratchpad, context hygiene
 - [Turn Prompt Anatomy](turn_prompt_anatomy.md) - Prompt structure and trace
 - [Session Infrastructure](../infra/session.md) - AgentSession lifecycle
-- [Protocol](../protocol/protocol.md) - Op/Event communication
+- [Protocol](../protocol/overview.md) - Op/Event communication

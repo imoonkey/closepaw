@@ -140,7 +140,7 @@ To control token usage, `HistoryManager` proactively downgrades old screen obser
 **Phase 2** — Group-aware eviction (oldest first, outside `recentWindowSize` tail). Never evicts `USER_INTENT`.
 **Phase 3** — Merge adjacent digests; return `BudgetUnreachable` if impossible.
 
-→ Full details: [History Compression Pipeline](../app/history.md#compression-pipeline)
+→ Full details: [History Compression Pipeline](../app/history/runtime.md)
 
 ### Data Flow
 
@@ -183,7 +183,7 @@ Turn N                                  Turn N+1
 | `TodosUpdated` | Emitted when todos change (carries `todos: List<Todo>`) |
 | `ScratchpadUpdated` | Emitted on write/delete/clear (mutation listener) |
 
-→ See: [Protocol Events](../protocol/protocol.md#planning-state-events)
+→ See: [Protocol Events](../protocol/overview.md#planning-state-events)
 
 ---
 

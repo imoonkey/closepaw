@@ -7,14 +7,12 @@
 
 > See: `platform/AndroidPlatform.kt`
 
-Abstraction for Android-specific operations: screen capture, action execution, app management. Two implementations exist: `AccessibilityPlatform` (default, real screen) and `VirtualDisplayPlatform` (Shizuku-based, isolated display).
-
-### Interface
+Abstraction for Android operations: screen capture, action execution, app management. Two implementations: `AccessibilityPlatform` (default) and `VirtualDisplayPlatform` (Shizuku-based).
 
 ```kotlin
 interface AndroidPlatform {
-    suspend fun start() {}   // Acquire resources (no-op for accessibility)
-    suspend fun stop() {}    // Release resources (no-op for accessibility)
+    suspend fun start() {}
+    suspend fun stop() {}
     suspend fun captureScreen(): ScreenSnapshot
     suspend fun performAction(action: UIAction): ActionResult
     suspend fun launchApp(packageName: String): ActionResult
@@ -26,31 +24,16 @@ interface AndroidPlatform {
 }
 ```
 
-`start()` / `stop()` have default no-op implementations. `AccessibilityPlatform` does not override them. `VirtualDisplayPlatform` creates the virtual display in `start()` and tears it down in `stop()`.
-
-`allowTapToFocus()` controls whether the `TypeExecutor` may attempt a tap-to-focus fallback for text input. Returns `false` in VD mode because tapping the virtual display to focus a field triggers unintended keyboard events on the physical screen.
-
-`performAction` takes only a `UIAction` — no snapshot parameter. All atomic actions work with coordinates or focused state; element resolution happens in the executor layer.
-
-### Data Types
-
-```kotlin
-data class DisplayInfo(val widthPixels: Int, val heightPixels: Int, val density: Float)
-data class AppInfo(val packageName: String, val label: String, val isSystemApp: Boolean = false)
-```
+`performAction` takes only a `UIAction` — no snapshot. Element resolution happens in the executor layer.
 
 ### Platform Selection
 
 > See: `platform/PlatformFactory.kt`
 
-`PlatformFactory.create()` selects the implementation based on `SessionConfig.platformMode`:
-
 | Mode | Platform | Fallback |
 |------|----------|----------|
 | `ACCESSIBILITY` | `AccessibilityPlatform` | N/A |
-| `VIRTUAL_DISPLAY` | `VirtualDisplayPlatform` | Falls back to `AccessibilityPlatform` if Shizuku is unavailable or permission not granted |
-
-Shizuku availability and permission are checked at creation time. Fallback is logged but not yet surfaced to the user.
+| `VIRTUAL_DISPLAY` | `VirtualDisplayPlatform` | Falls back to `AccessibilityPlatform` if Shizuku unavailable |
 
 ---
 
@@ -58,158 +41,38 @@ Shizuku availability and permission are checked at creation time. Fallback is lo
 
 > See: `platform/AccessibilityPlatform.kt`
 
-Implementation using Android Accessibility APIs. Constructor takes `AccessibilityService`, `SessionConfig`, optional `ActionVisualizerManager` (for UI ripple/trail feedback), optional `OverlayTouchGate` (for gesture pass-through), and `TraceRecorder`.
-
 ### Atomic Platform Principle
 
-Each `UIAction` variant maps to **exactly one** Android API call. The platform has zero strategy — no fallback, no target resolution, no UI change detection. Those responsibilities live in the executor layer.
-
-> See: [tools.md](tools.md) for the executor architecture.
+Each `UIAction` variant maps to **exactly one** Android API call. Zero strategy — no fallback, no target resolution, no UI change detection. Those live in the executor layer.
 
 ### Action Dispatch
 
-```kotlin
-override suspend fun performAction(action: UIAction): ActionResult = when (action) {
-    is UIAction.ClickNodeAt      -> nodeActionPerformer.performNodeClickAt(action.x, action.y)
-    is UIAction.TapAt            -> gestureInjector.injectTap(action.x, action.y)
-    is UIAction.LongClickNodeAt  -> nodeActionPerformer.performNodeLongClickAt(action.x, action.y)
-    is UIAction.LongPressAt      -> gestureInjector.injectLongPress(...)
-    is UIAction.SetTextOnNodeAt  -> nodeActionPerformer.performSetTextOnNodeAt(...)
-    is UIAction.SetTextOnFocused -> nodeActionPerformer.performSetTextOnFocused(...)
-    is UIAction.ScrollNodeAt     -> nodeActionPerformer.performScrollAt(...)
-    is UIAction.Swipe            -> gestureInjector.injectSwipe(...)  // clamps to screen bounds
-    is UIAction.SystemButton     -> ENTER via nodeActionPerformer, others via gestureInjector
-    is UIAction.Wait             -> delay(action.durationMs)
-}
-```
+| UIAction | Handler |
+|----------|---------|
+| `ClickNodeAt` / `LongClickNodeAt` / `SetTextOnNodeAt` / `SetTextOnFocused` / `ScrollNodeAt` | `NodeActionPerformer` |
+| `TapAt` / `LongPressAt` / `Swipe` | `AccessibilityGestureInjector` |
+| `SystemButton` | ENTER via `NodeActionPerformer`, others via gesture |
+| `Wait` | `delay(durationMs)` |
 
-Visualizer feedback: `ClickNodeAt` and `LongClickNodeAt` trigger `visualizer?.showClick()` before executing the node action, showing ripple effects on-screen.
-`performSwipe()` clamps coordinates to display bounds.
+Visualizer feedback: click/long-click trigger `showClick()` before executing.
 
 ### OverlayTouchGate
 
 > See: `platform/OverlayTouchGate.kt`
 
-Coordinates between overlay touch interception and gesture injection. During `dispatchGesture` calls, the system overlay must become touch-passthrough to avoid intercepting the injected gesture. `OverlayTouchGate` brackets gesture injection with `acquirePassthrough()` / `releasePassthrough()` calls that temporarily set `FLAG_NOT_TOUCHABLE` on overlay windows.
-
-Integrated into `AccessibilityGestureInjector` — all gesture-based actions (tap, long-press, swipe) automatically acquire/release the gate.
-
-### Component Structure
-
-```text
-AccessibilityPlatform (orchestrator)
-├── NodeActionPerformer             # Shared node actions (click/long-click/set-text/scroll/enter)
-├── AccessibilityGestureInjector    # Gesture/global-action dispatch + OverlayTouchGate integration
-├── AccessibilityScreenshotCapturer # Screenshot capture + trace persistence
-├── AppManager                      # Shared installed-app query (PackageManager)
-└── BitmapUtils                     # Shared bitmap scaling + JPEG compression
-```
+During `dispatchGesture`, the overlay must become pass-through. `OverlayTouchGate` brackets injection with `acquirePassthrough()` / `releasePassthrough()` (sets `FLAG_NOT_TOUCHABLE`). Integrated into `AccessibilityGestureInjector`.
 
 ### Screen Capture
 
-`captureScreen()` conditionally captures based on `PerceptionConfig`:
-
-1. **Always captures accessibility tree** — needed for node finding, change detection, and trace
-2. **Conditionally captures screenshot** — when `PerceptionConfig.capturesScreenshot` is true OR `TraceRecorder` is enabled (for debugging)
+1. **Always captures accessibility tree** — needed for node finding, change detection, trace
+2. **Conditionally captures screenshot** — when `PerceptionConfig.capturesScreenshot` or trace enabled
 3. **Only includes screenshot in snapshot** when perception config requests it
-
-Trace recording dumps both raw a11y tree (via `A11yTreeDumper.dump()`) and sanitized a11y tree (via `Perceptor.toPromptJson()`) as JSON artifacts.
-When trace is enabled, capture-quality artifacts are also written (a11y retry attempts, bounds diagnostics, out-of-bounds action target counts).
 
 ---
 
 ## VirtualDisplayPlatform
 
-> See: `platform/virtualdisplay/VirtualDisplayPlatform.kt`
-
-Implementation running apps on a Shizuku virtual display, isolated from the physical screen.
-
-### Architecture
-
-```text
-VirtualDisplayPlatform (orchestrator)
-├── VirtualDisplayWindowAccessor       # A11y window/root filtered by displayId
-├── NodeActionPerformer                # Shared node actions (root via WindowAccessor)
-├── VirtualDisplayInputInjector        # Shizuku input injection (tap/swipe/long-press/system buttons)
-├── VirtualDisplayCaptureCoordinator   # A11y tree + screenshot capture (ImageReader or PixelCopy)
-├── VirtualDisplaySurfaceController    # Surface switching (ImageReader ↔ SurfaceView)
-├── VirtualDisplayScreenshotProcessor  # Bitmap → ScreenImage conversion + trace
-├── VirtualDisplayAppController        # App launch on VD + keyboard dismiss
-├── VirtualDisplayViewerTouchHandler   # Forward viewer touch events to VD
-└── ShizukuClient                      # Binder wrapper (IDisplayManager, IInputManager)
-```
-
-### Key Design Decisions
-
-- **A11y tree via `displayId` filtering**: `VirtualDisplayWindowAccessor` filters `AccessibilityService.windows` by `window.displayId` to get only the virtual display's UI tree. Reuses `Perceptor.snapshot()` for conversion.
-- **Node-based actions via shared `NodeActionPerformer`**: `ClickNodeAt`, `LongClickNodeAt`, `SetTextOnNodeAt`, `SetTextOnFocused`, and `ScrollNodeAt` use the same shared implementation as `AccessibilityPlatform`, differing only in `rootProvider`.
-- **Coordinate/system actions via Shizuku input injection**: `TapAt`, `LongPressAt`, `Swipe`, and `SystemButton` inject `MotionEvent`/`KeyEvent` via `IInputManager` with `setDisplayId()` reflection.
-- **Tap-to-focus disabled**: `allowTapToFocus()` returns `false`. After each text action, `VirtualDisplayAppController.dismissMainDisplayKeyboard()` sends `KEYCODE_BACK` on display 0 as a safety net.
-- **Coroutine-friendly**: All blocking waits use `delay()`, not `Thread.sleep()`.
-
-### Hybrid Surface Model
-
-The VD runs in one of two `VirtualDisplaySurfaceMode`s, managed by `VirtualDisplaySurfaceController`:
-
-| Mode | Surface | Capture Method | When |
-|------|---------|----------------|------|
-| `IMAGE_READER` | `ImageReader` surface | `acquireLatestImage()` | Default — agent operating or viewer hidden |
-| `LIVE_PREVIEW` | `SurfaceView` from viewer | `PixelCopy.request()` | Viewer visible — user watching live |
-
-- `switchToLivePreview(surfaceView)` — redirects VD output to the viewer's `SurfaceView` via `ShizukuClient.setVirtualDisplaySurface()`, switches capture to `PixelCopy`.
-- `switchToImageReader()` — reverts VD output to `ImageReader` surface.
-- `PixelCopy` fallback: after 2 consecutive failures (`PIXEL_COPY_MAX_FAILURES`), `VirtualDisplayCaptureCoordinator` automatically reverts to `IMAGE_READER` mode.
-- Surface state is tracked in a `@Volatile` `SurfaceState` data class, protected by `synchronized(stateLock)`.
-
-### Lifecycle
-
-| Phase | What Happens |
-|-------|-------------|
-| `start()` | `bypassHiddenApis()`, creates `ImageReader`, calls `ShizukuClient.createVirtualDisplay()`, registers binder death listener, delays `200ms` for surface readiness |
-| Runtime | Captures a11y tree + screenshot (ImageReader or PixelCopy), performs actions on VD |
-| Viewer opens | `switchToLivePreview()` — user sees live VD feed |
-| Viewer closes | `switchToImageReader()` — back to background capture |
-| `stop()` | Removes binder death listener, resets surface controller, releases VD, closes ImageReader |
-
-### ShizukuClient
-
-> See: `platform/virtualdisplay/ShizukuClient.kt`
-
-Thin wrapper for privileged Shizuku binder calls using reflection on Android framework stubs.
-
-| Method | Underlying API |
-|--------|---------------|
-| `isAvailable()` | `Shizuku.pingBinder()` |
-| `hasPermission()` | Shizuku permission check |
-| `createVirtualDisplay(...)` | `IDisplayManager.createVirtualDisplay()` (API 33+ `VirtualDisplayConfig` vs legacy) |
-| `releaseVirtualDisplay(displayId)` | `IDisplayManager.releaseVirtualDisplay()` |
-| `setVirtualDisplaySurface(displayId, surface)` | `IDisplayManager.setVirtualDisplaySurface()` via stored callback |
-| `injectInputEvent(event, mode)` | `IInputManager.injectInputEvent()` |
-| `bypassHiddenApis()` | `HiddenApiBypass` for `InputEvent.setDisplayId()` and `ServiceManager` access |
-| `addBinderDeadListener/removeBinderDeadListener` | `Shizuku` binder death callbacks |
-
-Supporting files in `virtualdisplay/`:
-- `ShizukuServiceProxyProvider` — resolves `IDisplayManager`/`IInputManager` service proxies
-- `ShizukuDisplayTransport` — manages display creation/release/surface switching
-- `ShizukuInputTransport` — manages input event injection with `setDisplayId()` reflection
-- `ShizukuActivityLauncher` — launches activities on a specific display via `ActivityOptions.setLaunchDisplayId()`
-- `ShizukuShellExecutor` — executes shell commands via `Shizuku.newProcess()`
-- `ShizukuRuntimeGateway` — coordinates availability/permission checks
-
-### VirtualDisplayConfig
-
-> See: `platform/virtualdisplay/VirtualDisplayConfig.kt`
-
-```kotlin
-data class VirtualDisplayConfig(
-    val width: Int, val height: Int,
-    val densityDpi: Int, val density: Float
-) {
-    companion object {
-        fun fromPhysicalDisplay(context: Context): VirtualDisplayConfig
-    }
-}
-```
+-> See: [virtual_display.md](virtual_display.md) for full architecture, hybrid surface model, and ShizukuClient.
 
 ---
 
@@ -217,141 +80,48 @@ data class VirtualDisplayConfig(
 
 > See: `platform/UIAction.kt`
 
-`sealed interface UIAction` — atomic platform operations. Each variant maps to exactly one Android API call.
-
-**Naming convention:**
-- `*NodeAt` — accessibility node operation at coordinates (`ACTION_*`)
-- `*At` — gesture operation at coordinates (`dispatchGesture` / input injection)
-- `*OnFocused` — operation on currently focused node
+`sealed interface UIAction` — atomic platform operations. Naming: `*NodeAt` (a11y node op), `*At` (gesture op), `*OnFocused` (focused node op).
 
 | Action | Type | Description |
 |--------|------|-------------|
-| `ClickNodeAt(x, y)` | Node | Find clickable node at coords → `ACTION_CLICK` |
-| `TapAt(x, y)` | Gesture | Gesture tap at coordinates |
-| `LongClickNodeAt(x, y)` | Node | Find node at coords → `ACTION_LONG_CLICK` |
-| `LongPressAt(x, y, durationMs)` | Gesture | Gesture hold at coordinates |
-| `SetTextOnNodeAt(x, y, text, clear)` | Node | Find node at coords → `ACTION_SET_TEXT` |
-| `SetTextOnFocused(text, clear)` | Node | Find focused editable → `ACTION_SET_TEXT` |
-| `ScrollNodeAt(x, y, direction)` | Node | Find scrollable node at coords → `ACTION_SCROLL_*` |
-| `Swipe(startX, startY, endX, endY, durationMs)` | Gesture | Raw coordinate swipe gesture |
-| `SystemButton(button)` | System | Global action: `BACK`, `HOME`, `RECENTS`, `ENTER` |
+| `ClickNodeAt(x, y)` | Node | Find clickable → `ACTION_CLICK` |
+| `TapAt(x, y)` | Gesture | Gesture tap |
+| `LongClickNodeAt(x, y)` | Node | Find node → `ACTION_LONG_CLICK` |
+| `LongPressAt(x, y, durationMs)` | Gesture | Gesture hold |
+| `SetTextOnNodeAt(x, y, text, clear)` | Node | Find node → `ACTION_SET_TEXT` |
+| `SetTextOnFocused(text, clear)` | Node | Focused editable → `ACTION_SET_TEXT` |
+| `ScrollNodeAt(x, y, direction)` | Node | Find scrollable → `ACTION_SCROLL_*` |
+| `Swipe(startX, startY, endX, endY, durationMs)` | Gesture | Raw coordinate swipe |
+| `SystemButton(button)` | System | `BACK`, `HOME`, `RECENTS`, `ENTER` |
 | `Wait(durationMs)` | System | Pause execution |
-
----
 
 ## ActionResult
 
 > See: `platform/ActionResult.kt`
 
-```kotlin
-sealed interface ActionResult {
-    data class Success(val message: String = "Action completed") : ActionResult
-    data class Failure(val reason: String) : ActionResult
-    data class Cancelled(val reason: String = "Action cancelled") : ActionResult
-    fun isSuccess(): Boolean = this is Success
-}
-```
-
-No `ElementNotFound` — platform doesn't know about elements, returns `Failure("No clickable node at (x,y)")`. No `exception` field — exceptions are logged at source.
+`Success(message)`, `Failure(reason)`, `Cancelled(reason)`. No `ElementNotFound` — platform returns `Failure("No clickable node at (x,y)")`.
 
 ---
 
-## NodeActionPerformer
+## Shared Components
 
-> See: `platform/NodeActionPerformer.kt`
+**NodeActionPerformer** (`platform/NodeActionPerformer.kt`): Shared node-action executor for both platforms. Only dependency: `rootProvider: () -> AccessibilityNodeInfo?`. All ops on `Dispatchers.Main`.
 
-Shared node-action executor for both platforms. The only platform-specific dependency is `rootProvider: () -> AccessibilityNodeInfo?`.
+**AccessibilityNodeFinder** (`platform/AccessibilityNodeFinder.kt`): Internal helper for finding nodes in the a11y tree by location (clickable, long-clickable, scrollable, focused editable). Checks `isVisibleToUser`, properly recycles nodes.
 
-| Method | Purpose |
-|--------|---------|
-| `performNodeClickAt(x, y)` | Find clickable node → `ACTION_CLICK` |
-| `performNodeLongClickAt(x, y)` | Find long-clickable node → `ACTION_LONG_CLICK` |
-| `performSetTextOnNodeAt(x, y, text, clear)` | Find text-input node → `ACTION_SET_TEXT` |
-| `performSetTextOnFocused(text, clear)` | Find focused editable → `ACTION_SET_TEXT` |
-| `performScrollAt(x, y, direction)` | Find scrollable node → directional `ACTION_SCROLL_*` with forward/backward fallback |
-| `performEnterKey()` | Focused editable → `ACTION_IME_ENTER` (API 30+) with `ACTION_CLICK` fallback |
-
-All operations run on `Dispatchers.Main` (required for a11y API calls). Properly recycles `AccessibilityNodeInfo` objects via try/finally.
-
----
-
-## AccessibilityNodeFinder
-
-> See: `platform/AccessibilityNodeFinder.kt`
-
-Internal helper for finding accessibility nodes in the a11y tree:
-
-| Method | Purpose |
-|--------|---------|
-| `findClickableNodeAtLocation(x, y)` | Top-most clickable node at coordinates (reverse z-order search) |
-| `findLongClickableNodeAtLocation(x, y)` | Top-most long-clickable node at coordinates |
-| `findScrollableNodeAtLocation(x, y)` | Top-most scrollable node at coordinates |
-| `findFocusedEditableNode()` | Currently focused editable node |
-| `findNodeAtLocation(x, y)` | Text-input capable node at coordinates |
-
-All methods check `isVisibleToUser` to avoid clicking invisible nodes. Properly recycles `AccessibilityNodeInfo` objects during traversal.
+**BitmapUtils** (`platform/BitmapUtils.kt`): `scaleBitmapIfNeeded()`, `compressJpeg()`.
 
 ---
 
 ## Perception Integration
 
-Detailed perception pipeline, prompt JSON contract, and text-targeting semantics live in [perception.md](perception.md).
+-> See: [perception.md](perception.md) for the full capture pipeline, prompt JSON contract, and text semantics.
 
-Platform-side responsibilities:
+Platform-side: `AccessibilityPlatform` collects roots from relevant windows, excludes overlay/IME, retries empty-root capture 3×. `VirtualDisplayPlatform` uses display-scoped roots via `VirtualDisplayWindowAccessor`.
 
-- `AccessibilityPlatform` collects roots from relevant windows on the active display, excludes overlay / IME windows, retries empty-root capture up to 3 times, and marks `keyboardVisible`.
-- `VirtualDisplayPlatform` collects display-scoped roots via `VirtualDisplayWindowAccessor` and reuses the same `Perceptor.snapshot()` pipeline.
-- Both platforms can attach screenshots and trace artifacts around the shared `ScreenSnapshot` boundary returned by `captureScreen()`.
+**PerceptionConfig** (`perception/PerceptionConfig.kt`): `AccessibilityOnly` (default), `ScreenshotOnly(maxDimension, quality)`, `Hybrid(maxDimension, quality)`.
 
-Perception text semantics at the platform boundary:
-
-- Capture is lossless by default: `PerceptionElement.text`, `description`, and `hintText` preserve raw accessibility values.
-- Prompt `text` uses `text -> description -> hintText`.
-- `resourceId` may be emitted as `id`, but it is not a text fallback.
-
-### PerceptionConfig
-
-> See: `perception/PerceptionConfig.kt`
-
-`PerceptionConfig` still controls which modalities `captureScreen()` returns:
-
-| Variant | Description |
-|---------|-------------|
-| `AccessibilityOnly` | A11y tree only. Current production default. |
-| `ScreenshotOnly(maxDimension, jpegQuality)` | Screenshot only. For apps with poor a11y support. |
-| `Hybrid(maxDimension, jpegQuality)` | Both modalities. Richest perception, highest token cost. |
-
-Helpers: `capturesAccessibility`, `capturesScreenshot`, `screenshotMaxDimension`, `screenshotJpegQuality`.
-
-### ScreenSnapshot Boundary
-
-> See: `model/Models.kt`
-
-```kotlin
-data class ScreenSnapshot(
-    val timestamp: Long,
-    val elements: List<PerceptionElement>,
-    val image: ScreenImage? = null,
-    val debug: ScreenSnapshotDebug? = null,
-    val textEnriched: Boolean = false,
-    val keyboardVisible: Boolean = false
-)
-```
-
-`elements` is always present and may be empty. `image` is optional. `debug`, `textEnriched`, and `keyboardVisible` are shared downstream by prompt building, observations, traces, and UI-change detection.
-
----
-
-## BitmapUtils
-
-> See: `platform/BitmapUtils.kt`
-
-Shared utility for both platforms:
-
-| Method | Purpose |
-|--------|---------|
-| `scaleBitmapIfNeeded(bitmap, maxDimension)` | Downscale large bitmaps for LLM token budget |
-| `compressJpeg(bitmap, quality)` | JPEG compression for screenshot payloads |
+**ScreenSnapshot** (`model/Models.kt`): `elements` (always present), `image` (optional), `keyboardVisible`, `textEnriched`, `debug`.
 
 ---
 
@@ -359,52 +129,24 @@ Shared utility for both platforms:
 
 ```
 platform/
-├── AndroidPlatform.kt         # Interface (with start/stop lifecycle, DisplayInfo, AppInfo)
-├── PlatformFactory.kt         # Platform selection (checks SessionConfig.platformMode + Shizuku)
-├── AccessibilityPlatform.kt   # Implementation using Accessibility APIs
-├── AccessibilityGestureInjector.kt  # Gesture dispatch + OverlayTouchGate bracket
-├── OverlayTouchGate.kt        # Gesture pass-through for overlay windows
-├── AccessibilityScreenshotCapturer.kt # Screenshot capture + trace persistence
-├── AccessibilityNodeFinder.kt # Node search helpers (shared by both platforms)
-├── NodeActionPerformer.kt     # Shared node action executor (click/text/scroll/enter)
-├── AppManager.kt              # Shared installed-app query (PackageManager)
-├── BitmapUtils.kt             # Bitmap scaling + JPEG compression (shared)
-├── UIAction.kt                # Atomic action types (sealed interface)
-├── ActionResult.kt            # Result types (Success/Failure/Cancelled)
-└── virtualdisplay/
-    ├── VirtualDisplayPlatform.kt          # Implementation using Shizuku + virtual display
-    ├── VirtualDisplayConfig.kt            # Display configuration (width, height, density)
-    ├── VirtualDisplayWindowAccessor.kt    # A11y window/root filtered by displayId
-    ├── VirtualDisplayInputInjector.kt     # Input injection (tap/swipe/system buttons via Shizuku)
-    ├── VirtualDisplayCaptureCoordinator.kt # A11y tree + screenshot capture coordination
-    ├── VirtualDisplaySurfaceController.kt # Surface mode switching (ImageReader ↔ SurfaceView)
-    ├── VirtualDisplayScreenshotProcessor.kt # Bitmap → ScreenImage + trace
-    ├── VirtualDisplayAppController.kt     # App launch on VD + keyboard dismiss
-    ├── VirtualDisplayViewerTouchHandler.kt # Forward viewer touch to VD input
-    ├── ShizukuClient.kt                   # Shizuku binder wrapper (orchestrator)
-    ├── ShizukuServiceProxyProvider.kt     # IDisplayManager/IInputManager proxy resolution
-    ├── ShizukuDisplayTransport.kt         # Display create/release/surface operations
-    ├── ShizukuInputTransport.kt           # Input event injection with displayId
-    ├── ShizukuActivityLauncher.kt         # Activity launch on specific display
-    ├── ShizukuShellExecutor.kt            # Shell command execution via Shizuku
-    └── ShizukuRuntimeGateway.kt           # Availability/permission checks
-
-perception/
-├── PerceptionConfig.kt        # Capture mode (AccessibilityOnly, ScreenshotOnly, Hybrid)
-├── Perceptor.kt               # A11y tree → ScreenSnapshot (shared by both platforms, multi-root support)
-├── PerceptorFilterConfig.kt   # Element filtering config (maxElements, size/visibility thresholds)
-├── PerceptorInternals.kt      # Internal traversal helpers
-├── PerceptorDiagnostics.kt    # Capture diagnostics collector
-└── ScreenSummary.kt           # Text summary for history
+├── AndroidPlatform.kt                # Interface
+├── PlatformFactory.kt                # Platform selection
+├── AccessibilityPlatform.kt          # Accessibility implementation
+├── AccessibilityGestureInjector.kt   # Gesture dispatch + touch gate
+├── OverlayTouchGate.kt               # Gesture pass-through
+├── AccessibilityScreenshotCapturer.kt # Screenshot + trace
+├── AccessibilityNodeFinder.kt        # Node search
+├── NodeActionPerformer.kt            # Shared node actions
+├── AppManager.kt                     # Installed-app query
+├── BitmapUtils.kt                    # Bitmap utils
+├── UIAction.kt                       # Action types
+├── ActionResult.kt                   # Result types
+└── virtualdisplay/                   # → See virtual_display.md
 ```
-
-Perception package details: see [Perception](perception.md) for the full capture pipeline, prompt JSON contract, and text-targeting behavior.
-
----
 
 ## Related Docs
 
-- [Perception](perception.md) - Perceptor pipeline, `ScreenSnapshot`, and text semantics
+- [Virtual Display](virtual_display.md) - VirtualDisplayPlatform, ShizukuClient
+- [Perception](perception.md) - Perceptor pipeline, ScreenSnapshot
 - [Tools](tools.md) - Tool execution and executor architecture
 - [Loop](../agent/loop.md) - Perception in ReAct loop
-- [Planning](../agent/planning.md) - Context hygiene

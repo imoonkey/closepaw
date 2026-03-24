@@ -2,7 +2,7 @@
 
 ## 现状
 
-- 无根目录 README.md（AIDEV.md/CLAUDE.md 是给 AI agent 的，不是给人看的）
+- 无根目录 README.md（CLAUDE.md 是给 AI agent 的，不是给人看的）
 - 无 CONTRIBUTING.md
 - 无 GitHub Actions CI/CD
 - 无 issue/PR templates

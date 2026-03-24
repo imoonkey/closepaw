@@ -1,7 +1,7 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-03-11 (commit: 2a35d90)
+> Last updated: 2026-03-24
 
 ## Quick Start
 
@@ -32,23 +32,31 @@ doc/main/
 ├── infra/             # Agent infrastructure
 │   ├── session.md     # AgentSession, SessionServices, lifecycle
 │   ├── tools.md       # Tool system, ToolRouter, ToolRegistry, PolicyEngine
-│   ├── platform.md    # AndroidPlatform, action dispatch, capture wiring, VirtualDisplay
+│   ├── platform.md    # AndroidPlatform, AccessibilityPlatform, action dispatch
+│   ├── virtual_display.md # VirtualDisplayPlatform, ShizukuClient, hybrid surface
 │   ├── perception.md  # Perceptor, ScreenSnapshot, prompt shaping, text semantics
 │   └── llm.md         # LLM clients, ModelCatalog, retry infrastructure
 │
 ├── protocol/          # Communication contracts
-│   └── protocol.md    # Op/AgentEvent, state machine, errors, SessionConfig
+│   ├── overview.md    # Op, state machine, errors, utilities
+│   ├── events.md      # AgentEvent domain hierarchy, key events
+│   └── config.md      # SessionConfig, PlatformMode, AgentMode, LLM config
 │
 ├── app/               # Application layer (non-agentic)
-│   ├── history.md     # Session history persistence, compression pipeline, runtime token management
+│   ├── history/       # Session history persistence, compression pipeline
+│   │   ├── overview.md    # Architecture, recording flow, file structure
+│   │   ├── persistence.md # SessionHistoryManager, SessionRecordingService, SessionStorage
+│   │   ├── runtime.md     # HistoryManager, compression pipeline, token budgeting
+│   │   └── models.md      # SessionRecord, MessageRecord, ScreenStateRecord
 │   └── settings.md    # User settings, preferences, SessionConfig compilation
 │
 └── ui/                # User interface
     ├── style.md       # Design system: colors, typography, shapes
     ├── tech_design.md # Technical implementation: ViewModel, event reducers
     ├── user_interaction.md # Pages, user flows, event→UI mapping
-    ├── overlay.md     # Smart Capsule, Edge Glow, Island, Visualizer
-    ├── capsule/       # Capsule state machine + user flows
+    ├── overlay.md     # Edge Glow, Island, Visualizer, overlay infrastructure
+    ├── capsule/       # Smart Capsule
+    │   ├── architecture.md # Modes, rendering, state transitions, callbacks
     │   ├── state_machine.md
     │   └── user_flows.md
     └── session/       # Session lifecycle state machine + user flows
@@ -229,7 +237,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 1. [agent/overview.md](agent/overview.md) — Architecture and design principles
 2. [agent/loop.md](agent/loop.md) — How the agent executes (ReAct loop)
 3. [agent/turn_prompt_anatomy.md](agent/turn_prompt_anatomy.md) — What is sent to the LLM each turn
-4. [protocol/protocol.md](protocol/protocol.md) — How UI and agent communicate
+4. [protocol/overview.md](protocol/overview.md) — How UI and agent communicate
 
 ### Working on specific areas?
 
@@ -245,7 +253,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 | UI changes | [tech_design.md](ui/tech_design.md) |
 | Design system | [style.md](ui/style.md) |
 | Overlays | [overlay.md](ui/overlay.md) |
-| History persistence | [history.md](app/history.md) |
+| History persistence | [history/overview.md](app/history/overview.md) |
 | Settings | [settings.md](app/settings.md) |
 | Evaluation | [eval.md](eval/eval.md) |
 
@@ -256,15 +264,15 @@ app/src/main/kotlin/com/moonkey/androidagent/
 | Concept | Description | Doc |
 |---------|-------------|-----|
 | **ReAct Loop** | Perceive → Think → Act → Observe | [loop.md](agent/loop.md) |
-| **Task** | Work unit from user input to completion | [protocol.md](protocol/protocol.md) |
+| **Task** | Work unit from user input to completion | [protocol/overview.md](protocol/overview.md) |
 | **Turn** | One LLM call + tool execution cycle | [loop.md](agent/loop.md) |
 | **AgentDef** | Agent definition (Planner/Executor/Standalone) | [multiagent.md](agent/multiagent.md) |
-| **Op** | User intent (UI → Agent) | [protocol.md](protocol/protocol.md) |
-| **AgentEvent** | State notification (Agent → UI) | [protocol.md](protocol/protocol.md) |
+| **Op** | User intent (UI → Agent) | [protocol/overview.md](protocol/overview.md) |
+| **AgentEvent** | State notification (Agent → UI) | [protocol/events.md](protocol/events.md) |
 | **SessionConfig** | Compiled settings snapshot for a session | [settings.md](app/settings.md) |
 | **Hot Idle** | Session stays alive between tasks for follow-up | [session/](ui/session/state_machine.md) |
 | **CapsuleMode** | Smart Capsule state (Running, Takeover, etc.) | [overlay.md](ui/overlay.md) |
-| **Context Hygiene** | Token-efficient history management (compression pipeline) | [planning.md](agent/planning.md), [history.md](app/history.md) |
+| **Context Hygiene** | Token-efficient history management (compression pipeline) | [planning.md](agent/planning.md), [history/runtime.md](app/history/runtime.md) |
 | **Cross-Session Memory** | Persistent app-specific learnings recalled per turn | [memory.md](agent/memory.md) |
 
 ---

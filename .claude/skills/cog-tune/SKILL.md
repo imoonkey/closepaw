@@ -55,7 +55,7 @@ Pick one or both entry points:
     - `./scripts/debug-run.sh --main-model <model> --executor-model <model> "goal"`
   - If derived replay files are missing/outdated, compile them:
     - `inspection_tool/.venv/bin/python inspection_tool/replay_compiler.py <run_dir>/trace`
-  - Optional helper: `python3 .ai-dev/skills/cog-tune/scripts/prepare_cog_review.py --latest`
+  - Optional helper: `python3 .claude/skills/cog-tune/scripts/prepare_cog_review.py --latest`
     - Produces a `cognition_review.md` with per-step artifact paths.
   - Token/context budget analysis:
     - `inspection_tool/.venv/bin/python inspection_tool/a11y_token_stats.py --run-dir <run_dir>`
@@ -151,7 +151,7 @@ Use `rg` to locate prompt or tool definition text before edits.
 
 **Per-task analysis**: Follow the template in `assets/per_task_analysis_template.md`.
 
-**Common problems summary** (when synthesizing for /autotune): Follow `.ai-dev/skills/autotune/assets/common_problems_template.md`.
+**Common problems summary** (when synthesizing for /autotune): Follow `.claude/skills/autotune/assets/common_problems_template.md`.
 
 **Overall report** (when doing a full analysis, not per-task):
 

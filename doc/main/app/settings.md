@@ -158,7 +158,7 @@ Key preference keys:
 
 ## Related Docs
 
-- [Protocol](../protocol/protocol.md) - `SessionConfig` contract
+- [Protocol](../protocol/overview.md) - `SessionConfig` contract
 - [Session](../infra/session.md) - Runtime wiring of config
 - [LLM](../infra/llm.md) - Model catalog and client factory
 - [UI Tech Design](../ui/tech_design.md) - Settings UI components

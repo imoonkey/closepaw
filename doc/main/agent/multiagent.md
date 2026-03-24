@@ -186,7 +186,7 @@ Each agent can use a different model:
 | `SubAgentActivity` | Bridged status from sub-agent (agentName, activity) |
 | `SubAgentCompleted` | Sub-agent finished (agentName, success, message) |
 
-→ See: [Protocol Events](../protocol/protocol.md#sub-agent-events)
+→ See: [Protocol Events](../protocol/overview.md#sub-agent-events)
 
 ---
 
@@ -204,4 +204,4 @@ Each agent can use a different model:
 - [Overview](overview.md) - Architecture context
 - [Loop](loop.md) - How delegation fits in ReAct loop
 - [Planning](planning.md) - Scratchpad for cross-agent data
-- [Protocol](../protocol/protocol.md) - Sub-agent events
+- [Protocol](../protocol/overview.md) - Sub-agent events

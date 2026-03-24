@@ -250,4 +250,4 @@ Implements `LifecycleOwner` + `SavedStateRegistryOwner` for services. Manual lif
 - [User Interaction](user_interaction.md) - Pages, user behaviors
 - [Style Guide](style.md) - Design system
 - [Overlay](overlay.md) - Overlay implementation
-- [History](../app/history.md) - Session persistence
+- [History](../app/history/overview.md) - Session persistence

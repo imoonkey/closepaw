@@ -177,4 +177,4 @@ All paths converge: first `Op.UserInput` triggers `Created → Running`.
 - [User Flows](user_flows.md) -- session/task user interaction flows
 - [Session Infrastructure](../../infra/session.md) -- SessionServices, AgentRunner, UserResponseChannel
 - [Capsule State Machine](../capsule/state_machine.md) -- UI state machine (CapsuleMode)
-- [Protocol](../../protocol/protocol.md) -- Op/Event definitions
+- [Protocol](../../protocol/overview.md) -- Op/Event definitions

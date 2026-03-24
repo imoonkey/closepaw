@@ -19,7 +19,7 @@ Keep documentation in sync with code changes.
 |--------|----------|-------------|
 | `doc/main/` | Critical | Architecture and runtime behavior changes |
 | `doc/dev/` | Critical | Workflow/build changes |
-| `.ai-dev/ & AIDEV.md` | Critical | AI Dev agent workflow changes |
+| `.claude/ & CLAUDE.md` | Critical | AI Dev agent workflow changes |
 | `doc/todo/` | High | Active project status |
 | `doc/archive/` | Low | OK if outdated |
 

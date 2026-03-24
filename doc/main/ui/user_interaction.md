@@ -214,4 +214,4 @@ Task completes with GOAL_ACHIEVED in VirtualDisplay mode:
 - [Tech Design](tech_design.md) - Technical implementation
 - [Style Guide](style.md) - Design system
 - [Overlay](overlay.md) - Smart Capsule, Edge Glow, Action Visualizer
-- [Protocol](../protocol/protocol.md) - Event details
+- [Protocol](../protocol/overview.md) - Event details

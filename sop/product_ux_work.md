@@ -29,7 +29,7 @@ Your are the best product designer and ux designer in the world. You design prod
 * Ensure consistency: copy, layout, and behavior match the rest of the product.
 
 ### Treat with high importance
-- 这个feature对我的项目至关重要，请用 /ultra-think 来设计实现，深思熟虑，考虑周全。 @.ai-dev/skills/ultra-think/SKILL.md
+- 这个feature对我的项目至关重要，请用 /ultra-think 来设计实现，深思熟虑，考虑周全。 @.claude/skills/ultra-think/SKILL.md
 
 ## Notes
 - For product/ux, write into doc/todo/[project]/ux/. When you do the design, write your design doc to doc/todo/[project]/ux/ux_design_[your_model_name].md. Your model name can be codex, claude, gemini or something else to identify yourself.

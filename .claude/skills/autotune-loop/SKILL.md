@@ -17,7 +17,7 @@ Do not scrape prose or infer loop state from filesystem heuristics. `doc/autotun
 ## Principles
 
 - Keep loop policy simple. One Ralph iteration should do at most one orchestrated `/autotune` round.
-- Use `.ai-dev/skills/autotune/references/tuning_principles.md` for stop/continue judgment. Do not keep pushing eval-only patches.
+- Use `.claude/skills/autotune/references/tuning_principles.md` for stop/continue judgment. Do not keep pushing eval-only patches.
 - Use `doc/autotune/meta/scoreboard.json` for retry and "failed 3+ times" decisions.
 
 ## Loop
@@ -73,5 +73,5 @@ The promise means only "the loop is finished." The actual stop reason lives in `
 - Changelog: `doc/autotune/meta/changelog.md`
 - Issues: `doc/autotune/meta/issues.md`
 - Exclusions: `eval/config/cannot_handle_group.txt`
-- Round worker: `.ai-dev/skills/autotune/SKILL.md`
-- Shared tuning principles: `.ai-dev/skills/autotune/references/tuning_principles.md`
+- Round worker: `.claude/skills/autotune/SKILL.md`
+- Shared tuning principles: `.claude/skills/autotune/references/tuning_principles.md`

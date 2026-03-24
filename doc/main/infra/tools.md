@@ -307,5 +307,5 @@ tool/
 
 - [Session](session.md) - SessionServices registration
 - [Platform](platform.md) - AndroidPlatform execution
-- [Protocol](../protocol/protocol.md) - Action events
+- [Protocol](../protocol/overview.md) - Action events
 - [Planning](../agent/planning.md) - Planning tools

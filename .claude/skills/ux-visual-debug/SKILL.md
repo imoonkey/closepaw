@@ -31,7 +31,7 @@ The app's actual screen state is unpredictable — agent timing, LLM responses, 
 
 2. **Capture current state** (screenshot + UI dump + visible text in one command):
    ```bash
-   python3 .ai-dev/skills/ux-visual-debug/scripts/adb_ux_runner.py \
+   python3 .claude/skills/ux-visual-debug/scripts/adb_ux_runner.py \
      --capture /tmp/ux_cap/state_001
    ```
    Outputs: `state_001.png`, `state_001.xml`, `state_001_visible.txt`
@@ -178,28 +178,28 @@ JSON-defined step sequences for repeatable smoke tests and CI regression.
 
 ```bash
 # Run scenario file
-python3 .ai-dev/skills/ux-visual-debug/scripts/adb_ux_runner.py \
-  --scenario .ai-dev/skills/ux-visual-debug/references/scenario_a11y_lifecycle.json \
+python3 .claude/skills/ux-visual-debug/scripts/adb_ux_runner.py \
+  --scenario .claude/skills/ux-visual-debug/references/scenario_a11y_lifecycle.json \
   --out-root debug-output/ux-qa
 
 # Quick state capture (AI-interactive helper)
-python3 .ai-dev/skills/ux-visual-debug/scripts/adb_ux_runner.py \
+python3 .claude/skills/ux-visual-debug/scripts/adb_ux_runner.py \
   --capture /tmp/ux_cap/state_001
 
 # Specific device
-python3 .ai-dev/skills/ux-visual-debug/scripts/adb_ux_runner.py \
+python3 .claude/skills/ux-visual-debug/scripts/adb_ux_runner.py \
   --scenario <scenario.json> --serial emulator-5554
 
 # Linked mode (parallel): run agent goal + UX scenario together
-python3 .ai-dev/skills/ux-visual-debug/scripts/adb_ux_runner.py \
-  --scenario .ai-dev/skills/ux-visual-debug/references/scenario_a11y_lifecycle.json \
+python3 .claude/skills/ux-visual-debug/scripts/adb_ux_runner.py \
+  --scenario .claude/skills/ux-visual-debug/references/scenario_a11y_lifecycle.json \
   --agent-goal "play a Adele song on youtube" \
   --agent-link-mode parallel \
   --agent-setup \
   --agent-debug-arg=--basic
 
 # Linked mode (serial): capture agent trajectory first, then run UX scenario
-python3 .ai-dev/skills/ux-visual-debug/scripts/adb_ux_runner.py \
+python3 .claude/skills/ux-visual-debug/scripts/adb_ux_runner.py \
   --scenario <scenario.json> \
   --agent-goal "Complete Smart Capsule handoff flow" \
   --agent-link-mode serial \

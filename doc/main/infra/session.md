@@ -232,7 +232,7 @@ Shared state container accessible to agent and tools:
 5. **Clear runner** — releases agent reference
 6. **Arm idle timeout** — auto-shutdown after inactivity
 
-→ See: [Protocol](../protocol/protocol.md)
+→ See: [Protocol](../protocol/overview.md)
 
 ---
 
@@ -300,6 +300,6 @@ Suspension bridge between the `ask_user` tool and the UI. Uses `AtomicReference<
 - [Agent Overview](../agent/overview.md) - Architecture context
 - [Session State Machine](../ui/session/state_machine.md) - Formal transition rules and resource ownership
 - [Session User Flows](../ui/session/user_flows.md) - Session/task user interaction flows
-- [Protocol](../protocol/protocol.md) - Op/Event details
+- [Protocol](../protocol/overview.md) - Op/Event details
 - [Tools](tools.md) - Tool execution
 - [LLM](llm.md) - LLM clients in SessionServices
