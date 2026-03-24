@@ -109,3 +109,5 @@ __pycache__/
 inspection_tool/debug_data
 debug-output
 .reference/
+doc/todo/progress.json*
+.multmux
