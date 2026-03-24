@@ -22,7 +22,7 @@
 
 **Key files:** `CLAUDE.md`, `.claude/`, `doc/main/README.md`, `doc/main/app/history/`, `doc/main/protocol/`, `doc/main/infra/virtual_display.md`, `doc/main/ui/capsule/architecture.md`
 **Verification:** All README.md cross-reference links verified
-**Commit:** pending
+**Commit:** `6ee3fd6`
 **Blockers:** None
 
 ## 2026-03-13: Memory V2 Implementation
