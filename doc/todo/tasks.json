@@ -1,0 +1,246 @@
+{
+  "phase1-distribution": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Phase 1: 打通分发",
+    "description": "Security + onboarding + open source release. 让第一批用户能装上、用上 Android Agent。",
+    "acceptCriteria": [
+      "All child tasks done",
+      "GitHub release v0.1-alpha published with signed APK"
+    ]
+  },
+  "basic-security": {
+    "parent": "phase1-distribution",
+    "depends": [],
+    "state": "ready",
+    "title": "基础 Security Hardening",
+    "description": "5 项基础安全修复：(1) API key 迁移到 EncryptedSharedPreferences, (2) Manifest cleartext traffic=false + Tailscale HTTPS 配置, (3) InsecureSslConfig 门控为 BuildConfig.DEBUG, (4) allowBackup=false, (5) 加 .env.example。全部是直接实现，不需要额外 design。",
+    "design": "doc/todo/security_hardening/note.md",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt",
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/InsecureSslConfig.kt",
+      ".env.example"
+    ],
+    "acceptCriteria": [
+      "AppSettingsStore uses EncryptedSharedPreferences for API keys",
+      "AndroidManifest usesCleartextTraffic=false",
+      "InsecureSslConfig gated behind BuildConfig.DEBUG",
+      "AndroidManifest allowBackup=false",
+      ".env.example exists in repo root",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "agent-security": {
+    "parent": "phase1-distribution",
+    "depends": [
+      "basic-security"
+    ],
+    "state": "ready",
+    "title": "Agent Security — KISS 4+1 Layer",
+    "description": "实现 safety_kiss_design.md: Layer 1 AppTier (BLOCKED/CAUTIOUS/NORMAL) + app_tiers.json, Layer 2 perception gate (BLOCKED → mask), Layer 3 execution gate (20 行 PolicyEngine 重写), Layer 4 memory gate, Layer 5 system prompt safety rules + app skill safety sections。删除旧的 per-action risk machinery。",
+    "design": "doc/todo/security_hardening/safety_kiss_design.md",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/PolicyEngine.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolName.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/RememberExperienceTool.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/ApprovalTypes.kt",
+      "app/src/main/assets/security/app_tiers.json",
+      "app/src/main/assets/app_skills/**"
+    ],
+    "acceptCriteria": [
+      "AppTier enum exists in protocol/",
+      "AppClassifier loads app_tiers.json and classifies packages",
+      "BLOCKED app screen is masked before LLM sees it (perception gate)",
+      "PolicyEngine.check accepts packageName parameter",
+      "BLOCKED app actions denied even in AUTO_APPROVE mode",
+      "CAUTIOUS app actions trigger AskUser in SMART mode",
+      "remember_experience blocked when foreground app is BLOCKED",
+      "Old DEFAULT_RISK_LEVELS and per-action risk code deleted",
+      "System prompt contains safety rules",
+      "./gradlew test passes"
+    ]
+  },
+  "onboarding-wizard": {
+    "parent": "phase1-distribution",
+    "depends": [
+      "basic-security"
+    ],
+    "state": "blocked",
+    "title": "Onboarding Wizard",
+    "description": "首次启动顺序引导：Accessibility service → Overlay permission → Battery optimization → API key 输入+验证 → Demo task。Phase 0 先做 API key 手动输入，OAuth 是独立 area。",
+    "design": "doc/todo/onboarding_wizard/note.md",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/**"
+    ],
+    "acceptCriteria": [
+      "First launch shows sequential onboarding flow",
+      "Each permission step has clear explanation and action button",
+      "API key input validates against LLM endpoint",
+      "Demo task runs after setup completes",
+      "Subsequent launches skip onboarding"
+    ],
+    "note": "Pending human review — design not yet discussed"
+  },
+  "open-source-release": {
+    "parent": "phase1-distribution",
+    "depends": [
+      "basic-security",
+      "onboarding-wizard"
+    ],
+    "state": "blocked",
+    "title": "Open Source Release",
+    "description": "README.md + LICENSE + CONTRIBUTING.md + SECURITY.md + .env.example + GitHub Actions CI (build+lint+test on PR) + release workflow (tag → signed APK → GitHub Release)。",
+    "design": "doc/todo/open_source_release/note.md",
+    "scope": [
+      "README.md",
+      "LICENSE",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      ".github/workflows/**"
+    ],
+    "acceptCriteria": [
+      "README.md exists with install guide and quick start",
+      "LICENSE file exists (MIT or Apache 2.0)",
+      "CONTRIBUTING.md and SECURITY.md exist",
+      "GitHub Actions CI runs build+lint+test on PR",
+      "Release workflow produces signed APK on tag"
+    ],
+    "note": "Pending human review — design not yet discussed"
+  },
+  "phase2-utility": {
+    "parent": null,
+    "depends": [
+      "phase1-distribution"
+    ],
+    "state": "blocked",
+    "title": "Phase 2: 真实实用性",
+    "description": "Prompt externalization + app skill discovery + eval regression CI。Agent 能在用户日常用的 30+ app 上工作。",
+    "acceptCriteria": [
+      "All child tasks done",
+      "30+ app skills generated via discovery system",
+      "Eval runs as CI gate on PRs"
+    ],
+    "note": "Pending human review"
+  },
+  "prompt-externalization": {
+    "parent": "phase2-utility",
+    "depends": [],
+    "state": "blocked",
+    "title": "Prompt Externalization",
+    "description": "System prompt 从 StandaloneAgentDef.kt 等硬编码字符串 → assets/persona/<role>/system_prompt.md。新增 PersonaRepository（接口 + asset 实现）。App skill 迭代不再需要重新编译 APK。对应 OpenClaw roadmap P3 Phase 1。是 app skill discovery 的前置条件。",
+    "design": "doc/todo/prompt_externalization/note.md",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/definition/**",
+      "app/src/main/assets/persona/**"
+    ],
+    "acceptCriteria": [
+      "System prompt loaded from assets/persona/standalone/system_prompt.md",
+      "PersonaRepository interface + AssetPersonaRepository implementation exist",
+      "AgentDef subclasses use PersonaRepository instead of inline strings",
+      "Changing asset file changes agent behavior without APK rebuild",
+      "./gradlew test passes"
+    ],
+    "note": "Pending human review — design not yet discussed"
+  },
+  "app-skill-discovery": {
+    "parent": "phase2-utility",
+    "depends": [
+      "prompt-externalization"
+    ],
+    "state": "blocked",
+    "title": "App Skill Discovery 系统",
+    "description": "建一个系统让 agent 自己探索 app 并提炼 SKILL.md（含 Safety section）。Discovery loop: 给定 target app → agent 启动 → 系统性探索 UI 路径 → 记录 a11y tree 特征、navigation pattern、pitfall → 生成 SKILL.md draft。英文市场 top 30 app 优先。需要 quality gate（跑 test task / 人工 review）。",
+    "design": "doc/todo/app_skill_discovery/note.md",
+    "scope": [
+      "app/src/main/assets/app_skills/**"
+    ],
+    "acceptCriteria": [
+      "Discovery system can generate SKILL.md for a given target app",
+      "Generated SKILL.md includes ## Safety section",
+      "At least 20 new app skills generated and reviewed",
+      "./gradlew assembleDebug passes"
+    ],
+    "requireHumanReview": true,
+    "note": "Pending human review — design not yet discussed"
+  },
+  "eval-regression-ci": {
+    "parent": "phase2-utility",
+    "depends": [],
+    "state": "blocked",
+    "title": "Eval 转 Regression CI",
+    "description": "AndroidWorld full set 作为 regression gate。PR 跑 eval，regression 才 fail。停止 autotune optimization loop（R58 是最后一轮主动优化）。保留 eval infra 不变。",
+    "design": "doc/todo/eval_regression_ci/note.md",
+    "scope": [
+      ".github/workflows/**",
+      "eval/**"
+    ],
+    "acceptCriteria": [
+      "CI workflow runs eval on PR",
+      "Eval regression detected and reported as CI failure",
+      "Eval pass/fail threshold configured based on R58 baseline"
+    ],
+    "note": "Pending human review — design not yet discussed"
+  },
+  "phase3-daily-assistant": {
+    "parent": null,
+    "depends": [
+      "phase2-utility"
+    ],
+    "state": "blocked",
+    "title": "Phase 3: 日常助手",
+    "description": "Scheduled tasks + notification handling + OpenAI OAuth。把 Android Agent 从一次性工具变成每天都用的 assistant。",
+    "acceptCriteria": [
+      "All child tasks done"
+    ],
+    "note": "Pending human review"
+  },
+  "scheduled-tasks": {
+    "parent": "phase3-daily-assistant",
+    "depends": [],
+    "state": "blocked",
+    "title": "Scheduled Tasks",
+    "description": "Cron 式定时任务执行。用户设定 schedule + natural language instruction。AlarmManager/WorkManager 触发 → 启动 agent session → 执行 → 记录结果。UI: 任务列表、创建/编辑/删除、执行历史。",
+    "design": "doc/todo/scheduled_tasks/note.md",
+    "acceptCriteria": [
+      "User can create a scheduled task with cron expression and instruction",
+      "Tasks execute on schedule via WorkManager/AlarmManager",
+      "Execution results recorded and viewable",
+      "Failed tasks show error and can be retried"
+    ],
+    "note": "Pending human review — design not yet discussed"
+  },
+  "notification-handling": {
+    "parent": "phase3-daily-assistant",
+    "depends": [],
+    "state": "blocked",
+    "title": "Notification Handling",
+    "description": "NotificationListenerService 监听 → 按用户定义的规则触发 agent 响应。规则引擎：app filter + keyword filter + sender filter → trigger action。用户 explicit opt-in 每条规则。",
+    "design": "doc/todo/notification_handling/note.md",
+    "acceptCriteria": [
+      "NotificationListenerService captures notifications",
+      "User can create filter rules (app, keyword, sender)",
+      "Matching notifications trigger agent task execution",
+      "Each rule requires explicit user opt-in"
+    ],
+    "note": "Pending human review — design not yet discussed"
+  },
+  "openai-oauth": {
+    "parent": "phase3-daily-assistant",
+    "depends": [],
+    "state": "blocked",
+    "title": "OpenAI OAuth Login",
+    "description": "参考 OpenClaw 实现：OpenAI Codex OAuth flow。用户用 OpenAI 账号登录 → 复用已有 subscription。和手动 API key 并存。降低新用户 onboarding friction。",
+    "design": "doc/todo/openai_oauth/note.md",
+    "acceptCriteria": [
+      "OAuth login flow implemented for OpenAI",
+      "User can authenticate via OpenAI account",
+      "Falls back to manual API key entry",
+      "Token refresh handled automatically"
+    ],
+    "note": "Pending human review — design not yet discussed"
+  }
+}
