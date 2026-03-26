@@ -13,7 +13,7 @@
   "basic-security": {
     "parent": "phase1-distribution",
     "depends": [],
-    "state": "ready",
+    "state": "running",
     "title": "基础 Security Hardening",
     "description": "5 项基础安全修复：(1) API key 迁移到 EncryptedSharedPreferences, (2) Manifest cleartext traffic=false + Tailscale HTTPS 配置, (3) InsecureSslConfig 门控为 BuildConfig.DEBUG, (4) allowBackup=false, (5) 加 .env.example。全部是直接实现，不需要额外 design。",
     "design": "doc/todo/security_hardening/note.md",

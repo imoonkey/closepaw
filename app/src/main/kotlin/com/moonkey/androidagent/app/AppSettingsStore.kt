@@ -1,8 +1,11 @@
 package com.moonkey.androidagent.app
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Environment
 import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.PlatformMode
@@ -29,6 +32,8 @@ class AppSettingsStore(private val context: Context) {
     companion object {
         private const val TAG = "AppSettingsStore"
         private const val PREFS_NAME = "agent_prefs"
+        private const val ENCRYPTED_PREFS_NAME = "agent_secure_prefs"
+        private const val KEY_MIGRATED = "keys_migrated"
 
         private const val KEY_API_KEY = "api_key"
         private const val KEY_MODEL = "model"
@@ -60,9 +65,71 @@ class AppSettingsStore(private val context: Context) {
 
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    private var _securePrefs: SharedPreferences? = null
+    private var securePrefsFailed = false
+
+    private fun securePrefs(): SharedPreferences {
+        if (securePrefsFailed) return prefs()
+        _securePrefs?.let { return it }
+        return try {
+            val masterKey = MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                context,
+                ENCRYPTED_PREFS_NAME,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            ).also { _securePrefs = it }
+        } catch (e: Exception) {
+            Log.w(TAG, "EncryptedSharedPreferences unavailable, falling back to plain storage: ${e.message}")
+            securePrefsFailed = true
+            prefs()
+        }
+    }
+
+    private fun readSecure(key: String): String? {
+        return try {
+            securePrefs().getString(key, null)
+        } catch (e: Exception) {
+            Log.w(TAG, "Encrypted read failed for $key, falling back: ${e.message}")
+            prefs().getString(key, null)
+        }
+    }
+
+    private fun writeSecure(key: String, value: String) {
+        try {
+            securePrefs().edit().putString(key, value).apply()
+        } catch (e: Exception) {
+            Log.w(TAG, "Encrypted write failed for $key, falling back: ${e.message}")
+            prefs().edit().putString(key, value).apply()
+        }
+    }
+
+    private fun migrateApiKeysIfNeeded() {
+        try {
+            val secure = securePrefs()
+            if (secure === prefs()) return
+            if (secure.getBoolean(KEY_MIGRATED, false)) return
+            val plain = prefs()
+            listOf(KEY_API_KEY, KEY_OPENROUTER_API_KEY, KEY_NOVITA_API_KEY).forEach { key ->
+                plain.getString(key, null)?.takeIf { it.isNotBlank() }?.let { value ->
+                    secure.edit().putString(key, value).apply()
+                    plain.edit().remove(key).apply()
+                }
+            }
+            secure.edit().putBoolean(KEY_MIGRATED, true).apply()
+            Log.d(TAG, "Migrated API keys to encrypted storage")
+        } catch (e: Exception) {
+            Log.w(TAG, "API key migration failed, keys remain in plain storage: ${e.message}")
+        }
+    }
+
     fun load(): AppSettings {
+        migrateApiKeysIfNeeded()
         val prefs = prefs()
-        val savedKey = prefs.getString(KEY_API_KEY, null)?.takeIf { it.isNotBlank() }
+        val savedKey = readSecure(KEY_API_KEY)?.takeIf { it.isNotBlank() }
         val apiKey = savedKey ?: loadApiKeyFromFile().orEmpty()
 
         val selectedModel = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
@@ -101,8 +168,8 @@ class AppSettingsStore(private val context: Context) {
                 prefs.getString(KEY_LOCAL_MODEL_QUANT, DEFAULT_LOCAL_MODEL_QUANT)
                         ?: DEFAULT_LOCAL_MODEL_QUANT
         val executorModel = prefs.getString(KEY_EXECUTOR_MODEL, null)
-        val openRouterApiKey = prefs.getString(KEY_OPENROUTER_API_KEY, null) ?: ""
-        val novitaApiKey = prefs.getString(KEY_NOVITA_API_KEY, null) ?: ""
+        val openRouterApiKey = readSecure(KEY_OPENROUTER_API_KEY) ?: ""
+        val novitaApiKey = readSecure(KEY_NOVITA_API_KEY) ?: ""
         val platformModeName = prefs.getString(KEY_PLATFORM_MODE, DEFAULT_PLATFORM_MODE.name)
                 ?: DEFAULT_PLATFORM_MODE.name
         val platformMode = try {
@@ -138,15 +205,15 @@ class AppSettingsStore(private val context: Context) {
     }
 
     fun saveApiKey(value: String) {
-        prefs().edit().putString(KEY_API_KEY, value).apply()
+        writeSecure(KEY_API_KEY, value)
     }
 
     fun saveOpenRouterApiKey(value: String) {
-        prefs().edit().putString(KEY_OPENROUTER_API_KEY, value).apply()
+        writeSecure(KEY_OPENROUTER_API_KEY, value)
     }
 
     fun saveNovitaApiKey(value: String) {
-        prefs().edit().putString(KEY_NOVITA_API_KEY, value).apply()
+        writeSecure(KEY_NOVITA_API_KEY, value)
     }
 
     fun saveModel(value: String) {
