@@ -12,3 +12,14 @@ description: App-specific guidance for Retro Music player.
 ## Navigation
 - Bottom tabs: Home, Songs, Albums, Artists, Playlists.
 - Create playlists from Playlists tab, then add songs from Songs tab.
+
+## Safety
+
+**DANGEROUS -- ask user before:**
+- Deleting playlists
+- Removing songs from existing playlists
+
+**SAFE -- proceed normally:**
+- Creating new playlists
+- Adding songs to playlists
+- Browsing songs, albums, artists, and playing music

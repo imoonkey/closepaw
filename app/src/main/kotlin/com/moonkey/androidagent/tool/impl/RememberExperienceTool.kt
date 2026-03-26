@@ -4,6 +4,8 @@ import com.moonkey.androidagent.memory.MemoryScope
 import com.moonkey.androidagent.memory.MemorySchema
 import com.moonkey.androidagent.memory.MemorySection
 import com.moonkey.androidagent.memory.MemoryStore
+import com.moonkey.androidagent.protocol.AppTier
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
@@ -15,7 +17,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class RememberExperienceTool(
-    private val store: MemoryStore
+    private val store: MemoryStore,
+    private val appClassifier: AppClassifier
 ) : ToolSpec {
     companion object {
         private val SCOPE_VALUES = JSONArray(MemoryScope.entries.map { it.wireValue })
@@ -110,6 +113,7 @@ class RememberExperienceTool(
         val packageName = params.optString("package_name", "").trim().ifEmpty { null }
         return RememberExperienceInvocation(
             store = store,
+            appClassifier = appClassifier,
             params = params,
             scope = scope,
             section = section,
@@ -122,6 +126,7 @@ class RememberExperienceTool(
 
 private class RememberExperienceInvocation(
     private val store: MemoryStore,
+    private val appClassifier: AppClassifier,
     override val params: JSONObject,
     private val scope: MemoryScope,
     private val section: MemorySection,
@@ -135,6 +140,15 @@ private class RememberExperienceInvocation(
 
     override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
         if (context.isCancelled()) return ToolExecutionResult.Cancelled()
+
+        // Layer 4: Memory Gate — block writes when foreground app is BLOCKED
+        val currentPkg = context.platform.getCurrentPackageName()
+        if (appClassifier.classify(currentPkg) == AppTier.BLOCKED) {
+            return ToolExecutionResult.Failure(
+                "Cannot save memory: current app ($currentPkg) is blocked by security policy"
+            )
+        }
+
         return try {
             val saved =
                 store.append(

@@ -20,4 +20,16 @@ description: App-specific guidance for Markor text editor.
 - Insert at beginning: Special Keys → Jump to Beginning. Undo: Special Keys → Undo.
 
 ## Rename
-- Rename is NOT in the editor. Go back to the file list → long-press file → context menu → Rename.
+- Rename is NOT in the editor. Go back to the file list -> long-press file -> context menu -> Rename.
+
+## Safety
+
+**DANGEROUS -- ask user before:**
+- Deleting files or folders
+- Overwriting existing file content (unless the task explicitly says to edit)
+- Moving files to a different location
+
+**SAFE -- proceed normally:**
+- Creating new files
+- Reading and viewing file content
+- Renaming files, sorting, navigating folders

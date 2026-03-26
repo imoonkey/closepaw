@@ -15,3 +15,15 @@ description: App-specific guidance for OsmAnd maps.
 ## GPX Tracks
 - Use "Plan a route" (hamburger menu) to create saveable GPX tracks. "Directions" and "Navigation" do NOT save GPX files.
 - Add waypoints by searching within Plan a route via Address tab.
+
+## Safety
+
+**DANGEROUS -- ask user before:**
+- Starting turn-by-turn navigation (battery/data intensive, may lock screen)
+- Deleting saved markers, favorites, or GPX tracks
+- Downloading offline maps (large data usage)
+
+**SAFE -- proceed normally:**
+- Searching for locations and addresses
+- Viewing the map, placing markers
+- Planning routes and viewing GPX tracks

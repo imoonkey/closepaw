@@ -13,6 +13,7 @@ import com.moonkey.androidagent.protocol.SessionId
 import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.test.FakeAndroidPlatform
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -114,7 +115,7 @@ class AgentErrorRecoveryTest {
 
 private fun buildServices(llmClient: LLMClient): SessionServices {
         val toolRegistry = ToolRegistry()
-        val policyEngine = PolicyEngine()
+        val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
         val toolRouter = ToolRouter(toolRegistry, policyEngine)
         val platform = FakeAndroidPlatform()
         val config =
@@ -133,6 +134,7 @@ private fun buildServices(llmClient: LLMClient): SessionServices {
                 historyManager = HistoryManager(),
                 sessionState = com.moonkey.androidagent.session.AgentSessionState(),
                 policyEngine = policyEngine,
+                appClassifier = AppClassifier(emptyMap()),
                 platform = platform,
                 config = config,
                 llmClient = llmClient,

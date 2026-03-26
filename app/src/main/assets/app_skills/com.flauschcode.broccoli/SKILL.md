@@ -10,3 +10,13 @@ description: App-specific guidance for Broccoli recipe manager.
 - Duplicates must match ALL fields (servings, prep time, ingredients, directions). Never delete on title alone.
 - Delete: open recipe → 3-dot menu → Delete.
 - Category row scrolls horizontally. Swipe left to reveal more.
+
+## Safety
+
+**DANGEROUS -- ask user before:**
+- Deleting recipes
+
+**SAFE -- proceed normally:**
+- Adding new recipes
+- Reading and browsing recipes
+- Editing recipe fields as specified in the task

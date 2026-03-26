@@ -5,7 +5,6 @@ import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.ApprovalDecision
 import com.moonkey.androidagent.protocol.ApprovalDetails
-import com.moonkey.androidagent.protocol.RiskLevel
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -61,6 +60,7 @@ class ToolRouter(
         toolName: String,
         params: JSONObject,
         context: ToolRouterContext,
+        packageName: String? = null,
         callId: String? = null,
         onStateChange: ((ToolCallState) -> Unit)? = null,
         onApprovalRequired: (suspend (ApprovalDetails) -> Unit)? = null
@@ -99,7 +99,7 @@ class ToolRouter(
         var approvalWasRequired = false
         
         // === POLICY CHECK ===
-        val policyDecision = policyEngine.check(toolName, params)
+        val policyDecision = policyEngine.check(toolName, params, packageName)
         Log.d(TAG, "Policy decision for $toolName: $policyDecision")
         
         when (policyDecision) {
@@ -131,7 +131,9 @@ class ToolRouter(
                     toolName = toolName,
                     args = params,
                     description = invocation.getDescription(),
-                    riskLevel = policyDecision.riskLevel
+                    packageName = packageName,
+                    appTier = policyDecision.appTier,
+                    reason = policyDecision.reason
                 )
                 try {
                     onApprovalRequired?.invoke(approvalDetails)

@@ -3,6 +3,7 @@ package com.moonkey.androidagent.tool.impl
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.memory.MemoryStore
 import com.moonkey.androidagent.test.FakeAndroidPlatform
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ValidationResult
@@ -24,7 +25,7 @@ class RememberExperienceToolTest {
     @Before
     fun setUp() {
         store = MemoryStore(tempDir.newFolder("memory"))
-        tool = RememberExperienceTool(store)
+        tool = RememberExperienceTool(store, AppClassifier(emptyMap()))
     }
 
     @Test

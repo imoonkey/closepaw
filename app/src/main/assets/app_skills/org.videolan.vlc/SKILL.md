@@ -15,3 +15,14 @@ description: App-specific guidance for VLC media player.
 - Do NOT use search — search results may auto-play on tap. Scroll the library list instead.
 - VLC preserves selection order as playlist track order. If the goal specifies an order, select in that order.
 - Multiple playlists: work one at a time. Scroll to the top before starting each new selection.
+
+## Safety
+
+**DANGEROUS -- ask user before:**
+- Deleting playlists or media files
+- Removing items from existing playlists
+
+**SAFE -- proceed normally:**
+- Creating new playlists and adding files
+- Playing audio/video
+- Browsing the media library

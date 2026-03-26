@@ -15,6 +15,7 @@ import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.session.AgentSessionState
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.test.FakeAndroidPlatform
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -106,7 +107,7 @@ class AgentTraceObservabilityTest {
 
 private fun buildServices(traceRecorder: TraceRecorder): SessionServices {
         val toolRegistry = ToolRegistry()
-        val policyEngine = PolicyEngine()
+        val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
         val toolRouter = ToolRouter(toolRegistry, policyEngine)
         val platform = FakeAndroidPlatform()
         val config =
@@ -127,6 +128,7 @@ private fun buildServices(traceRecorder: TraceRecorder): SessionServices {
                 historyManager = HistoryManager(),
                 sessionState = AgentSessionState(),
                 policyEngine = policyEngine,
+                appClassifier = AppClassifier(emptyMap()),
                 platform = platform,
                 config = config,
                 llmClient = noopClient,

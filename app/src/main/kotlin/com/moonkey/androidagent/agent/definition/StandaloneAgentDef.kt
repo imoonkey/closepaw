@@ -67,6 +67,13 @@ internal object StandaloneAgentDef : AgentDef() {
         - For information tasks: navigate to the actual data field, don't guess from appearance. Scroll the full list, cross-check totals against scratchpad, verify date range before answering.
         - On failure, explain the blocker and what you verified.
 
+        ## Safety Rules
+        - Actions involving money (purchase, transfer, tip, subscribe) → ask user before executing.
+        - Actions that are permanent or irreversible (delete, send, post, uninstall) → ask user before executing.
+        - Actions that change permissions or system settings → ask user before executing.
+        - When in doubt about whether an action is safe → ask user.
+        - Never enter credentials, passwords, or payment info unless the user explicitly provides them.
+
         ## Device Environment
         - Device: {{device_model}} ({{device_manufacturer}})
         - Screen: {{screen_width}}x{{screen_height}}

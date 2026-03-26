@@ -15,6 +15,7 @@ import com.moonkey.androidagent.memory.MemoryStore
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionLlmConfig
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -52,6 +53,7 @@ class SessionServices internal constructor(
         val historyManager: HistoryManager,
         val sessionState: AgentSessionState,
         val policyEngine: PolicyEngine,
+        val appClassifier: AppClassifier,
         val platform: AndroidPlatform,
         val config: SessionConfig,
         val llmClient: LLMClient,
@@ -97,7 +99,8 @@ class SessionServices internal constructor(
             val llmClient: LLMClient = llmBootstrap.llmClient
             Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
 
-            val tooling = SessionToolingBootstrapper.create(config.approvalMode)
+            val appClassifier = AppClassifier.fromAssets(context.assets)
+            val tooling = SessionToolingBootstrapper.create(config.approvalMode, appClassifier)
             val policyEngine = tooling.policyEngine
             val sessionState = tooling.sessionState
             val toolRegistry = tooling.toolRegistry
@@ -113,7 +116,7 @@ class SessionServices internal constructor(
             val memoryDir = java.io.File(context.filesDir ?: java.io.File("/tmp"), "memory")
             val memoryStore = MemoryStore(memoryDir)
             val memoryRecaller = MemoryRecaller(memoryStore)
-            toolRegistry.register(RememberExperienceTool(memoryStore))
+            toolRegistry.register(RememberExperienceTool(memoryStore, appClassifier))
 
             Log.i(TAG, "SessionServices created successfully")
 
@@ -123,6 +126,7 @@ class SessionServices internal constructor(
                     historyManager = historyManager,
                     sessionState = sessionState,
                     policyEngine = policyEngine,
+                    appClassifier = appClassifier,
                     platform = platform,
                     config = config,
                     llmClient = llmClient,
@@ -144,6 +148,7 @@ class SessionServices internal constructor(
             historyManager: HistoryManager = this.historyManager,
             sessionState: AgentSessionState = this.sessionState,
             policyEngine: PolicyEngine = this.policyEngine,
+            appClassifier: AppClassifier = this.appClassifier,
             platform: AndroidPlatform = this.platform,
             config: SessionConfig = this.config,
             llmClient: LLMClient = this.llmClient,
@@ -162,6 +167,7 @@ class SessionServices internal constructor(
                 historyManager = historyManager,
                 sessionState = sessionState,
                 policyEngine = policyEngine,
+                appClassifier = appClassifier,
                 platform = platform,
                 config = config,
                 llmClient = llmClient,

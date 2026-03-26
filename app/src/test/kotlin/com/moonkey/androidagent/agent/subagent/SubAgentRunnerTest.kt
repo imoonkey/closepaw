@@ -16,6 +16,7 @@ import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.session.AgentSessionState
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.test.FakeAndroidPlatform
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -200,7 +201,7 @@ private fun buildServices(
         if (includeCompleteTask) {
                 toolRegistry.register(CompleteTaskTool())
         }
-        val policyEngine = PolicyEngine()
+        val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
         val testCatalog =
                 ModelCatalog.fromJson(
                         """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
@@ -211,6 +212,7 @@ private fun buildServices(
                 historyManager = HistoryManager(),
                 sessionState = AgentSessionState(),
                 policyEngine = policyEngine,
+                appClassifier = AppClassifier(emptyMap()),
                 platform = FakeAndroidPlatform(),
                 config =
                         SessionConfig(

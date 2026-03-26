@@ -15,3 +15,14 @@ description: App-specific guidance for Simple Calendar Pro.
 ## Events
 - Verify the displayed date matches the target before reading or creating events.
 - After saving, reopen the event to verify title, date, and time.
+
+## Safety
+
+**DANGEROUS -- ask user before:**
+- Deleting events
+- Modifying date, time, or title of existing events
+
+**SAFE -- proceed normally:**
+- Creating new events as specified in the task
+- Reading event details, checking schedules
+- Navigating between days and months

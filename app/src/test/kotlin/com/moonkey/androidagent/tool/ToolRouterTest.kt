@@ -3,6 +3,7 @@ package com.moonkey.androidagent.tool
 import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.protocol.ApprovalMode
 import com.moonkey.androidagent.protocol.ApprovalDecision
+import com.moonkey.androidagent.protocol.AppTier
 import com.moonkey.androidagent.test.FakeAndroidPlatform
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -18,9 +19,12 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ToolRouterTest {
 
+    private fun defaultClassifier() = AppClassifier(emptyMap())
+    private fun blockedClassifier(pkg: String) = AppClassifier(mapOf(pkg to AppTier.BLOCKED))
+
     @Test
     fun `unknown tool returns error`() = runTest {
-        val router = ToolRouter(ToolRegistry(), PolicyEngine())
+        val router = ToolRouter(ToolRegistry(), PolicyEngine(appClassifier = defaultClassifier()))
         val context = SimpleToolRouterContext(FakeAndroidPlatform())
 
         val result = router.execute("missing_tool", JSONObject(), context)
@@ -32,7 +36,7 @@ class ToolRouterTest {
     @Test
     fun `approval timeout returns cancelled`() = runTest {
         val registry = ToolRegistry().apply { register(TestToolSpec()) }
-        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.ALWAYS_ASK))
+        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.ALWAYS_ASK, defaultClassifier()))
         val context = SimpleToolRouterContext(FakeAndroidPlatform())
 
         val deferred = async {
@@ -58,7 +62,7 @@ class ToolRouterTest {
     @Test
     fun `approval approved executes tool`() = runTest {
         val registry = ToolRegistry().apply { register(TestToolSpec()) }
-        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.ALWAYS_ASK))
+        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.ALWAYS_ASK, defaultClassifier()))
         val context = SimpleToolRouterContext(FakeAndroidPlatform())
 
         val result = router.execute(
@@ -74,15 +78,13 @@ class ToolRouterTest {
     }
 
     @Test
-    fun `policy deny returns error`() = runTest {
+    fun `blocked app policy deny returns error`() = runTest {
         val registry = ToolRegistry().apply { register(TestToolSpec()) }
-        val policy = PolicyEngine(ApprovalMode.AUTO_APPROVE).apply {
-            denyTool("test_tool")
-        }
+        val policy = PolicyEngine(ApprovalMode.AUTO_APPROVE, blockedClassifier("com.bank"))
         val router = ToolRouter(registry, policy)
         val context = SimpleToolRouterContext(FakeAndroidPlatform())
 
-        val result = router.execute("test_tool", JSONObject(), context)
+        val result = router.execute("test_tool", JSONObject(), context, packageName = "com.bank")
 
         assertThat(result).isInstanceOf(ToolCallResult.Error::class.java)
         assertThat((result as ToolCallResult.Error).error).contains("Policy denied")
@@ -91,7 +93,7 @@ class ToolRouterTest {
     @Test
     fun `concurrent executions tracked and cleaned up`() = runTest {
         val registry = ToolRegistry().apply { register(DelayingToolSpec(1_000L)) }
-        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.AUTO_APPROVE))
+        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.AUTO_APPROVE, defaultClassifier()))
         val context = SimpleToolRouterContext(FakeAndroidPlatform())
 
         val first = async { router.execute("delaying_tool", JSONObject(), context) }
@@ -111,7 +113,7 @@ class ToolRouterTest {
     @Test
     fun `cancellation during execution cleans up state`() = runTest {
         val registry = ToolRegistry().apply { register(DelayingToolSpec(10_000L)) }
-        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.AUTO_APPROVE))
+        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.AUTO_APPROVE, defaultClassifier()))
         val context = SimpleToolRouterContext(FakeAndroidPlatform())
 
         val job = launch { router.execute("delaying_tool", JSONObject(), context) }

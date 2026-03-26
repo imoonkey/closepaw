@@ -10,6 +10,7 @@ import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.ResponsesResult
 import com.moonkey.androidagent.protocol.*
 import com.moonkey.androidagent.test.FakeAndroidPlatform
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -111,7 +112,7 @@ private fun buildSession(
         llmClient: LLMClient? = null
 ): AgentSession {
         val toolRegistry = ToolRegistry()
-        val policyEngine = PolicyEngine()
+        val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
         val toolRouter = ToolRouter(toolRegistry, policyEngine)
         val platform = FakeAndroidPlatform(captureDelayMs = captureDelayMs)
         val config = SessionConfig(maxTurns = maxTurns, actionDelayMs = 0, agentMode = agentMode)
@@ -127,6 +128,7 @@ private fun buildSession(
                         historyManager = HistoryManager(),
                         sessionState = AgentSessionState(),
                         policyEngine = policyEngine,
+                        appClassifier = AppClassifier(emptyMap()),
                         platform = platform,
                         config = config,
                         llmClient = testLlm,

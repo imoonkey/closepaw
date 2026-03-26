@@ -9,6 +9,7 @@ import com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.AgentEvent
+import com.moonkey.androidagent.protocol.AppTier
 import com.moonkey.androidagent.protocol.ScreenStatePhase
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.tool.ToolName
@@ -38,7 +39,9 @@ internal class AgentTurnRunner(
         }
         private data class PreTurnContext(
                 val snapshot: ScreenSnapshot,
-                val currentPackageName: String?
+                val currentPackageName: String?,
+                val appTier: AppTier = AppTier.CAUTIOUS,
+                val securityWarnings: List<String> = emptyList()
         )
         private val loopDetectionPolicy by lazy { LoopDetectionPolicy() }
         private val executorStepPolicy by lazy {
@@ -94,7 +97,7 @@ internal class AgentTurnRunner(
                                                         snapshot = snapshot,
                                                         currentPackageName =
                                                                 preTurnContext.currentPackageName,
-                                                        warnings = preparedTurn.warnings
+                                                        warnings = preTurnContext.securityWarnings + preparedTurn.warnings
                                                 )
 
                                         val actionForNextTurn =
@@ -138,8 +141,25 @@ internal class AgentTurnRunner(
                 turnNumber: Int
         ): PreTurnContext {
                 eventDispatcher.status("👀 Scanning screen...")
-                val snapshot = services.platform.captureScreen()
+                val rawSnapshot = services.platform.captureScreen()
                 val currentPackage = services.platform.getCurrentPackageName()
+
+                // Layer 2: Perception Gate — mask BLOCKED app screens
+                val tier = services.appClassifier.classify(currentPackage)
+                val (snapshot, securityWarnings) = if (tier == AppTier.BLOCKED) {
+                        Log.w(TAG, "Turn $turnNumber: BLOCKED app ($currentPackage) — masking screen")
+                        val masked = ScreenSnapshot(
+                                timestamp = rawSnapshot.timestamp,
+                                elements = emptyList(),
+                                image = null
+                        )
+                        val warning = "⛔ Screen hidden: $currentPackage is a blocked app (financial/auth). " +
+                                "Content masked by security policy. Use back or home to navigate away."
+                        masked to listOf(warning)
+                } else {
+                        rawSnapshot to emptyList()
+                }
+
                 trace.screenCaptured(turnId, turnNumber, snapshot, currentPackage)
                 eventDispatcher.screenCaptured(
                         snapshot = snapshot,
@@ -151,7 +171,12 @@ internal class AgentTurnRunner(
                         traceRunId = services.config.traceRunId
                 )
                 logSnapshotElements(turnNumber, snapshot)
-                return PreTurnContext(snapshot = snapshot, currentPackageName = currentPackage)
+                return PreTurnContext(
+                        snapshot = snapshot,
+                        currentPackageName = currentPackage,
+                        appTier = tier,
+                        securityWarnings = securityWarnings
+                )
         }
 
         private fun logSnapshotElements(turnNumber: Int, snapshot: ScreenSnapshot) {

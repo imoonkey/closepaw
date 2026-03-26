@@ -2,6 +2,7 @@ package com.moonkey.androidagent.session
 
 import android.util.Log
 import com.moonkey.androidagent.protocol.ApprovalMode
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.PolicyEngine
 import com.moonkey.androidagent.tool.ToolRegistry
 import com.moonkey.androidagent.tool.ToolRouter
@@ -25,8 +26,8 @@ internal data class SessionToolingBootstrap(
 internal object SessionToolingBootstrapper {
     private const val TAG = "SessionToolingBootstrap"
 
-    fun create(approvalMode: ApprovalMode): SessionToolingBootstrap {
-        val policyEngine = PolicyEngine(approvalMode)
+    fun create(approvalMode: ApprovalMode, appClassifier: AppClassifier): SessionToolingBootstrap {
+        val policyEngine = PolicyEngine(approvalMode, appClassifier)
         val sessionState = AgentSessionState()
         val toolRegistry = ToolRegistry().apply { registerBuiltInTools(sessionState) }
         val toolRouter = ToolRouter(toolRegistry, policyEngine)

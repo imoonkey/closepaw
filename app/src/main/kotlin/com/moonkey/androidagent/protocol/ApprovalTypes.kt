@@ -8,43 +8,12 @@ import org.json.JSONObject
 enum class ApprovalDecision {
     /** User approved the action */
     APPROVED,
-    
+
     /** User denied the action (skip this action, continue session) */
     DENIED,
-    
+
     /** User wants to abort the entire session */
     ABORT
-}
-
-/**
- * RiskLevel - Classification of action risk for approval decisions.
- */
-enum class RiskLevel {
-    /** Low risk - typically auto-approved (e.g., read-only, reversible) */
-    LOW,
-    
-    /** Medium risk - may require approval depending on policy */
-    MEDIUM,
-    
-    /** High risk - typically requires explicit approval (e.g., destructive actions) */
-    HIGH
-}
-
-/**
- * ApprovalRequirement - Whether and why an action needs approval.
- */
-sealed interface ApprovalRequirement {
-    /** No approval needed */
-    data object None : ApprovalRequirement
-    
-    /** Approval required before execution */
-    data class Required(
-        val reason: String,
-        val riskLevel: RiskLevel
-    ) : ApprovalRequirement
-    
-    /** Action is forbidden and cannot be approved */
-    data class Forbidden(val reason: String) : ApprovalRequirement
 }
 
 /**
@@ -53,17 +22,22 @@ sealed interface ApprovalRequirement {
 data class ApprovalDetails(
     /** Unique ID for this approval request (from ToolRouter) */
     val callId: String,
-    
+
     /** Name of the tool being invoked */
     val toolName: String,
-    
+
     /** Arguments passed to the tool */
     val args: JSONObject,
-    
+
     /** Human-readable description of the action */
     val description: String = "",
-    
-    /** Risk assessment */
-    val riskLevel: RiskLevel = RiskLevel.MEDIUM
-)
 
+    /** Foreground app package name at time of action */
+    val packageName: String? = null,
+
+    /** Security tier of the foreground app */
+    val appTier: AppTier? = null,
+
+    /** Reason for requiring approval */
+    val reason: String = ""
+)

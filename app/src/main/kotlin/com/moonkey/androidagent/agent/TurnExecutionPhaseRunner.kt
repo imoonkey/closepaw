@@ -98,6 +98,7 @@ internal class TurnExecutionPhaseRunner(
                                                 platform = services.platform,
                                                 currentSnapshot = currentSnapshot
                                         ),
+                                packageName = services.platform.getCurrentPackageName(),
                                 callId = toolCall.id,
                                 onApprovalRequired = { details -> emitApprovalRequired(details) }
                         )

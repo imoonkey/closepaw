@@ -20,3 +20,15 @@ description: App-specific guidance for Tasks.org.
 - Recurring tasks and sub-tasks appear as separate rows with the same name. When counting unique tasks, deduplicate by name.
 - Do NOT click checkboxes when the goal is to read information.
 - For completion queries: scroll detail view to the VERY bottom to find Created/Modified/Completion metadata. If scroll stops early, swipe up to ensure all metadata is visible.
+
+## Safety
+
+**DANGEROUS -- ask user before:**
+- Deleting tasks
+- Clearing or bulk-completing tasks
+- Modifying due dates or priorities on existing tasks
+
+**SAFE -- proceed normally:**
+- Creating new tasks
+- Reading task details, dates, and completion status
+- Toggling "Show completed" filter

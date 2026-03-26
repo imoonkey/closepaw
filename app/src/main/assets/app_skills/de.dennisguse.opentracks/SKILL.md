@@ -18,3 +18,13 @@ description: App-specific guidance for OpenTracks sport tracker.
 
 ## Counting & Aggregation
 - For "how many X activities" or "total distance for X": you MUST check the activity type of each candidate track via Edit before counting or summing. Do not assume from track names.
+
+## Safety
+
+**DANGEROUS -- ask user before:**
+- Deleting tracks or activities
+
+**SAFE -- proceed normally:**
+- Recording new activities
+- Reading track stats, distances, and activity types
+- Browsing and filtering the track list

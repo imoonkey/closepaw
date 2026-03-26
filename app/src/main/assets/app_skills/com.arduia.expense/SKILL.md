@@ -9,3 +9,15 @@ description: App-specific guidance for Pro Expense.
 - Home "Recent" shows only a few entries. Full list: menu → Expense Logs.
 - Same-name expenses may differ in amount, category, or note. Open each to compare all fields.
 - Delete: swipe left, or long-press → Delete, or open → Delete.
+
+## Safety
+
+**DANGEROUS -- ask user before:**
+- Deleting expense entries
+- Modifying the amount or category of existing entries
+- Bulk operations (e.g., deleting all entries)
+
+**SAFE -- proceed normally:**
+- Adding new expense entries
+- Reading and listing expenses
+- Navigating between views

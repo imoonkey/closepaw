@@ -1,7 +1,5 @@
 package com.moonkey.androidagent.tool
 
-import com.moonkey.androidagent.protocol.RiskLevel
-
 /**
  * Canonical tool identifiers used across UI and policy layers.
  */
@@ -93,68 +91,57 @@ sealed class ToolName(
 sealed class MobileActionName(
     val raw: String,
     val canonical: String,
-    val displayName: String,
-    val defaultRiskLevel: RiskLevel
+    val displayName: String
 ) {
     data object Click : MobileActionName(
         raw = "click",
         canonical = "click",
-        displayName = "Click",
-        defaultRiskLevel = RiskLevel.LOW
+        displayName = "Click"
     )
     data object LongPress : MobileActionName(
         raw = "long_press",
         canonical = "long_press",
-        displayName = "Long press",
-        defaultRiskLevel = RiskLevel.LOW
+        displayName = "Long press"
     )
     data object Type : MobileActionName(
         raw = "type",
         canonical = "type",
-        displayName = "Type",
-        defaultRiskLevel = RiskLevel.MEDIUM
+        displayName = "Type"
     )
     data object Scroll : MobileActionName(
         raw = "scroll",
         canonical = "scroll",
-        displayName = "Scroll",
-        defaultRiskLevel = RiskLevel.LOW
+        displayName = "Scroll"
     )
     data object Swipe : MobileActionName(
         raw = "swipe",
         canonical = "swipe",
-        displayName = "Swipe",
-        defaultRiskLevel = RiskLevel.LOW
+        displayName = "Swipe"
     )
     data object Back : MobileActionName(
         raw = "back",
         canonical = "back",
-        displayName = "Back",
-        defaultRiskLevel = RiskLevel.LOW
+        displayName = "Back"
     )
     data object Home : MobileActionName(
         raw = "home",
         canonical = "home",
-        displayName = "Home",
-        defaultRiskLevel = RiskLevel.MEDIUM
+        displayName = "Home"
     )
     data object Wait : MobileActionName(
         raw = "wait",
         canonical = "wait",
-        displayName = "Wait",
-        defaultRiskLevel = RiskLevel.LOW
+        displayName = "Wait"
     )
     data object SystemButton : MobileActionName(
         raw = "system_button",
         canonical = "system_button",
-        displayName = "System button",
-        defaultRiskLevel = RiskLevel.MEDIUM
+        displayName = "System button"
     )
     data class Unknown(private val name: String) : MobileActionName(
         raw = name,
         canonical = normalizeName(name),
-        displayName = formatDisplayName(name),
-        defaultRiskLevel = RiskLevel.MEDIUM
+        displayName = formatDisplayName(name)
     )
 
     companion object {
