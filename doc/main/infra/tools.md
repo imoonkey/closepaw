@@ -1,7 +1,7 @@
 # Tool System
 
-> ToolRegistry, ToolRouter, and tool execution lifecycle.
-> Last updated: 2026-03-06 (uncommitted)
+> ToolRegistry, ToolRouter, PolicyEngine, and tool execution lifecycle.
+> Last updated: 2026-03-26
 
 ## Overview
 
@@ -74,13 +74,45 @@ Executes tool calls with lifecycle handling:
 
 → See: `tool/PolicyEngine.kt`
 
-Determines whether tools need user approval.
+Decides whether tool calls are **allowed**, **denied**, or **require approval** based on **app tier** (where the agent is), not action type.
 
-| Mode | Behavior |
-|------|----------|
-| `ALWAYS_ASK` | Prompt user before every tool |
-| `AUTO_APPROVE` | Never ask, auto-approve all |
-| `SMART` | Auto-approve low-risk, ask for high-risk |
+Decision inputs: `(toolName, params, packageName) → PolicyDecision`
+
+Decision flow:
+
+1. **Non-screen-changing tools** (scratchpad, write_todos, remember_experience, complete_task) → always `Allow`
+2. **Escape actions** (system_button back/home) → always `Allow` (agent must not be trapped in a blocked app)
+3. **BLOCKED app** → always `Deny`, even in `AUTO_APPROVE` mode (absolute floor)
+4. **Approval mode**:
+
+| Mode | NORMAL app | CAUTIOUS app | BLOCKED app |
+|------|------------|--------------|-------------|
+| `ALWAYS_ASK` | Ask | Ask | Deny |
+| `AUTO_APPROVE` | Allow | Allow | Deny |
+| `SMART` | Allow | Ask | Deny |
+
+`PolicyDecision` outcomes:
+- `Allow` — execute immediately
+- `Deny(reason)` — forbidden by policy, error returned to LLM
+- `AskUser(reason, appTier)` — requires user approval dialog
+
+### AppClassifier
+
+→ See: `tool/AppClassifier.kt`, `protocol/AppTier.kt`
+
+Classifies Android packages into security tiers.
+
+**Lookup order:** `userOverrides[pkg] → appTiers[pkg] → CAUTIOUS`
+
+| Tier | Meaning | Examples |
+|------|---------|---------|
+| `BLOCKED` | Financial/auth apps — screen masked, all actions denied | Chase, PayPal, authenticators, crypto wallets |
+| `CAUTIOUS` | Unknown/unclassified apps — actions require approval in SMART mode | Any app not in `app_tiers.json` |
+| `NORMAL` | Known safe apps — actions auto-approved in SMART mode | Settings, Photos, Calendar, Clock |
+
+**Configuration:** `assets/security/app_tiers.json` defines the base tier map. User overrides can only **tighten** (NORMAL→CAUTIOUS/BLOCKED, CAUTIOUS→BLOCKED), never loosen.
+
+**Masking:** `AppClassifier.maskIfBlocked(snapshot, pkg)` returns an empty snapshot (no elements, no image) for BLOCKED packages. Called at both pre-turn and post-action capture points to prevent BLOCKED app content from reaching the LLM.
 
 ---
 
@@ -109,7 +141,7 @@ to non-destructive file inspection; UI control, app launching, OCR, and protecte
 storage access are out of scope. Runs via `Runtime.exec()` with a configurable timeout (default
 10s, max 30s). Returns stdout/stderr combined output.
 
-`remember_experience` writes a timestamped entry to the persistent memory store. Categories: `app` (requires `package_name`), `user_pref`, `device`. Content is prefixed with kind tags (`[workflow]`, `[pitfall]`, `[verification]`). Classified as cognitive (non-screen-changing) and auto-allowed. Registered eagerly in `SessionServices.create()`.
+`remember_experience` writes a timestamped entry to the persistent memory store. Categories: `app` (requires `package_name`), `user_pref`, `device`. Content is prefixed with kind tags (`[workflow]`, `[pitfall]`, `[verification]`). Classified as cognitive (non-screen-changing) and auto-allowed. A **memory gate** blocks writes when the foreground app is BLOCKED (financial/auth), preventing the agent from creating persistent knowledge about blocked app content. Registered eagerly in `SessionServices.create()`.
 
 → See: [agent/memory.md](../agent/memory.md) for the full memory system.
 
@@ -266,11 +298,12 @@ tool/
 ├── ToolSpec.kt               # Tool interface + types
 ├── ToolCallState.kt          # State definitions
 ├── ToolCallResult.kt         # Result types
-├── ToolName.kt               # Canonical tool/action names
+├── ToolName.kt               # Canonical tool/action names + isScreenChanging
 ├── ToolSchemaConverters.kt   # Schema conversion utilities
 ├── ToolRegistry.kt           # Discovery/registration
 ├── ToolRouter.kt             # Execution state machine
-├── PolicyEngine.kt           # Approval logic
+├── PolicyEngine.kt           # App-tier-based approval logic
+├── AppClassifier.kt          # Package → AppTier classification + snapshot masking
 ├── action/                   # Executor layer (mobile_action)
 │   ├── Target.kt             # Targeting sealed interface
 │   ├── ActionOutcome.kt      # Executor result type

@@ -1,7 +1,7 @@
 # Screen Perception
 
 > Perceptor, `ScreenSnapshot`, prompt shaping, and text-targeting semantics.
-> Last updated: 2026-03-09 (commit: f23287d)
+> Last updated: 2026-03-26
 
 ## Scope
 
@@ -197,6 +197,15 @@ Snapshot-shaping knobs inside the a11y pipeline:
 - `ObservationBuilder` uses the same prompt JSON after tool execution; in screenshot-only mode it emits a placeholder string instead of a fake tree.
 - `UiChangeDetector` includes `textEnriched` and `keyboardVisible` in snapshot fingerprints.
 - `ScreenSummary.toSummary()` produces a compact, intentionally lossy summary for history and observations.
+
+### Security Masking
+
+Before snapshots reach any downstream consumer, `AppClassifier.maskIfBlocked()` may replace them with empty snapshots (no elements, no image) when the foreground app is classified as `BLOCKED` (financial/auth). This masking is applied at two capture points:
+
+1. **Pre-turn** (`AgentTurnRunner.capturePreTurnSnapshot`) — prevents the LLM from seeing BLOCKED app content
+2. **Post-action** (`TurnExecutionPhaseRunner.captureObservationWithSnapshot`) — prevents observation leaks after tool execution
+
+The Perceptor itself is unaware of security tiers; masking happens in the turn pipeline layer above it.
 
 ---
 

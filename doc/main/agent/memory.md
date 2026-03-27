@@ -1,7 +1,7 @@
 # Cross-Session Memory System
 
 > Persistent learning across sessions using scope-first markdown files.
-> Last updated: 2026-03-13
+> Last updated: 2026-03-26
 
 ## Overview
 
@@ -144,6 +144,12 @@ There is no vector search, SQLite, or cross-app recall in V2.
 - Content is truncated to `maxContentLength` (default 2000 chars).
 - Writes use temp-file replacement to avoid partial-file corruption.
 - File I/O is synchronized in `MemoryStore`.
+
+### Memory Gate
+
+`RememberExperienceTool` enforces a **memory gate** that blocks writes when the current foreground app is classified as `BLOCKED` (financial/auth). This prevents the agent from creating persistent knowledge about blocked app content, even if the LLM attempts to call `remember_experience` while a blocked app is in the foreground.
+
+→ See: `tool/impl/RememberExperienceTool.kt`, `tool/AppClassifier.kt`
 
 ## Eval Isolation
 

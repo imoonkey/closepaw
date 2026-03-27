@@ -1,7 +1,7 @@
 # Agent Loop Execution
 
 > ReAct loop, Turn mechanics, and streaming execution.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Last updated: 2026-03-26
 
 ## ReAct Loop
 
@@ -73,9 +73,10 @@ Orchestrates one full turn by delegating to two phase runners.
 
 **Responsibilities:**
 - Capture pre-turn snapshot and emit perception events
+- **Perception gate:** classify foreground app via `AppClassifier` and mask BLOCKED app screens (empty elements, no image) before the LLM sees them. Inject security warning text guiding the agent to navigate away.
 - Delegate to `TurnPlanningPhaseRunner` for LLM call + arbitration
 - Delegate to `TurnExecutionPhaseRunner` for tool execution + observation
-- Build warnings (loop detection, final-turn) via `buildWarnings()`
+- Build warnings (loop detection, final-turn, security) via `buildWarnings()`
 - Decide turn outcome via `decideTurnOutcome()` (`Continue`, `Complete`, `Error`, `Cancelled`)
 
 ### TurnPlanningPhaseRunner
@@ -101,7 +102,7 @@ Handles tool execution after planning.
 
 **Responsibilities:**
 - Execute each selected tool call via `ToolRouter`
-- Capture post-action screen observation via `ObservationBuilder`
+- Capture post-action screen observation via `ObservationBuilder` (with BLOCKED app masking applied)
 - Emit `ActionProposed` and `ActionExecuted` events
 - Record tool results into history for future turns
 - Emit planning events (`TodosUpdated`, `ScratchpadUpdated`) when relevant tools run
@@ -217,9 +218,9 @@ Recoverable errors allow the loop to continue; fatal errors stop the agent.
 
 | Phase | Description |
 |-------|-------------|
-| `PERCEPTION` | Capturing and analyzing screen |
+| `PERCEPTION` | Capturing screen, classifying app tier, masking BLOCKED content |
 | `PLANNING` | LLM reasoning and tool selection |
-| `EXECUTION` | Tool execution |
+| `EXECUTION` | Tool execution (policy-gated by app tier) |
 
 ### Trace Artifacts (Per Turn)
 

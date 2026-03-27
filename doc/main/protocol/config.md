@@ -2,7 +2,7 @@
 
 > SessionConfig and related configuration types.
 > -> See: [overview](overview.md) for protocol architecture.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Last updated: 2026-03-26
 
 ## SessionConfig
 
@@ -70,8 +70,10 @@ data class SessionLlmConfig(
 
 ## ApprovalMode
 
-| Mode | Behavior |
-|------|----------|
-| `ALWAYS_ASK` | Always ask before executing any tool |
-| `AUTO_APPROVE` | Never ask, auto-approve all |
-| `SMART` | Auto-approve low-risk, ask for high-risk |
+Approval decisions are driven by **app tier** (BLOCKED/CAUTIOUS/NORMAL) combined with the approval mode. BLOCKED apps are always denied regardless of mode. See [tools.md](../infra/tools.md) for PolicyEngine details.
+
+| Mode | NORMAL apps | CAUTIOUS apps | BLOCKED apps |
+|------|-------------|---------------|--------------|
+| `ALWAYS_ASK` | Ask user | Ask user | Deny (always) |
+| `AUTO_APPROVE` | Allow | Allow | Deny (always) |
+| `SMART` | Allow | Ask user | Deny (always) |

@@ -1,7 +1,7 @@
 # Agent Core Overview
 
 > Design principles, architecture, and package structure for the Android Agent.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Last updated: 2026-03-26
 
 ## Design Principles
 
@@ -17,6 +17,7 @@
 | **Cognition Layer** | Prompt/context/policy logic is isolated under `agent/cognition/`. |
 | **Catalog-Driven Models** | `ModelCatalog` + `LLMClientFactory` resolve models at runtime from `llm_models.json`. |
 | **Error Recovery** | `TurnErrorClassifier` distinguishes recoverable (DNS, rate limit) from fatal errors. |
+| **Security Gates** | 4+1 layer model: app classification (AppTier), perception gate (screen masking), execution gate (PolicyEngine), memory gate, and LLM safety rules. See [tools.md](../infra/tools.md) for details. |
 
 ---
 
@@ -118,6 +119,7 @@ com.moonkey.androidagent/
 │   └── (→ See: infra/tools.md)
 │
 ├── protocol/                           # Communication contracts
+│   ├── AppTier.kt                      # BLOCKED / CAUTIOUS / NORMAL enum
 │   └── (→ See: protocol/overview.md)
 │
 ├── platform/                           # Android platform abstraction
