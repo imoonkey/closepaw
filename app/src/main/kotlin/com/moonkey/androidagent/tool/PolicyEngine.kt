@@ -76,6 +76,13 @@ class PolicyEngine(
     }
 
     private fun isEscape(toolName: String, params: JSONObject): Boolean {
+        val tool = ToolName.from(toolName)
+        // system_button(button="back"|"home")
+        if (tool == ToolName.SystemButton) {
+            val button = params.optString("button", "").lowercase()
+            return button == "back" || button == "home"
+        }
+        // mobile_action(action="back"|"home") — fallback path
         val action = MobileActionName.fromOrNull(params.optString("action", ""))
             ?: MobileActionName.fromOrNull(toolName)
         return action == MobileActionName.Back || action == MobileActionName.Home

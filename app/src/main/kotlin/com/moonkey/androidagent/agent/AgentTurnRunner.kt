@@ -146,18 +146,15 @@ internal class AgentTurnRunner(
 
                 // Layer 2: Perception Gate — mask BLOCKED app screens
                 val tier = services.appClassifier.classify(currentPackage)
-                val (snapshot, securityWarnings) = if (tier == AppTier.BLOCKED) {
+                val snapshot = services.appClassifier.maskIfBlocked(rawSnapshot, currentPackage)
+                val securityWarnings = if (tier == AppTier.BLOCKED) {
                         Log.w(TAG, "Turn $turnNumber: BLOCKED app ($currentPackage) — masking screen")
-                        val masked = ScreenSnapshot(
-                                timestamp = rawSnapshot.timestamp,
-                                elements = emptyList(),
-                                image = null
-                        )
-                        val warning = "⛔ Screen hidden: $currentPackage is a blocked app (financial/auth). " +
+                        listOf(
+                                "⛔ Screen hidden: $currentPackage is a blocked app (financial/auth). " +
                                 "Content masked by security policy. Use back or home to navigate away."
-                        masked to listOf(warning)
+                        )
                 } else {
-                        rawSnapshot to emptyList()
+                        emptyList()
                 }
 
                 trace.screenCaptured(turnId, turnNumber, snapshot, currentPackage)

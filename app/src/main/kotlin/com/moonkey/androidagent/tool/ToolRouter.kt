@@ -220,7 +220,9 @@ class ToolRouter(
         // Re-capture snapshot if approval was required (UI may have changed during wait)
         val executionSnapshot = if (approvalWasRequired) {
             Log.d(TAG, "Re-capturing snapshot after approval wait")
-            context.platform.captureScreen()
+            val raw = context.platform.captureScreen()
+            // Perception gate: mask if user navigated to BLOCKED app during approval wait
+            policyEngine.appClassifier.maskIfBlocked(raw, packageName)
         } else {
             context.currentSnapshot
         }

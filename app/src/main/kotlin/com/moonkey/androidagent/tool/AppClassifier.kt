@@ -2,6 +2,7 @@ package com.moonkey.androidagent.tool
 
 import android.content.res.AssetManager
 import android.util.Log
+import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.protocol.AppTier
 import org.json.JSONObject
 
@@ -33,6 +34,20 @@ class AppClassifier(
         if (tier.ordinal >= current.ordinal) return false  // cannot loosen
         userOverrides[pkg] = tier
         return true
+    }
+
+    /**
+     * Returns a masked snapshot (empty elements, no image) if the package is BLOCKED,
+     * otherwise returns the original snapshot unchanged.
+     * Call this at every screen capture point to prevent BLOCKED app content from leaking.
+     */
+    fun maskIfBlocked(snapshot: ScreenSnapshot, packageName: String?): ScreenSnapshot {
+        if (classify(packageName) != AppTier.BLOCKED) return snapshot
+        return ScreenSnapshot(
+            timestamp = snapshot.timestamp,
+            elements = emptyList(),
+            image = null
+        )
     }
 
     companion object {

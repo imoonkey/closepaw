@@ -35,7 +35,27 @@ class PolicyEngineTest {
     }
 
     @Test
-    fun `escape actions allowed even on blocked app`() {
+    fun `system_button back allowed on blocked app`() {
+        val engine = engineWith(
+            tiers = mapOf("com.bank" to AppTier.BLOCKED)
+        )
+        val backParams = JSONObject().put("button", "back")
+        val decision = engine.check("system_button", backParams, "com.bank")
+        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+    }
+
+    @Test
+    fun `system_button home allowed on blocked app`() {
+        val engine = engineWith(
+            tiers = mapOf("com.bank" to AppTier.BLOCKED)
+        )
+        val homeParams = JSONObject().put("button", "home")
+        val decision = engine.check("system_button", homeParams, "com.bank")
+        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+    }
+
+    @Test
+    fun `mobile_action back allowed on blocked app`() {
         val engine = engineWith(
             tiers = mapOf("com.bank" to AppTier.BLOCKED)
         )
@@ -45,13 +65,13 @@ class PolicyEngineTest {
     }
 
     @Test
-    fun `home action allowed on blocked app`() {
+    fun `system_button enter not treated as escape on blocked app`() {
         val engine = engineWith(
             tiers = mapOf("com.bank" to AppTier.BLOCKED)
         )
-        val homeParams = JSONObject().put("action", "home")
-        val decision = engine.check("mobile_action", homeParams, "com.bank")
-        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+        val enterParams = JSONObject().put("button", "enter")
+        val decision = engine.check("system_button", enterParams, "com.bank")
+        assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
     }
 
     // --- CAUTIOUS tier (unknown apps) ---

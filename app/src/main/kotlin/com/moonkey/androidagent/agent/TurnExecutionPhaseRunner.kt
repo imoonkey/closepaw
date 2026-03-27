@@ -214,7 +214,10 @@ internal class TurnExecutionPhaseRunner(
         /** Captures a fresh post-action screen snapshot and wraps it as a screen observation. */
         private suspend fun captureObservationWithSnapshot(): ObservationCapture {
                 delay(500)
-                val snapshot = services.platform.captureScreen()
+                val rawSnapshot = services.platform.captureScreen()
+                val currentPkg = services.platform.getCurrentPackageName()
+                // Perception gate: mask BLOCKED app content in post-action captures too
+                val snapshot = services.appClassifier.maskIfBlocked(rawSnapshot, currentPkg)
                 val accessibilityTree = Perceptor.toPromptJson(snapshot)
                 return ObservationCapture(
                         observation =

@@ -8,6 +8,7 @@
 > 我现在有个localhost支持https的方法。看~/workspace/workflow，我可以用https://laptop.tail6bd948.ts.net/。通过tailscale实现的。为了让androidagent的llm proxy也可以，可能要配合~/workspace/cproxy的修改和tailscale的设置。同时我想让workflow的上面继续可以work，不知道这里会不会有冲突(e.g., they all want port 80)。
 
 >> **[回复]** 看了 cproxy——它是 HTTP proxy 跑在 `127.0.0.1:18080`。Tailscale 的 HTTPS 方案（`laptop.tail6bd948.ts.net`）是 Tailscale 自动签 TLS cert 后反代到本地端口，不占 80/443。所以不冲突：workflow 和 cproxy 可以各自映射到不同的 Tailscale hostname 或同一 hostname 的不同 path。具体做法：(1) cproxy 继续监听 18080，(2) Tailscale serve 把 `https://laptop.tail6bd948.ts.net/cproxy/` 反代到 `localhost:18080`，(3) workflow server 用另一个 path 或端口。实现时在 `tailscale serve` 配置里加一条就行。这个改动属于 infra，不影响 androidagent 代码，只需要把 androidagent 里 LLM endpoint 配置从 `http://...` 改成 `https://laptop.tail6bd948.ts.net/...`。可以在 security hardening 实现时一起做。
+>> 注意参考~/workspace/REMOTE_SERVER_ACCESS.md，可能有有用信息
 
 - InsecureSslConfig 门控为 debug-only（生产环境不跳过证书验证）
 > SGTM
