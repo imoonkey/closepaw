@@ -37,7 +37,7 @@
     "depends": [
       "basic-security"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Agent Security — KISS 4+1 Layer",
     "description": "实现 safety_kiss_design.md: Layer 1 AppTier (BLOCKED/CAUTIOUS/NORMAL) + app_tiers.json, Layer 2 perception gate (BLOCKED → mask), Layer 3 execution gate (20 行 PolicyEngine 重写), Layer 4 memory gate, Layer 5 system prompt safety rules + app skill safety sections。删除旧的 per-action risk machinery。",
     "design": "doc/todo/security_hardening/safety_kiss_design.md",
