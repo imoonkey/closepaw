@@ -94,6 +94,12 @@ sealed interface Op {
         val actionId: String,
 
         /** User's decision */
-        val decision: ApprovalDecision
+        val decision: ApprovalDecision,
+
+        /** Granularity of the allow decision (ONCE / SESSION / ALWAYS) */
+        val scope: ApprovalScope = ApprovalScope.ONCE,
+
+        /** Package name to add to allow-list (for SESSION / ALWAYS scope) */
+        val packageName: String? = null
     ) : Op
 }

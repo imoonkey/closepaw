@@ -50,6 +50,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_OPENROUTER_API_KEY = "openrouter_api_key"
         private const val KEY_NOVITA_API_KEY = "novita_api_key"
         private const val KEY_PLATFORM_MODE = "platform_mode"
+        private const val KEY_USER_ALLOWED_PACKAGES = "user_allowed_packages"
 
         const val DEFAULT_MODEL = "glm-5"
         const val DEFAULT_MAX_TURNS = 20
@@ -250,6 +251,15 @@ class AppSettingsStore(private val context: Context) {
                 .putString(KEY_LOCAL_MODEL_SLUG, slug)
                 .putString(KEY_LOCAL_MODEL_QUANT, quantization)
                 .apply()
+    }
+
+    // ===== Persistent allow-list =====
+
+    fun loadPersistentAllowList(): Set<String> =
+        prefs().getStringSet(KEY_USER_ALLOWED_PACKAGES, emptySet()) ?: emptySet()
+
+    fun savePersistentAllowList(packages: Set<String>) {
+        prefs().edit().putStringSet(KEY_USER_ALLOWED_PACKAGES, packages).apply()
     }
 
     private fun loadApiKeyFromFile(): String? {

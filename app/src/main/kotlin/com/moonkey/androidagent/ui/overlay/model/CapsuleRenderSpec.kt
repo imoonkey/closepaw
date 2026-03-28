@@ -29,7 +29,12 @@ data class CapsuleRenderSpec(
     data class ButtonSpec(val icon: String, val text: String, val enabled: Boolean = true)
 
     /** Row 2 button configuration. null fields = button hidden. */
-    data class ButtonsSpec(val primary: ButtonSpec?, val stop: ButtonSpec?)
+    data class ButtonsSpec(
+        val primary: ButtonSpec?,
+        val secondary: ButtonSpec? = null,
+        val tertiary: ButtonSpec? = null,
+        val stop: ButtonSpec?,
+    )
 
     /** Row 3 (input + action button). null = entire row hidden. */
     data class Row3Spec(
@@ -113,6 +118,19 @@ data class CapsuleRenderSpec(
                     row3 = null,
                 )
 
+                is CapsuleMode.WaitingForApproval -> CapsuleRenderSpec(
+                    dot = DotSpec(CapsuleColors.AMBER, pulsing = false),
+                    thought = ThoughtSpec("🛡 Approve action?"),
+                    expandedBody = "${mode.description}\n${mode.appLabel} · ${mode.reason}",
+                    buttons = ButtonsSpec(
+                        primary = ButtonSpec("✓", "Allow"),
+                        secondary = if (mode.packageName != null) ButtonSpec("✓", "Session") else null,
+                        tertiary = if (mode.packageName != null) ButtonSpec("✓", "Always") else null,
+                        stop = ButtonSpec("✕", "Deny"),
+                    ),
+                    row3 = null,
+                )
+
                 is CapsuleMode.Done -> CapsuleRenderSpec(
                     dot = DotSpec(CapsuleColors.TEAL, pulsing = false),
                     thought = ThoughtSpec("✓ ${mode.message}"),
@@ -175,6 +193,7 @@ data class NavSpec(
                     && context != CapsuleContext.MAIN_APP
                     && mode !is CapsuleMode.WaitingForInput
                     && mode !is CapsuleMode.WaitingForAction
+                    && mode !is CapsuleMode.WaitingForApproval
                     && mode !is CapsuleMode.Error,
                 showApp = !row2Hidden
                     && context != CapsuleContext.MAIN_APP

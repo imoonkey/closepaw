@@ -19,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.LifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
+import com.moonkey.androidagent.protocol.ApprovalDecision
+import com.moonkey.androidagent.protocol.ApprovalScope
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.capsule.NavAction
 import com.moonkey.androidagent.ui.capsule.surface.SmartCapsuleSurface
@@ -51,6 +53,7 @@ class CapsuleOverlayHost(
     var onResume: (() -> Unit)? = null
     var onSupplement: ((String) -> Unit)? = null
     var onUserResponse: ((String, String) -> Unit)? = null
+    var onApprovalResponse: ((String, ApprovalDecision, ApprovalScope, String?) -> Unit)? = null
     var onStop: (() -> Unit)? = null
     var onOpenApp: (() -> Unit)? = null
     var onDismissError: (() -> Unit)? = null
@@ -128,6 +131,9 @@ class CapsuleOverlayHost(
                     onStop = { debounced { onStop?.invoke() } },
                     onUserResponse = { callId, response ->
                         debounced { onUserResponse?.invoke(callId, response) }
+                    },
+                    onApprovalResponse = { callId, decision, scope, packageName ->
+                        debounced { onApprovalResponse?.invoke(callId, decision, scope, packageName) }
                     },
                     onDismissError = { debounced { onDismissError?.invoke() } },
                     onNavigate = { action ->

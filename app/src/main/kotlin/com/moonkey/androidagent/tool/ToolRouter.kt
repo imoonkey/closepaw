@@ -5,6 +5,7 @@ import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.protocol.ApprovalDecision
 import com.moonkey.androidagent.protocol.ApprovalDetails
+import com.moonkey.androidagent.protocol.AppTier
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -191,8 +192,38 @@ class ToolRouter(
                         return ToolCallResult.Cancelled(resolvedCallId, "User aborted session")
                     }
                     ApprovalDecision.APPROVED -> {
-                        // Continue to execution - snapshot will be refreshed before execution
-                        // since UI may have changed during approval wait
+                        // TOCTOU guard: re-check foreground app hasn't changed during approval wait.
+                        val currentPkg = context.platform.getCurrentPackageName()
+                        if (packageName != null && currentPkg != packageName) {
+                            Log.w(TAG, "Foreground app changed during approval wait: $packageName -> $currentPkg")
+                            val cancelledState = ToolCallState.Cancelled(
+                                resolvedCallId, toolName, params,
+                                "App changed during approval wait", decision
+                            )
+                            updateState(cancelledState, onStateChange)
+                            activeToolCalls.remove(resolvedCallId)
+                            return ToolCallResult.Cancelled(
+                                resolvedCallId,
+                                "App changed during approval wait"
+                            )
+                        } else if (packageName == null && currentPkg != null) {
+                            // Original package was unknown — now check if landed on a BLOCKED app
+                            val currentTier = policyEngine.appClassifier.classify(currentPkg)
+                            if (currentTier == AppTier.BLOCKED) {
+                                Log.w(TAG, "Blocked app detected after approval: $currentPkg")
+                                val cancelledState = ToolCallState.Cancelled(
+                                    resolvedCallId, toolName, params,
+                                    "Blocked app detected after approval", decision
+                                )
+                                updateState(cancelledState, onStateChange)
+                                activeToolCalls.remove(resolvedCallId)
+                                return ToolCallResult.Cancelled(
+                                    resolvedCallId,
+                                    "Blocked app detected after approval"
+                                )
+                            }
+                        }
+                        // Continue to execution
                         approvalWasRequired = true
                     }
                 }

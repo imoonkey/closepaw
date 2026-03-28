@@ -3,6 +3,15 @@ package com.moonkey.androidagent.protocol
 import org.json.JSONObject
 
 /**
+ * ApprovalScope - Granularity of a user's "allow" decision.
+ *
+ * ONCE: Allow this single action only.
+ * SESSION: Allow all actions for this package for the rest of the session.
+ * ALWAYS: Persist the allow-list entry across sessions (SharedPreferences).
+ */
+enum class ApprovalScope { ONCE, SESSION, ALWAYS }
+
+/**
  * ApprovalDecision - User's response to an approval request.
  */
 enum class ApprovalDecision {

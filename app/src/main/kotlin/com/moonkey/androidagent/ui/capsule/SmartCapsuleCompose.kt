@@ -2,6 +2,8 @@ package com.moonkey.androidagent.ui.capsule
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.moonkey.androidagent.protocol.ApprovalDecision
+import com.moonkey.androidagent.protocol.ApprovalScope
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.capsule.surface.SmartCapsuleSurface
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
@@ -31,6 +33,7 @@ fun SmartCapsuleCompose(
     onResume: () -> Unit,
     onStop: () -> Unit,
     onUserResponse: (String, String) -> Unit,
+    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit = { _, _, _, _ -> },
     onDismissError: () -> Unit,
     onNavigate: (NavAction) -> Unit,
     modifier: Modifier = Modifier
@@ -46,6 +49,7 @@ fun SmartCapsuleCompose(
         onResume = onResume,
         onStop = onStop,
         onUserResponse = onUserResponse,
+        onApprovalResponse = onApprovalResponse,
         onDismissError = onDismissError,
         onNavigate = onNavigate,
         modifier = modifier,

@@ -147,6 +147,9 @@ class AgentService : AccessibilityService() {
                         onResume = { submitOp(Op.Resume) },
                         onSupplement = { text -> submitOp(Op.Supplement(text)) },
                         onUserResponse = { callId, response -> submitOp(Op.UserResponse(callId, response)) },
+                        onApprovalResponse = { callId, decision, scope, packageName ->
+                            submitOp(Op.Approve(callId, decision, scope, packageName))
+                        },
                         onOpenApp = {
                             val intent =
                                     Intent(this, MainActivity::class.java).apply {

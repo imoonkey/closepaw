@@ -2,6 +2,7 @@ package com.moonkey.androidagent.session
 
 import android.content.Context
 import android.util.Log
+import com.moonkey.androidagent.app.AppSettingsStore
 import com.moonkey.androidagent.agent.cognition.prompt.AppSkillRepository
 import com.moonkey.androidagent.agent.cognition.prompt.AssetAppSkillRepository
 import com.moonkey.androidagent.agent.cognition.prompt.EmptyAppSkillRepository
@@ -100,7 +101,14 @@ class SessionServices internal constructor(
             Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
 
             val appClassifier = AppClassifier.fromAssets(context.assets)
-            val tooling = SessionToolingBootstrapper.create(config.approvalMode, appClassifier)
+            val settingsStore = AppSettingsStore(context)
+            val persistentAllowList = settingsStore.loadPersistentAllowList()
+            val tooling = SessionToolingBootstrapper.create(
+                approvalMode = config.approvalMode,
+                appClassifier = appClassifier,
+                initialPersistentAllowList = persistentAllowList,
+                onPersistentAllowListChanged = { packages -> settingsStore.savePersistentAllowList(packages) }
+            )
             val policyEngine = tooling.policyEngine
             val sessionState = tooling.sessionState
             val toolRegistry = tooling.toolRegistry

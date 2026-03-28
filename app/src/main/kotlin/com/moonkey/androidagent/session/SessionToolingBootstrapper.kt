@@ -26,8 +26,18 @@ internal data class SessionToolingBootstrap(
 internal object SessionToolingBootstrapper {
     private const val TAG = "SessionToolingBootstrap"
 
-    fun create(approvalMode: ApprovalMode, appClassifier: AppClassifier): SessionToolingBootstrap {
-        val policyEngine = PolicyEngine(approvalMode, appClassifier)
+    fun create(
+        approvalMode: ApprovalMode,
+        appClassifier: AppClassifier,
+        initialPersistentAllowList: Set<String> = emptySet(),
+        onPersistentAllowListChanged: ((Set<String>) -> Unit)? = null
+    ): SessionToolingBootstrap {
+        val policyEngine = PolicyEngine(
+            initialApprovalMode = approvalMode,
+            appClassifier = appClassifier,
+            initialPersistentAllowList = initialPersistentAllowList,
+            onPersistentAllowListChanged = onPersistentAllowListChanged
+        )
         val sessionState = AgentSessionState()
         val toolRegistry = ToolRegistry().apply { registerBuiltInTools(sessionState) }
         val toolRouter = ToolRouter(toolRegistry, policyEngine)

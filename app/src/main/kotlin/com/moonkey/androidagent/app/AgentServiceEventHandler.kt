@@ -158,6 +158,10 @@ internal class AgentServiceEventHandler(
                 Log.i(logTag, "AskUser: type=${event.type}, callId=${event.callId}")
                 overlay?.onAskUser(event.type, event.message, event.callId)
             }
+            is ApprovalRequired -> {
+                Log.i(logTag, "ApprovalRequired: actionId=${event.actionId}, callId=${event.details.callId}")
+                overlay?.onApprovalRequired(event.details)
+            }
 
             else -> {
                 Log.d(logTag, "Unhandled event type: ${event::class.simpleName}")

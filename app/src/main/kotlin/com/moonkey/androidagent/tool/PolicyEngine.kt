@@ -4,6 +4,7 @@ import android.util.Log
 import com.moonkey.androidagent.protocol.AppTier
 import com.moonkey.androidagent.protocol.ApprovalMode
 import org.json.JSONObject
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -14,9 +15,18 @@ import java.util.concurrent.atomic.AtomicReference
  */
 class PolicyEngine(
     initialApprovalMode: ApprovalMode = ApprovalMode.SMART,
-    val appClassifier: AppClassifier
+    val appClassifier: AppClassifier,
+    initialPersistentAllowList: Set<String> = emptySet(),
+    private val onPersistentAllowListChanged: ((Set<String>) -> Unit)? = null
 ) {
     private val approvalMode = AtomicReference(initialApprovalMode)
+
+    /** Session-scoped allow-list — cleared on reset(). */
+    private val sessionAllowedPackages: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** Persistent allow-list — survives reset(), written to SharedPreferences via callback. */
+    private val persistentAllowedPackages: MutableSet<String> =
+        ConcurrentHashMap.newKeySet<String>().also { it.addAll(initialPersistentAllowList) }
 
     companion object {
         private const val TAG = "PolicyEngine"
@@ -46,6 +56,11 @@ class PolicyEngine(
             return PolicyDecision.Deny("Blocked: financial/auth app ($packageName)")
         }
 
+        // User-granted allow-list — but NOT in ALWAYS_ASK mode
+        if (currentMode != ApprovalMode.ALWAYS_ASK && isUserAllowed(packageName)) {
+            return PolicyDecision.Allow
+        }
+
         // Apply approval mode
         return when (currentMode) {
             ApprovalMode.ALWAYS_ASK -> PolicyDecision.AskUser(
@@ -73,7 +88,40 @@ class PolicyEngine(
 
     fun reset() {
         approvalMode.set(ApprovalMode.SMART)
+        sessionAllowedPackages.clear()
+        // persistent list NOT cleared on reset — survives across sessions
     }
+
+    // ===== Allow-list mutations =====
+
+    fun allowPackageForSession(packageName: String) {
+        if (!isValidPackageName(packageName)) {
+            Log.w(TAG, "Ignoring invalid package for session allow-list: $packageName")
+            return
+        }
+        sessionAllowedPackages.add(packageName)
+        Log.d(TAG, "Session allow-list: +$packageName")
+    }
+
+    fun allowPackagePersistent(packageName: String) {
+        if (!isValidPackageName(packageName)) {
+            Log.w(TAG, "Ignoring invalid package for persistent allow-list: $packageName")
+            return
+        }
+        persistentAllowedPackages.add(packageName)
+        sessionAllowedPackages.add(packageName) // also effective this session
+        onPersistentAllowListChanged?.invoke(persistentAllowedPackages.toSet())
+        Log.d(TAG, "Persistent allow-list: +$packageName")
+    }
+
+    private fun isValidPackageName(name: String): Boolean =
+        name.isNotBlank() && '.' in name
+
+    private fun isUserAllowed(packageName: String?): Boolean =
+        packageName != null && (
+            packageName in sessionAllowedPackages ||
+            packageName in persistentAllowedPackages
+        )
 
     private fun isEscape(toolName: String, params: JSONObject): Boolean {
         val tool = ToolName.from(toolName)

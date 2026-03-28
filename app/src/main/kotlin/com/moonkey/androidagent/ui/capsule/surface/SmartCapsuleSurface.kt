@@ -29,6 +29,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.moonkey.androidagent.protocol.ApprovalDecision
+import com.moonkey.androidagent.protocol.ApprovalScope
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.ui.capsule.NavAction
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
@@ -48,6 +50,7 @@ fun SmartCapsuleSurface(
     onResume: () -> Unit,
     onStop: () -> Unit,
     onUserResponse: (String, String) -> Unit,
+    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit = { _, _, _, _ -> },
     onDismissError: () -> Unit,
     onNavigate: (NavAction) -> Unit,
     modifier: Modifier = Modifier,
@@ -119,6 +122,7 @@ fun SmartCapsuleSurface(
                         onResume = onResume,
                         onStop = onStop,
                         onDone = { callId -> onUserResponse(callId, "done") },
+                        onApprovalResponse = onApprovalResponse,
                         onDismissError = onDismissError,
                         onNavigate = onNavigate,
                     )

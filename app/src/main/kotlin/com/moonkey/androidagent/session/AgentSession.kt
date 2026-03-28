@@ -510,6 +510,15 @@ private constructor(
     }
 
     private suspend fun handleApproval(op: Op.Approve) {
+        // Persist allow-list (only if APPROVED + package known)
+        if (op.decision == ApprovalDecision.APPROVED && op.packageName != null) {
+            when (op.scope) {
+                ApprovalScope.SESSION -> services.policyEngine.allowPackageForSession(op.packageName)
+                ApprovalScope.ALWAYS -> services.policyEngine.allowPackagePersistent(op.packageName)
+                ApprovalScope.ONCE -> { /* no side effect */ }
+            }
+        }
+
         services.toolRouter.resolveApproval(op.actionId, op.decision)
 
         emit(

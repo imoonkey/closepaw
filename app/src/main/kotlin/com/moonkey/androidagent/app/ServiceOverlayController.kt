@@ -1,9 +1,13 @@
 package com.moonkey.androidagent.app
 
 import android.accessibilityservice.AccessibilityService
+import android.content.pm.PackageManager
 import android.util.Log
 import androidx.lifecycle.LifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
+import com.moonkey.androidagent.protocol.ApprovalDecision
+import com.moonkey.androidagent.protocol.ApprovalDetails
+import com.moonkey.androidagent.protocol.ApprovalScope
 import com.moonkey.androidagent.protocol.AskUserType
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.protocol.PlatformMode
@@ -44,6 +48,7 @@ class ServiceOverlayController(
     private val onResume: () -> Unit,
     private val onSupplement: (String) -> Unit,
     private val onUserResponse: (String, String) -> Unit, // (callId, response)
+    private val onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit, // (callId, decision, scope, packageName)
     private val onOpenApp: () -> Unit,
     private val onOpenViewer: (() -> Unit)? = null,
     private val statusIslandManager: IslandOverlayHost? = null
@@ -51,6 +56,9 @@ class ServiceOverlayController(
     // ── Unified state (single source of truth) ──
 
     val stateHolder = CapsuleStateHolder(scope)
+
+    /** Package manager for resolving app labels. */
+    private val packageManager = context.packageManager
 
     /** Touch gate for gesture injection pass-through. */
     val overlayTouchGate: OverlayTouchGate
@@ -85,6 +93,11 @@ class ServiceOverlayController(
         this.onUserResponse = { callId, response ->
             if (stateHolder.onUserResponseSent(callId)) {
                 this@ServiceOverlayController.onUserResponse(callId, response)
+            }
+        }
+        this.onApprovalResponse = { callId, decision, scope, packageName ->
+            if (stateHolder.onApprovalResolved(callId)) {
+                this@ServiceOverlayController.onApprovalResponse(callId, decision, scope, packageName)
             }
         }
         this.onOpenApp = { openMainAppAndHideOverlays() }
@@ -309,6 +322,26 @@ class ServiceOverlayController(
 
     fun onAskUser(type: AskUserType, message: String, callId: String) {
         stateHolder.onAskUser(type, message, callId)
+        showPreference = ShowPreference.CAPSULE
+        applyVisibility()
+    }
+
+    fun onApprovalRequired(details: ApprovalDetails) {
+        val appLabel = details.packageName?.let { pkg ->
+            try {
+                packageManager.getApplicationLabel(
+                    packageManager.getApplicationInfo(pkg, PackageManager.ApplicationInfoFlags.of(0))
+                ).toString()
+            } catch (_: PackageManager.NameNotFoundException) { pkg }
+        } ?: "Unknown app"
+
+        stateHolder.onApprovalRequired(
+            callId = details.callId,
+            description = details.description,
+            appLabel = appLabel,
+            packageName = details.packageName,
+            reason = details.reason,
+        )
         showPreference = ShowPreference.CAPSULE
         applyVisibility()
     }

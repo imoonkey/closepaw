@@ -81,7 +81,8 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
                 is CapsuleMode.TakeoverPending,
                 is CapsuleMode.Takeover,
                 is CapsuleMode.WaitingForInput,
-                is CapsuleMode.WaitingForAction -> true
+                is CapsuleMode.WaitingForAction,
+                is CapsuleMode.WaitingForApproval -> true
                 is CapsuleMode.Done,
                 is CapsuleMode.Error,
                 is CapsuleMode.Hidden -> false
@@ -125,6 +126,29 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
                 )
             }
         )
+    }
+
+    fun onApprovalRequired(
+        callId: String,
+        description: String,
+        appLabel: String,
+        packageName: String?,
+        reason: String,
+    ) {
+        setMode(CapsuleMode.WaitingForApproval(callId, description, appLabel, packageName, reason))
+    }
+
+    fun onApprovalResolved(callId: String): Boolean {
+        val current = _mode.value as? CapsuleMode.WaitingForApproval ?: run {
+            Log.d(TAG, "Ignoring approval resolved in ${_mode.value::class.simpleName}")
+            return false
+        }
+        if (current.callId != callId) {
+            Log.d(TAG, "Ignoring approval resolved: callId mismatch expected=${current.callId}, actual=$callId")
+            return false
+        }
+        setMode(CapsuleMode.Running("Processing..."))
+        return true
     }
 
     // ── Guarded events (specific states only) ──
@@ -193,7 +217,8 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
             mode !is CapsuleMode.TakeoverPending &&
             mode !is CapsuleMode.Takeover &&
             mode !is CapsuleMode.WaitingForInput &&
-            mode !is CapsuleMode.WaitingForAction
+            mode !is CapsuleMode.WaitingForAction &&
+            mode !is CapsuleMode.WaitingForApproval
         ) {
             return false
         }

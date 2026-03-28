@@ -88,6 +88,7 @@ internal fun deriveOverlayVisibility(
         location == OverlayUserLocation.MAIN_APP || !isActive -> showPreference
         mode is CapsuleMode.WaitingForInput ||
             mode is CapsuleMode.WaitingForAction ||
+            mode is CapsuleMode.WaitingForApproval ||
             mode is CapsuleMode.Error -> ShowPreference.CAPSULE
         else -> showPreference
     }

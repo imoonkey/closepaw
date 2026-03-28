@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EditNote
@@ -46,6 +47,8 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.moonkey.androidagent.protocol.ApprovalDecision
+import com.moonkey.androidagent.protocol.ApprovalScope
 import com.moonkey.androidagent.ui.capsule.NavAction
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import com.moonkey.androidagent.ui.overlay.model.CapsuleRenderSpec
@@ -60,6 +63,7 @@ internal fun CapsuleRow2(
     onResume: () -> Unit,
     onStop: () -> Unit,
     onDone: (String) -> Unit,
+    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit,
     onDismissError: () -> Unit,
     onNavigate: (NavAction) -> Unit,
 ) {
@@ -76,6 +80,9 @@ internal fun CapsuleRow2(
                             is CapsuleMode.Running -> onTakeover()
                             is CapsuleMode.Takeover -> onResume()
                             is CapsuleMode.WaitingForAction -> onDone(mode.callId)
+                            is CapsuleMode.WaitingForApproval -> onApprovalResponse(
+                                mode.callId, ApprovalDecision.APPROVED, ApprovalScope.ONCE, mode.packageName
+                            )
                             else -> {}
                         }
                     },
@@ -93,11 +100,26 @@ internal fun CapsuleRow2(
                 }
             }
 
+            spec.buttons.secondary?.let { btn ->
+                if (mode is CapsuleMode.WaitingForApproval) {
+                    ApprovalScopeButton(btn, mode, ApprovalScope.SESSION, onApprovalResponse)
+                }
+            }
+
+            spec.buttons.tertiary?.let { btn ->
+                if (mode is CapsuleMode.WaitingForApproval) {
+                    ApprovalScopeButton(btn, mode, ApprovalScope.ALWAYS, onApprovalResponse)
+                }
+            }
+
             spec.buttons.stop?.let { btn ->
                 OutlinedButton(
                     onClick = {
                         when (mode) {
                             is CapsuleMode.Error -> onDismissError()
+                            is CapsuleMode.WaitingForApproval -> onApprovalResponse(
+                                mode.callId, ApprovalDecision.DENIED, ApprovalScope.ONCE, mode.packageName
+                            )
                             else -> onStop()
                         }
                     },
@@ -248,10 +270,31 @@ private fun primaryIconForMode(mode: CapsuleMode): ImageVector = when (mode) {
     is CapsuleMode.Running -> Icons.Rounded.PanTool
     is CapsuleMode.Takeover -> Icons.Rounded.PlayArrow
     is CapsuleMode.WaitingForAction -> Icons.Rounded.CheckCircle
+    is CapsuleMode.WaitingForApproval -> Icons.Rounded.Check
     else -> Icons.Rounded.PanTool
 }
 
 private fun stopIconForMode(mode: CapsuleMode): ImageVector = when (mode) {
     is CapsuleMode.Error -> Icons.Rounded.Close
+    is CapsuleMode.WaitingForApproval -> Icons.Rounded.Close
     else -> Icons.Rounded.StopCircle
+}
+
+@Composable
+private fun ApprovalScopeButton(
+    btn: CapsuleRenderSpec.ButtonSpec,
+    mode: CapsuleMode.WaitingForApproval,
+    scope: ApprovalScope,
+    onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit,
+) {
+    FilledTonalButton(
+        onClick = { onApprovalResponse(mode.callId, ApprovalDecision.APPROVED, scope, mode.packageName) },
+        enabled = btn.enabled,
+        shape = RoundedCornerShape(14.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Icon(Icons.Rounded.Check, null, Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(text = btn.text, fontSize = 14.sp)
+    }
 }

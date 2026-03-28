@@ -36,6 +36,8 @@
     "com.duosecurity.duomobile": "BLOCKED",
     "com.microsoft.msa.authenticator": "BLOCKED",
     "com.android.settings": "NORMAL",
+    "com.moonkey.androidagent": "NORMAL",
+    "com.android.launcher3": "NORMAL",
     "com.android.calculator2": "NORMAL",
     "com.android.camera2": "NORMAL",
     "com.android.deskclock": "NORMAL",
