@@ -23,6 +23,7 @@ import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
+import com.moonkey.androidagent.onboarding.DefaultOnboardingDemoController
 import com.moonkey.androidagent.onboarding.HttpLlmCredentialValidator
 import com.moonkey.androidagent.onboarding.OnboardingEffect
 import com.moonkey.androidagent.onboarding.OnboardingStore
@@ -139,6 +140,12 @@ class MainActivity : ComponentActivity() {
                 val baseUrl = defaultEntry.effectiveBaseUrl ?: "https://api.openai.com/v1"
                 vm.validator = HttpLlmCredentialValidator(baseUrl, defaultEntry.modelId)
             }
+            // Wire demo controller
+            vm.demoController = DefaultOnboardingDemoController(
+                settingsState = settingsState,
+                modelCatalog = modelCatalog,
+                scope = lifecycleScope
+            )
             onboardingViewModel = vm
         }
 
