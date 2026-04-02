@@ -94,7 +94,7 @@ class OnboardingViewModel(
 
     fun goBack() {
         val prev = previousStep(currentStep) ?: return
-        enterStep(prev, isResume = false)
+        enterStep(prev, isResume = false, autoAdvance = false)
     }
 
     fun openSystemSettings() {
@@ -244,11 +244,11 @@ class OnboardingViewModel(
         return WizardStep.Complete
     }
 
-    private fun enterStep(step: WizardStep, isResume: Boolean) {
+    private fun enterStep(step: WizardStep, isResume: Boolean, autoAdvance: Boolean = true) {
         currentStep = step
         when (step) {
             WizardStep.Accessibility, WizardStep.Overlay, WizardStep.Battery -> {
-                checkCurrentPermission(isReturnFromSettings = isResume)
+                checkCurrentPermission(isReturnFromSettings = isResume, autoAdvance = autoAdvance)
             }
             WizardStep.ApiKey -> {
                 // Auto-select provider if user already has a key for one
@@ -274,7 +274,7 @@ class OnboardingViewModel(
         }
     }
 
-    private fun checkCurrentPermission(isReturnFromSettings: Boolean) {
+    private fun checkCurrentPermission(isReturnFromSettings: Boolean, autoAdvance: Boolean = true) {
         stepState = PermissionStepState.Checking
 
         val satisfied = when (currentStep) {
@@ -285,7 +285,12 @@ class OnboardingViewModel(
         }
 
         if (satisfied) {
-            onPermissionSatisfied()
+            if (autoAdvance) {
+                onPermissionSatisfied()
+            } else {
+                // Show satisfied state without auto-advancing (user navigated back)
+                stepState = PermissionStepState.Satisfied
+            }
             return
         }
 
