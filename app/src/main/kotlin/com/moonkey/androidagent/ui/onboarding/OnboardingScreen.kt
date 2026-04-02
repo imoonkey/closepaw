@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
  * Full-screen onboarding wizard.
  *
  * Routes to per-step composables based on [currentStep]. Uses [OnboardingShell]
- * for shared scaffold (progress bar, step count, title).
+ * for shared scaffold (progress bar, step count, title, back arrow).
  */
 @Composable
 fun OnboardingScreen(
@@ -25,6 +25,7 @@ fun OnboardingScreen(
     outcomes: StepOutcomes,
     selectedProvider: OnboardingProvider,
     effects: Flow<OnboardingEffect>,
+    onBack: () -> Unit,
     onOpenSettings: () -> Unit,
     onSkipStep: () -> Unit,
     onProviderSelected: (OnboardingProvider) -> Unit,
@@ -40,7 +41,9 @@ fun OnboardingScreen(
         effects.collect { effect -> onEffect(effect) }
     }
 
-    val totalSteps = 5 // Accessibility, Overlay, Battery, ApiKey, Demo (Complete is not a "step")
+    val totalSteps = 5
+    // Back arrow on all steps except the first
+    val backAction: (() -> Unit)? = if (currentStep != WizardStep.Accessibility) onBack else null
 
     when (currentStep) {
         WizardStep.Accessibility -> {
@@ -62,7 +65,8 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = 2,
                 totalSteps = totalSteps,
-                title = "See controls while the agent works"
+                title = "See controls while the agent works",
+                onBack = backAction
             ) {
                 PermissionStepContent(
                     step = WizardStep.Overlay,
@@ -77,7 +81,8 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = 3,
                 totalSteps = totalSteps,
-                title = "Keep long tasks alive"
+                title = "Keep long tasks alive",
+                onBack = backAction
             ) {
                 PermissionStepContent(
                     step = WizardStep.Battery,
@@ -92,7 +97,8 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = 4,
                 totalSteps = totalSteps,
-                title = "Connect your model"
+                title = "Connect your model",
+                onBack = backAction
             ) {
                 ApiKeyStepContent(
                     state = stepState as? ApiKeyStepState ?: ApiKeyStepState.Empty,
@@ -109,7 +115,8 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = 5,
                 totalSteps = totalSteps,
-                title = "Try a safe demo"
+                title = "Try a safe demo",
+                onBack = backAction
             ) {
                 DemoStepContent(
                     state = stepState as? DemoStepState ?: DemoStepState.Ready,

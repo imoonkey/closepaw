@@ -92,6 +92,11 @@ class OnboardingViewModel(
 
     // ── Actions ──
 
+    fun goBack() {
+        val prev = previousStep(currentStep) ?: return
+        enterStep(prev, isResume = false)
+    }
+
     fun openSystemSettings() {
         when (currentStep) {
             WizardStep.Accessibility -> {
@@ -332,6 +337,16 @@ class OnboardingViewModel(
         WizardStep.ApiKey -> WizardStep.Demo
         WizardStep.Demo -> WizardStep.Complete
         WizardStep.Complete -> WizardStep.Complete
+    }
+
+    /** Returns null for the first step (no back from Accessibility). */
+    private fun previousStep(current: WizardStep): WizardStep? = when (current) {
+        WizardStep.Accessibility -> null
+        WizardStep.Overlay -> WizardStep.Accessibility
+        WizardStep.Battery -> WizardStep.Overlay
+        WizardStep.ApiKey -> WizardStep.Battery
+        WizardStep.Demo -> WizardStep.ApiKey
+        WizardStep.Complete -> WizardStep.Demo
     }
 
     // ── Permission checks (delegate to monitor) ──
