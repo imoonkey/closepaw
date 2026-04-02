@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-04-01: Security hardening QA + network security config
+
+**What changed:**
+- Full QA of basic-security (5 items) and agent-security (KISS 4+1 layers) on physical device (nubia M153) with gpt-5.4 via Tailscale HTTPS
+- QA results (all PASS):
+  - EncryptedSharedPreferences: encrypted XML on device, plain prefs clean, migration works, corruption fallback in place
+  - allowBackup=false, cleartext blocked: confirmed via package flags
+  - InsecureSslConfig: gated behind BuildConfig.DEBUG (code review)
+  - PolicyEngine: NORMAL apps → Allow (Settings navigation, 6 tool calls logged), CAUTIOUS → AskUser (WhatsApp, approval UI with Allow/Session/Always buttons displayed), BLOCKED → Deny (Robinhood, screen masked, memory write blocked)
+  - Approval UI: three-tier buttons rendered correctly, 60s timeout → cancel works
+  - Perception gate: BLOCKED app screen masked — LLM saw "⛔ Screen hidden" message
+  - Memory gate: remember_experience on BLOCKED app → Error (blocked)
+- Replaced `usesCleartextTraffic="false"` with `networkSecurityConfig` to support emulator: release blocks all cleartext, debug allows 10.0.2.2/localhost only
+- Verified emulator cleartext works on remote desktop (emulator-5554, HTTP to cproxy via 10.0.2.2)
+- Fixed Tailscale serve config: 443→workflow(5173), 8741→cproxy(18080)
+- Updated development.md with Tailscale/cproxy/emulator documentation
+- Renamed remote SSH user moonkey→qiguo, hostname qiguo-ld1→desktop across scripts and docs
+
+**Why:**
+- Close all QA gaps before moving on from Phase 1 security work
+- Emulator path was broken by cleartext=false; networkSecurityConfig gives per-build granularity
+
+**Key files:** `app/src/main/res/xml/network_security_config.xml`, `app/src/debug/res/xml/network_security_config.xml`, `AndroidManifest.xml`, `doc/dev/development.md`, `scripts/remote/`
+**Verification:** `./gradlew assembleDebug` + `./gradlew test` pass; live QA on nubia M153 (gpt-5.4 via Tailscale); emulator smoke test on remote desktop
+**Commit:** `e1790d5..1398d42`
+**Next:** Pick up next Phase 1 task (onboarding-wizard) or priority.md #0 (prompt-tune)
+**Blockers:** None
+
 ## 2026-03-24: Doc structure alignment with /init-all and /update-doc standards
 
 **What changed:**
