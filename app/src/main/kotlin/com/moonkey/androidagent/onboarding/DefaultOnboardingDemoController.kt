@@ -18,9 +18,13 @@ import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.protocol.TaskCompleted
 import com.moonkey.androidagent.session.AgentSession
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
@@ -46,6 +50,7 @@ class DefaultOnboardingDemoController(
         private const val SETTINGS_PACKAGE = "com.android.settings"
     }
 
+    private val mutex = Mutex()
     private var demoJob: Job? = null
     private var demoSession: AgentSession? = null
 
@@ -59,7 +64,9 @@ class DefaultOnboardingDemoController(
         demoJob = scope.launch {
             val service = AgentService.instance
             if (service == null) {
-                onFailure("Accessibility service not available")
+                withContext(Dispatchers.Main) {
+                    onFailure("Accessibility service not available")
+                }
                 return@launch
             }
 
@@ -89,7 +96,7 @@ class DefaultOnboardingDemoController(
                     visualizer = visualizer,
                     overlayTouchGate = touchGate
                 )
-                demoSession = session
+                mutex.withLock { demoSession = session }
 
                 // Register with service for overlay visualization
                 service.observeExternalSession(session, PlatformMode.ACCESSIBILITY)
@@ -126,38 +133,42 @@ class DefaultOnboardingDemoController(
 
                 eventJob.cancel()
 
-                if (completed != null) {
-                    val isGoalAchieved = completed.reason == CompletionReason.GOAL_ACHIEVED
-                    val isSettingsOpen = lastPackageName == SETTINGS_PACKAGE
+                // Deliver callbacks on Main dispatcher (they mutate Compose state)
+                withContext(Dispatchers.Main) {
+                    if (completed != null) {
+                        val isGoalAchieved = completed.reason == CompletionReason.GOAL_ACHIEVED
+                        val isSettingsOpen = lastPackageName == SETTINGS_PACKAGE
 
-                    if (isGoalAchieved && isSettingsOpen) {
-                        Log.d(TAG, "Demo succeeded: Settings app opened")
-                        onBringToFront()
-                        onSuccess("Settings app opened successfully!")
-                    } else if (isGoalAchieved) {
-                        // Goal reported achieved but wrong package
-                        Log.w(TAG, "Demo goal achieved but package=$lastPackageName")
-                        onBringToFront()
-                        onSuccess("Demo task completed!")
-                    } else {
-                        val reason = when (completed.reason) {
-                            CompletionReason.MAX_TURNS -> "Demo reached maximum attempts"
-                            CompletionReason.ERROR -> "Demo encountered an error"
-                            CompletionReason.TASK_IMPOSSIBLE -> "Demo could not complete the task"
-                            else -> "Demo ended: ${completed.reason}"
+                        if (isGoalAchieved && isSettingsOpen) {
+                            Log.d(TAG, "Demo succeeded: Settings app opened")
+                            onBringToFront()
+                            onSuccess("Settings app opened successfully!")
+                        } else if (isGoalAchieved) {
+                            Log.w(TAG, "Demo goal achieved but package=$lastPackageName")
+                            onBringToFront()
+                            onSuccess("Demo task completed!")
+                        } else {
+                            val reason = when (completed.reason) {
+                                CompletionReason.MAX_TURNS -> "Demo reached maximum attempts"
+                                CompletionReason.ERROR -> "Demo encountered an error"
+                                CompletionReason.TASK_IMPOSSIBLE -> "Demo could not complete the task"
+                                else -> "Demo ended: ${completed.reason}"
+                            }
+                            Log.w(TAG, "Demo failed: ${completed.reason}")
+                            onBringToFront()
+                            onFailure(reason)
                         }
-                        Log.w(TAG, "Demo failed: ${completed.reason}")
+                    } else {
+                        Log.w(TAG, "Demo timed out after ${TIMEOUT_MS}ms")
                         onBringToFront()
-                        onFailure(reason)
+                        onFailure("The demo timed out before opening Settings.")
                     }
-                } else {
-                    Log.w(TAG, "Demo timed out after ${TIMEOUT_MS}ms")
-                    onBringToFront()
-                    onFailure("The demo timed out before opening Settings.")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Demo failed with exception", e)
-                onFailure("Demo failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    onFailure("Demo failed: ${e.message}")
+                }
             } finally {
                 shutdownSession()
             }
@@ -171,11 +182,15 @@ class DefaultOnboardingDemoController(
     }
 
     private suspend fun shutdownSession() {
+        val session = mutex.withLock {
+            val s = demoSession
+            demoSession = null
+            s
+        }
         try {
-            demoSession?.submit(Op.Shutdown)
+            session?.submit(Op.Shutdown)
         } catch (e: Exception) {
             Log.w(TAG, "Demo session shutdown error: ${e.message}")
         }
-        demoSession = null
     }
 }

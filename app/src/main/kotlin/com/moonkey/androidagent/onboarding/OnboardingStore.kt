@@ -97,15 +97,21 @@ class OnboardingStore(private val context: Context) {
     }
 
     // ── Encrypted API key draft ──
+    // Draft is only stored in encrypted prefs. If encryption is unavailable,
+    // the draft is not persisted (user must re-enter on next launch).
 
-    fun loadApiKeyDraft(): String? = try {
-        securePrefs().getString(KEY_API_KEY_DRAFT, null)?.takeIf { it.isNotBlank() }
-    } catch (e: Exception) {
-        Log.w(TAG, "Failed to read API key draft: ${e.message}")
-        null
+    fun loadApiKeyDraft(): String? {
+        if (securePrefsFailed) return null
+        return try {
+            securePrefs().getString(KEY_API_KEY_DRAFT, null)?.takeIf { it.isNotBlank() }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to read API key draft: ${e.message}")
+            null
+        }
     }
 
     fun saveApiKeyDraft(key: String) {
+        if (securePrefsFailed) return
         try {
             securePrefs().edit().putString(KEY_API_KEY_DRAFT, key).apply()
         } catch (e: Exception) {
@@ -114,6 +120,7 @@ class OnboardingStore(private val context: Context) {
     }
 
     fun clearApiKeyDraft() {
+        if (securePrefsFailed) return
         try {
             securePrefs().edit().remove(KEY_API_KEY_DRAFT).apply()
         } catch (e: Exception) {

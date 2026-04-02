@@ -3,6 +3,8 @@ package com.moonkey.androidagent.onboarding
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.SocketTimeoutException
@@ -31,7 +33,13 @@ class HttpLlmCredentialValidator(
             var connection: HttpURLConnection? = null
             try {
                 val url = URL(baseUrl.trimEnd('/') + "/chat/completions")
-                val body = """{"model":"$modelId","messages":[{"role":"user","content":"Reply with OK"}],"max_tokens":1}"""
+                val body = JSONObject().apply {
+                    put("model", modelId)
+                    put("messages", JSONArray().put(
+                        JSONObject().put("role", "user").put("content", "Reply with OK")
+                    ))
+                    put("max_tokens", 1)
+                }.toString()
 
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
