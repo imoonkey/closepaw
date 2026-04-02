@@ -1,13 +1,10 @@
 package com.moonkey.androidagent.onboarding
 
 import android.content.Context
-import android.os.PowerManager
-import android.provider.Settings
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.moonkey.androidagent.app.AgentService
 import com.moonkey.androidagent.app.AppSettingsState
 import com.moonkey.androidagent.app.AppSettingsStore
 import com.moonkey.androidagent.llm.ModelCatalog
@@ -28,6 +25,7 @@ class OnboardingViewModel(
     private val store: OnboardingStore,
     private val settingsState: AppSettingsState,
     private val modelCatalog: ModelCatalog,
+    private val permissionMonitor: PermissionStateMonitor,
     private val scope: CoroutineScope
 ) {
     companion object {
@@ -317,16 +315,13 @@ class OnboardingViewModel(
         WizardStep.Complete -> WizardStep.Complete
     }
 
-    // ── Permission checks ──
+    // ── Permission checks (delegate to monitor) ──
 
-    private fun isAccessibilityEnabled(): Boolean = AgentService.instance != null
+    private fun isAccessibilityEnabled(): Boolean = permissionMonitor.isAccessibilityEnabled()
 
-    private fun isOverlayEnabled(): Boolean = Settings.canDrawOverlays(context)
+    private fun isOverlayEnabled(): Boolean = permissionMonitor.isOverlayEnabled()
 
-    private fun isBatteryOptimized(): Boolean {
-        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        return pm.isIgnoringBatteryOptimizations(context.packageName)
-    }
+    private fun isBatteryOptimized(): Boolean = permissionMonitor.isBatteryOptimized()
 
     // ── Settings integration ──
 

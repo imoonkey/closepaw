@@ -23,9 +23,11 @@ import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
+import com.moonkey.androidagent.onboarding.HttpLlmCredentialValidator
 import com.moonkey.androidagent.onboarding.OnboardingEffect
 import com.moonkey.androidagent.onboarding.OnboardingStore
 import com.moonkey.androidagent.onboarding.OnboardingViewModel
+import com.moonkey.androidagent.onboarding.PermissionStateMonitor
 import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
@@ -123,13 +125,21 @@ class MainActivity : ComponentActivity() {
         onboardingRequired = !onboardingStore.isCompleted && !isEvalMode
 
         if (onboardingRequired) {
-            onboardingViewModel = OnboardingViewModel(
+            val vm = OnboardingViewModel(
                 context = applicationContext,
                 store = onboardingStore,
                 settingsState = settingsState,
                 modelCatalog = modelCatalog,
+                permissionMonitor = PermissionStateMonitor(applicationContext),
                 scope = lifecycleScope
             )
+            // Wire credential validator from default model's provider endpoint
+            val defaultEntry = modelCatalog.resolveOrNull(AppSettingsStore.DEFAULT_MODEL)
+            if (defaultEntry != null) {
+                val baseUrl = defaultEntry.effectiveBaseUrl ?: "https://api.openai.com/v1"
+                vm.validator = HttpLlmCredentialValidator(baseUrl, defaultEntry.modelId)
+            }
+            onboardingViewModel = vm
         }
 
         handleIntent(intent)
