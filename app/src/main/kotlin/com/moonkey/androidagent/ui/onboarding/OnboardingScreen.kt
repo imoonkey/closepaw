@@ -26,6 +26,7 @@ fun OnboardingScreen(
     selectedProvider: OnboardingProvider,
     effects: Flow<OnboardingEffect>,
     onBack: () -> Unit,
+    onContinue: () -> Unit,
     onOpenSettings: () -> Unit,
     onSkipStep: () -> Unit,
     onProviderSelected: (OnboardingProvider) -> Unit,
@@ -56,7 +57,8 @@ fun OnboardingScreen(
                     step = WizardStep.Accessibility,
                     state = stepState as? PermissionStepState ?: PermissionStepState.Checking,
                     onOpenSettings = onOpenSettings,
-                    onSkip = {}
+                    onSkip = {},
+                    onContinue = onContinue
                 )
             }
         }
@@ -72,7 +74,8 @@ fun OnboardingScreen(
                     step = WizardStep.Overlay,
                     state = stepState as? PermissionStepState ?: PermissionStepState.Checking,
                     onOpenSettings = onOpenSettings,
-                    onSkip = {}
+                    onSkip = {},
+                    onContinue = onContinue
                 )
             }
         }
@@ -88,7 +91,8 @@ fun OnboardingScreen(
                     step = WizardStep.Battery,
                     state = stepState as? PermissionStepState ?: PermissionStepState.Checking,
                     onOpenSettings = onOpenSettings,
-                    onSkip = onSkipStep
+                    onSkip = onSkipStep,
+                    onContinue = onContinue
                 )
             }
         }

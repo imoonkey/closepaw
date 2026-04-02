@@ -163,6 +163,7 @@ class MainActivity : ComponentActivity() {
                         selectedProvider = vm.selectedProvider,
                         effects = vm.effects,
                         onBack = { vm.goBack() },
+                        onContinue = { vm.continueForward() },
                         onOpenSettings = { vm.openSystemSettings() },
                         onSkipStep = { vm.skipStep() },
                         onProviderSelected = { vm.selectProvider(it) },

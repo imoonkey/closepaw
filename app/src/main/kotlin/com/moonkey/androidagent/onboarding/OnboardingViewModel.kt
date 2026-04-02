@@ -97,6 +97,11 @@ class OnboardingViewModel(
         enterStep(prev, isResume = false, autoAdvance = false)
     }
 
+    /** Manual advance from a satisfied step (used after back navigation). */
+    fun continueForward() {
+        advanceToNextStep()
+    }
+
     fun openSystemSettings() {
         when (currentStep) {
             WizardStep.Accessibility -> {

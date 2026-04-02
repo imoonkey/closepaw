@@ -62,7 +62,8 @@ fun PermissionStepContent(
     step: WizardStep,
     state: PermissionStepState,
     onOpenSettings: () -> Unit,
-    onSkip: () -> Unit
+    onSkip: () -> Unit,
+    onContinue: () -> Unit = {}
 ) {
     val (icon, description, consequence, ctaLabel) = permissionStepCopy(step)
 
@@ -97,7 +98,21 @@ fun PermissionStepContent(
                 LoadingButton(text = "Checking...")
             }
             PermissionStepState.Satisfied -> {
-                SuccessButton(text = "Enabled")
+                Button(
+                    onClick = onContinue,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.secondary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Continue")
+                }
             }
             else -> {
                 Button(
