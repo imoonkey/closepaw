@@ -139,19 +139,30 @@ Create `.env` in project root:
 OPENAI_API_KEY=sk-proj-your-key-here
 ```
 
-### Provider Base URL Override (Local Proxy)
+### Provider Base URL Override (cproxy + Tailscale)
 
-To route OPENAI-provider models through a local OpenAI-compatible proxy (e.g. for quota management or model routing):
+The app sets `usesCleartextTraffic="false"`, so all LLM traffic must go over HTTPS. For OPENAI-provider models routed through [cproxy](https://github.com/user/cproxy) (a local Copilot-backed proxy), use Tailscale Serve to expose cproxy over HTTPS:
 
 ```bash
-# In .env — emulator uses 10.0.2.2 to reach host localhost
-OPENAI_BASE_URL=http://10.0.2.2:18080/v1
+# 1. cproxy listens on localhost:18080 (see ~/workspace/cproxy/)
 
-# For real device, use the host machine's LAN IP
-# OPENAI_BASE_URL=http://192.168.x.x:18080/v1
+# 2. Tailscale Serve exposes it as HTTPS on port 8741
+tailscale serve --bg --https=8741 http://127.0.0.1:18080
+
+# 3. Set the base URL in .env
+OPENAI_BASE_URL=https://laptop.tail6bd948.ts.net:8741/v1
 ```
 
-This works for both `debug-run.sh` and the eval runner. The URL is passed as an intent extra and applied at session bootstrap via `ModelCatalog.withBaseUrlOverrides()` — no changes to `llm_models.json` needed. Requires `android:usesCleartextTraffic="true"` in the manifest (already enabled).
+Port allocation on `laptop.tail6bd948.ts.net`:
+
+| Port | Target | Purpose |
+|------|--------|---------|
+| 443 (default) | `127.0.0.1:5173` | workflow frontend |
+| 8741 | `127.0.0.1:18080` | cproxy (LLM proxy) |
+
+The URL is passed as an intent extra and applied at session bootstrap via `ModelCatalog.withBaseUrlOverrides()` — no changes to `llm_models.json` needed.
+
+**Emulator note:** Emulators can't reach Tailscale. The debug build includes a `network_security_config.xml` that permits cleartext to `10.0.2.2`/`127.0.0.1`/`localhost` only. Set `OPENAI_BASE_URL=http://localhost:18080/v1` — the eval bridge auto-rewrites to `10.0.2.2`. Release builds block all cleartext.
 
 ### LLM Backend Selection
 

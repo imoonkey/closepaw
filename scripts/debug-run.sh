@@ -402,6 +402,10 @@ adb shell "am start -n $PACKAGE/.app.MainActivity \
 ok "Agent started"
 echo ""
 
+# Record logcat baseline so we only detect events from THIS session
+LOGCAT_BASELINE=$(wc -l < "$DEBUG_DIR/logcat_full.log" 2>/dev/null | tr -d ' ')
+LOGCAT_BASELINE=${LOGCAT_BASELINE:-0}
+
 # Monitor turns and capture screenshots
 # DEBUG_MAX_TURNS controls how many turn-start events to capture (default 80 for multi-agent runs)
 MAX_TURNS="${DEBUG_MAX_TURNS:-80}"
@@ -461,11 +465,11 @@ while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
         LAST_LOG_LINE=$TOTAL_LINES
     fi
 
-    # Check if session finished.
+    # Check if session finished (only in lines after baseline to avoid stale events).
     # Hot Idle: TaskCompleted fires when a task ends (session stays alive).
     # SessionCompleted fires only on full shutdown (idle timeout / explicit stop).
     # For debug-run we stop after the first task completes.
-    if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -qE "AgentSession: Emitted event: (SessionCompleted|TaskCompleted)|AgentService: (Session|Task) completed"; then
+    if sed -n "$((LOGCAT_BASELINE + 1)),\$p" "$DEBUG_DIR/logcat_full.log" | grep -qE "AgentSession: Emitted event: (SessionCompleted|TaskCompleted)|AgentService: (Session|Task) completed"; then
         echo ""
         ok "Task completed!"
         stop_agent
@@ -473,7 +477,7 @@ while [[ $CAPTURE_COUNT -lt $MAX_TURNS ]]; do
     fi
 
     # Check for terminal errors at session level.
-    if tail -n 3000 "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionError\\|AgentService: Session error\\|Fatal error"; then
+    if sed -n "$((LOGCAT_BASELINE + 1)),\$p" "$DEBUG_DIR/logcat_full.log" | grep -q "AgentSession: Emitted event: SessionError\\|AgentService: Session error\\|Fatal error"; then
         echo ""
         warn "Agent stopped (session error)"
         stop_agent

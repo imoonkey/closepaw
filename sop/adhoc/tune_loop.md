@@ -98,7 +98,7 @@ Total impacted: 29 tasks (minus cannot_handle). Run all 29.
 1. **Create `doc/autotune/round_36/generalization_plan.md`**: document which sections in each skill are overfitted and what to remove/rewrite. This is the input for R36's fix step.
 2. **Create `eval/config/generalize_active.txt`**: all 29 impacted tasks.
 3. **Update `doc/autotune/meta/loop_state.json`**: new loop `skill_generalization`, R36+, status active.
-4. **Push to remote**: `git push`, then on qiguo-ld1: `git pull && ./gradlew assembleDebug`.
+4. **Push to remote**: `git push`, then on desktop: `git pull && ./gradlew assembleDebug`.
 
 ### Task list (29 tasks)
 

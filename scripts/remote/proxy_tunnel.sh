@@ -70,7 +70,7 @@ cmd_manual() {
     -o "ServerAliveInterval 30" \
     -o "ServerAliveCountMax 3" \
     -o "ExitOnForwardFailure yes" \
-    -L "${PROXY_PORT}:127.0.0.1:${PROXY_PORT}" "moonkey@${ip}"
+    -L "${PROXY_PORT}:127.0.0.1:${PROXY_PORT}" "qiguo@${ip}"
 }
 
 case "${1:-}" in

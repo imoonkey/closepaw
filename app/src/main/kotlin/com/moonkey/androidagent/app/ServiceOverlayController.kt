@@ -335,6 +335,7 @@ class ServiceOverlayController(
             } catch (_: PackageManager.NameNotFoundException) { pkg }
         } ?: "Unknown app"
 
+        Log.d(logTag, "onApprovalRequired: tool=${details.toolName}, app=$appLabel (${details.packageName}), callId=${details.callId}")
         stateHolder.onApprovalRequired(
             callId = details.callId,
             description = details.description,

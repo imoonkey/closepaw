@@ -101,7 +101,7 @@
 **Key files:** `scripts/remote/provision.sh`, `scripts/remote/eval_tmux.sh`, `scripts/remote/openai-proxy-tunnel.service`, `scripts/remote/proxy_tunnel.sh`, `doc/dev/remote_eval_worker.md`, `.claude/skills/autotune/SKILL.md`, `.claude/skills/cog-tune/SKILL.md`
 **Verification:** `bash -n` on all scripts, remote smoke test (AVD2 created, autossh active, proxy ok)
 **Commit:** `afa9713..ced92dc`
-**Next:** Run dual-emulator baseline prep and parallel eval end-to-end on `qiguo-ld1`. Ubuntu 22.04 upgrade deferred.
+**Next:** Run dual-emulator baseline prep and parallel eval end-to-end on `desktop`. Ubuntu 22.04 upgrade deferred.
 **Blockers:** None
 
 ## 2026-03-11: Remote Eval Worker Hardening and Validation
@@ -111,7 +111,7 @@
 - Routed eval preflight ADB calls through the configured binary instead of assuming `adb` is on `PATH`.
 - Pinned remote provisioning to emulator `32.1.15` from `emulator-linux_x64-10696886.zip` for Ubuntu 18.04 compatibility.
 - Updated the remote worker docs to reflect the actual stale-checkout proxy failure mode and the validated rerun outcome.
-- Re-ran the five previously failing app tasks on `qiguo-ld1` after syncing the fixed bridge path; all five passed in `eval/results/20260311_102822`.
+- Re-ran the five previously failing app tasks on `desktop` after syncing the fixed bridge path; all five passed in `eval/results/20260311_102822`.
 
 **Why:**
 - Remove remote-only setup drift around ADB resolution, emulator versioning, and proxy routing so remote eval failures surface as real task behavior instead of infra noise.
@@ -125,7 +125,7 @@
 ## 2026-03-11: Remote Emulator Eval Worker
 
 **What changed:**
-- Provisioned `qiguo-ld1` (Ubuntu 18.04, i9-7900X, 62G RAM) as a remote Android eval worker with headless emulator.
+- Provisioned `desktop` (Ubuntu 18.04, i9-7900X, 62G RAM) as a remote Android eval worker with headless emulator.
 - New `scripts/remote/provision.sh`: one-shot setup (JDK 17, Python 3.11, Android SDK, AVD).
 - New `scripts/remote/proxy_tunnel.sh`: SSH tunnel helper for LLM proxy access.
 - New `eval/config/remote.yaml`: remote-specific eval config with correct adb path.
