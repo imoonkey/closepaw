@@ -3,6 +3,7 @@ package com.moonkey.androidagent.ui.onboarding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.moonkey.androidagent.onboarding.ApiKeyAuthMethod
 import com.moonkey.androidagent.onboarding.ApiKeyStepState
 import com.moonkey.androidagent.onboarding.DemoStepState
 import com.moonkey.androidagent.onboarding.OnboardingProvider
@@ -147,19 +149,24 @@ fun PermissionStepContent(
 fun ApiKeyStepContent(
     state: ApiKeyStepState,
     selectedProvider: OnboardingProvider,
+    authMethod: ApiKeyAuthMethod,
     onProviderSelected: (OnboardingProvider) -> Unit,
+    onAuthMethodSelected: (ApiKeyAuthMethod) -> Unit,
+    onStartOAuth: () -> Unit,
+    onCancelOAuth: () -> Unit,
+    onContinue: () -> Unit,
     onKeyChanged: (String) -> Unit,
     onValidate: () -> Unit,
     onRetry: () -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
     val currentKey = when (state) {
-        is ApiKeyStepState.Empty -> ""
         is ApiKeyStepState.Editing -> state.key
         is ApiKeyStepState.Validating -> state.key
         is ApiKeyStepState.Invalid -> state.key
         is ApiKeyStepState.TransientError -> state.key
         is ApiKeyStepState.Valid -> state.key
+        else -> ""
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -173,7 +180,7 @@ fun ApiKeyStepContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Choose your provider and enter the API key.",
+            text = "Choose your provider to connect.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -190,96 +197,252 @@ fun ApiKeyStepContent(
                     selected = selectedProvider == provider,
                     onClick = { onProviderSelected(provider) },
                     label = { Text(provider.label) },
-                    enabled = state !is ApiKeyStepState.Validating && state !is ApiKeyStepState.Valid
+                    enabled = state !is ApiKeyStepState.Validating
+                            && state !is ApiKeyStepState.Valid
+                            && state !is ApiKeyStepState.OAuthInProgress
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // API key field
-        OutlinedTextField(
-            value = currentKey,
-            onValueChange = onKeyChanged,
-            label = { Text("API Key") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            enabled = state !is ApiKeyStepState.Validating && state !is ApiKeyStepState.Valid,
-            visualTransformation = if (passwordVisible) VisualTransformation.None
-                else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            trailingIcon = {
-                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(
-                        imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff
-                            else Icons.Outlined.Visibility,
-                        contentDescription = if (passwordVisible) "Hide" else "Show"
-                    )
-                }
-            },
-            isError = state is ApiKeyStepState.Invalid
-        )
-
-        // Security note
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Your key is encrypted on-device. Never sent anywhere except the LLM provider.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        // Error message
-        when (state) {
-            is ApiKeyStepState.Invalid -> {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = state.message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-            is ApiKeyStepState.TransientError -> {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = state.message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-            else -> {}
+        // Show OAuth or manual content based on auth method + provider
+        if (selectedProvider == OnboardingProvider.OPENAI && authMethod == ApiKeyAuthMethod.OAUTH) {
+            OAuthContent(
+                state = state,
+                onStartOAuth = onStartOAuth,
+                onCancelOAuth = onCancelOAuth,
+                onContinue = onContinue,
+                onSwitchToManual = { onAuthMethodSelected(ApiKeyAuthMethod.MANUAL) },
+                onRetry = { onStartOAuth() }
+            )
+        } else {
+            ManualApiKeyContent(
+                state = state,
+                currentKey = currentKey,
+                passwordVisible = passwordVisible,
+                onPasswordVisibilityToggle = { passwordVisible = !passwordVisible },
+                onKeyChanged = onKeyChanged,
+                onValidate = onValidate,
+                onRetry = onRetry,
+                showSwitchToOAuth = selectedProvider == OnboardingProvider.OPENAI,
+                onSwitchToOAuth = { onAuthMethodSelected(ApiKeyAuthMethod.OAUTH) }
+            )
         }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // CTA
-        when (state) {
-            is ApiKeyStepState.Validating -> {
-                LoadingButton(text = "Validating...")
-            }
-            is ApiKeyStepState.Valid -> {
-                SuccessButton(text = "Key verified")
-            }
-            is ApiKeyStepState.TransientError -> {
-                Button(
-                    onClick = onRetry,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Retry")
-                }
-            }
-            else -> {
-                Button(
-                    onClick = onValidate,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = currentKey.isNotBlank()
-                ) {
-                    Text("Validate & Continue")
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
     }
+}
+
+@Composable
+private fun ColumnScope.OAuthContent(
+    state: ApiKeyStepState,
+    onStartOAuth: () -> Unit,
+    onCancelOAuth: () -> Unit,
+    onContinue: () -> Unit,
+    onSwitchToManual: () -> Unit,
+    onRetry: () -> Unit
+) {
+    when (state) {
+        is ApiKeyStepState.OAuthReady -> {
+            Text(
+                text = "Sign in with your OpenAI account. Uses your existing ChatGPT subscription — no API key needed.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Button(
+                onClick = onStartOAuth,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Sign in with OpenAI")
+            }
+
+            TextButton(
+                onClick = onSwitchToManual,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                Text("or enter API key manually")
+            }
+        }
+
+        is ApiKeyStepState.OAuthInProgress -> {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Complete sign-in in your browser.\nYou'll return here automatically.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            TextButton(
+                onClick = onCancelOAuth,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Cancel")
+            }
+        }
+
+        is ApiKeyStepState.OAuthSuccess -> {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = if (state.email.isNotBlank()) "Signed in as ${state.email}"
+                    else "Signed in successfully",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.secondary
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Button(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.secondary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Continue")
+            }
+        }
+
+        is ApiKeyStepState.OAuthError -> {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = state.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Button(
+                onClick = onRetry,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Try Again")
+            }
+
+            TextButton(
+                onClick = onSwitchToManual,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+            ) {
+                Text("or enter API key manually")
+            }
+        }
+
+        else -> {
+            // Shouldn't happen in OAuth mode, but handle gracefully
+            Spacer(modifier = Modifier.weight(1f))
+        }
+    }
+
+    Spacer(modifier = Modifier.height(32.dp))
+}
+
+@Composable
+private fun ColumnScope.ManualApiKeyContent(
+    state: ApiKeyStepState,
+    currentKey: String,
+    passwordVisible: Boolean,
+    onPasswordVisibilityToggle: () -> Unit,
+    onKeyChanged: (String) -> Unit,
+    onValidate: () -> Unit,
+    onRetry: () -> Unit,
+    showSwitchToOAuth: Boolean,
+    onSwitchToOAuth: () -> Unit
+) {
+    // API key field
+    OutlinedTextField(
+        value = currentKey,
+        onValueChange = onKeyChanged,
+        label = { Text("API Key") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        enabled = state !is ApiKeyStepState.Validating && state !is ApiKeyStepState.Valid,
+        visualTransformation = if (passwordVisible) VisualTransformation.None
+            else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = {
+            IconButton(onClick = onPasswordVisibilityToggle) {
+                Icon(
+                    imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff
+                        else Icons.Outlined.Visibility,
+                    contentDescription = if (passwordVisible) "Hide" else "Show"
+                )
+            }
+        },
+        isError = state is ApiKeyStepState.Invalid
+    )
+
+    // Security note
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = "Your key is encrypted on-device. Never sent anywhere except the LLM provider.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    // Error message
+    when (state) {
+        is ApiKeyStepState.Invalid -> {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = state.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+        is ApiKeyStepState.TransientError -> {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = state.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
+        else -> {}
+    }
+
+    Spacer(modifier = Modifier.weight(1f))
+
+    // CTA
+    when (state) {
+        is ApiKeyStepState.Validating -> LoadingButton(text = "Validating...")
+        is ApiKeyStepState.Valid -> SuccessButton(text = "Key verified")
+        is ApiKeyStepState.TransientError -> {
+            Button(onClick = onRetry, modifier = Modifier.fillMaxWidth()) { Text("Retry") }
+        }
+        else -> {
+            Button(
+                onClick = onValidate,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = currentKey.isNotBlank()
+            ) { Text("Validate & Continue") }
+        }
+    }
+
+    if (showSwitchToOAuth && state !is ApiKeyStepState.Valid && state !is ApiKeyStepState.Validating) {
+        TextButton(
+            onClick = onSwitchToOAuth,
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+        ) {
+            Text("or sign in with OpenAI")
+        }
+    }
+
+    Spacer(modifier = Modifier.height(32.dp))
 }
 
 // ── Demo Step ──
@@ -378,6 +541,7 @@ fun DemoStepContent(
 @Composable
 fun CompleteStepContent(
     outcomes: StepOutcomes,
+    authMethod: ApiKeyAuthMethod,
     onFinish: () -> Unit
 ) {
     Column(
@@ -407,7 +571,9 @@ fun CompleteStepContent(
         OutcomeRow("Accessibility service", outcomes.accessibility)
         OutcomeRow("Display overlay", outcomes.overlay)
         OutcomeRow("Battery optimization", outcomes.battery)
-        OutcomeRow("API key verified", outcomes.apiKey)
+        val apiKeyLabel = if (authMethod == ApiKeyAuthMethod.OAUTH) "Signed in with OpenAI"
+            else "API key verified"
+        OutcomeRow(apiKeyLabel, outcomes.apiKey)
         OutcomeRow("Demo task", outcomes.demo)
 
         Spacer(modifier = Modifier.weight(1f))

@@ -2,6 +2,7 @@ package com.moonkey.androidagent.ui.onboarding
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import com.moonkey.androidagent.onboarding.ApiKeyAuthMethod
 import com.moonkey.androidagent.onboarding.ApiKeyStepState
 import com.moonkey.androidagent.onboarding.DemoStepState
 import com.moonkey.androidagent.onboarding.OnboardingEffect
@@ -24,12 +25,16 @@ fun OnboardingScreen(
     stepState: OnboardingStepState?,
     outcomes: StepOutcomes,
     selectedProvider: OnboardingProvider,
+    authMethod: ApiKeyAuthMethod,
     effects: Flow<OnboardingEffect>,
     onBack: () -> Unit,
     onContinue: () -> Unit,
     onOpenSettings: () -> Unit,
     onSkipStep: () -> Unit,
     onProviderSelected: (OnboardingProvider) -> Unit,
+    onAuthMethodSelected: (ApiKeyAuthMethod) -> Unit,
+    onStartOAuth: () -> Unit,
+    onCancelOAuth: () -> Unit,
     onApiKeyChanged: (String) -> Unit,
     onValidateApiKey: () -> Unit,
     onRetryValidation: () -> Unit,
@@ -107,7 +112,12 @@ fun OnboardingScreen(
                 ApiKeyStepContent(
                     state = stepState as? ApiKeyStepState ?: ApiKeyStepState.Empty,
                     selectedProvider = selectedProvider,
+                    authMethod = authMethod,
                     onProviderSelected = onProviderSelected,
+                    onAuthMethodSelected = onAuthMethodSelected,
+                    onStartOAuth = onStartOAuth,
+                    onCancelOAuth = onCancelOAuth,
+                    onContinue = onContinue,
                     onKeyChanged = onApiKeyChanged,
                     onValidate = onValidateApiKey,
                     onRetry = onRetryValidation
@@ -133,6 +143,7 @@ fun OnboardingScreen(
         WizardStep.Complete -> {
             CompleteStepContent(
                 outcomes = outcomes,
+                authMethod = authMethod,
                 onFinish = onFinish
             )
         }

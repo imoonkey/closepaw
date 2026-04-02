@@ -12,6 +12,9 @@ enum class OnboardingProvider(val label: String, val apiKeyEnv: String) {
     OPENROUTER("OpenRouter", "OPENROUTER_API_KEY")
 }
 
+/** Auth method within the API key step (OpenAI only offers OAuth). */
+enum class ApiKeyAuthMethod { OAUTH, MANUAL }
+
 /** Persisted step outcomes — loaded from store, used to derive current step. */
 data class StepOutcomes(
     val accessibility: StepOutcome = StepOutcome.Pending,
@@ -41,6 +44,12 @@ sealed interface ApiKeyStepState : OnboardingStepState {
     data class Invalid(val key: String, val message: String) : ApiKeyStepState
     data class TransientError(val key: String, val message: String) : ApiKeyStepState
     data class Valid(val key: String) : ApiKeyStepState
+
+    // OAuth states
+    data object OAuthReady : ApiKeyStepState
+    data object OAuthInProgress : ApiKeyStepState
+    data class OAuthSuccess(val email: String) : ApiKeyStepState
+    data class OAuthError(val message: String) : ApiKeyStepState
 }
 
 sealed interface DemoStepState : OnboardingStepState {
@@ -59,4 +68,5 @@ sealed interface OnboardingEffect {
     data object OpenBatteryOptimization : OnboardingEffect
     data object OpenBatteryOptimizationList : OnboardingEffect
     data object BringMainActivityToFront : OnboardingEffect
+    data class LaunchOAuth(val url: String) : OnboardingEffect
 }

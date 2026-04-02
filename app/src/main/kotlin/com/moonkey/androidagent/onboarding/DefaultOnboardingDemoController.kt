@@ -81,7 +81,7 @@ class DefaultOnboardingDemoController(
                     ),
                     perceptionConfig = PerceptionConfig.AccessibilityOnly,
                     platformMode = PlatformMode.ACCESSIBILITY,
-                    mainModel = AppSettingsStore.DEFAULT_MODEL
+                    mainModel = settingsState.selectedModel
                 )
 
                 val apiKeys = settingsState.buildApiKeys()

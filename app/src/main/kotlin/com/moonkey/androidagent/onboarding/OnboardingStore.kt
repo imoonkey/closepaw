@@ -27,6 +27,7 @@ class OnboardingStore(private val context: Context) {
         private const val KEY_STEP_API_KEY = "step_api_key"
         private const val KEY_STEP_DEMO = "step_demo"
         private const val KEY_API_KEY_DRAFT = "onboarding_api_key_draft"
+        private const val KEY_AUTH_METHOD = "auth_method"
 
         private const val CURRENT_SCHEMA_VERSION = 1
     }
@@ -95,6 +96,14 @@ class OnboardingStore(private val context: Context) {
         }
         prefs().edit().putString(key, outcome.toStorageValue()).apply()
     }
+
+    // ── Auth method ──
+
+    fun saveAuthMethod(method: String) {
+        prefs().edit().putString(KEY_AUTH_METHOD, method).apply()
+    }
+
+    fun loadAuthMethod(): String? = prefs().getString(KEY_AUTH_METHOD, null)
 
     // ── Encrypted API key draft ──
     // Draft is only stored in encrypted prefs. If encryption is unavailable,

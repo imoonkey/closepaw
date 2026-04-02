@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var viewModel: ChatViewModel
     private var showSettings by mutableStateOf(false)
     private lateinit var onboardingStore: OnboardingStore
+    private lateinit var oauthCredentialStore: com.moonkey.androidagent.auth.OAuthCredentialStore
     private var onboardingViewModel: OnboardingViewModel? = null
     private var onboardingRequired by mutableStateOf(false)
 
@@ -115,6 +116,7 @@ class MainActivity : ComponentActivity() {
 
         // Onboarding: migrate + check completion
         onboardingStore = OnboardingStore(applicationContext)
+        oauthCredentialStore = com.moonkey.androidagent.auth.OAuthCredentialStore(applicationContext)
         onboardingStore.migrateIfNeeded {
             hasLegacyUsageEvidence()
         }
@@ -131,6 +133,7 @@ class MainActivity : ComponentActivity() {
                 settingsState = settingsState,
                 modelCatalog = modelCatalog,
                 permissionMonitor = PermissionStateMonitor(applicationContext),
+                oauthCredentialStore = oauthCredentialStore,
                 scope = lifecycleScope
             )
             // Wire demo controller
@@ -161,12 +164,16 @@ class MainActivity : ComponentActivity() {
                         stepState = vm.stepState,
                         outcomes = vm.outcomes,
                         selectedProvider = vm.selectedProvider,
+                        authMethod = vm.authMethod,
                         effects = vm.effects,
                         onBack = { vm.goBack() },
                         onContinue = { vm.continueForward() },
                         onOpenSettings = { vm.openSystemSettings() },
                         onSkipStep = { vm.skipStep() },
                         onProviderSelected = { vm.selectProvider(it) },
+                        onAuthMethodSelected = { vm.selectAuthMethod(it) },
+                        onStartOAuth = { vm.startOAuth() },
+                        onCancelOAuth = { vm.cancelOAuth() },
                         onApiKeyChanged = { vm.onApiKeyChanged(it) },
                         onValidateApiKey = { vm.validateApiKey() },
                         onRetryValidation = { vm.retryValidation() },
@@ -432,6 +439,7 @@ class MainActivity : ComponentActivity() {
             launchPolicy: SessionLaunchPolicy,
             autoReload: Boolean = false
     ): AgentSession? {
+        refreshOAuthTokenIfNeeded()
         val apiKeys = settingsState.buildApiKeys()
         val visualizer = service.getActionVisualizer()
         val touchGate = service.getOverlayTouchGate()
@@ -622,6 +630,27 @@ class MainActivity : ComponentActivity() {
         return false
     }
 
+    // ── OAuth token refresh ──
+
+    private suspend fun refreshOAuthTokenIfNeeded() {
+        val creds = oauthCredentialStore.load() ?: return
+        if (!oauthCredentialStore.isExpiringSoon()) return
+
+        Log.d(TAG, "OAuth token expiring soon, refreshing...")
+        val result = com.moonkey.androidagent.auth.OAuthTokenExchange.refresh(creds.refreshToken)
+        when (result) {
+            is com.moonkey.androidagent.auth.OAuthTokenExchange.Result.Success -> {
+                oauthCredentialStore.save(result.tokens)
+                settingsState.updateApiKey(result.tokens.accessToken)
+                Log.d(TAG, "OAuth token refreshed successfully")
+            }
+            is com.moonkey.androidagent.auth.OAuthTokenExchange.Result.Error -> {
+                Log.w(TAG, "OAuth token refresh failed: ${result.message}")
+                // Proceed with current token — may fail at API call
+            }
+        }
+    }
+
     // ── Onboarding helpers ──
 
     private fun handleOnboardingEffect(effect: OnboardingEffect) {
@@ -658,6 +687,16 @@ class MainActivity : ComponentActivity() {
                     flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                 }
                 startActivity(intent)
+            }
+            is OnboardingEffect.LaunchOAuth -> {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(effect.url))
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to launch OAuth browser", e)
+                    Toast.makeText(this, "Unable to open browser for sign-in", Toast.LENGTH_SHORT).show()
+                    onboardingViewModel?.cancelOAuth()
+                }
             }
         }
     }

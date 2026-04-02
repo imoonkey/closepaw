@@ -7,6 +7,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.moonkey.androidagent.app.AppSettingsState
 import com.moonkey.androidagent.app.AppSettingsStore
+import com.moonkey.androidagent.auth.OAuthCallbackServer
+import com.moonkey.androidagent.auth.OAuthCodexValidator
+import com.moonkey.androidagent.auth.OAuthCredentialStore
+import com.moonkey.androidagent.auth.OAuthTokenExchange
+import com.moonkey.androidagent.auth.PkceChallenge
+import com.moonkey.androidagent.auth.buildAuthorizeUrl
+import com.moonkey.androidagent.auth.generateOAuthState
+import com.moonkey.androidagent.auth.generatePkce
 import com.moonkey.androidagent.llm.LLMProvider
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.ModelEntry
@@ -28,6 +36,7 @@ class OnboardingViewModel(
     private val settingsState: AppSettingsState,
     private val modelCatalog: ModelCatalog,
     private val permissionMonitor: PermissionStateMonitor,
+    private val oauthCredentialStore: OAuthCredentialStore,
     private val scope: CoroutineScope
 ) {
     companion object {
@@ -60,16 +69,140 @@ class OnboardingViewModel(
     var selectedProvider by mutableStateOf(OnboardingProvider.OPENAI)
         private set
 
+    var authMethod by mutableStateOf(ApiKeyAuthMethod.OAUTH)
+        private set
+
     val providerLabel: String get() = selectedProvider.label
+
+    // ── OAuth state (in-memory, not persisted) ──
+
+    private var pendingPkce: PkceChallenge? = null
+    private var pendingOAuthState: String? = null
+    private var callbackServer: OAuthCallbackServer? = null
+    private var oauthJob: kotlinx.coroutines.Job? = null
 
     fun selectProvider(provider: OnboardingProvider) {
         if (currentStep != WizardStep.ApiKey) return
         if (provider == selectedProvider) return
         selectedProvider = provider
-        // Reset key field when switching providers
-        val existingKey = getExistingApiKeyForProvider(provider)
-        stepState = if (existingKey?.isNotBlank() == true) ApiKeyStepState.Editing(existingKey)
-            else ApiKeyStepState.Empty
+        if (provider == OnboardingProvider.OPENAI) {
+            authMethod = ApiKeyAuthMethod.OAUTH
+            stepState = ApiKeyStepState.OAuthReady
+        } else {
+            authMethod = ApiKeyAuthMethod.MANUAL
+            val existingKey = getExistingApiKeyForProvider(provider)
+            stepState = if (existingKey?.isNotBlank() == true) ApiKeyStepState.Editing(existingKey)
+                else ApiKeyStepState.Empty
+        }
+    }
+
+    fun selectAuthMethod(method: ApiKeyAuthMethod) {
+        if (currentStep != WizardStep.ApiKey) return
+        authMethod = method
+        if (method == ApiKeyAuthMethod.MANUAL) {
+            val existingKey = getExistingApiKeyForProvider(selectedProvider)
+            stepState = if (existingKey?.isNotBlank() == true) ApiKeyStepState.Editing(existingKey)
+                else ApiKeyStepState.Empty
+        } else {
+            stepState = ApiKeyStepState.OAuthReady
+        }
+    }
+
+    /** Launch OAuth flow: start local server, open browser, wait for callback, exchange token. */
+    fun startOAuth() {
+        if (stepState is ApiKeyStepState.OAuthInProgress) return
+        val pkce = generatePkce()
+        val state = generateOAuthState()
+        pendingPkce = pkce
+        pendingOAuthState = state
+
+        oauthJob = scope.launch {
+            // 1. Start localhost callback server on IO thread
+            val server = OAuthCallbackServer(state)
+            callbackServer = server
+            val started = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                server.start()
+            }
+            if (!started) {
+                stepState = ApiKeyStepState.OAuthError("Could not start local server. Is port 1455 in use?")
+                clearOAuthPending()
+                return@launch
+            }
+
+            // 2. Open browser
+            val url = buildAuthorizeUrl(pkce.challenge, state)
+            stepState = ApiKeyStepState.OAuthInProgress
+            _effects.trySend(OnboardingEffect.LaunchOAuth(url))
+
+            // 3. Wait for callback (blocks on IO)
+            val callbackResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                server.waitForCallback()
+            }
+            server.stop()
+            callbackServer = null
+
+            // 4. Process result
+            when (callbackResult) {
+                is OAuthCallbackServer.CallbackResult.Success -> {
+                    val verifier = pendingPkce?.verifier
+                    if (verifier == null) {
+                        stepState = ApiKeyStepState.OAuthError("Internal error. Please try again.")
+                        clearOAuthPending()
+                        return@launch
+                    }
+                    // 5. Exchange code for tokens
+                    val result = OAuthTokenExchange.exchange(callbackResult.code, verifier)
+                    clearOAuthPending()
+                    when (result) {
+                        is OAuthTokenExchange.Result.Success -> {
+                            val tokens = result.tokens
+                            // Validate token against ChatGPT Codex backend
+                            Log.d(TAG, "Validating OAuth token against Codex backend...")
+                            val validation = OAuthCodexValidator.validate(tokens.accessToken)
+                            if (validation is OAuthCodexValidator.Result.Invalid) {
+                                Log.w(TAG, "Codex validation failed: ${validation.message}")
+                                stepState = ApiKeyStepState.OAuthError(validation.message)
+                                return@launch
+                            }
+                            Log.d(TAG, "Codex validation passed!")
+                            oauthCredentialStore.save(tokens)
+                            settingsState.updateApiKey(tokens.accessToken)
+                            val entry = findModelForProvider(OnboardingProvider.OPENAI)
+                            if (entry != null) settingsState.updateModel(entry.name)
+                            store.saveAuthMethod("oauth")
+                            store.clearApiKeyDraft()
+                            store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done)
+                            outcomes = outcomes.copy(apiKey = StepOutcome.Done)
+                            stepState = ApiKeyStepState.OAuthSuccess(tokens.email ?: "")
+                            Log.d(TAG, "OAuth success, email=${tokens.email}")
+                            delay(AUTO_ADVANCE_DELAY_MS)
+                            advanceToNextStep()
+                        }
+                        is OAuthTokenExchange.Result.Error -> {
+                            stepState = ApiKeyStepState.OAuthError(result.message)
+                        }
+                    }
+                }
+                is OAuthCallbackServer.CallbackResult.Error -> {
+                    clearOAuthPending()
+                    stepState = ApiKeyStepState.OAuthError(callbackResult.message)
+                }
+            }
+        }
+    }
+
+    fun cancelOAuth() {
+        oauthJob?.cancel()
+        oauthJob = null
+        callbackServer?.stop()
+        callbackServer = null
+        clearOAuthPending()
+        stepState = ApiKeyStepState.OAuthReady
+    }
+
+    private fun clearOAuthPending() {
+        pendingPkce = null
+        pendingOAuthState = null
     }
 
     // ── Initialization ──
@@ -256,6 +389,21 @@ class OnboardingViewModel(
                 checkCurrentPermission(isReturnFromSettings = isResume, autoAdvance = autoAdvance)
             }
             WizardStep.ApiKey -> {
+                // If already completed, show success state (e.g. back navigation)
+                if (outcomes.apiKey == StepOutcome.Done) {
+                    val savedMethod = store.loadAuthMethod()
+                    if (savedMethod == "oauth") {
+                        authMethod = ApiKeyAuthMethod.OAUTH
+                        selectedProvider = OnboardingProvider.OPENAI
+                        val email = oauthCredentialStore.load()?.email ?: ""
+                        stepState = ApiKeyStepState.OAuthSuccess(email)
+                    } else {
+                        authMethod = ApiKeyAuthMethod.MANUAL
+                        stepState = ApiKeyStepState.Valid("")
+                    }
+                    return
+                }
+
                 // Auto-select provider if user already has a key for one
                 val openaiKey = getExistingApiKeyForProvider(OnboardingProvider.OPENAI)
                 val openrouterKey = getExistingApiKeyForProvider(OnboardingProvider.OPENROUTER)
@@ -264,11 +412,19 @@ class OnboardingViewModel(
                 } else if (openrouterKey?.isNotBlank() == true) {
                     selectedProvider = OnboardingProvider.OPENROUTER
                 }
-                // Pre-populate from draft or existing key for selected provider
-                val draft = store.loadApiKeyDraft()
-                val existingKey = getExistingApiKeyForProvider(selectedProvider)
-                val key = draft ?: existingKey
-                stepState = if (key?.isNotBlank() == true) ApiKeyStepState.Editing(key) else ApiKeyStepState.Empty
+
+                if (selectedProvider == OnboardingProvider.OPENAI) {
+                    // Default to OAuth for OpenAI
+                    authMethod = ApiKeyAuthMethod.OAUTH
+                    stepState = ApiKeyStepState.OAuthReady
+                } else {
+                    // OpenRouter: manual only
+                    authMethod = ApiKeyAuthMethod.MANUAL
+                    val draft = store.loadApiKeyDraft()
+                    val existingKey = getExistingApiKeyForProvider(selectedProvider)
+                    val key = draft ?: existingKey
+                    stepState = if (key?.isNotBlank() == true) ApiKeyStepState.Editing(key) else ApiKeyStepState.Empty
+                }
             }
             WizardStep.Demo -> {
                 stepState = DemoStepState.Ready
@@ -374,13 +530,13 @@ class OnboardingViewModel(
         return keys[provider.apiKeyEnv]?.takeIf { it.isNotBlank() }
     }
 
-    /** Find a model entry for the given provider to use for validation. */
+    /** Find a model entry for the given provider. Prefers the latest model. */
     private fun findModelForProvider(provider: OnboardingProvider): ModelEntry? {
         val llmProvider = when (provider) {
             OnboardingProvider.OPENAI -> LLMProvider.OPENAI
             OnboardingProvider.OPENROUTER -> LLMProvider.OPENROUTER
         }
-        return modelCatalog.all().firstOrNull { it.provider == llmProvider }
+        return modelCatalog.all().filter { it.provider == llmProvider }.lastOrNull()
     }
 
     private fun createValidatorForProvider(provider: OnboardingProvider): LlmCredentialValidator? {
