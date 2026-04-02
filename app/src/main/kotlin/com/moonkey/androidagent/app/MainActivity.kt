@@ -1,7 +1,9 @@
 package com.moonkey.androidagent.app
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
@@ -21,6 +23,9 @@ import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
+import com.moonkey.androidagent.onboarding.OnboardingEffect
+import com.moonkey.androidagent.onboarding.OnboardingStore
+import com.moonkey.androidagent.onboarding.OnboardingViewModel
 import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
@@ -30,8 +35,10 @@ import com.moonkey.androidagent.session.AgentSession
 import com.moonkey.androidagent.session.SessionCoordinator
 import com.moonkey.androidagent.session.SubmitResult
 import com.moonkey.androidagent.ui.chat.ChatViewModel
+import com.moonkey.androidagent.ui.onboarding.OnboardingScreen
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import com.moonkey.androidagent.ui.settings.ModelLoadingStatus
+import com.moonkey.androidagent.ui.theme.ChatTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -76,6 +83,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var sessionHistoryManager: SessionHistoryManager
     private lateinit var viewModel: ChatViewModel
     private var showSettings by mutableStateOf(false)
+    private lateinit var onboardingStore: OnboardingStore
+    private var onboardingViewModel: OnboardingViewModel? = null
+    private var onboardingRequired by mutableStateOf(false)
 
     private enum class SessionLaunchPolicy {
         AUTO,
@@ -100,6 +110,28 @@ class MainActivity : ComponentActivity() {
         intentPayloadConsumed = savedInstanceState?.getBoolean(KEY_INTENT_PAYLOAD_CONSUMED, false) ?: false
         settingsState = AppSettingsState(AppSettingsStore(applicationContext))
         settingsState.load()
+
+        // Onboarding: migrate + check completion
+        onboardingStore = OnboardingStore(applicationContext)
+        onboardingStore.migrateIfNeeded {
+            hasLegacyUsageEvidence()
+        }
+
+        // Eval/debug bypass: EXTRA_FRESH_SESSION + EXTRA_GOAL → skip onboarding
+        val isEvalMode = intent.getBooleanExtra(EXTRA_FRESH_SESSION, false) &&
+            intent.hasExtra(EXTRA_GOAL)
+        onboardingRequired = !onboardingStore.isCompleted && !isEvalMode
+
+        if (onboardingRequired) {
+            onboardingViewModel = OnboardingViewModel(
+                context = applicationContext,
+                store = onboardingStore,
+                settingsState = settingsState,
+                modelCatalog = modelCatalog,
+                scope = lifecycleScope
+            )
+        }
+
         handleIntent(intent)
         val sessionStorage = SessionStorage(applicationContext)
         sessionHistoryManager = SessionHistoryManager.create(sessionStorage, sessionScope)
@@ -111,7 +143,30 @@ class MainActivity : ComponentActivity() {
                 )
 
         setContent {
-            MainActivityContent(
+            if (onboardingRequired) {
+                val vm = onboardingViewModel!!
+                ChatTheme {
+                    OnboardingScreen(
+                        currentStep = vm.currentStep,
+                        stepState = vm.stepState,
+                        outcomes = vm.outcomes,
+                        providerLabel = vm.providerLabel,
+                        effects = vm.effects,
+                        onOpenSettings = { vm.openSystemSettings() },
+                        onSkipStep = { vm.skipStep() },
+                        onApiKeyChanged = { vm.onApiKeyChanged(it) },
+                        onValidateApiKey = { vm.validateApiKey() },
+                        onRetryValidation = { vm.retryValidation() },
+                        onStartDemo = { vm.startDemo() },
+                        onFinish = {
+                            vm.finish()
+                            onboardingRequired = false
+                        },
+                        onEffect = { effect -> handleOnboardingEffect(effect) }
+                    )
+                }
+            } else {
+                MainActivityContent(
                     viewModel = viewModel,
                     settingsState = settingsState,
                     modelCatalog = modelCatalog,
@@ -139,7 +194,8 @@ class MainActivity : ComponentActivity() {
                     isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
                     onAccessibilityClick = { openAccessibilitySettings(this@MainActivity) },
                     onOverlayClick = { openOverlaySettings(this@MainActivity) }
-            )
+                )
+            }
         }
     }
 
@@ -162,6 +218,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         AgentService.instance?.onMainAppVisible()
+        onboardingViewModel?.onHostResumed()
         retryPendingAutoStartGoalIfReady()
     }
 
@@ -545,6 +602,64 @@ class MainActivity : ComponentActivity() {
         Toast.makeText(this, "Missing API key(s): ${missing.joinToString("; ")}", Toast.LENGTH_LONG)
                 .show()
         showSettings = true
+        return false
+    }
+
+    // ── Onboarding helpers ──
+
+    private fun handleOnboardingEffect(effect: OnboardingEffect) {
+        when (effect) {
+            OnboardingEffect.OpenAccessibilitySettings ->
+                openAccessibilitySettings(this)
+            OnboardingEffect.OpenOverlaySettings ->
+                openOverlaySettings(this)
+            OnboardingEffect.OpenBatteryOptimization -> {
+                try {
+                    startActivity(
+                        Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.parse("package:$packageName")
+                        )
+                    )
+                } catch (_: Exception) {
+                    try {
+                        startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    } catch (_: Exception) {
+                        Toast.makeText(this, "Unable to open battery settings", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            OnboardingEffect.OpenBatteryOptimizationList -> {
+                try {
+                    startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                } catch (_: Exception) {
+                    Toast.makeText(this, "Unable to open battery settings", Toast.LENGTH_SHORT).show()
+                }
+            }
+            OnboardingEffect.BringMainActivityToFront -> {
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                }
+                startActivity(intent)
+            }
+        }
+    }
+
+    /** Check for evidence this is an existing user (for onboarding migration). */
+    private fun hasLegacyUsageEvidence(): Boolean {
+        val settings = settingsState
+        // Existing API key or non-default model/backend → existing user
+        if (settings.apiKey.isNotBlank()) return true
+        if (settings.openRouterApiKey.isNotBlank()) return true
+        if (settings.novitaApiKey.isNotBlank()) return true
+        if (settings.selectedModel != AppSettingsStore.DEFAULT_MODEL) return true
+        if (settings.llmBackend != AppSettingsStore.DEFAULT_LLM_BACKEND) return true
+        // Allow-list entries
+        val allowList = AppSettingsStore(applicationContext).loadPersistentAllowList()
+        if (allowList.isNotEmpty()) return true
+        // Session directory has files
+        val sessionsDir = java.io.File(applicationContext.filesDir, "sessions")
+        if (sessionsDir.exists() && (sessionsDir.listFiles()?.isNotEmpty() == true)) return true
         return false
     }
 }
