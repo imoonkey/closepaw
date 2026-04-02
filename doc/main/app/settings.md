@@ -150,9 +150,23 @@ Key preference keys:
 
 ### Security
 
-- API keys are persisted in app `SharedPreferences` (not encrypted by `AppSettingsStore`)
+- API keys are persisted in `EncryptedSharedPreferences` (AES256-GCM), with fallback to plain SharedPreferences if KeyStore is unavailable
 - Keys are masked in UI input fields and not emitted in normal debug logs
 - Optional legacy bootstrap: if `api_key` is empty, app can import `/sdcard/api_key.txt` once
+- Onboarding API key draft stored in separate encrypted prefs; skipped entirely if encryption unavailable
+
+---
+
+## Onboarding
+
+> See: `onboarding/` package, `ui/onboarding/` package
+
+First-launch onboarding wizard gates chat behind required permissions and a validated API key. Steps: Accessibility (hard) → Overlay (hard) → Battery (soft/skippable) → API Key (validated) → Demo → Complete.
+
+- `OnboardingStore` manages its own prefs file (`onboarding_prefs`), separate from settings
+- Legacy users detected via API key presence, session history, or non-default settings → auto-skip onboarding
+- Eval/debug bypass: `EXTRA_FRESH_SESSION + EXTRA_GOAL` intent skips onboarding
+- Post-onboarding: `PermissionRepairCard` shows targeted repair if a permission is later revoked
 
 ---
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-04-02: Onboarding wizard implementation
+
+**What changed:**
+- Full first-launch onboarding wizard: Accessibility → Overlay → Battery → API Key → Demo → Complete
+- `OnboardingStore`: own prefs file, encrypted draft key, legacy user migration
+- `OnboardingViewModel`: state machine with auto-advance, A11y polling, step persistence
+- `PermissionStateMonitor`: reusable A11y/Overlay/Battery live checks
+- `HttpLlmCredentialValidator`: direct HTTP validation with auth vs network error mapping
+- `DefaultOnboardingDemoController`: throwaway AgentSession, "Open Settings" goal, 60s timeout
+- `OnboardingScreen` + `OnboardingShell` + `OnboardingSteps`: full-screen step UI with progress bar
+- `PermissionRepairCard`: post-onboarding in-chat repair for revoked permissions
+- `MainActivity`: root routing (onboarding vs chat), eval bypass, onResume integration
+- Code review fixes: JSON injection (JSONObject), encrypted draft safety, Dispatchers.Main callbacks, Mutex for demo session
+
+**Why:**
+- First-run experience was confusing — users hit permission failures with no guidance
+- Wizard ensures all required setup (A11y, Overlay, API key) is complete before chat
+
+**Key files:** `onboarding/` package (8 files), `ui/onboarding/` package (4 files), `MainActivity.kt`, `MainActivityContent.kt`
+**Design docs:** `doc/todo/onboarding_wizard/ux_design.md`, `doc/todo/onboarding_wizard/eng_design.md`
+**Verification:** `./gradlew assembleDebug` + `./gradlew test` pass; code review completed
+**Commit range:** `080385b..6a869cb`
+**Next:** On-device QA, unit tests for ViewModel state machine
+**Blockers:** None
+
 ## 2026-04-01: Security hardening QA + network security config
 
 **What changed:**
