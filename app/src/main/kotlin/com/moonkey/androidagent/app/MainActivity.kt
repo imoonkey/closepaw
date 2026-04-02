@@ -210,7 +210,11 @@ class MainActivity : ComponentActivity() {
                     isAccessibilityEnabled = AgentService.instance != null,
                     isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
                     onAccessibilityClick = { openAccessibilitySettings(this@MainActivity) },
-                    onOverlayClick = { openOverlaySettings(this@MainActivity) }
+                    onOverlayClick = { openOverlaySettings(this@MainActivity) },
+                    repairModel = deriveRepairModel(),
+                    onFixBattery = {
+                        handleOnboardingEffect(OnboardingEffect.OpenBatteryOptimization)
+                    }
                 )
             }
         }
@@ -660,6 +664,14 @@ class MainActivity : ComponentActivity() {
                 startActivity(intent)
             }
         }
+    }
+
+    /** Derive permission repair model for post-onboarding state. */
+    private fun deriveRepairModel(): PermissionStateMonitor.PermissionRepairModel? {
+        if (!onboardingStore.isCompleted) return null
+        val outcomes = onboardingStore.loadOutcomes()
+        val batteryWasDone = outcomes.battery == com.moonkey.androidagent.onboarding.StepOutcome.Done
+        return PermissionStateMonitor(applicationContext).deriveRepairModel(batteryWasDone)
     }
 
     /** Check for evidence this is an existing user (for onboarding migration). */
