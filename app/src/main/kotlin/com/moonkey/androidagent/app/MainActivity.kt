@@ -24,7 +24,6 @@ import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.onboarding.DefaultOnboardingDemoController
-import com.moonkey.androidagent.onboarding.HttpLlmCredentialValidator
 import com.moonkey.androidagent.onboarding.OnboardingEffect
 import com.moonkey.androidagent.onboarding.OnboardingStore
 import com.moonkey.androidagent.onboarding.OnboardingViewModel
@@ -134,12 +133,6 @@ class MainActivity : ComponentActivity() {
                 permissionMonitor = PermissionStateMonitor(applicationContext),
                 scope = lifecycleScope
             )
-            // Wire credential validator from default model's provider endpoint
-            val defaultEntry = modelCatalog.resolveOrNull(AppSettingsStore.DEFAULT_MODEL)
-            if (defaultEntry != null) {
-                val baseUrl = defaultEntry.effectiveBaseUrl ?: "https://api.openai.com/v1"
-                vm.validator = HttpLlmCredentialValidator(baseUrl, defaultEntry.modelId)
-            }
             // Wire demo controller
             vm.demoController = DefaultOnboardingDemoController(
                 settingsState = settingsState,
@@ -167,10 +160,11 @@ class MainActivity : ComponentActivity() {
                         currentStep = vm.currentStep,
                         stepState = vm.stepState,
                         outcomes = vm.outcomes,
-                        providerLabel = vm.providerLabel,
+                        selectedProvider = vm.selectedProvider,
                         effects = vm.effects,
                         onOpenSettings = { vm.openSystemSettings() },
                         onSkipStep = { vm.skipStep() },
+                        onProviderSelected = { vm.selectProvider(it) },
                         onApiKeyChanged = { vm.onApiKeyChanged(it) },
                         onValidateApiKey = { vm.validateApiKey() },
                         onRetryValidation = { vm.retryValidation() },

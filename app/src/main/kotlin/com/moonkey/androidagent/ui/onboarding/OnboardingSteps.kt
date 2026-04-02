@@ -1,5 +1,6 @@
 package com.moonkey.androidagent.ui.onboarding
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +49,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.moonkey.androidagent.onboarding.ApiKeyStepState
 import com.moonkey.androidagent.onboarding.DemoStepState
+import com.moonkey.androidagent.onboarding.OnboardingProvider
 import com.moonkey.androidagent.onboarding.PermissionStepState
 import com.moonkey.androidagent.onboarding.StepOutcome
 import com.moonkey.androidagent.onboarding.StepOutcomes
@@ -127,7 +131,8 @@ fun PermissionStepContent(
 @Composable
 fun ApiKeyStepContent(
     state: ApiKeyStepState,
-    providerLabel: String,
+    selectedProvider: OnboardingProvider,
+    onProviderSelected: (OnboardingProvider) -> Unit,
     onKeyChanged: (String) -> Unit,
     onValidate: () -> Unit,
     onRetry: () -> Unit
@@ -153,12 +158,29 @@ fun ApiKeyStepContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Enter your $providerLabel API key to connect the agent to a language model.",
+            text = "Choose your provider and enter the API key.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Provider picker
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OnboardingProvider.entries.forEach { provider ->
+                FilterChip(
+                    selected = selectedProvider == provider,
+                    onClick = { onProviderSelected(provider) },
+                    label = { Text(provider.label) },
+                    enabled = state !is ApiKeyStepState.Validating && state !is ApiKeyStepState.Valid
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // API key field
         OutlinedTextField(

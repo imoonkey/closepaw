@@ -6,6 +6,12 @@ enum class WizardStep { Accessibility, Overlay, Battery, ApiKey, Demo, Complete 
 /** Durable outcome persisted for each step. */
 enum class StepOutcome { Pending, Done, Skipped }
 
+/** Provider choices available during onboarding API key step. */
+enum class OnboardingProvider(val label: String, val apiKeyEnv: String) {
+    OPENAI("OpenAI", "OPENAI_API_KEY"),
+    OPENROUTER("OpenRouter", "OPENROUTER_API_KEY")
+}
+
 /** Persisted step outcomes — loaded from store, used to derive current step. */
 data class StepOutcomes(
     val accessibility: StepOutcome = StepOutcome.Pending,

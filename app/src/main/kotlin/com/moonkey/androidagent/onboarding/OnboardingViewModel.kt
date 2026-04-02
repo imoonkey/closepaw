@@ -7,7 +7,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.moonkey.androidagent.app.AppSettingsState
 import com.moonkey.androidagent.app.AppSettingsStore
+import com.moonkey.androidagent.llm.LLMProvider
 import com.moonkey.androidagent.llm.ModelCatalog
+import com.moonkey.androidagent.llm.ModelEntry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -51,16 +53,24 @@ class OnboardingViewModel(
 
     // ── Validator and demo controller (injected after construction) ──
 
-    var validator: LlmCredentialValidator? = null
     var demoController: OnboardingDemoController? = null
 
-    // ── Provider label for API key step ──
+    // ── Provider selection for API key step ──
 
-    val providerLabel: String
-        get() {
-            val entry = modelCatalog.resolveOrNull(AppSettingsStore.DEFAULT_MODEL) ?: return "API"
-            return entry.provider.name.lowercase().replaceFirstChar { it.uppercase() }
-        }
+    var selectedProvider by mutableStateOf(OnboardingProvider.OPENAI)
+        private set
+
+    val providerLabel: String get() = selectedProvider.label
+
+    fun selectProvider(provider: OnboardingProvider) {
+        if (currentStep != WizardStep.ApiKey) return
+        if (provider == selectedProvider) return
+        selectedProvider = provider
+        // Reset key field when switching providers
+        val existingKey = getExistingApiKeyForProvider(provider)
+        stepState = if (existingKey?.isNotBlank() == true) ApiKeyStepState.Editing(existingKey)
+            else ApiKeyStepState.Empty
+    }
 
     // ── Initialization ──
 
@@ -117,15 +127,16 @@ class OnboardingViewModel(
 
         stepState = ApiKeyStepState.Validating(key)
         scope.launch {
-            val result = validator?.validate(key)
-            if (result == null) {
-                stepState = ApiKeyStepState.TransientError(key, "Validator not available")
+            val validator = createValidatorForProvider(selectedProvider)
+            if (validator == null) {
+                stepState = ApiKeyStepState.TransientError(key, "No model found for ${selectedProvider.label}")
                 return@launch
             }
+            val result = validator.validate(key)
             when (result) {
                 is LlmCredentialValidator.Result.Valid -> {
                     stepState = ApiKeyStepState.Valid(key)
-                    saveApiKeyToSettings(key)
+                    saveApiKeyForProvider(selectedProvider, key)
                     store.clearApiKeyDraft()
                     store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done)
                     outcomes = outcomes.copy(apiKey = StepOutcome.Done)
@@ -235,9 +246,17 @@ class OnboardingViewModel(
                 checkCurrentPermission(isReturnFromSettings = isResume)
             }
             WizardStep.ApiKey -> {
-                // Pre-populate from draft or existing key
+                // Auto-select provider if user already has a key for one
+                val openaiKey = getExistingApiKeyForProvider(OnboardingProvider.OPENAI)
+                val openrouterKey = getExistingApiKeyForProvider(OnboardingProvider.OPENROUTER)
+                if (openaiKey?.isNotBlank() == true) {
+                    selectedProvider = OnboardingProvider.OPENAI
+                } else if (openrouterKey?.isNotBlank() == true) {
+                    selectedProvider = OnboardingProvider.OPENROUTER
+                }
+                // Pre-populate from draft or existing key for selected provider
                 val draft = store.loadApiKeyDraft()
-                val existingKey = getExistingApiKey()
+                val existingKey = getExistingApiKeyForProvider(selectedProvider)
                 val key = draft ?: existingKey
                 stepState = if (key?.isNotBlank() == true) ApiKeyStepState.Editing(key) else ApiKeyStepState.Empty
             }
@@ -325,20 +344,37 @@ class OnboardingViewModel(
 
     // ── Settings integration ──
 
-    private fun getExistingApiKey(): String? {
-        val entry = modelCatalog.resolveOrNull(AppSettingsStore.DEFAULT_MODEL) ?: return null
-        val envVar = entry.effectiveApiKeyEnv
+    private fun getExistingApiKeyForProvider(provider: OnboardingProvider): String? {
         val keys = settingsState.buildApiKeys()
-        return keys[envVar]?.takeIf { it.isNotBlank() }
+        return keys[provider.apiKeyEnv]?.takeIf { it.isNotBlank() }
     }
 
-    private fun saveApiKeyToSettings(key: String) {
-        val entry = modelCatalog.resolveOrNull(AppSettingsStore.DEFAULT_MODEL) ?: return
-        when (entry.effectiveApiKeyEnv) {
-            "OPENAI_API_KEY" -> settingsState.updateApiKey(key)
-            "OPENROUTER_API_KEY" -> settingsState.updateOpenRouterApiKey(key)
-            "NOVITA_API_KEY" -> settingsState.updateNovitaApiKey(key)
+    /** Find a model entry for the given provider to use for validation. */
+    private fun findModelForProvider(provider: OnboardingProvider): ModelEntry? {
+        val llmProvider = when (provider) {
+            OnboardingProvider.OPENAI -> LLMProvider.OPENAI
+            OnboardingProvider.OPENROUTER -> LLMProvider.OPENROUTER
         }
-        Log.d(TAG, "API key saved to settings for provider ${entry.provider}")
+        return modelCatalog.all().firstOrNull { it.provider == llmProvider }
+    }
+
+    private fun createValidatorForProvider(provider: OnboardingProvider): LlmCredentialValidator? {
+        val entry = findModelForProvider(provider) ?: return null
+        val baseUrl = entry.effectiveBaseUrl ?: "https://api.openai.com/v1"
+        return HttpLlmCredentialValidator(baseUrl, entry.modelId)
+    }
+
+    private fun saveApiKeyForProvider(provider: OnboardingProvider, key: String) {
+        when (provider) {
+            OnboardingProvider.OPENAI -> settingsState.updateApiKey(key)
+            OnboardingProvider.OPENROUTER -> settingsState.updateOpenRouterApiKey(key)
+        }
+        // Set default model to one from the chosen provider
+        val entry = findModelForProvider(provider)
+        if (entry != null) {
+            settingsState.updateModel(entry.name)
+            Log.d(TAG, "Default model set to ${entry.name} (${provider.label})")
+        }
+        Log.d(TAG, "API key saved for provider ${provider.label}")
     }
 }

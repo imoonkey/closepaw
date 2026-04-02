@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import com.moonkey.androidagent.onboarding.ApiKeyStepState
 import com.moonkey.androidagent.onboarding.DemoStepState
 import com.moonkey.androidagent.onboarding.OnboardingEffect
+import com.moonkey.androidagent.onboarding.OnboardingProvider
 import com.moonkey.androidagent.onboarding.OnboardingStepState
 import com.moonkey.androidagent.onboarding.PermissionStepState
 import com.moonkey.androidagent.onboarding.StepOutcomes
@@ -22,10 +23,11 @@ fun OnboardingScreen(
     currentStep: WizardStep,
     stepState: OnboardingStepState?,
     outcomes: StepOutcomes,
-    providerLabel: String,
+    selectedProvider: OnboardingProvider,
     effects: Flow<OnboardingEffect>,
     onOpenSettings: () -> Unit,
     onSkipStep: () -> Unit,
+    onProviderSelected: (OnboardingProvider) -> Unit,
     onApiKeyChanged: (String) -> Unit,
     onValidateApiKey: () -> Unit,
     onRetryValidation: () -> Unit,
@@ -94,7 +96,8 @@ fun OnboardingScreen(
             ) {
                 ApiKeyStepContent(
                     state = stepState as? ApiKeyStepState ?: ApiKeyStepState.Empty,
-                    providerLabel = providerLabel,
+                    selectedProvider = selectedProvider,
+                    onProviderSelected = onProviderSelected,
                     onKeyChanged = onApiKeyChanged,
                     onValidate = onValidateApiKey,
                     onRetry = onRetryValidation
