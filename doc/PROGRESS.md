@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-04-02: CodexResponseClient for OAuth users
+
+**What changed:**
+- New `CodexResponseClient`: raw OkHttp + SSE client targeting `chatgpt.com/backend-api/codex/responses` for OAuth users
+- New `CodexRequestBuilder`: serializes ResponseInputItem/FunctionTool to Codex-specific JSON format
+- New `CodexSseParser`: SSE parsing with parallel-safe `ToolCallAccumulator` (map-keyed by output_index), normalizes Codex-specific events (`response.done` → `Completed`)
+- `LLMClientFactory`: OAuth routing via `__AUTH_METHOD_OPENAI` signal in apiKeys map; `isOAuth()` detection for OPENAI provider + RESPONSE API
+- `AppSettingsState`: new `authMethod` property, `buildApiKeys()` includes OAuth signal
+- `MainActivity`: initializes `authMethod` from `OnboardingStore` at startup and after onboarding completion
+- Added direct OkHttp dependency (`com.squareup.okhttp3:okhttp:4.12.0`)
+
+**Why:**
+- OAuth access tokens lack platform API scopes (`api.responses.write`, `model.request`), so they cannot use `api.openai.com`. The Codex endpoint at `chatgpt.com/backend-api` is the only working path for ChatGPT subscription users.
+
+**Key files:** `llm/CodexResponseClient.kt`, `llm/CodexRequestBuilder.kt`, `llm/CodexSseParser.kt`, `llm/LLMClientFactory.kt`, `app/AppSettingsState.kt`, `app/MainActivity.kt`
+**Design doc:** `doc/todo/openai_oauth/path_b_design.md`
+**Verification:** `./gradlew assembleDebug` + `./gradlew test` pass; code review completed
+**Commit:** `9693895`
+**Next:** On-device E2E validation with real OAuth token
+**Blockers:** None
+
 ## 2026-04-02: Onboarding wizard implementation
 
 **What changed:**

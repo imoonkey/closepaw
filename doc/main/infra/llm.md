@@ -1,7 +1,7 @@
 # LLM Integration
 
 > LLM clients, model catalog, streaming, and retry infrastructure.
-> Last updated: 2026-03-06 (uncommitted)
+> Last updated: 2026-04-02
 
 ## Overview
 
@@ -42,6 +42,12 @@ Cloud client using OpenAI Responses API with native function calling. Non-stream
 
 Cloud client using Chat Completions API. Works with any OpenAI-compatible endpoint (OpenRouter, Novita, vLLM). Converts types via `ChatCompletionInterop`. Tool call deltas accumulated incrementally by index.
 
+### CodexResponseClient
+
+> See: `llm/CodexResponseClient.kt`
+
+Cloud client for OAuth users, targeting `chatgpt.com/backend-api/codex/responses`. OAuth access tokens lack platform API scopes, so they cannot use `api.openai.com`. Uses raw OkHttp + manual SSE parsing via `CodexRequestBuilder` (JSON serialization) and `CodexSseParser` (SSE parsing with parallel-safe `ToolCallAccumulator`). Routed via `LLMClientFactory` when `__AUTH_METHOD_OPENAI == "oauth"` is in the apiKeys map.
+
 ### ChatCompletionInterop
 
 > See: `llm/ChatCompletionInterop.kt`
@@ -78,7 +84,7 @@ Catalog-driven model resolution from `assets/llm_models.json`.
 
 > See: `llm/LLMClientFactory.kt`
 
-Creates `LLMClient` instances from model names. Cached by `(provider, baseUrl, api)` tuple — models from the same provider share a connection pool. Thread-safe via `ConcurrentHashMap`.
+Creates `LLMClient` instances from model names. Cached by `(provider, baseUrl, api, oauth)` tuple — models from the same provider share a connection pool. Thread-safe via `ConcurrentHashMap`. OAuth routing: when `__AUTH_METHOD_OPENAI == "oauth"` is in the apiKeys map, creates `CodexResponseClient` instead of `OpenAIResponseClient` for RESPONSE API models.
 
 ## Session Bootstrap
 
@@ -114,6 +120,9 @@ Fallback: if `llm_models.json` missing/malformed, uses built-in catalog (`glm-5`
 llm/
 ├── LLMClient.kt              # Abstract base + stream events + result types
 ├── OpenAIResponseClient.kt   # OpenAI Responses API
+├── CodexResponseClient.kt    # ChatGPT Codex backend (OAuth)
+├── CodexRequestBuilder.kt    # Codex JSON serialization
+├── CodexSseParser.kt         # Codex SSE parsing
 ├── ChatCompletionClient.kt   # Chat Completions API
 ├── ChatCompletionInterop.kt  # Type conversion
 ├── LFMLLMClient.kt           # Local LFM (Leap SDK)
