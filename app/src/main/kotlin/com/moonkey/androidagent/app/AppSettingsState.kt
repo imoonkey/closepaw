@@ -51,6 +51,10 @@ class AppSettingsState(private val store: AppSettingsStore) {
     var openaiBaseUrl by mutableStateOf("")
         private set
 
+    /** Auth method for OpenAI provider ("oauth" or null). Set from OnboardingStore at startup. */
+    var authMethod by mutableStateOf<String?>(null)
+        private set
+
     fun load() {
         val settings = store.load()
         apiKey = settings.apiKey
@@ -117,6 +121,10 @@ class AppSettingsState(private val store: AppSettingsStore) {
         openaiBaseUrl = url
     }
 
+    fun updateAuthMethod(method: String?) {
+        authMethod = method
+    }
+
     /**
      * Build a map of provider env var name → API key for [SessionServices.create].
      *
@@ -128,6 +136,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
         if (openRouterApiKey.isNotBlank()) put("OPENROUTER_API_KEY", openRouterApiKey)
         if (novitaApiKey.isNotBlank()) put("NOVITA_API_KEY", novitaApiKey)
         if (openaiBaseUrl.isNotBlank()) put("__BASE_URL_OPENAI", openaiBaseUrl)
+        if (authMethod == "oauth") put("__AUTH_METHOD_OPENAI", "oauth")
     }
 
     /** Build provider → base URL override map from intent-supplied values. */

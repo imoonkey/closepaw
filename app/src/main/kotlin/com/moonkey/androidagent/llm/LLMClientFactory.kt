@@ -47,13 +47,17 @@ class LLMClientFactory(
         }
 
         val entry = catalog.resolve(modelName)
-        val cacheKey = "${entry.provider}|${entry.effectiveBaseUrl ?: "default"}|${entry.api}"
+        val oauth = isOAuth(entry)
+        val cacheKey = "${entry.provider}|${entry.effectiveBaseUrl ?: "default"}|${entry.api}|$oauth"
 
         return clientCache.computeIfAbsent(cacheKey) {
             val apiKey = resolveApiKey(entry)
             val client =
                     when (entry.api) {
-                        ApiType.RESPONSE -> OpenAIResponseClient(apiKey, entry.effectiveBaseUrl)
+                        ApiType.RESPONSE -> {
+                            if (oauth) CodexResponseClient(apiKey)
+                            else OpenAIResponseClient(apiKey, entry.effectiveBaseUrl)
+                        }
                         ApiType.CHAT -> ChatCompletionClient(apiKey, entry.effectiveBaseUrl)
                     }
             Log.d(
@@ -78,6 +82,12 @@ class LLMClientFactory(
                                 "(model '${entry.name}', provider ${entry.provider}). " +
                                 "Ensure the key is set in environment, intent extras, or settings."
                 )
+    }
+
+    /** Detect OAuth auth method via the __AUTH_METHOD_OPENAI signal key. */
+    private fun isOAuth(entry: ModelEntry): Boolean {
+        if (entry.provider != LLMProvider.OPENAI) return false
+        return apiKeyResolver("__AUTH_METHOD_OPENAI") == "oauth"
     }
 
     /** Cleanup all cached clients. Call from session teardown. */

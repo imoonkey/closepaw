@@ -120,6 +120,7 @@ class MainActivity : ComponentActivity() {
         onboardingStore.migrateIfNeeded {
             hasLegacyUsageEvidence()
         }
+        settingsState.updateAuthMethod(onboardingStore.loadAuthMethod())
 
         // Eval/debug bypass: EXTRA_FRESH_SESSION + EXTRA_GOAL → skip onboarding
         val isEvalMode = intent.getBooleanExtra(EXTRA_FRESH_SESSION, false) &&
@@ -180,6 +181,7 @@ class MainActivity : ComponentActivity() {
                         onStartDemo = { vm.startDemo() },
                         onFinish = {
                             vm.finish()
+                            settingsState.updateAuthMethod(onboardingStore.loadAuthMethod())
                             onboardingRequired = false
                         },
                         onEffect = { effect -> handleOnboardingEffect(effect) }

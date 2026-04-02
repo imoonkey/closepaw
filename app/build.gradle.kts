@@ -94,6 +94,9 @@ dependencies {
     
     // OpenAI SDK
     implementation("com.openai:openai-java:4.14.0")
+
+    // OkHttp — used by CodexResponseClient for raw SSE streaming to chatgpt.com
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     
     // LiquidAI Leap SDK for local LLM inference
     // Version 0.9.2 includes manifest.LeapDownloader with loadModel(modelSlug, quantizationSlug) API
