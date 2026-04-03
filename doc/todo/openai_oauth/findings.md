@@ -1,7 +1,7 @@
 # OpenAI OAuth — Implementation Findings
 
-Date: 2026-04-02
-Status: OAuth login chain validated end-to-end on device
+Date: 2026-04-03
+Status: Full E2E validated — OAuth login → CodexResponseClient → demo task (Open Settings) succeeds
 
 ---
 
@@ -103,9 +103,11 @@ Discovered through trial and error:
 - `ui/onboarding/OnboardingSteps.kt` — OAuth UI (sign-in button, progress, success, error, back navigation)
 - `ui/onboarding/OnboardingScreen.kt` — wired OAuth callbacks
 - `app/MainActivity.kt` — token refresh before session creation, launchMode=singleTask
+- `llm/CodexResponseClient.kt` — raw OkHttp + SSE streaming against `chatgpt.com/backend-api/codex/responses`
+- `llm/CodexRequestBuilder.kt` — ResponseInputItem/FunctionTool → JSON serialization
+- `llm/CodexSseParser.kt` — SSE parsing with ToolCallAccumulator
+- `llm/LLMClientFactory.kt` — OAuth routing via `__AUTH_METHOD_OPENAI` signal
+- `app/AppSettingsState.kt` — `buildApiKeys()` includes auth method signal
 
 ### Not Done
-- **LLM pipeline integration** — No `CodexResponseClient` for `chatgpt.com/backend-api`
-- **Demo step** — Still uses standard pipeline, fails with scope error for OAuth users
-- **Post-onboarding usage** — Token saved but can't make API calls through existing pipeline
 - **Settings sheet** — No "Signed in with OpenAI" display or sign-out option
