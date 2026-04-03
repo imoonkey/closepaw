@@ -15,6 +15,7 @@ import com.moonkey.androidagent.auth.PkceChallenge
 import com.moonkey.androidagent.auth.buildAuthorizeUrl
 import com.moonkey.androidagent.auth.generateOAuthState
 import com.moonkey.androidagent.auth.generatePkce
+import com.moonkey.androidagent.llm.ApiType
 import com.moonkey.androidagent.llm.LLMProvider
 import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.llm.ModelEntry
@@ -530,13 +531,18 @@ class OnboardingViewModel(
         return keys[provider.apiKeyEnv]?.takeIf { it.isNotBlank() }
     }
 
-    /** Find a model entry for the given provider. Prefers the latest model. */
+    /** Find a model entry for the given provider. OAuth users need RESPONSE api type for Codex backend. */
     private fun findModelForProvider(provider: OnboardingProvider): ModelEntry? {
         val llmProvider = when (provider) {
             OnboardingProvider.OPENAI -> LLMProvider.OPENAI
             OnboardingProvider.OPENROUTER -> LLMProvider.OPENROUTER
         }
-        return modelCatalog.all().filter { it.provider == llmProvider }.lastOrNull()
+        val models = modelCatalog.all().filter { it.provider == llmProvider }
+        // OAuth: Codex backend only supports Responses API format
+        if (authMethod == ApiKeyAuthMethod.OAUTH) {
+            return models.lastOrNull { it.api == ApiType.RESPONSE } ?: models.lastOrNull()
+        }
+        return models.lastOrNull()
     }
 
     private fun createValidatorForProvider(provider: OnboardingProvider): LlmCredentialValidator? {

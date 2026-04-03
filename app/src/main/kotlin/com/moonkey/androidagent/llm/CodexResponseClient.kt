@@ -185,10 +185,12 @@ class CodexResponseClient(
 
     // ── Private helpers ──────────────────────────────────────────────────
 
+    /** MediaType without charset — ChatGPT backend rejects `charset=utf-8`. */
     private fun buildRequest(body: String): Request =
         Request.Builder()
             .url(CODEX_URL)
-            .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
+            .post(body.toRequestBody(null)) // no media type on body
+            .header("Content-Type", "application/json") // set header directly
             .header("Authorization", "Bearer $accessToken")
             .header("chatgpt-account-id", accountId)
             .header("originator", "pi")
