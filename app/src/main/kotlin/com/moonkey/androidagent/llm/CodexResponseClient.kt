@@ -37,11 +37,13 @@ class CodexResponseClient(
 
     private val accessToken: String = accessToken
     private val accountId: String = OAuthCodexValidator.extractAccountId(accessToken)
-        ?: throw IllegalStateException("Cannot extract account ID from OAuth token")
+        ?: throw IllegalStateException(
+            "OAuth token does not contain a ChatGPT account ID. Please sign in again."
+        )
     private val httpClient: OkHttpClient = buildHttpClient()
 
     init {
-        Log.i(TAG, "CodexResponseClient created (accountId=$accountId)")
+        Log.d(TAG, "CodexResponseClient created (account=...${accountId.takeLast(4)})")
     }
 
     // ── Non-streaming ────────────────────────────────────────────────────
@@ -65,6 +67,7 @@ class CodexResponseClient(
                 val textContent = StringBuilder()
                 val toolCalls = mutableListOf<LLMToolCall>()
                 var responseId = "unknown"
+                var sawCompletion = false
                 val accumulator = CodexSseParser.ToolCallAccumulator()
 
                 for (event in CodexSseParser.parse(stream)) {
@@ -90,7 +93,25 @@ class CodexResponseClient(
                                 accumulator.onItemDone(outputIndex, item)?.let { toolCalls.add(it) }
                             }
                         }
+                        "response.done", "response.completed", "response.incomplete" -> {
+                            sawCompletion = true
+                        }
+                        "response.failed" -> {
+                            val msg = event.json.optJSONObject("response")
+                                ?.optJSONObject("error")
+                                ?.optString("message", "Unknown error") ?: "Unknown error"
+                            throw RuntimeException("Codex response failed: $msg")
+                        }
+                        "error" -> {
+                            val msg = event.json.optString("message", "")
+                                .ifEmpty { event.json.optString("code", "Unknown error") }
+                            throw RuntimeException("Codex error: $msg")
+                        }
                     }
+                }
+
+                if (!sawCompletion) {
+                    throw TransientException("Stream ended without completion event", null)
                 }
 
                 val result = ResponsesResult(
@@ -210,7 +231,7 @@ class CodexResponseClient(
             }
             .build()
 
-    private fun handleErrorResponse(response: okhttp3.Response) {
+    private fun handleErrorResponse(response: okhttp3.Response): Nothing {
         val body = response.body.string()
         val status = response.code
         val parsed = try { JSONObject(body) } catch (_: Exception) { null }
