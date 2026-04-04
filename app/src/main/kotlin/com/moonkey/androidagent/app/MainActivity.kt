@@ -124,7 +124,13 @@ class MainActivity : ComponentActivity() {
         onboardingStore.migrateIfNeeded {
             hasLegacyUsageEvidence()
         }
+        AppSettingsStore(applicationContext).migrateCredentialSplit(
+            oauthCredentialStore.load()?.accessToken
+        )
         settingsState.updateAuthMethod(onboardingStore.loadAuthMethod())
+        oauthCredentialStore.load()?.let { creds ->
+            settingsState.updateOpenAiOAuthAccessToken(creds.accessToken)
+        }
         deriveOpenAiAuthUiState()
 
         // Eval/debug bypass: EXTRA_FRESH_SESSION + EXTRA_GOAL → skip onboarding
@@ -226,6 +232,7 @@ class MainActivity : ComponentActivity() {
                         handleOnboardingEffect(OnboardingEffect.OpenBatteryOptimization)
                     },
                     openAiAuthUiState = openAiAuthUiState,
+                    onAuthMethodChange = ::handleAuthMethodChange,
                     onStartOAuth = ::handleStartOAuth,
                     onCancelOAuth = ::handleCancelOAuth,
                     onSignOut = ::handleSignOut
@@ -643,6 +650,11 @@ class MainActivity : ComponentActivity() {
 
     // ── Settings OAuth handlers ──
 
+    private fun handleAuthMethodChange(method: String?) {
+        settingsState.updateAuthMethod(method)
+        onboardingStore.saveAuthMethod(method ?: "")
+    }
+
     private fun deriveOpenAiAuthUiState() {
         val creds = oauthCredentialStore.load()
         openAiAuthUiState = if (settingsState.authMethod == "oauth") {
@@ -712,7 +724,7 @@ class MainActivity : ComponentActivity() {
         when (result) {
             is com.moonkey.androidagent.auth.OAuthTokenExchange.Result.Success -> {
                 oauthCredentialStore.save(result.tokens)
-                settingsState.updateApiKey(result.tokens.accessToken)
+                settingsState.updateOpenAiOAuthAccessToken(result.tokens.accessToken)
                 Log.d(TAG, "OAuth token refreshed successfully")
             }
             is com.moonkey.androidagent.auth.OAuthTokenExchange.Result.Error -> {

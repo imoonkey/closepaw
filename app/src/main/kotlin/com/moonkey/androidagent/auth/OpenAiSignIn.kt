@@ -2,7 +2,9 @@ package com.moonkey.androidagent.auth
 
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 
 private const val TAG = "OpenAiSignIn"
 
@@ -15,14 +17,14 @@ sealed interface OpenAiSignInResult {
 /**
  * Run the full OpenAI OAuth sign-in sequence as a suspend function.
  *
- * Steps: PKCE generation → callback server start → browser launch →
- * callback wait → auth-code exchange → Codex validation → cleanup.
+ * Steps: PKCE generation -> callback server start -> browser launch ->
+ * callback wait -> auth-code exchange -> Codex validation -> cleanup.
  *
  * [launchBrowser] is called with the authorization URL; the host is
  * responsible for opening it (e.g. via an Activity intent or effect channel).
  *
- * Cleanup is guaranteed via try/finally — coroutine cancellation stops the
- * callback server automatically.
+ * Cancellation closes the server socket immediately, unblocking the
+ * blocking `accept()` call and freeing the port for retry.
  */
 suspend fun openAiSignIn(
     launchBrowser: suspend (url: String) -> Unit,
@@ -44,8 +46,14 @@ suspend fun openAiSignIn(
         val url = buildAuthorizeUrl(pkce.challenge, state)
         launchBrowser(url)
 
-        // 3. Wait for callback (blocks on IO)
-        val callbackResult = withContext(Dispatchers.IO) { server.waitForCallback() }
+        // 3. Wait for callback — cancellation closes the socket to unblock accept()
+        val callbackResult = suspendCancellableCoroutine { cont ->
+            cont.invokeOnCancellation { server.stop() }
+            Thread {
+                val result = server.waitForCallback()
+                if (cont.isActive) cont.resume(result)
+            }.start()
+        }
 
         // 4. Process callback
         when (callbackResult) {

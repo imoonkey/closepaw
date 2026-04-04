@@ -116,7 +116,7 @@ class OnboardingViewModel(
                 is OpenAiSignInResult.Success -> {
                     val tokens = result.tokens
                     oauthCredentialStore.save(tokens)
-                    settingsState.updateApiKey(tokens.accessToken)
+                    settingsState.updateOpenAiOAuthAccessToken(tokens.accessToken)
                     val entry = findModelForProvider(OnboardingProvider.OPENAI)
                     if (entry != null) settingsState.updateModel(entry.name)
                     store.saveAuthMethod("oauth")
@@ -488,7 +488,7 @@ class OnboardingViewModel(
 
     private fun saveApiKeyForProvider(provider: OnboardingProvider, key: String) {
         when (provider) {
-            OnboardingProvider.OPENAI -> settingsState.updateApiKey(key)
+            OnboardingProvider.OPENAI -> settingsState.updateOpenAiManualApiKey(key)
             OnboardingProvider.OPENROUTER -> settingsState.updateOpenRouterApiKey(key)
         }
         // Set default model to one from the chosen provider
