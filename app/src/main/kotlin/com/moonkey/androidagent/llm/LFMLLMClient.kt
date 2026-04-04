@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.UUID
 
@@ -35,6 +36,32 @@ class LFMLLMClient(
 
     companion object {
         private const val TAG = "LFMLLMClient"
+
+        init {
+            patchLeapJsonConfig()
+        }
+
+        /**
+         * Patch the Leap SDK's internal Json instance to ignore unknown keys.
+         *
+         * The SDK (0.9.2) uses a private static Json without ignoreUnknownKeys,
+         * which causes deserialization failures when upstream HuggingFace manifests
+         * add new fields (e.g., top_k in SamplingParameters).
+         */
+        private fun patchLeapJsonConfig() {
+            try {
+                val field = LeapDownloader::class.java.getDeclaredField("json")
+                field.isAccessible = true
+                val lenientJson = Json {
+                    ignoreUnknownKeys = true
+                    prettyPrint = true
+                }
+                field.set(null, lenientJson)
+                Log.d(TAG, "Patched LeapDownloader Json config with ignoreUnknownKeys")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to patch LeapDownloader Json config: ${e.message}")
+            }
+        }
     }
 
     private val modelMutex = Mutex()
