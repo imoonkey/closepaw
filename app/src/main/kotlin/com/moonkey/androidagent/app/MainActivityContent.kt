@@ -12,8 +12,8 @@ import com.moonkey.androidagent.onboarding.PermissionStateMonitor.PermissionRepa
 import com.moonkey.androidagent.ui.chat.ChatScreen
 import com.moonkey.androidagent.ui.chat.ChatViewModel
 import com.moonkey.androidagent.ui.onboarding.PermissionRepairCard
+import com.moonkey.androidagent.ui.settings.OpenAiAuthUiState
 import com.moonkey.androidagent.ui.settings.SettingsSheet
-import com.moonkey.androidagent.ui.settings.catalogModelOptions
 import com.moonkey.androidagent.ui.theme.ChatTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,7 +33,11 @@ internal fun MainActivityContent(
     onAccessibilityClick: () -> Unit,
     onOverlayClick: () -> Unit,
     repairModel: PermissionRepairModel? = null,
-    onFixBattery: () -> Unit = {}
+    onFixBattery: () -> Unit = {},
+    openAiAuthUiState: OpenAiAuthUiState = OpenAiAuthUiState.SignedOut,
+    onStartOAuth: () -> Unit = {},
+    onCancelOAuth: () -> Unit = {},
+    onSignOut: () -> Unit = {}
 ) {
     ChatTheme {
         val sessions by viewModel.sessions.collectAsStateWithLifecycle()
@@ -75,12 +79,14 @@ internal fun MainActivityContent(
                     onBackendChange = settingsState::updateBackend,
                     selectedModel = settingsState.selectedModel,
                     onModelChange = settingsState::updateModel,
-                    modelOptions = catalogModelOptions(modelCatalog.all()),
+                    modelCatalog = modelCatalog,
                     selectedExecutorModel = settingsState.executorModel,
                     onExecutorModelChange = settingsState::updateExecutorModel,
                     selectedLocalModel = settingsState.selectedLocalModelId,
                     onLocalModelChange = settingsState::updateLocalModel,
                     modelLoadingStatus = settingsState.modelLoadingStatus,
+                    authMethod = settingsState.authMethod,
+                    onAuthMethodChange = settingsState::updateAuthMethod,
                     openAiApiKey = settingsState.apiKey,
                     onOpenAiApiKeyChange = settingsState::updateApiKey,
                     openRouterApiKey = settingsState.openRouterApiKey,
@@ -99,6 +105,10 @@ internal fun MainActivityContent(
                     isOverlayEnabled = isOverlayEnabled,
                     onAccessibilityClick = onAccessibilityClick,
                     onOverlayClick = onOverlayClick,
+                    openAiAuthUiState = openAiAuthUiState,
+                    onStartOAuth = onStartOAuth,
+                    onCancelOAuth = onCancelOAuth,
+                    onSignOut = onSignOut,
                     onDismiss = { onShowSettingsChange(false) }
                 )
             }

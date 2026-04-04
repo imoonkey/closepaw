@@ -13,6 +13,7 @@ import java.io.File
 
 data class AppSettings(
         val apiKey: String,
+        val openAiManualApiKey: String,
         val openRouterApiKey: String,
         val novitaApiKey: String,
         val selectedModel: String,
@@ -49,8 +50,10 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_EXECUTOR_MODEL = "executor_model"
         private const val KEY_OPENROUTER_API_KEY = "openrouter_api_key"
         private const val KEY_NOVITA_API_KEY = "novita_api_key"
+        private const val KEY_OPENAI_MANUAL_API_KEY = "openai_manual_api_key"
         private const val KEY_PLATFORM_MODE = "platform_mode"
         private const val KEY_USER_ALLOWED_PACKAGES = "user_allowed_packages"
+        private const val KEY_CREDENTIAL_SPLIT_MIGRATED = "credential_split_migrated"
 
         const val DEFAULT_MODEL = "glm-5"
         const val DEFAULT_MAX_TURNS = 20
@@ -114,7 +117,7 @@ class AppSettingsStore(private val context: Context) {
             if (secure === prefs()) return
             if (secure.getBoolean(KEY_MIGRATED, false)) return
             val plain = prefs()
-            listOf(KEY_API_KEY, KEY_OPENROUTER_API_KEY, KEY_NOVITA_API_KEY).forEach { key ->
+            listOf(KEY_API_KEY, KEY_OPENROUTER_API_KEY, KEY_NOVITA_API_KEY, KEY_OPENAI_MANUAL_API_KEY).forEach { key ->
                 plain.getString(key, null)?.takeIf { it.isNotBlank() }?.let { value ->
                     secure.edit().putString(key, value).apply()
                     plain.edit().remove(key).apply()
@@ -171,6 +174,7 @@ class AppSettingsStore(private val context: Context) {
         val executorModel = prefs.getString(KEY_EXECUTOR_MODEL, null)
         val openRouterApiKey = readSecure(KEY_OPENROUTER_API_KEY) ?: ""
         val novitaApiKey = readSecure(KEY_NOVITA_API_KEY) ?: ""
+        val openAiManualApiKey = readSecure(KEY_OPENAI_MANUAL_API_KEY) ?: ""
         val platformModeName = prefs.getString(KEY_PLATFORM_MODE, DEFAULT_PLATFORM_MODE.name)
                 ?: DEFAULT_PLATFORM_MODE.name
         val platformMode = try {
@@ -181,6 +185,7 @@ class AppSettingsStore(private val context: Context) {
 
         return AppSettings(
                 apiKey = apiKey,
+                openAiManualApiKey = openAiManualApiKey,
                 openRouterApiKey = openRouterApiKey,
                 novitaApiKey = novitaApiKey,
                 selectedModel = selectedModel,
@@ -207,6 +212,35 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveApiKey(value: String) {
         writeSecure(KEY_API_KEY, value)
+    }
+
+    fun saveOpenAiManualApiKey(value: String) {
+        writeSecure(KEY_OPENAI_MANUAL_API_KEY, value)
+    }
+
+    /**
+     * One-time migration: split legacy [KEY_API_KEY] into [KEY_OPENAI_MANUAL_API_KEY].
+     *
+     * If the legacy value matches [oauthAccessToken], it was an OAuth artifact written
+     * before the credential split — clear it from the manual-key slot.
+     * Otherwise copy it as the persisted manual OpenAI key.
+     */
+    fun migrateCredentialSplit(oauthAccessToken: String?) {
+        try {
+            val prefs = securePrefs()
+            if (prefs.getBoolean(KEY_CREDENTIAL_SPLIT_MIGRATED, false)) return
+
+            val legacyKey = readSecure(KEY_API_KEY) ?: ""
+            if (legacyKey.isNotBlank() && readSecure(KEY_OPENAI_MANUAL_API_KEY).isNullOrBlank()) {
+                if (oauthAccessToken == null || legacyKey != oauthAccessToken) {
+                    writeSecure(KEY_OPENAI_MANUAL_API_KEY, legacyKey)
+                }
+            }
+            prefs.edit().putBoolean(KEY_CREDENTIAL_SPLIT_MIGRATED, true).apply()
+            Log.d(TAG, "Credential split migration completed")
+        } catch (e: Exception) {
+            Log.w(TAG, "Credential split migration failed: ${e.message}")
+        }
     }
 
     fun saveOpenRouterApiKey(value: String) {

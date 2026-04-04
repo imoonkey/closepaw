@@ -232,6 +232,173 @@ class ModelCatalogTest {
         assertFalse(entry.supportsVision)
     }
 
+    // ── Provider-linked model filtering ────────────────────────────────
+
+    private val multiProviderJson = """
+        {
+          "gpt-5.2": {
+            "display_name": "GPT-5.2",
+            "provider": "OPENAI",
+            "api": "response",
+            "model_id": "gpt-5.2"
+          },
+          "gpt-5.2-chat": {
+            "display_name": "GPT-5.2 (Chat)",
+            "provider": "OPENAI",
+            "api": "chat",
+            "model_id": "gpt-5.2"
+          },
+          "glm-4.7": {
+            "display_name": "GLM-4.7",
+            "provider": "OPENROUTER",
+            "api": "chat",
+            "model_id": "zhipu-ai/glm-4.7"
+          },
+          "novita-model": {
+            "display_name": "Novita Model",
+            "provider": "NOVITA",
+            "api": "chat",
+            "model_id": "novita/model-1"
+          }
+        }
+    """.trimIndent()
+
+    @Test
+    fun `modelsFor OPENAI returns only OpenAI models`() {
+        val catalog = ModelCatalog.fromJson(multiProviderJson)
+        val models = catalog.modelsFor(LLMProvider.OPENAI)
+
+        assertEquals(2, models.size)
+        assertTrue(models.all { it.provider == LLMProvider.OPENAI })
+        assertEquals(listOf("gpt-5.2", "gpt-5.2-chat"), models.map { it.name })
+    }
+
+    @Test
+    fun `modelsFor OPENROUTER returns only OpenRouter models`() {
+        val catalog = ModelCatalog.fromJson(multiProviderJson)
+        val models = catalog.modelsFor(LLMProvider.OPENROUTER)
+
+        assertEquals(1, models.size)
+        assertEquals("glm-4.7", models[0].name)
+    }
+
+    @Test
+    fun `modelsFor NOVITA returns only Novita models`() {
+        val catalog = ModelCatalog.fromJson(multiProviderJson)
+        val models = catalog.modelsFor(LLMProvider.NOVITA)
+
+        assertEquals(1, models.size)
+        assertEquals("novita-model", models[0].name)
+    }
+
+    @Test
+    fun `modelsFor with api filter returns only matching api type`() {
+        val catalog = ModelCatalog.fromJson(multiProviderJson)
+        val responseModels = catalog.modelsFor(LLMProvider.OPENAI, ApiType.RESPONSE)
+
+        assertEquals(1, responseModels.size)
+        assertEquals("gpt-5.2", responseModels[0].name)
+        assertEquals(ApiType.RESPONSE, responseModels[0].api)
+    }
+
+    @Test
+    fun `modelsFor OPENAI CHAT excludes RESPONSE models`() {
+        val catalog = ModelCatalog.fromJson(multiProviderJson)
+        val chatModels = catalog.modelsFor(LLMProvider.OPENAI, ApiType.CHAT)
+
+        assertEquals(1, chatModels.size)
+        assertEquals("gpt-5.2-chat", chatModels[0].name)
+    }
+
+    @Test
+    fun `preferredModelFor returns first matching model`() {
+        val catalog = ModelCatalog.fromJson(multiProviderJson)
+        val preferred = catalog.preferredModelFor(LLMProvider.OPENAI)
+
+        assertNotNull(preferred)
+        assertEquals("gpt-5.2", preferred!!.name)
+    }
+
+    @Test
+    fun `preferredModelFor with api filter returns first matching`() {
+        val catalog = ModelCatalog.fromJson(multiProviderJson)
+        val preferred = catalog.preferredModelFor(LLMProvider.OPENAI, ApiType.RESPONSE)
+
+        assertNotNull(preferred)
+        assertEquals("gpt-5.2", preferred!!.name)
+        assertEquals(ApiType.RESPONSE, preferred.api)
+    }
+
+    @Test
+    fun `preferredModelFor returns null when no models match`() {
+        val catalog = ModelCatalog.fromJson(multiProviderJson)
+        val preferred = catalog.preferredModelFor(LLMProvider.NOVITA, ApiType.RESPONSE)
+
+        assertNull(preferred)
+    }
+
+    @Test
+    fun `modelsFor returns empty list for provider with no models`() {
+        val singleProviderJson = """
+            {
+              "model-a": {
+                "display_name": "A",
+                "provider": "OPENAI",
+                "api": "response",
+                "model_id": "a"
+              }
+            }
+        """.trimIndent()
+        val catalog = ModelCatalog.fromJson(singleProviderJson)
+
+        assertTrue(catalog.modelsFor(LLMProvider.OPENROUTER).isEmpty())
+    }
+
+    // ── withBaseUrlOverrides ────────────────────────────────────────────
+
+    @Test
+    fun `withBaseUrlOverrides applies override to provider without entry baseUrl`() {
+        val catalog = ModelCatalog.fromJson(multiProviderJson)
+        val overridden = catalog.withBaseUrlOverrides(
+                mapOf(LLMProvider.OPENAI to "http://localhost:8000/v1")
+        )
+        val entry = overridden.resolve("gpt-5.2")
+
+        assertEquals("http://localhost:8000/v1", entry.baseUrl)
+    }
+
+    @Test
+    fun `withBaseUrlOverrides preserves entry with explicit baseUrl`() {
+        val json = """
+            {
+              "custom": {
+                "display_name": "Custom",
+                "provider": "OPENAI",
+                "api": "chat",
+                "model_id": "custom",
+                "base_url": "http://custom.example.com/v1"
+              }
+            }
+        """.trimIndent()
+        val catalog = ModelCatalog.fromJson(json)
+        val overridden = catalog.withBaseUrlOverrides(
+                mapOf(LLMProvider.OPENAI to "http://localhost:8000/v1")
+        )
+        val entry = overridden.resolve("custom")
+
+        assertEquals("http://custom.example.com/v1", entry.baseUrl)
+    }
+
+    @Test
+    fun `withBaseUrlOverrides returns same instance for empty overrides`() {
+        val catalog = ModelCatalog.fromJson(multiProviderJson)
+        val result = catalog.withBaseUrlOverrides(emptyMap())
+
+        assertTrue(catalog === result)
+    }
+
+    // ── Error handling ──────────────────────────────────────────────────
+
     @Test(expected = kotlinx.serialization.SerializationException::class)
     fun `fromJson throws for malformed JSON`() {
         ModelCatalog.fromJson("[not valid json")

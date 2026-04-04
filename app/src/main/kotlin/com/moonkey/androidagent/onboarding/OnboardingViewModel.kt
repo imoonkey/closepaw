@@ -7,14 +7,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.moonkey.androidagent.app.AppSettingsState
 import com.moonkey.androidagent.app.AppSettingsStore
-import com.moonkey.androidagent.auth.OAuthCallbackServer
-import com.moonkey.androidagent.auth.OAuthCodexValidator
 import com.moonkey.androidagent.auth.OAuthCredentialStore
-import com.moonkey.androidagent.auth.OAuthTokenExchange
-import com.moonkey.androidagent.auth.PkceChallenge
-import com.moonkey.androidagent.auth.buildAuthorizeUrl
-import com.moonkey.androidagent.auth.generateOAuthState
-import com.moonkey.androidagent.auth.generatePkce
+import com.moonkey.androidagent.auth.OpenAiSignInResult
+import com.moonkey.androidagent.auth.openAiSignIn
 import com.moonkey.androidagent.llm.ApiType
 import com.moonkey.androidagent.llm.LLMProvider
 import com.moonkey.androidagent.llm.ModelCatalog
@@ -77,9 +72,6 @@ class OnboardingViewModel(
 
     // ── OAuth state (in-memory, not persisted) ──
 
-    private var pendingPkce: PkceChallenge? = null
-    private var pendingOAuthState: String? = null
-    private var callbackServer: OAuthCallbackServer? = null
     private var oauthJob: kotlinx.coroutines.Job? = null
 
     fun selectProvider(provider: OnboardingProvider) {
@@ -109,84 +101,35 @@ class OnboardingViewModel(
         }
     }
 
-    /** Launch OAuth flow: start local server, open browser, wait for callback, exchange token. */
+    /** Launch OAuth flow using shared suspend helper. */
     fun startOAuth() {
         if (stepState is ApiKeyStepState.OAuthInProgress) return
-        val pkce = generatePkce()
-        val state = generateOAuthState()
-        pendingPkce = pkce
-        pendingOAuthState = state
 
         oauthJob = scope.launch {
-            // 1. Start localhost callback server on IO thread
-            val server = OAuthCallbackServer(state)
-            callbackServer = server
-            val started = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                server.start()
-            }
-            if (!started) {
-                stepState = ApiKeyStepState.OAuthError("Could not start local server. Is port 1455 in use?")
-                clearOAuthPending()
-                return@launch
-            }
-
-            // 2. Open browser
-            val url = buildAuthorizeUrl(pkce.challenge, state)
             stepState = ApiKeyStepState.OAuthInProgress
-            _effects.trySend(OnboardingEffect.LaunchOAuth(url))
 
-            // 3. Wait for callback (blocks on IO)
-            val callbackResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                server.waitForCallback()
+            val result = openAiSignIn { url ->
+                _effects.trySend(OnboardingEffect.LaunchOAuth(url))
             }
-            server.stop()
-            callbackServer = null
 
-            // 4. Process result
-            when (callbackResult) {
-                is OAuthCallbackServer.CallbackResult.Success -> {
-                    val verifier = pendingPkce?.verifier
-                    if (verifier == null) {
-                        stepState = ApiKeyStepState.OAuthError("Internal error. Please try again.")
-                        clearOAuthPending()
-                        return@launch
-                    }
-                    // 5. Exchange code for tokens
-                    val result = OAuthTokenExchange.exchange(callbackResult.code, verifier)
-                    clearOAuthPending()
-                    when (result) {
-                        is OAuthTokenExchange.Result.Success -> {
-                            val tokens = result.tokens
-                            // Validate token against ChatGPT Codex backend
-                            Log.d(TAG, "Validating OAuth token against Codex backend...")
-                            val validation = OAuthCodexValidator.validate(tokens.accessToken)
-                            if (validation is OAuthCodexValidator.Result.Invalid) {
-                                Log.w(TAG, "Codex validation failed: ${validation.message}")
-                                stepState = ApiKeyStepState.OAuthError(validation.message)
-                                return@launch
-                            }
-                            Log.d(TAG, "Codex validation passed!")
-                            oauthCredentialStore.save(tokens)
-                            settingsState.updateApiKey(tokens.accessToken)
-                            val entry = findModelForProvider(OnboardingProvider.OPENAI)
-                            if (entry != null) settingsState.updateModel(entry.name)
-                            store.saveAuthMethod("oauth")
-                            store.clearApiKeyDraft()
-                            store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done)
-                            outcomes = outcomes.copy(apiKey = StepOutcome.Done)
-                            stepState = ApiKeyStepState.OAuthSuccess(tokens.email ?: "")
-                            Log.d(TAG, "OAuth success, email=${tokens.email}")
-                            delay(AUTO_ADVANCE_DELAY_MS)
-                            advanceToNextStep()
-                        }
-                        is OAuthTokenExchange.Result.Error -> {
-                            stepState = ApiKeyStepState.OAuthError(result.message)
-                        }
-                    }
+            when (result) {
+                is OpenAiSignInResult.Success -> {
+                    val tokens = result.tokens
+                    oauthCredentialStore.save(tokens)
+                    settingsState.updateApiKey(tokens.accessToken)
+                    val entry = findModelForProvider(OnboardingProvider.OPENAI)
+                    if (entry != null) settingsState.updateModel(entry.name)
+                    store.saveAuthMethod("oauth")
+                    store.clearApiKeyDraft()
+                    store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done)
+                    outcomes = outcomes.copy(apiKey = StepOutcome.Done)
+                    stepState = ApiKeyStepState.OAuthSuccess(tokens.email ?: "")
+                    Log.d(TAG, "OAuth success, email=${tokens.email}")
+                    delay(AUTO_ADVANCE_DELAY_MS)
+                    advanceToNextStep()
                 }
-                is OAuthCallbackServer.CallbackResult.Error -> {
-                    clearOAuthPending()
-                    stepState = ApiKeyStepState.OAuthError(callbackResult.message)
+                is OpenAiSignInResult.Error -> {
+                    stepState = ApiKeyStepState.OAuthError(result.message)
                 }
             }
         }
@@ -195,15 +138,7 @@ class OnboardingViewModel(
     fun cancelOAuth() {
         oauthJob?.cancel()
         oauthJob = null
-        callbackServer?.stop()
-        callbackServer = null
-        clearOAuthPending()
         stepState = ApiKeyStepState.OAuthReady
-    }
-
-    private fun clearOAuthPending() {
-        pendingPkce = null
-        pendingOAuthState = null
     }
 
     // ── Initialization ──

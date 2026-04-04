@@ -69,7 +69,7 @@
     "depends": [
       "basic-security"
     ],
-    "state": "blocked",
+    "state": "done",
     "title": "Onboarding Wizard",
     "description": "首次启动顺序引导：Accessibility service → Overlay permission → Battery optimization → API key 输入+验证 → Demo task。Phase 0 先做 API key 手动输入，OAuth 是独立 area。",
     "design": "doc/todo/onboarding_wizard/note.md",
@@ -83,7 +83,7 @@
       "Demo task runs after setup completes",
       "Subsequent launches skip onboarding"
     ],
-    "note": "Pending human review — design not yet discussed"
+    "note": "Implemented in 2026-04-02. OpenAI OAuth added in subsequent work."
   },
   "open-source-release": {
     "parent": "phase1-distribution",
@@ -231,7 +231,7 @@
   "openai-oauth": {
     "parent": "phase3-daily-assistant",
     "depends": [],
-    "state": "blocked",
+    "state": "done",
     "title": "OpenAI OAuth Login",
     "description": "参考 OpenClaw 实现：OpenAI Codex OAuth flow。用户用 OpenAI 账号登录 → 复用已有 subscription。和手动 API key 并存。降低新用户 onboarding friction。",
     "design": "doc/todo/openai_oauth/note.md",
@@ -241,6 +241,174 @@
       "Falls back to manual API key entry",
       "Token refresh handled automatically"
     ],
-    "note": "Pending human review — design not yet discussed"
+    "note": "OAuth login + CodexResponseClient implemented. Settings integration is a separate task."
+  },
+  "settings-restructure": {
+    "parent": "phase1-distribution",
+    "depends": [],
+    "state": "done",
+    "title": "Settings Page Restructure",
+    "description": "Two-level settings navigation with 3-tab LLM & Auth page. Split manual OpenAI key from OAuth token. Shared OAuth suspend helpers. Provider-linked model filtering.",
+    "design": "doc/todo/settings_redesign/final/design_aligned.md",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/**",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsState.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/auth/**"
+    ],
+    "acceptCriteria": [
+      "All 8 child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "sr-scaffold": {
+    "parent": "settings-restructure",
+    "depends": [],
+    "state": "done",
+    "title": "Settings Scaffold",
+    "description": "Split SettingsSheet.kt into shell + page composables. Add SettingsPage enum (HOME, LLM_AUTH, AGENT_BEHAVIOR, PERMISSIONS_ADVANCED), SettingsNavigationRow, SettingsSubPageHeader, AnimatedContent page switching with directional horizontal slides. Home page has 3 nav rows + version footer.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsHomePage.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsWidgets.kt"
+    ],
+    "acceptCriteria": [
+      "Home and three sub-pages render",
+      "back/close behavior works",
+      "no settings UI file exceeds 400 lines",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sr-credential-split": {
+    "parent": "settings-restructure",
+    "depends": [],
+    "state": "done",
+    "title": "OpenAI Credential Split and Migration",
+    "description": "Split manual OpenAI key and OpenAI OAuth token in AppSettingsState. Update buildApiKeys() to select active credential. Add one-time migration for legacy installs where OAuth token was saved as manual key.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsState.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt"
+    ],
+    "acceptCriteria": [
+      "manual OpenAI key survives OAuth sign-in/sign-out",
+      "buildApiKeys() selects correct credential based on authMethod",
+      "legacy migration clears OAuth artifact from manual-key slot",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sr-shared-oauth": {
+    "parent": "settings-restructure",
+    "depends": [],
+    "state": "done",
+    "title": "Shared OAuth Reuse",
+    "description": "Extract reusable OpenAI OAuth flow from OnboardingViewModel into shared suspend helpers under auth/. Wire helpers into both onboarding and settings. Move token refresh under same shared helper layer.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/auth/**",
+      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt"
+    ],
+    "acceptCriteria": [
+      "onboarding behavior remains unchanged",
+      "settings can sign in, cancel, sign out, and refresh through shared helpers",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "sr-llm-tabs": {
+    "parent": "settings-restructure",
+    "depends": [
+      "sr-scaffold",
+      "sr-credential-split"
+    ],
+    "state": "done",
+    "title": "LLM & Auth Tab Structure",
+    "description": "LlmAuthSettingsPage.kt with TabRow (Sign In / API Key / Local). LlmAuthTab enum. Tab content: Sign In → model dropdowns + placeholder auth card, API Key → model dropdown + key field, Local → local model dropdown + status. Tab switching immediately persists backend/authMethod.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/LlmAuthSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "three tabs render and switch correctly",
+      "tab selection persists backend/authMethod immediately",
+      "initial tab reflects current durable state",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sr-provider-filter": {
+    "parent": "settings-restructure",
+    "depends": [
+      "sr-llm-tabs"
+    ],
+    "state": "done",
+    "title": "API Key Provider Selector and Model Filtering",
+    "description": "SingleChoiceSegmentedButtonRow for provider sub-selector in API Key tab. Provider-linked model catalog filtering. Provider-linked single API key field. ModelCatalog helpers: modelsFor(provider, api?), preferredModelFor(provider, api?). Model/executor canonicalization on provider switch.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/LlmAuthSettingsPage.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/ModelCatalog.kt"
+    ],
+    "acceptCriteria": [
+      "switching provider updates model dropdown to that providers models",
+      "shows only the matching API key field",
+      "invalid main/executor models are canonicalized",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sr-auth-card": {
+    "parent": "settings-restructure",
+    "depends": [
+      "sr-llm-tabs",
+      "sr-shared-oauth"
+    ],
+    "state": "done",
+    "title": "OpenAI Auth Card (Sign In Tab)",
+    "description": "OpenAiAuthCard.kt composable for all four OAuth UI states (SignedOut/InProgress/SignedIn/Error). Wire onStartOAuth, onCancelOAuth, onSignOut from MainActivity through MainActivityContent. Sign In tab shows OpenAI RESPONSE models only + auth card.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/OpenAiAuthCard.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivityContent.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt"
+    ],
+    "acceptCriteria": [
+      "auth card shows correct state for all four OAuth states",
+      "sign out clears OAuth but preserves manual key",
+      "sign in launches browser OAuth flow",
+      "on success card shows email",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sr-behavior-permissions": {
+    "parent": "settings-restructure",
+    "depends": [
+      "sr-scaffold"
+    ],
+    "state": "done",
+    "title": "Agent Behavior and Permissions Pages",
+    "description": "Regroup existing controls into AgentBehaviorSettingsPage (max turns, agent mode, perception mode) and PermissionsAdvancedSettingsPage (a11y, overlay, debug toggle). Move PerceptionModeSelector. Wire Home subtitles.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/AgentBehaviorSettingsPage.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/PermissionsAdvancedSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "existing behavior is preserved",
+      "Home subtitle summaries update from live state",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sr-tests": {
+    "parent": "settings-restructure",
+    "depends": [
+      "sr-credential-split",
+      "sr-provider-filter",
+      "sr-auth-card"
+    ],
+    "state": "done",
+    "title": "Validation and Tests",
+    "description": "Tests for OpenAI credential selection (manual vs OAuth). Tests for sign-out preserving manual key. Tests for provider-linked model filtering and canonicalization. Tests for migration.",
+    "scope": [
+      "app/src/test/**"
+    ],
+    "acceptCriteria": [
+      "new state model is covered by tests",
+      "existing cloud/local validation still behaves correctly",
+      "./gradlew test passes"
+    ]
   }
 }

@@ -57,7 +57,7 @@ internal fun ApiKeysSection(
 }
 
 @Composable
-private fun ApiKeyField(
+internal fun ApiKeyField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit

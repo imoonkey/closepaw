@@ -1,42 +1,30 @@
 package com.moonkey.androidagent.ui.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.BugReport
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import com.moonkey.androidagent.BuildConfig
+import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
+
+enum class SettingsPage {
+    HOME,
+    LLM_AUTH,
+    AGENT_BEHAVIOR,
+    PERMISSIONS_ADVANCED,
+}
 
 @Composable
 fun SettingsSheet(
@@ -44,12 +32,14 @@ fun SettingsSheet(
     onBackendChange: (LLMBackendType) -> Unit,
     selectedModel: String,
     onModelChange: (String) -> Unit,
-    modelOptions: List<Pair<String, String>>,
+    modelCatalog: ModelCatalog,
     selectedExecutorModel: String?,
     onExecutorModelChange: (String?) -> Unit,
     selectedLocalModel: String,
     onLocalModelChange: (LocalModelOption) -> Unit,
     modelLoadingStatus: ModelLoadingStatus,
+    authMethod: String?,
+    onAuthMethodChange: (String?) -> Unit,
     openAiApiKey: String,
     onOpenAiApiKeyChange: (String) -> Unit,
     openRouterApiKey: String,
@@ -68,11 +58,14 @@ fun SettingsSheet(
     isOverlayEnabled: Boolean,
     onAccessibilityClick: () -> Unit,
     onOverlayClick: () -> Unit,
+    openAiAuthUiState: OpenAiAuthUiState,
+    onStartOAuth: () -> Unit,
+    onCancelOAuth: () -> Unit,
+    onSignOut: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val scrollState = rememberScrollState()
-    val isCloudBackend = llmBackend == LLMBackendType.OPENAI
+    var settingsPage by remember { mutableStateOf(SettingsPage.HOME) }
 
     Column(
         modifier = modifier
@@ -81,281 +74,81 @@ fun SettingsSheet(
             .displayCutoutPadding()
             .navigationBarsPadding()
     ) {
-        SettingsHeader(onClose = onDismiss)
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp)
-        ) {
-            SettingsSection(title = "LLM Backend") {
-                BackendSelector(
-                    selectedBackend = llmBackend,
-                    onBackendChange = onBackendChange
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            AnimatedVisibility(visible = isCloudBackend) {
-                Column {
-                    SettingsSection(title = "Cloud Model") {
-                        CloudModelDropdown(
-                            selectedModel = selectedModel,
-                            modelOptions = modelOptions,
-                            onModelChange = onModelChange
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(20.dp))
+        AnimatedContent(
+            targetState = settingsPage,
+            transitionSpec = {
+                if (targetState == SettingsPage.HOME) {
+                    slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+                } else {
+                    slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
                 }
-            }
-
-            AnimatedVisibility(visible = isCloudBackend && agentMode == AgentMode.PRO) {
-                Column {
-                    SettingsSection(title = "Executor Model") {
-                        ExecutorModelDropdown(
-                            selectedModel = selectedExecutorModel,
-                            modelOptions = modelOptions,
-                            onModelChange = onExecutorModelChange
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
-            }
-
-            AnimatedVisibility(visible = !isCloudBackend) {
-                Column {
-                    SettingsSection(title = "Local Model") {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            LocalModelDropdown(
-                                selectedModelId = selectedLocalModel,
-                                onModelChange = onLocalModelChange
-                            )
-
-                            ModelLoadingStatusIndicator(status = modelLoadingStatus)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
-            }
-
-            SettingsSection(title = "Max Turns") {
-                MaxTurnsDropdown(
-                    maxTurns = maxTurns,
-                    onMaxTurnsChange = onMaxTurnsChange
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            SettingsSection(title = "Execution") {
-                AgentModeDropdown(
+            },
+            label = "SettingsPageTransition"
+        ) { page ->
+            when (page) {
+                SettingsPage.HOME -> SettingsHomePage(
+                    llmBackend = llmBackend,
+                    selectedModel = selectedModel,
+                    modelOptions = catalogModelOptions(modelCatalog.all()),
+                    selectedLocalModel = selectedLocalModel,
                     agentMode = agentMode,
-                    onAgentModeChange = onAgentModeChange
+                    maxTurns = maxTurns,
+                    perceptionMode = perceptionMode,
+                    isAccessibilityEnabled = isAccessibilityEnabled,
+                    isOverlayEnabled = isOverlayEnabled,
+                    debugMode = debugMode,
+                    onNavigate = { settingsPage = it },
+                    onDismiss = onDismiss
+                )
+                SettingsPage.LLM_AUTH -> LlmAuthSettingsPage(
+                    llmBackend = llmBackend,
+                    onBackendChange = onBackendChange,
+                    authMethod = authMethod,
+                    onAuthMethodChange = onAuthMethodChange,
+                    selectedModel = selectedModel,
+                    onModelChange = onModelChange,
+                    modelCatalog = modelCatalog,
+                    selectedExecutorModel = selectedExecutorModel,
+                    onExecutorModelChange = onExecutorModelChange,
+                    agentMode = agentMode,
+                    selectedLocalModel = selectedLocalModel,
+                    onLocalModelChange = onLocalModelChange,
+                    modelLoadingStatus = modelLoadingStatus,
+                    openAiApiKey = openAiApiKey,
+                    onOpenAiApiKeyChange = onOpenAiApiKeyChange,
+                    openRouterApiKey = openRouterApiKey,
+                    onOpenRouterApiKeyChange = onOpenRouterApiKeyChange,
+                    novitaApiKey = novitaApiKey,
+                    onNovitaApiKeyChange = onNovitaApiKeyChange,
+                    openAiAuthUiState = openAiAuthUiState,
+                    onStartOAuth = onStartOAuth,
+                    onCancelOAuth = onCancelOAuth,
+                    onSignOut = onSignOut,
+                    onBack = { settingsPage = SettingsPage.HOME },
+                    onClose = onDismiss
+                )
+                SettingsPage.AGENT_BEHAVIOR -> AgentBehaviorSettingsPage(
+                    maxTurns = maxTurns,
+                    onMaxTurnsChange = onMaxTurnsChange,
+                    agentMode = agentMode,
+                    onAgentModeChange = onAgentModeChange,
+                    perceptionMode = perceptionMode,
+                    onPerceptionModeChange = onPerceptionModeChange,
+                    onBack = { settingsPage = SettingsPage.HOME },
+                    onClose = onDismiss
+                )
+                SettingsPage.PERMISSIONS_ADVANCED -> PermissionsAdvancedSettingsPage(
+                    isAccessibilityEnabled = isAccessibilityEnabled,
+                    isOverlayEnabled = isOverlayEnabled,
+                    onAccessibilityClick = onAccessibilityClick,
+                    onOverlayClick = onOverlayClick,
+                    debugMode = debugMode,
+                    onDebugModeChange = onDebugModeChange,
+                    onBack = { settingsPage = SettingsPage.HOME },
+                    onClose = onDismiss
                 )
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            SettingsSection(title = "Perception") {
-                PerceptionModeSelector(
-                    selectedMode = perceptionMode,
-                    onModeChange = onPerceptionModeChange
-                )
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            AnimatedVisibility(visible = isCloudBackend) {
-                Column {
-                    ApiKeysSection(
-                        openAiApiKey = openAiApiKey,
-                        onOpenAiApiKeyChange = onOpenAiApiKeyChange,
-                        openRouterApiKey = openRouterApiKey,
-                        onOpenRouterApiKeyChange = onOpenRouterApiKeyChange,
-                        novitaApiKey = novitaApiKey,
-                        onNovitaApiKeyChange = onNovitaApiKeyChange
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
-                }
-            }
-
-            SettingsSection(title = "Permissions") {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SettingsRow(
-                        icon = Icons.Outlined.Settings,
-                        title = "Accessibility Service",
-                        isEnabled = isAccessibilityEnabled,
-                        onClick = onAccessibilityClick
-                    )
-
-                    SettingsRow(
-                        icon = Icons.Outlined.Layers,
-                        title = "Overlay Permission",
-                        isEnabled = isOverlayEnabled,
-                        onClick = onOverlayClick
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            SettingsSection(title = "About & Debug") {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Info,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Android Agent",
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                                Text(
-                                    text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                    }
-
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.BugReport,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Debug Mode",
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                                Text(
-                                    text = "Enable verbose logging",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = debugMode,
-                                onCheckedChange = onDebugModeChange,
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
-@Composable
-private fun PerceptionModeSelector(
-    selectedMode: String,
-    onModeChange: (String) -> Unit
-) {
-    val modes = listOf(
-        "accessibility_only" to "Accessibility Only",
-        "hybrid" to "Hybrid (A11y + Screenshot)",
-        "screenshot_only" to "Screenshot Only"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.Image,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = "Perception Mode",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Text(
-                        text = "How the agent perceives the screen",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                modes.forEach { (value, label) ->
-                    val isSelected = selectedMode == value
-                    Surface(
-                        onClick = { onModeChange(value) },
-                        modifier = Modifier.weight(1f),
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.surface
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        tonalElevation = if (isSelected) 2.dp else 0.dp
-                    ) {
-                        Text(
-                            text = label,
-                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isSelected) {
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-        }
-    }
-}

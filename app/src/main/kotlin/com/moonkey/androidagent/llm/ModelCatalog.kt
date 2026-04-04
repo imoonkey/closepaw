@@ -39,6 +39,14 @@ enum class LLMProvider(val defaultApiKeyEnv: String, val defaultBaseUrl: String?
     NOVITA(defaultApiKeyEnv = "NOVITA_API_KEY", defaultBaseUrl = "https://api.novita.ai/openai/v1")
 }
 
+/** Human-readable label for UI display. */
+val LLMProvider.displayLabel: String
+    get() = when (this) {
+        LLMProvider.OPENAI -> "OpenAI"
+        LLMProvider.OPENROUTER -> "OpenRouter"
+        LLMProvider.NOVITA -> "Novita"
+    }
+
 /**
  * One model entry from `llm_models.json`.
  *
@@ -110,6 +118,14 @@ class ModelCatalog private constructor(private val entries: Map<String, ModelEnt
 
     /** Check if a model name exists. */
     operator fun contains(name: String): Boolean = name in entries
+
+    /** Models for a given provider, optionally filtered by API type. */
+    fun modelsFor(provider: LLMProvider, api: ApiType? = null): List<ModelEntry> =
+            entries.values.filter { it.provider == provider && (api == null || it.api == api) }
+
+    /** First (preferred) model for a given provider/API type, or null if none match. */
+    fun preferredModelFor(provider: LLMProvider, api: ApiType? = null): ModelEntry? =
+            modelsFor(provider, api).firstOrNull()
 
     /**
      * Return a new catalog with provider-level base URL overrides applied.

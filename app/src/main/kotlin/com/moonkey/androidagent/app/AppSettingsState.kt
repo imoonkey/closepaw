@@ -18,6 +18,8 @@ class AppSettingsState(private val store: AppSettingsStore) {
 
     var apiKey by mutableStateOf("")
         private set
+    var openAiManualApiKey by mutableStateOf("")
+        private set
     var openRouterApiKey by mutableStateOf("")
         private set
     var novitaApiKey by mutableStateOf("")
@@ -55,9 +57,14 @@ class AppSettingsState(private val store: AppSettingsStore) {
     var authMethod by mutableStateOf<String?>(null)
         private set
 
+    /** Transient OAuth access token, loaded from OAuthCredentialStore by caller. */
+    var openAiOAuthAccessToken by mutableStateOf("")
+        private set
+
     fun load() {
         val settings = store.load()
         apiKey = settings.apiKey
+        openAiManualApiKey = settings.openAiManualApiKey
         openRouterApiKey = settings.openRouterApiKey
         novitaApiKey = settings.novitaApiKey
         selectedModel = settings.selectedModel
@@ -117,6 +124,15 @@ class AppSettingsState(private val store: AppSettingsStore) {
         store.saveNovitaApiKey(key)
     }
 
+    fun updateOpenAiManualApiKey(key: String) {
+        openAiManualApiKey = key
+        store.saveOpenAiManualApiKey(key)
+    }
+
+    fun updateOpenAiOAuthAccessToken(token: String) {
+        openAiOAuthAccessToken = token
+    }
+
     fun updateOpenaiBaseUrl(url: String) {
         openaiBaseUrl = url
     }
@@ -128,11 +144,21 @@ class AppSettingsState(private val store: AppSettingsStore) {
     /**
      * Build a map of provider env var name → API key for [SessionServices.create].
      *
+     * Selects the active OpenAI credential based on [authMethod]:
+     * - OAuth: uses transient [openAiOAuthAccessToken]
+     * - Manual: uses persisted [openAiManualApiKey]
+     * Falls back to legacy [apiKey] during transition (callers not yet updated).
+     *
      * Also includes provider base URL overrides with `__BASE_URL_<PROVIDER>` keys,
      * extracted by [SessionLlmBootstrapper] at catalog load time.
      */
     fun buildApiKeys(): Map<String, String> = buildMap {
-        if (apiKey.isNotBlank()) put("OPENAI_API_KEY", apiKey)
+        val openAiKey = if (authMethod == "oauth") {
+            openAiOAuthAccessToken.ifBlank { apiKey }
+        } else {
+            openAiManualApiKey.ifBlank { apiKey }
+        }
+        if (openAiKey.isNotBlank()) put("OPENAI_API_KEY", openAiKey)
         if (openRouterApiKey.isNotBlank()) put("OPENROUTER_API_KEY", openRouterApiKey)
         if (novitaApiKey.isNotBlank()) put("NOVITA_API_KEY", novitaApiKey)
         if (openaiBaseUrl.isNotBlank()) put("__BASE_URL_OPENAI", openaiBaseUrl)

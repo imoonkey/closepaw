@@ -89,6 +89,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var oauthCredentialStore: com.moonkey.androidagent.auth.OAuthCredentialStore
     private var onboardingViewModel: OnboardingViewModel? = null
     private var onboardingRequired by mutableStateOf(false)
+    private var openAiAuthUiState by mutableStateOf<com.moonkey.androidagent.ui.settings.OpenAiAuthUiState>(
+        com.moonkey.androidagent.ui.settings.OpenAiAuthUiState.SignedOut
+    )
+    private var oauthJob: kotlinx.coroutines.Job? = null
 
     private enum class SessionLaunchPolicy {
         AUTO,
@@ -121,6 +125,7 @@ class MainActivity : ComponentActivity() {
             hasLegacyUsageEvidence()
         }
         settingsState.updateAuthMethod(onboardingStore.loadAuthMethod())
+        deriveOpenAiAuthUiState()
 
         // Eval/debug bypass: EXTRA_FRESH_SESSION + EXTRA_GOAL → skip onboarding
         val isEvalMode = intent.getBooleanExtra(EXTRA_FRESH_SESSION, false) &&
@@ -219,7 +224,11 @@ class MainActivity : ComponentActivity() {
                     repairModel = deriveRepairModel(),
                     onFixBattery = {
                         handleOnboardingEffect(OnboardingEffect.OpenBatteryOptimization)
-                    }
+                    },
+                    openAiAuthUiState = openAiAuthUiState,
+                    onStartOAuth = ::handleStartOAuth,
+                    onCancelOAuth = ::handleCancelOAuth,
+                    onSignOut = ::handleSignOut
                 )
             }
         }
@@ -630,6 +639,66 @@ class MainActivity : ComponentActivity() {
                 .show()
         showSettings = true
         return false
+    }
+
+    // ── Settings OAuth handlers ──
+
+    private fun deriveOpenAiAuthUiState() {
+        val creds = oauthCredentialStore.load()
+        openAiAuthUiState = if (settingsState.authMethod == "oauth") {
+            com.moonkey.androidagent.ui.settings.OpenAiAuthUiState.SignedIn(creds?.email)
+        } else {
+            com.moonkey.androidagent.ui.settings.OpenAiAuthUiState.SignedOut
+        }
+    }
+
+    private fun handleStartOAuth() {
+        if (oauthJob?.isActive == true) return
+
+        openAiAuthUiState = com.moonkey.androidagent.ui.settings.OpenAiAuthUiState.InProgress
+        oauthJob = lifecycleScope.launch {
+            val result = com.moonkey.androidagent.auth.openAiSignIn { url ->
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to launch OAuth browser", e)
+                    throw e
+                }
+            }
+
+            when (result) {
+                is com.moonkey.androidagent.auth.OpenAiSignInResult.Success -> {
+                    val tokens = result.tokens
+                    oauthCredentialStore.save(tokens)
+                    settingsState.updateOpenAiOAuthAccessToken(tokens.accessToken)
+                    settingsState.updateAuthMethod("oauth")
+                    settingsState.updateBackend(com.moonkey.androidagent.protocol.LLMBackendType.OPENAI)
+                    onboardingStore.saveAuthMethod("oauth")
+                    openAiAuthUiState = com.moonkey.androidagent.ui.settings.OpenAiAuthUiState.SignedIn(tokens.email)
+                    Log.d(TAG, "Settings OAuth success, email=${tokens.email}")
+                }
+                is com.moonkey.androidagent.auth.OpenAiSignInResult.Error -> {
+                    openAiAuthUiState = com.moonkey.androidagent.ui.settings.OpenAiAuthUiState.Error(result.message)
+                    Log.w(TAG, "Settings OAuth error: ${result.message}")
+                }
+            }
+        }
+    }
+
+    private fun handleCancelOAuth() {
+        oauthJob?.cancel()
+        oauthJob = null
+        openAiAuthUiState = com.moonkey.androidagent.ui.settings.OpenAiAuthUiState.SignedOut
+    }
+
+    private fun handleSignOut() {
+        oauthCredentialStore.clear()
+        settingsState.updateAuthMethod(null)
+        settingsState.updateOpenAiOAuthAccessToken("")
+        onboardingStore.saveAuthMethod("")
+        openAiAuthUiState = com.moonkey.androidagent.ui.settings.OpenAiAuthUiState.SignedOut
+        Log.d(TAG, "Settings OAuth sign-out, manual key preserved")
     }
 
     // ── OAuth token refresh ──
