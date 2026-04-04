@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-04-04: Settings page restructure
+
+**What changed:**
+- Two-level settings navigation: Home (3 nav rows) → sub-pages with AnimatedContent transitions
+- LLM & Authentication sub-page: 3-tab structure (Sign In / API Key / Local)
+  - Sign In: OpenAI OAuth account card + RESPONSE-only model selector
+  - API Key: provider sub-selector (OpenAI/OpenRouter/Novita) + linked model/key
+  - Local: local model selector + download status
+- Agent Behavior sub-page: max turns, agent mode, perception mode
+- Permissions & Advanced sub-page: a11y, overlay, debug toggle
+- Split manual OpenAI API key from OAuth token (credential isolation)
+- Shared OAuth suspend helpers (`auth/OpenAiSignIn.kt`) — reused by onboarding and settings
+- Provider-linked model filtering (`ModelCatalog.modelsFor/preferredModelFor`)
+- Model/executor canonicalization on provider switch
+- OpenAI Auth Card with 4 states (SignedOut/InProgress/SignedIn/Error)
+- Tab switching immediately persists backend/authMethod
+- One-time migration for legacy credential split
+
+**Why:**
+- OAuth was invisible in settings — no post-onboarding management
+- Flat layout didn't scale (8 sections, 26 parameters)
+- Manual OpenAI key was destroyed on OAuth sign-in (overloaded single field)
+
+**Key files:**
+- New: `SettingsHomePage.kt`, `LlmAuthSettingsPage.kt`, `AgentBehaviorSettingsPage.kt`, `PermissionsAdvancedSettingsPage.kt`, `OpenAiAuthCard.kt`, `OpenAiSignIn.kt`
+- Modified: `SettingsSheet.kt`, `AppSettingsState.kt`, `AppSettingsStore.kt`, `MainActivity.kt`, `MainActivityContent.kt`, `ModelCatalog.kt`, `OnboardingViewModel.kt`
+
+**Design docs:** `doc/todo/settings_redesign/` (UX spec, double-design, aligned design)
+**QA:** On-device (nubia M153) — Settings navigation PASS, API key path PASS, OAuth state display PASS
+**Verification:** `./gradlew assembleDebug` + `./gradlew test` pass; Codex code review completed + fixes applied
+**Commit range:** `dc8cd16..HEAD`
+**Next:** On-device OAuth re-login E2E test (Sign In button flow)
+**Blockers:** None
+
 ## 2026-04-02: CodexResponseClient for OAuth users
 
 **What changed:**
