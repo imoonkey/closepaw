@@ -52,14 +52,18 @@ class LFMLLMClient(
             try {
                 val field = LeapDownloader::class.java.getDeclaredField("json")
                 field.isAccessible = true
-                val lenientJson = Json {
-                    ignoreUnknownKeys = true
-                    prettyPrint = true
+                val original = field.get(null) as Json
+                val patched = Json(original) { ignoreUnknownKeys = true }
+                field.set(null, patched)
+                // Verify the write took effect
+                val verify = field.get(null)
+                if (verify === patched) {
+                    Log.d(TAG, "Patched LeapDownloader Json config with ignoreUnknownKeys")
+                } else {
+                    Log.w(TAG, "LeapDownloader Json patch did not stick — manifest parsing may fail")
                 }
-                field.set(null, lenientJson)
-                Log.d(TAG, "Patched LeapDownloader Json config with ignoreUnknownKeys")
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to patch LeapDownloader Json config: ${e.message}")
+                Log.w(TAG, "Failed to patch LeapDownloader Json config", e)
             }
         }
     }
