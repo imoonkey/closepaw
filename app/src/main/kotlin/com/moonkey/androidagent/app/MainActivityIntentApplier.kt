@@ -16,7 +16,9 @@ internal fun applyIntentPayloadToSettings(
 ): MainActivityIntentApplyResult {
     payload.apiKey?.let { key ->
         settingsState.updateApiKey(key)
-        log("API key set from intent")
+        // Explicit API key from intent overrides OAuth — use direct API path
+        settingsState.updateAuthMethod(null)
+        log("API key set from intent (auth method reset to manual)")
     }
     payload.openRouterApiKey?.let { key ->
         settingsState.updateOpenRouterApiKey(key)
