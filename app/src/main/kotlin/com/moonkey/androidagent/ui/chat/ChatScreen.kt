@@ -139,6 +139,11 @@ fun ChatScreen(
                             }
                         },
                         onUserResponse = viewModel::sendUserResponse,
+                        onApprovalResponse = { callId, decision, approvalScope, packageName ->
+                            if (stateHolder?.onApprovalResolved(callId) != false) {
+                                viewModel.sendApprovalResponse(callId, decision, approvalScope, packageName)
+                            }
+                        },
                         onDismissError = { viewModel.dismissError() },
                         onNavigate = { action ->
                             if (action == NavAction.OPEN_VIEWER) {

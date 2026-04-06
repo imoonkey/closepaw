@@ -233,6 +233,19 @@ class ChatViewModel(
         viewModelScope.launch { session.submit(Op.UserResponse(callId, response)) }
     }
 
+    /** Respond to a PolicyEngine approval request (approve/deny). */
+    fun sendApprovalResponse(
+        callId: String,
+        decision: ApprovalDecision,
+        scope: ApprovalScope,
+        packageName: String?
+    ) {
+        val session = sessionProvider() ?: return
+        viewModelScope.launch {
+            session.submit(Op.Approve(callId, decision, scope, packageName))
+        }
+    }
+
     fun dismissError() {
         AgentService.instance?.dismissError()
     }
