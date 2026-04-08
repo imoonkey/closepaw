@@ -1,0 +1,6 @@
+TOPIC=ui-ux-quality
+CLAUDE_REVIEW=doc/todo/ui-ux-quality/initial/design_review_claude.md
+CODEX_REVIEW=doc/todo/ui-ux-quality/initial/design_review_codex.md
+BASE=CODEX
+NEXT=DONE
+ROUND=3

@@ -1,0 +1,3 @@
+TOPIC=test-architecture
+ROUND=3
+NEXT=DONE

@@ -1,6 +1,6 @@
 # History Compression Alignment Design
 
-> **Status: DONE** (implemented 2025-02-24)
+> **Status: DONE** (implemented 2026-02-24)
 >
 > All design points landed. Minor deviations from spec:
 > - `isScreenObservation` field retained in `ResponseItem`, `HistoryItemConverter`, `SessionRuntimeSnapshot` for snapshot backward compatibility; core logic uses `MessageKind` exclusively.
