@@ -20,6 +20,7 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 | `executorModel` | `String?` | `null` | Executor agent model (cloud, optional override — falls back to main) |
 | `localModel` | `String` | `"LFM2.5-1.2B-Instruct"` | Local model selection |
 | `openAiApiKey` | `String` | `""` | API key for OpenAI |
+| `authMethod` | `String?` | `null` | `"oauth"` for OpenAI OAuth, `null` for manual API key |
 | `openRouterApiKey` | `String` | `""` | API key for OpenRouter |
 | `novitaApiKey` | `String` | `""` | API key for Novita |
 

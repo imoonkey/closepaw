@@ -48,6 +48,8 @@ Cloud client using Chat Completions API. Works with any OpenAI-compatible endpoi
 
 Cloud client for OAuth users, targeting `chatgpt.com/backend-api/codex/responses`. OAuth access tokens lack platform API scopes, so they cannot use `api.openai.com`. Uses raw OkHttp + manual SSE parsing via `CodexRequestBuilder` (JSON serialization) and `CodexSseParser` (SSE parsing with parallel-safe `ToolCallAccumulator`). Routed via `LLMClientFactory` when `__AUTH_METHOD_OPENAI == "oauth"` is in the apiKeys map.
 
+Wire format note: Codex requires wrapped content arrays where user messages use `"type": "input_text"` and assistant messages use `"type": "output_text"` (not `input_text` — the API rejects it with HTTP 400).
+
 ### ChatCompletionInterop
 
 > See: `llm/ChatCompletionInterop.kt`

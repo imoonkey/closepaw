@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-04-07: Codex multi-turn fix + settings auth label
+
+**What changed:**
+- CodexRequestBuilder: assistant messages now use `"output_text"` content type (was `"input_text"` for all roles, causing HTTP 400 on multi-turn Codex conversations)
+- SettingsHomePage: subtitle dynamically shows "OAuth" or "API key" based on `authMethod` (was hardcoded "API key")
+
+**Why:**
+- Codex API rejects `input_text` for assistant role content — only `output_text` and `refusal` are valid
+- Settings label was misleading for OAuth users
+
+**Key files:** `CodexRequestBuilder.kt`, `SettingsHomePage.kt`, `SettingsSheet.kt`
+**Verification:** `./gradlew assembleDebug` pass; on-device (nubia M153) — multi-turn Codex conversation runs 7+ turns without HTTP 400; Settings correctly shows "GPT-5.4 · OAuth"
+**Commit:** `59532da`
+**Next:** None
+**Blockers:** gpt-5.4 via CodexResponseClient sends malformed tool calls (multiple targeting methods) — model-side issue, not actionable in our code
+
 ## 2026-04-04: Settings page restructure
 
 **What changed:**
