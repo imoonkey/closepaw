@@ -15,7 +15,7 @@ import org.json.JSONObject
  * - `stream` must be `true`
  * - `instructions` must be present
  * - `max_output_tokens` must NOT be present
- * - Message content must be `[{"type": "input_text", ...}]`, not a bare string
+ * - Message content must be wrapped arrays: user → `input_text`, assistant → `output_text`
  */
 internal object CodexRequestBuilder {
 
@@ -100,11 +100,13 @@ internal object CodexRequestBuilder {
         content: com.openai.models.responses.EasyInputMessage.Content
     ): JSONObject {
         val obj = JSONObject().apply { put("role", role) }
+        // Codex API: user messages use "input_text", assistant messages use "output_text"
+        val textType = if (role == "assistant") "output_text" else "input_text"
 
         if (content.isTextInput()) {
             obj.put("content", JSONArray().put(
                 JSONObject().apply {
-                    put("type", "input_text")
+                    put("type", textType)
                     put("text", content.asTextInput())
                 }
             ))
@@ -116,7 +118,7 @@ internal object CodexRequestBuilder {
             for (part in content.asResponseInputMessageContentList()) {
                 when {
                     part.isInputText() -> parts.put(JSONObject().apply {
-                        put("type", "input_text")
+                        put("type", textType)
                         put("text", part.asInputText().text())
                     })
                     part.isInputImage() -> {
@@ -138,10 +140,10 @@ internal object CodexRequestBuilder {
             return obj
         }
 
-        // Fallback: wrap toString() as input_text
+        // Fallback
         obj.put("content", JSONArray().put(
             JSONObject().apply {
-                put("type", "input_text")
+                put("type", textType)
                 put("text", content.toString())
             }
         ))

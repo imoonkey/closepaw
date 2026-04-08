@@ -91,6 +91,7 @@ fun SettingsSheet(
                     selectedModel = selectedModel,
                     modelOptions = catalogModelOptions(modelCatalog.all()),
                     selectedLocalModel = selectedLocalModel,
+                    authMethod = authMethod,
                     agentMode = agentMode,
                     maxTurns = maxTurns,
                     perceptionMode = perceptionMode,

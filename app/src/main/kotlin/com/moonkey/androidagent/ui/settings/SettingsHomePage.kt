@@ -22,6 +22,7 @@ internal fun SettingsHomePage(
     selectedModel: String,
     modelOptions: List<Pair<String, String>>,
     selectedLocalModel: String,
+    authMethod: String?,
     agentMode: AgentMode,
     maxTurns: Int,
     perceptionMode: String,
@@ -42,7 +43,7 @@ internal fun SettingsHomePage(
         ) {
             SettingsNavigationRow(
                 title = "LLM & Authentication",
-                subtitle = llmSubtitle(llmBackend, selectedModel, modelOptions, selectedLocalModel),
+                subtitle = llmSubtitle(llmBackend, selectedModel, modelOptions, selectedLocalModel, authMethod),
                 onClick = { onNavigate(SettingsPage.LLM_AUTH) }
             )
 
@@ -77,12 +78,14 @@ private fun llmSubtitle(
     llmBackend: LLMBackendType,
     selectedModel: String,
     modelOptions: List<Pair<String, String>>,
-    selectedLocalModel: String
+    selectedLocalModel: String,
+    authMethod: String?
 ): String = if (llmBackend == LLMBackendType.LOCAL) {
     AVAILABLE_LOCAL_MODELS.find { it.id == selectedLocalModel }?.displayName ?: selectedLocalModel
 } else {
     val modelName = modelOptions.find { it.first == selectedModel }?.second ?: selectedModel
-    "$modelName · API key"
+    val authLabel = if (authMethod == "oauth") "OAuth" else "API key"
+    "$modelName · $authLabel"
 }
 
 private fun agentBehaviorSubtitle(
