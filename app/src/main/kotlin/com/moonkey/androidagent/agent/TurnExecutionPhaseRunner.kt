@@ -42,7 +42,7 @@ internal class TurnExecutionPhaseRunner(
                 delay(200)
 
                 var currentSnapshot = initialSnapshot
-                val actionForNextTurn = selectActionSignatureForNextTurn(toolCallsToExecute)
+                val executedToolCalls = mutableListOf<ToolCallRequest>()
                 Log.d(
                         TAG,
                         "Using turn snapshot for actions: ${currentSnapshot.elements.size} elements"
@@ -60,8 +60,9 @@ internal class TurnExecutionPhaseRunner(
                                 Log.w(TAG, "Action ${toolCall.name} failed; aborting remaining actions in this turn")
                                 break
                         }
+                        executedToolCalls.add(toolCall)
                 }
-                return actionForNextTurn
+                return selectActionSignatureForNextTurn(executedToolCalls)
         }
 
         private data class SingleToolCallResult(val snapshot: ScreenSnapshot, val success: Boolean)
