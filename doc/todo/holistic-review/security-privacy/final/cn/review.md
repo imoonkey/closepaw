@@ -62,6 +62,10 @@ Release 构建禁用明文传输。云端流量发往 OpenAI/OpenRouter/Novita �
 
 **影响:** 不受信任的本地调用方可完全重配 LLM 路由和 agent 行为。通过重定向的 API 流量实现下游数据外泄。
 
+> 这主要是为了debug的时候用的都。debug的这些flag该怎么处理最好？
+
+>> **回复:** 建议分两层处理: (1) 在 production build 中, `MainActivity` 完全忽略来自外部 caller 的 debug/trace/mode 等 extras — 只接受 goal text (且需用户确认); (2) debug build 中保留现有行为, 或者更好的做法是把这些 debug extras 移到一个 **独立的 Activity**, 用 signature permission 保护。这样 debug workflow 不受影响, 但 production 中外部 app 无法利用这些 flag。具体来说就是在 `MainActivityIntentApplier` 中加一个 `BuildConfig.DEBUG` 或 caller UID 检查。
+
 ### CRITICAL-2: Blocked App 隐私拦截发生在捕获之后
 
 **来源:** Codex Finding 2 (Claude 完全遗漏了此项)
@@ -83,6 +87,14 @@ Release 构建禁用明文传输。云端流量发往 OpenAI/OpenRouter/Novita �
 这意味着密码字段、OTP 验证码、已输入但未发送的消息、联系人以及非 blocked 应用中的金融数据, 都会流向云端 LLM 并在没有任何字段级隐私策略的情况下被持久化。
 
 **影响:** 敏感屏幕数据在没有隐私控制的情况下离开设备或被持久存储。
+
+> 这个是不是PII不好判定啊？
+
+>> **回复:** 不需要做通用 PII 检测。这里用的是系统已有的结构化信号: `AccessibilityNodeInfo.isPassword()` 是 OS 直接告诉你的, `isEditable` 标识用户输入字段 — 这些是元数据判断, 不是内容分析。方案是: password 字段一律抑制文本, 可编辑字段在 history/trace 中抑制、仅在 live prompt 的聚焦字段保留原文。不需要猜测哪些内容是 PII, 只需要根据字段类型做结构化的最小暴露。
+
+> 可编辑字段全抑制掉是不是too much? history也该全保留吧？不然reload session有信息丢失，行为不一致。
+
+>> **回复:** 同意, history 确实需要保留原文。session reload 后 LLM 丢失屏幕上下文会导致行为漂移, 这比隐私风险更实际。调整方案: (1) **password 字段** — 所有路径一律脱敏, 没有例外; (2) **非密码可编辑字段** — history/checkpoint 保留原文 (on-device app-private 存储, 风险可控), trace/debug 制品中脱敏 (这些可能被分享或外传); (3) **live prompt** — 保持原有方案, 聚焦字段保留原文。这样 session 行为一致性不受影响, 只在可能外泄的 trace 路径上做保护。
 
 ### HIGH-2: Secret 存储失败时静默降级为明文
 
@@ -111,6 +123,10 @@ OAuth 代码记录了解码后的 id_token claims (email、account ID、组织�
 
 **影响:** 任何共安装的应用都可以窃取 API key 或注入恶意 key。
 
+> 这也是为了debug搞的。但是这个应该只是debug override用的？用户的api key应该是存在加密的地方？
+
+>> **回复:** 对, 用户通过 UI 输入的 API key 走的是 EncryptedSharedPreferences (正常路径)。`/sdcard/api_key.txt` 确实是 debug/eval 的便捷方式。问题是这个路径在 production APK 中也存在, 没有 `BuildConfig.DEBUG` 门控 — 在 Android 10 及以下, 任何 app 都可以往这个路径写一个恶意 key。修复很简单: 加 `BuildConfig.DEBUG` 检查就行。用户正常使用的 key 仍然在加密存储中, 不受影响。
+
 ### MEDIUM-1: Shell Tool 能力与审批模型不匹配
 
 **来源:** Codex Finding 5 + Claude Finding 5
@@ -119,6 +135,14 @@ OAuth 代码记录了解码后的 id_token claims (email、account ID、组织�
 Shell 在 BASIC 模式下暴露。blocklist 仅验证第一个 token; 命令通过 `sh -c` 执行, 具有完整的 shell 解释能力。但即使输入验证做到完美, 前台应用审批模型对于一个能够访问应用私有文件、memory、traces 和 preferences 的工具来说, 本身就是错误的。
 
 **影响:** 通过 prompt injection 实现任意命令执行。策略模型无法约束真实的能力边界。
+
+> app的默认shell本来就权限有限，是不是还好？它访问app file, memory这些都是ok的吧。
+
+>> **回复:** OS 层面确实权限有限 — shell 以 app UID 运行, 不能 root。但关键是: shell 的操作者是 LLM, 而 LLM 可能被 prompt injection 影响。攻击者注入恶意 prompt 后, LLM 可以用 shell 读取 app 沙箱内的 session history、memory 文件、SharedPreferences XML (含 API key)、trace 制品等, 然后通过 LLM 的 response 或后续 tool call 外泄。这不是 OS 级提权问题, 而是 **LLM + shell 组合可以在 app 沙箱内自我窃取敏感数据**。前台 app 审批模型管不了这个, 因为 shell 操作的是 app 自己的文件, 跟前台 app 无关。所以要么从 production 移除, 要么给 shell 加独立的文件路径 allowlist。
+
+> 行啊，不要把shell限制得太死，只保护必要的就好了。maybe denylist instead of allow list。openclaw之类的权限都是给得很宽的吧。
+
+>> **回复:** 收到, denylist 更合理。Shell 保留宽权限, 只 deny 访问敏感路径: (1) `shared_prefs/` 目录 (含加密/明文凭据 XML); (2) OAuth token 文件; (3) 其他明确的 secret 存储路径。对 binary 也不做 allowlist, 只 block 明显危险的 (`rm -rf /`, `reboot` 之类)。同时修复 `sh -c` 的 metacharacter 注入问题 — 这个不是权限宽窄的问题, 是 input validation bug, 该修的。improvement plan 相应更新: shell 保留在 production, 采用 path denylist + metacharacter 防护。
 
 ### MEDIUM-2: InsecureSslConfig 应当仅在编译时用于 Debug
 
@@ -147,6 +171,10 @@ OAuth callback 使用 `ServerSocket(1455)` 并接受第一个入站连接。高�
 
 **影响:** 本地登录拒绝服务, 以及弱于标准的 Android OAuth 边界。代码窃取风险受 state 验证限制。
 
+> 这个应该要保留的，openai oauth直接接受localhost:1455的callback link，必须搞一个localhost server。
+
+>> **回复:** 了解, 如果 OpenAI OAuth 注册只接受 `localhost:1455` 作为 callback URI, 那 localhost server 必须保留。修复方向改为加固现有 server: (1) 显式 bind 到 `127.0.0.1` (当前 `ServerSocket(port)` 默认绑定所有接口); (2) 验证入站请求的 Host header; (3) 考虑额外的请求格式校验。深链迁移只在 OpenAI 未来支持 custom URI scheme callback 时才可行。improvement plan 中 P2.1 相应调整为 "加固 localhost server" 而非 "替换"。
+
 ### MEDIUM-5: 权限模型范围超出必要
 
 **来源:** Codex Finding 8
@@ -155,6 +183,13 @@ OAuth callback 使用 `ServerSocket(1455)` 并接受第一个入站连接。高�
 遗留的 `READ_EXTERNAL_STORAGE`/`WRITE_EXTERNAL_STORAGE` 权限仍然存在, 尽管大部分使用的是应用私有存储。写入到 `getExternalFilesDir()` 的 trace 比内部存储的保障等级更低。
 
 **影响:** 权限面令人困惑; 在旧版 Android 上, trace 可通过备份或其他应用访问。
+> agent可能用shell操作any file。所以要保留？
+
+>> **回复:** 取决于 shell 的最终处置。如果 shell 从 production 移除 (见 MEDIUM-1 的结论), 那这两个权限在 production 中就不需要了 — 可以放到 debug manifest merge 中, 只在 debug build 出现。Trace 写到 `getExternalFilesDir()` 是另一个独立问题: 即使没有 shell, trace 也不应该默认写外部存储, 应该改为 `context.filesDir` (内部存储)。总结: 如果 production 不保留 shell, 就可以移除这些权限; 如果保留, 需要在 shell 的 filesystem allowlist 中一起管控。
+
+> 不移除 。
+
+>> **回复:** 了解, storage 权限保留。MEDIUM-5 从 improvement plan 中移除, 标记为 WONTFIX。
 
 ### LOW-1: 外部存储上的 Trace 文件未完全脱敏
 
