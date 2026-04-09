@@ -36,7 +36,7 @@ class AppSettingsStore(private val context: Context) {
         private const val TAG = "AppSettingsStore"
         private const val PREFS_NAME = "agent_prefs"
         private const val ENCRYPTED_PREFS_NAME = "agent_secure_prefs"
-        private const val KEY_MIGRATED = "keys_migrated"
+
 
         private const val KEY_API_KEY = "api_key"
         private const val KEY_MODEL = "model"
@@ -128,35 +128,7 @@ class AppSettingsStore(private val context: Context) {
         }
     }
 
-    private fun migrateApiKeysIfNeeded() {
-        try {
-            val secure = securePrefs() ?: return // can't migrate without encryption
-            if (secure.getBoolean(KEY_MIGRATED, false)) return // already done
-
-            val plain = prefs()
-            val secretKeys = listOf(KEY_API_KEY, KEY_OPENROUTER_API_KEY, KEY_NOVITA_API_KEY, KEY_OPENAI_MANUAL_API_KEY)
-
-            // Copy plaintext secrets to encrypted storage
-            secretKeys.forEach { key ->
-                plain.getString(key, null)?.takeIf { it.isNotBlank() }?.let { value ->
-                    secure.edit().putString(key, value).apply()
-                }
-            }
-
-            // Delete plaintext secrets from plain prefs
-            val editor = plain.edit()
-            secretKeys.forEach { key -> editor.remove(key) }
-            editor.apply()
-
-            secure.edit().putBoolean(KEY_MIGRATED, true).apply()
-            Log.d(TAG, "Migrated API keys to encrypted storage and removed plaintext copies")
-        } catch (e: Exception) {
-            Log.w(TAG, "API key migration failed: ${e.message}")
-        }
-    }
-
     fun load(): AppSettings {
-        migrateApiKeysIfNeeded()
         val prefs = prefs()
         val savedKey = readSecure(KEY_API_KEY)?.takeIf { it.isNotBlank() }
         val apiKey = savedKey ?: loadApiKeyFromFile().orEmpty()

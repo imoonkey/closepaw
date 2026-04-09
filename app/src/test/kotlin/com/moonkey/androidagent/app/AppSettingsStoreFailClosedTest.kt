@@ -101,13 +101,12 @@ class AppSettingsStoreFailClosedTest {
     }
 
     @Test
-    fun `migration skips gracefully when encryption unavailable`() {
-        // Migration calls securePrefs() which returns null — should not throw
+    fun `load works when encryption unavailable`() {
         val store = AppSettingsStore(context)
-        val settings = store.load() // triggers migrateApiKeysIfNeeded
+        val settings = store.load()
 
         assertThat(store.encryptionDegraded).isTrue()
-        assertThat(settings.apiKey).isEmpty() // no keys migrated, file fallback gated
+        assertThat(settings.apiKey).isEmpty()
     }
 
     @Test
