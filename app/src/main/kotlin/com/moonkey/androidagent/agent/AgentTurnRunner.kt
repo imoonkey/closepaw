@@ -12,6 +12,7 @@ import com.moonkey.androidagent.protocol.ScreenStatePhase
 import com.moonkey.androidagent.session.SessionServices
 import com.moonkey.androidagent.trace.AgentTrace
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 
 /**
@@ -107,6 +108,8 @@ internal class AgentTurnRunner(
                                                 arbitration = planningResult.arbitration
                                         )
                                 }
+                        } catch (e: CancellationException) {
+                                throw e // Don't treat coroutine cancellation as a turn error
                         } catch (e: Exception) {
                                 handleTurnFailure(turnId, turnNumber, e)
                         } finally {

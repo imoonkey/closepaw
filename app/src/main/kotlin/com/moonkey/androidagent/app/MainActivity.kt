@@ -227,6 +227,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onNewSession = {
                         coordinator.selectedSessionForReload = null
+                        lifecycleScope.launch { coordinator.clearSession() }
                         viewModel.startNewSession(settingsState.selectedModel, BuildConfig.VERSION_NAME)
                     },
                     onOpenViewer = { openViewer(this@MainActivity) },

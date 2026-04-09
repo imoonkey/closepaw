@@ -470,6 +470,7 @@ private constructor(
         services.userResponseChannel.cancel()
 
         agentRunner.stop()
+        agentRunner.cancelJob()
         Log.i(TAG, "Interrupt requested")
     }
 

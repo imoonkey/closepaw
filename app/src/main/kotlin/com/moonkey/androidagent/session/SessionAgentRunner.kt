@@ -171,6 +171,14 @@ internal class SessionAgentRunner(
         currentAgent?.stop()
     }
 
+    /** Cancel the agent job immediately (for interrupt during tool suspension). */
+    fun cancelJob() {
+        val snapshot = synchronized(stateLock) { state }
+        // Complete signal before cancel so the catch block sees isCompleted == true
+        snapshot.cancellationSignal?.complete(AgentStopReason.UserRequested)
+        snapshot.agentJob?.cancel()
+    }
+
     fun shutdown() {
         val snapshot =
             synchronized(stateLock) {
@@ -179,8 +187,9 @@ internal class SessionAgentRunner(
                 current
             }
         snapshot.agent?.stop()
-        snapshot.agentJob?.cancel()
+        // Complete signal before cancel so the catch block sees isCompleted == true
         snapshot.cancellationSignal?.complete(AgentStopReason.UserRequested)
+        snapshot.agentJob?.cancel()
     }
 
     fun clear() {
