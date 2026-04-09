@@ -1,7 +1,7 @@
 # Agent Loop Execution
 
 > ReAct loop, Turn mechanics, and streaming execution.
-> Last updated: 2026-03-26
+> Last updated: 2026-04-09
 
 ## ReAct Loop
 
@@ -87,10 +87,11 @@ Handles the LLM thinking phase.
 
 **Responsibilities:**
 - Build prompt input items via `PromptBuilder`
-- Record current screen observation into history (before LLM call, so current turn does not duplicate itself)
+- Build canonical `TurnObservation` from current screen snapshot (shared by prompt and history)
+- Record observation into history
 - Resolve model via `AgentModelResolver` (catalog-driven, supports per-agent model override)
 - Stream LLM response via `Turn.runStreaming()`
-- Apply `TurnToolPolicy` arbitration (one-tool-per-turn, completion deferral)
+- Apply `TurnToolPolicy` arbitration (cognitive tools always kept, screen-changing tools kept, completion deferral)
 - Emit agent thought for Smart Capsule display
 - Record trace artifacts when enabled
 
@@ -103,7 +104,7 @@ Handles tool execution after planning.
 **Responsibilities:**
 - Execute each selected tool call via `ToolRouter`
 - Capture post-action screen observation via `ObservationBuilder` (with BLOCKED app masking applied)
-- Emit `ActionProposed` and `ActionExecuted` events
+- Emit `ActionProposed` and `ActionExecuted` events via `AgentEventDispatcher`
 - Record tool results into history for future turns
 - Emit planning events (`TodosUpdated`, `ScratchpadUpdated`) when relevant tools run
 
@@ -136,12 +137,12 @@ Defines runtime control/result types:
 
 → See: `agent/cognition/`
 
-- **Prompt layer**: `PromptBuilder` assembles History → Working Memory → Recalled Memory → App Skill → Current Observation input items
+- **Prompt layer**: `PromptBuilder` assembles History → Working Memory → Recalled Memory → App Skill → Current Observation input items. Current observation uses `TurnObservation` (canonical payload shared with history).
 - **Memory layer**: `MemoryRecaller.recall(currentPackageName)` injects cross-session learnings per turn; `Agent.kt` auto-retains `[pitfall]` entries on failure
-- **Context layer**: `NavigationState` tracks recent screen signatures and actions for loop detection. Maintains a sliding window of `MAX_ACTION_HISTORY = 8` recent actions.
-- **Policy layer**: `TurnToolPolicy` arbitrates tool calls — keeps cognitive tools, at most one screen-changing tool, defers `complete_task` when action tools exist.
+- **Context layer**: `NavigationState` tracks recent screen signatures for loop detection.
+- **Policy layer**: `TurnToolPolicy` arbitrates tool calls — keeps cognitive tools and screen-changing tools, defers `complete_task` when action tools exist. Navigation isolation (one screen-changing action per turn) is enforced at the prompt layer, not in code.
 - **Loop guard**: `LoopDetectionPolicy` detects stable screens (near-identical for 5 consecutive turns at Jaccard >= 0.95) and emits a factual warning. No strategy suggestions — the LLM decides what to do. Turn limit is the only hard stop mechanism.
-- **Action signatures**: `ActionSignature.classifyActionSignature()` produces stable signatures (e.g., `mobile_action:click:idx=12`, `open_app:markor`) for loop detection
+- **Action signatures**: `ActionSignature.classifyActionSignature()` produces stable signatures (e.g., `mobile_action:click:idx=12`, `open_app:markor`) for action descriptions
 - **Step guard**: `isFinalTurn()` contributes final-turn warning text when limit is reached; `DelegationSummaryFormatter` produces narrative summary of attempts for delegated agents
 
 ---
@@ -175,8 +176,8 @@ data class TurnResult(
 
 `TurnToolPolicy` enforces structured tool execution per turn:
 
-- **Cognitive tools** (`write_todos`, `scratchpad`): always allowed alongside a screen action
-- **Screen-changing tools** (`mobile_action`, `open_app`, etc.): at most one per turn
+- **Cognitive tools** (`write_todos`, `scratchpad`): always allowed alongside screen actions
+- **Screen-changing tools** (`mobile_action`, `open_app`, etc.): all kept (multi-action for form filling); navigation isolation enforced by prompt
 - `complete_task`: deferred if a non-completion action tool exists
 - Completion decided only when no non-completion action remains
 

@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-04-09: Agent Core Simplicity (9 tasks)
+
+**What changed:**
+- P0: Fixed action-signature derivation bug — signatures now derived from actually-executed tools, not pre-computed plan
+- P1: Split ExecutorStepPolicy into isFinalTurn() + DelegationSummaryFormatter; removed dead WarnApproaching/narrativeSummaryOnLimit
+- P1: Unified AgentDef + AgentDefinition into AgentRoleDef — one role model for top-level and delegated agents
+- P2: Removed dead NavigationState fields (consecutiveScrollActions, recentActions, fingerprint, CRITICAL severity), PreTurnContext.appTier
+- P3: Extracted TurnObservation as canonical per-turn screen payload, eliminating prompt/history temporal coupling
+- P3: Consolidated all agent event emission through AgentEventDispatcher
+- P3: Extracted shared ActionTarget decoder for ActionDescriptionFormatter + ActionSignature
+- P4: Added TextRecovery telemetry to Turn.kt; named magic delay constants
+- Codex review: fixed screenshot-only observation divergence, removed vestigial action-signature return path
+
+**Why:**
+- Double-design review (Claude + Codex) identified runtime invariant mismatch, duplicate role definitions, and accumulated dead code
+- Owner corrected P0 scope: multi-action turns are intentional for form-filling; only the signature derivation bug needed fixing
+
+**Key files:** agent/TurnExecutionPhaseRunner.kt, agent/AgentTurnRunner.kt, agent/cognition/policy/TurnBudget.kt, agent/definition/AgentRoleDef.kt, agent/cognition/prompt/TurnObservation.kt, agent/AgentEventDispatcher.kt, agent/ActionTarget.kt
+**Verification:** `./gradlew test` passes (all 59 tasks), Codex code review completed
+**Commit:** 55b597f..a4437b9 (10 commits)
+**Next:** None — ACS complete
+**Blockers:** None
+
 ## 2026-04-08/09: Security & Privacy Hardening (10 tasks)
 
 **What changed:**
