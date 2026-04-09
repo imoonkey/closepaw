@@ -58,11 +58,7 @@ class ShellTool : ToolSpec {
         private const val TIMEOUT_SECONDS = 10L
         private const val MAX_OUTPUT_CHARS = 4096
 
-        private val BLOCKED_COMMANDS = setOf(
-            "rm", "mv", "cp", "chmod", "chown",
-            "pm", "am", "settings", "reboot",
-            "su", "sh", "bash", "eval", "exec"
-        )
+        private val BLOCKED_COMMANDS = setOf("am", "pm", "reboot", "su")
     }
 
     private class ShellInvocation(
