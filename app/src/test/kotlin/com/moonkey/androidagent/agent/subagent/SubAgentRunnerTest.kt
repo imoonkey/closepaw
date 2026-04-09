@@ -177,8 +177,7 @@ class SubAgentRunnerTest {
                                                 systemPrompt = "prompt",
                                                 toolNames = emptyList(),
                                                 maxTurns = 1,
-                                                timeoutMs = 5_000,
-                                                narrativeSummaryOnLimit = true
+                                                timeoutMs = 5_000
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
@@ -188,7 +187,7 @@ class SubAgentRunnerTest {
                 val result = runner.run(SubAgentRequest(query = "Tap search"))
 
                 assertThat(result.success).isFalse()
-                assertThat(result.message).contains("Executor reached step limit")
+                assertThat(result.message).contains("Agent reached turn limit")
                 assertThat(result.message).contains("Delegated query: Tap search")
         }
 }

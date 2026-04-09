@@ -5,8 +5,7 @@ import com.moonkey.androidagent.agent.AgentExecutionConfig
 import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.agent.definition.AgentDefRegistry
-import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
-import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
+import com.moonkey.androidagent.agent.cognition.policy.DelegationSummaryFormatter
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.protocol.*
@@ -33,7 +32,6 @@ data class AgentDefinition(
     val toolNames: List<String>,
     val maxTurns: Int = 10,
     val timeoutMs: Long = 60_000,
-    val narrativeSummaryOnLimit: Boolean = true,
     val executionRole: AgentExecutionRole? = null
 )
 
@@ -175,21 +173,16 @@ class IsolatedSubAgentRunner(
                 }
             }
             AgentStopReason.MaxTurnsReached -> {
-                val stepDecision = ExecutorStepPolicy(
-                    definition.maxTurns,
-                    definition.narrativeSummaryOnLimit
-                ).evaluate(
-                    stepCount = definition.maxTurns,
+                val narrative = DelegationSummaryFormatter.format(
+                    maxTurns = definition.maxTurns,
                     delegatedQuery = request.query,
                     history = childServices.historyManager.getAll()
                 )
-                val stepLimitNarrative = (stepDecision as? ExecutorStepDecision.ForceStop)?.narrativeSummary
-                
+
                 SubAgentResult(
                     success = false,
                     message = completion?.toFailureMessage(definition.name)
-                        ?: stepLimitNarrative
-                        ?: "Sub-agent reached max turns."
+                        ?: narrative
                 )
             }
             AgentStopReason.UserRequested -> {

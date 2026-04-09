@@ -3,50 +3,16 @@ package com.moonkey.androidagent.agent.cognition.policy
 import com.moonkey.androidagent.history.ResponseItem
 
 /**
- * Step-budget decision for delegated executor runs.
+ * Returns true when the current turn is the final one allowed by the budget.
  */
-internal sealed interface ExecutorStepDecision {
-    /** Keep running normally. */
-    data object Continue : ExecutorStepDecision
-
-    /** Approaching limit; add reminder to bias toward decisive actions. */
-    data object WarnApproaching : ExecutorStepDecision
-
-    /** Stop due to limit and provide a narrative summary for the parent planner. */
-    data class ForceStop(
-        val narrativeSummary: String
-    ) : ExecutorStepDecision
-}
+internal fun isFinalTurn(turnNumber: Int, maxTurns: Int): Boolean = turnNumber >= maxTurns
 
 /**
- * Converts executor step count + history into a simple budget decision.
+ * Builds a narrative summary when a delegated agent reaches its turn limit
+ * without completing the task. Used to communicate context back to the parent agent.
  */
-internal class ExecutorStepPolicy(
-    private val maxSteps: Int,
-    private val narrativeSummaryOnLimit: Boolean
-) {
-    /**
-     * Two-stage budget behavior:
-     * - near limit: warning
-     * - at limit: optional force-stop summary
-     */
-    fun evaluate(stepCount: Int, delegatedQuery: String, history: List<ResponseItem>): ExecutorStepDecision {
-        val warningThreshold = (maxSteps - 2).coerceAtLeast(1)
-        return when {
-            stepCount >= maxSteps && narrativeSummaryOnLimit ->
-                ExecutorStepDecision.ForceStop(
-                    narrativeSummary =
-                        buildNarrativeSummary(
-                            delegatedQuery = delegatedQuery,
-                            history = history
-                        )
-                )
-            stepCount >= warningThreshold -> ExecutorStepDecision.WarnApproaching
-            else -> ExecutorStepDecision.Continue
-        }
-    }
-
-    private fun buildNarrativeSummary(delegatedQuery: String, history: List<ResponseItem>): String {
+internal object DelegationSummaryFormatter {
+    fun format(maxTurns: Int, delegatedQuery: String, history: List<ResponseItem>): String {
         val attemptedCalls = history.filterIsInstance<ResponseItem.FunctionCall>().takeLast(6)
         val recentOutputs = history.filterIsInstance<ResponseItem.FunctionCallOutput>().takeLast(3)
 
@@ -72,7 +38,7 @@ internal class ExecutorStepPolicy(
             }
 
         return buildString {
-            appendLine("Executor reached step limit ($maxSteps) without completing the delegated task.")
+            appendLine("Agent reached turn limit ($maxTurns) without completing the delegated task.")
             appendLine("Delegated query: $delegatedQuery")
             appendLine()
             appendLine("Attempted actions:")

@@ -1,9 +1,8 @@
 package com.moonkey.androidagent.agent
 
 import android.util.Log
-import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepDecision
-import com.moonkey.androidagent.agent.cognition.policy.ExecutorStepPolicy
 import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionPolicy
+import com.moonkey.androidagent.agent.cognition.policy.isFinalTurn
 import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionResult
 import com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
@@ -44,9 +43,6 @@ internal class AgentTurnRunner(
                 val securityWarnings: List<String> = emptyList()
         )
         private val loopDetectionPolicy by lazy { LoopDetectionPolicy() }
-        private val executorStepPolicy by lazy {
-                ExecutorStepPolicy(maxSteps = config.maxTurns, narrativeSummaryOnLimit = true)
-        }
         private val executionPhaseRunner by lazy {
                 TurnExecutionPhaseRunner(
                         config = config,
@@ -217,13 +213,8 @@ internal class AgentTurnRunner(
 
                 val nextState = state.copy(navigationState = navigationState)
 
-                val stepDecision =
-                        executorStepPolicy.evaluate(
-                                stepCount = turnNumber,
-                                delegatedQuery = config.goal,
-                                history = services.historyManager.getAll()
-                        )
-                val warnings = buildWarnings(loopResult, stepDecision)
+                val finalTurn = isFinalTurn(turnNumber, config.maxTurns)
+                val warnings = buildWarnings(loopResult, finalTurn)
 
                 return PreparedTurn(
                         nextState = nextState,
@@ -234,10 +225,10 @@ internal class AgentTurnRunner(
         /** Build plain-text warning strings for the current observation. */
         private fun buildWarnings(
                 loopResult: LoopDetectionResult,
-                stepDecision: ExecutorStepDecision
+                isFinalTurn: Boolean
         ): List<String> = buildList {
                 loopResult.warning?.let { add("⚠️ ${it.message}") }
-                if (stepDecision is ExecutorStepDecision.ForceStop) {
+                if (isFinalTurn) {
                         add("🛑 FINAL TURN (${config.maxTurns}). Complete now or report progress.")
                 }
         }
