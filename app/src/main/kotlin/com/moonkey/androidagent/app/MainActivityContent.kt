@@ -102,6 +102,8 @@ internal fun MainActivityContent(
                     onPerceptionModeChange = settingsState::updatePerceptionMode,
                     debugMode = settingsState.debugMode,
                     onDebugModeChange = settingsState::updateDebugMode,
+                    traceEnabled = settingsState.traceEnabled,
+                    onTraceEnabledChange = settingsState::updateTraceEnabled,
                     isAccessibilityEnabled = isAccessibilityEnabled,
                     isOverlayEnabled = isOverlayEnabled,
                     onAccessibilityClick = onAccessibilityClick,

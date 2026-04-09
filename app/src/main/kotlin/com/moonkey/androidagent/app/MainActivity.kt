@@ -609,7 +609,7 @@ class MainActivity : ComponentActivity() {
                         mainModel = settingsState.selectedModel,
                         executorModel = settingsState.executorModel,
                         debugMode = settingsState.debugMode,
-                        traceEnabled = pendingTraceEnabled ?: settingsState.debugMode,
+                        traceEnabled = pendingTraceEnabled ?: settingsState.traceEnabled,
                         traceRunId = pendingTraceRunId,
                         llm =
                                 SessionLlmConfig(

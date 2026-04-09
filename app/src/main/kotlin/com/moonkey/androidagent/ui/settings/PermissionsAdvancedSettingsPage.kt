@@ -14,8 +14,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,11 +27,20 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.moonkey.androidagent.BuildConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.io.File
 
 @Composable
 internal fun PermissionsAdvancedSettingsPage(
@@ -37,6 +50,8 @@ internal fun PermissionsAdvancedSettingsPage(
     onOverlayClick: () -> Unit,
     debugMode: Boolean,
     onDebugModeChange: (Boolean) -> Unit,
+    traceEnabled: Boolean,
+    onTraceEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
@@ -104,6 +119,11 @@ internal fun PermissionsAdvancedSettingsPage(
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(20.dp))
+            DataStorageSection(
+                traceEnabled = traceEnabled,
+                onTraceEnabledChange = onTraceEnabledChange
+            )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
@@ -114,5 +134,127 @@ internal fun PermissionsAdvancedSettingsPage(
             )
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+}
+
+private const val TRACE_DIR = "inspection-trace"
+private const val SESSIONS_DIR = "sessions"
+
+@Composable
+private fun DataStorageSection(
+    traceEnabled: Boolean,
+    onTraceEnabledChange: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var tracesCleared by remember { mutableStateOf(false) }
+    var sessionsCleared by remember { mutableStateOf(false) }
+
+    SettingsSection(title = "Data & Storage") {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Trace toggle
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Outlined.Storage,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Session Traces",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = "Record detailed execution traces",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = traceEnabled,
+                            onCheckedChange = onTraceEnabledChange,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        )
+                    }
+                    if (traceEnabled) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "Traces may contain sensitive data (screenshots, inputs, LLM responses). Disable when not debugging.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Clear traces button
+            ClearDataButton(
+                label = if (tracesCleared) "Traces Cleared" else "Clear Traces",
+                enabled = !tracesCleared,
+                onClick = {
+                    scope.launch(Dispatchers.IO) {
+                        context.getExternalFilesDir(TRACE_DIR)?.deleteRecursively()
+                        tracesCleared = true
+                    }
+                }
+            )
+
+            // Clear session history button
+            ClearDataButton(
+                label = if (sessionsCleared) "Sessions Cleared" else "Clear Session History",
+                enabled = !sessionsCleared,
+                onClick = {
+                    scope.launch(Dispatchers.IO) {
+                        File(context.filesDir, SESSIONS_DIR).deleteRecursively()
+                        sessionsCleared = true
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ClearDataButton(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.DeleteOutline,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = label, style = MaterialTheme.typography.labelLarge)
     }
 }

@@ -48,6 +48,8 @@ class AppSettingsState(private val store: AppSettingsStore) {
         private set
     var platformMode by mutableStateOf(AppSettingsStore.DEFAULT_PLATFORM_MODE)
         private set
+    var traceEnabled by mutableStateOf(AppSettingsStore.DEFAULT_TRACE_ENABLED)
+        private set
 
     /** Transient base URL override for OPENAI provider (set from intent, not persisted). */
     var openaiBaseUrl by mutableStateOf("")
@@ -82,6 +84,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
         localModelQuant = settings.localModelQuant
         executorModel = settings.executorModel
         platformMode = settings.platformMode
+        traceEnabled = settings.traceEnabled
         encryptionDegraded = store.encryptionDegraded
 
         Log.d(
@@ -188,6 +191,11 @@ class AppSettingsState(private val store: AppSettingsStore) {
     fun updateDebugMode(value: Boolean) {
         debugMode = value
         store.saveDebugMode(value)
+    }
+
+    fun updateTraceEnabled(value: Boolean) {
+        traceEnabled = value
+        store.saveTraceEnabled(value)
     }
 
     fun updatePerceptionMode(value: String) {

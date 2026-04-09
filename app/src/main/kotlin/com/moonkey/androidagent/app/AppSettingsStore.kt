@@ -27,7 +27,8 @@ data class AppSettings(
         val localModelSlug: String,
         val localModelQuant: String,
         val executorModel: String?,
-        val platformMode: PlatformMode
+        val platformMode: PlatformMode,
+        val traceEnabled: Boolean
 )
 
 class AppSettingsStore(private val context: Context) {
@@ -55,6 +56,7 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_PLATFORM_MODE = "platform_mode"
         private const val KEY_USER_ALLOWED_PACKAGES = "user_allowed_packages"
         private const val KEY_CREDENTIAL_SPLIT_MIGRATED = "credential_split_migrated"
+        private const val KEY_TRACE_ENABLED = "trace_enabled"
 
         const val DEFAULT_MODEL = "glm-5"
         const val DEFAULT_MAX_TURNS = 20
@@ -66,6 +68,7 @@ class AppSettingsStore(private val context: Context) {
         const val DEFAULT_LOCAL_MODEL_SLUG = "LFM2.5-1.2B-Instruct"
         const val DEFAULT_LOCAL_MODEL_QUANT = "Q4_K_M"
         val DEFAULT_PLATFORM_MODE = PlatformMode.ACCESSIBILITY
+        const val DEFAULT_TRACE_ENABLED = false
     }
 
     /** Plain prefs for non-secret settings only (model, turns, mode, etc.). */
@@ -195,6 +198,7 @@ class AppSettingsStore(private val context: Context) {
         } catch (_: Exception) {
             DEFAULT_PLATFORM_MODE
         }
+        val traceEnabled = prefs.getBoolean(KEY_TRACE_ENABLED, DEFAULT_TRACE_ENABLED)
 
         return AppSettings(
                 apiKey = apiKey,
@@ -211,7 +215,8 @@ class AppSettingsStore(private val context: Context) {
                 localModelSlug = localModelSlug,
                 localModelQuant = localModelQuant,
                 executorModel = executorModel,
-                platformMode = platformMode
+                platformMode = platformMode,
+                traceEnabled = traceEnabled
         )
     }
 
@@ -275,6 +280,10 @@ class AppSettingsStore(private val context: Context) {
 
     fun saveDebugMode(value: Boolean) {
         prefs().edit().putBoolean(KEY_DEBUG_MODE, value).apply()
+    }
+
+    fun saveTraceEnabled(value: Boolean) {
+        prefs().edit().putBoolean(KEY_TRACE_ENABLED, value).apply()
     }
 
     fun savePerceptionMode(value: String) {

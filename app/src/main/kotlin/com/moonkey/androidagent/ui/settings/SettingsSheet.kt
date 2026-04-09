@@ -54,6 +54,8 @@ fun SettingsSheet(
     onPerceptionModeChange: (String) -> Unit,
     debugMode: Boolean,
     onDebugModeChange: (Boolean) -> Unit,
+    traceEnabled: Boolean,
+    onTraceEnabledChange: (Boolean) -> Unit,
     isAccessibilityEnabled: Boolean,
     isOverlayEnabled: Boolean,
     onAccessibilityClick: () -> Unit,
@@ -145,6 +147,8 @@ fun SettingsSheet(
                     onOverlayClick = onOverlayClick,
                     debugMode = debugMode,
                     onDebugModeChange = onDebugModeChange,
+                    traceEnabled = traceEnabled,
+                    onTraceEnabledChange = onTraceEnabledChange,
                     onBack = { settingsPage = SettingsPage.HOME },
                     onClose = onDismiss
                 )
