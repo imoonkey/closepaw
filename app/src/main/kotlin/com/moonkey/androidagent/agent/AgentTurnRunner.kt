@@ -11,7 +11,6 @@ import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.AppTier
 import com.moonkey.androidagent.protocol.ScreenStatePhase
 import com.moonkey.androidagent.session.SessionServices
-import com.moonkey.androidagent.tool.ToolName
 import com.moonkey.androidagent.trace.AgentTrace
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
@@ -39,7 +38,6 @@ internal class AgentTurnRunner(
         private data class PreTurnContext(
                 val snapshot: ScreenSnapshot,
                 val currentPackageName: String?,
-                val appTier: AppTier = AppTier.CAUTIOUS,
                 val securityWarnings: List<String> = emptyList()
         )
         private val loopDetectionPolicy by lazy { LoopDetectionPolicy() }
@@ -96,8 +94,7 @@ internal class AgentTurnRunner(
                                                         warnings = preTurnContext.securityWarnings + preparedTurn.warnings
                                                 )
 
-                                        val actionForNextTurn =
-                                                executionPhaseRunner.executeActions(
+                                        executionPhaseRunner.executeActions(
                                                         turnId = turnId,
                                                         turnNumber = turnNumber,
                                                         initialSnapshot = snapshot,
@@ -105,10 +102,6 @@ internal class AgentTurnRunner(
                                                                 planningResult
                                                                         .arbitration
                                                                         .selectedToolCalls
-                                                )
-                                        nextState =
-                                                nextState.copy(
-                                                        previousActionSignature = actionForNextTurn
                                                 )
 
                                         decideTurnOutcome(
@@ -167,7 +160,6 @@ internal class AgentTurnRunner(
                 return PreTurnContext(
                         snapshot = snapshot,
                         currentPackageName = currentPackage,
-                        appTier = tier,
                         securityWarnings = securityWarnings
                 )
         }
@@ -200,10 +192,7 @@ internal class AgentTurnRunner(
                 snapshot: ScreenSnapshot
         ): PreparedTurn {
                 val navigationState =
-                        state.navigationState.advance(
-                                snapshot = snapshot,
-                                previousAction = state.previousActionSignature
-                        )
+                        state.navigationState.advance(snapshot = snapshot)
 
                 val loopResult = loopDetectionPolicy.detect(navigationState)
                 loopResult.warning?.let {

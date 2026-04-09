@@ -10,32 +10,14 @@ import org.junit.Test
 class NavigationStateTest {
 
     @Test
-    fun `advance keeps bounded history for signatures and actions`() {
+    fun `advance keeps bounded history for signatures`() {
         var state = NavigationState()
 
         repeat(12) { index ->
-            state =
-                state.advance(
-                    snapshot = snapshot("Screen $index"),
-                    previousAction = "mobile_action:click"
-                )
+            state = state.advance(snapshot = snapshot("Screen $index"))
         }
 
         assertThat(state.recentSignatures).hasSize(10)
-        assertThat(state.recentActions).hasSize(8)
-        assertThat(state.recentSignatures.last().fingerprint)
-            .isEqualTo(snapshot("Screen 11").toStateSignature().fingerprint)
-    }
-
-    @Test
-    fun `advance increments and resets consecutive scroll actions`() {
-        var state = NavigationState()
-        state = state.advance(snapshot("A"), previousAction = "scroll:up")
-        state = state.advance(snapshot("B"), previousAction = "scroll:down")
-        assertThat(state.consecutiveScrollActions).isEqualTo(2)
-
-        state = state.advance(snapshot("C"), previousAction = "mobile_action:click")
-        assertThat(state.consecutiveScrollActions).isEqualTo(0)
     }
 
     private fun snapshot(label: String): ScreenSnapshot {
@@ -61,11 +43,4 @@ class NavigationStateTest {
                 )
         )
     }
-}
-
-private fun ScreenSnapshot.toStateSignature(): ScreenSignature {
-    return NavigationState()
-        .advance(snapshot = this, previousAction = null)
-        .recentSignatures
-        .single()
 }

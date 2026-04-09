@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.agent.cognition.policy
 
 import com.google.common.truth.Truth.assertThat
-import com.moonkey.androidagent.agent.cognition.context.LoopWarningSeverity
 import com.moonkey.androidagent.agent.cognition.context.NavigationState
 import com.moonkey.androidagent.model.Bounds
 import com.moonkey.androidagent.model.PerceptionElement
@@ -17,7 +16,7 @@ class LoopDetectionPolicyTest {
         var state = NavigationState()
 
         repeat(5) { index ->
-            state = state.advance(snapshot(label = "Screen-$index"), previousAction = null)
+            state = state.advance(snapshot(label = "Screen-$index"))
         }
 
         val result = policy.detect(state)
@@ -31,13 +30,12 @@ class LoopDetectionPolicyTest {
         var state = NavigationState()
 
         repeat(5) {
-            state = state.advance(snapshot(label = "Stuck"), previousAction = null)
+            state = state.advance(snapshot(label = "Stuck"))
         }
 
         val result = policy.detect(state)
 
         assertThat(result.warning).isNotNull()
-        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.WARNING)
         assertThat(result.warning?.message).contains("not changed for 5 turns")
     }
 
@@ -47,7 +45,7 @@ class LoopDetectionPolicyTest {
         var state = NavigationState()
 
         repeat(4) {
-            state = state.advance(snapshot(label = "Stuck"), previousAction = null)
+            state = state.advance(snapshot(label = "Stuck"))
         }
 
         val result = policy.detect(state)
@@ -63,7 +61,7 @@ class LoopDetectionPolicyTest {
 
         repeat(5) { index ->
             // Each screen has the same layout element but different varying content
-            state = state.advance(snapshotWithProgress(3, "Item $index"), previousAction = null)
+            state = state.advance(snapshotWithProgress(3, "Item $index"))
         }
 
         val result = policy.detect(state)
@@ -82,13 +80,12 @@ class LoopDetectionPolicyTest {
         // Need ~40 shared: 40/42 ≈ 0.952 >= 0.95
         // But simpler: use identical screens
         repeat(5) {
-            state = state.advance(snapshot(label = "Identical"), previousAction = "mobile_action:click")
+            state = state.advance(snapshot(label = "Identical"))
         }
 
         val result = policy.detect(state)
 
         assertThat(result.warning).isNotNull()
-        assertThat(result.warning?.severity).isEqualTo(LoopWarningSeverity.WARNING)
     }
 
     @Test
@@ -108,7 +105,7 @@ class LoopDetectionPolicyTest {
         var state = NavigationState()
 
         repeat(5) { index ->
-            state = state.advance(snapshot(label = "Screen-$index"), previousAction = "scroll:up")
+            state = state.advance(snapshot(label = "Screen-$index"))
         }
 
         val result = policy.detect(state)
@@ -124,7 +121,7 @@ class LoopDetectionPolicyTest {
         var state = NavigationState()
 
         repeat(5) { index ->
-            state = state.advance(snapshot(label = "Screen-$index"), previousAction = "mobile_action:click")
+            state = state.advance(snapshot(label = "Screen-$index"))
         }
 
         val result = policy.detect(state)

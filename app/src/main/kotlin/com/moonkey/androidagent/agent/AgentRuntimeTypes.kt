@@ -21,13 +21,10 @@ sealed class TurnOutcome {
 /**
  * Mutable runtime state carried across turns.
  *
- * This is intentionally small:
- * - `navigationState` powers loop detection heuristics
- * - `previousActionSignature` helps detect repeated actions
+ * `navigationState` powers loop detection (stable-screen warning).
  */
 internal data class TurnRunnerState(
-    val navigationState: NavigationState = NavigationState(),
-    val previousActionSignature: String? = null
+    val navigationState: NavigationState = NavigationState()
 )
 
 /**

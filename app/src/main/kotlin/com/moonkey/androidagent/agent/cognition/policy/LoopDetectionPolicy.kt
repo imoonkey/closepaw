@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.agent.cognition.policy
 
 import com.moonkey.androidagent.agent.cognition.context.LoopWarning
-import com.moonkey.androidagent.agent.cognition.context.LoopWarningSeverity
 import com.moonkey.androidagent.agent.cognition.context.NavigationState
 import com.moonkey.androidagent.agent.cognition.context.ScreenSignature
 
@@ -40,8 +39,7 @@ internal class LoopDetectionPolicy(
         if (recent.size == config.stableScreenWindow && recent.isStable(config.similarityThreshold)) {
             return LoopDetectionResult(
                 warning = LoopWarning(
-                    message = "Screen has not changed for ${config.stableScreenWindow} turns.",
-                    severity = LoopWarningSeverity.WARNING
+                    message = "Screen has not changed for ${config.stableScreenWindow} turns."
                 )
             )
         }

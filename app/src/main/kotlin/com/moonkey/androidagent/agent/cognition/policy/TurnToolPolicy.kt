@@ -52,8 +52,8 @@ internal class TurnToolPolicy {
             )
         }
 
-        val hasCompletionTool = toolCalls.any { it.name == COMPLETE_TASK_TOOL }
         val completionCall = toolCalls.find { it.name == COMPLETE_TASK_TOOL }
+        val hasCompletionTool = completionCall != null
         val screenCalls =
                 toolCalls.filter { call ->
                         call.name != COMPLETE_TASK_TOOL && ToolName.from(call.name).isScreenChanging
