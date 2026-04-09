@@ -114,10 +114,13 @@ interface ToolExecutionContext {
 
     /** Access to platform operations */
     val platform: com.moonkey.androidagent.platform.AndroidPlatform
-    
+
     /** Current screen snapshot (if available) */
     val currentSnapshot: com.moonkey.androidagent.model.ScreenSnapshot?
-    
+
+    /** App classifier for privacy gating (masks BLOCKED app observations). */
+    val appClassifier: com.moonkey.androidagent.tool.AppClassifier? get() = null
+
     /** Check if execution should be cancelled */
     fun isCancelled(): Boolean
 }

@@ -40,17 +40,18 @@ object PlatformFactory {
             visualizer: ActionVisualizerManager? = null,
             traceRecorder: TraceRecorder,
             overlayTouchGate: OverlayTouchGate? = null,
+            isPackageBlocked: (String?) -> Boolean = { false },
     ): AndroidPlatform {
         return when (config.platformMode) {
             PlatformMode.ACCESSIBILITY -> {
                 Log.i(TAG, "Using AccessibilityPlatform (real screen)")
-                AccessibilityPlatform(service, config, visualizer, traceRecorder, overlayTouchGate)
+                AccessibilityPlatform(service, config, visualizer, traceRecorder, overlayTouchGate, isPackageBlocked)
             }
             PlatformMode.VIRTUAL_DISPLAY -> {
-                createVirtualDisplayPlatform(config, service, traceRecorder)
+                createVirtualDisplayPlatform(config, service, traceRecorder, isPackageBlocked)
                         ?: run {
                             Log.w(TAG, "Shizuku unavailable, falling back to AccessibilityPlatform")
-                            AccessibilityPlatform(service, config, visualizer, traceRecorder, overlayTouchGate)
+                            AccessibilityPlatform(service, config, visualizer, traceRecorder, overlayTouchGate, isPackageBlocked)
                         }
             }
         }
@@ -59,7 +60,8 @@ object PlatformFactory {
     private fun createVirtualDisplayPlatform(
             config: SessionConfig,
             service: AccessibilityService,
-            traceRecorder: TraceRecorder
+            traceRecorder: TraceRecorder,
+            isPackageBlocked: (String?) -> Boolean
     ): VirtualDisplayPlatform? {
         val shizuku = ShizukuClient()
 
@@ -84,7 +86,8 @@ object PlatformFactory {
                 shizuku = shizuku,
                 config = displayConfig,
                 sessionConfig = config,
-                traceRecorder = traceRecorder
+                traceRecorder = traceRecorder,
+                isPackageBlocked = isPackageBlocked
         )
     }
 }

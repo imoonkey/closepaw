@@ -264,6 +264,7 @@ class ToolRouter(
                 override val callId: String = resolvedCallId
                 override val platform: AndroidPlatform = context.platform
                 override val currentSnapshot: ScreenSnapshot? = executionSnapshot
+                override val appClassifier: AppClassifier = policyEngine.appClassifier
                 override fun isCancelled(): Boolean = context.isCancelled()
             }
             invocation.execute(execContext)

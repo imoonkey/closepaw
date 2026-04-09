@@ -45,6 +45,7 @@ class AccessibilityPlatform(
         private val visualizer: ActionVisualizerManager? = null,
         private val traceRecorder: TraceRecorder = NoopTraceRecorder,
         private val overlayTouchGate: OverlayTouchGate? = null,
+        private val isPackageBlocked: (String?) -> Boolean = { false },
 ) : AndroidPlatform {
 
     companion object {
@@ -59,6 +60,15 @@ class AccessibilityPlatform(
     private val outOfBoundsActionTargetCount = AtomicInteger(0)
 
     override suspend fun captureScreen(): ScreenSnapshot {
+        // Privacy gate: BLOCKED apps get masked snapshot — no artifacts created
+        if (isPackageBlocked(getCurrentPackageName())) {
+            return ScreenSnapshot(
+                timestamp = System.currentTimeMillis(),
+                elements = emptyList(),
+                image = null
+            )
+        }
+
         val pc = config.perceptionConfig
         val timestamp = System.currentTimeMillis()
 

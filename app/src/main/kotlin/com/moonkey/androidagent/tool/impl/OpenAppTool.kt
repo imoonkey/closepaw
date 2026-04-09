@@ -212,7 +212,7 @@ private class OpenAppInvocation(
                 }
 
                 val observation = snapshot?.let {
-                    buildObservation(it, context.platform)
+                    buildObservation(it, context.platform, context.appClassifier)
                 }
 
                 ToolExecutionResult.Success(

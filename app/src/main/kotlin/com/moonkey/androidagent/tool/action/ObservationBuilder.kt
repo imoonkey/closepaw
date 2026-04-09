@@ -5,26 +5,42 @@ import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.perception.toSummary
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.protocol.AppTier
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.ToolObservation
 
 private const val TAG = "ObservationBuilder"
 
-/** Build a ToolObservation from a post-action snapshot. Mode-aware for screenshot-only. */
+/**
+ * Build a ToolObservation from a post-action snapshot. Mode-aware for screenshot-only.
+ *
+ * When [appClassifier] is provided, BLOCKED-app snapshots are masked before building
+ * the observation (defense-in-depth — the capture layer should already mask).
+ */
 internal fun buildObservation(
     snapshot: ScreenSnapshot,
-    platform: AndroidPlatform
+    platform: AndroidPlatform,
+    appClassifier: AppClassifier? = null
 ): ToolObservation.ScreenState? {
     return try {
-        val tree = if (snapshot.hasElements) {
-            Perceptor.toPromptJson(snapshot)
+        val packageName = platform.getCurrentPackageName()
+        val isBlocked = appClassifier?.classify(packageName) == AppTier.BLOCKED
+        val effective = if (isBlocked && appClassifier != null) {
+            appClassifier.maskIfBlocked(snapshot, packageName)
         } else {
-            "No accessibility data (screenshot-only mode)"
+            snapshot
+        }
+
+        val tree = when {
+            isBlocked -> "[BLOCKED] App content masked by privacy policy"
+            effective.hasElements -> Perceptor.toPromptJson(effective)
+            else -> "No accessibility data (screenshot-only mode)"
         }
         ToolObservation.ScreenState(
             accessibilityTree = tree,
-            elementCount = snapshot.elements.size,
-            summary = snapshot.toSummary(platform.getCurrentPackageName()),
-            snapshot = snapshot
+            elementCount = effective.elements.size,
+            summary = effective.toSummary(packageName),
+            snapshot = effective
         )
     } catch (e: Exception) {
         Log.w(TAG, "Failed to build observation: ${e.message}")

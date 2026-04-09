@@ -89,7 +89,8 @@ class SessionServices internal constructor(
                 apiKeys: Map<String, String> = emptyMap(),
                 context: Context,
                 scope: CoroutineScope,
-                traceRecorder: TraceRecorder
+                traceRecorder: TraceRecorder,
+                appClassifier: AppClassifier? = null
         ): SessionServices {
             Log.d(TAG, "Creating SessionServices...")
             Log.d(TAG, "API keys available for providers: ${apiKeys.keys}")
@@ -100,12 +101,12 @@ class SessionServices internal constructor(
             val llmClient: LLMClient = llmBootstrap.llmClient
             Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
 
-            val appClassifier = AppClassifier.fromAssets(context.assets)
+            val classifier = appClassifier ?: AppClassifier.fromAssets(context.assets)
             val settingsStore = AppSettingsStore(context)
             val persistentAllowList = settingsStore.loadPersistentAllowList()
             val tooling = SessionToolingBootstrapper.create(
                 approvalMode = config.approvalMode,
-                appClassifier = appClassifier,
+                appClassifier = classifier,
                 initialPersistentAllowList = persistentAllowList,
                 onPersistentAllowListChanged = { packages -> settingsStore.savePersistentAllowList(packages) }
             )
@@ -124,7 +125,7 @@ class SessionServices internal constructor(
             val memoryDir = java.io.File(context.filesDir ?: java.io.File("/tmp"), "memory")
             val memoryStore = MemoryStore(memoryDir)
             val memoryRecaller = MemoryRecaller(memoryStore)
-            toolRegistry.register(RememberExperienceTool(memoryStore, appClassifier))
+            toolRegistry.register(RememberExperienceTool(memoryStore, classifier))
 
             Log.i(TAG, "SessionServices created successfully")
 
@@ -134,7 +135,7 @@ class SessionServices internal constructor(
                     historyManager = historyManager,
                     sessionState = sessionState,
                     policyEngine = policyEngine,
-                    appClassifier = appClassifier,
+                    appClassifier = classifier,
                     platform = platform,
                     config = config,
                     llmClient = llmClient,

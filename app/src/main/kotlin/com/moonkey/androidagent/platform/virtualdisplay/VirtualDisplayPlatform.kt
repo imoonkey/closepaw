@@ -37,7 +37,8 @@ class VirtualDisplayPlatform(
         private val shizuku: ShizukuClient,
         private val config: VirtualDisplayConfig,
         private val sessionConfig: SessionConfig,
-        private val traceRecorder: TraceRecorder
+        private val traceRecorder: TraceRecorder,
+        private val isPackageBlocked: (String?) -> Boolean = { false }
 ) : AndroidPlatform {
     companion object {
         private const val TAG = "VirtualDisplayPlatform"
@@ -224,6 +225,15 @@ class VirtualDisplayPlatform(
     // ── Screen Capture ──────────────────────────────────────────
 
     override suspend fun captureScreen(): ScreenSnapshot {
+        // Privacy gate: BLOCKED apps get masked snapshot — no artifacts created
+        if (isPackageBlocked(getCurrentPackageName())) {
+            return ScreenSnapshot(
+                timestamp = System.currentTimeMillis(),
+                elements = emptyList(),
+                image = null
+            )
+        }
+
         val timestamp = System.currentTimeMillis()
         val pc = sessionConfig.perceptionConfig
 

@@ -13,6 +13,7 @@ import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.OverlayTouchGate
 import com.moonkey.androidagent.platform.PlatformFactory
 import com.moonkey.androidagent.protocol.*
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.trace.TraceRecorderFactory
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.CoroutineScope
@@ -50,6 +51,7 @@ private constructor(
         ): AgentSession {
             val sessionId = SessionId.generate()
             val traceRecorder = TraceRecorderFactory.create(service, config, sessionId)
+            val appClassifier = AppClassifier.fromAssets(service.assets)
             val platform: AndroidPlatform =
                     PlatformFactory.create(
                             config = config,
@@ -57,6 +59,7 @@ private constructor(
                             visualizer = visualizer,
                             traceRecorder = traceRecorder,
                             overlayTouchGate = overlayTouchGate,
+                            isPackageBlocked = { appClassifier.classify(it) == AppTier.BLOCKED },
                     )
             val services =
                     SessionServices.create(
@@ -65,7 +68,8 @@ private constructor(
                             apiKeys = apiKeys,
                             context = service,
                             scope = scope,
-                            traceRecorder = traceRecorder
+                            traceRecorder = traceRecorder,
+                            appClassifier = appClassifier
                     )
 
             return AgentSession(
@@ -124,6 +128,7 @@ private constructor(
             val config = snapshot.config.toSessionConfig()
             val sessionId = SessionId(snapshot.sessionId)
             val traceRecorder = TraceRecorderFactory.create(service, config, sessionId)
+            val appClassifier = AppClassifier.fromAssets(service.assets)
             val platform: AndroidPlatform =
                     PlatformFactory.create(
                             config = config,
@@ -131,6 +136,7 @@ private constructor(
                             visualizer = visualizer,
                             traceRecorder = traceRecorder,
                             overlayTouchGate = overlayTouchGate,
+                            isPackageBlocked = { appClassifier.classify(it) == AppTier.BLOCKED },
                     )
             val services =
                     SessionServices.create(
@@ -139,7 +145,8 @@ private constructor(
                             apiKeys = apiKeys,
                             context = service,
                             scope = scope,
-                            traceRecorder = traceRecorder
+                            traceRecorder = traceRecorder,
+                            appClassifier = appClassifier
                     )
 
             val historyItems = HistoryItemConverter.fromRecords(snapshot.historyItems)

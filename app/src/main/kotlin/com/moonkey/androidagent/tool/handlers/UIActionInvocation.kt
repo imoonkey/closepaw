@@ -77,7 +77,7 @@ class UIActionInvocation(
         return try {
             delay(UI_SETTLE_DELAY_MS)
             val snapshot = context.platform.captureScreen()
-            buildObservation(snapshot, context.platform)
+            buildObservation(snapshot, context.platform, context.appClassifier)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to capture post-action observation: ${e.message}")
             null
