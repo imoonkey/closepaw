@@ -410,5 +410,223 @@
       "existing cloud/local validation still behaves correctly",
       "./gradlew test passes"
     ]
+  },
+  "sec-hardening": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Security & Privacy Hardening",
+    "description": "Holistic security review 后的改进计划。修复边界放置与权限组合问题: intent 控制平面、捕获层隐私拦截、secret 存储、日志 PII、密码字段脱敏、shell blocklist、InsecureSsl、AppClassifier 失败模式。",
+    "design": "doc/todo/holistic-review/security-privacy/final/cn/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-intent-lockdown": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P0.1 关闭导出 Intent 控制平面",
+    "description": "Production build 忽略外部 caller 的安全敏感 intent extras (API key, base URL, backend, mode, debug/trace flags)。永不持久化 intent 提供的凭据。外部 goal 需用户确认。Debug build 保留现有行为。",
+    "scope": [
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivityIntentPayload.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivityIntentApplier.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt"
+    ],
+    "acceptCriteria": [
+      "External ACTION_MAIN launch cannot persist API keys or routing changes",
+      "External launch cannot force BASIC mode",
+      "External launch cannot auto-start agent without user confirmation",
+      "Debug build debug workflow unaffected",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sec-fail-closed-secrets": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P0.3 Secret 存储关闭式失败",
+    "description": "移除明文 SharedPreferences fallback。加密存储失败时仅保持内存中凭据, 显示降级横幅。loadApiKeyFromFile() 用 BuildConfig.DEBUG 门控。清理相关 deadcode (prefsFailed flag, plaintext prefs init)。加 test。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/auth/OAuthCredentialStore.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingStore.kt"
+    ],
+    "acceptCriteria": [
+      "No long-lived secret written to plain SharedPreferences",
+      "Encryption failure visible to user via degraded-security banner",
+      "Current-session credentials work in memory without persistence",
+      "Production build has no path reading api_key.txt from shared storage",
+      "Related deadcode (prefsFailed, plaintext init) removed",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-remove-auth-pii": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P0.4 移除 auth PII 日志",
+    "description": "删除 OpenAIOAuth.kt 中 id_token claims 日志和 OpenAiSignIn.kt 中 email 日志。如需调试仅记录 token 存在与长度, 受 BuildConfig.DEBUG 门控。LlmLogger 已有 DEBUG 门控, 无需改动。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/auth/OpenAIOAuth.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/auth/OpenAiSignIn.kt"
+    ],
+    "acceptCriteria": [
+      "No token claims, emails, or account identifiers in logcat",
+      "grep -rn 'id_token claims' app/src/main/kotlin/ returns empty",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sec-capture-privacy-gate": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P0.2 捕获层隐私拦截 (TDD)",
+    "description": "将 blocked-app masking 移入捕获栈, 在任何制品创建之前执行。BLOCKED app 立即返回遮罩 snapshot, 不写入 raw/sanitized tree 或截图, 不发出含捕获内容的 post-action observation。统一 post-action capture 路径。用 /tdd 先写 test 再改代码。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityScreenshotCapturer.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayScreenshotProcessor.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/OpenAppTool.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/UIActionInvocation.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ObservationBuilder.kt"
+    ],
+    "acceptCriteria": [
+      "Tracing on a blocked app writes no screenshot or tree artifact",
+      "open_app and UIActionInvocation cannot return raw blocked-app observations",
+      "Blocked-app session produces only masked snapshots and policy warnings",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-shell-blocklist": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P1.2 Shell blocklist 精简",
+    "description": "将 ShellTool BLOCKED_COMMANDS 从 14 个精简为 4 个: am, pm, reboot, su。解除 rm, mv, cp, chmod, chown, sh, bash, eval, exec, settings。不限制元字符, 不添加 path denylist。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt"
+    ],
+    "acceptCriteria": [
+      "BLOCKED_COMMANDS contains exactly: am, pm, reboot, su",
+      "rm, mv, cp, settings and other previously blocked commands are allowed",
+      "Shell metacharacters (pipe, redirect, subshell) unrestricted",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sec-insecure-ssl-debug": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P1.3 InsecureSsl 编译时 Debug-only",
+    "description": "将 InsecureSslConfig.kt 移至 debug/ source set, release source set 提供 no-op stub。验证 base URL 覆盖在 debug 之外要求 HTTPS。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/InsecureSslConfig.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt"
+    ],
+    "acceptCriteria": [
+      "InsecureSslConfig.kt exists only in debug/ source set",
+      "Release build cannot compile any insecure TLS helper",
+      "Production base URL rejects non-HTTPS URLs",
+      "./gradlew assembleRelease passes"
+    ]
+  },
+  "sec-classifier-fail-closed": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P1.4 AppClassifier 关闭式失败",
+    "description": "fromAssets() 在 app_tiers.json 加载失败时抛异常而非返回空分类器。Session 创建中止并向用户展示错误。不添加特殊 escape action 路径。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/AppClassifier.kt"
+    ],
+    "acceptCriteria": [
+      "Missing/corrupt app_tiers.json prevents session start",
+      "User sees error explaining the issue",
+      "No empty-classifier fallback path in production code",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-password-suppression": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P1.1 密码字段脱敏 (isPassword)",
+    "description": "在 Perceptor 构建 PerceptionElement 时检查 AccessibilityNodeInfo.isPassword(), 为 true 则抑制 text/contentDescription。所有下游路径自动继承。不做 editable 字段抑制、不拆分 serializer。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/perception/Perceptor.kt"
+    ],
+    "acceptCriteria": [
+      "Password fields never appear with raw text in prompt/history/trace",
+      "Non-password fields (including editable) unchanged",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-data-retention": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P2.2 数据留存控制",
+    "description": "在 Settings → Permissions & Advanced 页面新增 Data & Storage section。提供 session history/checkpoints/memory/trace 留存设置、一键安全擦除、默认关闭 trace 并启用时给出提示。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/PermissionsAdvancedSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "Data & Storage section visible in Permissions & Advanced settings",
+      "One-tap wipe for traces and stored sessions works",
+      "Trace defaults to off with clear messaging when enabled",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sec-regression-tests": {
+    "parent": "sec-hardening",
+    "depends": [
+      "sec-intent-lockdown",
+      "sec-fail-closed-secrets",
+      "sec-remove-auth-pii",
+      "sec-capture-privacy-gate",
+      "sec-shell-blocklist",
+      "sec-insecure-ssl-debug",
+      "sec-classifier-fail-closed",
+      "sec-password-suppression"
+    ],
+    "state": "done",
+    "title": "P2.3 安全回归测试",
+    "description": "为所有 security hardening items 编写回归测试。主要为 JVM unit test, 仅 blocked-app trace test 需要 instrumentation test。",
+    "scope": [
+      "app/src/test/**"
+    ],
+    "acceptCriteria": [
+      "Test: external intent with sensitive extras ignored in production",
+      "Test: blocked app produces no trace screenshots/trees",
+      "Test: password fields redacted from prompt/history/trace",
+      "Test: encrypted storage failure does not persist secrets in plaintext",
+      "Test: shell blocklist contains only am/pm/reboot/su",
+      "Test: AppClassifier load failure prevents session start",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-app-tiers-expansion": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "app_tiers.json 扩展到 100-1000 app",
+    "description": "将 app_tiers.json 从当前 61 个 app (36 blocked + 25 normal) 扩展到覆盖世界常用 100-1000 个 app。需要设计数据获取流程: 拉取 package name + app name + category (Google Play top charts, AppBrain 等) → 用 LLM 批量评估 tier。独立设计任务。",
+    "requireHumanReview": true,
+    "scope": [
+      "app/src/main/assets/security/app_tiers.json"
+    ],
+    "acceptCriteria": [
+      "app_tiers.json contains 100+ classified apps",
+      "Coverage includes top apps from major Play Store categories",
+      "Financial/payment/auth apps correctly classified as BLOCKED",
+      "Classification methodology documented"
+    ]
   }
 }
