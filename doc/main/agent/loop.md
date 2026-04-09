@@ -1,7 +1,7 @@
 # Agent Loop Execution
 
 > ReAct loop, Turn mechanics, and streaming execution.
-> Last updated: 2026-04-09
+> Last updated: 2026-04-09 (commit: 0a53aee)
 
 ## ReAct Loop
 
@@ -78,6 +78,7 @@ Orchestrates one full turn by delegating to two phase runners.
 - Delegate to `TurnExecutionPhaseRunner` for tool execution + observation
 - Build warnings (loop detection, final-turn, security) via `buildWarnings()`
 - Decide turn outcome via `decideTurnOutcome()` (`Continue`, `Complete`, `Error`, `Cancelled`)
+- Re-throw `CancellationException` before generic `Exception` catch to prevent coroutine cancellation from being misclassified as a turn error
 
 ### TurnPlanningPhaseRunner
 

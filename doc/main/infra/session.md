@@ -1,7 +1,7 @@
 # Session Infrastructure
 
 > AgentSession, SessionCoordinator, SessionServices, and session lifecycle.
-> Last updated: 2026-03-06 (uncommitted)
+> Last updated: 2026-04-09 (commit: 9ab9b5f)
 
 ## AgentSession
 
@@ -108,6 +108,8 @@ class SessionCoordinator(scope: CoroutineScope) {
 
 When `submit()` detects `SessionState.Shutdown`, it captures the dying session's recording `fileName` before teardown. On the next user input, `MainActivity.ensureSessionAndSend` uses this dead ref + the still-set `activeSessionId` to construct a `SessionInfo` and route through the existing checkpoint reload path. If auto-reload fails, falls back to a fresh session silently.
 
+**Dead rebind guard:** `MainActivity.rebindActiveServiceSessionIfNeeded()` (called in `onStart()` after Activity recreation) skips sessions in `Shutdown` state to avoid rebinding a dead session. The next user message will create a fresh one instead.
+
 → See: [Session User Flows](../ui/session/user_flows.md) for the full cold-idle recovery flow.
 
 ---
@@ -179,8 +181,12 @@ Bridges `AgentSession` and runtime `Agent`:
 - Builds `AgentExecutionConfig` from selected definition (prompt + allowed tools + execution role)
 - Registers `delegate_task` only when selected definition requires delegation
 - Always registers `ask_user` with `UserResponseChannel` and event emitter
-- Handles lifecycle (`start`, `pause`, `resume`, `stop`, `shutdown`)
+- Handles lifecycle (`start`, `pause`, `resume`, `stop`, `cancelJob`, `shutdown`)
 - Wires delegatable `AgentRoleDef`s + `IsolatedSubAgentRunner` when delegation is enabled
+
+**Cancellation ordering:** Both `cancelJob()` and `shutdown()` complete the `cancellationSignal` **before** cancelling the coroutine job. This ensures the `CancellationException` catch block in the agent coroutine sees `signal.isCompleted == true` and reports `UserRequested` rather than an unexpected cancellation.
+
+`handleInterrupt()` calls both `agentRunner.stop()` (cooperative flag) and `agentRunner.cancelJob()` (immediate coroutine cancellation). This ensures the agent stops promptly even during tool suspension (e.g., `ask_user` awaiting user input).
 
 ### Execution Modes
 
@@ -256,7 +262,7 @@ session.submit(Op.Takeover)                               // User takes over
 session.submit(Op.Resume)                                 // Resume after takeover
 session.submit(Op.Supplement("also check spam folder"))   // Inject mid-task context
 session.submit(Op.UserResponse(callId, "yes"))            // Respond to ask_user
-session.submit(Op.Interrupt)                              // Stop task, session stays Idle
+session.submit(Op.Interrupt)                              // Cancel agent job + stop task, session stays Idle
 session.submit(Op.Shutdown)                               // Terminate session
 session.submit(Op.Approve(actionId, decision))            // Respond to approval
 ```

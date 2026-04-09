@@ -1,7 +1,7 @@
 # Session / Task User Flows
 
 > User-facing flows for session lifecycle, task execution, follow-up, and recovery.
-> Last updated: 2026-02-23
+> Last updated: 2026-04-09 (commit: 9ab9b5f)
 
 ## 1. Session vs Task
 
@@ -144,14 +144,15 @@ User taps [Stop] in capsule
       └─ Emit SessionCompleted(reason=USER_STOPPED)
 ```
 
-### 6.3 New session (from history drawer)
+### 6.3 New session (from header or history drawer)
 
 ```
-User taps [+ New Conversation] in drawer
+User taps [+] in header or [+ New Conversation] in drawer
   │
-  ├─ ChatSessionHistoryController: clearConversation
-  ├─ If currentSession exists: Op.Shutdown → full cleanup
-  ├─ viewModel.startNewSession()
+  ├─ coordinator.clearSession() — shutdown + teardown of old session
+  ├─ ChatSessionHistoryController: clearConversation (UI reset only)
+  │   └─ No recording session placeholder created — history entry
+  │      is created when the actual AgentSession starts
   └─ UI ready for fresh input
 ```
 
@@ -181,8 +182,8 @@ User selects a session from history drawer
   │   └─ Submit Op.UserInput → Created → Running (normal first-task flow)
   │
   └─ If reload fails (no checkpoint, incompatible schema):
-      ├─ Toast: "Unable to reload selected session context"
-      └─ User must start new session or select another history item
+      ├─ Falls back to createFreshSession() silently
+      └─ User gets a fresh session (no error toast)
 ```
 
 Reload is a **recovery-only path**. Normal follow-ups use Hot Idle (in-memory, no disk I/O).
