@@ -5,9 +5,8 @@ import org.json.JSONObject
 /**
  * Normalized representation of which UI element a mobile_action targets.
  *
- * Decoded once from the raw JSON arguments, then consumed by both
- * [ActionDescriptionFormatter] (human-readable descriptions) and
- * [classifyActionSignature] (action signatures).
+ * Decoded once from the raw JSON arguments, then consumed by
+ * [ActionDescriptionFormatter] for human-readable action descriptions.
  */
 data class ActionTarget(
     val text: String,

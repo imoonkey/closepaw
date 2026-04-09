@@ -82,7 +82,6 @@ com.moonkey.androidagent/
 │   ├── AgentExecutionConfig.kt         # Runtime config + AgentExecutionRole
 │   ├── AgentEventDispatcher.kt         # Event emission helpers
 │   ├── ActionTarget.kt                 # Shared UI-element target decoder (text/bounds/point/index)
-│   ├── ActionSignature.kt             # Stable action signature strings
 │   ├── ActionDescriptionFormatter.kt   # Human-readable tool descriptions
 │   ├── Turn.kt                         # LLM call wrapper (streaming + sync)
 │   ├── definition/                     # Agent role definitions

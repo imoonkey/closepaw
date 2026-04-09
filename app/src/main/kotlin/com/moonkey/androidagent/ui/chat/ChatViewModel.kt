@@ -283,6 +283,8 @@ class ChatViewModel(
      * @param appVersion The app version
      */
     fun startNewSession(model: String? = null, appVersion: String? = null) {
+        eventCollectionJob?.cancel()
+        eventCollectionJob = null
         sessionHistoryController.startNewSession(model, appVersion)
     }
 

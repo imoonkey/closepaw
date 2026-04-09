@@ -525,9 +525,10 @@ class MainActivity : ComponentActivity() {
                 coordinator.selectedSessionForReload = null
                 createFreshSession(service, apiKeys, visualizer, touchGate)
             } else {
-                Log.w(TAG, "Selected session ${selectedForReload.id} has no reloadable checkpoint, starting fresh")
+                Log.w(TAG, "Explicit resume failed for ${selectedForReload.id}, checkpoint not reloadable")
                 coordinator.selectedSessionForReload = null
-                createFreshSession(service, apiKeys, visualizer, touchGate)
+                Toast.makeText(this, "Session checkpoint not reloadable", Toast.LENGTH_SHORT).show()
+                return null
             }
         } else {
             coordinator.selectedSessionForReload = null
