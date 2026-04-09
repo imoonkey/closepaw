@@ -9,11 +9,23 @@ internal data class MainActivityIntentApplyResult(
 internal fun applyIntentPayloadToSettings(
     payload: MainActivityIntentPayload,
     settingsState: AppSettingsState,
+    isDebugBuild: Boolean,
     currentPendingTraceEnabled: Boolean?,
     currentPendingTraceRunId: String?,
     currentPendingExcludedTools: Set<String>,
     log: (String) -> Unit
 ): MainActivityIntentApplyResult {
+    // Production: ignore ALL security-sensitive intent extras.
+    // External callers must not persist API keys, override routing/modes,
+    // or toggle debug/trace flags.
+    if (!isDebugBuild) {
+        return MainActivityIntentApplyResult(
+            pendingTraceEnabled = currentPendingTraceEnabled,
+            pendingTraceRunId = currentPendingTraceRunId,
+            pendingExcludedTools = currentPendingExcludedTools
+        )
+    }
+
     payload.apiKey?.let { key ->
         settingsState.updateApiKey(key)
         // Explicit API key from intent overrides OAuth — use direct API path

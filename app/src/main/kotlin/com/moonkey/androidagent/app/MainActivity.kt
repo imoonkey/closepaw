@@ -14,6 +14,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import com.moonkey.androidagent.BuildConfig
 import com.moonkey.androidagent.history.ResumedSessionData
 import com.moonkey.androidagent.history.SessionHistoryManager
@@ -54,6 +57,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val KEY_INTENT_PAYLOAD_CONSUMED = "intent_payload_consumed"
+        private const val KEY_PENDING_GOAL_CONFIRMATION = "pending_goal_confirmation"
         const val EXTRA_API_KEY = "api_key"
         const val EXTRA_GOAL = "goal"
         const val EXTRA_FRESH_SESSION = "fresh_session"
@@ -81,6 +85,7 @@ class MainActivity : ComponentActivity() {
     private var pendingExcludedTools: Set<String> = emptySet()
     private var pendingAutoStartGoal: String? = null
     private var pendingGoalRunnable: Runnable? = null
+    private var pendingGoalForConfirmation by mutableStateOf<String?>(null)
     private var intentPayloadConsumed = false
     private lateinit var sessionHistoryManager: SessionHistoryManager
     private lateinit var viewModel: ChatViewModel
@@ -115,6 +120,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         intentPayloadConsumed = savedInstanceState?.getBoolean(KEY_INTENT_PAYLOAD_CONSUMED, false) ?: false
+        pendingGoalForConfirmation = savedInstanceState?.getString(KEY_PENDING_GOAL_CONFIRMATION)
         settingsState = AppSettingsState(AppSettingsStore(applicationContext))
         settingsState.load()
 
@@ -133,8 +139,9 @@ class MainActivity : ComponentActivity() {
         }
         deriveOpenAiAuthUiState()
 
-        // Eval/debug bypass: EXTRA_FRESH_SESSION + EXTRA_GOAL → skip onboarding
-        val isEvalMode = intent.getBooleanExtra(EXTRA_FRESH_SESSION, false) &&
+        // Eval/debug bypass: EXTRA_FRESH_SESSION + EXTRA_GOAL → skip onboarding (debug only)
+        val isEvalMode = BuildConfig.DEBUG &&
+            intent.getBooleanExtra(EXTRA_FRESH_SESSION, false) &&
             intent.hasExtra(EXTRA_GOAL)
         onboardingRequired = !onboardingStore.isCompleted && !isEvalMode
 
@@ -237,6 +244,25 @@ class MainActivity : ComponentActivity() {
                     onCancelOAuth = ::handleCancelOAuth,
                     onSignOut = ::handleSignOut
                 )
+                pendingGoalForConfirmation?.let { goal ->
+                    AlertDialog(
+                        onDismissRequest = { pendingGoalForConfirmation = null },
+                        title = { Text("External Goal") },
+                        text = { Text("An external app wants to run:\n\"$goal\"") },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                val confirmed = goal
+                                pendingGoalForConfirmation = null
+                                ensureSessionAndSend(confirmed)
+                            }) { Text("Run") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = {
+                                pendingGoalForConfirmation = null
+                            }) { Text("Cancel") }
+                        }
+                    )
+                }
             }
         }
     }
@@ -275,6 +301,9 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putBoolean(KEY_INTENT_PAYLOAD_CONSUMED, intentPayloadConsumed)
+        pendingGoalForConfirmation?.let {
+            outState.putString(KEY_PENDING_GOAL_CONFIRMATION, it)
+        }
     }
 
     private fun handleIntent(intent: Intent) {
@@ -283,6 +312,7 @@ class MainActivity : ComponentActivity() {
                 applyIntentPayloadToSettings(
                         payload = payload,
                         settingsState = settingsState,
+                        isDebugBuild = BuildConfig.DEBUG,
                         currentPendingTraceEnabled = pendingTraceEnabled,
                         currentPendingTraceRunId = pendingTraceRunId,
                         currentPendingExcludedTools = pendingExcludedTools,
@@ -298,21 +328,31 @@ class MainActivity : ComponentActivity() {
         }
         intentPayloadConsumed = true
 
-        if (payload.freshSession) {
-            Log.d(TAG, "Fresh session requested, clearing existing state")
-            lifecycleScope.launch {
-                clearCurrentSession()
-                coordinator.selectedSessionForReload = null
+        if (BuildConfig.DEBUG) {
+            // Debug build: auto-dispatch goals (eval/debug workflow)
+            if (payload.freshSession) {
+                Log.d(TAG, "Fresh session requested, clearing existing state")
+                lifecycleScope.launch {
+                    clearCurrentSession()
+                    coordinator.selectedSessionForReload = null
+                    payload.goalText?.let {
+                        Log.d(TAG, "Goal set from intent: $it")
+                        delay(500)
+                        ensureSessionAndSend(it, launchPolicy = SessionLaunchPolicy.FORCE_FRESH)
+                    }
+                }
+            } else {
                 payload.goalText?.let {
                     Log.d(TAG, "Goal set from intent: $it")
-                    delay(500)
-                    ensureSessionAndSend(it, launchPolicy = SessionLaunchPolicy.FORCE_FRESH)
+                    scheduleGoalDispatch(it)
                 }
             }
         } else {
-            payload.goalText?.let {
-                Log.d(TAG, "Goal set from intent: $it")
-                scheduleGoalDispatch(it)
+            // Production: require explicit user confirmation for external goals.
+            // freshSession and all config extras are ignored.
+            payload.goalText?.let { goal ->
+                Log.d(TAG, "External goal received, awaiting user confirmation: $goal")
+                pendingGoalForConfirmation = goal
             }
         }
     }
