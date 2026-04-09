@@ -73,7 +73,7 @@ suspend fun openAiSignIn(
                             Log.w(TAG, "Codex validation failed: ${validation.message}")
                             OpenAiSignInResult.Error(validation.message)
                         } else {
-                            Log.d(TAG, "Sign-in complete, email=${exchange.tokens.email}")
+                            Log.d(TAG, "Sign-in complete")
                             OpenAiSignInResult.Success(exchange.tokens)
                         }
                     }

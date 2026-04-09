@@ -2,6 +2,7 @@ package com.moonkey.androidagent.auth
 
 import android.util.Base64
 import android.util.Log
+import com.moonkey.androidagent.BuildConfig
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
@@ -197,18 +198,8 @@ object OAuthTokenExchange {
 
             // Extract id_token from the initial response for token exchange
             val idToken = tokenResult.tokens.idToken
-            Log.d(TAG, "id_token present: ${idToken != null}, length: ${idToken?.length ?: 0}")
-            if (idToken != null) {
-                // Debug: decode id_token claims
-                try {
-                    val parts = idToken.split(".")
-                    if (parts.size == 3) {
-                        val payload = String(android.util.Base64.decode(parts[1], android.util.Base64.URL_SAFE), Charsets.UTF_8)
-                        Log.d(TAG, "id_token claims: $payload")
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to decode id_token: ${e.message}")
-                }
+            if (BuildConfig.DEBUG) {
+                Log.d(TAG, "id_token present: ${idToken != null}, length: ${idToken?.length ?: 0}")
             }
             if (idToken == null) {
                 Log.w(TAG, "No id_token in OAuth response, using access_token directly")
