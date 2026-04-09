@@ -41,6 +41,11 @@ class PromptBuilderTest {
         )
     )
 
+    /** TurnObservation helpers */
+    private val emptyObservation = TurnObservation.capture(emptySnapshot, PerceptionConfig.DEFAULT)
+    private val observationWithElements = TurnObservation.capture(snapshotWithElements, PerceptionConfig.DEFAULT)
+    private val screenshotOnlyObservation = TurnObservation.capture(snapshotWithElements, PerceptionConfig.ScreenshotOnly())
+
     // ── Memory Section ──────────────────────────────────────────────────
 
     @Test
@@ -104,7 +109,7 @@ class PromptBuilderTest {
     @Test
     fun `buildObservationText includes screen state when accessibility available`() {
         val builder = createBuilder()
-        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
+        val text = builder.buildObservationText(observationWithElements, emptyList())
 
         assertThat(text).contains("Screen state (1 elements):")
         assertThat(text).contains("```json")
@@ -112,8 +117,8 @@ class PromptBuilderTest {
 
     @Test
     fun `buildObservationText shows screenshot-only guidance when perceptionConfig is ScreenshotOnly`() {
-        val builder = createBuilder(perceptionConfig = PerceptionConfig.ScreenshotOnly())
-        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
+        val builder = createBuilder()
+        val text = builder.buildObservationText(screenshotOnlyObservation, emptyList())
 
         assertThat(text).contains("No accessibility tree available for this screen.")
         assertThat(text).contains("Use coordinate-based actions (x, y)")
@@ -126,7 +131,7 @@ class PromptBuilderTest {
             "⚠️ Screen unchanged for 3 turns.",
             "🛑 FINAL TURN (10). Complete now."
         )
-        val text = builder.buildObservationText(snapshotWithElements, null, warnings)
+        val text = builder.buildObservationText(observationWithElements, warnings)
 
         val warningIdx = text.indexOf("⚠️ Screen unchanged")
         val screenIdx = text.indexOf("Screen state")
@@ -137,7 +142,7 @@ class PromptBuilderTest {
     @Test
     fun `buildObservationText has no warnings when list empty`() {
         val builder = createBuilder()
-        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
+        val text = builder.buildObservationText(observationWithElements, emptyList())
 
         assertThat(text).doesNotContain("⚠️")
         assertThat(text).startsWith("Screen state")
@@ -146,7 +151,7 @@ class PromptBuilderTest {
     @Test
     fun `buildObservationText excludes screenshot hint when vision not supported`() {
         val builder = createBuilder(supportsVision = false)
-        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
+        val text = builder.buildObservationText(observationWithElements, emptyList())
 
         assertThat(text).doesNotContain("Screenshot attached")
     }
@@ -154,7 +159,7 @@ class PromptBuilderTest {
     @Test
     fun `buildObservationText has no Available tools line`() {
         val builder = createBuilder()
-        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
+        val text = builder.buildObservationText(observationWithElements, emptyList())
 
         assertThat(text).doesNotContain("Available tools:")
     }
@@ -162,7 +167,7 @@ class PromptBuilderTest {
     @Test
     fun `buildObservationText has no What action prompt`() {
         val builder = createBuilder()
-        val text = builder.buildObservationText(snapshotWithElements, null, emptyList())
+        val text = builder.buildObservationText(observationWithElements, emptyList())
 
         assertThat(text).doesNotContain("What action should I take")
     }
@@ -171,10 +176,44 @@ class PromptBuilderTest {
     fun `buildObservationText has no system_reminder XML tags`() {
         val builder = createBuilder()
         val warnings = listOf("⚠️ Some warning")
-        val text = builder.buildObservationText(snapshotWithElements, null, warnings)
+        val text = builder.buildObservationText(observationWithElements, warnings)
 
         assertThat(text).doesNotContain("<system_reminder>")
         assertThat(text).doesNotContain("</system_reminder>")
+    }
+
+    // ── TurnObservation canonical block ─────────────────────────────────
+
+    @Test
+    fun `TurnObservation screenBlock matches between prompt and history`() {
+        val observation = TurnObservation.capture(snapshotWithElements, PerceptionConfig.DEFAULT)
+        val builder = createBuilder()
+
+        // The prompt wraps screenBlock with decorations; history uses screenBlock directly.
+        // Verify the canonical block is present in the prompt text.
+        val promptText = builder.buildObservationText(observation, emptyList())
+        assertThat(promptText).contains(observation.screenBlock)
+    }
+
+    @Test
+    fun `TurnObservation capture computes screenJson once`() {
+        val observation = TurnObservation.capture(snapshotWithElements, PerceptionConfig.DEFAULT)
+
+        // screenJson is non-null for accessibility mode
+        assertThat(observation.screenJson).isNotNull()
+        assertThat(observation.hasAccessibility).isTrue()
+        // screenBlock contains the JSON
+        assertThat(observation.screenBlock).contains("```json")
+        assertThat(observation.screenBlock).contains(observation.screenJson!!)
+    }
+
+    @Test
+    fun `TurnObservation screenshot-only has null screenJson`() {
+        val observation = TurnObservation.capture(snapshotWithElements, PerceptionConfig.ScreenshotOnly())
+
+        assertThat(observation.screenJson).isNull()
+        assertThat(observation.hasAccessibility).isFalse()
+        assertThat(observation.screenBlock).contains("no accessibility tree")
     }
 
     // ── Full buildInputItems ────────────────────────────────────────────
@@ -196,7 +235,7 @@ class PromptBuilderTest {
             supportsVision = true
         )
 
-        val items = builder.buildInputItems(emptySnapshot, null)
+        val items = builder.buildInputItems(emptyObservation)
 
         // 2 history items + 1 memory + 1 observation = 4
         assertThat(items).hasSize(4)
@@ -213,7 +252,7 @@ class PromptBuilderTest {
             supportsVision = true
         )
 
-        val items = builder.buildInputItems(emptySnapshot, null)
+        val items = builder.buildInputItems(emptyObservation)
 
         // 1 history + 0 memory + 1 observation = 2
         assertThat(items).hasSize(2)
@@ -244,7 +283,7 @@ class PromptBuilderTest {
             supportsVision = true
         )
 
-        val items = builder.buildInputItems(emptySnapshot, null)
+        val items = builder.buildInputItems(emptyObservation)
 
         // 4 history items + 0 memory + 1 observation = 5
         assertThat(items).hasSize(5)
@@ -273,8 +312,7 @@ class PromptBuilderTest {
         """.trimIndent()
 
         val items = builder.buildInputItems(
-            snapshot = emptySnapshot,
-            image = null,
+            observation = emptyObservation,
             recalledMemory = """
                 ## Recalled Memory
 
@@ -302,13 +340,11 @@ class PromptBuilderTest {
     private fun createBuilder(
         historyManager: HistoryManager = HistoryManager(),
         sessionState: AgentSessionState = AgentSessionState(),
-        supportsVision: Boolean = true,
-        perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT
+        supportsVision: Boolean = true
     ): PromptBuilder = PromptBuilder(
         historyManager = historyManager,
         sessionState = sessionState,
-        supportsVision = supportsVision,
-        perceptionConfig = perceptionConfig
+        supportsVision = supportsVision
     )
 
     private fun userIntent(content: String) = ResponseItem.Message(

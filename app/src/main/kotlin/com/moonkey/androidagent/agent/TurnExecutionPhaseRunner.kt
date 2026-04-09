@@ -22,11 +22,16 @@ internal class TurnExecutionPhaseRunner(
         private val config: AgentExecutionConfig,
         private val services: SessionServices,
         private val eventDispatcher: AgentEventDispatcher,
-        private val eventEmitter: suspend (AgentEvent) -> Unit,
         private val trace: AgentTrace
 ) {
         companion object {
                 private const val TAG = "TurnExecutionPhase"
+
+                /** Brief pause after phase-change event so UI can render before tool execution starts. */
+                private const val PRE_EXECUTION_DELAY_MS = 200L
+
+                /** Wait for UI animations/transitions to settle before capturing post-action screen. */
+                private const val POST_ACTION_SETTLE_MS = 500L
         }
 
         suspend fun executeActions(
@@ -39,7 +44,7 @@ internal class TurnExecutionPhaseRunner(
 
                 eventDispatcher.turnPhaseChanged(turnId, TurnPhase.EXECUTION)
                 eventDispatcher.status("💡 Executing actions...")
-                delay(200)
+                delay(PRE_EXECUTION_DELAY_MS)
 
                 var currentSnapshot = initialSnapshot
                 val executedToolCalls = mutableListOf<ToolCallRequest>()
@@ -146,15 +151,11 @@ internal class TurnExecutionPhaseRunner(
                         observedSnapshot = observedSnapshot
                 )
 
-                eventEmitter(
-                        ActionExecuted(
-                                sessionId = config.sessionId,
-                                timestamp = System.currentTimeMillis(),
-                                actionId = toolResult.callId,
-                                toolName = toolCall.name,
-                                success = toolResult is ToolCallResult.Success,
-                                result = toolResult.toContextString()
-                        )
+                eventDispatcher.actionExecuted(
+                        actionId = toolResult.callId,
+                        toolName = toolCall.name,
+                        success = toolResult is ToolCallResult.Success,
+                        result = toolResult.toContextString()
                 )
                 eventDispatcher.status("✓ ${toolCall.name} executed")
                 return SingleToolCallResult(
@@ -165,14 +166,10 @@ internal class TurnExecutionPhaseRunner(
 
         private suspend fun emitApprovalRequired(details: ApprovalDetails) {
                 try {
-                        eventEmitter(
-                                ApprovalRequired(
-                                        sessionId = config.sessionId,
-                                        timestamp = System.currentTimeMillis(),
-                                        actionId = details.callId,
-                                        description = details.description,
-                                        details = details
-                                )
+                        eventDispatcher.approvalRequired(
+                                actionId = details.callId,
+                                description = details.description,
+                                details = details
                         )
                 } catch (e: Exception) {
                         Log.e(TAG, "Failed to emit approval required event", e)
@@ -214,7 +211,7 @@ internal class TurnExecutionPhaseRunner(
 
         /** Captures a fresh post-action screen snapshot and wraps it as a screen observation. */
         private suspend fun captureObservationWithSnapshot(): ObservationCapture {
-                delay(500)
+                delay(POST_ACTION_SETTLE_MS)
                 val rawSnapshot = services.platform.captureScreen()
                 val currentPkg = services.platform.getCurrentPackageName()
                 // Perception gate: mask BLOCKED app content in post-action captures too

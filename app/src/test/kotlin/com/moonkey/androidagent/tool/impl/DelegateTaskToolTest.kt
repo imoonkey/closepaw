@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.tool.impl
 
 import com.google.common.truth.Truth.assertThat
+import com.moonkey.androidagent.agent.AgentEventDispatcher
 import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.definition.AgentRoleDef
 import com.moonkey.androidagent.agent.subagent.SubAgentRequest
@@ -32,10 +33,9 @@ class DelegateTaskToolTest {
     @Test
     fun `validate fails for unknown agent`() {
         val tool = DelegateTaskTool(
-            sessionId = SessionId("session-1"),
             delegatableRoles = emptyList(),
             runnerFactory = { error("not used") },
-            eventEmitter = { }
+            eventDispatcher = AgentEventDispatcher(SessionId("session-1")) { }
         )
 
         val result = tool.validate(JSONObject().apply {
@@ -52,7 +52,6 @@ class DelegateTaskToolTest {
         val events = mutableListOf<AgentEvent>()
 
         val tool = DelegateTaskTool(
-            sessionId = SessionId("session-1"),
             delegatableRoles = listOf(executorRole),
             runnerFactory = {
                 SubAgentRunner { request ->
@@ -60,7 +59,7 @@ class DelegateTaskToolTest {
                     SubAgentResult(success = true, message = "done")
                 }
             },
-            eventEmitter = { events.add(it) }
+            eventDispatcher = AgentEventDispatcher(SessionId("session-1")) { events.add(it) }
         )
 
         val invocation = tool.createInvocation(JSONObject().apply {
@@ -90,14 +89,13 @@ class DelegateTaskToolTest {
     @Test
     fun `execute wraps failed sub-agent result as success text output`() = runTest {
         val tool = DelegateTaskTool(
-            sessionId = SessionId("session-1"),
             delegatableRoles = listOf(executorRole),
             runnerFactory = {
                 SubAgentRunner { _ ->
                     SubAgentResult(success = false, message = "Timeout after 1000ms")
                 }
             },
-            eventEmitter = { }
+            eventDispatcher = AgentEventDispatcher(SessionId("session-1")) { }
         )
 
         val invocation = tool.createInvocation(JSONObject().apply {

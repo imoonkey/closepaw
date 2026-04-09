@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.agent.subagent
 
 import com.moonkey.androidagent.agent.Agent
+import com.moonkey.androidagent.agent.AgentEventDispatcher
 import com.moonkey.androidagent.agent.AgentExecutionConfig
 import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.agent.definition.AgentRoleDef
@@ -51,7 +52,7 @@ internal class IsolatedSubAgentRunner(
     private val roleDef: AgentRoleDef,
     private val parentServices: SessionServices,
     private val parentSessionId: SessionId,
-    private val eventEmitter: suspend (AgentEvent) -> Unit
+    private val eventDispatcher: AgentEventDispatcher
 ) : SubAgentRunner {
 
     /**
@@ -151,13 +152,9 @@ internal class IsolatedSubAgentRunner(
             else -> return
         }
 
-        eventEmitter(
-            SubAgentActivity(
-                sessionId = parentSessionId,
-                timestamp = System.currentTimeMillis(),
-                agentName = roleDef.name,
-                activity = activity
-            )
+        eventDispatcher.subAgentActivity(
+            agentName = roleDef.name,
+            activity = activity
         )
     }
 }

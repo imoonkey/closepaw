@@ -93,7 +93,8 @@ com.moonkey.androidagent/
 │   │   └── StandaloneAgentDef.kt       # Standalone: direct end-to-end
 │   ├── cognition/
 │   │   ├── prompt/
-│   │   │   └── PromptBuilder.kt        # History → Memory → Observation assembly
+│   │   │   ├── PromptBuilder.kt        # History → Memory → Observation assembly
+│   │   │   └── TurnObservation.kt      # Canonical per-turn observation payload
 │   │   ├── context/
 │   │   │   └── NavigationState.kt      # Screen signatures + loop detection data
 │   │   └── policy/

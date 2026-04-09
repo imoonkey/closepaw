@@ -1,5 +1,6 @@
 package com.moonkey.androidagent.tool.impl
 
+import com.moonkey.androidagent.agent.AgentEventDispatcher
 import com.moonkey.androidagent.agent.definition.AgentRoleDef
 import com.moonkey.androidagent.agent.subagent.SubAgentRequest
 import com.moonkey.androidagent.agent.subagent.SubAgentRunner
@@ -15,10 +16,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal class DelegateTaskTool(
-    private val sessionId: SessionId,
     private val delegatableRoles: List<AgentRoleDef>,
     private val runnerFactory: (AgentRoleDef) -> SubAgentRunner,
-    private val eventEmitter: suspend (AgentEvent) -> Unit
+    private val eventDispatcher: AgentEventDispatcher
 ) : ToolSpec {
 
     private val rolesByName = delegatableRoles.associateBy { it.name }
@@ -97,7 +97,6 @@ internal class DelegateTaskTool(
         val description = buildDescription(agentName, query, agentThought)
 
         return DelegateTaskInvocation(
-            sessionId = sessionId,
             params = params,
             roleDef = roleDef,
             request = SubAgentRequest(
@@ -107,7 +106,7 @@ internal class DelegateTaskTool(
             ),
             description = description,
             runnerFactory = runnerFactory,
-            eventEmitter = eventEmitter
+            eventDispatcher = eventDispatcher
         )
     }
 
@@ -130,13 +129,12 @@ internal class DelegateTaskTool(
 }
 
 private class DelegateTaskInvocation(
-    private val sessionId: SessionId,
     override val params: JSONObject,
     private val roleDef: AgentRoleDef,
     private val request: SubAgentRequest,
     private val description: String,
     private val runnerFactory: (AgentRoleDef) -> SubAgentRunner,
-    private val eventEmitter: suspend (AgentEvent) -> Unit
+    private val eventDispatcher: AgentEventDispatcher
 ) : ToolInvocation {
 
     override val toolName: String = "delegate_task"
@@ -150,25 +148,17 @@ private class DelegateTaskInvocation(
 
         val requestWithCallId = request.copy(delegationCallId = context.callId)
 
-        eventEmitter(
-            SubAgentStarted(
-                sessionId = sessionId,
-                timestamp = System.currentTimeMillis(),
-                agentName = roleDef.name,
-                query = requestWithCallId.query
-            )
+        eventDispatcher.subAgentStarted(
+            agentName = roleDef.name,
+            query = requestWithCallId.query
         )
 
         val result = runnerFactory(roleDef).run(requestWithCallId)
 
-        eventEmitter(
-            SubAgentCompleted(
-                sessionId = sessionId,
-                timestamp = System.currentTimeMillis(),
-                agentName = roleDef.name,
-                success = result.success,
-                message = result.message
-            )
+        eventDispatcher.subAgentCompleted(
+            agentName = roleDef.name,
+            success = result.success,
+            message = result.message
         )
 
         val output = if (result.success) {

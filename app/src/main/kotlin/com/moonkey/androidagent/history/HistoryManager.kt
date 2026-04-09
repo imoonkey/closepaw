@@ -350,6 +350,7 @@ class HistoryManager(
         return if (count != null) {
             "Screen: $count elements (compressed)"
         } else if (fullContent.contains("No accessibility tree") ||
+            fullContent.contains("no accessibility tree") ||
             fullContent.contains("accessibility tree omitted")) {
             "Screen: screenshot only (compressed)"
         } else {

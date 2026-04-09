@@ -25,6 +25,7 @@ class Turn(
 ) {
     companion object {
         private const val TAG = "Turn"
+        private const val TEXT_RECOVERY_TAG = "TextRecovery"
         private const val COMPLETE_TASK_TOOL = "complete_task"
     }
 
@@ -213,19 +214,29 @@ class Turn(
     }
 
     private fun recoverToolCallFromText(textContent: String?): TextRecovery? {
-        val candidate = textContent?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val candidate = textContent?.trim()?.takeIf { it.isNotEmpty() } ?: run {
+            Log.i(TEXT_RECOVERY_TAG, "path=none reason=empty-text")
+            return null
+        }
         val compact = stripMarkdownCodeFence(candidate)
 
         parseObjectWrappedToolCall(compact)?.let { recovered ->
             Log.w(TAG, "Recovered tool call from text payload: ${recovered.name}")
+            Log.i(TEXT_RECOVERY_TAG, "path=object-wrapped tool=${recovered.name}")
             return TextRecovery(toolCall = recovered, hasMalformedKnownToolMarker = false)
         }
 
         val knownToolNames = resolveRecoverableToolNames()
-        if (knownToolNames.isEmpty()) return null
+        if (knownToolNames.isEmpty()) {
+            Log.i(TEXT_RECOVERY_TAG, "path=none reason=no-known-tools")
+            return null
+        }
 
         val markers = findInlineToolMarkers(compact, knownToolNames)
-        if (markers.isEmpty()) return null
+        if (markers.isEmpty()) {
+            Log.i(TEXT_RECOVERY_TAG, "path=none reason=no-markers")
+            return null
+        }
 
         for (marker in markers.asReversed()) {
             val argsRaw = extractBalancedJsonObject(compact, marker.argsStart) ?: continue
@@ -237,6 +248,7 @@ class Turn(
                     }
             val syntheticId = "synthetic_${marker.toolName}_text_${UUID.randomUUID()}"
             Log.w(TAG, "Recovered inline tool call from text payload: ${marker.toolName}")
+            Log.i(TEXT_RECOVERY_TAG, "path=inline-marker tool=${marker.toolName}")
             return TextRecovery(
                     toolCall =
                             ToolCallRequest(
@@ -248,6 +260,7 @@ class Turn(
             )
         }
 
+        Log.i(TEXT_RECOVERY_TAG, "path=none reason=malformed-markers markers=${markers.size}")
         return TextRecovery(
                 toolCall = null,
                 hasMalformedKnownToolMarker = true

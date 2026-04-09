@@ -628,5 +628,175 @@
       "Financial/payment/auth apps correctly classified as BLOCKED",
       "Classification methodology documented"
     ]
+  },
+  "agent-core-simplicity": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Agent Core 简化",
+    "description": "基于 holistic review 的 agent core 简化。",
+    "design": "doc/todo/holistic-review/agent-core-simplicity/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-action-signature": {
+    "parent": "agent-core-simplicity",
+    "depends": [],
+    "state": "done",
+    "title": "P0: 修复 action signature 派生逻辑",
+    "description": "从实际执行成功的操作派生签名，而非预计算。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt"
+    ],
+    "acceptCriteria": [
+      "Action signature reflects actually executed tools",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-split-step-policy": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-action-signature"
+    ],
+    "state": "done",
+    "title": "P1: 拆分 ExecutorStepPolicy",
+    "description": "拆为 isFinalTurn() + DelegationSummaryFormatter。移除 WarnApproaching 和 narrativeSummaryOnLimit。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/policy/ExecutorStepPolicy.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt"
+    ],
+    "acceptCriteria": [
+      "WarnApproaching removed",
+      "narrativeSummaryOnLimit removed",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-unify-role-defs": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-action-signature"
+    ],
+    "state": "done",
+    "title": "P1: 统一 agent 角色定义",
+    "description": "统一 AgentDef + AgentDefinition 为 AgentRoleDef。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/definition/**",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt"
+    ],
+    "acceptCriteria": [
+      "One definition source for all agents",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-dead-code": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-split-step-policy",
+      "acs-unify-role-defs"
+    ],
+    "state": "done",
+    "title": "P2: 死代码与残留状态移除",
+    "description": "移除 NavigationState 死字段、fingerprint、CRITICAL、appTier。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/context/NavigationState.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt"
+    ],
+    "acceptCriteria": [
+      "No unused fields remain",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-observation-unify": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-dead-code"
+    ],
+    "state": "done",
+    "title": "P3: Observation 表示统一",
+    "description": "提取规范 observation payload，消除 prompt/history 时序耦合。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/prompt/PromptBuilder.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnPlanningPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "Prompt and history project from same source",
+      "No ordering dependency",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-event-consolidation": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-dead-code"
+    ],
+    "state": "done",
+    "title": "P3: Event emission 整合",
+    "description": "向 AgentEventDispatcher 添加缺失方法，移除 raw eventEmitter 透传。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentEventDispatcher.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt"
+    ],
+    "acceptCriteria": [
+      "No raw eventEmitter alongside dispatcher",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-tool-arg-decode": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-dead-code"
+    ],
+    "state": "done",
+    "title": "P3: Tool 参数解码整合",
+    "description": "共享 action-target decoder 供 ActionDescriptionFormatter 和 ActionSignature 使用。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/ActionDescriptionFormatter.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/ActionSignature.kt"
+    ],
+    "acceptCriteria": [
+      "Single decoder shared by both",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-text-recovery-audit": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-dead-code"
+    ],
+    "state": "done",
+    "title": "P4: Turn.kt 文本恢复审计",
+    "description": "添加遥测追踪 recoverToolCallFromText 触发率。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/Turn.kt"
+    ],
+    "acceptCriteria": [
+      "Telemetry logs fire rate of each recovery path",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "acs-magic-delays": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-dead-code"
+    ],
+    "state": "done",
+    "title": "P4: 魔法延迟常量命名",
+    "description": "为 delay(200) 和 delay(500) 命名并添加注释。",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "Named constants with comments",
+      "./gradlew assembleDebug passes"
+    ]
   }
 }

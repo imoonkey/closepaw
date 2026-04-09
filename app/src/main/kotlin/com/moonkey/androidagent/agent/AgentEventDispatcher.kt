@@ -143,5 +143,59 @@ class AgentEventDispatcher(
         ))
     }
 
+    suspend fun actionExecuted(actionId: String, toolName: String, success: Boolean, result: String?) {
+        Log.d(TAG, "ActionExecuted: $toolName success=$success")
+        eventEmitter(ActionExecuted(
+            sessionId = sessionId,
+            timestamp = now(),
+            actionId = actionId,
+            toolName = toolName,
+            success = success,
+            result = result
+        ))
+    }
+
+    suspend fun approvalRequired(actionId: String, description: String, details: ApprovalDetails) {
+        Log.d(TAG, "ApprovalRequired: $description")
+        eventEmitter(ApprovalRequired(
+            sessionId = sessionId,
+            timestamp = now(),
+            actionId = actionId,
+            description = description,
+            details = details
+        ))
+    }
+
+    suspend fun subAgentStarted(agentName: String, query: String) {
+        Log.d(TAG, "SubAgentStarted: $agentName")
+        eventEmitter(SubAgentStarted(
+            sessionId = sessionId,
+            timestamp = now(),
+            agentName = agentName,
+            query = query
+        ))
+    }
+
+    suspend fun subAgentActivity(agentName: String, activity: String) {
+        Log.d(TAG, "SubAgentActivity: $agentName - $activity")
+        eventEmitter(SubAgentActivity(
+            sessionId = sessionId,
+            timestamp = now(),
+            agentName = agentName,
+            activity = activity
+        ))
+    }
+
+    suspend fun subAgentCompleted(agentName: String, success: Boolean, message: String) {
+        Log.d(TAG, "SubAgentCompleted: $agentName success=$success")
+        eventEmitter(SubAgentCompleted(
+            sessionId = sessionId,
+            timestamp = now(),
+            agentName = agentName,
+            success = success,
+            message = message
+        ))
+    }
+
     private fun now(): Long = System.currentTimeMillis()
 }

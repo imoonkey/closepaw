@@ -369,4 +369,27 @@ class HistoryManagerTest {
         assertThat(manager.estimateTokenCount()).isLessThan(2_000)
         assertThat(manager.getAll().size).isLessThan(40)
     }
+
+    // ── Screen Compression Patterns ─────────────────────────────────────
+
+    @Test
+    fun `compressScreenContent handles accessibility tree block`() {
+        val content = """
+            Screen state (42 elements):
+            keyboard_visible: true (BACK will dismiss keyboard first, not navigate back)
+            ```json
+            [{"idx":0,"text":"OK"}]
+            ```
+        """.trimIndent()
+        val manager = HistoryManager()
+        assertThat(manager.compressScreenContent(content)).isEqualTo("Screen: 42 elements (compressed)")
+    }
+
+    @Test
+    fun `compressScreenContent handles screenshot-only canonical block`() {
+        // This is the exact text from TurnObservation.screenBlock in screenshot-only mode
+        val content = "(Screenshot-only mode — no accessibility tree)"
+        val manager = HistoryManager()
+        assertThat(manager.compressScreenContent(content)).isEqualTo("Screen: screenshot only (compressed)")
+    }
 }

@@ -4,10 +4,10 @@ import android.util.Log
 import com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
 import com.moonkey.androidagent.agent.cognition.prompt.PromptBuilder
+import com.moonkey.androidagent.agent.cognition.prompt.TurnObservation
 import com.moonkey.androidagent.history.MessageKind
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.protocol.sanitizeThought
 import com.moonkey.androidagent.session.SessionServices
@@ -61,19 +61,24 @@ internal class TurnPlanningPhaseRunner(
                         requireNotNull(config.systemPrompt) {
                                 "System prompt must be provided by AgentRoleDef."
                         }
+
+                // Canonical observation — computed once, consumed by prompt and history.
+                val observation = TurnObservation.capture(
+                        snapshot = snapshot,
+                        perceptionConfig = services.config.perceptionConfig
+                )
+
                 val promptBuilder =
                         PromptBuilder(
                                 historyManager = services.historyManager,
                                 sessionState = services.sessionState,
-                                supportsVision = model.supportsVision,
-                                perceptionConfig = services.config.perceptionConfig
+                                supportsVision = model.supportsVision
                         )
                 val appSkill = buildAppSkillMessage(currentPackageName)
                 val recalledMemory = services.memoryRecaller.recall(currentPackageName)
                 val inputItems =
                         promptBuilder.buildInputItems(
-                                snapshot = snapshot,
-                                image = snapshot.image,
+                                observation = observation,
                                 warnings = warnings,
                                 turnNumber = turnNumber,
                                 maxTurns = config.maxTurns,
@@ -81,8 +86,14 @@ internal class TurnPlanningPhaseRunner(
                                 recalledMemory = recalledMemory
                         )
 
-                // Record screen observation for future turns (after prompt built)
-                recordScreenObservation(snapshot)
+                // Record screen observation for future turns.
+                // Uses the same canonical screenBlock — no ordering dependency.
+                services.historyManager.addItem(
+                        ResponseItem.Message(
+                                kind = MessageKind.SCREEN_OBSERVATION,
+                                content = observation.screenBlock.trim()
+                        )
+                )
 
                 trace.llmRequest(
                         turnId = turnId,
@@ -168,41 +179,6 @@ internal class TurnPlanningPhaseRunner(
                         appendLine()
                         append(skillBody)
                 }.trim()
-        }
-
-        /**
-         * Record the current screen observation into history so future turns can see what this turn
-         * saw. Called after prompt is built but before the LLM call, so the prompt doesn't
-         * duplicate the current screen.
-         *
-         * In screenshot-only mode the a11y tree is omitted from history to keep the context
-         * consistent with what the LLM actually sees.
-         */
-        private fun recordScreenObservation(snapshot: ScreenSnapshot) {
-                val pc = services.config.perceptionConfig
-                val text =
-                        if (pc.capturesAccessibility) {
-                                val screenJson = Perceptor.toPromptJson(snapshot)
-                                buildString {
-                                        appendLine(
-                                                "Screen state (${snapshot.elements.size} elements):"
-                                        )
-                                        if (snapshot.keyboardVisible) {
-                                                appendLine("keyboard_visible: true")
-                                        }
-                                        appendLine("```json")
-                                        appendLine(screenJson)
-                                        append("```")
-                                }
-                        } else {
-                                "(Screenshot-only mode — accessibility tree omitted from history)"
-                        }
-                services.historyManager.addItem(
-                        ResponseItem.Message(
-                                kind = MessageKind.SCREEN_OBSERVATION,
-                                content = text.trim()
-                        )
-                )
         }
 
         private suspend fun emitArbitrationWarnings(

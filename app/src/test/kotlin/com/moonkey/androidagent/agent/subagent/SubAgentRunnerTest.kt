@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.agent.subagent
 
 import com.google.common.truth.Truth.assertThat
+import com.moonkey.androidagent.agent.AgentEventDispatcher
 import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.definition.AgentRoleDef
 import com.moonkey.androidagent.history.HistoryManager
@@ -53,7 +54,7 @@ class SubAgentRunnerTest {
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
-                                eventEmitter = {}
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {}
                         )
 
                 val result = runner.run(SubAgentRequest(query = "do it"))
@@ -79,7 +80,7 @@ class SubAgentRunnerTest {
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
-                                eventEmitter = { events.add(it) }
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) { events.add(it) }
                         )
 
                 val result = runner.run(SubAgentRequest(query = "do it"))
@@ -120,7 +121,7 @@ class SubAgentRunnerTest {
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
-                                eventEmitter = {}
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {}
                         )
 
                 val result = runner.run(SubAgentRequest(query = "do it"))
@@ -161,7 +162,7 @@ class SubAgentRunnerTest {
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
-                                eventEmitter = {}
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {}
                         )
 
                 val result = runner.run(SubAgentRequest(query = "do it"))
@@ -188,7 +189,7 @@ class SubAgentRunnerTest {
                                         ),
                                 parentServices = services,
                                 parentSessionId = SessionId("session-1"),
-                                eventEmitter = {}
+                                eventDispatcher = AgentEventDispatcher(SessionId("session-1")) {}
                         )
 
                 val result = runner.run(SubAgentRequest(query = "Tap search"))

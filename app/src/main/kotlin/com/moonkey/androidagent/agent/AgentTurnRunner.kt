@@ -7,7 +7,6 @@ import com.moonkey.androidagent.agent.cognition.policy.LoopDetectionResult
 import com.moonkey.androidagent.agent.cognition.policy.ToolArbitrationResult
 import com.moonkey.androidagent.agent.cognition.policy.TurnToolPolicy
 import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.AppTier
 import com.moonkey.androidagent.protocol.ScreenStatePhase
 import com.moonkey.androidagent.session.SessionServices
@@ -26,7 +25,6 @@ internal class AgentTurnRunner(
         private val config: AgentExecutionConfig,
         private val services: SessionServices,
         private val eventDispatcher: AgentEventDispatcher,
-        private val eventEmitter: suspend (AgentEvent) -> Unit,
         private val cancellationSignal: CompletableDeferred<AgentStopReason>,
         private val stopRequested: AtomicBoolean,
         private val trace: AgentTrace,
@@ -46,7 +44,6 @@ internal class AgentTurnRunner(
                         config = config,
                         services = services,
                         eventDispatcher = eventDispatcher,
-                        eventEmitter = eventEmitter,
                         trace = trace
                 )
         }

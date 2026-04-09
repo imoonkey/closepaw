@@ -4,6 +4,7 @@ import android.content.res.Resources
 import android.os.Build
 import android.util.Log
 import com.moonkey.androidagent.agent.Agent
+import com.moonkey.androidagent.agent.AgentEventDispatcher
 import com.moonkey.androidagent.agent.AgentExecutionConfig
 import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.AgentStopReason
@@ -45,6 +46,7 @@ internal class SessionAgentRunner(
 
     private val stateLock = Any()
     private var state = RunnerState(agent = null, agentJob = null, cancellationSignal = null)
+    private val eventDispatcher = AgentEventDispatcher(sessionId = sessionId, eventEmitter = emitEvent)
 
     fun start(taskInput: String, taskId: String) {
         val agentDef = AgentDefRegistry.mainFor(config.agentMode)
@@ -130,17 +132,16 @@ internal class SessionAgentRunner(
 
         val delegatableRoles = AgentDefRegistry.delegatableRoles()
         val delegateTool = DelegateTaskTool(
-            sessionId = sessionId,
             delegatableRoles = delegatableRoles,
             runnerFactory = { roleDef ->
                 IsolatedSubAgentRunner(
                     roleDef = roleDef,
                     parentServices = services,
                     parentSessionId = sessionId,
-                    eventEmitter = emitEvent
+                    eventDispatcher = eventDispatcher
                 )
             },
-            eventEmitter = emitEvent
+            eventDispatcher = eventDispatcher
         )
         services.toolRegistry.register(delegateTool)
     }
@@ -148,13 +149,9 @@ internal class SessionAgentRunner(
     private fun ensureAskUserToolRegistered() {
         if (services.toolRegistry.contains("ask_user")) return
 
-        val dispatcher = com.moonkey.androidagent.agent.AgentEventDispatcher(
-            sessionId = sessionId,
-            eventEmitter = emitEvent
-        )
         val askUserTool = com.moonkey.androidagent.tool.impl.AskUserTool(
             responseChannel = services.userResponseChannel,
-            eventDispatcher = dispatcher
+            eventDispatcher = eventDispatcher
         )
         services.toolRegistry.register(askUserTool)
     }

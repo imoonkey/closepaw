@@ -3,9 +3,6 @@ package com.moonkey.androidagent.agent.cognition.prompt
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
 import com.moonkey.androidagent.model.ScreenImage
-import com.moonkey.androidagent.model.ScreenSnapshot
-import com.moonkey.androidagent.perception.PerceptionConfig
-import com.moonkey.androidagent.perception.Perceptor
 import com.moonkey.androidagent.session.AgentSessionState
 import com.openai.models.responses.EasyInputMessage
 import com.openai.models.responses.ResponseFunctionToolCall
@@ -26,15 +23,13 @@ import com.openai.models.responses.ResponseInputText
 internal class PromptBuilder(
     private val historyManager: HistoryManager,
     private val sessionState: AgentSessionState,
-    private val supportsVision: Boolean = true,
-    private val perceptionConfig: PerceptionConfig = PerceptionConfig.DEFAULT
+    private val supportsVision: Boolean = true
 ) {
 
     /**
      * Assemble all input items for one LLM call.
      *
-     * @param snapshot  Current screen capture
-     * @param image     Optional screenshot (attached when using OpenAI backend)
+     * @param observation  Canonical turn observation (screen state + image)
      * @param warnings  Plain-text warning strings (loop detection, final turn, etc.)
      * @param turnNumber Current turn number (1-based)
      * @param maxTurns  Maximum turns allowed for this session
@@ -42,8 +37,7 @@ internal class PromptBuilder(
      * @param recalledMemory Optional recalled long-term memory block
      */
     fun buildInputItems(
-        snapshot: ScreenSnapshot,
-        image: ScreenImage?,
+        observation: TurnObservation,
         warnings: List<String> = emptyList(),
         turnNumber: Int = 0,
         maxTurns: Int = 0,
@@ -54,7 +48,7 @@ internal class PromptBuilder(
         buildMemorySection()?.let { add(it) }
         recalledMemory?.trim()?.takeIf { it.isNotEmpty() }?.let { add(textUserMessage(it)) }
         appSkill?.trim()?.takeIf { it.isNotEmpty() }?.let { add(textUserMessage(it)) }
-        add(buildObservationSection(snapshot, image, warnings, turnNumber, maxTurns))
+        add(buildObservationSection(observation, warnings, turnNumber, maxTurns))
     }
 
     // ── History ──────────────────────────────────────────────────────────
@@ -109,15 +103,14 @@ internal class PromptBuilder(
     // ── Current Observation ─────────────────────────────────────────────
 
     private fun buildObservationSection(
-        snapshot: ScreenSnapshot,
-        image: ScreenImage?,
+        observation: TurnObservation,
         warnings: List<String>,
         turnNumber: Int,
         maxTurns: Int
     ): ResponseInputItem {
-        val text = buildObservationText(snapshot, image, warnings, turnNumber, maxTurns)
-        return if (image != null && supportsVision) {
-            imageUserMessage(text, image)
+        val text = buildObservationText(observation, warnings, turnNumber, maxTurns)
+        return if (observation.image != null && supportsVision) {
+            imageUserMessage(text, observation.image)
         } else {
             textUserMessage(text)
         }
@@ -125,17 +118,14 @@ internal class PromptBuilder(
 
     /**
      * Produces the text body for the current-observation message.
-     * Mode-aware: accessibility-only, screenshot-only, or hybrid.
      *
-     * Gating rule: `perceptionConfig.capturesAccessibility` controls whether
-     * the LLM sees the a11y tree. The tree is always *captured* (for change
-     * detection, node finding, trace), but only *shown* when the config allows.
+     * Turn-specific decorations (budget, warnings, screenshot note, no-a11y guidance)
+     * are layered around the canonical [TurnObservation.screenBlock].
      *
      * Package-visible for testing.
      */
     internal fun buildObservationText(
-        snapshot: ScreenSnapshot,
-        image: ScreenImage?,
+        observation: TurnObservation,
         warnings: List<String>,
         turnNumber: Int = 0,
         maxTurns: Int = 0
@@ -153,24 +143,20 @@ internal class PromptBuilder(
             }
             if (warnings.isNotEmpty()) appendLine()
 
-            // Accessibility section — gated by perceptionConfig, not by element presence
-            if (perceptionConfig.capturesAccessibility) {
-                val screenJson = Perceptor.toPromptJson(snapshot)
-                appendLine("Screen state (${snapshot.elements.size} elements):")
-                if (snapshot.keyboardVisible) {
-                    appendLine("keyboard_visible: true (BACK will dismiss keyboard first, not navigate back)")
-                }
-                appendLine("```json")
-                appendLine(screenJson)
-                append("```")
+            // Screen state — canonical block or instructional guidance.
+            // In a11y mode: use screenBlock directly (shared with history).
+            // In screenshot-only mode: richer instructional text for the LLM;
+            // history records the terse screenBlock instead (intentional divergence).
+            if (observation.hasAccessibility) {
+                append(observation.screenBlock)
             } else {
                 appendLine("No accessibility tree available for this screen.")
                 append("Use coordinate-based actions (x, y) or analyze the screenshot visually.")
             }
 
             // Screenshot section
-            if (image != null && supportsVision) {
-                if (perceptionConfig.capturesAccessibility) appendLine()
+            if (observation.image != null && supportsVision) {
+                if (observation.hasAccessibility) appendLine()
                 appendLine()
                 append("Screenshot attached (analyze visually if needed).")
             }

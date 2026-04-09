@@ -51,7 +51,7 @@ Tool-local semantics now live in tool descriptions, and app-specific guidance li
 
 ## 2. Input Items Composition
 
-`PromptBuilder.buildInputItems(snapshot, image, warnings, ..., appSkill)` constructs the full
+`PromptBuilder.buildInputItems(observation, warnings, ..., appSkill)` constructs the full
 `input` list in fixed order:
 
 1. **History section** (`HistoryManager.forPrompt()`, normalized)
@@ -147,7 +147,7 @@ If screenshot input is available and backend supports vision, the message also a
 ### Warnings Included
 
 Warnings are prepared in `AgentTurnRunner.buildWarnings(...)`:
-- Loop warning from `LoopDetectionPolicy` (WARNING or CRITICAL severity)
+- Loop warning from `LoopDetectionPolicy` (factual message only—no severity levels)
 - Final-turn warning when `isFinalTurn()` returns true
 
 > See: `agent/cognition/policy/LoopDetectionPolicy.kt`, `agent/cognition/policy/TurnBudget.kt`
@@ -156,14 +156,14 @@ Warnings are prepared in `AgentTurnRunner.buildWarnings(...)`:
 
 ## 3. Screen Observation Recording
 
-After input items are built (so current turn does not duplicate itself), `TurnPlanningPhaseRunner` records the current screen into history as:
+`TurnPlanningPhaseRunner` creates a canonical `TurnObservation` from the screen snapshot and perception config. Both prompt rendering and history recording project from this single payload — `Perceptor.toPromptJson()` is called once.
 
-- `kind = MessageKind.SCREEN_OBSERVATION`
-- content format: `Screen state (N elements):` + fenced JSON block
+- `PromptBuilder` wraps `observation.screenBlock` with turn-specific decorations (budget, warnings, screenshot note)
+- History records `observation.screenBlock` directly as `kind = MessageKind.SCREEN_OBSERVATION`
 
-This makes the next turn history-aware while still keeping the current prompt deterministic.
+No ordering dependency: the observation is immutable, so prompt building and history recording can happen in any order.
 
-→ See: `agent/TurnPlanningPhaseRunner.kt`, `history/HistoryManager.kt`
+→ See: `agent/cognition/prompt/TurnObservation.kt`, `agent/TurnPlanningPhaseRunner.kt`, `history/HistoryManager.kt`
 
 ---
 

@@ -45,7 +45,6 @@ class Agent(
                     config = config,
                     services = services,
                     eventDispatcher = eventDispatcher,
-                    eventEmitter = eventEmitter,
                     cancellationSignal = cancellationSignal,
                     stopRequested = stopRequested,
                     trace = trace,
