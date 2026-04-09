@@ -31,58 +31,21 @@ In `AgentMode.BASIC`, delegation is disabled and the standalone main agent execu
 
 ## Core Components
 
-### AgentDef + AgentDefRegistry
+### AgentRoleDef + AgentDefRegistry
 
-→ See: `agent/definition/AgentDef.kt` and `agent/definition/AgentDefRegistry.kt`
+> See: `agent/definition/AgentRoleDef.kt` and `agent/definition/AgentDefRegistry.kt`
 
-Static role definitions centralize:
+Unified role definitions centralize:
 - system prompt text
 - allowed tool set
 - execution role (`PLANNER`, `EXECUTOR`, `STANDALONE`)
-- whether delegation tooling must be wired
+- delegation properties (`delegatable`, `maxTurns`, `timeoutMs`, `description`)
 
-Main-agent selection is mode-based (`BASIC` → standalone, `PRO` → planner), and executor definition is reused by sub-agent wiring.
-
-### AgentDefinition
-
-→ See: `agent/subagent/SubAgentRunner.kt`
-
-Defines a sub-agent invokable via `delegate_task`:
-
-```kotlin
-data class AgentDefinition(
-    val name: String,
-    val description: String,
-    val systemPrompt: String,
-    val toolNames: List<String>,
-    val maxTurns: Int = 10,
-    val timeoutMs: Long = 60_000,
-    val executionRole: AgentExecutionRole? = null
-)
-```
-
-### AgentRegistry
-
-→ See: `agent/subagent/SubAgentRunner.kt`
-
-In-memory registry for available sub-agents:
-
-```kotlin
-class AgentRegistry {
-    fun register(definition: AgentDefinition)
-    fun get(name: String): AgentDefinition?
-    fun getAll(): List<AgentDefinition>
-    fun getDirectoryPrompt(): String
-
-    companion object {
-        fun createDefault(): AgentRegistry
-    }
-}
-```
+Main-agent selection is mode-based (`BASIC` → standalone, `PRO` → planner). Delegatable sub-agent roles are discovered via `AgentDefRegistry.delegatableRoles()`, which filters by `delegatable = true`.
 
 ### IsolatedSubAgentRunner
 
-→ See: `agent/subagent/SubAgentRunner.kt`
+> See: `agent/subagent/SubAgentRunner.kt`
 
 Executes one delegated request with isolated runtime state:
 - Creates child `Agent` with filtered tools
@@ -133,7 +96,7 @@ Do not pass full history/screenshots/raw tree dumps. Executor captures fresh scr
 
 - Name: `executor`
 - Role: `AgentExecutionRole.EXECUTOR`
-- Max turns: defined in `AgentDefinition` (default 10)
+- Max turns: 5 (defined in `ExecutorAgentDef.kt`)
 - Prompt: covers query types (TAP, SCROLL, EXTRACT, TYPE, BACK, OPEN APP), failure recovery, one-atomic-action-per-delegation rule
 
 ### Planner Agent
@@ -160,9 +123,9 @@ Do not pass full history/screenshots/raw tree dumps. Executor captures fresh scr
 
 → See: `session/SessionAgentRunner.kt`
 
-`SessionAgentRunner` registers `delegate_task` only when the active main-agent definition requires it (via `requiresDelegationToolRegistration`). It also always registers `ask_user`.
+`SessionAgentRunner` registers `delegate_task` when the active main-agent's `allowedTools` includes it. It also always registers `ask_user`.
 
-When delegation is enabled, it creates a default `AgentRegistry` (with executor included) and connects it to `IsolatedSubAgentRunner`.
+When delegation is enabled, it retrieves delegatable roles from `AgentDefRegistry.delegatableRoles()` and passes them to `DelegateTaskTool` + `IsolatedSubAgentRunner`.
 
 ---
 
@@ -191,8 +154,8 @@ Each agent can use a different model:
 
 ## Adding New Sub-Agents
 
-1. Define a new object inheriting `AgentDef` in `agent/definition/`.
-2. Register it in `AgentRegistry` creation via `SubAgentRunner.kt`.
+1. Add a new `AgentRoleDef` val in `agent/definition/` with `delegatable = true`.
+2. `AgentDefRegistry.delegatableRoles()` will pick it up automatically.
 3. Keep prompt + tool list tightly scoped.
 4. Ensure `SessionAgentRunner` wiring handles it.
 

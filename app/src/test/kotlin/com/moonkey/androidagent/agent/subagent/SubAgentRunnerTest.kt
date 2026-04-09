@@ -1,6 +1,8 @@
 package com.moonkey.androidagent.agent.subagent
 
 import com.google.common.truth.Truth.assertThat
+import com.moonkey.androidagent.agent.AgentExecutionRole
+import com.moonkey.androidagent.agent.definition.AgentRoleDef
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.llm.LLMClient
 import com.moonkey.androidagent.llm.LLMClientFactory
@@ -39,12 +41,13 @@ class SubAgentRunnerTest {
                 val services = buildServices(SubAgentTestLLMClient(delayMs = 0))
                 val runner =
                         IsolatedSubAgentRunner(
-                                definition =
-                                        AgentDefinition(
+                                roleDef =
+                                        AgentRoleDef(
                                                 name = "executor",
+                                                executionRole = AgentExecutionRole.EXECUTOR,
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
-                                                toolNames = emptyList(),
+                                                allowedTools = emptySet(),
                                                 maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
@@ -64,12 +67,13 @@ class SubAgentRunnerTest {
                 val events = mutableListOf<AgentEvent>()
                 val runner =
                         IsolatedSubAgentRunner(
-                                definition =
-                                        AgentDefinition(
+                                roleDef =
+                                        AgentRoleDef(
                                                 name = "executor",
+                                                executionRole = AgentExecutionRole.EXECUTOR,
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
-                                                toolNames = emptyList(),
+                                                allowedTools = emptySet(),
                                                 maxTurns = 1,
                                                 timeoutMs = 10
                                         ),
@@ -104,12 +108,13 @@ class SubAgentRunnerTest {
                 val services = buildServices(llm, includeCompleteTask = true)
                 val runner =
                         IsolatedSubAgentRunner(
-                                definition =
-                                        AgentDefinition(
+                                roleDef =
+                                        AgentRoleDef(
                                                 name = "executor",
+                                                executionRole = AgentExecutionRole.EXECUTOR,
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
-                                                toolNames = listOf("complete_task"),
+                                                allowedTools = setOf("complete_task"),
                                                 maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
@@ -144,12 +149,13 @@ class SubAgentRunnerTest {
                 val services = buildServices(llm, includeCompleteTask = true)
                 val runner =
                         IsolatedSubAgentRunner(
-                                definition =
-                                        AgentDefinition(
+                                roleDef =
+                                        AgentRoleDef(
                                                 name = "executor",
+                                                executionRole = AgentExecutionRole.EXECUTOR,
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
-                                                toolNames = listOf("complete_task"),
+                                                allowedTools = setOf("complete_task"),
                                                 maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),
@@ -170,12 +176,13 @@ class SubAgentRunnerTest {
                 val services = buildServices(llm, includeCompleteTask = false)
                 val runner =
                         IsolatedSubAgentRunner(
-                                definition =
-                                        AgentDefinition(
+                                roleDef =
+                                        AgentRoleDef(
                                                 name = "executor",
+                                                executionRole = AgentExecutionRole.EXECUTOR,
                                                 description = "Exec",
                                                 systemPrompt = "prompt",
-                                                toolNames = emptyList(),
+                                                allowedTools = emptySet(),
                                                 maxTurns = 1,
                                                 timeoutMs = 5_000
                                         ),

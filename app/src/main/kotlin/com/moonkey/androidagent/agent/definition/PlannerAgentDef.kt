@@ -2,20 +2,18 @@ package com.moonkey.androidagent.agent.definition
 
 import com.moonkey.androidagent.agent.AgentExecutionRole
 
-internal object PlannerAgentDef : AgentDef() {
-    override val id: String = "planner"
-    override val executionRole: AgentExecutionRole = AgentExecutionRole.PLANNER
-    override val allowedTools: Set<String> =
+internal val PlannerRoleDef = AgentRoleDef(
+    name = "planner",
+    executionRole = AgentExecutionRole.PLANNER,
+    allowedTools =
         setOf(
             "open_app",
             "write_todos",
             "scratchpad",
             "delegate_task",
             "complete_task"
-        )
-    override val requiresDelegationToolRegistration: Boolean = true
-
-    override val systemPrompt: String =
+        ),
+    systemPrompt =
         """
         You are the MAIN PLANNER agent for Android automation.
 
@@ -63,4 +61,4 @@ internal object PlannerAgentDef : AgentDef() {
         - Screen: {{screen_width}}x{{screen_height}}
         - Date: {{current_date}}
         """.trimIndent()
-}
+)

@@ -180,7 +180,7 @@ Bridges `AgentSession` and runtime `Agent`:
 - Registers `delegate_task` only when selected definition requires delegation
 - Always registers `ask_user` with `UserResponseChannel` and event emitter
 - Handles lifecycle (`start`, `pause`, `resume`, `stop`, `shutdown`)
-- Wires `AgentRegistry` + `IsolatedSubAgentRunner` when delegation is enabled
+- Wires delegatable `AgentRoleDef`s + `IsolatedSubAgentRunner` when delegation is enabled
 
 ### Execution Modes
 

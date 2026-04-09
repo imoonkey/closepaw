@@ -8,8 +8,8 @@ class AgentDefTest {
 
     @Test
     fun `standalone definition has expected role and tools`() {
-        assertThat(StandaloneAgentDef.executionRole).isEqualTo(AgentExecutionRole.STANDALONE)
-        assertThat(StandaloneAgentDef.allowedTools)
+        assertThat(StandaloneRoleDef.executionRole).isEqualTo(AgentExecutionRole.STANDALONE)
+        assertThat(StandaloneRoleDef.allowedTools)
             .containsExactly(
                 "mobile_action",
                 "system_button",
@@ -22,14 +22,14 @@ class AgentDefTest {
                 "ask_user",
                 "remember_experience"
             )
-        assertThat(StandaloneAgentDef.requiresDelegationToolRegistration).isFalse()
-        assertThat(StandaloneAgentDef.systemPrompt).contains("standalone Android automation agent")
+        assertThat(StandaloneRoleDef.delegatable).isFalse()
+        assertThat(StandaloneRoleDef.systemPrompt).contains("standalone Android automation agent")
     }
 
     @Test
     fun `planner definition has expected role and tools`() {
-        assertThat(PlannerAgentDef.executionRole).isEqualTo(AgentExecutionRole.PLANNER)
-        assertThat(PlannerAgentDef.allowedTools)
+        assertThat(PlannerRoleDef.executionRole).isEqualTo(AgentExecutionRole.PLANNER)
+        assertThat(PlannerRoleDef.allowedTools)
             .containsExactly(
                 "open_app",
                 "write_todos",
@@ -37,14 +37,14 @@ class AgentDefTest {
                 "delegate_task",
                 "complete_task"
             )
-        assertThat(PlannerAgentDef.requiresDelegationToolRegistration).isTrue()
-        assertThat(PlannerAgentDef.systemPrompt).contains("MAIN PLANNER")
+        assertThat(PlannerRoleDef.allowedTools).contains("delegate_task")
+        assertThat(PlannerRoleDef.systemPrompt).contains("MAIN PLANNER")
     }
 
     @Test
     fun `executor definition has expected role and tools`() {
-        assertThat(ExecutorAgentDef.executionRole).isEqualTo(AgentExecutionRole.EXECUTOR)
-        assertThat(ExecutorAgentDef.allowedTools)
+        assertThat(ExecutorRoleDef.executionRole).isEqualTo(AgentExecutionRole.EXECUTOR)
+        assertThat(ExecutorRoleDef.allowedTools)
             .containsExactly(
                 "mobile_action",
                 "system_button",
@@ -54,7 +54,7 @@ class AgentDefTest {
                 "complete_task",
                 "ask_user"
             )
-        assertThat(ExecutorAgentDef.requiresDelegationToolRegistration).isFalse()
-        assertThat(ExecutorAgentDef.systemPrompt).contains("Executor agent")
+        assertThat(ExecutorRoleDef.delegatable).isTrue()
+        assertThat(ExecutorRoleDef.systemPrompt).contains("Executor agent")
     }
 }

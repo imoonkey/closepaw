@@ -85,7 +85,7 @@ com.moonkey.androidagent/
 │   ├── ActionDescriptionFormatter.kt   # Human-readable tool descriptions
 │   ├── Turn.kt                         # LLM call wrapper (streaming + sync)
 │   ├── definition/                     # Agent role definitions
-│   │   ├── AgentDef.kt                 # Abstract base (id, role, prompt, tools)
+│   │   ├── AgentRoleDef.kt              # Unified role definition data class
 │   │   ├── AgentDefRegistry.kt         # mainFor(mode) + executor() factory
 │   │   ├── PlannerAgentDef.kt          # Planner: delegation workflow
 │   │   ├── ExecutorAgentDef.kt         # Executor: atomic UI actions
@@ -100,7 +100,7 @@ com.moonkey.androidagent/
 │   │       ├── LoopDetectionPolicy.kt  # Repeated screen/action warnings
 │   │       └── TurnBudget.kt              # Turn budget check + delegation summary
 │   └── subagent/
-│       └── SubAgentRunner.kt           # AgentDefinition, AgentRegistry, IsolatedSubAgentRunner
+│       └── SubAgentRunner.kt           # SubAgentRequest, SubAgentResult, IsolatedSubAgentRunner
 │
 ├── session/                            # Session management
 │   ├── AgentSession.kt                 # Lifecycle manager (Op → state transitions)

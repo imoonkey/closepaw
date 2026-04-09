@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.tool.impl
 
-import com.moonkey.androidagent.agent.subagent.AgentDefinition
-import com.moonkey.androidagent.agent.subagent.AgentRegistry
+import com.moonkey.androidagent.agent.definition.AgentRoleDef
 import com.moonkey.androidagent.agent.subagent.SubAgentRequest
 import com.moonkey.androidagent.agent.subagent.SubAgentRunner
 import com.moonkey.androidagent.protocol.*
@@ -15,12 +14,14 @@ import com.moonkey.androidagent.tool.textToolSuccess
 import org.json.JSONArray
 import org.json.JSONObject
 
-class DelegateTaskTool(
+internal class DelegateTaskTool(
     private val sessionId: SessionId,
-    private val registry: AgentRegistry,
-    private val runnerFactory: (AgentDefinition) -> SubAgentRunner,
+    private val delegatableRoles: List<AgentRoleDef>,
+    private val runnerFactory: (AgentRoleDef) -> SubAgentRunner,
     private val eventEmitter: suspend (AgentEvent) -> Unit
 ) : ToolSpec {
+
+    private val rolesByName = delegatableRoles.associateBy { it.name }
 
     override val name: String = "delegate_task"
 
@@ -29,7 +30,7 @@ class DelegateTaskTool(
         Delegate ONE atomic UI action to a sub-agent.
 
         Available agents:
-        ${registry.getDirectoryPrompt()}
+        ${delegatableRoles.joinToString("\n") { "- ${it.name}: ${it.description}" }}
 
         Query must be a single atomic intent: "Tap the Send button", "Scroll down", "Extract sender and subject", "Type 'hello' into search". NOT multi-step ("Open app, navigate to settings, change theme").
         """.trimIndent()
@@ -69,7 +70,7 @@ class DelegateTaskTool(
         val agentName = params.optString("agent_name", "").trim()
         if (agentName.isEmpty()) {
             errors.add("Missing required parameter: agent_name")
-        } else if (registry.get(agentName) == null) {
+        } else if (agentName !in rolesByName) {
             errors.add("Unknown agent: $agentName")
         }
 
@@ -91,14 +92,14 @@ class DelegateTaskTool(
         val currentSubgoal = params.optString("current_subgoal", "").trim().ifEmpty { null }
         val importantNotes = parseStringArray(params.optJSONArray("important_notes"))
         val agentThought = params.optString("agent_thought", "").trim()
-        val definition = registry.get(agentName)
+        val roleDef = rolesByName[agentName]
             ?: throw IllegalArgumentException("Unknown agent: $agentName")
         val description = buildDescription(agentName, query, agentThought)
 
         return DelegateTaskInvocation(
             sessionId = sessionId,
             params = params,
-            definition = definition,
+            roleDef = roleDef,
             request = SubAgentRequest(
                 query = query,
                 currentSubgoal = currentSubgoal,
@@ -131,10 +132,10 @@ class DelegateTaskTool(
 private class DelegateTaskInvocation(
     private val sessionId: SessionId,
     override val params: JSONObject,
-    private val definition: AgentDefinition,
+    private val roleDef: AgentRoleDef,
     private val request: SubAgentRequest,
     private val description: String,
-    private val runnerFactory: (AgentDefinition) -> SubAgentRunner,
+    private val runnerFactory: (AgentRoleDef) -> SubAgentRunner,
     private val eventEmitter: suspend (AgentEvent) -> Unit
 ) : ToolInvocation {
 
@@ -153,18 +154,18 @@ private class DelegateTaskInvocation(
             SubAgentStarted(
                 sessionId = sessionId,
                 timestamp = System.currentTimeMillis(),
-                agentName = definition.name,
+                agentName = roleDef.name,
                 query = requestWithCallId.query
             )
         )
 
-        val result = runnerFactory(definition).run(requestWithCallId)
+        val result = runnerFactory(roleDef).run(requestWithCallId)
 
         eventEmitter(
             SubAgentCompleted(
                 sessionId = sessionId,
                 timestamp = System.currentTimeMillis(),
-                agentName = definition.name,
+                agentName = roleDef.name,
                 success = result.success,
                 message = result.message
             )
@@ -179,7 +180,7 @@ private class DelegateTaskInvocation(
         return textToolSuccess(
                 output = output,
                 data = mapOf(
-                        "agent" to definition.name,
+                        "agent" to roleDef.name,
                         "success" to result.success,
                         "message" to result.message
                 )

@@ -3,12 +3,15 @@ package com.moonkey.androidagent.agent.definition
 import com.moonkey.androidagent.protocol.AgentMode
 
 internal object AgentDefRegistry {
-    fun mainFor(mode: AgentMode): AgentDef {
+
+    private val allRoles = listOf(StandaloneRoleDef, PlannerRoleDef, ExecutorRoleDef)
+
+    fun mainFor(mode: AgentMode): AgentRoleDef {
         return when (mode) {
-            AgentMode.BASIC -> StandaloneAgentDef
-            AgentMode.PRO -> PlannerAgentDef
+            AgentMode.BASIC -> StandaloneRoleDef
+            AgentMode.PRO -> PlannerRoleDef
         }
     }
 
-    fun executor(): AgentDef = ExecutorAgentDef
+    fun delegatableRoles(): List<AgentRoleDef> = allRoles.filter { it.delegatable }
 }

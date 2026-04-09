@@ -8,7 +8,6 @@ import com.moonkey.androidagent.agent.AgentExecutionConfig
 import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.AgentStopReason
 import com.moonkey.androidagent.agent.definition.AgentDefRegistry
-import com.moonkey.androidagent.agent.subagent.AgentRegistry
 import com.moonkey.androidagent.agent.subagent.IsolatedSubAgentRunner
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.SessionId
@@ -49,7 +48,7 @@ internal class SessionAgentRunner(
 
     fun start(taskInput: String, taskId: String) {
         val agentDef = AgentDefRegistry.mainFor(config.agentMode)
-        if (agentDef.requiresDelegationToolRegistration) {
+        if ("delegate_task" in agentDef.allowedTools) {
             ensureDelegationToolRegistered()
         }
         ensureAskUserToolRegistered()
@@ -129,13 +128,13 @@ internal class SessionAgentRunner(
     private fun ensureDelegationToolRegistered() {
         if (services.toolRegistry.contains("delegate_task")) return
 
-        val registry = AgentRegistry.createDefault()
+        val delegatableRoles = AgentDefRegistry.delegatableRoles()
         val delegateTool = DelegateTaskTool(
             sessionId = sessionId,
-            registry = registry,
-            runnerFactory = { definition ->
+            delegatableRoles = delegatableRoles,
+            runnerFactory = { roleDef ->
                 IsolatedSubAgentRunner(
-                    definition = definition,
+                    roleDef = roleDef,
                     parentServices = services,
                     parentSessionId = sessionId,
                     eventEmitter = emitEvent

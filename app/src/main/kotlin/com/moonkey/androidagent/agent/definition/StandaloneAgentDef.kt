@@ -2,10 +2,10 @@ package com.moonkey.androidagent.agent.definition
 
 import com.moonkey.androidagent.agent.AgentExecutionRole
 
-internal object StandaloneAgentDef : AgentDef() {
-    override val id: String = "standalone"
-    override val executionRole: AgentExecutionRole = AgentExecutionRole.STANDALONE
-    override val allowedTools: Set<String> =
+internal val StandaloneRoleDef = AgentRoleDef(
+    name = "standalone",
+    executionRole = AgentExecutionRole.STANDALONE,
+    allowedTools =
             setOf(
                     "mobile_action",
                     "system_button",
@@ -17,10 +17,8 @@ internal object StandaloneAgentDef : AgentDef() {
                     "complete_task",
                     "ask_user",
                     "remember_experience"
-            )
-    override val requiresDelegationToolRegistration: Boolean = false
-
-    override val systemPrompt: String =
+            ),
+    systemPrompt =
             """
         You are a standalone Android automation agent.
 
@@ -79,4 +77,4 @@ internal object StandaloneAgentDef : AgentDef() {
         - Screen: {{screen_width}}x{{screen_height}}
         - Date: {{current_date}}
         """.trimIndent()
-}
+)

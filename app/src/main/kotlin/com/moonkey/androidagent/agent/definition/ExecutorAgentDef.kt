@@ -2,10 +2,10 @@ package com.moonkey.androidagent.agent.definition
 
 import com.moonkey.androidagent.agent.AgentExecutionRole
 
-internal object ExecutorAgentDef : AgentDef() {
-    override val id: String = "executor"
-    override val executionRole: AgentExecutionRole = AgentExecutionRole.EXECUTOR
-    override val allowedTools: Set<String> =
+internal val ExecutorRoleDef = AgentRoleDef(
+    name = "executor",
+    executionRole = AgentExecutionRole.EXECUTOR,
+    allowedTools =
             setOf(
                     "mobile_action",
                     "system_button",
@@ -14,10 +14,12 @@ internal object ExecutorAgentDef : AgentDef() {
                     "scratchpad",
                     "complete_task",
                     "ask_user"
-            )
-    override val requiresDelegationToolRegistration: Boolean = false
-
-    override val systemPrompt: String =
+            ),
+    delegatable = true,
+    description = "Execute ONE atomic UI action on the current screen",
+    maxTurns = 5,
+    timeoutMs = 30_000,
+    systemPrompt =
             """
         You are an Executor agent. You execute ONE atomic UI action per delegation.
 
@@ -124,4 +126,4 @@ internal object ExecutorAgentDef : AgentDef() {
         - Use ask_user when the task requires information you genuinely cannot infer from the goal, the screen, or the device environment above.
         - Use ask_user when the task is genuinely impossible without physical user intervention (e.g., CAPTCHA, biometric authentication, physical camera positioning).
         """.trimIndent()
-}
+)

@@ -1,8 +1,8 @@
 package com.moonkey.androidagent.tool.impl
 
 import com.google.common.truth.Truth.assertThat
-import com.moonkey.androidagent.agent.subagent.AgentDefinition
-import com.moonkey.androidagent.agent.subagent.AgentRegistry
+import com.moonkey.androidagent.agent.AgentExecutionRole
+import com.moonkey.androidagent.agent.definition.AgentRoleDef
 import com.moonkey.androidagent.agent.subagent.SubAgentRequest
 import com.moonkey.androidagent.agent.subagent.SubAgentResult
 import com.moonkey.androidagent.agent.subagent.SubAgentRunner
@@ -20,12 +20,20 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class DelegateTaskToolTest {
 
+    private val executorRole = AgentRoleDef(
+        name = "executor",
+        executionRole = AgentExecutionRole.EXECUTOR,
+        systemPrompt = "prompt",
+        allowedTools = setOf("complete_task"),
+        delegatable = true,
+        description = "Exec"
+    )
+
     @Test
     fun `validate fails for unknown agent`() {
-        val registry = AgentRegistry()
         val tool = DelegateTaskTool(
             sessionId = SessionId("session-1"),
-            registry = registry,
+            delegatableRoles = emptyList(),
             runnerFactory = { error("not used") },
             eventEmitter = { }
         )
@@ -40,19 +48,12 @@ class DelegateTaskToolTest {
 
     @Test
     fun `execute emits start and completion events with successful result`() = runTest {
-        val definition = AgentDefinition(
-            name = "executor",
-            description = "Exec",
-            systemPrompt = "prompt",
-            toolNames = listOf("complete_task")
-        )
-        val registry = AgentRegistry().apply { register(definition) }
         val capturedRequests = mutableListOf<SubAgentRequest>()
         val events = mutableListOf<AgentEvent>()
 
         val tool = DelegateTaskTool(
             sessionId = SessionId("session-1"),
-            registry = registry,
+            delegatableRoles = listOf(executorRole),
             runnerFactory = {
                 SubAgentRunner { request ->
                     capturedRequests.add(request)
@@ -88,17 +89,9 @@ class DelegateTaskToolTest {
 
     @Test
     fun `execute wraps failed sub-agent result as success text output`() = runTest {
-        val definition = AgentDefinition(
-            name = "executor",
-            description = "Exec",
-            systemPrompt = "prompt",
-            toolNames = listOf("complete_task")
-        )
-        val registry = AgentRegistry().apply { register(definition) }
-
         val tool = DelegateTaskTool(
             sessionId = SessionId("session-1"),
-            registry = registry,
+            delegatableRoles = listOf(executorRole),
             runnerFactory = {
                 SubAgentRunner { _ ->
                     SubAgentResult(success = false, message = "Timeout after 1000ms")

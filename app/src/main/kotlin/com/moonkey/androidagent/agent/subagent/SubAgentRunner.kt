@@ -2,9 +2,8 @@ package com.moonkey.androidagent.agent.subagent
 
 import com.moonkey.androidagent.agent.Agent
 import com.moonkey.androidagent.agent.AgentExecutionConfig
-import com.moonkey.androidagent.agent.AgentExecutionRole
 import com.moonkey.androidagent.agent.AgentStopReason
-import com.moonkey.androidagent.agent.definition.AgentDefRegistry
+import com.moonkey.androidagent.agent.definition.AgentRoleDef
 import com.moonkey.androidagent.agent.cognition.policy.DelegationSummaryFormatter
 import com.moonkey.androidagent.history.HistoryManager
 import com.moonkey.androidagent.history.ResponseItem
@@ -21,19 +20,6 @@ import kotlinx.coroutines.withTimeoutOrNull
  * The parent planner delegates one atomic instruction to an isolated child agent,
  * then receives a normalized success/failure message.
  */
-
-/**
- * Defines a sub-agent that can be invoked through delegate_task.
- */
-data class AgentDefinition(
-    val name: String,
-    val description: String,
-    val systemPrompt: String,
-    val toolNames: List<String>,
-    val maxTurns: Int = 10,
-    val timeoutMs: Long = 60_000,
-    val executionRole: AgentExecutionRole? = null
-)
 
 /**
  * Delegation payload passed from parent to a sub-agent.
@@ -53,49 +39,6 @@ data class SubAgentResult(
     val message: String
 )
 
-/**
- * Built-in executor that grounds high-level instructions into UI actions.
- */
-object ExecutorAgent {
-    private val executorDef = AgentDefRegistry.executor()
-
-    val definition: AgentDefinition =
-        AgentDefinition(
-            name = "executor",
-            description = "Execute ONE atomic UI action on the current screen",
-            systemPrompt = executorDef.systemPrompt,
-            toolNames = executorDef.allowedTools.toList(),
-            maxTurns = 5,
-            timeoutMs = 30_000,
-            executionRole = executorDef.executionRole
-        )
-}
-
-/**
- * Simple in-memory registry for sub-agent definitions.
- */
-class AgentRegistry {
-    private val agents = linkedMapOf<String, AgentDefinition>()
-
-    fun register(definition: AgentDefinition) {
-        agents[definition.name] = definition
-    }
-
-    fun get(name: String): AgentDefinition? = agents[name]
-
-    fun getAll(): List<AgentDefinition> = agents.values.toList()
-
-    fun getDirectoryPrompt(): String =
-        agents.values.joinToString("\n") { "- ${it.name}: ${it.description}" }
-
-    companion object {
-        fun createDefault(): AgentRegistry =
-            AgentRegistry().apply {
-                register(ExecutorAgent.definition)
-            }
-    }
-}
-
 fun interface SubAgentRunner {
     /** Runs a delegated task and returns a compact result for the parent planner. */
     suspend fun run(request: SubAgentRequest): SubAgentResult
@@ -104,8 +47,8 @@ fun interface SubAgentRunner {
 /**
  * Runs a delegated sub-agent with isolated prompt state and tool access.
  */
-class IsolatedSubAgentRunner(
-    private val definition: AgentDefinition,
+internal class IsolatedSubAgentRunner(
+    private val roleDef: AgentRoleDef,
     private val parentServices: SessionServices,
     private val parentSessionId: SessionId,
     private val eventEmitter: suspend (AgentEvent) -> Unit
@@ -115,10 +58,10 @@ class IsolatedSubAgentRunner(
      * Spins up a temporary child agent with filtered tools and shared scratchpad.
      */
     override suspend fun run(request: SubAgentRequest): SubAgentResult {
-        val childTaskId = "sub-${definition.name}-${System.currentTimeMillis()}"
+        val childTaskId = "sub-${roleDef.name}-${System.currentTimeMillis()}"
         val childSessionId = SessionId("${parentSessionId.value}::$childTaskId")
         val childTools = parentServices.toolRegistry.createFilteredCopy(
-            allowedNames = definition.toolNames.toSet(),
+            allowedNames = roleDef.allowedTools,
             excludedNames = setOf("delegate_task")
         )
         // Share scratchpad by reference on purpose so planner/executor exchange state in one turn.
@@ -141,13 +84,13 @@ class IsolatedSubAgentRunner(
                 goal = request.toGoal(),
                 sessionId = childSessionId,
                 taskId = childTaskId,
-                maxTurns = definition.maxTurns,
+                maxTurns = roleDef.maxTurns,
                 uiSettleDelayMs = parentServices.config.actionDelayMs,
                 debugMode = parentServices.config.debugMode,
-                systemPrompt = definition.systemPrompt,
-                allowedToolNames = definition.toolNames.toSet(),
+                systemPrompt = roleDef.systemPrompt,
+                allowedToolNames = roleDef.allowedTools,
                 agentId = childSessionId.value,
-                agentRole = definition.executionRole ?: AgentExecutionRole.EXECUTOR,
+                agentRole = roleDef.executionRole,
                 parentSessionId = parentSessionId,
                 delegationCallId = request.delegationCallId,
                 modelName = childModelName
@@ -157,7 +100,7 @@ class IsolatedSubAgentRunner(
             cancellationSignal = CompletableDeferred()
         )
 
-        val stopReason = withTimeoutOrNull(definition.timeoutMs) {
+        val stopReason = withTimeoutOrNull(roleDef.timeoutMs) {
             childAgent.run()
         }
         val completion = extractCompletion(childServices.historyManager)
@@ -165,23 +108,23 @@ class IsolatedSubAgentRunner(
         return when (stopReason) {
             is AgentStopReason.GoalAchieved -> {
                 if (completion != null && completion.status == "failure") {
-                    SubAgentResult(success = false, message = completion.toFailureMessage(definition.name))
+                    SubAgentResult(success = false, message = completion.toFailureMessage(roleDef.name))
                 } else {
-                    val message = completion?.toSuccessMessage(definition.name)
-                        ?: "Sub-agent '${definition.name}' completed."
+                    val message = completion?.toSuccessMessage(roleDef.name)
+                        ?: "Sub-agent '${roleDef.name}' completed."
                     SubAgentResult(success = true, message = message)
                 }
             }
             AgentStopReason.MaxTurnsReached -> {
                 val narrative = DelegationSummaryFormatter.format(
-                    maxTurns = definition.maxTurns,
+                    maxTurns = roleDef.maxTurns,
                     delegatedQuery = request.query,
                     history = childServices.historyManager.getAll()
                 )
 
                 SubAgentResult(
                     success = false,
-                    message = completion?.toFailureMessage(definition.name)
+                    message = completion?.toFailureMessage(roleDef.name)
                         ?: narrative
                 )
             }
@@ -192,7 +135,7 @@ class IsolatedSubAgentRunner(
                 SubAgentResult(success = false, message = stopReason.message)
             }
             null -> {
-                SubAgentResult(success = false, message = "Timeout after ${definition.timeoutMs}ms")
+                SubAgentResult(success = false, message = "Timeout after ${roleDef.timeoutMs}ms")
             }
         }
     }
@@ -212,7 +155,7 @@ class IsolatedSubAgentRunner(
             SubAgentActivity(
                 sessionId = parentSessionId,
                 timestamp = System.currentTimeMillis(),
-                agentName = definition.name,
+                agentName = roleDef.name,
                 activity = activity
             )
         )

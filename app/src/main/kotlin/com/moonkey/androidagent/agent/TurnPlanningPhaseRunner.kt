@@ -59,7 +59,7 @@ internal class TurnPlanningPhaseRunner(
                         )
                 val systemPrompt =
                         requireNotNull(config.systemPrompt) {
-                                "System prompt must be provided by AgentDef."
+                                "System prompt must be provided by AgentRoleDef."
                         }
                 val promptBuilder =
                         PromptBuilder(
