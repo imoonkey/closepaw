@@ -240,8 +240,9 @@ object Perceptor {
             return
         }
 
-        val text = node.text?.toString() ?: ""
-        val desc = node.contentDescription?.toString() ?: ""
+        val isPassword = node.isPassword
+        val text = if (isPassword) "[password]" else node.text?.toString() ?: ""
+        val desc = if (isPassword) "" else node.contentDescription?.toString() ?: ""
         val hintText = node.hintText?.toString() ?: ""
         val resourceId = node.viewIdResourceName ?: ""
         val clickable = node.isClickable
