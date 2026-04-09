@@ -81,6 +81,10 @@ class SessionServicesProviderRoutingTest {
             {
               ByteArrayInputStream(CATALOG_JSON.toByteArray())
             }
+    every { assets.open("security/app_tiers.json") } answers
+            {
+              ByteArrayInputStream(APP_TIERS_JSON.toByteArray())
+            }
     return context
   }
 
@@ -108,5 +112,7 @@ class SessionServicesProviderRoutingTest {
           }
         }
         """.trimIndent()
+
+    private val APP_TIERS_JSON = """{"apps":{}}"""
   }
 }

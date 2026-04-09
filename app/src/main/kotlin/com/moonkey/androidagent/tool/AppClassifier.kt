@@ -54,21 +54,28 @@ class AppClassifier(
         private const val TAG = "AppClassifier"
 
         fun fromAssets(assets: AssetManager): AppClassifier {
-            return try {
-                val json = assets.open("security/app_tiers.json")
+            val json = try {
+                assets.open("security/app_tiers.json")
                     .bufferedReader().use { it.readText() }
-                val obj = JSONObject(json)
-                val apps = obj.getJSONObject("apps")
-                val tiers = mutableMapOf<String, AppTier>()
-                for (key in apps.keys()) {
-                    AppTier.fromString(apps.getString(key))?.let { tiers[key] = it }
-                }
-                Log.i(TAG, "Loaded ${tiers.size} app tier entries")
-                AppClassifier(tiers)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to load app_tiers.json, defaulting to empty", e)
-                AppClassifier(emptyMap())
+                throw IllegalStateException(
+                    "Failed to load app_tiers.json: app safety tiers unavailable", e
+                )
             }
+            val obj = try {
+                JSONObject(json)
+            } catch (e: Exception) {
+                throw IllegalStateException(
+                    "Corrupt app_tiers.json: app safety tiers unavailable", e
+                )
+            }
+            val apps = obj.getJSONObject("apps")
+            val tiers = mutableMapOf<String, AppTier>()
+            for (key in apps.keys()) {
+                AppTier.fromString(apps.getString(key))?.let { tiers[key] = it }
+            }
+            Log.i(TAG, "Loaded ${tiers.size} app tier entries")
+            return AppClassifier(tiers)
         }
     }
 }
