@@ -142,7 +142,7 @@ Defines runtime control/result types:
 - **Policy layer**: `TurnToolPolicy` arbitrates tool calls — keeps cognitive tools, at most one screen-changing tool, defers `complete_task` when action tools exist.
 - **Loop guard**: `LoopDetectionPolicy` detects stable screens (near-identical for 5 consecutive turns at Jaccard >= 0.95) and emits a factual warning. No strategy suggestions — the LLM decides what to do. Turn limit is the only hard stop mechanism.
 - **Action signatures**: `ActionSignature.classifyActionSignature()` produces stable signatures (e.g., `mobile_action:click:idx=12`, `open_app:markor`) for loop detection
-- **Step guard**: `ExecutorStepPolicy` contributes final-turn warning text when limit is reached, produces narrative summary of attempts
+- **Step guard**: `isFinalTurn()` contributes final-turn warning text when limit is reached; `DelegationSummaryFormatter` produces narrative summary of attempts for delegated agents
 
 ---
 

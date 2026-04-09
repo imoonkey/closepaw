@@ -57,7 +57,6 @@ data class AgentDefinition(
     val toolNames: List<String>,
     val maxTurns: Int = 10,
     val timeoutMs: Long = 60_000,
-    val narrativeSummaryOnLimit: Boolean = true,
     val executionRole: AgentExecutionRole? = null
 )
 ```
@@ -91,7 +90,7 @@ Executes one delegated request with isolated runtime state:
 - Shares parent scratchpad intentionally for data handoff
 - Emits bridged activity events to parent session
 - Returns normalized `SubAgentResult(success, message)`
-- Produces a narrative summary when step limit is reached (via `ExecutorStepPolicy`)
+- Produces a narrative summary when step limit is reached (via `DelegationSummaryFormatter`)
 - Handles timeout via `withTimeoutOrNull`
 
 ---

@@ -98,7 +98,7 @@ com.moonkey.androidagent/
 │   │   └── policy/
 │   │       ├── TurnToolPolicy.kt       # Tool arbitration + completion decision
 │   │       ├── LoopDetectionPolicy.kt  # Repeated screen/action warnings
-│   │       └── ExecutorStepPolicy.kt   # Sub-agent step budget guard
+│   │       └── TurnBudget.kt              # Turn budget check + delegation summary
 │   └── subagent/
 │       └── SubAgentRunner.kt           # AgentDefinition, AgentRegistry, IsolatedSubAgentRunner
 │

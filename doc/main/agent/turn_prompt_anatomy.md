@@ -148,9 +148,9 @@ If screenshot input is available and backend supports vision, the message also a
 
 Warnings are prepared in `AgentTurnRunner.buildWarnings(...)`:
 - Loop warning from `LoopDetectionPolicy` (WARNING or CRITICAL severity)
-- Final-turn warning when step policy enters `ForceStop`
+- Final-turn warning when `isFinalTurn()` returns true
 
-→ See: `agent/cognition/policy/LoopDetectionPolicy.kt`, `agent/cognition/policy/ExecutorStepPolicy.kt`
+> See: `agent/cognition/policy/LoopDetectionPolicy.kt`, `agent/cognition/policy/TurnBudget.kt`
 
 ---
 
