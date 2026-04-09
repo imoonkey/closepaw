@@ -61,7 +61,7 @@ Top-level controller that runs turn-by-turn until a stop condition.
 **Responsibilities:**
 - Manage loop lifecycle (`run`, `pause`, `resume`, `stop`)
 - Track turn count and max-turn enforcement
-- Carry cross-turn `TurnRunnerState` (navigation state, previous action signature)
+- Carry cross-turn `TurnRunnerState` (navigation state)
 - Handle recoverable vs fatal turn errors via `TurnErrorClassifier`
 - Coordinate pause/resume via `lifecycleMutex` and `Deferred<Unit>`
 
@@ -127,7 +127,7 @@ Encapsulates a single LLM call with streaming.
 Defines runtime control/result types:
 - `AgentStopReason` — `GoalAchieved`, `UserRequested`, `MaxTurnsReached`, `Error`
 - `TurnOutcome` — `Continue`, `Complete(message, success)`, `Error(recoverable)`, `Cancelled`
-- `TurnRunnerState` — cross-turn state: `navigationState`, `previousActionSignature`
+- `TurnRunnerState` — cross-turn state: `navigationState`
 - `TurnExecutionResult` — `outcome` + `nextState`
 
 ---
