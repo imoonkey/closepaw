@@ -728,7 +728,7 @@ class MainActivity : ComponentActivity() {
                     settingsState.updateBackend(com.moonkey.androidagent.protocol.LLMBackendType.OPENAI)
                     onboardingStore.saveAuthMethod("oauth")
                     openAiAuthUiState = com.moonkey.androidagent.ui.settings.OpenAiAuthUiState.SignedIn(tokens.email)
-                    Log.d(TAG, "Settings OAuth success, email=${tokens.email}")
+                    Log.d(TAG, "Settings OAuth success")
                 }
                 is com.moonkey.androidagent.auth.OpenAiSignInResult.Error -> {
                     openAiAuthUiState = com.moonkey.androidagent.ui.settings.OpenAiAuthUiState.Error(result.message)

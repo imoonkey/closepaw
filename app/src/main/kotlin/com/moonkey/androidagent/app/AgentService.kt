@@ -313,11 +313,12 @@ class AgentService : AccessibilityService() {
 
         scope.launch {
             try {
+                val settings = AppSettingsStore(this@AgentService).load()
                 val sessionConfig =
                         SessionConfig(
                                 maxTurns = maxSteps,
                                 debugMode = true,
-                                traceEnabled = true,
+                                traceEnabled = settings.traceEnabled,
                                 platformMode = platformMode
                         )
                 val visualizer = actionVisualizer

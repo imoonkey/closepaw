@@ -131,16 +131,33 @@ class AppSettingsStore(private val context: Context) {
     private fun migrateApiKeysIfNeeded() {
         try {
             val secure = securePrefs() ?: return // can't migrate without encryption
-            if (secure.getBoolean(KEY_MIGRATED, false)) return
             val plain = prefs()
-            listOf(KEY_API_KEY, KEY_OPENROUTER_API_KEY, KEY_NOVITA_API_KEY, KEY_OPENAI_MANUAL_API_KEY).forEach { key ->
-                plain.getString(key, null)?.takeIf { it.isNotBlank() }?.let { value ->
-                    secure.edit().putString(key, value).apply()
-                    plain.edit().remove(key).apply()
+            val secretKeys = listOf(KEY_API_KEY, KEY_OPENROUTER_API_KEY, KEY_NOVITA_API_KEY, KEY_OPENAI_MANUAL_API_KEY)
+
+            // One-time migration: copy plaintext secrets to encrypted storage
+            if (!secure.getBoolean(KEY_MIGRATED, false)) {
+                secretKeys.forEach { key ->
+                    plain.getString(key, null)?.takeIf { it.isNotBlank() }?.let { value ->
+                        secure.edit().putString(key, value).apply()
+                    }
+                }
+                secure.edit().putBoolean(KEY_MIGRATED, true).apply()
+                Log.d(TAG, "Migrated API keys to encrypted storage")
+            }
+
+            // Always scrub: remove any leftover plaintext secrets from plain prefs
+            val editor = plain.edit()
+            var scrubbed = false
+            secretKeys.forEach { key ->
+                if (plain.contains(key)) {
+                    editor.remove(key)
+                    scrubbed = true
                 }
             }
-            secure.edit().putBoolean(KEY_MIGRATED, true).apply()
-            Log.d(TAG, "Migrated API keys to encrypted storage")
+            if (scrubbed) {
+                editor.apply()
+                Log.d(TAG, "Removed leftover plaintext secrets from plain prefs")
+            }
         } catch (e: Exception) {
             Log.w(TAG, "API key migration failed, keys remain in plain storage: ${e.message}")
         }

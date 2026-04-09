@@ -72,7 +72,10 @@ class AppClassifier(
             val apps = obj.getJSONObject("apps")
             val tiers = mutableMapOf<String, AppTier>()
             for (key in apps.keys()) {
-                AppTier.fromString(apps.getString(key))?.let { tiers[key] = it }
+                val tierStr = apps.getString(key)
+                val tier = AppTier.fromString(tierStr)
+                    ?: throw IllegalStateException("Unknown tier value '$tierStr' for package '$key' in app_tiers.json")
+                tiers[key] = tier
             }
             Log.i(TAG, "Loaded ${tiers.size} app tier entries")
             return AppClassifier(tiers)

@@ -104,7 +104,7 @@ class OAuthCallbackServer(private val expectedState: String) {
             client.soTimeout = 5_000
             val reader = BufferedReader(InputStreamReader(client.getInputStream()))
             val requestLine = reader.readLine() ?: ""
-            Log.d(TAG, "Received: $requestLine")
+            if (BuildConfig.DEBUG) Log.d(TAG, "Callback received (${requestLine.length} chars)")
 
             // Parse GET /auth/callback?code=xxx&state=yyy HTTP/1.1
             val path = requestLine.split(" ").getOrNull(1) ?: ""
@@ -251,7 +251,7 @@ object OAuthTokenExchange {
             val code = conn.responseCode
             if (code != 200) {
                 val errorBody = conn.errorStream?.bufferedReader()?.readText() ?: ""
-                Log.e(TAG, "API key exchange failed: HTTP $code $errorBody")
+                Log.e(TAG, "API key exchange failed: HTTP $code (${errorBody.length} chars)")
                 return Result.Error("API key exchange failed: HTTP $code")
             }
             val json = JSONObject(conn.inputStream.bufferedReader().readText())
@@ -312,7 +312,7 @@ object OAuthTokenExchange {
             val code = conn.responseCode
             if (code != 200) {
                 val errorBody = conn.errorStream?.bufferedReader()?.readText() ?: ""
-                Log.e(TAG, "Token request failed: HTTP $code $errorBody")
+                Log.e(TAG, "Token request failed: HTTP $code (${errorBody.length} chars)")
                 return Result.Error("OpenAI returned HTTP $code")
             }
             val json = JSONObject(conn.inputStream.bufferedReader().readText())
@@ -435,12 +435,12 @@ object OAuthCodexValidator {
                 }
                 code == 401 || code == 403 -> {
                     val errorBody = conn.errorStream?.bufferedReader()?.readText() ?: ""
-                    Log.e(TAG, "Codex validation failed: $errorBody")
+                    Log.e(TAG, "Codex validation failed: HTTP $code (${errorBody.length} chars)")
                     Result.Invalid("Token rejected by ChatGPT. Check your subscription.")
                 }
                 else -> {
                     val errorBody = conn.errorStream?.bufferedReader()?.readText() ?: ""
-                    Log.e(TAG, "Codex validation error: HTTP $code $errorBody")
+                    Log.e(TAG, "Codex validation error: HTTP $code (${errorBody.length} chars)")
                     Result.Invalid("ChatGPT returned HTTP $code")
                 }
             }

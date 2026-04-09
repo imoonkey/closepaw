@@ -60,8 +60,19 @@ class AccessibilityPlatform(
     private val outOfBoundsActionTargetCount = AtomicInteger(0)
 
     override suspend fun captureScreen(): ScreenSnapshot {
+        val currentPkg = getCurrentPackageName()
+
+        // Null package = unknown foreground app — skip capture to avoid leaking artifacts
+        if (currentPkg == null) {
+            return ScreenSnapshot(
+                timestamp = System.currentTimeMillis(),
+                elements = emptyList(),
+                image = null
+            )
+        }
+
         // Privacy gate: BLOCKED apps get masked snapshot — no artifacts created
-        if (isPackageBlocked(getCurrentPackageName())) {
+        if (isPackageBlocked(currentPkg)) {
             return ScreenSnapshot(
                 timestamp = System.currentTimeMillis(),
                 elements = emptyList(),
