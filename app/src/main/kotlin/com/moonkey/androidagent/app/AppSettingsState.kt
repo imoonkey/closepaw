@@ -61,6 +61,10 @@ class AppSettingsState(private val store: AppSettingsStore) {
     var openAiOAuthAccessToken by mutableStateOf("")
         private set
 
+    /** True when any credential store failed to initialize encrypted storage. */
+    var encryptionDegraded by mutableStateOf(false)
+        private set
+
     fun load() {
         val settings = store.load()
         apiKey = settings.apiKey
@@ -78,6 +82,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
         localModelQuant = settings.localModelQuant
         executorModel = settings.executorModel
         platformMode = settings.platformMode
+        encryptionDegraded = store.encryptionDegraded
 
         Log.d(
                 TAG,
@@ -139,6 +144,11 @@ class AppSettingsState(private val store: AppSettingsStore) {
 
     fun updateAuthMethod(method: String?) {
         authMethod = method
+    }
+
+    /** Merge degraded flag from other credential stores (OAuth, onboarding). */
+    fun mergeEncryptionDegraded(otherDegraded: Boolean) {
+        if (otherDegraded) encryptionDegraded = true
     }
 
     /**

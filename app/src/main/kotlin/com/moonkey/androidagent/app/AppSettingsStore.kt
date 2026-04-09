@@ -6,6 +6,7 @@ import android.os.Environment
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.moonkey.androidagent.BuildConfig
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.PlatformMode
@@ -67,13 +68,20 @@ class AppSettingsStore(private val context: Context) {
         val DEFAULT_PLATFORM_MODE = PlatformMode.ACCESSIBILITY
     }
 
+    /** Plain prefs for non-secret settings only (model, turns, mode, etc.). */
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private var _securePrefs: SharedPreferences? = null
-    private var securePrefsFailed = false
+    private var _encryptionDegraded = false
 
-    private fun securePrefs(): SharedPreferences {
-        if (securePrefsFailed) return prefs()
+    /** True when encrypted storage is unavailable. Credentials exist only in memory. */
+    val encryptionDegraded: Boolean get() = _encryptionDegraded
+
+    /** In-memory cache for secrets when encryption is unavailable. */
+    private val memorySecrets = mutableMapOf<String, String>()
+
+    private fun securePrefs(): SharedPreferences? {
+        if (_encryptionDegraded) return null
         _securePrefs?.let { return it }
         return try {
             val masterKey = MasterKey.Builder(context)
@@ -87,34 +95,39 @@ class AppSettingsStore(private val context: Context) {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             ).also { _securePrefs = it }
         } catch (e: Exception) {
-            Log.w(TAG, "EncryptedSharedPreferences unavailable, falling back to plain storage: ${e.message}")
-            securePrefsFailed = true
-            prefs()
+            Log.w(TAG, "EncryptedSharedPreferences unavailable, credentials will be memory-only: ${e.message}")
+            _encryptionDegraded = true
+            null
         }
     }
 
     private fun readSecure(key: String): String? {
+        val prefs = securePrefs() ?: return memorySecrets[key]
         return try {
-            securePrefs().getString(key, null)
+            prefs.getString(key, null)
         } catch (e: Exception) {
-            Log.w(TAG, "Encrypted read failed for $key, falling back: ${e.message}")
-            prefs().getString(key, null)
+            Log.w(TAG, "Encrypted read failed for $key: ${e.message}")
+            memorySecrets[key]
         }
     }
 
     private fun writeSecure(key: String, value: String) {
+        val prefs = securePrefs()
+        if (prefs == null) {
+            memorySecrets[key] = value
+            return
+        }
         try {
-            securePrefs().edit().putString(key, value).apply()
+            prefs.edit().putString(key, value).apply()
         } catch (e: Exception) {
-            Log.w(TAG, "Encrypted write failed for $key, falling back: ${e.message}")
-            prefs().edit().putString(key, value).apply()
+            Log.w(TAG, "Encrypted write failed for $key: ${e.message}")
+            memorySecrets[key] = value
         }
     }
 
     private fun migrateApiKeysIfNeeded() {
         try {
-            val secure = securePrefs()
-            if (secure === prefs()) return
+            val secure = securePrefs() ?: return // can't migrate without encryption
             if (secure.getBoolean(KEY_MIGRATED, false)) return
             val plain = prefs()
             listOf(KEY_API_KEY, KEY_OPENROUTER_API_KEY, KEY_NOVITA_API_KEY, KEY_OPENAI_MANUAL_API_KEY).forEach { key ->
@@ -227,7 +240,8 @@ class AppSettingsStore(private val context: Context) {
      */
     fun migrateCredentialSplit(oauthAccessToken: String?) {
         try {
-            val prefs = securePrefs()
+            val prefs = securePrefs() ?: return // can't migrate without encryption
+
             if (prefs.getBoolean(KEY_CREDENTIAL_SPLIT_MIGRATED, false)) return
 
             val legacyKey = readSecure(KEY_API_KEY) ?: ""
@@ -297,6 +311,7 @@ class AppSettingsStore(private val context: Context) {
     }
 
     private fun loadApiKeyFromFile(): String? {
+        if (!BuildConfig.DEBUG) return null
         return try {
             @Suppress("DEPRECATION")
             val file = File(Environment.getExternalStorageDirectory(), "api_key.txt")

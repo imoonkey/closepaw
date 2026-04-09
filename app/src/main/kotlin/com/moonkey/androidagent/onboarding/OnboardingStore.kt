@@ -38,10 +38,13 @@ class OnboardingStore(private val context: Context) {
     // ── Encrypted prefs for API key draft ──
 
     private var _securePrefs: SharedPreferences? = null
-    private var securePrefsFailed = false
+    private var _encryptionDegraded = false
 
-    private fun securePrefs(): SharedPreferences {
-        if (securePrefsFailed) return prefs()
+    /** True when encrypted storage is unavailable. API key draft is not persisted. */
+    val encryptionDegraded: Boolean get() = _encryptionDegraded
+
+    private fun securePrefs(): SharedPreferences? {
+        if (_encryptionDegraded) return null
         _securePrefs?.let { return it }
         return try {
             val masterKey = MasterKey.Builder(context)
@@ -56,8 +59,8 @@ class OnboardingStore(private val context: Context) {
             ).also { _securePrefs = it }
         } catch (e: Exception) {
             Log.w(TAG, "EncryptedSharedPreferences unavailable: ${e.message}")
-            securePrefsFailed = true
-            prefs()
+            _encryptionDegraded = true
+            null
         }
     }
 
@@ -110,9 +113,9 @@ class OnboardingStore(private val context: Context) {
     // the draft is not persisted (user must re-enter on next launch).
 
     fun loadApiKeyDraft(): String? {
-        if (securePrefsFailed) return null
+        val sp = securePrefs() ?: return null
         return try {
-            securePrefs().getString(KEY_API_KEY_DRAFT, null)?.takeIf { it.isNotBlank() }
+            sp.getString(KEY_API_KEY_DRAFT, null)?.takeIf { it.isNotBlank() }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to read API key draft: ${e.message}")
             null
@@ -120,18 +123,18 @@ class OnboardingStore(private val context: Context) {
     }
 
     fun saveApiKeyDraft(key: String) {
-        if (securePrefsFailed) return
+        val sp = securePrefs() ?: return
         try {
-            securePrefs().edit().putString(KEY_API_KEY_DRAFT, key).apply()
+            sp.edit().putString(KEY_API_KEY_DRAFT, key).apply()
         } catch (e: Exception) {
             Log.w(TAG, "Failed to save API key draft: ${e.message}")
         }
     }
 
     fun clearApiKeyDraft() {
-        if (securePrefsFailed) return
+        val sp = securePrefs() ?: return
         try {
-            securePrefs().edit().remove(KEY_API_KEY_DRAFT).apply()
+            sp.edit().remove(KEY_API_KEY_DRAFT).apply()
         } catch (e: Exception) {
             Log.w(TAG, "Failed to clear API key draft: ${e.message}")
         }

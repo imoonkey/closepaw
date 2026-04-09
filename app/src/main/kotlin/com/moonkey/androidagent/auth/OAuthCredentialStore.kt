@@ -11,6 +11,9 @@ import androidx.security.crypto.MasterKey
  *
  * Separate from AppSettingsStore — only stores OAuth-specific data.
  * The access token is also saved to AppSettingsState.apiKey for pipeline compatibility.
+ *
+ * When encryption is unavailable, credentials are held in memory only for the current
+ * process lifetime. A restart requires re-authentication.
  */
 class OAuthCredentialStore(private val context: Context) {
 
@@ -26,10 +29,16 @@ class OAuthCredentialStore(private val context: Context) {
     }
 
     private var _prefs: SharedPreferences? = null
-    private var prefsFailed = false
+    private var _encryptionDegraded = false
 
-    private fun prefs(): SharedPreferences {
-        if (prefsFailed) return plainPrefs()
+    /** True when encrypted storage is unavailable. Credentials exist only in memory. */
+    val encryptionDegraded: Boolean get() = _encryptionDegraded
+
+    /** In-memory cache for current-session tokens when encryption is unavailable. */
+    private var memoryTokens: OAuthTokens? = null
+
+    private fun prefs(): SharedPreferences? {
+        if (_encryptionDegraded) return null
         _prefs?.let { return it }
         return try {
             val masterKey = MasterKey.Builder(context)
@@ -43,18 +52,20 @@ class OAuthCredentialStore(private val context: Context) {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             ).also { _prefs = it }
         } catch (e: Exception) {
-            Log.w(TAG, "EncryptedSharedPreferences unavailable: ${e.message}")
-            prefsFailed = true
-            plainPrefs()
+            Log.w(TAG, "EncryptedSharedPreferences unavailable, credentials will be memory-only: ${e.message}")
+            _encryptionDegraded = true
+            null
         }
     }
 
-    private fun plainPrefs(): SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
     fun save(tokens: OAuthTokens) {
+        val p = prefs()
+        if (p == null) {
+            memoryTokens = tokens
+            return
+        }
         try {
-            prefs().edit()
+            p.edit()
                 .putString(KEY_ACCESS_TOKEN, tokens.accessToken)
                 .putString(KEY_REFRESH_TOKEN, tokens.refreshToken)
                 .putLong(KEY_EXPIRES_AT, tokens.expiresAt)
@@ -63,14 +74,15 @@ class OAuthCredentialStore(private val context: Context) {
                 .apply()
         } catch (e: Exception) {
             Log.w(TAG, "Failed to save OAuth credentials: ${e.message}")
+            memoryTokens = tokens
         }
     }
 
     fun load(): OAuthTokens? {
+        val p = prefs() ?: return memoryTokens
         return try {
-            val p = prefs()
-            val accessToken = p.getString(KEY_ACCESS_TOKEN, null) ?: return null
-            val refreshToken = p.getString(KEY_REFRESH_TOKEN, null) ?: return null
+            val accessToken = p.getString(KEY_ACCESS_TOKEN, null) ?: return memoryTokens
+            val refreshToken = p.getString(KEY_REFRESH_TOKEN, null) ?: return memoryTokens
             OAuthTokens(
                 accessToken = accessToken,
                 refreshToken = refreshToken,
@@ -80,13 +92,14 @@ class OAuthCredentialStore(private val context: Context) {
             )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load OAuth credentials: ${e.message}")
-            null
+            memoryTokens
         }
     }
 
     fun clear() {
+        memoryTokens = null
         try {
-            prefs().edit().clear().apply()
+            prefs()?.edit()?.clear()?.apply()
         } catch (e: Exception) {
             Log.w(TAG, "Failed to clear OAuth credentials: ${e.message}")
         }
