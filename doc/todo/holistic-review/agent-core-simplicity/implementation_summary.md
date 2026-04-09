@@ -36,12 +36,17 @@
 - Removed raw eventEmitter passthrough from AgentTurnRunner and TurnExecutionPhaseRunner
 
 ### P3: Tool Argument Decoding
-- Extracted shared `ActionTarget` decoder for ActionDescriptionFormatter and ActionSignature
+- Extracted shared `ActionTarget` decoder for ActionDescriptionFormatter
+- Deleted orphaned `ActionSignature.kt` (zero production callers after P0/P2 cleanup)
 - Single JSON parsing path for mobile_action arguments
 
 ### P4: Telemetry + Naming
 - Added TextRecovery telemetry to Turn.kt recovery paths
 - Named magic delay constants (PRE_EXECUTION_DELAY_MS, POST_ACTION_SETTLE_MS)
+
+### Lifecycle Fixes (from Codex final review)
+- Explicit history resume now fails closed with Toast (was silently creating fresh session)
+- `startNewSession()` cancels event collection before clearing (was racing with old session events)
 
 ### Codex Review Fixes
 - Screenshot-only mode now uses canonical screenBlock (was diverging)

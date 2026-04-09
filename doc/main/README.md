@@ -90,11 +90,10 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   ├── AgentExecutionConfig.kt   # Agent runtime configuration
 │   ├── AgentEventDispatcher.kt   # AgentEvent emission helpers
 │   ├── ActionTarget.kt           # Shared UI-element target decoder (text/bounds/point/index)
-│   ├── ActionSignature.kt        # Stable action signatures for loop detection/blocking
 │   ├── ActionDescriptionFormatter.kt # Tool action descriptions
 │   ├── Turn.kt                   # LLM call wrapper (OpenAI Responses API)
-│   ├── definition/               # AgentDef: Planner/Executor/Standalone
-│   ├── cognition/                # PromptBuilder, policies, NavigationState
+│   ├── definition/               # AgentRoleDef: Planner/Executor/Standalone
+│   ├── cognition/                # PromptBuilder, TurnObservation, policies, NavigationState
 │   └── subagent/
 │       └── SubAgentRunner.kt     # AgentDefRegistry + runner + executor preset
 │

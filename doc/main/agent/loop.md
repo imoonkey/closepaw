@@ -143,7 +143,7 @@ Defines runtime control/result types:
 - **Context layer**: `NavigationState` tracks recent screen signatures for loop detection.
 - **Policy layer**: `TurnToolPolicy` arbitrates tool calls — keeps cognitive tools and screen-changing tools, defers `complete_task` when action tools exist. Navigation isolation (one screen-changing action per turn) is enforced at the prompt layer, not in code.
 - **Loop guard**: `LoopDetectionPolicy` detects stable screens (near-identical for 5 consecutive turns at Jaccard >= 0.95) and emits a factual warning. No strategy suggestions — the LLM decides what to do. Turn limit is the only hard stop mechanism.
-- **Action signatures**: `ActionSignature.classifyActionSignature()` produces stable signatures (e.g., `mobile_action:click:idx=12`, `open_app:markor`) for action descriptions
+- **Action descriptions**: `ActionDescriptionFormatter` produces human-readable action descriptions using the shared `ActionTarget` decoder
 - **Step guard**: `isFinalTurn()` contributes final-turn warning text when limit is reached; `DelegationSummaryFormatter` produces narrative summary of attempts for delegated agents
 
 ---

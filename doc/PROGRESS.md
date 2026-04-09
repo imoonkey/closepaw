@@ -12,6 +12,7 @@
 - P3: Extracted shared ActionTarget decoder for ActionDescriptionFormatter + ActionSignature
 - P4: Added TextRecovery telemetry to Turn.kt; named magic delay constants
 - Codex review: fixed screenshot-only observation divergence, removed vestigial action-signature return path
+- Codex final review: deleted orphaned ActionSignature.kt, fixed history-resume fail-open bug, fixed new-session event-collection race
 
 **Why:**
 - Double-design review (Claude + Codex) identified runtime invariant mismatch, duplicate role definitions, and accumulated dead code
@@ -19,7 +20,7 @@
 
 **Key files:** agent/TurnExecutionPhaseRunner.kt, agent/AgentTurnRunner.kt, agent/cognition/policy/TurnBudget.kt, agent/definition/AgentRoleDef.kt, agent/cognition/prompt/TurnObservation.kt, agent/AgentEventDispatcher.kt, agent/ActionTarget.kt
 **Verification:** `./gradlew test` passes (all 59 tasks), Codex code review completed
-**Commit:** 55b597f..a4437b9 (10 commits)
+**Commit:** 55b597f..fd5060b (12 commits)
 **Next:** None — ACS complete
 **Blockers:** None
 
