@@ -7,7 +7,7 @@ import org.json.JSONObject
  *
  * Decoded once from the raw JSON arguments, then consumed by both
  * [ActionDescriptionFormatter] (human-readable descriptions) and
- * [classifyActionSignature] (loop-detection signatures).
+ * [classifyActionSignature] (action signatures).
  */
 data class ActionTarget(
     val text: String,

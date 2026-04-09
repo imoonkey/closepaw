@@ -6,8 +6,8 @@ import com.moonkey.androidagent.tool.ToolName
 /**
  * Produces a stable action signature string for a tool call.
  *
- * Used by loop detection and tool arbitration to block repeated failing actions.
- * Signatures should be specific enough to avoid over-blocking unrelated actions.
+ * Used by [ActionDescriptionFormatter] for human-readable action descriptions.
+ * Signatures are specific enough to distinguish different click targets.
  *
  * Format examples:
  * - "mobile_action:click"
@@ -56,24 +56,6 @@ internal fun classifyActionSignature(toolCall: ToolCallRequest): String {
                 }
                 MobileActionName.Swipe -> "mobile_action:swipe"
                 else -> "mobile_action:${mobileActionName.canonical}"
-        }
-}
-
-/**
- * Picks the action signature that should feed loop detection for the next turn.
- *
- * Priority:
- * 1) first screen-changing tool call
- * 2) first non-screen-changing tool call (fallback)
- */
-internal fun selectActionSignatureForNextTurn(toolCallsToExecute: List<ToolCallRequest>): String? {
-        if (toolCallsToExecute.isEmpty()) return null
-
-        val firstScreenChanging =
-                toolCallsToExecute.firstOrNull { ToolName.from(it.name).isScreenChanging }
-        return when {
-                firstScreenChanging != null -> classifyActionSignature(firstScreenChanging)
-                else -> classifyActionSignature(toolCallsToExecute.first())
         }
 }
 

@@ -143,14 +143,10 @@ internal class PromptBuilder(
             }
             if (warnings.isNotEmpty()) appendLine()
 
-            // Screen state — canonical block or instructional guidance.
-            // In a11y mode: use screenBlock directly (shared with history).
-            // In screenshot-only mode: richer instructional text for the LLM;
-            // history records the terse screenBlock instead (intentional divergence).
-            if (observation.hasAccessibility) {
-                append(observation.screenBlock)
-            } else {
-                appendLine("No accessibility tree available for this screen.")
+            // Screen state — canonical block shared with history.
+            append(observation.screenBlock)
+            if (!observation.hasAccessibility) {
+                appendLine()
                 append("Use coordinate-based actions (x, y) or analyze the screenshot visually.")
             }
 

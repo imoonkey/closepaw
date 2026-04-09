@@ -120,7 +120,7 @@ class PromptBuilderTest {
         val builder = createBuilder()
         val text = builder.buildObservationText(screenshotOnlyObservation, emptyList())
 
-        assertThat(text).contains("No accessibility tree available for this screen.")
+        assertThat(text).contains("Screenshot-only mode")
         assertThat(text).contains("Use coordinate-based actions (x, y)")
     }
 
