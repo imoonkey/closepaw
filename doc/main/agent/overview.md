@@ -81,6 +81,7 @@ com.moonkey.androidagent/
 │   ├── AgentRuntimeTypes.kt            # Stop reasons, turn outcomes, turn state
 │   ├── AgentExecutionConfig.kt         # Runtime config + AgentExecutionRole
 │   ├── AgentEventDispatcher.kt         # Event emission helpers
+│   ├── ActionTarget.kt                 # Shared UI-element target decoder (text/bounds/point/index)
 │   ├── ActionSignature.kt             # Stable action signature for loop detection/blocking
 │   ├── ActionDescriptionFormatter.kt   # Human-readable tool descriptions
 │   ├── Turn.kt                         # LLM call wrapper (streaming + sync)

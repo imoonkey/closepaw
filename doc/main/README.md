@@ -89,6 +89,7 @@ app/src/main/kotlin/com/moonkey/androidagent/
 │   ├── AgentRuntimeTypes.kt      # AgentStopReason, TurnOutcome, TurnRunnerState
 │   ├── AgentExecutionConfig.kt   # Agent runtime configuration
 │   ├── AgentEventDispatcher.kt   # AgentEvent emission helpers
+│   ├── ActionTarget.kt           # Shared UI-element target decoder (text/bounds/point/index)
 │   ├── ActionSignature.kt        # Stable action signatures for loop detection/blocking
 │   ├── ActionDescriptionFormatter.kt # Tool action descriptions
 │   ├── Turn.kt                   # LLM call wrapper (OpenAI Responses API)
