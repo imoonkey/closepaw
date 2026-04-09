@@ -131,35 +131,27 @@ class AppSettingsStore(private val context: Context) {
     private fun migrateApiKeysIfNeeded() {
         try {
             val secure = securePrefs() ?: return // can't migrate without encryption
+            if (secure.getBoolean(KEY_MIGRATED, false)) return // already done
+
             val plain = prefs()
             val secretKeys = listOf(KEY_API_KEY, KEY_OPENROUTER_API_KEY, KEY_NOVITA_API_KEY, KEY_OPENAI_MANUAL_API_KEY)
 
-            // One-time migration: copy plaintext secrets to encrypted storage
-            if (!secure.getBoolean(KEY_MIGRATED, false)) {
-                secretKeys.forEach { key ->
-                    plain.getString(key, null)?.takeIf { it.isNotBlank() }?.let { value ->
-                        secure.edit().putString(key, value).apply()
-                    }
+            // Copy plaintext secrets to encrypted storage
+            secretKeys.forEach { key ->
+                plain.getString(key, null)?.takeIf { it.isNotBlank() }?.let { value ->
+                    secure.edit().putString(key, value).apply()
                 }
-                secure.edit().putBoolean(KEY_MIGRATED, true).apply()
-                Log.d(TAG, "Migrated API keys to encrypted storage")
             }
 
-            // Always scrub: remove any leftover plaintext secrets from plain prefs
+            // Delete plaintext secrets from plain prefs
             val editor = plain.edit()
-            var scrubbed = false
-            secretKeys.forEach { key ->
-                if (plain.contains(key)) {
-                    editor.remove(key)
-                    scrubbed = true
-                }
-            }
-            if (scrubbed) {
-                editor.apply()
-                Log.d(TAG, "Removed leftover plaintext secrets from plain prefs")
-            }
+            secretKeys.forEach { key -> editor.remove(key) }
+            editor.apply()
+
+            secure.edit().putBoolean(KEY_MIGRATED, true).apply()
+            Log.d(TAG, "Migrated API keys to encrypted storage and removed plaintext copies")
         } catch (e: Exception) {
-            Log.w(TAG, "API key migration failed, keys remain in plain storage: ${e.message}")
+            Log.w(TAG, "API key migration failed: ${e.message}")
         }
     }
 
