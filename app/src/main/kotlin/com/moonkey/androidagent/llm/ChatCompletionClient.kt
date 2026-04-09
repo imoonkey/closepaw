@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.llm
 
 import android.util.Log
-import com.moonkey.androidagent.BuildConfig
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
@@ -34,14 +33,16 @@ class ChatCompletionClient(
         private const val TAG = "ChatCompletionClient"
     }
 
+    init {
+        InsecureSslConfig.validateBaseUrl(baseUrl)
+    }
+
     private val client: OpenAIClient = OpenAIOkHttpClient.builder()
         .apiKey(apiKey)
         .apply { baseUrl?.let { baseUrl(it) } }
         .apply {
-            if (BuildConfig.DEBUG) {
-                sslSocketFactory(InsecureSslConfig.sslSocketFactory)
-                trustManager(InsecureSslConfig.trustManager)
-            }
+            InsecureSslConfig.sslSocketFactory?.let { sslSocketFactory(it) }
+            InsecureSslConfig.trustManager?.let { trustManager(it) }
         }
         .build()
 

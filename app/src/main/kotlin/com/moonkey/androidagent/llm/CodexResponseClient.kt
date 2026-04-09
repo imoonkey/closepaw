@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.llm
 
 import android.util.Log
-import com.moonkey.androidagent.BuildConfig
 import com.moonkey.androidagent.auth.OAuthCodexValidator
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
@@ -225,8 +224,10 @@ class CodexResponseClient(
             .readTimeout(120, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .apply {
-                if (BuildConfig.DEBUG) {
-                    sslSocketFactory(InsecureSslConfig.sslSocketFactory, InsecureSslConfig.trustManager)
+                val sf = InsecureSslConfig.sslSocketFactory
+                val tm = InsecureSslConfig.trustManager
+                if (sf != null && tm != null) {
+                    sslSocketFactory(sf, tm)
                 }
             }
             .build()

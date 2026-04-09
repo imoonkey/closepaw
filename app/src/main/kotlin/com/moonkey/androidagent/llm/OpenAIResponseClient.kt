@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.llm
 
 import android.util.Log
-import com.moonkey.androidagent.BuildConfig
 import com.openai.client.OpenAIClient
 import com.openai.client.okhttp.OpenAIOkHttpClient
 import com.openai.models.ChatModel
@@ -37,15 +36,14 @@ class OpenAIResponseClient(
     private val client: OpenAIClient
 
     init {
+        InsecureSslConfig.validateBaseUrl(baseUrl)
         Log.d(TAG, "Creating OpenAIResponseClient")
         client = OpenAIOkHttpClient.builder()
             .apiKey(apiKey)
             .apply { baseUrl?.let { baseUrl(it) } }
             .apply {
-                if (BuildConfig.DEBUG) {
-                    sslSocketFactory(InsecureSslConfig.sslSocketFactory)
-                    trustManager(InsecureSslConfig.trustManager)
-                }
+                InsecureSslConfig.sslSocketFactory?.let { sslSocketFactory(it) }
+                InsecureSslConfig.trustManager?.let { trustManager(it) }
             }
             .build()
         Log.i(TAG, "OpenAIResponseClient created successfully")
