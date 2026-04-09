@@ -74,7 +74,9 @@ class ChatSessionHistoryController(
 
     fun startNewSession(model: String? = null, appVersion: String? = null) {
         clearConversation()
-        sessionHistoryManager?.startNewSession(model, appVersion)
+        // Don't create a recording session here — the history entry will be created
+        // when the actual AgentSession starts. Creating it now would save an empty
+        // placeholder that clutters history and fails on reload.
         Log.d(TAG, "Started new session")
     }
 

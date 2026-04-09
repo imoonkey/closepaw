@@ -36,6 +36,7 @@ import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.SessionConfig
 import com.moonkey.androidagent.protocol.SessionLlmConfig
 import com.moonkey.androidagent.platform.OverlayTouchGate
+import com.moonkey.androidagent.protocol.SessionState
 import com.moonkey.androidagent.session.AgentSession
 import com.moonkey.androidagent.session.SessionCoordinator
 import com.moonkey.androidagent.session.SubmitResult
@@ -377,6 +378,8 @@ class MainActivity : ComponentActivity() {
         val service = AgentService.instance ?: return
         val serviceSession = service.getActiveSession() ?: return
         if (coordinator.currentSession === serviceSession) return
+        // Don't rebind a dead session — let the next message create a fresh one
+        if (serviceSession.state.value == SessionState.Shutdown) return
 
         coordinator.attachSession(serviceSession)
         sessionHistoryManager.setActiveSessionId(serviceSession.sessionId.value)
@@ -522,14 +525,9 @@ class MainActivity : ComponentActivity() {
                 coordinator.selectedSessionForReload = null
                 createFreshSession(service, apiKeys, visualizer, touchGate)
             } else {
-                Log.w(TAG, "Selected session ${selectedForReload.id} has no reloadable checkpoint")
-                Toast.makeText(
-                                this@MainActivity,
-                                "Unable to reload selected session context. Please start a new session or select another history item.",
-                                Toast.LENGTH_LONG
-                        )
-                        .show()
-                return null
+                Log.w(TAG, "Selected session ${selectedForReload.id} has no reloadable checkpoint, starting fresh")
+                coordinator.selectedSessionForReload = null
+                createFreshSession(service, apiKeys, visualizer, touchGate)
             }
         } else {
             coordinator.selectedSessionForReload = null
