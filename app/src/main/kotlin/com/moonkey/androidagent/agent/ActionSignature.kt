@@ -47,12 +47,12 @@ internal fun classifyActionSignature(toolCall: ToolCallRequest): String {
                         "scroll:${direction.ifBlank { "unknown" }}"
                 }
                 MobileActionName.Click -> {
-                        val targetSuffix = actionTargetSuffix(toolCall)
-                        if (targetSuffix != null) "mobile_action:click:$targetSuffix" else "mobile_action:click"
+                        val suffix = actionTargetSuffix(toolCall)
+                        if (suffix != null) "mobile_action:click:$suffix" else "mobile_action:click"
                 }
                 MobileActionName.Type -> {
-                        val targetSuffix = actionTargetSuffix(toolCall)
-                        if (targetSuffix != null) "mobile_action:type:$targetSuffix" else "mobile_action:type"
+                        val suffix = actionTargetSuffix(toolCall)
+                        if (suffix != null) "mobile_action:type:$suffix" else "mobile_action:type"
                 }
                 MobileActionName.Swipe -> "mobile_action:swipe"
                 else -> "mobile_action:${mobileActionName.canonical}"
@@ -78,17 +78,12 @@ internal fun selectActionSignatureForNextTurn(toolCallsToExecute: List<ToolCallR
 }
 
 private fun actionTargetSuffix(toolCall: ToolCallRequest): String? {
-        if (toolCall.arguments.has("element_index")) {
-                return "idx=${toolCall.arguments.optInt("element_index", -1)}"
+        val action = toolCall.arguments.optString("action", "").trim().lowercase()
+        val target = decodeActionTarget(toolCall.arguments, action)
+        return when {
+                target.elementIndex != null -> "idx=${target.elementIndex}"
+                target.text.isNotEmpty() -> "text=${target.text.lowercase().take(32)}"
+                target.point != null -> "xy=${target.point.x},${target.point.y}"
+                else -> null
         }
-        val text = toolCall.arguments.optString("text", "").trim().lowercase()
-        if (text.isNotBlank()) {
-                return "text=${text.take(32)}"
-        }
-        val x = toolCall.arguments.optInt("x", Int.MIN_VALUE)
-        val y = toolCall.arguments.optInt("y", Int.MIN_VALUE)
-        if (x != Int.MIN_VALUE && y != Int.MIN_VALUE) {
-                return "xy=$x,$y"
-        }
-        return null
 }
