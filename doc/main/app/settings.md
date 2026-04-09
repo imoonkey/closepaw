@@ -1,11 +1,11 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-03-05 (commit: 0b5b379)
+> Last updated: 2026-04-09 (commit: 788a371)
 
 ## Overview
 
-The app manages user preferences through `AppSettingsState` + `AppSettingsStore` (SharedPreferences-backed), and compiles them into immutable `SessionConfig` when starting a task.
+The app manages user preferences through `AppSettingsState` + `AppSettingsStore`. Non-secret settings use plain `SharedPreferences`; secrets (API keys, tokens) use `EncryptedSharedPreferences` exclusively — no plaintext fallback. If encryption is unavailable, secrets exist in memory only for the current session and `encryptionDegraded` flag is set for UI to show a warning banner.
 
 ---
 

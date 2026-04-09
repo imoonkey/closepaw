@@ -110,7 +110,7 @@ Fallback: if `llm_models.json` missing/malformed, uses built-in catalog (`glm-5`
 
 ## Supporting Files
 
-**InsecureSslConfig** (`llm/InsecureSslConfig.kt`): SSL bypass for debug builds when emulator clock is frozen (AndroidWorld eval). Trust-all manager + no-op certificate validation.
+**InsecureSslConfig** (`debug/llm/InsecureSslConfig.kt`): SSL bypass for debug builds when emulator clock is frozen (AndroidWorld eval). Trust-all manager + no-op certificate validation. Compile-time debug-only — release source set has a no-op stub that returns null.
 
 **LlmLogger**: Debug logging for LLM I/O. **MessageContentExtractor**: Text extraction from message wrappers. **LeapFunctionInterop**: OpenAI ↔ Leap tool schema adapters.
 
@@ -128,7 +128,7 @@ llm/
 ├── ChatCompletionClient.kt   # Chat Completions API
 ├── ChatCompletionInterop.kt  # Type conversion
 ├── LFMLLMClient.kt           # Local LFM (Leap SDK)
-├── InsecureSslConfig.kt      # SSL bypass (debug only)
+├── InsecureSslConfig.kt      # SSL bypass (debug source set only; release stub returns null)
 ├── LLMClientFactory.kt       # Catalog-driven client creation
 ├── ModelCatalog.kt            # Model definitions
 ├── CloudLlmRetry.kt          # Non-streaming retry

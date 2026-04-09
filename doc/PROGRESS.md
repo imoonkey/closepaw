@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-04-08/09: Security & Privacy Hardening (10 tasks)
+
+**What changed:**
+- P0.1: Intent control plane lockdown — production ignores external security-sensitive extras, goal dispatch requires user confirmation
+- P0.2: Capture-layer privacy gate — blocked-app masking moved before trace artifact writes; null-package = skip capture (fail-closed)
+- P0.3: Fail-closed encrypted storage — no plaintext SharedPreferences fallback; legacy plaintext migration code deleted (pre-release, no backward compat)
+- P0.4: Auth PII removed from logs (id_token claims, email, OAuth callback request line)
+- P1.1: Password field suppression — `Perceptor` checks `isPassword`, replaces text with `[password]`
+- P1.2: Shell blocklist reduced to `am/pm/reboot/su`; no metacharacter restriction, no path denylist (security theater with `sh -c`)
+- P1.3: InsecureSslConfig moved to debug-only source set (compile-time guarantee)
+- P1.4: AppClassifier fails closed on missing/corrupt/invalid-tier app_tiers.json
+- P2.2: Data & Storage settings section (trace toggle, one-tap wipe)
+- P2.3: Security regression tests (6 unit tests + 1 instrumentation test)
+- Post-review fixes: capture gate null-package, remaining PII logs, legacy secret scrub, strict tier parsing, trace toggle plumbed to AgentService
+
+**Why:**
+- Holistic security review (Claude+Codex double-design) identified boundary placement and privilege composition issues
+- Owner review simplified several items (editable-field suppression dropped, shell kept permissive, OAuth localhost hardening dropped as ineffective)
+
+**Key files:** `MainActivityIntentApplier.kt`, `AppSettingsStore.kt`, `OAuthCredentialStore.kt`, `OpenAIOAuth.kt`, `Perceptor.kt`, `ShellTool.kt`, `InsecureSslConfig.kt` (debug/release split), `AppClassifier.kt`, `AccessibilityPlatform.kt`, `ObservationBuilder.kt`, `PermissionsAdvancedSettingsPage.kt`, `AgentService.kt`
+**Verification:** `./gradlew test assembleDebug` pass; ADB smoke test 4/4 pass; Codex code review → 6 findings all addressed
+**Commit:** `a3b4a60..92f1b79` (15 commits)
+**Next:** `sec-app-tiers-expansion` (expand app_tiers.json to 100-1000 apps, design in progress)
+**Blockers:** None
+
 ## 2026-04-07: Codex multi-turn fix + settings auth label
 
 **What changed:**

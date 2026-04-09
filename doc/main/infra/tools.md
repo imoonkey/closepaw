@@ -112,7 +112,9 @@ Classifies Android packages into security tiers.
 
 **Configuration:** `assets/security/app_tiers.json` defines the base tier map. User overrides can only **tighten** (NORMAL→CAUTIOUS/BLOCKED, CAUTIOUS→BLOCKED), never loosen.
 
-**Masking:** `AppClassifier.maskIfBlocked(snapshot, pkg)` returns an empty snapshot (no elements, no image) for BLOCKED packages. Called at both pre-turn and post-action capture points to prevent BLOCKED app content from reaching the LLM.
+**Masking:** `AppClassifier.maskIfBlocked(snapshot, pkg)` returns an empty snapshot (no elements, no image) for BLOCKED packages. Called at both pre-turn and post-action capture points to prevent BLOCKED app content from reaching the LLM. The capture layer (AccessibilityPlatform/VirtualDisplayPlatform) gates on package tier **before** writing any trace artifacts — if package is BLOCKED or unknown (null), no screenshots or tree artifacts are written.
+
+**Fail-closed:** `fromAssets()` throws `IllegalStateException` if `app_tiers.json` is missing, corrupt, or contains unknown tier strings. Session cannot start without a valid classifier.
 
 ---
 
@@ -136,10 +138,7 @@ Classifies Android packages into security tiers.
 
 `ask_user` is registered lazily in `SessionAgentRunner.start()`. It suspends the agent coroutine via `UserResponseChannel` (CompletableDeferred) until the user responds through the capsule UI, or times out after 5 minutes. See [session.md](session.md) for `UserResponseChannel` details.
 
-`shell` executes file-oriented inspection commands on the device (cat, ls, stat). It is restricted
-to non-destructive file inspection; UI control, app launching, OCR, and protected app-internal
-storage access are out of scope. Runs via `Runtime.exec()` with a configurable timeout (default
-10s, max 30s). Returns stdout/stderr combined output.
+`shell` executes shell commands on the device via `ProcessBuilder("sh", "-c", command)` with a 10s timeout. Blocklist restricts system-level commands: `am`, `pm`, `reboot`, `su`. All other commands and shell metacharacters are unrestricted. Password field text is suppressed at the perception layer (Perceptor checks `AccessibilityNodeInfo.isPassword()`).
 
 `remember_experience` writes a timestamped entry to the persistent memory store. Categories: `app` (requires `package_name`), `user_pref`, `device`. Content is prefixed with kind tags (`[workflow]`, `[pitfall]`, `[verification]`). Classified as cognitive (non-screen-changing) and auto-allowed. A **memory gate** blocks writes when the foreground app is BLOCKED (financial/auth), preventing the agent from creating persistent knowledge about blocked app content. Registered eagerly in `SessionServices.create()`.
 

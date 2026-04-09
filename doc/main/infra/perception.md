@@ -59,7 +59,7 @@ ScreenSnapshot(elements, image?, textEnriched, keyboardVisible)
 2. **Two-pass traversal favors interactive nodes**
    The tree is traversed once in `INTERACTIVE_ONLY` mode and once in `ALL` mode with shared dedup state. This gives interactive nodes first claim on the candidate pool without losing non-interactive labels.
 3. **Each accepted node becomes a raw `PerceptionElement`**
-   The capture step copies text, description, hint text, resource id, class, booleans, bounds, center point, and optional range info. No `AccessibilityNodeInfo` references escape.
+   The capture step copies text, description, hint text, resource id, class, booleans, bounds, center point, and optional range info. No `AccessibilityNodeInfo` references escape. **Password fields** (`node.isPassword == true`) have their text replaced with `"[password]"` and description suppressed — this applies to all downstream paths (prompts, history, traces).
 4. **Bounds and visibility are sanitized structurally**
    `clipBoundsToScreen()` clips rectangles to display bounds. `visibleAreaRatio()` and size thresholds drop tiny or mostly off-screen nodes. Known keyboard package ids are filtered when `filterKeyboard` is enabled.
 5. **Text enrichment fills empty interactive containers**
