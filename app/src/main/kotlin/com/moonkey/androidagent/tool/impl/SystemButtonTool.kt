@@ -68,7 +68,7 @@ Buttons: back, home, enter (IME enter to focused field), recents.
             "home" -> SystemButtonType.HOME
             "enter" -> SystemButtonType.ENTER
             "recents" -> SystemButtonType.RECENTS
-            else -> SystemButtonType.BACK
+            else -> error("Unreachable: validated in validate()")
         }
         return UIActionInvocation(
             toolName = name,

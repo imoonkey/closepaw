@@ -55,13 +55,13 @@ class PolicyEngineTest {
     }
 
     @Test
-    fun `mobile_action back allowed on blocked app`() {
+    fun `mobile_action back denied on blocked app - only system_button is escape`() {
         val engine = engineWith(
             tiers = mapOf("com.bank" to AppTier.BLOCKED)
         )
         val backParams = JSONObject().put("action", "back")
         val decision = engine.check("mobile_action", backParams, "com.bank")
-        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+        assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
     }
 
     @Test

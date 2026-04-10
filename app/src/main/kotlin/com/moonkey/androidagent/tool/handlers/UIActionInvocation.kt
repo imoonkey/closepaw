@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.tool.handlers
 
 import android.util.Log
-import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.UIAction
 import com.moonkey.androidagent.tool.action.buildObservation
@@ -43,28 +42,12 @@ class UIActionInvocation(
             return ToolExecutionResult.Cancelled("Cancelled before execution")
         }
 
-        val preSnapshot = context.currentSnapshot
         val result = context.platform.performAction(uiAction)
 
         return when (result) {
             is ActionResult.Success -> {
                 val observation = capturePostActionObservation(context)
-
-                val scrollBoundaryWarning =
-                    if (uiAction is UIAction.Swipe) {
-                        detectScrollBoundary(preSnapshot, observation)
-                    } else {
-                        null
-                    }
-
-                val outputMessage =
-                    if (scrollBoundaryWarning != null) {
-                        "${result.message} Warnings: $scrollBoundaryWarning"
-                    } else {
-                        result.message
-                    }
-
-                ToolExecutionResult.Success(output = outputMessage, observation = observation)
+                ToolExecutionResult.Success(output = result.message, observation = observation)
             }
             is ActionResult.Failure -> ToolExecutionResult.Failure(result.reason)
             is ActionResult.Cancelled -> ToolExecutionResult.Cancelled(result.reason)
@@ -80,31 +63,6 @@ class UIActionInvocation(
             buildObservation(snapshot, context.platform, context.appClassifier)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to capture post-action observation: ${e.message}")
-            null
-        }
-    }
-
-    private fun detectScrollBoundary(
-        preSnapshot: ScreenSnapshot?,
-        postObservation: ToolObservation?
-    ): String? {
-        if (preSnapshot == null) return null
-        val postSnapshot =
-            (postObservation as? ToolObservation.ScreenState)?.snapshot ?: return null
-
-        val preTexts = preSnapshot.elements
-            .filter { it.text.isNotBlank() || it.description.isNotBlank() }
-            .map { "${it.text}|${it.description}|${it.bounds}" }
-            .sorted()
-
-        val postTexts = postSnapshot.elements
-            .filter { it.text.isNotBlank() || it.description.isNotBlank() }
-            .map { "${it.text}|${it.description}|${it.bounds}" }
-            .sorted()
-
-        return if (preTexts == postTexts && preTexts.isNotEmpty()) {
-            "Screen content unchanged after swipe - may have reached scroll boundary"
-        } else {
             null
         }
     }

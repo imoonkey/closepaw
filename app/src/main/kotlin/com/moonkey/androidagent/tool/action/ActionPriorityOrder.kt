@@ -6,8 +6,6 @@ package com.moonkey.androidagent.tool.action
  * Each dual-path action's fallback chain order is defined here.
  * To swap priority for any action, just reorder the list entries.
  *
- * Reference: doc/todo/eval_tune/round4/debug5/align/design/design.md
- *
  * Single-path actions not listed here:
  *   - swipe: gesture only (no fallback)
  *   - type: node text path (SetTextOnNodeAt → TapToFocus+SetTextOnFocused)

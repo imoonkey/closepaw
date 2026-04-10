@@ -27,27 +27,6 @@ object UiChangeDetector {
         return if (preHash != postHash) ChangeResult.Changed else ChangeResult.Unchanged
     }
 
-    /** Detects scroll boundary: pre/post content identical after swipe. */
-    fun detectScrollBoundary(pre: ScreenSnapshot?, post: ScreenSnapshot?): String? {
-        if (pre == null || post == null) return null
-
-        val preTexts = pre.elements
-            .filter { it.text.isNotBlank() || it.description.isNotBlank() }
-            .map { "${it.text}|${it.description}|${it.bounds}" }
-            .sorted()
-
-        val postTexts = post.elements
-            .filter { it.text.isNotBlank() || it.description.isNotBlank() }
-            .map { "${it.text}|${it.description}|${it.bounds}" }
-            .sorted()
-
-        return if (preTexts == postTexts && preTexts.isNotEmpty()) {
-            "Screen content unchanged after swipe - may have reached scroll boundary"
-        } else {
-            null
-        }
-    }
-
     /**
      * Composite fingerprint: a11y elements when available, screenshot fallback when empty.
      *

@@ -72,8 +72,6 @@ class OpenAppTool : ToolSpec {
 
     companion object {
         private const val TAG = "OpenAppTool"
-        private const val UI_SETTLE_DELAY_MS = 800L
-        private const val SUGGESTION_LIMIT = 5
     }
 
     override val name: String = "open_app"
