@@ -94,14 +94,21 @@ class VdLifecycleArbiterTest {
     // ── Pre-drain State ──────────────────────────────────────────
 
     @Test
-    fun `preDrainState blocks new ops before drain completes`() = runTest {
+    fun `preDrainTransform blocks new ops before drain completes`() = runTest {
         val a = arbiter()
         a.withLifecycleTransition { _ -> a.transitionTo(mockRunningState()) }
 
-        // Stop with preDrainState — new ops should see Stopped immediately
-        a.withLifecycleTransition(preDrainState = VdState.Stopped) { previous ->
+        // Stop with preDrainTransform to Draining — new ops should fail fast
+        a.withLifecycleTransition(
+            preDrainTransform = { current ->
+                when (current) {
+                    is VdState.Running -> VdState.Draining(current.displayId, current.imageReader)
+                    else -> VdState.Stopped
+                }
+            }
+        ) { previous ->
             assertThat(previous).isInstanceOf(VdState.Running::class.java)
-            assertThat(a.state).isEqualTo(VdState.Stopped)
+            assertThat(a.state).isInstanceOf(VdState.Draining::class.java)
         }
     }
 
@@ -111,8 +118,27 @@ class VdLifecycleArbiterTest {
         val running = mockRunningState()
         a.withLifecycleTransition { _ -> a.transitionTo(running) }
 
-        a.withLifecycleTransition(preDrainState = VdState.Stopped) { previous ->
+        a.withLifecycleTransition(
+            preDrainTransform = { VdState.Stopped }
+        ) { previous ->
             assertThat(previous).isEqualTo(running)
+        }
+    }
+
+    @Test(expected = PlatformNotRunningException::class)
+    fun `withRunningLease throws when Draining`() = runTest {
+        val a = arbiter()
+        a.withLifecycleTransition { _ -> a.transitionTo(mockRunningState()) }
+        a.withLifecycleTransition(
+            preDrainTransform = { current ->
+                when (current) {
+                    is VdState.Running -> VdState.Draining(current.displayId, current.imageReader)
+                    else -> current
+                }
+            }
+        ) { _ ->
+            // Inside the transition, state is Draining — lease should fail
+            a.withRunningLease { "should not reach" }
         }
     }
 

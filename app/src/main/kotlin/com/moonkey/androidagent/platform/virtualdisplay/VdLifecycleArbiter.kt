@@ -11,11 +11,14 @@ import kotlinx.coroutines.sync.withLock
  * Virtual-display lifecycle states.
  *
  * Only [Running] allows operational calls (captureScreen, performAction).
+ * [Draining] is a transient state during stop: rejects new leases but keeps resources
+ * accessible so in-flight ops can complete.
  * [Broken] is the terminal error state after binder death or unrecoverable platform loss.
  */
 sealed interface VdState {
     data object Stopped : VdState
     data class Running(val displayId: Int, val imageReader: ImageReader) : VdState
+    data class Draining(val displayId: Int, val imageReader: ImageReader) : VdState
     data class Broken(
         val reason: String,
         val displayId: Int,
@@ -52,22 +55,23 @@ internal class VdLifecycleArbiter {
     /**
      * Execute a lifecycle transition under exclusive access.
      *
-     * Acquires the lifecycle mutex, optionally sets [preDrainState] to reject new operational
-     * calls during the drain window, then waits for in-flight ops to complete (up to
-     * [DRAIN_TIMEOUT_MS]). The caller should finalize [state] via [transitionTo] inside the block.
+     * Acquires the lifecycle mutex, optionally transforms the state via [preDrainTransform]
+     * to reject new operational calls during the drain window, then waits for in-flight ops
+     * to complete (up to [DRAIN_TIMEOUT_MS]). The caller should finalize [state] via
+     * [transitionTo] inside the block.
      *
-     * For `stop()`, pass `preDrainState = VdState.Stopped` so new [withRunningLease] calls
-     * fail fast instead of sneaking in between drain and teardown.
+     * For `stop()`, pass a transform that moves Running -> Draining so new [withRunningLease]
+     * calls fail fast while in-flight ops can still access resources via providers.
      *
-     * @return the result of [block], which receives the state that was active before [preDrainState]
+     * @return the result of [block], which receives the state that was active before the transform
      */
     suspend fun <T> withLifecycleTransition(
-        preDrainState: VdState? = null,
+        preDrainTransform: ((VdState) -> VdState)? = null,
         block: suspend (previousState: VdState) -> T
     ): T =
         lifecycleMutex.withLock {
             val previous = state
-            preDrainState?.let { state = it }
+            preDrainTransform?.let { state = it(previous) }
             drainActiveOps()
             block(previous)
         }
@@ -112,6 +116,8 @@ internal class VdLifecycleArbiter {
         if (current == VdState.Stopped || current is VdState.Broken) return
         if (current is VdState.Running) {
             state = VdState.Broken(reason, current.displayId, current.imageReader)
+        } else if (current is VdState.Draining) {
+            state = VdState.Broken(reason, current.displayId, current.imageReader)
         } else {
             // Should not happen, but guard against unexpected states
             state = VdState.Stopped
@@ -138,5 +144,6 @@ private val VdState.description: String
     get() = when (this) {
         VdState.Stopped -> "Stopped"
         is VdState.Running -> "Running(displayId=$displayId)"
+        is VdState.Draining -> "Draining(displayId=$displayId)"
         is VdState.Broken -> "Broken: $reason"
     }

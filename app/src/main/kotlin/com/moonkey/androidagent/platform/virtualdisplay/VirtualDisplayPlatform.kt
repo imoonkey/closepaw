@@ -62,10 +62,18 @@ class VirtualDisplayPlatform(
     // ── Component Wiring ─────────────────────────────────────────
 
     private val displayIdProvider: () -> Int = {
-        (arbiter.state as? VdState.Running)?.displayId ?: Display.INVALID_DISPLAY
+        when (val s = arbiter.state) {
+            is VdState.Running -> s.displayId
+            is VdState.Draining -> s.displayId
+            else -> Display.INVALID_DISPLAY
+        }
     }
     private val imageReaderProvider: () -> ImageReader? = {
-        (arbiter.state as? VdState.Running)?.imageReader
+        when (val s = arbiter.state) {
+            is VdState.Running -> s.imageReader
+            is VdState.Draining -> s.imageReader
+            else -> null
+        }
     }
 
     private val windowAccessor = VirtualDisplayWindowAccessor(service, displayIdProvider)
@@ -115,6 +123,17 @@ class VirtualDisplayPlatform(
     override suspend fun start() {
         arbiter.withLifecycleTransition { previous ->
             if (previous is VdState.Running) return@withLifecycleTransition
+
+            // Clean up leaked resources from a Broken state before allocating new ones
+            if (previous is VdState.Broken) {
+                Log.w(TAG, "start() from Broken state — cleaning up old resources first")
+                binderDeadListener?.let { shizuku.removeBinderDeadListener(it) }
+                binderDeadListener = null
+                surfaceController.reset()
+                shizuku.releaseVirtualDisplay(previous.displayId)
+                previous.imageReader.close()
+                shizuku.clearCachedProxies()
+            }
 
             shizuku.bypassHiddenApis()
 
@@ -183,7 +202,16 @@ class VirtualDisplayPlatform(
      * Serialized through the lifecycle arbiter — waits for in-flight ops to complete.
      */
     override suspend fun stop() {
-        arbiter.withLifecycleTransition(preDrainState = VdState.Stopped) { previous ->
+        arbiter.withLifecycleTransition(
+            preDrainTransform = { current ->
+                // Move to Draining so new withRunningLease calls fail fast, but providers
+                // can still resolve displayId/imageReader for in-flight ops.
+                when (current) {
+                    is VdState.Running -> VdState.Draining(current.displayId, current.imageReader)
+                    else -> current
+                }
+            }
+        ) { previous ->
             if (previous == VdState.Stopped) return@withLifecycleTransition
 
             // Restore keyboard first — prevent permanently disabled IME on crash
@@ -194,9 +222,13 @@ class VirtualDisplayPlatform(
 
             surfaceController.reset()
 
-            // Clean up resources from Running or Broken state
+            // Clean up resources from Running, Draining, or Broken state
             when (previous) {
                 is VdState.Running -> {
+                    shizuku.releaseVirtualDisplay(previous.displayId)
+                    previous.imageReader.close()
+                }
+                is VdState.Draining -> {
                     shizuku.releaseVirtualDisplay(previous.displayId)
                     previous.imageReader.close()
                 }
@@ -204,7 +236,7 @@ class VirtualDisplayPlatform(
                     shizuku.releaseVirtualDisplay(previous.displayId)
                     previous.imageReader.close()
                 }
-                else -> {}
+                VdState.Stopped -> {} // Already handled by early return above
             }
 
             shizuku.clearCachedProxies()
@@ -223,12 +255,11 @@ class VirtualDisplayPlatform(
     fun switchToLivePreview(surfaceView: SurfaceView) {
         if (arbiter.state !is VdState.Running) return
 
-        val before = surfaceController.mode()
         surfaceController.switchToLivePreview(surfaceView)
-        val after = surfaceController.mode()
-        if (before != VirtualDisplaySurfaceMode.LIVE_PREVIEW &&
-                after == VirtualDisplaySurfaceMode.LIVE_PREVIEW
-        ) {
+        // Always reset fail counter after a successful surface switch — not just on
+        // mode change. Surface replacement (already LIVE_PREVIEW) also provides a fresh
+        // surface that should get a clean slate for PixelCopy attempts.
+        if (surfaceController.mode() == VirtualDisplaySurfaceMode.LIVE_PREVIEW) {
             captureCoordinator.onLivePreviewActivated()
         }
     }

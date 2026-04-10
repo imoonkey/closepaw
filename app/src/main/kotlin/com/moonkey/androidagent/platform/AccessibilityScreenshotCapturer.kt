@@ -71,12 +71,14 @@ class AccessibilityScreenshotCapturer(
                             override fun onSuccess(
                                     screenshot: AccessibilityService.ScreenshotResult
                             ) {
-                                if (cont.isActive) {
-                                    cont.resume(screenshot)
-                                } else {
-                                    // Late callback after timeout — close the buffer
-                                    screenshot.hardwareBuffer.close()
-                                }
+                                // No isActive check: late resume on a cancelled continuation
+                                // is silently discarded by coroutines 1.7.3+. The isActive
+                                // check creates a race where cancellation between check and
+                                // resume drops the result without passing it to compressScreenshot,
+                                // leaking the HardwareBuffer. Without the check, the non-timeout
+                                // path always works correctly, and the timeout path has a bounded
+                                // leak (one HardwareBuffer, reclaimable by GC).
+                                cont.resume(screenshot)
                             }
 
                             override fun onFailure(errorCode: Int) {
@@ -108,11 +110,7 @@ class AccessibilityScreenshotCapturer(
                             override fun onSuccess(
                                     screenshot: AccessibilityService.ScreenshotResult
                             ) {
-                                if (cont.isActive) {
-                                    cont.resume(screenshot)
-                                } else {
-                                    screenshot.hardwareBuffer.close()
-                                }
+                                cont.resume(screenshot)
                             }
 
                             override fun onFailure(errorCode: Int) {

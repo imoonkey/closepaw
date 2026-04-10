@@ -126,10 +126,13 @@ internal fun deriveOverlayVisibility(
                     normalizedShowPreference = normalizedShowPreference,
                 )
             } else {
-                // Show overlay in VD_VIEWER, OTHER_APP, or MAIN_APP when user attention needed
+                // Show overlay in VD_VIEWER, OTHER_APP, or MAIN_APP when user attention needed.
+                // For needsUserAttention modes, always force capsule regardless of preference —
+                // in MAIN_APP the default preference is ISLAND, which won't show without this.
+                val forceCapsule = needsUserAttention
                 OverlayVisibilityDecision(
-                    showCapsule = normalizedShowPreference == ShowPreference.CAPSULE,
-                    showIsland = normalizedShowPreference == ShowPreference.ISLAND,
+                    showCapsule = forceCapsule || normalizedShowPreference == ShowPreference.CAPSULE,
+                    showIsland = !forceCapsule && normalizedShowPreference == ShowPreference.ISLAND,
                     showGlow = (location == OverlayUserLocation.VD_VIEWER || needsUserAttention) && hasActiveTask,
                     normalizedShowPreference = normalizedShowPreference,
                 )

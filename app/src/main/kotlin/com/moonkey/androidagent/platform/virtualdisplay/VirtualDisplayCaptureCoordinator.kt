@@ -189,7 +189,23 @@ internal class VirtualDisplayCaptureCoordinator(
                                 }
                         }
 
-                if (result == null || result != PixelCopy.SUCCESS) {
+                if (result == null) {
+                        // Timeout: PixelCopy may still be writing to the bitmap.
+                        // Do NOT recycle — let GC reclaim it after the framework finishes.
+                        pixelCopyFailCount++
+                        Log.w(TAG, "PixelCopy timed out (failCount=$pixelCopyFailCount)")
+                        if (pixelCopyFailCount >= PIXEL_COPY_MAX_FAILURES) {
+                                Log.w(
+                                        TAG,
+                                        "PixelCopy failed $pixelCopyFailCount times, reverting to ImageReader"
+                                )
+                                switchToImageReader()
+                        }
+                        return captureFromImageReader()
+                }
+
+                if (result != PixelCopy.SUCCESS) {
+                        // Explicit failure: callback already fired, safe to recycle.
                         bitmap.recycle()
                         pixelCopyFailCount++
                         Log.w(TAG, "PixelCopy failed (result=$result, failCount=$pixelCopyFailCount)")
