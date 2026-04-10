@@ -12,7 +12,7 @@ sealed class ToolName(
         get() =
             when (this) {
                 MobileAction, OpenApp, Wait, SystemButton, DelegateTask -> true
-                CompleteTask, WriteTodos, Scratchpad, RememberExperience -> false
+                CompleteTask, WriteTodos, Scratchpad, RememberExperience, AskUser, Shell -> false
                 is Unknown -> true
             }
 
@@ -61,6 +61,16 @@ sealed class ToolName(
         canonical = "remember_experience",
         displayName = "Remember experience"
     )
+    data object AskUser : ToolName(
+        raw = "ask_user",
+        canonical = "ask_user",
+        displayName = "Ask user"
+    )
+    data object Shell : ToolName(
+        raw = "shell",
+        canonical = "shell",
+        displayName = "Shell"
+    )
     data class Unknown(private val name: String) : ToolName(
         raw = name,
         canonical = normalizeName(name),
@@ -79,6 +89,8 @@ sealed class ToolName(
                 Scratchpad.canonical -> Scratchpad
                 DelegateTask.canonical -> DelegateTask
                 RememberExperience.canonical -> RememberExperience
+                AskUser.canonical -> AskUser
+                Shell.canonical -> Shell
                 else -> Unknown(raw)
             }
         }
