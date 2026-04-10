@@ -20,6 +20,7 @@ import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolObservation
 import com.moonkey.androidagent.tool.handlers.UIActionInvocation
+import com.moonkey.androidagent.tool.impl.MobileActionTool
 import com.moonkey.androidagent.tool.impl.OpenAppTool
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
@@ -176,6 +177,48 @@ class CapturePrivacyGateTest {
         assertThat(obs!!.elementCount).isGreaterThan(0)
     }
 
+    // ---- MobileActionTool (click executor path) ----
+
+    @Test
+    fun `mobile_action click on blocked app returns masked observation`() = runTest {
+        val platform = RichFakePlatform(initialPackage = blockedPkg)
+        val snapshot = platform.captureScreen()
+        val context = contextWith(platform, classifier(), snapshot)
+
+        val params = JSONObject()
+            .put("action", "click")
+            .put("element_index", 0)
+        val invocation = MobileActionTool().createInvocation(params)
+        val result = invocation.execute(context)
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
+        val obs = (result as ToolExecutionResult.Success).observation
+                as? ToolObservation.ScreenState
+        assertThat(obs).isNotNull()
+        assertThat(obs!!.elementCount).isEqualTo(0)
+        assertThat(obs.snapshot?.image).isNull()
+        assertThat(obs.accessibilityTree).contains("BLOCKED")
+    }
+
+    @Test
+    fun `mobile_action click on normal app returns full observation`() = runTest {
+        val platform = RichFakePlatform(initialPackage = normalPkg)
+        val snapshot = platform.captureScreen()
+        val context = contextWith(platform, classifier(), snapshot)
+
+        val params = JSONObject()
+            .put("action", "click")
+            .put("element_index", 0)
+        val invocation = MobileActionTool().createInvocation(params)
+        val result = invocation.execute(context)
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
+        val obs = (result as ToolExecutionResult.Success).observation
+                as? ToolObservation.ScreenState
+        assertThat(obs).isNotNull()
+        assertThat(obs!!.elementCount).isGreaterThan(0)
+    }
+
     // ---- Helpers ----
 
     private fun testElement(index: Int) = PerceptionElement(
@@ -208,9 +251,15 @@ class CapturePrivacyGateTest {
     private fun contextWith(
         platform: AndroidPlatform,
         appClassifier: AppClassifier
+    ) = contextWith(platform, appClassifier, snapshot = null)
+
+    private fun contextWith(
+        platform: AndroidPlatform,
+        appClassifier: AppClassifier,
+        snapshot: ScreenSnapshot?
     ) = object : ToolExecutionContext {
         override val platform: AndroidPlatform = platform
-        override val currentSnapshot: ScreenSnapshot? = null
+        override val currentSnapshot: ScreenSnapshot? = snapshot
         override val appClassifier: AppClassifier = appClassifier
         override fun isCancelled() = false
     }

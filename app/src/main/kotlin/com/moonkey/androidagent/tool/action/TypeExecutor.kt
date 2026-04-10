@@ -103,6 +103,8 @@ class TypeExecutor(
 
         delay(FOCUS_DELAY_MS)
 
+        if (isCancelled()) return ActionOutcome.Cancelled("Cancelled after tap-to-focus")
+
         val focusedResult = platform.performAction(UIAction.SetTextOnFocused(inputText, clear))
         if (focusedResult is ActionResult.Success) {
             attemptTrail.add("TapToFocus+SetTextOnFocused: success")
