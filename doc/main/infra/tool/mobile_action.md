@@ -1,7 +1,7 @@
 # mobile_action
 
 > Current deep dive for the screen-interaction tool.
-> Last updated: 2026-03-06
+> Last updated: 2026-04-10
 
 ## Purpose
 
@@ -76,7 +76,7 @@ The executor layer is where almost all real action semantics live:
 - shared helpers:
   - [PointActionExecutorCore.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt)
   - [TargetResolver.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/com/moonkey/androidagent/tool/action/TargetResolver.kt)
-  - [PostActionAnalysis.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/com/moonkey/androidagent/tool/action/PostActionAnalysis.kt)
+  - [PostActionAnalysis.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/com/moonkey/androidagent/tool/action/PostActionAnalysis.kt) — accepts `appClassifier` for BLOCKED-app observation masking
   - [UiChangeDetector.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/com/moonkey/androidagent/tool/action/UiChangeDetector.kt)
   - [ActionPriorityOrder.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/com/moonkey/androidagent/tool/action/ActionPriorityOrder.kt)
 
@@ -127,6 +127,8 @@ Current promotion rule:
 
 This exists because many Android lists expose text nodes as children inside a clickable row. The child-hotspot selection avoids the failure mode where `container.center` lands on a dead zone for `ACTION_CLICK` (e.g., Files app row center).
 
+When retargeting occurs, a diagnostic note is added to the warnings list (e.g., "Retargeted from (x1,y1) to child at (x2,y2)") for observability in traces and LLM output.
+
 ### long_press
 
 `long_press` is structurally the same as `click`:
@@ -145,6 +147,8 @@ It also benefits from semantic target promotion.
 
 The tap-to-focus fallback is disabled in VD mode because the IME may land on the wrong display.
 
+Each attempt explicitly checks for `ActionResult.Cancelled` and propagates it as `ActionOutcome.Cancelled` rather than falling through to the next attempt.
+
 ### scroll
 
 `scroll` accepts a content direction, not finger direction:
@@ -159,13 +163,15 @@ Current channel order:
 1. `a11y_scroll`
 2. `gesture_swipe`
 
-If a target element is supplied and it resolves to bounds, the gesture is computed inside that area. Otherwise the whole display is used.
+If a target element is supplied (via `element_index` or `text`) and it resolves to bounds, the gesture is computed inside that area. If an explicit semantic target fails to resolve, the scroll returns `Failed` immediately — no silent fallback to full-display scroll. Only coordinate targets and no-target calls fall back to the full display area.
 
 ### swipe
 
 `swipe` is raw precision gesture. It does not try to infer direction or semantics.
 
 This is the escape hatch for sliders, drag-like interactions, and custom surfaces.
+
+If the gesture is cancelled by the system (e.g., coroutine cancellation), the executor returns `ActionOutcome.Cancelled` rather than `Failed`.
 
 ## Resolution and verification pipeline
 

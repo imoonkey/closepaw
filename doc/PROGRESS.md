@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-04-10: Tool System Design Improvements (5 phases)
+
+**What changed:**
+- Phase 0: Observation masking gap — `appClassifier` threaded through `PostActionAnalysis` and all executors so BLOCKED-app post-action observations are masked; `open_app` checks destination tier before launch (denied for BLOCKED apps)
+- Phase 1a: ToolName metadata — `ask_user` and `shell` added to `ToolName` enum with `isScreenChanging=false`; previously parsed as `Unknown(isScreenChanging=true)`, causing false approval prompts and spurious `complete_task` drops
+- Phase 3: Shell hardening — metacharacter rejection (`;|&`><$\n\r`), expanded blocklist (`env`, `xargs`, `find` added to existing `am/pm/reboot/su`), truncation indicator when output exceeds `MAX_OUTPUT_CHARS`
+- Phase 2: Action runtime normalization — `SwipeExecutor` returns `Cancelled` (not `Failed`) on system cancellation; `TypeExecutor` explicit `Cancelled` handling at each attempt; `ScrollExecutor` fails immediately for unresolvable explicit targets; `PointActionExecutorCore` retarget observability (diagnostic note in warnings)
+- Phase 5: Dead code cleanup — removed `UiChangeDetector.detectScrollBoundary()`, removed `UIActionInvocation.detectScrollBoundary()`, removed `MobileActionName.Back/Home` from `PolicyEngine.isEscape()` (unreachable path), deleted `DataQueryInvocation.kt` (zero callers), removed duplicate `OpenAppTool` companion constants, `SystemButtonTool` unreachable else branch now throws
+
+**Why:**
+- Holistic tool-system-design review (Claude + Codex double-blind validation) found observation masking gap, metadata misclassification, shell bypass vectors, inconsistent cancellation handling, and accumulated dead code
+
+**Key files:** `PostActionAnalysis.kt`, `ObservationBuilder.kt`, `ToolName.kt`, `PolicyEngine.kt`, `ShellTool.kt`, `OpenAppTool.kt`, `PointActionExecutorCore.kt`, `ClickExecutor.kt`, `LongPressExecutor.kt`, `TypeExecutor.kt`, `ScrollExecutor.kt`, `SwipeExecutor.kt`, `MobileActionInvocation.kt`, `UIActionInvocation.kt`, `UiChangeDetector.kt`, `SystemButtonTool.kt`
+**Verification:** `./gradlew assembleDebug test` passes
+**Commit:** 98e2d907..9d07973a (6 commits)
+**Next:** None — tool-system-design complete
+**Blockers:** None
+
 ## 2026-04-10: Platform Robustness Hardening (8 phases + 8 follow-up fixes)
 
 **What changed:**

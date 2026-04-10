@@ -1,7 +1,7 @@
 # Tool System
 
 > ToolRegistry, ToolRouter, PolicyEngine, and tool execution lifecycle.
-> Last updated: 2026-03-26
+> Last updated: 2026-04-10
 
 ## Overview
 
@@ -80,7 +80,7 @@ Decision inputs: `(toolName, params, packageName) → PolicyDecision`
 
 Decision flow:
 
-1. **Non-screen-changing tools** (scratchpad, write_todos, remember_experience, complete_task) → always `Allow`
+1. **Non-screen-changing tools** (scratchpad, write_todos, remember_experience, complete_task, ask_user, shell) → always `Allow`
 2. **Escape actions** (system_button back/home) → always `Allow` (agent must not be trapped in a blocked app)
 3. **BLOCKED app** → always `Deny`, even in `AUTO_APPROVE` mode (absolute floor)
 4. **Approval mode**:
@@ -112,7 +112,7 @@ Classifies Android packages into security tiers.
 
 **Configuration:** `assets/security/app_tiers.json` defines the base tier map. User overrides can only **tighten** (NORMAL→CAUTIOUS/BLOCKED, CAUTIOUS→BLOCKED), never loosen.
 
-**Masking:** `AppClassifier.maskIfBlocked(snapshot, pkg)` returns an empty snapshot (no elements, no image) for BLOCKED packages. Called at both pre-turn and post-action capture points to prevent BLOCKED app content from reaching the LLM. The capture layer (AccessibilityPlatform/VirtualDisplayPlatform) gates on package tier **before** writing any trace artifacts — if package is BLOCKED or unknown (null), no screenshots or tree artifacts are written.
+**Masking:** `AppClassifier.maskIfBlocked(snapshot, pkg)` returns an empty snapshot (no elements, no image) for BLOCKED packages. Called at three points to prevent BLOCKED app content from reaching the LLM: (1) pre-turn capture, (2) post-action observation building (threaded via `appClassifier` parameter through all executors and `PostActionAnalysis`), and (3) capture-layer artifact gating. The capture layer (AccessibilityPlatform/VirtualDisplayPlatform) gates on package tier **before** writing any trace artifacts — if package is BLOCKED or unknown (null), no screenshots or tree artifacts are written.
 
 **Fail-closed:** `fromAssets()` throws `IllegalStateException` if `app_tiers.json` is missing, corrupt, or contains unknown tier strings. Session cannot start without a valid classifier.
 
@@ -123,7 +123,7 @@ Classifies Android packages into security tiers.
 | Tool | Description | Key Parameters |
 |------|-------------|----------------|
 | `mobile_action` | Screen-targeted touch interactions | `action`, targeting (`element_index`, `text`, coordinates) |
-| `open_app` | Launch app by name | `app_name` |
+| `open_app` | Launch app by name (denied for BLOCKED apps) | `app_name` |
 | `system_button` | Press Android system key | `button` (`back`, `home`, `enter`, `recents`) |
 | `wait` | Pause for UI settle | `duration_ms` |
 | `complete_task` | Signal completion | `status`, `answer` |
@@ -138,7 +138,7 @@ Classifies Android packages into security tiers.
 
 `ask_user` is registered lazily in `SessionAgentRunner.start()`. It suspends the agent coroutine via `UserResponseChannel` (CompletableDeferred) until the user responds through the capsule UI, or times out after 5 minutes. See [session.md](session.md) for `UserResponseChannel` details.
 
-`shell` executes shell commands on the device via `ProcessBuilder("sh", "-c", command)` with a 10s timeout. Blocklist restricts system-level commands: `am`, `pm`, `reboot`, `su`. All other commands and shell metacharacters are unrestricted. Password field text is suppressed at the perception layer (Perceptor checks `AccessibilityNodeInfo.isPassword()`).
+`shell` executes shell commands on the device via `ProcessBuilder("sh", "-c", command)` with a 10s timeout. Two layers of validation: (1) **metacharacter rejection** — `;`, `|`, `&`, `` ` ``, `>`, `<`, `$`, newline, and CR are rejected at validation time to prevent chaining/bypass; (2) **blocklist** — first token checked against `am`, `pm`, `reboot`, `su`, `env`, `xargs`, `find`. Output is capped at `MAX_OUTPUT_CHARS` (4096) with a truncation indicator when exceeded. Password field text is suppressed at the perception layer (Perceptor checks `AccessibilityNodeInfo.isPassword()`).
 
 `remember_experience` writes a timestamped entry to the persistent memory store. Categories: `app` (requires `package_name`), `user_pref`, `device`. Content is prefixed with kind tags (`[workflow]`, `[pitfall]`, `[verification]`). Classified as cognitive (non-screen-changing) and auto-allowed. A **memory gate** blocks writes when the foreground app is BLOCKED (financial/auth), preventing the agent from creating persistent knowledge about blocked app content. Registered eagerly in `SessionServices.create()`.
 
@@ -265,7 +265,6 @@ interface ToolSpec {
 |------|---------|
 | `MobileActionInvocation` | `MobileActionTool` — routes to executors |
 | `UIActionInvocation` | `SystemButtonTool`, `WaitTool` — direct UIAction execution |
-| `DataQueryInvocation` | Data query tools |
 | Custom invocations | `OpenAppTool`, `WriteTodosTool`, `ScratchpadTool`, `AskUserTool`, etc. |
 
 ---
@@ -315,10 +314,9 @@ tool/
 │   ├── SwipeExecutor.kt      # Precision coordinate gestures
 │   ├── TargetResolver.kt     # Target → Point resolution
 │   ├── UiChangeDetector.kt   # Snapshot fingerprinting (diagnostics utility)
-│   └── ObservationBuilder.kt # Post-action observation
+│   └── ObservationBuilder.kt # Post-action observation (with BLOCKED-app masking)
 ├── handlers/
-│   ├── UIActionInvocation.kt # Used by SystemButtonTool, WaitTool
-│   └── DataQueryInvocation.kt
+│   └── UIActionInvocation.kt # Used by SystemButtonTool, WaitTool
 └── impl/
     ├── MobileActionTool.kt
     ├── MobileActionInvocation.kt
