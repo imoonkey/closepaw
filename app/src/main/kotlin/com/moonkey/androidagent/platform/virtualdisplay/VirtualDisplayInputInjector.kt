@@ -17,6 +17,10 @@ import kotlinx.coroutines.delay
  *
  * Handles tap, long-press, swipe, and system button injection. Encapsulates MotionEvent/KeyEvent
  * construction and display targeting.
+ *
+ * Long-press and swipe are cancellation-safe: if the coroutine is cancelled after DOWN is
+ * delivered, a best-effort ACTION_CANCEL is sent to release the target UI from pressed/dragging
+ * state.
  */
 class VirtualDisplayInputInjector(
         private val shizuku: ShizukuClient,
@@ -69,23 +73,31 @@ class VirtualDisplayInputInjector(
         }
         down.recycle()
 
-        delay(durationMs)
+        // DOWN delivered — ensure cleanup on cancellation or failure
+        var upSent = false
+        try {
+            delay(durationMs)
 
-        val up =
-                motionEvent(
-                        downTime,
-                        SystemClock.uptimeMillis(),
-                        MotionEvent.ACTION_UP,
-                        x.toFloat(),
-                        y.toFloat()
-                )
-        val ok = shizuku.injectInputEvent(up)
-        up.recycle()
+            val up =
+                    motionEvent(
+                            downTime,
+                            SystemClock.uptimeMillis(),
+                            MotionEvent.ACTION_UP,
+                            x.toFloat(),
+                            y.toFloat()
+                    )
+            upSent = shizuku.injectInputEvent(up)
+            up.recycle()
 
-        return if (ok) {
-            ActionResult.Success("Long press at ($x,$y) for ${durationMs}ms")
-        } else {
-            ActionResult.Failure("Long press UP inject failed at ($x,$y)")
+            return if (upSent) {
+                ActionResult.Success("Long press at ($x,$y) for ${durationMs}ms")
+            } else {
+                ActionResult.Failure("Long press UP inject failed at ($x,$y)")
+            }
+        } finally {
+            if (!upSent) {
+                sendBestEffortCancel(downTime, x.toFloat(), y.toFloat())
+            }
         }
     }
 
@@ -113,34 +125,53 @@ class VirtualDisplayInputInjector(
         }
         down.recycle()
 
-        for (i in 1..steps) {
-            delay(stepMs)
-            val t = i.toFloat() / steps
-            val x = action.startX + (action.endX - action.startX) * t
-            val y = action.startY + (action.endY - action.startY) * t
-            val move =
-                    motionEvent(downTime, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, x, y)
-            shizuku.injectInputEvent(move)
-            move.recycle()
-        }
+        // DOWN delivered — ensure cleanup on cancellation or failure
+        var completedCleanly = false
+        var lastX = action.startX.toFloat()
+        var lastY = action.startY.toFloat()
+        try {
+            for (i in 1..steps) {
+                delay(stepMs)
+                val t = i.toFloat() / steps
+                lastX = action.startX + (action.endX - action.startX) * t
+                lastY = action.startY + (action.endY - action.startY) * t
+                val move =
+                        motionEvent(
+                                downTime,
+                                SystemClock.uptimeMillis(),
+                                MotionEvent.ACTION_MOVE,
+                                lastX,
+                                lastY
+                        )
+                val moveOk = shizuku.injectInputEvent(move)
+                move.recycle()
+                if (!moveOk) {
+                    return ActionResult.Failure("Swipe MOVE inject failed at step $i")
+                }
+            }
 
-        val up =
-                motionEvent(
-                        downTime,
-                        SystemClock.uptimeMillis(),
-                        MotionEvent.ACTION_UP,
-                        action.endX.toFloat(),
-                        action.endY.toFloat()
+            val up =
+                    motionEvent(
+                            downTime,
+                            SystemClock.uptimeMillis(),
+                            MotionEvent.ACTION_UP,
+                            action.endX.toFloat(),
+                            action.endY.toFloat()
+                    )
+            completedCleanly = shizuku.injectInputEvent(up)
+            up.recycle()
+
+            return if (completedCleanly) {
+                ActionResult.Success(
+                        "Swipe (${action.startX},${action.startY}) → (${action.endX},${action.endY})"
                 )
-        val ok = shizuku.injectInputEvent(up)
-        up.recycle()
-
-        return if (ok) {
-            ActionResult.Success(
-                    "Swipe (${action.startX},${action.startY}) → (${action.endX},${action.endY})"
-            )
-        } else {
-            ActionResult.Failure("Swipe UP inject failed")
+            } else {
+                ActionResult.Failure("Swipe UP inject failed")
+            }
+        } finally {
+            if (!completedCleanly) {
+                sendBestEffortCancel(downTime, lastX, lastY)
+            }
         }
     }
 
@@ -213,6 +244,24 @@ class VirtualDisplayInputInjector(
         val event = KeyEvent(downTime, eventTime, action, keyCode, 0)
         setDisplayId(event, displayIdProvider())
         return event
+    }
+
+    /** Send a best-effort ACTION_CANCEL to release the target UI from pressed/dragging state. */
+    private fun sendBestEffortCancel(downTime: Long, x: Float, y: Float) {
+        try {
+            val cancel =
+                    motionEvent(
+                            downTime,
+                            SystemClock.uptimeMillis(),
+                            MotionEvent.ACTION_CANCEL,
+                            x,
+                            y
+                    )
+            shizuku.injectInputEvent(cancel)
+            cancel.recycle()
+        } catch (e: Exception) {
+            Log.w(TAG, "Best-effort ACTION_CANCEL failed", e)
+        }
     }
 
     /**

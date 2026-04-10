@@ -31,7 +31,7 @@ class VirtualDisplayWindowAccessor(
                 if (Log.isLoggable(TAG, Log.DEBUG)) {
                     if (displayWindows != null) {
                         val summary = displayWindows.joinToString(", ") {
-                            "Window(id=${it.id}, display=${it.displayId}, title=${it.title}, type=${it.type})"
+                            "Window(id=${it.id}, display=${it.displayId}, title=${it.title}, type=${it.type}, layer=${it.layer})"
                         }
                         Log.d(TAG, "Windows on display $displayId: $summary")
                     } else {
@@ -44,7 +44,7 @@ class VirtualDisplayWindowAccessor(
                 val allWindows = service.windows
                 if (Log.isLoggable(TAG, Log.DEBUG) && allWindows != null) {
                     val summary = allWindows.joinToString(", ") {
-                        "Window(id=${it.id}, display=${it.displayId}, title=${it.title}, type=${it.type})"
+                        "Window(id=${it.id}, display=${it.displayId}, title=${it.title}, type=${it.type}, layer=${it.layer})"
                     }
                     Log.d(TAG, "All windows (legacy): $summary")
                 }
@@ -57,17 +57,26 @@ class VirtualDisplayWindowAccessor(
     }
 
     /**
-     * Get the a11y root node from the virtual display's app window. Caller must recycle.
+     * Get the a11y root node from the virtual display's topmost app window. Caller must recycle.
      *
-     * We recycle all fetched AccessibilityWindowInfo instances immediately after extracting the root.
+     * Picks the highest-layer TYPE_APPLICATION window, falling back to any highest-layer
+     * non-overlay/non-IME window. This ensures node actions and getCurrentPackageName()
+     * target the correct foreground window under dialogs and popups.
      */
     fun getRootOnDisplay(): AccessibilityNodeInfo? {
         val windows = getWindowsOnDisplay()
         return try {
-            val appWindow =
-                windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
-                    ?: windows.firstOrNull()
-            appWindow?.root
+            val eligible = windows
+                .filter { w ->
+                    w.type != AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
+                        w.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD
+                }
+                .sortedByDescending { it.layer }
+
+            val topWindow =
+                eligible.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+                    ?: eligible.firstOrNull()
+            topWindow?.root
         } finally {
             windows.forEach { window ->
                 runCatching { window.recycle() }
@@ -80,7 +89,8 @@ class VirtualDisplayWindowAccessor(
      * Get a11y roots from all relevant windows on the virtual display. Caller must recycle all.
      *
      * Excludes TYPE_ACCESSIBILITY_OVERLAY (our own overlay) and TYPE_INPUT_METHOD (keyboard).
-     * Remaining windows are sorted by layer for deterministic element ordering across turns.
+     * Remaining windows are sorted by layer ascending for deterministic element ordering
+     * across turns (background roots first, foreground roots last).
      */
     fun getRootsOnDisplay(): List<AccessibilityNodeInfo> {
         val windows = getWindowsOnDisplay()

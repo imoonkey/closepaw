@@ -48,7 +48,10 @@ internal class VirtualDisplaySurfaceController(
 
         fun switchToLivePreview(surfaceView: SurfaceView) {
                 synchronized(stateLock) {
-                        if (state.mode == VirtualDisplaySurfaceMode.LIVE_PREVIEW) return
+                        // Allow surface replacement even when already in LIVE_PREVIEW
+                        // (e.g., viewer recreated after config change or surface loss)
+                        if (state.mode == VirtualDisplaySurfaceMode.LIVE_PREVIEW &&
+                                state.liveSurfaceView === surfaceView) return
                         val surface =
                                 surfaceView.holder.surface
                                         ?: run {

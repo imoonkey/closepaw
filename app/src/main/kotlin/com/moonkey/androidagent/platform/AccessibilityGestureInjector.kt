@@ -150,12 +150,6 @@ class AccessibilityGestureInjector(
         return GestureDescription.Builder().addStroke(stroke).build()
     }
 
-    private fun gestureDisplayId(gesture: GestureDescription?): Int {
-        if (gesture == null) return Display.DEFAULT_DISPLAY
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return Display.DEFAULT_DISPLAY
-        return gesture.displayId
-    }
-
     private fun describeGesture(gesture: GestureDescription): String {
         val parts = mutableListOf<String>()
         val pos = FloatArray(2)

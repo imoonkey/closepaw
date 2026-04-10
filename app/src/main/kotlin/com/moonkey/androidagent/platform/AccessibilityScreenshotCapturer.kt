@@ -15,12 +15,11 @@ import com.moonkey.androidagent.trace.TraceRecorder
 import java.io.File
 import kotlin.coroutines.resume
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
 /**
  * Accessibility screenshot capture pipeline:
- * 1) a11y screenshot API
+ * 1) a11y screenshot API (bounded — never waits forever)
  * 2) software bitmap conversion
  * 3) scale + jpeg compression
  * 4) optional debug/trace persistence
@@ -32,6 +31,8 @@ class AccessibilityScreenshotCapturer(
 ) {
     companion object {
         private const val TAG = "A11yScreenshotCapturer"
+        private const val SCREENSHOT_TIMEOUT_MS = 5_000L
+        private const val MAX_DEBUG_SCREENSHOTS = 20
     }
 
     data class ScreenshotCapture(val image: ScreenImage, val tracePath: String?)
@@ -59,7 +60,10 @@ class AccessibilityScreenshotCapturer(
 
     private suspend fun takeDisplayScreenshot(): AccessibilityService.ScreenshotResult? {
         return withContext(Dispatchers.Main) {
-            suspendCancellableCoroutine { continuation ->
+            boundedCallback(
+                timeoutMs = SCREENSHOT_TIMEOUT_MS,
+                label = "takeScreenshot"
+            ) { cont ->
                 service.takeScreenshot(
                         Display.DEFAULT_DISPLAY,
                         service.mainExecutor,
@@ -67,9 +71,7 @@ class AccessibilityScreenshotCapturer(
                             override fun onSuccess(
                                     screenshot: AccessibilityService.ScreenshotResult
                             ) {
-                                if (continuation.isActive) {
-                                    continuation.resume(screenshot)
-                                }
+                                cont.resume(screenshot)
                             }
 
                             override fun onFailure(errorCode: Int) {
@@ -77,9 +79,7 @@ class AccessibilityScreenshotCapturer(
                                         TAG,
                                         "takeScreenshot failed: ${formatScreenshotError(errorCode)}"
                                 )
-                                if (continuation.isActive) {
-                                    continuation.resume(null)
-                                }
+                                cont.resume(null)
                             }
                         }
                 )
@@ -92,7 +92,10 @@ class AccessibilityScreenshotCapturer(
             windowId: Int
     ): AccessibilityService.ScreenshotResult? {
         return withContext(Dispatchers.Main) {
-            suspendCancellableCoroutine { continuation ->
+            boundedCallback(
+                timeoutMs = SCREENSHOT_TIMEOUT_MS,
+                label = "takeScreenshotOfWindow($windowId)"
+            ) { cont ->
                 service.takeScreenshotOfWindow(
                         windowId,
                         service.mainExecutor,
@@ -100,9 +103,7 @@ class AccessibilityScreenshotCapturer(
                             override fun onSuccess(
                                     screenshot: AccessibilityService.ScreenshotResult
                             ) {
-                                if (continuation.isActive) {
-                                    continuation.resume(screenshot)
-                                }
+                                cont.resume(screenshot)
                             }
 
                             override fun onFailure(errorCode: Int) {
@@ -110,9 +111,7 @@ class AccessibilityScreenshotCapturer(
                                         TAG,
                                         "takeScreenshotOfWindow failed: ${formatScreenshotError(errorCode)}"
                                 )
-                                if (continuation.isActive) {
-                                    continuation.resume(null)
-                                }
+                                cont.resume(null)
                             }
                         }
                 )
@@ -191,6 +190,14 @@ class AccessibilityScreenshotCapturer(
         if (!dir.exists() && !dir.mkdirs()) {
             Log.w(TAG, "Failed to create debug-output directory")
             return
+        }
+        // Enforce retention limit to match VD path
+        val files = dir.listFiles { _, name -> name.startsWith("llm_screenshot_") }
+        if (files != null && files.size >= MAX_DEBUG_SCREENSHOTS) {
+            files.sortBy { it.lastModified() }
+            for (i in 0..(files.size - MAX_DEBUG_SCREENSHOTS)) {
+                files[i].delete()
+            }
         }
         val filename = "llm_screenshot_${System.currentTimeMillis()}_${width}x${height}.jpg"
         val file = File(dir, filename)

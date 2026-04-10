@@ -1,13 +1,16 @@
 package com.moonkey.androidagent.platform.virtualdisplay
 
 import android.content.Context
+import android.os.Build
+import android.util.DisplayMetrics
+import android.view.WindowManager
 
 /**
  * VirtualDisplayConfig — Immutable configuration for the agent's virtual display.
  *
  * Specifies the resolution and density of the virtual display to create.
- * Typically mirrors the physical display to ensure apps render at the
- * same size they would on the real screen.
+ * Mirrors the physical display's full dimensions (including nav bar and cutout)
+ * so apps render at the same layout they would on the real screen.
  */
 data class VirtualDisplayConfig(
     val width: Int,
@@ -24,18 +27,37 @@ data class VirtualDisplayConfig(
 
     companion object {
         /**
-         * Create a config matching the device's physical display.
+         * Create a config matching the device's real display dimensions.
          *
-         * This ensures apps on the virtual display render at the exact same
-         * size and layout as on the real screen.
+         * Uses WindowManager.maximumWindowMetrics (API 31+) to get the full physical
+         * display size including nav bar and display cutout, rather than the app content
+         * area from Resources.displayMetrics which excludes system insets.
          */
         fun fromPhysicalDisplay(context: Context): VirtualDisplayConfig {
-            val dm = context.resources.displayMetrics
+            val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            val density = context.resources.displayMetrics.density
+            val densityDpi = context.resources.displayMetrics.densityDpi
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val bounds = wm.maximumWindowMetrics.bounds
+                return VirtualDisplayConfig(
+                    width = bounds.width(),
+                    height = bounds.height(),
+                    densityDpi = densityDpi,
+                    density = density
+                )
+            }
+
+            // Pre-API 31 fallback: use getRealMetrics for full display size
+            @Suppress("DEPRECATION")
+            val realMetrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            wm.defaultDisplay.getRealMetrics(realMetrics)
             return VirtualDisplayConfig(
-                width = dm.widthPixels,
-                height = dm.heightPixels,
-                densityDpi = dm.densityDpi,
-                density = dm.density
+                width = realMetrics.widthPixels,
+                height = realMetrics.heightPixels,
+                densityDpi = densityDpi,
+                density = density
             )
         }
     }

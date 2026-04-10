@@ -248,30 +248,6 @@ class NodeActionPerformer(
         return ActionResult.Success("Text entered: $text")
     }
 
-    private suspend fun performNodeActionAt(
-            nodeFinder: (AccessibilityNodeInfo) -> AccessibilityNodeInfo?,
-            notFoundMessage: String,
-            action: Int,
-            successMessage: String,
-            failureMessage: String
-    ): ActionResult {
-        return onMain {
-            withRoot { root ->
-                val node = nodeFinder(root) ?: return@withRoot ActionResult.Failure(notFoundMessage)
-                try {
-                    val ok = node.performAction(action)
-                    if (ok) {
-                        ActionResult.Success(successMessage)
-                    } else {
-                        ActionResult.Failure(failureMessage)
-                    }
-                } finally {
-                    if (node !== root) node.recycleCompat()
-                }
-            }
-        }
-    }
-
     private inline fun withRoot(block: (AccessibilityNodeInfo) -> ActionResult): ActionResult {
         val root = rootProvider() ?: return ActionResult.Failure("No a11y root available")
         return try {

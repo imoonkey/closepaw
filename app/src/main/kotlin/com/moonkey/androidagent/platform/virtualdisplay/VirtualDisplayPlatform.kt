@@ -24,13 +24,9 @@ import rikka.shizuku.Shizuku
 /**
  * VirtualDisplayPlatform — AndroidPlatform running on a Shizuku virtual display.
  *
- * Orchestrator: delegates to VirtualDisplayWindowAccessor (window/root), NodeActionPerformer (node
- * actions), and VirtualDisplayInputInjector (input).
- *
- * Screen capture: ImageReader (we own the surface). A11y tree: windows filtered by displayId. Node
- * actions: a11y performAction. Coordinate actions: Shizuku injection.
- *
- * Lifecycle: start() → creates virtual display + ImageReader; stop() → releases.
+ * Lifecycle is serialized through [VdLifecycleArbiter]: start/stop take exclusive access,
+ * captureScreen/performAction run under a shared Running lease. Binder death transitions
+ * the platform to Broken and clears cached proxies.
  */
 class VirtualDisplayPlatform(
         private val service: AccessibilityService,
@@ -43,19 +39,34 @@ class VirtualDisplayPlatform(
     companion object {
         private const val TAG = "VirtualDisplayPlatform"
 
+        /**
+         * Virtual display flags bitmask:
+         *   0x001 = VIRTUAL_DISPLAY_FLAG_PUBLIC
+         *   0x008 = VIRTUAL_DISPLAY_FLAG_SECURE
+         *   0x040 = VIRTUAL_DISPLAY_FLAG_SUPPORTS_TOUCH
+         *   0x200 = VIRTUAL_DISPLAY_FLAG_SHOULD_SHOW_SYSTEM_DECORATIONS
+         *   0x400 = VIRTUAL_DISPLAY_FLAG_TRUSTED (hidden)
+         *   0x800 = VIRTUAL_DISPLAY_FLAG_OWN_DISPLAY_GROUP (hidden)
+         */
         private const val DISPLAY_FLAGS = 0x1 or 0x8 or 0x40 or 0x200 or 0x400 or 0x800
 
         private const val SURFACE_READY_DELAY_MS = 200L
         private const val IMAGE_READER_MAX_IMAGES = 2
     }
 
-    @Volatile private var displayId: Int = Display.INVALID_DISPLAY
-    @Volatile private var imageReader: ImageReader? = null
+    // ── Lifecycle State ──────────────────────────────────────────
+
+    private val arbiter = VdLifecycleArbiter()
     private var binderDeadListener: Shizuku.OnBinderDeadListener? = null
 
-    // ── Surface switching (Hybrid Model) ──
-    private val displayIdProvider: () -> Int = { displayId }
-    private val imageReaderProvider: () -> ImageReader? = { imageReader }
+    // ── Component Wiring ─────────────────────────────────────────
+
+    private val displayIdProvider: () -> Int = {
+        (arbiter.state as? VdState.Running)?.displayId ?: Display.INVALID_DISPLAY
+    }
+    private val imageReaderProvider: () -> ImageReader? = {
+        (arbiter.state as? VdState.Running)?.imageReader
+    }
 
     private val windowAccessor = VirtualDisplayWindowAccessor(service, displayIdProvider)
 
@@ -99,73 +110,101 @@ class VirtualDisplayPlatform(
                     shizuku = shizuku
             )
 
+    // ── Lifecycle ────────────────────────────────────────────────
+
     override suspend fun start() {
-        if (displayId != Display.INVALID_DISPLAY) return // Already running
+        arbiter.withLifecycleTransition {
+            if (arbiter.state is VdState.Running) return@withLifecycleTransition
 
-        shizuku.bypassHiddenApis()
+            shizuku.bypassHiddenApis()
 
-        val reader =
-                ImageReader.newInstance(
-                        config.width,
-                        config.height,
-                        PixelFormat.RGBA_8888,
-                        IMAGE_READER_MAX_IMAGES
+            val reader =
+                    ImageReader.newInstance(
+                            config.width,
+                            config.height,
+                            PixelFormat.RGBA_8888,
+                            IMAGE_READER_MAX_IMAGES
+                    )
+
+            val id =
+                    try {
+                        shizuku.createVirtualDisplay(
+                                name = "moonkey_agent_display",
+                                width = config.width,
+                                height = config.height,
+                                densityDpi = config.densityDpi,
+                                surface = reader.surface,
+                                flags = DISPLAY_FLAGS
+                        )
+                    } catch (e: Exception) {
+                        reader.close()
+                        throw e
+                    }
+
+            if (id < 0) {
+                reader.close()
+                throw IllegalStateException("Failed to create virtual display (returned $id)")
+            }
+
+            // Resources allocated — register binder death listener and commit state.
+            // If anything fails here, roll back: release display, close reader, reset state.
+            try {
+                val listener =
+                        Shizuku.OnBinderDeadListener {
+                            Log.e(TAG, "Shizuku binder died! displayId=$id")
+                            arbiter.markBroken("Shizuku binder died")
+                            shizuku.clearCachedProxies()
+                        }
+                binderDeadListener = listener
+                shizuku.addBinderDeadListener(listener)
+
+                arbiter.transitionTo(VdState.Running(id, reader))
+                delay(SURFACE_READY_DELAY_MS)
+
+                Log.i(
+                        TAG,
+                        "Started: displayId=$id, " +
+                                "${config.width}x${config.height}@${config.densityDpi}dpi"
                 )
-
-        val id =
-                shizuku.createVirtualDisplay(
-                        name = "moonkey_agent_display",
-                        width = config.width,
-                        height = config.height,
-                        densityDpi = config.densityDpi,
-                        surface = reader.surface,
-                        flags = DISPLAY_FLAGS
-                )
-
-        if (id < 0) {
-            reader.close()
-            throw IllegalStateException("Failed to create virtual display (returned $id)")
+            } catch (e: Exception) {
+                binderDeadListener?.let { shizuku.removeBinderDeadListener(it) }
+                binderDeadListener = null
+                shizuku.releaseVirtualDisplay(id)
+                reader.close()
+                shizuku.clearCachedProxies()
+                arbiter.transitionTo(VdState.Stopped)
+                throw e
+            }
         }
-
-        displayId = id
-        imageReader = reader
-
-        binderDeadListener =
-                Shizuku.OnBinderDeadListener {
-                    Log.e(TAG, "Shizuku binder died! displayId=$displayId")
-                }
-        shizuku.addBinderDeadListener(binderDeadListener!!)
-
-        delay(SURFACE_READY_DELAY_MS)
-
-        Log.i(
-                TAG,
-                "Started: displayId=$displayId, ${config.width}x${config.height}@${config.densityDpi}dpi"
-        )
     }
 
     /**
-     * Release platform resources. Called during session cleanup AFTER the agent loop has exited.
-     * Must be idempotent. Not safe to call concurrently with captureScreen/performAction.
+     * Release platform resources. Must be idempotent.
+     * Serialized through the lifecycle arbiter — waits for in-flight ops to complete.
      */
     override suspend fun stop() {
-        // Restore keyboard first — prevent permanently disabled IME on crash
-        setKeyboardAuto()
+        arbiter.withLifecycleTransition {
+            val current = arbiter.state
+            if (current == VdState.Stopped) return@withLifecycleTransition
 
-        binderDeadListener?.let { shizuku.removeBinderDeadListener(it) }
-        binderDeadListener = null
+            // Restore keyboard first — prevent permanently disabled IME on crash
+            setKeyboardAuto()
 
-        surfaceController.reset()
+            binderDeadListener?.let { shizuku.removeBinderDeadListener(it) }
+            binderDeadListener = null
 
-        if (displayId != Display.INVALID_DISPLAY) {
-            shizuku.releaseVirtualDisplay(displayId)
+            surfaceController.reset()
+
+            if (current is VdState.Running) {
+                shizuku.releaseVirtualDisplay(current.displayId)
+                current.imageReader.close()
+            }
+
+            shizuku.clearCachedProxies()
+            arbiter.transitionTo(VdState.Stopped)
+
+            Log.i(TAG, "Stopped")
         }
-
-        imageReader?.close()
-        imageReader = null
-        displayId = Display.INVALID_DISPLAY
-
-        Log.i(TAG, "Stopped")
     }
 
     // ── Hybrid Surface Switching ──────────────────────────────────
@@ -175,6 +214,8 @@ class VirtualDisplayPlatform(
      * the Viewer Activity becomes visible.
      */
     fun switchToLivePreview(surfaceView: SurfaceView) {
+        if (arbiter.state !is VdState.Running) return
+
         val before = surfaceController.mode()
         surfaceController.switchToLivePreview(surfaceView)
         val after = surfaceController.mode()
@@ -190,6 +231,7 @@ class VirtualDisplayPlatform(
      * Viewer Activity is hidden or destroyed.
      */
     fun switchToImageReader() {
+        if (arbiter.state !is VdState.Running) return
         surfaceController.switchToImageReader()
     }
 
@@ -245,60 +287,78 @@ class VirtualDisplayPlatform(
             )
         }
 
-        val timestamp = System.currentTimeMillis()
-        val pc = sessionConfig.perceptionConfig
+        return try {
+            arbiter.withRunningLease {
+            val timestamp = System.currentTimeMillis()
+            val pc = sessionConfig.perceptionConfig
 
-        // 1. Capture a11y tree with trace artifacts (when tracing enabled)
-        val a11yResult =
-                if (pc.capturesAccessibility)
-                        captureCoordinator.captureA11yTreeWithArtifacts()
-                else
-                        VirtualDisplayCaptureCoordinator.A11yCaptureResult(emptyList(), null, null)
+            // 1. Capture a11y tree with trace artifacts (when tracing enabled)
+            val a11yResult =
+                    if (pc.capturesAccessibility)
+                            captureCoordinator.captureA11yTreeWithArtifacts()
+                    else
+                            VirtualDisplayCaptureCoordinator.A11yCaptureResult(
+                                    emptyList(), null, null
+                            )
 
-        // 2. Screenshot capture (when config requires it OR trace is enabled for debugging)
-        val shouldCaptureScreenshot = pc.capturesScreenshot || traceRecorder.enabled
-        val imageCapture =
-                if (shouldCaptureScreenshot) captureCoordinator.captureScreenshot() else null
+            // 2. Screenshot capture (when config requires it OR trace is enabled)
+            val shouldCaptureScreenshot = pc.capturesScreenshot || traceRecorder.enabled
+            val imageCapture =
+                    if (shouldCaptureScreenshot) captureCoordinator.captureScreenshot() else null
 
-        // 3. Only include screenshot in the snapshot if the perception config wants it
-        val image = if (pc.capturesScreenshot) imageCapture?.image else null
+            // 3. Only include screenshot in the snapshot if the perception config wants it
+            val image = if (pc.capturesScreenshot) imageCapture?.image else null
 
-        Log.d(TAG, "Captured screen: ${a11yResult.elements.size} elements, screenshot=${image != null}")
+            Log.d(
+                    TAG,
+                    "Captured screen: ${a11yResult.elements.size} elements, screenshot=${image != null}"
+            )
 
-        // 4. Build debug info
-        val debug =
-                if (traceRecorder.enabled) {
-                    ScreenSnapshotDebug(
-                            rawA11yTreePath = a11yResult.rawTreeArtifactPath,
-                            sanitizedA11yTreePath = a11yResult.sanitizedTreeArtifactPath,
-                            screenshotPath = imageCapture?.tracePath
-                    )
-                } else {
-                    null
-                }
+            // 4. Build debug info
+            val debug =
+                    if (traceRecorder.enabled) {
+                        ScreenSnapshotDebug(
+                                rawA11yTreePath = a11yResult.rawTreeArtifactPath,
+                                sanitizedA11yTreePath = a11yResult.sanitizedTreeArtifactPath,
+                                screenshotPath = imageCapture?.tracePath
+                        )
+                    } else {
+                        null
+                    }
 
-        return ScreenSnapshot(
-                timestamp = timestamp,
-                elements = a11yResult.elements,
-                image = image,
-                debug = debug
-        )
+            ScreenSnapshot(
+                    timestamp = timestamp,
+                    elements = a11yResult.elements,
+                    image = image,
+                    debug = debug
+            )
+        }
+        } catch (e: PlatformNotRunningException) {
+            Log.w(TAG, "captureScreen: ${e.message}")
+            ScreenSnapshot(
+                timestamp = System.currentTimeMillis(),
+                elements = emptyList(),
+                image = null
+            )
+        }
     }
 
     override fun allowTapToFocus(): Boolean = false
 
     override suspend fun performAction(action: UIAction): ActionResult {
-        if (displayId == Display.INVALID_DISPLAY) {
-            return ActionResult.Failure("Virtual display not started")
-        }
-
-        val suppressIme = action.mayTriggerIme() && !isKeyboardVisibleOnMainDisplay()
-        if (suppressIme) setKeyboardHidden()
-
         return try {
-            dispatchAction(action)
-        } finally {
-            if (suppressIme) setKeyboardAuto()
+            arbiter.withRunningLease {
+                val suppressIme = action.mayTriggerIme() && !isKeyboardVisibleOnMainDisplay()
+                if (suppressIme) setKeyboardHidden()
+
+                try {
+                    dispatchAction(action)
+                } finally {
+                    if (suppressIme) setKeyboardAuto()
+                }
+            }
+        } catch (e: PlatformNotRunningException) {
+            ActionResult.Failure("Virtual display not running (${e.message})")
         }
     }
 
@@ -388,7 +448,11 @@ class VirtualDisplayPlatform(
     }
 
     override suspend fun launchApp(packageName: String): ActionResult {
-        return appController.launchApp(packageName)
+        return try {
+            arbiter.withRunningLease { appController.launchApp(packageName) }
+        } catch (e: PlatformNotRunningException) {
+            ActionResult.Failure("Virtual display not running (${e.message})")
+        }
     }
 
     // ── IME Suppression ──────────────────────────────────────────
@@ -430,12 +494,26 @@ class VirtualDisplayPlatform(
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                 val allWindows = service.getWindowsOnAllDisplays()
                 val mainWindows = allWindows.get(Display.DEFAULT_DISPLAY) ?: return false
-                mainWindows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+                try {
+                    mainWindows.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+                } finally {
+                    // Recycle all window objects across all displays
+                    for (i in 0 until allWindows.size()) {
+                        allWindows.valueAt(i)?.forEach { w ->
+                            runCatching { w.recycle() }
+                        }
+                    }
+                }
             } else {
-                service.windows?.any {
-                    it.displayId == Display.DEFAULT_DISPLAY &&
-                            it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD
-                } == true
+                val windows = service.windows ?: return false
+                try {
+                    windows.any {
+                        it.displayId == Display.DEFAULT_DISPLAY &&
+                                it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD
+                    }
+                } finally {
+                    windows.forEach { w -> runCatching { w.recycle() } }
+                }
             }
         } catch (_: Exception) {
             false

@@ -153,7 +153,8 @@ class AccessibilityPlatform(
         val capturedAt = System.currentTimeMillis()
         val roots = windowRoots.roots
         val keyboardVisible = windowRoots.keyboardVisible
-        val windowId = roots.firstOrNull()?.windowId
+        // Use the topmost window (last in ascending-layer-sorted list) for screenshot targeting
+        val windowId = roots.lastOrNull()?.windowId
 
         if (roots.isEmpty()) {
             val quality = CaptureQuality(
@@ -340,7 +341,31 @@ class AccessibilityPlatform(
 
     override fun getCurrentPackageName(): String? {
         return try {
-            service.rootInActiveWindow?.packageName?.toString()
+            val windows = service.windows
+            if (windows.isNullOrEmpty()) {
+                // Fallback: no window enumeration available
+                val root = service.rootInActiveWindow ?: return null
+                return try { root.packageName?.toString() } finally { root.recycleCompat() }
+            }
+            try {
+                // Pick the topmost non-overlay/non-IME TYPE_APPLICATION window
+                val eligible = windows
+                    .filter { w ->
+                        w.type != AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY &&
+                            w.type != AccessibilityWindowInfo.TYPE_INPUT_METHOD
+                    }
+                    .sortedByDescending { it.layer }
+                val topWindow =
+                    eligible.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+                        ?: eligible.firstOrNull()
+                val root = topWindow?.root ?: return null
+                try { root.packageName?.toString() } finally { root.recycleCompat() }
+            } finally {
+                windows.forEach { w ->
+                    runCatching { w.recycle() }
+                        .onFailure { err -> Log.w(TAG, "Window recycle failed (ignored)", err) }
+                }
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to get package name", e)
             null
