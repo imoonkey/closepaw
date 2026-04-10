@@ -6,8 +6,7 @@ import org.json.JSONObject
 import org.junit.Test
 
 /**
- * Security regression: shell blocklist must contain exactly am/pm/reboot/su
- * and reject all of them (including full-path variants).
+ * Security regression: shell blocklist and metacharacter rejection.
  */
 class ShellToolBlocklistTest {
 
@@ -35,6 +34,21 @@ class ShellToolBlocklistTest {
         assertBlocked("su -c id")
     }
 
+    @Test
+    fun `env command is blocked`() {
+        assertBlocked("env am start -n com.example/.Activity")
+    }
+
+    @Test
+    fun `xargs command is blocked`() {
+        assertBlocked("xargs rm")
+    }
+
+    @Test
+    fun `find command is blocked`() {
+        assertBlocked("find /sdcard -name test")
+    }
+
     // ── Full-path bypass prevention ─────────────────────────────────
 
     @Test
@@ -45,6 +59,58 @@ class ShellToolBlocklistTest {
     @Test
     fun `full path to su is blocked`() {
         assertBlocked("/system/xbin/su")
+    }
+
+    // ── Metacharacter rejection ─────────────────────────────────────
+
+    @Test
+    fun `semicolon rejected`() {
+        assertMetacharRejected("ls /sdcard; rm -rf /")
+    }
+
+    @Test
+    fun `pipe rejected`() {
+        assertMetacharRejected("cat /etc/passwd | grep root")
+    }
+
+    @Test
+    fun `ampersand rejected`() {
+        assertMetacharRejected("sleep 100 &")
+    }
+
+    @Test
+    fun `backtick rejected`() {
+        assertMetacharRejected("echo `whoami`")
+    }
+
+    @Test
+    fun `dollar sign rejected`() {
+        assertMetacharRejected("echo \$HOME")
+    }
+
+    @Test
+    fun `dollar-paren rejected`() {
+        assertMetacharRejected("echo \$(whoami)")
+    }
+
+    @Test
+    fun `dollar-brace rejected`() {
+        assertMetacharRejected("echo \${HOME}")
+    }
+
+    @Test
+    fun `output redirect rejected`() {
+        assertMetacharRejected("echo pwned > /sdcard/file.txt")
+    }
+
+    @Test
+    fun `input redirect rejected`() {
+        assertMetacharRejected("cat < /sdcard/file.txt")
+    }
+
+    @Test
+    fun `newline rejected`() {
+        assertMetacharRejected("cat /sdcard/file.txt\nrm -rf /")
     }
 
     // ── Allowed commands pass validation ─────────────────────────────
@@ -82,7 +148,14 @@ class ShellToolBlocklistTest {
         val result = tool.validate(JSONObject().put("command", command))
         assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
         val errors = (result as ValidationResult.Invalid).errors
-        assertThat(errors.first()).contains("Blocked")
+        assertThat(errors.first()).containsMatch("Blocked|metacharacters")
+    }
+
+    private fun assertMetacharRejected(command: String) {
+        val result = tool.validate(JSONObject().put("command", command))
+        assertThat(result).isInstanceOf(ValidationResult.Invalid::class.java)
+        val errors = (result as ValidationResult.Invalid).errors
+        assertThat(errors.first()).contains("metacharacters")
     }
 
     private fun assertAllowed(command: String) {

@@ -189,21 +189,21 @@ private class OpenAppInvocation(
         val targetPackage = match.packageName
         Log.d(TAG, "Resolved '$appName' -> $targetPackage (${match.label})")
 
-        // --- Foreground check: skip re-launch if already open ---
-        val currentPackage = context.platform.getCurrentPackageName()
-        if (currentPackage != null && currentPackage == targetPackage) {
-            Log.d(TAG, "'${match.label}' is already in the foreground, skipping launch")
-            return ToolExecutionResult.Success(
-                output = "'${match.label}' is already in the foreground. No action needed."
-            )
-        }
-
         // --- Destination tier check: deny launch into BLOCKED apps ---
         val classifier = context.appClassifier
         if (classifier != null && classifier.classify(targetPackage) == AppTier.BLOCKED) {
             Log.w(TAG, "Denied open_app to BLOCKED package: $targetPackage")
             return ToolExecutionResult.Failure(
                 "Cannot open '${match.label}': app is blocked by security policy."
+            )
+        }
+
+        // --- Foreground check: skip re-launch if already open ---
+        val currentPackage = context.platform.getCurrentPackageName()
+        if (currentPackage != null && currentPackage == targetPackage) {
+            Log.d(TAG, "'${match.label}' is already in the foreground, skipping launch")
+            return ToolExecutionResult.Success(
+                output = "'${match.label}' is already in the foreground. No action needed."
             )
         }
 

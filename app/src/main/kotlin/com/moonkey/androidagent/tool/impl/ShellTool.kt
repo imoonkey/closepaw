@@ -40,6 +40,13 @@ class ShellTool : ToolSpec {
         if (command.isEmpty()) {
             return ValidationResult.Invalid("Missing required parameter: command")
         }
+        // Reject shell metacharacters that enable chaining/bypassing
+        val metaMatch = SHELL_METACHAR_PATTERN.find(command)
+        if (metaMatch != null) {
+            return ValidationResult.Invalid(
+                "Shell metacharacters not allowed: ${metaMatch.value}"
+            )
+        }
         // Reject destructive commands by first token
         val firstToken = command.split(Regex("\\s+"), limit = 2).first()
             .substringAfterLast('/') // handle full paths like /system/bin/rm
@@ -58,7 +65,10 @@ class ShellTool : ToolSpec {
         private const val TIMEOUT_SECONDS = 10L
         private const val MAX_OUTPUT_CHARS = 4096
 
-        private val BLOCKED_COMMANDS = setOf("am", "pm", "reboot", "su")
+        private val BLOCKED_COMMANDS = setOf("am", "pm", "reboot", "su", "env", "xargs", "find")
+
+        // Rejects: ; | & ` > < newline/CR, and any $ (variable expansion/substitution)
+        private val SHELL_METACHAR_PATTERN = Regex("[;|&`><\\n\\r\$]")
     }
 
     private class ShellInvocation(
@@ -111,7 +121,9 @@ class ShellTool : ToolSpec {
 
                     val output = outputDeferred.await()
                     val exitCode = process.exitValue()
-                    textToolSuccess(output = "exit=$exitCode\n$output")
+                    val truncationNote = if (output.length >= MAX_OUTPUT_CHARS)
+                        "\n[output truncated at $MAX_OUTPUT_CHARS chars]" else ""
+                    textToolSuccess(output = "exit=$exitCode\n$output$truncationNote")
                 } catch (e: Exception) {
                     ToolExecutionResult.Failure("Shell execution failed: ${e.message}", e)
                 }
