@@ -2,6 +2,7 @@ package com.moonkey.androidagent.tool.impl
 
 import android.util.Log
 import com.moonkey.androidagent.platform.ActionResult
+import com.moonkey.androidagent.protocol.AppTier
 import com.moonkey.androidagent.tool.action.buildObservation
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
@@ -194,6 +195,15 @@ private class OpenAppInvocation(
             Log.d(TAG, "'${match.label}' is already in the foreground, skipping launch")
             return ToolExecutionResult.Success(
                 output = "'${match.label}' is already in the foreground. No action needed."
+            )
+        }
+
+        // --- Destination tier check: deny launch into BLOCKED apps ---
+        val classifier = context.appClassifier
+        if (classifier != null && classifier.classify(targetPackage) == AppTier.BLOCKED) {
+            Log.w(TAG, "Denied open_app to BLOCKED package: $targetPackage")
+            return ToolExecutionResult.Failure(
+                "Cannot open '${match.label}': app is blocked by security policy."
             )
         }
 

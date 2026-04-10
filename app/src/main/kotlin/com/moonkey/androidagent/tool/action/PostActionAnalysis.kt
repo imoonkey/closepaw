@@ -2,6 +2,7 @@ package com.moonkey.androidagent.tool.action
 
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.ToolObservation
 import kotlinx.coroutines.delay
 
@@ -17,7 +18,8 @@ private const val SLOW_TRANSITION_DELAY_MS = 1000L
 internal suspend fun capturePostActionAnalysis(
     preSnapshot: ScreenSnapshot?,
     platform: AndroidPlatform,
-    settleDelayMs: Long
+    settleDelayMs: Long,
+    appClassifier: AppClassifier? = null
 ): PostActionAnalysis {
     val captures = mutableListOf<CaptureAttempt>()
     captures += captureAttempt(platform, settleDelayMs)
@@ -42,7 +44,7 @@ internal suspend fun capturePostActionAnalysis(
 
     val finalAttempt = captures.last()
     val postSnapshot = finalAttempt.snapshot
-    val observation = postSnapshot?.let { buildObservation(it, platform) }
+    val observation = postSnapshot?.let { buildObservation(it, platform, appClassifier) }
 
     val warnings = mutableListOf<String>()
     captures.mapNotNullTo(warnings) { attempt ->

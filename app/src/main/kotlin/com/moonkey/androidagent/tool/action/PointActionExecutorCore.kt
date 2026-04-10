@@ -9,6 +9,7 @@ import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.DisplayInfo
 import com.moonkey.androidagent.platform.SemanticTargetHint
 import com.moonkey.androidagent.platform.UIAction
+import com.moonkey.androidagent.tool.AppClassifier
 import android.util.Log
 
 /**
@@ -46,7 +47,8 @@ internal suspend fun executePointAction(
     isCancelled: () -> Boolean,
     formatSuccess: (point: Point, channelName: String, warnings: List<String>) -> String,
     formatFailure: (point: Point, channelName: String, reason: String, warnings: List<String>) -> String,
-    targetResolver: TargetResolver = TargetResolver
+    targetResolver: TargetResolver = TargetResolver,
+    appClassifier: AppClassifier? = null
 ): ActionOutcome {
     if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before $actionName")
 
@@ -98,7 +100,8 @@ internal suspend fun executePointAction(
                     attemptTrail = attemptTrail,
                     preSnapshot = snapshot,
                     platform = platform,
-                    formatSuccess = formatSuccess
+                    formatSuccess = formatSuccess,
+                    appClassifier = appClassifier
                 )
                 when (outcome) {
                     is ActionOutcome.Success -> {
@@ -155,12 +158,14 @@ private suspend fun buildPointActionOutcome(
     attemptTrail: List<String>,
     preSnapshot: ScreenSnapshot?,
     platform: AndroidPlatform,
-    formatSuccess: (Point, String, List<String>) -> String
+    formatSuccess: (Point, String, List<String>) -> String,
+    appClassifier: AppClassifier? = null
 ): ActionOutcome {
     val analysis = capturePostActionAnalysis(
         preSnapshot = preSnapshot,
         platform = platform,
-        settleDelayMs = UI_SETTLE_DELAY_MS
+        settleDelayMs = UI_SETTLE_DELAY_MS,
+        appClassifier = appClassifier
     )
     val allWarnings = buildList {
         addAll(resolvedWarnings)

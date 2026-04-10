@@ -4,6 +4,7 @@ import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.UIAction
+import com.moonkey.androidagent.tool.AppClassifier
 import kotlinx.coroutines.delay
 
 /**
@@ -32,12 +33,13 @@ class TypeExecutor(
         clear: Boolean,
         snapshot: ScreenSnapshot?,
         platform: AndroidPlatform,
-        isCancelled: () -> Boolean
+        isCancelled: () -> Boolean,
+        appClassifier: AppClassifier? = null
     ): ActionOutcome {
         val attemptTrail = mutableListOf<String>()
 
         if (target == null) {
-            return typeOnFocused(inputText, clear, snapshot, platform, attemptTrail)
+            return typeOnFocused(inputText, clear, snapshot, platform, attemptTrail, appClassifier)
         }
 
         val resolvedTarget = targetResolver.resolve(target, snapshot)
@@ -59,7 +61,7 @@ class TypeExecutor(
         )
         if (directResult is ActionResult.Success) {
             attemptTrail.add("SetTextOnNodeAt: success")
-            val analysis = capturePostActionAnalysis(snapshot, platform, UI_SETTLE_DELAY_MS)
+            val analysis = capturePostActionAnalysis(snapshot, platform, UI_SETTLE_DELAY_MS, appClassifier)
             return ActionOutcome.Success(
                 message = formatActionMessage(
                     "Typed into element at (${point.x},${point.y})",
@@ -98,7 +100,7 @@ class TypeExecutor(
         val focusedResult = platform.performAction(UIAction.SetTextOnFocused(inputText, clear))
         if (focusedResult is ActionResult.Success) {
             attemptTrail.add("TapToFocus+SetTextOnFocused: success")
-            val analysis = capturePostActionAnalysis(snapshot, platform, UI_SETTLE_DELAY_MS)
+            val analysis = capturePostActionAnalysis(snapshot, platform, UI_SETTLE_DELAY_MS, appClassifier)
             return ActionOutcome.Success(
                 message = formatActionMessage(
                     "Typed via tap-to-focus at (${point.x},${point.y})",
@@ -122,12 +124,13 @@ class TypeExecutor(
         clear: Boolean,
         snapshot: ScreenSnapshot?,
         platform: AndroidPlatform,
-        attemptTrail: MutableList<String>
+        attemptTrail: MutableList<String>,
+        appClassifier: AppClassifier? = null
     ): ActionOutcome {
         val result = platform.performAction(UIAction.SetTextOnFocused(inputText, clear))
         if (result is ActionResult.Success) {
             attemptTrail.add("SetTextOnFocused: success")
-            val analysis = capturePostActionAnalysis(snapshot, platform, UI_SETTLE_DELAY_MS)
+            val analysis = capturePostActionAnalysis(snapshot, platform, UI_SETTLE_DELAY_MS, appClassifier)
             return ActionOutcome.Success(
                 message = formatActionMessage("Typed into focused field", analysis.warnings),
                 observation = analysis.observation,

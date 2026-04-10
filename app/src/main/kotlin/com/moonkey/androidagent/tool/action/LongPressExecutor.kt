@@ -3,6 +3,7 @@ package com.moonkey.androidagent.tool.action
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.UIAction
+import com.moonkey.androidagent.tool.AppClassifier
 
 /**
  * Long press executor: thin wrapper over [executePointAction].
@@ -18,7 +19,8 @@ class LongPressExecutor(
         durationMs: Long,
         snapshot: ScreenSnapshot?,
         platform: AndroidPlatform,
-        isCancelled: () -> Boolean
+        isCancelled: () -> Boolean,
+        appClassifier: AppClassifier? = null
     ): ActionOutcome = executePointAction(
         actionName = "long_press",
         channels = ActionPriorityOrder.longPress.map { channel ->
@@ -49,6 +51,7 @@ class LongPressExecutor(
                 warnings
             )
         },
-        targetResolver = targetResolver
+        targetResolver = targetResolver,
+        appClassifier = appClassifier
     )
 }

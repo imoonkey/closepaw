@@ -107,13 +107,10 @@ class CapturePrivacyGateTest {
             .createInvocation(JSONObject().put("app_name", "Chase"))
         val result = invocation.execute(context)
 
-        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
-        val obs = (result as ToolExecutionResult.Success).observation
-                as? ToolObservation.ScreenState
-        assertThat(obs).isNotNull()
-        assertThat(obs!!.elementCount).isEqualTo(0)
-        assertThat(obs.snapshot?.image).isNull()
-        assertThat(obs.accessibilityTree).contains("BLOCKED")
+        // Destination-aware check: BLOCKED apps are denied before launch
+        assertThat(result).isInstanceOf(ToolExecutionResult.Failure::class.java)
+        val failure = result as ToolExecutionResult.Failure
+        assertThat(failure.error).contains("blocked")
     }
 
     @Test

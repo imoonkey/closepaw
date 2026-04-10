@@ -2,6 +2,7 @@ package com.moonkey.androidagent.tool.impl
 
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.tool.ToolExecutionContext
 import com.moonkey.androidagent.tool.ToolExecutionResult
 import com.moonkey.androidagent.tool.ToolInvocation
@@ -17,7 +18,7 @@ import org.json.JSONObject
 class MobileActionInvocation(
     override val params: JSONObject,
     private val description: String,
-    private val executeAction: suspend (AndroidPlatform, ScreenSnapshot?, () -> Boolean) -> ActionOutcome
+    private val executeAction: suspend (AndroidPlatform, ScreenSnapshot?, () -> Boolean, AppClassifier?) -> ActionOutcome
 ) : ToolInvocation {
     override val toolName = "mobile_action"
 
@@ -28,7 +29,7 @@ class MobileActionInvocation(
 
     override suspend fun execute(context: ToolExecutionContext): ToolExecutionResult {
         if (context.isCancelled()) return ToolExecutionResult.Cancelled()
-        val outcome = executeAction(context.platform, context.currentSnapshot, context::isCancelled)
+        val outcome = executeAction(context.platform, context.currentSnapshot, context::isCancelled, context.appClassifier)
         return mapOutcome(outcome)
     }
 

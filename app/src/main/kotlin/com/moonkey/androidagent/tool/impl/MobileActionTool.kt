@@ -66,11 +66,11 @@ Actions:
         val target = parseOptionalTarget(params)
         val description = buildDescription(action, target, params)
 
-        return MobileActionInvocation(params, description) { platform, snapshot, isCancelled ->
+        return MobileActionInvocation(params, description) { platform, snapshot, isCancelled, appClassifier ->
             when (action) {
                 "click" -> {
                     val requiredTarget = requireTarget(action, target)
-                    ClickExecutor().execute(requiredTarget, snapshot, platform, isCancelled)
+                    ClickExecutor().execute(requiredTarget, snapshot, platform, isCancelled, appClassifier)
                 }
                 "long_press" -> {
                     val requiredTarget = requireTarget(action, target)
@@ -79,18 +79,19 @@ Actions:
                         params.optLong("duration_ms", 1000),
                         snapshot,
                         platform,
-                        isCancelled
+                        isCancelled,
+                        appClassifier
                     )
                 }
                 "type" -> TypeExecutor().execute(
                     target, params.getString("input_text"),
-                    params.optBoolean("clear", false), snapshot, platform, isCancelled
+                    params.optBoolean("clear", false), snapshot, platform, isCancelled, appClassifier
                 )
                 "scroll" -> ScrollExecutor().execute(
                     target, params.getString("direction"),
-                    snapshot, platform, isCancelled
+                    snapshot, platform, isCancelled, appClassifier
                 )
-                "swipe" -> SwipeExecutor().execute(params, snapshot, platform, isCancelled)
+                "swipe" -> SwipeExecutor().execute(params, snapshot, platform, isCancelled, appClassifier)
                 else -> error("Unreachable: validated above")
             }
         }

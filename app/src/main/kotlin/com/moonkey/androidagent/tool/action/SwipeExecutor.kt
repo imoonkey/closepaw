@@ -4,6 +4,7 @@ import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.UIAction
+import com.moonkey.androidagent.tool.AppClassifier
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 import kotlin.math.max
@@ -24,7 +25,8 @@ class SwipeExecutor {
         params: JSONObject,
         snapshot: ScreenSnapshot?,
         platform: AndroidPlatform,
-        isCancelled: () -> Boolean
+        isCancelled: () -> Boolean,
+        appClassifier: AppClassifier? = null
     ): ActionOutcome {
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before swipe")
 
@@ -56,7 +58,8 @@ class SwipeExecutor {
         val analysis = capturePostActionAnalysis(
             preSnapshot = snapshot,
             platform = platform,
-            settleDelayMs = max(MIN_SETTLE_DELAY_MS, (durationMs * 0.75).toLong())
+            settleDelayMs = max(MIN_SETTLE_DELAY_MS, (durationMs * 0.75).toLong()),
+            appClassifier = appClassifier
         )
 
         return ActionOutcome.Success(

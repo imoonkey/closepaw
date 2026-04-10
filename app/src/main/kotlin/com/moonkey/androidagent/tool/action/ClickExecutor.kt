@@ -3,6 +3,7 @@ package com.moonkey.androidagent.tool.action
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.UIAction
+import com.moonkey.androidagent.tool.AppClassifier
 
 /**
  * Click executor: thin wrapper over [executePointAction].
@@ -18,7 +19,8 @@ class ClickExecutor(
         target: Target,
         snapshot: ScreenSnapshot?,
         platform: AndroidPlatform,
-        isCancelled: () -> Boolean
+        isCancelled: () -> Boolean,
+        appClassifier: AppClassifier? = null
     ): ActionOutcome = executePointAction(
         actionName = "click",
         channels = ActionPriorityOrder.click.map { channel ->
@@ -44,6 +46,7 @@ class ClickExecutor(
         formatFailure = { point, channel, reason, warnings ->
             formatActionMessage("Click at (${point.x},${point.y}) via $channel failed: $reason", warnings)
         },
-        targetResolver = targetResolver
+        targetResolver = targetResolver,
+        appClassifier = appClassifier
     )
 }

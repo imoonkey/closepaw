@@ -5,6 +5,7 @@ import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.AndroidPlatform
 import com.moonkey.androidagent.platform.UIAction
+import com.moonkey.androidagent.tool.AppClassifier
 /**
  * Scroll executor: content-direction scroll with optional element targeting.
  *
@@ -25,7 +26,8 @@ class ScrollExecutor(
         direction: String,
         snapshot: ScreenSnapshot?,
         platform: AndroidPlatform,
-        isCancelled: () -> Boolean
+        isCancelled: () -> Boolean,
+        appClassifier: AppClassifier? = null
     ): ActionOutcome {
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before scroll")
 
@@ -45,7 +47,8 @@ class ScrollExecutor(
                                 channel = "gesture_swipe",
                                 attemptTrail = attemptTrail,
                                 preSnapshot = snapshot,
-                                platform = platform
+                                platform = platform,
+                                appClassifier = appClassifier
                             )
                             when (outcome) {
                                 is ActionOutcome.Success -> {
@@ -75,7 +78,8 @@ class ScrollExecutor(
                                 channel = "a11y_scroll",
                                 attemptTrail = attemptTrail,
                                 preSnapshot = snapshot,
-                                platform = platform
+                                platform = platform,
+                                appClassifier = appClassifier
                             )
                             when (outcome) {
                                 is ActionOutcome.Success -> {
@@ -131,12 +135,14 @@ class ScrollExecutor(
         channel: String,
         attemptTrail: List<String>,
         preSnapshot: ScreenSnapshot?,
-        platform: AndroidPlatform
+        platform: AndroidPlatform,
+        appClassifier: AppClassifier? = null
     ): ActionOutcome {
         val analysis = capturePostActionAnalysis(
             preSnapshot = preSnapshot,
             platform = platform,
-            settleDelayMs = UI_SETTLE_DELAY_MS
+            settleDelayMs = UI_SETTLE_DELAY_MS,
+            appClassifier = appClassifier
         )
         if (analysis.changeResult == UiChangeDetector.ChangeResult.Unchanged) {
             return ActionOutcome.Failed(
