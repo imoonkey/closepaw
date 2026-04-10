@@ -22,19 +22,18 @@ The real problem is robustness at the platform boundary. The accessibility and v
 ## Critical Findings
 
 ### 1. Callback-driven capture paths are unbounded
-`AccessibilityScreenshotCapturer` waits on `takeScreenshot` / `takeScreenshotOfWindow` without a timeout. `VirtualDisplayCaptureCoordinator` does the same for `PixelCopy.request`.
+`AccessibilityScreenshotCapturer` waits on `takeScreenshot` / `takeScreenshotOfWindow` without a timeout. `VirtualDisplayCaptureCoordinator` does the same for `PixelCopy.request`. The PixelCopy path also does not register `invokeOnCancellation` cleanup for its preallocated `Bitmap`, so cancellation leaks the bitmap even though it does not crash (coroutines 1.7.3 silently discards late resumes on cancelled continuations).
 
 Why this matters:
 
 - a lost framework callback can wedge `captureScreen()` forever
-- service death or surface teardown can turn one bad turn into a stuck session
-- cancellation safety is inconsistent, especially in the PixelCopy path
+- no caller (`AgentTurnRunner`, `TurnExecutionPhaseRunner`, `ToolRouter`) wraps platform capture in a timeout, so a stuck callback stalls the entire agent turn
+- cancellation leaks resources even though it does not crash
 
 Required fix:
 
-- one shared bounded callback helper
+- one shared bounded callback helper with `invokeOnCancellation` cleanup
 - timeout on every callback-to-suspend bridge
-- cancellation-safe resume checks
 - deterministic fallback or failure result when the callback never arrives
 
 ### 2. Virtual-display gestures are not cancellation-safe
@@ -54,14 +53,15 @@ Required fix:
 ## High Findings
 
 ### 1. The virtual-display stack has no single lifecycle owner
-`VirtualDisplayPlatform` spreads live state across `displayId`, `imageReader`, surface mode, callback tokens, and cached binder proxies, but there is no serialized owner for `start`, `stop`, `captureScreen`, `performAction`, `switchToLivePreview`, `switchToImageReader`, and binder-death handling.
+`VirtualDisplayPlatform` spreads live state across `displayId`, `imageReader`, surface mode, callback tokens, and cached binder proxies, but there is no serialized owner for `start`, `stop`, `captureScreen`, `performAction`, `switchToLivePreview`, `switchToImageReader`, and binder-death handling. The code comment on `stop()` already documents "Not safe to call concurrently with captureScreen/performAction" — this is a known caller contract, but nothing enforces it.
 
 Why this matters:
 
-- `stop()` can race with capture or action work
+- `stop()` can race with capture or action work and no guard prevents it
 - surface switching can race with screenshot capture
 - IME suppression is implicitly racy if actions ever overlap
 - half-started and half-stopped states are possible
+- `start()` has no rollback: cancellation/exception after VD creation leaves `displayId` and `imageReader` assigned while the session believes startup failed; the next `start()` no-ops because `displayId` is already set
 
 Required fix:
 
@@ -86,12 +86,14 @@ Required fix:
 - make later calls fail closed with a clear reason
 
 ### 3. Window selection is wrong under multi-window conditions
-The accessibility path sorts windows by ascending layer, then uses the first root for `takeScreenshotOfWindow`, which biases toward the lowest layer rather than the topmost window. The VD path chooses an application window without explicit layer ordering.
+The accessibility path sorts windows by ascending layer (`.sortedBy { it.layer }`), then uses `roots.firstOrNull()?.windowId` for `takeScreenshotOfWindow`, which picks the lowest-layer (bottom) window instead of the topmost. Meanwhile, `captureAccessibilityTree()` collects all roots from all non-overlay/non-IME windows, but actions use `service.rootInActiveWindow` (a single root) and `getCurrentPackageName()` also uses `rootInActiveWindow`. This means capture, actions, and privacy gating each use a different window/root policy. On the VD side, `VirtualDisplayWindowAccessor.getRootOnDisplay()` picks the first `TYPE_APPLICATION` window with no layer ordering — this single-root accessor is used by `NodeActionPerformer` for action targeting and by `getCurrentPackageName()` for foreground-package detection and privacy gating.
 
 Why this matters:
 
-- screenshot, tree, and action targeting can diverge
-- dialogs, popups, and split-window layouts can send actions to the background window
+- accessibility screenshots target the background window when a dialog or popup is present (Android U+ only)
+- the accessibility tree includes all window roots, but actions and privacy gating use only `rootInActiveWindow` — a blocked app behind an allowed dialog can pass the package check while its background nodes leak into the tree
+- VD node actions can target the wrong window under dialogs/popups
+- `getCurrentPackageName()` can return the wrong package, affecting privacy gating in `captureScreen()`
 
 Required fix:
 
@@ -99,23 +101,8 @@ Required fix:
 - consistent screenshot/root targeting policy
 - full-display fallback when single-window assumptions do not hold
 
-### 4. Virtual-display geometry becomes stale after rotation or display-size change
-`VirtualDisplayConfig` snapshots app metrics once at startup and the VD stack keeps using them forever.
-
-Why this matters:
-
-- coordinate mapping drifts after rotation
-- screenshot cropping and viewer touch scaling become wrong
-- app layout on the VD can diverge from current device geometry
-
-Required fix:
-
-- source real display metrics, not app content metrics
-- detect width, height, or density change
-- recreate the VD and `ImageReader` when geometry changes
-
-### 5. Accessibility capture does not fail soft
-The accessibility path does not downgrade tree dump, trace, or `Perceptor.snapshot()` failures into a safe platform-level result.
+### 4. Accessibility capture does not fail soft
+The accessibility path does not downgrade tree dump, trace, or `Perceptor.snapshot()` failures into a safe platform-level result. The VD path wraps `Perceptor.snapshot()` in try/catch and returns empty on failure; the accessibility path does not.
 
 Why this matters:
 
@@ -128,27 +115,8 @@ Required fix:
 - catch tree/snapshot failures at the platform boundary
 - return best-effort empty or partial snapshots instead of crashing the turn
 
-### 6. Resource ownership is inconsistent
-There are repeated hot-path ownership issues:
-
-- temporary roots and windows are not consistently recycled
-- accessibility debug screenshots have no retention cap
-- stale binder proxies survive beyond session lifetime
-
-Why this matters:
-
-- binder pressure rises on repeated use
-- disk usage grows without bound in debug mode
-- stale proxy state survives into later sessions
-
-Required fix:
-
-- audited ownership helpers for temporary nodes and windows
-- explicit proxy cleanup during shutdown and broken-state handling
-- bounded retention for debug artifacts in both screenshot paths
-
-### 7. Some platform calls report success when they may have failed
-`VirtualDisplayAppController` reports success after `launchOnDisplay(...)`, but the launcher swallows exceptions and only logs them.
+### 5. Some platform calls report success when they may have failed
+`VirtualDisplayAppController` reports success after `launchOnDisplay(...)`, but `ShizukuActivityLauncher.launchOnDisplay()` catches all exceptions and only logs them. `ShizukuClient.launchOnDisplay()` returns `Unit`, so the controller unconditionally returns `ActionResult.Success`.
 
 Why this matters:
 
@@ -157,64 +125,103 @@ Why this matters:
 
 Required fix:
 
-- make launch return a truthful success/failure result
+- let launch exceptions propagate so the outer catch handles them
 - reject invalid display state early
 - propagate failure through `ActionResult`
 
 ## Medium Findings
 
-### 1. Live-preview surface replacement is ignored
-Once the surface controller is already in `LIVE_PREVIEW`, a new `SurfaceView` instance is ignored.
+### 1. Virtual-display geometry becomes stale after rotation or display-size change
+`VirtualDisplayConfig` snapshots app content-area metrics (via `context.resources.displayMetrics`) once at startup and the VD stack keeps using them forever. Note: the VD is a self-contained coordinate space, so agent actions within the VD do not drift when the physical screen rotates. The real impact is limited to viewer UX degradation and initial sizing using content-area metrics instead of real display metrics (`WindowManager.maximumWindowMetrics.bounds`).
 
 Why this matters:
 
-- viewer recreation can strand the VD on a dead surface
+- viewer touch scaling becomes wrong after rotation
+- the VD may be slightly smaller than the physical display from the start
+- app layout on the VD can diverge from current device geometry in the viewer
 
 Required fix:
 
-- compare surface identity, not only mode
+- source real display metrics via `WindowManager`, not app content metrics
+- detect width, height, or density change
+- recreate the VD and `ImageReader` when geometry changes
 
-### 2. The viewer shell fallback can block its caller thread
-On devices without hidden display-id injection, the fallback path runs shell input synchronously and waits for command completion.
+### 2. Resource ownership has specific gaps
+Resource recycling is mostly consistent across the codebase, but there are specific hot-path gaps:
+
+- `AccessibilityPlatform.getCurrentPackageName()` acquires `rootInActiveWindow` but never recycles it — called every `captureScreen()` turn
+- `VirtualDisplayPlatform.isKeyboardVisibleOnMainDisplay()` acquires `AccessibilityWindowInfo` objects but never recycles them — called before many IME-sensitive actions in `performAction()`
+- accessibility debug screenshots have no retention cap (VD path caps at 20)
+- `ShizukuClient.clearCachedProxies()` exists but is never called — it is dead code
 
 Why this matters:
 
-- touch forwarding can block badly on older or degraded devices
+- both hot-path leaks add binder pressure on every turn
+- disk usage grows without bound in debug mode on the accessibility path
+- stale proxy state can survive beyond session lifetime
+
+Required fix:
+
+- recycle the root node in `getCurrentPackageName()`
+- recycle window objects in `isKeyboardVisibleOnMainDisplay()`
+- add bounded debug screenshot retention to the accessibility path
+- call `clearCachedProxies()` during shutdown and broken-state handling
+
+### 3. VD accessibility capture swallows coroutine cancellation
+`VirtualDisplayCaptureCoordinator.captureA11yTreeWithArtifacts()` catches `Exception` and converts it to an empty result. In Kotlin, `CancellationException` is an `Exception`, so cancellation is also swallowed here. This does not wedge the platform or corrupt lifecycle state, but it turns cancellation into a misleading empty capture and can delay clean shutdown.
+
+Required fix:
+
+- rethrow `CancellationException` instead of swallowing it
+
+### 4. VD accessibility capture runs heavy work on Dispatchers.Main
+`VirtualDisplayCaptureCoordinator.captureA11yTreeWithArtifacts()` wraps the full flow in `withContext(Dispatchers.Main)`, including `Perceptor.snapshot()` and `Perceptor.toPromptJson(snapshot)`. The accessibility path limits Main-thread work to display/window collection and performs perception work outside the Main block. This violates the project's main-safe rule.
+
+Why this matters:
+
+- large-tree perception and sanitized-tree serialization can block the service/viewer main thread
+- increases the odds of jank or delayed framework callbacks in VD mode
+
+Required fix:
+
+- move perception and serialization work off `Dispatchers.Main`
+
+### 5. The viewer shell fallback can block its caller thread
+On devices without hidden display-id injection, the fallback path runs shell input synchronously via `ShizukuShellExecutor.waitForProcess()` which blocks with a polling `Thread.sleep` loop for up to 30 seconds.
+
+Why this matters:
+
+- touch forwarding can freeze the UI thread on older or degraded devices
 
 Required fix:
 
 - move shell fallback off the caller thread or redesign the fallback path
 
-### 3. Invalid scroll directions are normalized silently
-Unknown direction strings currently degrade to forward scrolling.
-
-Why this matters:
-
-- the platform boundary should not reinterpret invalid input into a different action without at least surfacing it
-
-Required fix:
-
-- validate inputs explicitly
-- either fail fast or log-and-fallback intentionally
-
-### 4. Append-mode cursor placement needs proof before changing
-There is a plausible concern that `NodeActionPerformer.setTextOnNode()` may compute cursor placement from stale node state after `ACTION_SET_TEXT`. That is worth testing, but it is not yet proven enough to treat as an accepted bug.
-
-Required fix:
-
-- add a focused regression test for append-mode caret placement
-- change the cursor logic only if the test demonstrates the current behavior is wrong
-
 ## Low Findings
 
-### 1. Dead private helpers should be removed
+### 1. Live-preview surface replacement is ignored
+Once the surface controller is already in `LIVE_PREVIEW`, a new `SurfaceView` instance is ignored. The normal viewer lifecycle calls `notifyViewerHidden()` on `surfaceDestroyed` / `onStop`, which flips back to `IMAGE_READER` first, so triggering this requires unusual callback ordering or a prior switch-back failure.
+
+### 2. Dead private helpers should be removed
 Low-risk cleanup:
 
 - `AccessibilityGestureInjector.gestureDisplayId()`
 - `NodeActionPerformer.performNodeActionAt()`
 
-### 2. `DISPLAY_FLAGS` needs documentation
-The raw bitmask in `VirtualDisplayPlatform` is opaque and should be documented inline.
+### 3. `DISPLAY_FLAGS` needs documentation
+The raw bitmask in `VirtualDisplayPlatform` (6 hex flags including hidden APIs) is opaque and should be documented inline. Not a robustness bug, readability only.
+
+### 4. Invalid scroll directions are normalized silently
+Unknown direction strings degrade to forward scrolling. Production tool input already validates direction via `MobileActionTool` schema enum, so this only affects direct/debug construction paths. Low practical risk.
+
+## Verified Non-Issues
+
+These were investigated and confirmed NOT to be bugs:
+
+- **Append-mode cursor placement in `setTextOnNode()`**: The code intentionally computes cursor position from pre-`ACTION_SET_TEXT` snapshot state. The `combined` string and selection offset are derived from the same pre-action values, which is coherent. Independent audit verified this is correct behavior, not stale state.
+- **Node-recycling in `AccessibilityNodeFinder`**: DFS pattern is correct throughout.
+- **Root/window lifetime in `collectRootsOnActiveDisplay()`**: Recycling a window does not invalidate its root node.
+- **`OverlayTouchGate` timeout**: The caller (`AccessibilityGestureInjector`) correctly handles close in try/finally.
 
 ## Non-Findings and Deliberate Non-Changes
 These are not the current robustness problem and should not drive refactors:
@@ -222,7 +229,6 @@ These are not the current robustness problem and should not drive refactors:
 - keep `ShizukuClient` as the facade boundary
 - keep lambda providers used to avoid circular dependencies in the VD stack
 - do not extract a shared accessibility-capture abstraction yet
-- do not change text-cursor semantics without a failing test
 
 ## Target Robustness Design
 
@@ -269,10 +275,5 @@ Turn edge cases into canonical cases:
 - one lifecycle arbiter instead of scattered state checks
 
 ## Recommendation
-Use the Codex design as the base. Carry forward Claude's valid additions as follow-up items:
-
-- dead code removal
-- `DISPLAY_FLAGS` documentation
-- a test-gated review of append-mode cursor placement
 
 Recommendation: CHANGES_REQUESTED.
