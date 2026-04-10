@@ -3,12 +3,9 @@ package com.moonkey.androidagent.platform.virtualdisplay
 import android.media.ImageReader
 import com.google.common.truth.Truth.assertThat
 import io.mockk.mockk
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -32,21 +29,23 @@ class VdLifecycleArbiterTest {
     @Test
     fun `transitionTo changes state within lifecycle transition`() = runTest {
         val a = arbiter()
-        a.withLifecycleTransition {
+        a.withLifecycleTransition { _ ->
             a.transitionTo(mockRunningState())
         }
         assertThat(a.state).isInstanceOf(VdState.Running::class.java)
     }
 
     @Test
-    fun `markBroken transitions Running to Broken`() = runTest {
+    fun `markBroken transitions Running to Broken and preserves resources`() = runTest {
         val a = arbiter()
-        a.withLifecycleTransition { a.transitionTo(mockRunningState()) }
+        a.withLifecycleTransition { _ -> a.transitionTo(mockRunningState()) }
 
         a.markBroken("binder died")
 
         assertThat(a.state).isInstanceOf(VdState.Broken::class.java)
-        assertThat((a.state as VdState.Broken).reason).isEqualTo("binder died")
+        val broken = a.state as VdState.Broken
+        assertThat(broken.reason).isEqualTo("binder died")
+        assertThat(broken.displayId).isEqualTo(42)
     }
 
     @Test
@@ -59,7 +58,7 @@ class VdLifecycleArbiterTest {
     @Test
     fun `markBroken is no-op when already Broken`() = runTest {
         val a = arbiter()
-        a.withLifecycleTransition { a.transitionTo(mockRunningState()) }
+        a.withLifecycleTransition { _ -> a.transitionTo(mockRunningState()) }
         a.markBroken("first")
         a.markBroken("second")
         assertThat((a.state as VdState.Broken).reason).isEqualTo("first")
@@ -70,7 +69,7 @@ class VdLifecycleArbiterTest {
     @Test
     fun `withRunningLease succeeds when Running`() = runTest {
         val a = arbiter()
-        a.withLifecycleTransition { a.transitionTo(mockRunningState()) }
+        a.withLifecycleTransition { _ -> a.transitionTo(mockRunningState()) }
 
         val result = a.withRunningLease { running ->
             assertThat(running.displayId).isEqualTo(42)
@@ -87,9 +86,34 @@ class VdLifecycleArbiterTest {
     @Test(expected = PlatformNotRunningException::class)
     fun `withRunningLease throws when Broken`() = runTest {
         val a = arbiter()
-        a.withLifecycleTransition { a.transitionTo(mockRunningState()) }
+        a.withLifecycleTransition { _ -> a.transitionTo(mockRunningState()) }
         a.markBroken("dead")
         a.withRunningLease { "should not reach" }
+    }
+
+    // ── Pre-drain State ──────────────────────────────────────────
+
+    @Test
+    fun `preDrainState blocks new ops before drain completes`() = runTest {
+        val a = arbiter()
+        a.withLifecycleTransition { _ -> a.transitionTo(mockRunningState()) }
+
+        // Stop with preDrainState — new ops should see Stopped immediately
+        a.withLifecycleTransition(preDrainState = VdState.Stopped) { previous ->
+            assertThat(previous).isInstanceOf(VdState.Running::class.java)
+            assertThat(a.state).isEqualTo(VdState.Stopped)
+        }
+    }
+
+    @Test
+    fun `previousState is passed to block`() = runTest {
+        val a = arbiter()
+        val running = mockRunningState()
+        a.withLifecycleTransition { _ -> a.transitionTo(running) }
+
+        a.withLifecycleTransition(preDrainState = VdState.Stopped) { previous ->
+            assertThat(previous).isEqualTo(running)
+        }
     }
 
     // ── Drain Behavior ───────────────────────────────────────────
@@ -97,12 +121,11 @@ class VdLifecycleArbiterTest {
     @Test
     fun `lifecycle transition waits for in-flight ops to drain`() = runTest {
         val a = arbiter()
-        a.withLifecycleTransition { a.transitionTo(mockRunningState()) }
+        a.withLifecycleTransition { _ -> a.transitionTo(mockRunningState()) }
 
         var opCompleted = false
         var transitionCompleted = false
 
-        // Start an operational call that takes time
         val opJob = launch {
             a.withRunningLease {
                 delay(100)
@@ -110,10 +133,8 @@ class VdLifecycleArbiterTest {
             }
         }
 
-        // Start a lifecycle transition that should wait for the op
         val transitionJob = launch {
-            a.withLifecycleTransition {
-                // By the time we get here, the op should have completed
+            a.withLifecycleTransition { _ ->
                 transitionCompleted = true
                 assertThat(opCompleted).isTrue()
                 a.transitionTo(VdState.Stopped)
@@ -134,7 +155,7 @@ class VdLifecycleArbiterTest {
         val order = mutableListOf<String>()
 
         val job1 = launch {
-            a.withLifecycleTransition {
+            a.withLifecycleTransition { _ ->
                 order.add("start-1")
                 delay(50)
                 a.transitionTo(mockRunningState())
@@ -143,8 +164,8 @@ class VdLifecycleArbiterTest {
         }
 
         val job2 = launch {
-            delay(10) // Ensure job2 starts slightly after job1
-            a.withLifecycleTransition {
+            delay(10)
+            a.withLifecycleTransition { _ ->
                 order.add("start-2")
                 a.transitionTo(VdState.Stopped)
                 order.add("end-2")
@@ -153,7 +174,6 @@ class VdLifecycleArbiterTest {
 
         advanceUntilIdle()
 
-        // Transitions should not interleave
         assertThat(order).containsExactly("start-1", "end-1", "start-2", "end-2").inOrder()
     }
 }

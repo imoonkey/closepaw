@@ -71,7 +71,12 @@ class AccessibilityScreenshotCapturer(
                             override fun onSuccess(
                                     screenshot: AccessibilityService.ScreenshotResult
                             ) {
-                                cont.resume(screenshot)
+                                if (cont.isActive) {
+                                    cont.resume(screenshot)
+                                } else {
+                                    // Late callback after timeout — close the buffer
+                                    screenshot.hardwareBuffer.close()
+                                }
                             }
 
                             override fun onFailure(errorCode: Int) {
@@ -103,7 +108,11 @@ class AccessibilityScreenshotCapturer(
                             override fun onSuccess(
                                     screenshot: AccessibilityService.ScreenshotResult
                             ) {
-                                cont.resume(screenshot)
+                                if (cont.isActive) {
+                                    cont.resume(screenshot)
+                                } else {
+                                    screenshot.hardwareBuffer.close()
+                                }
                             }
 
                             override fun onFailure(errorCode: Int) {

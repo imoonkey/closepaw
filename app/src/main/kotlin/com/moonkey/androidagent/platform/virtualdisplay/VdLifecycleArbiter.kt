@@ -16,7 +16,11 @@ import kotlinx.coroutines.sync.withLock
 sealed interface VdState {
     data object Stopped : VdState
     data class Running(val displayId: Int, val imageReader: ImageReader) : VdState
-    data class Broken(val reason: String) : VdState
+    data class Broken(
+        val reason: String,
+        val displayId: Int,
+        val imageReader: ImageReader
+    ) : VdState
 }
 
 /**
@@ -48,14 +52,24 @@ internal class VdLifecycleArbiter {
     /**
      * Execute a lifecycle transition under exclusive access.
      *
-     * Acquires the lifecycle mutex, then waits for any in-flight operational calls to complete
-     * (up to [DRAIN_TIMEOUT_MS]). The caller should update [state] via [transitionTo] inside
-     * the block.
+     * Acquires the lifecycle mutex, optionally sets [preDrainState] to reject new operational
+     * calls during the drain window, then waits for in-flight ops to complete (up to
+     * [DRAIN_TIMEOUT_MS]). The caller should finalize [state] via [transitionTo] inside the block.
+     *
+     * For `stop()`, pass `preDrainState = VdState.Stopped` so new [withRunningLease] calls
+     * fail fast instead of sneaking in between drain and teardown.
+     *
+     * @return the result of [block], which receives the state that was active before [preDrainState]
      */
-    suspend fun <T> withLifecycleTransition(block: suspend () -> T): T =
+    suspend fun <T> withLifecycleTransition(
+        preDrainState: VdState? = null,
+        block: suspend (previousState: VdState) -> T
+    ): T =
         lifecycleMutex.withLock {
+            val previous = state
+            preDrainState?.let { state = it }
             drainActiveOps()
-            block()
+            block(previous)
         }
 
     /**
@@ -96,7 +110,12 @@ internal class VdLifecycleArbiter {
     fun markBroken(reason: String) {
         val current = state
         if (current == VdState.Stopped || current is VdState.Broken) return
-        state = VdState.Broken(reason)
+        if (current is VdState.Running) {
+            state = VdState.Broken(reason, current.displayId, current.imageReader)
+        } else {
+            // Should not happen, but guard against unexpected states
+            state = VdState.Stopped
+        }
     }
 
     private suspend fun drainActiveOps() {

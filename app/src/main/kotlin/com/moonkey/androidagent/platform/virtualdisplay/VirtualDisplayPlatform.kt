@@ -113,8 +113,8 @@ class VirtualDisplayPlatform(
     // ── Lifecycle ────────────────────────────────────────────────
 
     override suspend fun start() {
-        arbiter.withLifecycleTransition {
-            if (arbiter.state is VdState.Running) return@withLifecycleTransition
+        arbiter.withLifecycleTransition { previous ->
+            if (previous is VdState.Running) return@withLifecycleTransition
 
             shizuku.bypassHiddenApis()
 
@@ -183,9 +183,8 @@ class VirtualDisplayPlatform(
      * Serialized through the lifecycle arbiter — waits for in-flight ops to complete.
      */
     override suspend fun stop() {
-        arbiter.withLifecycleTransition {
-            val current = arbiter.state
-            if (current == VdState.Stopped) return@withLifecycleTransition
+        arbiter.withLifecycleTransition(preDrainState = VdState.Stopped) { previous ->
+            if (previous == VdState.Stopped) return@withLifecycleTransition
 
             // Restore keyboard first — prevent permanently disabled IME on crash
             setKeyboardAuto()
@@ -195,9 +194,17 @@ class VirtualDisplayPlatform(
 
             surfaceController.reset()
 
-            if (current is VdState.Running) {
-                shizuku.releaseVirtualDisplay(current.displayId)
-                current.imageReader.close()
+            // Clean up resources from Running or Broken state
+            when (previous) {
+                is VdState.Running -> {
+                    shizuku.releaseVirtualDisplay(previous.displayId)
+                    previous.imageReader.close()
+                }
+                is VdState.Broken -> {
+                    shizuku.releaseVirtualDisplay(previous.displayId)
+                    previous.imageReader.close()
+                }
+                else -> {}
             }
 
             shizuku.clearCachedProxies()

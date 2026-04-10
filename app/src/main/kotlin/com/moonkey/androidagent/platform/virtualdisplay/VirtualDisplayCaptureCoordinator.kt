@@ -175,8 +175,10 @@ internal class VirtualDisplayCaptureCoordinator(
                         withContext(Dispatchers.Main) {
                                 boundedCallback(
                                         timeoutMs = PIXEL_COPY_TIMEOUT_MS,
-                                        label = "PixelCopy",
-                                        onCancel = { bitmap.recycle() }
+                                        label = "PixelCopy"
+                                        // No onCancel: PixelCopy has no cancellation API and may still
+                                        // be writing to the bitmap. Let GC reclaim it after the
+                                        // framework callback fires (or is silently dropped).
                                 ) { cont ->
                                         PixelCopy.request(
                                                 sv,
