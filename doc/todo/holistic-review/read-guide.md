@@ -6,12 +6,12 @@
 
 ## 总览
 
-| 优先级 | 维度 | P0 | P1 | P2 | 预估工作量 | 一句话 |
-|--------|------|----|----|----|-----------|----|
-| 1 | [Security & Privacy](#1-security--privacy) | 4 | 4 | 4 | 3-4 周 | 控制面漏洞 + privacy gate 位置错误，阻塞发布 |
-| 2 | [Agent Core Simplicity](#2-agent-core-simplicity) | 1 | 2 | 1 | 2-3 周 | runtime 违反 one-screen-action invariant |
-| 3 | [Platform Robustness](#3-platform-robustness) | 2 | 5 | 5 | 4-5 周 | 无界 callback hang + VD lifecycle 竞态 |
-| 4 | [Tool System Design](#4-tool-system-design) | 1 | 3 | 1 | 2 周 | security gate 未端到端 + shell 注入 |
+| 优先级 | 维度 | P0 | P1 | P2 | 预估工作量 | 状态 | 一句话 |
+|--------|------|----|----|----|-----------|----|------|
+| 1 | [Security & Privacy](#1-security--privacy) | 4 | 4 | 4 | 3-4 周 | **DONE** | 控制面漏洞 + privacy gate 位置错误，阻塞发布 |
+| 2 | [Agent Core Simplicity](#2-agent-core-simplicity) | 1 | 2 | 1 | 2-3 周 | **DONE** | runtime 违反 one-screen-action invariant |
+| 3 | [Platform Robustness](#3-platform-robustness) | 2 | 5 | 5 | 4-5 周 | **DONE** | 无界 callback hang + VD lifecycle 竞态 |
+| 4 | [Tool System Design](#4-tool-system-design) | 1 | 3 | 1 | 2 周 | **DONE** | security gate 未端到端 + shell 注入 |
 | 5 | [LLM Integration](#5-llm-integration) | 5 | 3 | 6 | 3-4 周 | streaming 正确性 bug：静默截断、retry 丢失 |
 | 6 | [State & Concurrency](#6-state--concurrency) | 1 | 4 | 2 | 3 周 | 持久化写入乱序导致数据丢失风险 |
 | 7 | [UI/UX Quality](#7-uiux-quality) | 2 | 4 | 2 | 2-3 周 | Compose composition 阶段副作用 |
