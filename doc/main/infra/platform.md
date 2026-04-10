@@ -1,7 +1,7 @@
 # Platform Abstraction
 
 > AndroidPlatform, action execution, capture wiring, and virtual display support.
-> Last updated: 2026-03-09 (commit: f23287d)
+> Last updated: 2026-04-10 (commit: 4cce154)
 
 ## AndroidPlatform
 
@@ -68,6 +68,10 @@ During `dispatchGesture`, the overlay must become pass-through. `OverlayTouchGat
 2. **Conditionally captures screenshot** — when `PerceptionConfig.capturesScreenshot` or trace enabled
 3. **Only includes screenshot in snapshot** when perception config requests it
 
+### Window Selection
+
+`collectRootsOnActiveDisplay()` collects all non-overlay/non-IME windows sorted by layer ascending. `getCurrentPackageName()` uses the topmost (highest-layer) `TYPE_APPLICATION` window — aligned with the VD platform's `getRootOnDisplay()`. Screenshot targets the topmost window ID.
+
 ---
 
 ## VirtualDisplayPlatform
@@ -111,13 +115,15 @@ During `dispatchGesture`, the overlay must become pass-through. `OverlayTouchGat
 
 **BitmapUtils** (`platform/BitmapUtils.kt`): `scaleBitmapIfNeeded()`, `compressJpeg()`.
 
+**BoundedCallback** (`platform/BoundedCallback.kt`): Shared bounded callback-to-suspend bridge with `withTimeoutOrNull` + `invokeOnCancellation`. Used by accessibility screenshot and VD PixelCopy paths.
+
 ---
 
 ## Perception Integration
 
 -> See: [perception.md](perception.md) for the full capture pipeline, prompt JSON contract, and text semantics.
 
-Platform-side: `AccessibilityPlatform` collects roots from relevant windows, excludes overlay/IME, retries empty-root capture 3×. `VirtualDisplayPlatform` uses display-scoped roots via `VirtualDisplayWindowAccessor`.
+Platform-side: `AccessibilityPlatform` collects roots from relevant windows (topmost-layer selection for actions/privacy, all roots for capture), excludes overlay/IME, retries empty-root capture 3×. `VirtualDisplayPlatform` uses display-scoped roots via `VirtualDisplayWindowAccessor` with layer-ordered topmost window selection. VD captures run `Perceptor.snapshot()` off `Dispatchers.Main`.
 
 **PerceptionConfig** (`perception/PerceptionConfig.kt`): `AccessibilityOnly` (default), `ScreenshotOnly(maxDimension, quality)`, `Hybrid(maxDimension, quality)`.
 
@@ -134,7 +140,8 @@ platform/
 ├── AccessibilityPlatform.kt          # Accessibility implementation
 ├── AccessibilityGestureInjector.kt   # Gesture dispatch + touch gate
 ├── OverlayTouchGate.kt               # Gesture pass-through
-├── AccessibilityScreenshotCapturer.kt # Screenshot + trace
+├── AccessibilityScreenshotCapturer.kt # Bounded screenshot + trace
+├── BoundedCallback.kt                # Shared bounded callback bridge
 ├── AccessibilityNodeFinder.kt        # Node search
 ├── NodeActionPerformer.kt            # Shared node actions
 ├── AppManager.kt                     # Installed-app query
@@ -142,6 +149,9 @@ platform/
 ├── UIAction.kt                       # Action types
 ├── ActionResult.kt                   # Result types
 └── virtualdisplay/                   # → See virtual_display.md
+    ├── VdLifecycleArbiter.kt         # State machine + concurrency
+    ├── VirtualDisplayPlatform.kt     # Orchestrator
+    └── ...
 ```
 
 ## Related Docs

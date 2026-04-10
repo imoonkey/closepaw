@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-04-10: Platform Robustness Hardening (8 phases + 5 follow-up fixes)
+
+**What changed:**
+- P1: VD lifecycle serialization — `VdLifecycleArbiter` state machine (Stopped/Running/Broken), lifecycle mutex with preDrainState, Running lease for ops, start() rollback, binder death → Broken + clearCachedProxies
+- P2: Bounded callback waits — shared `boundedCallback()` helper with timeout (5s a11y, 3s PixelCopy) and invokeOnCancellation; late-callback HardwareBuffer cleanup
+- P3: Gesture cancellation safety — best-effort ACTION_CANCEL on interrupted gestures, MOVE failure fails gesture
+- P4: Window selection coherence — layer-ordered topmost window for actions/privacy/screenshot on both platforms
+- P5: Real display metrics — WindowManager.maximumWindowMetrics instead of app content metrics
+- P6: Boundary correctness — CancellationException rethrown, Perceptor off Main, truthful app launch, surface replacement
+- P7: Resource cleanup — window recycling, debug screenshot retention cap, dead code removal
+- P8: Regression tests for VdLifecycleArbiter and BoundedCallback
+- Follow-up: arbiter admission race fix (preDrainState), PixelCopy bitmap safety, HardwareBuffer leak, shell input fallback (`input -d`), setDisplayId round-trip verification, VD overlay approval visibility, debug-only exported viewer
+
+**Why:**
+- Holistic review found unbounded callback waits, VD lifecycle races, stale binder proxies, window selection bugs, resource leaks, and silent failures at the platform boundary
+- QA on real device uncovered HiddenApiBypass failure (void method false positive in setDisplayId), and VD overlay hiding approval dialogs
+
+**Key files:** VdLifecycleArbiter.kt, VirtualDisplayPlatform.kt, BoundedCallback.kt, VirtualDisplayInputInjector.kt, VirtualDisplayCaptureCoordinator.kt, AccessibilityScreenshotCapturer.kt, AccessibilityPlatform.kt, VirtualDisplayWindowAccessor.kt, OverlayLocationPolicy.kt
+**Verification:** `./gradlew assembleDebug test` passes; QA on P0110 (Android 16): a11y mode, VD mode, hybrid screenshots, PixelCopy/LIVE_PREVIEW, multi-session lifecycle, overlay approval all verified
+**Commit:** ddb581d..4cce154 (6 commits)
+**Next:** None — platform robustness complete
+**Blockers:** None
+
 ## 2026-04-09: Agent Core Simplicity (9 tasks)
 
 **What changed:**
