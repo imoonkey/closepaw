@@ -10,7 +10,9 @@ import android.view.ViewConfiguration
 import com.moonkey.androidagent.platform.ActionResult
 import com.moonkey.androidagent.platform.SystemButtonType
 import com.moonkey.androidagent.platform.UIAction
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * Input injector for a virtual display via Shizuku.
@@ -34,6 +36,10 @@ class VirtualDisplayInputInjector(
         val displayId = displayIdProvider()
         if (displayId == Display.INVALID_DISPLAY) {
             return ActionResult.Failure("Virtual display not started")
+        }
+
+        if (!supportsDisplayIdInjection()) {
+            return shellTap(displayId, x, y)
         }
 
         val downTime = SystemClock.uptimeMillis()
@@ -61,6 +67,10 @@ class VirtualDisplayInputInjector(
         val displayId = displayIdProvider()
         if (displayId == Display.INVALID_DISPLAY) {
             return ActionResult.Failure("Virtual display not started")
+        }
+
+        if (!supportsDisplayIdInjection()) {
+            return shellLongPress(displayId, x, y, durationMs)
         }
 
         val downTime = SystemClock.uptimeMillis()
@@ -105,6 +115,10 @@ class VirtualDisplayInputInjector(
         val displayId = displayIdProvider()
         if (displayId == Display.INVALID_DISPLAY) {
             return ActionResult.Failure("Virtual display not started")
+        }
+
+        if (!supportsDisplayIdInjection()) {
+            return shellSwipe(displayId, action)
         }
 
         val downTime = SystemClock.uptimeMillis()
@@ -189,6 +203,10 @@ class VirtualDisplayInputInjector(
                     SystemButtonType.ENTER -> KeyEvent.KEYCODE_ENTER
                 }
 
+        if (!supportsDisplayIdInjection()) {
+            return shellKeyEvent(displayId, keyCode, button)
+        }
+
         val now = SystemClock.uptimeMillis()
         val down = keyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode)
         val up = keyEvent(now, now + 10, KeyEvent.ACTION_UP, keyCode)
@@ -239,6 +257,69 @@ class VirtualDisplayInputInjector(
     }
 
     fun supportsDisplayIdInjection(): Boolean = setDisplayIdMethod != null
+
+    // ---- Shell fallback helpers (used when setDisplayId reflection is unavailable) ----
+
+    private fun shellTap(displayId: Int, x: Int, y: Int): ActionResult {
+        val exitCode = shizuku.executeShellCommand(
+                arrayOf("input", "-d", "$displayId", "tap", "$x", "$y")
+        )
+        return if (exitCode == 0) ActionResult.Success("Tap at ($x,$y) [shell]")
+        else ActionResult.Failure("Shell tap failed at ($x,$y), exit=$exitCode")
+    }
+
+    private suspend fun shellLongPress(
+            displayId: Int,
+            x: Int,
+            y: Int,
+            durationMs: Long
+    ): ActionResult {
+        val exitCode = withContext(Dispatchers.IO) {
+            shizuku.executeShellCommand(
+                    arrayOf(
+                            "input", "-d", "$displayId", "swipe",
+                            "$x", "$y", "$x", "$y", "$durationMs"
+                    )
+            )
+        }
+        return if (exitCode == 0) {
+            ActionResult.Success("Long press at ($x,$y) for ${durationMs}ms [shell]")
+        } else {
+            ActionResult.Failure("Shell long press failed at ($x,$y), exit=$exitCode")
+        }
+    }
+
+    private suspend fun shellSwipe(displayId: Int, action: UIAction.Swipe): ActionResult {
+        val exitCode = withContext(Dispatchers.IO) {
+            shizuku.executeShellCommand(
+                    arrayOf(
+                            "input", "-d", "$displayId", "swipe",
+                            "${action.startX}", "${action.startY}",
+                            "${action.endX}", "${action.endY}",
+                            "${action.durationMs}"
+                    )
+            )
+        }
+        return if (exitCode == 0) {
+            ActionResult.Success(
+                    "Swipe (${action.startX},${action.startY}) → (${action.endX},${action.endY}) [shell]"
+            )
+        } else {
+            ActionResult.Failure("Shell swipe failed, exit=$exitCode")
+        }
+    }
+
+    private fun shellKeyEvent(
+            displayId: Int,
+            keyCode: Int,
+            button: SystemButtonType
+    ): ActionResult {
+        val exitCode = shizuku.executeShellCommand(
+                arrayOf("input", "-d", "$displayId", "keyevent", "$keyCode")
+        )
+        return if (exitCode == 0) ActionResult.Success("System button: $button [shell]")
+        else ActionResult.Failure("Shell keyevent failed: $button, exit=$exitCode")
+    }
 
     private fun keyEvent(downTime: Long, eventTime: Long, action: Int, keyCode: Int): KeyEvent {
         val event = KeyEvent(downTime, eventTime, action, keyCode, 0)

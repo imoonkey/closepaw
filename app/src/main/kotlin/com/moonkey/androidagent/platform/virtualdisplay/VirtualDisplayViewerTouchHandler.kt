@@ -103,9 +103,9 @@ class VirtualDisplayViewerTouchHandler(
                                         if (viewerMoved) {
                                                 arrayOf(
                                                         "input",
-                                                        "swipe",
-                                                        "--display",
+                                                        "-d",
                                                         "$displayId",
+                                                        "swipe",
                                                         "${viewerDownX.toInt()}",
                                                         "${viewerDownY.toInt()}",
                                                         "${x.toInt()}",
@@ -115,9 +115,9 @@ class VirtualDisplayViewerTouchHandler(
                                         } else {
                                                 arrayOf(
                                                         "input",
-                                                        "tap",
-                                                        "--display",
+                                                        "-d",
                                                         "$displayId",
+                                                        "tap",
                                                         "${x.toInt()}",
                                                         "${y.toInt()}"
                                                 )
