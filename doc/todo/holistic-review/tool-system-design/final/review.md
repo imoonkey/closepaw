@@ -21,27 +21,28 @@ Five stages, single responsibility each. The design avoids over-abstracting tool
 
 ### C1. Blocked-App Boundary Not Enforced End-to-End
 
-The security model states that BLOCKED apps are masked and denied. This invariant holds only at turn-start and one approval-refresh path, not at every observation boundary.
+The security model states that BLOCKED apps are masked and denied. This invariant holds at most capture points but has one confirmed gap in `PostActionAnalysis`.
 
 **Evidence:**
 - `PolicyEngine.check()` evaluates the current foreground package before execution
 - `open_app` resolves destination package inside invocation execution, after policy has allowed the call
-- Raw `platform.captureScreen()` is called directly in multiple tool-layer paths:
-  - `UIActionInvocation` (post-action)
-  - `PostActionAnalysis` (retry captures)
-  - `OpenAppTool` (post-launch)
-- `maskIfBlocked()` is applied only in `ToolRouter` post-approval refresh
+- ~~Raw `captureScreen()` leaks in UIActionInvocation, PostActionAnalysis, OpenAppTool~~ **[Validated]**: Only `PostActionAnalysis` is unprotected:
+  - `UIActionInvocation.kt:80` passes `context.appClassifier` to `buildObservation` — **protected**
+  - `OpenAppTool.kt:214-215` passes `context.appClassifier` to `buildObservation` — **protected**
+  - **`PostActionAnalysis.kt:45`** calls `buildObservation(it, platform)` without `appClassifier` — **GAP**
+  - `ToolRouter.kt:254-256` calls `maskIfBlocked()` directly — **protected**
+- All 5 mobile_action executors (click, long_press, type, swipe, scroll) use `PostActionAnalysis`
 
-**Consequence:** From a NORMAL app, the agent can navigate into a BLOCKED app and receive unmasked content in tool observations.
+**Consequence:** If a click/type/scroll causes navigation to a BLOCKED app (e.g., clicking a notification that opens a banking app), the post-action observation from `PostActionAnalysis` goes to the cloud LLM unmasked. The `open_app` destination-unaware issue is real but mitigated: its observation IS masked because `OpenAppInvocation` passes `appClassifier`.
 
 ### C2. ToolName Is Not Canonical — Omissions Change Runtime Behavior
 
 `ask_user` and `shell` are not in `ToolName`. They resolve to `Unknown`, which defaults `isScreenChanging = true`. This metadata is consumed by:
 - `PolicyEngine` (policy gating)
 - `TurnToolPolicy` (turn arbitration)
-- `ActionSignature` (loop detection)
+- ~~`ActionSignature` (loop detection)~~ **[Validated]**: `ActionSignature` does not exist. `LoopDetectionPolicy` does not use `isScreenChanging`. Only 2 consumers, not 3.
 
-**Consequence:** `ask_user` triggers unnecessary approval prompts on CAUTIOUS apps. Both tools distort turn arbitration and loop detection.
+**Consequence:** `ask_user` triggers unnecessary approval prompts on CAUTIOUS apps. `TurnToolPolicy` classifies both tools as "screen actions", causing `complete_task` to be dropped when shell/ask_user is present in the same turn.
 
 **Root cause:** Capability metadata lives in a parallel enum (`ToolName`) that drifts from registered tools. Metadata should live on `ToolSpec`.
 
@@ -94,7 +95,7 @@ After approval, the router re-checks foreground package. If `packageName` was nu
 
 ### L2. MobileActionName Vestigial Members
 
-`PolicyEngine.isEscape()` checks `mobile_action(action=back/home)` but `MobileActionTool` only accepts click/long_press/scroll/swipe/type. The branch can never match.
+`PolicyEngine.isEscape()` checks `mobile_action(action=back/home)` but `MobileActionTool` only accepts click/long_press/scroll/swipe/type. The policy branch can never match. **[Validated]**: Note that `MobileActionName.Back/Home/Wait/SystemButton` members ARE used by `ToolUi.kt:29-58` for display — only the policy escape path is dead, not the enum members themselves.
 
 ### L3. Duplicate Constants in OpenAppTool
 
@@ -114,11 +115,11 @@ Output exceeding 4096 chars is truncated without indicator. LLM receives incompl
 
 ### L7. Executor Per-Call Allocation
 
-`ClickExecutor`, `LongPressExecutor`, etc. are stateless but instantiated per `createInvocation()` call.
+`ClickExecutor`, `LongPressExecutor`, etc. are stateless but instantiated per `createInvocation()` call. **[Validated: NOT_WORTH_IT]** — JVM allocates small objects in ~10ns. These are stateless wrappers with no fields. Making them singletons saves nothing measurable.
 
 ### L8. Scheduled State Is Ephemeral
 
-`Scheduled` in the router state machine exists only as UI notification. Nothing queries it.
+`Scheduled` in the router state machine exists only as UI notification. Nothing queries it. **[Validated: NOT_WORTH_IT]** — Harmless, preserves lifecycle model symmetry. `TurnExecutionPhaseRunner` doesn't even pass `onStateChange`.
 
 ---
 

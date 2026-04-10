@@ -22,20 +22,19 @@
 
 Make "blocked apps are masked and denied" true at every tool-layer capture point.
 
+### Validated Scope
+
+**[Post-validation]**: Only `PostActionAnalysis` is unprotected. `UIActionInvocation` and `OpenAppTool` already pass `appClassifier` to `buildObservation`. Phase 0 is narrower than originally scoped.
+
 ### Changes
 
-1. Create `ScreenCaptureGate` (or `SnapshotGate`) in `tool/`:
-   - Wraps `platform.captureScreen()`
-   - Reads current foreground package at capture time
-   - Applies `AppClassifier.maskIfBlocked()`
-   - Returns sanitized snapshot
-   - Does NOT own retry logic or observation building
+1. Thread `appClassifier` through `capturePostActionAnalysis`:
+   - Add `appClassifier: AppClassifier? = null` parameter to `capturePostActionAnalysis()`
+   - Pass it to `buildObservation(it, platform, appClassifier)` at `PostActionAnalysis.kt:45`
+   - Thread from each caller: `PointActionExecutorCore`, `SwipeExecutor`, `TypeExecutor`, `ScrollExecutor`
+   - Callers get `appClassifier` from `ToolExecutionContext` (already available)
 
-2. Replace all direct `captureScreen()` calls in `tool/` through this gate:
-   - `OpenAppTool` post-launch capture
-   - `UIActionInvocation` post-action capture
-   - `PostActionAnalysis` retry captures (PostActionAnalysis calls gate per retry)
-   - `ToolRouter` post-approval refresh
+2. ~~Replace all direct `captureScreen()` calls in `tool/` through a gate~~ **[Dropped]**: UIActionInvocation and OpenAppTool already use `buildObservation` with `appClassifier`. No gate needed — just thread the parameter.
 
 3. Make `open_app` destination-aware:
    - Resolve target package before execution
@@ -45,12 +44,12 @@ Make "blocked apps are masked and denied" true at every tool-layer capture point
 ### Acceptance Tests
 
 - `open_app` from NORMAL to BLOCKED is denied before launch
-- Any action landing on BLOCKED returns masked observation
-- No raw `captureScreen()` in `tool/` outside the gate
+- Any mobile_action landing on BLOCKED returns masked observation
+- No unmasked `buildObservation()` call in `PostActionAnalysis`
 
 ### Files Changed
 
-`ToolRouter.kt`, `OpenAppTool.kt`, `UIActionInvocation.kt`, `PostActionAnalysis.kt`, new `ScreenCaptureGate.kt`
+`PostActionAnalysis.kt`, `PointActionExecutorCore.kt`, `SwipeExecutor.kt`, `TypeExecutor.kt`, `ScrollExecutor.kt`, `OpenAppTool.kt`
 
 ---
 
@@ -71,7 +70,9 @@ CompleteTask, WriteTodos, Scratchpad, RememberExperience, AskUser, Shell -> fals
 
 **Effort:** 15 minutes. Eliminates false approval prompts immediately.
 
-### Phase 1b: Metadata Migration
+### Phase 1b: Metadata Migration (Optional — not recommended now)
+
+**[Post-validation]**: Only 2 consumers exist (`PolicyEngine`, `TurnToolPolicy`). Phase 1a stopgap is sufficient. Full migration is overkill until more consumers emerge.
 
 Add minimal metadata to `ToolSpec`:
 
@@ -89,7 +90,7 @@ Each tool declares its own metadata.
 Build `ToolCapabilitiesResolver` from registered tools at session bootstrap. Inject it into:
 - `PolicyEngine` (replaces `ToolName.isScreenChanging`)
 - `TurnToolPolicy` (replaces `ToolName` lookup)
-- `ActionSignature` (replaces `ToolName` lookup)
+- ~~`ActionSignature` (replaces `ToolName` lookup)~~ **[Validated: does not exist]**
 
 Keep `ToolName` temporarily for display/UI only. Remove behavioral queries from it.
 
@@ -97,7 +98,7 @@ Keep `ToolName` temporarily for display/UI only. Remove behavioral queries from 
 
 ### Files Changed
 
-`ToolName.kt`, `ToolSpec.kt`, `PolicyEngine.kt`, `TurnToolPolicy.kt`, `ActionSignature.kt`, all `tool/impl/*.kt`, new `ToolCapabilitiesResolver.kt`
+`ToolName.kt`, `ToolSpec.kt`, `PolicyEngine.kt`, `TurnToolPolicy.kt`, ~~`ActionSignature.kt`~~, all `tool/impl/*.kt`, new `ToolCapabilitiesResolver.kt`
 
 ---
 
@@ -166,11 +167,11 @@ Add tests:
 ## Phase 5: Cleanup Batch (Low)
 
 1. Remove dead `UIActionInvocation.detectScrollBoundary()` and `UiChangeDetector.detectScrollBoundary()`
-2. Remove dead `mobile_action(back/home)` escape path from `PolicyEngine.isEscape()`. Evaluate removing vestigial `MobileActionName` entries (Back, Home, Wait, SystemButton)
+2. Remove dead `mobile_action(back/home)` escape path from `PolicyEngine.isEscape()`. **[Validated]**: `MobileActionName.Back/Home/Wait/SystemButton` members are used by `ToolUi.kt` — only remove the dead policy branch, NOT the enum members
 3. Remove duplicate constants from `OpenAppTool` companion (`UI_SETTLE_DELAY_MS`, `SUGGESTION_LIMIT`)
 4. Change `SystemButtonTool` unreachable branch to `error("Unreachable: validated in validate()")`
-5. Remove `DataQueryInvocation` if no callers
-6. Remove `doc/todo/...` references from `ActionPriorityOrder` code comments
+5. Remove `DataQueryInvocation` (zero production callers)
+6. Remove stale doc reference from `ActionPriorityOrder` code comment (points to non-existent path)
 
 ### Files Changed
 
@@ -182,12 +183,12 @@ Add tests:
 
 | Phase | Priority | Scope | Key Metric |
 |-------|----------|-------|------------|
-| 0 | Critical | Security boundary | Zero unmasked BLOCKED captures |
+| 0 | Critical | Security boundary | Zero unmasked BLOCKED captures in PostActionAnalysis |
 | 1a | High | Stopgap | ask_user/shell classified correctly |
-| 1b | High | Metadata | Zero ToolName behavioral queries |
+| 1b | Optional | Metadata | Deferred — only 2 consumers, stopgap is sufficient |
 | 2 | Medium | Action runtime | Consistent cancellation + explicit scroll failure |
 | 3 | Medium | Shell | Hardened blocklist + truncation indicator |
 | 4 | Low | Router | Cancel APIs match actual scope |
 | 5 | Low | Cleanup | ~60 lines dead code removed |
 
-**Each phase is independently shippable.** Phase 0 is the priority — it addresses the only critical design flaw.
+**Each phase is independently shippable.** Phase 0 is narrower than originally planned (no new `ScreenCaptureGate` needed). Phase 1b is deferred.
