@@ -1,6 +1,6 @@
 # Changelog
 
-## 2026-04-10: Platform Robustness Hardening (8 phases + 5 follow-up fixes)
+## 2026-04-10: Platform Robustness Hardening (8 phases + 8 follow-up fixes)
 
 **What changed:**
 - P1: VD lifecycle serialization — `VdLifecycleArbiter` state machine (Stopped/Running/Broken), lifecycle mutex with preDrainState, Running lease for ops, start() rollback, binder death → Broken + clearCachedProxies
@@ -12,6 +12,7 @@
 - P7: Resource cleanup — window recycling, debug screenshot retention cap, dead code removal
 - P8: Regression tests for VdLifecycleArbiter and BoundedCallback
 - Follow-up: arbiter admission race fix (preDrainState), PixelCopy bitmap safety, HardwareBuffer leak, shell input fallback (`input -d`), setDisplayId round-trip verification, VD overlay approval visibility, debug-only exported viewer
+- Codex final review: Draining state (keeps resources for in-flight ops during stop), start-from-Broken cleanup, PixelCopy timeout/failure split, isActive race removal, force capsule for attention modes, PixelCopy counter reset on surface replacement
 
 **Why:**
 - Holistic review found unbounded callback waits, VD lifecycle races, stale binder proxies, window selection bugs, resource leaks, and silent failures at the platform boundary
@@ -19,7 +20,7 @@
 
 **Key files:** VdLifecycleArbiter.kt, VirtualDisplayPlatform.kt, BoundedCallback.kt, VirtualDisplayInputInjector.kt, VirtualDisplayCaptureCoordinator.kt, AccessibilityScreenshotCapturer.kt, AccessibilityPlatform.kt, VirtualDisplayWindowAccessor.kt, OverlayLocationPolicy.kt
 **Verification:** `./gradlew assembleDebug test` passes; QA on P0110 (Android 16): a11y mode, VD mode, hybrid screenshots, PixelCopy/LIVE_PREVIEW, multi-session lifecycle, overlay approval all verified
-**Commit:** ddb581d..4cce154 (6 commits)
+**Commit:** ddb581d..d7f3e47 (8 commits)
 **Next:** None — platform robustness complete
 **Blockers:** None
 
