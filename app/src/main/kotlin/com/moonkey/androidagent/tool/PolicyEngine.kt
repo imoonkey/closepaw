@@ -38,12 +38,22 @@ class PolicyEngine(
      * @param toolName The name of the tool
      * @param params The parameters for the tool call
      * @param packageName Current foreground app package name
+     * @param destinationPackage Target package for navigation tools (e.g. open_app).
+     *        When non-null, the effective tier is the stricter of current and destination.
      * @return PolicyDecision indicating how to proceed
      */
-    fun check(toolName: String, params: JSONObject = JSONObject(), packageName: String? = null): PolicyDecision {
+    fun check(
+        toolName: String,
+        params: JSONObject = JSONObject(),
+        packageName: String? = null,
+        destinationPackage: String? = null
+    ): PolicyDecision {
         val currentMode = approvalMode.get()
-        val tier = appClassifier.classify(packageName)
-        Log.d(TAG, "Policy check: tool=$toolName, pkg=$packageName, tier=$tier, mode=$currentMode")
+        val currentTier = appClassifier.classify(packageName)
+        val destTier = destinationPackage?.let { appClassifier.classify(it) }
+        // Effective tier = stricter of the two (lower ordinal = stricter)
+        val tier = if (destTier != null) minOf(currentTier, destTier) else currentTier
+        Log.d(TAG, "Policy check: tool=$toolName, pkg=$packageName, dest=$destinationPackage, tier=$tier, mode=$currentMode")
 
         // Non-screen-changing tools → always allow
         if (!ToolName.from(toolName).isScreenChanging) return PolicyDecision.Allow

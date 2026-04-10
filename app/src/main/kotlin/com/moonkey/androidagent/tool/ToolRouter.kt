@@ -3,6 +3,7 @@ package com.moonkey.androidagent.tool
 import android.util.Log
 import com.moonkey.androidagent.model.ScreenSnapshot
 import com.moonkey.androidagent.platform.AndroidPlatform
+import com.moonkey.androidagent.tool.impl.AppAliases
 import com.moonkey.androidagent.protocol.ApprovalDecision
 import com.moonkey.androidagent.protocol.ApprovalDetails
 import com.moonkey.androidagent.protocol.AppTier
@@ -100,7 +101,10 @@ class ToolRouter(
         var approvalWasRequired = false
         
         // === POLICY CHECK ===
-        val policyDecision = policyEngine.check(toolName, params, packageName)
+        val destinationPackage = if (toolName == "open_app") {
+            resolveOpenAppDestination(params, context.platform)
+        } else null
+        val policyDecision = policyEngine.check(toolName, params, packageName, destinationPackage)
         Log.d(TAG, "Policy decision for $toolName: $policyDecision")
         
         when (policyDecision) {
@@ -372,6 +376,28 @@ class ToolRouter(
     }
     
     private fun generateCallId(): String = UUID.randomUUID().toString().take(8)
+
+    /**
+     * Best-effort pre-flight resolution of open_app destination package.
+     * Returns null if unresolved (policy falls back to current-tier-only).
+     */
+    private suspend fun resolveOpenAppDestination(
+        params: JSONObject,
+        platform: AndroidPlatform
+    ): String? {
+        val appName = params.optString("app_name", "").trim().lowercase()
+        if (appName.isEmpty()) return null
+
+        // 1. Well-known alias (cheap, no I/O)
+        AppAliases.PACKAGE_MAP[appName]?.let { return it }
+
+        // 2. Installed apps lookup (same data OpenAppInvocation uses)
+        val apps = platform.getInstalledApps()
+        apps.find { it.label.equals(appName, ignoreCase = true) }?.let { return it.packageName }
+        apps.find { it.label.contains(appName, ignoreCase = true) }?.let { return it.packageName }
+
+        return null
+    }
 }
 
 /**

@@ -142,5 +142,46 @@ class PolicyEngineTest {
         assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
     }
 
+    // --- Destination tier ---
+
+    @Test
+    fun `normal current with cautious destination asks user in smart mode`() {
+        val engine = engineWith(
+            tiers = mapOf("com.android.settings" to AppTier.NORMAL)
+        )
+        val decision = engine.check(
+            "open_app", clickParams(), "com.android.settings",
+            destinationPackage = "com.unknown.app"
+        )
+        assertThat(decision).isInstanceOf(PolicyDecision.AskUser::class.java)
+    }
+
+    @Test
+    fun `null destination does not change behavior`() {
+        val engine = engineWith(
+            tiers = mapOf("com.android.settings" to AppTier.NORMAL)
+        )
+        val decision = engine.check(
+            "open_app", clickParams(), "com.android.settings",
+            destinationPackage = null
+        )
+        assertThat(decision).isEqualTo(PolicyDecision.Allow)
+    }
+
+    @Test
+    fun `blocked destination denied in smart mode`() {
+        val engine = engineWith(
+            tiers = mapOf(
+                "com.android.settings" to AppTier.NORMAL,
+                "com.bank" to AppTier.BLOCKED
+            )
+        )
+        val decision = engine.check(
+            "open_app", clickParams(), "com.android.settings",
+            destinationPackage = "com.bank"
+        )
+        assertThat(decision).isInstanceOf(PolicyDecision.Deny::class.java)
+    }
+
     private fun clickParams() = JSONObject().put("action", "click").put("index", 5)
 }
