@@ -206,6 +206,9 @@ private fun refinePointActionTarget(
         "element=[${element.bounds}] container=[${container.bounds}] " +
         "final=$source [${finalTarget.bounds}] point=(${finalTarget.center.x},${finalTarget.center.y})")
 
+    val retargetNote = "Retargeted from (${resolved.point.x},${resolved.point.y}) to " +
+        "$source at (${finalTarget.center.x},${finalTarget.center.y})"
+
     val hint = SemanticTargetHint(
         resourceId = finalTarget.resourceId,
         text = finalTarget.text,
@@ -217,7 +220,7 @@ private fun refinePointActionTarget(
         point = finalTarget.center,
         bounds = finalTarget.bounds,
         semanticHint = hint,
-        warnings = resolved.warnings
+        warnings = resolved.warnings + retargetNote
     )
 }
 

@@ -49,9 +49,8 @@ class SwipeExecutor {
         }
 
         if (result is ActionResult.Cancelled) {
-            return ActionOutcome.Failed(
-                reason = "Swipe ($sx,$sy)→($ex,$ey) gesture was cancelled by the system.",
-                attemptTrail = listOf("swipe: cancelled")
+            return ActionOutcome.Cancelled(
+                "Swipe ($sx,$sy)→($ex,$ey) cancelled: ${result.reason}"
             )
         }
 

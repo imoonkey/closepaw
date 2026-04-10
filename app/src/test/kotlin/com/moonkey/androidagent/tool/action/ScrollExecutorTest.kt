@@ -48,6 +48,74 @@ class ScrollExecutorTest {
     }
 
     @Test
+    fun `scroll with element_index target returns error when target not found`() = runTest {
+        val snapshot = scrollableSnapshot("Item 1")
+        val platform = RecordingScrollPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(snapshot)
+        )
+
+        val outcome = ScrollExecutor().execute(
+            target = Target.ElementIndex(999),
+            direction = "down",
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
+        val failed = outcome as ActionOutcome.Failed
+        assertThat(failed.reason).contains("not found")
+        // Should NOT have performed any scroll action
+        assertThat(platform.performedActions).isEmpty()
+    }
+
+    @Test
+    fun `scroll with text target returns error when target not found`() = runTest {
+        val snapshot = scrollableSnapshot("Item 1")
+        val platform = RecordingScrollPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(snapshot)
+        )
+
+        val outcome = ScrollExecutor().execute(
+            target = Target.Text("nonexistent text"),
+            direction = "down",
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Failed::class.java)
+        val failed = outcome as ActionOutcome.Failed
+        assertThat(failed.reason).contains("not found")
+        assertThat(platform.performedActions).isEmpty()
+    }
+
+    @Test
+    fun `scroll with coordinate target falls back to full screen on failure`() = runTest {
+        // Coordinate target should still fall back — only element_index/text are "explicit"
+        val snapshot = scrollableSnapshot("Item 1")
+        val changedSnapshot = scrollableSnapshot("Item 5")
+        val platform = RecordingScrollPlatform(
+            actionResults = listOf(ActionResult.Success()),
+            capturedSnapshots = listOf(snapshot, changedSnapshot)
+        )
+
+        val outcome = ScrollExecutor().execute(
+            target = Target.Coordinate(9999, 9999),
+            direction = "down",
+            snapshot = snapshot,
+            platform = platform,
+            isCancelled = { false }
+        )
+
+        // Coordinate targets don't go through element resolution — they resolve directly
+        // So this should proceed and attempt scrolling
+        assertThat(platform.performedActions).isNotEmpty()
+    }
+
+    @Test
     fun `scroll succeeds when content changes`() = runTest {
         val snapshot = scrollableSnapshot("Item 1")
         val changedSnapshot = scrollableSnapshot("Item 5")

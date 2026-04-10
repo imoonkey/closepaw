@@ -32,6 +32,10 @@ class ScrollExecutor(
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled before scroll")
 
         val scrollArea = resolveScrollArea(target, snapshot, platform)
+            ?: return ActionOutcome.Failed(
+                reason = "Scroll target not found: ${targetDescription(target!!)}",
+                attemptTrail = emptyList()
+            )
         val attemptTrail = mutableListOf<String>()
 
         for (channel in ActionPriorityOrder.scroll) {
@@ -116,7 +120,7 @@ class ScrollExecutor(
         target: Target?,
         snapshot: ScreenSnapshot?,
         platform: AndroidPlatform
-    ): Bounds {
+    ): Bounds? {
         if (target != null) {
             val resolved = targetResolver.resolve(target, snapshot)
             if (resolved is TargetResolver.ResolveResult.Resolved) {
@@ -125,9 +129,19 @@ class ScrollExecutor(
                     return bounds
                 }
             }
+            // Explicit targets (element_index/text) must resolve — no silent fallback
+            if (target is Target.ElementIndex || target is Target.Text) {
+                return null
+            }
         }
         val display = platform.getDisplayInfo()
         return Bounds(0, 0, display.widthPixels, display.heightPixels)
+    }
+
+    private fun targetDescription(target: Target): String = when (target) {
+        is Target.ElementIndex -> "element_index=${target.index}"
+        is Target.Text -> "text=\"${target.text}\""
+        is Target.Coordinate -> "coordinate=(${target.x},${target.y})"
     }
 
     private suspend fun buildSuccessOutcome(

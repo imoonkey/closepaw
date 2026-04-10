@@ -359,6 +359,54 @@ class ClickExecutorTest {
     }
 
     @Test
+    fun `retargeting to container adds note in success message`() = runTest {
+        val snapshot = snapshotWithClickableRow()
+        val changedSnapshot = snapshotWithClickableRow(rowLabel = "Opened")
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(changedSnapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.Text(text = "task.html", textIndex = 0),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.message).contains("Retargeted")
+    }
+
+    @Test
+    fun `retargeting to child adds note in success message`() = runTest {
+        val snapshot = snapshotWithRowAndSingleClickableChild()
+        val changedSnapshot = snapshotWithRowAndSingleClickableChild(childLabel = "Opened")
+        val platform =
+            RecordingPlatform(
+                actionResults = listOf(ActionResult.Success()),
+                capturedSnapshots = listOf(changedSnapshot)
+            )
+        val executor = ClickExecutor()
+
+        val outcome =
+            executor.execute(
+                target = Target.Text(text = "task.html", textIndex = 0),
+                snapshot = snapshot,
+                platform = platform,
+                isCancelled = { false }
+            )
+
+        assertThat(outcome).isInstanceOf(ActionOutcome.Success::class.java)
+        val success = outcome as ActionOutcome.Success
+        assertThat(success.message).contains("Retargeted")
+    }
+
+    @Test
     fun `execute fails when gesture tap fails for coordinate target`() = runTest {
         val snapshot = snapshotWithSingleButton()
         val platform =

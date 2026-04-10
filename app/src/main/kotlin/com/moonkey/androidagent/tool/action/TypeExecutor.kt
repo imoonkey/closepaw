@@ -72,6 +72,9 @@ class TypeExecutor(
                 verified = analysis.changeResult == UiChangeDetector.ChangeResult.Changed
             )
         }
+        if (directResult is ActionResult.Cancelled) {
+            return ActionOutcome.Cancelled("Type at (${point.x},${point.y}) cancelled: ${directResult.reason}")
+        }
         attemptTrail.add("SetTextOnNodeAt: ${(directResult as? ActionResult.Failure)?.reason ?: "failed"}")
 
         if (isCancelled()) return ActionOutcome.Cancelled("Cancelled between type attempts")
@@ -94,6 +97,9 @@ class TypeExecutor(
                 attemptTrail = attemptTrail
             )
         }
+        if (tapResult is ActionResult.Cancelled) {
+            return ActionOutcome.Cancelled("Type tap-to-focus at (${point.x},${point.y}) cancelled: ${tapResult.reason}")
+        }
 
         delay(FOCUS_DELAY_MS)
 
@@ -110,6 +116,9 @@ class TypeExecutor(
                 attemptTrail = attemptTrail,
                 verified = analysis.changeResult == UiChangeDetector.ChangeResult.Changed
             )
+        }
+        if (focusedResult is ActionResult.Cancelled) {
+            return ActionOutcome.Cancelled("Type focused-set at (${point.x},${point.y}) cancelled: ${focusedResult.reason}")
         }
         attemptTrail.add("SetTextOnFocused: ${(focusedResult as? ActionResult.Failure)?.reason ?: "failed"}")
 
@@ -137,6 +146,9 @@ class TypeExecutor(
                 attemptTrail = attemptTrail,
                 verified = analysis.changeResult == UiChangeDetector.ChangeResult.Changed
             )
+        }
+        if (result is ActionResult.Cancelled) {
+            return ActionOutcome.Cancelled("Type on focused cancelled: ${result.reason}")
         }
         attemptTrail.add("SetTextOnFocused: ${(result as? ActionResult.Failure)?.reason ?: "failed"}")
         return ActionOutcome.Failed(
