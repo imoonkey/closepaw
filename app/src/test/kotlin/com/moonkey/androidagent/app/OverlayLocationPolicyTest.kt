@@ -158,6 +158,50 @@ class OverlayLocationPolicyTest {
     }
 
     @Test
+    fun `derive visibility shows capsule in vd main app for approval and input modes`() {
+        val modes = listOf(
+            CapsuleMode.WaitingForApproval(
+                callId = "1",
+                description = "open Settings",
+                appLabel = "Settings",
+                packageName = "com.android.settings",
+                reason = "test"
+            ),
+            CapsuleMode.WaitingForInput(question = "q", callId = "1"),
+            CapsuleMode.WaitingForAction(instruction = "do", callId = "1"),
+            CapsuleMode.Error("error"),
+        )
+        modes.forEach { mode ->
+            val decision = deriveOverlayVisibility(
+                platformMode = PlatformMode.VIRTUAL_DISPLAY,
+                location = OverlayUserLocation.MAIN_APP,
+                mode = mode,
+                hasActiveTask = mode !is CapsuleMode.Error,
+                showPreference = ShowPreference.CAPSULE,
+            )
+            assertThat(decision.showCapsule).isTrue()
+        }
+    }
+
+    @Test
+    fun `derive visibility shows capsule in vd viewer for approval mode`() {
+        val decision = deriveOverlayVisibility(
+            platformMode = PlatformMode.VIRTUAL_DISPLAY,
+            location = OverlayUserLocation.VD_VIEWER,
+            mode = CapsuleMode.WaitingForApproval(
+                callId = "1",
+                description = "open Settings",
+                appLabel = "Settings",
+                packageName = "com.android.settings",
+                reason = "test"
+            ),
+            hasActiveTask = true,
+            showPreference = ShowPreference.CAPSULE,
+        )
+        assertThat(decision.showCapsule).isTrue()
+    }
+
+    @Test
     fun `derive visibility allows island in accessibility mode when preference is island`() {
         val decision = deriveOverlayVisibility(
             platformMode = PlatformMode.ACCESSIBILITY,

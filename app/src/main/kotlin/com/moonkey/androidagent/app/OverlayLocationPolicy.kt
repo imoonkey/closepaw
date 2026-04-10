@@ -105,7 +105,20 @@ internal fun deriveOverlayVisibility(
             )
         }
         PlatformMode.VIRTUAL_DISPLAY -> {
-            if (location == OverlayUserLocation.MAIN_APP || !isActive) {
+            val needsUserAttention = mode is CapsuleMode.WaitingForApproval ||
+                mode is CapsuleMode.WaitingForInput ||
+                mode is CapsuleMode.WaitingForAction ||
+                mode is CapsuleMode.Error
+
+            if (!isActive) {
+                OverlayVisibilityDecision(
+                    showCapsule = false,
+                    showIsland = false,
+                    showGlow = false,
+                    normalizedShowPreference = normalizedShowPreference,
+                )
+            } else if (location == OverlayUserLocation.MAIN_APP && !needsUserAttention) {
+                // In VD mode, main app UI handles normal interaction — hide overlay
                 OverlayVisibilityDecision(
                     showCapsule = false,
                     showIsland = false,
@@ -113,10 +126,11 @@ internal fun deriveOverlayVisibility(
                     normalizedShowPreference = normalizedShowPreference,
                 )
             } else {
+                // Show overlay in VD_VIEWER, OTHER_APP, or MAIN_APP when user attention needed
                 OverlayVisibilityDecision(
                     showCapsule = normalizedShowPreference == ShowPreference.CAPSULE,
                     showIsland = normalizedShowPreference == ShowPreference.ISLAND,
-                    showGlow = location == OverlayUserLocation.VD_VIEWER && hasActiveTask,
+                    showGlow = (location == OverlayUserLocation.VD_VIEWER || needsUserAttention) && hasActiveTask,
                     normalizedShowPreference = normalizedShowPreference,
                 )
             }
