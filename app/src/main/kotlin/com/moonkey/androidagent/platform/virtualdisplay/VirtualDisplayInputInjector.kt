@@ -256,7 +256,33 @@ class VirtualDisplayInputInjector(
         return ok
     }
 
-    fun supportsDisplayIdInjection(): Boolean = setDisplayIdMethod != null
+    /**
+     * Whether setDisplayId reflection actually works (not just exists).
+     * Verified once by round-tripping a displayId on a test MotionEvent.
+     */
+    private val displayIdInjectionVerified: Boolean by lazy {
+        val method = setDisplayIdMethod ?: return@lazy false
+        try {
+            val test = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0f, 0f, 0)
+            method.invoke(test, 42)
+            // Read back via reflection (getDisplayId is @hide on older APIs)
+            val getId = android.view.InputEvent::class.java.getMethod("getDisplayId")
+            val readBack = getId.invoke(test) as? Int
+            test.recycle()
+            val works = readBack == 42
+            if (!works) {
+                Log.w(TAG, "setDisplayId exists but has no effect (hidden API blocked), using shell fallback")
+            } else {
+                Log.i(TAG, "setDisplayId verified working")
+            }
+            works
+        } catch (e: Exception) {
+            Log.w(TAG, "setDisplayId verification failed, using shell fallback", e)
+            false
+        }
+    }
+
+    fun supportsDisplayIdInjection(): Boolean = displayIdInjectionVerified
 
     // ---- Shell fallback helpers (used when setDisplayId reflection is unavailable) ----
 
@@ -361,9 +387,9 @@ class VirtualDisplayInputInjector(
     }
 
     private fun setDisplayId(event: android.view.InputEvent, id: Int) {
+        val method = setDisplayIdMethod ?: return
         try {
-            setDisplayIdMethod?.invoke(event, id)
-                    ?: Log.w(TAG, "setDisplayId unavailable, cannot set displayId=$id")
+            method.invoke(event, id) // void method — null return is normal
         } catch (e: Exception) {
             Log.w(TAG, "Failed to set displayId=$id on ${event.javaClass.simpleName}", e)
         }
