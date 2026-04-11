@@ -110,8 +110,10 @@ class CloudStreamRetryRunnerTest {
 
     @Test
     fun `KNOWN BUG -- RateLimitException is reclassified losing retryAfterMs`() = runTest {
-        // Bug: classify() always reclassifies. A RateLimitException("Rate limit hit")
-        // gets re-detected as rate limit (message matches), but retryAfterMs is lost.
+        // Bug: classify() always reclassifies. A RateLimitException("Rate limit hit", 5000)
+        // gets re-detected as rate limit (message contains "rate limit"), but
+        // extractRetryAfter("Rate limit hit") returns null → retryAfterMs lost.
+        // Policy falls back to backoffMs (10ms) instead of using original 5000ms.
         val result = streamWithRetry(
             tag = "test",
             emitToFlow = {},
@@ -123,9 +125,10 @@ class CloudStreamRetryRunnerTest {
             }
         }
 
-        // Still retries because reclassified result is RateLimitException (message matches),
-        // but the retryAfterMs=5000 is lost. This test documents the bug.
         assertThat(result.completed).isTrue()
+        // Current broken behavior: delay is backoff-based (10ms), NOT retryAfterMs (5000ms).
+        // When the fix preserves the original retryAfterMs, elapsed time will be 5000ms.
+        assertThat(testScheduler.currentTime).isEqualTo(10L)
     }
 
     @Test
@@ -192,7 +195,7 @@ class CloudStreamRetryRunnerTest {
     // ── Max retries exhausted ─────────────────────────────────────────────
 
     @Test
-    fun `exhausting all retries returns completed=false`() = runTest {
+    fun `exhausting all retries returns completed=false with correct cumulative backoff`() = runTest {
         var attempts = 0
 
         val result = streamWithRetry(
@@ -208,6 +211,9 @@ class CloudStreamRetryRunnerTest {
         assertThat(attempts).isEqualTo(3)
         assertThat(result.completed).isFalse()
         assertThat(result.lastError).isNotNull()
+        // 3 attempts, each gets Retry (attempt < MAX_RETRIES=5):
+        // attempt 1 → delay 10ms, attempt 2 → delay 20ms, attempt 3 → delay 40ms
+        assertThat(testScheduler.currentTime).isEqualTo(70L)
     }
 
     // ── Non-retryable errors ──────────────────────────────────────────────
@@ -233,7 +239,7 @@ class CloudStreamRetryRunnerTest {
     // ── Backoff progression ───────────────────────────────────────────────
 
     @Test
-    fun `backoff increases between retries`() = runTest {
+    fun `backoff increases between retries with correct exponential timing`() = runTest {
         var attempts = 0
 
         val result = streamWithRetry(
@@ -248,5 +254,8 @@ class CloudStreamRetryRunnerTest {
 
         assertThat(attempts).isEqualTo(4)
         assertThat(result.completed).isTrue()
+        // 3 retries before success: delay 10ms + 20ms + 40ms = 70ms (exponential)
+        // A fixed 10ms delay would yield 30ms — this proves backoff growth.
+        assertThat(testScheduler.currentTime).isEqualTo(70L)
     }
 }
