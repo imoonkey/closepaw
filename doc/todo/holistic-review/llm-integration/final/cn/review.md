@@ -113,12 +113,12 @@
 | 领域 | 评级 | 备注 |
 |------|------|------|
 | 架构 | B+ | 抽象清晰，层级偏平一层 |
-| Streaming 正确性 | C | 多个完成/retry 缺陷 |
-| Error Handling | C+ | 正常路径可用，classification 脆弱 |
-| Retry 逻辑 | B- | Policy 设计正确，实现有缺口 |
+| Streaming 正确性 | B+ | P0 bug 已修复：域异常保留、retry 策略、incomplete 处理、finishReason 检查 |
+| Error Handling | C+ | 正常路径可用，classification 脆弱（Phase 3） |
+| Retry 逻辑 | B+ | 域异常保留，元数据与输出区分 |
 | Thread Safety | A | 全局正确 |
 | 代码重复 | C+ | 三方 request 标准化，streaming 样板代码 |
 | Cancellation | C | Stream 循环中无显式支持 |
-| 测试覆盖 | B- | Streaming/retry 已覆盖（62 测试，6 个已知 bug）；ChatCompletionClient streaming 仍未测试 |
+| 测试覆盖 | B | 63 测试；3 个已知 bug 剩余（classifier 误报，Phase 3） |
 | Config/Catalog | A | 简洁、不可变、可扩展 |
 | 安全性 | B- | Debug SSL 范围过宽，其他方面适当 |

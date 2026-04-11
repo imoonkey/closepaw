@@ -36,55 +36,43 @@
 
 ---
 
-## Phase 2: 修复 P0 Streaming 正确性
+## Phase 2: 修复 P0 Streaming 正确性 — 已完成
 
 **前置条件:** Phase 1
+**状态:** 已完成 (6c821852, 2026-04-10)
 
-### 2.1 在 streamWithRetry 中保留域异常
+全部 6 项修复已实现，加上审查轮次修复 Failed-terminal 处理：
+
+### 2.1 在 streamWithRetry 中保留域异常 — 已完成
 **文件:** `CloudStreamRetryRunner.kt`
+短路处理：`RateLimitException`/`TransientException` 跳过 `OpenAIErrorClassifier.classify()`。
 
-```kotlin
-val classified = when (e) {
-    is RateLimitException, is TransientException -> e
-    else -> OpenAIErrorClassifier.classify(e)
-}
-```
-
-### 2.2 区分元数据事件与不可逆输出以决定 retry
+### 2.2 区分元数据事件与不可逆输出以决定 retry — 已完成
 **文件:** `CloudStreamRetryRunner.kt`
+仅 `TextDelta`/`ToolCallDone` 设置 `emittedEvent`。`Created` 不再阻止 retry。
 
-跟踪"语义输出已发出"而非"任何事件已发出"：
-- `Created` -> 不阻止 retry
-- `TextDelta`, `ToolCallDone` -> 阻止 retry
-
-### 2.3 对 `response.incomplete` 报错
+### 2.3 对 `response.incomplete` 报错 — 已完成
 **文件:** `CodexResponseClient.kt`, `CodexSseParser.kt`
+`response.incomplete` 映射为 `Failed` 附带 `incomplete_reason`。Streaming 循环在 Failed 事件时立即 break。
 
-直接在 `response.incomplete` 分支处报错返回 `Failed`，附带后端原因。无需额外的 partial-success 状态机。
-
-### 2.4 在 ChatCompletionClient 中要求终止完成
+### 2.4 在 ChatCompletionClient 中要求终止完成 — 已完成
 **文件:** `ChatCompletionClient.kt`
+跟踪 `sawFinishReason`；缺失时抛出 `TransientException("Stream ended without finish_reason")`。
 
-```kotlin
-var sawFinishReason = false
-// 在 stream 循环中: 当 finishReason != null 时设置 sawFinishReason = true
-// 循环结束后:
-if (!sawFinishReason) {
-    throw TransientException("Stream ended without finish_reason")
-}
-emitter.emit(LLMStreamEvent.Completed)
-```
-
-### 2.5 使 stream 无完成事件结束可 retry
+### 2.5 使 stream 无完成事件结束可 retry — 已完成
 **文件:** `OpenAIResponseClient.kt`, `CodexResponseClient.kt`
+改为 `TransientException("Stream ended without completion event")`。
 
-将 `RuntimeException("Stream ended without completion event")` 改为 `TransientException("Stream ended without completion event")`。
+### 2.6 MessageContentExtractor 已删除 — 已完成
+**文件:** `ChatCompletionInterop.kt`, `LFMLLMClient.kt`, `LlmLogger.kt`, `LlmInputItemsTraceSerializer.kt`
+将 `ChatCompletionInterop.extractStringContent()` 提升为 `internal`；替换所有调用点；删除 `MessageContentExtractor.kt`。
 
-**验收标准：**
-- 在 `Created` 之后、文本/tool 输出之前失败的 stream 会 retry
-- 在文本/tool 输出之后失败的 stream 不会 retry
-- Codex `response.incomplete` 永远不会以成功状态呈现
-- Chat streaming 在没有终止完成的干净 EOF 上不发出 `Completed`
+**验收标准 — 全部满足：**
+- 在 `Created` 之后、文本/tool 输出之前失败的 stream 会 retry ✓
+- 在文本/tool 输出之后失败的 stream 不会 retry ✓
+- Codex `response.incomplete` 永远不会以成功状态呈现 ✓
+- Chat streaming 在没有终止完成的干净 EOF 上不发出 `Completed` ✓
+- `EasyInputMessage.Content` 通过类型化 API 提取，而非 `toString()` ✓
 
 ---
 
@@ -212,7 +200,7 @@ object LocalLlmSemantics {
 | Phase | 内容 | 工作量 | 影响 | 状态 |
 |-------|------|--------|------|------|
 | 1 | 添加 streaming/retry 测试 | 中等 | 使安全修复成为可能 | **已完成** |
-| 2 | 修复 P0 streaming 正确性（5 项）+ MessageContentExtractor bug | 小（约 35 行） | 高——消除静默截断、丢失的 retry、Leap 垃圾输入 | |
+| 2 | 修复 P0 streaming 正确性（5 项）+ MessageContentExtractor bug | 小（约 35 行） | 高——消除静默截断、丢失的 retry、Leap 垃圾输入 | **已完成** |
 | 3 | 加固 classification + SSL + cancellation | 小（约 40 行） | 中——消除脆弱启发式和挂起 | |
 | 4 | 提取共享 Responses helpers | 中等 | 中——减少重复但不过度工程化 | |
 | 5 | 声明 local capability 差距 | 小（约 20 行） | 低——使隐式有损变为显式 | |

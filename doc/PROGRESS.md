@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-04-10: LLM Integration Phase 2 — P0 Streaming Correctness
+
+**What changed:**
+- 2.1: Domain exceptions (RateLimitException/TransientException) preserved in streamWithRetry — no longer reclassified
+- 2.2: Created event no longer blocks retry — only TextDelta/ToolCallDone set emittedEvent
+- 2.3: response.incomplete → Failed with incomplete_reason; streaming loop breaks on Failed
+- 2.4: ChatCompletionClient tracks sawFinishReason, throws TransientException if missing
+- 2.5: Stream-ended-without-completion now throws TransientException (retryable)
+- 2.6: MessageContentExtractor deleted, typed ChatCompletionInterop.extractStringContent used
+- Review fix: CodexResponseClient streaming breaks immediately on Failed event
+
+**Why:**
+- Phase 2 of LLM integration holistic review — eliminates silent truncation, lost retries, garbage Leap input
+
+**Key files:** `CloudStreamRetryRunner.kt`, `CodexResponseClient.kt`, `CodexSseParser.kt`, `ChatCompletionClient.kt`, `OpenAIResponseClient.kt`, `ChatCompletionInterop.kt`, `LFMLLMClient.kt`, `LlmLogger.kt`, `LlmInputItemsTraceSerializer.kt`
+**Verification:** `./gradlew test` and `./gradlew assembleDebug` passed
+**Commit:** 2a0c6b2e..6c821852
+**Next:** Phase 3 — Harden error classification, SSL, cancellation
+**Blockers:** None
+
 ## 2026-04-10: LLM Integration Phase 1 — Streaming/Retry Tests
 
 **What changed:**

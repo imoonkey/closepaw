@@ -36,55 +36,43 @@ Test style: small state-machine tests proving when retry happens, when it must s
 
 ---
 
-## Phase 2: Fix P0 Streaming Correctness
+## Phase 2: Fix P0 Streaming Correctness — DONE
 
 **Prerequisite:** Phase 1
+**Status:** DONE (6c821852, 2026-04-10)
 
-### 2.1 Preserve domain exceptions in streamWithRetry
+All 6 fixes implemented plus review-round fix for Failed-terminal handling:
+
+### 2.1 Preserve domain exceptions in streamWithRetry — DONE
 **File:** `CloudStreamRetryRunner.kt`
+Short-circuit: `RateLimitException`/`TransientException` bypass `OpenAIErrorClassifier.classify()`.
 
-```kotlin
-val classified = when (e) {
-    is RateLimitException, is TransientException -> e
-    else -> OpenAIErrorClassifier.classify(e)
-}
-```
-
-### 2.2 Distinguish metadata vs irreversible output for retry
+### 2.2 Distinguish metadata vs irreversible output for retry — DONE
 **File:** `CloudStreamRetryRunner.kt`
+Only `TextDelta`/`ToolCallDone` set `emittedEvent`. `Created` no longer blocks retry.
 
-Track "semantic output emitted" instead of "any event emitted":
-- `Created` -> does NOT block retry
-- `TextDelta`, `ToolCallDone` -> blocks retry
-
-### 2.3 Fail on `response.incomplete`
+### 2.3 Fail on `response.incomplete` — DONE
 **Files:** `CodexResponseClient.kt`, `CodexSseParser.kt`
+`response.incomplete` maps to `Failed` with `incomplete_reason`. Streaming loop breaks on Failed event.
 
-Remove `response.incomplete -> Completed` mapping. Surface as `Failed` with backend reason.
-
-### 2.4 Require terminal completion in ChatCompletionClient
+### 2.4 Require terminal completion in ChatCompletionClient — DONE
 **File:** `ChatCompletionClient.kt`
+Tracks `sawFinishReason`; throws `TransientException("Stream ended without finish_reason")` if missing.
 
-```kotlin
-var sawFinishReason = false
-// In stream loop: set sawFinishReason = true when finishReason != null
-// After loop:
-if (!sawFinishReason) {
-    throw TransientException("Stream ended without finish_reason")
-}
-emitter.emit(LLMStreamEvent.Completed)
-```
-
-### 2.5 Make stream-ended-without-completion retryable
+### 2.5 Make stream-ended-without-completion retryable — DONE
 **Files:** `OpenAIResponseClient.kt`, `CodexResponseClient.kt`
+Changed to `TransientException("Stream ended without completion event")`.
 
-Change `RuntimeException("Stream ended without completion event")` to `TransientException("Stream ended without completion event")`.
+### 2.6 MessageContentExtractor deleted — DONE
+**Files:** `ChatCompletionInterop.kt`, `LFMLLMClient.kt`, `LlmLogger.kt`, `LlmInputItemsTraceSerializer.kt`
+Promoted `ChatCompletionInterop.extractStringContent()` to `internal`; replaced all call sites; deleted `MessageContentExtractor.kt`.
 
-**Acceptance criteria:**
-- A stream that fails after `Created` but before text/tool output retries
-- A stream that fails after text/tool output does not retry
-- Codex `response.incomplete` is never surfaced as success
-- Chat streaming does not emit `Completed` on clean EOF without terminal completion
+**Acceptance criteria — all met:**
+- A stream that fails after `Created` but before text/tool output retries ✓
+- A stream that fails after text/tool output does not retry ✓
+- Codex `response.incomplete` is never surfaced as success ✓
+- Chat streaming does not emit `Completed` on clean EOF without terminal completion ✓
+- `EasyInputMessage.Content` is extracted via typed API, not `toString()` ✓
 
 ---
 
@@ -212,7 +200,7 @@ Internal canonical request model dropped as false positive. No present defect pr
 | Phase | What | Effort | Impact | Status |
 |-------|------|--------|--------|--------|
 | 1 | Add streaming/retry tests | Medium | Enables safe fixes | **DONE** |
-| 2 | Fix P0 streaming correctness (5 items) + MessageContentExtractor bug | Small (~35 lines) | High -- eliminates silent truncation, lost retries, garbage Leap input | |
+| 2 | Fix P0 streaming correctness (5 items) + MessageContentExtractor bug | Small (~35 lines) | High -- eliminates silent truncation, lost retries, garbage Leap input | **DONE** |
 | 3 | Harden classification + SSL + cancellation | Small (~40 lines) | Medium -- eliminates fragile heuristics and hangs | |
 | 4 | Extract shared Responses helpers | Medium | Medium -- reduces duplication without over-engineering | |
 | 5 | Declare local capability gaps | Small (~20 lines) | Low -- makes implicit lossiness explicit | |

@@ -113,12 +113,12 @@ The immediate priority is fixing streaming correctness. After that, the module s
 | Area | Grade | Notes |
 |------|-------|-------|
 | Architecture | B+ | Clean abstractions, one level too flat |
-| Streaming Correctness | C | Multiple completion/retry bugs |
-| Error Handling | C+ | Works in happy path, fragile classification |
-| Retry Logic | B- | Correct policy design, implementation gaps |
+| Streaming Correctness | B+ | P0 bugs fixed: domain exception preservation, retry policy, incomplete handling, finishReason check |
+| Error Handling | C+ | Works in happy path, fragile classification (Phase 3) |
+| Retry Logic | B+ | Domain exceptions preserved, metadata vs output distinguished |
 | Thread Safety | A | Correct throughout |
 | Code Duplication | C+ | Three-way request normalization, streaming boilerplate |
 | Cancellation | C | No explicit support in stream loops |
-| Test Coverage | B- | Streaming/retry covered (62 tests, 6 known-bug); ChatCompletionClient streaming still untested |
+| Test Coverage | B | 63 tests; 3 known-bug remaining (classifier false-positives, Phase 3) |
 | Config/Catalog | A | Clean, immutable, extensible |
 | Security | B- | Debug SSL too broad, otherwise appropriate |
