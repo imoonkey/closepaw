@@ -118,6 +118,16 @@ class OpenAIErrorClassifierTest {
     }
 
     @Test
+    fun `OpenAI SDK RateLimitException preserves Retry-After header`() {
+        val sdkException = com.openai.errors.RateLimitException.builder()
+            .headers(Headers.builder().put("retry-after", "30").build())
+            .build()
+        val result = OpenAIErrorClassifier.classify(sdkException)
+        assertThat(result).isInstanceOf(RateLimitException::class.java)
+        assertThat((result as RateLimitException).retryAfterMs).isEqualTo(30_000L)
+    }
+
+    @Test
     fun `OpenAI SDK InternalServerException maps to TransientException`() {
         val sdkException = com.openai.errors.InternalServerException.builder()
             .statusCode(500)

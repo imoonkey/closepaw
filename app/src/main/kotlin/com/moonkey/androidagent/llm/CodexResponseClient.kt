@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -142,71 +143,74 @@ class CodexResponseClient(
 
         var activeCall: okhttp3.Call? = null
 
-        val retryResult = streamWithRetry(
-            tag = TAG,
-            emitToFlow = { event -> trySend(event) }
-        ) { attempt, emitter ->
-            val body = CodexRequestBuilder.buildRequestBody(systemPrompt, inputItems, tools, model)
-            val request = buildRequest(body)
+        val job = launch {
+            val retryResult = streamWithRetry(
+                tag = TAG,
+                emitToFlow = { event -> trySend(event) }
+            ) { attempt, emitter ->
+                val body = CodexRequestBuilder.buildRequestBody(systemPrompt, inputItems, tools, model)
+                val request = buildRequest(body)
 
-            withContext(Dispatchers.IO) {
-                val call = httpClient.newCall(request)
-                activeCall = call
-                call.execute().use { response ->
-                    if (!response.isSuccessful) handleErrorResponse(response)
+                withContext(Dispatchers.IO) {
+                    val call = httpClient.newCall(request)
+                    activeCall = call
+                    call.execute().use { response ->
+                        if (!response.isSuccessful) handleErrorResponse(response)
 
-                    val stream = response.body.byteStream()
-                    val accumulator = CodexSseParser.ToolCallAccumulator()
-                    var sawCompletion = false
-                    var responseId: String? = null
-                    val textAccumulator = StringBuilder()
-                    val toolCalls = mutableListOf<LLMToolCall>()
+                        val stream = response.body.byteStream()
+                        val accumulator = CodexSseParser.ToolCallAccumulator()
+                        var sawCompletion = false
+                        var responseId: String? = null
+                        val textAccumulator = StringBuilder()
+                        val toolCalls = mutableListOf<LLMToolCall>()
 
-                    for (sseEvent in CodexSseParser.parse(stream)) {
-                        val streamEvent = CodexSseParser.mapToStreamEvent(sseEvent, accumulator)
-                        if (streamEvent != null) {
-                            when (streamEvent) {
-                                is LLMStreamEvent.Created -> responseId = streamEvent.responseId
-                                is LLMStreamEvent.TextDelta -> textAccumulator.append(streamEvent.delta)
-                                is LLMStreamEvent.ToolCallDone -> toolCalls.add(streamEvent.toolCall)
-                                is LLMStreamEvent.Completed -> {
-                                    sawCompletion = true
-                                    LlmLogger.logOutput(TAG, ResponsesResult(
-                                        textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
-                                        toolCalls = toolCalls,
-                                        responseId = responseId ?: "unknown"
-                                    ))
+                        for (sseEvent in CodexSseParser.parse(stream)) {
+                            val streamEvent = CodexSseParser.mapToStreamEvent(sseEvent, accumulator)
+                            if (streamEvent != null) {
+                                when (streamEvent) {
+                                    is LLMStreamEvent.Created -> responseId = streamEvent.responseId
+                                    is LLMStreamEvent.TextDelta -> textAccumulator.append(streamEvent.delta)
+                                    is LLMStreamEvent.ToolCallDone -> toolCalls.add(streamEvent.toolCall)
+                                    is LLMStreamEvent.Completed -> {
+                                        sawCompletion = true
+                                        LlmLogger.logOutput(TAG, ResponsesResult(
+                                            textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
+                                            toolCalls = toolCalls,
+                                            responseId = responseId ?: "unknown"
+                                        ))
+                                    }
+                                    is LLMStreamEvent.Failed -> {
+                                        emitter.emit(streamEvent)
+                                        sawCompletion = true
+                                        break
+                                    }
                                 }
-                                is LLMStreamEvent.Failed -> {
-                                    emitter.emit(streamEvent)
-                                    sawCompletion = true
-                                    break
-                                }
+                                emitter.emit(streamEvent)
                             }
-                            emitter.emit(streamEvent)
                         }
+
+                        if (!sawCompletion) throw TransientException("Stream ended without completion event")
                     }
-
-                    if (!sawCompletion) throw TransientException("Stream ended without completion event")
                 }
+
+                Log.d(TAG, "Codex streaming completed successfully")
             }
 
-            Log.d(TAG, "Codex streaming completed successfully")
-        }
-
-        if (retryResult.completed) {
-            close()
-        } else {
-            val error = retryResult.lastError
-                ?: RuntimeException("Stream completed with error flag but no error details")
-            if (!retryResult.failureEmitted) {
-                trySend(LLMStreamEvent.Failed(error.message ?: "Unknown error"))
+            if (retryResult.completed) {
+                close()
+            } else {
+                val error = retryResult.lastError
+                    ?: RuntimeException("Stream completed with error flag but no error details")
+                if (!retryResult.failureEmitted) {
+                    trySend(LLMStreamEvent.Failed(error.message ?: "Unknown error"))
+                }
+                close()
             }
-            close()
         }
 
         awaitClose {
             activeCall?.cancel()
+            job.cancel()
             Log.d(TAG, "Codex streaming flow closed")
         }
     }

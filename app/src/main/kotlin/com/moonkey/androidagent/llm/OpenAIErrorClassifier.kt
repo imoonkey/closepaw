@@ -13,8 +13,11 @@ internal object OpenAIErrorClassifier {
         is RateLimitException, is TransientException -> e
 
         // Typed SDK exceptions — no string matching needed
-        is com.openai.errors.RateLimitException ->
-            RateLimitException(e.message ?: "Rate limited")
+        is com.openai.errors.RateLimitException -> {
+            val retryAfterMs = e.headers().values("retry-after").firstOrNull()
+                ?.toLongOrNull()?.let { it * 1000 }
+            RateLimitException(e.message ?: "Rate limited", retryAfterMs)
+        }
         is com.openai.errors.InternalServerException ->
             TransientException("Server error", e)
 
