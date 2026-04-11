@@ -8,7 +8,21 @@ import java.net.UnknownHostException
 internal object OpenAIErrorClassifier {
     private const val TAG = "OpenAIErrorClassifier"
 
-    fun classify(e: Exception): Exception {
+    fun classify(e: Exception): Exception = when (e) {
+        // Fast-path: preserve existing domain exceptions
+        is RateLimitException, is TransientException -> e
+
+        // Typed SDK exceptions — no string matching needed
+        is com.openai.errors.RateLimitException ->
+            RateLimitException(e.message ?: "Rate limited")
+        is com.openai.errors.InternalServerException ->
+            TransientException("Server error", e)
+
+        // Everything else goes through message-based fallback
+        else -> classifyByMessage(e)
+    }
+
+    private fun classifyByMessage(e: Exception): Exception {
         val message = e.message.orEmpty()
         val cause = e.cause?.message.orEmpty()
 

@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.llm
 
 import com.google.common.truth.Truth.assertThat
+import com.openai.core.http.Headers
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -83,36 +84,47 @@ class OpenAIErrorClassifierTest {
         assertThat(result).isInstanceOf(TransientException::class.java)
     }
 
-    // ── Domain exception reclassification (KNOWN BUG) ──────────────────
+    // ── Domain exception preservation ───────────────────────────────────
 
     @Test
-    fun `KNOWN BUG -- RateLimitException is reclassified losing retryAfterMs`() {
-        // Bug: classify() always reclassifies, even if input is already a domain exception.
-        // A RateLimitException with retryAfterMs=5000 gets reclassified based on its message,
-        // and the new instance may lose the original retryAfterMs value.
+    fun `RateLimitException is preserved with retryAfterMs intact`() {
+        // Fixed: classify() now preserves existing domain exceptions
         val original = RateLimitException("Rate limit hit", retryAfterMs = 5000L)
         val result = OpenAIErrorClassifier.classify(original)
 
-        // Current broken behavior: message contains "rate limit" so it gets re-detected,
-        // but retryAfterMs is extracted from message text (not preserved from original).
-        // The message "Rate limit hit" has no numeric pattern → retryAfterMs becomes null.
-        assertThat(result).isInstanceOf(RateLimitException::class.java)
-        assertThat((result as RateLimitException).retryAfterMs).isNull()
-        // Expected after fix: should preserve original retryAfterMs=5000
+        assertThat(result).isSameInstanceAs(original)
+        assertThat((result as RateLimitException).retryAfterMs).isEqualTo(5000L)
     }
 
     @Test
-    fun `KNOWN BUG -- TransientException is reclassified to RuntimeException`() {
-        // Bug: a TransientException with generic message gets reclassified.
-        // If message doesn't match any pattern, falls through to RuntimeException.
+    fun `TransientException is preserved without reclassification`() {
+        // Fixed: classify() now preserves existing domain exceptions
         val original = TransientException("Stream ended without completion event")
         val result = OpenAIErrorClassifier.classify(original)
 
-        // Current broken behavior: message doesn't match 429/rate-limit/500/502/503/504,
-        // not SocketTimeoutException, not UnknownHostException, not IOException
-        // → falls to else branch → RuntimeException (loses retryability!)
-        assertThat(result).isInstanceOf(RuntimeException::class.java)
-        assertThat(result).isNotInstanceOf(TransientException::class.java)
+        assertThat(result).isSameInstanceAs(original)
+        assertThat(result).isInstanceOf(TransientException::class.java)
+    }
+
+    // ── Typed SDK exceptions ──────────────────────────────────────────────
+
+    @Test
+    fun `OpenAI SDK RateLimitException maps to domain RateLimitException`() {
+        val sdkException = com.openai.errors.RateLimitException.builder()
+            .headers(Headers.builder().build())
+            .build()
+        val result = OpenAIErrorClassifier.classify(sdkException)
+        assertThat(result).isInstanceOf(RateLimitException::class.java)
+    }
+
+    @Test
+    fun `OpenAI SDK InternalServerException maps to TransientException`() {
+        val sdkException = com.openai.errors.InternalServerException.builder()
+            .statusCode(500)
+            .headers(Headers.builder().build())
+            .build()
+        val result = OpenAIErrorClassifier.classify(sdkException)
+        assertThat(result).isInstanceOf(TransientException::class.java)
     }
 
     // ── Server errors (5xx) ───────────────────────────────────────────────

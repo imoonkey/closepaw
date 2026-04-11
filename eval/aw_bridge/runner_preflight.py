@@ -723,7 +723,7 @@ def build_bridge_apk(workspace_root: Path | None = None) -> Path:
 
     logging.info("Building agent APK ...")
     result = subprocess.run(
-        [str(gradlew), ":app:assembleDebug", "--quiet"],
+        [str(gradlew), ":app:assembleDebug", "-PinsecureSslForEval=true", "--quiet"],
         cwd=str(root),
         capture_output=True,
         text=True,

@@ -140,6 +140,8 @@ class CodexResponseClient(
         Log.d(TAG, "Starting Codex streaming chat with ${inputItems.size} input items")
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
+        var activeCall: okhttp3.Call? = null
+
         val retryResult = streamWithRetry(
             tag = TAG,
             emitToFlow = { event -> trySend(event) }
@@ -148,7 +150,9 @@ class CodexResponseClient(
             val request = buildRequest(body)
 
             withContext(Dispatchers.IO) {
-                httpClient.newCall(request).execute().use { response ->
+                val call = httpClient.newCall(request)
+                activeCall = call
+                call.execute().use { response ->
                     if (!response.isSuccessful) handleErrorResponse(response)
 
                     val stream = response.body.byteStream()
@@ -201,7 +205,10 @@ class CodexResponseClient(
             close()
         }
 
-        awaitClose { Log.d(TAG, "Codex streaming flow closed") }
+        awaitClose {
+            activeCall?.cancel()
+            Log.d(TAG, "Codex streaming flow closed")
+        }
     }
 
     // ── Lifecycle ────────────────────────────────────────────────────────
