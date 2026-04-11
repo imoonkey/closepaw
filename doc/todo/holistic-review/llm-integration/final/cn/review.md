@@ -114,11 +114,11 @@
 |------|------|------|
 | 架构 | B+ | 抽象清晰，层级偏平一层 |
 | Streaming 正确性 | B+ | P0 bug 已修复：域异常保留、retry 策略、incomplete 处理、finishReason 检查 |
-| Error Handling | C+ | 正常路径可用，classification 脆弱（Phase 3） |
+| Error Handling | B+ | 类型化 SDK 异常优先，域异常保留，字符串匹配 fallback 最后 |
 | Retry 逻辑 | B+ | 域异常保留，元数据与输出区分 |
 | Thread Safety | A | 全局正确 |
 | 代码重复 | C+ | 三方 request 标准化，streaming 样板代码 |
-| Cancellation | C | Stream 循环中无显式支持 |
+| Cancellation | B+ | Codex stream 通过 OkHttp Call 在 flow 关闭时取消；SDK client 尚未覆盖 |
 | 测试覆盖 | B | 63 测试；3 个已知 bug 剩余（classifier 误报，Phase 3） |
 | Config/Catalog | A | 简洁、不可变、可扩展 |
-| 安全性 | B- | Debug SSL 范围过宽，其他方面适当 |
+| 安全性 | B+ | Debug SSL 限制在 INSECURE_SSL_FOR_EVAL 构建标志之后 |

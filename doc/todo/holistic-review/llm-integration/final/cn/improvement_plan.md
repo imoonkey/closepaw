@@ -76,41 +76,25 @@
 
 ---
 
-## Phase 3: 修复 P1 Classification、安全性、Cancellation
+## Phase 3: 修复 P1 Classification、安全性、Cancellation — 已完成
 
 **前置条件:** Phase 2
+**状态:** 已完成 (855d9fc4, 2026-04-10)
 
-### 3.1 加固 error classification（保持简单）
+### 3.1 加固 error classification — 已完成
 **文件:** `OpenAIErrorClassifier.kt`
 
-保留一个 classifier。在字符串 fallback 之前添加域异常和类型化 SDK 异常的 fast-path：
+重构为 `when(e)` 快速路径：域异常保留 → 类型化 SDK 异常（`com.openai.errors.RateLimitException` 提取 Retry-After header，`InternalServerException`）→ `classifyByMessage()` 字符串匹配 fallback。
 
-```kotlin
-fun classify(e: Exception): Exception = when (e) {
-    is RateLimitException, is TransientException -> e  // 保留已有域异常
-    is com.openai.errors.RateLimitException -> RateLimitException(e.message ?: "Rate limited")
-    is com.openai.errors.InternalServerException -> TransientException("Server error", e)
-    else -> classifyByMessage(e)  // 已有的字符串匹配 fallback
-}
-```
+### 3.2 收窄 InsecureSslConfig — 已完成
+**文件:** `InsecureSslConfig.kt`, `build.gradle.kts`
 
-不要构建独立的 transport-classifier 抽象。这就够了。
+限制在 `BuildConfig.INSECURE_SSL_FOR_EVAL`（默认 `false`）之后。构建时传 `-PinsecureSslForEval=true` 启用。Eval runner (`runner_preflight.py`) 已更新。
 
-### 3.2 收窄 InsecureSslConfig
-**文件:** `InsecureSslConfig.kt`
-
-限制在比 `BuildConfig.DEBUG` 更窄的专用 eval-only 标志之后。最快速安全的做法是使用类似 `INSECURE_SSL_FOR_EVAL` 的配置标志。如有需要，后续可再追求仅日期信任放宽。
-
-### 3.3 在 flow 取消时取消底层 stream
+### 3.3 在 flow 取消时取消底层 stream — 已完成
 **文件:** `CodexResponseClient.kt`
 
-存储 OkHttp `Call` 引用，从 `awaitClose` 中取消。这是主要修复——`ensureActive()` 仅在阻塞读取返回后才起作用。
-
-```kotlin
-// 在 streaming callbackFlow 中:
-val call = httpClient.newCall(request)
-awaitClose { call.cancel() }
-```
+`streamWithRetry` 在 `callbackFlow` 内部 `launch{}` 中运行。`awaitClose { activeCall?.cancel(); job.cancel() }` 在任何阻塞 I/O 之前注册，flow 取消立即终止 HTTP 连接。
 
 ---
 
@@ -201,7 +185,7 @@ object LocalLlmSemantics {
 |-------|------|--------|------|------|
 | 1 | 添加 streaming/retry 测试 | 中等 | 使安全修复成为可能 | **已完成** |
 | 2 | 修复 P0 streaming 正确性（5 项）+ MessageContentExtractor bug | 小（约 35 行） | 高——消除静默截断、丢失的 retry、Leap 垃圾输入 | **已完成** |
-| 3 | 加固 classification + SSL + cancellation | 小（约 40 行） | 中——消除脆弱启发式和挂起 | |
+| 3 | 加固 classification + SSL + cancellation | 小（约 40 行） | 中——消除脆弱启发式和挂起 | **已完成** |
 | 4 | 提取共享 Responses helpers | 中等 | 中——减少重复但不过度工程化 | |
 | 5 | 声明 local capability 差距 | 小（约 20 行） | 低——使隐式有损变为显式 | |
 | 6 | 去重清理 | 小（净减约 30 行） | 低——减少代码但不改变行为 | |

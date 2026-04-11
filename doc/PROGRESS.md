@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-04-10: LLM Integration Phase 3 — Classification, SSL, Cancellation
+
+**What changed:**
+- 3.1: OpenAIErrorClassifier hardened with typed SDK exception fast-paths (Retry-After header extracted from SDK RateLimitException), domain exception preservation, string fallback last
+- 3.2: InsecureSslConfig gated behind `BuildConfig.INSECURE_SSL_FOR_EVAL` (default false); eval runner passes `-PinsecureSslForEval=true`
+- 3.3: CodexResponseClient stores OkHttp Call, cancels from awaitClose registered before streamWithRetry via launch{}
+
+**Why:**
+- Phase 3 of LLM integration holistic review — eliminates fragile heuristics, narrows SSL bypass surface, prevents 120s hang on flow cancellation
+
+**Key files:** `OpenAIErrorClassifier.kt`, `InsecureSslConfig.kt`, `CodexResponseClient.kt`, `build.gradle.kts`, `runner_preflight.py`
+**Verification:** `./gradlew test` and `./gradlew assembleDebug` passed
+**Commit:** 913b5086..855d9fc4
+**Next:** Phase 4 — Extract shared Responses helpers
+**Blockers:** None
+
 ## 2026-04-10: LLM Integration Phase 2 — P0 Streaming Correctness
 
 **What changed:**

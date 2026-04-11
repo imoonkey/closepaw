@@ -114,11 +114,11 @@ The immediate priority is fixing streaming correctness. After that, the module s
 |------|-------|-------|
 | Architecture | B+ | Clean abstractions, one level too flat |
 | Streaming Correctness | B+ | P0 bugs fixed: domain exception preservation, retry policy, incomplete handling, finishReason check |
-| Error Handling | C+ | Works in happy path, fragile classification (Phase 3) |
+| Error Handling | B+ | Typed SDK exceptions first, domain preserved, string fallback last |
 | Retry Logic | B+ | Domain exceptions preserved, metadata vs output distinguished |
 | Thread Safety | A | Correct throughout |
 | Code Duplication | C+ | Three-way request normalization, streaming boilerplate |
-| Cancellation | C | No explicit support in stream loops |
+| Cancellation | B+ | Codex stream cancelled via OkHttp Call on flow close; SDK clients not yet covered |
 | Test Coverage | B | 63 tests; 3 known-bug remaining (classifier false-positives, Phase 3) |
 | Config/Catalog | A | Clean, immutable, extensible |
-| Security | B- | Debug SSL too broad, otherwise appropriate |
+| Security | B+ | Debug SSL gated behind INSECURE_SSL_FOR_EVAL build flag |

@@ -76,41 +76,26 @@ Promoted `ChatCompletionInterop.extractStringContent()` to `internal`; replaced 
 
 ---
 
-## Phase 3: Fix P1 Classification, Security, Cancellation
+## Phase 3: Fix P1 Classification, Security, Cancellation — DONE
 
 **Prerequisite:** Phase 2
+**Status:** DONE (855d9fc4, 2026-04-10)
 
-### 3.1 Harden error classification (keep it simple)
+### 3.1 Harden error classification — DONE
 **File:** `OpenAIErrorClassifier.kt`
 
-Keep one classifier. Add fast-paths for domain exceptions and typed SDK exceptions before string fallback:
+Restructured as `when(e)` with fast-paths: domain exceptions preserved → typed SDK exceptions (`com.openai.errors.RateLimitException` with Retry-After header extraction, `InternalServerException`) → string-matching fallback via `classifyByMessage()`.
 
-```kotlin
-fun classify(e: Exception): Exception = when (e) {
-    is RateLimitException, is TransientException -> e  // preserve existing domain exceptions
-    is com.openai.errors.RateLimitException -> RateLimitException(e.message ?: "Rate limited")
-    is com.openai.errors.InternalServerException -> TransientException("Server error", e)
-    else -> classifyByMessage(e)  // existing string-matching fallback
-}
-```
+### 3.2 Narrow InsecureSslConfig — DONE
+**Files:** `InsecureSslConfig.kt`, `build.gradle.kts`
 
-Do NOT build a separate transport-classifier abstraction. This is enough.
+Gated behind `BuildConfig.INSECURE_SSL_FOR_EVAL` (default `false`). Build with `-PinsecureSslForEval=true` to enable. Eval runner (`runner_preflight.py`) updated to pass this flag.
 
-### 3.2 Narrow InsecureSslConfig
-**File:** `InsecureSslConfig.kt`
-
-Gate behind an explicit eval-only flag narrower than `BuildConfig.DEBUG`. The fastest safe move is a config flag like `INSECURE_SSL_FOR_EVAL`. Date-only trust relaxation can be pursued later if needed.
-
-### 3.3 Cancel underlying stream on flow cancellation
+### 3.3 Cancel underlying stream on flow cancellation — DONE
 **File:** `CodexResponseClient.kt`
 
-Store OkHttp `Call` reference, cancel from `awaitClose`. This is the primary fix -- `ensureActive()` alone only helps after a blocking read returns.
+`streamWithRetry` runs inside `launch{}` within `callbackFlow`. `awaitClose { activeCall?.cancel(); job.cancel() }` registered before any blocking I/O, so flow cancellation immediately terminates the HTTP connection.
 
-```kotlin
-// In streaming callbackFlow:
-val call = httpClient.newCall(request)
-awaitClose { call.cancel() }
-```
 
 ---
 
@@ -201,7 +186,7 @@ Internal canonical request model dropped as false positive. No present defect pr
 |-------|------|--------|--------|--------|
 | 1 | Add streaming/retry tests | Medium | Enables safe fixes | **DONE** |
 | 2 | Fix P0 streaming correctness (5 items) + MessageContentExtractor bug | Small (~35 lines) | High -- eliminates silent truncation, lost retries, garbage Leap input | **DONE** |
-| 3 | Harden classification + SSL + cancellation | Small (~40 lines) | Medium -- eliminates fragile heuristics and hangs | |
+| 3 | Harden classification + SSL + cancellation | Small (~40 lines) | Medium -- eliminates fragile heuristics and hangs | **DONE** |
 | 4 | Extract shared Responses helpers | Medium | Medium -- reduces duplication without over-engineering | |
 | 5 | Declare local capability gaps | Small (~20 lines) | Low -- makes implicit lossiness explicit | |
 | 6 | Deduplication cleanup | Small (net -30 lines) | Low -- reduces code without behavior change | |
