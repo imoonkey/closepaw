@@ -189,20 +189,34 @@ class ChatCompletionClient(
                                 }
 
                                 // Emit completed tool calls when finish reason received
-                                choice.finishReason().ifPresent { _ ->
-                                    sawFinishReason = true
-                                    for ((_, builder) in toolCallBuilders) {
-                                        val (callId, name, args) = builder
-                                        val toolCall =
-                                            LLMToolCall(
-                                                callId = callId,
-                                                name = name,
-                                                arguments = args.toString()
-                                            )
-                                        completedToolCalls.add(toolCall)
-                                        emitter.emit(LLMStreamEvent.ToolCallDone(toolCall))
+                                choice.finishReason().ifPresent { reason ->
+                                    when (reason.toString()) {
+                                        "stop", "tool_calls" -> {
+                                            sawFinishReason = true
+                                            for ((_, builder) in toolCallBuilders) {
+                                                val (callId, name, args) = builder
+                                                val toolCall =
+                                                    LLMToolCall(
+                                                        callId = callId,
+                                                        name = name,
+                                                        arguments = args.toString()
+                                                    )
+                                                completedToolCalls.add(toolCall)
+                                                emitter.emit(LLMStreamEvent.ToolCallDone(toolCall))
+                                            }
+                                            toolCallBuilders.clear()
+                                        }
+                                        "length" -> {
+                                            throw TransientException("Response truncated (finish_reason=length)")
+                                        }
+                                        "content_filter" -> {
+                                            sawFinishReason = true
+                                            emitter.emit(LLMStreamEvent.Failed("Response blocked by content filter"))
+                                        }
+                                        else -> {
+                                            sawFinishReason = true
+                                        }
                                     }
-                                    toolCallBuilders.clear()
                                 }
                             }
                         }

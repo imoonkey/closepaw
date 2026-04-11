@@ -209,6 +209,31 @@ class CloudStreamRetryRunnerTest {
         assertThat(failedEvents[0].error).contains("incomplete")
     }
 
+    // ── Failed blocks retry (HIGH-1 regression) ──────────────────────────
+
+    @Test
+    fun `Failed event blocks retry -- emit Failed then retryable throw does NOT retry`() = runTest {
+        var attempts = 0
+        val events = mutableListOf<LLMStreamEvent>()
+
+        val result = streamWithRetry(
+            tag = "test",
+            emitToFlow = { events += it },
+            maxRetries = 5,
+            initialBackoffMs = 10L
+        ) { _, emitter ->
+            attempts++
+            emitter.emit(LLMStreamEvent.Failed("upstream failure"))
+            throw SocketTimeoutException("retryable error after Failed")
+        }
+
+        // Must NOT retry — caller already saw Failed
+        assertThat(attempts).isEqualTo(1)
+        assertThat(result.completed).isFalse()
+        assertThat(result.failureEmitted).isTrue()
+        assertThat(events.filterIsInstance<LLMStreamEvent.Failed>()).hasSize(1)
+    }
+
     // ── Max retries exhausted ─────────────────────────────────────────────
 
     @Test

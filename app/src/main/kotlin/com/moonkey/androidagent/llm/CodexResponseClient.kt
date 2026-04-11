@@ -16,6 +16,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * LLM client that talks to ChatGPT's Codex backend via OAuth access token.
@@ -141,7 +142,7 @@ class CodexResponseClient(
         Log.d(TAG, "Starting Codex streaming chat with ${inputItems.size} input items")
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
-        var activeCall: okhttp3.Call? = null
+        val activeCall = AtomicReference<okhttp3.Call?>(null)
 
         val job = launch {
             val retryResult = streamWithRetry(
@@ -153,43 +154,47 @@ class CodexResponseClient(
 
                 withContext(Dispatchers.IO) {
                     val call = httpClient.newCall(request)
-                    activeCall = call
-                    call.execute().use { response ->
-                        if (!response.isSuccessful) handleErrorResponse(response)
+                    activeCall.set(call)
+                    try {
+                        call.execute().use { response ->
+                            if (!response.isSuccessful) handleErrorResponse(response)
 
-                        val stream = response.body.byteStream()
-                        val accumulator = CodexSseParser.ToolCallAccumulator()
-                        var sawCompletion = false
-                        var responseId: String? = null
-                        val textAccumulator = StringBuilder()
-                        val toolCalls = mutableListOf<LLMToolCall>()
+                            val stream = response.body.byteStream()
+                            val accumulator = CodexSseParser.ToolCallAccumulator()
+                            var sawCompletion = false
+                            var responseId: String? = null
+                            val textAccumulator = StringBuilder()
+                            val toolCalls = mutableListOf<LLMToolCall>()
 
-                        for (sseEvent in CodexSseParser.parse(stream)) {
-                            val streamEvent = CodexSseParser.mapToStreamEvent(sseEvent, accumulator)
-                            if (streamEvent != null) {
-                                when (streamEvent) {
-                                    is LLMStreamEvent.Created -> responseId = streamEvent.responseId
-                                    is LLMStreamEvent.TextDelta -> textAccumulator.append(streamEvent.delta)
-                                    is LLMStreamEvent.ToolCallDone -> toolCalls.add(streamEvent.toolCall)
-                                    is LLMStreamEvent.Completed -> {
-                                        sawCompletion = true
-                                        LlmLogger.logOutput(TAG, ResponsesResult(
-                                            textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
-                                            toolCalls = toolCalls,
-                                            responseId = responseId ?: "unknown"
-                                        ))
+                            for (sseEvent in CodexSseParser.parse(stream)) {
+                                val streamEvent = CodexSseParser.mapToStreamEvent(sseEvent, accumulator)
+                                if (streamEvent != null) {
+                                    when (streamEvent) {
+                                        is LLMStreamEvent.Created -> responseId = streamEvent.responseId
+                                        is LLMStreamEvent.TextDelta -> textAccumulator.append(streamEvent.delta)
+                                        is LLMStreamEvent.ToolCallDone -> toolCalls.add(streamEvent.toolCall)
+                                        is LLMStreamEvent.Completed -> {
+                                            sawCompletion = true
+                                            LlmLogger.logOutput(TAG, ResponsesResult(
+                                                textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
+                                                toolCalls = toolCalls,
+                                                responseId = responseId ?: "unknown"
+                                            ))
+                                        }
+                                        is LLMStreamEvent.Failed -> {
+                                            emitter.emit(streamEvent)
+                                            sawCompletion = true
+                                            break
+                                        }
                                     }
-                                    is LLMStreamEvent.Failed -> {
-                                        emitter.emit(streamEvent)
-                                        sawCompletion = true
-                                        break
-                                    }
+                                    emitter.emit(streamEvent)
                                 }
-                                emitter.emit(streamEvent)
                             }
-                        }
 
-                        if (!sawCompletion) throw TransientException("Stream ended without completion event")
+                            if (!sawCompletion) throw TransientException("Stream ended without completion event")
+                        }
+                    } finally {
+                        activeCall.set(null)
                     }
                 }
 
@@ -203,7 +208,7 @@ class CodexResponseClient(
         }
 
         awaitClose {
-            activeCall?.cancel()
+            activeCall.getAndSet(null)?.cancel()
             job.cancel()
             Log.d(TAG, "Codex streaming flow closed")
         }
