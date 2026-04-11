@@ -25,9 +25,32 @@ import java.io.File
 import java.util.UUID
 
 /**
+ * Declares known semantic gaps in the Leap/local LLM backend.
+ *
+ * These are inherent limitations of the local inference path, not bugs.
+ * Callers that care about exact tool-call correlation or multi-role
+ * conversation fidelity should use a cloud client instead.
+ */
+internal object LocalLlmSemantics {
+    /** Roles other than user/assistant are silently dropped during conversion. */
+    val dropsNonUserAssistantRoles = true
+
+    /** Tool call IDs are random UUIDs, not correlated with upstream request IDs. */
+    val generatesRandomToolCallIds = true
+
+    /** Function call outputs are appended as TOOL messages without call-ID correlation. */
+    val noToolResultCorrelation = true
+
+    /** Multimodal Content is flattened to a single string; images are dropped. */
+    val flattensContentToString = true
+}
+
+/**
  * LFMLLMClient - Local LLM client using LiquidAI Leap SDK.
  *
  * Uses Leap's function calling, conversation, and model loading APIs directly.
+ *
+ * Known semantic gaps are documented in [LocalLlmSemantics].
  */
 class LFMLLMClient(
     private val context: Context,
@@ -291,11 +314,13 @@ class LFMLLMClient(
             when {
                 item.isEasyInputMessage() -> {
                     val message = item.asEasyInputMessage()
+                    // See LocalLlmSemantics.dropsNonUserAssistantRoles
                     val role = when (message.role().toString().lowercase()) {
                         "user" -> ChatMessage.Role.USER
                         "assistant" -> ChatMessage.Role.ASSISTANT
                         else -> null
                     }
+                    // See LocalLlmSemantics.flattensContentToString
                     val content = ChatCompletionInterop.extractStringContent(message.content())
                     if (role != null && content.isNotBlank()) {
                         messages.add(ChatMessage(role = role, textContent = content))
@@ -317,6 +342,7 @@ class LFMLLMClient(
                     }
                 }
                 item.isFunctionCallOutput() -> {
+                    // See LocalLlmSemantics.noToolResultCorrelation
                     val output = item.asFunctionCallOutput()
                     val content = output.output().toString()
                     if (content.isNotBlank()) {
@@ -338,6 +364,7 @@ class LFMLLMClient(
     private fun convertFunctionCalls(calls: List<LeapFunctionCall>?): List<LLMToolCall> {
         if (calls.isNullOrEmpty()) return emptyList()
         return calls.map { call ->
+            // See LocalLlmSemantics.generatesRandomToolCallIds
             LLMToolCall(
                 callId = "call_${UUID.randomUUID().toString().take(8)}",
                 name = call.name,
