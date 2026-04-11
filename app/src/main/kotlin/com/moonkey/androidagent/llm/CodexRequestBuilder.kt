@@ -1,7 +1,6 @@
 package com.moonkey.androidagent.llm
 
 import android.util.Log
-import com.openai.core.JsonValue
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
 import org.json.JSONArray
@@ -87,7 +86,7 @@ internal object CodexRequestBuilder {
                 put("type", "function")
                 put("name", tool.name())
                 put("description", tool.description().orElse(""))
-                put("parameters", convertToolParameters(tool))
+                put("parameters", ToolParameterExtractor.extract(tool) ?: JSONObject())
             })
         }
         return result
@@ -148,46 +147,5 @@ internal object CodexRequestBuilder {
             }
         ))
         return obj
-    }
-
-    private fun convertToolParameters(tool: FunctionTool): JSONObject {
-        val known = tool._parameters().asKnown().orElse(null)
-        if (known != null) {
-            return jsonValueMapToJsonObject(known._additionalProperties())
-        }
-
-        val unknown = tool._parameters().asUnknown().orElse(null)
-        if (unknown != null) {
-            unknown.asObject().orElse(null)?.let { return jsonValueMapToJsonObject(it) }
-            val raw = unknown.toString().trim()
-            if (raw.startsWith("{")) {
-                try {
-                    return JSONObject(raw)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse parameters for ${tool.name()}: ${e.message}")
-                }
-            }
-        }
-
-        Log.w(TAG, "No parameters found for tool ${tool.name()}, using empty schema")
-        return JSONObject()
-    }
-
-    private fun jsonValueMapToJsonObject(map: Map<String, JsonValue>): JSONObject {
-        val obj = JSONObject()
-        map.forEach { (key, value) -> obj.put(key, convertJsonValue(value)) }
-        return obj
-    }
-
-    private fun convertJsonValue(value: JsonValue): Any? {
-        if (value.isNull()) return JSONObject.NULL
-        value.asString().orElse(null)?.let { return it }
-        value.asBoolean().orElse(null)?.let { return it }
-        value.asNumber().orElse(null)?.let { return it }
-        value.asArray().orElse(null)?.let { array ->
-            return JSONArray().apply { array.forEach { put(convertJsonValue(it)) } }
-        }
-        value.asObject().orElse(null)?.let { return jsonValueMapToJsonObject(it) }
-        return value.toString()
     }
 }

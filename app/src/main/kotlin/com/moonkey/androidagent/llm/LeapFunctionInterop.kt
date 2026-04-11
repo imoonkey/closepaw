@@ -4,64 +4,17 @@ import android.util.Log
 import ai.liquid.leap.function.LeapFunction
 import ai.liquid.leap.function.LeapFunctionParameter
 import ai.liquid.leap.function.LeapFunctionParameterType
-import com.openai.core.JsonValue
 import com.openai.models.responses.FunctionTool
 import org.json.JSONArray
 import org.json.JSONObject
 
 internal object LeapToolSchemaAdapter {
-    private const val TAG = "LeapToolSchemaAdapter"
 
     fun toLeapFunction(tool: FunctionTool): LeapFunction {
         val description = tool.description().orElse("")
-        val schema = parseToolParameters(tool)
+        val schema = ToolParameterExtractor.extract(tool)
         val parameters = schema?.let { buildLeapParameters(it) } ?: emptyList()
         return LeapFunction(tool.name(), description, parameters)
-    }
-
-    private fun parseToolParameters(tool: FunctionTool): JSONObject? {
-        val knownParams = tool._parameters().asKnown().orElse(null)
-        if (knownParams != null) {
-            return jsonValueMapToJsonObject(knownParams._additionalProperties())
-        }
-
-        val rawField = tool._parameters().asUnknown().orElse(null) ?: run {
-            Log.w(TAG, "Tool parameters missing for ${tool.name()}")
-            return null
-        }
-
-        val objectMap = rawField.asObject().orElse(null)
-        if (objectMap != null) {
-            return jsonValueMapToJsonObject(objectMap)
-        }
-
-        val rawJson = rawField.toString()
-        if (rawJson.isBlank()) {
-            Log.w(TAG, "Tool parameters present but empty for ${tool.name()}")
-            return null
-        }
-
-        val trimmed = rawJson.trim()
-        if (trimmed.startsWith("{")) {
-            try {
-                return JSONObject(trimmed)
-            } catch (e: Exception) {
-                val snippet = if (trimmed.length > 200) trimmed.take(200) + "..." else trimmed
-                Log.w(
-                    TAG,
-                    "Failed to parse parameters JSON for ${tool.name()}. Raw snippet: $snippet",
-                    e
-                )
-            }
-        } else {
-            val snippet = if (trimmed.length > 200) trimmed.take(200) + "..." else trimmed
-            Log.w(
-                TAG,
-                "Tool parameters for ${tool.name()} are in an unexpected format. Raw snippet: $snippet"
-            )
-        }
-        Log.w(TAG, "Tool parameters missing or unparsable for ${tool.name()}")
-        return null
     }
 
     private fun buildLeapParameters(schema: JSONObject): List<LeapFunctionParameter> {
@@ -188,45 +141,6 @@ internal object LeapToolSchemaAdapter {
             }
         }
         return jsonObject
-    }
-
-    private fun jsonValueMapToJsonObject(map: Map<String, JsonValue>): JSONObject {
-        val obj = JSONObject()
-        map.forEach { (key, value) ->
-            obj.put(key, jsonValueToAny(value))
-        }
-        return obj
-    }
-
-    private fun jsonValueToAny(value: JsonValue): Any? {
-        if (value.isNull()) return null
-        value.asString().orElse(null)?.let { return it }
-        value.asBoolean().orElse(null)?.let { return it }
-        value.asNumber().orElse(null)?.let { return it }
-        value.asArray().orElse(null)?.let { array ->
-            val jsonArray = JSONArray()
-            array.forEach { jsonArray.put(jsonValueToAny(it)) }
-            return jsonArray
-        }
-        value.asObject().orElse(null)?.let { obj ->
-            return jsonValueMapToJsonObject(obj)
-        }
-        val raw = value.toString()
-        if (raw.startsWith("{")) {
-            return try {
-                JSONObject(raw)
-            } catch (_: Exception) {
-                raw
-            }
-        }
-        if (raw.startsWith("[")) {
-            return try {
-                JSONArray(raw)
-            } catch (_: Exception) {
-                raw
-            }
-        }
-        return raw
     }
 }
 
