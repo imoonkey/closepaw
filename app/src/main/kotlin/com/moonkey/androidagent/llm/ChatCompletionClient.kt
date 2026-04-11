@@ -224,15 +224,10 @@ class ChatCompletionClient(
                 emitter.emit(LLMStreamEvent.Completed)
             }
 
-        if (retryResult.completed) {
-            close()
-        } else {
-            val error = retryResult.lastError ?: RuntimeException("Stream ended unexpectedly")
-            if (!retryResult.failureEmitted) {
-                trySend(LLMStreamEvent.Failed(error.message ?: "Unknown error"))
-            }
-            close()
-        }
+        retryResult.closeFlow(
+            emitToFlow = { trySend(it) },
+            closeFlow = { close() }
+        )
 
         awaitClose { Log.d(TAG, "Streaming flow closed") }
     }

@@ -156,18 +156,10 @@ class OpenAIResponseClient(
                 Log.d(TAG, "Streaming completed successfully")
             }
 
-        if (retryResult.completed) {
-            close()
-        } else {
-            val error =
-                retryResult.lastError
-                    ?: RuntimeException("Stream completed with error flag but no error details")
-            if (!retryResult.failureEmitted) {
-                trySend(LLMStreamEvent.Failed(error.message ?: "Unknown error"))
-            }
-            close()
-        }
-
+        retryResult.closeFlow(
+            emitToFlow = { trySend(it) },
+            closeFlow = { close() }
+        )
         awaitClose {
             Log.d(TAG, "Streaming flow closed")
         }

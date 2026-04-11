@@ -10,7 +10,19 @@ internal data class StreamRetryRunResult(
     val completed: Boolean,
     val failureEmitted: Boolean,
     val lastError: Exception?
-)
+) {
+    /** Emit final failure (if needed) and close the flow channel. */
+    fun closeFlow(
+        emitToFlow: (LLMStreamEvent) -> Unit,
+        closeFlow: () -> Unit
+    ) {
+        if (!completed && !failureEmitted) {
+            val message = lastError?.message ?: "Unknown error"
+            emitToFlow(LLMStreamEvent.Failed(message))
+        }
+        closeFlow()
+    }
+}
 
 /**
  * Shared retry scaffold for cloud streaming calls.
