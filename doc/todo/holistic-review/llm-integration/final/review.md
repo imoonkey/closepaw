@@ -1,9 +1,10 @@
 # LLM Integration Module -- Final Review
 
-**Source:** Double-design review (Claude + Codex), cross-reviewed and aligned.
-**Date:** 2026-04-08
-**Status:** APPROVED
+**Source:** Double-design review (Claude + Codex), cross-reviewed, aligned, and verified.
+**Date:** 2026-04-08 (verified 2026-04-10)
+**Status:** VERIFIED
 **Base design:** CODEX (with CLAUDE hardening additions)
+**Verification:** 13 confirmed real, 2 dropped as false positives, KISSer alternatives adopted
 
 ---
 
@@ -61,10 +62,10 @@ The immediate priority is fixing streaming correctness. After that, the module s
 
 ### P1: Error Classification, Security, Cancellation
 
-**6. Transport-owned error classification** (MEDIUM)
+**6. Error classification fragile and leaks cross-transport** (MEDIUM)
 - **Files:** `OpenAIErrorClassifier.kt`, `CodexResponseClient.kt:242-260`
-- Stop routing Codex errors through `OpenAIErrorClassifier` string matching. Codex `handleErrorResponse()` already produces typed exceptions -- preserve them. For OpenAI SDK errors, check typed exception classes (`RateLimitException`, `InternalServerException`) before falling through to string matching.
-- The current string matching has false-positive risk: "14291" matches "429", "5002" matches "500".
+- Codex `handleErrorResponse()` already produces typed exceptions -- preserve them (done by fix #1). For OpenAI SDK errors, add typed exception branches before string fallback.
+- Do NOT build a separate transport-classifier abstraction. Keep one `OpenAIErrorClassifier` with fast-paths for domain exceptions and typed SDK exceptions. That's KISS enough.
 
 **7. InsecureSslConfig accepts all certificates** (MEDIUM)
 - **File:** `InsecureSslConfig.kt:36-40`
@@ -72,33 +73,38 @@ The immediate priority is fixing streaming correctness. After that, the module s
 - Fix: Gate behind an explicit eval-only flag narrower than `BuildConfig.DEBUG`. Optionally pursue date-only trust relaxation later.
 
 **8. Cancellation-aware streaming** (MEDIUM)
-- **Files:** All streaming clients, `CodexSseParser.kt`
+- **Files:** `CodexResponseClient.kt`, `CodexSseParser.kt`
 - Blocking reads in `CodexSseParser.parse()` are not cancellation-aware. Cancelled flows can hang until HTTP read timeout (120 seconds).
-- Fix: Add `coroutineContext.ensureActive()` in stream iteration loops. For Codex, store OkHttp `Call` reference and cancel from `awaitClose`.
+- Fix: Store OkHttp `Call` reference in `CodexResponseClient`, cancel from `awaitClose`. This is the primary fix -- `ensureActive()` alone only helps once the loop regains control after a blocking read.
 
 ### P2: Architecture
 
-**9. Three transport families, not four peer clients** (STRUCTURAL)
-- `CodexResponseClient` is a transport/auth variant of the Responses family, not a genuinely different protocol. The differences (auth, request encoding, stream decoding) are wire concerns, not semantic transport concerns. Treating Codex as a peer client preserves fragmentation in request building, stream accumulation, and retry handling.
-- Fix: Merge into a Responses-family transport with pluggable strategy objects (request encoder, stream decoder, auth/header provider, error classifier). Use composition, not inheritance.
+**9. Codex and OpenAI Responses clients share duplicated logic** (STRUCTURAL)
+- `CodexResponseClient` is a transport/auth variant of the Responses family, not a genuinely different protocol. Stream accumulation, completion checks, and retry epilogues are duplicated.
+- Fix: Extract shared Responses helpers first (request/result accumulation, completion checks, retry epilogue). Only collapse into a single transport class if meaningful duplication remains after helpers are extracted. Don't over-engineer the strategy pattern upfront.
 
-**10. Explicit capability declarations** (STRUCTURAL)
-- `LFMLLMClient` is semantically lossy relative to cloud transports: drops non-user/non-assistant roles, flattens content through untyped `Any` helper, generates random tool call IDs, replays tool outputs without call-ID correlation. This capability loss is implicit.
-- Fix: Define `LlmCapabilities` data class (vision, developer messages, stable tool call IDs, parallel tool calls, streaming). Make transports declare capabilities. Enforce or degrade explicitly.
+**10. Local capability loss is implicit** (STRUCTURAL)
+- `LFMLLMClient` drops non-user/non-assistant roles, flattens content through untyped `Any` helper, generates random tool call IDs, replays tool outputs without call-ID correlation.
+- Fix: Add a narrow `LocalLlmSemantics` object declaring the specific limitations the rest of the app needs to reason about. Don't build a broad generic `LlmCapabilities` framework until there's a second consumer.
 
 ### P3: Deduplication
 
-**11. Shared JsonValueConverter** -- Extract from `CodexRequestBuilder` and `LeapFunctionInterop` (~40 lines duplication).
+**11. Shared ToolParameterExtractor** -- Extract from `CodexRequestBuilder.convertToolParameters()` and `LeapToolSchemaAdapter.parseToolParameters()` (~30 lines duplication). One helper returning `JSONObject?`, callers decide fallback.
 
-**12. Shared ToolParameterExtractor** -- Extract from `CodexRequestBuilder.convertToolParameters()` and `LeapToolSchemaAdapter.parseToolParameters()` (~30 lines duplication).
+**12. Shared post-retry flow handler** -- Extract 10-line post-retry cleanup block repeated in three streaming clients into `CloudStreamRetryRunner.handleRetryResult()`. May be subsumed by Responses helper extraction (#9).
 
-**13. Shared post-retry flow handler** -- Extract 10-line post-retry cleanup block repeated in three streaming clients into `CloudStreamRetryRunner.handleRetryResult()`.
+### P0 (Bug): Content Extraction
 
-**14. Remove MessageContentExtractor** -- Make `ChatCompletionInterop.extractStringContent` internal and use directly from `LFMLLMClient` and `LlmLogger`.
+**13. MessageContentExtractor feeds garbage to Leap** (HIGH)
+- **Files:** `MessageContentExtractor.kt`, `LFMLLMClient.kt:299`, `LlmLogger.kt:33`, `LlmInputItemsTraceSerializer.kt:25`
+- `MessageContentExtractor.extractMessageContent(Any)` receives `EasyInputMessage.Content` but falls through to `toString()`, feeding wrapper strings like `Content{textInput=...}` into Leap instead of the actual text. This is a **functional bug**, not just deduplication.
+- Fix: Create a typed `extractStringContent(content: EasyInputMessage.Content): String` utility. Update all four call sites. Delete `MessageContentExtractor.kt`.
 
-### P3: Conditional
+### Dropped (false positives from pre-verification review)
 
-**15. Internal canonical request model** -- Only pursue if duplication remains high after the Responses-family collapse. This is a good tool but should not become mandatory architecture before simpler cleanup has landed.
+**~~JsonValueConverter extraction~~** -- Codex and Leap implementations have only partial overlap (Codex preserves `JSONObject.NULL`, Leap returns Kotlin `null` and reparses raw JSON strings). Not a clean shared utility.
+
+**~~Internal canonical request model~~** -- No present defect proves this is needed. Defer entirely; evaluate only after concrete cleanup lands.
 
 ---
 
@@ -113,6 +119,6 @@ The immediate priority is fixing streaming correctness. After that, the module s
 | Thread Safety | A | Correct throughout |
 | Code Duplication | C+ | Three-way request normalization, streaming boilerplate |
 | Cancellation | C | No explicit support in stream loops |
-| Test Coverage | C | Only catalog/factory/local tested; streaming/retry untested |
+| Test Coverage | B- | Streaming/retry covered (62 tests, 6 known-bug); ChatCompletionClient streaming still untested |
 | Config/Catalog | A | Clean, immutable, extensible |
 | Security | B- | Debug SSL too broad, otherwise appropriate |

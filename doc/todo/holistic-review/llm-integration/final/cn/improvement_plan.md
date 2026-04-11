@@ -1,8 +1,9 @@
 # LLM Integration -- 最终改进计划
 
-**来源:** 双重设计评审 (Claude + Codex)，交叉审查并对齐。
-**日期:** 2026-04-08
-**状态:** 已批准
+**来源:** 双重设计评审 (Claude + Codex)，交叉审查、对齐并验证。
+**日期:** 2026-04-08（2026-04-10 验证）
+**状态:** 已验证
+**验证变更:** 2 项误报移除，采纳更 KISS 的替代方案，#14 提升为 P0 bug
 
 ---
 
@@ -16,19 +17,20 @@
 
 ---
 
-## Phase 1: 添加 Streaming/Retry 测试
+## Phase 1: 添加 Streaming/Retry 测试 — 已完成
 
 **前置条件:** 无
+**状态:** 已完成 (11d76d0f, 2026-04-10)
 
-在修复 bug 之前先添加针对性测试。这些测试锁定当前行为并验证修复效果。
+添加 4 个测试类（62 个测试），锁定当前行为，包含 6 个已知 bug 测试（修复后会翻转）：
 
-| 测试 | 目标 |
-|------|------|
-| `CloudStreamRetryRunnerTest` | Retry 语义、域异常保留、emittedEvent 跟踪 |
-| `CloudStreamRetryPolicyTest` | 元数据事件 vs 不可逆事件的 policy 决策 |
-| `CodexSseParserTest` | 事件映射、incomplete 处理、畸形输入韧性 |
-| `OpenAIErrorClassifierTest` | Classification 准确性、误报场景 |
-| `ChatCompletionClientStreamingTest` | 终止完成检测 |
+| 测试 | 目标 | 状态 |
+|------|------|------|
+| `CloudStreamRetryRunnerTest` | Retry 语义、域异常保留、emittedEvent 跟踪、虚拟时间 backoff 断言 | 已完成 |
+| `CloudStreamRetryPolicyTest` | 元数据事件 vs 不可逆事件的 policy 决策 | 已完成 |
+| `CodexSseParserTest` | 事件映射、incomplete 处理、畸形输入韧性、tool call 累积 | 已完成 |
+| `OpenAIErrorClassifierTest` | Classification 准确性、误报场景 | 已完成 |
+| `ChatCompletionClientStreamingTest` | 终止完成检测 | 跳过 — 需 SDK mock；已被 runner 测试间接覆盖 |
 
 测试风格：小型状态机测试，验证何时发生 retry、何时必须停止、何时 stream 完成、何时响应不完整、tool call 如何重建。
 
@@ -58,7 +60,7 @@ val classified = when (e) {
 ### 2.3 对 `response.incomplete` 报错
 **文件:** `CodexResponseClient.kt`, `CodexSseParser.kt`
 
-移除 `response.incomplete -> Completed` 映射。以 `Failed` 状态呈现并附带后端原因。
+直接在 `response.incomplete` 分支处报错返回 `Failed`，附带后端原因。无需额外的 partial-success 状态机。
 
 ### 2.4 在 ChatCompletionClient 中要求终止完成
 **文件:** `ChatCompletionClient.kt`
@@ -90,87 +92,84 @@ emitter.emit(LLMStreamEvent.Completed)
 
 **前置条件:** Phase 2
 
-### 3.1 Transport 自有的 error classification
-**文件:** `OpenAIErrorClassifier.kt`, `CloudStreamRetryRunner.kt`
+### 3.1 加固 error classification（保持简单）
+**文件:** `OpenAIErrorClassifier.kt`
 
-- 在字符串 fallback 之前先检查类型化 SDK 异常类：
-  ```kotlin
-  fun classify(e: Exception): Exception = when (e) {
-      is com.openai.errors.RateLimitException -> RateLimitException(e.message ?: "Rate limited")
-      is com.openai.errors.InternalServerException -> TransientException("Server error", e)
-      else -> classifyByMessage(e)
-  }
-  ```
-- 停止将 Codex 异常路由到 OpenAI classifier（Codex 的 `handleErrorResponse()` 已经产生类型化异常）
+保留一个 classifier。在字符串 fallback 之前添加域异常和类型化 SDK 异常的 fast-path：
+
+```kotlin
+fun classify(e: Exception): Exception = when (e) {
+    is RateLimitException, is TransientException -> e  // 保留已有域异常
+    is com.openai.errors.RateLimitException -> RateLimitException(e.message ?: "Rate limited")
+    is com.openai.errors.InternalServerException -> TransientException("Server error", e)
+    else -> classifyByMessage(e)  // 已有的字符串匹配 fallback
+}
+```
+
+不要构建独立的 transport-classifier 抽象。这就够了。
 
 ### 3.2 收窄 InsecureSslConfig
 **文件:** `InsecureSslConfig.kt`
 
 限制在比 `BuildConfig.DEBUG` 更窄的专用 eval-only 标志之后。最快速安全的做法是使用类似 `INSECURE_SSL_FOR_EVAL` 的配置标志。如有需要，后续可再追求仅日期信任放宽。
 
-### 3.3 Cancellation 感知的 streaming
-**文件:** 所有 streaming client，`CodexSseParser.kt`
+### 3.3 在 flow 取消时取消底层 stream
+**文件:** `CodexResponseClient.kt`
 
-- 在 stream 迭代循环中添加 `coroutineContext.ensureActive()`（每个 client 约 5 行）
-- 对于 Codex：存储 OkHttp `Call` 引用，从 `awaitClose` 回调中取消（约 15 行）
-- 对于 OpenAI/Chat：SDK stream 的 `use {}` 块已处理清理，但 `ensureActive()` 可防止空转等待
+存储 OkHttp `Call` 引用，从 `awaitClose` 中取消。这是主要修复——`ensureActive()` 仅在阻塞读取返回后才起作用。
+
+```kotlin
+// 在 streaming callbackFlow 中:
+val call = httpClient.newCall(request)
+awaitClose { call.cancel() }
+```
 
 ---
 
-## Phase 4: 合并 Cloud Client 分类
+## Phase 4: 提取共享 Responses Helpers
 
 **前置条件:** Phase 3
 
-### 4.1 将 Codex 合并到 Responses transport 族
+### 4.1 从 Responses 族 client 中提取共享 helpers
 
-用一个采用 strategy/composition 的 Responses 族 transport 替代 `OpenAIResponseClient` 和 `CodexResponseClient`：
+从 `OpenAIResponseClient` 和 `CodexResponseClient` 中提取共同逻辑：
+- Request/result 累积
+- 完成检查
+- Retry epilogue 处理
 
-```kotlin
-class ResponsesTransport(
-    private val requestEncoder: ResponsesRequestEncoder,
-    private val streamDecoder: ResponsesStreamDecoder,
-    private val authProvider: ResponsesAuthProvider,
-    private val errorClassifier: ResponsesErrorClassifier,
-) : LlmTransport { ... }
-```
-
-Strategy：
-- `OpenAiResponsesWire` -- SDK 原生 streaming，API key auth
-- `CodexResponsesWire` -- OkHttp + 自定义 SSE，OAuth + 自定义 header
+暂保留两个 client 类。仅在提取 helpers 后仍有明显重复时才合并为单一 transport 类。
 
 ### 4.2 保持 Chat 和 Leap 独立
-- `ChatCompletionsTransport` -- 确实不同的线路协议
-- `LeapLocalTransport` -- 不同的后端族和生命周期
-
-### 4.3 在一处共享 retry/completion
-将所有 stream retry 和 completion 逻辑移入 transport 基类或共享 runner。消除各 client 的 post-retry 样板代码。
+- `ChatCompletionClient` -- 确实不同的线路协议
+- `LFMLLMClient` -- 不同的后端族和生命周期
 
 **验收标准：**
-- Factory 在三个 transport 族之间选择，而非四个平级 client
-- Codex 专有代码归属于 Responses 族之下
-- 共享 stream/retry 行为仅实现一次
+- 共享 Responses helpers 减少代码重复
+- 两个 Responses 族 client 使用相同的 completion/retry 逻辑
+- 除非重复确实需要，否则不构建过度工程化的 strategy 模式
 
 ---
 
-## Phase 5: 显式 Capability 声明
+## Phase 5: 声明 Local Capability 差距
 
 **前置条件:** Phase 4
 
-### 5.1 定义 transport capability
+### 5.1 添加窄的 `LocalLlmSemantics` 对象
+声明应用其他部分需要推理的特定局限性：
+
 ```kotlin
-data class LlmCapabilities(
-    val supportsVision: Boolean,
-    val supportsDeveloperMessages: Boolean,
-    val supportsParallelToolCalls: Boolean,
-    val supportsStableToolCallIds: Boolean,
-    val supportsStreaming: Boolean,
-)
+object LocalLlmSemantics {
+    val dropsNonUserAssistantRoles = true
+    val generatesRandomToolCallIds = true
+    val noToolResultCorrelation = true
+    val flattensContentToString = true
+}
 ```
 
-### 5.2 使 local 语义真实
-- 声明 Leap 的局限性：无 stable call ID、无 developer-role history、内容平坦化
-- 在一个文档化的位置显式执行或降级
-- 应用其他部分可以基于后端差异进行推理，无需对具体类做特殊处理
+在有第二个消费者之前不要构建宽泛的通用 `LlmCapabilities` 框架。
+
+### 5.2 显式限制或转换
+如果 Leap 无法保留某功能，在一个文档化的位置拒绝或转换。不静默丢弃。
 
 ---
 
@@ -178,32 +177,24 @@ data class LlmCapabilities(
 
 **前置条件:** Phase 4
 
-### 6.1 提取共享 JsonValueConverter
-创建 `JsonValueConverter.kt`（约 20 行）。从 `CodexRequestBuilder` 和 `LeapFunctionInterop` 中移除重复代码。节省约 40 行。
+### 6.1 提取共享 ToolParameterExtractor
+创建 `ToolParameterExtractor.kt`（约 25 行）。合并 `CodexRequestBuilder.convertToolParameters()` 和 `LeapToolSchemaAdapter.parseToolParameters()` 的逻辑。一个返回 `JSONObject?` 的 helper，调用方决定 fallback。节省约 30 行。
 
-### 6.2 提取共享 ToolParameterExtractor
-创建 `ToolParameterExtractor.kt`（约 25 行）。合并 `CodexRequestBuilder.convertToolParameters()` 和 `LeapToolSchemaAdapter.parseToolParameters()` 的逻辑。使用 Leap 版本更好的日志功能。节省约 30 行。
+### 6.2 修复 MessageContentExtractor（P0 bug）
+**这是一个功能性 bug，不仅仅是去重。** `MessageContentExtractor.extractMessageContent(Any)` 接收 `EasyInputMessage.Content` 但 fallthrough 到 `toString()`，将 `Content{textInput=...}` 这样的包装字符串输入到 Leap。
 
-### 6.3 共享 post-retry flow handler
-在 `CloudStreamRetryRunner` 中添加 `ProducerScope<LLMStreamEvent>.handleRetryResult()`。替换三个 client 中的 10 行代码块。节省约 20 行。（可能被 Phase 4 的 transport 合并所涵盖。）
+修复：创建类型化的 `extractStringContent(content: EasyInputMessage.Content): String`。更新所有调用点（`LFMLLMClient`、`LlmLogger`、`LlmInputItemsTraceSerializer`）。删除 `MessageContentExtractor.kt`。
 
-### 6.4 移除 MessageContentExtractor
-删除 `MessageContentExtractor.kt`。将 `ChatCompletionInterop.extractStringContent` 改为 internal。更新 `LFMLLMClient` 和 `LlmLogger` 的调用点。
+> 注：如果容易插入，这应在 Phase 2 与其他 P0 修复一起完成。列在此处是因为与去重相关。
+
+### 6.3 共享 post-retry flow handler（如仍需要）
+如果三个 retry epilogue 在 Phase 2-4 后仍然存在，提取一个小 helper。否则重复会被 Responses helper 提取自然消除。
 
 ---
 
-## Phase 7: 评估内部规范 Request 模型（有条件的）
+## ~~Phase 7~~ 已移除
 
-**前置条件:** Phase 4 完成并评估
-
-**门控条件:** 仅在 Responses 族合并后重复仍然较高时才推进。
-
-如果有必要：
-- 添加内部 data class：`LlmRequest`、`LlmMessage`、`LlmContentPart`、`LlmToolDefinition`、`LlmToolCallRecord`
-- 在模块边界一次性转换 `ResponseInputItem` 和 `FunctionTool`
-- Transport 消费内部模型，而非 SDK 特定的联合类型
-
-这是一个好工具，但在更简单的清理完成之前不应成为强制架构。
+内部规范 request 模型作为误报移除。没有当前缺陷证明其必要性。完全推迟；仅在所有具体修复落地后再评估。
 
 ---
 
@@ -218,14 +209,15 @@ data class LlmCapabilities(
 
 ## 执行总结
 
-| Phase | 内容 | 工作量 | 影响 |
-|-------|------|--------|------|
-| 1 | 添加 streaming/retry 测试 | 中等 | 使安全修复成为可能 |
-| 2 | 修复 P0 streaming 正确性（5 项） | 小（约 30 行变更） | 高——消除静默截断和丢失的 retry |
-| 3 | 修复 P1 classification + 安全性 + cancellation | 中等（约 60 行） | 中——消除脆弱启发式和挂起 |
-| 4 | 合并为 3 个 transport 族 | 大（重构） | 高——消除结构性重复 |
-| 5 | Capability 声明 | 小（约 30 行） | 中——使隐式有损变为显式 |
-| 6 | 去重清理 | 小（净减约 70 行） | 低——减少代码但不改变行为 |
-| 7 | 内部 request 模型（有条件的） | 大 | 取决于 Phase 4 结果 |
+| Phase | 内容 | 工作量 | 影响 | 状态 |
+|-------|------|--------|------|------|
+| 1 | 添加 streaming/retry 测试 | 中等 | 使安全修复成为可能 | **已完成** |
+| 2 | 修复 P0 streaming 正确性（5 项）+ MessageContentExtractor bug | 小（约 35 行） | 高——消除静默截断、丢失的 retry、Leap 垃圾输入 | |
+| 3 | 加固 classification + SSL + cancellation | 小（约 40 行） | 中——消除脆弱启发式和挂起 | |
+| 4 | 提取共享 Responses helpers | 中等 | 中——减少重复但不过度工程化 | |
+| 5 | 声明 local capability 差距 | 小（约 20 行） | 低——使隐式有损变为显式 | |
+| 6 | 去重清理 | 小（净减约 30 行） | 低——减少代码但不改变行为 | |
 
-**预期最终结果:** 更少的代码行、更少的 client、正确的 streaming 语义、显式的 capability，以及模块简化方向的拨正：困难的语义部分是干净的，而不仅仅是简单的 catalog/factory 部分。
+**已移除:** JsonValueConverter 提取（误报——仅部分重叠），内部规范 request 模型（无当前缺陷证明需要）。
+
+**预期最终结果:** 正确的 streaming 语义、诚实的 local capability、更少的重复——且不引入尚未证明其价值的新抽象。

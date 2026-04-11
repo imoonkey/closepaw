@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-04-10: LLM Integration Phase 1 — Streaming/Retry Tests
+
+**What changed:**
+- Added 4 test classes (62 tests) covering streaming/retry system: `OpenAIErrorClassifierTest`, `CloudStreamRetryPolicyTest`, `CloudStreamRetryRunnerTest`, `CodexSseParserTest`
+- 6 KNOWN BUG tests capture current broken behavior (will flip when fixes land): false-positive substring matching in classifier, domain exception reclassification, Created event blocking retry, response.incomplete treated as success
+- Virtual-time assertions prove backoff timing and retryAfterMs loss
+
+**Why:**
+- Phase 1 prerequisite for LLM integration holistic review — tests must lock down current behavior before correctness fixes in Phase 2
+
+**Key files:** `app/src/test/kotlin/com/moonkey/androidagent/llm/CloudStreamRetry{Runner,Policy}Test.kt`, `CodexSseParserTest.kt`, `OpenAIErrorClassifierTest.kt`
+**Verification:** `./gradlew test` passed
+**Commit:** 1391287e..11d76d0f
+**Next:** Phase 2 — Fix P0 streaming correctness (5 items + MessageContentExtractor bug)
+**Blockers:** None
+
 ## 2026-04-10: Tool System Design Improvements (5 phases)
 
 **What changed:**
