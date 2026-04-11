@@ -118,45 +118,40 @@
 
 ---
 
-## Phase 5: 声明 Local Capability 差距
+## Phase 5: 声明 Local Capability 差距 — 已完成
 
 **前置条件:** Phase 4
+**状态:** 已完成 (3d6b52ae, 2026-04-10)
 
-### 5.1 添加窄的 `LocalLlmSemantics` 对象
-声明应用其他部分需要推理的特定局限性：
+### 5.1 添加窄的 `LocalLlmSemantics` 对象 — 已完成
+**文件:** `LFMLLMClient.kt`
 
-```kotlin
-object LocalLlmSemantics {
-    val dropsNonUserAssistantRoles = true
-    val generatesRandomToolCallIds = true
-    val noToolResultCorrelation = true
-    val flattensContentToString = true
-}
-```
+声明 4 个局限性并添加文档注释，每个在发生处交叉引用：
+- `dropsNonUserAssistantRoles` — `convertInputItemsToChatMessages` 角色映射
+- `generatesRandomToolCallIds` — `convertFunctionCalls` UUID 生成
+- `noToolResultCorrelation` — `isFunctionCallOutput()` 分支
+- `flattensContentToString` — `extractStringContent` 调用
 
-在有第二个消费者之前不要构建宽泛的通用 `LlmCapabilities` 框架。
-
-### 5.2 显式限制或转换
-如果 Leap 无法保留某功能，在一个文档化的位置拒绝或转换。不静默丢弃。
+### 5.2 显式限制或转换 — 延迟
+无需额外限制；现有丢弃已文档化。
 
 ---
 
-## Phase 6: 去重清理
+## Phase 6: 去重清理 — 已完成
 
 **前置条件:** Phase 4
+**状态:** 已完成 (5003fc5c, 2026-04-10)
 
-### 6.1 提取共享 ToolParameterExtractor
-创建 `ToolParameterExtractor.kt`（约 25 行）。合并 `CodexRequestBuilder.convertToolParameters()` 和 `LeapToolSchemaAdapter.parseToolParameters()` 的逻辑。一个返回 `JSONObject?` 的 helper，调用方决定 fallback。节省约 30 行。
+### 6.1 提取共享 ToolParameterExtractor — 已完成
+**文件:** `ToolParameterExtractor.kt`
 
-### 6.2 修复 MessageContentExtractor（P0 bug）
-**这是一个功能性 bug，不仅仅是去重。** `MessageContentExtractor.extractMessageContent(Any)` 接收 `EasyInputMessage.Content` 但 fallthrough 到 `toString()`，将 `Content{textInput=...}` 这样的包装字符串输入到 Leap。
+合并 `CodexRequestBuilder.convertToolParameters()` 和 `LeapToolSchemaAdapter.parseToolParameters()` 为 `ToolParameterExtractor.extract()`。两个调用方已更新。
 
-修复：创建类型化的 `extractStringContent(content: EasyInputMessage.Content): String`。更新所有调用点（`LFMLLMClient`、`LlmLogger`、`LlmInputItemsTraceSerializer`）。删除 `MessageContentExtractor.kt`。
+### 6.2 修复 MessageContentExtractor — Phase 2 已完成
+作为 Phase 2 修复 2.6 的一部分完成。
 
-> 注：如果容易插入，这应在 Phase 2 与其他 P0 修复一起完成。列在此处是因为与去重相关。
-
-### 6.3 共享 post-retry flow handler（如仍需要）
-如果三个 retry epilogue 在 Phase 2-4 后仍然存在，提取一个小 helper。否则重复会被 Responses helper 提取自然消除。
+### 6.3 共享 post-retry flow handler — Phase 4 已完成
+作为 `StreamRetryRunResult.closeFlow()` 在 Phase 4 完成。
 
 ---
 
@@ -183,8 +178,8 @@ object LocalLlmSemantics {
 | 2 | 修复 P0 streaming 正确性（5 项）+ MessageContentExtractor bug | 小（约 35 行） | 高——消除静默截断、丢失的 retry、Leap 垃圾输入 | **已完成** |
 | 3 | 加固 classification + SSL + cancellation | 小（约 40 行） | 中——消除脆弱启发式和挂起 | **已完成** |
 | 4 | 提取共享 Responses helpers | 中等 | 中——减少重复但不过度工程化 | **已完成** |
-| 5 | 声明 local capability 差距 | 小（约 20 行） | 低——使隐式有损变为显式 | |
-| 6 | 去重清理 | 小（净减约 30 行） | 低——减少代码但不改变行为 | |
+| 5 | 声明 local capability 差距 | 小（约 20 行） | 低——使隐式有损变为显式 | **已完成** |
+| 6 | 去重清理 | 小（净减约 30 行） | 低——减少代码但不改变行为 | **已完成** |
 
 **已移除:** JsonValueConverter 提取（误报——仅部分重叠），内部规范 request 模型（无当前缺陷证明需要）。
 

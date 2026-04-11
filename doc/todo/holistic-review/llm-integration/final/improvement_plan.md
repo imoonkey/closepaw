@@ -119,45 +119,40 @@ Extracted the identical post-retry epilogue block (check completed, emit Failed 
 
 ---
 
-## Phase 5: Declare Local Capability Gaps
+## Phase 5: Declare Local Capability Gaps — DONE
 
 **Prerequisite:** Phase 4
+**Status:** DONE (3d6b52ae, 2026-04-10)
 
-### 5.1 Add narrow `LocalLlmSemantics` object
-Declare the specific limitations the rest of the app needs to reason about:
+### 5.1 Add narrow `LocalLlmSemantics` object — DONE
+**File:** `LFMLLMClient.kt`
 
-```kotlin
-object LocalLlmSemantics {
-    val dropsNonUserAssistantRoles = true
-    val generatesRandomToolCallIds = true
-    val noToolResultCorrelation = true
-    val flattensContentToString = true
-}
-```
+Declared 4 limitations with doc comments, each cross-referenced at its occurrence site:
+- `dropsNonUserAssistantRoles` — role mapping in `convertInputItemsToChatMessages`
+- `generatesRandomToolCallIds` — UUID generation in `convertFunctionCalls`
+- `noToolResultCorrelation` — `isFunctionCallOutput()` branch
+- `flattensContentToString` — `extractStringContent` call
 
-Don't build a broad generic `LlmCapabilities` framework until there's a second consumer.
-
-### 5.2 Gate or transform explicitly
-If Leap cannot preserve a feature, reject or transform in one documented place. No silent drops.
+### 5.2 Gate or transform explicitly — deferred
+No additional gating needed; existing drops are now documented.
 
 ---
 
-## Phase 6: Deduplication Cleanup
+## Phase 6: Deduplication Cleanup — DONE
 
 **Prerequisite:** Phase 4
+**Status:** DONE (5003fc5c, 2026-04-10)
 
-### 6.1 Extract shared ToolParameterExtractor
-Create `ToolParameterExtractor.kt` (~25 lines). Merge logic from `CodexRequestBuilder.convertToolParameters()` and `LeapToolSchemaAdapter.parseToolParameters()`. One helper returning `JSONObject?`, callers decide fallback. Saves ~30 lines.
+### 6.1 Extract shared ToolParameterExtractor — DONE
+**File:** `ToolParameterExtractor.kt`
 
-### 6.2 Fix MessageContentExtractor (P0 bug)
-**This is a functional bug, not just deduplication.** `MessageContentExtractor.extractMessageContent(Any)` receives `EasyInputMessage.Content` but falls through to `toString()`, feeding wrapper strings like `Content{textInput=...}` into Leap.
+Merged `CodexRequestBuilder.convertToolParameters()` and `LeapToolSchemaAdapter.parseToolParameters()` into a single `ToolParameterExtractor.extract(schema: FunctionTool): JSONObject?` helper. Both callers updated.
 
-Fix: Create typed `extractStringContent(content: EasyInputMessage.Content): String`. Update all call sites (`LFMLLMClient`, `LlmLogger`, `LlmInputItemsTraceSerializer`). Delete `MessageContentExtractor.kt`.
+### 6.2 Fix MessageContentExtractor — done in Phase 2
+Completed as part of Phase 2 fix 2.6 (typed `extractStringContent`, `MessageContentExtractor.kt` deleted).
 
-> Note: This should be done in Phase 2 alongside other P0 fixes if it's easy to slot in. Listed here because it's dedup-adjacent.
-
-### 6.3 Shared post-retry flow handler (if still needed)
-If the three retry epilogues survive Phases 2-4, extract a tiny helper. Otherwise the duplication is removed naturally by the Responses helper extraction.
+### 6.3 Shared post-retry flow handler — done in Phase 4
+Completed as `StreamRetryRunResult.closeFlow()` in Phase 4.
 
 ---
 
@@ -184,8 +179,8 @@ Internal canonical request model dropped as false positive. No present defect pr
 | 2 | Fix P0 streaming correctness (5 items) + MessageContentExtractor bug | Small (~35 lines) | High -- eliminates silent truncation, lost retries, garbage Leap input | **DONE** |
 | 3 | Harden classification + SSL + cancellation | Small (~40 lines) | Medium -- eliminates fragile heuristics and hangs | **DONE** |
 | 4 | Extract shared Responses helpers | Medium | Medium -- reduces duplication without over-engineering | **DONE** |
-| 5 | Declare local capability gaps | Small (~20 lines) | Low -- makes implicit lossiness explicit | |
-| 6 | Deduplication cleanup | Small (net -30 lines) | Low -- reduces code without behavior change | |
+| 5 | Declare local capability gaps | Small (~20 lines) | Low -- makes implicit lossiness explicit | **DONE** |
+| 6 | Deduplication cleanup | Small (net -30 lines) | Low -- reduces code without behavior change | **DONE** |
 
 **Dropped:** JsonValueConverter extraction (false positive -- partial overlap only), internal canonical request model (no present defect proves need).
 

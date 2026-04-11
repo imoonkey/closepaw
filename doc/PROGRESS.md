@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-04-10: LLM Integration Phases 5+6 — Local Semantics + Deduplication
+
+**What changed:**
+- Phase 5: `LocalLlmSemantics` object declaring 4 Leap backend limitations, cross-referenced at each occurrence in `LFMLLMClient`
+- Phase 6: `ToolParameterExtractor` merging duplicate tool parameter extraction from `CodexRequestBuilder` and `LeapToolSchemaAdapter`
+
+**Why:**
+- Final phases of LLM integration holistic review — make implicit lossiness explicit, reduce code duplication
+
+**Key files:** `LFMLLMClient.kt`, `ToolParameterExtractor.kt`, `CodexRequestBuilder.kt`, `LeapFunctionInterop.kt`
+**Verification:** `./gradlew test` passed
+**Commit:** 3d6b52ae, 5003fc5c
+**Next:** All 6 phases complete — LLM integration holistic review done
+**Blockers:** None
+
 ## 2026-04-10: LLM Integration Phase 4 — Extract Shared Helpers
 
 **What changed:**

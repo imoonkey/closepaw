@@ -112,7 +112,7 @@ Fallback: if `llm_models.json` missing/malformed, uses built-in catalog (`glm-5`
 
 **InsecureSslConfig** (`debug/llm/InsecureSslConfig.kt`): SSL bypass for debug builds when emulator clock is frozen (AndroidWorld eval). Trust-all manager + no-op certificate validation. Compile-time debug-only — release source set has a no-op stub that returns null.
 
-**LlmLogger**: Debug logging for LLM I/O. **LeapFunctionInterop**: OpenAI ↔ Leap tool schema adapters. **ChatCompletionInterop.extractStringContent**: Typed text extraction from `EasyInputMessage.Content`.
+**LlmLogger**: Debug logging for LLM I/O. **LeapFunctionInterop**: OpenAI ↔ Leap tool schema adapters. **ChatCompletionInterop.extractStringContent**: Typed text extraction from `EasyInputMessage.Content`. **ToolParameterExtractor**: Shared tool parameter extraction from FunctionTool schema. **LocalLlmSemantics**: Declares Leap backend limitations (role dropping, random IDs, no correlation, content flattening).
 
 ---
 
@@ -137,6 +137,7 @@ llm/
 ├── OpenAIErrorClassifier.kt  # Exception classification
 ├── LlmLogger.kt              # Debug logging
 ├── LocalLLMConfig.kt         # Local model config
+├── ToolParameterExtractor.kt # Shared tool param extraction
 └── LeapFunctionInterop.kt    # OpenAI ↔ Leap adapters
 ```
 
