@@ -98,27 +98,23 @@
 
 ---
 
-## Phase 4: 提取共享 Responses Helpers
+## Phase 4: 提取共享 Responses Helpers — 已完成
 
 **前置条件:** Phase 3
+**状态:** 已完成 (73916643, 2026-04-10)
 
-### 4.1 从 Responses 族 client 中提取共享 helpers
+### 4.1 提取 `StreamRetryRunResult.closeFlow()` — 已完成
 
-从 `OpenAIResponseClient` 和 `CodexResponseClient` 中提取共同逻辑：
-- Request/result 累积
-- 完成检查
-- Retry epilogue 处理
+将相同的 post-retry epilogue 块（检查 completed、需要时发出 Failed、关闭 flow）提取为 `StreamRetryRunResult.closeFlow()`。三个 streaming client 共用：`OpenAIResponseClient`、`CodexResponseClient`、`ChatCompletionClient`。
 
-暂保留两个 client 类。仅在提取 helpers 后仍有明显重复时才合并为单一 transport 类。
-
-### 4.2 保持 Chat 和 Leap 独立
-- `ChatCompletionClient` -- 确实不同的线路协议
+### 4.2 保持 Chat 和 Leap 独立 — 已确认
+- `ChatCompletionClient` -- 确实不同的线路协议（但也受益于 `closeFlow()`）
 - `LFMLLMClient` -- 不同的后端族和生命周期
 
-**验收标准：**
-- 共享 Responses helpers 减少代码重复
-- 两个 Responses 族 client 使用相同的 completion/retry 逻辑
-- 除非重复确实需要，否则不构建过度工程化的 strategy 模式
+### 未提取（有意为之）
+- Streaming 循环内部根本不同（SDK 事件 vs 解析的 SSE vs Chat Completions）
+- 累积变量是简单初始化——不值得共享抽象
+- Result logging 是 4 行相同模式但不值得独立函数
 
 ---
 
@@ -186,7 +182,7 @@ object LocalLlmSemantics {
 | 1 | 添加 streaming/retry 测试 | 中等 | 使安全修复成为可能 | **已完成** |
 | 2 | 修复 P0 streaming 正确性（5 项）+ MessageContentExtractor bug | 小（约 35 行） | 高——消除静默截断、丢失的 retry、Leap 垃圾输入 | **已完成** |
 | 3 | 加固 classification + SSL + cancellation | 小（约 40 行） | 中——消除脆弱启发式和挂起 | **已完成** |
-| 4 | 提取共享 Responses helpers | 中等 | 中——减少重复但不过度工程化 | |
+| 4 | 提取共享 Responses helpers | 中等 | 中——减少重复但不过度工程化 | **已完成** |
 | 5 | 声明 local capability 差距 | 小（约 20 行） | 低——使隐式有损变为显式 | |
 | 6 | 去重清理 | 小（净减约 30 行） | 低——减少代码但不改变行为 | |
 

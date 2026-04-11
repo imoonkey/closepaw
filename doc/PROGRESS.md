@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-04-10: LLM Integration Phase 4 — Extract Shared Helpers
+
+**What changed:**
+- Extracted `StreamRetryRunResult.closeFlow()` — identical post-retry epilogue block from 3 streaming clients into a single method on the result data class
+- Streaming loop internals intentionally NOT extracted (fundamentally different event sources)
+
+**Why:**
+- Phase 4 of LLM integration holistic review — reduce duplication without over-engineering
+
+**Key files:** `CloudStreamRetryRunner.kt`, `OpenAIResponseClient.kt`, `CodexResponseClient.kt`, `ChatCompletionClient.kt`
+**Verification:** `./gradlew test` and `./gradlew assembleDebug` passed
+**Commit:** 73916643
+**Next:** Phase 5 — Declare local capability gaps
+**Blockers:** None
+
 ## 2026-04-10: LLM Integration Phase 3 — Classification, SSL, Cancellation
 
 **What changed:**

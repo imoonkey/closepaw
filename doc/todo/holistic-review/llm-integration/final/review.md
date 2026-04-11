@@ -117,7 +117,7 @@ The immediate priority is fixing streaming correctness. After that, the module s
 | Error Handling | B+ | Typed SDK exceptions first, domain preserved, string fallback last |
 | Retry Logic | B+ | Domain exceptions preserved, metadata vs output distinguished |
 | Thread Safety | A | Correct throughout |
-| Code Duplication | C+ | Three-way request normalization, streaming boilerplate |
+| Code Duplication | B | Retry epilogue shared via closeFlow(); streaming loops intentionally separate |
 | Cancellation | B+ | Codex stream cancelled via OkHttp Call on flow close; SDK clients not yet covered |
 | Test Coverage | B | 63 tests; 3 known-bug remaining (classifier false-positives, Phase 3) |
 | Config/Catalog | A | Clean, immutable, extensible |

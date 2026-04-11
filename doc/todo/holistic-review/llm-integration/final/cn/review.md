@@ -117,7 +117,7 @@
 | Error Handling | B+ | 类型化 SDK 异常优先，域异常保留，字符串匹配 fallback 最后 |
 | Retry 逻辑 | B+ | 域异常保留，元数据与输出区分 |
 | Thread Safety | A | 全局正确 |
-| 代码重复 | C+ | 三方 request 标准化，streaming 样板代码 |
+| 代码重复 | B | Retry epilogue 通过 closeFlow() 共享；streaming 循环有意保持独立 |
 | Cancellation | B+ | Codex stream 通过 OkHttp Call 在 flow 关闭时取消；SDK client 尚未覆盖 |
 | 测试覆盖 | B | 63 测试；3 个已知 bug 剩余（classifier 误报，Phase 3） |
 | Config/Catalog | A | 简洁、不可变、可扩展 |

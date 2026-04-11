@@ -99,27 +99,23 @@ Gated behind `BuildConfig.INSECURE_SSL_FOR_EVAL` (default `false`). Build with `
 
 ---
 
-## Phase 4: Extract Shared Responses Helpers
+## Phase 4: Extract Shared Responses Helpers — DONE
 
 **Prerequisite:** Phase 3
+**Status:** DONE (73916643, 2026-04-10)
 
-### 4.1 Extract shared helpers from Responses-family clients
+### 4.1 Extract `StreamRetryRunResult.closeFlow()` — DONE
 
-Extract common logic from `OpenAIResponseClient` and `CodexResponseClient`:
-- Request/result accumulation
-- Completion checks
-- Retry epilogue handling
+Extracted the identical post-retry epilogue block (check completed, emit Failed if needed, close flow) into `StreamRetryRunResult.closeFlow()` in `CloudStreamRetryRunner.kt`. Used by all three streaming clients: `OpenAIResponseClient`, `CodexResponseClient`, `ChatCompletionClient`.
 
-Keep both client classes for now. Only collapse into a single transport class if meaningful duplication remains after helpers are extracted.
-
-### 4.2 Keep Chat and Leap separate
-- `ChatCompletionClient` -- genuinely different wire protocol
+### 4.2 Keep Chat and Leap separate — confirmed
+- `ChatCompletionClient` -- genuinely different wire protocol (but also benefits from `closeFlow()`)
 - `LFMLLMClient` -- different backend family and lifecycle
 
-**Acceptance criteria:**
-- Shared Responses helpers reduce code duplication
-- Both Responses-family clients use the same completion/retry logic
-- No over-engineered strategy pattern unless duplication demands it
+### Not extracted (intentionally)
+- Streaming loop internals differ fundamentally (SDK events vs parsed SSE vs Chat Completions)
+- Accumulation variables are trivial initialization — not worth a shared abstraction
+- Result logging is 4 lines of identical pattern but not worth a separate function
 
 ---
 
@@ -187,7 +183,7 @@ Internal canonical request model dropped as false positive. No present defect pr
 | 1 | Add streaming/retry tests | Medium | Enables safe fixes | **DONE** |
 | 2 | Fix P0 streaming correctness (5 items) + MessageContentExtractor bug | Small (~35 lines) | High -- eliminates silent truncation, lost retries, garbage Leap input | **DONE** |
 | 3 | Harden classification + SSL + cancellation | Small (~40 lines) | Medium -- eliminates fragile heuristics and hangs | **DONE** |
-| 4 | Extract shared Responses helpers | Medium | Medium -- reduces duplication without over-engineering | |
+| 4 | Extract shared Responses helpers | Medium | Medium -- reduces duplication without over-engineering | **DONE** |
 | 5 | Declare local capability gaps | Small (~20 lines) | Low -- makes implicit lossiness explicit | |
 | 6 | Deduplication cleanup | Small (net -30 lines) | Low -- reduces code without behavior change | |
 
