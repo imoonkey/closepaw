@@ -92,8 +92,13 @@ class CodexResponseClient(
                                 accumulator.onItemDone(outputIndex, item)?.let { toolCalls.add(it) }
                             }
                         }
-                        "response.done", "response.completed", "response.incomplete" -> {
+                        "response.done", "response.completed" -> {
                             sawCompletion = true
+                        }
+                        "response.incomplete" -> {
+                            val reason = event.json.optJSONObject("response")
+                                ?.optString("incomplete_reason", "unknown") ?: "unknown"
+                            throw RuntimeException("Codex response incomplete: $reason")
                         }
                         "response.failed" -> {
                             val msg = event.json.optJSONObject("response")
@@ -174,7 +179,7 @@ class CodexResponseClient(
                         }
                     }
 
-                    if (!sawCompletion) throw RuntimeException("Stream ended without completion event")
+                    if (!sawCompletion) throw TransientException("Stream ended without completion event")
                 }
             }
 

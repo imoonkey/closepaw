@@ -296,7 +296,7 @@ class LFMLLMClient(
                         "assistant" -> ChatMessage.Role.ASSISTANT
                         else -> null
                     }
-                    val content = extractMessageContent(message.content())
+                    val content = ChatCompletionInterop.extractStringContent(message.content())
                     if (role != null && content.isNotBlank()) {
                         messages.add(ChatMessage(role = role, textContent = content))
                     }

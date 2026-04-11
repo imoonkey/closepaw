@@ -92,8 +92,15 @@ object CodexSseParser {
                 accumulator.onItemDone(outputIndex, item)?.let { LLMStreamEvent.ToolCallDone(it) }
             } else null
         }
-        "response.done", "response.completed", "response.incomplete" -> {
+        "response.done", "response.completed" -> {
             LLMStreamEvent.Completed
+        }
+        "response.incomplete" -> {
+            val reason = event.json
+                .optJSONObject("response")
+                ?.optString("incomplete_reason", "unknown")
+                ?: "unknown"
+            LLMStreamEvent.Failed("Response incomplete: $reason")
         }
         "response.failed" -> {
             val message = event.json

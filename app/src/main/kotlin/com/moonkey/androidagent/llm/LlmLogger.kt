@@ -30,7 +30,7 @@ internal object LlmLogger {
                 item.isEasyInputMessage() -> {
                     val msg = item.asEasyInputMessage()
                     val role = msg.role().toString()
-                    val content = extractMessageContent(msg.content())
+                    val content = ChatCompletionInterop.extractStringContent(msg.content())
                     "[$idx] $role: ${content.take(200)}${if (content.length > 200) "..." else ""}"
                 }
                 item.isFunctionCall() -> {

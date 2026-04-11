@@ -125,6 +125,7 @@ class ChatCompletionClient(
                 val toolCallBuilders = mutableMapOf<Long, Triple<String, String, StringBuilder>>()
                 val completedToolCalls = mutableListOf<LLMToolCall>()
                 var responseId: String? = null
+                var sawFinishReason = false
 
                 val params = buildParams(systemPrompt, inputItems, tools, model)
                 Log.d(TAG, "Making streaming Chat API call (attempt $attempt)")
@@ -189,6 +190,7 @@ class ChatCompletionClient(
 
                                 // Emit completed tool calls when finish reason received
                                 choice.finishReason().ifPresent { _ ->
+                                    sawFinishReason = true
                                     for ((_, builder) in toolCallBuilders) {
                                         val (callId, name, args) = builder
                                         val toolCall =
@@ -207,7 +209,10 @@ class ChatCompletionClient(
                     }
                 }
 
-                // Stream ended — emit completion
+                // Stream ended — require terminal completion
+                if (!sawFinishReason) {
+                    throw TransientException("Stream ended without finish_reason")
+                }
                 LlmLogger.logOutput(
                     TAG,
                     ResponsesResult(

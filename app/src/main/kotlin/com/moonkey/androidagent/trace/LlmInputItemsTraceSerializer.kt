@@ -1,6 +1,6 @@
 package com.moonkey.androidagent.trace
 
-import com.moonkey.androidagent.llm.extractMessageContent
+import com.moonkey.androidagent.llm.ChatCompletionInterop
 import com.openai.models.responses.ResponseInputItem
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -22,7 +22,7 @@ internal object LlmInputItemsTraceSerializer {
         return when {
             item.isEasyInputMessage() -> {
                 val msg = item.asEasyInputMessage()
-                val content = extractMessageContent(msg.content())
+                val content = ChatCompletionInterop.extractStringContent(msg.content())
                 buildJsonObject {
                     put("index", index)
                     put("type", "message")

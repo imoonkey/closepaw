@@ -150,7 +150,7 @@ class OpenAIResponseClient(
                 }
 
                 if (!sawCompleted) {
-                    throw RuntimeException("Stream ended without completion event")
+                    throw TransientException("Stream ended without completion event")
                 }
 
                 Log.d(TAG, "Streaming completed successfully")

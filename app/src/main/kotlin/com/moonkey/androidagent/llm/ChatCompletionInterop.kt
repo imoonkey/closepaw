@@ -262,7 +262,7 @@ internal object ChatCompletionInterop {
     }
 
     /** Extract string content from any EasyInputMessage.Content variant. */
-    private fun extractStringContent(content: EasyInputMessage.Content): String =
+    internal fun extractStringContent(content: EasyInputMessage.Content): String =
             when {
                 content.isTextInput() -> content.asTextInput()
                 content.isResponseInputMessageContentList() -> {

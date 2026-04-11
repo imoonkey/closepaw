@@ -8,10 +8,6 @@ import org.junit.Test
 
 class CloudStreamRetryRunnerTest {
 
-    // Use exceptions that survive OpenAIErrorClassifier.classify() as retryable:
-    // - SocketTimeoutException → classified as TransientException
-    // - IOException (non-connectivity) → classified as TransientException
-
     // ── Successful completion ─────────────────────────────────────────────
 
     @Test
@@ -38,10 +34,9 @@ class CloudStreamRetryRunnerTest {
     // ── emittedEvent tracking ─────────────────────────────────────────────
 
     @Test
-    fun `KNOWN BUG -- Created event sets emittedEvent blocking retry`() = runTest {
-        // Bug: emittedEvent=true after Created (metadata event).
-        // When a retryable error occurs after Created but before TextDelta,
-        // retry is blocked even though no user-visible output was sent.
+    fun `Created event does NOT block retry -- only TextDelta and ToolCallDone do`() = runTest {
+        // Fixed: Created is metadata-only and does not set emittedEvent.
+        // A retryable error after Created but before semantic output retries.
         var attempts = 0
         val events = mutableListOf<LLMStreamEvent>()
 
@@ -53,16 +48,13 @@ class CloudStreamRetryRunnerTest {
         ) { attempt, emitter ->
             attempts++
             emitter.emit(LLMStreamEvent.Created("resp-$attempt"))
-            // SocketTimeoutException → classified as TransientException (retryable)
-            throw SocketTimeoutException("connection reset")
+            if (attempts < 3) throw SocketTimeoutException("connection reset")
         }
 
-        // Current broken behavior: only 1 attempt because Created sets emittedEvent=true,
-        // causing FailAndStop on the first failure.
-        // Expected after fix: should retry because Created is metadata-only.
-        assertThat(attempts).isEqualTo(1)
-        assertThat(result.completed).isFalse()
-        assertThat(result.failureEmitted).isTrue()
+        // Fixed: retries through Created events, succeeds on attempt 3
+        assertThat(attempts).isEqualTo(3)
+        assertThat(result.completed).isTrue()
+        assertThat(result.failureEmitted).isFalse()
     }
 
     @Test
@@ -109,11 +101,9 @@ class CloudStreamRetryRunnerTest {
     // ── Domain exception reclassification ─────────────────────────────────
 
     @Test
-    fun `KNOWN BUG -- RateLimitException is reclassified losing retryAfterMs`() = runTest {
-        // Bug: classify() always reclassifies. A RateLimitException("Rate limit hit", 5000)
-        // gets re-detected as rate limit (message contains "rate limit"), but
-        // extractRetryAfter("Rate limit hit") returns null → retryAfterMs lost.
-        // Policy falls back to backoffMs (10ms) instead of using original 5000ms.
+    fun `RateLimitException retryAfterMs is preserved through retry`() = runTest {
+        // Fixed: domain exceptions are preserved without reclassification.
+        // The original retryAfterMs=5000 is now used for the delay.
         val result = streamWithRetry(
             tag = "test",
             emitToFlow = {},
@@ -126,15 +116,14 @@ class CloudStreamRetryRunnerTest {
         }
 
         assertThat(result.completed).isTrue()
-        // Current broken behavior: delay is backoff-based (10ms), NOT retryAfterMs (5000ms).
-        // When the fix preserves the original retryAfterMs, elapsed time will be 5000ms.
-        assertThat(testScheduler.currentTime).isEqualTo(10L)
+        // Fixed: delay uses preserved retryAfterMs (5000ms), not backoff (10ms)
+        assertThat(testScheduler.currentTime).isEqualTo(5000L)
     }
 
     @Test
-    fun `KNOWN BUG -- TransientException with generic message loses retryability`() = runTest {
-        // Bug: TransientException("Stream ended without completion event") gets reclassified
-        // to RuntimeException because message doesn't match any pattern → not retryable.
+    fun `TransientException is preserved and retried without reclassification`() = runTest {
+        // Fixed: domain exceptions are preserved. TransientException is retryable
+        // and no longer gets reclassified to RuntimeException.
         var attempts = 0
 
         val result = streamWithRetry(
@@ -144,15 +133,12 @@ class CloudStreamRetryRunnerTest {
             initialBackoffMs = 10L
         ) { _, _ ->
             attempts++
-            throw TransientException("Stream ended without completion event")
+            if (attempts < 3) throw TransientException("Stream ended without completion event")
         }
 
-        // Current broken behavior: only 1 attempt because reclassified to RuntimeException → Stop
-        // Expected after fix: should retry (TransientException is retryable)
-        assertThat(attempts).isEqualTo(1)
-        assertThat(result.completed).isFalse()
-        assertThat(result.lastError).isInstanceOf(RuntimeException::class.java)
-        assertThat(result.lastError).isNotInstanceOf(TransientException::class.java)
+        // Fixed: TransientException is preserved → retryable → retries succeed
+        assertThat(attempts).isEqualTo(3)
+        assertThat(result.completed).isTrue()
     }
 
     // ── failureEmitted tracking ───────────────────────────────────────────

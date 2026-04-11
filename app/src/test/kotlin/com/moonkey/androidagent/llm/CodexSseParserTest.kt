@@ -103,16 +103,17 @@ class CodexSseParserTest {
     }
 
     @Test
-    fun `KNOWN BUG -- response_incomplete maps to Completed instead of Failed`() {
-        // Bug: response.incomplete is treated as success.
-        // An explicitly incomplete response should be Failed.
-        val event = sseEvent("response.incomplete", JSONObject())
+    fun `response_incomplete maps to Failed with reason`() {
+        // Fixed: response.incomplete is no longer treated as success.
+        val event = sseEvent("response.incomplete", JSONObject().apply {
+            put("response", JSONObject().put("incomplete_reason", "max_output_tokens"))
+        })
         val accumulator = CodexSseParser.ToolCallAccumulator()
         val result = CodexSseParser.mapToStreamEvent(event, accumulator)
 
-        // Current broken behavior: maps to Completed (success)
-        // Expected after fix: should map to Failed with incomplete reason
-        assertThat(result).isEqualTo(LLMStreamEvent.Completed)
+        assertThat(result).isInstanceOf(LLMStreamEvent.Failed::class.java)
+        assertThat((result as LLMStreamEvent.Failed).error).contains("incomplete")
+        assertThat(result.error).contains("max_output_tokens")
     }
 
     @Test

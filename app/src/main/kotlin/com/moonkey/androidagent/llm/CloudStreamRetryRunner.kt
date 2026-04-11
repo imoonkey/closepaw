@@ -36,7 +36,9 @@ internal suspend fun streamWithRetry(
                 if (event is LLMStreamEvent.Failed) {
                     failureEmitted = true
                 }
-                emittedEvent = true
+                if (event is LLMStreamEvent.TextDelta || event is LLMStreamEvent.ToolCallDone) {
+                    emittedEvent = true
+                }
                 emitToFlow(event)
             }
 
@@ -48,7 +50,10 @@ internal suspend fun streamWithRetry(
                 lastError = null
             )
         } catch (e: Exception) {
-            val classified = OpenAIErrorClassifier.classify(e)
+            val classified = when (e) {
+                is RateLimitException, is TransientException -> e
+                else -> OpenAIErrorClassifier.classify(e)
+            }
             lastException = classified
             when (
                 val retryAction =
