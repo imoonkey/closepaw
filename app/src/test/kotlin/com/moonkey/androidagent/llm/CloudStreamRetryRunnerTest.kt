@@ -178,6 +178,37 @@ class CloudStreamRetryRunnerTest {
         assertThat(failedEvents).isNotEmpty()
     }
 
+    @Test
+    fun `response_incomplete emits exactly one Failed and does not retry`() = runTest {
+        // Simulates what CodexResponseClient does when parser yields Failed from
+        // response.incomplete: emit Failed, return normally (no throw).
+        // streamWithRetry should see completed=true, not trigger any retry.
+        val events = mutableListOf<LLMStreamEvent>()
+        var attempts = 0
+
+        val result = streamWithRetry(
+            tag = "test",
+            emitToFlow = { events += it },
+            maxRetries = 3,
+            initialBackoffMs = 10L
+        ) { _, emitter ->
+            attempts++
+            emitter.emit(LLMStreamEvent.Created("resp-1"))
+            emitter.emit(LLMStreamEvent.TextDelta("partial text"))
+            // Parser maps response.incomplete → Failed; attempt emits it and returns
+            emitter.emit(LLMStreamEvent.Failed("Response incomplete: max_output_tokens"))
+        }
+
+        assertThat(attempts).isEqualTo(1)
+        assertThat(result.completed).isTrue()
+        assertThat(result.failureEmitted).isTrue()
+        assertThat(result.lastError).isNull()
+        // Exactly one Failed event in the stream
+        val failedEvents = events.filterIsInstance<LLMStreamEvent.Failed>()
+        assertThat(failedEvents).hasSize(1)
+        assertThat(failedEvents[0].error).contains("incomplete")
+    }
+
     // ── Max retries exhausted ─────────────────────────────────────────────
 
     @Test

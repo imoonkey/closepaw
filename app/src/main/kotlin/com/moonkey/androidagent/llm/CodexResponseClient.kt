@@ -173,7 +173,11 @@ class CodexResponseClient(
                                         responseId = responseId ?: "unknown"
                                     ))
                                 }
-                                is LLMStreamEvent.Failed -> { /* handled by retry framework */ }
+                                is LLMStreamEvent.Failed -> {
+                                    emitter.emit(streamEvent)
+                                    sawCompletion = true
+                                    break
+                                }
                             }
                             emitter.emit(streamEvent)
                         }
