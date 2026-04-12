@@ -1102,5 +1102,136 @@
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
     ]
+  },
+  "llm-integration": {
+    "title": "LLM Integration 改进",
+    "description": "Fix streaming correctness, harden error classification, extract shared Responses helpers, declare local capability gaps. Based on verified double-design review (Claude + Codex).",
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "design": "doc/todo/holistic-review/llm-integration/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "Streaming retry/completion semantics correct",
+      "No false-success on incomplete responses"
+    ]
+  },
+  "llm-p1-tests": {
+    "title": "Phase 1: Streaming/Retry 测试",
+    "description": "Add targeted tests before fixing bugs: CloudStreamRetryRunnerTest, CloudStreamRetryPolicyTest, CodexSseParserTest, OpenAIErrorClassifierTest, ChatCompletionClientStreamingTest. Small state-machine tests proving when retry happens, when it stops, when stream is complete/incomplete.",
+    "parent": "llm-integration",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/llm/**"
+    ],
+    "acceptCriteria": [
+      "CloudStreamRetryRunnerTest exists and passes",
+      "CloudStreamRetryPolicyTest exists and passes",
+      "CodexSseParserTest exists and passes",
+      "OpenAIErrorClassifierTest exists and passes",
+      "./gradlew test passes"
+    ]
+  },
+  "llm-p2-streaming": {
+    "title": "Phase 2: P0 Streaming 正确性修复",
+    "description": "5 fixes: (1) preserve domain exceptions in streamWithRetry, (2) Created event must not block retry, (3) response.incomplete -> Failed, (4) ChatCompletionClient require finishReason, (5) stream-ended throw TransientException. Plus MessageContentExtractor P0 bug fix (feeds Content.toString() garbage to Leap).",
+    "parent": "llm-integration",
+    "depends": [
+      "llm-p1-tests"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CloudStreamRetryRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexSseParser.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/MessageContentExtractor.kt"
+    ],
+    "acceptCriteria": [
+      "streamWithRetry preserves RateLimitException and TransientException without reclassification",
+      "Created event does not set emittedEvent=true (only TextDelta/ToolCallDone do)",
+      "response.incomplete maps to Failed, not Completed",
+      "ChatCompletionClient throws TransientException if stream ends without finishReason",
+      "Stream-ended-without-completion throws TransientException",
+      "MessageContentExtractor deleted, typed extractStringContent used everywhere",
+      "./gradlew test passes"
+    ]
+  },
+  "llm-p3-harden": {
+    "title": "Phase 3: Classification + SSL + Cancellation 加固",
+    "description": "3 fixes: (1) add domain exception and typed SDK exception fast-paths to OpenAIErrorClassifier (no transport-classifier abstraction), (2) gate InsecureSslConfig behind eval-only flag narrower than BuildConfig.DEBUG, (3) store OkHttp Call ref in CodexResponseClient, cancel from awaitClose.",
+    "parent": "llm-integration",
+    "depends": [
+      "llm-p2-streaming"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIErrorClassifier.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/InsecureSslConfig.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt"
+    ],
+    "acceptCriteria": [
+      "OpenAIErrorClassifier.classify preserves existing domain exceptions and checks typed SDK exceptions before string fallback",
+      "InsecureSslConfig gated behind eval-only flag, not just BuildConfig.DEBUG",
+      "CodexResponseClient cancels OkHttp Call from awaitClose on flow cancellation",
+      "./gradlew test passes"
+    ]
+  },
+  "llm-p4-responses-helpers": {
+    "title": "Phase 4: 提取共享 Responses Helpers",
+    "description": "Extract shared logic from OpenAIResponseClient and CodexResponseClient: request/result accumulation, completion checks, retry epilogue handling. Keep both client classes. Only collapse further if duplication remains.",
+    "parent": "llm-integration",
+    "depends": [
+      "llm-p3-harden"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CloudStreamRetryRunner.kt"
+    ],
+    "acceptCriteria": [
+      "Shared Responses helpers exist for accumulation/completion/retry-epilogue",
+      "Both Responses-family clients use shared helpers",
+      "No over-engineered strategy pattern unless duplication demands it",
+      "./gradlew test passes"
+    ]
+  },
+  "llm-p5-local-semantics": {
+    "title": "Phase 5: Local Capability 声明",
+    "description": "Add narrow LocalLlmSemantics object declaring specific limitations (dropsNonUserAssistantRoles, generatesRandomToolCallIds, noToolResultCorrelation, flattensContentToString). No broad LlmCapabilities framework until second consumer.",
+    "parent": "llm-integration",
+    "depends": [
+      "llm-p4-responses-helpers"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/LFMLLMClient.kt"
+    ],
+    "acceptCriteria": [
+      "LocalLlmSemantics object exists declaring Leap limitations",
+      "Limitations gated or transformed in one documented place",
+      "./gradlew test passes"
+    ]
+  },
+  "llm-p6-dedup": {
+    "title": "Phase 6: 去重清理",
+    "description": "Extract ToolParameterExtractor from CodexRequestBuilder and LeapToolSchemaAdapter. Shared post-retry flow handler if still needed after Phase 4.",
+    "parent": "llm-integration",
+    "depends": [
+      "llm-p4-responses-helpers"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexRequestBuilder.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/LeapFunctionInterop.kt"
+    ],
+    "acceptCriteria": [
+      "ToolParameterExtractor shared utility exists",
+      "No duplicated tool-param parsing in CodexRequestBuilder and LeapToolSchemaAdapter",
+      "./gradlew test passes"
+    ]
   }
 }
