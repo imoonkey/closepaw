@@ -356,7 +356,7 @@
     "depends": [
       "perf-truncation-indexof"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/perception/Perceptor.kt",
       "app/src/test/kotlin/**/Perceptor*"
@@ -378,7 +378,7 @@
       "perception"
     ],
     "created": "2026-04-16T12:00:00+08:00",
-    "updated": "2026-04-16T12:00:00+08:00"
+    "updated": "2026-04-16T13:15:00+08:00"
   },
   "perf-text-enrichment": {
     "title": "Optimize text enrichment from O(n^2) to sub-quadratic",

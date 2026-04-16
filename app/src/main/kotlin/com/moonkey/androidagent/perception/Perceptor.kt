@@ -18,10 +18,7 @@ import org.json.JSONObject
  */
 object Perceptor {
 
-    private enum class TraversalMode {
-        INTERACTIVE_ONLY,
-        ALL
-    }
+    private class PoolCounters(var interactive: Int = 0, var nonInteractive: Int = 0)
 
     /**
      * Create a ScreenSnapshot from a single accessibility tree root.
@@ -47,8 +44,9 @@ object Perceptor {
     /**
      * Create a ScreenSnapshot from multiple accessibility tree roots (multi-window).
      *
-     * Traverses all roots with shared dedup state, then applies the standard
-     * enrich → truncate → spatial sort → index pipeline.
+     * Traverses every root once, collecting interactive and content-bearing nodes
+     * with shared dedup state. applyTruncation handles interactive priority
+     * downstream via interactiveKeepRatio.
      *
      * Does not store AccessibilityNodeInfo references to prevent memory leaks.
      * Roots are NOT recycled — caller is responsible for lifecycle.
@@ -65,27 +63,22 @@ object Perceptor {
 
         val collected = mutableListOf<PerceptorCandidateElement>()
         val seenKeys = mutableSetOf<String>()
+        val counters = PoolCounters()
+
+        // Stop once we have enough interactive candidates AND a healthy
+        // non-interactive pool. Keeps interactive priority without a second pass.
+        val interactiveCap = filterConfig.maxElements * 2
+        val nonInteractiveCap = filterConfig.maxElements
 
         for (root in roots) {
             traverse(
                 node = root,
                 elements = collected,
                 seenKeys = seenKeys,
+                counters = counters,
                 shouldRecycle = false,
-                mode = TraversalMode.INTERACTIVE_ONLY,
-                screenWidthPx = screenWidthPx,
-                screenHeightPx = screenHeightPx,
-                filterConfig = filterConfig,
-                diagnosticsCollector = diagnosticsCollector
-            )
-        }
-        for (root in roots) {
-            traverse(
-                node = root,
-                elements = collected,
-                seenKeys = seenKeys,
-                shouldRecycle = false,
-                mode = TraversalMode.ALL,
+                interactiveCap = interactiveCap,
+                nonInteractiveCap = nonInteractiveCap,
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
@@ -210,16 +203,17 @@ object Perceptor {
         node: AccessibilityNodeInfo,
         elements: MutableList<PerceptorCandidateElement>,
         seenKeys: MutableSet<String>,
+        counters: PoolCounters,
         shouldRecycle: Boolean = false,
-        mode: TraversalMode,
+        interactiveCap: Int,
+        nonInteractiveCap: Int,
         screenWidthPx: Int?,
         screenHeightPx: Int?,
         filterConfig: PerceptorFilterConfig,
         diagnosticsCollector: PerceptorDiagnosticsCollector?
     ) {
-        // Collection cap: stop collecting once we have enough candidates for scoring.
-        // 2x maxElements gives applyTruncation a good pool while bounding traversal work.
-        if (elements.size >= filterConfig.maxElements * 2) {
+        // Collection cap: stop entirely once both pools are full.
+        if (counters.interactive >= interactiveCap && counters.nonInteractive >= nonInteractiveCap) {
             if (shouldRecycle) node.recycleCompat()
             return
         }
@@ -230,7 +224,9 @@ object Perceptor {
                 node = node,
                 elements = elements,
                 seenKeys = seenKeys,
-                mode = mode,
+                counters = counters,
+                interactiveCap = interactiveCap,
+                nonInteractiveCap = nonInteractiveCap,
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
@@ -267,10 +263,8 @@ object Perceptor {
                 desc.isNotBlank() ||
                 hintText.isNotBlank() ||
                 resourceId.isNotBlank()
-        val shouldKeep = when (mode) {
-            TraversalMode.INTERACTIVE_ONLY -> clickable || editable || scrollable || checkable
-            TraversalMode.ALL -> clickable || editable || scrollable || hasContent || checkable
-        }
+        val isInteractive = clickable || editable || scrollable || checkable
+        val shouldKeep = isInteractive || hasContent
 
         val rect = Rect()
         node.getBoundsInScreen(rect)
@@ -301,43 +295,53 @@ object Perceptor {
             )
         val alreadySeen = seenKeys.contains(key)
         if (shouldKeep && !alreadySeen && meetsVisibility && meetsMinSize) {
-            seenKeys.add(key)
-            val boundsRect =
-                if (filterConfig.clipBounds) clipBoundsToScreen(rect, screenWidthPx, screenHeightPx)
-                else Rect(rect)
-            if (boundsRect.width() > 0 && boundsRect.height() > 0) {
-                val element =
-                    PerceptionElement(
-                        index = -1,
-                        text = text,
-                        resourceId = resourceId,
-                        className = className,
-                        description = desc,
-                        isClickable = clickable,
-                        isEditable = editable,
-                        isScrollable = scrollable,
-                        isEnabled = enabled,
-                        isFocused = focused,
-                        isLongClickable = longClickable,
-                        bounds =
-                            Bounds(
-                                left = boundsRect.left,
-                                top = boundsRect.top,
-                                right = boundsRect.right,
-                                bottom = boundsRect.bottom
-                            ),
-                        center =
-                            Point(
-                                x = (boundsRect.left + boundsRect.right) / 2,
-                                y = (boundsRect.top + boundsRect.bottom) / 2
-                            ),
-                        isSelected = selected,
-                        hintText = hintText,
-                        isChecked = checked,
-                        isCheckable = checkable,
-                        rangeInfo = rangeInfo
-                    )
-                elements.add(PerceptorCandidateElement(element, visibilityRatio))
+            // Per-pool cap: non-interactive stops accruing once its pool is full,
+            // but interactive elements keep being collected up to their cap.
+            val poolHasRoom = if (isInteractive) {
+                counters.interactive < interactiveCap
+            } else {
+                counters.nonInteractive < nonInteractiveCap
+            }
+            if (poolHasRoom) {
+                seenKeys.add(key)
+                val boundsRect =
+                    if (filterConfig.clipBounds) clipBoundsToScreen(rect, screenWidthPx, screenHeightPx)
+                    else Rect(rect)
+                if (boundsRect.width() > 0 && boundsRect.height() > 0) {
+                    val element =
+                        PerceptionElement(
+                            index = -1,
+                            text = text,
+                            resourceId = resourceId,
+                            className = className,
+                            description = desc,
+                            isClickable = clickable,
+                            isEditable = editable,
+                            isScrollable = scrollable,
+                            isEnabled = enabled,
+                            isFocused = focused,
+                            isLongClickable = longClickable,
+                            bounds =
+                                Bounds(
+                                    left = boundsRect.left,
+                                    top = boundsRect.top,
+                                    right = boundsRect.right,
+                                    bottom = boundsRect.bottom
+                                ),
+                            center =
+                                Point(
+                                    x = (boundsRect.left + boundsRect.right) / 2,
+                                    y = (boundsRect.top + boundsRect.bottom) / 2
+                                ),
+                            isSelected = selected,
+                            hintText = hintText,
+                            isChecked = checked,
+                            isCheckable = checkable,
+                            rangeInfo = rangeInfo
+                        )
+                    elements.add(PerceptorCandidateElement(element, visibilityRatio))
+                    if (isInteractive) counters.interactive++ else counters.nonInteractive++
+                }
             }
         }
 
@@ -345,7 +349,9 @@ object Perceptor {
             node = node,
             elements = elements,
             seenKeys = seenKeys,
-            mode = mode,
+            counters = counters,
+            interactiveCap = interactiveCap,
+            nonInteractiveCap = nonInteractiveCap,
             screenWidthPx = screenWidthPx,
             screenHeightPx = screenHeightPx,
             filterConfig = filterConfig,
@@ -358,7 +364,9 @@ object Perceptor {
         node: AccessibilityNodeInfo,
         elements: MutableList<PerceptorCandidateElement>,
         seenKeys: MutableSet<String>,
-        mode: TraversalMode,
+        counters: PoolCounters,
+        interactiveCap: Int,
+        nonInteractiveCap: Int,
         screenWidthPx: Int?,
         screenHeightPx: Int?,
         filterConfig: PerceptorFilterConfig,
@@ -370,8 +378,10 @@ object Perceptor {
                 node = child,
                 elements = elements,
                 seenKeys = seenKeys,
+                counters = counters,
                 shouldRecycle = true,
-                mode = mode,
+                interactiveCap = interactiveCap,
+                nonInteractiveCap = nonInteractiveCap,
                 screenWidthPx = screenWidthPx,
                 screenHeightPx = screenHeightPx,
                 filterConfig = filterConfig,
