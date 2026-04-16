@@ -1,97 +1,8 @@
 {
-  "phase1-distribution": {
+  "open-source-release": {
     "parent": null,
     "depends": [],
     "state": "ready",
-    "title": "Phase 1: 打通分发",
-    "description": "Security + onboarding + open source release. 让第一批用户能装上、用上 Android Agent。",
-    "acceptCriteria": [
-      "All child tasks done",
-      "GitHub release v0.1-alpha published with signed APK"
-    ]
-  },
-  "basic-security": {
-    "parent": "phase1-distribution",
-    "depends": [],
-    "state": "done",
-    "title": "基础 Security Hardening",
-    "description": "5 项基础安全修复：(1) API key 迁移到 EncryptedSharedPreferences, (2) Manifest cleartext traffic=false + Tailscale HTTPS 配置, (3) InsecureSslConfig 门控为 BuildConfig.DEBUG, (4) allowBackup=false, (5) 加 .env.example。全部是直接实现，不需要额外 design。",
-    "design": "doc/todo/security_hardening/note.md",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt",
-      "app/src/main/AndroidManifest.xml",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/InsecureSslConfig.kt",
-      ".env.example"
-    ],
-    "acceptCriteria": [
-      "AppSettingsStore uses EncryptedSharedPreferences for API keys",
-      "AndroidManifest usesCleartextTraffic=false",
-      "InsecureSslConfig gated behind BuildConfig.DEBUG",
-      "AndroidManifest allowBackup=false",
-      ".env.example exists in repo root",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "agent-security": {
-    "parent": "phase1-distribution",
-    "depends": [
-      "basic-security"
-    ],
-    "state": "done",
-    "title": "Agent Security — KISS 4+1 Layer",
-    "description": "实现 safety_kiss_design.md: Layer 1 AppTier (BLOCKED/CAUTIOUS/NORMAL) + app_tiers.json, Layer 2 perception gate (BLOCKED → mask), Layer 3 execution gate (20 行 PolicyEngine 重写), Layer 4 memory gate, Layer 5 system prompt safety rules + app skill safety sections。删除旧的 per-action risk machinery。",
-    "design": "doc/todo/security_hardening/safety_kiss_design.md",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/PolicyEngine.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolName.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/RememberExperienceTool.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/ApprovalTypes.kt",
-      "app/src/main/assets/security/app_tiers.json",
-      "app/src/main/assets/app_skills/**"
-    ],
-    "acceptCriteria": [
-      "AppTier enum exists in protocol/",
-      "AppClassifier loads app_tiers.json and classifies packages",
-      "BLOCKED app screen is masked before LLM sees it (perception gate)",
-      "PolicyEngine.check accepts packageName parameter",
-      "BLOCKED app actions denied even in AUTO_APPROVE mode",
-      "CAUTIOUS app actions trigger AskUser in SMART mode",
-      "remember_experience blocked when foreground app is BLOCKED",
-      "Old DEFAULT_RISK_LEVELS and per-action risk code deleted",
-      "System prompt contains safety rules",
-      "./gradlew test passes"
-    ]
-  },
-  "onboarding-wizard": {
-    "parent": "phase1-distribution",
-    "depends": [
-      "basic-security"
-    ],
-    "state": "done",
-    "title": "Onboarding Wizard",
-    "description": "首次启动顺序引导：Accessibility service → Overlay permission → Battery optimization → API key 输入+验证 → Demo task。Phase 0 先做 API key 手动输入，OAuth 是独立 area。",
-    "design": "doc/todo/onboarding_wizard/note.md",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/**"
-    ],
-    "acceptCriteria": [
-      "First launch shows sequential onboarding flow",
-      "Each permission step has clear explanation and action button",
-      "API key input validates against LLM endpoint",
-      "Demo task runs after setup completes",
-      "Subsequent launches skip onboarding"
-    ],
-    "note": "Implemented in 2026-04-02. OpenAI OAuth added in subsequent work."
-  },
-  "open-source-release": {
-    "parent": "phase1-distribution",
-    "depends": [
-      "basic-security",
-      "onboarding-wizard"
-    ],
-    "state": "blocked",
     "title": "Open Source Release",
     "description": "README.md + LICENSE + CONTRIBUTING.md + SECURITY.md + .env.example + GitHub Actions CI (build+lint+test on PR) + release workflow (tag → signed APK → GitHub Release)。",
     "design": "doc/todo/open_source_release/note.md",
@@ -109,13 +20,12 @@
       "GitHub Actions CI runs build+lint+test on PR",
       "Release workflow produces signed APK on tag"
     ],
-    "note": "Pending human review — design not yet discussed"
+    "note": "Pending human review — design not yet discussed",
+    "updated": "2026-04-08T03:10:00+08:00"
   },
   "phase2-utility": {
     "parent": null,
-    "depends": [
-      "phase1-distribution"
-    ],
+    "depends": [],
     "state": "blocked",
     "title": "Phase 2: 真实实用性",
     "description": "Prompt externalization + app skill discovery + eval regression CI。Agent 能在用户日常用的 30+ app 上工作。",
@@ -124,7 +34,8 @@
       "30+ app skills generated via discovery system",
       "Eval runs as CI gate on PRs"
     ],
-    "note": "Pending human review"
+    "note": "Pending human review",
+    "updated": "2026-04-08T03:10:00+08:00"
   },
   "prompt-externalization": {
     "parent": "phase2-utility",
@@ -243,375 +154,6 @@
     ],
     "note": "OAuth login + CodexResponseClient implemented. Settings integration is a separate task."
   },
-  "settings-restructure": {
-    "parent": "phase1-distribution",
-    "depends": [],
-    "state": "done",
-    "title": "Settings Page Restructure",
-    "description": "Two-level settings navigation with 3-tab LLM & Auth page. Split manual OpenAI key from OAuth token. Shared OAuth suspend helpers. Provider-linked model filtering.",
-    "design": "doc/todo/settings_redesign/final/design_aligned.md",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/**",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsState.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/auth/**"
-    ],
-    "acceptCriteria": [
-      "All 8 child tasks done",
-      "./gradlew assembleDebug passes",
-      "./gradlew test passes"
-    ]
-  },
-  "sr-scaffold": {
-    "parent": "settings-restructure",
-    "depends": [],
-    "state": "done",
-    "title": "Settings Scaffold",
-    "description": "Split SettingsSheet.kt into shell + page composables. Add SettingsPage enum (HOME, LLM_AUTH, AGENT_BEHAVIOR, PERMISSIONS_ADVANCED), SettingsNavigationRow, SettingsSubPageHeader, AnimatedContent page switching with directional horizontal slides. Home page has 3 nav rows + version footer.",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsSheet.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsHomePage.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsWidgets.kt"
-    ],
-    "acceptCriteria": [
-      "Home and three sub-pages render",
-      "back/close behavior works",
-      "no settings UI file exceeds 400 lines",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "sr-credential-split": {
-    "parent": "settings-restructure",
-    "depends": [],
-    "state": "done",
-    "title": "OpenAI Credential Split and Migration",
-    "description": "Split manual OpenAI key and OpenAI OAuth token in AppSettingsState. Update buildApiKeys() to select active credential. Add one-time migration for legacy installs where OAuth token was saved as manual key.",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsState.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt"
-    ],
-    "acceptCriteria": [
-      "manual OpenAI key survives OAuth sign-in/sign-out",
-      "buildApiKeys() selects correct credential based on authMethod",
-      "legacy migration clears OAuth artifact from manual-key slot",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "sr-shared-oauth": {
-    "parent": "settings-restructure",
-    "depends": [],
-    "state": "done",
-    "title": "Shared OAuth Reuse",
-    "description": "Extract reusable OpenAI OAuth flow from OnboardingViewModel into shared suspend helpers under auth/. Wire helpers into both onboarding and settings. Move token refresh under same shared helper layer.",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/auth/**",
-      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt"
-    ],
-    "acceptCriteria": [
-      "onboarding behavior remains unchanged",
-      "settings can sign in, cancel, sign out, and refresh through shared helpers",
-      "./gradlew assembleDebug passes",
-      "./gradlew test passes"
-    ]
-  },
-  "sr-llm-tabs": {
-    "parent": "settings-restructure",
-    "depends": [
-      "sr-scaffold",
-      "sr-credential-split"
-    ],
-    "state": "done",
-    "title": "LLM & Auth Tab Structure",
-    "description": "LlmAuthSettingsPage.kt with TabRow (Sign In / API Key / Local). LlmAuthTab enum. Tab content: Sign In → model dropdowns + placeholder auth card, API Key → model dropdown + key field, Local → local model dropdown + status. Tab switching immediately persists backend/authMethod.",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/LlmAuthSettingsPage.kt"
-    ],
-    "acceptCriteria": [
-      "three tabs render and switch correctly",
-      "tab selection persists backend/authMethod immediately",
-      "initial tab reflects current durable state",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "sr-provider-filter": {
-    "parent": "settings-restructure",
-    "depends": [
-      "sr-llm-tabs"
-    ],
-    "state": "done",
-    "title": "API Key Provider Selector and Model Filtering",
-    "description": "SingleChoiceSegmentedButtonRow for provider sub-selector in API Key tab. Provider-linked model catalog filtering. Provider-linked single API key field. ModelCatalog helpers: modelsFor(provider, api?), preferredModelFor(provider, api?). Model/executor canonicalization on provider switch.",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/LlmAuthSettingsPage.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/ModelCatalog.kt"
-    ],
-    "acceptCriteria": [
-      "switching provider updates model dropdown to that providers models",
-      "shows only the matching API key field",
-      "invalid main/executor models are canonicalized",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "sr-auth-card": {
-    "parent": "settings-restructure",
-    "depends": [
-      "sr-llm-tabs",
-      "sr-shared-oauth"
-    ],
-    "state": "done",
-    "title": "OpenAI Auth Card (Sign In Tab)",
-    "description": "OpenAiAuthCard.kt composable for all four OAuth UI states (SignedOut/InProgress/SignedIn/Error). Wire onStartOAuth, onCancelOAuth, onSignOut from MainActivity through MainActivityContent. Sign In tab shows OpenAI RESPONSE models only + auth card.",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/OpenAiAuthCard.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivityContent.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt"
-    ],
-    "acceptCriteria": [
-      "auth card shows correct state for all four OAuth states",
-      "sign out clears OAuth but preserves manual key",
-      "sign in launches browser OAuth flow",
-      "on success card shows email",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "sr-behavior-permissions": {
-    "parent": "settings-restructure",
-    "depends": [
-      "sr-scaffold"
-    ],
-    "state": "done",
-    "title": "Agent Behavior and Permissions Pages",
-    "description": "Regroup existing controls into AgentBehaviorSettingsPage (max turns, agent mode, perception mode) and PermissionsAdvancedSettingsPage (a11y, overlay, debug toggle). Move PerceptionModeSelector. Wire Home subtitles.",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/AgentBehaviorSettingsPage.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/PermissionsAdvancedSettingsPage.kt"
-    ],
-    "acceptCriteria": [
-      "existing behavior is preserved",
-      "Home subtitle summaries update from live state",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "sr-tests": {
-    "parent": "settings-restructure",
-    "depends": [
-      "sr-credential-split",
-      "sr-provider-filter",
-      "sr-auth-card"
-    ],
-    "state": "done",
-    "title": "Validation and Tests",
-    "description": "Tests for OpenAI credential selection (manual vs OAuth). Tests for sign-out preserving manual key. Tests for provider-linked model filtering and canonicalization. Tests for migration.",
-    "scope": [
-      "app/src/test/**"
-    ],
-    "acceptCriteria": [
-      "new state model is covered by tests",
-      "existing cloud/local validation still behaves correctly",
-      "./gradlew test passes"
-    ]
-  },
-  "sec-hardening": {
-    "parent": null,
-    "depends": [],
-    "state": "ready",
-    "title": "Security & Privacy Hardening",
-    "description": "Holistic security review 后的改进计划。修复边界放置与权限组合问题: intent 控制平面、捕获层隐私拦截、secret 存储、日志 PII、密码字段脱敏、shell blocklist、InsecureSsl、AppClassifier 失败模式。",
-    "design": "doc/todo/holistic-review/security-privacy/final/cn/improvement_plan.md",
-    "acceptCriteria": [
-      "All child tasks done",
-      "./gradlew assembleDebug passes",
-      "./gradlew test passes"
-    ]
-  },
-  "sec-intent-lockdown": {
-    "parent": "sec-hardening",
-    "depends": [],
-    "state": "done",
-    "title": "P0.1 关闭导出 Intent 控制平面",
-    "description": "Production build 忽略外部 caller 的安全敏感 intent extras (API key, base URL, backend, mode, debug/trace flags)。永不持久化 intent 提供的凭据。外部 goal 需用户确认。Debug build 保留现有行为。",
-    "scope": [
-      "app/src/main/AndroidManifest.xml",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivityIntentPayload.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivityIntentApplier.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt"
-    ],
-    "acceptCriteria": [
-      "External ACTION_MAIN launch cannot persist API keys or routing changes",
-      "External launch cannot force BASIC mode",
-      "External launch cannot auto-start agent without user confirmation",
-      "Debug build debug workflow unaffected",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "sec-fail-closed-secrets": {
-    "parent": "sec-hardening",
-    "depends": [],
-    "state": "done",
-    "title": "P0.3 Secret 存储关闭式失败",
-    "description": "移除明文 SharedPreferences fallback。加密存储失败时仅保持内存中凭据, 显示降级横幅。loadApiKeyFromFile() 用 BuildConfig.DEBUG 门控。清理相关 deadcode (prefsFailed flag, plaintext prefs init)。加 test。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/auth/OAuthCredentialStore.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingStore.kt"
-    ],
-    "acceptCriteria": [
-      "No long-lived secret written to plain SharedPreferences",
-      "Encryption failure visible to user via degraded-security banner",
-      "Current-session credentials work in memory without persistence",
-      "Production build has no path reading api_key.txt from shared storage",
-      "Related deadcode (prefsFailed, plaintext init) removed",
-      "./gradlew test passes"
-    ]
-  },
-  "sec-remove-auth-pii": {
-    "parent": "sec-hardening",
-    "depends": [],
-    "state": "done",
-    "title": "P0.4 移除 auth PII 日志",
-    "description": "删除 OpenAIOAuth.kt 中 id_token claims 日志和 OpenAiSignIn.kt 中 email 日志。如需调试仅记录 token 存在与长度, 受 BuildConfig.DEBUG 门控。LlmLogger 已有 DEBUG 门控, 无需改动。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/auth/OpenAIOAuth.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/auth/OpenAiSignIn.kt"
-    ],
-    "acceptCriteria": [
-      "No token claims, emails, or account identifiers in logcat",
-      "grep -rn 'id_token claims' app/src/main/kotlin/ returns empty",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "sec-capture-privacy-gate": {
-    "parent": "sec-hardening",
-    "depends": [],
-    "state": "done",
-    "title": "P0.2 捕获层隐私拦截 (TDD)",
-    "description": "将 blocked-app masking 移入捕获栈, 在任何制品创建之前执行。BLOCKED app 立即返回遮罩 snapshot, 不写入 raw/sanitized tree 或截图, 不发出含捕获内容的 post-action observation。统一 post-action capture 路径。用 /tdd 先写 test 再改代码。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityScreenshotCapturer.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayScreenshotProcessor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/OpenAppTool.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/UIActionInvocation.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ObservationBuilder.kt"
-    ],
-    "acceptCriteria": [
-      "Tracing on a blocked app writes no screenshot or tree artifact",
-      "open_app and UIActionInvocation cannot return raw blocked-app observations",
-      "Blocked-app session produces only masked snapshots and policy warnings",
-      "./gradlew test passes"
-    ]
-  },
-  "sec-shell-blocklist": {
-    "parent": "sec-hardening",
-    "depends": [],
-    "state": "done",
-    "title": "P1.2 Shell blocklist 精简",
-    "description": "将 ShellTool BLOCKED_COMMANDS 从 14 个精简为 4 个: am, pm, reboot, su。解除 rm, mv, cp, chmod, chown, sh, bash, eval, exec, settings。不限制元字符, 不添加 path denylist。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt"
-    ],
-    "acceptCriteria": [
-      "BLOCKED_COMMANDS contains exactly: am, pm, reboot, su",
-      "rm, mv, cp, settings and other previously blocked commands are allowed",
-      "Shell metacharacters (pipe, redirect, subshell) unrestricted",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "sec-insecure-ssl-debug": {
-    "parent": "sec-hardening",
-    "depends": [],
-    "state": "done",
-    "title": "P1.3 InsecureSsl 编译时 Debug-only",
-    "description": "将 InsecureSslConfig.kt 移至 debug/ source set, release source set 提供 no-op stub。验证 base URL 覆盖在 debug 之外要求 HTTPS。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/InsecureSslConfig.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt"
-    ],
-    "acceptCriteria": [
-      "InsecureSslConfig.kt exists only in debug/ source set",
-      "Release build cannot compile any insecure TLS helper",
-      "Production base URL rejects non-HTTPS URLs",
-      "./gradlew assembleRelease passes"
-    ]
-  },
-  "sec-classifier-fail-closed": {
-    "parent": "sec-hardening",
-    "depends": [],
-    "state": "done",
-    "title": "P1.4 AppClassifier 关闭式失败",
-    "description": "fromAssets() 在 app_tiers.json 加载失败时抛异常而非返回空分类器。Session 创建中止并向用户展示错误。不添加特殊 escape action 路径。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/AppClassifier.kt"
-    ],
-    "acceptCriteria": [
-      "Missing/corrupt app_tiers.json prevents session start",
-      "User sees error explaining the issue",
-      "No empty-classifier fallback path in production code",
-      "./gradlew test passes"
-    ]
-  },
-  "sec-password-suppression": {
-    "parent": "sec-hardening",
-    "depends": [],
-    "state": "done",
-    "title": "P1.1 密码字段脱敏 (isPassword)",
-    "description": "在 Perceptor 构建 PerceptionElement 时检查 AccessibilityNodeInfo.isPassword(), 为 true 则抑制 text/contentDescription。所有下游路径自动继承。不做 editable 字段抑制、不拆分 serializer。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/perception/Perceptor.kt"
-    ],
-    "acceptCriteria": [
-      "Password fields never appear with raw text in prompt/history/trace",
-      "Non-password fields (including editable) unchanged",
-      "./gradlew test passes"
-    ]
-  },
-  "sec-data-retention": {
-    "parent": "sec-hardening",
-    "depends": [],
-    "state": "done",
-    "title": "P2.2 数据留存控制",
-    "description": "在 Settings → Permissions & Advanced 页面新增 Data & Storage section。提供 session history/checkpoints/memory/trace 留存设置、一键安全擦除、默认关闭 trace 并启用时给出提示。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/PermissionsAdvancedSettingsPage.kt"
-    ],
-    "acceptCriteria": [
-      "Data & Storage section visible in Permissions & Advanced settings",
-      "One-tap wipe for traces and stored sessions works",
-      "Trace defaults to off with clear messaging when enabled",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "sec-regression-tests": {
-    "parent": "sec-hardening",
-    "depends": [
-      "sec-intent-lockdown",
-      "sec-fail-closed-secrets",
-      "sec-remove-auth-pii",
-      "sec-capture-privacy-gate",
-      "sec-shell-blocklist",
-      "sec-insecure-ssl-debug",
-      "sec-classifier-fail-closed",
-      "sec-password-suppression"
-    ],
-    "state": "done",
-    "title": "P2.3 安全回归测试",
-    "description": "为所有 security hardening items 编写回归测试。主要为 JVM unit test, 仅 blocked-app trace test 需要 instrumentation test。",
-    "scope": [
-      "app/src/test/**"
-    ],
-    "acceptCriteria": [
-      "Test: external intent with sensitive extras ignored in production",
-      "Test: blocked app produces no trace screenshots/trees",
-      "Test: password fields redacted from prompt/history/trace",
-      "Test: encrypted storage failure does not persist secrets in plaintext",
-      "Test: shell blocklist contains only am/pm/reboot/su",
-      "Test: AppClassifier load failure prevents session start",
-      "./gradlew test passes"
-    ]
-  },
   "sec-app-tiers-expansion": {
     "parent": null,
     "depends": [],
@@ -629,609 +171,217 @@
       "Classification methodology documented"
     ]
   },
-  "agent-core-simplicity": {
+  "state-concurrency": {
+    "title": "State & Concurrency 改进",
+    "description": "Fix cross-component state/concurrency issues: persistence write ordering, lifecycle serialization, takeover state machine, tool cancellation. Based on verified double-design review (Claude + Codex).",
     "parent": null,
     "depends": [],
     "state": "ready",
-    "title": "Agent Core 简化",
-    "description": "基于 holistic review 的 agent core 简化。",
-    "design": "doc/todo/holistic-review/agent-core-simplicity/final/improvement_plan.md",
+    "design": "doc/todo/holistic-review/state-concurrency/final/improvement_plan.md",
     "acceptCriteria": [
       "All child tasks done",
-      "./gradlew assembleDebug passes",
+      "Minimum test matrix green (6 tests from review)",
       "./gradlew test passes"
-    ]
+    ],
+    "priority": "high",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
   },
-  "acs-action-signature": {
-    "parent": "agent-core-simplicity",
-    "depends": [],
-    "state": "done",
-    "title": "P0: 修复 action signature 派生逻辑",
-    "description": "从实际执行成功的操作派生签名，而非预计算。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt"
-    ],
-    "acceptCriteria": [
-      "Action signature reflects actually executed tools",
-      "./gradlew test passes"
-    ]
-  },
-  "acs-split-step-policy": {
-    "parent": "agent-core-simplicity",
-    "depends": [
-      "acs-action-signature"
-    ],
-    "state": "done",
-    "title": "P1: 拆分 ExecutorStepPolicy",
-    "description": "拆为 isFinalTurn() + DelegationSummaryFormatter。移除 WarnApproaching 和 narrativeSummaryOnLimit。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/policy/ExecutorStepPolicy.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt"
-    ],
-    "acceptCriteria": [
-      "WarnApproaching removed",
-      "narrativeSummaryOnLimit removed",
-      "./gradlew test passes"
-    ]
-  },
-  "acs-unify-role-defs": {
-    "parent": "agent-core-simplicity",
-    "depends": [
-      "acs-action-signature"
-    ],
-    "state": "done",
-    "title": "P1: 统一 agent 角色定义",
-    "description": "统一 AgentDef + AgentDefinition 为 AgentRoleDef。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/definition/**",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt"
-    ],
-    "acceptCriteria": [
-      "One definition source for all agents",
-      "./gradlew test passes"
-    ]
-  },
-  "acs-dead-code": {
-    "parent": "agent-core-simplicity",
-    "depends": [
-      "acs-split-step-policy",
-      "acs-unify-role-defs"
-    ],
-    "state": "done",
-    "title": "P2: 死代码与残留状态移除",
-    "description": "移除 NavigationState 死字段、fingerprint、CRITICAL、appTier。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/context/NavigationState.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt"
-    ],
-    "acceptCriteria": [
-      "No unused fields remain",
-      "./gradlew test passes"
-    ]
-  },
-  "acs-observation-unify": {
-    "parent": "agent-core-simplicity",
-    "depends": [
-      "acs-dead-code"
-    ],
-    "state": "done",
-    "title": "P3: Observation 表示统一",
-    "description": "提取规范 observation payload，消除 prompt/history 时序耦合。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/prompt/PromptBuilder.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnPlanningPhaseRunner.kt"
-    ],
-    "acceptCriteria": [
-      "Prompt and history project from same source",
-      "No ordering dependency",
-      "./gradlew test passes"
-    ]
-  },
-  "acs-event-consolidation": {
-    "parent": "agent-core-simplicity",
-    "depends": [
-      "acs-dead-code"
-    ],
-    "state": "done",
-    "title": "P3: Event emission 整合",
-    "description": "向 AgentEventDispatcher 添加缺失方法，移除 raw eventEmitter 透传。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentEventDispatcher.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt"
-    ],
-    "acceptCriteria": [
-      "No raw eventEmitter alongside dispatcher",
-      "./gradlew test passes"
-    ]
-  },
-  "acs-tool-arg-decode": {
-    "parent": "agent-core-simplicity",
-    "depends": [
-      "acs-dead-code"
-    ],
-    "state": "done",
-    "title": "P3: Tool 参数解码整合",
-    "description": "共享 action-target decoder 供 ActionDescriptionFormatter 和 ActionSignature 使用。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/ActionDescriptionFormatter.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/ActionSignature.kt"
-    ],
-    "acceptCriteria": [
-      "Single decoder shared by both",
-      "./gradlew test passes"
-    ]
-  },
-  "acs-text-recovery-audit": {
-    "parent": "agent-core-simplicity",
-    "depends": [
-      "acs-dead-code"
-    ],
-    "state": "done",
-    "title": "P4: Turn.kt 文本恢复审计",
-    "description": "添加遥测追踪 recoverToolCallFromText 触发率。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/Turn.kt"
-    ],
-    "acceptCriteria": [
-      "Telemetry logs fire rate of each recovery path",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "acs-magic-delays": {
-    "parent": "agent-core-simplicity",
-    "depends": [
-      "acs-dead-code"
-    ],
-    "state": "done",
-    "title": "P4: 魔法延迟常量命名",
-    "description": "为 delay(200) 和 delay(500) 命名并添加注释。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
-    ],
-    "acceptCriteria": [
-      "Named constants with comments",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "platform-robustness": {
-    "parent": null,
+  "sc-p0-hardening": {
+    "title": "Phase 0: Trivial Hardening",
+    "description": "Low-effort thread-safety fixes that don't require structural changes. Land opportunistically alongside Phase 1, not as a gating tranche. 4 items: (0a) ToolRegistry mutableMapOf → ConcurrentHashMap, (0b) TodoState add @Volatile to onMutation, (0c) HistoryManager add @Volatile to onMutation, (0d) SessionAgentRunner pre-register RunnerState with null job before scope.launch then update with captured job reference.",
+    "parent": "state-concurrency",
     "depends": [],
     "state": "ready",
-    "title": "Platform Robustness Hardening",
-    "description": "基于 holistic review 的平台层健壮性强化。8 个阶段：VD 生命周期串行化、回调超时、手势取消安全、窗口选择、旋转处理、边界正确性、资源清理、回归测试。",
-    "design": "doc/todo/holistic-review/platform-robustness/final/improvement_plan.md",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRegistry.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/TodoState.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/history/HistoryManager.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt"
+    ],
     "acceptCriteria": [
-      "All child tasks done",
-      "./gradlew assembleDebug passes",
+      "ToolRegistry.tools uses ConcurrentHashMap",
+      "TodoState.onMutation has @Volatile annotation",
+      "HistoryManager.onMutation has @Volatile annotation",
+      "SessionAgentRunner.start() assigns RunnerState before scope.launch",
       "./gradlew test passes"
-    ]
+    ],
+    "estimate": "xs",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
   },
-  "pr-vd-lifecycle": {
-    "parent": "platform-robustness",
+  "sc-p1-persistence": {
+    "title": "Phase 1: Persistence Single-Writer",
+    "description": "Serialize all disk writes in SessionRecordingService through one Mutex-guarded writer with a monotonically increasing revision number. Stale writes are dropped. Make SessionStorage.writeSession() atomic via temp-file + rename (matching existing writeSnapshot() pattern). forceCheckpoint() preempts pending debounced work instead of waiting behind it.",
+    "parent": "state-concurrency",
     "depends": [],
-    "state": "done",
-    "title": "P1: 串行化 VD 生命周期",
-    "description": "添加生命周期仲裁者，生命周期转换排他访问，操作调用共享 Running lease。显式状态替代 volatile。clearCachedProxies() 在 shutdown/broken teardown 调用。start() 添加 rollback。",
+    "state": "ready",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplaySurfaceController.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayInputInjector.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuClient.kt"
+      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionRecordingService.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/history/storage/SessionStorage.kt"
     ],
     "acceptCriteria": [
-      "No public VD method can observe half-stopped state",
-      "start() cancellation/exception does not leave resources with no owner",
-      "Lifecycle transitions cannot invalidate resources under in-flight operational calls",
-      "Binder death transitions platform to Broken",
-      "Restart after stop does not reuse stale proxies",
-      "Operational calls fail fast if platform not Running",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "pr-bounded-callbacks": {
-    "parent": "platform-robustness",
-    "depends": [],
-    "state": "done",
-    "title": "P2: 回调等待超时限制",
-    "description": "添加 callback-to-suspend 桥接辅助工具，带超时和 invokeOnCancellation 清理。应用于 takeScreenshot、takeScreenshotOfWindow、PixelCopy.request。coroutines 1.7.3 中延迟 resume 不崩溃但泄漏资源。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityScreenshotCapturer.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt"
+      "All disk writes serialized through single Mutex-guarded writer with revision counter",
+      "Older save cannot overwrite newer session record (revision check)",
+      "SessionStorage.writeSession() uses temp-file + rename atomic write",
+      "forceCheckpoint() preempts pending debounced checkpoint",
+      "Test: overlapping saves — later revision wins regardless of completion order",
+      "Test: forceCheckpoint while debounced checkpoint pending → persisted file has forced state",
+      "Test: session writes use temp-file replacement",
+      "./gradlew test passes"
     ],
-    "acceptCriteria": [
-      "captureScreen() always completes inside a bounded deadline",
-      "Cancellation cleans up preallocated resources (Bitmap)",
-      "PixelCopy failure falls back cleanly without wedging capture",
-      "./gradlew assembleDebug passes"
-    ]
+    "priority": "critical",
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
   },
-  "pr-gesture-cleanup": {
-    "parent": "platform-robustness",
+  "sc-p2-lifecycle": {
+    "title": "Phase 2: Serialize AgentSession Lifecycle",
+    "description": "Put all AgentSession lifecycle inputs through one serialized path: UserInput, Takeover, Resume, Interrupt, Shutdown, runner completion callback, idle-timeout expiry. Prefer Mutex if sufficient; use minimal command serializer if multi-source event pattern makes it clearer (decision at implementation time). Route SessionAgentRunner.onComplete through same path instead of direct state mutation. Keep idleTimeoutJob creation/cancellation under the serialized owner.",
+    "parent": "state-concurrency",
     "depends": [
-      "pr-vd-lifecycle",
-      "pr-bounded-callbacks"
+      "sc-p0-hardening",
+      "sc-p1-persistence"
     ],
-    "state": "done",
-    "title": "P3: 输入注入取消安全",
-    "description": "VD 长按和滑动取消安全。DOWN 发送后追踪手势所有权。MOVE 失败视为手势失败。finally 发送 ACTION_CANCEL/UP。IME 抑制在串行化生命周期内。",
+    "state": "ready",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayInputInjector.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt"
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt"
     ],
     "acceptCriteria": [
-      "Cancelling long-press/swipe does not leave target UI in stuck touch state",
-      "IME suppression and restore cannot race across overlapping calls",
-      "./gradlew assembleDebug passes"
-    ]
+      "All lifecycle inputs (ops + completion + idle-timeout) routed through single serialized path",
+      "SessionAgentRunner.onComplete does not mutate session state directly",
+      "idleTimeoutJob creation/cancellation under serialized owner",
+      "Test: completion + shutdown back-to-back → final state is Shutdown, not Idle",
+      "Test: two UserInput ops around Idle→Running → only one task starts",
+      "Test: duplicate shutdown → exactly one terminal event emitted",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:35:00+08:00"
   },
-  "pr-window-selection": {
-    "parent": "platform-robustness",
+  "sc-p3-takeover": {
+    "title": "Phase 3: Model Takeover as Real Multi-Step State",
+    "description": "Add internal transient state (e.g. PauseRequested/TakeoverPending). Do not publish Paused until agent confirms it reached the pause point. Reject Resume while takeover is still pending. Keep protocol surface minimal — transient state can be internal if UI doesn't need it.",
+    "parent": "state-concurrency",
     "depends": [
-      "pr-gesture-cleanup"
+      "sc-p2-lifecycle"
     ],
-    "state": "done",
-    "title": "P4: 窗口选择和 root 一致性",
-    "description": "显式最顶层窗口选择规则。VD 窗口按 layer 排序。修复 getRootOnDisplay() 影响操作定位和隐私门控。Accessibility 侧对齐 capture/action/privacy root 策略。",
+    "state": "ready",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayWindowAccessor.kt"
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionState.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt"
     ],
     "acceptCriteria": [
-      "Dialogs/popups do not cause screenshot/tree mismatch",
-      "Node actions do not target background windows when higher-layer window is active",
-      "getCurrentPackageName() returns correct foreground package under multi-window",
-      "Capture, action, and privacy-gating root policies are aligned on both platforms",
-      "./gradlew assembleDebug passes"
-    ]
+      "Internal transient state (PauseRequested or TakeoverPending) exists",
+      "Paused not published until agent confirms pause point reached",
+      "Resume rejected while takeover still pending",
+      "Implementation matches Op.Takeover contract",
+      "Test: takeover-then-immediate-resume — correct ordering",
+      "Test: Paused not observable before pause confirmation",
+      "Test: takeover/resume events emitted in valid order only",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
   },
-  "pr-rotation-handling": {
-    "parent": "platform-robustness",
+  "sc-p4-tool-cancel": {
+    "title": "Phase 4: Make Tool Cancellation Real",
+    "description": "Store per-call ToolExecutionContext (or cancellation token) in activeToolCalls. cancel(callId) signals the token for both approval waiters and executing invocations. cancelAll() transitions calls toward cancellation, only removes tracking once terminal. If a tool cannot be cooperatively cancelled, state machine says so explicitly.",
+    "parent": "state-concurrency",
     "depends": [
-      "pr-gesture-cleanup"
+      "sc-p2-lifecycle"
     ],
-    "state": "done",
-    "title": "P5: 旋转和 display 尺寸处理",
-    "description": "通过 WindowManager.maximumWindowMetrics.bounds 获取真实 display metrics。检测宽高/密度变化。几何变化时重建 VD 和 ImageReader。VD 是自包含坐标空间，主要影响 viewer UX。Medium 优先级。",
+    "state": "ready",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayConfig.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayViewerTouchHandler.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt"
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt"
     ],
     "acceptCriteria": [
-      "Rotating device does not break screenshot cropping, touch scaling, or bounds interpretation",
-      "VD geometry matches real display geometry after rotation",
-      "./gradlew assembleDebug passes"
-    ]
+      "Per-call cancellation token stored in activeToolCalls",
+      "router.cancel(callId) propagates to executing tools via context",
+      "cancelAll() transitions calls toward cancellation, removes tracking only at terminal state",
+      "Test: tool stub polling context.isCancelled() — router.cancel(callId) flips it",
+      "Test: cancelAll() while one tool awaits approval and another executes",
+      "Test: cleanup verifies terminal tool state before dropping tracking",
+      "./gradlew test passes"
+    ],
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
   },
-  "pr-boundary-correctness": {
-    "parent": "platform-robustness",
+  "sc-p5-shutdown-reason": {
+    "title": "Phase 5: Correct Shutdown Reason Semantics",
+    "description": "Pass explicit shutdown cause into lifecycle transition instead of inferring from previous state. Map SessionCompleted.reason from the explicit cause. Manual shutdown from Idle must be USER_STOPPED, not IDLE_TIMEOUT.",
+    "parent": "state-concurrency",
     "depends": [
-      "pr-window-selection",
-      "pr-rotation-handling"
+      "sc-p2-lifecycle",
+      "sc-p3-takeover"
     ],
-    "state": "done",
-    "title": "P6: 平台边界正确性强化",
-    "description": "A11y 截图路径软失败。captureA11yTreeWithArtifacts() 重抛 CancellationException。Perceptor 移出 Dispatchers.Main。应用启动返回真实结果。无效 display 状态早期拒绝。Surface 替换修复。Shell fallback 移出调用线程。",
+    "state": "ready",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayAppController.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuActivityLauncher.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplaySurfaceController.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayViewerTouchHandler.kt"
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionCompleted.kt"
     ],
     "acceptCriteria": [
-      "A11y capture errors return best-effort results instead of aborting turn",
-      "VD capture cancellation propagates correctly",
-      "Failed VD app launch visible to callers",
-      "Viewer recreation does not strand display on dead surface",
-      "./gradlew assembleDebug passes"
-    ]
+      "handleShutdown() accepts explicit shutdown cause parameter",
+      "SessionCompleted.reason derived from explicit cause, not previous state",
+      "Test: manual shutdown from Idle → reason is USER_STOPPED",
+      "Test: actual idle-timeout → reason is IDLE_TIMEOUT",
+      "./gradlew test passes"
+    ],
+    "estimate": "s",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:35:00+08:00"
   },
-  "pr-resource-cleanup": {
-    "parent": "platform-robustness",
+  "sc-p6-bootstrap": {
+    "title": "Phase 6: Bootstrap Hardening",
+    "description": "Evidence-driven, lowest priority. Enforce off-main bootstrap inside the layer itself, not at call sites. Change requireOffMainThread() from warning to invariant or internal dispatcher hop. Consider whether high-frequency MessageDelta should be best-effort while lifecycle events are lossless. Only implement if evidence justifies after core invariants are fixed.",
+    "parent": "state-concurrency",
     "depends": [
-      "pr-boundary-correctness"
+      "sc-p3-takeover",
+      "sc-p4-tool-cancel",
+      "sc-p5-shutdown-reason"
     ],
-    "state": "done",
-    "title": "P7: 资源清理和低风险维护",
-    "description": "修复 getCurrentPackageName() rootInActiveWindow 泄漏。修复 isKeyboardVisibleOnMainDisplay() window 泄漏。A11y debug 截图保留上限。删除死代码 (gestureDisplayId, performNodeActionAt)。DISPLAY_FLAGS 文档。",
+    "state": "ready",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityScreenshotCapturer.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayScreenshotProcessor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityGestureInjector.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/NodeActionPerformer.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt"
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionLlmBootstrapper.kt"
     ],
     "acceptCriteria": [
-      "getCurrentPackageName() no longer leaks root node on every call",
-      "isKeyboardVisibleOnMainDisplay() no longer leaks window objects",
-      "Repeated platform use does not grow unrecycled object pressure",
-      "Dead private helpers removed",
-      "DISPLAY_FLAGS documented inline",
-      "./gradlew assembleDebug passes"
-    ]
+      "Session creation cannot do asset I/O on main thread (enforced, not convention)",
+      "requireOffMainThread() is an invariant or internal dispatcher hop",
+      "Test: session/bootstrap creation safe from main-thread caller",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "s",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
   },
-  "pr-regression-tests": {
-    "parent": "platform-robustness",
+  "sc-cleanup-cache": {
+    "title": "Cleanup: SessionHistoryManager Cache Simplification",
+    "description": "Remove redundant ConcurrentHashMap + Mutex in SessionHistoryManager. Replace ConcurrentHashMap<String, CachedSessionInfo> with plain HashMap — all access already guarded by cacheMutex. Pure cleanup, no correctness impact.",
+    "parent": "state-concurrency",
     "depends": [
-      "pr-resource-cleanup"
+      "sc-p1-persistence"
     ],
-    "state": "done",
-    "title": "P8: 回归测试",
-    "description": "针对性测试：截图超时、VD 手势取消、binder death proxy 失效、多窗口选择、旋转 resize、surface 替换、应用启动失败传播。",
+    "state": "ready",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/platform/**"
+      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt"
     ],
     "acceptCriteria": [
-      "Bounded screenshot timeout behavior tested",
-      "Cancellation during VD gestures tested",
-      "Binder death and stale proxy invalidation tested",
-      "Window selection under multiple windows tested",
-      "Truthful app-launch failure propagation tested",
+      "sessionInfoCache uses HashMap, not ConcurrentHashMap",
+      "All access still guarded by cacheMutex",
       "./gradlew test passes"
-    ]
-  },
-  "tool-system-design": {
-    "parent": null,
-    "depends": [],
-    "state": "done",
-    "title": "Tool System Design 改进",
-    "description": "基于 holistic review + 双盲验证的 tool system 改进。6 个阶段: 观测边界安全、ToolName 元数据修正、action runtime 规范化、shell 加固、router 合约收紧、死代码清理。",
-    "design": "doc/todo/holistic-review/tool-system-design/final/improvement_plan.md",
-    "acceptCriteria": [
-      "All child tasks done",
-      "./gradlew assembleDebug passes",
-      "./gradlew test passes"
-    ]
-  },
-  "tsd-observation-boundary": {
-    "parent": "tool-system-design",
-    "depends": [],
-    "state": "done",
-    "title": "Phase 0: 修复 PostActionAnalysis 观测遮蔽缺口",
-    "description": "PostActionAnalysis.kt:45 调用 buildObservation(it, platform) 未传 appClassifier，导致 mobile_action (click/type/scroll/swipe/long_press) 的 post-action observation 在 BLOCKED app 上不遮蔽。将 appClassifier 从 ToolExecutionContext 线程到 capturePostActionAnalysis → buildObservation。同时让 open_app 在执行时 re-check 目标包的 tier。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PostActionAnalysis.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/SwipeExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/TypeExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ScrollExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/OpenAppTool.kt"
     ],
-    "acceptCriteria": [
-      "PostActionAnalysis.capturePostActionAnalysis accepts appClassifier parameter",
-      "buildObservation call in PostActionAnalysis.kt passes appClassifier",
-      "All 5 executor callers thread appClassifier from ToolExecutionContext",
-      "open_app re-checks destination tier before launchApp()",
-      "grep -n 'buildObservation.*platform)$' app/src/main/kotlin/com/moonkey/androidagent/tool/action/PostActionAnalysis.kt returns empty",
-      "./gradlew assembleDebug passes",
-      "./gradlew test passes"
-    ]
-  },
-  "tsd-toolname-stopgap": {
-    "parent": "tool-system-design",
-    "depends": [],
-    "state": "done",
-    "title": "Phase 1a: 添加 ask_user/shell 到 ToolName",
-    "description": "ask_user 和 shell 不在 ToolName enum 中，解析为 Unknown(isScreenChanging=true)，导致: (1) CAUTIOUS app 上 ask_user 触发不必要的审批, (2) TurnToolPolicy 将两者归为 screen action 导致同 turn 的 complete_task 被丢弃。添加 AskUser 和 Shell 两个 data object，isScreenChanging 返回 false。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolName.kt"
-    ],
-    "acceptCriteria": [
-      "ToolName.from('ask_user') returns ToolName.AskUser, not Unknown",
-      "ToolName.from('shell') returns ToolName.Shell, not Unknown",
-      "ToolName.AskUser.isScreenChanging == false",
-      "ToolName.Shell.isScreenChanging == false",
-      "./gradlew assembleDebug passes",
-      "./gradlew test passes"
-    ]
-  },
-  "tsd-action-runtime": {
-    "parent": "tool-system-design",
-    "depends": [
-      "tsd-observation-boundary"
-    ],
-    "state": "done",
-    "title": "Phase 2: Action Runtime 规范化",
-    "description": "三个修复: (1) SwipeExecutor.kt:49-53 将 ActionResult.Cancelled 映射为 Failed → 改为 Cancelled, (2) TypeExecutor 各路径添加显式 Cancelled 处理, (3) ScrollExecutor.resolveScrollArea() 在显式目标 (element_index/text) 解析失败时返回错误而非静默降级为全屏滚动, (4) refinePointActionTarget() 重定向时在 attempt trail 中添加说明。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/SwipeExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/TypeExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ScrollExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt"
-    ],
-    "acceptCriteria": [
-      "SwipeExecutor maps ActionResult.Cancelled to ActionOutcome.Cancelled",
-      "TypeExecutor explicitly handles ActionResult.Cancelled in all performAction paths",
-      "ScrollExecutor returns error when explicit target (element_index/text) fails to resolve",
-      "refinePointActionTarget retargeting adds note to warnings/trail",
-      "./gradlew assembleDebug passes",
-      "./gradlew test passes"
-    ]
-  },
-  "tsd-shell-hardening": {
-    "parent": "tool-system-design",
-    "depends": [],
-    "state": "done",
-    "title": "Phase 3: Shell 加固",
-    "description": "两个修复: (1) Shell 验证扩展 — 拒绝包含元字符 (; | & $( `) 的命令，或添加 env/xargs/find 到 blocklist, (2) 输出截断时追加 '[output truncated at N chars]' 标记，让 LLM 知道数据不完整。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt"
-    ],
-    "acceptCriteria": [
-      "Shell commands with metacharacters (;|&) are rejected or additional dangerous commands blocked",
-      "Output exceeding MAX_OUTPUT_CHARS includes truncation indicator",
-      "grep -q 'truncated' app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt exits 0",
-      "./gradlew assembleDebug passes",
-      "./gradlew test passes"
-    ]
-  },
-  "tsd-dead-code-cleanup": {
-    "parent": "tool-system-design",
-    "depends": [],
-    "state": "done",
-    "title": "Phase 5: 死代码清理批次",
-    "description": "6 项确认的死代码清理: (1) 删除 UIActionInvocation.detectScrollBoundary() (lines 53-58, 87-110), (2) 删除 UiChangeDetector.detectScrollBoundary() (lines 31-49), (3) 删除 PolicyEngine.isEscape() 中 MobileActionName.Back/Home fallback 分支 (注意: enum 成员被 ToolUi.kt 使用，仅删分支), (4) 删除 OpenAppTool companion 中未使用的 UI_SETTLE_DELAY_MS 和 SUGGESTION_LIMIT, (5) SystemButtonTool.kt:71 else branch 改为 error('Unreachable'), (6) 删除 DataQueryInvocation.kt (零调用者), (7) 修复 ActionPriorityOrder.kt 中指向不存在路径的 doc 引用。",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/UIActionInvocation.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/UiChangeDetector.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/PolicyEngine.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/OpenAppTool.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/SystemButtonTool.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/DataQueryInvocation.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ActionPriorityOrder.kt"
-    ],
-    "acceptCriteria": [
-      "UIActionInvocation has no detectScrollBoundary method",
-      "UiChangeDetector has no detectScrollBoundary method",
-      "PolicyEngine.isEscape() has no MobileActionName.Back/Home branch",
-      "OpenAppTool companion has no UI_SETTLE_DELAY_MS or SUGGESTION_LIMIT",
-      "SystemButtonTool else branch throws error",
-      "DataQueryInvocation.kt does not exist",
-      "ActionPriorityOrder doc reference updated or removed",
-      "./gradlew assembleDebug passes",
-      "./gradlew test passes"
-    ]
-  },
-  "llm-integration": {
-    "title": "LLM Integration 改进",
-    "description": "Fix streaming correctness, harden error classification, extract shared Responses helpers, declare local capability gaps. Based on verified double-design review (Claude + Codex).",
-    "parent": null,
-    "depends": [],
-    "state": "done",
-    "design": "doc/todo/holistic-review/llm-integration/final/improvement_plan.md",
-    "acceptCriteria": [
-      "All child tasks done",
-      "Streaming retry/completion semantics correct",
-      "No false-success on incomplete responses"
-    ]
-  },
-  "llm-p1-tests": {
-    "title": "Phase 1: Streaming/Retry 测试",
-    "description": "Add targeted tests before fixing bugs: CloudStreamRetryRunnerTest, CloudStreamRetryPolicyTest, CodexSseParserTest, OpenAIErrorClassifierTest, ChatCompletionClientStreamingTest. Small state-machine tests proving when retry happens, when it stops, when stream is complete/incomplete.",
-    "parent": "llm-integration",
-    "depends": [],
-    "state": "done",
-    "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/llm/**"
-    ],
-    "acceptCriteria": [
-      "CloudStreamRetryRunnerTest exists and passes",
-      "CloudStreamRetryPolicyTest exists and passes",
-      "CodexSseParserTest exists and passes",
-      "OpenAIErrorClassifierTest exists and passes",
-      "./gradlew test passes"
-    ]
-  },
-  "llm-p2-streaming": {
-    "title": "Phase 2: P0 Streaming 正确性修复",
-    "description": "5 fixes: (1) preserve domain exceptions in streamWithRetry, (2) Created event must not block retry, (3) response.incomplete -> Failed, (4) ChatCompletionClient require finishReason, (5) stream-ended throw TransientException. Plus MessageContentExtractor P0 bug fix (feeds Content.toString() garbage to Leap).",
-    "parent": "llm-integration",
-    "depends": [
-      "llm-p1-tests"
-    ],
-    "state": "done",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/CloudStreamRetryRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexSseParser.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/MessageContentExtractor.kt"
-    ],
-    "acceptCriteria": [
-      "streamWithRetry preserves RateLimitException and TransientException without reclassification",
-      "Created event does not set emittedEvent=true (only TextDelta/ToolCallDone do)",
-      "response.incomplete maps to Failed, not Completed",
-      "ChatCompletionClient throws TransientException if stream ends without finishReason",
-      "Stream-ended-without-completion throws TransientException",
-      "MessageContentExtractor deleted, typed extractStringContent used everywhere",
-      "./gradlew test passes"
-    ]
-  },
-  "llm-p3-harden": {
-    "title": "Phase 3: Classification + SSL + Cancellation 加固",
-    "description": "3 fixes: (1) add domain exception and typed SDK exception fast-paths to OpenAIErrorClassifier (no transport-classifier abstraction), (2) gate InsecureSslConfig behind eval-only flag narrower than BuildConfig.DEBUG, (3) store OkHttp Call ref in CodexResponseClient, cancel from awaitClose.",
-    "parent": "llm-integration",
-    "depends": [
-      "llm-p2-streaming"
-    ],
-    "state": "done",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIErrorClassifier.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/InsecureSslConfig.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt"
-    ],
-    "acceptCriteria": [
-      "OpenAIErrorClassifier.classify preserves existing domain exceptions and checks typed SDK exceptions before string fallback",
-      "InsecureSslConfig gated behind eval-only flag, not just BuildConfig.DEBUG",
-      "CodexResponseClient cancels OkHttp Call from awaitClose on flow cancellation",
-      "./gradlew test passes"
-    ]
-  },
-  "llm-p4-responses-helpers": {
-    "title": "Phase 4: 提取共享 Responses Helpers",
-    "description": "Extract shared logic from OpenAIResponseClient and CodexResponseClient: request/result accumulation, completion checks, retry epilogue handling. Keep both client classes. Only collapse further if duplication remains.",
-    "parent": "llm-integration",
-    "depends": [
-      "llm-p3-harden"
-    ],
-    "state": "done",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/CloudStreamRetryRunner.kt"
-    ],
-    "acceptCriteria": [
-      "Shared Responses helpers exist for accumulation/completion/retry-epilogue",
-      "Both Responses-family clients use shared helpers",
-      "No over-engineered strategy pattern unless duplication demands it",
-      "./gradlew test passes"
-    ]
-  },
-  "llm-p5-local-semantics": {
-    "title": "Phase 5: Local Capability 声明",
-    "description": "Add narrow LocalLlmSemantics object declaring specific limitations (dropsNonUserAssistantRoles, generatesRandomToolCallIds, noToolResultCorrelation, flattensContentToString). No broad LlmCapabilities framework until second consumer.",
-    "parent": "llm-integration",
-    "depends": [
-      "llm-p4-responses-helpers"
-    ],
-    "state": "done",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/LFMLLMClient.kt"
-    ],
-    "acceptCriteria": [
-      "LocalLlmSemantics object exists declaring Leap limitations",
-      "Limitations gated or transformed in one documented place",
-      "./gradlew test passes"
-    ]
-  },
-  "llm-p6-dedup": {
-    "title": "Phase 6: 去重清理",
-    "description": "Extract ToolParameterExtractor from CodexRequestBuilder and LeapToolSchemaAdapter. Shared post-retry flow handler if still needed after Phase 4.",
-    "parent": "llm-integration",
-    "depends": [
-      "llm-p4-responses-helpers"
-    ],
-    "state": "done",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexRequestBuilder.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/LeapFunctionInterop.kt"
-    ],
-    "acceptCriteria": [
-      "ToolParameterExtractor shared utility exists",
-      "No duplicated tool-param parsing in CodexRequestBuilder and LeapToolSchemaAdapter",
-      "./gradlew test passes"
-    ]
+    "priority": "low",
+    "estimate": "xs",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
   }
 }
