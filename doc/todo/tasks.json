@@ -1,97 +1,8 @@
 {
-  "phase1-distribution": {
+  "open-source-release": {
     "parent": null,
     "depends": [],
     "state": "ready",
-    "title": "Phase 1: 打通分发",
-    "description": "Security + onboarding + open source release. 让第一批用户能装上、用上 Android Agent。",
-    "acceptCriteria": [
-      "All child tasks done",
-      "GitHub release v0.1-alpha published with signed APK"
-    ]
-  },
-  "basic-security": {
-    "parent": "phase1-distribution",
-    "depends": [],
-    "state": "done",
-    "title": "基础 Security Hardening",
-    "description": "5 项基础安全修复：(1) API key 迁移到 EncryptedSharedPreferences, (2) Manifest cleartext traffic=false + Tailscale HTTPS 配置, (3) InsecureSslConfig 门控为 BuildConfig.DEBUG, (4) allowBackup=false, (5) 加 .env.example。全部是直接实现，不需要额外 design。",
-    "design": "doc/todo/security_hardening/note.md",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt",
-      "app/src/main/AndroidManifest.xml",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/InsecureSslConfig.kt",
-      ".env.example"
-    ],
-    "acceptCriteria": [
-      "AppSettingsStore uses EncryptedSharedPreferences for API keys",
-      "AndroidManifest usesCleartextTraffic=false",
-      "InsecureSslConfig gated behind BuildConfig.DEBUG",
-      "AndroidManifest allowBackup=false",
-      ".env.example exists in repo root",
-      "./gradlew assembleDebug passes"
-    ]
-  },
-  "agent-security": {
-    "parent": "phase1-distribution",
-    "depends": [
-      "basic-security"
-    ],
-    "state": "done",
-    "title": "Agent Security — KISS 4+1 Layer",
-    "description": "实现 safety_kiss_design.md: Layer 1 AppTier (BLOCKED/CAUTIOUS/NORMAL) + app_tiers.json, Layer 2 perception gate (BLOCKED → mask), Layer 3 execution gate (20 行 PolicyEngine 重写), Layer 4 memory gate, Layer 5 system prompt safety rules + app skill safety sections。删除旧的 per-action risk machinery。",
-    "design": "doc/todo/security_hardening/safety_kiss_design.md",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/PolicyEngine.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolName.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/RememberExperienceTool.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/ApprovalTypes.kt",
-      "app/src/main/assets/security/app_tiers.json",
-      "app/src/main/assets/app_skills/**"
-    ],
-    "acceptCriteria": [
-      "AppTier enum exists in protocol/",
-      "AppClassifier loads app_tiers.json and classifies packages",
-      "BLOCKED app screen is masked before LLM sees it (perception gate)",
-      "PolicyEngine.check accepts packageName parameter",
-      "BLOCKED app actions denied even in AUTO_APPROVE mode",
-      "CAUTIOUS app actions trigger AskUser in SMART mode",
-      "remember_experience blocked when foreground app is BLOCKED",
-      "Old DEFAULT_RISK_LEVELS and per-action risk code deleted",
-      "System prompt contains safety rules",
-      "./gradlew test passes"
-    ]
-  },
-  "onboarding-wizard": {
-    "parent": "phase1-distribution",
-    "depends": [
-      "basic-security"
-    ],
-    "state": "done",
-    "title": "Onboarding Wizard",
-    "description": "首次启动顺序引导：Accessibility service → Overlay permission → Battery optimization → API key 输入+验证 → Demo task。Phase 0 先做 API key 手动输入，OAuth 是独立 area。",
-    "design": "doc/todo/onboarding_wizard/note.md",
-    "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/**"
-    ],
-    "acceptCriteria": [
-      "First launch shows sequential onboarding flow",
-      "Each permission step has clear explanation and action button",
-      "API key input validates against LLM endpoint",
-      "Demo task runs after setup completes",
-      "Subsequent launches skip onboarding"
-    ],
-    "note": "Implemented in 2026-04-02. OpenAI OAuth added in subsequent work."
-  },
-  "open-source-release": {
-    "parent": "phase1-distribution",
-    "depends": [
-      "basic-security",
-      "onboarding-wizard"
-    ],
-    "state": "blocked",
     "title": "Open Source Release",
     "description": "README.md + LICENSE + CONTRIBUTING.md + SECURITY.md + .env.example + GitHub Actions CI (build+lint+test on PR) + release workflow (tag → signed APK → GitHub Release)。",
     "design": "doc/todo/open_source_release/note.md",
@@ -109,13 +20,12 @@
       "GitHub Actions CI runs build+lint+test on PR",
       "Release workflow produces signed APK on tag"
     ],
-    "note": "Pending human review — design not yet discussed"
+    "note": "Pending human review — design not yet discussed",
+    "updated": "2026-04-08T03:10:00+08:00"
   },
   "phase2-utility": {
     "parent": null,
-    "depends": [
-      "phase1-distribution"
-    ],
+    "depends": [],
     "state": "blocked",
     "title": "Phase 2: 真实实用性",
     "description": "Prompt externalization + app skill discovery + eval regression CI。Agent 能在用户日常用的 30+ app 上工作。",
@@ -124,7 +34,8 @@
       "30+ app skills generated via discovery system",
       "Eval runs as CI gate on PRs"
     ],
-    "note": "Pending human review"
+    "note": "Pending human review",
+    "updated": "2026-04-08T03:10:00+08:00"
   },
   "prompt-externalization": {
     "parent": "phase2-utility",
@@ -242,6 +153,1358 @@
       "Token refresh handled automatically"
     ],
     "note": "OAuth login + CodexResponseClient implemented. Settings integration is a separate task."
+  },
+  "sec-app-tiers-expansion": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "app_tiers.json 扩展到 100-1000 app",
+    "description": "将 app_tiers.json 从当前 61 个 app (36 blocked + 25 normal) 扩展到覆盖世界常用 100-1000 个 app。需要设计数据获取流程: 拉取 package name + app name + category (Google Play top charts, AppBrain 等) → 用 LLM 批量评估 tier。独立设计任务。",
+    "requireHumanReview": true,
+    "scope": [
+      "app/src/main/assets/security/app_tiers.json"
+    ],
+    "acceptCriteria": [
+      "app_tiers.json contains 100+ classified apps",
+      "Coverage includes top apps from major Play Store categories",
+      "Financial/payment/auth apps correctly classified as BLOCKED",
+      "Classification methodology documented"
+    ]
+  },
+  "state-concurrency": {
+    "title": "State & Concurrency 改进",
+    "description": "Fix cross-component state/concurrency issues: persistence write ordering, lifecycle serialization, takeover state machine, tool cancellation. Based on verified double-design review (Claude + Codex).",
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "design": "doc/todo/holistic-review/state-concurrency/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "Minimum test matrix green (6 tests from review)",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-p0-hardening": {
+    "title": "Phase 0: Trivial Hardening",
+    "description": "Low-effort thread-safety fixes that don't require structural changes. Land opportunistically alongside Phase 1, not as a gating tranche. 4 items: (0a) ToolRegistry mutableMapOf → ConcurrentHashMap, (0b) TodoState add @Volatile to onMutation, (0c) HistoryManager add @Volatile to onMutation, (0d) SessionAgentRunner pre-register RunnerState with null job before scope.launch then update with captured job reference.",
+    "parent": "state-concurrency",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRegistry.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/TodoState.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/history/HistoryManager.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt"
+    ],
+    "acceptCriteria": [
+      "ToolRegistry.tools uses ConcurrentHashMap",
+      "TodoState.onMutation has @Volatile annotation",
+      "HistoryManager.onMutation has @Volatile annotation",
+      "SessionAgentRunner.start() assigns RunnerState before scope.launch",
+      "./gradlew test passes"
+    ],
+    "estimate": "xs",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-p1-persistence": {
+    "title": "Phase 1: Persistence Single-Writer",
+    "description": "Serialize all disk writes in SessionRecordingService through one Mutex-guarded writer with a monotonically increasing revision number. Stale writes are dropped. Make SessionStorage.writeSession() atomic via temp-file + rename (matching existing writeSnapshot() pattern). forceCheckpoint() preempts pending debounced work instead of waiting behind it.",
+    "parent": "state-concurrency",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionRecordingService.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/history/storage/SessionStorage.kt"
+    ],
+    "acceptCriteria": [
+      "All disk writes serialized through single Mutex-guarded writer with revision counter",
+      "Older save cannot overwrite newer session record (revision check)",
+      "SessionStorage.writeSession() uses temp-file + rename atomic write",
+      "forceCheckpoint() preempts pending debounced checkpoint",
+      "Test: overlapping saves — later revision wins regardless of completion order",
+      "Test: forceCheckpoint while debounced checkpoint pending → persisted file has forced state",
+      "Test: session writes use temp-file replacement",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-p2-lifecycle": {
+    "title": "Phase 2: Serialize AgentSession Lifecycle",
+    "description": "Put all AgentSession lifecycle inputs through one serialized path: UserInput, Takeover, Resume, Interrupt, Shutdown, runner completion callback, idle-timeout expiry. Prefer Mutex if sufficient; use minimal command serializer if multi-source event pattern makes it clearer (decision at implementation time). Route SessionAgentRunner.onComplete through same path instead of direct state mutation. Keep idleTimeoutJob creation/cancellation under the serialized owner.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p0-hardening",
+      "sc-p1-persistence"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt"
+    ],
+    "acceptCriteria": [
+      "All lifecycle inputs (ops + completion + idle-timeout) routed through single serialized path",
+      "SessionAgentRunner.onComplete does not mutate session state directly",
+      "idleTimeoutJob creation/cancellation under serialized owner",
+      "Test: completion + shutdown back-to-back → final state is Shutdown, not Idle",
+      "Test: two UserInput ops around Idle→Running → only one task starts",
+      "Test: duplicate shutdown → exactly one terminal event emitted",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:35:00+08:00"
+  },
+  "sc-p3-takeover": {
+    "title": "Phase 3: Model Takeover as Real Multi-Step State",
+    "description": "Add internal transient state (e.g. PauseRequested/TakeoverPending). Do not publish Paused until agent confirms it reached the pause point. Reject Resume while takeover is still pending. Keep protocol surface minimal — transient state can be internal if UI doesn't need it.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p2-lifecycle"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionState.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt"
+    ],
+    "acceptCriteria": [
+      "Internal transient state (PauseRequested or TakeoverPending) exists",
+      "Paused not published until agent confirms pause point reached",
+      "Resume rejected while takeover still pending",
+      "Implementation matches Op.Takeover contract",
+      "Test: takeover-then-immediate-resume — correct ordering",
+      "Test: Paused not observable before pause confirmation",
+      "Test: takeover/resume events emitted in valid order only",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-p4-tool-cancel": {
+    "title": "Phase 4: Make Tool Cancellation Real",
+    "description": "Store per-call ToolExecutionContext (or cancellation token) in activeToolCalls. cancel(callId) signals the token for both approval waiters and executing invocations. cancelAll() transitions calls toward cancellation, only removes tracking once terminal. If a tool cannot be cooperatively cancelled, state machine says so explicitly.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p2-lifecycle"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt"
+    ],
+    "acceptCriteria": [
+      "Per-call cancellation token stored in activeToolCalls",
+      "router.cancel(callId) propagates to executing tools via context",
+      "cancelAll() transitions calls toward cancellation, removes tracking only at terminal state",
+      "Test: tool stub polling context.isCancelled() — router.cancel(callId) flips it",
+      "Test: cancelAll() while one tool awaits approval and another executes",
+      "Test: cleanup verifies terminal tool state before dropping tracking",
+      "./gradlew test passes"
+    ],
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-p5-shutdown-reason": {
+    "title": "Phase 5: Correct Shutdown Reason Semantics",
+    "description": "Pass explicit shutdown cause into lifecycle transition instead of inferring from previous state. Map SessionCompleted.reason from the explicit cause. Manual shutdown from Idle must be USER_STOPPED, not IDLE_TIMEOUT.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p2-lifecycle",
+      "sc-p3-takeover"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionCompleted.kt"
+    ],
+    "acceptCriteria": [
+      "handleShutdown() accepts explicit shutdown cause parameter",
+      "SessionCompleted.reason derived from explicit cause, not previous state",
+      "Test: manual shutdown from Idle → reason is USER_STOPPED",
+      "Test: actual idle-timeout → reason is IDLE_TIMEOUT",
+      "./gradlew test passes"
+    ],
+    "estimate": "s",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:35:00+08:00"
+  },
+  "sc-p6-bootstrap": {
+    "title": "Phase 6: Bootstrap Hardening",
+    "description": "Evidence-driven, lowest priority. Enforce off-main bootstrap inside the layer itself, not at call sites. Change requireOffMainThread() from warning to invariant or internal dispatcher hop. Consider whether high-frequency MessageDelta should be best-effort while lifecycle events are lossless. Only implement if evidence justifies after core invariants are fixed.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p3-takeover",
+      "sc-p4-tool-cancel",
+      "sc-p5-shutdown-reason"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionLlmBootstrapper.kt"
+    ],
+    "acceptCriteria": [
+      "Session creation cannot do asset I/O on main thread (enforced, not convention)",
+      "requireOffMainThread() is an invariant or internal dispatcher hop",
+      "Test: session/bootstrap creation safe from main-thread caller",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "s",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-cleanup-cache": {
+    "title": "Cleanup: SessionHistoryManager Cache Simplification",
+    "description": "Remove redundant ConcurrentHashMap + Mutex in SessionHistoryManager. Replace ConcurrentHashMap<String, CachedSessionInfo> with plain HashMap — all access already guarded by cacheMutex. Pure cleanup, no correctness impact.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p1-persistence"
+    ],
+    "state": "done",
+    "scope": [
+      "All access still guarded by cacheMutex",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "xs",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-codex-review": {
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all state-concurrency changes to Codex for systematic code review. Codex reviews the diff of all sc-p0 through sc-p6 + sc-cleanup changes against the aligned design (doc/todo/holistic-review/state-concurrency/final/improvement_plan.md). Fix any findings before proceeding to QA. Use /code-review skill via multmux.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p0-hardening",
+      "sc-p1-persistence",
+      "sc-p2-lifecycle",
+      "sc-p3-takeover",
+      "sc-p4-tool-cancel",
+      "sc-p5-shutdown-reason",
+      "sc-p6-bootstrap",
+      "sc-cleanup-cache"
+    ],
+    "state": "done",
+    "acceptCriteria": [
+      "Codex code review report exists (doc/todo/holistic-review/state-concurrency/codex_review.md)",
+      "All critical/high findings from review are addressed",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes"
+    ],
+    "estimate": "s",
+    "created": "2026-04-08T03:15:00+08:00",
+    "updated": "2026-04-08T03:15:00+08:00"
+  },
+  "sc-qa-real-device": {
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on real device to validate state-concurrency fixes don't regress user-facing behavior. Test scenarios: (1) rapid takeover/resume during agent execution, (2) session persistence across process death (force-stop mid-task, relaunch, verify session resumes correctly), (3) tool cancellation during execution (interrupt agent mid-action), (4) idle timeout vs manual stop (verify correct reason in session history), (5) normal multi-turn task completion. Use /ux-visual-debug or adb-driven interaction.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-codex-review"
+    ],
+    "state": "done",
+    "note": "QA report at doc/todo/holistic-review/state-concurrency/qa_report.md. 4/5 automated scenarios PASS + 1 crash found and fixed (NetworkOnMainThreadException in CodexResponseClient.cleanup). Takeover/resume manually verified on device — correct state transitions, no crash. Human approved.",
+    "acceptCriteria": [
+      "QA report exists with pass/fail per scenario",
+      "Rapid takeover/resume: no crash, correct state transitions, no stale UI",
+      "Process death recovery: session file not corrupted, checkpoint loads correctly",
+      "Tool cancellation: executing tool actually stops, no orphaned actions",
+      "Idle timeout vs manual stop: correct reason shown in session history",
+      "Normal multi-turn task: completes without regression",
+      "No ANR or crash in logcat during QA run"
+    ],
+    "estimate": "m",
+    "requireHumanReview": true,
+    "created": "2026-04-08T03:15:00+08:00",
+    "updated": "2026-04-08T03:15:00+08:00"
+  },
+  "ui-ux-quality": {
+    "title": "UI/UX Quality 改进",
+    "description": "Fix state ownership drift, composition correctness, and UX gaps across the ui/ module. Based on double-design review (Claude + Codex, 2026-04-08) and re-review (2026-04-15). Central thesis: state ownership drift is the primary quality problem — fix correctness before polish.",
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "design": "doc/todo/holistic-review/ui-ux-quality/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T16:02:40Z"
+  },
+  "uiux-capsule-compose": {
+    "title": "Phase 1: Capsule Composition Correctness",
+    "description": "SmartCapsuleSurface.kt violates Compose's side-effect-free render model in two ways: (1) `previousModeState.value = mode` is written inside `remember(...)` block at line 71, making behavior depend on recomposition order, (2) `inputText = \"\"` is written during composition at line 80 when `clearInput` is true. This is amplified because the surface is shared by both in-app and overlay rendering paths.\n\nAdditionally, SmartCapsuleCompose.kt (the in-app wrapper) does not pass `previousMode` at all (line 41-56), relying entirely on the internal fallback that depends on the composition-time write.\n\nApproach:\n- Remove `previousModeState` from SmartCapsuleSurface — callers provide previous mode\n- Add `previousMode` parameter plumbing through SmartCapsuleCompose.kt (the in-app caller must track and pass it, matching what CapsuleOverlayHost already does)\n- Replace composition-time `inputText = \"\"` with a `LaunchedEffect` keyed on mode transition (or renderSpec.row3?.clearInput)\n- Keep CapsuleRenderSpec.from() pure — no state writes inside remember",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/surface/SmartCapsuleSurface.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/SmartCapsuleCompose.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatScreen.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'previousModeState' SmartCapsuleSurface.kt returns no results (internal tracking removed)",
+      "SmartCapsuleCompose.kt passes previousMode parameter to SmartCapsuleSurface",
+      "No state writes inside remember {} blocks in SmartCapsuleSurface.kt (grep -n 'previousModeState.value =' returns empty)",
+      "inputText clearing happens inside LaunchedEffect or DisposableEffect, not during composition body",
+      "CapsuleRenderSpec.from() is a pure function with no side effects",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "s",
+    "tags": [
+      "compose",
+      "correctness"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-settings-state": {
+    "title": "Phase 2: Settings State Hoisting + rememberSaveable",
+    "description": "Settings state drifts from real app state in three ways: (1) SettingsSheet.kt:70 keeps page selection in local `remember` that resets on config change, (2) LlmAuthSettingsPage.kt:72-79 initializes `selectedTab` once from external authMethod/llmBackend and never updates when those change externally, (3) LlmAuthSettingsPage.kt:88-112 tab taps immediately fire `onBackendChange`/`onAuthMethodChange` — exploring tabs mutates committed backend/auth state. Same pattern at lines 225-250 for API-key provider selection.\n\nAdditionally, zero `rememberSaveable` usage exists across the entire ui/ module — rotation or activity recreation resets all user-visible local state.\n\nApproach:\n- Replace `remember` with `rememberSaveable` for settingsPage, selectedTab, selectedProvider\n- Make selectedTab/selectedProvider reactive to external state changes (use derivedStateOf or re-key on external inputs)\n- Separate UI-only tab exploration from committed mutations: tab taps update local selection only; actual backend/auth changes happen on explicit user action (e.g., 'Apply' or selecting a model within the tab)\n- Same decoupling for API-key provider selection",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/LlmAuthSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "grep -rn 'rememberSaveable' SettingsSheet.kt LlmAuthSettingsPage.kt returns at least one match per file",
+      "Reopening settings after external model/auth change shows the correct tab and provider (not stale cached value)",
+      "Tapping a tab does NOT immediately call onBackendChange or onAuthMethodChange (grep confirms no direct call inside tab onClick)",
+      "Screen rotation on a nested settings page preserves the current page/tab/provider selection",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "m",
+    "tags": [
+      "state",
+      "settings"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-chat-scroll": {
+    "title": "Phase 3: Chat Scroll + Cleanup",
+    "description": "Chat auto-scroll is broken for streaming: LaunchedEffect(messages.size) at ChatScreen.kt:191-196 only fires when the message count changes. Streaming text updates and action-card additions mutate the last message in place (ChatEventReducer.kt:68-71, :95-98) without changing list size, so content grows below the fold without the viewport following. Conversely, any new message snaps to bottom even if the user is reading history.\n\nTwo additional chat cleanup items:\n- MessageBubble.kt:188-190 allocates a new SimpleDateFormat per recomposition (not thread-safe, GC pressure during streaming). TimeUtils.kt already has a thread-safe DateTimeFormatter pattern.\n- ActionCard.kt:171-184 wraps CircularProgressIndicator (which already animates internally) in an extra infiniteTransition rotation, creating double animation.\n\nApproach:\n- Implement 'stick to bottom' policy: track whether user is near bottom of list before auto-scrolling\n- Trigger scroll on last-message content growth (not just message count change) when user is following\n- Show a 'scroll to bottom' FAB when user has scrolled up and new content arrives\n- Replace SimpleDateFormat with top-level DateTimeFormatter val\n- Remove infiniteTransition rotation wrapper; use plain indeterminate CircularProgressIndicator",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatScreen.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/components/MessageBubble.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/components/ActionCard.kt"
+    ],
+    "acceptCriteria": [
+      "ChatScreen no longer uses LaunchedEffect(messages.size) as sole scroll trigger (grep confirms removal or replacement)",
+      "Scroll behavior tracks user position: auto-scroll only when user is near bottom",
+      "A 'scroll to bottom' FAB or equivalent appears when user scrolls up during active streaming",
+      "grep -n 'SimpleDateFormat' MessageBubble.kt returns no results (replaced with DateTimeFormatter)",
+      "grep -n 'infiniteTransition' ActionCard.kt returns no results (redundant rotation removed)",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "chat",
+      "ux"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-destructive-confirm": {
+    "title": "Phase 4: Destructive Action Confirmation Dialogs",
+    "description": "Three destructive actions execute immediately with no confirmation:\n1. Session delete in NavigationDrawer.kt:274-283 — IconButton calls onDelete directly, 32dp touch target increases accidental tap risk\n2. 'Clear Traces' in PermissionsAdvancedSettingsPage.kt (~line 208-215) — executes immediately\n3. 'Clear Session History' in PermissionsAdvancedSettingsPage.kt (~line 216-227) — executes immediately\n\nAll three are irreversible data-loss actions that should require explicit user confirmation.\n\nApproach:\n- Add a `showDeleteConfirm` state + AlertDialog pattern to each action\n- Dialog text: describe what will be lost, with [Cancel] and [Delete/Clear] buttons\n- ~15 lines per dialog, no structural changes needed",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/navigation/NavigationDrawer.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/PermissionsAdvancedSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'AlertDialog' NavigationDrawer.kt returns at least one match (confirmation dialog exists)",
+      "grep -n 'AlertDialog' PermissionsAdvancedSettingsPage.kt returns at least two matches (one per destructive action)",
+      "Session delete requires two taps: delete button → confirm dialog → confirm button",
+      "Clear Traces requires two taps: button → confirm dialog → confirm button",
+      "Clear Session History requires two taps: button → confirm dialog → confirm button",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "high",
+    "estimate": "xs",
+    "tags": [
+      "ux",
+      "safety"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-a11y-fixes": {
+    "title": "Phase 5: 3 Targeted Accessibility Fixes",
+    "description": "Three specific accessibility gaps remain (chat header and drawer already fixed):\n\n1. OnboardingShell.kt:54-61 — back button uses Icon + Modifier.clickable at 24dp instead of IconButton. Missing the standard 48dp minimum touch target. Screen readers see a clickable image with no button role.\n\n2. StatusIslandCompose.kt:30-43 — clickable Surface with no explicit role or action label, only defaultMinSize(minHeight=32.dp). Also uses hardcoded Color.White and Color(0xFF171717) instead of theme tokens. Fix both a11y and theming together.\n\n3. SmartCapsuleSurfaceParts.kt:255-266 — NavIconButton has contentDescription = null for icon-only capsule navigation actions (minimize, open app, open viewer).\n\nApproach:\n- Replace Icon+clickable with IconButton in OnboardingShell\n- Add semantics { role = Role.Button } + contentDescription to StatusIslandCompose Surface; replace hardcoded colors with MaterialTheme tokens\n- Add meaningful contentDescription strings to NavIconButton calls (derive from NavAction: 'Minimize', 'Open app', 'Open viewer')",
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-capsule-compose"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/onboarding/OnboardingShell.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/overlay/compose/StatusIslandCompose.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/surface/SmartCapsuleSurfaceParts.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'IconButton' OnboardingShell.kt returns at least one match (back button uses IconButton)",
+      "grep -n 'Modifier.clickable' OnboardingShell.kt returns no matches for the back button area",
+      "grep -n 'contentDescription = null' SmartCapsuleSurfaceParts.kt returns no matches in NavIconButton calls",
+      "grep -n 'Color.White\\|0xFF171717' StatusIslandCompose.kt returns no matches (hardcoded colors replaced with theme tokens)",
+      "grep -n 'Role.Button\\|contentDescription' StatusIslandCompose.kt returns at least one match",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "a11y",
+      "ux"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-overlay-state": {
+    "title": "Phase 6: Narrow Overlay State Unification",
+    "description": "CapsuleOverlayHost.kt:73-76 still keeps its own `capsuleContext`, `platformMode`, and `hasIsland` MutableStateFlow instances that duplicate canonical state from CapsuleStateHolder. CapsuleOverlayHost.kt:213-221 exposes `updateNavContext()` to mutate these local flows. ServiceOverlayController.kt:376-383 writes the same render inputs into both stateHolder and capsuleManager, duplicating the mutation path.\n\nCapsuleStateHolder already centralizes mode, context, platformMode, and turnPhase. IslandOverlayHost already reads from stateHolder. The gap is only in CapsuleOverlayHost.\n\nHost-only concerns (focusability, touchability, interaction locks, inputFocused) are correctly host-owned and must stay.\n\nApproach:\n- Remove duplicate `capsuleContext`, `platformMode`, `hasIsland` flows from CapsuleOverlayHost\n- CapsuleOverlayHost reads these values from CapsuleStateHolder instead\n- Remove `updateNavContext()` — callers use CapsuleStateHolder.setContext() etc.\n- Update ServiceOverlayController to write render state only to stateHolder, not both\n- Keep host-only state (focusability, touchability, interactionLocked, inputFocused) in CapsuleOverlayHost",
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-capsule-compose"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/overlay/compose/CapsuleOverlayHost.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/ServiceOverlayController.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'private val capsuleContext' CapsuleOverlayHost.kt returns no results (duplicate flow removed)",
+      "grep -n 'private val platformMode' CapsuleOverlayHost.kt returns no results (duplicate flow removed)",
+      "grep -n 'private val hasIsland' CapsuleOverlayHost.kt returns no results (duplicate flow removed)",
+      "grep -n 'updateNavContext' CapsuleOverlayHost.kt returns no results (method removed)",
+      "CapsuleOverlayHost reads context/platformMode/hasIsland from stateHolder flows",
+      "ServiceOverlayController writes render state to stateHolder only, not both stateHolder and capsuleManager",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "state",
+      "overlay"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "perf-resources": {
+    "title": "Performance & Resource Efficiency",
+    "description": "Fix CPU hotspots (O(n^2) algorithms, redundant traversals), memory waste (unnecessary allocations in release builds), IO inefficiency (per-event flush), resource management bugs (flush semantics, exception safety), and build config (R8 shrinking). Based on double-design review (Claude + Codex), revalidated 2026-04-16.",
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "design": "doc/todo/holistic-review/performance-resources/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-r8-minify": {
+    "title": "Enable R8 minification and resource shrinking",
+    "description": "Release build has isMinifyEnabled=false, shipping dead code from OpenAI SDK, OkHttp, Compose, Leap SDK etc. Enable R8 tree shaking + resource shrinking. Key challenge: writing correct keep rules for kotlinx.serialization (session persistence JSON), Shizuku AIDL interfaces, OpenAI SDK reflection patterns, and Leap SDK JNI methods. Start with proguard-android-optimize.txt defaults, add targeted keep rules, then iteratively fix any runtime ClassNotFoundException/NoSuchMethodError via release APK smoke test.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/build.gradle.kts",
+      "app/proguard-rules.pro"
+    ],
+    "acceptCriteria": [
+      "app/build.gradle.kts release block has isMinifyEnabled=true and isShrinkResources=true",
+      "app/proguard-rules.pro exists with keep rules for serialization, Shizuku, OpenAI SDK, Leap SDK",
+      "./gradlew assembleRelease succeeds without warnings that indicate missing keep rules",
+      "Release APK starts, creates a session, executes at least one tool call, and completes without crash",
+      "Release APK size is measurably smaller than before (check via: ls -la app/build/outputs/apk/release/)",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "build",
+      "apk-size"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-history-compression": {
+    "title": "Fix history compression O(n^2) token recalculation",
+    "description": "HistoryManager.compress() eviction loop calls estimateTokenCount() on every iteration, but every removeAt() sets lastTokenEstimate=null, forcing a full items.sumOf{it.estimateTokens()} rescan. This is O(n^2) in history size. Fix: maintain a running token total during Phase 2 eviction. Before the while loop, capture runningTokens=estimateTokenCount(). On each removal, subtract the removed item tokens. After eviction completes, set lastTokenEstimate=null to invalidate cache for external callers. Same pattern needed for Phase 3 (group eviction) if it also loops on estimateTokenCount().",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/history/HistoryManager.kt",
+      "app/src/test/kotlin/**/HistoryManager*"
+    ],
+    "acceptCriteria": [
+      "compress() Phase 2 loop uses delta tracking instead of full rescan per removal",
+      "No call to estimateTokenCount() inside the eviction while-loop body",
+      "lastTokenEstimate invalidated only once after eviction completes, not per removal",
+      "Unit test: compress large history (500+ items over budget) — token count after compress matches items.sumOf{it.estimateTokens()}",
+      "Unit test: compress with mixed item types (screen observations, tool outputs, user messages) — correct items evicted per existing priority rules",
+      "Existing HistoryManager tests still pass",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "cpu",
+      "history"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-truncation-indexof": {
+    "title": "Fix truncation O(n^2) indexOf in applyTruncation",
+    "description": "applyTruncation() in PerceptorInternals.kt calls candidates.indexOf(c) in three loops (interactive, non-interactive, fallback). Each indexOf is O(n) with expensive data-class equals(). With maxElements=500 and 2x over-collection (up to 1000 candidates), this is up to 500K comparisons. Fix: use a HashSet<PerceptorCandidateElement> for dedup instead of position-based indexOf. Build a \"seen\" set, add elements as they are selected. The kept list preserves insertion order (priority ordering). This also simplifies the code — no need to track indices at all.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/perception/PerceptorInternals.kt",
+      "app/src/test/kotlin/**/Perceptor*"
+    ],
+    "acceptCriteria": [
+      "applyTruncation() contains zero calls to candidates.indexOf()",
+      "Dedup uses HashSet or equivalent O(1) lookup instead of linear scan",
+      "Unit test: truncation with 1000 synthetic candidates — same output elements as before (order-preserving)",
+      "Unit test: interactive elements get priority up to interactiveKeepRatio cap",
+      "Unit test: no duplicate elements in output",
+      "Unit test: candidates.size <= maxElements returns input unchanged (early exit)",
+      "./gradlew test passes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "cpu",
+      "perception"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-trace-flush": {
+    "title": "Fix FileTraceRecorder flush() semantics + add write batching",
+    "description": "Two co-dependent issues: (IO-1) AppendLine handler calls writer.flush() on every event, defeating BufferedWriter batching. (RES-2) WriteOp.Flush handler only completes the deferred without calling writer.flush() — the public flush() API promises durability but delivers only a queue barrier. These MUST be co-fixed: removing per-line flush makes the broken Flush handler user-visible. Fix: (a) In WriteOp.Flush handler, call writer.flush() before completing the deferred. (b) Remove writer.flush() from AppendLine handler. (c) Optionally flush on batch threshold (every 10 lines or when channel.isEmpty) for reasonable latency.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/trace/FileTraceRecorder.kt",
+      "app/src/test/kotlin/**/FileTraceRecorder*"
+    ],
+    "acceptCriteria": [
+      "WriteOp.AppendLine handler does NOT call writer.flush()",
+      "WriteOp.Flush handler calls writer.flush() BEFORE completing op.done",
+      "Writer is flushed in the finally block (on channel close/writer close)",
+      "Unit test: write 100 events then flush() — all 100 lines present in file after flush returns",
+      "Unit test: write events without explicit flush — file may be partially buffered (batching works)",
+      "Unit test: close() flushes remaining buffered content to disk",
+      "./gradlew test passes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "io",
+      "trace",
+      "correctness"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-streaming-guard": {
+    "title": "Guard streaming accumulation behind verbose logging flag",
+    "description": "All three streaming LLM clients (CodexResponseClient, OpenAIResponseClient, ChatCompletionClient) unconditionally build StringBuilder accumulators and tool-call lists for LlmLogger.logOutput(), which returns immediately in release builds. Fix: expose LlmLogger.isVerboseEnabled (= VERBOSE_LOGGING). In each streaming client, only allocate the text StringBuilder and completed tool-call buffers when isVerboseEnabled is true. Keep delta emission and tool call tracking for the actual response flow unchanged — only the logging-specific accumulators are guarded.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/LlmLogger.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt"
+    ],
+    "acceptCriteria": [
+      "LlmLogger exposes a public isVerboseEnabled property (or equivalent)",
+      "StringBuilder/tool-call accumulators only allocated when verbose logging is enabled",
+      "Streaming delta emission to downstream collectors is unchanged regardless of verbose flag",
+      "logOutput() still called with full data when verbose logging IS enabled (debug builds)",
+      "No ResponsesResult object constructed in non-verbose mode",
+      "./gradlew test passes",
+      "./gradlew assembleDebug passes"
+    ],
+    "estimate": "xs",
+    "tags": [
+      "memory",
+      "llm"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-baos-presize": {
+    "title": "Pre-size ByteArrayOutputStream for JPEG compression",
+    "description": "BitmapUtils.compressJpeg() uses ByteArrayOutputStream() with default 32-byte buffer, causing 10-12 reallocation+copy cycles for typical 50-150KB JPEGs. Fix: pre-size with an estimate based on pixel count. Use (bitmap.width * bitmap.height * 4) / 10 as initial capacity (ARGB pixels / ~10 for JPEG compression ratio), clamped to 1KB-512KB range to avoid over-allocation for tiny or huge bitmaps.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/BitmapUtils.kt"
+    ],
+    "acceptCriteria": [
+      "ByteArrayOutputStream in compressJpeg() is constructed with a capacity estimate, not default",
+      "Capacity estimate is clamped to a reasonable range (minimum 1KB, maximum 512KB)",
+      "JPEG output bytes are identical to before (compression behavior unchanged)",
+      "./gradlew assembleDebug passes"
+    ],
+    "estimate": "xs",
+    "tags": [
+      "memory",
+      "screenshot"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-single-pass-perceptor": {
+    "title": "Single-pass Perceptor tree traversal",
+    "description": "Perceptor.snapshot() traverses every accessibility root twice: once in INTERACTIVE_ONLY mode, then again in ALL mode. Each traverse() reads text/description/hint/resource ID, action support, bounds, visibility ratio, and class name per node. For 300-500 nodes with 2-3 roots, this doubles the work on the hottest capture path. Fix: merge into a single traversal that collects all eligible nodes in one pass, tagging each as interactive or non-interactive. The existing applyTruncation() already handles interactive/non-interactive separation via interactiveKeepRatio, so prioritization is preserved. Key constraint: the seenKeys dedup must still work correctly — currently it prevents duplicates across both passes, so the single pass must use the same dedup logic. Validate by comparing snapshot output (element counts, interactive coverage, element ordering) before and after.",
+    "parent": "perf-resources",
+    "depends": [
+      "perf-truncation-indexof"
+    ],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/perception/Perceptor.kt",
+      "app/src/test/kotlin/**/Perceptor*"
+    ],
+    "acceptCriteria": [
+      "snapshot() contains exactly one traversal loop over roots (not two)",
+      "TraversalMode enum still exists but single pass uses unified criteria",
+      "Interactive elements are still prioritized in truncation (interactiveKeepRatio preserved)",
+      "Unit test: snapshot parity — same elements returned as before for representative tree fixtures",
+      "Unit test: interactive coverage — same number of interactive elements kept after truncation",
+      "Unit test: seenKeys dedup — no duplicate elements in output",
+      "Unit test: empty tree and single-root tree edge cases",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "cpu",
+      "perception"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-text-enrichment": {
+    "title": "Optimize text enrichment from O(n^2) to sub-quadratic",
+    "description": "enrichEmptyTextElements() scans all textSources for every interactive element needing text. With maxElements=500 and 2x over-collection, this can be up to 1000*1000 containment checks plus mergedText() recomputation. Two viable approaches: (A) Build a simple spatial index once (e.g., sort textSources by top-left coordinate, binary search for candidates within bounds), or (B) Propagate text from parent/sibling during the single traversal pass (if perf-single-pass-perceptor is done first). Approach B is cleaner but couples to the traversal refactor. Approach A is standalone. Either way, cache mergedText() per source to avoid recomputation in the inner loop. Product-sensitive: text enrichment affects what the LLM sees for unlabeled buttons, so output parity testing is critical.",
+    "parent": "perf-resources",
+    "depends": [
+      "perf-single-pass-perceptor"
+    ],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/perception/PerceptorInternals.kt",
+      "app/src/test/kotlin/**/Perceptor*"
+    ],
+    "acceptCriteria": [
+      "enrichEmptyTextElements() no longer does O(n*m) full scan of textSources per interactive element",
+      "mergedText() result is cached per source (not recomputed in inner loop)",
+      "Unit test: enrichment parity — same text assigned to same elements as before for representative fixtures",
+      "Unit test: nested button inside labeled container — button gets container text",
+      "Unit test: button with no nearby text source — remains unenriched (no false positives)",
+      "Unit test: performance — 1000 candidates completes in <100ms (was potentially seconds)",
+      "./gradlew test passes"
+    ],
+    "estimate": "m",
+    "tags": [
+      "cpu",
+      "perception"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-bitmap-safety": {
+    "title": "Make bitmap cleanup exception-safe in screenshot pipeline",
+    "description": "AccessibilityScreenshotCapturer.compressScreenshot() only guarantees hardwareBuffer.close() in finally. hardwareBitmap, softwareBitmap, and scaledBitmap are recycled on the normal path only. If an exception occurs between allocation and recycle (e.g., during bitmap copy or JPEG compression), the native bitmap allocations (~10MB each) remain until GC. The leak window is narrow (hardwareBitmap is recycled immediately after copy, others before debug persistence) but worth hardening. Fix: wrap each bitmap in nested try/finally or use a local cleanup helper that tracks allocated bitmaps and recycles all on any exit path.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityScreenshotCapturer.kt"
+    ],
+    "acceptCriteria": [
+      "All intermediate bitmaps (hardwareBitmap, softwareBitmap, scaledBitmap) are recycled on both normal and exceptional paths",
+      "hardwareBuffer.close() still in finally block",
+      "No double-recycle — identity check (scaledBitmap !== softwareBitmap) preserved",
+      "Normal-path behavior unchanged — screenshot capture still produces correct ScreenImage",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "estimate": "xs",
+    "tags": [
+      "resource-management",
+      "screenshot"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-streaming-cancel": {
+    "title": "Add cancellation hooks to remaining streaming LLM clients",
+    "description": "CodexResponseClient already stores activeCall and cancels it from awaitClose (fixed previously). OpenAIResponseClient and ChatCompletionClient still only log from awaitClose — no active stream/call handle is stored, so flow cancellation cannot proactively stop in-flight network reads or retry cycles. Fix: follow the CodexResponseClient pattern — store a reference to the active call/stream, cancel it from awaitClose. For OpenAIResponseClient (uses OpenAI Java SDK), check if the SDK exposes a cancellable stream handle. For ChatCompletionClient (uses OkHttp directly), store the Call reference like CodexResponseClient does. Ensure retry loops check for cancellation.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt"
+    ],
+    "acceptCriteria": [
+      "OpenAIResponseClient stores active stream/call handle and cancels from awaitClose",
+      "ChatCompletionClient stores active Call reference and cancels from awaitClose (matching CodexResponseClient pattern)",
+      "Retry loops in both clients check for cancellation before retrying",
+      "Normal streaming still works — tool calls and text deltas emitted correctly",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "resource-management",
+      "llm"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "error-resilience": {
+    "title": "Error Resilience 改进",
+    "description": "Fix cross-layer error semantics: false completion reporting, approval failure swallowing, delegate_task masking, shutdown ANR, action state flattening, and missing TASK_IMPOSSIBLE. Based on verified double-design review (Claude + Codex), revalidated 2026-04-15.",
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "design": "doc/todo/holistic-review/error-resilience/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew test passes",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "high",
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-completion-correctness": {
+    "title": "P0: Make completion depend on executed tool results",
+    "description": "AgentTurnRunner.decideCompletion() uses planned tool calls, not executed results. TurnExecutionPhaseRunner.executeActions() returns Unit — the runner has no way to know if complete_task actually ran.\n\nConcrete bug: Model plans remember_experience → complete_task(success). remember_experience fails, execution loop breaks, complete_task never runs. But decideCompletion() only checks planned tools, so the turn reports Complete(success=true).\n\nFix: Return minimal execution metadata from executeActions() — which tool IDs actually executed, whether execution terminated early, and the terminal result. AgentTurnRunner checks that complete_task is in the executed set before emitting TurnOutcome.Complete. If execution broke before complete_task, emit TurnOutcome.Error or TurnOutcome.Cancelled based on the actual terminal result.\n\nKeep it minimal: only add enough data to answer 'did complete_task actually run and succeed?'",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "executeActions() returns a result type containing the set of tool IDs that actually executed",
+      "decideCompletion() checks that complete_task is in the executed set before emitting TurnOutcome.Complete",
+      "When complete_task is planned but execution breaks before it runs, the turn emits TurnOutcome.Error (not Complete)",
+      "When complete_task runs and succeeds, behavior unchanged from current",
+      "Test: mock remember_experience failure before complete_task → TurnOutcome is Error, not Complete",
+      "Test: complete_task executes normally → TurnOutcome.Complete as before",
+      "Test: no complete_task in plan, all tools succeed → TurnOutcome.Continue as before",
+      "grep -q 'executedToolIds\\|ExecutionPhaseResult\\|executionResult' app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "correctness",
+      "P0"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-approval-failfast": {
+    "title": "P0: Fail fast when approval UI dispatch breaks",
+    "description": "TurnExecutionPhaseRunner.emitApprovalRequired() (lines 164-174) wraps the event emitter call in try/catch and swallows exceptions with Log.e(). ToolRouter is already prepared to convert approval-dispatch exceptions into ToolCallResult.Error, but never sees them because emitApprovalRequired suppresses the throw.\n\nResult: if the approval UI/overlay fails to display, the tool waits 60 seconds then returns 'Approval timed out' — blaming the user for not responding to a prompt they never saw.\n\nFix: Remove the try/catch in emitApprovalRequired(). Let the exception propagate to ToolRouter, which already handles it by returning ToolCallResult.Error('Approval request failed: ...'). This is a ~5-line change — delete the try/catch wrapper, keep the event emission.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "emitApprovalRequired() no longer has a try/catch that swallows exceptions",
+      "When event emitter throws, ToolRouter returns ToolCallResult.Error (not Cancelled/timeout)",
+      "The error message includes 'Approval request failed' or similar diagnostic text",
+      "Normal approval flow (no exception) is unchanged",
+      "Test: mock eventEmitter that throws → tool result is Error, not Cancelled",
+      "Test: normal eventEmitter → approval wait proceeds as before",
+      "! grep -q 'catch.*emitApproval\\|catch.*approval.*Exception' app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt || echo 'swallow removed'",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "xs",
+    "tags": [
+      "error-resilience",
+      "correctness",
+      "P0"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-delegate-failure": {
+    "title": "P0: Return structural failure from delegate_task",
+    "description": "DelegateTaskTool (lines 164-177) returns textToolSuccess(...) even when result.success is false. This means: (1) action cards show the delegation as successful, (2) history records it as successful, (3) parent turn control flow cannot distinguish healthy delegation from failed delegation except by parsing text. With PRO mode as default agent mode, this is a core orchestration bug.\n\nFix: When result.success is false, return a failure result type (e.g., ToolExecutionResult.Failure or textToolError) instead of textToolSuccess. Reserve textToolSuccess exclusively for successful delegations. Keep the sub-agent output message in the result so the parent LLM can still read what happened.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt"
+    ],
+    "acceptCriteria": [
+      "When sub-agent result.success is false, DelegateTaskTool returns a failure/error result (not textToolSuccess)",
+      "When sub-agent result.success is true, DelegateTaskTool returns textToolSuccess as before",
+      "The failure result still contains the sub-agent's output message for parent LLM context",
+      "Test: mock sub-agent failure → tool result is Error/Failure type, not Success",
+      "Test: mock sub-agent success → tool result is Success",
+      "! grep -A5 'result.success.*false\\|!result.success' app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt | grep -q 'textToolSuccess' || echo 'success-on-failure removed'",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "s",
+    "tags": [
+      "error-resilience",
+      "correctness",
+      "P0"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-ondestroy-anr": {
+    "title": "P0: Move onDestroy() shutdown off main thread",
+    "description": "AgentService.onDestroy() (lines 206-237) uses runBlocking { withTimeoutOrNull(5000) { ... submit(Op.Shutdown) ... } }. This blocks the main thread for up to 5 seconds during service restart, risking ANR.\n\nThe naive fix of scope.launch { shutdown } + scope.cancel() won't work — cancelling the scope kills the launched shutdown coroutine.\n\nFix: Use a dedicated shutdown scope that outlives the service scope. Options:\n- CoroutineScope(SupervisorJob() + Dispatchers.Default) with its own 5s timeout, then cancel\n- GlobalScope.launch(NonCancellable + Dispatchers.Default) with timeout\n\nThe session already handles checkpoint persistence via NonCancellable in deliverCompletion, so partial shutdown is tolerable — the main goal is avoiding the main-thread block.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AgentService.kt"
+    ],
+    "acceptCriteria": [
+      "onDestroy() does not call runBlocking on the main thread",
+      "Shutdown Op is dispatched to a scope/coroutine that is not immediately cancelled by onDestroy()",
+      "Shutdown still has a bounded timeout (≤5s) to prevent leaked coroutines",
+      "Normal service teardown still cleans up overlayController, scope, etc.",
+      "! grep -q 'runBlocking' app/src/main/kotlin/com/moonkey/androidagent/app/AgentService.kt",
+      "./gradlew test passes",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "critical",
+    "estimate": "s",
+    "tags": [
+      "error-resilience",
+      "android",
+      "P0"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-task-impossible": {
+    "title": "P1: Split TASK_IMPOSSIBLE from internal ERROR",
+    "description": "CompletionReason.TASK_IMPOSSIBLE exists in protocol and UI/recording layers are wired for it. But AgentStopReason has no TaskImpossible variant. When complete_task(status='failure') is called, Agent.kt maps it to AgentStopReason.Error, and AgentSession maps that to CompletionReason.ERROR. The distinction between 'system fault' and 'agent concluded task is impossible' is thrown away.\n\nFix: Add AgentStopReason.TaskImpossible(message: String). In Agent.kt, convert TurnOutcome.Complete(success=false) to TaskImpossible instead of Error. In AgentSession.toCompletionReason(), map TaskImpossible to CompletionReason.TASK_IMPOSSIBLE.\n\nThis depends on er-completion-correctness because that task changes how completion outcomes flow through AgentTurnRunner — the mapping point for success/failure must be stable first.",
+    "parent": "error-resilience",
+    "depends": [
+      "er-completion-correctness"
+    ],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentRuntimeTypes.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt"
+    ],
+    "acceptCriteria": [
+      "AgentStopReason.TaskImpossible(message: String) exists in AgentRuntimeTypes.kt",
+      "Agent.kt maps TurnOutcome.Complete(success=false) to AgentStopReason.TaskImpossible",
+      "AgentSession.toCompletionReason() maps TaskImpossible to CompletionReason.TASK_IMPOSSIBLE",
+      "Agent.kt maps TurnOutcome.Complete(success=true) to GoalAchieved (unchanged)",
+      "Test: complete_task(status=failure) → CompletionReason is TASK_IMPOSSIBLE, not ERROR",
+      "Test: complete_task(status=success) → CompletionReason is GOAL_ACHIEVED (unchanged)",
+      "Test: real agent error (LLM throws) → CompletionReason is still ERROR",
+      "grep -q 'TaskImpossible' app/src/main/kotlin/com/moonkey/androidagent/agent/AgentRuntimeTypes.kt",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "semantics",
+      "P1"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-harden-cleanup": {
+    "title": "P1: Harden cleanup and observation fallback",
+    "description": "Two independent hardening fixes:\n\n(A) SessionServices.cleanup() (lines 210-237): only platform.stop() is guarded with try/catch. llmClient.cleanup(), llmClientFactory.cleanupAll(), and traceRecorder.close() are unguarded — if any throws, teardown aborts mid-sequence and later cleanup steps never run.\n\nFix A: Wrap each cleanup call independently with try/catch + Log.w. Continue cleanup regardless of individual failures.\n\n(B) TurnExecutionPhaseRunner.captureObservationWithSnapshot() (lines 210-235): called after tool failures without shielding. If screen capture throws (e.g., accessibility service disconnected), a local tool failure escalates to a turn-level failure. Error handling should not itself be fragile.\n\nFix B: Wrap captureObservationWithSnapshot() in runCatching. On failure, fall back to ToolObservation.TextOutput(result.toContextString()) with no new snapshot — the agent still gets the tool result text and can continue.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "Every cleanup call in SessionServices.cleanup() is individually guarded with try/catch",
+      "If llmClient.cleanup() throws, llmClientFactory.cleanupAll() and traceRecorder.close() still execute",
+      "captureObservationWithSnapshot() is wrapped in runCatching (or equivalent try/catch)",
+      "When screen capture fails after a tool failure, the turn continues with a text-only observation",
+      "Test: mock llmClient.cleanup() throw → remaining cleanup steps still run",
+      "Test: mock captureScreen() throw during observation → turn gets text-only observation, no crash",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "error-resilience",
+      "hardening",
+      "P1"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-action-outcome": {
+    "title": "P1: Preserve action outcome semantics end to end",
+    "description": "ActionExecuted carries only success: Boolean, collapsing policy denial, user denial, approval timeout, and real execution failure into the same 'failed' bucket. TurnExecutionPhaseRunner emits '✓ <tool> executed' status even for failed actions. ActionState.Skipped exists in UI model but is never used.\n\nFix: Replace Boolean success with a three-value enum:\n  enum class ActionOutcome { SUCCESS, FAILED, SKIPPED }\n\nDerive from ToolCallResult type (no string matching):\n- ToolCallResult.Success → SUCCESS\n- ToolCallResult.Error → FAILED\n- ToolCallResult.Cancelled → SKIPPED\n\nUpdate ActionExecuted, TurnExecutionPhaseRunner (status emission), AgentServiceEventHandler, and ChatEventReducer to use the enum. Only show ✓ checkmark for SUCCESS. Wire ActionState.Skipped for SKIPPED results.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/ActionEvents.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandler.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatEventReducer.kt"
+    ],
+    "acceptCriteria": [
+      "ActionExecuted uses an enum (ActionOutcome or similar) instead of Boolean success",
+      "ToolCallResult.Success maps to SUCCESS, Error to FAILED, Cancelled to SKIPPED",
+      "TurnExecutionPhaseRunner only emits ✓ status for SUCCESS outcomes",
+      "ChatEventReducer maps SKIPPED to ActionState.Skipped (which already exists in the model)",
+      "AgentServiceEventHandler distinguishes failed from skipped in history recording",
+      "Test: ToolCallResult.Cancelled → ActionExecuted has SKIPPED outcome",
+      "Test: ToolCallResult.Error → ActionExecuted has FAILED outcome",
+      "Test: ToolCallResult.Success → ActionExecuted has SUCCESS outcome, ✓ status emitted",
+      "grep -q 'ActionOutcome\\|SKIPPED' app/src/main/kotlin/com/moonkey/androidagent/protocol/ActionEvents.kt",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "semantics",
+      "P1"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-bootstrap-ux": {
+    "title": "P1: Improve bootstrap/session failure UX",
+    "description": "When session creation or LLM bootstrap fails, the error surfaces only as toast/overlay status text. The user's input text only enters chat on TaskStarted — if startup fails before that event, the input disappears from chat history. The user has no clear path to retry.\n\nFix (scope tightly to three changes):\n1. Preserve the user's pending input text when session creation fails — store it so it can be re-submitted or at least displayed\n2. Surface startup failure as a visible error state in the main chat/session UI (not just toast)\n3. Provide explicit retry/reload affordance\n\nKey files: ChatViewModel handles the submission flow, AgentSession.initializeForFirstTask() is the failure point, ChatEventReducer needs to handle a new 'startup failed' state.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatViewModel.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatEventReducer.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt"
+    ],
+    "acceptCriteria": [
+      "When session creation fails, user's input text is preserved (not silently dropped)",
+      "Startup failure is visible in chat UI as an error message (not just toast/overlay)",
+      "User can retry the failed input without retyping it",
+      "Normal session startup flow is unchanged",
+      "Test: mock bootstrap failure → chat shows error state with user's original input preserved",
+      "./gradlew test passes",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "ux",
+      "P1"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-dead-error-surface": {
+    "title": "P2: Clean up dead typed error surface",
+    "description": "AgentError.kt defines 11 error variants (LLMError, PlatformError, PermissionError, etc.) and SessionLifecycleEvents.kt defines SessionError. Neither is produced by the live runtime — all error paths use TurnErrorClassifier → strings → CompletionReason.ERROR.\n\nAfter P0/P1 fixes land (completion correctness, TASK_IMPOSSIBLE, action outcome), reassess what typed error structure the runtime actually needs. Two options:\n(a) Delete dead types — the semantic fixes already address the concrete problems\n(b) Replace with 3-4 live variants used only where structure materially helps (e.g., LLMError, PlatformError, PolicyError)\n\nDecide based on what gaps remain after P0/P1.",
+    "parent": "error-resilience",
+    "depends": [
+      "er-task-impossible",
+      "er-action-outcome"
+    ],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/AgentError.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionLifecycleEvents.kt"
+    ],
+    "acceptCriteria": [
+      "AgentError.kt either deleted or trimmed to ≤4 variants that are actually produced by runtime code",
+      "If AgentError is kept, at least one call site instantiates each remaining variant",
+      "SessionError either deleted or wired to at least one emitter",
+      "No dead sealed class variants (every variant has a producer)",
+      "grep -c 'AgentError\\.' app/src/main/kotlin/com/moonkey/androidagent/**/*.kt shows usage for every remaining variant (or file is deleted)",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "cleanup",
+      "P2"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-corrupted-history": {
+    "title": "P2: Surface corrupted session history entries",
+    "description": "Session writes are now atomic (temp+rename). The remaining issue is read-side: SessionHistoryManager.extractSessionInfo() returns null when it can't parse a session file, and the manager silently drops the entry from the list. Users get no explanation for missing sessions.\n\nFix: When extractSessionInfo() fails to parse, return a placeholder SessionInfo (or error wrapper) that surfaces in the session list instead of being silently omitted. Add read-time diagnostics logging so corrupted files can be investigated.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatSessionHistoryController.kt"
+    ],
+    "acceptCriteria": [
+      "When a session file can't be parsed, a placeholder entry appears in the session list (not silently dropped)",
+      "The placeholder shows the file name and an indication that the session is corrupted/unreadable",
+      "Corrupted session parse failures are logged at warning level with the file name and exception",
+      "Normal session files still load and display correctly",
+      "Test: write a malformed session file → session list shows placeholder entry for it",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "s",
+    "tags": [
+      "error-resilience",
+      "ux",
+      "P2"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-context-length-msg": {
+    "title": "P2: User-friendly context-length error message",
+    "description": "TurnErrorClassifier (lines 32-50) correctly detects context-length errors via keyword matching and marks them non-recoverable. But the message surfaced to the user is the raw provider text (e.g., 'This model's maximum context length is 128000 tokens'). No actionable guidance.\n\nFix: When isContextLimit is true, override the message with a user-friendly string like 'Conversation too long for model context window. Try starting a new task or reducing the number of turns.' Keep the raw message in the log for debugging.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnErrorClassifier.kt"
+    ],
+    "acceptCriteria": [
+      "When isContextLimit is true, the returned TurnErrorClassification.message is a user-friendly string (not raw API text)",
+      "The user-friendly message includes actionable guidance (e.g., 'start a new task')",
+      "The raw provider error is still logged at warning/error level for debugging",
+      "Non-context-limit errors are unchanged",
+      "Test: exception with 'maximum context length' → user-facing message is friendly, not raw API text",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "xs",
+    "tags": [
+      "error-resilience",
+      "ux",
+      "P2"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "uiux-codex-review": {
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-capsule-compose",
+      "uiux-settings-state",
+      "uiux-chat-scroll",
+      "uiux-destructive-confirm",
+      "uiux-a11y-fixes",
+      "uiux-overlay-state"
+    ],
+    "state": "done",
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all UI/UX quality changes to Codex for systematic code review. Codex reviews the diff of all uiux-* task changes against the aligned design (doc/todo/holistic-review/ui-ux-quality/final/improvement_plan.md). Covers: (1) capsule composition correctness — verify no state writes during composition, previousMode plumbing correct, (2) settings state hoisting — rememberSaveable usage, tab/provider mutation decoupling, (3) chat scroll — bottom-stickiness policy, SimpleDateFormat removal, double rotation removal, (4) destructive action confirmation dialogs, (5) a11y fixes — IconButton, contentDescription, theme tokens, (6) overlay state unification — duplicate flows removed. Fix any critical/high findings before proceeding to QA. Use /code-review skill via multmux.",
+    "acceptCriteria": [
+      "Codex code review report exists at doc/todo/holistic-review/ui-ux-quality/final/codex_review.md",
+      "All critical/high findings from review are addressed",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "review"
+    ],
+    "created": "2026-04-16T16:20:21Z",
+    "updated": "2026-04-16T16:20:21Z"
+  },
+  "perf-codex-review": {
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all perf-resources changes to Codex for systematic code review. Codex reviews the diff of all perf-* implementation tasks against the improvement plan (doc/todo/holistic-review/performance-resources/final/improvement_plan.md). Focus areas: (1) correctness — do the O(n^2) fixes preserve existing behavior? (2) single-pass Perceptor — does it maintain interactive priority and dedup semantics? (3) R8 keep rules — are they sufficient for all reflection/serialization/JNI paths? (4) trace flush — does the co-fix of IO-1+RES-2 maintain durability guarantees? Fix any critical/high findings before QA.",
+    "parent": "perf-resources",
+    "depends": [
+      "perf-r8-minify",
+      "perf-history-compression",
+      "perf-truncation-indexof",
+      "perf-trace-flush",
+      "perf-streaming-guard",
+      "perf-baos-presize",
+      "perf-single-pass-perceptor",
+      "perf-text-enrichment",
+      "perf-bitmap-safety",
+      "perf-streaming-cancel"
+    ],
+    "state": "ready",
+    "acceptCriteria": [
+      "Codex code review report exists at doc/todo/holistic-review/performance-resources/codex_review.md",
+      "All critical/high severity findings from review are addressed with code changes",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes",
+      "./gradlew assembleRelease passes after fixes (R8 keep rules validated)"
+    ],
+    "estimate": "s",
+    "tags": [
+      "review"
+    ],
+    "created": "2026-04-16T14:00:00+08:00",
+    "updated": "2026-04-16T14:00:00+08:00"
+  },
+  "perf-qa-real-device": {
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on real device to validate perf-resources changes do not regress agent behavior. Test scenarios: (1) Normal multi-turn task — agent completes a 5+ turn task without errors, verify perception captures correct elements (single-pass Perceptor validation). (2) Dense screen capture — open an app with 300+ UI elements, verify truncation returns correct interactive elements and text enrichment labels unlabeled buttons. (3) Long session — run 15+ turns to trigger history compression, verify session completes and history is coherent (no missing turns). (4) Release APK smoke test — install release build, run a simple task end-to-end (validates R8 keep rules in production). (5) Trace recording — enable tracing, run a task, verify trace file is complete and flush semantics work (last events present after session end). Use /ux-visual-debug or adb-driven interaction.",
+    "parent": "perf-resources",
+    "depends": [
+      "perf-codex-review"
+    ],
+    "state": "ready",
+    "acceptCriteria": [
+      "QA report exists with pass/fail per scenario at doc/todo/holistic-review/performance-resources/qa_report.md",
+      "Normal multi-turn task: completes without error, correct elements captured",
+      "Dense screen: truncation returns expected interactive element count, enriched text matches visible labels",
+      "Long session: 15+ turns with compression — no missing turns, session history coherent",
+      "Release APK: installs, starts, completes a task without crash or ClassNotFoundException",
+      "Trace recording: trace file contains all expected events, no truncation at end",
+      "No ANR or crash in logcat during QA run"
+    ],
+    "estimate": "m",
+    "requireHumanReview": true,
+    "tags": [
+      "qa"
+    ],
+    "created": "2026-04-16T14:00:00+08:00",
+    "updated": "2026-04-16T14:00:00+08:00"
+  },
+  "er-codex-review": {
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all error-resilience changes to Codex for systematic code review. Codex reviews the diff of all er-* implementation tasks against the aligned design (doc/todo/holistic-review/error-resilience/final/improvement_plan.md). Fix any critical/high findings before proceeding to QA. Use /code-review skill via multmux.",
+    "parent": "error-resilience",
+    "depends": [
+      "er-completion-correctness",
+      "er-approval-failfast",
+      "er-delegate-failure",
+      "er-ondestroy-anr",
+      "er-task-impossible",
+      "er-harden-cleanup",
+      "er-action-outcome",
+      "er-bootstrap-ux",
+      "er-dead-error-surface",
+      "er-corrupted-history",
+      "er-context-length-msg"
+    ],
+    "state": "ready",
+    "acceptCriteria": [
+      "Codex code review report exists (doc/todo/holistic-review/error-resilience/codex_review.md)",
+      "All critical/high findings from review are addressed",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "error-resilience",
+      "review"
+    ],
+    "created": "2026-04-17T00:20:35+08:00",
+    "updated": "2026-04-17T00:20:35+08:00"
+  },
+  "er-qa-real-device": {
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on real device to validate error-resilience fixes don't regress user-facing behavior and the correctness bugs are actually fixed. Test scenarios:\n\n(1) False completion: trigger a task where a cognitive tool fails before complete_task — verify the agent does NOT report success\n(2) Approval dispatch: simulate overlay failure during approval-gated action — verify error is immediate (not 60s timeout)\n(3) Delegate failure: trigger a PRO-mode task where sub-agent fails — verify parent sees failure, not success in action card\n(4) Service restart: force-stop the service mid-task, relaunch — verify no ANR, session recovers\n(5) Action outcome display: trigger a policy-denied action — verify UI shows skipped (not ✓ executed)\n(6) Task impossible: give the agent an impossible task — verify CompletionReason is TASK_IMPOSSIBLE in session history\n(7) Normal multi-turn task: complete a standard task — verify no regression\n\nUse /ux-visual-debug or adb-driven interaction.",
+    "parent": "error-resilience",
+    "depends": [
+      "er-codex-review"
+    ],
+    "state": "ready",
+    "requireHumanReview": true,
+    "acceptCriteria": [
+      "QA report exists with pass/fail per scenario (doc/todo/holistic-review/error-resilience/qa_report.md)",
+      "False completion: agent reports error/failure when complete_task didn't execute",
+      "Approval dispatch failure: error returned immediately, no 60s hang",
+      "Delegate failure: parent action card shows failure, not success",
+      "Service restart: no ANR in logcat, session checkpoint loads correctly",
+      "Action outcome: skipped/denied actions show correct state in chat UI (not ✓)",
+      "Task impossible: session history shows TASK_IMPOSSIBLE reason",
+      "Normal multi-turn task: completes without regression",
+      "No ANR or crash in logcat during QA run"
+    ],
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "qa"
+    ],
+    "created": "2026-04-17T00:20:35+08:00",
+    "updated": "2026-04-17T00:20:35+08:00"
+  },
+  "uiux-qa-real-device": {
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-codex-review"
+    ],
+    "state": "done",
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on real device to validate UI/UX changes do not regress user-facing behavior. Test scenarios:\n\n1. Capsule transitions: overlay capsule Hidden→WaitingForInput→Running→Done cycle — input clears exactly once on transition, no repeated focus/input glitches, in-app and overlay paths behave identically\n2. Settings state: open settings, switch tabs (OAuth/API Key/Local), rotate device — tab/provider preserved; change model externally via intent, reopen settings — correct tab shown; explore tabs without committing — backend/auth state unchanged\n3. Chat streaming: send a task that produces a long streaming response — viewport follows content growth; scroll up mid-stream — not yanked back, scroll-to-bottom affordance appears; new message after scrolling up — affordance visible\n4. Destructive actions: tap session delete — confirmation dialog appears, cancel works, confirm deletes; same for Clear Traces and Clear Session History in settings\n5. Accessibility: TalkBack pass on onboarding back button, capsule nav buttons, status island — all announced with correct labels and roles\n6. Normal multi-turn task: complete a real task end-to-end without regression\n\nUse /ux-visual-debug or adb-driven interaction.",
+    "acceptCriteria": [
+      "QA report exists at doc/todo/holistic-review/ui-ux-quality/final/qa_report.md with pass/fail per scenario",
+      "Capsule transitions: no focus/input glitches, input clears once, in-app and overlay identical",
+      "Settings state: rotation preserves page/tab/provider, external change reflected on reopen, tab exploration does not mutate backend",
+      "Chat streaming: viewport follows when at bottom, does not yank when scrolled up, scroll-to-bottom affordance appears",
+      "Destructive actions: all 3 actions require confirmation dialog before executing",
+      "Accessibility: TalkBack announces correct labels for onboarding back, capsule nav, status island",
+      "Normal multi-turn task completes without regression",
+      "No ANR or crash in logcat during QA run"
+    ],
+    "estimate": "m",
+    "requireHumanReview": true,
+    "tags": [
+      "qa"
+    ],
+    "created": "2026-04-16T16:20:40Z",
+    "updated": "2026-04-16T16:20:40Z"
+  },
+  "phase1-distribution": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Phase 1: 打通分发",
+    "description": "Security + onboarding + open source release. 让第一批用户能装上、用上 Android Agent。",
+    "acceptCriteria": [
+      "All child tasks done",
+      "GitHub release v0.1-alpha published with signed APK"
+    ]
+  },
+  "basic-security": {
+    "parent": "phase1-distribution",
+    "depends": [],
+    "state": "done",
+    "title": "基础 Security Hardening",
+    "description": "5 项基础安全修复：(1) API key 迁移到 EncryptedSharedPreferences, (2) Manifest cleartext traffic=false + Tailscale HTTPS 配置, (3) InsecureSslConfig 门控为 BuildConfig.DEBUG, (4) allowBackup=false, (5) 加 .env.example。全部是直接实现，不需要额外 design。",
+    "design": "doc/todo/security_hardening/note.md",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt",
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/InsecureSslConfig.kt",
+      ".env.example"
+    ],
+    "acceptCriteria": [
+      "AppSettingsStore uses EncryptedSharedPreferences for API keys",
+      "AndroidManifest usesCleartextTraffic=false",
+      "InsecureSslConfig gated behind BuildConfig.DEBUG",
+      "AndroidManifest allowBackup=false",
+      ".env.example exists in repo root",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "agent-security": {
+    "parent": "phase1-distribution",
+    "depends": [
+      "basic-security"
+    ],
+    "state": "done",
+    "title": "Agent Security — KISS 4+1 Layer",
+    "description": "实现 safety_kiss_design.md: Layer 1 AppTier (BLOCKED/CAUTIOUS/NORMAL) + app_tiers.json, Layer 2 perception gate (BLOCKED → mask), Layer 3 execution gate (20 行 PolicyEngine 重写), Layer 4 memory gate, Layer 5 system prompt safety rules + app skill safety sections。删除旧的 per-action risk machinery。",
+    "design": "doc/todo/security_hardening/safety_kiss_design.md",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/PolicyEngine.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolName.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/RememberExperienceTool.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/ApprovalTypes.kt",
+      "app/src/main/assets/security/app_tiers.json",
+      "app/src/main/assets/app_skills/**"
+    ],
+    "acceptCriteria": [
+      "AppTier enum exists in protocol/",
+      "AppClassifier loads app_tiers.json and classifies packages",
+      "BLOCKED app screen is masked before LLM sees it (perception gate)",
+      "PolicyEngine.check accepts packageName parameter",
+      "BLOCKED app actions denied even in AUTO_APPROVE mode",
+      "CAUTIOUS app actions trigger AskUser in SMART mode",
+      "remember_experience blocked when foreground app is BLOCKED",
+      "Old DEFAULT_RISK_LEVELS and per-action risk code deleted",
+      "System prompt contains safety rules",
+      "./gradlew test passes"
+    ]
+  },
+  "onboarding-wizard": {
+    "parent": "phase1-distribution",
+    "depends": [
+      "basic-security"
+    ],
+    "state": "done",
+    "title": "Onboarding Wizard",
+    "description": "首次启动顺序引导：Accessibility service → Overlay permission → Battery optimization → API key 输入+验证 → Demo task。Phase 0 先做 API key 手动输入，OAuth 是独立 area。",
+    "design": "doc/todo/onboarding_wizard/note.md",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/**"
+    ],
+    "acceptCriteria": [
+      "First launch shows sequential onboarding flow",
+      "Each permission step has clear explanation and action button",
+      "API key input validates against LLM endpoint",
+      "Demo task runs after setup completes",
+      "Subsequent launches skip onboarding"
+    ],
+    "note": "Implemented in 2026-04-02. OpenAI OAuth added in subsequent work."
   },
   "settings-restructure": {
     "parent": "phase1-distribution",
@@ -610,23 +1873,6 @@
       "Test: shell blocklist contains only am/pm/reboot/su",
       "Test: AppClassifier load failure prevents session start",
       "./gradlew test passes"
-    ]
-  },
-  "sec-app-tiers-expansion": {
-    "parent": null,
-    "depends": [],
-    "state": "ready",
-    "title": "app_tiers.json 扩展到 100-1000 app",
-    "description": "将 app_tiers.json 从当前 61 个 app (36 blocked + 25 normal) 扩展到覆盖世界常用 100-1000 个 app。需要设计数据获取流程: 拉取 package name + app name + category (Google Play top charts, AppBrain 等) → 用 LLM 批量评估 tier。独立设计任务。",
-    "requireHumanReview": true,
-    "scope": [
-      "app/src/main/assets/security/app_tiers.json"
-    ],
-    "acceptCriteria": [
-      "app_tiers.json contains 100+ classified apps",
-      "Coverage includes top apps from major Play Store categories",
-      "Financial/payment/auth apps correctly classified as BLOCKED",
-      "Classification methodology documented"
     ]
   },
   "agent-core-simplicity": {
