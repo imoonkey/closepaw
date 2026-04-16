@@ -331,7 +331,7 @@
     "description": "BitmapUtils.compressJpeg() uses ByteArrayOutputStream() with default 32-byte buffer, causing 10-12 reallocation+copy cycles for typical 50-150KB JPEGs. Fix: pre-size with an estimate based on pixel count. Use (bitmap.width * bitmap.height * 4) / 10 as initial capacity (ARGB pixels / ~10 for JPEG compression ratio), clamped to 1KB-512KB range to avoid over-allocation for tiny or huge bitmaps.",
     "parent": "perf-resources",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/platform/BitmapUtils.kt"
     ],

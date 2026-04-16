@@ -131,18 +131,23 @@ class AccessibilityScreenshotCapturer(
     ): ScreenshotCapture? =
             withContext(Dispatchers.Default) {
                 val hardwareBuffer = screenshot.hardwareBuffer
+                var softwareBitmap: Bitmap? = null
+                var scaledBitmap: Bitmap? = null
                 try {
                     val hardwareBitmap =
                             Bitmap.wrapHardwareBuffer(hardwareBuffer, screenshot.colorSpace)
                                     ?: return@withContext null
 
-                    val softwareBitmap = hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false)
-                    hardwareBitmap.recycle()
+                    softwareBitmap = try {
+                        hardwareBitmap.copy(Bitmap.Config.ARGB_8888, false)
+                    } finally {
+                        hardwareBitmap.recycle()
+                    }
                     if (softwareBitmap == null) {
                         return@withContext null
                     }
 
-                    val scaledBitmap =
+                    scaledBitmap =
                             BitmapUtils.scaleBitmapIfNeeded(
                                     softwareBitmap,
                                     config.perceptionConfig.screenshotMaxDimension
@@ -154,11 +159,6 @@ class AccessibilityScreenshotCapturer(
                                     scaledBitmap,
                                     config.perceptionConfig.screenshotJpegQuality
                             )
-
-                    if (scaledBitmap !== softwareBitmap) {
-                        softwareBitmap.recycle()
-                    }
-                    scaledBitmap.recycle()
 
                     jpegBytes?.let { bytes ->
                         if (config.debugMode) {
@@ -188,6 +188,10 @@ class AccessibilityScreenshotCapturer(
                         ScreenshotCapture(image = image, tracePath = tracePath)
                     }
                 } finally {
+                    scaledBitmap?.let { s ->
+                        if (s !== softwareBitmap) s.recycle()
+                    }
+                    softwareBitmap?.recycle()
                     hardwareBuffer.close()
                 }
             }
