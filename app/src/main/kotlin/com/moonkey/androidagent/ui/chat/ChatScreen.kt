@@ -1,5 +1,10 @@
 package com.moonkey.androidagent.ui.chat
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,15 +14,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -180,7 +193,11 @@ fun ChatScreen(
 }
 
 /**
- * MessageList - Scrollable list of chat messages.
+ * MessageList - Scrollable list of chat messages with stick-to-bottom policy.
+ *
+ * Auto-scrolls only when the user is near the bottom of the list (following the
+ * conversation). Shows a scroll-to-bottom FAB when user has scrolled up and new
+ * content arrives below the fold.
  */
 @Composable
 private fun MessageList(
@@ -188,30 +205,83 @@ private fun MessageList(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
-    
-    // Auto-scroll to bottom when new messages arrive
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
+    val scope = rememberCoroutineScope()
+
+    // "Near bottom" = last visible item is within 2 items of the end
+    val isNearBottom by remember {
+        derivedStateOf {
+            val layoutInfo = listState.layoutInfo
+            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val totalItems = layoutInfo.totalItemsCount
+            totalItems == 0 || lastVisible >= totalItems - 2
+        }
+    }
+
+    // Derive a scroll key that changes on message count *and* last-message content.
+    // This covers both new messages and streaming mutations to the last message.
+    val scrollKey by remember {
+        derivedStateOf {
+            val last = messages.lastOrNull()
+            val contentSignal = when (last) {
+                is ChatMessage.Agent -> last.contentBlocks.size.toLong() + last.content.length
+                is ChatMessage.User -> last.text.length.toLong()
+                null -> 0L
+            }
+            messages.size.toLong() * 100_000 + contentSignal
+        }
+    }
+
+    // Auto-scroll when scroll key changes, but only if user is near bottom
+    LaunchedEffect(scrollKey) {
+        if (messages.isNotEmpty() && isNearBottom) {
             listState.animateScrollToItem(messages.size - 1)
         }
     }
-    
-    LazyColumn(
-        modifier = modifier,
-        state = listState,
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        items(
-            items = messages,
-            key = { it.id }
-        ) { message ->
-            MessageBubble(
-                message = message,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .animateItem()
-            )
+
+    Box(modifier = modifier) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            state = listState,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(
+                items = messages,
+                key = { it.id }
+            ) { message ->
+                MessageBubble(
+                    message = message,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .animateItem()
+                )
+            }
+        }
+
+        // Scroll-to-bottom FAB when user has scrolled up
+        AnimatedVisibility(
+            visible = !isNearBottom && messages.isNotEmpty(),
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            SmallFloatingActionButton(
+                onClick = {
+                    scope.launch {
+                        listState.animateScrollToItem(messages.size - 1)
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = "Scroll to bottom"
+                )
+            }
         }
     }
 }

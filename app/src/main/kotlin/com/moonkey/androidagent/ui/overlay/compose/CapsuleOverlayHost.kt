@@ -28,7 +28,6 @@ import com.moonkey.androidagent.ui.capsule.surface.smartCapsuleHostPadding
 import com.moonkey.androidagent.app.shouldCapsuleOverlayBeTouchable
 import com.moonkey.androidagent.platform.OverlayTouchGate
 import com.moonkey.androidagent.ui.overlay.CapsuleStateHolder
-import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -70,9 +69,6 @@ class CapsuleOverlayHost(
         tag = TAG,
     )
 
-    private val capsuleContext = MutableStateFlow(CapsuleContext.SCREEN_VIEWING)
-    private val platformMode = MutableStateFlow(PlatformMode.ACCESSIBILITY)
-    private val hasIsland = MutableStateFlow(true)
     private val transientThought = MutableStateFlow<String?>(null)
     private val inputFocused = MutableStateFlow(false)
     private val interactionLocked = MutableStateFlow(false)
@@ -110,9 +106,9 @@ class CapsuleOverlayHost(
         composeHost.show(createLayoutParams(interactionLocked.value)) {
             val mode by stateHolder.mode.collectAsState(initial = CapsuleMode.Hidden)
             val stopPending by stateHolder.isStopPending.collectAsState(initial = false)
-            val ctx by capsuleContext.collectAsState(initial = CapsuleContext.SCREEN_VIEWING)
-            val platform by platformMode.collectAsState(initial = PlatformMode.ACCESSIBILITY)
-            val islandEnabled by hasIsland.collectAsState(initial = true)
+            val ctx by stateHolder.context.collectAsState()
+            val platform by stateHolder.platformMode.collectAsState()
+            val islandEnabled by stateHolder.hasIsland.collectAsState()
             val flashThought by transientThought.collectAsState(initial = null)
             val lockTouches by interactionLocked.collectAsState(initial = false)
 
@@ -208,16 +204,6 @@ class CapsuleOverlayHost(
         transientThoughtJob = null
         hide()
         composeHost.dispose()
-    }
-
-    fun updateNavContext(
-        context: CapsuleContext,
-        platform: PlatformMode,
-        hasIsland: Boolean = true,
-    ) {
-        capsuleContext.value = context
-        platformMode.value = platform
-        this.hasIsland.value = hasIsland
     }
 
     fun setInteractionLocked(locked: Boolean) {

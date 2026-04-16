@@ -19,8 +19,9 @@ import com.moonkey.androidagent.ui.chat.model.ChatMessage
 import com.moonkey.androidagent.ui.chat.model.ContentBlock
 import com.moonkey.androidagent.ui.theme.BubbleShapeAgent
 import com.moonkey.androidagent.ui.theme.BubbleShapeUser
-import java.text.SimpleDateFormat
-import java.util.Date
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
@@ -182,10 +183,13 @@ private fun AgentBubble(
     }
 }
 
+// DateTimeFormatter is thread-safe unlike SimpleDateFormat
+private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
+
 /**
  * Format timestamp for display.
  */
 private fun formatTime(timestamp: Long): String {
-    val formatter = SimpleDateFormat("h:mm a", Locale.getDefault())
-    return formatter.format(Date(timestamp))
+    val dateTime = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())
+    return dateTime.format(timeFormatter)
 }

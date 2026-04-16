@@ -376,11 +376,7 @@ class ServiceOverlayController(
     private fun updateContext() {
         val ctx = resolveCapsuleContext(platformMode, userLocation)
         stateHolder.setContext(ctx)
-        capsuleManager.updateNavContext(
-            ctx,
-            platformMode,
-            hasIsland = statusIslandManager != null
-        )
+        stateHolder.setHasIsland(statusIslandManager != null)
     }
 
     private fun refreshGlowState() {

@@ -50,6 +50,9 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
     private val _platformMode = MutableStateFlow(PlatformMode.ACCESSIBILITY)
     val platformMode: StateFlow<PlatformMode> = _platformMode.asStateFlow()
 
+    private val _hasIsland = MutableStateFlow(true)
+    val hasIsland: StateFlow<Boolean> = _hasIsland.asStateFlow()
+
     private val _turnPhase = MutableStateFlow<TurnPhase?>(null)
     val turnPhase: StateFlow<TurnPhase?> = _turnPhase.asStateFlow()
 
@@ -99,6 +102,8 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
     fun setAgentMidTurn(midTurn: Boolean) { _isAgentMidTurn.value = midTurn }
 
     fun setContext(ctx: CapsuleContext) { _context.value = ctx }
+
+    fun setHasIsland(enabled: Boolean) { _hasIsland.value = enabled }
 
     // ── Universal events (any state → target) ──
 

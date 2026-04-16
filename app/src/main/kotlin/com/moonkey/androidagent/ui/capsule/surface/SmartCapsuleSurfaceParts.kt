@@ -147,18 +147,21 @@ internal fun CapsuleRow2(
             if (navSpec.showMinimize) {
                 NavIconButton(
                     icon = Icons.Rounded.RemoveCircleOutline,
+                    contentDescription = "Minimize",
                     onClick = { onNavigate(NavAction.MINIMIZE) },
                 )
             }
             if (navSpec.showApp) {
                 NavIconButton(
                     icon = Icons.Rounded.PhoneAndroid,
+                    contentDescription = "Open app",
                     onClick = { onNavigate(NavAction.OPEN_APP) },
                 )
             }
             if (navSpec.showWatch) {
                 NavIconButton(
                     icon = Icons.Rounded.Visibility,
+                    contentDescription = "Open viewer",
                     onClick = { onNavigate(NavAction.OPEN_VIEWER) },
                 )
             }
@@ -232,6 +235,7 @@ internal fun CapsuleRow3(
             Spacer(Modifier.width(6.dp))
             NavIconButton(
                 icon = Icons.Rounded.Visibility,
+                contentDescription = "Open viewer",
                 onClick = onOpenViewer,
             )
         }
@@ -255,6 +259,7 @@ internal fun CapsuleRow3(
 @Composable
 private fun NavIconButton(
     icon: ImageVector,
+    contentDescription: String,
     onClick: () -> Unit,
 ) {
     FilledTonalIconButton(
@@ -262,7 +267,7 @@ private fun NavIconButton(
         modifier = Modifier.size(32.dp),
         shape = RoundedCornerShape(10.dp),
     ) {
-        Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier.size(18.dp))
     }
 }
 
