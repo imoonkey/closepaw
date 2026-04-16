@@ -44,6 +44,7 @@ import com.moonkey.androidagent.ui.chat.components.ChatHeader
 import com.moonkey.androidagent.ui.chat.components.EmptyState
 import com.moonkey.androidagent.ui.chat.components.MessageBubble
 import com.moonkey.androidagent.ui.chat.model.ChatMessage
+import com.moonkey.androidagent.ui.chat.model.ContentBlock
 import com.moonkey.androidagent.ui.navigation.NavigationDrawerContent
 import com.moonkey.androidagent.ui.overlay.model.CapsuleContext
 import com.moonkey.androidagent.ui.overlay.model.CapsuleMode
@@ -207,23 +208,30 @@ private fun MessageList(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // "Near bottom" = last visible item is within 2 items of the end
+    // "Near bottom" = cannot scroll further forward (pixel-aware, handles tall last messages)
     val isNearBottom by remember {
         derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            val totalItems = layoutInfo.totalItemsCount
-            totalItems == 0 || lastVisible >= totalItems - 2
+            !listState.canScrollForward
         }
     }
 
     // Derive a scroll key that changes on message count *and* last-message content.
-    // This covers both new messages and streaming mutations to the last message.
+    // This covers new messages, streaming text, AND action-card state changes.
     val scrollKey by remember {
         derivedStateOf {
             val last = messages.lastOrNull()
             val contentSignal = when (last) {
-                is ChatMessage.Agent -> last.contentBlocks.size.toLong() + last.content.length
+                is ChatMessage.Agent -> {
+                    var signal = last.contentBlocks.size.toLong() + last.content.length
+                    // Include action card state and result summary length so
+                    // scroll follows when action cards update without new blocks.
+                    for (block in last.contentBlocks) {
+                        if (block is ContentBlock.Action) {
+                            signal += block.data.state.ordinal + (block.data.resultSummary?.length ?: 0)
+                        }
+                    }
+                    signal
+                }
                 is ChatMessage.User -> last.text.length.toLong()
                 null -> 0L
             }
