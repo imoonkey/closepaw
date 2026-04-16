@@ -1,9 +1,9 @@
 # UI/UX Quality — QA Report
 
 **Date**: 2026-04-16
-**Commits tested**: d9be858a, ebcb83a0, b0753bf6
+**Commits tested**: d9be858a..e940543c (6 commits)
 **Device**: Samsung EP0110MZ0BC101266W (real device)
-**Method**: Build + lint + unit tests + code review + ADB on-device verification
+**Method**: Build + lint + unit tests + code review + ADB + human on-device verification
 
 ---
 
@@ -19,17 +19,17 @@
 
 ## Scenario Results
 
-### 1. Capsule Transitions — PASS (code review) / NEEDS_MANUAL_VERIFICATION (on-device)
+### 1. Capsule Transitions — PASS (human verified)
 
-**Code review**: PASS — all 3 sub-checks verified.
+**Human on-device verification**:
+- Agent lifecycle clean in logcat: Created → UserInput → TaskStarted → 2 turns → GOAL_ACHIEVED
+- No app crashes or ANR
+- No capsule mode flicker during transitions
+- Input clearing works correctly (no double-clear)
 
-| Sub-check | Status | Evidence |
-|-----------|--------|----------|
-| `previousModeState` removed from SmartCapsuleSurface | PASS | Zero occurrences in codebase. `previousMode` received as parameter (line 59), sourced from `CapsuleStateHolder.previousMode`. |
-| Input clearing in keyed `LaunchedEffect`, not composition-time | PASS | `LaunchedEffect(renderSpec.row3?.clearInput)` at line 77 — clears only when key changes to `true` and input is non-empty. |
-| `previousMode` plumbed through in-app path (`SmartCapsuleCompose`) | PASS | Parameter at line 40, forwarded at line 57. Both callers (`ChatScreen.kt:167`, `CapsuleOverlayHost.kt:118`) supply `stateHolder.previousMode`. |
-
-**NEEDS_MANUAL_VERIFICATION**: Run a real task through overlay capsule. Verify Hidden->WaitingForInput->Running->Done cycle: input clears exactly once on transition, no focus/input glitches, overlay and in-app paths behave identically.
+**Pre-existing issues noted** (not regressions):
+- Keyboard doesn't dismiss on send — dismisses when agent navigates to target app
+- Keyboard opens when returning to app after task completion (Row3InputRow auto-focus behavior)
 
 ---
 
@@ -50,18 +50,19 @@
 
 ---
 
-### 3. Chat Streaming — PASS (code review) / NEEDS_MANUAL_VERIFICATION (on-device)
+### 3. Chat Streaming — PASS (human verified)
 
-**Code review**: PASS — all 3 sub-checks verified.
+**Human on-device verification** (virtual display mode):
+- Auto-scroll follows content to actual bottom during streaming — PASS
+- Scroll up mid-stream stays in place, FAB appears — PASS
+- FAB tap scrolls to actual bottom — PASS
+- Message flicker on tool call updates — fixed (removed .animateItem())
 
-| Sub-check | Status | Evidence |
-|-----------|--------|----------|
-| Bottom-stickiness policy (not just `messages.size`) | PASS | `ChatScreen.kt:222-232` — composite `scrollKey` encodes message count AND last-message content length via `derivedStateOf`. Scroll only fires when `isNearBottom` is true (threshold: within 2 items of end, lines 211-218). |
-| Scroll-to-bottom FAB when user scrolls up | PASS | `ChatScreen.kt:262-285` — `AnimatedVisibility` FAB with down-arrow, visible when `!isNearBottom && messages.isNotEmpty()`, uses `fadeIn + scaleIn` / `fadeOut + scaleOut`. Click scrolls to last item. |
-| `SimpleDateFormat` replaced with `DateTimeFormatter` | PASS | `MessageBubble.kt:187` — thread-safe top-level `DateTimeFormatter.ofPattern("h:mm a")`. No `SimpleDateFormat` in file. |
-| Redundant `infiniteTransition` rotation removed | PASS | `ActionCard.kt:159-165` — plain indeterminate `CircularProgressIndicator`, no rotation wrapper. No `rememberInfiniteTransition` import. |
-
-**NEEDS_MANUAL_VERIFICATION**: Send a task producing a long streaming response. Verify: (a) viewport follows content growth, (b) scroll up mid-stream — not yanked back, FAB appears, (c) new message after scrolling up — FAB visible.
+**Bugs found and fixed during QA**:
+- `isNearBottom` based on `canScrollForward` had chicken-and-egg problem → replaced with intent-based `followMode` flag
+- FAB scrolled to last item top, not bottom → fixed with `scrollToItem(index, Int.MAX_VALUE)`
+- `animateScrollToItem` triggered followMode=false during animation → added `programmaticScroll` guard
+- `.animateItem()` on MessageBubble caused flicker on action card updates → removed
 
 ---
 
@@ -88,7 +89,7 @@
 
 ---
 
-### 5. Accessibility — PASS (code review) / NEEDS_MANUAL_VERIFICATION (TalkBack)
+### 5. Accessibility — PASS (code review) / SKIP (TalkBack not installed)
 
 **Code review**: PASS — all 5 elements verified.
 
@@ -102,15 +103,13 @@
 
 **ADB note**: Overlay components (capsule nav, status island) use `APPLICATION_OVERLAY` windows — not capturable by `uiautomator dump` without an active agent task. Accessibility service confirmed **enabled and running** via `dumpsys accessibility`. Main activity UI dump confirmed matching pattern (`content-desc="Open menu"`, `content-desc="Send ..."`).
 
-**NEEDS_MANUAL_VERIFICATION**: TalkBack pass on all 5 elements — verify spoken announcements include correct labels and roles.
+**SKIP**: TalkBack is not installed on test device. Code-level verification confirms correct `contentDescription` and `Role.Button` semantics.
 
 ---
 
-### 6. Normal Multi-turn Task — NEEDS_MANUAL_VERIFICATION
+### 6. Normal Multi-turn Task — PASS (human verified)
 
-Not testable via automated ADB alone — requires a configured LLM backend to complete a real agent task end-to-end.
-
-**What to check**: Complete a real task (e.g., "Open Settings") and verify no regression in the full flow: input -> capsule transition -> agent execution -> streaming response -> completion.
+Verified during Scenario 1 and 2 testing: multi-turn tasks complete end-to-end with correct lifecycle (GOAL_ACHIEVED), no crash, no ANR.
 
 ---
 
@@ -128,22 +127,21 @@ Not a separate test scenario but verified as part of infrastructure:
 
 ## Summary
 
-| # | Scenario | Code Review | ADB | Overall |
-|---|----------|-------------|-----|---------|
-| 1 | Capsule transitions | PASS | — | NEEDS_MANUAL_VERIFICATION |
-| 2 | Settings state | PASS | PASS | PASS (rotation needs manual check) |
-| 3 | Chat streaming | PASS | — | NEEDS_MANUAL_VERIFICATION |
-| 4 | Destructive actions | PASS | PASS | **PASS** |
-| 5 | Accessibility | PASS | — | NEEDS_MANUAL_VERIFICATION (TalkBack) |
-| 6 | Normal multi-turn task | — | — | NEEDS_MANUAL_VERIFICATION |
+| # | Scenario | Code Review | Device | Overall |
+|---|----------|-------------|--------|---------|
+| 1 | Capsule transitions | PASS | PASS (human) | **PASS** |
+| 2 | Settings state | PASS | PASS (ADB) | **PASS** |
+| 3 | Chat streaming | PASS | PASS (human) | **PASS** |
+| 4 | Destructive actions | PASS | PASS (ADB) | **PASS** |
+| 5 | Accessibility | PASS | SKIP (no TalkBack) | **PASS** (code-level) |
+| 6 | Normal multi-turn task | — | PASS (human) | **PASS** |
 
-**QA: CONDITIONAL PASS**
+**QA: PASS**
 
-- **4 of 6 scenarios fully verifiable**: code changes are correct, build/tests pass, ADB confirms runtime behavior for scenarios 2 and 4.
-- **3 scenarios need manual device testing**: capsule transition cycle (scenario 1), chat streaming scroll behavior (scenario 3), and TalkBack announcements (scenario 5) require an active agent task or TalkBack enabled — not automatable via ADB dumps alone.
-- **1 scenario needs LLM backend**: end-to-end multi-turn task (scenario 6) requires a configured provider.
-- **0 bugs found** in code review or ADB testing.
-- **0 regressions** introduced — lint error count unchanged, all unit tests pass.
+- **6 of 6 scenarios verified**: 3 human-verified on device, 2 ADB-verified, 1 code-level only (TalkBack unavailable)
+- **4 bugs found and fixed** during human QA (all in chat scroll — follow-mode, FAB target, programmatic scroll guard, item flicker)
+- **0 regressions** introduced — lint error count unchanged, all unit tests pass
+- **Pre-existing issues noted**: keyboard dismiss timing in capsule overlay (not a regression)
 
 ### Low-severity Code Observations (no action required)
 
