@@ -1393,5 +1393,31 @@
     ],
     "created": "2026-04-17T00:20:35+08:00",
     "updated": "2026-04-17T00:20:35+08:00"
+  },
+  "uiux-qa-real-device": {
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-codex-review"
+    ],
+    "state": "ready",
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on real device to validate UI/UX changes do not regress user-facing behavior. Test scenarios:\n\n1. Capsule transitions: overlay capsule Hidden→WaitingForInput→Running→Done cycle — input clears exactly once on transition, no repeated focus/input glitches, in-app and overlay paths behave identically\n2. Settings state: open settings, switch tabs (OAuth/API Key/Local), rotate device — tab/provider preserved; change model externally via intent, reopen settings — correct tab shown; explore tabs without committing — backend/auth state unchanged\n3. Chat streaming: send a task that produces a long streaming response — viewport follows content growth; scroll up mid-stream — not yanked back, scroll-to-bottom affordance appears; new message after scrolling up — affordance visible\n4. Destructive actions: tap session delete — confirmation dialog appears, cancel works, confirm deletes; same for Clear Traces and Clear Session History in settings\n5. Accessibility: TalkBack pass on onboarding back button, capsule nav buttons, status island — all announced with correct labels and roles\n6. Normal multi-turn task: complete a real task end-to-end without regression\n\nUse /ux-visual-debug or adb-driven interaction.",
+    "acceptCriteria": [
+      "QA report exists at doc/todo/holistic-review/ui-ux-quality/final/qa_report.md with pass/fail per scenario",
+      "Capsule transitions: no focus/input glitches, input clears once, in-app and overlay identical",
+      "Settings state: rotation preserves page/tab/provider, external change reflected on reopen, tab exploration does not mutate backend",
+      "Chat streaming: viewport follows when at bottom, does not yank when scrolled up, scroll-to-bottom affordance appears",
+      "Destructive actions: all 3 actions require confirmation dialog before executing",
+      "Accessibility: TalkBack announces correct labels for onboarding back, capsule nav, status island",
+      "Normal multi-turn task completes without regression",
+      "No ANR or crash in logcat during QA run"
+    ],
+    "estimate": "m",
+    "requireHumanReview": true,
+    "tags": [
+      "qa"
+    ],
+    "created": "2026-04-16T16:20:40Z",
+    "updated": "2026-04-16T16:20:40Z"
   }
 }
