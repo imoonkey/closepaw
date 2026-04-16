@@ -128,11 +128,13 @@ internal class FileTraceRecorder(
                     is WriteOp.AppendLine -> {
                         writer.append(op.line)
                         writer.newLine()
-                        writer.flush()
                     }
                     is WriteOp.WriteBytes -> writeBytes(op.relativePath, op.bytes)
                     is WriteOp.WriteUtf8 -> writeText(op.relativePath, op.content)
-                    is WriteOp.Flush -> op.done.complete(Unit)
+                    is WriteOp.Flush -> {
+                        writer.flush()
+                        op.done.complete(Unit)
+                    }
                 }
             }
         } catch (e: Exception) {
