@@ -449,7 +449,7 @@
     "description": "SmartCapsuleSurface.kt violates Compose's side-effect-free render model in two ways: (1) `previousModeState.value = mode` is written inside `remember(...)` block at line 71, making behavior depend on recomposition order, (2) `inputText = \"\"` is written during composition at line 80 when `clearInput` is true. This is amplified because the surface is shared by both in-app and overlay rendering paths.\n\nAdditionally, SmartCapsuleCompose.kt (the in-app wrapper) does not pass `previousMode` at all (line 41-56), relying entirely on the internal fallback that depends on the composition-time write.\n\nApproach:\n- Remove `previousModeState` from SmartCapsuleSurface — callers provide previous mode\n- Add `previousMode` parameter plumbing through SmartCapsuleCompose.kt (the in-app caller must track and pass it, matching what CapsuleOverlayHost already does)\n- Replace composition-time `inputText = \"\"` with a `LaunchedEffect` keyed on mode transition (or renderSpec.row3?.clearInput)\n- Keep CapsuleRenderSpec.from() pure — no state writes inside remember",
     "parent": "ui-ux-quality",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/surface/SmartCapsuleSurface.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/SmartCapsuleCompose.kt",
@@ -478,7 +478,7 @@
     "description": "Settings state drifts from real app state in three ways: (1) SettingsSheet.kt:70 keeps page selection in local `remember` that resets on config change, (2) LlmAuthSettingsPage.kt:72-79 initializes `selectedTab` once from external authMethod/llmBackend and never updates when those change externally, (3) LlmAuthSettingsPage.kt:88-112 tab taps immediately fire `onBackendChange`/`onAuthMethodChange` — exploring tabs mutates committed backend/auth state. Same pattern at lines 225-250 for API-key provider selection.\n\nAdditionally, zero `rememberSaveable` usage exists across the entire ui/ module — rotation or activity recreation resets all user-visible local state.\n\nApproach:\n- Replace `remember` with `rememberSaveable` for settingsPage, selectedTab, selectedProvider\n- Make selectedTab/selectedProvider reactive to external state changes (use derivedStateOf or re-key on external inputs)\n- Separate UI-only tab exploration from committed mutations: tab taps update local selection only; actual backend/auth changes happen on explicit user action (e.g., 'Apply' or selecting a model within the tab)\n- Same decoupling for API-key provider selection",
     "parent": "ui-ux-quality",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsSheet.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/LlmAuthSettingsPage.kt"
@@ -505,7 +505,7 @@
     "description": "Chat auto-scroll is broken for streaming: LaunchedEffect(messages.size) at ChatScreen.kt:191-196 only fires when the message count changes. Streaming text updates and action-card additions mutate the last message in place (ChatEventReducer.kt:68-71, :95-98) without changing list size, so content grows below the fold without the viewport following. Conversely, any new message snaps to bottom even if the user is reading history.\n\nTwo additional chat cleanup items:\n- MessageBubble.kt:188-190 allocates a new SimpleDateFormat per recomposition (not thread-safe, GC pressure during streaming). TimeUtils.kt already has a thread-safe DateTimeFormatter pattern.\n- ActionCard.kt:171-184 wraps CircularProgressIndicator (which already animates internally) in an extra infiniteTransition rotation, creating double animation.\n\nApproach:\n- Implement 'stick to bottom' policy: track whether user is near bottom of list before auto-scrolling\n- Trigger scroll on last-message content growth (not just message count change) when user is following\n- Show a 'scroll to bottom' FAB when user has scrolled up and new content arrives\n- Replace SimpleDateFormat with top-level DateTimeFormatter val\n- Remove infiniteTransition rotation wrapper; use plain indeterminate CircularProgressIndicator",
     "parent": "ui-ux-quality",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatScreen.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/components/MessageBubble.kt",
@@ -534,7 +534,7 @@
     "description": "Three destructive actions execute immediately with no confirmation:\n1. Session delete in NavigationDrawer.kt:274-283 — IconButton calls onDelete directly, 32dp touch target increases accidental tap risk\n2. 'Clear Traces' in PermissionsAdvancedSettingsPage.kt (~line 208-215) — executes immediately\n3. 'Clear Session History' in PermissionsAdvancedSettingsPage.kt (~line 216-227) — executes immediately\n\nAll three are irreversible data-loss actions that should require explicit user confirmation.\n\nApproach:\n- Add a `showDeleteConfirm` state + AlertDialog pattern to each action\n- Dialog text: describe what will be lost, with [Cancel] and [Delete/Clear] buttons\n- ~15 lines per dialog, no structural changes needed",
     "parent": "ui-ux-quality",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/ui/navigation/NavigationDrawer.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/PermissionsAdvancedSettingsPage.kt"
@@ -563,7 +563,7 @@
     "depends": [
       "uiux-capsule-compose"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/ui/onboarding/OnboardingShell.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/ui/overlay/compose/StatusIslandCompose.kt",
@@ -593,7 +593,7 @@
     "depends": [
       "uiux-capsule-compose"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/ui/overlay/compose/CapsuleOverlayHost.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/app/ServiceOverlayController.kt"

@@ -246,6 +246,15 @@ private fun ApiKeyTabContent(
                     onClick = {
                         if (selectedProvider != provider) {
                             selectedProvider = provider
+                            canonicalizeModels(
+                                modelCatalog = modelCatalog,
+                                provider = provider,
+                                api = null,
+                                selectedModel = selectedModel,
+                                onModelChange = onModelChange,
+                                selectedExecutorModel = selectedExecutorModel,
+                                onExecutorModelChange = onExecutorModelChange
+                            )
                         }
                     },
                     shape = SegmentedButtonDefaults.itemShape(

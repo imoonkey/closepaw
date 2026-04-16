@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.moonkey.androidagent.BuildConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -163,8 +164,10 @@ private fun DataStorageSection(
                 TextButton(
                     onClick = {
                         showClearTracesConfirm = false
-                        scope.launch(Dispatchers.IO) {
-                            context.getExternalFilesDir(TRACE_DIR)?.deleteRecursively()
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                context.getExternalFilesDir(TRACE_DIR)?.deleteRecursively()
+                            }
                             tracesCleared = true
                         }
                     },
@@ -188,8 +191,10 @@ private fun DataStorageSection(
                 TextButton(
                     onClick = {
                         showClearSessionsConfirm = false
-                        scope.launch(Dispatchers.IO) {
-                            File(context.filesDir, SESSIONS_DIR).deleteRecursively()
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                File(context.filesDir, SESSIONS_DIR).deleteRecursively()
+                            }
                             sessionsCleared = true
                         }
                     },
