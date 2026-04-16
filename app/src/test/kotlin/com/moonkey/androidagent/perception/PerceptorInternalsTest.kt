@@ -185,6 +185,44 @@ class PerceptorInternalsTest {
     }
 
     @Test
+    fun `enrichEmptyTextElements handles 1000 candidates quickly`() {
+        // 200 interactive buttons without text, each in its own vertical band of
+        // 4 non-interactive text nodes. No button's band overlaps another's, so
+        // a quadratic scan would still walk 200 * 800 = 160K containment checks.
+        val interactiveCount = 200
+        val textPerBand = 4
+        val candidates = mutableListOf<PerceptorCandidateElement>()
+        for (i in 0 until interactiveCount) {
+            val top = i * 100
+            candidates += candidate(
+                text = "", description = "", hintText = "", resourceId = "",
+                isClickable = true,
+                bounds = Bounds(0, top, 200, top + 100)
+            )
+            for (t in 0 until textPerBand) {
+                candidates += candidate(
+                    text = "T_${i}_$t",
+                    isClickable = false,
+                    bounds = Bounds(10, top + t * 20, 190, top + t * 20 + 15)
+                )
+            }
+        }
+
+        val start = System.nanoTime()
+        val result = enrichEmptyTextElements(candidates)
+        val elapsedMs = (System.nanoTime() - start) / 1_000_000
+
+        // Every interactive parent should receive exactly 3 of its band's text nodes.
+        val enrichedInteractive = result.filter { it.isInteractive }
+        assertThat(enrichedInteractive).hasSize(interactiveCount)
+        for (c in enrichedInteractive) {
+            val parts = c.element.text.split(" | ").filter { it.isNotEmpty() }
+            assertThat(parts.size).isAtLeast(1)
+        }
+        assertThat(elapsedMs).isLessThan(500)
+    }
+
+    @Test
     fun `enrichEmptyTextElements skips parent with existing text`() {
         val parent = candidate(
             text = "Already has text",

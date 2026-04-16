@@ -20,31 +20,65 @@ internal fun enrichEmptyTextElements(
     candidates: List<PerceptorCandidateElement>
 ): List<PerceptorCandidateElement> {
     if (candidates.isEmpty()) return candidates
-    val textSources =
-        candidates.filter { candidate ->
-            !candidate.isInteractive &&
-                mergedText(candidate.element).isNotBlank()
+
+    // Cache mergedText() per candidate — called repeatedly otherwise.
+    val mergedTextOf = HashMap<PerceptorCandidateElement, String>(candidates.size)
+    for (c in candidates) mergedTextOf[c] = mergedText(c.element)
+
+    val sourceBounds = ArrayList<Bounds>()
+    val sourceText = ArrayList<String>()
+    for (c in candidates) {
+        if (!c.isInteractive) {
+            val text = mergedTextOf.getValue(c)
+            if (text.isNotBlank()) {
+                sourceBounds.add(c.element.bounds)
+                sourceText.add(text)
+            }
         }
+    }
+    if (sourceBounds.isEmpty()) return candidates
+
+    // Sort sources by top so each candidate only scans the vertical slice of
+    // sources whose top falls within its bounds — O(n log n + matches).
+    val order = (0 until sourceBounds.size).sortedBy { sourceBounds[it].top }
+    val sortedTops = IntArray(order.size) { sourceBounds[order[it]].top }
+    val sortedBounds = Array(order.size) { sourceBounds[order[it]] }
+    val sortedText = Array(order.size) { sourceText[order[it]] }
+
     return candidates.map { candidate ->
         val element = candidate.element
         val needsEnrichment =
             candidate.isInteractive &&
                 !element.isScrollable &&
-                mergedText(element).isBlank()
+                mergedTextOf.getValue(candidate).isBlank()
         if (!needsEnrichment) return@map candidate
-        val bubbledText =
-            textSources.asSequence()
-                .filter { source -> contains(element.bounds, source.element.bounds) }
-                .map { source -> mergedText(source.element) }
-                .filter { text -> text.isNotBlank() }
-                .take(3)
-                .toList()
+
+        val cb = element.bounds
+        val start = lowerBound(sortedTops, cb.top)
+        val bubbledText = ArrayList<String>(3)
+        for (i in start until sortedTops.size) {
+            if (sortedTops[i] > cb.bottom) break
+            if (contains(cb, sortedBounds[i])) {
+                bubbledText.add(sortedText[i])
+                if (bubbledText.size >= 3) break
+            }
+        }
         if (bubbledText.isEmpty()) {
             candidate
         } else {
             candidate.copy(element = element.copy(text = bubbledText.joinToString(" | ")))
         }
     }
+}
+
+private fun lowerBound(sorted: IntArray, target: Int): Int {
+    var lo = 0
+    var hi = sorted.size
+    while (lo < hi) {
+        val mid = (lo + hi) ushr 1
+        if (sorted[mid] < target) lo = mid + 1 else hi = mid
+    }
+    return lo
 }
 
 internal fun applyTruncation(
