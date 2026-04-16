@@ -28,8 +28,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -208,10 +211,22 @@ private fun MessageList(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // "Near bottom" = cannot scroll further forward (pixel-aware, handles tall last messages)
-    val isNearBottom by remember {
-        derivedStateOf {
-            !listState.canScrollForward
+    // Follow mode: true = auto-scroll with new content, false = user scrolled up.
+    var followMode by remember { mutableStateOf(true) }
+    // Suppress follow-mode detection during programmatic scrolls.
+    var programmaticScroll by remember { mutableStateOf(false) }
+
+    // Detect user scroll gestures to toggle follow mode.
+    LaunchedEffect(Unit) {
+        snapshotFlow {
+            listState.isScrollInProgress to listState.canScrollForward
+        }.collect { (scrolling, canForward) ->
+            if (programmaticScroll) return@collect
+            if (scrolling && canForward) {
+                followMode = false
+            } else if (!canForward && !scrolling) {
+                followMode = true
+            }
         }
     }
 
@@ -223,8 +238,6 @@ private fun MessageList(
             val contentSignal = when (last) {
                 is ChatMessage.Agent -> {
                     var signal = last.contentBlocks.size.toLong() + last.content.length
-                    // Include action card state and result summary length so
-                    // scroll follows when action cards update without new blocks.
                     for (block in last.contentBlocks) {
                         if (block is ContentBlock.Action) {
                             signal += block.data.state.ordinal + (block.data.resultSummary?.length ?: 0)
@@ -239,10 +252,12 @@ private fun MessageList(
         }
     }
 
-    // Auto-scroll when scroll key changes, but only if user is near bottom
+    // Auto-scroll to actual bottom when content changes and we're following.
     LaunchedEffect(scrollKey) {
-        if (messages.isNotEmpty() && isNearBottom) {
-            listState.animateScrollToItem(messages.size - 1)
+        if (messages.isNotEmpty() && followMode) {
+            programmaticScroll = true
+            listState.scrollToItem(messages.size - 1, Int.MAX_VALUE)
+            programmaticScroll = false
         }
     }
 
@@ -259,16 +274,14 @@ private fun MessageList(
             ) { message ->
                 MessageBubble(
                     message = message,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .animateItem()
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
 
         // Scroll-to-bottom FAB when user has scrolled up
         AnimatedVisibility(
-            visible = !isNearBottom && messages.isNotEmpty(),
+            visible = !followMode && messages.isNotEmpty(),
             enter = fadeIn() + scaleIn(),
             exit = fadeOut() + scaleOut(),
             modifier = Modifier
@@ -277,8 +290,11 @@ private fun MessageList(
         ) {
             SmallFloatingActionButton(
                 onClick = {
+                    followMode = true
                     scope.launch {
-                        listState.animateScrollToItem(messages.size - 1)
+                        programmaticScroll = true
+                        listState.scrollToItem(messages.size - 1, Int.MAX_VALUE)
+                        programmaticScroll = false
                     }
                 },
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
