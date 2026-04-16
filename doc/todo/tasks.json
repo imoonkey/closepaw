@@ -176,7 +176,7 @@
     "description": "Fix CPU hotspots (O(n^2) algorithms, redundant traversals), memory waste (unnecessary allocations in release builds), IO inefficiency (per-event flush), resource management bugs (flush semantics, exception safety), and build config (R8 shrinking). Based on double-design review (Claude + Codex), revalidated 2026-04-16.",
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "design": "doc/todo/holistic-review/performance-resources/final/improvement_plan.md",
     "acceptCriteria": [
       "All child tasks done",
@@ -185,7 +185,7 @@
     ],
     "priority": "high",
     "created": "2026-04-16T12:00:00+08:00",
-    "updated": "2026-04-16T12:00:00+08:00"
+    "updated": "2026-04-16T16:45:00+08:00"
   },
   "perf-r8-minify": {
     "title": "Enable R8 minification and resource shrinking",
@@ -846,7 +846,7 @@
     "depends": [
       "perf-codex-review"
     ],
-    "state": "ready",
+    "state": "done",
     "acceptCriteria": [
       "QA report exists with pass/fail per scenario at doc/todo/holistic-review/performance-resources/qa_report.md",
       "Normal multi-turn task: completes without error, correct elements captured",
@@ -862,7 +862,8 @@
       "qa"
     ],
     "created": "2026-04-16T14:00:00+08:00",
-    "updated": "2026-04-16T14:00:00+08:00"
+    "updated": "2026-04-16T16:45:00+08:00",
+    "note": "All 5 scenarios PASS on device EP0110MZ0BC101266W. Release APK 74% smaller. Follow-up: full LLM tool-call on release build with credentials."
   },
   "er-codex-review": {
     "title": "Codex Code Review + Fix Round",
