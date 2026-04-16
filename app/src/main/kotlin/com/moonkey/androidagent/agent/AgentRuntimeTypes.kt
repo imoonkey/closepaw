@@ -88,7 +88,7 @@ internal fun decideTurnOutcome(
             )
         }
     }
-    val completeTaskCall = turnResult.toolCalls.find { it.name == ToolName.CompleteTask.raw }
+    val completeTaskCall = arbitration.selectedToolCalls.find { it.name == ToolName.CompleteTask.raw }
     if (completeTaskCall != null && completeTaskCall.id !in execution.executedToolIds) {
         return TurnOutcome.Error(
             message = "complete_task was planned but did not execute",

@@ -102,6 +102,26 @@ class TurnOutcomeDecisionTest {
     }
 
     @Test
+    fun `complete_task dropped by arbitration due to screen action yields Continue`() {
+        val screen = toolCall("mobile_action")
+        val complete = toolCall("complete_task", JSONObject("""{"answer":"done"}"""))
+        val calls = listOf(screen, complete)
+        val arbitration = policy.arbitrateToolCalls(calls)
+        // Sanity: arbitration dropped complete_task because of the screen action.
+        assertThat(arbitration.selectedToolCalls.map { it.id }).doesNotContain(complete.id)
+        val turnResult = TurnResult(content = null, toolCalls = calls, isComplete = true)
+        val execution = ExecutionPhaseResult(
+            executedToolIds = setOf(screen.id),
+            terminatedEarly = false,
+            lastTerminalResult = ToolCallResult.Success(screen.id, "ok")
+        )
+
+        val outcome = decideTurnOutcome(policy, turnResult, arbitration, execution)
+
+        assertThat(outcome).isEqualTo(TurnOutcome.Continue)
+    }
+
+    @Test
     fun `complete_task with status failure yields Complete with success=false`() {
         val complete = toolCall(
             "complete_task",
