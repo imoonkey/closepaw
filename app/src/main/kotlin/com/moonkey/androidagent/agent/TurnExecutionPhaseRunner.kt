@@ -39,8 +39,8 @@ internal class TurnExecutionPhaseRunner(
                 turnNumber: Int,
                 initialSnapshot: ScreenSnapshot,
                 toolCallsToExecute: List<ToolCallRequest>
-        ) {
-                if (toolCallsToExecute.isEmpty()) return
+        ): ExecutionPhaseResult {
+                if (toolCallsToExecute.isEmpty()) return ExecutionPhaseResult.EMPTY
 
                 eventDispatcher.turnPhaseChanged(turnId, TurnPhase.EXECUTION)
                 eventDispatcher.status("💡 Executing actions...")
@@ -52,6 +52,9 @@ internal class TurnExecutionPhaseRunner(
                         "Using turn snapshot for actions: ${currentSnapshot.elements.size} elements"
                 )
 
+                val executedToolIds = mutableSetOf<String>()
+                var terminatedEarly = false
+                var lastTerminalResult: ToolCallResult? = null
                 for (toolCall in toolCallsToExecute) {
                         val result = executeSingleToolCall(
                                 turnId = turnId,
@@ -60,14 +63,25 @@ internal class TurnExecutionPhaseRunner(
                                 currentSnapshot = currentSnapshot
                         )
                         currentSnapshot = result.snapshot
-                        if (!result.success) {
-                                Log.w(TAG, "Action ${toolCall.name} failed; aborting remaining actions in this turn")
+                        executedToolIds += toolCall.id
+                        lastTerminalResult = result.toolResult
+                        if (result.toolResult !is ToolCallResult.Success) {
+                                Log.w(TAG, "Action ${toolCall.name} did not succeed; aborting remaining actions in this turn")
+                                terminatedEarly = true
                                 break
                         }
                 }
+                return ExecutionPhaseResult(
+                        executedToolIds = executedToolIds,
+                        terminatedEarly = terminatedEarly,
+                        lastTerminalResult = lastTerminalResult
+                )
         }
 
-        private data class SingleToolCallResult(val snapshot: ScreenSnapshot, val success: Boolean)
+        private data class SingleToolCallResult(
+                val snapshot: ScreenSnapshot,
+                val toolResult: ToolCallResult
+        )
 
         private suspend fun executeSingleToolCall(
                 turnId: String,
@@ -157,7 +171,7 @@ internal class TurnExecutionPhaseRunner(
                 eventDispatcher.status("✓ ${toolCall.name} executed")
                 return SingleToolCallResult(
                         snapshot = snapshotForNextTool,
-                        success = toolResult is ToolCallResult.Success
+                        toolResult = toolResult
                 )
         }
 

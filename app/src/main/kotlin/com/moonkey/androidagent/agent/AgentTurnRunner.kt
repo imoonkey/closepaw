@@ -92,7 +92,8 @@ internal class AgentTurnRunner(
                                                         warnings = preTurnContext.securityWarnings + preparedTurn.warnings
                                                 )
 
-                                        executionPhaseRunner.executeActions(
+                                        val executionResult =
+                                                executionPhaseRunner.executeActions(
                                                         turnId = turnId,
                                                         turnNumber = turnNumber,
                                                         initialSnapshot = snapshot,
@@ -105,7 +106,8 @@ internal class AgentTurnRunner(
                                         decideTurnOutcome(
                                                 turnNumber = turnNumber,
                                                 result = planningResult.turnResult,
-                                                arbitration = planningResult.arbitration
+                                                arbitration = planningResult.arbitration,
+                                                execution = executionResult
                                         )
                                 }
                         } catch (e: CancellationException) {
@@ -225,15 +227,19 @@ internal class AgentTurnRunner(
         private fun decideTurnOutcome(
                 turnNumber: Int,
                 result: TurnResult,
-                arbitration: ToolArbitrationResult
+                arbitration: ToolArbitrationResult,
+                execution: ExecutionPhaseResult
         ): TurnOutcome {
-                val completion = turnPolicyEngine.decideCompletion(result, arbitration)
-                if (!completion.shouldComplete) {
-                        return TurnOutcome.Continue
+                val outcome = decideTurnOutcome(
+                        policy = turnPolicyEngine,
+                        turnResult = result,
+                        arbitration = arbitration,
+                        execution = execution
+                )
+                if (outcome is TurnOutcome.Complete) {
+                        Log.i(TAG, "Turn $turnNumber: Task marked as complete - ${outcome.message}")
                 }
-                val summary = completion.summary ?: "Goal achieved"
-                Log.i(TAG, "Turn $turnNumber: Task marked as complete - $summary")
-                return TurnOutcome.Complete(message = summary, success = completion.success)
+                return outcome
         }
 
         private fun handleTurnFailure(
