@@ -18,7 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -69,14 +69,46 @@ internal fun LlmAuthSettingsPage(
     onBack: () -> Unit,
     onClose: () -> Unit
 ) {
-    val initialTab = remember {
-        when {
-            authMethod == "oauth" -> LlmAuthTab.SIGN_IN
-            llmBackend == LLMBackendType.LOCAL -> LlmAuthTab.LOCAL
-            else -> LlmAuthTab.API_KEY
-        }
+    // Re-derive from external state when authMethod/llmBackend change;
+    // survive rotation via rememberSaveable when they stay the same.
+    var selectedTab by rememberSaveable(authMethod, llmBackend) {
+        mutableStateOf(
+            when {
+                authMethod == "oauth" -> LlmAuthTab.SIGN_IN
+                llmBackend == LLMBackendType.LOCAL -> LlmAuthTab.LOCAL
+                else -> LlmAuthTab.API_KEY
+            }
+        )
     }
-    var selectedTab by remember { mutableStateOf(initialTab) }
+
+    // Commit backend/auth state before delegating to the original callback.
+    // Called lazily on real user actions inside tab content, NOT on tab tap.
+    fun commitSignIn(action: () -> Unit) {
+        onBackendChange(LLMBackendType.OPENAI)
+        onAuthMethodChange("oauth")
+        canonicalizeModels(
+            modelCatalog = modelCatalog,
+            provider = LLMProvider.OPENAI,
+            api = ApiType.RESPONSE,
+            selectedModel = selectedModel,
+            onModelChange = onModelChange,
+            selectedExecutorModel = selectedExecutorModel,
+            onExecutorModelChange = onExecutorModelChange
+        )
+        action()
+    }
+
+    fun commitApiKey(action: () -> Unit) {
+        onBackendChange(LLMBackendType.OPENAI)
+        onAuthMethodChange(null)
+        action()
+    }
+
+    fun commitLocal(action: () -> Unit) {
+        onBackendChange(LLMBackendType.LOCAL)
+        onAuthMethodChange(null)
+        action()
+    }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         SettingsSubPageHeader(title = "LLM & Authentication", onBack = onBack, onClose = onClose)
@@ -85,32 +117,7 @@ internal fun LlmAuthSettingsPage(
             LlmAuthTab.entries.forEach { tab ->
                 Tab(
                     selected = selectedTab == tab,
-                    onClick = {
-                        selectedTab = tab
-                        when (tab) {
-                            LlmAuthTab.SIGN_IN -> {
-                                onBackendChange(LLMBackendType.OPENAI)
-                                onAuthMethodChange("oauth")
-                                canonicalizeModels(
-                                    modelCatalog = modelCatalog,
-                                    provider = LLMProvider.OPENAI,
-                                    api = ApiType.RESPONSE,
-                                    selectedModel = selectedModel,
-                                    onModelChange = onModelChange,
-                                    selectedExecutorModel = selectedExecutorModel,
-                                    onExecutorModelChange = onExecutorModelChange
-                                )
-                            }
-                            LlmAuthTab.API_KEY -> {
-                                onBackendChange(LLMBackendType.OPENAI)
-                                onAuthMethodChange(null)
-                            }
-                            LlmAuthTab.LOCAL -> {
-                                onBackendChange(LLMBackendType.LOCAL)
-                                onAuthMethodChange(null)
-                            }
-                        }
-                    },
+                    onClick = { selectedTab = tab },
                     text = { Text(tab.label) }
                 )
             }
@@ -125,33 +132,33 @@ internal fun LlmAuthSettingsPage(
             when (selectedTab) {
                 LlmAuthTab.SIGN_IN -> SignInTabContent(
                     selectedModel = selectedModel,
-                    onModelChange = onModelChange,
+                    onModelChange = { commitSignIn { onModelChange(it) } },
                     modelCatalog = modelCatalog,
                     selectedExecutorModel = selectedExecutorModel,
-                    onExecutorModelChange = onExecutorModelChange,
+                    onExecutorModelChange = { commitSignIn { onExecutorModelChange(it) } },
                     agentMode = agentMode,
                     openAiAuthUiState = openAiAuthUiState,
-                    onStartOAuth = onStartOAuth,
+                    onStartOAuth = { commitSignIn { onStartOAuth() } },
                     onCancelOAuth = onCancelOAuth,
                     onSignOut = onSignOut
                 )
                 LlmAuthTab.API_KEY -> ApiKeyTabContent(
                     selectedModel = selectedModel,
-                    onModelChange = onModelChange,
+                    onModelChange = { commitApiKey { onModelChange(it) } },
                     modelCatalog = modelCatalog,
                     selectedExecutorModel = selectedExecutorModel,
-                    onExecutorModelChange = onExecutorModelChange,
+                    onExecutorModelChange = { commitApiKey { onExecutorModelChange(it) } },
                     agentMode = agentMode,
                     openAiApiKey = openAiApiKey,
-                    onOpenAiApiKeyChange = onOpenAiApiKeyChange,
+                    onOpenAiApiKeyChange = { commitApiKey { onOpenAiApiKeyChange(it) } },
                     openRouterApiKey = openRouterApiKey,
-                    onOpenRouterApiKeyChange = onOpenRouterApiKeyChange,
+                    onOpenRouterApiKeyChange = { commitApiKey { onOpenRouterApiKeyChange(it) } },
                     novitaApiKey = novitaApiKey,
-                    onNovitaApiKeyChange = onNovitaApiKeyChange
+                    onNovitaApiKeyChange = { commitApiKey { onNovitaApiKeyChange(it) } }
                 )
                 LlmAuthTab.LOCAL -> LocalTabContent(
                     selectedLocalModel = selectedLocalModel,
-                    onLocalModelChange = onLocalModelChange,
+                    onLocalModelChange = { commitLocal { onLocalModelChange(it) } },
                     modelLoadingStatus = modelLoadingStatus
                 )
             }
@@ -222,15 +229,15 @@ private fun ApiKeyTabContent(
     novitaApiKey: String,
     onNovitaApiKeyChange: (String) -> Unit
 ) {
-    // Derive initial provider from the currently selected model
-    val initialProvider = remember(selectedModel) {
-        modelCatalog.resolveOrNull(selectedModel)?.provider ?: LLMProvider.OPENAI
+    // Re-derive from external model when it changes; survive rotation otherwise.
+    var selectedProvider by rememberSaveable(selectedModel) {
+        val resolved = modelCatalog.resolveOrNull(selectedModel)?.provider ?: LLMProvider.OPENAI
+        mutableStateOf(resolved)
     }
-    var selectedProvider by remember { mutableStateOf(initialProvider) }
 
     val modelOptions = catalogModelOptions(modelCatalog.modelsFor(selectedProvider))
 
-    // Provider sub-selector
+    // Provider sub-selector — local-only, no committed mutations.
     SettingsSection(title = "Provider") {
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             API_KEY_PROVIDERS.forEachIndexed { index, provider ->
@@ -239,15 +246,6 @@ private fun ApiKeyTabContent(
                     onClick = {
                         if (selectedProvider != provider) {
                             selectedProvider = provider
-                            canonicalizeModels(
-                                modelCatalog = modelCatalog,
-                                provider = provider,
-                                api = null,
-                                selectedModel = selectedModel,
-                                onModelChange = onModelChange,
-                                selectedExecutorModel = selectedExecutorModel,
-                                onExecutorModelChange = onExecutorModelChange
-                            )
                         }
                     },
                     shape = SegmentedButtonDefaults.itemShape(

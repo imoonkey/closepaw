@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,11 +65,8 @@ fun SmartCapsuleSurface(
 ) {
     var inputText by remember { mutableStateOf("") }
     val isTaskActive = mode !is CapsuleMode.Hidden
-    val previousModeState = remember { mutableStateOf<CapsuleMode?>(null) }
-    val resolvedPreviousMode = previousMode ?: previousModeState.value
-    val renderSpec = remember(mode, isStopPending, resolvedPreviousMode, transientThought) {
-        val baseSpec = CapsuleRenderSpec.from(mode, resolvedPreviousMode, isStopPending)
-        previousModeState.value = mode
+    val renderSpec = remember(mode, isStopPending, previousMode, transientThought) {
+        val baseSpec = CapsuleRenderSpec.from(mode, previousMode, isStopPending)
         if (transientThought.isNullOrBlank()) baseSpec
         else baseSpec.copy(thought = CapsuleRenderSpec.ThoughtSpec(transientThought))
     }
@@ -76,8 +74,10 @@ fun SmartCapsuleSurface(
         NavSpec.from(context, platformMode, hasIsland = hasIsland, mode = mode)
     }
 
-    if (renderSpec.row3?.clearInput == true && inputText.isNotEmpty()) {
-        inputText = ""
+    LaunchedEffect(renderSpec.row3?.clearInput) {
+        if (renderSpec.row3?.clearInput == true && inputText.isNotEmpty()) {
+            inputText = ""
+        }
     }
 
     val inputEnabled = when {

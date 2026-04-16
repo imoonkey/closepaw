@@ -36,7 +36,8 @@ fun SmartCapsuleCompose(
     onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit = { _, _, _, _ -> },
     onDismissError: () -> Unit,
     onNavigate: (NavAction) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    previousMode: CapsuleMode? = null,
 ) {
     SmartCapsuleSurface(
         mode = mode,
@@ -53,5 +54,6 @@ fun SmartCapsuleCompose(
         onDismissError = onDismissError,
         onNavigate = onNavigate,
         modifier = modifier,
+        previousMode = previousMode,
     )
 }

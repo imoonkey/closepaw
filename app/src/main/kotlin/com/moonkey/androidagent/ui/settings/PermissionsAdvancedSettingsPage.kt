@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -26,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -149,6 +151,58 @@ private fun DataStorageSection(
     val scope = rememberCoroutineScope()
     var tracesCleared by remember { mutableStateOf(false) }
     var sessionsCleared by remember { mutableStateOf(false) }
+    var showClearTracesConfirm by remember { mutableStateOf(false) }
+    var showClearSessionsConfirm by remember { mutableStateOf(false) }
+
+    if (showClearTracesConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearTracesConfirm = false },
+            title = { Text("Clear Traces") },
+            text = { Text("All recorded execution traces will be permanently deleted. This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearTracesConfirm = false
+                        scope.launch(Dispatchers.IO) {
+                            context.getExternalFilesDir(TRACE_DIR)?.deleteRecursively()
+                            tracesCleared = true
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text("Clear") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearTracesConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showClearSessionsConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearSessionsConfirm = false },
+            title = { Text("Clear Session History") },
+            text = { Text("All saved sessions and chat history will be permanently deleted. This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showClearSessionsConfirm = false
+                        scope.launch(Dispatchers.IO) {
+                            File(context.filesDir, SESSIONS_DIR).deleteRecursively()
+                            sessionsCleared = true
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) { Text("Clear") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearSessionsConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
 
     SettingsSection(title = "Data & Storage") {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -208,24 +262,14 @@ private fun DataStorageSection(
             ClearDataButton(
                 label = if (tracesCleared) "Traces Cleared" else "Clear Traces",
                 enabled = !tracesCleared,
-                onClick = {
-                    scope.launch(Dispatchers.IO) {
-                        context.getExternalFilesDir(TRACE_DIR)?.deleteRecursively()
-                        tracesCleared = true
-                    }
-                }
+                onClick = { showClearTracesConfirm = true }
             )
 
             // Clear session history button
             ClearDataButton(
                 label = if (sessionsCleared) "Sessions Cleared" else "Clear Session History",
                 enabled = !sessionsCleared,
-                onClick = {
-                    scope.launch(Dispatchers.IO) {
-                        File(context.filesDir, SESSIONS_DIR).deleteRecursively()
-                        sessionsCleared = true
-                    }
-                }
+                onClick = { showClearSessionsConfirm = true }
             )
         }
     }

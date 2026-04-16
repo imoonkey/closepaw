@@ -151,6 +151,7 @@ fun ChatScreen(
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
+                        previousMode = stateHolder?.previousMode,
                     )
                 }
             }

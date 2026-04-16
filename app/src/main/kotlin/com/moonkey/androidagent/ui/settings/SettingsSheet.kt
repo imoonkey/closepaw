@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.moonkey.androidagent.llm.ModelCatalog
@@ -67,7 +67,7 @@ fun SettingsSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var settingsPage by remember { mutableStateOf(SettingsPage.HOME) }
+    var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.HOME) }
 
     Column(
         modifier = modifier
