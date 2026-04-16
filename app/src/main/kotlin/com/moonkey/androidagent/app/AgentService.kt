@@ -27,7 +27,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -212,13 +211,21 @@ class AgentService : AccessibilityService() {
 
         val currentSession = session
         if (currentSession != null) {
-            runBlocking {
-                val completed = withTimeoutOrNull(SHUTDOWN_TIMEOUT_MS) {
-                    currentSession.submit(Op.Shutdown)
-                    true
-                }
-                if (completed != true) {
-                    Log.w(TAG, "Timed out waiting for session shutdown")
+            // Detach shutdown onto a scope that outlives `scope`. The session handles
+            // its own checkpoint persistence via NonCancellable, so the main goal here
+            // is to avoid blocking the main thread (ANR risk).
+            val shutdownScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            shutdownScope.launch {
+                try {
+                    val completed = withTimeoutOrNull(SHUTDOWN_TIMEOUT_MS) {
+                        currentSession.submit(Op.Shutdown)
+                        true
+                    }
+                    if (completed != true) {
+                        Log.w(TAG, "Timed out waiting for session shutdown")
+                    }
+                } finally {
+                    shutdownScope.cancel()
                 }
             }
         }
