@@ -11,7 +11,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * LLM client using OpenAI Chat Completions API.
@@ -115,11 +117,14 @@ class ChatCompletionClient(
         Log.d(TAG, "Starting streaming Chat Completions with ${inputItems.size} input items")
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
-        val retryResult =
-            streamWithRetry(
-                tag = TAG,
-                emitToFlow = { event -> trySend(event) }
-            ) { attempt, emitter ->
+        val activeStream = AtomicReference<AutoCloseable?>(null)
+
+        val job = launch {
+            val retryResult =
+                streamWithRetry(
+                    tag = TAG,
+                    emitToFlow = { event -> trySend(event) }
+                ) { attempt, emitter ->
                 val verbose = LlmLogger.isVerboseEnabled
                 val textAccumulator = if (verbose) StringBuilder() else null
                 // Map: tool call index → (callId, name, argsBuilder)
@@ -132,8 +137,11 @@ class ChatCompletionClient(
                 Log.d(TAG, "Making streaming Chat API call (attempt $attempt)")
 
                 withContext(Dispatchers.IO) {
-                    client.chat().completions().createStreaming(params).use { stream ->
-                        stream.stream().forEach { chunk ->
+                    val streamResponse = client.chat().completions().createStreaming(params)
+                    activeStream.set(streamResponse)
+                    try {
+                        streamResponse.use { stream ->
+                            stream.stream().forEach { chunk ->
                             if (responseId == null) {
                                 responseId = chunk.id()
                                 emitter.emit(LLMStreamEvent.Created(chunk.id()))
@@ -221,32 +229,40 @@ class ChatCompletionClient(
                                 }
                             }
                         }
+                            }
+                        } finally {
+                            activeStream.set(null)
+                        }
                     }
-                }
 
-                // Stream ended — require terminal completion
-                if (!sawFinishReason) {
-                    throw TransientException("Stream ended without finish_reason")
-                }
-                if (verbose && textAccumulator != null && completedToolCalls != null) {
-                    LlmLogger.logOutput(
-                        TAG,
-                        ResponsesResult(
-                            textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
-                            toolCalls = completedToolCalls,
-                            responseId = responseId ?: "unknown"
+                    // Stream ended — require terminal completion
+                    if (!sawFinishReason) {
+                        throw TransientException("Stream ended without finish_reason")
+                    }
+                    if (verbose && textAccumulator != null && completedToolCalls != null) {
+                        LlmLogger.logOutput(
+                            TAG,
+                            ResponsesResult(
+                                textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
+                                toolCalls = completedToolCalls,
+                                responseId = responseId ?: "unknown"
+                            )
                         )
-                    )
+                    }
+                    emitter.emit(LLMStreamEvent.Completed)
                 }
-                emitter.emit(LLMStreamEvent.Completed)
-            }
 
-        retryResult.closeFlow(
-            emitToFlow = { trySend(it) },
-            closeFlow = { close() }
-        )
+            retryResult.closeFlow(
+                emitToFlow = { trySend(it) },
+                closeFlow = { close() }
+            )
+        }
 
-        awaitClose { Log.d(TAG, "Streaming flow closed") }
+        awaitClose {
+            activeStream.getAndSet(null)?.runCatching { close() }
+            job.cancel()
+            Log.d(TAG, "Streaming flow closed")
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────

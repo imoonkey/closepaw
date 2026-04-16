@@ -11,7 +11,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * OpenAIResponseClient - LLM client using OpenAI Responses API.
@@ -85,23 +87,29 @@ class OpenAIResponseClient(
         Log.d(TAG, "Starting native streaming chat with ${inputItems.size} input items")
         LlmLogger.logInput(TAG, systemPrompt, inputItems, tools)
 
-        val retryResult =
-            streamWithRetry(
-                tag = TAG,
-                emitToFlow = { event -> trySend(event) }
-            ) { attempt, emitter ->
-                var sawCompleted = false
-                var responseId: String? = null
-                val verbose = LlmLogger.isVerboseEnabled
-                val textAccumulator = if (verbose) StringBuilder() else null
-                val toolCalls = if (verbose) mutableListOf<LLMToolCall>() else null
+        val activeStream = AtomicReference<AutoCloseable?>(null)
 
-                val params = buildResponseParams(systemPrompt, inputItems, tools, model)
-                Log.d(TAG, "Making streaming Responses API call to OpenAI (attempt $attempt)...")
+        val job = launch {
+            val retryResult =
+                streamWithRetry(
+                    tag = TAG,
+                    emitToFlow = { event -> trySend(event) }
+                ) { attempt, emitter ->
+                    var sawCompleted = false
+                    var responseId: String? = null
+                    val verbose = LlmLogger.isVerboseEnabled
+                    val textAccumulator = if (verbose) StringBuilder() else null
+                    val toolCalls = if (verbose) mutableListOf<LLMToolCall>() else null
 
-                withContext(Dispatchers.IO) {
-                    client.responses().createStreaming(params).use { streamResponse ->
-                        streamResponse.stream().forEach { event ->
+                    val params = buildResponseParams(systemPrompt, inputItems, tools, model)
+                    Log.d(TAG, "Making streaming Responses API call to OpenAI (attempt $attempt)...")
+
+                    withContext(Dispatchers.IO) {
+                        val streamResponse = client.responses().createStreaming(params)
+                        activeStream.set(streamResponse)
+                        try {
+                            streamResponse.use { sr ->
+                                sr.stream().forEach { event ->
                             when {
                                 event.isCreated() -> {
                                     val created = event.asCreated()
@@ -149,21 +157,28 @@ class OpenAIResponseClient(
                                 }
                             }
                         }
+                            }
+                        } finally {
+                            activeStream.set(null)
+                        }
                     }
+
+                    if (!sawCompleted) {
+                        throw TransientException("Stream ended without completion event")
+                    }
+
+                    Log.d(TAG, "Streaming completed successfully")
                 }
 
-                if (!sawCompleted) {
-                    throw TransientException("Stream ended without completion event")
-                }
+            retryResult.closeFlow(
+                emitToFlow = { trySend(it) },
+                closeFlow = { close() }
+            )
+        }
 
-                Log.d(TAG, "Streaming completed successfully")
-            }
-
-        retryResult.closeFlow(
-            emitToFlow = { trySend(it) },
-            closeFlow = { close() }
-        )
         awaitClose {
+            activeStream.getAndSet(null)?.runCatching { close() }
+            job.cancel()
             Log.d(TAG, "Streaming flow closed")
         }
     }

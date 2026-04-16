@@ -439,7 +439,7 @@
     "description": "CodexResponseClient already stores activeCall and cancels it from awaitClose (fixed previously). OpenAIResponseClient and ChatCompletionClient still only log from awaitClose — no active stream/call handle is stored, so flow cancellation cannot proactively stop in-flight network reads or retry cycles. Fix: follow the CodexResponseClient pattern — store a reference to the active call/stream, cancel it from awaitClose. For OpenAIResponseClient (uses OpenAI Java SDK), check if the SDK exposes a cancellable stream handle. For ChatCompletionClient (uses OkHttp directly), store the Call reference like CodexResponseClient does. Ensure retry loops check for cancellation.",
     "parent": "perf-resources",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt"
@@ -458,7 +458,7 @@
       "llm"
     ],
     "created": "2026-04-16T12:00:00+08:00",
-    "updated": "2026-04-16T12:00:00+08:00"
+    "updated": "2026-04-16T13:00:00+08:00"
   },
   "error-resilience": {
     "title": "Error Resilience 改进",
