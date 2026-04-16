@@ -4,14 +4,14 @@
 > -> See: [overlay.md](../overlay.md) for overlay system overview and mode-aware branching.
 > -> See: [state_machine.md](state_machine.md) for formal state vector and transition rules.
 > -> See: [user_flows.md](user_flows.md) for location x platform interaction matrix.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-04-16 (commit: ce30041)
 
 ## Architecture
 
-- **CapsuleStateHolder** — single source of truth. Holds `CapsuleMode`, `CapsuleContext`, `PlatformMode`, `turnPhase`, `isAgentMidTurn`, `isStopPending` as `StateFlow`s.
-- **CapsuleOverlayHost** — Compose overlay via `OverlayComposeHost`. Dynamic touchability (only `Hidden` sets `FLAG_NOT_TOUCHABLE`). Debounces button callbacks (300ms). Touch gate for agent gesture injection.
-- **SmartCapsuleSurface** — 3-row Compose layout consuming `CapsuleMode` and `CapsuleRenderSpec`.
-- **SmartCapsuleCompose** — Compose version for main app (`Scaffold.bottomBar`). Same surface, same callbacks.
+- **CapsuleStateHolder** — single source of truth. Holds `CapsuleMode`, `CapsuleContext`, `PlatformMode`, `hasIsland`, `turnPhase`, `isAgentMidTurn`, `isStopPending` as `StateFlow`s.
+- **CapsuleOverlayHost** — Compose overlay via `OverlayComposeHost`. Reads mode, context, platformMode, and hasIsland from `CapsuleStateHolder`. Owns only host-specific state (focusability, touchability, interactionLocked, inputFocused). Dynamic touchability (only `Hidden` sets `FLAG_NOT_TOUCHABLE`). Debounces button callbacks (300ms). Touch gate for agent gesture injection.
+- **SmartCapsuleSurface** — 3-row Compose layout consuming `CapsuleMode`, `previousMode`, and `CapsuleRenderSpec`. Callers provide `previousMode`; input clearing via `LaunchedEffect` keyed on mode transition.
+- **SmartCapsuleCompose** — Compose version for main app (`Scaffold.bottomBar`). Same surface, same callbacks. Passes `previousMode` from `CapsuleStateHolder`.
 
 ## CapsuleMode
 

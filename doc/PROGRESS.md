@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-04-16: UI/UX Quality Improvement — 6 Phases Complete
+
+**What changed:**
+- Phase 1: Capsule composition correctness — removed composition-time side effects (`previousModeState`, input clearing), callers provide `previousMode`, clearing via `LaunchedEffect`
+- Phase 2: Settings state hoisting — `rememberSaveable` for page/tab/provider, decoupled tab exploration from backend mutations
+- Phase 3: Chat scroll — intent-based `followMode` with `programmaticScroll` guard, content-aware `scrollKey` (text + action card state), scroll-to-bottom FAB, removed `SimpleDateFormat` and double rotation animation
+- Phase 4: Destructive action confirmation dialogs for session delete, Clear Traces, Clear Session History
+- Phase 5: Accessibility — `IconButton` for onboarding back, `contentDescription` on capsule nav buttons, theme tokens + `Role.Button` on status island
+- Phase 6: Overlay state unification — removed duplicate flows from `CapsuleOverlayHost`, added `hasIsland` to `CapsuleStateHolder`, `ServiceOverlayController` writes to stateHolder only
+
+**Why:**
+- State ownership drift was the primary quality problem — composition-time state writes, initialize-once patterns, duplicate state flows
+- Chat scroll was broken for streaming (only tracked message count, not content growth)
+- Three destructive actions lacked confirmation
+
+**Key files:** `SmartCapsuleSurface.kt`, `SmartCapsuleCompose.kt`, `ChatScreen.kt`, `MessageBubble.kt`, `ActionCard.kt`, `SettingsSheet.kt`, `LlmAuthSettingsPage.kt`, `PermissionsAdvancedSettingsPage.kt`, `NavigationDrawer.kt`, `OnboardingShell.kt`, `StatusIslandCompose.kt`, `SmartCapsuleSurfaceParts.kt`, `CapsuleOverlayHost.kt`, `CapsuleStateHolder.kt`, `ServiceOverlayController.kt`
+**Verification:** `./gradlew assembleDebug` + `./gradlew test` pass. Codex code review. Human on-device QA (capsule transitions, chat scroll, multi-turn regression). 4 scroll bugs found and fixed during QA.
+**Commit:** d9be858a..ce30041c (7 commits)
+**Next:** Error resilience and performance-resources task trees
+**Blockers:** None
+
 ## 2026-04-10: LLM Integration Phases 5+6 — Local Semantics + Deduplication
 
 **What changed:**

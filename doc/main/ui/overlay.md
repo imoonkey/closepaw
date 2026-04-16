@@ -1,7 +1,7 @@
 # Overlay System
 
 > Smart Capsule, Edge Glow, Status Island, Action Visualizer, and mode-aware overlay branching.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Last updated: 2026-04-16 (commit: ce30041)
 
 ## Overview
 
