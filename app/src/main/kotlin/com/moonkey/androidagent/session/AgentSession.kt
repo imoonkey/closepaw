@@ -402,6 +402,7 @@ private constructor(
                 when (reason) {
                     is AgentStopReason.Error -> reason.message
                     is AgentStopReason.GoalAchieved -> reason.message
+                    is AgentStopReason.TaskImpossible -> reason.message
                     else -> null
                 }
 
@@ -450,6 +451,7 @@ private constructor(
                 is AgentStopReason.GoalAchieved -> CompletionReason.GOAL_ACHIEVED
                 is AgentStopReason.MaxTurnsReached -> CompletionReason.MAX_TURNS
                 is AgentStopReason.UserRequested -> CompletionReason.USER_STOPPED
+                is AgentStopReason.TaskImpossible -> CompletionReason.TASK_IMPOSSIBLE
                 is AgentStopReason.Error -> CompletionReason.ERROR
             }
 

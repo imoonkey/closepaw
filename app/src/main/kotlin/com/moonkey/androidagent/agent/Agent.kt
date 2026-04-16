@@ -119,7 +119,7 @@ class Agent(
                         stopReason = AgentStopReason.GoalAchieved(result.message)
                     } else {
                         eventDispatcher.status("❌ Task failed: ${result.message}")
-                        stopReason = AgentStopReason.Error(result.message)
+                        stopReason = AgentStopReason.TaskImpossible(result.message)
                     }
                     break
                 }

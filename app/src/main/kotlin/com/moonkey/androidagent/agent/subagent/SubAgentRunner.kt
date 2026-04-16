@@ -135,6 +135,9 @@ internal class IsolatedSubAgentRunner(
             is AgentStopReason.Error -> {
                 SubAgentResult(success = false, message = stopReason.message)
             }
+            is AgentStopReason.TaskImpossible -> {
+                SubAgentResult(success = false, message = stopReason.message)
+            }
             null -> {
                 SubAgentResult(success = false, message = "Timeout after ${roleDef.timeoutMs}ms")
             }

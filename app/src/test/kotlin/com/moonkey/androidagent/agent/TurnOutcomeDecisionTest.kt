@@ -101,6 +101,27 @@ class TurnOutcomeDecisionTest {
         assertThat(outcome).isInstanceOf(TurnOutcome.Error::class.java)
     }
 
+    @Test
+    fun `complete_task with status failure yields Complete with success=false`() {
+        val complete = toolCall(
+            "complete_task",
+            JSONObject("""{"status":"failure","answer":"cannot do it"}""")
+        )
+        val calls = listOf(complete)
+        val arbitration = policy.arbitrateToolCalls(calls)
+        val turnResult = TurnResult(content = null, toolCalls = calls, isComplete = true)
+        val execution = ExecutionPhaseResult(
+            executedToolIds = setOf(complete.id),
+            terminatedEarly = false,
+            lastTerminalResult = ToolCallResult.Success(complete.id, "ok")
+        )
+
+        val outcome = decideTurnOutcome(policy, turnResult, arbitration, execution)
+
+        assertThat(outcome).isInstanceOf(TurnOutcome.Complete::class.java)
+        assertThat((outcome as TurnOutcome.Complete).success).isFalse()
+    }
+
     private fun toolCall(name: String, arguments: JSONObject = JSONObject()): ToolCallRequest {
         return ToolCallRequest(id = "call-$name", name = name, arguments = arguments)
     }
