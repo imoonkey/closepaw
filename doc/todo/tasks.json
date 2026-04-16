@@ -823,7 +823,7 @@
       "perf-bitmap-safety",
       "perf-streaming-cancel"
     ],
-    "state": "ready",
+    "state": "done",
     "acceptCriteria": [
       "Codex code review report exists at doc/todo/holistic-review/performance-resources/codex_review.md",
       "All critical/high severity findings from review are addressed with code changes",
@@ -836,7 +836,8 @@
       "review"
     ],
     "created": "2026-04-16T14:00:00+08:00",
-    "updated": "2026-04-16T14:00:00+08:00"
+    "updated": "2026-04-16T14:15:00+08:00",
+    "note": "Review saved to codex_review.md; 2 high + 1 medium fixed; medium-3 (pre-publication streaming cancel) deferred — SDK lacks a cancellable handle before createStreaming returns."
   },
   "perf-qa-real-device": {
     "title": "QA Round: Real Device Validation",
