@@ -15,7 +15,7 @@
 | S2 | Approval dispatch healthy-path | PASS (code + healthy trace) | P0 #2 |
 | S3 | Delegate-task failure | PASS (code + unit test; live not triggered) | P0 #3 |
 | S4 | Service restart mid-task | PASS | P0 #4 |
-| S5 | Policy-denied blocked app | PARTIAL — bug note (see below) | P1 #7 |
+| S5 | Policy-denied blocked app | PASS (re-run after 49cbdda3) | P1 #7 |
 | S6 | Task impossible → `TASK_IMPOSSIBLE` | PASS | P1 #5 |
 | S7 | Normal multi-turn task → `GOAL_ACHIEVED` | PASS | sanity |
 
@@ -129,6 +129,38 @@ But `ToolRouter.kt:116-121` maps `PolicyDecision.Deny` to `ToolCallResult.Error`
 The end-user-visible guarantee ("no ✓ checkmark for non-success") is still met, so the scenario is marked PARTIAL — no behavioral regression, but the outcome classification deviates from the final plan specification. Recommended follow-up: change `PolicyDecision.Deny` to return `ToolCallResult.Cancelled("Policy denied: …")` so semantics match item #7.
 
 **Result**: PARTIAL / bug note filed (not fixing per QA instructions).
+
+### S5 re-run (post-fix 49cbdda3)
+
+**Re-verified**: 2026-04-16 after commit `49cbdda3` (`fix(tool): map PolicyDecision.Deny to Cancelled for SKIPPED outcome`).
+
+**Steps**: `./scripts/setup.sh` → `./scripts/debug-run.sh --main-model gpt-5.4 'Open the Robinhood app and check my balance'` (default `minimax-m2.5` hit a 402 credit limit before any tool call, so the re-run used `gpt-5.4` — does not affect policy path).
+
+**Evidence** — `/tmp/er-qa-evidence/s5-rerun/`: `agent.log`, `logcat_full.log`, `trace.jsonl`, `meta.json`, `final_screenshot.png`.
+
+Key lines from `logcat_full.log`:
+```
+ToolRouter: Policy decision for open_app: Deny(reason=Blocked: financial/auth app (com.moonkey.androidagent))
+ToolRouter: State: call_vpCMy2x… -> Cancelled
+AgentEventDispatcher: ActionExecuted: open_app outcome=SKIPPED
+AgentEventDispatcher: Status: ⊘ open_app skipped
+AgentEventDispatcher: Status: 🛑 Cancelled
+```
+Tool-result artifact (`artifacts/tool_result/16_turn_1_open_app_..._result.txt`):
+```
+Cancelled: Policy denied: Blocked: financial/auth app (...)
+```
+
+**Acceptance check**:
+1. ✅ `PolicyDecision.Deny → ToolCallResult.Cancelled` (not Error).
+2. ✅ Updated `ToolRouterTest` assertion `blocked app policy deny returns cancelled mapped to skipped` — runs green.
+3. ✅ Old `blocked app policy deny returns error` renamed/updated; now asserts `Cancelled` + `ActionOutcome.SKIPPED`.
+4. ✅ `./gradlew test` and `./gradlew assembleDebug` both green.
+5. ⚠️ **Follow-on semantic shift**: Completion reason is now `USER_STOPPED` (not `TASK_IMPOSSIBLE`). Path: `ToolCallResult.Cancelled` → `TurnOutcome.Cancelled` (`AgentRuntimeTypes.kt:80`) → `AgentStopReason.UserRequested` (`Agent.kt:149-152`) → `CompletionReason.USER_STOPPED` (`AgentSession.kt:453`). This mirrors the existing path for user-denied approval and approval-timeout — all three Cancelled sources now stop the session with `USER_STOPPED` rather than letting the LLM decide `TASK_IMPOSSIBLE` on a subsequent turn. The previous TASK_IMPOSSIBLE was a by-product of the (buggy) Error-return that let the agent keep planning.
+6. ✅ No `✓ executed` status for the denied action; dispatcher shows `⊘ open_app skipped` and `🛑 Cancelled`.
+
+**Result**: PASS on plan item #7 (Cancelled/SKIPPED semantics match spec). Completion-reason shift to `USER_STOPPED` is intentional alignment with the user-denied / approval-timeout bucket; if product wants blocked-app to specifically surface `TASK_IMPOSSIBLE`, that is a separate scoping decision, not a regression of this fix.
+
 
 ---
 
