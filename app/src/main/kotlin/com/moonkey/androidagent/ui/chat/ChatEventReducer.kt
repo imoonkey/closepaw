@@ -44,7 +44,7 @@ internal class ChatEventReducer(
                 is ActionProposed -> handleActionProposed(event)
                 is ActionExecuted -> handleActionExecuted(event)
                 is TaskCompleted -> handleTaskCompleted(event)
-                is SessionError -> handleError()
+                is SessionError -> handleError(event)
                 is SupplementReceived -> handleSupplement(event)
                 else -> Unit
             }
@@ -136,8 +136,26 @@ internal class ChatEventReducer(
         setCurrentAgentMessageId(null)
     }
 
-    private fun handleError() {
-        updateLastAgentMessage { msg -> msg.copy(state = AgentMessageState.Complete) }
+    private fun handleError(event: SessionError) {
+        val errorText = "⚠️ ${event.error.message}"
+        val index = messages.indexOfLast { it is ChatMessage.Agent }
+        if (index >= 0) {
+            val current = messages[index] as ChatMessage.Agent
+            messages[index] = current.copy(
+                contentBlocks = current.contentBlocks + ContentBlock.Text(errorText),
+                state = AgentMessageState.Complete
+            )
+        } else {
+            messages.add(
+                ChatMessage.Agent(
+                    id = "error-${event.timestamp}",
+                    timestamp = event.timestamp,
+                    contentBlocks = listOf(ContentBlock.Text(errorText)),
+                    state = AgentMessageState.Complete
+                )
+            )
+            uiState.update { it.copy(showEmptyState = false) }
+        }
     }
 
     private fun handleSupplement(event: SupplementReceived) {

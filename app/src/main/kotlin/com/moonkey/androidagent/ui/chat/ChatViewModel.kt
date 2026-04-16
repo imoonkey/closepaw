@@ -85,8 +85,31 @@ internal fun updateActionBlockForExecution(
     return updated to true
 }
 
+internal fun appendStartupFailureMessages(
+        messages: MutableList<ChatMessage>,
+        inputText: String,
+        errorMessage: String,
+        timestamp: Long
+) {
+    messages.add(
+            ChatMessage.User(
+                    id = "startup-user-$timestamp",
+                    timestamp = timestamp,
+                    text = inputText
+            )
+    )
+    messages.add(
+            ChatMessage.Agent(
+                    id = "startup-error-$timestamp",
+                    timestamp = timestamp,
+                    contentBlocks =
+                            listOf(ContentBlock.Text("⚠️ Failed to start: $errorMessage")),
+                    state = AgentMessageState.Complete
+            )
+    )
+}
+
 /**
- * ChatViewModel - Manages chat state and event collection.
  *
  * Responsibilities:
  * - Collect events from AgentSession.events
@@ -108,6 +131,15 @@ class ChatViewModel(
     // UI State
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
+
+    // Preserved user input from a failed session bootstrap — re-populates the
+    // compose box so the user can retry without retyping.
+    private val _pendingInput = MutableStateFlow("")
+    val pendingInput: StateFlow<String> = _pendingInput.asStateFlow()
+
+    // Startup error message; null when no active error. UI shows retry affordance.
+    private val _startupError = MutableStateFlow<String?>(null)
+    val startupError: StateFlow<String?> = _startupError.asStateFlow()
 
     // Messages (Compose observable list)
     private val _messages = mutableStateListOf<ChatMessage>()
@@ -248,6 +280,37 @@ class ChatViewModel(
 
     fun dismissError() {
         AgentService.instance?.dismissError()
+    }
+
+    /**
+     * Surface a bootstrap failure (session creation threw before any events
+     * reached the chat). Preserves the user's input so they can retry, and
+     * appends a visible error message to the chat history.
+     */
+    fun reportStartupFailure(inputText: String, errorMessage: String) {
+        synchronized(chatStateLock) {
+            appendStartupFailureMessages(
+                    messages = _messages,
+                    inputText = inputText,
+                    errorMessage = errorMessage,
+                    timestamp = System.currentTimeMillis()
+            )
+            _uiState.update { it.copy(showEmptyState = false) }
+        }
+        _pendingInput.value = inputText
+        _startupError.value = errorMessage
+    }
+
+    /** Consume preserved input (e.g. after the compose box has been re-populated). */
+    fun consumePendingInput(): String {
+        val value = _pendingInput.value
+        _pendingInput.value = ""
+        return value
+    }
+
+    /** Dismiss the startup-error banner without clearing pending input. */
+    fun dismissStartupError() {
+        _startupError.value = null
     }
 
     /** Clear conversation history. */

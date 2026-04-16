@@ -479,9 +479,11 @@ class MainActivity : ComponentActivity() {
                             ModelLoadingStatus.Error(e.message ?: "Unknown error")
                     )
                 }
+                val errMsg = e.message ?: "Unknown error"
+                viewModel.reportStartupFailure(text, errMsg)
                 Toast.makeText(
                                 this@MainActivity,
-                                "Failed to start: ${e.message}",
+                                "Failed to start: $errMsg",
                                 Toast.LENGTH_LONG
                         )
                         .show()

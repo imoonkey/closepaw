@@ -291,14 +291,44 @@ private constructor(
                 return
             }
             SessionState.Created -> {
-                if (!initializeForFirstTask()) return
+                if (!initializeForFirstTask()) {
+                    emitBootstrapFailure(op.text, "Platform initialization failed")
+                    return
+                }
                 emit(SessionStarted(sessionId = sessionId, timestamp = now(), goal = op.text))
             }
             SessionState.Idle -> {
-                if (!reacquirePlatform()) return
+                if (!reacquirePlatform()) {
+                    emitBootstrapFailure(op.text, "Platform start failed")
+                    return
+                }
             }
         }
         startTask(op.text)
+    }
+
+    /**
+     * Surface a bootstrap failure as chat-visible events: a [TaskStarted] so the
+     * user's input is preserved in the conversation, followed by a [SessionError]
+     * so the chat UI can render the failure reason.
+     */
+    private suspend fun emitBootstrapFailure(input: String, reason: String) {
+        val failedTaskId = "task-${now()}"
+        emit(
+                TaskStarted(
+                        sessionId = sessionId,
+                        timestamp = now(),
+                        taskId = failedTaskId,
+                        input = input
+                )
+        )
+        emit(
+                SessionError(
+                        sessionId = sessionId,
+                        timestamp = now(),
+                        error = AgentError.PlatformError(reason)
+                )
+        )
     }
 
     /** Initialize recording + platform on first [Op.UserInput]. Returns false on failure. */
