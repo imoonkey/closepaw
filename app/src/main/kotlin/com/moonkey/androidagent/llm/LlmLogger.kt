@@ -9,6 +9,8 @@ internal object LlmLogger {
     private const val MAX_LOG_LENGTH = 2000
     private val VERBOSE_LOGGING = BuildConfig.DEBUG
 
+    val isVerboseEnabled: Boolean get() = VERBOSE_LOGGING
+
     fun logInput(
         tag: String,
         systemPrompt: String,

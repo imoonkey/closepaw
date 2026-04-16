@@ -302,7 +302,7 @@
     "description": "All three streaming LLM clients (CodexResponseClient, OpenAIResponseClient, ChatCompletionClient) unconditionally build StringBuilder accumulators and tool-call lists for LlmLogger.logOutput(), which returns immediately in release builds. Fix: expose LlmLogger.isVerboseEnabled (= VERBOSE_LOGGING). In each streaming client, only allocate the text StringBuilder and completed tool-call buffers when isVerboseEnabled is true. Keep delta emission and tool call tracking for the actual response flow unchanged — only the logging-specific accumulators are guarded.",
     "parent": "perf-resources",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/llm/LlmLogger.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt",
@@ -324,7 +324,7 @@
       "llm"
     ],
     "created": "2026-04-16T12:00:00+08:00",
-    "updated": "2026-04-16T12:00:00+08:00"
+    "updated": "2026-04-16T12:50:00+08:00"
   },
   "perf-baos-presize": {
     "title": "Pre-size ByteArrayOutputStream for JPEG compression",

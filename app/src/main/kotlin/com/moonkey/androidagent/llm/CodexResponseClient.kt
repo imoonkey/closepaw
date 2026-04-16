@@ -163,23 +163,26 @@ class CodexResponseClient(
                             val accumulator = CodexSseParser.ToolCallAccumulator()
                             var sawCompletion = false
                             var responseId: String? = null
-                            val textAccumulator = StringBuilder()
-                            val toolCalls = mutableListOf<LLMToolCall>()
+                            val verbose = LlmLogger.isVerboseEnabled
+                            val textAccumulator = if (verbose) StringBuilder() else null
+                            val toolCalls = if (verbose) mutableListOf<LLMToolCall>() else null
 
                             for (sseEvent in CodexSseParser.parse(stream)) {
                                 val streamEvent = CodexSseParser.mapToStreamEvent(sseEvent, accumulator)
                                 if (streamEvent != null) {
                                     when (streamEvent) {
                                         is LLMStreamEvent.Created -> responseId = streamEvent.responseId
-                                        is LLMStreamEvent.TextDelta -> textAccumulator.append(streamEvent.delta)
-                                        is LLMStreamEvent.ToolCallDone -> toolCalls.add(streamEvent.toolCall)
+                                        is LLMStreamEvent.TextDelta -> textAccumulator?.append(streamEvent.delta)
+                                        is LLMStreamEvent.ToolCallDone -> toolCalls?.add(streamEvent.toolCall)
                                         is LLMStreamEvent.Completed -> {
                                             sawCompletion = true
-                                            LlmLogger.logOutput(TAG, ResponsesResult(
-                                                textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
-                                                toolCalls = toolCalls,
-                                                responseId = responseId ?: "unknown"
-                                            ))
+                                            if (verbose && textAccumulator != null && toolCalls != null) {
+                                                LlmLogger.logOutput(TAG, ResponsesResult(
+                                                    textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
+                                                    toolCalls = toolCalls,
+                                                    responseId = responseId ?: "unknown"
+                                                ))
+                                            }
                                         }
                                         is LLMStreamEvent.Failed -> {
                                             emitter.emit(streamEvent)

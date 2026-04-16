@@ -120,10 +120,11 @@ class ChatCompletionClient(
                 tag = TAG,
                 emitToFlow = { event -> trySend(event) }
             ) { attempt, emitter ->
-                val textAccumulator = StringBuilder()
+                val verbose = LlmLogger.isVerboseEnabled
+                val textAccumulator = if (verbose) StringBuilder() else null
                 // Map: tool call index → (callId, name, argsBuilder)
                 val toolCallBuilders = mutableMapOf<Long, Triple<String, String, StringBuilder>>()
-                val completedToolCalls = mutableListOf<LLMToolCall>()
+                val completedToolCalls = if (verbose) mutableListOf<LLMToolCall>() else null
                 var responseId: String? = null
                 var sawFinishReason = false
 
@@ -144,7 +145,7 @@ class ChatCompletionClient(
                                 // Text content delta
                                 delta.content().ifPresent { text ->
                                     if (text.isNotEmpty()) {
-                                        textAccumulator.append(text)
+                                        textAccumulator?.append(text)
                                         emitter.emit(LLMStreamEvent.TextDelta(text))
                                     }
                                 }
@@ -201,7 +202,7 @@ class ChatCompletionClient(
                                                         name = name,
                                                         arguments = args.toString()
                                                     )
-                                                completedToolCalls.add(toolCall)
+                                                completedToolCalls?.add(toolCall)
                                                 emitter.emit(LLMStreamEvent.ToolCallDone(toolCall))
                                             }
                                             toolCallBuilders.clear()
@@ -227,14 +228,16 @@ class ChatCompletionClient(
                 if (!sawFinishReason) {
                     throw TransientException("Stream ended without finish_reason")
                 }
-                LlmLogger.logOutput(
-                    TAG,
-                    ResponsesResult(
-                        textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
-                        toolCalls = completedToolCalls,
-                        responseId = responseId ?: "unknown"
+                if (verbose && textAccumulator != null && completedToolCalls != null) {
+                    LlmLogger.logOutput(
+                        TAG,
+                        ResponsesResult(
+                            textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
+                            toolCalls = completedToolCalls,
+                            responseId = responseId ?: "unknown"
+                        )
                     )
-                )
+                }
                 emitter.emit(LLMStreamEvent.Completed)
             }
 

@@ -92,8 +92,9 @@ class OpenAIResponseClient(
             ) { attempt, emitter ->
                 var sawCompleted = false
                 var responseId: String? = null
-                val textAccumulator = StringBuilder()
-                val toolCalls = mutableListOf<LLMToolCall>()
+                val verbose = LlmLogger.isVerboseEnabled
+                val textAccumulator = if (verbose) StringBuilder() else null
+                val toolCalls = if (verbose) mutableListOf<LLMToolCall>() else null
 
                 val params = buildResponseParams(systemPrompt, inputItems, tools, model)
                 Log.d(TAG, "Making streaming Responses API call to OpenAI (attempt $attempt)...")
@@ -109,7 +110,7 @@ class OpenAIResponseClient(
                                 }
                                 event.isOutputTextDelta() -> {
                                     val textDelta = event.asOutputTextDelta()
-                                    textAccumulator.append(textDelta.delta())
+                                    textAccumulator?.append(textDelta.delta())
                                     emitter.emit(LLMStreamEvent.TextDelta(textDelta.delta()))
                                 }
                                 event.isOutputItemDone() -> {
@@ -123,20 +124,22 @@ class OpenAIResponseClient(
                                                 name = funcCall.name(),
                                                 arguments = funcCall.arguments()
                                             )
-                                        toolCalls.add(toolCall)
+                                        toolCalls?.add(toolCall)
                                         emitter.emit(LLMStreamEvent.ToolCallDone(toolCall))
                                     }
                                 }
                                 event.isCompleted() -> {
                                     sawCompleted = true
-                                    LlmLogger.logOutput(
-                                        TAG,
-                                        ResponsesResult(
-                                            textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
-                                            toolCalls = toolCalls,
-                                            responseId = responseId ?: "unknown"
+                                    if (verbose && textAccumulator != null && toolCalls != null) {
+                                        LlmLogger.logOutput(
+                                            TAG,
+                                            ResponsesResult(
+                                                textContent = textAccumulator.toString().takeIf { it.isNotEmpty() },
+                                                toolCalls = toolCalls,
+                                                responseId = responseId ?: "unknown"
+                                            )
                                         )
-                                    )
+                                    }
                                     emitter.emit(LLMStreamEvent.Completed)
                                 }
                                 event.isFailed() -> {
