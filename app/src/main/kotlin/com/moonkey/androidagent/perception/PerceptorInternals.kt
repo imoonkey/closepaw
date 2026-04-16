@@ -39,11 +39,14 @@ internal fun enrichEmptyTextElements(
     if (sourceBounds.isEmpty()) return candidates
 
     // Sort sources by top so each candidate only scans the vertical slice of
-    // sources whose top falls within its bounds — O(n log n + matches).
+    // sources whose top falls within its bounds. Keep the original index so we
+    // can restore candidate-order within matched hits — preserving the
+    // pre-refactor join order.
     val order = (0 until sourceBounds.size).sortedBy { sourceBounds[it].top }
     val sortedTops = IntArray(order.size) { sourceBounds[order[it]].top }
     val sortedBounds = Array(order.size) { sourceBounds[order[it]] }
     val sortedText = Array(order.size) { sourceText[order[it]] }
+    val sortedOriginalIndex = IntArray(order.size) { order[it] }
 
     return candidates.map { candidate ->
         val element = candidate.element
@@ -55,19 +58,25 @@ internal fun enrichEmptyTextElements(
 
         val cb = element.bounds
         val start = lowerBound(sortedTops, cb.top)
-        val bubbledText = ArrayList<String>(3)
+        // Collect (originalIndex, text) so we can restore original order.
+        val hits = ArrayList<IntArray>(8)
+        val hitTexts = ArrayList<String>(8)
         for (i in start until sortedTops.size) {
             if (sortedTops[i] > cb.bottom) break
             if (contains(cb, sortedBounds[i])) {
-                bubbledText.add(sortedText[i])
-                if (bubbledText.size >= 3) break
+                hits.add(intArrayOf(sortedOriginalIndex[i], hits.size))
+                hitTexts.add(sortedText[i])
             }
         }
-        if (bubbledText.isEmpty()) {
-            candidate
-        } else {
-            candidate.copy(element = element.copy(text = bubbledText.joinToString(" | ")))
+        if (hits.isEmpty()) return@map candidate
+
+        val ordered = hits.indices.sortedBy { hits[it][0] }
+        val bubbledText = ArrayList<String>(3)
+        for (idx in ordered) {
+            bubbledText.add(hitTexts[idx])
+            if (bubbledText.size >= 3) break
         }
+        candidate.copy(element = element.copy(text = bubbledText.joinToString(" | ")))
     }
 }
 

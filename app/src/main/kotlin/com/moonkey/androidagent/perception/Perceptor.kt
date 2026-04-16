@@ -65,10 +65,11 @@ object Perceptor {
         val seenKeys = mutableSetOf<String>()
         val counters = PoolCounters()
 
-        // Stop once we have enough interactive candidates AND a healthy
-        // non-interactive pool. Keeps interactive priority without a second pass.
+        // Over-collect both pools so applyTruncation has score-based headroom
+        // even when a screen is almost entirely interactive or almost entirely
+        // non-interactive. Matches the pre-refactor two-pass collection pool.
         val interactiveCap = filterConfig.maxElements * 2
-        val nonInteractiveCap = filterConfig.maxElements
+        val nonInteractiveCap = filterConfig.maxElements * 2
 
         for (root in roots) {
             traverse(

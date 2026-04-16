@@ -43,6 +43,20 @@
 -keep class android.os.IShellCallback { *; }
 -keep class android.os.IRemoteCallback { *; }
 
+# Hidden-framework AIDL stubs regenerated in the app (virtual display path).
+# IVirtualDisplayCallback is instantiated directly and passed via reflection
+# into IDisplayManager.createVirtualDisplay — R8 must not rename it.
+-keep class android.hardware.display.IVirtualDisplayCallback { *; }
+-keep class android.hardware.display.IVirtualDisplayCallback$* { *; }
+-keep class android.hardware.display.IDisplayManager { *; }
+-keep class android.hardware.display.IDisplayManager$* { *; }
+-keep class android.hardware.display.VirtualDisplayConfig { *; }
+-keep class android.hardware.display.VirtualDisplayConfig$* { *; }
+
+# The app's own virtualdisplay package relies on reflective getMethod() calls
+# keyed by class name — keep members so those lookups keep matching.
+-keep class com.moonkey.androidagent.platform.virtualdisplay.** { *; }
+
 # ── OpenAI SDK (openai-java) ────────────────────────────────────────────
 # The SDK uses Jackson for JSON (de)serialization with heavy reflection
 # on @JsonProperty/@JsonCreator/@JsonValue/@JsonDeserialize.

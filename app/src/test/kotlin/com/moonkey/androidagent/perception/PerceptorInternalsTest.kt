@@ -185,6 +185,23 @@ class PerceptorInternalsTest {
     }
 
     @Test
+    fun `enrichEmptyTextElements preserves candidate order for out-of-order labels`() {
+        // Parent is a button with no text. Its labels, in candidate order, are
+        // ["A", "B", "C"] — but their vertical positions are out of order, so
+        // a naive sort-by-top would produce ["C", "A", "B"] instead.
+        val parent = candidate(
+            text = "", description = "", hintText = "", resourceId = "",
+            isClickable = true,
+            bounds = Bounds(0, 0, 300, 300)
+        )
+        val childA = candidate(text = "A", isClickable = false, bounds = Bounds(0, 200, 100, 290))
+        val childB = candidate(text = "B", isClickable = false, bounds = Bounds(0,   0, 100,  90))
+        val childC = candidate(text = "C", isClickable = false, bounds = Bounds(0, 100, 100, 190))
+        val result = enrichEmptyTextElements(listOf(parent, childA, childB, childC))
+        assertThat(result[0].element.text).isEqualTo("A | B | C")
+    }
+
+    @Test
     fun `enrichEmptyTextElements handles 1000 candidates quickly`() {
         // 200 interactive buttons without text, each in its own vertical band of
         // 4 non-interactive text nodes. No button's band overlaps another's, so
