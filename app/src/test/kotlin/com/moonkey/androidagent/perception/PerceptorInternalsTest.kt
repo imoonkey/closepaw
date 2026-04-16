@@ -293,6 +293,22 @@ class PerceptorInternalsTest {
         assertThat(result[0].element.text).isEqualTo("Submit")
     }
 
+    @Test
+    fun `applyTruncation scales to 1000 candidates without duplicates`() {
+        val interactive = (0 until 700).map { candidate(text = "Btn$it", isClickable = true) }
+        val nonInteractive = (0 until 300).map { candidate(text = "Label$it", isClickable = false) }
+        val input = interactive + nonInteractive
+
+        val result = applyTruncation(input, maxElements = 500, interactiveKeepRatio = 0.8f)
+
+        assertThat(result).hasSize(500)
+        assertThat(result.toSet().size).isEqualTo(result.size) // no duplicates
+        val keptInteractive = result.count { it.isInteractive }
+        val keptNonInteractive = result.size - keptInteractive
+        assertThat(keptInteractive).isAtMost(400)
+        assertThat(keptNonInteractive).isAtLeast(100)
+    }
+
     // --- spatialSort ---
 
     @Test

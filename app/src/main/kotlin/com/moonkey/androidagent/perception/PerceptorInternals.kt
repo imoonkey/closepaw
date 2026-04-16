@@ -59,21 +59,22 @@ internal fun applyTruncation(
     val nonInteractive = candidates.filter { !it.isInteractive }.sortedByDescending { score(it) }
 
     val kept = ArrayList<PerceptorCandidateElement>(maxElements)
-    val keptIndices = HashSet<Int>(maxElements)
+    val seen = HashSet<PerceptorCandidateElement>(maxElements)
 
-    for (c in interactive.take(interactiveCap)) {
-        val idx = candidates.indexOf(c)
-        if (keptIndices.add(idx)) kept.add(c)
+    fun tryKeep(c: PerceptorCandidateElement) {
+        if (seen.add(c)) kept.add(c)
     }
-    for (c in nonInteractive.take(nonInteractiveFloor)) {
-        val idx = candidates.indexOf(c)
-        if (keptIndices.add(idx)) kept.add(c)
-    }
+
+    interactive.asSequence().take(interactiveCap).forEach(::tryKeep)
+    nonInteractive.asSequence().take(nonInteractiveFloor).forEach(::tryKeep)
     if (kept.size < maxElements) {
-        for (c in (interactive + nonInteractive)) {
+        for (c in interactive) {
             if (kept.size >= maxElements) break
-            val idx = candidates.indexOf(c)
-            if (keptIndices.add(idx)) kept.add(c)
+            tryKeep(c)
+        }
+        for (c in nonInteractive) {
+            if (kept.size >= maxElements) break
+            tryKeep(c)
         }
     }
     return kept

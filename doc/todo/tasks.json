@@ -247,7 +247,7 @@
     "description": "applyTruncation() in PerceptorInternals.kt calls candidates.indexOf(c) in three loops (interactive, non-interactive, fallback). Each indexOf is O(n) with expensive data-class equals(). With maxElements=500 and 2x over-collection (up to 1000 candidates), this is up to 500K comparisons. Fix: use a HashSet<PerceptorCandidateElement> for dedup instead of position-based indexOf. Build a \"seen\" set, add elements as they are selected. The kept list preserves insertion order (priority ordering). This also simplifies the code — no need to track indices at all.",
     "parent": "perf-resources",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/perception/PerceptorInternals.kt",
       "app/src/test/kotlin/**/Perceptor*"
@@ -267,7 +267,7 @@
       "perception"
     ],
     "created": "2026-04-16T12:00:00+08:00",
-    "updated": "2026-04-16T12:00:00+08:00"
+    "updated": "2026-04-16T12:30:00+08:00"
   },
   "perf-trace-flush": {
     "title": "Fix FileTraceRecorder flush() semantics + add write batching",
