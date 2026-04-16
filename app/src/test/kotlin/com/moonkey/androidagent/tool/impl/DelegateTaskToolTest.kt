@@ -87,7 +87,7 @@ class DelegateTaskToolTest {
     }
 
     @Test
-    fun `execute wraps failed sub-agent result as success text output`() = runTest {
+    fun `execute returns failure when sub-agent fails`() = runTest {
         val tool = DelegateTaskTool(
             delegatableRoles = listOf(executorRole),
             runnerFactory = {
@@ -105,9 +105,9 @@ class DelegateTaskToolTest {
 
         val result = invocation.execute(TestToolExecutionContext())
 
-        assertThat(result is ToolExecutionResult.Success).isTrue()
-        val success = result as ToolExecutionResult.Success
-        assertThat(success.output).isEqualTo("Sub-agent failed: Timeout after 1000ms")
+        assertThat(result is ToolExecutionResult.Failure).isTrue()
+        val failure = result as ToolExecutionResult.Failure
+        assertThat(failure.error).isEqualTo("Sub-agent failed: Timeout after 1000ms")
     }
 }
 
