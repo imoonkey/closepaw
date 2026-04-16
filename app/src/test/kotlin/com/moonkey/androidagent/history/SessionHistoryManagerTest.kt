@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SessionHistoryManagerTest {
@@ -100,5 +101,26 @@ class SessionHistoryManagerTest {
         val exactResult = manager.loadSession(fullId)
         assertThat(exactResult.isSuccess).isTrue()
         assertThat(exactResult.getOrThrow().session.sessionId).isEqualTo(fullId)
+    }
+
+    @Test
+    fun `listSessions surfaces corrupted session file as placeholder`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val manager = SessionHistoryManager.create(storage, this)
+
+        val sessionsDir = storage.getSessionsDir()
+        val malformedName = "session-2024-01-21T14-30-45-corrupt-session-id.json"
+        File(sessionsDir, malformedName).writeText("{ this is not valid json ::: ")
+
+        val sessions = manager.listSessions()
+
+        assertThat(sessions).hasSize(1)
+        val info = sessions.single()
+        assertThat(info.isCorrupted).isTrue()
+        assertThat(info.fileName).isEqualTo(malformedName)
+        assertThat(info.displayTitle).contains(malformedName)
+        assertThat(info.isActive).isFalse()
     }
 }

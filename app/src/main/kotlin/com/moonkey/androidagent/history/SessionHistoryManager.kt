@@ -76,7 +76,7 @@ class SessionHistoryManager(
         val files = storage.listSessionFiles()
         Log.d(TAG, "Found ${files.size} session files")
 
-        return files.mapNotNull { file ->
+        return files.map { file ->
             getSessionInfoCached(file)
         }
     }
@@ -232,16 +232,22 @@ class SessionHistoryManager(
     }
 
     /**
-     * Extract SessionInfo from a session file.
+     * Extract SessionInfo from a session file. If the file cannot be parsed,
+     * returns a corrupted-placeholder entry so the user sees the file exists
+     * rather than silently missing.
      */
-    private suspend fun extractSessionInfo(fileName: String): SessionInfo? {
-        val record = storage.readSession(fileName).getOrNull() ?: return null
-        
+    private suspend fun extractSessionInfo(fileName: String, lastModified: Long): SessionInfo {
+        val result = storage.readSession(fileName)
+        val record = result.getOrElse { error ->
+            Log.w(TAG, "Session file $fileName is corrupted; surfacing as placeholder", error)
+            return corruptedPlaceholder(fileName, lastModified)
+        }
+
         // Extract first user message for preview
         val firstUserMessage = record.messages
             .filterIsInstance<MessageRecord.User>()
             .firstOrNull()?.text ?: "Empty session"
-        
+
         // Use summary if available, otherwise truncate first user message
         val displayTitle = record.summary ?: firstUserMessage.let { msg ->
             if (msg.length > MAX_TITLE_LENGTH) {
@@ -250,7 +256,7 @@ class SessionHistoryManager(
                 msg
             }
         }
-        
+
         return SessionInfo(
             id = record.sessionId,
             fileName = fileName,
@@ -263,42 +269,47 @@ class SessionHistoryManager(
         )
     }
 
-    private suspend fun getSessionInfoCached(file: File): SessionInfo? {
+    private fun corruptedPlaceholder(fileName: String, lastModified: Long): SessionInfo {
+        val id = extractSessionIdFromFileName(fileName) ?: fileName
+        return SessionInfo(
+            id = id,
+            fileName = fileName,
+            startTime = lastModified,
+            lastUpdated = lastModified,
+            messageCount = 0,
+            displayTitle = "[Unreadable] $fileName",
+            firstUserMessage = "",
+            isActive = false,
+            isCorrupted = true
+        )
+    }
+
+    private suspend fun getSessionInfoCached(file: File): SessionInfo {
         val fileName = file.name
         val initialLastModified = file.lastModified()
 
         val cached = cacheMutex.withLock { sessionInfoCache[fileName] }
-        val baseInfo: SessionInfo? =
+        val baseInfo: SessionInfo =
             if (cached != null && cached.lastModified == initialLastModified) {
                 cached.info
             } else {
-                try {
-                    val fresh = extractSessionInfo(fileName) ?: run {
-                        cacheMutex.withLock { sessionInfoCache.remove(fileName) }
-                        return null
+                val fresh = extractSessionInfo(fileName, initialLastModified)
+                val currentLastModified = file.lastModified()
+                if (currentLastModified != initialLastModified) {
+                    Log.w(
+                        TAG,
+                        "Session file $fileName modified during read; returning uncached info"
+                    )
+                    fresh
+                } else {
+                    cacheMutex.withLock {
+                        sessionInfoCache[fileName] = CachedSessionInfo(currentLastModified, fresh)
                     }
-
-                    val currentLastModified = file.lastModified()
-                    if (currentLastModified != initialLastModified) {
-                        Log.w(
-                            TAG,
-                            "Session file $fileName modified during read; returning uncached info"
-                        )
-                        fresh
-                    } else {
-                        cacheMutex.withLock {
-                            sessionInfoCache[fileName] = CachedSessionInfo(currentLastModified, fresh)
-                        }
-                        fresh
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to extract session info for $fileName", e)
-                    cacheMutex.withLock { sessionInfoCache.remove(fileName) }
-                    return null
+                    fresh
                 }
             }
 
         val currentSessionId = getCurrentSessionId()
-        return baseInfo?.copy(isActive = baseInfo.id == currentSessionId)
+        return baseInfo.copy(isActive = !baseInfo.isCorrupted && baseInfo.id == currentSessionId)
     }
 }

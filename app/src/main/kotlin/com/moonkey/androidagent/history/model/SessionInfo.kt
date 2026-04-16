@@ -29,5 +29,11 @@ data class SessionInfo(
     val firstUserMessage: String,
     
     /** Whether this is the currently active session */
-    val isActive: Boolean = false
+    val isActive: Boolean = false,
+
+    /**
+     * True when the session file could not be parsed and this entry is a
+     * placeholder surfaced so the user knows the file exists but is unreadable.
+     */
+    val isCorrupted: Boolean = false
 )
