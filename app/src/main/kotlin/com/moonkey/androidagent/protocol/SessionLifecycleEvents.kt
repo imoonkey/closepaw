@@ -19,7 +19,7 @@ data class SessionCompleted(
 data class SessionError(
         override val sessionId: SessionId,
         override val timestamp: Long,
-        val error: AgentError
+        val message: String
 ) : SessionLifecycleEvent
 
 /** User took over control (agent paused). */

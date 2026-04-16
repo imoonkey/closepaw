@@ -142,7 +142,7 @@ internal class ChatEventReducer(
     }
 
     private fun handleError(event: SessionError) {
-        val errorText = "⚠️ ${event.error.message}"
+        val errorText = "⚠️ ${event.message}"
         val index = messages.indexOfLast { it is ChatMessage.Agent }
         if (index >= 0) {
             val current = messages[index] as ChatMessage.Agent

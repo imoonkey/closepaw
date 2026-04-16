@@ -326,7 +326,7 @@ private constructor(
                 SessionError(
                         sessionId = sessionId,
                         timestamp = now(),
-                        error = AgentError.PlatformError(reason)
+                        message = reason
                 )
         )
     }

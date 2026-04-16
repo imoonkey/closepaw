@@ -155,7 +155,7 @@ internal class IsolatedSubAgentRunner(
                 }
                 "executed ${event.toolName}: $state"
             }
-            is SessionError -> "error: ${event.error.message}"
+            is SessionError -> "error: ${event.message}"
             else -> return
         }
 

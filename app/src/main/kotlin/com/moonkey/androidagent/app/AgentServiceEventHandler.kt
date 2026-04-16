@@ -131,9 +131,9 @@ internal class AgentServiceEventHandler(
                 sessionCleared()
             }
             is SessionError -> {
-                Log.e(logTag, "Session error: ${event.error.message}")
-                updateStatus("❌ Error: ${event.error.message}")
-                overlay?.onSessionError(event.error.message)
+                Log.e(logTag, "Session error: ${event.message}")
+                updateStatus("❌ Error: ${event.message}")
+                overlay?.onSessionError(event.message)
             }
             is SessionTakeover -> {
                 Log.i(logTag, "Session takeover: ${event.sessionId}")
