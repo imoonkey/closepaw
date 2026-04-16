@@ -114,10 +114,12 @@ class ToolRouter(
         
         when (policyDecision) {
             is PolicyDecision.Deny -> {
-                val errorState = ToolCallState.Error(resolvedCallId, toolName, params, policyDecision.reason)
-                updateState(errorState, onStateChange)
+                val cancelledState = ToolCallState.Cancelled(
+                    resolvedCallId, toolName, params, "Policy denied: ${policyDecision.reason}", null
+                )
+                updateState(cancelledState, onStateChange)
                 cleanupCall(resolvedCallId)
-                return ToolCallResult.Error(resolvedCallId, "Policy denied: ${policyDecision.reason}")
+                return ToolCallResult.Cancelled(resolvedCallId, "Policy denied: ${policyDecision.reason}")
             }
             
             is PolicyDecision.AskUser -> {

@@ -1,6 +1,8 @@
 package com.moonkey.androidagent.tool
 
 import com.google.common.truth.Truth.assertThat
+import com.moonkey.androidagent.agent.toActionOutcome
+import com.moonkey.androidagent.protocol.ActionOutcome
 import com.moonkey.androidagent.protocol.ApprovalMode
 import com.moonkey.androidagent.protocol.ApprovalDecision
 import com.moonkey.androidagent.protocol.AppTier
@@ -97,7 +99,7 @@ class ToolRouterTest {
     }
 
     @Test
-    fun `blocked app policy deny returns error`() = runTest {
+    fun `blocked app policy deny returns cancelled mapped to skipped`() = runTest {
         val registry = ToolRegistry().apply { register(TestToolSpec()) }
         val policy = PolicyEngine(ApprovalMode.AUTO_APPROVE, blockedClassifier("com.bank"))
         val router = ToolRouter(registry, policy)
@@ -105,8 +107,9 @@ class ToolRouterTest {
 
         val result = router.execute("test_tool", JSONObject(), context, packageName = "com.bank")
 
-        assertThat(result).isInstanceOf(ToolCallResult.Error::class.java)
-        assertThat((result as ToolCallResult.Error).error).contains("Policy denied")
+        assertThat(result).isInstanceOf(ToolCallResult.Cancelled::class.java)
+        assertThat((result as ToolCallResult.Cancelled).reason).contains("Policy denied")
+        assertThat(result.toActionOutcome()).isEqualTo(ActionOutcome.SKIPPED)
     }
 
     @Test
