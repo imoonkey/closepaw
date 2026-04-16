@@ -35,8 +35,16 @@ object BitmapUtils {
      */
     fun compressJpeg(bitmap: Bitmap, quality: Int): ByteArray? {
         val safeQuality = quality.coerceIn(1, 100)
-        val output = ByteArrayOutputStream()
+        val output = ByteArrayOutputStream(estimateJpegCapacity(bitmap))
         val success = bitmap.compress(Bitmap.CompressFormat.JPEG, safeQuality, output)
         return if (success) output.toByteArray() else null
+    }
+
+    private const val MIN_JPEG_CAPACITY = 1 * 1024
+    private const val MAX_JPEG_CAPACITY = 512 * 1024
+
+    internal fun estimateJpegCapacity(bitmap: Bitmap): Int {
+        val estimate = bitmap.width.toLong() * bitmap.height.toLong() * 4L / 10L
+        return estimate.coerceIn(MIN_JPEG_CAPACITY.toLong(), MAX_JPEG_CAPACITY.toLong()).toInt()
     }
 }
