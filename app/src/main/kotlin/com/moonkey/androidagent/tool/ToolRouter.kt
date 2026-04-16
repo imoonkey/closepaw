@@ -41,7 +41,10 @@ class ToolRouter(
     
     // Track active tool calls for cancellation and state queries
     private val activeToolCalls = ConcurrentHashMap<String, ToolCallState>()
-    
+
+    // Per-call cancellation tokens — signalled by cancel()/cancelAll()
+    private val cancellationTokens = ConcurrentHashMap<String, CancellationToken>()
+
     // Pending approval handlers (call ID -> deferred decision)
     private val pendingApprovals = ConcurrentHashMap<String, CompletableDeferred<ApprovalDecision>>()
     
@@ -68,7 +71,9 @@ class ToolRouter(
         onApprovalRequired: (suspend (ApprovalDetails) -> Unit)? = null
     ): ToolCallResult {
         val resolvedCallId = callId ?: generateCallId()
-        
+        val token = CancellationToken()
+        cancellationTokens[resolvedCallId] = token
+
         Log.d(TAG, "Starting tool call: $resolvedCallId ($toolName)")
         
         // === STATE: VALIDATING ===
@@ -80,7 +85,7 @@ class ToolRouter(
         if (tool == null) {
             val errorState = ToolCallState.Error(resolvedCallId, toolName, params, "Unknown tool: $toolName")
             updateState(errorState, onStateChange)
-            activeToolCalls.remove(resolvedCallId)
+            cleanupCall(resolvedCallId)
             return ToolCallResult.Error(resolvedCallId, "Unknown tool: $toolName")
         }
         
@@ -90,7 +95,7 @@ class ToolRouter(
             val errorMsg = "Validation failed: ${validation.errors.joinToString(", ")}"
             val errorState = ToolCallState.Error(resolvedCallId, toolName, params, errorMsg)
             updateState(errorState, onStateChange)
-            activeToolCalls.remove(resolvedCallId)
+            cleanupCall(resolvedCallId)
             return ToolCallResult.Error(resolvedCallId, errorMsg)
         }
         
@@ -111,7 +116,7 @@ class ToolRouter(
             is PolicyDecision.Deny -> {
                 val errorState = ToolCallState.Error(resolvedCallId, toolName, params, policyDecision.reason)
                 updateState(errorState, onStateChange)
-                activeToolCalls.remove(resolvedCallId)
+                cleanupCall(resolvedCallId)
                 return ToolCallResult.Error(resolvedCallId, "Policy denied: ${policyDecision.reason}")
             }
             
@@ -152,7 +157,7 @@ class ToolRouter(
                         "Approval request failed: ${e.message}"
                     )
                     updateState(errorState, onStateChange)
-                    activeToolCalls.remove(resolvedCallId)
+                    cleanupCall(resolvedCallId)
                     return ToolCallResult.Error(resolvedCallId, "Approval request failed: ${e.message}")
                 }
                 
@@ -170,7 +175,7 @@ class ToolRouter(
                         resolvedCallId, toolName, params, "Approval timed out", null
                     )
                     updateState(cancelledState, onStateChange)
-                    activeToolCalls.remove(resolvedCallId)
+                    cleanupCall(resolvedCallId)
                     return ToolCallResult.Cancelled(resolvedCallId, "Approval timed out")
                 } finally {
                     pendingApprovals.remove(resolvedCallId)
@@ -184,7 +189,7 @@ class ToolRouter(
                             resolvedCallId, toolName, params, "User denied", decision
                         )
                         updateState(cancelledState, onStateChange)
-                        activeToolCalls.remove(resolvedCallId)
+                        cleanupCall(resolvedCallId)
                         return ToolCallResult.Cancelled(resolvedCallId, "User denied")
                     }
                     ApprovalDecision.ABORT -> {
@@ -192,7 +197,7 @@ class ToolRouter(
                             resolvedCallId, toolName, params, "User aborted", decision
                         )
                         updateState(cancelledState, onStateChange)
-                        activeToolCalls.remove(resolvedCallId)
+                        cleanupCall(resolvedCallId)
                         return ToolCallResult.Cancelled(resolvedCallId, "User aborted session")
                     }
                     ApprovalDecision.APPROVED -> {
@@ -205,7 +210,7 @@ class ToolRouter(
                                 "App changed during approval wait", decision
                             )
                             updateState(cancelledState, onStateChange)
-                            activeToolCalls.remove(resolvedCallId)
+                            cleanupCall(resolvedCallId)
                             return ToolCallResult.Cancelled(
                                 resolvedCallId,
                                 "App changed during approval wait"
@@ -220,7 +225,7 @@ class ToolRouter(
                                     "Blocked app detected after approval", decision
                                 )
                                 updateState(cancelledState, onStateChange)
-                                activeToolCalls.remove(resolvedCallId)
+                                cleanupCall(resolvedCallId)
                                 return ToolCallResult.Cancelled(
                                     resolvedCallId,
                                     "Blocked app detected after approval"
@@ -241,10 +246,10 @@ class ToolRouter(
         }
         
         // Check for cancellation before execution
-        if (context.isCancelled()) {
+        if (context.isCancelled() || token.isCancelled()) {
             val cancelledState = ToolCallState.Cancelled(resolvedCallId, toolName, params, "Cancelled before execution")
             updateState(cancelledState, onStateChange)
-            activeToolCalls.remove(resolvedCallId)
+            cleanupCall(resolvedCallId)
             return ToolCallResult.Cancelled(resolvedCallId, "Cancelled before execution")
         }
         
@@ -269,7 +274,7 @@ class ToolRouter(
                 override val platform: AndroidPlatform = context.platform
                 override val currentSnapshot: ScreenSnapshot? = executionSnapshot
                 override val appClassifier: AppClassifier = policyEngine.appClassifier
-                override fun isCancelled(): Boolean = context.isCancelled()
+                override fun isCancelled(): Boolean = context.isCancelled() || token.isCancelled()
             }
             invocation.execute(execContext)
         } catch (e: Exception) {
@@ -307,7 +312,7 @@ class ToolRouter(
             }
         } finally {
             // Ensure cleanup regardless of how we exit (M1 fix)
-            activeToolCalls.remove(resolvedCallId)
+            cleanupCall(resolvedCallId)
         }
     }
     
@@ -334,22 +339,28 @@ class ToolRouter(
     
     /**
      * Cancel a tool call.
+     *
+     * Signals the per-call cancellation token and aborts any pending approval.
+     * Does NOT remove from activeToolCalls — the executing coroutine reaches
+     * a terminal state and cleans up via the normal path.
      */
     fun cancel(callId: String) {
-        // Cancel pending approval if any
+        cancellationTokens[callId]?.cancel()
         pendingApprovals[callId]?.complete(ApprovalDecision.ABORT)
-        activeToolCalls.remove(callId)
         Log.d(TAG, "Cancelled tool call: $callId")
     }
-    
+
     /**
      * Cancel all active tool calls.
+     *
+     * Signals all per-call cancellation tokens and aborts all pending approvals.
+     * Tracking in activeToolCalls persists until each call reaches a terminal state.
      */
     fun cancelAll() {
+        cancellationTokens.values.forEach { it.cancel() }
         pendingApprovals.values.forEach { it.complete(ApprovalDecision.ABORT) }
         pendingApprovals.clear()
-        activeToolCalls.clear()
-        Log.d(TAG, "Cancelled all tool calls")
+        Log.d(TAG, "Signalled cancellation for all tool calls")
     }
     
     /**
@@ -376,6 +387,12 @@ class ToolRouter(
     }
     
     private fun generateCallId(): String = UUID.randomUUID().toString().take(8)
+
+    /** Remove a call from all tracking maps. Called when a call reaches a terminal state. */
+    private fun cleanupCall(callId: String) {
+        activeToolCalls.remove(callId)
+        cancellationTokens.remove(callId)
+    }
 
     /**
      * Best-effort pre-flight resolution of open_app destination package.

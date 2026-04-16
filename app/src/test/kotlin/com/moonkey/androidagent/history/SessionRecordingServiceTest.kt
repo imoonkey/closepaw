@@ -1,7 +1,11 @@
 package com.moonkey.androidagent.history
 
 import com.google.common.truth.Truth.assertThat
+import com.moonkey.androidagent.history.model.CheckpointState
+import com.moonkey.androidagent.history.model.ConversationConfigSnapshot
 import com.moonkey.androidagent.history.model.MessageRecord
+import com.moonkey.androidagent.history.model.PersistedHistoryItem
+import com.moonkey.androidagent.history.model.SessionRuntimeSnapshot
 import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.protocol.CompletionReason
 import com.moonkey.androidagent.test.buildTestContext
@@ -232,5 +236,97 @@ class SessionRecordingServiceTest {
         val record = storage.readSession(secondFile).getOrThrow()
         assertThat(record.sessionId).isEqualTo("second")
         assertThat(record.messages).hasSize(1)
+    }
+
+    @Test
+    fun `overlapping saves - later revision wins regardless of completion order`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val service = SessionRecordingService(storage, this)
+
+        service.initializeNewSession(model = "test", appVersion = "1.0")
+        val fileName = requireNotNull(service.getCurrentFileName())
+
+        // Schedule first save (via recordUserMessage)
+        service.recordUserMessage("u1", 100, "first")
+
+        // Advance past debounce so first save starts executing
+        advanceTimeBy(501)
+
+        // Record second message — increments revision, schedules new save
+        service.recordUserMessage("u2", 200, "second")
+
+        // Let both save operations complete
+        advanceTimeBy(600)
+        advanceUntilIdle()
+
+        // Final persisted state must include both messages (later state wins)
+        val record = storage.readSession(fileName).getOrThrow()
+        assertThat(record.messages).hasSize(2)
+        val userTexts = record.messages.filterIsInstance<MessageRecord.User>().map { it.text }
+        assertThat(userTexts).containsExactly("first", "second").inOrder()
+    }
+
+    @Test
+    fun `forceCheckpoint preempts pending debounced checkpoint`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val service = SessionRecordingService(storage, this)
+
+        service.initializeNewSession(model = "test", appVersion = "1.0")
+        val contextFile = requireNotNull(service.getContextFileName())
+        val sessionId = requireNotNull(service.getCurrentSessionId())
+
+        val testConfig = ConversationConfigSnapshot(
+            mainModel = "test",
+            agentMode = "PRO",
+            maxTurns = 10,
+            perceptionMode = "accessibility_only",
+            platformMode = "ACCESSIBILITY"
+        )
+
+        // Schedule debounced checkpoint with "dirty" state
+        val debouncedSnapshot = SessionRuntimeSnapshot(
+            sessionId = sessionId,
+            config = testConfig,
+            historyItems = listOf(
+                PersistedHistoryItem.Message(kind = "USER_INTENT", content = "debounced")
+            ),
+            todos = emptyList(),
+            scratchpadJson = "{}",
+            checkpointState = CheckpointState.RUNNING_DIRTY,
+            lastCheckpointAt = 100L
+        )
+        service.scheduleCheckpoint { debouncedSnapshot }
+
+        // Don't advance time — debounce hasn't fired yet
+        // Force a checkpoint with "idle ready" state — should preempt the debounced one
+        val forcedSnapshot = SessionRuntimeSnapshot(
+            sessionId = sessionId,
+            config = testConfig,
+            historyItems = listOf(
+                PersistedHistoryItem.Message(kind = "USER_INTENT", content = "forced")
+            ),
+            todos = emptyList(),
+            scratchpadJson = "{}",
+            checkpointState = CheckpointState.IDLE_READY,
+            lastCheckpointAt = 200L
+        )
+        val result = service.forceCheckpoint(forcedSnapshot)
+        assertThat(result).isTrue()
+
+        // Advance past debounce — debounced checkpoint should NOT overwrite
+        advanceTimeBy(600)
+        advanceUntilIdle()
+
+        // Persisted snapshot has forced state, not debounced state
+        val persisted = storage.readSnapshot(contextFile).getOrThrow()
+        assertThat(persisted.checkpointState).isEqualTo(CheckpointState.IDLE_READY)
+        assertThat(persisted.lastCheckpointAt).isEqualTo(200L)
+        assertThat(persisted.historyItems.first()).isEqualTo(
+            PersistedHistoryItem.Message(kind = "USER_INTENT", content = "forced")
+        )
     }
 }

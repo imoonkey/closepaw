@@ -76,10 +76,16 @@ class SessionStorage(
      */
     suspend fun writeSession(fileName: String, record: SessionRecord): Result<Unit> = withContext(ioDispatcher) {
         try {
-            val file = File(getSessionsDir(), fileName)
+            val dir = getSessionsDir()
+            val target = File(dir, fileName)
+            val tmp = File(dir, "$fileName.tmp")
             val jsonString = json.encodeToString(record)
-            file.writeText(jsonString)
-            Log.d(TAG, "Wrote session to ${file.name}, size=${jsonString.length} bytes")
+            tmp.writeText(jsonString)
+            if (!tmp.renameTo(target)) {
+                target.writeText(jsonString)
+                tmp.delete()
+            }
+            Log.d(TAG, "Wrote session to ${target.name}, size=${jsonString.length} bytes")
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to write session $fileName", e)

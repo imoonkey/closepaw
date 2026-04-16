@@ -1,6 +1,7 @@
 package com.moonkey.androidagent.tool
 
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * ToolSpec - Specification for a tool that can be invoked by the agent.
@@ -180,6 +181,17 @@ fun textToolSuccess(output: String, data: Any? = null): ToolExecutionResult.Succ
                 data = data,
                 observation = ToolObservation.TextOutput(output)
         )
+
+/**
+ * Per-call cancellation token. ToolRouter creates one per execute() call.
+ * Tools observe cancellation via ToolExecutionContext.isCancelled(), which
+ * delegates to this token.
+ */
+class CancellationToken {
+    private val cancelled = AtomicBoolean(false)
+    fun cancel() { cancelled.set(true) }
+    fun isCancelled(): Boolean = cancelled.get()
+}
 
 /** Appends a reason suffix in a consistent format. */
 fun appendReason(base: String, reason: String): String =

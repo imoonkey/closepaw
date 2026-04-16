@@ -14,7 +14,7 @@ import kotlinx.coroutines.sync.Mutex
  * Coordinates session lifecycle and input queuing.
  *
  * Replaces timer-loop drain in MainActivity with event-driven approach:
- * - Inputs during busy state (Running/Paused) are queued
+ * - Inputs during busy state (Running/Paused/TakeoverPending) are queued
  * - Queue drains automatically when session transitions to Idle/Created
  * - Session creation is serialized via internal [Mutex]
  *
@@ -45,7 +45,7 @@ class SessionCoordinator(private val scope: CoroutineScope) {
      * Submit user input to the current session.
      *
      * - Idle/Created: sends immediately
-     * - Running/Paused: queues for automatic event-driven drain
+     * - Running/Paused/TakeoverPending: queues for automatic event-driven drain
      * - No session or Shutdown: returns appropriate result for caller to handle
      */
     suspend fun submit(text: String): SubmitResult {
@@ -60,7 +60,7 @@ class SessionCoordinator(private val scope: CoroutineScope) {
                     teardownLocked()
                     SubmitResult.SESSION_DEAD
                 }
-                SessionState.Running, SessionState.Paused -> {
+                SessionState.Running, SessionState.Paused, SessionState.TakeoverPending -> {
                     pendingInputs.add(text)
                     SubmitResult.QUEUED
                 }

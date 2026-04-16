@@ -17,6 +17,7 @@ import com.moonkey.androidagent.tool.AppClassifier
 import com.moonkey.androidagent.trace.TraceRecorderFactory
 import com.moonkey.androidagent.ui.overlay.visualizer.ActionVisualizerManager
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -26,6 +27,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+/** Why the session is shutting down — drives [CompletionReason] in the emitted event. */
+enum class ShutdownCause {
+    /** User (or caller) explicitly requested shutdown. */
+    UserRequested,
+    /** No follow-up arrived within the idle-timeout window. */
+    IdleTimeout,
+}
 
 class AgentSession
 private constructor(
@@ -202,6 +213,9 @@ private constructor(
     private val _events = MutableSharedFlow<AgentEvent>(replay = 8, extraBufferCapacity = 64)
     val events: SharedFlow<AgentEvent> = _events.asSharedFlow()
 
+    /** Serializes all lifecycle state transitions (user ops, runner completion, idle timeout). */
+    private val lifecycleMutex = Mutex()
+
     private val agentRunner =
             SessionAgentRunner(
                     scope = scope,
@@ -209,7 +223,6 @@ private constructor(
                     sessionId = sessionId,
                     config = config,
                     emitEvent = { event -> emit(event) },
-                    onComplete = { reason -> handleAgentComplete(reason) }
             )
 
     private val checkpointCoordinator = SessionCheckpointCoordinator(
@@ -224,6 +237,13 @@ private constructor(
         services.historyManager.setMutationListener { checkpointCoordinator.scheduleCheckpoint(_state.value) }
         services.sessionState.todos.setMutationListener { checkpointCoordinator.scheduleCheckpoint(_state.value) }
         services.sessionState.scratchpad.setMutationListener { checkpointCoordinator.scheduleCheckpoint(_state.value) }
+
+        // Route runner completion through the serialized lifecycle path
+        scope.launch {
+            for (reason in agentRunner.completions) {
+                lifecycleMutex.withLock { handleAgentComplete(reason) }
+            }
+        }
     }
 
     private var currentTaskId: String? = null
@@ -236,10 +256,10 @@ private constructor(
 
         when (op) {
             is Op.Takeover -> handleTakeover()
-            is Op.Resume -> handleResume()
-            is Op.Interrupt -> handleInterrupt()
-            is Op.Shutdown -> handleShutdown()
-            is Op.UserInput -> handleUserInput(op)
+            is Op.Resume -> lifecycleMutex.withLock { handleResume() }
+            is Op.Interrupt -> lifecycleMutex.withLock { handleInterrupt() }
+            is Op.Shutdown -> lifecycleMutex.withLock { handleShutdown(ShutdownCause.UserRequested) }
+            is Op.UserInput -> lifecycleMutex.withLock { handleUserInput(op) }
             is Op.Supplement -> handleSupplement(op.text)
             is Op.UserResponse -> handleUserResponse(op.callId, op.response)
             is Op.Approve -> handleApproval(op)
@@ -261,7 +281,7 @@ private constructor(
 
     private suspend fun handleUserInput(op: Op.UserInput) {
         when (_state.value) {
-            SessionState.Running, SessionState.Paused -> {
+            SessionState.Running, SessionState.Paused, SessionState.TakeoverPending -> {
                 Log.w(TAG, "Rejecting UserInput: Session is busy")
                 emitStatus("⚠️ Agent is busy. Please wait.")
                 return
@@ -404,14 +424,28 @@ private constructor(
             }
 
     private suspend fun handleTakeover() {
-        if (_state.value != SessionState.Running) {
-            Log.w(TAG, "Cannot takeover: not running (state: ${_state.value})")
-            return
+        val confirmed = lifecycleMutex.withLock {
+            if (_state.value != SessionState.Running) {
+                Log.w(TAG, "Cannot takeover: not running (state: ${_state.value})")
+                return
+            }
+            val deferred = agentRunner.pause()
+            _state.value = SessionState.TakeoverPending
+            deferred
         }
 
-        val confirmed = agentRunner.pause()
-        _state.value = SessionState.Paused
+        // Wait for the agent to reach a safe pause point (end of current turn).
+        // The mutex is released so other ops can observe TakeoverPending and reject.
         confirmed.await()
+
+        lifecycleMutex.withLock {
+            if (_state.value != SessionState.TakeoverPending) {
+                // State changed while waiting (e.g. agent completed or session shut down)
+                Log.w(TAG, "State changed during takeover await: ${_state.value}")
+                return
+            }
+            _state.value = SessionState.Paused
+        }
 
         emit(SessionTakeover(sessionId = sessionId, timestamp = now()))
 
@@ -419,6 +453,10 @@ private constructor(
     }
 
     private suspend fun handleResume() {
+        if (_state.value == SessionState.TakeoverPending) {
+            Log.w(TAG, "Cannot resume: takeover still pending (agent hasn't paused yet)")
+            return
+        }
         if (_state.value != SessionState.Paused) {
             Log.w(TAG, "Cannot resume: not paused (state: ${_state.value})")
             return
@@ -435,7 +473,7 @@ private constructor(
 
     private suspend fun handleSupplement(text: String) {
         val currentState = _state.value
-        if (currentState != SessionState.Running && currentState != SessionState.Paused) {
+        if (currentState != SessionState.Running && currentState != SessionState.Paused && currentState != SessionState.TakeoverPending) {
             Log.w(TAG, "Cannot supplement: not running or paused (state: $currentState)")
             return
         }
@@ -462,7 +500,7 @@ private constructor(
     }
 
     private suspend fun handleInterrupt() {
-        if (_state.value != SessionState.Running) {
+        if (_state.value != SessionState.Running && _state.value != SessionState.TakeoverPending) {
             Log.w(TAG, "Cannot interrupt: not running (state: ${_state.value})")
             return
         }
@@ -474,16 +512,15 @@ private constructor(
         Log.i(TAG, "Interrupt requested")
     }
 
-    private suspend fun handleShutdown() {
+    private suspend fun handleShutdown(cause: ShutdownCause) {
         // Idempotency guard — safe against double-call from timeout + explicit shutdown
         if (_state.value == SessionState.Shutdown) {
             Log.d(TAG, "Already shut down, ignoring duplicate Shutdown")
             return
         }
 
-        Log.i(TAG, "Shutting down session: $sessionId")
+        Log.i(TAG, "Shutting down session: $sessionId (cause=$cause)")
 
-        val previousState = _state.value
         _state.value = SessionState.Shutdown
 
         cancelIdleTimeout()
@@ -497,13 +534,13 @@ private constructor(
         services.userResponseChannel.cancel()
 
         agentRunner.shutdown()
+        agentRunner.completions.close()
 
         services.cleanup()
 
-        val reason = when (previousState) {
-            SessionState.Running, SessionState.Paused -> CompletionReason.USER_STOPPED
-            SessionState.Idle -> CompletionReason.IDLE_TIMEOUT
-            else -> CompletionReason.INTERRUPTED
+        val reason = when (cause) {
+            ShutdownCause.UserRequested -> CompletionReason.USER_STOPPED
+            ShutdownCause.IdleTimeout -> CompletionReason.IDLE_TIMEOUT
         }
         emit(
                 SessionCompleted(
@@ -557,7 +594,7 @@ private constructor(
         idleTimeoutJob = scope.launch {
             delay(IDLE_TIMEOUT_MS)
             Log.i(TAG, "Idle timeout expired, auto-shutting down session $sessionId")
-            handleShutdown()
+            lifecycleMutex.withLock { handleShutdown(ShutdownCause.IdleTimeout) }
         }
     }
 

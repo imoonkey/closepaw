@@ -19,9 +19,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
@@ -32,7 +31,6 @@ internal class SessionAgentRunner(
     private val sessionId: SessionId,
     private val config: SessionConfig,
     private val emitEvent: suspend (AgentEvent) -> Unit,
-    private val onComplete: suspend (AgentStopReason) -> Unit
 ) {
     companion object {
         private const val TAG = "SessionAgentRunner"
@@ -47,6 +45,13 @@ internal class SessionAgentRunner(
     private val stateLock = Any()
     private var state = RunnerState(agent = null, agentJob = null, cancellationSignal = null)
     private val eventDispatcher = AgentEventDispatcher(sessionId = sessionId, eventEmitter = emitEvent)
+
+    /**
+     * Completion signals from the runner.
+     * AgentSession must consume these through its serialized lifecycle path —
+     * the runner never mutates session state directly.
+     */
+    val completions = Channel<AgentStopReason>(capacity = Channel.BUFFERED)
 
     fun start(taskInput: String, taskId: String) {
         val agentDef = AgentDefRegistry.mainFor(config.agentMode)
@@ -85,6 +90,12 @@ internal class SessionAgentRunner(
             cancellationSignal = signal
         )
 
+        // Pre-register state so cancel/stop sees the agent even if the coroutine
+        // starts before we capture the Job reference.
+        synchronized(stateLock) {
+            state = RunnerState(agent = newAgent, agentJob = null, cancellationSignal = signal)
+        }
+
         val newAgentJob = scope.launch {
             try {
                 val result = newAgent.run()
@@ -103,16 +114,14 @@ internal class SessionAgentRunner(
             }
         }
         synchronized(stateLock) {
-            state = RunnerState(agent = newAgent, agentJob = newAgentJob, cancellationSignal = signal)
+            state = state.copy(agentJob = newAgentJob)
         }
 
         Log.d(TAG, "Started agent for task $taskId")
     }
 
-    private suspend fun deliverCompletion(reason: AgentStopReason) {
-        withContext(NonCancellable) {
-            onComplete(reason)
-        }
+    private fun deliverCompletion(reason: AgentStopReason) {
+        completions.trySend(reason)
     }
 
     private fun resolvePromptTemplates(prompt: String): String {

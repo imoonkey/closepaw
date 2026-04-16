@@ -64,6 +64,7 @@ class Agent(
         var turnRunnerState = TurnRunnerState()
         var recoverableRetryCount = 0
         var lastKnownPackage: String? = null
+        try {
         while (shouldContinue()) {
             if (pauseState.value) {
                 // Signal that the agent is actually paused (current turn done)
@@ -151,6 +152,11 @@ class Agent(
                     break
                 }
             }
+        }
+        } finally {
+            // Ensure any pending pause confirmation is completed so
+            // handleTakeover doesn't hang if the agent exits before pausing
+            pauseConfirmed?.complete(Unit)
         }
 
         val finalReason =

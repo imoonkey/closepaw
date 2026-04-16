@@ -30,6 +30,7 @@ class HistoryManager(
 
     // Token usage tracking (null = needs recalculation, fixes H2 bug)
     private var lastTokenEstimate: Long? = null
+    @Volatile
     private var onMutation: (() -> Unit)? = null
 
     fun setMutationListener(listener: (() -> Unit)?) {

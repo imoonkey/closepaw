@@ -192,7 +192,7 @@
     "description": "Low-effort thread-safety fixes that don't require structural changes. Land opportunistically alongside Phase 1, not as a gating tranche. 4 items: (0a) ToolRegistry mutableMapOf → ConcurrentHashMap, (0b) TodoState add @Volatile to onMutation, (0c) HistoryManager add @Volatile to onMutation, (0d) SessionAgentRunner pre-register RunnerState with null job before scope.launch then update with captured job reference.",
     "parent": "state-concurrency",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRegistry.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/session/TodoState.kt",
@@ -215,7 +215,7 @@
     "description": "Serialize all disk writes in SessionRecordingService through one Mutex-guarded writer with a monotonically increasing revision number. Stale writes are dropped. Make SessionStorage.writeSession() atomic via temp-file + rename (matching existing writeSnapshot() pattern). forceCheckpoint() preempts pending debounced work instead of waiting behind it.",
     "parent": "state-concurrency",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/history/SessionRecordingService.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/history/storage/SessionStorage.kt"
@@ -243,7 +243,7 @@
       "sc-p0-hardening",
       "sc-p1-persistence"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt"
@@ -269,7 +269,7 @@
     "depends": [
       "sc-p2-lifecycle"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionState.kt",
@@ -297,7 +297,7 @@
     "depends": [
       "sc-p2-lifecycle"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt"
@@ -323,7 +323,7 @@
       "sc-p2-lifecycle",
       "sc-p3-takeover"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionCompleted.kt"
@@ -348,7 +348,7 @@
       "sc-p4-tool-cancel",
       "sc-p5-shutdown-reason"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/session/SessionLlmBootstrapper.kt"
     ],
@@ -370,12 +370,8 @@
     "depends": [
       "sc-p1-persistence"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt"
-    ],
-    "acceptCriteria": [
-      "sessionInfoCache uses HashMap, not ConcurrentHashMap",
       "All access still guarded by cacheMutex",
       "./gradlew test passes"
     ],
@@ -383,5 +379,53 @@
     "estimate": "xs",
     "created": "2026-04-08T02:30:00+08:00",
     "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-codex-review": {
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all state-concurrency changes to Codex for systematic code review. Codex reviews the diff of all sc-p0 through sc-p6 + sc-cleanup changes against the aligned design (doc/todo/holistic-review/state-concurrency/final/improvement_plan.md). Fix any findings before proceeding to QA. Use /code-review skill via multmux.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p0-hardening",
+      "sc-p1-persistence",
+      "sc-p2-lifecycle",
+      "sc-p3-takeover",
+      "sc-p4-tool-cancel",
+      "sc-p5-shutdown-reason",
+      "sc-p6-bootstrap",
+      "sc-cleanup-cache"
+    ],
+    "state": "done",
+    "acceptCriteria": [
+      "Codex code review report exists (doc/todo/holistic-review/state-concurrency/codex_review.md)",
+      "All critical/high findings from review are addressed",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes"
+    ],
+    "estimate": "s",
+    "created": "2026-04-08T03:15:00+08:00",
+    "updated": "2026-04-08T03:15:00+08:00"
+  },
+  "sc-qa-real-device": {
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on real device to validate state-concurrency fixes don't regress user-facing behavior. Test scenarios: (1) rapid takeover/resume during agent execution, (2) session persistence across process death (force-stop mid-task, relaunch, verify session resumes correctly), (3) tool cancellation during execution (interrupt agent mid-action), (4) idle timeout vs manual stop (verify correct reason in session history), (5) normal multi-turn task completion. Use /ux-visual-debug or adb-driven interaction.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-codex-review"
+    ],
+    "state": "done",
+    "note": "QA report at doc/todo/holistic-review/state-concurrency/qa_report.md. 4/5 automated scenarios PASS + 1 crash found and fixed (NetworkOnMainThreadException in CodexResponseClient.cleanup). Takeover/resume manually verified on device — correct state transitions, no crash. Human approved.",
+    "acceptCriteria": [
+      "QA report exists with pass/fail per scenario",
+      "Rapid takeover/resume: no crash, correct state transitions, no stale UI",
+      "Process death recovery: session file not corrupted, checkpoint loads correctly",
+      "Tool cancellation: executing tool actually stops, no orphaned actions",
+      "Idle timeout vs manual stop: correct reason shown in session history",
+      "Normal multi-turn task: completes without regression",
+      "No ANR or crash in logcat during QA run"
+    ],
+    "estimate": "m",
+    "requireHumanReview": true,
+    "created": "2026-04-08T03:15:00+08:00",
+    "updated": "2026-04-08T03:15:00+08:00"
   }
 }

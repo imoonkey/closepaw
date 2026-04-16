@@ -218,8 +218,10 @@ class CodexResponseClient(
 
     override suspend fun cleanup() {
         Log.d(TAG, "Cleanup: evicting connections and shutting down dispatcher")
-        httpClient.connectionPool.evictAll()
-        httpClient.dispatcher.executorService.shutdown()
+        withContext(Dispatchers.IO) {
+            httpClient.connectionPool.evictAll()
+            httpClient.dispatcher.executorService.shutdown()
+        }
     }
 
     // ── Private helpers ──────────────────────────────────────────────────

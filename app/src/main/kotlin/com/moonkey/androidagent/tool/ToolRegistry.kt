@@ -2,6 +2,7 @@ package com.moonkey.androidagent.tool
 
 import android.util.Log
 import com.openai.models.responses.FunctionTool
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * ToolRegistry - Manages tool discovery, registration, and lookup.
@@ -19,7 +20,7 @@ class ToolRegistry {
         private const val TAG = "ToolRegistry"
     }
     
-    private val tools = mutableMapOf<String, ToolSpec>()
+    private val tools = ConcurrentHashMap<String, ToolSpec>()
     
     /**
      * Register a tool.

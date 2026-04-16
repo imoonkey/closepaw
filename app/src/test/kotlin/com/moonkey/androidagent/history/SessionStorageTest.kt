@@ -120,4 +120,36 @@ class SessionStorageTest {
         assertThat(storage.readSession(sessionFile).isFailure).isTrue()
         assertThat(storage.readSnapshot(contextFile).isFailure).isTrue()
     }
+
+    @Test
+    fun `writeSession uses atomic temp-file replacement`() = runTest {
+        val context = buildTestContext(tempFolder.newFolder("files"))
+        val ioDispatcher = StandardTestDispatcher(testScheduler)
+        val storage = SessionStorage(context, ioDispatcher)
+        val record = SessionRecord(
+            sessionId = "atomic-test",
+            startTime = 100L,
+            lastUpdated = 200L,
+            messages = listOf(
+                MessageRecord.User(id = "u1", timestamp = 150L, text = "hello")
+            )
+        )
+        val fileName = storage.generateFileName(record.sessionId)
+
+        storage.writeSession(fileName, record).getOrThrow()
+
+        // Target file must exist with correct content
+        val targetFile = storage.getSessionFile(fileName)
+        assertThat(targetFile.exists()).isTrue()
+
+        // No leftover .tmp files in the sessions directory
+        val dir = storage.getSessionsDir()
+        val tmpFiles = dir.listFiles { f -> f.name.endsWith(".tmp") } ?: emptyArray()
+        assertThat(tmpFiles).isEmpty()
+
+        // Round-trip content is intact
+        val readBack = storage.readSession(fileName).getOrThrow()
+        assertThat(readBack.sessionId).isEqualTo("atomic-test")
+        assertThat(readBack.messages).hasSize(1)
+    }
 }

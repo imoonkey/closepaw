@@ -5,9 +5,11 @@ package com.moonkey.androidagent.protocol
  *
  * State machine transitions:
  *
- *   Created ──UserInput──► Running ──Pause──► Paused
- *      │                     │                  │
- *      │                     │ ◄──Resume────────┘
+ *   Created ──UserInput──► Running ──Takeover──► TakeoverPending ──confirmed──► Paused
+ *      │                     │                        │                           │
+ *      │                     │                        │   ◄──Resume───────────────┘
+ *      │                     │                        │
+ *      │                     │ ◄──────────────────────┘ (via Paused → Resume)
  *      │                     │
  *      │                     └──TaskCompleted──► Idle ──UserInput──► Running
  *      │                                          │
@@ -17,6 +19,10 @@ package com.moonkey.androidagent.protocol
  *
  * Terminal state: Shutdown
  * - Shutdown: explicit user stop, idle timeout, or activity destruction
+ *
+ * TakeoverPending: Agent has been asked to pause but hasn't confirmed yet.
+ * Resume is rejected in this state. Transitions to Paused once the agent
+ * reaches a safe pause point (end of current turn).
  *
  * Hot Idle: After task completion, session enters Idle.
  * Expensive resources (platform, VD) are released. Lightweight state
@@ -33,7 +39,10 @@ sealed interface SessionState {
     /** Session is between tasks, awaiting follow-up (Hot Idle) */
     data object Idle : SessionState
 
-    /** Session is paused (cooperative) */
+    /** Agent asked to pause but hasn't confirmed yet — Resume rejected in this state */
+    data object TakeoverPending : SessionState
+
+    /** Session is paused (cooperative) — agent confirmed it reached pause point */
     data object Paused : SessionState
 
     /** Session shut down (terminal state) */

@@ -88,14 +88,16 @@ class DefaultOnboardingDemoController(
                 val visualizer = service.getActionVisualizer()
                 val touchGate = service.getOverlayTouchGate()
 
-                val session = AgentSession.create(
-                    config = config,
-                    service = service,
-                    scope = scope,
-                    apiKeys = apiKeys,
-                    visualizer = visualizer,
-                    overlayTouchGate = touchGate
-                )
+                val session = withContext(Dispatchers.IO) {
+                    AgentSession.create(
+                        config = config,
+                        service = service,
+                        scope = scope,
+                        apiKeys = apiKeys,
+                        visualizer = visualizer,
+                        overlayTouchGate = touchGate
+                    )
+                }
                 mutex.withLock { demoSession = session }
 
                 // Register with service for overlay visualization

@@ -10,6 +10,7 @@ class TodoState(
     private val todos: MutableList<Todo> = mutableListOf()
 ) {
     private val lock = Any()
+    @Volatile
     private var onMutation: (() -> Unit)? = null
 
     fun setMutationListener(listener: (() -> Unit)?) {

@@ -9,7 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
+import java.util.HashMap
 
 /**
  * High-level session management API.
@@ -54,7 +54,7 @@ class SessionHistoryManager(
         val info: SessionInfo
     )
 
-    private val sessionInfoCache = ConcurrentHashMap<String, CachedSessionInfo>()
+    private val sessionInfoCache = HashMap<String, CachedSessionInfo>()
     private val cacheMutex = Mutex()
 
     /**

@@ -10,10 +10,13 @@ import com.moonkey.androidagent.history.model.SessionRuntimeSnapshot
 import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.protocol.CompletionReason
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class SessionRecordingService(
         private val storage: SessionStorage,
@@ -33,6 +36,15 @@ class SessionRecordingService(
     private val agentMessageBuffer = AgentMessageBuffer()
 
     private var saveJob: Job? = null
+
+    /** Mutex serializing ALL disk writes (session + checkpoint). */
+    private val writeMutex = Mutex()
+
+    /** Monotonically increasing revision for session disk writes. */
+    private val sessionRevision = AtomicLong(0)
+
+    /** Monotonically increasing revision for checkpoint disk writes. */
+    private val checkpointRevision = AtomicLong(0)
 
     /**
      * Initialize a new session.
@@ -62,6 +74,8 @@ class SessionRecordingService(
             contextFileName = currentFileName?.let { storage.contextFileNameFor(it) }
             // Reset state
             agentMessageBuffer.clear()
+            saveJob?.cancel()
+            saveJob = null
             checkpointSaveJob?.cancel()
             checkpointSaveJob = null
         }
@@ -230,16 +244,16 @@ class SessionRecordingService(
                             )
                     val pending = saveJob
                     saveJob = null
+                    sessionRevision.incrementAndGet()
                     pending
                 }
 
         Log.i(TAG, "Session completed")
 
-        // Force immediate save - cancel debounce but let any in-progress save complete
+        // Cancel debounced save, then force immediate save under write mutex
+        pendingSave?.cancel()
         scope.launch {
-            // Wait for any pending save to complete before doing final save
-            pendingSave?.join()
-            save()
+            writeMutex.withLock { save() }
         }
     }
 
@@ -265,6 +279,9 @@ class SessionRecordingService(
     suspend fun clearSessionAndAwait() {
         val (pendingSave, pendingCheckpoint) =
                 synchronized(stateLock) {
+                    // Bump revisions so any lingering writes detect staleness
+                    sessionRevision.incrementAndGet()
+                    checkpointRevision.incrementAndGet()
                     val pending = saveJob to checkpointSaveJob
                     saveJob = null
                     checkpointSaveJob = null
@@ -295,26 +312,34 @@ class SessionRecordingService(
     fun scheduleCheckpoint(snapshotProvider: () -> SessionRuntimeSnapshot) {
         synchronized(stateLock) {
             checkpointSaveJob?.cancel()
+            val rev = checkpointRevision.incrementAndGet()
             checkpointSaveJob = scope.launch {
                 delay(SAVE_DEBOUNCE_MS)
-                val snapshot = snapshotProvider()
-                saveCheckpoint(snapshot)
+                writeMutex.withLock {
+                    if (rev < checkpointRevision.get()) {
+                        Log.d(TAG, "Skipping stale checkpoint write rev=$rev")
+                        return@launch
+                    }
+                    val snapshot = snapshotProvider()
+                    saveCheckpoint(snapshot)
+                }
             }
         }
     }
 
     /**
      * Force-flush a checkpoint immediately (no debounce).
-     * Used on TaskCompleted / Op.Shutdown.
+     * Preempts any pending debounced checkpoint — cancels it, then writes under mutex.
      */
     suspend fun forceCheckpoint(snapshot: SessionRuntimeSnapshot): Boolean {
-        val pendingCheckpoint = synchronized(stateLock) {
-            val pending = checkpointSaveJob
+        synchronized(stateLock) {
+            checkpointSaveJob?.cancel()
             checkpointSaveJob = null
-            pending
+            checkpointRevision.incrementAndGet()
         }
-        pendingCheckpoint?.join()
-        return saveCheckpoint(snapshot)
+        return writeMutex.withLock {
+            saveCheckpoint(snapshot)
+        }
     }
 
     /** Get the context snapshot filename for the current session. */
@@ -384,14 +409,21 @@ class SessionRecordingService(
         }
     }
 
-    /** Schedule a debounced save. */
+    /** Schedule a debounced save. Writes are serialized through writeMutex with revision check. */
     private fun scheduleSave() {
         synchronized(stateLock) {
             saveJob?.cancel()
+            val rev = sessionRevision.incrementAndGet()
             saveJob =
                     scope.launch {
                         delay(SAVE_DEBOUNCE_MS)
-                        save()
+                        writeMutex.withLock {
+                            if (rev < sessionRevision.get()) {
+                                Log.d(TAG, "Skipping stale session write rev=$rev")
+                                return@launch
+                            }
+                            save()
+                        }
                     }
         }
     }

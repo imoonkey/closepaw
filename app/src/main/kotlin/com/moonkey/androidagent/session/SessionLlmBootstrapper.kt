@@ -88,11 +88,10 @@ internal object SessionLlmBootstrapper {
     }
 
     private fun requireOffMainThread() {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            Log.w(
-                    TAG,
-                    "SessionLlmBootstrapper.create() called on main thread; callers should move bootstrap off-main"
-            )
+        val mainLooper = Looper.getMainLooper() ?: return // null in unit-test environment
+        check(Looper.myLooper() != mainLooper) {
+            "SessionLlmBootstrapper.create() must not be called on the main thread; " +
+                    "asset I/O would block the UI"
         }
     }
 
