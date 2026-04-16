@@ -83,6 +83,11 @@ compress(targetTokens)
 
 Results: `Noop`, `Compressed(before, after, stepsApplied)`, or `BudgetUnreachable`.
 
+Phase 2 keeps a local `runningTokens` counter and subtracts the evicted item's
+`estimateTokens()` on each removal, so the eviction loop stays O(n) even on
+large histories — `estimateTokenCount()` is only called once up-front and once
+after the loop to reset `lastTokenEstimate`.
+
 ### Proactive Screen Downgrade
 
 Runs on every `addItem()` with `SCREEN_OBSERVATION`, not just during `compress()`:

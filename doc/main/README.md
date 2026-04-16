@@ -1,16 +1,19 @@
 # Android Agent Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-03-24
+> Last updated: 2026-04-16
 
 ## Quick Start
 
 | Task | Command |
 |------|---------|
-| Build | `./gradlew assembleDebug` |
+| Build (default) | `./gradlew assembleDebug` |
+| Build release (R8 + resource shrink, signed APK) | `./gradlew assembleRelease` |
 | Test | `./gradlew test` |
 | Lint | `./gradlew lint` |
 | Full Check | `./gradlew clean assembleDebug lint test` |
+
+Day-to-day development uses the debug APK. Release build is only for shipping, R8 keep-rule validation, and APK-size measurement — see `doc/dev/development.md` ("Debug vs Release APK") for the full comparison.
 
 ---
 

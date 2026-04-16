@@ -34,21 +34,23 @@ Constants: `MAX_RETRIES = 5`, backoff 1s → 60s with 2× multiplier.
 
 > See: `llm/OpenAIResponseClient.kt`
 
-Cloud client using OpenAI Responses API with native function calling. Non-streaming via `CloudLlmRetry.executeWithRetry()`; streaming via `streamWithRetry()`. Errors classified via `OpenAIErrorClassifier`.
+Cloud client using OpenAI Responses API with native function calling. Non-streaming via `CloudLlmRetry.executeWithRetry()`; streaming via `streamWithRetry()`. Errors classified via `OpenAIErrorClassifier`. The streaming path holds the active `StreamResponse` in an `AtomicReference<AutoCloseable>` and closes it from `awaitClose` so flow cancellation stops an in-flight network read (mirrors the pattern below).
 
 ### ChatCompletionClient
 
 > See: `llm/ChatCompletionClient.kt`
 
-Cloud client using Chat Completions API. Works with any OpenAI-compatible endpoint (OpenRouter, Novita, vLLM). Converts types via `ChatCompletionInterop`. Tool call deltas accumulated incrementally by index.
+Cloud client using Chat Completions API. Works with any OpenAI-compatible endpoint (OpenRouter, Novita, vLLM). Converts types via `ChatCompletionInterop`. Tool call deltas accumulated incrementally by index. Like `OpenAIResponseClient`, holds the active stream in an `AtomicReference<AutoCloseable>` and cancels it on flow close.
 
 ### CodexResponseClient
 
 > See: `llm/CodexResponseClient.kt`
 
-Cloud client for OAuth users, targeting `chatgpt.com/backend-api/codex/responses`. OAuth access tokens lack platform API scopes, so they cannot use `api.openai.com`. Uses raw OkHttp + manual SSE parsing via `CodexRequestBuilder` (JSON serialization) and `CodexSseParser` (SSE parsing with parallel-safe `ToolCallAccumulator`). Routed via `LLMClientFactory` when `__AUTH_METHOD_OPENAI == "oauth"` is in the apiKeys map.
+Cloud client for OAuth users, targeting `chatgpt.com/backend-api/codex/responses`. OAuth access tokens lack platform API scopes, so they cannot use `api.openai.com`. Uses raw OkHttp + manual SSE parsing via `CodexRequestBuilder` (JSON serialization) and `CodexSseParser` (SSE parsing with parallel-safe `ToolCallAccumulator`). Routed via `LLMClientFactory` when `__AUTH_METHOD_OPENAI == "oauth"` is in the apiKeys map. The active OkHttp `Call` is stored in an `AtomicReference` and cancelled from `awaitClose`.
 
 Wire format note: Codex requires wrapped content arrays where user messages use `"type": "input_text"` and assistant messages use `"type": "output_text"` (not `input_text` — the API rejects it with HTTP 400).
+
+All three streaming clients skip the `StringBuilder` text accumulator and the tool-call echo list when `LlmLogger.isVerboseEnabled` is `false` — those buffers exist only to feed `LlmLogger.logOutput()`, which returns immediately in release builds.
 
 ### ChatCompletionInterop
 

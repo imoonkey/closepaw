@@ -56,16 +56,16 @@ ScreenSnapshot(elements, image?, textEnriched, keyboardVisible)
 
 1. **Root collection happens outside the Perceptor**
    `AccessibilityPlatform` gathers all relevant roots on the active display and filters out overlay / IME windows. `VirtualDisplayPlatform` gathers roots for a specific `displayId`.
-2. **Two-pass traversal favors interactive nodes**
-   The tree is traversed once in `INTERACTIVE_ONLY` mode and once in `ALL` mode with shared dedup state. This gives interactive nodes first claim on the candidate pool without losing non-interactive labels.
+2. **Single-pass traversal with per-pool caps**
+   Each root is walked once. A `PoolCounters` holder tracks interactive vs non-interactive candidates collected so far. Both caps are `2 × maxElements`, which over-collects for `applyTruncation` to score without redoing the traversal. Dedup runs on a shared `seenKeys` set.
 3. **Each accepted node becomes a raw `PerceptionElement`**
    The capture step copies text, description, hint text, resource id, class, booleans, bounds, center point, and optional range info. No `AccessibilityNodeInfo` references escape. **Password fields** (`node.isPassword == true`) have their text replaced with `"[password]"` and description suppressed — this applies to all downstream paths (prompts, history, traces).
 4. **Bounds and visibility are sanitized structurally**
    `clipBoundsToScreen()` clips rectangles to display bounds. `visibleAreaRatio()` and size thresholds drop tiny or mostly off-screen nodes. Known keyboard package ids are filtered when `filterKeyboard` is enabled.
 5. **Text enrichment fills empty interactive containers**
-   `enrichEmptyTextElements()` bubbles up to 3 descendant labels from non-interactive children into empty clickable/editable containers. Scroll containers are intentionally excluded.
+   `enrichEmptyTextElements()` bubbles up to 3 descendant labels from non-interactive children into empty clickable/editable containers. Internally the text sources are sorted by `bounds.top` and each candidate binary-searches its vertical slice; joined output preserves original candidate order so the prompt text stays stable across refactors. Scroll containers are intentionally excluded.
 6. **Candidate truncation keeps the prompt bounded**
-   `applyTruncation()` scores nodes by interactivity, text presence, and visible area, then preserves up to `maxElements` with an `interactiveKeepRatio` floor for actionable elements.
+   `applyTruncation()` scores nodes by interactivity, text presence, and visible area, then preserves up to `maxElements` with an `interactiveKeepRatio` floor for actionable elements. Dedup uses a `HashSet<PerceptorCandidateElement>` for O(1) insertion checks.
 7. **Spatial sort and final indexing happen last**
    `spatialSort()` groups by rows using `rowSnapScreenRatio`, then sorts left-to-right / top-to-bottom. Only after that does the final zero-based `index` get assigned.
 
