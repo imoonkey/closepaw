@@ -78,6 +78,25 @@ class ToolRouterTest {
     }
 
     @Test
+    fun `approval emitter exception returns error not timeout`() = runTest {
+        val registry = ToolRegistry().apply { register(TestToolSpec()) }
+        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.ALWAYS_ASK, defaultClassifier()))
+        val context = SimpleToolRouterContext(FakeAndroidPlatform())
+
+        val result = router.execute(
+            toolName = "test_tool",
+            params = JSONObject(),
+            context = context,
+            onApprovalRequired = { throw IllegalStateException("UI dispatch broken") }
+        )
+
+        assertThat(result).isInstanceOf(ToolCallResult.Error::class.java)
+        assertThat((result as ToolCallResult.Error).error).contains("Approval request failed")
+        assertThat(router.hasPendingApprovals()).isFalse()
+        assertThat(router.getActiveCallIds()).isEmpty()
+    }
+
+    @Test
     fun `blocked app policy deny returns error`() = runTest {
         val registry = ToolRegistry().apply { register(TestToolSpec()) }
         val policy = PolicyEngine(ApprovalMode.AUTO_APPROVE, blockedClassifier("com.bank"))

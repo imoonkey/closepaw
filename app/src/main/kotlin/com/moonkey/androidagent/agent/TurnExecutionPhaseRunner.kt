@@ -162,15 +162,11 @@ internal class TurnExecutionPhaseRunner(
         }
 
         private suspend fun emitApprovalRequired(details: ApprovalDetails) {
-                try {
-                        eventDispatcher.approvalRequired(
-                                actionId = details.callId,
-                                description = details.description,
-                                details = details
-                        )
-                } catch (e: Exception) {
-                        Log.e(TAG, "Failed to emit approval required event", e)
-                }
+                eventDispatcher.approvalRequired(
+                        actionId = details.callId,
+                        description = details.description,
+                        details = details
+                )
         }
 
         private suspend fun resolveObservation(
