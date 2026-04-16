@@ -1251,5 +1251,147 @@
     ],
     "created": "2026-04-17T00:08:10+08:00",
     "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "uiux-codex-review": {
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-capsule-compose",
+      "uiux-settings-state",
+      "uiux-chat-scroll",
+      "uiux-destructive-confirm",
+      "uiux-a11y-fixes",
+      "uiux-overlay-state"
+    ],
+    "state": "ready",
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all UI/UX quality changes to Codex for systematic code review. Codex reviews the diff of all uiux-* task changes against the aligned design (doc/todo/holistic-review/ui-ux-quality/final/improvement_plan.md). Covers: (1) capsule composition correctness — verify no state writes during composition, previousMode plumbing correct, (2) settings state hoisting — rememberSaveable usage, tab/provider mutation decoupling, (3) chat scroll — bottom-stickiness policy, SimpleDateFormat removal, double rotation removal, (4) destructive action confirmation dialogs, (5) a11y fixes — IconButton, contentDescription, theme tokens, (6) overlay state unification — duplicate flows removed. Fix any critical/high findings before proceeding to QA. Use /code-review skill via multmux.",
+    "acceptCriteria": [
+      "Codex code review report exists at doc/todo/holistic-review/ui-ux-quality/final/codex_review.md",
+      "All critical/high findings from review are addressed",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "review"
+    ],
+    "created": "2026-04-16T16:20:21Z",
+    "updated": "2026-04-16T16:20:21Z"
+  },
+  "perf-codex-review": {
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all perf-resources changes to Codex for systematic code review. Codex reviews the diff of all perf-* implementation tasks against the improvement plan (doc/todo/holistic-review/performance-resources/final/improvement_plan.md). Focus areas: (1) correctness — do the O(n^2) fixes preserve existing behavior? (2) single-pass Perceptor — does it maintain interactive priority and dedup semantics? (3) R8 keep rules — are they sufficient for all reflection/serialization/JNI paths? (4) trace flush — does the co-fix of IO-1+RES-2 maintain durability guarantees? Fix any critical/high findings before QA.",
+    "parent": "perf-resources",
+    "depends": [
+      "perf-r8-minify",
+      "perf-history-compression",
+      "perf-truncation-indexof",
+      "perf-trace-flush",
+      "perf-streaming-guard",
+      "perf-baos-presize",
+      "perf-single-pass-perceptor",
+      "perf-text-enrichment",
+      "perf-bitmap-safety",
+      "perf-streaming-cancel"
+    ],
+    "state": "ready",
+    "acceptCriteria": [
+      "Codex code review report exists at doc/todo/holistic-review/performance-resources/codex_review.md",
+      "All critical/high severity findings from review are addressed with code changes",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes",
+      "./gradlew assembleRelease passes after fixes (R8 keep rules validated)"
+    ],
+    "estimate": "s",
+    "tags": [
+      "review"
+    ],
+    "created": "2026-04-16T14:00:00+08:00",
+    "updated": "2026-04-16T14:00:00+08:00"
+  },
+  "perf-qa-real-device": {
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on real device to validate perf-resources changes do not regress agent behavior. Test scenarios: (1) Normal multi-turn task — agent completes a 5+ turn task without errors, verify perception captures correct elements (single-pass Perceptor validation). (2) Dense screen capture — open an app with 300+ UI elements, verify truncation returns correct interactive elements and text enrichment labels unlabeled buttons. (3) Long session — run 15+ turns to trigger history compression, verify session completes and history is coherent (no missing turns). (4) Release APK smoke test — install release build, run a simple task end-to-end (validates R8 keep rules in production). (5) Trace recording — enable tracing, run a task, verify trace file is complete and flush semantics work (last events present after session end). Use /ux-visual-debug or adb-driven interaction.",
+    "parent": "perf-resources",
+    "depends": [
+      "perf-codex-review"
+    ],
+    "state": "ready",
+    "acceptCriteria": [
+      "QA report exists with pass/fail per scenario at doc/todo/holistic-review/performance-resources/qa_report.md",
+      "Normal multi-turn task: completes without error, correct elements captured",
+      "Dense screen: truncation returns expected interactive element count, enriched text matches visible labels",
+      "Long session: 15+ turns with compression — no missing turns, session history coherent",
+      "Release APK: installs, starts, completes a task without crash or ClassNotFoundException",
+      "Trace recording: trace file contains all expected events, no truncation at end",
+      "No ANR or crash in logcat during QA run"
+    ],
+    "estimate": "m",
+    "requireHumanReview": true,
+    "tags": [
+      "qa"
+    ],
+    "created": "2026-04-16T14:00:00+08:00",
+    "updated": "2026-04-16T14:00:00+08:00"
+  },
+  "er-codex-review": {
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all error-resilience changes to Codex for systematic code review. Codex reviews the diff of all er-* implementation tasks against the aligned design (doc/todo/holistic-review/error-resilience/final/improvement_plan.md). Fix any critical/high findings before proceeding to QA. Use /code-review skill via multmux.",
+    "parent": "error-resilience",
+    "depends": [
+      "er-completion-correctness",
+      "er-approval-failfast",
+      "er-delegate-failure",
+      "er-ondestroy-anr",
+      "er-task-impossible",
+      "er-harden-cleanup",
+      "er-action-outcome",
+      "er-bootstrap-ux",
+      "er-dead-error-surface",
+      "er-corrupted-history",
+      "er-context-length-msg"
+    ],
+    "state": "ready",
+    "acceptCriteria": [
+      "Codex code review report exists (doc/todo/holistic-review/error-resilience/codex_review.md)",
+      "All critical/high findings from review are addressed",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "error-resilience",
+      "review"
+    ],
+    "created": "2026-04-17T00:20:35+08:00",
+    "updated": "2026-04-17T00:20:35+08:00"
+  },
+  "er-qa-real-device": {
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on real device to validate error-resilience fixes don't regress user-facing behavior and the correctness bugs are actually fixed. Test scenarios:\n\n(1) False completion: trigger a task where a cognitive tool fails before complete_task — verify the agent does NOT report success\n(2) Approval dispatch: simulate overlay failure during approval-gated action — verify error is immediate (not 60s timeout)\n(3) Delegate failure: trigger a PRO-mode task where sub-agent fails — verify parent sees failure, not success in action card\n(4) Service restart: force-stop the service mid-task, relaunch — verify no ANR, session recovers\n(5) Action outcome display: trigger a policy-denied action — verify UI shows skipped (not ✓ executed)\n(6) Task impossible: give the agent an impossible task — verify CompletionReason is TASK_IMPOSSIBLE in session history\n(7) Normal multi-turn task: complete a standard task — verify no regression\n\nUse /ux-visual-debug or adb-driven interaction.",
+    "parent": "error-resilience",
+    "depends": [
+      "er-codex-review"
+    ],
+    "state": "ready",
+    "requireHumanReview": true,
+    "acceptCriteria": [
+      "QA report exists with pass/fail per scenario (doc/todo/holistic-review/error-resilience/qa_report.md)",
+      "False completion: agent reports error/failure when complete_task didn't execute",
+      "Approval dispatch failure: error returned immediately, no 60s hang",
+      "Delegate failure: parent action card shows failure, not success",
+      "Service restart: no ANR in logcat, session checkpoint loads correctly",
+      "Action outcome: skipped/denied actions show correct state in chat UI (not ✓)",
+      "Task impossible: session history shows TASK_IMPOSSIBLE reason",
+      "Normal multi-turn task: completes without regression",
+      "No ANR or crash in logcat during QA run"
+    ],
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "qa"
+    ],
+    "created": "2026-04-17T00:20:35+08:00",
+    "updated": "2026-04-17T00:20:35+08:00"
   }
 }
