@@ -427,5 +427,483 @@
     "requireHumanReview": true,
     "created": "2026-04-08T03:15:00+08:00",
     "updated": "2026-04-08T03:15:00+08:00"
+  },
+  "ui-ux-quality": {
+    "title": "UI/UX Quality 改进",
+    "description": "Fix state ownership drift, composition correctness, and UX gaps across the ui/ module. Based on double-design review (Claude + Codex, 2026-04-08) and re-review (2026-04-15). Central thesis: state ownership drift is the primary quality problem — fix correctness before polish.",
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "design": "doc/todo/holistic-review/ui-ux-quality/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T16:02:40Z"
+  },
+  "uiux-capsule-compose": {
+    "title": "Phase 1: Capsule Composition Correctness",
+    "description": "SmartCapsuleSurface.kt violates Compose's side-effect-free render model in two ways: (1) `previousModeState.value = mode` is written inside `remember(...)` block at line 71, making behavior depend on recomposition order, (2) `inputText = \"\"` is written during composition at line 80 when `clearInput` is true. This is amplified because the surface is shared by both in-app and overlay rendering paths.\n\nAdditionally, SmartCapsuleCompose.kt (the in-app wrapper) does not pass `previousMode` at all (line 41-56), relying entirely on the internal fallback that depends on the composition-time write.\n\nApproach:\n- Remove `previousModeState` from SmartCapsuleSurface — callers provide previous mode\n- Add `previousMode` parameter plumbing through SmartCapsuleCompose.kt (the in-app caller must track and pass it, matching what CapsuleOverlayHost already does)\n- Replace composition-time `inputText = \"\"` with a `LaunchedEffect` keyed on mode transition (or renderSpec.row3?.clearInput)\n- Keep CapsuleRenderSpec.from() pure — no state writes inside remember",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/surface/SmartCapsuleSurface.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/SmartCapsuleCompose.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatScreen.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'previousModeState' SmartCapsuleSurface.kt returns no results (internal tracking removed)",
+      "SmartCapsuleCompose.kt passes previousMode parameter to SmartCapsuleSurface",
+      "No state writes inside remember {} blocks in SmartCapsuleSurface.kt (grep -n 'previousModeState.value =' returns empty)",
+      "inputText clearing happens inside LaunchedEffect or DisposableEffect, not during composition body",
+      "CapsuleRenderSpec.from() is a pure function with no side effects",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "s",
+    "tags": [
+      "compose",
+      "correctness"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-settings-state": {
+    "title": "Phase 2: Settings State Hoisting + rememberSaveable",
+    "description": "Settings state drifts from real app state in three ways: (1) SettingsSheet.kt:70 keeps page selection in local `remember` that resets on config change, (2) LlmAuthSettingsPage.kt:72-79 initializes `selectedTab` once from external authMethod/llmBackend and never updates when those change externally, (3) LlmAuthSettingsPage.kt:88-112 tab taps immediately fire `onBackendChange`/`onAuthMethodChange` — exploring tabs mutates committed backend/auth state. Same pattern at lines 225-250 for API-key provider selection.\n\nAdditionally, zero `rememberSaveable` usage exists across the entire ui/ module — rotation or activity recreation resets all user-visible local state.\n\nApproach:\n- Replace `remember` with `rememberSaveable` for settingsPage, selectedTab, selectedProvider\n- Make selectedTab/selectedProvider reactive to external state changes (use derivedStateOf or re-key on external inputs)\n- Separate UI-only tab exploration from committed mutations: tab taps update local selection only; actual backend/auth changes happen on explicit user action (e.g., 'Apply' or selecting a model within the tab)\n- Same decoupling for API-key provider selection",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/LlmAuthSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "grep -rn 'rememberSaveable' SettingsSheet.kt LlmAuthSettingsPage.kt returns at least one match per file",
+      "Reopening settings after external model/auth change shows the correct tab and provider (not stale cached value)",
+      "Tapping a tab does NOT immediately call onBackendChange or onAuthMethodChange (grep confirms no direct call inside tab onClick)",
+      "Screen rotation on a nested settings page preserves the current page/tab/provider selection",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "m",
+    "tags": [
+      "state",
+      "settings"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-chat-scroll": {
+    "title": "Phase 3: Chat Scroll + Cleanup",
+    "description": "Chat auto-scroll is broken for streaming: LaunchedEffect(messages.size) at ChatScreen.kt:191-196 only fires when the message count changes. Streaming text updates and action-card additions mutate the last message in place (ChatEventReducer.kt:68-71, :95-98) without changing list size, so content grows below the fold without the viewport following. Conversely, any new message snaps to bottom even if the user is reading history.\n\nTwo additional chat cleanup items:\n- MessageBubble.kt:188-190 allocates a new SimpleDateFormat per recomposition (not thread-safe, GC pressure during streaming). TimeUtils.kt already has a thread-safe DateTimeFormatter pattern.\n- ActionCard.kt:171-184 wraps CircularProgressIndicator (which already animates internally) in an extra infiniteTransition rotation, creating double animation.\n\nApproach:\n- Implement 'stick to bottom' policy: track whether user is near bottom of list before auto-scrolling\n- Trigger scroll on last-message content growth (not just message count change) when user is following\n- Show a 'scroll to bottom' FAB when user has scrolled up and new content arrives\n- Replace SimpleDateFormat with top-level DateTimeFormatter val\n- Remove infiniteTransition rotation wrapper; use plain indeterminate CircularProgressIndicator",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatScreen.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/components/MessageBubble.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/components/ActionCard.kt"
+    ],
+    "acceptCriteria": [
+      "ChatScreen no longer uses LaunchedEffect(messages.size) as sole scroll trigger (grep confirms removal or replacement)",
+      "Scroll behavior tracks user position: auto-scroll only when user is near bottom",
+      "A 'scroll to bottom' FAB or equivalent appears when user scrolls up during active streaming",
+      "grep -n 'SimpleDateFormat' MessageBubble.kt returns no results (replaced with DateTimeFormatter)",
+      "grep -n 'infiniteTransition' ActionCard.kt returns no results (redundant rotation removed)",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "chat",
+      "ux"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-destructive-confirm": {
+    "title": "Phase 4: Destructive Action Confirmation Dialogs",
+    "description": "Three destructive actions execute immediately with no confirmation:\n1. Session delete in NavigationDrawer.kt:274-283 — IconButton calls onDelete directly, 32dp touch target increases accidental tap risk\n2. 'Clear Traces' in PermissionsAdvancedSettingsPage.kt (~line 208-215) — executes immediately\n3. 'Clear Session History' in PermissionsAdvancedSettingsPage.kt (~line 216-227) — executes immediately\n\nAll three are irreversible data-loss actions that should require explicit user confirmation.\n\nApproach:\n- Add a `showDeleteConfirm` state + AlertDialog pattern to each action\n- Dialog text: describe what will be lost, with [Cancel] and [Delete/Clear] buttons\n- ~15 lines per dialog, no structural changes needed",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/navigation/NavigationDrawer.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/PermissionsAdvancedSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'AlertDialog' NavigationDrawer.kt returns at least one match (confirmation dialog exists)",
+      "grep -n 'AlertDialog' PermissionsAdvancedSettingsPage.kt returns at least two matches (one per destructive action)",
+      "Session delete requires two taps: delete button → confirm dialog → confirm button",
+      "Clear Traces requires two taps: button → confirm dialog → confirm button",
+      "Clear Session History requires two taps: button → confirm dialog → confirm button",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "high",
+    "estimate": "xs",
+    "tags": [
+      "ux",
+      "safety"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-a11y-fixes": {
+    "title": "Phase 5: 3 Targeted Accessibility Fixes",
+    "description": "Three specific accessibility gaps remain (chat header and drawer already fixed):\n\n1. OnboardingShell.kt:54-61 — back button uses Icon + Modifier.clickable at 24dp instead of IconButton. Missing the standard 48dp minimum touch target. Screen readers see a clickable image with no button role.\n\n2. StatusIslandCompose.kt:30-43 — clickable Surface with no explicit role or action label, only defaultMinSize(minHeight=32.dp). Also uses hardcoded Color.White and Color(0xFF171717) instead of theme tokens. Fix both a11y and theming together.\n\n3. SmartCapsuleSurfaceParts.kt:255-266 — NavIconButton has contentDescription = null for icon-only capsule navigation actions (minimize, open app, open viewer).\n\nApproach:\n- Replace Icon+clickable with IconButton in OnboardingShell\n- Add semantics { role = Role.Button } + contentDescription to StatusIslandCompose Surface; replace hardcoded colors with MaterialTheme tokens\n- Add meaningful contentDescription strings to NavIconButton calls (derive from NavAction: 'Minimize', 'Open app', 'Open viewer')",
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-capsule-compose"
+    ],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/onboarding/OnboardingShell.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/overlay/compose/StatusIslandCompose.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/surface/SmartCapsuleSurfaceParts.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'IconButton' OnboardingShell.kt returns at least one match (back button uses IconButton)",
+      "grep -n 'Modifier.clickable' OnboardingShell.kt returns no matches for the back button area",
+      "grep -n 'contentDescription = null' SmartCapsuleSurfaceParts.kt returns no matches in NavIconButton calls",
+      "grep -n 'Color.White\\|0xFF171717' StatusIslandCompose.kt returns no matches (hardcoded colors replaced with theme tokens)",
+      "grep -n 'Role.Button\\|contentDescription' StatusIslandCompose.kt returns at least one match",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "a11y",
+      "ux"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-overlay-state": {
+    "title": "Phase 6: Narrow Overlay State Unification",
+    "description": "CapsuleOverlayHost.kt:73-76 still keeps its own `capsuleContext`, `platformMode`, and `hasIsland` MutableStateFlow instances that duplicate canonical state from CapsuleStateHolder. CapsuleOverlayHost.kt:213-221 exposes `updateNavContext()` to mutate these local flows. ServiceOverlayController.kt:376-383 writes the same render inputs into both stateHolder and capsuleManager, duplicating the mutation path.\n\nCapsuleStateHolder already centralizes mode, context, platformMode, and turnPhase. IslandOverlayHost already reads from stateHolder. The gap is only in CapsuleOverlayHost.\n\nHost-only concerns (focusability, touchability, interaction locks, inputFocused) are correctly host-owned and must stay.\n\nApproach:\n- Remove duplicate `capsuleContext`, `platformMode`, `hasIsland` flows from CapsuleOverlayHost\n- CapsuleOverlayHost reads these values from CapsuleStateHolder instead\n- Remove `updateNavContext()` — callers use CapsuleStateHolder.setContext() etc.\n- Update ServiceOverlayController to write render state only to stateHolder, not both\n- Keep host-only state (focusability, touchability, interactionLocked, inputFocused) in CapsuleOverlayHost",
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-capsule-compose"
+    ],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/overlay/compose/CapsuleOverlayHost.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/ServiceOverlayController.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'private val capsuleContext' CapsuleOverlayHost.kt returns no results (duplicate flow removed)",
+      "grep -n 'private val platformMode' CapsuleOverlayHost.kt returns no results (duplicate flow removed)",
+      "grep -n 'private val hasIsland' CapsuleOverlayHost.kt returns no results (duplicate flow removed)",
+      "grep -n 'updateNavContext' CapsuleOverlayHost.kt returns no results (method removed)",
+      "CapsuleOverlayHost reads context/platformMode/hasIsland from stateHolder flows",
+      "ServiceOverlayController writes render state to stateHolder only, not both stateHolder and capsuleManager",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "state",
+      "overlay"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "perf-resources": {
+    "title": "Performance & Resource Efficiency",
+    "description": "Fix CPU hotspots (O(n^2) algorithms, redundant traversals), memory waste (unnecessary allocations in release builds), IO inefficiency (per-event flush), resource management bugs (flush semantics, exception safety), and build config (R8 shrinking). Based on double-design review (Claude + Codex), revalidated 2026-04-16.",
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "design": "doc/todo/holistic-review/performance-resources/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-r8-minify": {
+    "title": "Enable R8 minification and resource shrinking",
+    "description": "Release build has isMinifyEnabled=false, shipping dead code from OpenAI SDK, OkHttp, Compose, Leap SDK etc. Enable R8 tree shaking + resource shrinking. Key challenge: writing correct keep rules for kotlinx.serialization (session persistence JSON), Shizuku AIDL interfaces, OpenAI SDK reflection patterns, and Leap SDK JNI methods. Start with proguard-android-optimize.txt defaults, add targeted keep rules, then iteratively fix any runtime ClassNotFoundException/NoSuchMethodError via release APK smoke test.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/build.gradle.kts",
+      "app/proguard-rules.pro"
+    ],
+    "acceptCriteria": [
+      "app/build.gradle.kts release block has isMinifyEnabled=true and isShrinkResources=true",
+      "app/proguard-rules.pro exists with keep rules for serialization, Shizuku, OpenAI SDK, Leap SDK",
+      "./gradlew assembleRelease succeeds without warnings that indicate missing keep rules",
+      "Release APK starts, creates a session, executes at least one tool call, and completes without crash",
+      "Release APK size is measurably smaller than before (check via: ls -la app/build/outputs/apk/release/)",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "build",
+      "apk-size"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-history-compression": {
+    "title": "Fix history compression O(n^2) token recalculation",
+    "description": "HistoryManager.compress() eviction loop calls estimateTokenCount() on every iteration, but every removeAt() sets lastTokenEstimate=null, forcing a full items.sumOf{it.estimateTokens()} rescan. This is O(n^2) in history size. Fix: maintain a running token total during Phase 2 eviction. Before the while loop, capture runningTokens=estimateTokenCount(). On each removal, subtract the removed item tokens. After eviction completes, set lastTokenEstimate=null to invalidate cache for external callers. Same pattern needed for Phase 3 (group eviction) if it also loops on estimateTokenCount().",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/history/HistoryManager.kt",
+      "app/src/test/kotlin/**/HistoryManager*"
+    ],
+    "acceptCriteria": [
+      "compress() Phase 2 loop uses delta tracking instead of full rescan per removal",
+      "No call to estimateTokenCount() inside the eviction while-loop body",
+      "lastTokenEstimate invalidated only once after eviction completes, not per removal",
+      "Unit test: compress large history (500+ items over budget) — token count after compress matches items.sumOf{it.estimateTokens()}",
+      "Unit test: compress with mixed item types (screen observations, tool outputs, user messages) — correct items evicted per existing priority rules",
+      "Existing HistoryManager tests still pass",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "cpu",
+      "history"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-truncation-indexof": {
+    "title": "Fix truncation O(n^2) indexOf in applyTruncation",
+    "description": "applyTruncation() in PerceptorInternals.kt calls candidates.indexOf(c) in three loops (interactive, non-interactive, fallback). Each indexOf is O(n) with expensive data-class equals(). With maxElements=500 and 2x over-collection (up to 1000 candidates), this is up to 500K comparisons. Fix: use a HashSet<PerceptorCandidateElement> for dedup instead of position-based indexOf. Build a \"seen\" set, add elements as they are selected. The kept list preserves insertion order (priority ordering). This also simplifies the code — no need to track indices at all.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/perception/PerceptorInternals.kt",
+      "app/src/test/kotlin/**/Perceptor*"
+    ],
+    "acceptCriteria": [
+      "applyTruncation() contains zero calls to candidates.indexOf()",
+      "Dedup uses HashSet or equivalent O(1) lookup instead of linear scan",
+      "Unit test: truncation with 1000 synthetic candidates — same output elements as before (order-preserving)",
+      "Unit test: interactive elements get priority up to interactiveKeepRatio cap",
+      "Unit test: no duplicate elements in output",
+      "Unit test: candidates.size <= maxElements returns input unchanged (early exit)",
+      "./gradlew test passes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "cpu",
+      "perception"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-trace-flush": {
+    "title": "Fix FileTraceRecorder flush() semantics + add write batching",
+    "description": "Two co-dependent issues: (IO-1) AppendLine handler calls writer.flush() on every event, defeating BufferedWriter batching. (RES-2) WriteOp.Flush handler only completes the deferred without calling writer.flush() — the public flush() API promises durability but delivers only a queue barrier. These MUST be co-fixed: removing per-line flush makes the broken Flush handler user-visible. Fix: (a) In WriteOp.Flush handler, call writer.flush() before completing the deferred. (b) Remove writer.flush() from AppendLine handler. (c) Optionally flush on batch threshold (every 10 lines or when channel.isEmpty) for reasonable latency.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/trace/FileTraceRecorder.kt",
+      "app/src/test/kotlin/**/FileTraceRecorder*"
+    ],
+    "acceptCriteria": [
+      "WriteOp.AppendLine handler does NOT call writer.flush()",
+      "WriteOp.Flush handler calls writer.flush() BEFORE completing op.done",
+      "Writer is flushed in the finally block (on channel close/writer close)",
+      "Unit test: write 100 events then flush() — all 100 lines present in file after flush returns",
+      "Unit test: write events without explicit flush — file may be partially buffered (batching works)",
+      "Unit test: close() flushes remaining buffered content to disk",
+      "./gradlew test passes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "io",
+      "trace",
+      "correctness"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-streaming-guard": {
+    "title": "Guard streaming accumulation behind verbose logging flag",
+    "description": "All three streaming LLM clients (CodexResponseClient, OpenAIResponseClient, ChatCompletionClient) unconditionally build StringBuilder accumulators and tool-call lists for LlmLogger.logOutput(), which returns immediately in release builds. Fix: expose LlmLogger.isVerboseEnabled (= VERBOSE_LOGGING). In each streaming client, only allocate the text StringBuilder and completed tool-call buffers when isVerboseEnabled is true. Keep delta emission and tool call tracking for the actual response flow unchanged — only the logging-specific accumulators are guarded.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/LlmLogger.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt"
+    ],
+    "acceptCriteria": [
+      "LlmLogger exposes a public isVerboseEnabled property (or equivalent)",
+      "StringBuilder/tool-call accumulators only allocated when verbose logging is enabled",
+      "Streaming delta emission to downstream collectors is unchanged regardless of verbose flag",
+      "logOutput() still called with full data when verbose logging IS enabled (debug builds)",
+      "No ResponsesResult object constructed in non-verbose mode",
+      "./gradlew test passes",
+      "./gradlew assembleDebug passes"
+    ],
+    "estimate": "xs",
+    "tags": [
+      "memory",
+      "llm"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-baos-presize": {
+    "title": "Pre-size ByteArrayOutputStream for JPEG compression",
+    "description": "BitmapUtils.compressJpeg() uses ByteArrayOutputStream() with default 32-byte buffer, causing 10-12 reallocation+copy cycles for typical 50-150KB JPEGs. Fix: pre-size with an estimate based on pixel count. Use (bitmap.width * bitmap.height * 4) / 10 as initial capacity (ARGB pixels / ~10 for JPEG compression ratio), clamped to 1KB-512KB range to avoid over-allocation for tiny or huge bitmaps.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/BitmapUtils.kt"
+    ],
+    "acceptCriteria": [
+      "ByteArrayOutputStream in compressJpeg() is constructed with a capacity estimate, not default",
+      "Capacity estimate is clamped to a reasonable range (minimum 1KB, maximum 512KB)",
+      "JPEG output bytes are identical to before (compression behavior unchanged)",
+      "./gradlew assembleDebug passes"
+    ],
+    "estimate": "xs",
+    "tags": [
+      "memory",
+      "screenshot"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-single-pass-perceptor": {
+    "title": "Single-pass Perceptor tree traversal",
+    "description": "Perceptor.snapshot() traverses every accessibility root twice: once in INTERACTIVE_ONLY mode, then again in ALL mode. Each traverse() reads text/description/hint/resource ID, action support, bounds, visibility ratio, and class name per node. For 300-500 nodes with 2-3 roots, this doubles the work on the hottest capture path. Fix: merge into a single traversal that collects all eligible nodes in one pass, tagging each as interactive or non-interactive. The existing applyTruncation() already handles interactive/non-interactive separation via interactiveKeepRatio, so prioritization is preserved. Key constraint: the seenKeys dedup must still work correctly — currently it prevents duplicates across both passes, so the single pass must use the same dedup logic. Validate by comparing snapshot output (element counts, interactive coverage, element ordering) before and after.",
+    "parent": "perf-resources",
+    "depends": [
+      "perf-truncation-indexof"
+    ],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/perception/Perceptor.kt",
+      "app/src/test/kotlin/**/Perceptor*"
+    ],
+    "acceptCriteria": [
+      "snapshot() contains exactly one traversal loop over roots (not two)",
+      "TraversalMode enum still exists but single pass uses unified criteria",
+      "Interactive elements are still prioritized in truncation (interactiveKeepRatio preserved)",
+      "Unit test: snapshot parity — same elements returned as before for representative tree fixtures",
+      "Unit test: interactive coverage — same number of interactive elements kept after truncation",
+      "Unit test: seenKeys dedup — no duplicate elements in output",
+      "Unit test: empty tree and single-root tree edge cases",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "cpu",
+      "perception"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-text-enrichment": {
+    "title": "Optimize text enrichment from O(n^2) to sub-quadratic",
+    "description": "enrichEmptyTextElements() scans all textSources for every interactive element needing text. With maxElements=500 and 2x over-collection, this can be up to 1000*1000 containment checks plus mergedText() recomputation. Two viable approaches: (A) Build a simple spatial index once (e.g., sort textSources by top-left coordinate, binary search for candidates within bounds), or (B) Propagate text from parent/sibling during the single traversal pass (if perf-single-pass-perceptor is done first). Approach B is cleaner but couples to the traversal refactor. Approach A is standalone. Either way, cache mergedText() per source to avoid recomputation in the inner loop. Product-sensitive: text enrichment affects what the LLM sees for unlabeled buttons, so output parity testing is critical.",
+    "parent": "perf-resources",
+    "depends": [
+      "perf-single-pass-perceptor"
+    ],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/perception/PerceptorInternals.kt",
+      "app/src/test/kotlin/**/Perceptor*"
+    ],
+    "acceptCriteria": [
+      "enrichEmptyTextElements() no longer does O(n*m) full scan of textSources per interactive element",
+      "mergedText() result is cached per source (not recomputed in inner loop)",
+      "Unit test: enrichment parity — same text assigned to same elements as before for representative fixtures",
+      "Unit test: nested button inside labeled container — button gets container text",
+      "Unit test: button with no nearby text source — remains unenriched (no false positives)",
+      "Unit test: performance — 1000 candidates completes in <100ms (was potentially seconds)",
+      "./gradlew test passes"
+    ],
+    "estimate": "m",
+    "tags": [
+      "cpu",
+      "perception"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-bitmap-safety": {
+    "title": "Make bitmap cleanup exception-safe in screenshot pipeline",
+    "description": "AccessibilityScreenshotCapturer.compressScreenshot() only guarantees hardwareBuffer.close() in finally. hardwareBitmap, softwareBitmap, and scaledBitmap are recycled on the normal path only. If an exception occurs between allocation and recycle (e.g., during bitmap copy or JPEG compression), the native bitmap allocations (~10MB each) remain until GC. The leak window is narrow (hardwareBitmap is recycled immediately after copy, others before debug persistence) but worth hardening. Fix: wrap each bitmap in nested try/finally or use a local cleanup helper that tracks allocated bitmaps and recycles all on any exit path.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityScreenshotCapturer.kt"
+    ],
+    "acceptCriteria": [
+      "All intermediate bitmaps (hardwareBitmap, softwareBitmap, scaledBitmap) are recycled on both normal and exceptional paths",
+      "hardwareBuffer.close() still in finally block",
+      "No double-recycle — identity check (scaledBitmap !== softwareBitmap) preserved",
+      "Normal-path behavior unchanged — screenshot capture still produces correct ScreenImage",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "estimate": "xs",
+    "tags": [
+      "resource-management",
+      "screenshot"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "perf-streaming-cancel": {
+    "title": "Add cancellation hooks to remaining streaming LLM clients",
+    "description": "CodexResponseClient already stores activeCall and cancels it from awaitClose (fixed previously). OpenAIResponseClient and ChatCompletionClient still only log from awaitClose — no active stream/call handle is stored, so flow cancellation cannot proactively stop in-flight network reads or retry cycles. Fix: follow the CodexResponseClient pattern — store a reference to the active call/stream, cancel it from awaitClose. For OpenAIResponseClient (uses OpenAI Java SDK), check if the SDK exposes a cancellable stream handle. For ChatCompletionClient (uses OkHttp directly), store the Call reference like CodexResponseClient does. Ensure retry loops check for cancellation.",
+    "parent": "perf-resources",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt"
+    ],
+    "acceptCriteria": [
+      "OpenAIResponseClient stores active stream/call handle and cancels from awaitClose",
+      "ChatCompletionClient stores active Call reference and cancels from awaitClose (matching CodexResponseClient pattern)",
+      "Retry loops in both clients check for cancellation before retrying",
+      "Normal streaming still works — tool calls and text deltas emitted correctly",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "resource-management",
+      "llm"
+    ],
+    "created": "2026-04-16T12:00:00+08:00",
+    "updated": "2026-04-16T12:00:00+08:00"
   }
 }

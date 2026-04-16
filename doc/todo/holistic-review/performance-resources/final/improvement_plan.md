@@ -2,6 +2,7 @@
 
 Based on the aligned double-design review. Ordered by impact-to-effort ratio.
 Authors: Claude + Codex
+Revalidated: 2026-04-16 (3 items dropped as LOW_ROI, 1 partially fixed)
 
 ---
 
@@ -27,13 +28,14 @@ Authors: Claude + Codex
 - **File:** `perception/PerceptorInternals.kt`
 - **Impact:** MEDIUM | **Effort:** LOW
 - **Change:** Replace `candidates.indexOf(c)` with HashSet-based dedup or pre-computed identity map. Eliminate all linear scans in selection loops.
+- **Note:** More exposed than originally estimated — up to 1000 candidates with 2x over-collection.
 - **Verify:** Unit tests preserving current truncation order and dedup behavior. Benchmark with 500-1000 synthetic candidates.
 
 ### 4. Fix FileTraceRecorder flush() bug + add batching
 - **Ref:** IO-1, RES-2
 - **File:** `trace/FileTraceRecorder.kt`
 - **Impact:** MEDIUM | **Effort:** LOW
-- **Change:** (a) Make `WriteOp.Flush` handler call `writer.flush()`. (b) Stop flushing on every `AppendLine`. Flush on explicit `Flush` op, on close, and optionally on batch threshold (e.g., every 10 lines or when channel is empty).
+- **Change:** (a) Make `WriteOp.Flush` handler call `writer.flush()`. (b) Stop flushing on every `AppendLine`. Flush on explicit `Flush` op, on close, and optionally on batch threshold (e.g., every 10 lines or when channel is empty). RES-2 must be co-fixed — currently masked by per-line flush.
 - **Verify:** Stress trace recording with many events. Confirm session completion leaves latest lines on disk.
 
 ### 5. Guard streaming accumulation behind verbose flag
@@ -44,7 +46,6 @@ Authors: Claude + Codex
 - **Verify:** Unit test that streaming output is unchanged. Confirm no `ResponsesResult` object built in non-verbose mode.
 
 ### 6. Pre-size ByteArrayOutputStream for JPEG compression
-- **Ref:** (Claude-only finding)
 - **File:** `platform/BitmapUtils.kt`
 - **Impact:** LOW | **Effort:** LOW
 - **Change:** `ByteArrayOutputStream(bitmap.width * bitmap.height * 4 / 10)` (clamped to 1KB-512KB). Eliminates 10-12 buffer doublings per compression.
@@ -61,44 +62,42 @@ Authors: Claude + Codex
 - **Change:** Merge `INTERACTIVE_ONLY` and `ALL` traversals into a single pass. Tag each collected element as interactive or not during traversal. Preserve prioritization in `applyTruncation` (which already handles interactive/non-interactive separation).
 - **Verify:** Snapshot parity tests on representative trees. Compare candidate counts, interactive coverage, and capture latency.
 
-### 8. Incremental screen downgrade tracking
-- **Ref:** CPU-5
-- **File:** `history/HistoryManager.kt`
-- **Impact:** MEDIUM | **Effort:** MEDIUM
-- **Change:** Maintain screen-observation indices incrementally instead of rebuilding from scratch on every new screen. Avoid O(n) full-history scan per screen addition.
-- **Verify:** Unit tests for screen downgrade behavior across long sessions.
-
-### 9. Text enrichment optimization
+### 8. Text enrichment optimization
 - **Ref:** CPU-2
 - **File:** `perception/PerceptorInternals.kt`
 - **Impact:** MEDIUM | **Effort:** MEDIUM
 - **Change:** Replace full text-source scan with either parent/child propagation during traversal, or a cheap spatial index built once. Cache `mergedText()` per source.
+- **Note:** More exposed than originally estimated — up to 1000 candidates with 2x over-collection.
 - **Verify:** Unit tests for enrichment behavior on nested labels/buttons. Benchmark on large synthetic snapshots.
 
 ---
 
-## Tier 3: Careful Changes
+## Tier 3: Small Fixes
 
-### 10. Bitmap exception safety
+### 9. Bitmap exception safety
 - **Ref:** RES-1
 - **File:** `platform/AccessibilityScreenshotCapturer.kt`
 - **Impact:** LOW | **Effort:** LOW
-- **Change:** Wrap `hardwareBitmap`, `softwareBitmap`, and `scaledBitmap` in nested `try/finally` blocks ensuring recycle on any failure path.
+- **Change:** Wrap intermediate bitmaps in `try/finally` for the narrow gap between allocation and existing recycle calls.
+- **Note:** Leak window is narrower than originally stated — `hardwareBitmap` recycled immediately after `copy()`, others recycled before debug persistence.
 - **Verify:** Failure-path tests or fault injection around bitmap copy/compress.
 
-### 11. Adaptive post-action retries
-- **Ref:** IO-2
-- **File:** `tool/action/PostActionAnalysis.kt`
-- **Impact:** MEDIUM | **Effort:** MEDIUM
-- **Change:** Only retry for action classes that commonly cause delayed transitions. Use cheap change signals (window/package/root count) before full deep comparison. Consider shorter second attempt.
-- **Verify:** Regression-test known slow flows. Measure average post-action latency before/after.
-
-### 12. Streaming cancellation hooks
+### 10. Streaming cancellation hooks (remaining clients)
 - **Ref:** RES-3
-- **Files:** `llm/CodexResponseClient.kt`, `OpenAIResponseClient.kt`, `ChatCompletionClient.kt`
+- **Files:** `OpenAIResponseClient.kt`, `ChatCompletionClient.kt`
 - **Impact:** LOW | **Effort:** MEDIUM
-- **Change:** Keep a handle to the active call/stream. Cancel from `awaitClose`. Ensure retries stop on cancellation.
+- **Change:** Add explicit cancellation hooks matching what `CodexResponseClient` already does (partially fixed).
 - **Verify:** Start long stream, cancel collector, confirm sockets/threads stop promptly.
+
+---
+
+## Dropped (LOW_ROI)
+
+These findings are real but not worth the implementation complexity:
+
+- **~~CPU-5: Screen downgrade rescans~~** — History bounded by auto-compression (`maxTokenBudget=100_000`, `recentFullScreens=2`). Incremental index bookkeeping would touch every mutation path in HistoryManager for a bounded linear scan.
+- **~~MEM-1: Screenshot peak memory~~** — Default perception mode is `AccessibilityOnly`; screenshot path rarely hit. Reducing peak memory requires pipeline redesign not justified for an off-by-default path.
+- **~~IO-2: Post-action retries~~** — Correctness tradeoff. Adaptive heuristic must work across all apps/windowing modes. Wrong heuristic degrades action verification — worse than extra captures.
 
 ---
 
@@ -111,8 +110,6 @@ Authors: Claude + Codex
 5. **Streaming accumulation guard** — trivial change
 6. **ByteArrayOutputStream pre-sizing** — trivial change
 7. **Single-pass Perceptor traversal** — largest CPU win, needs careful validation
-8. **Screen downgrade tracking** — helps long sessions
-9. **Text enrichment optimization** — product-sensitive, needs careful design
-10. **Bitmap exception safety** — correctness hardening
-11. **Adaptive post-action retries** — needs regression testing
-12. **Streaming cancellation hooks** — client-library-dependent
+8. **Text enrichment optimization** — product-sensitive, needs careful design
+9. **Bitmap exception safety** — correctness hardening
+10. **Streaming cancellation hooks** — remaining two clients

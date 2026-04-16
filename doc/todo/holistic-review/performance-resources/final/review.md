@@ -1,7 +1,7 @@
 # Performance & Resource Efficiency Review — Final
 
 Scope: `app/src/main/kotlin/com/moonkey/androidagent/`
-Date: 2026-04-08
+Date: 2026-04-08 | Revalidated: 2026-04-16
 Authors: Claude + Codex (double-design alignment)
 
 ---
@@ -15,38 +15,39 @@ Authors: Claude + Codex (double-design alignment)
 - **Evidence:** Two full `for (root in roots)` loops, each calling `traverse(...)`. `traverse()` reads text/description/hint/resource ID, action support, bounds, visibility ratio, and class name per node.
 
 ### CPU-2: Text enrichment is quadratic in candidate count
-- **File:** `perception/PerceptorInternals.kt:23-46`
+- **File:** `perception/PerceptorInternals.kt:19-47`
 - **Impact:** MEDIUM
-- **Description:** `enrichEmptyTextElements()` scans all text sources for every interactive element missing text. With `maxElements * 2` cap, this can produce hundreds of thousands of containment checks plus repeated `mergedText()` calls.
+- **Description:** `enrichEmptyTextElements()` scans all text sources for every interactive element missing text. With `maxElements=500` and 2x over-collection (up to 1000 candidates), this produces up to hundreds of thousands of containment checks plus repeated `mergedText()` calls.
 - **Evidence:** `candidates.map { ... textSources.asSequence().filter { contains(...) } ... }`. Bounded by the candidate cap, but O(n^2) within that bound.
+- **Note (2026-04-16):** More exposed than originally estimated — `PerceptorFilterConfig.maxElements` is 500 with 2x over-collection.
 
 ### CPU-3: Truncation does repeated linear searches
-- **File:** `perception/PerceptorInternals.kt:58-77`
+- **File:** `perception/PerceptorInternals.kt:50-79`
 - **Impact:** MEDIUM
-- **Description:** `applyTruncation()` calls `candidates.indexOf(c)` in the interactive loop, non-interactive loop, and fallback loop. Each `indexOf` is O(n) linear scan with expensive data-class `equals()`.
+- **Description:** `applyTruncation()` calls `candidates.indexOf(c)` in the interactive loop, non-interactive loop, and fallback loop. Each `indexOf` is O(n) linear scan with expensive data-class `equals()`. With up to 1000 candidates from 2x over-collection, this is significant.
 - **Evidence:** `indexOf()` invoked in all three selection branches.
 
 ### CPU-4: History compression repeatedly recomputes token budget
-- **File:** `history/HistoryManager.kt:131-136, 188-240`
+- **File:** `history/HistoryManager.kt:131-136, 155-267`
 - **Impact:** HIGH
 - **Description:** The eviction loop checks `estimateTokenCount()` on every iteration, but every `removeAt()` sets `lastTokenEstimate = null`, forcing a full `items.sumOf { it.estimateTokens() }` rescan. Compression cost grows quadratically with history size.
 - **Evidence:** `estimateTokenCount()` caches only until mutation. Inside `compress()`, every removal path invalidates the cache.
 
-### CPU-5: Screen downgrading rescans full history on every new screen
-- **File:** `history/HistoryManager.kt:45-59, 67-84, 326-343`
-- **Impact:** MEDIUM
-- **Description:** Adding a new screen observation triggers `downgradeOldScreens()`, which rebuilds the full list of screen indices then revisits all older screens. Work grows with session length.
-- **Evidence:** `downgradeOldScreens()` does `items.withIndex().filter(...).map(...)` across entire history, called on every `SCREEN_OBSERVATION` recording.
+### ~~CPU-5: Screen downgrading rescans full history on every new screen~~ LOW_ROI
+- **File:** `history/HistoryManager.kt:45-59, 67-80, 327-343`
+- **Impact:** ~~MEDIUM~~ LOW_ROI
+- **Description:** `downgradeOldScreens()` rebuilds screen indices by scanning all items on every new screen observation.
+- **Status (2026-04-16):** Real but not worth fixing. History is bounded by auto-compression with `maxTokenBudget=100_000` and `recentFullScreens=2`. Incremental index bookkeeping would add maintenance complexity across every mutation path (`addItem`, `recordItems`, `replaceAll`, normalization, group eviction, digest insertion, merge) for a bounded linear scan over an already-compressed in-memory list.
 
 ---
 
 ## Memory
 
-### MEM-1: Screenshot capture peaks at multiple full-frame allocations
-- **File:** `platform/AccessibilityScreenshotCapturer.kt:127-180`
-- **Impact:** MEDIUM
-- **Description:** The screenshot path creates a hardware bitmap, copies to full ARGB_8888, may allocate a scaled bitmap, then materializes JPEG bytes. Peak ~12-15MB per capture on 1080x2340 display.
-- **Evidence:** `wrapHardwareBuffer` → `.copy(ARGB_8888)` → `scaleBitmapIfNeeded` → `compressJpeg`. Recycling occurs on normal path only.
+### ~~MEM-1: Screenshot capture peaks at multiple full-frame allocations~~ LOW_ROI
+- **File:** `platform/AccessibilityScreenshotCapturer.kt:129-190`
+- **Impact:** ~~MEDIUM~~ LOW_ROI
+- **Description:** The screenshot path creates a hardware bitmap, copies to full ARGB_8888, may allocate a scaled bitmap, then materializes JPEG bytes. Peak ~12-15MB per capture.
+- **Status (2026-04-16):** Default perception mode is `AccessibilityOnly` (`PerceptionConfig.kt`), and `AccessibilityPlatform.captureScreen()` only attempts screenshot capture when perception mode includes screenshots or tracing is enabled. This path is rarely hit in normal operation. Reducing peak memory would require a larger pipeline redesign not justified for an off-by-default path.
 
 ### MEM-2: Streaming clients accumulate responses for unused debug logging
 - **File:** `llm/CodexResponseClient.kt:151-169`, `OpenAIResponseClient.kt:95-142`, `ChatCompletionClient.kt:122-218`
@@ -64,33 +65,33 @@ Authors: Claude + Codex (double-design alignment)
 - **Description:** `AppendLine` writes one line and immediately flushes the `BufferedWriter`, defeating batching and increasing write amplification during traced runs.
 - **Evidence:** Every `WriteOp.AppendLine` path executes `writer.append(...)`, `writer.newLine()`, `writer.flush()`.
 
-### IO-2: Post-action verification triggers up to three full captures per action
-- **File:** `tool/action/PostActionAnalysis.kt:22-40, 81-90`
-- **Impact:** MEDIUM
-- **Description:** When first post-action capture looks unchanged, the code retries after 500ms and 1000ms. Each retry calls `platform.captureScreen()` (perception + optional screenshot). Total budget: 1800ms per action.
-- **Evidence:** Always performs initial capture, retries twice if `Unchanged`. Intentional for slow-transition detection.
+### ~~IO-2: Post-action verification triggers up to three full captures per action~~ LOW_ROI
+- **File:** `tool/action/PostActionAnalysis.kt:18-43, 83-92`
+- **Impact:** ~~MEDIUM~~ LOW_ROI
+- **Description:** When first post-action capture looks unchanged, the code retries after 500ms and 1000ms. Each retry calls `platform.captureScreen()`. Total budget: 1800ms per action.
+- **Status (2026-04-16):** This is a correctness tradeoff, not a clean perf win. The retry behavior catches slow UI transitions across diverse apps, windowing modes, and delayed intent launches. Making it adaptive requires a reliable cheap-change heuristic that works universally. Getting it wrong degrades action verification — a worse failure mode than the extra captures.
 
 ---
 
 ## Resource Management
 
 ### RES-1: Bitmap cleanup is not exception-safe
-- **File:** `platform/AccessibilityScreenshotCapturer.kt:129-155, 184-186`
+- **File:** `platform/AccessibilityScreenshotCapturer.kt:133-191`
 - **Impact:** LOW
-- **Description:** Only `HardwareBuffer` is closed in `finally`. Hardware bitmap, software bitmap, and scaled bitmap are recycled only on the normal path. Exceptions after allocation leave large native allocations for GC.
-- **Evidence:** `hardwareBuffer.close()` is the only `finally` cleanup. All `recycle()` calls are in the success path.
+- **Description:** Only `HardwareBuffer` is closed in `finally`. Intermediate bitmaps are recycled only on the normal path.
+- **Note (2026-04-16):** Leak window is narrower than originally stated — `hardwareBitmap` is recycled immediately after `copy()`, and `softwareBitmap`/`scaledBitmap` are recycled before debug persistence. The remaining gap is between allocation and those recycle calls on exceptional paths.
 
 ### RES-2: `flush()` does not actually flush the writer
-- **File:** `trace/FileTraceRecorder.kt:135, 175-179`
+- **File:** `trace/FileTraceRecorder.kt:135, 175-178`
 - **Impact:** MEDIUM
-- **Description:** The public `flush()` API sends a `WriteOp.Flush` through the channel, but the handler only completes the deferred without calling `writer.flush()`. Callers expecting durability get a queue barrier instead.
-- **Evidence:** `WriteOp.Flush` branch executes `op.done.complete(Unit)` only. No `writer.flush()`.
+- **Description:** The public `flush()` API sends a `WriteOp.Flush` through the channel, but the handler only completes the deferred without calling `writer.flush()`.
+- **Note (2026-04-16):** Currently masked by IO-1 (per-line flush on every `AppendLine`). If IO-1 batching is implemented, RES-2 becomes immediately user-visible. Must be co-fixed with IO-1.
 
-### RES-3: No explicit cancellation for streaming flows
-- **File:** `llm/CodexResponseClient.kt:135-196`, `OpenAIResponseClient.kt:86-175`, `ChatCompletionClient.kt:113-231`
+### RES-3: No explicit cancellation for streaming flows — PARTIALLY_FIXED
+- **File:** `OpenAIResponseClient.kt:79-165`, `ChatCompletionClient.kt:109-246`
 - **Impact:** LOW
-- **Description:** `awaitClose` handlers only log. No active call/stream handle is stored for cancellation. Abandoning the flow cannot proactively stop in-flight network reads or retry cycles.
-- **Evidence:** `awaitClose` blocks contain only logging.
+- **Description:** `OpenAIResponseClient` and `ChatCompletionClient` still have no explicit cancellation path — `awaitClose` handlers only log.
+- **Status (2026-04-16):** `CodexResponseClient` now stores the active OkHttp call and cancels it from `awaitClose` (`CodexResponseClient.kt:145-213`). The other two SDK-backed clients still lack equivalent cancellation hooks.
 
 ### RES-4: Release builds disable code and resource shrinking
 - **File:** `app/build.gradle.kts:24-27`
