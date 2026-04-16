@@ -143,14 +143,14 @@ class AgentEventDispatcher(
         ))
     }
 
-    suspend fun actionExecuted(actionId: String, toolName: String, success: Boolean, result: String?) {
-        Log.d(TAG, "ActionExecuted: $toolName success=$success")
+    suspend fun actionExecuted(actionId: String, toolName: String, outcome: ActionOutcome, result: String?) {
+        Log.d(TAG, "ActionExecuted: $toolName outcome=$outcome")
         eventEmitter(ActionExecuted(
             sessionId = sessionId,
             timestamp = now(),
             actionId = actionId,
             toolName = toolName,
-            success = success,
+            outcome = outcome,
             result = result
         ))
     }

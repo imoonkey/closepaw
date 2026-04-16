@@ -148,7 +148,11 @@ internal class IsolatedSubAgentRunner(
         val activity = when (event) {
             is ActionProposed -> "proposed ${event.toolName}: ${event.description}"
             is ActionExecuted -> {
-                val state = if (event.success) "success" else "failed"
+                val state = when (event.outcome) {
+                    ActionOutcome.SUCCESS -> "success"
+                    ActionOutcome.FAILED -> "failed"
+                    ActionOutcome.SKIPPED -> "skipped"
+                }
                 "executed ${event.toolName}: $state"
             }
             is SessionError -> "error: ${event.error.message}"

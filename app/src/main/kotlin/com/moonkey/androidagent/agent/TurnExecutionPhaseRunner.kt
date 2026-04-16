@@ -162,13 +162,19 @@ internal class TurnExecutionPhaseRunner(
                         observedSnapshot = observedSnapshot
                 )
 
+                val outcome = toolResult.toActionOutcome()
                 eventDispatcher.actionExecuted(
                         actionId = toolResult.callId,
                         toolName = toolCall.name,
-                        success = toolResult is ToolCallResult.Success,
+                        outcome = outcome,
                         result = toolResult.toContextString()
                 )
-                eventDispatcher.status("✓ ${toolCall.name} executed")
+                val statusSymbol = when (outcome) {
+                        ActionOutcome.SUCCESS -> "✓ ${toolCall.name} executed"
+                        ActionOutcome.FAILED -> "✗ ${toolCall.name} failed"
+                        ActionOutcome.SKIPPED -> "⊘ ${toolCall.name} skipped"
+                }
+                eventDispatcher.status(statusSymbol)
                 return SingleToolCallResult(
                         snapshot = snapshotForNextTool,
                         toolResult = toolResult
@@ -282,3 +288,10 @@ internal class TurnExecutionPhaseRunner(
                 }
 
 }
+
+internal fun ToolCallResult.toActionOutcome(): ActionOutcome =
+        when (this) {
+                is ToolCallResult.Success -> ActionOutcome.SUCCESS
+                is ToolCallResult.Error -> ActionOutcome.FAILED
+                is ToolCallResult.Cancelled -> ActionOutcome.SKIPPED
+        }

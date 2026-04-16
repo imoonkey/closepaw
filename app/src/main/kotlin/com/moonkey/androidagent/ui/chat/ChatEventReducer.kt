@@ -2,6 +2,7 @@ package com.moonkey.androidagent.ui.chat
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.moonkey.androidagent.protocol.ActionExecuted
+import com.moonkey.androidagent.protocol.ActionOutcome
 import com.moonkey.androidagent.protocol.ActionProposed
 import com.moonkey.androidagent.protocol.AgentEvent
 import com.moonkey.androidagent.protocol.MessageDelta
@@ -99,7 +100,11 @@ internal class ChatEventReducer(
     }
 
     private fun handleActionExecuted(event: ActionExecuted) {
-        val newState = if (event.success) ActionState.Success else ActionState.Failed
+        val newState = when (event.outcome) {
+            ActionOutcome.SUCCESS -> ActionState.Success
+            ActionOutcome.FAILED -> ActionState.Failed
+            ActionOutcome.SKIPPED -> ActionState.Skipped
+        }
         updateLastAgentMessage { msg ->
             val (updatedExisting, found) =
                 updateActionBlockForExecution(

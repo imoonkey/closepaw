@@ -58,9 +58,13 @@ internal class AgentServiceEventHandler(
                 overlay?.onTurnPhaseChanged(event.phase)
             }
             is ActionExecuted -> {
-                val state = if (event.success) "success" else "failed"
+                val state = when (event.outcome) {
+                    ActionOutcome.SUCCESS -> "success"
+                    ActionOutcome.FAILED -> "failed"
+                    ActionOutcome.SKIPPED -> "skipped"
+                }
                 recordingService?.updateActionState(event.actionId, state, event.result)
-                overlay?.onActionExecuted(event.toolName, event.success)
+                overlay?.onActionExecuted(event.toolName, event.outcome == ActionOutcome.SUCCESS)
             }
             is SubAgentStarted -> {
                 updateStatus("🤖 Delegating to ${event.agentName}...")

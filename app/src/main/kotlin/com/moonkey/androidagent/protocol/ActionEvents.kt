@@ -1,5 +1,8 @@
 package com.moonkey.androidagent.protocol
 
+/** Outcome of an executed action. */
+enum class ActionOutcome { SUCCESS, FAILED, SKIPPED }
+
 /** An action has been proposed (before execution). */
 data class ActionProposed(
         override val sessionId: SessionId,
@@ -15,6 +18,6 @@ data class ActionExecuted(
         override val timestamp: Long,
         val actionId: String,
         val toolName: String,
-        val success: Boolean,
+        val outcome: ActionOutcome,
         val result: String?
 ) : ActionDomainEvent
