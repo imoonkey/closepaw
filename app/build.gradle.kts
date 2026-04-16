@@ -27,7 +27,12 @@ android {
             buildConfigField("boolean", "INSECURE_SSL_FOR_EVAL", evalSsl.toString())
         }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
             buildConfigField("boolean", "INSECURE_SSL_FOR_EVAL", "false")
         }
     }
