@@ -227,11 +227,24 @@ class SessionServices internal constructor(
         }
 
         // Release LLM resources (especially important for local models)
-        llmClient.cleanup()
-        llmClientFactory.cleanupAll()
+        try {
+            llmClient.cleanup()
+        } catch (e: Exception) {
+            Log.w(TAG, "LLM client cleanup failed (non-fatal)", e)
+        }
+
+        try {
+            llmClientFactory.cleanupAll()
+        } catch (e: Exception) {
+            Log.w(TAG, "LLM client factory cleanup failed (non-fatal)", e)
+        }
 
         // Flush/close trace last so we still capture teardown artifacts if needed
-        traceRecorder.close()
+        try {
+            traceRecorder.close()
+        } catch (e: Exception) {
+            Log.w(TAG, "Trace recorder close failed (non-fatal)", e)
+        }
 
         Log.i(TAG, "SessionServices cleaned up")
     }

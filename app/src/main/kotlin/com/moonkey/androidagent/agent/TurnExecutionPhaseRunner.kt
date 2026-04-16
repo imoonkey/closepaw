@@ -208,7 +208,14 @@ internal class TurnExecutionPhaseRunner(
                         )
                 }
 
-                return captureObservationWithSnapshot()
+                return runCatching { captureObservationWithSnapshot() }
+                        .getOrElse { e ->
+                                Log.w(TAG, "Post-action screen capture failed; falling back to text-only observation", e)
+                                ObservationCapture(
+                                        observation = ToolObservation.TextOutput(formatToolResult(toolResult)),
+                                        snapshot = null
+                                )
+                        }
         }
 
         private data class ObservationCapture(
