@@ -1,5 +1,6 @@
 package com.moonkey.androidagent.agent
 
+import android.util.Log
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 
@@ -15,6 +16,11 @@ internal data class TurnErrorClassification(
  * without touching AgentTurnRunner control flow.
  */
 internal object TurnErrorClassifier {
+    private const val TAG = "TurnErrorClassifier"
+
+    private const val CONTEXT_LIMIT_USER_MESSAGE =
+        "Conversation too long for model context window. Start a new task or reduce the number of turns."
+
     fun classify(error: Throwable): TurnErrorClassification {
         val causes = generateSequence(error) { it.cause }.toList()
 
@@ -44,8 +50,16 @@ internal object TurnErrorClassifier {
                     anyMessageContains("connection refused") ||
                     anyMessageContains("connection reset"))
 
+        val rawMessage = error.message.orEmpty().ifEmpty { "Unknown error" }
+        val userMessage = if (isContextLimit) {
+            Log.w(TAG, "Context-limit error surfaced to user: $rawMessage")
+            CONTEXT_LIMIT_USER_MESSAGE
+        } else {
+            rawMessage
+        }
+
         return TurnErrorClassification(
-            message = error.message.orEmpty().ifEmpty { "Unknown error" },
+            message = userMessage,
             recoverable = isTransientNetworkError
         )
     }
