@@ -905,5 +905,351 @@
     ],
     "created": "2026-04-16T12:00:00+08:00",
     "updated": "2026-04-16T12:00:00+08:00"
+  },
+  "error-resilience": {
+    "title": "Error Resilience 改进",
+    "description": "Fix cross-layer error semantics: false completion reporting, approval failure swallowing, delegate_task masking, shutdown ANR, action state flattening, and missing TASK_IMPOSSIBLE. Based on verified double-design review (Claude + Codex), revalidated 2026-04-15.",
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "design": "doc/todo/holistic-review/error-resilience/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew test passes",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "high",
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-completion-correctness": {
+    "title": "P0: Make completion depend on executed tool results",
+    "description": "AgentTurnRunner.decideCompletion() uses planned tool calls, not executed results. TurnExecutionPhaseRunner.executeActions() returns Unit — the runner has no way to know if complete_task actually ran.\n\nConcrete bug: Model plans remember_experience → complete_task(success). remember_experience fails, execution loop breaks, complete_task never runs. But decideCompletion() only checks planned tools, so the turn reports Complete(success=true).\n\nFix: Return minimal execution metadata from executeActions() — which tool IDs actually executed, whether execution terminated early, and the terminal result. AgentTurnRunner checks that complete_task is in the executed set before emitting TurnOutcome.Complete. If execution broke before complete_task, emit TurnOutcome.Error or TurnOutcome.Cancelled based on the actual terminal result.\n\nKeep it minimal: only add enough data to answer 'did complete_task actually run and succeed?'",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "executeActions() returns a result type containing the set of tool IDs that actually executed",
+      "decideCompletion() checks that complete_task is in the executed set before emitting TurnOutcome.Complete",
+      "When complete_task is planned but execution breaks before it runs, the turn emits TurnOutcome.Error (not Complete)",
+      "When complete_task runs and succeeds, behavior unchanged from current",
+      "Test: mock remember_experience failure before complete_task → TurnOutcome is Error, not Complete",
+      "Test: complete_task executes normally → TurnOutcome.Complete as before",
+      "Test: no complete_task in plan, all tools succeed → TurnOutcome.Continue as before",
+      "grep -q 'executedToolIds\\|ExecutionPhaseResult\\|executionResult' app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "correctness",
+      "P0"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-approval-failfast": {
+    "title": "P0: Fail fast when approval UI dispatch breaks",
+    "description": "TurnExecutionPhaseRunner.emitApprovalRequired() (lines 164-174) wraps the event emitter call in try/catch and swallows exceptions with Log.e(). ToolRouter is already prepared to convert approval-dispatch exceptions into ToolCallResult.Error, but never sees them because emitApprovalRequired suppresses the throw.\n\nResult: if the approval UI/overlay fails to display, the tool waits 60 seconds then returns 'Approval timed out' — blaming the user for not responding to a prompt they never saw.\n\nFix: Remove the try/catch in emitApprovalRequired(). Let the exception propagate to ToolRouter, which already handles it by returning ToolCallResult.Error('Approval request failed: ...'). This is a ~5-line change — delete the try/catch wrapper, keep the event emission.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "emitApprovalRequired() no longer has a try/catch that swallows exceptions",
+      "When event emitter throws, ToolRouter returns ToolCallResult.Error (not Cancelled/timeout)",
+      "The error message includes 'Approval request failed' or similar diagnostic text",
+      "Normal approval flow (no exception) is unchanged",
+      "Test: mock eventEmitter that throws → tool result is Error, not Cancelled",
+      "Test: normal eventEmitter → approval wait proceeds as before",
+      "! grep -q 'catch.*emitApproval\\|catch.*approval.*Exception' app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt || echo 'swallow removed'",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "xs",
+    "tags": [
+      "error-resilience",
+      "correctness",
+      "P0"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-delegate-failure": {
+    "title": "P0: Return structural failure from delegate_task",
+    "description": "DelegateTaskTool (lines 164-177) returns textToolSuccess(...) even when result.success is false. This means: (1) action cards show the delegation as successful, (2) history records it as successful, (3) parent turn control flow cannot distinguish healthy delegation from failed delegation except by parsing text. With PRO mode as default agent mode, this is a core orchestration bug.\n\nFix: When result.success is false, return a failure result type (e.g., ToolExecutionResult.Failure or textToolError) instead of textToolSuccess. Reserve textToolSuccess exclusively for successful delegations. Keep the sub-agent output message in the result so the parent LLM can still read what happened.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt"
+    ],
+    "acceptCriteria": [
+      "When sub-agent result.success is false, DelegateTaskTool returns a failure/error result (not textToolSuccess)",
+      "When sub-agent result.success is true, DelegateTaskTool returns textToolSuccess as before",
+      "The failure result still contains the sub-agent's output message for parent LLM context",
+      "Test: mock sub-agent failure → tool result is Error/Failure type, not Success",
+      "Test: mock sub-agent success → tool result is Success",
+      "! grep -A5 'result.success.*false\\|!result.success' app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt | grep -q 'textToolSuccess' || echo 'success-on-failure removed'",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "s",
+    "tags": [
+      "error-resilience",
+      "correctness",
+      "P0"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-ondestroy-anr": {
+    "title": "P0: Move onDestroy() shutdown off main thread",
+    "description": "AgentService.onDestroy() (lines 206-237) uses runBlocking { withTimeoutOrNull(5000) { ... submit(Op.Shutdown) ... } }. This blocks the main thread for up to 5 seconds during service restart, risking ANR.\n\nThe naive fix of scope.launch { shutdown } + scope.cancel() won't work — cancelling the scope kills the launched shutdown coroutine.\n\nFix: Use a dedicated shutdown scope that outlives the service scope. Options:\n- CoroutineScope(SupervisorJob() + Dispatchers.Default) with its own 5s timeout, then cancel\n- GlobalScope.launch(NonCancellable + Dispatchers.Default) with timeout\n\nThe session already handles checkpoint persistence via NonCancellable in deliverCompletion, so partial shutdown is tolerable — the main goal is avoiding the main-thread block.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AgentService.kt"
+    ],
+    "acceptCriteria": [
+      "onDestroy() does not call runBlocking on the main thread",
+      "Shutdown Op is dispatched to a scope/coroutine that is not immediately cancelled by onDestroy()",
+      "Shutdown still has a bounded timeout (≤5s) to prevent leaked coroutines",
+      "Normal service teardown still cleans up overlayController, scope, etc.",
+      "! grep -q 'runBlocking' app/src/main/kotlin/com/moonkey/androidagent/app/AgentService.kt",
+      "./gradlew test passes",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "critical",
+    "estimate": "s",
+    "tags": [
+      "error-resilience",
+      "android",
+      "P0"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-task-impossible": {
+    "title": "P1: Split TASK_IMPOSSIBLE from internal ERROR",
+    "description": "CompletionReason.TASK_IMPOSSIBLE exists in protocol and UI/recording layers are wired for it. But AgentStopReason has no TaskImpossible variant. When complete_task(status='failure') is called, Agent.kt maps it to AgentStopReason.Error, and AgentSession maps that to CompletionReason.ERROR. The distinction between 'system fault' and 'agent concluded task is impossible' is thrown away.\n\nFix: Add AgentStopReason.TaskImpossible(message: String). In Agent.kt, convert TurnOutcome.Complete(success=false) to TaskImpossible instead of Error. In AgentSession.toCompletionReason(), map TaskImpossible to CompletionReason.TASK_IMPOSSIBLE.\n\nThis depends on er-completion-correctness because that task changes how completion outcomes flow through AgentTurnRunner — the mapping point for success/failure must be stable first.",
+    "parent": "error-resilience",
+    "depends": [
+      "er-completion-correctness"
+    ],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentRuntimeTypes.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt"
+    ],
+    "acceptCriteria": [
+      "AgentStopReason.TaskImpossible(message: String) exists in AgentRuntimeTypes.kt",
+      "Agent.kt maps TurnOutcome.Complete(success=false) to AgentStopReason.TaskImpossible",
+      "AgentSession.toCompletionReason() maps TaskImpossible to CompletionReason.TASK_IMPOSSIBLE",
+      "Agent.kt maps TurnOutcome.Complete(success=true) to GoalAchieved (unchanged)",
+      "Test: complete_task(status=failure) → CompletionReason is TASK_IMPOSSIBLE, not ERROR",
+      "Test: complete_task(status=success) → CompletionReason is GOAL_ACHIEVED (unchanged)",
+      "Test: real agent error (LLM throws) → CompletionReason is still ERROR",
+      "grep -q 'TaskImpossible' app/src/main/kotlin/com/moonkey/androidagent/agent/AgentRuntimeTypes.kt",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "semantics",
+      "P1"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-harden-cleanup": {
+    "title": "P1: Harden cleanup and observation fallback",
+    "description": "Two independent hardening fixes:\n\n(A) SessionServices.cleanup() (lines 210-237): only platform.stop() is guarded with try/catch. llmClient.cleanup(), llmClientFactory.cleanupAll(), and traceRecorder.close() are unguarded — if any throws, teardown aborts mid-sequence and later cleanup steps never run.\n\nFix A: Wrap each cleanup call independently with try/catch + Log.w. Continue cleanup regardless of individual failures.\n\n(B) TurnExecutionPhaseRunner.captureObservationWithSnapshot() (lines 210-235): called after tool failures without shielding. If screen capture throws (e.g., accessibility service disconnected), a local tool failure escalates to a turn-level failure. Error handling should not itself be fragile.\n\nFix B: Wrap captureObservationWithSnapshot() in runCatching. On failure, fall back to ToolObservation.TextOutput(result.toContextString()) with no new snapshot — the agent still gets the tool result text and can continue.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "Every cleanup call in SessionServices.cleanup() is individually guarded with try/catch",
+      "If llmClient.cleanup() throws, llmClientFactory.cleanupAll() and traceRecorder.close() still execute",
+      "captureObservationWithSnapshot() is wrapped in runCatching (or equivalent try/catch)",
+      "When screen capture fails after a tool failure, the turn continues with a text-only observation",
+      "Test: mock llmClient.cleanup() throw → remaining cleanup steps still run",
+      "Test: mock captureScreen() throw during observation → turn gets text-only observation, no crash",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "error-resilience",
+      "hardening",
+      "P1"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-action-outcome": {
+    "title": "P1: Preserve action outcome semantics end to end",
+    "description": "ActionExecuted carries only success: Boolean, collapsing policy denial, user denial, approval timeout, and real execution failure into the same 'failed' bucket. TurnExecutionPhaseRunner emits '✓ <tool> executed' status even for failed actions. ActionState.Skipped exists in UI model but is never used.\n\nFix: Replace Boolean success with a three-value enum:\n  enum class ActionOutcome { SUCCESS, FAILED, SKIPPED }\n\nDerive from ToolCallResult type (no string matching):\n- ToolCallResult.Success → SUCCESS\n- ToolCallResult.Error → FAILED\n- ToolCallResult.Cancelled → SKIPPED\n\nUpdate ActionExecuted, TurnExecutionPhaseRunner (status emission), AgentServiceEventHandler, and ChatEventReducer to use the enum. Only show ✓ checkmark for SUCCESS. Wire ActionState.Skipped for SKIPPED results.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/ActionEvents.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandler.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatEventReducer.kt"
+    ],
+    "acceptCriteria": [
+      "ActionExecuted uses an enum (ActionOutcome or similar) instead of Boolean success",
+      "ToolCallResult.Success maps to SUCCESS, Error to FAILED, Cancelled to SKIPPED",
+      "TurnExecutionPhaseRunner only emits ✓ status for SUCCESS outcomes",
+      "ChatEventReducer maps SKIPPED to ActionState.Skipped (which already exists in the model)",
+      "AgentServiceEventHandler distinguishes failed from skipped in history recording",
+      "Test: ToolCallResult.Cancelled → ActionExecuted has SKIPPED outcome",
+      "Test: ToolCallResult.Error → ActionExecuted has FAILED outcome",
+      "Test: ToolCallResult.Success → ActionExecuted has SUCCESS outcome, ✓ status emitted",
+      "grep -q 'ActionOutcome\\|SKIPPED' app/src/main/kotlin/com/moonkey/androidagent/protocol/ActionEvents.kt",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "semantics",
+      "P1"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-bootstrap-ux": {
+    "title": "P1: Improve bootstrap/session failure UX",
+    "description": "When session creation or LLM bootstrap fails, the error surfaces only as toast/overlay status text. The user's input text only enters chat on TaskStarted — if startup fails before that event, the input disappears from chat history. The user has no clear path to retry.\n\nFix (scope tightly to three changes):\n1. Preserve the user's pending input text when session creation fails — store it so it can be re-submitted or at least displayed\n2. Surface startup failure as a visible error state in the main chat/session UI (not just toast)\n3. Provide explicit retry/reload affordance\n\nKey files: ChatViewModel handles the submission flow, AgentSession.initializeForFirstTask() is the failure point, ChatEventReducer needs to handle a new 'startup failed' state.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatViewModel.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatEventReducer.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt"
+    ],
+    "acceptCriteria": [
+      "When session creation fails, user's input text is preserved (not silently dropped)",
+      "Startup failure is visible in chat UI as an error message (not just toast/overlay)",
+      "User can retry the failed input without retyping it",
+      "Normal session startup flow is unchanged",
+      "Test: mock bootstrap failure → chat shows error state with user's original input preserved",
+      "./gradlew test passes",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "ux",
+      "P1"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-dead-error-surface": {
+    "title": "P2: Clean up dead typed error surface",
+    "description": "AgentError.kt defines 11 error variants (LLMError, PlatformError, PermissionError, etc.) and SessionLifecycleEvents.kt defines SessionError. Neither is produced by the live runtime — all error paths use TurnErrorClassifier → strings → CompletionReason.ERROR.\n\nAfter P0/P1 fixes land (completion correctness, TASK_IMPOSSIBLE, action outcome), reassess what typed error structure the runtime actually needs. Two options:\n(a) Delete dead types — the semantic fixes already address the concrete problems\n(b) Replace with 3-4 live variants used only where structure materially helps (e.g., LLMError, PlatformError, PolicyError)\n\nDecide based on what gaps remain after P0/P1.",
+    "parent": "error-resilience",
+    "depends": [
+      "er-task-impossible",
+      "er-action-outcome"
+    ],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/AgentError.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionLifecycleEvents.kt"
+    ],
+    "acceptCriteria": [
+      "AgentError.kt either deleted or trimmed to ≤4 variants that are actually produced by runtime code",
+      "If AgentError is kept, at least one call site instantiates each remaining variant",
+      "SessionError either deleted or wired to at least one emitter",
+      "No dead sealed class variants (every variant has a producer)",
+      "grep -c 'AgentError\\.' app/src/main/kotlin/com/moonkey/androidagent/**/*.kt shows usage for every remaining variant (or file is deleted)",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "m",
+    "tags": [
+      "error-resilience",
+      "cleanup",
+      "P2"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-corrupted-history": {
+    "title": "P2: Surface corrupted session history entries",
+    "description": "Session writes are now atomic (temp+rename). The remaining issue is read-side: SessionHistoryManager.extractSessionInfo() returns null when it can't parse a session file, and the manager silently drops the entry from the list. Users get no explanation for missing sessions.\n\nFix: When extractSessionInfo() fails to parse, return a placeholder SessionInfo (or error wrapper) that surfaces in the session list instead of being silently omitted. Add read-time diagnostics logging so corrupted files can be investigated.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatSessionHistoryController.kt"
+    ],
+    "acceptCriteria": [
+      "When a session file can't be parsed, a placeholder entry appears in the session list (not silently dropped)",
+      "The placeholder shows the file name and an indication that the session is corrupted/unreadable",
+      "Corrupted session parse failures are logged at warning level with the file name and exception",
+      "Normal session files still load and display correctly",
+      "Test: write a malformed session file → session list shows placeholder entry for it",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "s",
+    "tags": [
+      "error-resilience",
+      "ux",
+      "P2"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
+  },
+  "er-context-length-msg": {
+    "title": "P2: User-friendly context-length error message",
+    "description": "TurnErrorClassifier (lines 32-50) correctly detects context-length errors via keyword matching and marks them non-recoverable. But the message surfaced to the user is the raw provider text (e.g., 'This model's maximum context length is 128000 tokens'). No actionable guidance.\n\nFix: When isContextLimit is true, override the message with a user-friendly string like 'Conversation too long for model context window. Try starting a new task or reducing the number of turns.' Keep the raw message in the log for debugging.",
+    "parent": "error-resilience",
+    "depends": [],
+    "state": "ready",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnErrorClassifier.kt"
+    ],
+    "acceptCriteria": [
+      "When isContextLimit is true, the returned TurnErrorClassification.message is a user-friendly string (not raw API text)",
+      "The user-friendly message includes actionable guidance (e.g., 'start a new task')",
+      "The raw provider error is still logged at warning/error level for debugging",
+      "Non-context-limit errors are unchanged",
+      "Test: exception with 'maximum context length' → user-facing message is friendly, not raw API text",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "xs",
+    "tags": [
+      "error-resilience",
+      "ux",
+      "P2"
+    ],
+    "created": "2026-04-17T00:08:10+08:00",
+    "updated": "2026-04-17T00:08:10+08:00"
   }
 }
