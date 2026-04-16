@@ -14,7 +14,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,8 +66,21 @@ fun SmartCapsuleSurface(
     onInputFocusChanged: (Boolean) -> Unit = {},
     onInputSubmitted: () -> Unit = {},
     autoFocusInput: Boolean = false,
+    pendingInputText: String = "",
+    onPendingInputConsumed: () -> Unit = {},
+    startupError: String? = null,
+    onDismissStartupError: () -> Unit = {},
 ) {
     var inputText by remember { mutableStateOf("") }
+
+    // Restore preserved input after a session bootstrap failure. Seeds once per
+    // non-empty pendingInputText value, then tells the VM to clear it.
+    LaunchedEffect(pendingInputText) {
+        if (pendingInputText.isNotEmpty()) {
+            inputText = pendingInputText
+            onPendingInputConsumed()
+        }
+    }
     val isTaskActive = mode !is CapsuleMode.Hidden
     val renderSpec = remember(mode, isStopPending, previousMode, transientThought) {
         val baseSpec = CapsuleRenderSpec.from(mode, previousMode, isStopPending)
@@ -134,6 +151,12 @@ fun SmartCapsuleSurface(
                 if (isTaskActive && mode !is CapsuleMode.Done) {
                     CapsuleDivider()
                 }
+                if (startupError != null) {
+                    StartupErrorBanner(
+                        message = startupError,
+                        onDismiss = onDismissStartupError,
+                    )
+                }
                 CapsuleRow3(
                     row3Spec = row3.copy(hint = hintText),
                     inputText = inputText,
@@ -167,6 +190,41 @@ private fun CapsuleDivider() {
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
         thickness = 1.dp,
     )
+}
+
+@Composable
+private fun StartupErrorBanner(
+    message: String,
+    onDismiss: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        shape = RoundedCornerShape(10.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "Dismiss error",
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                )
+            }
+        }
+    }
 }
 
 @Composable

@@ -38,6 +38,10 @@ fun SmartCapsuleCompose(
     onNavigate: (NavAction) -> Unit,
     modifier: Modifier = Modifier,
     previousMode: CapsuleMode? = null,
+    pendingInputText: String = "",
+    onPendingInputConsumed: () -> Unit = {},
+    startupError: String? = null,
+    onDismissStartupError: () -> Unit = {},
 ) {
     SmartCapsuleSurface(
         mode = mode,
@@ -55,5 +59,9 @@ fun SmartCapsuleCompose(
         onNavigate = onNavigate,
         modifier = modifier,
         previousMode = previousMode,
+        pendingInputText = pendingInputText,
+        onPendingInputConsumed = onPendingInputConsumed,
+        startupError = startupError,
+        onDismissStartupError = onDismissStartupError,
     )
 }

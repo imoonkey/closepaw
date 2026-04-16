@@ -76,6 +76,8 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val messages = viewModel.messages
+    val pendingInput by viewModel.pendingInput.collectAsStateWithLifecycle()
+    val startupError by viewModel.startupError.collectAsStateWithLifecycle()
 
     // Collect capsule mode from CapsuleStateHolder (via AgentService singleton).
     // Fallback flows are stable (remembered) to avoid recomposition churn when service is null.
@@ -169,6 +171,10 @@ fun ChatScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         previousMode = stateHolder?.previousMode,
+                        pendingInputText = pendingInput,
+                        onPendingInputConsumed = { viewModel.consumePendingInput() },
+                        startupError = startupError,
+                        onDismissStartupError = { viewModel.dismissStartupError() },
                     )
                 }
             }
