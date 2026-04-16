@@ -1,8 +1,8 @@
 # Test Architecture Review — Final
 
-**Date**: 2026-04-08
-**Source**: Double-design review (Claude + Codex), cross-reviewed, aligned
-**Scope**: 68 test files (~10,293 lines) covering 267 Kotlin production files under `app/src/main/kotlin`
+**Date**: 2026-04-08, revised 2026-04-16
+**Source**: Double-design review (Claude + Codex), cross-reviewed, aligned; re-evaluated against current code 2026-04-16
+**Scope**: 89 test files (~14,371 lines) covering 268 Kotlin production files (~37,509 lines) under `app/src/main/kotlin`
 
 ---
 
@@ -10,7 +10,9 @@
 
 The test suite is **strong for pure, deterministic inner logic** and **weak at runtime boundaries**. Policy engines, prompt construction, history compression, perceptor internals, action targeting, and state-holder logic are well protected. The highest-churn, highest-integration code — LLM wire format, service lifecycle, onboarding/auth, virtual display orchestration, and chat/session coordination — is not.
 
-The suite is not under-tested generically. It is **unevenly tested**. The next gains come from moving coverage outward toward the app's unstable boundaries.
+Since the original April 8 review, significant progress has been made: `llm/` went from 3 to 7 test files, `auth/` and `trace/` are no longer blank, and action executors gained cancellation coverage. However, the core pattern holds: **coverage is unevenly distributed**, concentrated in already-safe inner logic while orchestration seams and external-contract boundaries remain underprotected.
+
+**Known active bug**: `OpenAIErrorClassifier` has false-positive matching (`message.contains("429")` matches status 14291). Tests currently preserve this bug rather than catching it.
 
 ---
 
@@ -30,108 +32,112 @@ The suite is not under-tested generically. It is **unevenly tested**. The next g
 
 | Module | Prod Surface | Test Surface | Rating | Notes |
 |--------|-------------|-------------|--------|-------|
-| `agent/` (incl. cognition, definition, subagent) | 24 files, 3261 lines | 17 files, 2395 lines | **Mixed** | Strong on tool filtering, policies, prompt building, model resolution, sub-agent flow, error recovery. Gaps: TurnPlanningPhaseRunner, TurnExecutionPhaseRunner, AgentTurnRunner |
-| `session/` | 13 files, 1933 lines | 6 files, 639 lines | **Mixed** | AgentSession, ScratchpadState, TodoState covered. SessionCoordinator, SessionAgentRunner, SessionCheckpointCoordinator uncovered |
-| `tool/` (incl. action, impl, handlers) | 36 files, 4746 lines | 16 files, 2644 lines | **Mixed** | Strong on router/policy/validation and click/scroll/long-press. Missing: TypeExecutor, SwipeExecutor, UiChangeDetector, ShellTool, AskUserTool |
-| `perception/` | 6 files, 787 lines | 3 files, 732 lines | **Strong** | Perceptor, PerceptorInternals, ScreenSummary well covered |
-| `history/` | 15 files, 2083 lines | 7 files, 1020 lines | **Strong** | Good coverage of storage, management, recording. MessageConverter uncovered |
-| `memory/` | 3 files, 384 lines | 2 files, 240 lines | **Strong** | Focused coverage of storage and recall |
-| `llm/` | 19 files, 3020 lines | 3 files, 810 lines | **Absent, concerning** | Only ModelCatalog, LLMClientFactory, LFMLLMClient conversion tested. CodexRequestBuilder, CodexSseParser, OpenAIErrorClassifier, CloudStreamRetryPolicy, CloudStreamRetryRunner all untested |
-| `platform/` | 12 files, 1967 lines | 2 files, 549 lines | **Mixed** | NodeActionPerformer and AppManager exercised. AccessibilityPlatform and related runtime logic untested |
-| `platform/virtualdisplay/` | 16 files, 2192 lines | 0 files | **Absent, concerning** | No direct tests. Several pure collaborators (TouchHandler, SurfaceController, CaptureCoordinator) are unit-testable |
+| `agent/` (incl. cognition, definition, subagent) | 24 files, ~3261 lines | 17+ files | **Mixed** | Strong on tool filtering, policies, prompt building, model resolution, sub-agent flow, error recovery, turn outcome decision. Gaps: TurnPlanningPhaseRunner, TurnExecutionPhaseRunner, AgentTurnRunner |
+| `session/` | 13 files, ~1933 lines | 6+ files | **Mixed** | AgentSession, ScratchpadState, TodoState, ServicesCleanup, LlmBootstrapper covered. SessionCoordinator, SessionAgentRunner, SessionCheckpointCoordinator uncovered |
+| `tool/` (incl. action, impl, handlers) | 36 files, ~4746 lines | 16+ files | **Mixed** | Strong on router/policy/validation, click/scroll/long-press. ShellTool validation covered (ShellToolBlocklistTest). Gaps: TypeExecutor success paths (only cancellation tested), AskUserTool, UiChangeDetector |
+| `perception/` | 6 files, ~787 lines | 3 files | **Strong** | Perceptor, PerceptorInternals, ScreenSummary well covered |
+| `history/` | 15 files, ~2083 lines | 7 files | **Strong** | Good coverage of storage, management, recording. MessageConverter uncovered |
+| `memory/` | 3 files, ~384 lines | 2 files | **Strong** | Focused coverage of storage and recall |
+| `llm/` | 19 files, ~3020 lines | 7 files | **Mixed** | ModelCatalog, LLMClientFactory, LFM conversion, CodexSseParser (basic), OpenAIErrorClassifier (has known bug), CloudStreamRetryPolicy, CloudStreamRetryRunner tested. Gaps: CodexRequestBuilder, ChatCompletionInterop, ToolParameterExtractor, client-level tests, interleaved parallel tool-call parsing |
+| `platform/` | 12 files, ~1967 lines | 2 files | **Mixed** | NodeActionPerformer and AppManager exercised. AccessibilityPlatform and related runtime logic untested |
+| `platform/virtualdisplay/` | 16 files, ~2192 lines | 1 file | **Shallow** | VdLifecycleArbiterTest exists. TouchHandler, SurfaceController, CaptureCoordinator still unit-testable but untested |
 
 ### App Runtime, Auth, and Trace
 
 | Module | Prod Surface | Test Surface | Rating | Notes |
 |--------|-------------|-------------|--------|-------|
-| `app/` | 14 files, 3028 lines | 2 files, 477 lines | **Shallow** | Only OverlayLocationPolicy and AppSettingsState. AgentService, AgentServiceEventHandler, ServiceOverlayController uncovered |
-| `auth/` | 3 files, 661 lines | 0 files | **Absent, concerning** | Zero tests for OAuth flow helpers, JWT parsing, token exchange, credential persistence |
-| `onboarding/` | 8 files, 1149 lines | 0 files | **Absent, concerning** | OnboardingViewModel (503 lines of async state machine) with zero direct tests |
-| `trace/` | 11 files, 1249 lines | 0 direct, 1 indirect | **Shallow** | Only one happy-path redaction flow via AgentTraceObservabilityTest. CognitionTraceRedactor, FileTraceRecorder, AgentTraceArtifacts not isolated |
-| `debug/` | 2 files, 435 lines | 0 files | **Absent, acceptable** | Debug-only tooling |
+| `app/` | 14 files, ~3028 lines | 4 files | **Shallow** | OverlayLocationPolicy, AppSettingsState, AppSettingsStoreFailClosed, MainActivityIntentApplierSecurity. AgentService, AgentServiceEventHandler, ServiceOverlayController uncovered |
+| `auth/` | 3 files, ~661 lines | 1 file | **Shallow** | OAuthCredentialStoreFailClosedTest covers fail-closed behavior. OAuth flow helpers, JWT parsing, PKCE construction untested |
+| `onboarding/` | 8 files, ~1149 lines | 0 files | **Absent, concerning** | OnboardingViewModel (503-line async state machine) with zero direct tests |
+| `trace/` | 11 files, ~1249 lines | 2+ files | **Mixed** | CognitionTraceRedactorSecurityTest covers core redaction patterns. FileTraceRecorderTest covers durability. Gaps: AgentTraceArtifacts, LlmInputItemsTraceSerializer, path sanitization, JWT/long-token redaction edge cases |
+| `debug/` | 2 files, ~435 lines | 0 files | **Absent, acceptable** | Debug-only tooling |
 
 ### UI and Presentation
 
 | Module | Prod Surface | Test Surface | Rating | Notes |
 |--------|-------------|-------------|--------|-------|
-| `ui/chat/` | 4 files, 812 lines | 4 files, 184 lines | **Shallow** | Tests only hit helper functions. ChatViewModel, ChatEventReducer, ChatSessionHistoryController effectively untested |
-| `ui/overlay/` + `model/` | 6 files, 643 lines | 4 files, 575 lines | **Strong** | Good state and render-spec coverage |
-| `ui/overlay/compose/`, `ui/overlay/visualizer/` | 10 files, 1230 lines | 0 files | **Absent, acceptable** | Compose/overlay wiring — better via instrumented/UX flows |
-| `ui/settings/`, `ui/onboarding/`, `ui/navigation/`, etc. | 35 files, 5604 lines | 0 files | **Absent, mostly acceptable** | Declarative UI — low unit-test priority unless logic is extracted |
+| `ui/chat/` | 4 files, ~812 lines | 4+ files | **Shallow** | ChatActionExecutionMapping, ChatCompletionMessage, ChatCompletionSummary, ChatRebindEventFilter, ChatStartupFailure tested — but only helpers. ChatViewModel, ChatEventReducer, ChatSessionHistoryController effectively untested |
+| `ui/overlay/` + `model/` | 6 files, ~643 lines | 4 files | **Strong** | Good state and render-spec coverage |
+| `ui/overlay/compose/`, `ui/overlay/visualizer/` | 10 files, ~1230 lines | 0 files | **Absent, acceptable** | Compose/overlay wiring — better via instrumented/UX flows |
+| `ui/settings/`, `ui/onboarding/`, `ui/navigation/`, etc. | 35 files, ~5604 lines | 0 files | **Absent, mostly acceptable** | Declarative UI — low unit-test priority unless logic is extracted |
 
 ### Schemas and Utilities
 
 | Module | Prod Surface | Test Surface | Rating | Notes |
 |--------|-------------|-------------|--------|-------|
-| `protocol/`, `model/`, `util/` | 30 files, 1159 lines | 1 file, 42 lines | **Absent, mostly acceptable** | Dominated by immutable events/enums. Exception: logic-bearing helpers |
+| `protocol/`, `model/`, `util/` | 30 files, ~1159 lines | 1 file | **Absent, mostly acceptable** | Dominated by immutable events/enums |
 | `assets/`, `res/`, `AndroidManifest.xml` | 29 files, ~714 lines | 0 direct | **Absent, acceptable** | Asset loading/path safety covered by AssetAppSkillRepositoryTest |
 
 ---
 
 ## Critical Coverage Gaps (Risk-Ranked)
 
-### 1. LLM Wire-Format, Parser, and Retry Stack (HIGHEST)
+### 1. LLM Contract Boundary — Incomplete and Partially Wrong (HIGHEST)
 
-**Files**: CodexRequestBuilder, CodexSseParser, CodexResponseClient, OpenAIErrorClassifier, CloudLlmRetry, CloudStreamRetryPolicy, CloudStreamRetryRunner
+**Still untested**: CodexRequestBuilder, ChatCompletionInterop, ToolParameterExtractor, CodexResponseClient, OpenAIResponseClient, ChatCompletionClient
 
-**Why highest risk**: This is the external-contract boundary. Incorrect wire format, broken SSE parsing, or wrong retry/error classification leads to silent failures, malformed tool calls, or wasted API credits.
+**Partially tested with known issues**:
+- OpenAIErrorClassifier — **live bug**: naive `message.contains("429")` / `message.contains("500")` matching causes false positives (status 14291 matches 429, status 5002 matches 500). Tests currently preserve the bug.
+- CodexSseParser — basic coverage exists but interleaved parallel tool-call accumulation across multiple `output_index` values is untested.
 
-**Failure modes unprotected today**:
-- Malformed SSE event ordering or trailing-buffer handling
-- Incorrect tool-call argument accumulation across parallel calls
-- Misclassified 429/5xx/network failures
-- Backoff/retry after partial stream output
-- Request-body shape regressions
+**Already fixed**: CloudStreamRetryPolicy (fully tested via `decide()` API), CloudStreamRetryRunner.
 
-### 2. Safety-Sensitive Tools (HIGH)
+**Failure modes still unprotected**:
+- Request-body shape regressions (CodexRequestBuilder)
+- Provider-routing conversion regressions (ChatCompletionInterop)
+- Tool-schema extraction failures (ToolParameterExtractor)
+- Client-level streaming terminal conditions, finish-reason handling, error translation
+- Interleaved parallel tool-call accumulation in SSE parsing
 
-**Files**: ShellTool, AskUserTool
+### 2. Service and Session Orchestration (HIGH)
 
-**Why high risk**: Both sit on behavioral/safety boundaries. ShellTool enforces command guardrails and timeout/output behavior. AskUserTool blocks the agent and controls user-interaction handoff.
-
-**Failure modes**: Blocked-command logic too weak/broad, timeout/truncation regressions, duplicate ask-user handling breaking capsule behavior.
-
-### 3. Service and Session Orchestration (HIGH)
-
-**Files**: AgentService, AgentServiceEventHandler, ServiceOverlayController, SessionCoordinator, SessionAgentRunner, SessionCheckpointCoordinator
+**Files**: AgentServiceEventHandler, SessionCoordinator, SessionCheckpointCoordinator, SessionAgentRunner
 
 **Why high risk**: Runtime shell around the agent. Controls startup, shutdown, event collection, input queuing, overlay coordination, session handoff. Large, stateful, coroutine-driven. Where device failures become user-visible.
 
-### 4. Agent Planning and Execution Orchestration (MEDIUM-HIGH)
+### 3. Agent Planning and Execution Orchestration (HIGH)
 
 **Files**: TurnPlanningPhaseRunner, TurnExecutionPhaseRunner, AgentTurnRunner
 
-**Why**: Connects prompt building, LLM streaming, arbitration, tool execution, observation capture, and event emission. Ingredients are tested but the orchestration seam is not.
+**Why**: Connects prompt building, LLM streaming, arbitration, tool execution, observation capture, and event emission. These now carry more cross-module behavior than the April 8 review recognized. TurnOutcomeDecision is now extracted and tested, but the phase runners themselves are not.
+
+### 4. Safety-Sensitive Tool Boundaries (MEDIUM-HIGH)
+
+**AskUserTool** — still zero direct tests. Tool-level behavior (pending rejection, event emission, timeout output, cancellation mapping) not covered by UserResponseChannelTest.
+
+**ShellTool** — validation covered by ShellToolBlocklistTest. Execution path (timeout, truncation, exit-code formatting, pre-cancel short-circuit) still untested.
+
+**TypeExecutor** — tests exist but only cover cancellation paths. Success behavior (direct set, tap-to-focus fallback, VD-mode no-tap) untested.
 
 ### 5. Onboarding and Auth Flow (MEDIUM-HIGH)
 
-**Files**: OnboardingViewModel (503-line state machine), DefaultOnboardingDemoController, OnboardingStore, PermissionStateMonitor, HttpLlmCredentialValidator, OpenAIOAuth, OAuthCredentialStore
+**Files**: OnboardingViewModel (503 lines, zero tests), OnboardingStore, PermissionStateMonitor, HttpLlmCredentialValidator, OpenAIOAuth (PKCE/JWT helpers)
 
-**Why**: First-run conversion plus credential handling. Multi-step async state machine with zero direct test protection.
+**Why**: First-run conversion plus credential handling. Multi-step async state machine with zero direct test protection. OAuthCredentialStoreFailClosedTest covers only fail-closed storage, not flow logic.
 
-### 6. Trace/Privacy Pipeline (MEDIUM)
+### 6. Chat State Management (MEDIUM)
 
-**Files**: CognitionTraceRedactor, AgentTraceArtifacts, FileTraceRecorder, LlmInputItemsTraceSerializer
+**Files**: ChatEventReducer, ChatSessionHistoryController, ChatViewModel, MessageConverter
 
-**Why**: Privacy bugs are expensive. Current indirect test proves one happy path — doesn't isolate redaction or artifact packaging edge cases.
+**Why**: Helper tests exist (5 files) but actual reducer/controller/viewmodel behavior is untested. Replay cutoff is now covered by ChatRebindEventFilterTest, but delta accumulation, action-card transitions, session lifecycle flows are not.
 
-### 7. Chat State Management (MEDIUM)
+### 7. Trace/Privacy Pipeline (MEDIUM)
 
-**Files**: ChatViewModel, ChatEventReducer, ChatSessionHistoryController, MessageConverter
+**Partially covered**: CognitionTraceRedactorSecurityTest (core patterns), FileTraceRecorderTest (durability).
 
-**Why**: User-visible behavior. Session resume, replay cutoff, streaming update ordering, action-card transitions can regress while helper tests pass.
+**Still untested**: AgentTraceArtifacts, LlmInputItemsTraceSerializer, path sanitization in FileTraceRecorder, JWT/long-token redaction edge cases.
 
-### 8. Action Verification Beyond Click/Scroll/Long-Press (MEDIUM)
-
-**Files**: TypeExecutor, SwipeExecutor, UiChangeDetector, PointActionExecutorCore
-
-**Why**: Action suite is skewed — typing and swipe verification are frequent device failure points but uncovered.
-
-### 9. Virtual Display Pure Collaborators (MEDIUM)
+### 8. Virtual Display Pure Collaborators (MEDIUM)
 
 **Files**: VirtualDisplayViewerTouchHandler, VirtualDisplaySurfaceController, VirtualDisplayCaptureCoordinator
 
-**Why**: "Hard to unit-test" ≠ "should remain untested." Touch handler and surface controller have pure decision logic that's unit-testable today.
+**Why**: Pure decision logic that's unit-testable. VdLifecycleArbiterTest is a start but doesn't cover touch handling, surface switching, or capture fallback.
+
+### 9. SessionLlmBootstrapper — Gained Responsibilities (NEW)
+
+**File**: SessionLlmBootstrapper
+
+**Why**: Current coverage (off-main-thread enforcement + two provider-routing cases) doesn't cover base URL override extraction, fallback catalog loading, asset caching, or missing-key enforcement across model combinations. This is now a real seam given provider-routing complexity.
 
 ---
 
@@ -142,17 +148,16 @@ The suite is not under-tested generically. It is **unevenly tested**. The next g
 1. **Behavior-first testing**: Tests describe user-relevant outcomes, not implementation details
 2. **Descriptive naming**: Backtick-style Kotlin test names are consistently precise
 3. **Fakes over mocks**: FakeAndroidPlatform, scripted LLM clients, RecordingPlatform — readable and refactor-resilient
-4. **Real edge-case coverage**: Inline tool-call recovery, path traversal rejection, hint contamination, duplicate indexing
+4. **Real edge-case coverage**: Inline tool-call recovery, path traversal rejection, hint contamination, duplicate indexing, fail-closed security tests
 5. **Clean structure**: Consistent arrange-act-assert, well-named helpers, TemporaryFolder for filesystem tests
 6. **Correct coroutine testing**: runTest with TestScope, advanceTimeBy, no real delays
 
 ### Issues
 
-1. **Coverage clustering**: 500 test methods concentrated in already-safe files (CapsuleStateHolderTest: 41, PerceptorInternalsTest: 34, ModelCatalogTest: 34) while runtime packages are blank
-2. **Fixture duplication**: 3x RecordingPlatform, 7+ LLMClient fakes, 5x buildServices() helpers — ~530 duplicated lines
-3. **Mixed assertion libraries**: Most use Truth, but LLMClientFactoryTest and ModelCatalogTest use JUnit assertions
-4. **Low-value exact-data assertions**: AgentDefTest snapshots exact tool lists, OpenAppToolTest checks specific alias-map entries — high maintenance, low confidence gain
-5. **Missing boundary/adversarial tests**: Riskiest untested code is where malformed or unexpected input arrives
+1. **Coverage clustering**: Test methods concentrated in already-safe files while runtime/orchestration packages are weak
+2. **Fixture duplication**: Repeated SessionServices assembly and one-off LLM stubs across session/agent tests are the biggest current pain point
+3. **Known-bug-preserving tests**: OpenAIErrorClassifierTest explicitly encodes false-positive matching as "known bug" rather than failing
+4. **Cancellation-only action tests**: TypeExecutor tests cover only cancellation paths, creating false confidence in coverage
 
 ---
 
@@ -165,6 +170,7 @@ The suite is not under-tested generically. It is **unevenly tested**. The next g
 - Per-entry tests for static maps, app-skill content, colors, strings (test loaders and behavior)
 - Broad tests for AndroidManifest, resources, AIDL declarations
 - Virtual display end-to-end unit tests (instrumented coverage territory)
+- Re-testing already-extracted pure logic through larger orchestration tests (e.g., don't re-prove decideTurnOutcome through AgentTurnRunner)
 
 ---
 
@@ -181,3 +187,8 @@ The suite is not under-tested generically. It is **unevenly tested**. The next g
 - **Click executor** (ClickExecutorTest): Node click, gesture fallback, text promotion, hotspot, OOB, verification
 - **Node action performer** (NodeActionPerformerTest): Recycling, hint guard, text entry contamination
 - **Prompt builder** (PromptBuilderTest): Memory, observation, function history, app skill injection
+- **Cloud stream retry** (CloudStreamRetryPolicyTest + CloudStreamRetryRunnerTest): Retryable/non-retryable, backoff, partial output
+- **Turn outcome decision** (TurnOutcomeDecisionTest): Extracted pure logic for turn outcomes
+- **Swipe executor** (SwipeExecutorTest): Cancellation, success with observation, failure
+- **Session services cleanup** (SessionServicesCleanupTest): Resource teardown
+- **Security fail-closed** (AppSettingsStoreFailClosedTest, OAuthCredentialStoreFailClosedTest, MainActivityIntentApplierSecurityTest): Fail-closed behaviors

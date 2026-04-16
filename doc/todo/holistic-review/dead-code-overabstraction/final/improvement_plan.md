@@ -1,8 +1,7 @@
 # Dead Code & Over-Abstraction: Final Improvement Plan
 
-Date: 2026-04-08
-Process: Double-design (Claude + Codex), aligned
-Status: **APPROVED**
+Date: 2026-04-08 (original), 2026-04-16 (reassessed)
+Status: **REASSESSED** — trimmed after post-change verification
 
 ---
 
@@ -23,7 +22,6 @@ Goal: Remove code with zero value and near-zero risk.
 
 - `app/src/main/kotlin/com/moonkey/androidagent/.DS_Store`
 - `app/src/main/kotlin/com/moonkey/androidagent/util/StatusUtils.kt`
-- `app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/DataQueryInvocation.kt`
 - `app/src/main/kotlin/com/moonkey/androidagent/session/SessionServicesSummaryFormatter.kt`
 
 ### 1.2 Delete dead methods from live files
@@ -37,11 +35,10 @@ Goal: Remove code with zero value and near-zero risk.
 - `ToolSpec.ValidationResult.isValid()` — `tool/ToolSpec.kt`
 - `ToolSpec.ToolExecutionResult.isSuccess()` — `tool/ToolSpec.kt`
 - `ActionResult.isSuccess()` — `platform/ActionResult.kt`
-- `AgentRegistry.getAll()` — `agent/subagent/SubAgentRunner.kt`
 
 ### 1.3 Delete dead composables / UI
 
-- `ApiKeysSection` — `ui/settings/ApiKeyFields.kt` (keep `ApiKeyField`, which is used)
+- `ApiKeysSection` — `ui/settings/ApiKeyFields.kt` (keep `ApiKeyField`)
 - `BackendSelector` — `ui/settings/SettingsDropdowns.kt`
 - `SettingsDropdownOptionWithDescription` — `ui/settings/SettingsDropdown.kt`
 
@@ -49,7 +46,7 @@ Goal: Remove code with zero value and near-zero risk.
 
 - `refreshOAuthToken()` — `auth/OpenAiSignIn.kt`
 
-### 1.5 Delete dead field
+### 1.5 Delete dead fields
 
 - `ScreenSnapshotDebug.captureQualityPath` — remove field and setter in `AccessibilityPlatform`
 
@@ -58,39 +55,35 @@ Goal: Remove code with zero value and near-zero risk.
 ```
 ./gradlew :app:compileDebugKotlin
 ./gradlew test
-rg 'StatusUtils|DataQueryInvocation|SessionServicesSummaryFormatter|getSummary|updateApprovalMode|addUserOverride|toFunctionSchema|isValid\(\)|getOutputOrNull|ApiKeysSection|BackendSelector|SettingsDropdownOptionWithDescription|refreshOAuthToken|captureQualityPath' app/src/main/kotlin
 ```
 
 ---
 
-## Phase 2: Dead Parameters, API Surface & Branch
+## Phase 2: Dead Parameters & API Surface
 
-Goal: Remove unused parameters, shrink public API, remove dead branch.
+Goal: Remove unused parameters, shrink public API, remove dead payload plumbing.
 
 ### 2.1 Remove dead constructor parameters
 
 - `OnboardingViewModel.context` — remove param and call-site arg in `MainActivity`
 - `DefaultOnboardingDemoController.modelCatalog` — remove param and call-site arg in `MainActivity`
 
-### 2.2 Remove dead property from hierarchy
-
-- `AgentDef.id` — remove from `AgentDef.kt`, `StandaloneAgentDef.kt`, `PlannerAgentDef.kt`, `ExecutorAgentDef.kt`
-
-### 2.3 Shrink `SessionHistoryManager`
+### 2.2 Shrink `SessionHistoryManager`
 
 - Make `loadSessionByFileName()` private
 - Delete `deleteSessionByFileName()`
 - Delete `getMostRecentSession()`
 - Delete `hasActiveSession()`
 - Delete `endSession()`
+- Remove unused `scope` stored property
 
-### 2.4 Remove dead branch
+### 2.3 Remove dead success-payload plumbing
 
-- Delete `ExecutorStepDecision.WarnApproaching`
-- Simplify `ExecutorStepPolicy.evaluate()` to only emit `Continue` or `ForceStop`
-- Verify `AgentTurnRunner.buildWarnings()` still works (it only handles `ForceStop`)
+- Remove `data` field from `ToolCallResult.Success` — no production reader
+- Remove `data` field from `ToolExecutionResult.Success` — no production reader
+- Remove the now-pointless writers/forwarders in tools and `ToolRouter`
 
-### 2.5 Verify
+### 2.4 Verify
 
 ```
 ./gradlew :app:compileDebugKotlin
@@ -99,15 +92,15 @@ Goal: Remove unused parameters, shrink public API, remove dead branch.
 
 ---
 
-## Phase 3: Interface Simplification
+## Phase 3: Onboarding Abstraction Fix
 
-Goal: Remove single-implementation interfaces and two-phase injection.
+Goal: Remove single-implementation interface and two-phase injection.
 
 ### 3.1 Collapse `OnboardingDemoController`
 
 Current state:
 - `OnboardingViewModel` holds `var demoController: OnboardingDemoController? = null`
-- `MainActivity` constructs `DefaultOnboardingDemoController` and assigns it post-construction
+- `MainActivity` constructs `DefaultOnboardingDemoController` and assigns post-construction
 - One implementation, no test doubles
 
 Change:
@@ -117,19 +110,7 @@ Change:
 4. Remove nullable mutable field from view model
 5. Update `MainActivity` construction site
 
-### 3.2 Collapse `LlmCredentialValidator`
-
-Current state:
-- `LlmCredentialValidator` interface with one implementation: `HttpLlmCredentialValidator`
-- `OnboardingViewModel.createValidatorForProvider()` instantiates concrete type directly
-
-Change:
-1. Delete `LlmCredentialValidator.kt` (interface file)
-2. Move `Result` sealed interface to nest inside `HttpLlmCredentialValidator` (or rename to concrete result type)
-3. `createValidatorForProvider()` returns concrete validator
-4. `validateApiKey()` pattern-matches on concrete result type
-
-### 3.3 Verify
+### 3.2 Verify
 
 ```
 ./gradlew :app:compileDebugKotlin
@@ -140,9 +121,9 @@ Manual smoke: permission steps, API key validation, demo step start/cancel
 
 ---
 
-## Phase 4: Sub-Agent Catalog Simplification
+## Phase 4: Simplify `delegate_task` Tool Boundary
 
-Goal: Keep planner/executor architecture, remove fake catalog flexibility.
+Goal: Remove fake agent-name choice while keeping `AgentDefRegistry` for real role selection.
 
 ### 4.1 Remove `agent_name` from `delegate_task`
 
@@ -151,44 +132,35 @@ Goal: Keep planner/executor architecture, remove fake catalog flexibility.
 3. Hardcode delegation target to executor
 4. Simplify tool description (no "Available agents" listing)
 
-### 4.2 Collapse registry/definition layer
+Note: Keep `AgentRoleDef` / `AgentDefRegistry` — they now resolve 3 real top-level roles.
 
-1. Replace `AgentRegistry.createDefault()` with direct executor config in `SessionAgentRunner`
-2. Either keep a small `ExecutorSubAgentConfig` data holder or inline executor constants
-3. Remove `AgentRegistry`
-4. Remove `ExecutorAgent` object
-5. Remove registry-derived directory prompt generation
-
-Keep:
-- `IsolatedSubAgentRunner`
-- `SubAgentRequest` / `SubAgentResult`
-- Planner/executor architecture
-
-### 4.3 Remove `narrativeSummaryOnLimit`
-
-- Remove from `AgentDefinition` (or wherever defined)
-- Hardcode current `true` behavior in executor step-limit path
-
-### 4.4 Verify
+### 4.2 Verify
 
 ```
 ./gradlew test --tests '*DelegateTaskToolTest'
-./gradlew test --tests '*SubAgentRunnerTest'
 ./gradlew :app:compileDebugKotlin
 ```
 
-Manual smoke: basic mode starts standalone agent, pro mode uses delegate_task, delegated executor completes correctly
+Manual smoke: pro mode uses delegate_task, delegated executor completes correctly
 
 ---
 
-## Phase 5: Optional / Deferred
+## Deferred (Low ROI — Only If Adjacent)
 
-Only pursue if convenient or if touching adjacent code:
+- `LlmCredentialValidator` → tiny single-impl interface, no wiring harm
+- `ScreenSnapshot.hasScreenshot` → one dead computed property
+- `AgentEventDomains.kt` marker interfaces → cosmetic, touches many files
+- `ToolRouterContext` flattening → tests rely on it
 
-- `ToolRouterContext` flattening (single interface/impl, one caller)
-- `AgentEventDomains.kt` marker interfaces (12 markers, no filtering consumers)
-- `AgentError.kt` (pending `SessionError` emission path verification)
-- `ScreenSnapshot.hasScreenshot` (pending independent verification)
+---
+
+## Separate Follow-Up: `AgentError.kt`
+
+Not part of this plan. Requires scoped investigation:
+- Only `PlatformError` is constructed in production
+- `from()` has no callers, `isRecoverable` never read
+- But `SessionError.error` is typed as `AgentError`
+- Need to trace the full `SessionError` emission path before deciding scope
 
 ---
 
@@ -196,20 +168,20 @@ Only pursue if convenient or if touching adjacent code:
 
 ```
 Phase 1 (file/method/field deletions)     — safest, do first
-Phase 2 (params, API surface, dead branch) — safe after Phase 1
-Phase 3 (interface merges)                 — requires renaming + constructor changes
-Phase 4 (sub-agent catalog)               — architectural, requires careful testing
-Phase 5 (optional)                        — defer
+Phase 2 (params, API surface, payload)    — safe after Phase 1
+Phase 3 (onboarding interface merge)      — requires constructor changes
+Phase 4 (delegate_task simplification)    — tool boundary change
 ```
 
 ---
 
 ## Estimated Impact
 
-- **~600+ lines removed**
-- **4 entire files deleted**
-- **2 interfaces collapsed**
-- **17+ dead methods/fields/params removed**
-- **Sub-agent catalog meaningfully simplified**
-- **5 dead sealed class variants / branches removed**
-- **Dead settings UI, auth, and onboarding leftovers cleaned up**
+- **3 entire files deleted**
+- **12 dead methods removed**
+- **3 dead composables removed**
+- **5 dead SessionHistoryManager methods cleaned up**
+- **2 dead constructor params removed**
+- **3 dead fields removed (including success-payload plumbing)**
+- **1 interface collapsed**
+- **delegate_task simplified to single target**

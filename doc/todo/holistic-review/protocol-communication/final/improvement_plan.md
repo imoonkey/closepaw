@@ -1,70 +1,23 @@
-# Protocol & Communication — Final Improvement Plan
+# Protocol & Communication — Improvement Plan
 
-Date: 2026-04-08
-Basis: Codex design (structural base) + Claude tactical items (concrete deletions)
-Status: Aligned — both reviewers APPROVE
+Updated: 2026-04-16 (re-evaluated against current codebase)
+Original: 2026-04-08
 
 ---
 
 ## Goals
 
-- Make the protocol say only what the runtime actually guarantees.
-- Keep the closed command/state sets that already work.
-- Delete speculative surface before introducing new abstraction.
-- Separate durable domain facts from UI projection.
-
-## Guiding Position
-
-Move toward a smaller, sharper contract. No richer inheritance, no generic envelope, no backward-compat hacks.
+- Fix the three concrete bugs: completion semantics, checkpoint persistence, approval validation.
+- Prune dead event surface opportunistically when those files are open.
+- No speculative restructuring — every change must fix a real problem or remove proven dead weight.
 
 ---
 
-## Phase 1: Prune Event Surface (zero behavioral change)
+## Phase 1: Fix Completion Semantics
 
-### 1A. Delete AgentError.kt
+**Problem:** `CompletionReason` conflates task outcome with session shutdown reason, causing session recording to misreport successful tasks as failures when the session later shuts down.
 
-~170 lines, 11 variants + companion factory. Never instantiated anywhere.
-
-**Steps:**
-1. Delete `protocol/AgentError.kt`
-2. Remove `val error: AgentError` from `SessionError` (or delete `SessionError` entirely — see 1B)
-3. `./gradlew assembleDebug`
-
-### 1B. Delete SessionError
-
-Declared in `SessionLifecycleEvents.kt`, handled in consumers, never emitted.
-
-**Steps:**
-1. Remove `SessionError` data class from `SessionLifecycleEvents.kt`
-2. Remove `is SessionError ->` branches from `AgentServiceEventHandler` and `ChatEventReducer`
-3. Clean orphaned imports
-4. Build verify
-
-### 1C. Collapse Marker-Interface Taxonomy
-
-Delete `AgentEventDomains.kt`. Update all 25 event data classes to extend `AgentEvent` directly. Let file grouping carry the domain organization.
-
-### 1D. Remove Dead/Redundant Event Elements
-
-- Remove `StatusUpdate.emoji` field and consumer branching in `AgentServiceEventHandler`
-- Stop emitting `TodosUpdated` and `ScratchpadUpdated` (or delete the event classes entirely)
-- Stop emitting `ApprovalResolved` (UI resolution is local)
-- Remove `ApprovalRequired.actionId` (duplicates `ApprovalDetails.callId`)
-- Remove `TurnStarted.phase` field OR stop emitting initial `TurnPhaseChanged(PERCEPTION)` — pick one
-
-### 1E. Move sanitizeThought()
-
-Move `protocol/TextUtils.kt` → `util/TextUtils.kt`. Update imports in `CapsuleStateHolder.kt`, `TurnPlanningPhaseRunner.kt`, `CapsuleModeTest.kt`.
-
-**Target: ~257 lines removed, ~27 types eliminated. Single commit.**
-
----
-
-## Phase 2: Repair Lifecycle Semantics
-
-### 2A. Split CompletionReason
-
-Replace `CompletionReason` with two enums:
+### 1A. Split CompletionReason into Two Enums
 
 ```kotlin
 enum class TaskOutcome {
@@ -76,126 +29,107 @@ enum class SessionEndReason {
 }
 ```
 
-Update:
-- `TaskCompleted(..., outcome: TaskOutcome)`
-- `SessionCompleted(..., reason: SessionEndReason)`
+### 1B. Update Event Types
 
-This eliminates impossible states from consumers.
+- `TaskCompleted(..., outcome: TaskOutcome)` — replace `reason: CompletionReason`
+- `SessionCompleted(..., reason: SessionEndReason)` — replace `reason: CompletionReason`
+- Remove `SessionCompleted.result` (always null, no consumer)
 
-### 2B. Decide on Hot-Idle Transition Event
+### 1C. Fix Consumers
 
-If UI/recording needs to know when a session becomes reusable after a task, add a dedicated idle-transition event. Otherwise keep hot idle internal and stop overloading `SessionCompleted`.
+Remove impossible branches in:
+- `AgentServiceEventHandler` — `SessionCompleted` handler branches on `GOAL_ACHIEVED`, `MAX_TURNS`, `TASK_IMPOSSIBLE`, `ERROR` (impossible at session level)
+- `CapsuleStateHolder.onSessionEnded()` — same impossible branches
 
----
+### 1D. Fix Session Recording
 
-## Phase 3: Unify Interaction and Approval Naming
+Update `SessionRecordingService.completeSession()` to derive `completedNormally` from the last `TaskCompleted.outcome` rather than the session-level reason. A session that completes a task successfully then idles out should record as successful.
 
-### 3A. Canonical ID Noun
-
-Pick `callId` (or `toolCallId`). Rename `Op.Approve.actionId` → `callId`. Ensure consistency across `Op.Approve`, `ApprovalRequired`, `ApprovalDetails`, and `ToolRouter.resolveApproval()`.
-
-### 3B. Rename Op.Approve
-
-```kotlin
-data class ResolveApproval(
-    val callId: String,
-    val decision: ApprovalDecision,
-    val scope: ApprovalScope = ApprovalScope.ONCE,
-    val packageName: String? = null
-) : Op
-```
-
-### 3C. Immutable Approval Payload
-
-Replace `ApprovalDetails.args: JSONObject` with `JsonObject` (kotlinx.serialization) or `Map<String, Any>` if the UI reads it. If UI never uses args, remove the field.
+**Risk:** Medium — touches event types and all consumers. Build-verify after.
 
 ---
 
-## Phase 4: Reshape SessionConfig
+## Phase 2: Fix Checkpoint Persistence
 
-### 4A. Split by Ownership
+**Problem:** `SessionCheckpointCoordinator` silently drops `actionDelayMs`, `approvalMode`, `debugMode`, `traceEnabled`, `traceRunId`, and `excludedTools` on reload. This can change security posture and tooling behavior.
 
-```kotlin
-data class ExecutionConfig(
-    val maxTurns: Int,
-    val actionDelayMs: Long,
-    val approvalMode: ApprovalMode,
-    val agentMode: AgentMode,
-    val platformMode: PlatformMode,
-    val perceptionConfig: PerceptionConfig
-)
+### 2A. Persist All Runtime-Affecting Fields
 
-data class ModelConfig(
-    val mainModel: String,
-    val executorModel: String?,
-    // backend + local settings — make invalid states unrepresentable
-)
+Add the missing fields to the checkpoint snapshot and restore path in `SessionCheckpointCoordinator`.
 
-data class ObservabilityConfig(
-    val debugMode: Boolean,
-    val traceEnabled: Boolean,
-    val traceRunId: String?
-)
+### 2B. Document Intentionally Non-Persisted Fields
 
-// EvalConfig only if excludedTools belongs in production startup
-```
+If any fields are deliberately transient (e.g., debug-only settings), document that decision explicitly with a comment explaining why.
 
-### 4B. Fix Persistence
-
-Persist and restore every field that materially affects runtime behavior. If some fields are intentionally non-persisted, document that explicitly and enforce it at the type level (separate persisted vs transient configs).
-
-### 4C. Make Invalid LLM States Unrepresentable
-
-Replace `SessionLlmConfig(backendType, localConfig?)` with a sealed type or validated builder that cannot produce contradictory combinations.
+**Risk:** Low — additive change to persistence. Verify with round-trip test.
 
 ---
 
-## Phase 5: Clarify protocol/ Boundary
+## Phase 3: Fix Approval Validation
 
-### Option B (adopted): protocol/ = domain contract
+**Problem:** `handleApproval()` mutates allow-lists before checking if a pending approval exists. Stale/duplicate `Op.Approve` can change security policy without matching a real approval request.
 
-Move out of `protocol/`:
-- `StatusUpdate` → `ui/events/` or `session/events/`
-- `ThoughtUpdate` → same
-- Any emoji/display formatting helpers
+### 3A. Gate Allow-List Mutation on resolveApproval() Success
 
-Keep in `protocol/`:
-- `Op`, `SessionState`, `AgentEvent`, lifecycle events, action events, approval events, perception events
-- Config types, enums, value classes
+Reorder `AgentSession.handleApproval()` so that:
+1. Call `toolRouter.resolveApproval()` first
+2. Only if it returns `true`, persist allow-list changes for `SESSION`/`ALWAYS` scope
+3. If `false`, log a warning and discard the op
+
+**Risk:** Low — small reorder in one method. Critical correctness fix.
+
+---
+
+## Phase 4: Prune Dead Event Surface (opportunistic)
+
+Do these when already editing nearby files from Phases 1-3. Not worth standalone commits.
+
+| Item | Action | When to do it |
+|------|--------|---------------|
+| `TodosUpdated` / `ScratchpadUpdated` | Stop emitting (delete dispatcher methods + event classes) | When touching `AgentEventDispatcher` |
+| `ApprovalResolved` | Stop emitting | When touching `AgentSession` approval path (Phase 3) |
+| `ApprovalRequired.actionId` | Remove field | When touching approval events |
+| `TurnStarted.phase` | Remove field (keep `TurnPhaseChanged` as the canonical signal) | When touching turn events |
+| `StatusUpdate.emoji` | Remove field + consumer branch | When touching status events |
 
 ---
 
 ## Execution Order
 
-| Step | Phase | Risk | Dependency |
-|------|-------|------|------------|
-| 1 | Phase 1 (prune) | None | None — pure deletion |
-| 2 | Phase 2 (lifecycle) | Medium | Touches consumers |
-| 3 | Phase 3 (naming) | Low | Phase 2 stable |
-| 4 | Phase 4 (config) | Medium | Phase 2 stable |
-| 5 | Phase 5 (boundary) | Low | All prior phases |
+| Step | What | Risk | Dependency |
+|------|------|------|------------|
+| 1 | Phase 3: approval validation | Low | None — isolated fix |
+| 2 | Phase 1: completion semantics | Medium | None — but wider change surface |
+| 3 | Phase 2: checkpoint persistence | Low | None |
+| 4 | Phase 4: dead surface cleanup | None | Opportunistic with above |
 
-Phase 1 can land immediately as a single commit. Phases 2-5 should each be separate PRs with build verification.
+Phase 3 is smallest and highest-urgency (security). Phase 1 is highest-value structural fix. Phase 2 is straightforward. Phase 4 rides along.
+
+---
+
+## Explicitly Deferred
+
+These items from the original plan are not worth dedicated effort now:
+
+| Original item | Why deferred |
+|---------------|-------------|
+| Delete `AgentError.kt` | Partially alive (`PlatformError` used for bootstrap failures) |
+| Delete `SessionError` | Now has a real job (bootstrap failure reporting) |
+| Collapse marker interfaces | Broad rename churn, no runtime payoff |
+| Split `SessionConfig` into sub-configs | Concrete bug is persistence loss, not flatness |
+| Make `SessionLlmConfig` states unrepresentable | Call-sites already construct consistently |
+| Rename `Op.Approve` → `ResolveApproval` | Naming-only churn |
+| Unify `actionId`/`callId` naming | Naming debt, not runtime bug |
+| Move UI projection out of `protocol/` | Not a source of breakage |
+| Move `sanitizeThought()` | Cosmetic |
+| Replace `ApprovalDetails.args: JSONObject` | Remove field entirely if touched, don't swap type |
+| Hot-idle transition event | Runtime already handles this correctly |
 
 ---
 
 ## Non-Goals
 
-- Do not add a richer event inheritance tree
-- Do not add a generic message envelope
-- Do not keep backward-compat hacks
-- Do not consolidate single-event files (acceptable at current scale)
-
----
-
-## Summary
-
-| Phase | Lines Removed/Changed | Types Affected | Risk |
-|-------|----------------------|----------------|------|
-| 1. Prune | ~257 removed | ~27 eliminated | None |
-| 2. Lifecycle | ~50 changed | 1 split → 2 | Medium |
-| 3. Naming | ~30 changed | 2-3 renamed | Low |
-| 4. Config | ~100 restructured | 1 split → 3-4 | Medium |
-| 5. Boundary | ~40 moved | 2-3 relocated | Low |
-
-After all phases: a smaller, sharper protocol module where every type earns its place and the contract matches what the runtime actually guarantees.
+- No richer event inheritance
+- No generic message envelope
+- No backward-compat hacks
+- No speculative restructuring for hypothetical future needs

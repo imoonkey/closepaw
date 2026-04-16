@@ -482,7 +482,7 @@
     "description": "AgentTurnRunner.decideCompletion() uses planned tool calls, not executed results. TurnExecutionPhaseRunner.executeActions() returns Unit — the runner has no way to know if complete_task actually ran.\n\nConcrete bug: Model plans remember_experience → complete_task(success). remember_experience fails, execution loop breaks, complete_task never runs. But decideCompletion() only checks planned tools, so the turn reports Complete(success=true).\n\nFix: Return minimal execution metadata from executeActions() — which tool IDs actually executed, whether execution terminated early, and the terminal result. AgentTurnRunner checks that complete_task is in the executed set before emitting TurnOutcome.Complete. If execution broke before complete_task, emit TurnOutcome.Error or TurnOutcome.Cancelled based on the actual terminal result.\n\nKeep it minimal: only add enough data to answer 'did complete_task actually run and succeed?'",
     "parent": "error-resilience",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
@@ -513,7 +513,7 @@
     "description": "TurnExecutionPhaseRunner.emitApprovalRequired() (lines 164-174) wraps the event emitter call in try/catch and swallows exceptions with Log.e(). ToolRouter is already prepared to convert approval-dispatch exceptions into ToolCallResult.Error, but never sees them because emitApprovalRequired suppresses the throw.\n\nResult: if the approval UI/overlay fails to display, the tool waits 60 seconds then returns 'Approval timed out' — blaming the user for not responding to a prompt they never saw.\n\nFix: Remove the try/catch in emitApprovalRequired(). Let the exception propagate to ToolRouter, which already handles it by returning ToolCallResult.Error('Approval request failed: ...'). This is a ~5-line change — delete the try/catch wrapper, keep the event emission.",
     "parent": "error-resilience",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
     ],
@@ -542,7 +542,7 @@
     "description": "DelegateTaskTool (lines 164-177) returns textToolSuccess(...) even when result.success is false. This means: (1) action cards show the delegation as successful, (2) history records it as successful, (3) parent turn control flow cannot distinguish healthy delegation from failed delegation except by parsing text. With PRO mode as default agent mode, this is a core orchestration bug.\n\nFix: When result.success is false, return a failure result type (e.g., ToolExecutionResult.Failure or textToolError) instead of textToolSuccess. Reserve textToolSuccess exclusively for successful delegations. Keep the sub-agent output message in the result so the parent LLM can still read what happened.",
     "parent": "error-resilience",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt"
     ],
@@ -570,7 +570,7 @@
     "description": "AgentService.onDestroy() (lines 206-237) uses runBlocking { withTimeoutOrNull(5000) { ... submit(Op.Shutdown) ... } }. This blocks the main thread for up to 5 seconds during service restart, risking ANR.\n\nThe naive fix of scope.launch { shutdown } + scope.cancel() won't work — cancelling the scope kills the launched shutdown coroutine.\n\nFix: Use a dedicated shutdown scope that outlives the service scope. Options:\n- CoroutineScope(SupervisorJob() + Dispatchers.Default) with its own 5s timeout, then cancel\n- GlobalScope.launch(NonCancellable + Dispatchers.Default) with timeout\n\nThe session already handles checkpoint persistence via NonCancellable in deliverCompletion, so partial shutdown is tolerable — the main goal is avoiding the main-thread block.",
     "parent": "error-resilience",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/app/AgentService.kt"
     ],
@@ -600,7 +600,7 @@
     "depends": [
       "er-completion-correctness"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentRuntimeTypes.kt",
@@ -632,7 +632,7 @@
     "description": "Two independent hardening fixes:\n\n(A) SessionServices.cleanup() (lines 210-237): only platform.stop() is guarded with try/catch. llmClient.cleanup(), llmClientFactory.cleanupAll(), and traceRecorder.close() are unguarded — if any throws, teardown aborts mid-sequence and later cleanup steps never run.\n\nFix A: Wrap each cleanup call independently with try/catch + Log.w. Continue cleanup regardless of individual failures.\n\n(B) TurnExecutionPhaseRunner.captureObservationWithSnapshot() (lines 210-235): called after tool failures without shielding. If screen capture throws (e.g., accessibility service disconnected), a local tool failure escalates to a turn-level failure. Error handling should not itself be fragile.\n\nFix B: Wrap captureObservationWithSnapshot() in runCatching. On failure, fall back to ToolObservation.TextOutput(result.toContextString()) with no new snapshot — the agent still gets the tool result text and can continue.",
     "parent": "error-resilience",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
@@ -661,7 +661,7 @@
     "description": "ActionExecuted carries only success: Boolean, collapsing policy denial, user denial, approval timeout, and real execution failure into the same 'failed' bucket. TurnExecutionPhaseRunner emits '✓ <tool> executed' status even for failed actions. ActionState.Skipped exists in UI model but is never used.\n\nFix: Replace Boolean success with a three-value enum:\n  enum class ActionOutcome { SUCCESS, FAILED, SKIPPED }\n\nDerive from ToolCallResult type (no string matching):\n- ToolCallResult.Success → SUCCESS\n- ToolCallResult.Error → FAILED\n- ToolCallResult.Cancelled → SKIPPED\n\nUpdate ActionExecuted, TurnExecutionPhaseRunner (status emission), AgentServiceEventHandler, and ChatEventReducer to use the enum. Only show ✓ checkmark for SUCCESS. Wire ActionState.Skipped for SKIPPED results.",
     "parent": "error-resilience",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/protocol/ActionEvents.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
@@ -695,7 +695,7 @@
     "description": "When session creation or LLM bootstrap fails, the error surfaces only as toast/overlay status text. The user's input text only enters chat on TaskStarted — if startup fails before that event, the input disappears from chat history. The user has no clear path to retry.\n\nFix (scope tightly to three changes):\n1. Preserve the user's pending input text when session creation fails — store it so it can be re-submitted or at least displayed\n2. Surface startup failure as a visible error state in the main chat/session UI (not just toast)\n3. Provide explicit retry/reload affordance\n\nKey files: ChatViewModel handles the submission flow, AgentSession.initializeForFirstTask() is the failure point, ChatEventReducer needs to handle a new 'startup failed' state.",
     "parent": "error-resilience",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatViewModel.kt",
@@ -729,7 +729,7 @@
       "er-task-impossible",
       "er-action-outcome"
     ],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/protocol/AgentError.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionLifecycleEvents.kt"
@@ -757,7 +757,7 @@
     "description": "Session writes are now atomic (temp+rename). The remaining issue is read-side: SessionHistoryManager.extractSessionInfo() returns null when it can't parse a session file, and the manager silently drops the entry from the list. Users get no explanation for missing sessions.\n\nFix: When extractSessionInfo() fails to parse, return a placeholder SessionInfo (or error wrapper) that surfaces in the session list instead of being silently omitted. Add read-time diagnostics logging so corrupted files can be investigated.",
     "parent": "error-resilience",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatSessionHistoryController.kt"
@@ -785,7 +785,7 @@
     "description": "TurnErrorClassifier (lines 32-50) correctly detects context-length errors via keyword matching and marks them non-recoverable. But the message surfaced to the user is the raw provider text (e.g., 'This model's maximum context length is 128000 tokens'). No actionable guidance.\n\nFix: When isContextLimit is true, override the message with a user-friendly string like 'Conversation too long for model context window. Try starting a new task or reducing the number of turns.' Keep the raw message in the log for debugging.",
     "parent": "error-resilience",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnErrorClassifier.kt"
     ],
@@ -882,7 +882,7 @@
       "er-corrupted-history",
       "er-context-length-msg"
     ],
-    "state": "ready",
+    "state": "done",
     "acceptCriteria": [
       "Codex code review report exists (doc/todo/holistic-review/error-resilience/codex_review.md)",
       "All critical/high findings from review are addressed",
@@ -899,23 +899,23 @@
   },
   "er-qa-real-device": {
     "title": "QA Round: Real Device Validation",
-    "description": "Run end-to-end QA on real device to validate error-resilience fixes don't regress user-facing behavior and the correctness bugs are actually fixed. Test scenarios:\n\n(1) False completion: trigger a task where a cognitive tool fails before complete_task — verify the agent does NOT report success\n(2) Approval dispatch: simulate overlay failure during approval-gated action — verify error is immediate (not 60s timeout)\n(3) Delegate failure: trigger a PRO-mode task where sub-agent fails — verify parent sees failure, not success in action card\n(4) Service restart: force-stop the service mid-task, relaunch — verify no ANR, session recovers\n(5) Action outcome display: trigger a policy-denied action — verify UI shows skipped (not ✓ executed)\n(6) Task impossible: give the agent an impossible task — verify CompletionReason is TASK_IMPOSSIBLE in session history\n(7) Normal multi-turn task: complete a standard task — verify no regression\n\nUse /ux-visual-debug or adb-driven interaction.",
+    "description": "Run automated end-to-end QA on device via adb/accessibility to validate error-resilience fixes don't regress user-facing behavior and correctness bugs are actually fixed. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) False completion: trigger a task where a cognitive tool fails before complete_task — verify agent does NOT report success (check session recording/completion reason)\n(2) Approval dispatch: mock overlay failure path or disconnect overlay — verify error is immediate (not 60s timeout), check logcat for 'Approval request failed'\n(3) Delegate failure: trigger a PRO-mode task where sub-agent fails — verify action card shows failure in chat history JSON\n(4) Service restart: force-stop via adb mid-task, relaunch — verify no ANR in logcat, session checkpoint loads\n(5) Action outcome display: trigger a policy-denied action on a blocked app — verify UI state is Skipped (screenshot + chat model dump)\n(6) Task impossible: give agent an impossible task (e.g., 'open app that doesn't exist') — verify CompletionReason is TASK_IMPOSSIBLE in session record\n(7) Normal multi-turn task: complete a standard task — verify no regression\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence. Write pass/fail report.",
     "parent": "error-resilience",
     "depends": [
       "er-codex-review"
     ],
     "state": "ready",
-    "requireHumanReview": true,
     "acceptCriteria": [
-      "QA report exists with pass/fail per scenario (doc/todo/holistic-review/error-resilience/qa_report.md)",
-      "False completion: agent reports error/failure when complete_task didn't execute",
-      "Approval dispatch failure: error returned immediately, no 60s hang",
-      "Delegate failure: parent action card shows failure, not success",
-      "Service restart: no ANR in logcat, session checkpoint loads correctly",
-      "Action outcome: skipped/denied actions show correct state in chat UI (not ✓)",
-      "Task impossible: session history shows TASK_IMPOSSIBLE reason",
-      "Normal multi-turn task: completes without regression",
-      "No ANR or crash in logcat during QA run"
+      "QA report exists at doc/todo/holistic-review/error-resilience/qa_report.md with pass/fail per scenario",
+      "Each scenario has evidence: logcat excerpt, screenshot, or session JSON snippet",
+      "False completion: session record shows error/failure CompletionReason when complete_task didn't execute",
+      "Approval dispatch failure: logcat shows 'Approval request failed' or similar, no 60s hang",
+      "Delegate failure: session history JSON shows failed action (not success) for delegate_task",
+      "Service restart: no ANR in 'adb logcat -d | grep ANR', checkpoint file exists and loads",
+      "Action outcome: chat model or screenshot shows skipped/denied state (not ✓ executed)",
+      "Task impossible: session record JSON contains TASK_IMPOSSIBLE",
+      "Normal multi-turn task: completes with GOAL_ACHIEVED",
+      "No crash in 'adb logcat -d | grep -i \"fatal\\|crash\"' during QA run"
     ],
     "estimate": "m",
     "tags": [
@@ -923,7 +923,7 @@
       "qa"
     ],
     "created": "2026-04-17T00:20:35+08:00",
-    "updated": "2026-04-17T00:20:35+08:00"
+    "updated": "2026-04-17T05:11:26+08:00"
   },
   "tool-system-design": {
     "parent": null,
@@ -1046,5 +1046,1242 @@
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
     ]
+  },
+  "protocol-communication": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Protocol & Communication Fixes",
+    "description": "Fix three concrete bugs in the protocol module: completion semantics leak into session recording, checkpoint persistence drops runtime-affecting fields, and approval allow-list mutation skips validation. Opportunistic dead event surface cleanup.",
+    "design": "doc/todo/holistic-review/protocol-communication/final/improvement_plan.md",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/**",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/**"
+    ],
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug lint test passes"
+    ],
+    "tags": [
+      "refactor",
+      "bugfix"
+    ],
+    "priority": "high",
+    "created": "2026-04-16T22:06:29Z",
+    "updated": "2026-04-16T22:06:29Z"
+  },
+  "pc-approval-validation": {
+    "parent": "protocol-communication",
+    "depends": [],
+    "state": "ready",
+    "title": "Fix approval allow-list mutation skipping validation",
+    "description": "handleApproval() in AgentSession.kt:589-611 persists allow-list changes via policyEngine.allowPackageForSession/allowPackagePersistent BEFORE calling toolRouter.resolveApproval(). The return value of resolveApproval() is ignored. A stale or duplicate Op.Approve can mutate security policy without matching a pending approval. Fix: call resolveApproval() first, gate allow-list mutation on it returning true, log warning on false.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt"
+    ],
+    "acceptCriteria": [
+      "In handleApproval(): toolRouter.resolveApproval() is called BEFORE any policyEngine.allowPackage* call",
+      "policyEngine.allowPackage* only executes when resolveApproval() returns true",
+      "When resolveApproval() returns false: no allow-list mutation occurs and a warning is logged",
+      "grep -n \"resolveApproval\" AgentSession.kt shows the call appears before any allowPackage line in the method",
+      "./gradlew assembleDebug test passes"
+    ],
+    "tags": [
+      "bugfix",
+      "security"
+    ],
+    "priority": "critical",
+    "estimate": "xs",
+    "created": "2026-04-16T22:07:02Z",
+    "updated": "2026-04-16T22:09:37Z"
+  },
+  "pc-completion-semantics": {
+    "parent": "protocol-communication",
+    "depends": [],
+    "state": "ready",
+    "title": "Split CompletionReason into TaskOutcome + SessionEndReason",
+    "description": "CompletionReason.kt has 7 values shared by TaskCompleted and SessionCompleted, encoding impossible combinations. AgentSession emits task reasons (GOAL_ACHIEVED, MAX_TURNS, TASK_IMPOSSIBLE, ERROR) at task end and session reasons (USER_STOPPED, IDLE_TIMEOUT, INTERRUPTED) at session end, but the type does not enforce this.\n\nConcrete bug: SessionRecordingService.completeSession():211-217 derives completedNormally from the session-level CompletionReason — so a task that succeeds then idles out is recorded as not completed normally.\n\nConsumers with impossible branches:\n- AgentServiceEventHandler:117-127 handles GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE/ERROR for SessionCompleted (never emitted at session level)\n- CapsuleStateHolder.onSessionEnded():258-285 handles GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE for SessionCompleted (never emitted at session level)\n\nPlan: Replace CompletionReason with TaskOutcome + SessionEndReason. Update TaskCompleted/SessionCompleted. Remove SessionCompleted.result (always null). Fix SessionRecordingService to track last task outcome. Remove impossible branches.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/CompletionReason.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/TaskLifecycleEvents.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionLifecycleEvents.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionRecordingService.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandler.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/overlay/CapsuleStateHolder.kt"
+    ],
+    "acceptCriteria": [
+      "CompletionReason.kt no longer exists: test -f .../protocol/CompletionReason.kt fails",
+      "TaskOutcome enum exists with values: GOAL_ACHIEVED, MAX_TURNS, TASK_IMPOSSIBLE, ERROR, USER_STOPPED",
+      "SessionEndReason enum exists with values: USER_STOPPED, IDLE_TIMEOUT, INTERRUPTED",
+      "TaskCompleted.reason replaced by TaskCompleted.outcome: TaskOutcome",
+      "SessionCompleted.reason replaced by SessionCompleted.reason: SessionEndReason",
+      "SessionCompleted.result field removed (was always null)",
+      "grep -rn CompletionReason app/src/ returns zero matches (fully migrated)",
+      "SessionRecordingService derives completedNormally from task-level outcome, not session-level reason",
+      "AgentServiceEventHandler SessionCompleted handler only branches on SessionEndReason values (no GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE/ERROR)",
+      "CapsuleStateHolder.onSessionEnded() only branches on SessionEndReason values",
+      "./gradlew assembleDebug test passes"
+    ],
+    "tags": [
+      "refactor",
+      "bugfix"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "created": "2026-04-16T22:07:03Z",
+    "updated": "2026-04-16T22:09:54Z"
+  },
+  "pc-checkpoint-persistence": {
+    "parent": "protocol-communication",
+    "depends": [],
+    "state": "ready",
+    "title": "Fix checkpoint persistence dropping runtime-affecting fields",
+    "description": "SessionCheckpointCoordinator.buildSnapshot():67-81 creates SessionRuntimeSnapshot via config.toConfigSnapshot(). The snapshot only captures model/agent/perception/platform data. These runtime-affecting fields are silently dropped on reload:\n- actionDelayMs (used in SessionAgentRunner:72-80)\n- approvalMode (security posture)\n- debugMode\n- traceEnabled (used in TraceRecorderFactory:12-16)\n- traceRunId (used in TraceRecorderFactory:35-44)\n- excludedTools (tool availability)\n\nReload can change approval behavior, disable tracing, and alter tool availability without user awareness.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionCheckpointCoordinator.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/history/model/SessionRuntimeSnapshot.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n actionDelayMs SessionCheckpointCoordinator.kt shows the field in both persist and restore paths",
+      "grep -n approvalMode SessionCheckpointCoordinator.kt shows the field in both persist and restore paths",
+      "grep -n traceEnabled SessionCheckpointCoordinator.kt shows the field in both persist and restore paths",
+      "grep -n traceRunId SessionCheckpointCoordinator.kt shows the field in both persist and restore paths",
+      "grep -n excludedTools SessionCheckpointCoordinator.kt shows the field in both persist and restore paths",
+      "grep -n debugMode SessionCheckpointCoordinator.kt shows the field in both persist and restore paths",
+      "Any intentionally non-persisted field has a code comment explaining why",
+      "./gradlew assembleDebug test passes"
+    ],
+    "tags": [
+      "bugfix",
+      "security"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "created": "2026-04-16T22:07:03Z",
+    "updated": "2026-04-16T22:10:06Z"
+  },
+  "pc-dead-event-cleanup": {
+    "parent": "protocol-communication",
+    "depends": [
+      "pc-approval-validation"
+    ],
+    "state": "ready",
+    "title": "Prune dead event surface",
+    "description": "Remove unconsumed events and redundant fields. Evidence from re-evaluation:\n\n1. TodosUpdated/ScratchpadUpdated: emitted from AgentEventDispatcher:98-113, no consumer (all fall to else->Unit)\n2. ApprovalResolved: emitted from AgentSession:601-608, no event consumer (UI resolves locally)\n3. ApprovalRequired.actionId: duplicates details.callId (ApprovalEvents.kt:7). Consumers use details.callId (AgentServiceEventHandler:165-167, ServiceOverlayController:329-345)\n4. TurnStarted.phase: always PERCEPTION (AgentEventDispatcher:52), immediately followed by TurnPhaseChanged(PERCEPTION) (Agent.kt:93-94). ChatEventReducer uses TurnStarted only to clear buffer, not phase.\n5. StatusUpdate.emoji: String?=null, never populated non-null. All status strings embed emoji directly.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/ApprovalEvents.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/PlanningStateEvents.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/TurnEvents.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/StatusEvents.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentEventDispatcher.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandler.kt"
+    ],
+    "acceptCriteria": [
+      "grep -rn TodosUpdated app/src/ returns only the data class definition (no emission site)",
+      "grep -rn ScratchpadUpdated app/src/ returns only the data class definition (no emission site)",
+      "grep -rn ApprovalResolved app/src/ returns only the data class definition (no emission site in AgentSession)",
+      "grep -rn actionId ApprovalEvents.kt returns zero matches (field removed from ApprovalRequired)",
+      "grep -n phase TurnEvents.kt shows no phase field on TurnStarted (TurnPhaseChanged still has it)",
+      "grep -n emoji StatusEvents.kt returns zero matches (field removed from StatusUpdate)",
+      "grep -rn event.emoji AgentServiceEventHandler.kt returns zero matches (consumer branch removed)",
+      "./gradlew assembleDebug test passes"
+    ],
+    "tags": [
+      "refactor"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "created": "2026-04-16T22:07:03Z",
+    "updated": "2026-04-16T22:10:23Z"
+  },
+  "test-architecture": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Test Architecture 改进",
+    "description": "Fix coverage imbalance: suite is strong for pure inner logic but weak at runtime boundaries. Fix known bugs, add boundary/seam tests, cover blank high-risk modules. Based on double-design review (Claude + Codex), re-evaluated against current code 2026-04-16.",
+    "design": "doc/todo/holistic-review/test-architecture/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew test passes",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "high",
+    "tags": [
+      "test-architecture"
+    ],
+    "created": "2026-04-16T22:09:52Z",
+    "updated": "2026-04-16T22:09:52Z"
+  },
+  "dead-code-overabstraction": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "Dead Code & Over-Abstraction 清理",
+    "description": "Remove verified dead code (files, methods, composables, fields, parameters), collapse single-impl onboarding interface, and simplify delegate_task tool boundary. Based on double-design review (Claude + Codex), reassessed 2026-04-16 after multiple code change rounds.",
+    "design": "doc/todo/holistic-review/dead-code-overabstraction/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew test passes",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "normal",
+    "tags": [
+      "cleanup",
+      "dead-code"
+    ],
+    "created": "2026-04-16T22:09:53Z",
+    "updated": "2026-04-16T22:09:53Z"
+  },
+  "dco-safe-deletions": {
+    "parent": "dead-code-overabstraction",
+    "depends": [],
+    "state": "ready",
+    "title": "Phase 1: Safe deletions — dead files, methods, composables, fields",
+    "description": "Delete 3 entire dead files (StatusUtils.kt, SessionServicesSummaryFormatter.kt, .DS_Store), 9 dead methods from live files (SessionServices.getSummary/updateApprovalMode, AppClassifier.addUserOverride+userOverrides, ToolCallResult.isSuccess/getOutputOrNull, ToolSpec.toFunctionSchema/ValidationResult.isValid/ToolExecutionResult.isSuccess, ActionResult.isSuccess), 3 dead composables (ApiKeysSection, BackendSelector, SettingsDropdownOptionWithDescription), 1 dead auth function (refreshOAuthToken), and 1 dead field (ScreenSnapshotDebug.captureQualityPath + its setter in AccessibilityPlatform). All items verified as zero-callers by both Claude and Codex with rg.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/util/StatusUtils.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionServicesSummaryFormatter.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/AppClassifier.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/ActionResult.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/ApiKeyFields.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdowns.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdown.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/auth/OpenAiSignIn.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/model/Models.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt"
+    ],
+    "acceptCriteria": [
+      "app/src/main/kotlin/com/moonkey/androidagent/.DS_Store does not exist",
+      "app/src/main/kotlin/com/moonkey/androidagent/util/StatusUtils.kt does not exist",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionServicesSummaryFormatter.kt does not exist",
+      "rg -c \"getSummary\\(\" app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt returns 0 or fails",
+      "rg -c \"updateApprovalMode\\(\" app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt returns 0 or fails",
+      "rg -c \"addUserOverride\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/AppClassifier.kt returns 0 or fails",
+      "rg -c \"fun isSuccess\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt returns 0 or fails",
+      "rg -c \"fun getOutputOrNull\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt returns 0 or fails",
+      "rg -c \"fun toFunctionSchema\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 or fails",
+      "rg -c \"fun isValid\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 or fails — covers ValidationResult.isValid() and ToolExecutionResult.isSuccess()",
+      "rg -c \"ApiKeysSection\" app/src/main/kotlin/com/moonkey/androidagent/ui/settings/ApiKeyFields.kt returns 0 or fails",
+      "rg -c \"BackendSelector\" app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdowns.kt returns 0 or fails",
+      "rg -c \"SettingsDropdownOptionWithDescription\" app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdown.kt returns 0 or fails",
+      "rg -c \"refreshOAuthToken\" app/src/main/kotlin/com/moonkey/androidagent/auth/OpenAiSignIn.kt returns 0 or fails",
+      "rg -c \"captureQualityPath\" app/src/main/kotlin/com/moonkey/androidagent/model/Models.kt returns 0 or fails",
+      "./gradlew :app:compileDebugKotlin exits 0",
+      "./gradlew test exits 0"
+    ],
+    "estimate": "m",
+    "tags": [
+      "dead-code",
+      "cleanup"
+    ],
+    "created": "2026-04-16T22:10:11Z",
+    "updated": "2026-04-16T22:10:11Z"
+  },
+  "ta-error-classifier": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P1: Fix OpenAIErrorClassifier false-positive matching + rewrite tests",
+    "description": "OpenAIErrorClassifier uses naive message.contains(\"429\") / message.contains(\"500\") matching, causing false positives (status 14291 matches 429, status 5002 matches 500). Tests currently preserve the bug as \"KNOWN BUG\". Fix the classifier to use structured status code comparison, then rewrite tests to assert correct behavior.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIErrorClassifier.kt",
+      "app/src/test/kotlin/com/moonkey/androidagent/llm/OpenAIErrorClassifierTest.kt"
+    ],
+    "acceptCriteria": [
+      "OpenAIErrorClassifier no longer uses message.contains(\"429\") or message.contains(\"500\") for status classification",
+      "No KNOWN BUG tests remain in OpenAIErrorClassifierTest.kt",
+      "Test: HTTP 429 classified as retryable",
+      "Test: HTTP 500/502/503 classified as retryable",
+      "Test: status 14291 NOT falsely classified as 429-like",
+      "Test: status 5002/5003 NOT falsely classified as 500-like",
+      "Test: HTTP 401 classified as non-retryable",
+      "Test: HTTP 400 classified as non-retryable",
+      "Test: error message extraction from response body",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "bug-fix",
+      "P1"
+    ],
+    "created": "2026-04-16T22:10:29Z",
+    "updated": "2026-04-16T22:10:29Z"
+  },
+  "dco-dead-params-api": {
+    "parent": "dead-code-overabstraction",
+    "depends": [
+      "dco-safe-deletions"
+    ],
+    "state": "ready",
+    "title": "Phase 2: Remove dead parameters, API surface, and payload plumbing",
+    "description": "Three independent cleanups:\n\n(A) Remove unused constructor params: OnboardingViewModel.context and DefaultOnboardingDemoController.modelCatalog — delete from both declaration and MainActivity call sites.\n\n(B) Shrink SessionHistoryManager public API: make loadSessionByFileName() private, delete deleteSessionByFileName/getMostRecentSession/hasActiveSession/endSession (all zero-callers), remove unused scope stored property.\n\n(C) Remove dead success-payload plumbing: delete data field from ToolCallResult.Success and ToolExecutionResult.Success. Neither has any production reader. Remove the now-pointless data= arguments from all construction sites (WriteTodosTool, DelegateTaskTool, CompleteTaskTool, AskUserTool, textToolSuccess helper, ToolRouter forwarding).",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/DefaultOnboardingDemoController.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/WriteTodosTool.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/CompleteTaskTool.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/AskUserTool.kt"
+    ],
+    "acceptCriteria": [
+      "rg \"\\bcontext\\b\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt shows no constructor parameter named context (only Android Context usage in methods is fine)",
+      "rg \"modelCatalog\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/DefaultOnboardingDemoController.kt returns 0 matches",
+      "SessionHistoryManager.loadSessionByFileName is private (grep shows private fun loadSessionByFileName)",
+      "rg -c \"fun deleteSessionByFileName|fun getMostRecentSession|fun hasActiveSession|fun endSession\" app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt returns 0",
+      "rg \"\\bscope\\b\" app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt shows no stored scope property (CoroutineScope parameter if any is used, not stored dead)",
+      "rg -c \"val data\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt returns 0 — Success.data field removed",
+      "rg -c \"val data\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 — ToolExecutionResult.Success.data field removed",
+      "rg \"data\\s*=\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt shows no data= forwarding from execution result to call result",
+      "./gradlew :app:compileDebugKotlin exits 0",
+      "./gradlew test exits 0"
+    ],
+    "estimate": "m",
+    "tags": [
+      "dead-code",
+      "cleanup"
+    ],
+    "created": "2026-04-16T22:10:29Z",
+    "updated": "2026-04-16T22:10:29Z"
+  },
+  "ta-codex-request-builder": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P1: Add CodexRequestBuilderTest",
+    "description": "CodexRequestBuilder.kt owns buildRequestBody(), convertInputItems(), and convertTools() with zero direct tests. This is pure serialization at an external-contract boundary — regressions are cheap to create and hard to notice until runtime.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/llm/CodexRequestBuilderTest.kt"
+    ],
+    "acceptCriteria": [
+      "CodexRequestBuilderTest.kt exists with >=5 test methods",
+      "Test: user vs assistant content conversion produces correct JSON structure",
+      "Test: function-call input item serializes tool name, call_id, and arguments",
+      "Test: function-call output item serializes call_id and output string",
+      "Test: convertTools() produces valid JSON Schema for each tool",
+      "Test: system message placed correctly in input items",
+      "Test: empty/missing optional fields do not produce null or crash",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P1"
+    ],
+    "created": "2026-04-16T22:10:29Z",
+    "updated": "2026-04-16T22:10:29Z"
+  },
+  "ta-chat-completion-interop": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P1: Add ChatCompletionInteropTest",
+    "description": "ChatCompletionInterop.kt converts between ResponseInputItem/FunctionTool and Chat Completions types. Now a real external-contract boundary since provider routing uses ChatCompletionClient for OpenRouter/chat-style models. Zero direct tests.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/llm/ChatCompletionInteropTest.kt"
+    ],
+    "acceptCriteria": [
+      "ChatCompletionInteropTest.kt exists with >=4 test methods",
+      "Test: assistant text + grouped tool-call conversion produces correct ChatCompletionMessage",
+      "Test: multimodal user content (text + image) converts correctly",
+      "Test: system-role normalization works for different input formats",
+      "Test: function-call input/output maps to chat completions function format",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P1"
+    ],
+    "created": "2026-04-16T22:10:29Z",
+    "updated": "2026-04-16T22:10:29Z"
+  },
+  "ta-tool-parameter-extractor": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P1: Add ToolParameterExtractorTest",
+    "description": "ToolParameterExtractor.kt handles known/unknown/raw tool-schema representations from the OpenAI SDK, feeding CodexRequestBuilder.convertTools(). Broken schema extraction silently breaks tool calling for all providers. Zero direct tests.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/llm/ToolParameterExtractorTest.kt"
+    ],
+    "acceptCriteria": [
+      "ToolParameterExtractorTest.kt exists with >=3 test methods",
+      "Test: known SDK parameter type extracts correct JSON Schema",
+      "Test: unknown/raw parameter type passes through without corruption",
+      "Test: empty or missing parameters handled gracefully (no crash, produces valid schema)",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P1"
+    ],
+    "created": "2026-04-16T22:10:30Z",
+    "updated": "2026-04-16T22:10:30Z"
+  },
+  "ta-codex-sse-parser-extend": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P1: Extend CodexSseParserTest with interleaved parallel tool-call tests",
+    "description": "CodexSseParserTest exists with basic coverage but misses the highest-value case: interleaved parallel tool calls across multiple output_index values. Every current accumulator test uses a single output index.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/llm/CodexSseParserTest.kt"
+    ],
+    "acceptCriteria": [
+      "Test: interleaved tool-call deltas across >=2 output_index values accumulate into distinct, complete tool calls",
+      "Test: parallel tool-call argument assembly with interleaved chunks produces correct per-call arguments",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P1"
+    ],
+    "created": "2026-04-16T22:10:30Z",
+    "updated": "2026-04-16T22:10:30Z"
+  },
+  "ta-llm-client-tests": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P1: Add selected LLM client-level tests",
+    "description": "CodexResponseClient, OpenAIResponseClient, and ChatCompletionClient have zero direct tests. Client orchestration (request construction, streaming terminal conditions, tool-call accumulation, error translation) is where provider regressions actually manifest. Focus on pure logic, not network calls.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/llm/CodexResponseClientTest.kt",
+      "app/src/test/kotlin/com/moonkey/androidagent/llm/ChatCompletionClientTest.kt"
+    ],
+    "acceptCriteria": [
+      "At least one of CodexResponseClientTest.kt or ChatCompletionClientTest.kt exists",
+      "Test: request construction produces correct headers/body for the target provider",
+      "Test: streaming finish-reason handling (stop, tool_calls, length) maps to correct result type",
+      "Test: error from provider maps to classified LLM error (not raw exception)",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "P1"
+    ],
+    "created": "2026-04-16T22:10:30Z",
+    "updated": "2026-04-16T22:10:30Z"
+  },
+  "dco-onboarding-abstraction": {
+    "parent": "dead-code-overabstraction",
+    "depends": [
+      "dco-dead-params-api"
+    ],
+    "state": "ready",
+    "title": "Phase 3: Collapse OnboardingDemoController into concrete class with constructor injection",
+    "description": "OnboardingDemoController is a single-implementation interface with harmful two-phase wiring: OnboardingViewModel holds a nullable mutable var that MainActivity assigns post-construction. This creates an invalid partially-wired state window.\n\nFix:\n1. Delete OnboardingDemoController.kt (interface file)\n2. Rename DefaultOnboardingDemoController to OnboardingDemoController (concrete class)\n3. Add it as a constructor parameter of OnboardingViewModel\n4. Remove the nullable mutable \"var demoController: OnboardingDemoController? = null\" field\n5. Update MainActivity to pass the concrete controller at ViewModel construction time\n6. Update all demoController?.method() calls to non-nullable demoController.method()",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingDemoController.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/DefaultOnboardingDemoController.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt"
+    ],
+    "acceptCriteria": [
+      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingDemoController.kt either does not exist (interface deleted) or is the renamed concrete class (not an interface)",
+      "! rg -q \"interface OnboardingDemoController\" app/src/main/kotlin/com/moonkey/androidagent/ — no interface declaration exists anywhere",
+      "rg -q \"class.*OnboardingDemoController\" app/src/main/kotlin/com/moonkey/androidagent/ — concrete class exists",
+      "! rg -q \"var demoController.*=\\s*null\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt — no nullable late-assigned field",
+      "rg -q \"demoController\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt — controller is still referenced (as constructor param)",
+      "! rg -q \"vm\\.demoController\\s*=\" app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt — no post-construction assignment",
+      "! rg -q \"demoController\\?\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt — no nullable access (?.)",
+      "./gradlew :app:compileDebugKotlin exits 0",
+      "./gradlew test exits 0"
+    ],
+    "estimate": "s",
+    "tags": [
+      "over-abstraction",
+      "onboarding"
+    ],
+    "created": "2026-04-16T22:10:46Z",
+    "updated": "2026-04-16T22:10:46Z"
+  },
+  "pc-codex-review": {
+    "parent": "protocol-communication",
+    "depends": [
+      "pc-approval-validation",
+      "pc-completion-semantics",
+      "pc-checkpoint-persistence",
+      "pc-dead-event-cleanup"
+    ],
+    "state": "ready",
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all protocol-communication changes to Codex for systematic code review. Codex reviews the diff of all pc-* implementation tasks against the aligned design (doc/todo/holistic-review/protocol-communication/final/improvement_plan.md). Fix any critical/high findings before proceeding to QA. Use /code-review skill via multmux.",
+    "acceptCriteria": [
+      "Codex code review report exists at doc/todo/holistic-review/protocol-communication/final/codex_review.md",
+      "All critical/high findings from review are addressed",
+      "./gradlew assembleDebug test passes after fixes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "protocol",
+      "review"
+    ],
+    "created": "2026-04-16T22:10:47Z",
+    "updated": "2026-04-16T22:10:47Z"
+  },
+  "pc-qa-real-device": {
+    "parent": "protocol-communication",
+    "depends": [
+      "pc-codex-review"
+    ],
+    "state": "ready",
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on device via adb/accessibility to validate protocol fixes do not regress user-facing behavior and bugs are actually fixed. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) Approval validation: trigger an approval, dismiss it, then replay the same Op.Approve via adb intent or logcat injection — verify allow-list was NOT mutated (check policyEngine state or logcat for warning)\n(2) Completion recording: complete a task successfully (GOAL_ACHIEVED), then let session idle timeout — verify session recording JSON shows task as completed normally (not failed)\n(3) Checkpoint round-trip: start session with non-default config (e.g. custom actionDelayMs or approvalMode via settings), trigger checkpoint, force-stop and relaunch — verify restored config matches original (check logcat for config values)\n(4) Dead event surface: run a normal task with logcat filtering for TodosUpdated, ScratchpadUpdated, ApprovalResolved — verify these events no longer appear in the event stream\n(5) Normal multi-turn task: complete a standard task — verify GOAL_ACHIEVED in session record and no regression in chat UI\n(6) Session error: trigger a bootstrap failure (e.g. invalid API key) — verify SessionError surfaces in chat UI with error message\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence. Write pass/fail report.",
+    "acceptCriteria": [
+      "QA report exists at doc/todo/holistic-review/protocol-communication/final/qa_report.md with pass/fail per scenario",
+      "Each scenario has evidence: logcat excerpt, screenshot, or session JSON snippet",
+      "Approval validation: logcat shows warning when stale approval is rejected, no allow-list mutation observed",
+      "Completion recording: session record JSON shows completedNormally=true for successful task even after idle timeout shutdown",
+      "Checkpoint round-trip: restored config matches original — logcat or debugger shows actionDelayMs/approvalMode/traceEnabled preserved",
+      "Dead events: logcat grep for TodosUpdated|ScratchpadUpdated|ApprovalResolved returns no matches during task execution",
+      "Normal task: completes with GOAL_ACHIEVED (or TaskOutcome equivalent), chat UI shows success state",
+      "Session error: bootstrap failure shows error message in chat, not a blank screen or crash",
+      "No crash in adb logcat -d | grep -i fatal|crash during QA run"
+    ],
+    "estimate": "m",
+    "tags": [
+      "protocol",
+      "qa"
+    ],
+    "created": "2026-04-16T22:10:47Z",
+    "updated": "2026-04-16T22:10:47Z"
+  },
+  "ta-turn-planning-phase": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P2: Add TurnPlanningPhaseRunnerTest",
+    "description": "TurnPlanningPhaseRunner.runPlanningPhase() now does more than originally recognized: prompt building, screen-observation history write, model resolution, trace request/response logging, arbitration, dropped-tool warnings, and agent_thought emission. Zero direct tests.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/agent/TurnPlanningPhaseRunnerTest.kt"
+    ],
+    "acceptCriteria": [
+      "TurnPlanningPhaseRunnerTest.kt exists with >=4 test methods",
+      "Test: planning phase writes screen observation to history before LLM call",
+      "Test: arbitration warning emitted when tools are dropped by policy",
+      "Test: agent_thought event emitted during planning with LLM reasoning content",
+      "Test: model resolution selects correct model for planning phase",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "P2"
+    ],
+    "created": "2026-04-16T22:10:57Z",
+    "updated": "2026-04-16T22:10:57Z"
+  },
+  "ta-turn-execution-phase": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P2: Add TurnExecutionPhaseRunnerTest",
+    "description": "TurnExecutionPhaseRunner.executeActions() is the execution seam where most cross-module regressions happen. TurnOutcomeDecision is now extracted and tested, but the phase runner itself (history writes, approval emission, observation capture, abort-on-failure) is not.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunnerTest.kt"
+    ],
+    "acceptCriteria": [
+      "TurnExecutionPhaseRunnerTest.kt exists with >=4 test methods",
+      "Test: tool execution result captured as observation in history",
+      "Test: approval event emitted before executing policy-gated tool",
+      "Test: execution aborts remaining tools after first critical failure",
+      "Test: post-action observation (screen state) captured after tool execution",
+      "Does NOT re-test decideTurnOutcome logic (already covered by TurnOutcomeDecisionTest)",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "P2"
+    ],
+    "created": "2026-04-16T22:10:57Z",
+    "updated": "2026-04-16T22:10:57Z"
+  },
+  "ta-session-coordinator": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P2: Add SessionCoordinatorTest",
+    "description": "SessionCoordinator is stateful, concurrent, user-visible. Owns submit(), createAndSubmit(), enqueue(), attachSession(), detachSession(), consumeDeadSessionFileName(), clearSession(), and automatic drain logic. Zero direct tests. Easy to regress with subtle queueing bugs.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/session/SessionCoordinatorTest.kt"
+    ],
+    "acceptCriteria": [
+      "SessionCoordinatorTest.kt exists with >=4 test methods",
+      "Test: submit() with active session executes immediately",
+      "Test: enqueue() without active session queues and drains on attach",
+      "Test: consumeDeadSessionFileName() returns filename once then null",
+      "Test: clearSession() tears down and clears state",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "P2"
+    ],
+    "created": "2026-04-16T22:10:58Z",
+    "updated": "2026-04-16T22:10:58Z"
+  },
+  "ta-agent-service-event-handler": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P2: Add AgentServiceEventHandlerTest",
+    "description": "AgentServiceEventHandler.handleEvent() contains a large when-expression over agent events, mutating recording state, status text, and overlay behavior. It is an extracted side-effect hub that unit tests should hit directly. Zero direct tests.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandlerTest.kt"
+    ],
+    "acceptCriteria": [
+      "AgentServiceEventHandlerTest.kt exists with >=3 test methods",
+      "Test: task-started event updates status text and starts recording",
+      "Test: task-completed event updates overlay state and stops recording",
+      "Test: error event surfaces error message in status text",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "P2"
+    ],
+    "created": "2026-04-16T22:10:58Z",
+    "updated": "2026-04-16T22:10:58Z"
+  },
+  "ta-session-checkpoint": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P2: Add SessionCheckpointCoordinatorTest",
+    "description": "SessionCheckpointCoordinator owns checkpoint scheduling and snapshot conversion logic. Was quietly dropped from the original plan but still has zero direct tests. Identified as a gap in the re-evaluation.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/session/SessionCheckpointCoordinatorTest.kt"
+    ],
+    "acceptCriteria": [
+      "SessionCheckpointCoordinatorTest.kt exists with >=2 test methods",
+      "Test: checkpoint scheduling triggers at configured interval",
+      "Test: snapshot conversion produces valid checkpoint data from session state",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "P2"
+    ],
+    "created": "2026-04-16T22:10:58Z",
+    "updated": "2026-04-16T22:10:58Z"
+  },
+  "dco-delegate-task-simplify": {
+    "parent": "dead-code-overabstraction",
+    "depends": [
+      "dco-dead-params-api"
+    ],
+    "state": "ready",
+    "title": "Phase 4: Remove agent_name from delegate_task tool",
+    "description": "DelegateTaskTool requires agent_name in its parameter schema and validation, but AgentDefRegistry.delegatableRoles() returns exactly one entry (ExecutorRoleDef). The planner is forced to \"choose\" among one valid option. This is fake flexibility that wastes a tool parameter and complicates the tool description injected into the planner prompt.\n\nFix:\n1. Remove agent_name from DelegateTaskTool.parameterSchema\n2. Remove agent_name validation and lookup logic in execute()\n3. Hardcode delegation target to executor role (resolve via AgentDefRegistry.delegatableRoles().single() or direct reference)\n4. Simplify tool description — remove \"Available agents:\" listing\n\nKeep AgentRoleDef/AgentDefRegistry — they resolve 3 real top-level roles and are not over-abstracted.",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt"
+    ],
+    "acceptCriteria": [
+      "rg -c \"agent_name\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt returns 0 — parameter completely removed from schema and execution",
+      "! rg -q \"Available agents\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt — no agent directory in tool description",
+      "rg -q \"delegatable\\|ExecutorRoleDef\\|executor\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt — executor target is resolved, not hardcoded string",
+      "DelegateTaskToolTest still passes: ./gradlew test --tests \"*DelegateTaskToolTest\" exits 0",
+      "./gradlew :app:compileDebugKotlin exits 0",
+      "./gradlew test exits 0"
+    ],
+    "estimate": "s",
+    "tags": [
+      "over-abstraction",
+      "tool-system"
+    ],
+    "created": "2026-04-16T22:11:01Z",
+    "updated": "2026-04-16T22:11:01Z"
+  },
+  "dco-codex-review": {
+    "parent": "dead-code-overabstraction",
+    "depends": [
+      "dco-safe-deletions",
+      "dco-dead-params-api",
+      "dco-onboarding-abstraction",
+      "dco-delegate-task-simplify"
+    ],
+    "state": "ready",
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all dead-code-overabstraction changes to Codex for systematic code review. Codex reviews the diff of all dco-* implementation tasks against the aligned design (doc/todo/holistic-review/dead-code-overabstraction/final/improvement_plan.md). Fix any critical/high findings before proceeding to QA. Use /code-review skill via multmux.",
+    "acceptCriteria": [
+      "Codex code review report exists at doc/todo/holistic-review/dead-code-overabstraction/codex_review.md",
+      "All critical/high findings from review are addressed",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "dead-code",
+      "review"
+    ],
+    "created": "2026-04-16T22:11:11Z",
+    "updated": "2026-04-16T22:11:11Z"
+  },
+  "dco-qa-validation": {
+    "parent": "dead-code-overabstraction",
+    "depends": [
+      "dco-codex-review"
+    ],
+    "state": "ready",
+    "title": "QA Round: Build + Smoke Validation",
+    "description": "Validate that dead-code-overabstraction changes do not regress any user-facing behavior. Run build, full test suite, lint, and targeted manual smoke tests on device.\n\nSmoke scenarios:\n(1) Onboarding flow: fresh install, walk through permissions + API key validation + demo step start/cancel — validates OnboardingDemoController constructor injection works\n(2) Settings UI: open settings, verify no crashes or missing UI elements from composable deletions\n(3) PRO mode delegation: start a multi-turn PRO task — validates delegate_task works without agent_name parameter\n(4) Session history: load previous sessions, verify list renders correctly after SessionHistoryManager API surface shrink\n(5) Normal single-turn task: complete a standard task — verify no regression from ToolCallResult/ToolExecutionResult payload removal\n\nCapture logcat, screenshots, and session JSON as evidence.",
+    "acceptCriteria": [
+      "QA report exists at doc/todo/holistic-review/dead-code-overabstraction/qa_report.md with pass/fail per scenario",
+      "./gradlew assembleDebug exits 0",
+      "./gradlew test exits 0",
+      "./gradlew lint exits 0 (no new warnings)",
+      "Onboarding flow: permissions, API key entry, and demo step all function — screenshot evidence",
+      "Settings UI: settings sheet opens without crash, no missing sections — screenshot evidence",
+      "PRO mode: delegate_task executes without agent_name, sub-agent completes — logcat shows delegation success",
+      "Session history: previous sessions render in list, tapping loads session — screenshot evidence",
+      "Normal task: single-turn task completes with GOAL_ACHIEVED — session JSON shows correct CompletionReason",
+      "No crash in adb logcat during QA run: adb logcat -d | grep -i \"fatal\\|crash\" returns no androidagent matches"
+    ],
+    "estimate": "m",
+    "tags": [
+      "dead-code",
+      "qa"
+    ],
+    "created": "2026-04-16T22:11:28Z",
+    "updated": "2026-04-16T22:11:28Z"
+  },
+  "ta-ask-user-tool": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P3: Add AskUserToolTest",
+    "description": "AskUserTool has zero direct tests. UserResponseChannelTest tests the channel primitive, not the tool. Tool-level behavior (pending rejection when another ask is active, event emission, timeout output, cancellation mapping) is unprotected.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/tool/impl/AskUserToolTest.kt"
+    ],
+    "acceptCriteria": [
+      "AskUserToolTest.kt exists with >=3 test methods",
+      "Test: second ask-user request rejected while first is pending",
+      "Test: timeout produces formatted timeout output (not hang or crash)",
+      "Test: cancellation maps to appropriate tool output",
+      "Test: successful user response forwarded as tool result",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P3"
+    ],
+    "created": "2026-04-16T22:11:41Z",
+    "updated": "2026-04-16T22:11:41Z"
+  },
+  "ta-shell-tool-execution": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P3: Extend ShellTool tests with execution path coverage",
+    "description": "ShellToolBlocklistTest covers validate() (blocked commands, metacharacters, safe commands). The execution path in ShellInvocation.execute() (timeout, output truncation, exit-code formatting, pre-cancel short-circuit) is still untested.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/tool/impl/ShellToolBlocklistTest.kt",
+      "app/src/test/kotlin/com/moonkey/androidagent/tool/impl/ShellToolExecutionTest.kt"
+    ],
+    "acceptCriteria": [
+      "Execution-path tests exist (in new file or extending existing)",
+      "Test: command execution timeout produces timeout-specific output",
+      "Test: long output truncated to configured limit",
+      "Test: exit code included in formatted output",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P3"
+    ],
+    "created": "2026-04-16T22:11:41Z",
+    "updated": "2026-04-16T22:11:41Z"
+  },
+  "ta-type-executor-extend": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P3: Extend TypeExecutorTest with success/failure paths",
+    "description": "TypeExecutorTest exists but every test is a cancellation-path test. The main success/failure behavior is unproven: direct set success, tap-to-focus fallback, no editable target failure, VD-mode behavior. Cancellation-only coverage creates false confidence.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/tool/action/TypeExecutorTest.kt"
+    ],
+    "acceptCriteria": [
+      "Test: direct text set success into focused editable field produces success result",
+      "Test: tap-to-focus fallback triggered and succeeds when no initially focused element",
+      "Test: returns failure result when no editable element found",
+      "Test: VD mode disables tap-to-focus fallback (uses direct set only)",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P3"
+    ],
+    "created": "2026-04-16T22:11:41Z",
+    "updated": "2026-04-16T22:11:41Z"
+  },
+  "ta-onboarding-viewmodel": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P4: Add OnboardingViewModelTest",
+    "description": "OnboardingViewModel is a 503-line async state machine with permission polling, provider selection, OAuth/manual auth branching, draft-key persistence, demo preflight, step skipping, and auto-advance timing. Zero direct tests — one of the highest-value blank areas in the entire codebase.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModelTest.kt"
+    ],
+    "acceptCriteria": [
+      "OnboardingViewModelTest.kt exists with >=5 test methods",
+      "Test: step selection on startup derives correct initial step from stored outcomes + permission state",
+      "Test: accessibility permission poll triggers re-check after return from settings",
+      "Test: OAuth success transition advances to next step",
+      "Test: OAuth error transition shows error state without advancing",
+      "Test: manual API-key validation success advances to next step",
+      "Test: manual API-key invalid-key error stays on current step with error message",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "P4"
+    ],
+    "created": "2026-04-16T22:11:42Z",
+    "updated": "2026-04-16T22:11:42Z"
+  },
+  "ta-onboarding-store": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P4: Add OnboardingStoreTest",
+    "description": "OnboardingStore owns outcome persistence, auth-method storage, encrypted draft-key storage, and migration behavior. Not covered by fail-closed tests in other store tests.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/onboarding/OnboardingStoreTest.kt"
+    ],
+    "acceptCriteria": [
+      "OnboardingStoreTest.kt exists with >=3 test methods",
+      "Test: outcome persistence round-trips (write then read returns same value)",
+      "Test: auth-method storage persists selected method",
+      "Test: draft-key storage writes and reads encrypted key",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P4"
+    ],
+    "created": "2026-04-16T22:11:42Z",
+    "updated": "2026-04-16T22:11:42Z"
+  },
+  "ta-permission-state-monitor": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P4: Add PermissionStateMonitorTest",
+    "description": "PermissionStateMonitor.deriveRepairModel() is pure logic that determines which permissions need repair. Very cheap to test, high leverage.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/onboarding/PermissionStateMonitorTest.kt"
+    ],
+    "acceptCriteria": [
+      "PermissionStateMonitorTest.kt exists with >=3 test methods",
+      "Test: all permissions granted → empty repair model",
+      "Test: accessibility missing → repair model includes accessibility",
+      "Test: multiple permissions missing → repair model includes all missing",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "test-architecture",
+      "P4"
+    ],
+    "created": "2026-04-16T22:11:42Z",
+    "updated": "2026-04-16T22:11:42Z"
+  },
+  "ta-http-credential-validator": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P4: Add HttpLlmCredentialValidatorTest",
+    "description": "HttpLlmCredentialValidator maps HTTP codes, SSL failures, timeouts, and IO failures into user-facing states. Classic high-leverage unit-test territory.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/onboarding/HttpLlmCredentialValidatorTest.kt"
+    ],
+    "acceptCriteria": [
+      "HttpLlmCredentialValidatorTest.kt exists with >=4 test methods",
+      "Test: HTTP 200 → valid credential state",
+      "Test: HTTP 401/403 → invalid-key state",
+      "Test: HTTP 429/5xx → transient-error state (not invalid-key)",
+      "Test: timeout/IO exception → transient-error state",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P4"
+    ],
+    "created": "2026-04-16T22:11:42Z",
+    "updated": "2026-04-16T22:11:42Z"
+  },
+  "ta-openai-oauth-helpers": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P4: Add OpenAIOAuth pure helper tests",
+    "description": "OpenAIOAuth has pure helpers for PKCE, URL construction, JWT parsing, callback parsing, and token expiry calculation. Test pure logic only, not live OAuth flow. May require extract-then-test refactor.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/auth/OpenAIOAuthTest.kt"
+    ],
+    "acceptCriteria": [
+      "OpenAIOAuthTest.kt exists with >=3 test methods",
+      "Test: PKCE code verifier/challenge have correct format and length",
+      "Test: authorization URL contains required OAuth parameters (client_id, redirect_uri, code_challenge)",
+      "Test: JWT email parsing extracts email from valid token payload",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P4"
+    ],
+    "created": "2026-04-16T22:11:42Z",
+    "updated": "2026-04-16T22:11:42Z"
+  },
+  "ta-chat-event-reducer": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P5: Add ChatEventReducerTest",
+    "description": "ChatEventReducer.handle() lifecycle coverage. Helper tests exist (5 files) but actual reducer behavior (task start, delta accumulation, action-card transitions, supplement insertion, completion/error transitions) is untested.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/ui/chat/ChatEventReducerTest.kt"
+    ],
+    "acceptCriteria": [
+      "ChatEventReducerTest.kt exists with >=4 test methods",
+      "Test: task-start event initializes reducer state",
+      "Test: streaming delta events accumulate text content correctly",
+      "Test: action-card proposal → execution → success transitions in correct order",
+      "Test: task completion/error event produces terminal state",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "P5"
+    ],
+    "created": "2026-04-16T22:12:23Z",
+    "updated": "2026-04-16T22:12:23Z"
+  },
+  "ta-message-converter": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P5: Add MessageConverterTest",
+    "description": "MessageConverter in history/model/ contains real mapping logic in both directions including action-state parsing and UI-facing tool name/icon conversion. Small pure seam with zero direct protection.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/history/model/MessageConverterTest.kt"
+    ],
+    "acceptCriteria": [
+      "MessageConverterTest.kt exists with >=3 test methods",
+      "Test: MessageRecord → ChatMessage conversion preserves content and role",
+      "Test: action-state field parsed correctly (proposed/executing/succeeded/failed)",
+      "Test: tool name maps to correct UI display name and icon",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P5"
+    ],
+    "created": "2026-04-16T22:12:23Z",
+    "updated": "2026-04-16T22:12:23Z"
+  },
+  "ta-chat-session-history": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P5: Add ChatSessionHistoryControllerTest",
+    "description": "ChatSessionHistoryController coordinates resume/new/delete session flows and view-model-facing callbacks. Small enough to test, still unprotected.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/ui/chat/ChatSessionHistoryControllerTest.kt"
+    ],
+    "acceptCriteria": [
+      "ChatSessionHistoryControllerTest.kt exists with >=3 test methods",
+      "Test: resume session loads existing history and emits to callback",
+      "Test: new session creates empty state",
+      "Test: delete session removes stored data",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P5"
+    ],
+    "created": "2026-04-16T22:12:23Z",
+    "updated": "2026-04-16T22:12:23Z"
+  },
+  "ta-chat-viewmodel": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P5: Add ChatViewModelTest (coordination layer)",
+    "description": "Test ChatViewModel coordination: startEventCollection(), pending input consumption, approvals, session history delegation, teardown. Do NOT re-test extracted helper functions already covered by existing helper tests.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/ui/chat/ChatViewModelTest.kt"
+    ],
+    "acceptCriteria": [
+      "ChatViewModelTest.kt exists with >=3 test methods",
+      "Test: startEventCollection() subscribes to session events and feeds reducer",
+      "Test: pending input consumed and submitted to session on resume",
+      "Test: teardown cancels event collection and releases resources",
+      "Does NOT duplicate helper tests (ChatCompletionMessage, ChatActionExecutionMapping, etc.)",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "P5"
+    ],
+    "created": "2026-04-16T22:12:23Z",
+    "updated": "2026-04-16T22:12:23Z"
+  },
+  "ta-vd-touch-handler": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P6: Add VirtualDisplayViewerTouchHandlerTest",
+    "description": "VirtualDisplayViewerTouchHandler has pure, testable logic for coordinate scaling/clamping, display validity checks, tap vs swipe shell fallback, and action-state tracking across down/move/up. Zero direct tests.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayViewerTouchHandlerTest.kt"
+    ],
+    "acceptCriteria": [
+      "VirtualDisplayViewerTouchHandlerTest.kt exists with >=3 test methods",
+      "Test: viewer coordinates scaled and clamped to display bounds",
+      "Test: invalid display ID short-circuits (no action dispatched)",
+      "Test: touch down/move/up sequence tracks action state transitions",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P6"
+    ],
+    "created": "2026-04-16T22:12:24Z",
+    "updated": "2026-04-16T22:12:24Z"
+  },
+  "ta-vd-surface-controller": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P6: Add VirtualDisplaySurfaceControllerTest",
+    "description": "VirtualDisplaySurfaceController is a unit-testable stateful collaborator with mode switching, invalid-surface guards, and Shizuku result handling.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplaySurfaceControllerTest.kt"
+    ],
+    "acceptCriteria": [
+      "VirtualDisplaySurfaceControllerTest.kt exists with >=2 test methods",
+      "Test: surface mode switch success transitions state",
+      "Test: invalid-surface guard returns error without crash",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P6"
+    ],
+    "created": "2026-04-16T22:12:24Z",
+    "updated": "2026-04-16T22:12:24Z"
+  },
+  "ta-vd-capture-coordinator": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P6: Add VirtualDisplayCaptureCoordinatorTest",
+    "description": "VirtualDisplayCaptureCoordinator owns PixelCopy fallback, repeated-failure demotion to ImageReader, trace artifact storage, and screenshot capture mode switching.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinatorTest.kt"
+    ],
+    "acceptCriteria": [
+      "VirtualDisplayCaptureCoordinatorTest.kt exists with >=2 test methods",
+      "Test: PixelCopy failure triggers fallback to ImageReader path",
+      "Test: repeated capture failures demote from PixelCopy to ImageReader permanently",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "P6"
+    ],
+    "created": "2026-04-16T22:12:24Z",
+    "updated": "2026-04-16T22:12:24Z"
+  },
+  "ta-trace-artifacts": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P6: Add AgentTraceArtifactsTest",
+    "description": "AgentTraceArtifacts packages redacted request/response/tool/snapshot artifacts. A key trace-integrity seam with zero direct tests.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/trace/AgentTraceArtifactsTest.kt"
+    ],
+    "acceptCriteria": [
+      "AgentTraceArtifactsTest.kt exists with >=2 test methods",
+      "Test: artifact naming produces sanitized, collision-free paths",
+      "Test: packaged artifact contains redacted content (no raw API keys/tokens)",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P6"
+    ],
+    "created": "2026-04-16T22:12:24Z",
+    "updated": "2026-04-16T22:12:24Z"
+  },
+  "ta-file-trace-recorder-extend": {
+    "parent": "test-architecture",
+    "depends": [],
+    "state": "ready",
+    "title": "P6: Extend FileTraceRecorderTest with path sanitization + concurrency",
+    "description": "FileTraceRecorderTest covers durability (flush, close, repeated rounds). Missing: newArtifactPath()/sanitizePathSegment() behavior, artifact directory creation, concurrent write channel behavior.",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/trace/FileTraceRecorderTest.kt"
+    ],
+    "acceptCriteria": [
+      "Test: sanitizePathSegment() rejects or sanitizes path traversal attempts (../, /)",
+      "Test: newArtifactPath() creates artifact directory if missing",
+      "Test: concurrent write channel processes records without data loss",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "P6"
+    ],
+    "created": "2026-04-16T22:12:24Z",
+    "updated": "2026-04-16T22:12:24Z"
+  },
+  "ta-codex-review": {
+    "parent": "test-architecture",
+    "depends": [
+      "ta-error-classifier",
+      "ta-codex-request-builder",
+      "ta-chat-completion-interop",
+      "ta-tool-parameter-extractor",
+      "ta-codex-sse-parser-extend",
+      "ta-llm-client-tests",
+      "ta-turn-planning-phase",
+      "ta-turn-execution-phase",
+      "ta-session-coordinator",
+      "ta-agent-service-event-handler",
+      "ta-session-checkpoint",
+      "ta-ask-user-tool",
+      "ta-shell-tool-execution",
+      "ta-type-executor-extend",
+      "ta-onboarding-viewmodel",
+      "ta-onboarding-store",
+      "ta-permission-state-monitor",
+      "ta-http-credential-validator",
+      "ta-openai-oauth-helpers",
+      "ta-chat-event-reducer",
+      "ta-message-converter",
+      "ta-chat-session-history",
+      "ta-chat-viewmodel",
+      "ta-vd-touch-handler",
+      "ta-vd-surface-controller",
+      "ta-vd-capture-coordinator",
+      "ta-trace-artifacts",
+      "ta-file-trace-recorder-extend"
+    ],
+    "state": "ready",
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all test-architecture changes to Codex for systematic code review. Codex reviews the diff of all ta-* implementation tasks against the aligned design (doc/todo/holistic-review/test-architecture/final/improvement_plan.md). Fix any critical/high findings before proceeding to QA. Use /code-review skill via multmux.",
+    "acceptCriteria": [
+      "Codex code review report exists at doc/todo/holistic-review/test-architecture/codex_review.md",
+      "All critical/high findings from review are addressed with code changes",
+      "No test that preserves a known bug (KNOWN BUG pattern) remains unless explicitly justified",
+      "Review confirms new tests follow behavior-first testing (not implementation-detail testing)",
+      "Review confirms no mock-heavy tests faking Android runtime (prefer fakes/extracted pure logic)",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "test-architecture",
+      "review"
+    ],
+    "created": "2026-04-16T22:12:56Z",
+    "updated": "2026-04-16T22:12:56Z"
+  },
+  "ta-qa-real-device": {
+    "parent": "test-architecture",
+    "depends": [
+      "ta-codex-review"
+    ],
+    "state": "ready",
+    "title": "QA Round: Real Device Validation",
+    "description": "Run automated end-to-end QA on device via adb/accessibility to validate that new/changed tests actually catch regressions and the OpenAIErrorClassifier fix does not break live API calls. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) Error classifier fix: trigger a real LLM call → verify agent handles 429 rate-limit correctly (retries) and 401 auth error correctly (fails immediately). Check logcat for retry behavior.\n(2) Normal multi-turn task: complete a standard 3+ step task → verify no regression from any test-architecture changes. Capture session JSON.\n(3) Provider routing: if multiple providers configured, verify chat-completion and codex paths both work (ChatCompletionInterop exercised on real call).\n(4) Error recovery: trigger a transient error (e.g., airplane mode briefly) → verify retry policy works end-to-end.\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence.",
+    "acceptCriteria": [
+      "QA report exists at doc/todo/holistic-review/test-architecture/qa_report.md with pass/fail per scenario",
+      "Each scenario has evidence: logcat excerpt, screenshot, or session JSON snippet",
+      "Error classifier: 429 rate-limit triggers retry (logcat shows retry attempt), not immediate failure",
+      "Error classifier: 401 auth error fails immediately (logcat shows no retry), user sees auth error message",
+      "Normal multi-turn: 3+ step task completes with GOAL_ACHIEVED in session record",
+      "Provider routing: at least one non-default provider (OpenRouter or chat-completion) completes a task without error",
+      "Error recovery: transient network error triggers retry and eventual success or graceful failure",
+      "No crash in adb logcat during QA run (grep -i fatal/crash)",
+      "No ANR in adb logcat during QA run"
+    ],
+    "estimate": "m",
+    "tags": [
+      "test-architecture",
+      "qa"
+    ],
+    "created": "2026-04-16T22:12:56Z",
+    "updated": "2026-04-16T22:12:56Z"
   }
 }

@@ -1,7 +1,7 @@
 # Test Architecture Improvement Plan — Final
 
-**Date**: 2026-04-08
-**Source**: Double-design review (Claude + Codex), cross-reviewed, aligned
+**Date**: 2026-04-08, revised 2026-04-16
+**Source**: Double-design review, cross-reviewed, aligned; re-evaluated against current code 2026-04-16
 **Derived from**: `review.md`
 
 ---
@@ -12,172 +12,176 @@
 2. Prefer tests around pure reducers, parsers, classifiers, and coordinators over mock-heavy Android-runtime fakes
 3. When a class is hard to test, extract pure logic first — test that
 4. Spend maintenance budget on behavior with real regression cost, not static data snapshots
-5. Consolidate test infrastructure before expanding test count
+5. Do infrastructure cleanup opportunistically alongside new tests, not as a gate
 
 ---
 
-## Phase 0: Test Infrastructure Cleanup
+## Phase 1: Fix the LLM Contract Boundary
 
-**Goal**: Reduce duplication before adding new tests, so new files stay small.
+**Goal**: Fix the known-wrong classifier and protect the external-contract boundary that is still untested or partially tested.
 
-### 0.1 Consolidate RecordingPlatform into TestFixtures
-**Impact**: Eliminates ~180 lines across ClickExecutorTest, ScrollExecutorTest, LongPressExecutorTest
-
-```kotlin
-// In TestFixtures.kt
-class RecordingPlatform(
-    private val actionResults: List<ActionResult>,
-    private val capturedSnapshots: List<ScreenSnapshot>,
-    private val displayInfo: DisplayInfo = DisplayInfo(1080, 2400, 3f)
-) : AndroidPlatform { ... }
-```
-
-### 0.2 Create shared LLM client fakes in TestFixtures
-**Impact**: Eliminates ~200 lines across 7 files
-
-```kotlin
-class StubLLMClient(textContent: String = "done") : LLMClient()
-class FailingLLMClient(throwable: Throwable) : LLMClient()
-class CapturingLLMClient(response: ResponsesResult) : LLMClient()
-```
-
-### 0.3 Create TestSessionServicesBuilder in TestFixtures
-**Impact**: Eliminates ~150 lines of buildServices() duplication
-
-```kotlin
-class TestSessionServicesBuilder {
-    var llmClient: LLMClient = StubLLMClient()
-    var platform: AndroidPlatform = FakeAndroidPlatform()
-    var traceRecorder: TraceRecorder = NoopTraceRecorder
-    fun build(): SessionServices { ... }
-}
-```
-
-### 0.4 Standardize on Google Truth
-**Files**: LLMClientFactoryTest.kt, ModelCatalogTest.kt
-Replace `assertEquals`/`assertTrue` with `assertThat(x).isEqualTo(y)`.
-
-### 0.5 Prune low-value snapshot tests
-**Optional**: Relax AgentDefTest exact tool list assertions to `containsAtLeast` for critical tools + count check. Simplify OpenAppToolTest alias-entry tests to a single behavioral test.
-
----
-
-## Phase 1: LLM Boundary + Safety Tools
-
-**Goal**: Protect the external-contract boundary and safety-sensitive tool behavior.
-
-### 1.1 CodexRequestBuilderTest
-**File**: `llm/CodexRequestBuilderTest.kt`
+### 1.1 Fix OpenAIErrorClassifier + rewrite tests
+**File**: `llm/OpenAIErrorClassifier.kt` (fix) + `llm/OpenAIErrorClassifierTest.kt` (rewrite)
+**What**: Fix false-positive `message.contains("429")` / `message.contains("500")` matching. Replace "KNOWN BUG" tests with proper status-boundary regressions.
 **Test cases**:
-- User vs assistant content conversion in request JSON
-- Function-call input and function-call-output serialization
-- System message placement and formatting
-- Empty/missing fields handled gracefully
-
-### 1.2 CodexSseParserTest
-**File**: `llm/CodexSseParserTest.kt`
-**Test cases**:
-- Parallel tool-call accumulation across `output_index`
-- Trailing SSE buffer flush and `[DONE]` handling
-- Malformed SSE event recovery
-- Partial event buffering across chunk boundaries
-
-### 1.3 OpenAIErrorClassifierTest
-**File**: `llm/OpenAIErrorClassifierTest.kt`
-**Test cases**:
-- Classifies rate limit (429) as retryable
+- Classifies HTTP 429 as retryable (not string "429" in arbitrary text)
 - Classifies server errors (500, 502, 503) as retryable
+- Does NOT classify status 14291, 5002, 5003 as matching 429/500
 - Classifies auth error (401) as non-retryable
 - Classifies bad request (400) as non-retryable
 - Extracts meaningful error message from response body
 
-### 1.4 CloudStreamRetryPolicyTest
-**File**: `llm/CloudStreamRetryPolicyTest.kt`
-**Test cases**:
-- shouldRetry returns true for retryable HTTP status codes
-- shouldRetry returns false for non-retryable codes
-- shouldRetry returns false after max attempts exceeded
-- Backoff delay increases with attempt number
-- Backoff respects maximum delay cap
-- Retry-after header extraction
+**ROI**: Very high — this is a live bug with real user impact.
 
-### 1.5 ShellToolTest
-**File**: `tool/impl/ShellToolTest.kt`
+### 1.2 CodexRequestBuilderTest
+**File**: `llm/CodexRequestBuilderTest.kt`
 **Test cases**:
-- Blocked destructive command rejection
-- Safe command acceptance
-- Timeout handling
-- Output truncation behavior
+- User vs assistant content conversion in request JSON
+- Function-call input and function-call-output serialization
+- Tool schema conversion via `convertTools()`
+- System message placement and formatting
+- Empty/missing fields handled gracefully
 
-### 1.6 AskUserToolTest
-**File**: `tool/impl/AskUserToolTest.kt`
+**ROI**: High — pure serialization at an external-contract boundary, cheap tests, high leverage.
+
+### 1.3 ChatCompletionInteropTest (NEW)
+**File**: `llm/ChatCompletionInteropTest.kt`
 **Test cases**:
-- Pending ask-user rejection when another request is active
-- Timeout and cancellation semantics
-- Successful user response forwarding
+- Assistant text + grouped tool-call conversion
+- Multimodal user content conversion
+- System-role normalization
+- Function-call input/output mapping to chat completions format
+
+**ROI**: High — this is now a real external-contract boundary since provider routing uses ChatCompletionClient for OpenRouter/chat-style models.
+
+### 1.4 ToolParameterExtractorTest (NEW)
+**File**: `llm/ToolParameterExtractorTest.kt`
+**Test cases**:
+- Known/unknown/raw tool-schema representations
+- Schema extraction feeding CodexRequestBuilder.convertTools()
+
+**ROI**: High — broken schema extraction silently breaks tool calling for all providers.
+
+### 1.5 CodexSseParserTest — extend existing
+**File**: `llm/CodexSseParserTest.kt` (extend)
+**What**: Add interleaved parallel tool-call accumulation tests. Basic coverage already exists.
+**Test cases**:
+- Interleaved tool-call deltas across multiple `output_index` values
+- Parallel tool-call argument assembly with interleaved chunks
+
+**ROI**: Medium-high — the remaining highest-risk gap in an otherwise-improved file.
+
+### 1.6 Selected client-level tests (NEW)
+**Files**: `llm/CodexResponseClientTest.kt` and/or `llm/ChatCompletionClientTest.kt`
+**Test cases** (focus on pure logic, not network):
+- Request construction correctness
+- Streaming terminal condition handling (finish reasons)
+- Tool-call accumulation at client level
+- Error translation mapping
+
+**ROI**: Medium-high — client orchestration is where provider regressions actually manifest.
 
 ---
 
-## Phase 2: Orchestration + Trace
+## Phase 2: Orchestration Seams
 
-**Goal**: Cover the orchestration seams where cross-module regressions happen.
+**Goal**: Cover the joins where tested components combine into user-visible runtime behavior.
 
-### 2.1 SessionCoordinatorTest
+### 2.1 TurnPlanningPhaseRunnerTest
+**File**: `agent/TurnPlanningPhaseRunnerTest.kt`
+**Test cases**:
+- Planning-phase history write with screen observation
+- Model resolution and trace request/response logging
+- Arbitration warning emission for dropped tools
+- `agent_thought` emission during planning
+
+**ROI**: High — this seam now carries more cross-module behavior than originally recognized.
+
+### 2.2 TurnExecutionPhaseRunnerTest
+**File**: `agent/TurnExecutionPhaseRunnerTest.kt`
+**Test cases**:
+- Observation capture after tool execution
+- History output recording
+- Approval event emission
+- Abort-on-failure behavior
+- Post-action observation capture
+
+**ROI**: High — the execution seam where most cross-module regressions happen.
+
+### 2.3 SessionCoordinatorTest
 **File**: `session/SessionCoordinatorTest.kt`
 **Test cases**:
 - Queue vs immediate-submit behavior
-- Dead-session teardown and consumeDeadSessionFileName()
+- Dead-session teardown and `consumeDeadSessionFileName()`
 - Session creation and cleanup lifecycle
+- Automatic drain logic
 
-### 2.2 AgentServiceEventHandlerTest
+**ROI**: High — stateful, concurrent, user-visible, easy to regress with subtle queueing bugs.
+
+### 2.4 AgentServiceEventHandlerTest
 **File**: `app/AgentServiceEventHandlerTest.kt`
 **Test cases**:
 - Event-handler effects on recording service
 - Overlay callback routing
 - Status message emission
+- Large `when` over agent events with side effects
 
-### 2.3 TurnPlanningPhaseRunnerTest
-**File**: `agent/TurnPlanningPhaseRunnerTest.kt`
+**ROI**: High — extracted side-effect hub that unit tests should hit directly.
+
+### 2.5 SessionCheckpointCoordinatorTest
+**File**: `session/SessionCheckpointCoordinatorTest.kt`
 **Test cases**:
-- Planning-phase history write
-- Arbitration warning emission
-- Thought emission during planning
+- Checkpoint scheduling behavior
+- Snapshot conversion logic
 
-### 2.4 CognitionTraceRedactorTest
-**File**: `trace/CognitionTraceRedactorTest.kt`
-**Test cases**:
-- Redacts email addresses in middle of text
-- Redacts API key patterns (sk-..., sk_live_...)
-- Redacts Bearer tokens
-- Redacts multiple patterns in single string
-- Preserves non-sensitive content unchanged
-- Handles empty and null input
-- Redacts tokens in JSON-formatted strings
-
-### 2.5 TypeExecutorTest
-**File**: `tool/action/TypeExecutorTest.kt`
-**Test cases**:
-- Direct text set into focused field
-- Specific element targeting for type action
-- Clear field before typing when clear=true
-- Append to existing text when clear=false
-- Failure when no editable element found
-- VD mode disabling tap-to-focus fallback
-
-### 2.6 (Stretch) TurnExecutionPhaseRunnerTest
-**File**: `agent/TurnExecutionPhaseRunnerTest.kt`
-**If capacity allows**, add before SwipeExecutorTest:
-- Observation capture after tool execution
-- History output recording
-- Abort-on-failure behavior
+**ROI**: Medium — owns checkpoint scheduling and snapshot conversion, was quietly dropped from original plan.
 
 ---
 
-## Phase 3: Onboarding + Chat + First VD Seam
+## Phase 3: Safety-Sensitive Tool Boundaries
 
-**Goal**: Cover first-run conversion, user-visible chat behavior, and virtual display decision logic.
+**Goal**: Cover safety and user-interaction boundaries.
 
-### 3.1 OnboardingViewModelTest
+### 3.1 AskUserToolTest
+**File**: `tool/impl/AskUserToolTest.kt`
+**Test cases**:
+- Pending ask-user rejection when another request is active
+- Event emission on ask
+- Timeout output formatting
+- Cancellation mapping
+- Successful user response forwarding
+
+**ROI**: Medium-high — safety/user-handoff boundary with zero direct tests.
+
+### 3.2 ShellTool execution path tests — extend existing
+**File**: `tool/impl/ShellToolBlocklistTest.kt` (extend or new file)
+**What**: Validation is covered. Add execution-path coverage.
+**Test cases**:
+- Timeout handling
+- Output truncation behavior
+- Exit-code formatting
+- Pre-cancel short-circuit in `ShellTool.kt`
+
+**ROI**: Medium.
+
+### 3.3 TypeExecutorTest — extend existing
+**File**: `tool/action/TypeExecutorTest.kt` (extend)
+**What**: Current tests cover only cancellation. Add success/failure paths.
+**Test cases**:
+- Direct text set success into focused field
+- Tap-to-focus fallback success
+- No editable target failure
+- VD mode disabling tap-to-focus fallback
+
+**ROI**: Medium-high — cancellation-only coverage creates false confidence.
+
+---
+
+## Phase 4: Onboarding and Auth
+
+**Goal**: Cover the first-run conversion and credential handling that is still basically blank.
+
+### 4.1 OnboardingViewModelTest
 **File**: `onboarding/OnboardingViewModelTest.kt`
 **Test cases**:
 - Step selection on startup from stored outcomes and permission state
@@ -185,80 +189,193 @@ Replace `assertEquals`/`assertTrue` with `assertThat(x).isEqualTo(y)`.
 - OAuth success/error transitions
 - Manual API-key validation success, invalid-key, and transient-error paths
 - Demo success vs timeout vs wrong-package completion
+- Draft-key persistence
+- Auto-advance timing
 
-### 3.2 ChatEventReducerTest
+**ROI**: Very high — 503-line async state machine with zero tests.
+
+### 4.2 OnboardingStoreTest
+**File**: `onboarding/OnboardingStoreTest.kt`
+**Test cases**:
+- Outcome persistence
+- Auth-method storage
+- Encrypted draft-key storage
+- Migration behavior
+
+**ROI**: Medium-high.
+
+### 4.3 PermissionStateMonitorTest
+**File**: `onboarding/PermissionStateMonitorTest.kt`
+**Test cases**:
+- `deriveRepairModel()` pure logic
+
+**ROI**: High — pure logic, very cheap to test.
+
+### 4.4 HttpLlmCredentialValidatorTest
+**File**: `onboarding/HttpLlmCredentialValidatorTest.kt`
+**Test cases**:
+- HTTP 200 → valid mapping
+- 401/403 → invalid-key mapping
+- 429/5xx → transient-error mapping
+- Timeout, SSL, IO exception mapping
+
+**ROI**: High — classic high-leverage unit-test territory.
+
+### 4.5 OpenAIOAuth pure helper tests
+**File**: `auth/OpenAIOAuthTest.kt`
+**Test cases** (pure helpers only, not live flow):
+- PKCE shape and URL construction
+- JWT email parsing and account-id extraction
+- Callback parsing and state mismatch handling
+- Token-expiring-soon calculation
+
+**ROI**: Medium — recommended refactor: split into pure helpers + transport adapters.
+
+---
+
+## Phase 5: Chat/History State Management
+
+**Goal**: Cover the actual reducer/controller behavior behind the helper tests.
+
+### 5.1 ChatEventReducerTest
 **File**: `ui/chat/ChatEventReducerTest.kt`
 **Test cases**:
+- Task start event handling
 - Streaming delta accumulation and completion transitions
-- Action-card proposal to execution to success/failure mapping
-- Replay cutoff behavior when rebinding to a live session
+- Action-card proposal → execution → success/failure ordering
+- Supplement insertion
+- Task completion/error transitions
 
-### 3.3 MessageConverterTest
+**ROI**: Medium-high.
+
+### 5.2 MessageConverterTest
 **File**: `history/model/MessageConverterTest.kt`
 **Test cases**:
 - MessageRecord to ChatMessage round-trip invariants
-- Edge cases in content type mapping
+- Action-state parsing
+- UI-facing tool name/icon conversion
 
-### 3.4 FileTraceRecorderTest
-**File**: `trace/FileTraceRecorderTest.kt`
+**ROI**: High — small pure seam with zero protection.
+
+### 5.3 ChatSessionHistoryControllerTest
+**File**: `ui/chat/ChatSessionHistoryControllerTest.kt`
 **Test cases**:
-- Flush and close semantics
-- Artifact naming/path sanitization
-- Concurrent write handling
+- Resume/new/delete session flows
+- View-model-facing callbacks
 
-### 3.5 VirtualDisplayViewerTouchHandlerTest
+**ROI**: Medium-high.
+
+### 5.4 ChatViewModelTest (targeted)
+**File**: `ui/chat/ChatViewModelTest.kt`
+**Test cases** (coordination layer, not re-testing helpers):
+- `startEventCollection()` behavior
+- Pending input consumption
+- Approvals
+- Session history delegation
+- Teardown
+
+**ROI**: Medium-high.
+
+---
+
+## Phase 6: Virtual Display and Trace Second Wave
+
+**Goal**: Finish pure-collaborator coverage for VD and complete trace pipeline.
+
+### 6.1 VirtualDisplayViewerTouchHandlerTest
 **File**: `platform/virtualdisplay/VirtualDisplayViewerTouchHandlerTest.kt`
 **Test cases**:
 - Viewer coordinate scaling and clamping
 - Tap vs swipe shell fallback behavior
 - Invalid-display short-circuit cases
+- Action-state tracking across down/move/up
+
+**ROI**: Medium-high.
+
+### 6.2 VirtualDisplaySurfaceControllerTest
+**File**: `platform/virtualdisplay/VirtualDisplaySurfaceControllerTest.kt`
+**Test cases**:
+- Surface mode switching success/failure
+- Invalid-surface guards
+- Shizuku result handling
+
+**ROI**: Medium.
+
+### 6.3 VirtualDisplayCaptureCoordinatorTest
+**File**: `platform/virtualdisplay/VirtualDisplayCaptureCoordinatorTest.kt`
+**Test cases**:
+- PixelCopy failure fallback to ImageReader
+- Repeated-failure demotion
+- Capture mode switching
+
+**ROI**: Medium-high.
+
+### 6.4 AgentTraceArtifactsTest
+**File**: `trace/AgentTraceArtifactsTest.kt`
+**Test cases**:
+- Artifact naming/path sanitization
+- Redacted request/response/tool/snapshot packaging
+
+**ROI**: Medium.
+
+### 6.5 FileTraceRecorderTest — extend existing
+**File**: `trace/FileTraceRecorderTest.kt` (extend)
+**What**: Durability is covered. Add path sanitization and concurrency.
+**Test cases**:
+- `newArtifactPath()` / `sanitizePathSegment()` behavior
+- Artifact directory creation
+- Concurrent write channel behavior
+
+**ROI**: Medium.
 
 ---
 
 ## Backlog (Validated, Deferred)
 
-These items are valid but not first-pass mandatory. Prioritize as capacity allows:
-
 | Item | Notes |
 |------|-------|
-| TurnExecutionPhaseRunnerTest | If not landed in Phase 2 stretch |
-| CloudLlmRetryTest | Non-streaming retry contract |
-| SwipeExecutorTest | Simpler action; lower strategic value than orchestration |
-| VirtualDisplaySurfaceControllerTest | Surface mode switching |
-| VirtualDisplayCaptureCoordinatorTest | Pixel-copy fallback |
-| AgentTraceArtifactsTest | Artifact packaging edge cases |
-| OnboardingStoreTest | Migration, outcome persistence |
-| PermissionStateMonitorTest | Permission-repair model derivation |
-| HttpLlmCredentialValidatorTest | 200/401/429/timeout/SSL mapping |
-| MobileActionInvocation / UIActionInvocation tests | Review after fixture cleanup |
-| ChatSessionHistoryControllerTest | Session list loading/resume/delete |
-| ChatViewModelTest | Full ViewModel behavior |
+| CloudLlmRetryTest | Non-streaming retry contract; lower urgency since streaming retry is covered |
+| SessionLlmBootstrapperTest (extend) | Base URL override extraction, fallback catalog loading, asset caching, missing-key enforcement |
+| LlmInputItemsTraceSerializerTest | Shares logic with ChatCompletionInterop; test after 1.3 lands |
+| MobileActionInvocation / UIActionInvocation | Outcome mapping, cancellation, description formatting beyond CapturePrivacyGateTest |
+| UiChangeDetectorTest | Post-action change detection |
+| PointActionExecutorCoreTest | Container promotion and ambiguity fallback |
+
+---
+
+## Infrastructure Cleanup (Opportunistic, Not a Gate)
+
+Do alongside new tests, not as a separate phase:
+
+- **TestSessionServicesBuilder**: Create when writing Phase 2 orchestration tests. Multiple tests hand-roll SessionServices — a lightweight builder is a real enabler.
+- **Scripted LLM client fixture**: Create a thin shared fixture if it directly helps Phase 1/2 tests. Do not build a generic framework.
+- **Do NOT do as standalone work items**: RecordingPlatform consolidation (local fakes are intentionally different), assertion library standardization (pure style churn), snapshot test pruning (fix opportunistically if they block refactors).
 
 ---
 
 ## Execution Summary
 
-| Phase | Files | Effort | Key Risk Mitigated |
-|-------|-------|--------|-------------------|
-| 0 | 1 modified + 2 updated | Small | Maintenance cost reduction |
-| 1 | 6 new | Medium | LLM contract + safety tools |
-| 2 | 5-6 new | Medium | Orchestration seams + trace privacy |
-| 3 | 5 new | Medium | First-run conversion + chat state + VD |
-| Backlog | ~12 items | Variable | Second-wave boundaries |
-
-**First-pass total**: ~16-18 new/updated test files
-**Estimated net effect**: +800-1000 new test lines, -530 duplicated lines = **~+300-500 net lines** while meaningfully expanding boundary coverage
+| Phase | Focus | Files | Key Risk Mitigated |
+|-------|-------|-------|-------------------|
+| 1 | LLM contract boundary | 5-6 new + 1 fix + 1 extend | External API/provider regressions + live bug |
+| 2 | Orchestration seams | 5 new | Cross-module runtime behavior |
+| 3 | Safety tool boundaries | 1 new + 2 extend | User-interaction and command guardrails |
+| 4 | Onboarding/auth | 5 new | First-run conversion + credential handling |
+| 5 | Chat/history state | 4 new | User-visible session behavior |
+| 6 | VD + trace second wave | 3-4 new + 1 extend | Device control logic + privacy pipeline |
+| Backlog | Various | ~6 items | Second-wave boundaries |
 
 ---
 
 ## Success Criteria
 
 This plan is working if:
-- The highest-risk blank packages (llm, app service, onboarding) are no longer blank
+- OpenAIErrorClassifier false-positive bug is fixed
+- LLM contract boundary (request building, interop, schema extraction) is no longer soft
+- Orchestration seams (planning, execution, session coordination) have direct tests
+- Onboarding/auth is no longer blank
 - New tests sit at seams and collaborators, not at static data tables
-- Fixture duplication drops substantially
-- Parser/retry/auth/service regressions can be caught without a device
-- UI-only files remain mostly exempt unless logic is extracted out of them
+- Infrastructure cleanup happens naturally alongside new tests
 
 ---
 
@@ -268,4 +385,5 @@ This plan is working if:
 - Do not add live-network tests
 - Do not add blanket tests for protocol/*, theme constants, resource files, or static content inventories
 - Do not try to simulate the full Android runtime in unit tests — extract pure seams instead
-- Do not refactor auth storage for testability in this pass (backlog)
+- Do not re-test already-extracted pure logic (e.g., decideTurnOutcome) through larger orchestration tests
+- Do not run a dedicated cleanup phase for assertion styles, executor fakes, or snapshot tests

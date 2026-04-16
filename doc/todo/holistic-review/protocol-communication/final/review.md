@@ -1,75 +1,90 @@
-# Protocol & Communication — Final Review
+# Protocol & Communication — Review
 
-Date: 2026-04-08
-Reviewers: Claude, Codex (double-design, cross-reviewed, aligned)
+Updated: 2026-04-16 (re-evaluated against current codebase)
+Original: 2026-04-08 (Claude + Codex double-design)
 
 ---
 
 ## Executive Assessment
 
-The core command/state surface (`Op`, `SessionState`) is solid — small, closed, and maps to real runtime transitions. The event and config layers carry more surface than the runtime justifies: more domains, more completion reasons, more error categories, and more event types than the system or UI actually uses.
-
-The next iteration should favor deletion and semantic correction over adding abstraction.
+The core command/state surface (`Op`, `SessionState`) is solid. The event layer has improved since the original review — `SessionError`, `TASK_IMPOSSIBLE`, and `ActionOutcome` now have real producers. But three concrete bugs remain: completion semantics leak into session recording, checkpoint persistence drops runtime-affecting fields, and approval allow-list mutation skips validation. These are worth fixing. The remaining dead-surface items are cleanup opportunities, not urgent.
 
 ---
 
 ## What Works
 
-- **`Op`** — 8 operations map to real user intents. Exhaustive `when` in `AgentSession.submit()`. No missing or redundant ops.
-- **`SessionState`** — 5 states (`Created`, `Running`, `Idle`, `Paused`, `Shutdown`) match the hot-idle lifecycle. Transitions enforced by guard checks. Correct boundary: approval/user-wait states are handled at the capsule/UI layer, not session state.
+- **`Op`** — 8 operations map to real user intents. Exhaustive `when` in `AgentSession.submit()`.
+- **`SessionState`** — 6 states (`Created`, `Running`, `Idle`, `TakeoverPending`, `Paused`, `Shutdown`) match the hot-idle lifecycle with cooperative takeover. Transitions enforced by guard checks.
+- **`SessionError`** — now emitted for bootstrap failures, consumed by chat/overlay. No longer dead.
+- **`ActionExecuted`** — now carries `ActionOutcome` (`SUCCESS`/`FAILED`/`SKIPPED`) with real consumers.
 - **Small enums** — `TurnPhase`, `AskUserType`, `AppTier`, `ApprovalDecision`, `ApprovalScope`, `ScreenStatePhase` are well-scoped.
-- **Sealed usage** — appropriate for the truly closed sets. The problem is not "too much sealed" — it's sealing categories that buy nothing.
 
 ---
 
 ## High-Priority Findings
 
-### H1. Event Domain Hierarchy Is Not Justified by Consumption
+### H1. CompletionReason Conflates Task Outcome with Session Shutdown — Causes Recording Bug
 
-`AgentEventDomains.kt` defines 12 marker interfaces. All consumers switch on concrete event types, not markers. A repo-wide search found no non-protocol consumer importing any marker interface. Naming is inconsistent (`...LifecycleEvent` vs `...DomainEvent`). Net effect: higher taxonomy cost, no simpler dispatch.
+`CompletionReason` serves both `TaskCompleted` and `SessionCompleted`. `AgentSession` emits task-level reasons (`GOAL_ACHIEVED`, `MAX_TURNS`, `TASK_IMPOSSIBLE`, `ERROR`) at task end and session-level reasons (`USER_STOPPED`, `IDLE_TIMEOUT`) at session end. Consumers branch on impossible combinations — e.g., `SessionCompleted` with `GOAL_ACHIEVED`.
 
-### H2. Event Surface Exceeds the Actual Runtime Contract
+**Concrete bug:** `SessionRecordingService.completeSession()` derives `completedNormally` from the session-level `CompletionReason`. A session whose last task succeeded but later shuts down via idle timeout is persisted as not completed normally.
 
-- **`AgentError.kt`** — 11 error variants, companion factory, abstract properties. Never instantiated, never dispatched on, `isRecoverable` never read. ~170 lines of dead code.
-- **`SessionError`** — declared, handled in consumers, but never emitted by any producer.
-- **`TodosUpdated` / `ScratchpadUpdated`** — emitted by `AgentEventDispatcher`, fall through to `else -> Unit` in all consumers.
-- **`ApprovalResolved`** — emitted but has no event consumer. Approval UI state is already resolved locally before the op is submitted.
-- **`TurnStarted.phase`** — always `PERCEPTION`, immediately followed by `TurnPhaseChanged(PERCEPTION)`. One is redundant.
-- **`ApprovalRequired.actionId`** — duplicates `ApprovalDetails.callId`. Consumers use `details.callId`.
-- **`StatusUpdate.emoji`** — `String? = null`, never populated with non-null. Status strings embed emoji directly.
+Refs: `TaskLifecycleEvents.kt:16-22`, `SessionLifecycleEvents.kt:11-16`, `AgentSession.kt:418-426,573-583`, `SessionRecordingService.kt:211-244`, `AgentServiceEventHandler.kt:117-130`, `CapsuleStateHolder.kt:258-285`
 
-### H3. CompletionReason Conflates Task Outcome with Session Shutdown Reason
+### H2. Checkpoint Persistence Drops Runtime-Affecting Fields
 
-`CompletionReason` serves `TaskCompleted` (outcomes: `GOAL_ACHIEVED`, `MAX_TURNS`, `TASK_IMPOSSIBLE`, `ERROR`) and `SessionCompleted` (reasons: `USER_STOPPED`, `IDLE_TIMEOUT`, `INTERRUPTED`). Consumers branch on impossible states — e.g., `SessionCompleted` with `GOAL_ACHIEVED`. `TASK_IMPOSSIBLE` has no producer. This is a contract design flaw, not just dead code.
+`SessionCheckpointCoordinator` persists only model/agent/perception/platform data. It silently drops `actionDelayMs`, `approvalMode`, `debugMode`, `traceEnabled`, `traceRunId`, and `excludedTools`. Reload can change security posture (approval mode), disable tracing, and alter tool availability.
 
-### H4. SessionConfig Mixes Concerns; Persistence Is Lossy
+Refs: `SessionCheckpointCoordinator.kt:84-128`, `SessionConfig.kt:12-60`, `SessionAgentRunner.kt:72-80`, `SessionServices.kt:107-108`, `TraceRecorderFactory.kt:12-16,35-44`
 
-`SessionConfig` collapses execution control, model routing, platform/perception, observability, and eval knobs into one flat object. `SessionCheckpointCoordinator` persists only a subset — `actionDelayMs`, `approvalMode`, `debugMode`, `traceEnabled`, `traceRunId`, and `excludedTools` are silently dropped on reload. `SessionLlmConfig` permits contradictory states (`backendType = OPENAI` with non-null `localConfig`).
+### H3. Approval Allow-List Mutation Skips Pending-Approval Validation
+
+`AgentSession.handleApproval()` persists allow-list changes for `SESSION`/`ALWAYS` scopes before checking whether `toolRouter.resolveApproval()` matched a pending approval. `resolveApproval()` returns `false` when no pending approval exists, but the result is ignored. A stale or duplicate `Op.Approve` can mutate policy without a matching pending approval.
+
+Refs: `AgentSession.kt:589-607`, `ToolRouter.kt:328-337`
 
 ---
 
-## Medium-Priority Findings
+## Medium-Priority Findings (cleanup when touching nearby code)
 
-### M1. Approval Identifier Naming Is Inconsistent
+### M1. Unconsumed Events Still Emitted
 
-`Op.Approve` uses `actionId`. `Op.UserResponse`, `ToolRouter.resolveApproval()`, and `ApprovalDetails` use `callId`. Same underlying concept, different names across the same interaction flow.
+- **`TodosUpdated` / `ScratchpadUpdated`** — emitted from `TurnExecutionPhaseRunner` via `AgentEventDispatcher`, no consumer handles them.
+- **`ApprovalResolved`** — emitted in `AgentSession`, no event consumer. UI resolves approval state locally before the op is submitted.
 
-### M2. Protocol Package Mixes Domain Contract with UI Projection
+Refs: `AgentEventDispatcher.kt:98-112`, `AgentSession.kt:599-607`
 
-`StatusUpdate` is display-ready with optional emoji. `ThoughtUpdate` carries already-truncated display text. `sanitizeThought()` in `TextUtils.kt` is a pure string utility creating a dependency from UI code on the protocol package. The package name implies something more stable and semantic than what it contains.
+### M2. Redundant Turn Phase Signal
+
+`TurnStarted.phase` is always `PERCEPTION` and `Agent.kt` immediately emits `TurnPhaseChanged(PERCEPTION)`. One is redundant. `ChatEventReducer` uses `TurnStarted` only to clear the buffer, not the phase field.
+
+Refs: `TurnEvents.kt:4-10`, `AgentEventDispatcher.kt:45-52`, `Agent.kt:93-94`, `ChatEventReducer.kt:59-62`
+
+### M3. Duplicate Approval Identifier
+
+`ApprovalRequired.actionId` duplicates `ApprovalDetails.callId`. All consumers use `details.callId`.
+
+Refs: `ApprovalEvents.kt:4-10`, `ApprovalTypes.kt:31-52`, `AgentServiceEventHandler.kt:165-167`
+
+### M4. SessionCompleted.result Is Dead Payload
+
+`SessionCompleted.result` is always emitted as `null`. No consumer reads it.
+
+Refs: `SessionLifecycleEvents.kt:11-16`, `AgentSession.kt:578-583`
 
 ---
 
-## Low-Priority Findings
+## Low-Priority / Deferred (not worth dedicated effort)
 
-### L1. ApprovalDetails.args: JSONObject
-
-Leaks `org.json` dependency into the protocol layer. Works fine in-process but would matter if events cross serialization boundaries.
-
-### L2. File Granularity
-
-Five files contain a single data class each. Marginal complexity, acceptable at current scale.
-
-### L3. Serialization Inconsistency
-
-Only `ScreenStatePhase` has `@Serializable`. Acceptable for in-process events.
+| Finding | Why deferred |
+|---------|-------------|
+| 12 marker interfaces in `AgentEventDomains.kt` unused for dispatch | Broad rename churn, no runtime payoff |
+| `AgentError` hierarchy over-designed (only `PlatformError` used) | Partially alive now; shrink if touched, don't delete |
+| `StatusUpdate.emoji` field never populated | True but tiny; clean up when editing status events |
+| `SessionConfig` flat structure mixes concerns | Readable, manageable; concrete bug is persistence, not flatness |
+| `SessionLlmConfig` allows contradictory states in type system | Current call-sites construct consistently; no live bug |
+| Approval naming (`actionId` vs `callId`, `Approve` vs `ResolveApproval`) | Naming debt, not runtime problem |
+| `protocol/` mixes domain contract with UI projection | Small in-process types, not a source of breakage |
+| `sanitizeThought()` in protocol package | Tiny shared function, cosmetic placement issue |
+| `ApprovalDetails.args: JSONObject` | Not read by consumers; remove field if touched rather than swap type |
+| Single-event files, serialization inconsistency | Acceptable at current scale |
