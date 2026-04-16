@@ -392,4 +392,60 @@ class HistoryManagerTest {
         val manager = HistoryManager()
         assertThat(manager.compressScreenContent(content)).isEqualTo("Screen: screenshot only (compressed)")
     }
+
+    // ── Token accounting after large compression ────────────────────────
+
+    @Test
+    fun `compress leaves token estimate matching actual sum after large eviction`() {
+        val manager = HistoryManager(HistoryConfig(recentWindowSize = 2, recentFullScreens = 1))
+        manager.addItem(ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "task"))
+        repeat(500) { idx ->
+            manager.addItem(
+                ResponseItem.Message(
+                    kind = MessageKind.SCREEN_OBSERVATION,
+                    content = "Screen state (10 elements): filler ${"x".repeat(100)} #$idx"
+                )
+            )
+        }
+
+        val before = manager.estimateTokenCount()
+        val result = manager.compress(1_000)
+
+        assertThat(result).isInstanceOf(CompressionResult.Compressed::class.java)
+        val compressed = result as CompressionResult.Compressed
+        assertThat(compressed.before).isEqualTo(before)
+
+        val actualSum = manager.getAll().sumOf { it.estimateTokens() }
+        assertThat(manager.estimateTokenCount()).isEqualTo(actualSum)
+        assertThat(compressed.after).isEqualTo(actualSum)
+    }
+
+    @Test
+    fun `compress evicts call and paired output together in large history`() {
+        val manager = HistoryManager(HistoryConfig(recentWindowSize = 2))
+        manager.addItem(ResponseItem.Message(kind = MessageKind.USER_INTENT, content = "task"))
+        repeat(100) { idx ->
+            manager.addItem(
+                ResponseItem.FunctionCall(
+                    id = "call-$idx",
+                    name = "tool",
+                    arguments = JSONObject()
+                )
+            )
+            manager.addItem(
+                ResponseItem.FunctionCallOutput(
+                    callId = "call-$idx",
+                    content = "result ${"y".repeat(200)}"
+                )
+            )
+        }
+
+        manager.compress(500)
+
+        val remaining = manager.getAll()
+        val calls = remaining.filterIsInstance<ResponseItem.FunctionCall>().map { it.id }.toSet()
+        val outputs = remaining.filterIsInstance<ResponseItem.FunctionCallOutput>().map { it.callId }.toSet()
+        // Every surviving call should have its output; no orphan outputs remain
+        assertThat(outputs).isEqualTo(calls)
+    }
 }

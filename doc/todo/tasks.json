@@ -219,7 +219,7 @@
     "description": "HistoryManager.compress() eviction loop calls estimateTokenCount() on every iteration, but every removeAt() sets lastTokenEstimate=null, forcing a full items.sumOf{it.estimateTokens()} rescan. This is O(n^2) in history size. Fix: maintain a running token total during Phase 2 eviction. Before the while loop, capture runningTokens=estimateTokenCount(). On each removal, subtract the removed item tokens. After eviction completes, set lastTokenEstimate=null to invalidate cache for external callers. Same pattern needed for Phase 3 (group eviction) if it also loops on estimateTokenCount().",
     "parent": "perf-resources",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/history/HistoryManager.kt",
       "app/src/test/kotlin/**/HistoryManager*"
@@ -240,7 +240,7 @@
       "history"
     ],
     "created": "2026-04-16T12:00:00+08:00",
-    "updated": "2026-04-16T12:00:00+08:00"
+    "updated": "2026-04-16T12:20:00+08:00"
   },
   "perf-truncation-indexof": {
     "title": "Fix truncation O(n^2) indexOf in applyTruncation",

@@ -183,11 +183,15 @@ class HistoryManager(
         var evictedActions = 0
         var firstEvictionIndex = -1
 
+        // Running token total — updated incrementally as we evict to avoid
+        // O(n) full-history rescans inside the eviction loop.
+        var runningTokens = estimateTokenCount()
+
         // Dynamic boundary: protectedTail items at the end are never touched.
         // Recalculated every iteration because removals shift items left.
         var i = 0
         while (i < (items.size - protectedTail).coerceAtLeast(0) &&
-            estimateTokenCount() > targetTokens
+            runningTokens > targetTokens
         ) {
             val item = items[i]
 
@@ -212,33 +216,35 @@ class HistoryManager(
                     } else {
                         evictedActions++
                     }
+                    runningTokens -= item.estimateTokens()
                     items.removeAt(i)
-                    lastTokenEstimate = null
                 }
                 is ResponseItem.FunctionCall -> {
                     // Remove call + paired output as atomic group
                     val callId = item.id
+                    runningTokens -= item.estimateTokens()
                     items.removeAt(i)
                     val dynamicBoundary = (items.size - protectedTail).coerceAtLeast(0)
                     val outputIdx = items.indexOfFirst {
                         it is ResponseItem.FunctionCallOutput && it.callId == callId
                     }
                     if (outputIdx >= 0 && outputIdx < dynamicBoundary) {
+                        runningTokens -= items[outputIdx].estimateTokens()
                         items.removeAt(outputIdx)
                         if (outputIdx < i) i--
                         evictedActions++ // count the paired output as a separate eviction
                     }
                     evictedActions++ // count the call
-                    lastTokenEstimate = null
                 }
                 is ResponseItem.FunctionCallOutput -> {
                     // Orphaned output (call already removed) — safe to evict
                     evictedActions++
+                    runningTokens -= item.estimateTokens()
                     items.removeAt(i)
-                    lastTokenEstimate = null
                 }
             }
         }
+        lastTokenEstimate = if (evictedScreens + evictedActions > 0) null else lastTokenEstimate
 
         // Insert digest breadcrumb if we evicted anything
         if (evictedScreens + evictedActions > 0) {
