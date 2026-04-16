@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-04-16: perf-resources — 10 perf fixes, R8 enabled, real-device QA PASS
+
+**What changed:**
+- Hot-path O(n²) → O(n): `HistoryManager.compress()` delta-tracks tokens; `PerceptorInternals.applyTruncation()` uses `HashSet` dedup; `enrichEmptyTextElements()` sorts text sources by top + binary-searches per candidate while preserving candidate-order in joined output.
+- `Perceptor.snapshot()` collapsed from two root traversals to one; per-pool counters (`PoolCounters`) keep interactive / non-interactive caps at `2 × maxElements` each so `applyTruncation` still gets a full score-based pool.
+- `FileTraceRecorder`: `WriteOp.Flush` now actually calls `writer.flush()`; `AppendLine` stops flushing per event (BufferedWriter batches, close flushes).
+- Streaming clients: `LlmLogger.isVerboseEnabled` gates `StringBuilder` / tool-call accumulators. `OpenAIResponseClient` + `ChatCompletionClient` now hold `AtomicReference<AutoCloseable>` to the active stream and cancel it from `awaitClose` (mirrors `CodexResponseClient`).
+- `BitmapUtils.compressJpeg()` pre-sizes BAOS from pixel count; `AccessibilityScreenshotCapturer.compressScreenshot()` moves bitmap recycling into outer `finally` for exception safety.
+- `app/proguard-rules.pro` added; release build enables `isMinifyEnabled=true` + `isShrinkResources=true`. Keep rules cover kotlinx.serialization, Shizuku AIDL, `android.hardware.display.IVirtualDisplayCallback` (and `IDisplayManager` / `VirtualDisplayConfig` stubs — review caught R8 renaming these to `e.a`), OpenAI SDK + Jackson reflection, Leap SDK JNI, HiddenApiBypass, Compose runtime, app entry points.
+- `doc/dev/development.md`: new "Debug vs Release APK — always debug unless shipping" section plus two release-specific troubleshooting rows.
+
+**Why:**
+- Double-design review (Claude + Codex, revalidated 2026-04-16) identified the hotspots. Heaviest impact was release APK size and per-capture perception cost.
+- R8 was simply never turned on; 74% of the APK was dead code.
+- Trace `flush()` was a silent no-op masked by per-line flushing — removing the per-line flush without co-fixing `Flush` would have lost data.
+
+**Key files:** `app/build.gradle.kts`, `app/proguard-rules.pro`, `history/HistoryManager.kt`, `perception/Perceptor.kt`, `perception/PerceptorInternals.kt`, `trace/FileTraceRecorder.kt`, `llm/LlmLogger.kt`, `llm/CodexResponseClient.kt`, `llm/OpenAIResponseClient.kt`, `llm/ChatCompletionClient.kt`, `platform/BitmapUtils.kt`, `platform/AccessibilityScreenshotCapturer.kt`, `doc/dev/development.md`
+**Verification:** `./gradlew test`, `./gradlew assembleDebug`, `./gradlew assembleRelease` all pass. New unit tests: `BitmapUtilsTest`, `FileTraceRecorderTest`, two `HistoryManagerTest`, two `PerceptorInternalsTest` (1000-candidate scalability + out-of-order enrichment). Codex review saved to `doc/todo/holistic-review/performance-resources/codex_review.md` — 2 high + 1 medium fixed, 1 medium deferred (SDK limitation on pre-publication stream cancel). Real-device QA (device EP0110MZ0BC, 5 scenarios, all PASS) — `qa_report.md`. Release APK 96 MB → 25 MB (−74%).
+**Commit:** 12b3e403..b0509f75 (14 commits)
+**Next:** Before shipping a public release APK, run a full LLM tool-call on the signed release build to cover the `OpenAIResponseClient` / `ChatCompletionClient` R8 paths that QA (d) could not exercise without credentials.
+**Blockers:** None.
+
 ## 2026-04-16: UI/UX Quality Improvement — 6 Phases Complete
 
 **What changed:**

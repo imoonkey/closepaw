@@ -1,8 +1,30 @@
 # Development Guide
 
-> Last updated: 2026-03-06 (uncommitted)
+> Last updated: 2026-04-16 (commit: b0509f75)
 
 This guide covers the development workflow for Android Agent - building, testing, and debugging.
+
+## Debug vs Release APK — always debug unless shipping
+
+All day-to-day work uses the **debug** APK. The **release** APK is only for shipping, release smoke tests, or APK-size / cold-start measurements. Do **not** drive eval, autotune, UX QA, or `debug-run.sh` against a release build.
+
+| | Debug | Release |
+|---|---|---|
+| Build | `./gradlew assembleDebug` (seconds) | `./gradlew assembleRelease` (~2 min) |
+| Install | `scripts/setup.sh`, `adb install -r …` | Sign then `adb install`. `scripts/setup.sh` targets debug. |
+| R8 / resource shrink | off | **on** (`isMinifyEnabled=true`, `isShrinkResources=true`) |
+| APK size | ~96 MB | ~25 MB (−74%) |
+| `BuildConfig.DEBUG` | `true` → `LlmLogger.VERBOSE_LOGGING` prints full prompt/response; streaming clients build accumulators | `false` → verbose log off, accumulators skipped (see `perf-streaming-guard`) |
+| `INSECURE_SSL_FOR_EVAL` | opt-in via `-PinsecureSslForEval=true` | forced `false` |
+| Cleartext (`10.0.2.2`, `localhost`) | allowed for emulator via `network_security_config.xml` | blocked |
+| Stack traces | non-obfuscated | obfuscated by R8 (use `app/build/outputs/mapping/release/mapping.txt` to deobfuscate) |
+
+**When to build release:**
+1. Release artifact / public distribution.
+2. Validating R8 keep rules (`app/proguard-rules.pro`). After any SDK upgrade or reflection/AIDL touch, run `./gradlew assembleRelease` and grep `app/build/outputs/mapping/release/mapping.txt` for any symbol expected to stay unobfuscated.
+3. Measuring APK size, cold start, or dex method count.
+
+**Before publishing a release:** install the signed release APK with a real API key and run at least one full LLM tool-call end-to-end. R8 is the likely source of any `ClassNotFoundException` / `NoSuchMethodError`, and the `OpenAIResponseClient` / `ChatCompletionClient` streaming paths are the highest-risk zones. The `perf-qa-real-device` QA report explicitly calls this out as a follow-up.
 
 ## Prerequisites
 
@@ -250,6 +272,8 @@ echo 'PLATFORM_MODE=virtual_display' >> .env
 | "Accessibility service not enabled" | Run `./scripts/setup.sh`, or enable manually in Settings |
 | "No device detected" | Check USB debugging, run `adb devices` |
 | Agent not responding | Run `./scripts/setup.sh`, then check `./scripts/logs.sh` |
+| `ClassNotFoundException` / `NoSuchMethodError` only on release | Missing R8 keep rule — open `app/proguard-rules.pro`, add a targeted keep for the offending package/class, rebuild. Debug build won't reproduce. |
+| Verbose prompt/response log missing | You are running release. Switch to debug — `VERBOSE_LOGGING = BuildConfig.DEBUG`. |
 
 ## Detailed Documentation
 
