@@ -44,6 +44,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -204,7 +205,8 @@ internal fun CapsuleRow3(
             modifier = Modifier
                 .weight(1f)
                 .focusRequester(focusRequester)
-                .onFocusChanged { onInputFocusChanged(it.isFocused) },
+                .onFocusChanged { onInputFocusChanged(it.isFocused) }
+                .testTag("qa-capsule-input"),
             placeholder = {
                 Text(text = row3Spec.hint, color = MaterialTheme.colorScheme.onSurfaceVariant)
             },
