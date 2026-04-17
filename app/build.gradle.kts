@@ -19,6 +19,8 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -62,6 +64,7 @@ android {
     }
     
     testOptions {
+        animationsDisabled = true
         unitTests {
             isReturnDefaultValues = true
             isIncludeAndroidResources = true
@@ -130,4 +133,9 @@ dependencies {
     // Pure Java JSON library for unit tests (Android's JSONObject is not available in unit tests)
     testImplementation("org.json:json:20240303")
     testImplementation("com.squareup.okhttp3:mockwebserver:5.2.1")
+
+    // Instrumented QA tests (Compose UI Test on emulator/device)
+    androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
