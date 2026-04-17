@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-04-17: test-architecture — 28 unit-test tasks landed, codex APPROVE
+
+**What changed:**
+- Added 26 new test classes + extended 2 across 6 phases (LLM contract, orchestration seams, safety tools, onboarding/auth, chat/history, VD+trace). Test count: 833 → ~920.
+- Fixed live bug: `OpenAIErrorClassifier` was matching `429`/`500` as substrings (status `14291` classified as rate-limit). Replaced `message.contains("429")` with non-alphanumeric-boundary regex that also rejects letter-adjacent tokens like `req_429abc`.
+- Fixed latent JDK-21-API-on-JDK-17 crash: `SessionCoordinator.drainLocked()` used `List.removeFirst()` → `removeAt(0)`. Was never exercised before new `SessionCoordinatorTest` hit the drain path.
+- Extracted `PermissionStateMonitor.deriveRepairModel(...)` as a pure companion fn so tests exercise pure logic instead of spying on the Android probes.
+- Made production timeouts injectable (`ShellTool(timeoutSeconds)`, `HttpLlmCredentialValidator(connectTimeoutMs, readTimeoutMs)`) so tests can use short values; production defaults unchanged.
+- Added test dep `com.squareup.okhttp3:mockwebserver:5.2.1` matching the existing okhttp 5.x on the main classpath.
+
+**Why:**
+- Double-design holistic review (2026-04-08) identified that the LLM contract boundary, orchestration seams, and onboarding/auth had near-zero direct test coverage — regressions were cheap to introduce and invisible until runtime.
+- The classifier bug shipped because tests preserved it as a `KNOWN BUG` marker; plan required both fixing the code and removing the marker.
+- Codex v2 review flagged 3 tests totaling 46s of real-time wait (`sleep 15`, `DISCONNECT_AT_START`, full retry backoff loop). Unit suite time budget matters; constructor injection was the right shape.
+
+**Key files:** `app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIErrorClassifier.kt`, `.../session/SessionCoordinator.kt`, `.../onboarding/PermissionStateMonitor.kt`, `.../onboarding/HttpLlmCredentialValidator.kt`, `.../tool/impl/ShellTool.kt`, `app/build.gradle.kts`, 26 new test files under `app/src/test/kotlin/com/moonkey/androidagent/`
+**Verification:** `./gradlew :app:testDebugUnitTest` passes. 3 codex review rounds: v1 REQUEST CHANGES (3 Medium → fixed in `301df1d5`), v2 REQUEST CHANGES (1 Medium slow tests → fixed in `6c3ee6fb`), v3 **APPROVE**. Real-device QA (device EP0110MZ0BC): S1 classifier fail-fast PASS, S2 multi-turn GOAL_ACHIEVED PASS, S3 provider routing PARTIAL PASS (chat-API routed, upstream stream issue unrelated), S4 airplane-mode SKIP per operator. No crashes/ANRs.
+**Commit:** `ca787bc5..7c97c8e0` (30 commits)
+**Next:** Backlog items if they ever become load-bearing (`CloudLlmRetryTest`, `SessionLlmBootstrapperTest` extend, `LlmInputItemsTraceSerializerTest`).
+**Blockers:** None.
+
+## 2026-04-17: tool-system-design — backfilled 5 tasks as done (no code change)
+
+**What changed:**
+- Verified all 5 `tsd-*` tasks were already implemented in earlier commits; marked parent `tool-system-design` and children `done` in `doc/todo/tasks.json`.
+- No code changes — this was pure task-state bookkeeping.
+
+**Why:** Tasks had been implemented during tool-system design work but never transitioned from `ready`/`running`. Spotted during test-architecture milestone close-out.
+
+**Key files:** `doc/todo/tasks.json`
+**Verification:** `appClassifier` threading, `ToolName.AskUser`/`Shell`, `ActionResult.Cancelled` mapping, `BLOCKED_COMMANDS` + truncation indicator, and absent `detectScrollBoundary` / `MobileActionName.Back|Home` branches all confirmed via grep. Tests green.
+**Commit:** `7c97c8e0`
+**Blockers:** None.
+
 ## 2026-04-16: perf-resources — 10 perf fixes, R8 enabled, real-device QA PASS
 
 **What changed:**
