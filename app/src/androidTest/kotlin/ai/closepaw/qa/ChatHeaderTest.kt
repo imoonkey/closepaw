@@ -4,6 +4,8 @@ import ai.closepaw.ui.chat.components.ChatHeader
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -24,5 +26,19 @@ class ChatHeaderTest {
         }
 
         compose.onAllNodesWithContentDescription("New conversation").assertCountEquals(0)
+    }
+
+    @Test fun new_chat_button_visible_and_fires_callback_when_enabled() {
+        var clicked = false
+        compose.setContent {
+            ChatHeader(
+                onMenuClick = {},
+                onNewChatClick = { clicked = true },
+                showNewChatButton = true
+            )
+        }
+
+        compose.onNodeWithContentDescription("New conversation").performClick()
+        assert(clicked) { "onNewChatClick was not invoked" }
     }
 }

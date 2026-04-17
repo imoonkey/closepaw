@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 /**
@@ -29,7 +30,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ThinkingIndicator(modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.testTag("qa-thinking-indicator"),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceVariant
     ) {
