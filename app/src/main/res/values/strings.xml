@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Android Agent</string>
+    <string name="app_name">ClosePaw</string>
     <string name="accessibility_service_description">AI agent that can navigate Android UI to accomplish goals</string>
 </resources>
