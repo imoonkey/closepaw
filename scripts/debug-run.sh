@@ -26,7 +26,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-PACKAGE="com.moonkey.androidagent"
+PACKAGE="ai.closepaw"
 RUN_ID="$(date +"%Y%m%d_%H%M%S")"
 DEBUG_DIR="$PROJECT_ROOT/debug-output/run_${RUN_ID}"
 

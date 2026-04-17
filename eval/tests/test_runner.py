@@ -26,8 +26,8 @@ from eval.aw_bridge.runner_preflight import (
 
 def _bridge_config() -> BridgeConfig:
     return BridgeConfig(
-        package_name="com.moonkey.androidagent",
-        activity="com.moonkey.androidagent/.app.MainActivity",
+        package_name="ai.closepaw",
+        activity="ai.closepaw/.app.MainActivity",
         llm_backend="openai",
         agent_mode="basic",
         perception_mode="accessibility_only",
@@ -337,8 +337,8 @@ class RunnerConfigLoadingTest(unittest.TestCase):
                 "  auto_start_emulator: false\n"
                 "bridge:\n"
                 "  llm_backend: openai\n"
-                "  package_name: com.moonkey.androidagent\n"
-                "  activity: com.moonkey.androidagent/.app.MainActivity\n"
+                "  package_name: ai.closepaw\n"
+                "  activity: ai.closepaw/.app.MainActivity\n"
                 "  agent_mode: basic\n"
                 "  perception_mode: accessibility_only\n"
                 "  platform_mode: accessibility\n"

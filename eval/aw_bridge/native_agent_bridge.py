@@ -54,8 +54,8 @@ class BridgeOutcome:
 
 
 class NativeAgentBridge:
-    _A11Y_SERVICE = "com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService"
-    _A11Y_SERVICE_LABEL = "Android Agent"
+    _A11Y_SERVICE = "ai.closepaw/ai.closepaw.app.AgentService"
+    _A11Y_SERVICE_LABEL = "ClosePaw"
 
     def __init__(self, config: BridgeConfig) -> None:
         self._config = config

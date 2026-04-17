@@ -93,11 +93,11 @@ def _extract_reason(line: str) -> str | None:
 def _infer_reason(line: str) -> str | None:
     if "Executing tool: ask_user" in line:
         return "ASK_USER_BLOCKED"
-    if "ANR in com.moonkey.androidagent" in line:
+    if "ANR in ai.closepaw" in line:
         return "AGENT_ANR"
     if (
         "Timeout executing service: ServiceRecord" in line
-        and "com.moonkey.androidagent/.app.AgentService" in line
+        and "ai.closepaw/.app.AgentService" in line
     ):
         return "AGENT_ANR"
     return None

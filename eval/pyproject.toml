@@ -1,7 +1,7 @@
 [project]
-name = "android-agent-eval"
+name = "closepaw-eval"
 version = "0.1.0"
-description = "Evaluation harness for Android Agent"
+description = "Evaluation harness for ClosePaw"
 requires-python = ">=3.11"
 dependencies = [
     "PyYAML>=6.0",

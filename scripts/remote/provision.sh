@@ -133,7 +133,7 @@ for avd in "${AVD_NAME}" "${AVD_NAME_2}"; do
 done
 
 # ─── 7. Write environment profile ────────────────────────────────────
-PROFILE_FILE="${HOME}/.android-agent-env"
+PROFILE_FILE="${HOME}/.closepaw-env"
 cat > "${PROFILE_FILE}" <<ENVEOF
 export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 export ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}
@@ -142,8 +142,8 @@ export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/em
 ENVEOF
 
 # Add to .bashrc if not already there
-if ! grep -q 'android-agent-env' "${HOME}/.bashrc" 2>/dev/null; then
-  echo 'source ~/.android-agent-env' >> "${HOME}/.bashrc"
+if ! grep -q 'closepaw-env' "${HOME}/.bashrc" 2>/dev/null; then
+  echo 'source ~/.closepaw-env' >> "${HOME}/.bashrc"
 fi
 
 log "Environment written to ${PROFILE_FILE}"
@@ -151,6 +151,6 @@ log "=== Provision complete ==="
 log ""
 log "Next steps:"
 log "  1. Clone the repo"
-log "  2. Run: source ~/.android-agent-env"
+log "  2. Run: source ~/.closepaw-env"
 log "  3. Set up eval venv"
 log "  4. Configure .env"

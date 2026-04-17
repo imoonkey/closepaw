@@ -9,8 +9,8 @@ from eval.aw_bridge.native_agent_bridge import BridgeConfig, NativeAgentBridge
 
 def _bridge_config() -> BridgeConfig:
     return BridgeConfig(
-        package_name="com.moonkey.androidagent",
-        activity="com.moonkey.androidagent/.app.MainActivity",
+        package_name="ai.closepaw",
+        activity="ai.closepaw/.app.MainActivity",
         llm_backend="openai",
         agent_mode="basic",
         perception_mode="accessibility_only",
@@ -44,7 +44,7 @@ class NativeAgentBridgeAccessibilityTest(unittest.TestCase):
             bridge._clear_long_term_memory()
 
         shell_mock.assert_called_once_with(
-            ["run-as", "com.moonkey.androidagent", "rm", "-rf", "files/memory"],
+            ["run-as", "ai.closepaw", "rm", "-rf", "files/memory"],
             check=False,
             capture_output=True,
             timeout_sec=60,
@@ -95,9 +95,9 @@ class NativeAgentBridgeAccessibilityTest(unittest.TestCase):
         dumpsys_text = """
             User state[0]
               Bound services:
-                Service[label=Android Agent, componentName=com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService]
+                Service[label=ClosePaw, componentName=ai.closepaw/ai.closepaw.app.AgentService]
               Enabled services:
-                com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService
+                ai.closepaw/ai.closepaw.app.AgentService
         """
         self.assertTrue(
             NativeAgentBridge._is_service_in_bound_accessibility_services(dumpsys_text)
@@ -109,7 +109,7 @@ class NativeAgentBridgeAccessibilityTest(unittest.TestCase):
               Bound services:
                 none
               Enabled services:
-                com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService
+                ai.closepaw/ai.closepaw.app.AgentService
         """
         self.assertFalse(
             NativeAgentBridge._is_service_in_bound_accessibility_services(dumpsys_text)
@@ -119,9 +119,9 @@ class NativeAgentBridgeAccessibilityTest(unittest.TestCase):
         dumpsys_text = """
             User state[0]
               mBoundServices:
-                Service[label=Android Agent, componentName=com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService]
+                Service[label=ClosePaw, componentName=ai.closepaw/ai.closepaw.app.AgentService]
               mEnabledServices:
-                com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService
+                ai.closepaw/ai.closepaw.app.AgentService
         """
         self.assertTrue(
             NativeAgentBridge._is_service_in_bound_accessibility_services(dumpsys_text)
@@ -131,8 +131,8 @@ class NativeAgentBridgeAccessibilityTest(unittest.TestCase):
         """Real-world format: Bound services uses label= without componentName."""
         dumpsys_text = """
      Bound services:{Service[label=com.google.androidenv.accessibilityforwarder.Acce\u2026, feedbackType[FEEDBACK_GENERIC], capabilities=1, eventTypes=TYPES_ALL_MASK, notificationTimeout=0, requestA11yBtn=false],
-                     Service[label=Android Agent, feedbackType[FEEDBACK_GENERIC], capabilities=161, eventTypes=[TYPE_WINDOW_STATE_CHANGED, TYPE_WINDOW_CONTENT_CHANGED], notificationTimeout=100, requestA11yBtn=false]}
-     Enabled services:{{com.google.androidenv.accessibilityforwarder/com.google.androidenv.accessibilityforwarder.AccessibilityForwarder}, {com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService}}
+                     Service[label=ClosePaw, feedbackType[FEEDBACK_GENERIC], capabilities=161, eventTypes=[TYPE_WINDOW_STATE_CHANGED, TYPE_WINDOW_CONTENT_CHANGED], notificationTimeout=100, requestA11yBtn=false]}
+     Enabled services:{{com.google.androidenv.accessibilityforwarder/com.google.androidenv.accessibilityforwarder.AccessibilityForwarder}, {ai.closepaw/ai.closepaw.app.AgentService}}
         """
         self.assertTrue(
             NativeAgentBridge._is_service_in_bound_accessibility_services(dumpsys_text)
@@ -142,7 +142,7 @@ class NativeAgentBridgeAccessibilityTest(unittest.TestCase):
         """Label-only format but our service is NOT in the bound list."""
         dumpsys_text = """
      Bound services:{Service[label=com.google.androidenv.accessibilityforwarder.Acce\u2026, feedbackType[FEEDBACK_GENERIC], capabilities=1]}
-     Enabled services:{{com.moonkey.androidagent/com.moonkey.androidagent.app.AgentService}}
+     Enabled services:{{ai.closepaw/ai.closepaw.app.AgentService}}
         """
         self.assertFalse(
             NativeAgentBridge._is_service_in_bound_accessibility_services(dumpsys_text)

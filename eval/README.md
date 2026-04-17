@@ -1,4 +1,4 @@
-# Android Agent Evaluation Harness
+# ClosePaw Evaluation Harness
 
 This folder contains the Tier 0/1 evaluation implementation described in
 `doc/todo/0.5_eval/align/design/design.md`.
@@ -229,7 +229,7 @@ emulator screen).  To run on a **Shizuku virtual display** instead:
    `bridge.shizuku_apk_path` is set -- see below).
 2. Open the Shizuku app on the emulator and start the server via the
    "Start via ADB" flow.
-3. Launch the Android Agent app, which will trigger the Shizuku permission
+3. Launch the ClosePaw app, which will trigger the Shizuku permission
    dialog.  Tap **Allow**.
 
 This grant persists across emulator reboots (as long as you don't wipe data).

@@ -1,2 +1,2 @@
-"""AndroidWorld bridge runner package for native Android Agent eval."""
+"""AndroidWorld bridge runner package for native ClosePaw eval."""
 

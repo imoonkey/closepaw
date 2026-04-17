@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REMOTE="qiguo@desktop"
-REMOTE_DIR="~/androidagent"
+REMOTE_DIR="~/closepaw"
 
 echo "==> git push"
 git push

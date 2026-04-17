@@ -173,7 +173,7 @@ start_emulator_if_needed() {
   local adb_serial="$3"
   local console_port="$4"
   local grpc_port="$5"
-  local log_path="/tmp/androidagent_eval_parallel_${adb_serial}.log"
+  local log_path="/tmp/closepaw_eval_parallel_${adb_serial}.log"
   local device_state=""
   local active_avd=""
   local other_serial=""

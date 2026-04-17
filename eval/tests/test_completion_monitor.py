@@ -79,7 +79,7 @@ class ErrorPatternTest(unittest.TestCase):
         self.assertIsNotNone(ERROR_PATTERN.search(line))
 
     def test_agent_anr(self) -> None:
-        line = "ActivityManager: ANR in com.moonkey.androidagent"
+        line = "ActivityManager: ANR in ai.closepaw"
         self.assertIsNotNone(ERROR_PATTERN.search(line))
 
 
@@ -89,7 +89,7 @@ class InferReasonTest(unittest.TestCase):
         self.assertEqual(_infer_reason(line), "ASK_USER_BLOCKED")
 
     def test_infers_agent_anr(self) -> None:
-        line = "ActivityManager: ANR in com.moonkey.androidagent"
+        line = "ActivityManager: ANR in ai.closepaw"
         self.assertEqual(_infer_reason(line), "AGENT_ANR")
 
 
@@ -133,7 +133,7 @@ class LogcatCompletionMonitorTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             logcat = Path(tmp) / "logcat.log"
             logcat.write_text(
-                "ActivityManager: ANR in com.moonkey.androidagent\n",
+                "ActivityManager: ANR in ai.closepaw\n",
                 encoding="utf-8",
             )
             monitor = LogcatCompletionMonitor(max_wait_seconds=1, poll_interval_seconds=0.01)

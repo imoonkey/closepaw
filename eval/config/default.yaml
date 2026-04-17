@@ -27,8 +27,8 @@ android_world:
   freeze_datetime: true  # AndroidWorld sets system time to Oct 2023; app uses InsecureSslConfig to bypass cert date checks
 
 bridge:
-  package_name: com.moonkey.androidagent
-  activity: com.moonkey.androidagent/.app.MainActivity
+  package_name: ai.closepaw
+  activity: ai.closepaw/.app.MainActivity
   llm_backend: openai
   agent_mode: basic
   perception_mode: accessibility_only

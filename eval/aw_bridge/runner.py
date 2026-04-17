@@ -257,8 +257,8 @@ def load_config(workspace_root: Path, args: argparse.Namespace) -> RunnerConfig:
     ).value
 
     bridge = BridgeConfig(
-        package_name=str(bridge_cfg.get("package_name", "com.moonkey.androidagent")),
-        activity=str(bridge_cfg.get("activity", "com.moonkey.androidagent/.app.MainActivity")),
+        package_name=str(bridge_cfg.get("package_name", "ai.closepaw")),
+        activity=str(bridge_cfg.get("activity", "ai.closepaw/.app.MainActivity")),
         llm_backend=str(bridge_cfg.get("llm_backend", "openai")),
         agent_mode=str(bridge_cfg.get("agent_mode", "pro")),
         perception_mode=str(bridge_cfg.get("perception_mode", "accessibility_only")),

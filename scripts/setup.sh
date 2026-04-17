@@ -24,7 +24,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-PACKAGE="com.moonkey.androidagent"
+PACKAGE="ai.closepaw"
 APK_PATH="$PROJECT_ROOT/app/build/outputs/apk/debug/app-debug.apk"
 
 # Colors
@@ -73,7 +73,7 @@ select_device() {
 
 echo -e "${GREEN}"
 echo "=============================================================="
-echo "         Android Agent - Build & Deploy                        "
+echo "         ClosePaw - Build & Deploy                        "
 echo "=============================================================="
 echo -e "${NC}"
 
@@ -148,7 +148,7 @@ if [[ "$ENABLED" == *"$PACKAGE"* ]]; then
     ok "Accessibility service enabled"
 else
     warn "Accessibility service may need manual activation"
-    warn "Path: Settings > Accessibility > Downloaded apps > Android Agent"
+    warn "Path: Settings > Accessibility > Downloaded apps > ClosePaw"
 fi
 
 # 7. Launch app

@@ -32,8 +32,8 @@ except ImportError:
 REPO_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = REPO_ROOT / "doc" / "autotune" / "meta"
 
-AGENT_DEF = REPO_ROOT / "app/src/main/kotlin/com/moonkey/androidagent/agent/definition/StandaloneAgentDef.kt"
-TOOL_DIR = REPO_ROOT / "app/src/main/kotlin/com/moonkey/androidagent/tool/impl"
+AGENT_DEF = REPO_ROOT / "app/src/main/kotlin/ai/closepaw/agent/definition/StandaloneAgentDef.kt"
+TOOL_DIR = REPO_ROOT / "app/src/main/kotlin/ai/closepaw/tool/impl"
 SKILLS_DIR = REPO_ROOT / "app/src/main/assets/app_skills"
 
 
