@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-04-17: qa_test — Compose UI behavior-guard layer bootstrapped (45 tests, 3 batches)
+
+**What changed:**
+- New instrumented test layer at `app/src/androidTest/kotlin/ai/closepaw/qa/`. AndroidJUnitRunner + Compose UI Test, `animationsDisabled=true`. 45 tests across:
+  - Batch 1 Chat (17): Sanity, EmptyState, Header, BubbleAlignment, ThinkingState, StreamingCursor, ActionCard state icons, ActionCard expand.
+  - Batch 2 SmartCapsule (15): Rendering (Hidden/Running/Takeover), Input (WaitingForInput field/send), Approval (WaitingForAction/WaitingForApproval), Lifecycle (Done auto-dismiss via real `CapsuleStateHolder.scheduleAutoHide`, Error, Stop-pending, Navigation).
+  - Batch 3 Settings (13): Sheet nav + StateRestorationTester rotation, LLM Auth tab/OAuth/provider/model-canonicalization, AgentBehavior Pro/Basic, Permissions traces banner + Clear-Traces dialog.
+- Minimal production touchpoints (5 testTag additions, all justified):
+  - `ui/chat/components/ThinkingIndicator.kt` — `qa-thinking-indicator`
+  - `ui/capsule/surface/SmartCapsuleSurfaceParts.kt` — `qa-capsule-input`
+  - `ui/settings/PermissionsAdvancedSettingsPage.kt` — clear-traces dialog anchor
+  - `ui/settings/LlmAuthSettingsPage.kt` — `qa-executor-model-dropdown` wrapper Box (Sign-In + API-Key Pro branches)
+  - `ui/chat/components/MessageBubble.kt` — user/agent bubble container tags
+- `app/build.gradle.kts`: `testInstrumentationRunner = AndroidJUnitRunner`, `testOptions.animationsDisabled = true`, `androidTestImplementation` for Compose UI Test + uiautomator + ext:junit.
+- Design framing reframed in `doc/todo/qa_test/final/cn/design_kiss.md`: from "bug-driven" → "behavior-guard". Bug reports are one trigger to add new guards, not the only legitimate one. bootstrap_plan.md unchanged.
+
+**Why:**
+- The existing test layers (`app/src/test/` JVM units, `eval/` AndroidWorld benchmarks) didn't cover Compose UI behavior. Manual UX QA was the only safety net for chat / capsule / settings regressions.
+- bootstrap by behavior inventory (not by waiting for bugs) up-front guards the high-value flows; bug reports later add point guards as needed.
+- KISS rules: flat layout, no Robot/base classes/annotations, `org.junit.Assert` for verdicts (Kotlin built-in `assert(...)` is a silent no-op without `-ea`), `testTag` only when text/contentDescription unavailable.
+
+**Key files:** `app/src/androidTest/kotlin/ai/closepaw/qa/**`, `app/build.gradle.kts`, `doc/todo/qa_test/final/cn/{design_kiss,bootstrap_plan}.md`, the 5 production files above.
+
+**Verification:** `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa` → 45 tests green on device EP0110MZ0BC101266W. 3 codex review rounds (1 per batch + 1 fix-recheck on Batch 3) caught and resolved K11 fake auto-dismiss, S9 false-positive via shared section title, S11 vacuous dialog assertion, plus several smaller assertion-hygiene issues.
+
+**Commit:** `3c4f586d..96024d91`
+
+**Next:** C12/C13 (chat scroll FAB) deferred — needs full ChatScreen + lazy scroll state. Settings helper (`QaSettingsHelpers.kt`, 145 lines) could be slimmed once 3rd-repetition rule applies. Otherwise behavior-guard growth is event-driven (new behavior or bug fix → new test).
+
+**Blockers:** None.
+
 ## 2026-04-16: protocol-communication — 4 fixes, codex APPROVE, 5/6 QA PASS
 
 **What changed:**

@@ -5,7 +5,8 @@ AI-powered Android automation using accessibility services. Kotlin/Jetpack Compo
 ## Quick Reference
 
 **Build**: `./gradlew assembleDebug`
-**Test**: `./gradlew test`
+**Test (JVM)**: `./gradlew test`
+**Test (Compose UI on device)**: `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa`
 **Lint**: `./gradlew lint`
 **Run**: `./scripts/debug-run.sh "Open Settings"`
 **Full Check**: `./gradlew clean assembleDebug lint test`

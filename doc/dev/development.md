@@ -91,6 +91,26 @@ For faster iteration, run a single test class:
 ./gradlew test --tests "ai.closepaw.history.HistoryManagerTest"
 ```
 
+### 2b. Compose UI Tests (instrumented, on device/emulator)
+
+Behavior-guard tests for app-owned UI live under `app/src/androidTest/kotlin/ai/closepaw/qa/`. They run on a connected device or emulator via `AndroidJUnitRunner` + Compose UI Test, with `animationsDisabled=true` to prevent flake.
+
+```bash
+adb devices                                                                    # confirm device attached
+./gradlew connectedDebugAndroidTest \
+    -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa
+```
+
+What is and isn't covered:
+
+- `app/src/test/` — fast JVM unit tests (logic, state, formatting).
+- `app/src/androidTest/kotlin/ai/closepaw/qa/` — Compose UI behavior guards across Chat, SmartCapsule, Settings (45 tests as of 2026-04-17). Layout is flat, files grouped by area (`ChatHeaderTest`, `CapsuleInputTest`, `SettingsLlmAuthTest`, ...). No Robot pattern, no annotations, no base classes.
+- `eval/` — AndroidWorld-style agent benchmarks (separate Python harness, see `/autotune`).
+
+Design rules: `doc/todo/qa_test/final/cn/design_kiss.md`. Add new tests when adding behavior or fixing bugs — don't wait for bugs to grow guards.
+
+Critical pitfall: **never use Kotlin built-in `assert(...)` for verdicts** in androidTest — it's a no-op without `-ea` and silently passes. Use `org.junit.Assert.assertTrue` / `assertEquals` or Compose's `onNode(...).assertExists()` / `assertCountEquals(...)`.
+
 ### Prompt Ownership
 
 When tuning the agent's cognition, edit the narrowest owner:

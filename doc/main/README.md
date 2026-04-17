@@ -1,7 +1,7 @@
 # ClosePaw Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-04-16
+> Last updated: 2026-04-17
 
 ## Quick Start
 
@@ -9,7 +9,8 @@
 |------|---------|
 | Build (default) | `./gradlew assembleDebug` |
 | Build release (R8 + resource shrink, signed APK) | `./gradlew assembleRelease` |
-| Test | `./gradlew test` |
+| Test (JVM unit) | `./gradlew test` |
+| Test (Compose UI on connected device/emulator) | `./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa` |
 | Lint | `./gradlew lint` |
 | Full Check | `./gradlew clean assembleDebug lint test` |
 
