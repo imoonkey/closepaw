@@ -330,7 +330,8 @@ class ServiceOverlayController(
         val appLabel = details.packageName?.let { pkg ->
             try {
                 packageManager.getApplicationLabel(
-                    packageManager.getApplicationInfo(pkg, PackageManager.ApplicationInfoFlags.of(0))
+                    @Suppress("DEPRECATION")
+                    packageManager.getApplicationInfo(pkg, 0)
                 ).toString()
             } catch (_: PackageManager.NameNotFoundException) { pkg }
         } ?: "Unknown app"
