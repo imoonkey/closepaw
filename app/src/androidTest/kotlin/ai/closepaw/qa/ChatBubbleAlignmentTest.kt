@@ -8,9 +8,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,10 +29,11 @@ class ChatBubbleAlignmentTest {
         }
 
         val rootW = compose.onRoot().fetchSemanticsNode().boundsInRoot.width
-        val text = compose.onNodeWithText("hi from user").fetchSemanticsNode().boundsInRoot
-        assert(text.left >= rootW / 2) {
-            "user bubble text expected in right half; rootW=$rootW textLeft=${text.left}"
-        }
+        val bubble = compose.onNodeWithTag("qa-user-bubble").fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "user bubble expected in right half; rootW=$rootW bubbleLeft=${bubble.left}",
+            bubble.left >= rootW / 2
+        )
     }
 
     @Test fun agent_bubble_sits_in_left_half() {
@@ -46,9 +48,10 @@ class ChatBubbleAlignmentTest {
         }
 
         val rootW = compose.onRoot().fetchSemanticsNode().boundsInRoot.width
-        val text = compose.onNodeWithText("hi from agent").fetchSemanticsNode().boundsInRoot
-        assert(text.right <= rootW / 2 + rootW * 0.1f) {
-            "agent bubble text expected in left half; rootW=$rootW textRight=${text.right}"
-        }
+        val bubble = compose.onNodeWithTag("qa-agent-bubble").fetchSemanticsNode().boundsInRoot
+        assertTrue(
+            "agent bubble expected in left half; rootW=$rootW bubbleRight=${bubble.right}",
+            bubble.right <= rootW / 2
+        )
     }
 }

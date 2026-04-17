@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
@@ -66,7 +67,7 @@ private fun UserBubble(
         contentAlignment = Alignment.CenterEnd
     ) {
         Column(
-            modifier = Modifier.widthIn(max = maxWidth),
+            modifier = Modifier.widthIn(max = maxWidth).testTag("qa-user-bubble"),
             horizontalAlignment = Alignment.End,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
@@ -109,7 +110,7 @@ private fun AgentBubble(
         contentAlignment = Alignment.CenterStart
     ) {
         Column(
-            modifier = Modifier.widthIn(max = maxWidth),
+            modifier = Modifier.widthIn(max = maxWidth).testTag("qa-agent-bubble"),
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {

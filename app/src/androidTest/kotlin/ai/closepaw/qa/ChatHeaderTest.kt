@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,6 +40,6 @@ class ChatHeaderTest {
         }
 
         compose.onNodeWithContentDescription("New conversation").performClick()
-        assert(clicked) { "onNewChatClick was not invoked" }
+        assertTrue("onNewChatClick was not invoked", clicked)
     }
 }

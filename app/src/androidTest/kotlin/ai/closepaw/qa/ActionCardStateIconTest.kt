@@ -3,10 +3,13 @@ package ai.closepaw.qa
 import ai.closepaw.ui.chat.components.ActionCard
 import ai.closepaw.ui.chat.model.ActionCardData
 import ai.closepaw.ui.chat.model.ActionState
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasProgressBarRangeInfo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -43,6 +46,7 @@ class ActionCardStateIconTest {
 
     @Test fun proposed_state_has_no_status_icon() {
         compose.setContent { ActionCard(card(ActionState.Proposed)) }
+        compose.onNodeWithText("tool").assertExists()
         compose.onAllNodesWithContentDescription("Success").assertCountEquals(0)
         compose.onAllNodesWithContentDescription("Failed").assertCountEquals(0)
         compose.onAllNodesWithContentDescription("Skipped").assertCountEquals(0)
@@ -50,6 +54,7 @@ class ActionCardStateIconTest {
 
     @Test fun executing_state_has_no_terminal_icon() {
         compose.setContent { ActionCard(card(ActionState.Executing)) }
+        compose.onNode(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertExists()
         compose.onAllNodesWithContentDescription("Success").assertCountEquals(0)
         compose.onAllNodesWithContentDescription("Failed").assertCountEquals(0)
         compose.onAllNodesWithContentDescription("Skipped").assertCountEquals(0)

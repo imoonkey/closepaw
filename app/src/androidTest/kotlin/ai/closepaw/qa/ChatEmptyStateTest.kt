@@ -1,10 +1,13 @@
 package ai.closepaw.qa
 
 import ai.closepaw.ui.chat.components.EmptyState
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,6 +29,7 @@ class ChatEmptyStateTest {
         suggestions.forEach { text ->
             compose.onNodeWithText("\"$text\"").assertExists()
         }
+        compose.onAllNodes(hasClickAction()).assertCountEquals(3)
     }
 
     @Test fun tapping_suggestion_fires_callback_with_text() {
@@ -34,6 +38,6 @@ class ChatEmptyStateTest {
 
         compose.onNodeWithText("\"${suggestions[1]}\"").performClick()
 
-        assert(clicked == suggestions[1]) { "expected ${suggestions[1]} got $clicked" }
+        assertEquals(suggestions[1], clicked)
     }
 }
