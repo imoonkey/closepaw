@@ -1,0 +1,159 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:preReleaseUnitTestBuild UP-TO-DATE
+> Task :app:clean
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:generateDebugResValues FROM-CACHE
+> Task :app:javaPreCompileDebug FROM-CACHE
+> Task :app:generateDebugBuildConfig FROM-CACHE
+> Task :app:desugarDebugFileDependencies FROM-CACHE
+> Task :app:extractDeepLinksDebug FROM-CACHE
+> Task :app:generateDebugResources FROM-CACHE
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:packageDebugResources FROM-CACHE
+> Task :app:parseDebugLocalResources FROM-CACHE
+> Task :app:mapDebugSourceSetPaths
+> Task :app:mergeDebugShaders
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:mergeDebugResources FROM-CACHE
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:generateDebugAndroidTestResValues FROM-CACHE
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:javaPreCompileDebugUnitTest FROM-CACHE
+> Task :app:extractProguardFiles
+> Task :app:checkDebugDuplicateClasses
+> Task :app:checkDebugAarMetadata
+> Task :app:mergeDebugNativeLibs NO-SOURCE
+> Task :app:compileDebugAidl FROM-CACHE
+> Task :app:compileReleaseAidl FROM-CACHE
+> Task :app:mergeLibDexDebug FROM-CACHE
+> Task :app:processDebugMainManifest FROM-CACHE
+> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:generateReleaseBuildConfig FROM-CACHE
+> Task :app:generateReleaseResValues FROM-CACHE
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:processDebugManifest FROM-CACHE
+> Task :app:javaPreCompileRelease FROM-CACHE
+> Task :app:generateReleaseResources FROM-CACHE
+> Task :app:extractDeepLinksRelease FROM-CACHE
+> Task :app:processDebugManifestForPackage FROM-CACHE
+> Task :app:buildKotlinToolingMetadata
+> Task :app:packageReleaseResources FROM-CACHE
+> Task :app:parseReleaseLocalResources FROM-CACHE
+> Task :app:javaPreCompileReleaseUnitTest FROM-CACHE
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:checkReleaseAarMetadata
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets FROM-CACHE
+> Task :app:processReleaseMainManifest FROM-CACHE
+> Task :app:processReleaseManifest FROM-CACHE
+> Task :app:mergeReleaseAssets
+> Task :app:processReleaseManifestForPackage FROM-CACHE
+> Task :app:processDebugResources FROM-CACHE
+> Task :app:mergeReleaseResources FROM-CACHE
+> Task :app:processReleaseResources FROM-CACHE
+> Task :app:convertLinkedResourcesToBinaryRelease FROM-CACHE
+> Task :app:packageDebugUnitTestForUnitTest
+> Task :app:packageReleaseUnitTestForUnitTest
+> Task :app:generateDebugUnitTestConfig
+> Task :app:generateReleaseUnitTestConfig
+> Task :app:compileDebugKotlin FROM-CACHE
+> Task :app:compileDebugJavaWithJavac FROM-CACHE
+> Task :app:processDebugJavaRes
+> Task :app:lintAnalyzeDebug FROM-CACHE
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:bundleDebugClassesToRuntimeJar
+> Task :app:generateDebugLintReportModel
+> Task :app:lintAnalyzeDebugUnitTest FROM-CACHE
+> Task :app:generateDebugUnitTestLintModel
+> Task :app:lintAnalyzeDebugAndroidTest FROM-CACHE
+> Task :app:generateDebugAndroidTestLintModel
+> Task :app:dexBuilderDebug FROM-CACHE
+> Task :app:mergeExtDexDebug FROM-CACHE
+> Task :app:mergeProjectDexDebug FROM-CACHE
+> Task :app:mergeDebugGlobalSynthetics FROM-CACHE
+> Task :app:mergeDebugJavaResource
+> Task :app:packageDebug
+> Task :app:assembleDebug
+> Task :app:createDebugApkListingFileRedirect
+
+> Task :app:lintReportDebug
+Wrote HTML report to file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/build/reports/lint-results-debug.html
+
+> Task :app:lintDebug
+> Task :app:lint
+
+> Task :app:compileDebugUnitTestKotlin
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/llm/CloudStreamRetryRunnerTest.kt:120:34 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/llm/CloudStreamRetryRunnerTest.kt:258:34 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/llm/CloudStreamRetryRunnerTest.kt:301:34 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:53:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:54:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:74:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:75:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:94:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:95:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:115:43 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:116:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:141:45 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:142:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:160:41 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:161:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/trace/AgentTraceArtifactsTest.kt:55:24 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'File?'.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/ui/chat/ChatSessionHistoryControllerTest.kt:25:30 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+
+> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processDebugUnitTestJavaRes
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :app:compileReleaseKotlin
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/main/kotlin/ai/closepaw/tool/action/ObservationBuilder.kt:28:42 Condition is always 'true'.
+
+> Task :app:processReleaseJavaRes
+> Task :app:compileReleaseJavaWithJavac
+> Task :app:bundleReleaseClassesToCompileJar
+> Task :app:bundleReleaseClassesToRuntimeJar
+> Task :app:testDebugUnitTest
+
+> Task :app:compileReleaseUnitTestKotlin
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/llm/CloudStreamRetryRunnerTest.kt:120:34 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/llm/CloudStreamRetryRunnerTest.kt:258:34 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/llm/CloudStreamRetryRunnerTest.kt:301:34 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:53:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:54:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:74:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:75:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:94:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:95:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:115:43 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:116:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:141:45 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:142:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:160:41 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/platform/NodeActionPerformerTest.kt:161:36 'fun recycle(): Unit' is deprecated. Deprecated in Java.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/trace/AgentTraceArtifactsTest.kt:55:24 Only safe (?.) or non-null asserted (!!.) calls are allowed on a nullable receiver of type 'File?'.
+w: file:///Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/app/src/test/kotlin/ai/closepaw/ui/chat/ChatSessionHistoryControllerTest.kt:25:30 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+
+> Task :app:compileReleaseUnitTestJavaWithJavac NO-SOURCE
+> Task :app:processReleaseUnitTestJavaRes
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+> Task :app:testReleaseUnitTest
+> Task :app:test
+w: Detected multiple Kotlin daemon sessions at 
+
+BUILD SUCCESSFUL in 49s
+86 actionable tasks: 44 executed, 42 from cache
+Configuration cache entry reused.
