@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** Why the session is shutting down — drives [CompletionReason] in the emitted event. */
+/** Why the session is shutting down — drives [SessionEndReason] in the emitted event. */
 enum class ShutdownCause {
     /** User (or caller) explicitly requested shutdown. */
     UserRequested,
@@ -397,7 +397,7 @@ private constructor(
         }
 
         val taskId = currentTaskId ?: "unknown"
-        val completionReason = reason.toCompletionReason()
+        val outcome = reason.toTaskOutcome()
         val resultMessage =
                 when (reason) {
                     is AgentStopReason.Error -> reason.message
@@ -422,7 +422,7 @@ private constructor(
                         timestamp = now(),
                         taskId = taskId,
                         result = resultMessage,
-                        reason = completionReason
+                        outcome = outcome
                 )
         )
 
@@ -443,16 +443,16 @@ private constructor(
         // 6. Schedule idle timeout (auto-shutdown after inactivity)
         scheduleIdleTimeout()
 
-        Log.i(TAG, "Task $taskId completed (reason=$completionReason). Session idle, awaiting follow-up.")
+        Log.i(TAG, "Task $taskId completed (outcome=$outcome). Session idle, awaiting follow-up.")
     }
 
-    private fun AgentStopReason.toCompletionReason(): CompletionReason =
+    private fun AgentStopReason.toTaskOutcome(): TaskOutcome =
             when (this) {
-                is AgentStopReason.GoalAchieved -> CompletionReason.GOAL_ACHIEVED
-                is AgentStopReason.MaxTurnsReached -> CompletionReason.MAX_TURNS
-                is AgentStopReason.UserRequested -> CompletionReason.USER_STOPPED
-                is AgentStopReason.TaskImpossible -> CompletionReason.TASK_IMPOSSIBLE
-                is AgentStopReason.Error -> CompletionReason.ERROR
+                is AgentStopReason.GoalAchieved -> TaskOutcome.GOAL_ACHIEVED
+                is AgentStopReason.MaxTurnsReached -> TaskOutcome.MAX_TURNS
+                is AgentStopReason.UserRequested -> TaskOutcome.USER_STOPPED
+                is AgentStopReason.TaskImpossible -> TaskOutcome.TASK_IMPOSSIBLE
+                is AgentStopReason.Error -> TaskOutcome.ERROR
             }
 
     private suspend fun handleTakeover() {
@@ -571,14 +571,13 @@ private constructor(
         services.cleanup()
 
         val reason = when (cause) {
-            ShutdownCause.UserRequested -> CompletionReason.USER_STOPPED
-            ShutdownCause.IdleTimeout -> CompletionReason.IDLE_TIMEOUT
+            ShutdownCause.UserRequested -> SessionEndReason.USER_STOPPED
+            ShutdownCause.IdleTimeout -> SessionEndReason.IDLE_TIMEOUT
         }
         emit(
                 SessionCompleted(
                         sessionId = sessionId,
                         timestamp = now(),
-                        result = null,
                         reason = reason
                 )
         )

@@ -48,7 +48,7 @@ class AgentSessionTest {
 
                 assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
                 val completed = events.filterIsInstance<SessionCompleted>().single()
-                assertThat(completed.reason).isEqualTo(CompletionReason.USER_STOPPED)
+                assertThat(completed.reason).isEqualTo(SessionEndReason.USER_STOPPED)
 
                 job.cancel()
         }
@@ -75,7 +75,7 @@ class AgentSessionTest {
                         assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
                         val completed =
                                 events.filterIsInstance<SessionCompleted>().single()
-                        assertThat(completed.reason).isEqualTo(CompletionReason.USER_STOPPED)
+                        assertThat(completed.reason).isEqualTo(SessionEndReason.USER_STOPPED)
 
                         job.cancel()
                 }
@@ -98,7 +98,7 @@ class AgentSessionTest {
 
                 assertThat(session.state.value).isNotEqualTo(SessionState.Running)
                 val completed = events.filterIsInstance<TaskCompleted>().single()
-                assertThat(completed.reason).isEqualTo(CompletionReason.ERROR)
+                assertThat(completed.outcome).isEqualTo(TaskOutcome.ERROR)
                 assertThat(completed.result).contains("synthetic stream failure")
 
                 job.cancel()
@@ -289,7 +289,7 @@ class AgentSessionTest {
 
                 assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
                 val completed = events.filterIsInstance<SessionCompleted>().single()
-                assertThat(completed.reason).isEqualTo(CompletionReason.USER_STOPPED)
+                assertThat(completed.reason).isEqualTo(SessionEndReason.USER_STOPPED)
 
                 job.cancel()
         }
@@ -313,7 +313,7 @@ class AgentSessionTest {
 
                 assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
                 val completed = events.filterIsInstance<SessionCompleted>().single()
-                assertThat(completed.reason).isEqualTo(CompletionReason.IDLE_TIMEOUT)
+                assertThat(completed.reason).isEqualTo(SessionEndReason.IDLE_TIMEOUT)
 
                 job.cancel()
         }

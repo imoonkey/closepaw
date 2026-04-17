@@ -6,7 +6,7 @@ import com.moonkey.androidagent.app.AppSettingsState
 import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.ApprovalMode
-import com.moonkey.androidagent.protocol.CompletionReason
+import com.moonkey.androidagent.protocol.TaskOutcome
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.Op
 import com.moonkey.androidagent.protocol.PlatformMode
@@ -135,7 +135,7 @@ class OnboardingDemoController(
                 // Deliver callbacks on Main dispatcher (they mutate Compose state)
                 withContext(Dispatchers.Main) {
                     if (completed != null) {
-                        val isGoalAchieved = completed.reason == CompletionReason.GOAL_ACHIEVED
+                        val isGoalAchieved = completed.outcome == TaskOutcome.GOAL_ACHIEVED
                         val isSettingsOpen = lastPackageName == SETTINGS_PACKAGE
 
                         if (isGoalAchieved && isSettingsOpen) {
@@ -147,13 +147,13 @@ class OnboardingDemoController(
                             onBringToFront()
                             onSuccess("Demo task completed!")
                         } else {
-                            val reason = when (completed.reason) {
-                                CompletionReason.MAX_TURNS -> "Demo reached maximum attempts"
-                                CompletionReason.ERROR -> "Demo encountered an error"
-                                CompletionReason.TASK_IMPOSSIBLE -> "Demo could not complete the task"
-                                else -> "Demo ended: ${completed.reason}"
+                            val reason = when (completed.outcome) {
+                                TaskOutcome.MAX_TURNS -> "Demo reached maximum attempts"
+                                TaskOutcome.ERROR -> "Demo encountered an error"
+                                TaskOutcome.TASK_IMPOSSIBLE -> "Demo could not complete the task"
+                                else -> "Demo ended: ${completed.outcome}"
                             }
-                            Log.w(TAG, "Demo failed: ${completed.reason}")
+                            Log.w(TAG, "Demo failed: ${completed.outcome}")
                             onBringToFront()
                             onFailure(reason)
                         }

@@ -11,8 +11,7 @@ data class SessionStarted(
 data class SessionCompleted(
         override val sessionId: SessionId,
         override val timestamp: Long,
-        val result: String?,
-        val reason: CompletionReason
+        val reason: SessionEndReason
 ) : SessionLifecycleEvent
 
 /** Session encountered an error. */

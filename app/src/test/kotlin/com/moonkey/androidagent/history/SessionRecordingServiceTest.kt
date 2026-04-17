@@ -7,7 +7,7 @@ import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.model.PersistedHistoryItem
 import com.moonkey.androidagent.history.model.SessionRuntimeSnapshot
 import com.moonkey.androidagent.history.storage.SessionStorage
-import com.moonkey.androidagent.protocol.CompletionReason
+import com.moonkey.androidagent.protocol.TaskOutcome
 import com.moonkey.androidagent.test.buildTestContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -59,6 +59,7 @@ class SessionRecordingServiceTest {
         service.startAgentMessage(id = "a1", timestamp = 120L)
         service.appendTextDelta("done")
         service.completeAgentMessage()
+        service.recordTaskOutcome(TaskOutcome.GOAL_ACHIEVED)
         service.completeSession()
 
         advanceTimeBy(600L)
@@ -135,7 +136,7 @@ class SessionRecordingServiceTest {
     }
 
     @Test
-    fun `completeSession with ERROR reason marks completedNormally false`() = runTest {
+    fun `completeSession after ERROR task outcome marks completedNormally false`() = runTest {
         val context = buildTestContext(tempFolder.newFolder("files"))
         val ioDispatcher = StandardTestDispatcher(testScheduler)
         val storage = SessionStorage(context, ioDispatcher)
@@ -145,7 +146,8 @@ class SessionRecordingServiceTest {
         val fileName = requireNotNull(service.getCurrentFileName())
 
         service.recordUserMessage(id = "u1", timestamp = 100L, text = "hello")
-        service.completeSession(CompletionReason.ERROR)
+        service.recordTaskOutcome(TaskOutcome.ERROR)
+        service.completeSession()
 
         advanceTimeBy(600L)
         advanceUntilIdle()
@@ -155,7 +157,7 @@ class SessionRecordingServiceTest {
     }
 
     @Test
-    fun `completeSession with USER_STOPPED marks completedNormally false`() = runTest {
+    fun `completeSession without any task outcome marks completedNormally false`() = runTest {
         val context = buildTestContext(tempFolder.newFolder("files"))
         val ioDispatcher = StandardTestDispatcher(testScheduler)
         val storage = SessionStorage(context, ioDispatcher)
@@ -165,7 +167,7 @@ class SessionRecordingServiceTest {
         val fileName = requireNotNull(service.getCurrentFileName())
 
         service.recordUserMessage(id = "u1", timestamp = 100L, text = "hello")
-        service.completeSession(CompletionReason.USER_STOPPED)
+        service.completeSession()
 
         advanceTimeBy(600L)
         advanceUntilIdle()

@@ -9,7 +9,8 @@ import com.moonkey.androidagent.protocol.ApprovalDecision
 import com.moonkey.androidagent.protocol.ApprovalDetails
 import com.moonkey.androidagent.protocol.ApprovalScope
 import com.moonkey.androidagent.protocol.AskUserType
-import com.moonkey.androidagent.protocol.CompletionReason
+import com.moonkey.androidagent.protocol.SessionEndReason
+import com.moonkey.androidagent.protocol.TaskOutcome
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.ui.overlay.CapsuleStateHolder
@@ -278,13 +279,13 @@ class ServiceOverlayController(
         // applyVisibility not needed: active task state hasn't changed
     }
 
-    fun onTaskCompleted(reason: CompletionReason, message: String?) {
-        stateHolder.onTaskCompleted(reason, message)
+    fun onTaskCompleted(outcome: TaskOutcome, message: String?) {
+        stateHolder.onTaskCompleted(outcome, message)
         refreshGlowState()
         // applyVisibility triggered by mode observer (Done/Error)
     }
 
-    fun onSessionCompleted(reason: CompletionReason) {
+    fun onSessionCompleted(reason: SessionEndReason) {
         stateHolder.onSessionEnded(reason)
         refreshGlowState()
         applyVisibility()

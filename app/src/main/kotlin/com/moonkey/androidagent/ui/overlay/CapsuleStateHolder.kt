@@ -2,7 +2,8 @@ package com.moonkey.androidagent.ui.overlay
 
 import android.util.Log
 import com.moonkey.androidagent.protocol.AskUserType
-import com.moonkey.androidagent.protocol.CompletionReason
+import com.moonkey.androidagent.protocol.SessionEndReason
+import com.moonkey.androidagent.protocol.TaskOutcome
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.TurnPhase
 import com.moonkey.androidagent.protocol.sanitizeThought
@@ -232,55 +233,35 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
         return true
     }
 
-    fun onTaskCompleted(reason: CompletionReason, message: String? = null) {
+    fun onTaskCompleted(outcome: TaskOutcome, message: String? = null) {
         val current = _mode.value
         if (current is CapsuleMode.Hidden || current is CapsuleMode.Done || current is CapsuleMode.Error) {
             Log.d(TAG, "Ignoring task completed in ${current::class.simpleName}")
             return
         }
         _isStopPending.value = false
-        val mode = when (reason) {
-            CompletionReason.GOAL_ACHIEVED -> {
+        val mode = when (outcome) {
+            TaskOutcome.GOAL_ACHIEVED -> {
                 val completionMessage = message?.takeIf { it.isNotBlank() } ?: "Task completed"
                 CapsuleMode.Done(completionMessage)
             }
-            CompletionReason.MAX_TURNS -> CapsuleMode.Done("Max steps reached")
-            CompletionReason.TASK_IMPOSSIBLE -> CapsuleMode.Done("Task impossible")
-            CompletionReason.USER_STOPPED -> CapsuleMode.Done("Stopped")
-            CompletionReason.ERROR -> CapsuleMode.Error("Error occurred")
-            CompletionReason.INTERRUPTED -> CapsuleMode.Done("Interrupted")
-            CompletionReason.IDLE_TIMEOUT -> CapsuleMode.Done("Session timed out")
+            TaskOutcome.MAX_TURNS -> CapsuleMode.Done("Max steps reached")
+            TaskOutcome.TASK_IMPOSSIBLE -> CapsuleMode.Done("Task impossible")
+            TaskOutcome.USER_STOPPED -> CapsuleMode.Done("Stopped")
+            TaskOutcome.ERROR -> CapsuleMode.Error("Error occurred")
         }
         setMode(mode)
         if (mode is CapsuleMode.Done) scheduleAutoHide()
     }
 
-    fun onSessionEnded(reason: CompletionReason) {
+    fun onSessionEnded(reason: SessionEndReason) {
         cancelAutoHide()
         _isStopPending.value = false
         when (reason) {
-            CompletionReason.GOAL_ACHIEVED -> {
-                val message = (mode.value as? CapsuleMode.Done)?.message ?: "Task completed"
-                setMode(CapsuleMode.Done(message))
-                scheduleAutoHide()
-            }
-            CompletionReason.MAX_TURNS -> {
-                setMode(CapsuleMode.Done("Max steps reached"))
-                scheduleAutoHide()
-            }
-            CompletionReason.TASK_IMPOSSIBLE -> {
-                setMode(CapsuleMode.Done("Task impossible"))
-                scheduleAutoHide()
-            }
-            CompletionReason.USER_STOPPED,
-            CompletionReason.INTERRUPTED,
-            CompletionReason.IDLE_TIMEOUT -> {
+            SessionEndReason.USER_STOPPED,
+            SessionEndReason.INTERRUPTED,
+            SessionEndReason.IDLE_TIMEOUT -> {
                 setMode(CapsuleMode.Hidden)
-            }
-            CompletionReason.ERROR -> {
-                if (_mode.value !is CapsuleMode.Error) {
-                    setMode(CapsuleMode.Error("Error occurred"))
-                }
             }
         }
     }

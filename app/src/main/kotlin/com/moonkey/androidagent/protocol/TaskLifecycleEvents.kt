@@ -11,12 +11,12 @@ data class TaskStarted(
 /**
  * A task has completed.
  *
- * [reason] indicates why the task ended — goal achieved, max turns, error, etc.
+ * [outcome] indicates how the task ended — goal achieved, max turns, error, etc.
  */
 data class TaskCompleted(
         override val sessionId: SessionId,
         override val timestamp: Long,
         val taskId: String,
         val result: String?,
-        val reason: CompletionReason
+        val outcome: TaskOutcome
 ) : TaskLifecycleEvent

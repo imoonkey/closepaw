@@ -8,7 +8,7 @@ import com.moonkey.androidagent.history.model.SessionMetadata
 import com.moonkey.androidagent.history.model.SessionRecord
 import com.moonkey.androidagent.history.model.SessionRuntimeSnapshot
 import com.moonkey.androidagent.history.storage.SessionStorage
-import com.moonkey.androidagent.protocol.CompletionReason
+import com.moonkey.androidagent.protocol.TaskOutcome
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +31,7 @@ class SessionRecordingService(
 
     private var currentSession: SessionRecord? = null
     private var currentFileName: String? = null
+    private var lastTaskOutcome: TaskOutcome? = null
     private val stateLock = Any()
 
     private val agentMessageBuffer = AgentMessageBuffer()
@@ -74,6 +75,7 @@ class SessionRecordingService(
             contextFileName = currentFileName?.let { storage.contextFileNameFor(it) }
             // Reset state
             agentMessageBuffer.clear()
+            lastTaskOutcome = null
             saveJob?.cancel()
             saveJob = null
             checkpointSaveJob?.cancel()
@@ -207,13 +209,15 @@ class SessionRecordingService(
         scheduleSave()
     }
 
-    /** Mark session as completed. */
-    fun completeSession(reason: CompletionReason = CompletionReason.GOAL_ACHIEVED) {
-        val completedNormally = when (reason) {
-            CompletionReason.GOAL_ACHIEVED, CompletionReason.MAX_TURNS -> true
-            CompletionReason.USER_STOPPED, CompletionReason.TASK_IMPOSSIBLE,
-            CompletionReason.ERROR, CompletionReason.INTERRUPTED,
-            CompletionReason.IDLE_TIMEOUT -> false
+    /** Record the outcome of the most recently completed task in the session. */
+    fun recordTaskOutcome(outcome: TaskOutcome) {
+        synchronized(stateLock) { lastTaskOutcome = outcome }
+    }
+
+    /** Mark session as completed. completedNormally derives from last task outcome. */
+    fun completeSession() {
+        val completedNormally = synchronized(stateLock) {
+            lastTaskOutcome == TaskOutcome.GOAL_ACHIEVED
         }
         val pendingSave: Job? =
                 synchronized(stateLock) {

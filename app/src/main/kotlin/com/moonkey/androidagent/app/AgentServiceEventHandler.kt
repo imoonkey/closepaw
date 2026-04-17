@@ -77,14 +77,15 @@ internal class AgentServiceEventHandler(
                 updateStatus("🤖 ${event.agentName} $status")
             }
             is TaskCompleted -> {
-                Log.i(logTag, "Task completed: ${event.taskId}, reason: ${event.reason}")
+                Log.i(logTag, "Task completed: ${event.taskId}, outcome: ${event.outcome}")
                 // Finalize the agent message buffer so the session file
                 // is complete before Hot Idle. Without this, the agent
                 // message stays in the buffer and the on-disk session
                 // record is missing the final text/actions until the
                 // next recordUserMessage() call triggers finalization.
                 recordingService?.completeAgentMessage()
-                overlay?.onTaskCompleted(event.reason, event.result)
+                recordingService?.recordTaskOutcome(event.outcome)
+                overlay?.onTaskCompleted(event.outcome, event.result)
             }
             is ActionProposed -> {
                 recordingService?.recordAction(
@@ -116,15 +117,11 @@ internal class AgentServiceEventHandler(
             // ===== Session Lifecycle Events =====
             is SessionCompleted -> {
                 Log.i(logTag, "Session completed: ${event.sessionId}, reason: ${event.reason}")
-                recordingService?.completeSession(event.reason)
+                recordingService?.completeSession()
                 val statusMessage = when (event.reason) {
-                    CompletionReason.GOAL_ACHIEVED -> "✅ Goal achieved!"
-                    CompletionReason.USER_STOPPED -> "🛑 Agent stopped"
-                    CompletionReason.MAX_TURNS -> "⚠️ Max turns reached"
-                    CompletionReason.TASK_IMPOSSIBLE -> "❌ Task cannot be completed"
-                    CompletionReason.ERROR -> "❌ Session ended with error"
-                    CompletionReason.INTERRUPTED -> "🛑 Session interrupted"
-                    CompletionReason.IDLE_TIMEOUT -> "💤 Session timed out"
+                    SessionEndReason.USER_STOPPED -> "🛑 Agent stopped"
+                    SessionEndReason.INTERRUPTED -> "🛑 Session interrupted"
+                    SessionEndReason.IDLE_TIMEOUT -> "💤 Session timed out"
                 }
                 updateStatus(statusMessage)
                 overlay?.onSessionCompleted(event.reason)
