@@ -13,7 +13,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-class ShellTool : ToolSpec {
+class ShellTool(
+    private val timeoutSeconds: Long = DEFAULT_TIMEOUT_SECONDS,
+) : ToolSpec {
     override val name: String = "shell"
 
     override val description: String =
@@ -58,11 +60,11 @@ class ShellTool : ToolSpec {
 
     override fun createInvocation(params: JSONObject): ToolInvocation {
         val command = params.getString("command").trim()
-        return ShellInvocation(command = command, params = params)
+        return ShellInvocation(command = command, params = params, timeoutSeconds = timeoutSeconds)
     }
 
     companion object {
-        private const val TIMEOUT_SECONDS = 10L
+        const val DEFAULT_TIMEOUT_SECONDS = 10L
         private const val MAX_OUTPUT_CHARS = 4096
 
         private val BLOCKED_COMMANDS = setOf("am", "pm", "reboot", "su", "env", "xargs", "find")
@@ -73,7 +75,8 @@ class ShellTool : ToolSpec {
 
     private class ShellInvocation(
         private val command: String,
-        override val params: JSONObject
+        override val params: JSONObject,
+        private val timeoutSeconds: Long,
     ) : ToolInvocation {
         override val toolName: String = "shell"
 
@@ -110,12 +113,12 @@ class ShellTool : ToolSpec {
                         }
                     }
 
-                    val completed = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    val completed = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
                     if (!completed) {
                         process.destroyForcibly()
                         outputDeferred.cancel()
                         return@withContext ToolExecutionResult.Failure(
-                            "Command timed out after ${TIMEOUT_SECONDS}s"
+                            "Command timed out after ${timeoutSeconds}s"
                         )
                     }
 

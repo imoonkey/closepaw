@@ -19,13 +19,15 @@ import javax.net.ssl.SSLException
  */
 class HttpLlmCredentialValidator(
     private val baseUrl: String,
-    private val modelId: String
+    private val modelId: String,
+    private val connectTimeoutMs: Int = DEFAULT_CONNECT_TIMEOUT_MS,
+    private val readTimeoutMs: Int = DEFAULT_READ_TIMEOUT_MS,
 ) : LlmCredentialValidator {
 
     companion object {
         private const val TAG = "LlmCredValidator"
-        private const val CONNECT_TIMEOUT_MS = 5_000
-        private const val READ_TIMEOUT_MS = 20_000
+        const val DEFAULT_CONNECT_TIMEOUT_MS = 5_000
+        const val DEFAULT_READ_TIMEOUT_MS = 20_000
     }
 
     override suspend fun validate(key: String): LlmCredentialValidator.Result =
@@ -43,8 +45,8 @@ class HttpLlmCredentialValidator(
 
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
-                    connectTimeout = CONNECT_TIMEOUT_MS
-                    readTimeout = READ_TIMEOUT_MS
+                    connectTimeout = connectTimeoutMs
+                    readTimeout = readTimeoutMs
                     setRequestProperty("Authorization", "Bearer $key")
                     setRequestProperty("Content-Type", "application/json")
                     doOutput = true

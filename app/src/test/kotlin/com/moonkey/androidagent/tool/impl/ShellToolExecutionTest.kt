@@ -20,15 +20,15 @@ class ShellToolExecutionTest {
     @Test
     fun `command timeout returns timeout-specific failure`() = runTest {
         assumeTrue(isUnix)
-        val tool = ShellTool()
-        val invocation = tool.createInvocation(JSONObject().put("command", "sleep 15"))
+        val tool = ShellTool(timeoutSeconds = 1L)
+        val invocation = tool.createInvocation(JSONObject().put("command", "sleep 5"))
 
         val result = invocation.execute(buildContext())
 
         assertThat(result).isInstanceOf(ToolExecutionResult.Failure::class.java)
         val error = (result as ToolExecutionResult.Failure).error
         assertThat(error).contains("timed out")
-        assertThat(error).contains("10s")
+        assertThat(error).contains("1s")
     }
 
     @Test

@@ -25,7 +25,12 @@ class HttpLlmCredentialValidatorTest {
     }
 
     private fun validator() =
-        HttpLlmCredentialValidator(server.url("/v1").toString(), "test-model")
+        HttpLlmCredentialValidator(
+            baseUrl = server.url("/v1").toString(),
+            modelId = "test-model",
+            connectTimeoutMs = 500,
+            readTimeoutMs = 500,
+        )
 
     @Test
     fun `HTTP 200 returns Valid`() = runTest {

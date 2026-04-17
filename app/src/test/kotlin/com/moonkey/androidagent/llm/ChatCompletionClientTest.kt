@@ -126,7 +126,13 @@ class ChatCompletionClientTest {
         val client = ChatCompletionClient(apiKey)
         val attempts = java.util.concurrent.atomic.AtomicInteger(0)
         installFailingOpenAIClient(client) {
-            attempts.incrementAndGet()
+            val n = attempts.incrementAndGet()
+            if (n >= 2) {
+                // After observing the second attempt, throw a non-retryable
+                // error to exit the retry loop without waiting additional
+                // exponential-backoff delays.
+                throw IllegalStateException("stop-retry sentinel")
+            }
             throw java.net.SocketTimeoutException("read timed out")
         }
 
@@ -145,7 +151,7 @@ class ChatCompletionClientTest {
             }
         }
 
-        assertThat(attempts.get()).isGreaterThan(1)
+        assertThat(attempts.get()).isAtLeast(2)
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────
