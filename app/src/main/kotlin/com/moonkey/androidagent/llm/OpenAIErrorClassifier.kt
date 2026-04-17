@@ -69,18 +69,18 @@ internal object OpenAIErrorClassifier {
         }
     }
 
+    private val RATE_LIMIT_CODE = Regex("""(?<!\d)429(?!\d)""")
+    private val SERVER_ERROR_CODE = Regex("""(?<!\d)5(?:00|02|03|04)(?!\d)""")
+
     private fun isRateLimit(message: String, cause: String): Boolean {
-        return message.contains("429") ||
-            cause.contains("429") ||
+        return RATE_LIMIT_CODE.containsMatchIn(message) ||
+            RATE_LIMIT_CODE.containsMatchIn(cause) ||
             message.contains("rate limit", ignoreCase = true) ||
             cause.contains("rate limit", ignoreCase = true)
     }
 
     private fun isServerError(message: String): Boolean {
-        return message.contains("500") ||
-            message.contains("502") ||
-            message.contains("503") ||
-            message.contains("504")
+        return SERVER_ERROR_CODE.containsMatchIn(message)
     }
 
     private fun isUnknownHost(e: Exception, message: String, cause: String): Boolean {

@@ -57,31 +57,41 @@ class OpenAIErrorClassifierTest {
         assertThat((result as RateLimitException).retryAfterMs).isEqualTo(5_000L)
     }
 
-    // ── False-positive scenarios (KNOWN BUGS — capture current broken behavior) ──
+    // ── False-positive rejection (word-boundary matching) ────────────────
 
     @Test
-    fun `KNOWN BUG -- 14291 falsely matches 429 substring`() {
-        // Bug: contains("429") matches "14291" → false positive rate-limit classification
-        // Expected after fix: should NOT be RateLimitException
+    fun `14291 does NOT match 429 substring`() {
         val result = OpenAIErrorClassifier.classify(RuntimeException("error code 14291"))
-        // Current broken behavior: classifies as RateLimitException
-        assertThat(result).isInstanceOf(RateLimitException::class.java)
+        assertThat(result).isNotInstanceOf(RateLimitException::class.java)
     }
 
     @Test
-    fun `KNOWN BUG -- 5002 falsely matches 500 substring`() {
-        // Bug: contains("500") matches "5002" → false positive server-error classification
-        // Expected after fix: should NOT be TransientException
-        val result = OpenAIErrorClassifier.classify(IOException("error code 5002"))
-        // Current broken behavior: classifies as TransientException (server error)
-        assertThat(result).isInstanceOf(TransientException::class.java)
+    fun `5002 does NOT match 500 substring`() {
+        val result = OpenAIErrorClassifier.classify(RuntimeException("error code 5002"))
+        assertThat(result).isNotInstanceOf(TransientException::class.java)
+        assertThat(result).isNotInstanceOf(RateLimitException::class.java)
     }
 
     @Test
-    fun `KNOWN BUG -- 5003 falsely matches 500 substring`() {
+    fun `5003 in RuntimeException is not server error`() {
         val result = OpenAIErrorClassifier.classify(RuntimeException("error 5003"))
-        // Current broken behavior: classifies as TransientException instead of RuntimeException
-        assertThat(result).isInstanceOf(TransientException::class.java)
+        assertThat(result).isNotInstanceOf(TransientException::class.java)
+    }
+
+    @Test
+    fun `HTTP 401 is non-retryable RuntimeException`() {
+        val result = OpenAIErrorClassifier.classify(RuntimeException("HTTP 401 Unauthorized"))
+        assertThat(result).isInstanceOf(RuntimeException::class.java)
+        assertThat(result).isNotInstanceOf(TransientException::class.java)
+        assertThat(result).isNotInstanceOf(RateLimitException::class.java)
+    }
+
+    @Test
+    fun `HTTP 400 is non-retryable RuntimeException`() {
+        val result = OpenAIErrorClassifier.classify(RuntimeException("HTTP 400 Bad Request"))
+        assertThat(result).isInstanceOf(RuntimeException::class.java)
+        assertThat(result).isNotInstanceOf(TransientException::class.java)
+        assertThat(result).isNotInstanceOf(RateLimitException::class.java)
     }
 
     // ── Domain exception preservation ───────────────────────────────────
