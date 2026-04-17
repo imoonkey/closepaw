@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.protocol.AgentMode
+import com.moonkey.androidagent.protocol.ApprovalMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.SessionConfig
@@ -45,6 +46,29 @@ class SessionCheckpointConfigSnapshotTest {
         assertThat(restored.llm.backendType).isEqualTo(LLMBackendType.LOCAL)
         assertThat(restored.llm.localConfig?.modelSlug).isEqualTo("LFM2.5-1.2B-Instruct")
         assertThat(restored.llm.localConfig?.quantizationSlug).isEqualTo("Q5_K_M")
+    }
+
+    @Test
+    fun `config snapshot round trip preserves runtime affecting fields`() {
+        val config =
+            SessionConfig(
+                actionDelayMs = 1234L,
+                approvalMode = ApprovalMode.ALWAYS_ASK,
+                debugMode = true,
+                traceEnabled = true,
+                traceRunId = "run-xyz",
+                excludedTools = setOf("open_app", "shell")
+            )
+
+        val snapshot = config.toConfigSnapshot()
+        val restored = snapshot.toSessionConfig()
+
+        assertThat(restored.actionDelayMs).isEqualTo(1234L)
+        assertThat(restored.approvalMode).isEqualTo(ApprovalMode.ALWAYS_ASK)
+        assertThat(restored.debugMode).isTrue()
+        assertThat(restored.traceEnabled).isTrue()
+        assertThat(restored.traceRunId).isEqualTo("run-xyz")
+        assertThat(restored.excludedTools).containsExactly("open_app", "shell")
     }
 }
 

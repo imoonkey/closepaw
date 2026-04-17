@@ -195,6 +195,14 @@ private constructor(
 
             Log.i(TAG, "Reloaded session $sessionId with ${historyItems.size} history items")
 
+            snapshot.lastTaskOutcome?.let { outcomeName ->
+                try {
+                    services.recordingService.setLastTaskOutcome(TaskOutcome.valueOf(outcomeName))
+                } catch (_: IllegalArgumentException) {
+                    Log.w(TAG, "Unknown TaskOutcome in snapshot: $outcomeName")
+                }
+            }
+
             return AgentSession(
                     sessionId = sessionId,
                     config = config,
@@ -552,7 +560,29 @@ private constructor(
 
         Log.i(TAG, "Shutting down session: $sessionId (cause=$cause)")
 
+        // If a task is still running, emit TaskCompleted(USER_STOPPED) so the
+        // recording service captures the interrupted outcome before shutdown.
+        val priorState = _state.value
+        val runningTaskId = currentTaskId
+        val priorTaskActive = priorState in setOf(
+            SessionState.Running,
+            SessionState.Paused,
+            SessionState.TakeoverPending
+        )
+        if (runningTaskId != null && priorTaskActive) {
+            emit(
+                    TaskCompleted(
+                            sessionId = sessionId,
+                            timestamp = now(),
+                            taskId = runningTaskId,
+                            result = null,
+                            outcome = TaskOutcome.USER_STOPPED
+                    )
+            )
+        }
+
         _state.value = SessionState.Shutdown
+        currentTaskId = null
 
         cancelIdleTimeout()
 

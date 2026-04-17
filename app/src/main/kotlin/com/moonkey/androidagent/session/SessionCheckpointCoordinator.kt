@@ -77,7 +77,8 @@ internal class SessionCheckpointCoordinator(
             todos = todos.map { TodoSnapshot(description = it.description, status = it.status.name) },
             scratchpadJson = scratchpadJson,
             checkpointState = state,
-            lastCheckpointAt = System.currentTimeMillis()
+            lastCheckpointAt = System.currentTimeMillis(),
+            lastTaskOutcome = recordingService.getLastTaskOutcome()?.name
         )
     }
 }

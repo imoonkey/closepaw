@@ -214,6 +214,19 @@ class SessionRecordingService(
         synchronized(stateLock) { lastTaskOutcome = outcome }
     }
 
+    /** Clear the last task outcome at new-task boundary so prior outcome does not bleed across tasks. */
+    fun onTaskStarted() {
+        synchronized(stateLock) { lastTaskOutcome = null }
+    }
+
+    /** Snapshot the last task outcome (for checkpoint persistence). */
+    fun getLastTaskOutcome(): TaskOutcome? = synchronized(stateLock) { lastTaskOutcome }
+
+    /** Restore the last task outcome after checkpoint reload. */
+    fun setLastTaskOutcome(outcome: TaskOutcome?) {
+        synchronized(stateLock) { lastTaskOutcome = outcome }
+    }
+
     /** Mark session as completed. completedNormally derives from last task outcome. */
     fun completeSession() {
         val completedNormally = synchronized(stateLock) {

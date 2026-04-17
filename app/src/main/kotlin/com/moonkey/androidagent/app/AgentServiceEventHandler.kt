@@ -35,6 +35,7 @@ internal class AgentServiceEventHandler(
 
             // ===== Task Events (for SmartCapsule streaming) =====
             is TaskStarted -> {
+                recordingService?.onTaskStarted()
                 recordingService?.recordUserMessage(
                     UUID.randomUUID().toString(),
                     event.timestamp,

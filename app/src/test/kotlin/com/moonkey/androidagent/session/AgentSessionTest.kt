@@ -18,6 +18,8 @@ import com.moonkey.androidagent.trace.NoopTraceRecorder
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
 import io.mockk.mockk
+import io.mockk.spyk
+import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.awaitClose
@@ -316,6 +318,63 @@ class AgentSessionTest {
                 assertThat(completed.reason).isEqualTo(SessionEndReason.IDLE_TIMEOUT)
 
                 job.cancel()
+        }
+
+        // ===== Approval Policy Invariant =====
+
+        @Test
+        fun `stale Op Approve does not mutate allow-list`() = runTest {
+                val spiedPolicyEngine = spyk(PolicyEngine(appClassifier = AppClassifier(emptyMap())))
+                val toolRegistry = ToolRegistry()
+                val toolRouter = ToolRouter(toolRegistry, spiedPolicyEngine)
+                val platform = FakeAndroidPlatform(captureDelayMs = 0L)
+                val config = SessionConfig(maxTurns = 2, actionDelayMs = 0)
+                val testCatalog =
+                        ModelCatalog.fromJson(
+                                """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+                        )
+                val testLlm = SessionTestLLMClient(0L)
+                val services =
+                        SessionServices(
+                                toolRegistry = toolRegistry,
+                                toolRouter = toolRouter,
+                                historyManager = HistoryManager(),
+                                sessionState = AgentSessionState(),
+                                policyEngine = spiedPolicyEngine,
+                                appClassifier = AppClassifier(emptyMap()),
+                                platform = platform,
+                                config = config,
+                                llmClient = testLlm,
+                                modelCatalog = testCatalog,
+                                llmClientFactory = LLMClientFactory.forTest(testCatalog, testLlm),
+                                traceRecorder = NoopTraceRecorder,
+                                recordingService = mockk(relaxed = true)
+                        )
+                val service = mockk<AccessibilityService>(relaxed = true)
+                val session =
+                        AgentSession.createWithServices(
+                                config = config,
+                                service = service,
+                                scope = this,
+                                services = services
+                        )
+
+                // No pending approval exists for this actionId; router.resolveApproval returns false.
+                session.submit(
+                        Op.Approve(
+                                actionId = "stale-action",
+                                decision = ApprovalDecision.APPROVED,
+                                scope = ApprovalScope.ALWAYS,
+                                packageName = "com.example.untrusted"
+                        )
+                )
+                advanceUntilIdle()
+
+                verify(exactly = 0) { spiedPolicyEngine.allowPackagePersistent(any()) }
+                verify(exactly = 0) { spiedPolicyEngine.allowPackageForSession(any()) }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
         }
 }
 

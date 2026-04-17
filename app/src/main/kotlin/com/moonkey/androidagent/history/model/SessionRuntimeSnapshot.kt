@@ -14,7 +14,9 @@ data class SessionRuntimeSnapshot(
     // Kept for backward-compatible deserialization. New writes use scratchpadJson only.
     val scratchpad: Map<String, String>? = null,
     val checkpointState: CheckpointState,
-    val lastCheckpointAt: Long
+    val lastCheckpointAt: Long,
+    /** Name of the last TaskOutcome recorded in this session (or null if no task has completed). */
+    val lastTaskOutcome: String? = null
 )
 
 /**
