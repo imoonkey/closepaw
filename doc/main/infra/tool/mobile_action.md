@@ -15,7 +15,7 @@
 
 It does not own app launch, system buttons, task completion, or user interaction policy.
 
-The tool contract is defined in [MobileActionTool.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/impl/MobileActionTool.kt) and the runtime glue lives in [MobileActionInvocation.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/impl/MobileActionInvocation.kt).
+The tool contract is defined in [MobileActionTool.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/impl/MobileActionTool.kt) and the runtime glue lives in [MobileActionInvocation.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/impl/MobileActionInvocation.kt).
 
 ## Contract
 
@@ -55,7 +55,7 @@ This keeps targeting single-path. The executor does not run cross-selector fallb
 
 ### 1. Tool contract
 
-[MobileActionTool.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/impl/MobileActionTool.kt) does four things:
+[MobileActionTool.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/impl/MobileActionTool.kt) does four things:
 
 - defines the schema and prompt-facing description
 - validates parameters
@@ -68,17 +68,17 @@ This layer should stay dumb. It should not know about Android fallback quirks.
 
 The executor layer is where almost all real action semantics live:
 
-- [ClickExecutor.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/ClickExecutor.kt)
-- [LongPressExecutor.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/LongPressExecutor.kt)
-- [ScrollExecutor.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/ScrollExecutor.kt)
-- [TypeExecutor.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/TypeExecutor.kt)
-- [SwipeExecutor.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/SwipeExecutor.kt)
+- [ClickExecutor.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/ClickExecutor.kt)
+- [LongPressExecutor.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/LongPressExecutor.kt)
+- [ScrollExecutor.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/ScrollExecutor.kt)
+- [TypeExecutor.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/TypeExecutor.kt)
+- [SwipeExecutor.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/SwipeExecutor.kt)
 - shared helpers:
-  - [PointActionExecutorCore.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/PointActionExecutorCore.kt)
-  - [TargetResolver.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/TargetResolver.kt)
-  - [PostActionAnalysis.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/PostActionAnalysis.kt) — accepts `appClassifier` for BLOCKED-app observation masking
-  - [UiChangeDetector.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/UiChangeDetector.kt)
-  - [ActionPriorityOrder.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/ActionPriorityOrder.kt)
+  - [PointActionExecutorCore.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/PointActionExecutorCore.kt)
+  - [TargetResolver.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/TargetResolver.kt)
+  - [PostActionAnalysis.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/PostActionAnalysis.kt) — accepts `appClassifier` for BLOCKED-app observation masking
+  - [UiChangeDetector.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/UiChangeDetector.kt)
+  - [ActionPriorityOrder.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/ActionPriorityOrder.kt)
 
 This is the single smart layer.
 
@@ -86,10 +86,10 @@ This is the single smart layer.
 
 The platform layer should be mechanism-only:
 
-- [AccessibilityPlatform.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/platform/AccessibilityPlatform.kt)
-- [NodeActionPerformer.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/platform/NodeActionPerformer.kt)
-- [AccessibilityGestureInjector.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/platform/AccessibilityGestureInjector.kt)
-- [UIAction.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/platform/UIAction.kt)
+- [AccessibilityPlatform.kt](../../../../app/src/main/kotlin/ai/closepaw/platform/AccessibilityPlatform.kt)
+- [NodeActionPerformer.kt](../../../../app/src/main/kotlin/ai/closepaw/platform/NodeActionPerformer.kt)
+- [AccessibilityGestureInjector.kt](../../../../app/src/main/kotlin/ai/closepaw/platform/AccessibilityGestureInjector.kt)
+- [UIAction.kt](../../../../app/src/main/kotlin/ai/closepaw/platform/UIAction.kt)
 
 It exposes atomic calls like:
 
@@ -108,7 +108,7 @@ The platform answers "was the Android API call accepted?" The executor layer ans
 
 ### click
 
-`click` uses [PointActionExecutorCore.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/PointActionExecutorCore.kt) with this channel order:
+`click` uses [PointActionExecutorCore.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/PointActionExecutorCore.kt) with this channel order:
 
 1. `node_action_click`
 2. `gesture_tap`
@@ -221,7 +221,7 @@ That is a tooling limitation, not a semantic proof of success.
 
 ## What `UiChangeDetector` actually sees
 
-[UiChangeDetector.kt](/Users/moonkey/workspace/android-agent-workspace/androidagent/app/src/main/kotlin/ai/closepaw/tool/action/UiChangeDetector.kt) computes a fingerprint from:
+[UiChangeDetector.kt](../../../../app/src/main/kotlin/ai/closepaw/tool/action/UiChangeDetector.kt) computes a fingerprint from:
 
 - element identity and order
 - resource id

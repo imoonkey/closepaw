@@ -174,7 +174,7 @@ Special cases:
 
 Deep dive:
 
-- [mobile_action.md](/Users/moonkey/workspace/android-agent-workspace/androidagent/doc/main/infra/tool/mobile_action.md)
+- [mobile_action.md](tool/mobile_action.md)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
