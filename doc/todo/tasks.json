@@ -1287,7 +1287,7 @@
   "ta-error-classifier": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P1: Fix OpenAIErrorClassifier false-positive matching + rewrite tests",
     "description": "OpenAIErrorClassifier uses naive message.contains(\"429\") / message.contains(\"500\") matching, causing false positives (status 14291 matches 429, status 5002 matches 500). Tests currently preserve the bug as \"KNOWN BUG\". Fix the classifier to use structured status code comparison, then rewrite tests to assert correct behavior.",
     "scope": [
@@ -1314,7 +1314,7 @@
       "P1"
     ],
     "created": "2026-04-16T22:10:29Z",
-    "updated": "2026-04-16T22:10:29Z"
+    "updated": "2026-04-16T20:00:00+08:00"
   },
   "dco-dead-params-api": {
     "parent": "dead-code-overabstraction",
@@ -1361,7 +1361,7 @@
   "ta-codex-request-builder": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P1: Add CodexRequestBuilderTest",
     "description": "CodexRequestBuilder.kt owns buildRequestBody(), convertInputItems(), and convertTools() with zero direct tests. This is pure serialization at an external-contract boundary — regressions are cheap to create and hard to notice until runtime.",
     "scope": [
@@ -1384,12 +1384,12 @@
       "P1"
     ],
     "created": "2026-04-16T22:10:29Z",
-    "updated": "2026-04-16T22:10:29Z"
+    "updated": "2026-04-16T20:00:00+08:00"
   },
   "ta-chat-completion-interop": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P1: Add ChatCompletionInteropTest",
     "description": "ChatCompletionInterop.kt converts between ResponseInputItem/FunctionTool and Chat Completions types. Now a real external-contract boundary since provider routing uses ChatCompletionClient for OpenRouter/chat-style models. Zero direct tests.",
     "scope": [
@@ -1410,12 +1410,12 @@
       "P1"
     ],
     "created": "2026-04-16T22:10:29Z",
-    "updated": "2026-04-16T22:10:29Z"
+    "updated": "2026-04-16T20:00:00+08:00"
   },
   "ta-tool-parameter-extractor": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P1: Add ToolParameterExtractorTest",
     "description": "ToolParameterExtractor.kt handles known/unknown/raw tool-schema representations from the OpenAI SDK, feeding CodexRequestBuilder.convertTools(). Broken schema extraction silently breaks tool calling for all providers. Zero direct tests.",
     "scope": [
@@ -1435,12 +1435,12 @@
       "P1"
     ],
     "created": "2026-04-16T22:10:30Z",
-    "updated": "2026-04-16T22:10:30Z"
+    "updated": "2026-04-16T20:00:00+08:00"
   },
   "ta-codex-sse-parser-extend": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P1: Extend CodexSseParserTest with interleaved parallel tool-call tests",
     "description": "CodexSseParserTest exists with basic coverage but misses the highest-value case: interleaved parallel tool calls across multiple output_index values. Every current accumulator test uses a single output index.",
     "scope": [
@@ -1458,12 +1458,12 @@
       "P1"
     ],
     "created": "2026-04-16T22:10:30Z",
-    "updated": "2026-04-16T22:10:30Z"
+    "updated": "2026-04-16T20:00:00+08:00"
   },
   "ta-llm-client-tests": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P1: Add selected LLM client-level tests",
     "description": "CodexResponseClient, OpenAIResponseClient, and ChatCompletionClient have zero direct tests. Client orchestration (request construction, streaming terminal conditions, tool-call accumulation, error translation) is where provider regressions actually manifest. Focus on pure logic, not network calls.",
     "scope": [
@@ -1484,7 +1484,7 @@
       "P1"
     ],
     "created": "2026-04-16T22:10:30Z",
-    "updated": "2026-04-16T22:10:30Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "dco-onboarding-abstraction": {
     "parent": "dead-code-overabstraction",
@@ -1574,7 +1574,7 @@
   "ta-turn-planning-phase": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P2: Add TurnPlanningPhaseRunnerTest",
     "description": "TurnPlanningPhaseRunner.runPlanningPhase() now does more than originally recognized: prompt building, screen-observation history write, model resolution, trace request/response logging, arbitration, dropped-tool warnings, and agent_thought emission. Zero direct tests.",
     "scope": [
@@ -1595,12 +1595,12 @@
       "P2"
     ],
     "created": "2026-04-16T22:10:57Z",
-    "updated": "2026-04-16T22:10:57Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "ta-turn-execution-phase": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P2: Add TurnExecutionPhaseRunnerTest",
     "description": "TurnExecutionPhaseRunner.executeActions() is the execution seam where most cross-module regressions happen. TurnOutcomeDecision is now extracted and tested, but the phase runner itself (history writes, approval emission, observation capture, abort-on-failure) is not.",
     "scope": [
@@ -1622,12 +1622,12 @@
       "P2"
     ],
     "created": "2026-04-16T22:10:57Z",
-    "updated": "2026-04-16T22:10:57Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "ta-session-coordinator": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P2: Add SessionCoordinatorTest",
     "description": "SessionCoordinator is stateful, concurrent, user-visible. Owns submit(), createAndSubmit(), enqueue(), attachSession(), detachSession(), consumeDeadSessionFileName(), clearSession(), and automatic drain logic. Zero direct tests. Easy to regress with subtle queueing bugs.",
     "scope": [
@@ -1648,12 +1648,12 @@
       "P2"
     ],
     "created": "2026-04-16T22:10:58Z",
-    "updated": "2026-04-16T22:10:58Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-agent-service-event-handler": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P2: Add AgentServiceEventHandlerTest",
     "description": "AgentServiceEventHandler.handleEvent() contains a large when-expression over agent events, mutating recording state, status text, and overlay behavior. It is an extracted side-effect hub that unit tests should hit directly. Zero direct tests.",
     "scope": [
@@ -1673,12 +1673,12 @@
       "P2"
     ],
     "created": "2026-04-16T22:10:58Z",
-    "updated": "2026-04-16T22:10:58Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "ta-session-checkpoint": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P2: Add SessionCheckpointCoordinatorTest",
     "description": "SessionCheckpointCoordinator owns checkpoint scheduling and snapshot conversion logic. Was quietly dropped from the original plan but still has zero direct tests. Identified as a gap in the re-evaluation.",
     "scope": [
@@ -1697,7 +1697,7 @@
       "P2"
     ],
     "created": "2026-04-16T22:10:58Z",
-    "updated": "2026-04-16T22:10:58Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "dco-delegate-task-simplify": {
     "parent": "dead-code-overabstraction",
@@ -1785,7 +1785,7 @@
   "ta-ask-user-tool": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P3: Add AskUserToolTest",
     "description": "AskUserTool has zero direct tests. UserResponseChannelTest tests the channel primitive, not the tool. Tool-level behavior (pending rejection when another ask is active, event emission, timeout output, cancellation mapping) is unprotected.",
     "scope": [
@@ -1806,12 +1806,12 @@
       "P3"
     ],
     "created": "2026-04-16T22:11:41Z",
-    "updated": "2026-04-16T22:11:41Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "ta-shell-tool-execution": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P3: Extend ShellTool tests with execution path coverage",
     "description": "ShellToolBlocklistTest covers validate() (blocked commands, metacharacters, safe commands). The execution path in ShellInvocation.execute() (timeout, output truncation, exit-code formatting, pre-cancel short-circuit) is still untested.",
     "scope": [
@@ -1832,12 +1832,12 @@
       "P3"
     ],
     "created": "2026-04-16T22:11:41Z",
-    "updated": "2026-04-16T22:11:41Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "ta-type-executor-extend": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P3: Extend TypeExecutorTest with success/failure paths",
     "description": "TypeExecutorTest exists but every test is a cancellation-path test. The main success/failure behavior is unproven: direct set success, tap-to-focus fallback, no editable target failure, VD-mode behavior. Cancellation-only coverage creates false confidence.",
     "scope": [
@@ -1857,12 +1857,12 @@
       "P3"
     ],
     "created": "2026-04-16T22:11:41Z",
-    "updated": "2026-04-16T22:11:41Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "ta-onboarding-viewmodel": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P4: Add OnboardingViewModelTest",
     "description": "OnboardingViewModel is a 503-line async state machine with permission polling, provider selection, OAuth/manual auth branching, draft-key persistence, demo preflight, step skipping, and auto-advance timing. Zero direct tests — one of the highest-value blank areas in the entire codebase.",
     "scope": [
@@ -1885,12 +1885,12 @@
       "P4"
     ],
     "created": "2026-04-16T22:11:42Z",
-    "updated": "2026-04-16T22:11:42Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-onboarding-store": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P4: Add OnboardingStoreTest",
     "description": "OnboardingStore owns outcome persistence, auth-method storage, encrypted draft-key storage, and migration behavior. Not covered by fail-closed tests in other store tests.",
     "scope": [
@@ -1910,12 +1910,12 @@
       "P4"
     ],
     "created": "2026-04-16T22:11:42Z",
-    "updated": "2026-04-16T22:11:42Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "ta-permission-state-monitor": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P4: Add PermissionStateMonitorTest",
     "description": "PermissionStateMonitor.deriveRepairModel() is pure logic that determines which permissions need repair. Very cheap to test, high leverage.",
     "scope": [
@@ -1935,12 +1935,12 @@
       "P4"
     ],
     "created": "2026-04-16T22:11:42Z",
-    "updated": "2026-04-16T22:11:42Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "ta-http-credential-validator": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P4: Add HttpLlmCredentialValidatorTest",
     "description": "HttpLlmCredentialValidator maps HTTP codes, SSL failures, timeouts, and IO failures into user-facing states. Classic high-leverage unit-test territory.",
     "scope": [
@@ -1961,12 +1961,12 @@
       "P4"
     ],
     "created": "2026-04-16T22:11:42Z",
-    "updated": "2026-04-16T22:11:42Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "ta-openai-oauth-helpers": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P4: Add OpenAIOAuth pure helper tests",
     "description": "OpenAIOAuth has pure helpers for PKCE, URL construction, JWT parsing, callback parsing, and token expiry calculation. Test pure logic only, not live OAuth flow. May require extract-then-test refactor.",
     "scope": [
@@ -1986,12 +1986,12 @@
       "P4"
     ],
     "created": "2026-04-16T22:11:42Z",
-    "updated": "2026-04-16T22:11:42Z"
+    "updated": "2026-04-16T22:30:00+08:00"
   },
   "ta-chat-event-reducer": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P5: Add ChatEventReducerTest",
     "description": "ChatEventReducer.handle() lifecycle coverage. Helper tests exist (5 files) but actual reducer behavior (task start, delta accumulation, action-card transitions, supplement insertion, completion/error transitions) is untested.",
     "scope": [
@@ -2012,12 +2012,12 @@
       "P5"
     ],
     "created": "2026-04-16T22:12:23Z",
-    "updated": "2026-04-16T22:12:23Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-message-converter": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P5: Add MessageConverterTest",
     "description": "MessageConverter in history/model/ contains real mapping logic in both directions including action-state parsing and UI-facing tool name/icon conversion. Small pure seam with zero direct protection.",
     "scope": [
@@ -2037,12 +2037,12 @@
       "P5"
     ],
     "created": "2026-04-16T22:12:23Z",
-    "updated": "2026-04-16T22:12:23Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-chat-session-history": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P5: Add ChatSessionHistoryControllerTest",
     "description": "ChatSessionHistoryController coordinates resume/new/delete session flows and view-model-facing callbacks. Small enough to test, still unprotected.",
     "scope": [
@@ -2062,12 +2062,12 @@
       "P5"
     ],
     "created": "2026-04-16T22:12:23Z",
-    "updated": "2026-04-16T22:12:23Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-chat-viewmodel": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P5: Add ChatViewModelTest (coordination layer)",
     "description": "Test ChatViewModel coordination: startEventCollection(), pending input consumption, approvals, session history delegation, teardown. Do NOT re-test extracted helper functions already covered by existing helper tests.",
     "scope": [
@@ -2088,12 +2088,12 @@
       "P5"
     ],
     "created": "2026-04-16T22:12:23Z",
-    "updated": "2026-04-16T22:12:23Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-vd-touch-handler": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P6: Add VirtualDisplayViewerTouchHandlerTest",
     "description": "VirtualDisplayViewerTouchHandler has pure, testable logic for coordinate scaling/clamping, display validity checks, tap vs swipe shell fallback, and action-state tracking across down/move/up. Zero direct tests.",
     "scope": [
@@ -2113,12 +2113,12 @@
       "P6"
     ],
     "created": "2026-04-16T22:12:24Z",
-    "updated": "2026-04-16T22:12:24Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-vd-surface-controller": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P6: Add VirtualDisplaySurfaceControllerTest",
     "description": "VirtualDisplaySurfaceController is a unit-testable stateful collaborator with mode switching, invalid-surface guards, and Shizuku result handling.",
     "scope": [
@@ -2137,12 +2137,12 @@
       "P6"
     ],
     "created": "2026-04-16T22:12:24Z",
-    "updated": "2026-04-16T22:12:24Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-vd-capture-coordinator": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P6: Add VirtualDisplayCaptureCoordinatorTest",
     "description": "VirtualDisplayCaptureCoordinator owns PixelCopy fallback, repeated-failure demotion to ImageReader, trace artifact storage, and screenshot capture mode switching.",
     "scope": [
@@ -2161,12 +2161,12 @@
       "P6"
     ],
     "created": "2026-04-16T22:12:24Z",
-    "updated": "2026-04-16T22:12:24Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-trace-artifacts": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P6: Add AgentTraceArtifactsTest",
     "description": "AgentTraceArtifacts packages redacted request/response/tool/snapshot artifacts. A key trace-integrity seam with zero direct tests.",
     "scope": [
@@ -2185,12 +2185,12 @@
       "P6"
     ],
     "created": "2026-04-16T22:12:24Z",
-    "updated": "2026-04-16T22:12:24Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-file-trace-recorder-extend": {
     "parent": "test-architecture",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "P6: Extend FileTraceRecorderTest with path sanitization + concurrency",
     "description": "FileTraceRecorderTest covers durability (flush, close, repeated rounds). Missing: newArtifactPath()/sanitizePathSegment() behavior, artifact directory creation, concurrent write channel behavior.",
     "scope": [
@@ -2209,7 +2209,7 @@
       "P6"
     ],
     "created": "2026-04-16T22:12:24Z",
-    "updated": "2026-04-16T22:12:24Z"
+    "updated": "2026-04-16T23:15:00+08:00"
   },
   "ta-codex-review": {
     "parent": "test-architecture",
