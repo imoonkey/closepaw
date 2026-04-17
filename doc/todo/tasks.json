@@ -1098,7 +1098,7 @@
   "pc-completion-semantics": {
     "parent": "protocol-communication",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Split CompletionReason into TaskOutcome + SessionEndReason",
     "description": "CompletionReason.kt has 7 values shared by TaskCompleted and SessionCompleted, encoding impossible combinations. AgentSession emits task reasons (GOAL_ACHIEVED, MAX_TURNS, TASK_IMPOSSIBLE, ERROR) at task end and session reasons (USER_STOPPED, IDLE_TIMEOUT, INTERRUPTED) at session end, but the type does not enforce this.\n\nConcrete bug: SessionRecordingService.completeSession():211-217 derives completedNormally from the session-level CompletionReason — so a task that succeeds then idles out is recorded as not completed normally.\n\nConsumers with impossible branches:\n- AgentServiceEventHandler:117-127 handles GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE/ERROR for SessionCompleted (never emitted at session level)\n- CapsuleStateHolder.onSessionEnded():258-285 handles GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE for SessionCompleted (never emitted at session level)\n\nPlan: Replace CompletionReason with TaskOutcome + SessionEndReason. Update TaskCompleted/SessionCompleted. Remove SessionCompleted.result (always null). Fix SessionRecordingService to track last task outcome. Remove impossible branches.",
     "scope": [
