@@ -222,7 +222,7 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/history/HistoryManager.kt",
+      "app/src/main/kotlin/ai/closepaw/history/HistoryManager.kt",
       "app/src/test/kotlin/**/HistoryManager*"
     ],
     "acceptCriteria": [
@@ -250,7 +250,7 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/perception/PerceptorInternals.kt",
+      "app/src/main/kotlin/ai/closepaw/perception/PerceptorInternals.kt",
       "app/src/test/kotlin/**/Perceptor*"
     ],
     "acceptCriteria": [
@@ -277,7 +277,7 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/trace/FileTraceRecorder.kt",
+      "app/src/main/kotlin/ai/closepaw/trace/FileTraceRecorder.kt",
       "app/src/test/kotlin/**/FileTraceRecorder*"
     ],
     "acceptCriteria": [
@@ -305,10 +305,10 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/LlmLogger.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt"
+      "app/src/main/kotlin/ai/closepaw/llm/LlmLogger.kt",
+      "app/src/main/kotlin/ai/closepaw/llm/CodexResponseClient.kt",
+      "app/src/main/kotlin/ai/closepaw/llm/OpenAIResponseClient.kt",
+      "app/src/main/kotlin/ai/closepaw/llm/ChatCompletionClient.kt"
     ],
     "acceptCriteria": [
       "LlmLogger exposes a public isVerboseEnabled property (or equivalent)",
@@ -334,7 +334,7 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/BitmapUtils.kt"
+      "app/src/main/kotlin/ai/closepaw/platform/BitmapUtils.kt"
     ],
     "acceptCriteria": [
       "ByteArrayOutputStream in compressJpeg() is constructed with a capacity estimate, not default",
@@ -359,7 +359,7 @@
     ],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/perception/Perceptor.kt",
+      "app/src/main/kotlin/ai/closepaw/perception/Perceptor.kt",
       "app/src/test/kotlin/**/Perceptor*"
     ],
     "acceptCriteria": [
@@ -390,7 +390,7 @@
     ],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/perception/PerceptorInternals.kt",
+      "app/src/main/kotlin/ai/closepaw/perception/PerceptorInternals.kt",
       "app/src/test/kotlin/**/Perceptor*"
     ],
     "acceptCriteria": [
@@ -417,7 +417,7 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityScreenshotCapturer.kt"
+      "app/src/main/kotlin/ai/closepaw/platform/AccessibilityScreenshotCapturer.kt"
     ],
     "acceptCriteria": [
       "All intermediate bitmaps (hardwareBitmap, softwareBitmap, scaledBitmap) are recycled on both normal and exceptional paths",
@@ -442,8 +442,8 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt"
+      "app/src/main/kotlin/ai/closepaw/llm/OpenAIResponseClient.kt",
+      "app/src/main/kotlin/ai/closepaw/llm/ChatCompletionClient.kt"
     ],
     "acceptCriteria": [
       "OpenAIResponseClient stores active stream/call handle and cancels from awaitClose",
@@ -484,8 +484,8 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+      "app/src/main/kotlin/ai/closepaw/agent/AgentTurnRunner.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/TurnExecutionPhaseRunner.kt"
     ],
     "acceptCriteria": [
       "executeActions() returns a result type containing the set of tool IDs that actually executed",
@@ -495,7 +495,7 @@
       "Test: mock remember_experience failure before complete_task → TurnOutcome is Error, not Complete",
       "Test: complete_task executes normally → TurnOutcome.Complete as before",
       "Test: no complete_task in plan, all tools succeed → TurnOutcome.Continue as before",
-      "grep -q 'executedToolIds\\|ExecutionPhaseResult\\|executionResult' app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
+      "grep -q 'executedToolIds\\|ExecutionPhaseResult\\|executionResult' app/src/main/kotlin/ai/closepaw/agent/TurnExecutionPhaseRunner.kt",
       "./gradlew test passes"
     ],
     "priority": "critical",
@@ -515,7 +515,7 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+      "app/src/main/kotlin/ai/closepaw/agent/TurnExecutionPhaseRunner.kt"
     ],
     "acceptCriteria": [
       "emitApprovalRequired() no longer has a try/catch that swallows exceptions",
@@ -524,7 +524,7 @@
       "Normal approval flow (no exception) is unchanged",
       "Test: mock eventEmitter that throws → tool result is Error, not Cancelled",
       "Test: normal eventEmitter → approval wait proceeds as before",
-      "! grep -q 'catch.*emitApproval\\|catch.*approval.*Exception' app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt || echo 'swallow removed'",
+      "! grep -q 'catch.*emitApproval\\|catch.*approval.*Exception' app/src/main/kotlin/ai/closepaw/agent/TurnExecutionPhaseRunner.kt || echo 'swallow removed'",
       "./gradlew test passes"
     ],
     "priority": "critical",
@@ -544,7 +544,7 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt"
+      "app/src/main/kotlin/ai/closepaw/tool/impl/DelegateTaskTool.kt"
     ],
     "acceptCriteria": [
       "When sub-agent result.success is false, DelegateTaskTool returns a failure/error result (not textToolSuccess)",
@@ -552,7 +552,7 @@
       "The failure result still contains the sub-agent's output message for parent LLM context",
       "Test: mock sub-agent failure → tool result is Error/Failure type, not Success",
       "Test: mock sub-agent success → tool result is Success",
-      "! grep -A5 'result.success.*false\\|!result.success' app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt | grep -q 'textToolSuccess' || echo 'success-on-failure removed'",
+      "! grep -A5 'result.success.*false\\|!result.success' app/src/main/kotlin/ai/closepaw/tool/impl/DelegateTaskTool.kt | grep -q 'textToolSuccess' || echo 'success-on-failure removed'",
       "./gradlew test passes"
     ],
     "priority": "critical",
@@ -572,14 +572,14 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/app/AgentService.kt"
+      "app/src/main/kotlin/ai/closepaw/app/AgentService.kt"
     ],
     "acceptCriteria": [
       "onDestroy() does not call runBlocking on the main thread",
       "Shutdown Op is dispatched to a scope/coroutine that is not immediately cancelled by onDestroy()",
       "Shutdown still has a bounded timeout (≤5s) to prevent leaked coroutines",
       "Normal service teardown still cleans up overlayController, scope, etc.",
-      "! grep -q 'runBlocking' app/src/main/kotlin/com/moonkey/androidagent/app/AgentService.kt",
+      "! grep -q 'runBlocking' app/src/main/kotlin/ai/closepaw/app/AgentService.kt",
       "./gradlew test passes",
       "./gradlew assembleDebug passes"
     ],
@@ -602,9 +602,9 @@
     ],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentRuntimeTypes.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt"
+      "app/src/main/kotlin/ai/closepaw/agent/Agent.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/AgentRuntimeTypes.kt",
+      "app/src/main/kotlin/ai/closepaw/session/AgentSession.kt"
     ],
     "acceptCriteria": [
       "AgentStopReason.TaskImpossible(message: String) exists in AgentRuntimeTypes.kt",
@@ -614,7 +614,7 @@
       "Test: complete_task(status=failure) → CompletionReason is TASK_IMPOSSIBLE, not ERROR",
       "Test: complete_task(status=success) → CompletionReason is GOAL_ACHIEVED (unchanged)",
       "Test: real agent error (LLM throws) → CompletionReason is still ERROR",
-      "grep -q 'TaskImpossible' app/src/main/kotlin/com/moonkey/androidagent/agent/AgentRuntimeTypes.kt",
+      "grep -q 'TaskImpossible' app/src/main/kotlin/ai/closepaw/agent/AgentRuntimeTypes.kt",
       "./gradlew test passes"
     ],
     "priority": "high",
@@ -634,8 +634,8 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/TurnExecutionPhaseRunner.kt"
     ],
     "acceptCriteria": [
       "Every cleanup call in SessionServices.cleanup() is individually guarded with try/catch",
@@ -663,10 +663,10 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/ActionEvents.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandler.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatEventReducer.kt"
+      "app/src/main/kotlin/ai/closepaw/protocol/ActionEvents.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/TurnExecutionPhaseRunner.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AgentServiceEventHandler.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatEventReducer.kt"
     ],
     "acceptCriteria": [
       "ActionExecuted uses an enum (ActionOutcome or similar) instead of Boolean success",
@@ -677,7 +677,7 @@
       "Test: ToolCallResult.Cancelled → ActionExecuted has SKIPPED outcome",
       "Test: ToolCallResult.Error → ActionExecuted has FAILED outcome",
       "Test: ToolCallResult.Success → ActionExecuted has SUCCESS outcome, ✓ status emitted",
-      "grep -q 'ActionOutcome\\|SKIPPED' app/src/main/kotlin/com/moonkey/androidagent/protocol/ActionEvents.kt",
+      "grep -q 'ActionOutcome\\|SKIPPED' app/src/main/kotlin/ai/closepaw/protocol/ActionEvents.kt",
       "./gradlew test passes"
     ],
     "priority": "high",
@@ -697,10 +697,10 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatViewModel.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatEventReducer.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt"
+      "app/src/main/kotlin/ai/closepaw/session/AgentSession.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatViewModel.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatEventReducer.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt"
     ],
     "acceptCriteria": [
       "When session creation fails, user's input text is preserved (not silently dropped)",
@@ -731,15 +731,15 @@
     ],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/AgentError.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionLifecycleEvents.kt"
+      "app/src/main/kotlin/ai/closepaw/protocol/AgentError.kt",
+      "app/src/main/kotlin/ai/closepaw/protocol/SessionLifecycleEvents.kt"
     ],
     "acceptCriteria": [
       "AgentError.kt either deleted or trimmed to ≤4 variants that are actually produced by runtime code",
       "If AgentError is kept, at least one call site instantiates each remaining variant",
       "SessionError either deleted or wired to at least one emitter",
       "No dead sealed class variants (every variant has a producer)",
-      "grep -c 'AgentError\\.' app/src/main/kotlin/com/moonkey/androidagent/**/*.kt shows usage for every remaining variant (or file is deleted)",
+      "grep -c 'AgentError\\.' app/src/main/kotlin/ai/closepaw/**/*.kt shows usage for every remaining variant (or file is deleted)",
       "./gradlew test passes"
     ],
     "priority": "low",
@@ -759,8 +759,8 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatSessionHistoryController.kt"
+      "app/src/main/kotlin/ai/closepaw/history/SessionHistoryManager.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatSessionHistoryController.kt"
     ],
     "acceptCriteria": [
       "When a session file can't be parsed, a placeholder entry appears in the session list (not silently dropped)",
@@ -787,7 +787,7 @@
     "depends": [],
     "state": "done",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnErrorClassifier.kt"
+      "app/src/main/kotlin/ai/closepaw/agent/TurnErrorClassifier.kt"
     ],
     "acceptCriteria": [
       "When isContextLimit is true, the returned TurnErrorClassification.message is a user-friendly string (not raw API text)",
@@ -947,19 +947,19 @@
     "title": "Phase 0: 修复 PostActionAnalysis 观测遮蔽缺口",
     "description": "PostActionAnalysis.kt:45 调用 buildObservation(it, platform) 未传 appClassifier，导致 mobile_action (click/type/scroll/swipe/long_press) 的 post-action observation 在 BLOCKED app 上不遮蔽。将 appClassifier 从 ToolExecutionContext 线程到 capturePostActionAnalysis → buildObservation。同时让 open_app 在执行时 re-check 目标包的 tier。",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PostActionAnalysis.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/SwipeExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/TypeExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ScrollExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/OpenAppTool.kt"
+      "app/src/main/kotlin/ai/closepaw/tool/action/PostActionAnalysis.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/action/PointActionExecutorCore.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/action/SwipeExecutor.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/action/TypeExecutor.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/action/ScrollExecutor.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/OpenAppTool.kt"
     ],
     "acceptCriteria": [
       "PostActionAnalysis.capturePostActionAnalysis accepts appClassifier parameter",
       "buildObservation call in PostActionAnalysis.kt passes appClassifier",
       "All 5 executor callers thread appClassifier from ToolExecutionContext",
       "open_app re-checks destination tier before launchApp()",
-      "grep -n 'buildObservation.*platform)$' app/src/main/kotlin/com/moonkey/androidagent/tool/action/PostActionAnalysis.kt returns empty",
+      "grep -n 'buildObservation.*platform)$' app/src/main/kotlin/ai/closepaw/tool/action/PostActionAnalysis.kt returns empty",
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
     ],
@@ -973,7 +973,7 @@
     "title": "Phase 1a: 添加 ask_user/shell 到 ToolName",
     "description": "ask_user 和 shell 不在 ToolName enum 中，解析为 Unknown(isScreenChanging=true)，导致: (1) CAUTIOUS app 上 ask_user 触发不必要的审批, (2) TurnToolPolicy 将两者归为 screen action 导致同 turn 的 complete_task 被丢弃。添加 AskUser 和 Shell 两个 data object，isScreenChanging 返回 false。",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolName.kt"
+      "app/src/main/kotlin/ai/closepaw/tool/ToolName.kt"
     ],
     "acceptCriteria": [
       "ToolName.from('ask_user') returns ToolName.AskUser, not Unknown",
@@ -995,10 +995,10 @@
     "title": "Phase 2: Action Runtime 规范化",
     "description": "三个修复: (1) SwipeExecutor.kt:49-53 将 ActionResult.Cancelled 映射为 Failed → 改为 Cancelled, (2) TypeExecutor 各路径添加显式 Cancelled 处理, (3) ScrollExecutor.resolveScrollArea() 在显式目标 (element_index/text) 解析失败时返回错误而非静默降级为全屏滚动, (4) refinePointActionTarget() 重定向时在 attempt trail 中添加说明。",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/SwipeExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/TypeExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ScrollExecutor.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt"
+      "app/src/main/kotlin/ai/closepaw/tool/action/SwipeExecutor.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/action/TypeExecutor.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/action/ScrollExecutor.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/action/PointActionExecutorCore.kt"
     ],
     "acceptCriteria": [
       "SwipeExecutor maps ActionResult.Cancelled to ActionOutcome.Cancelled",
@@ -1018,12 +1018,12 @@
     "title": "Phase 3: Shell 加固",
     "description": "两个修复: (1) Shell 验证扩展 — 拒绝包含元字符 (; | & $( `) 的命令，或添加 env/xargs/find 到 blocklist, (2) 输出截断时追加 '[output truncated at N chars]' 标记，让 LLM 知道数据不完整。",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt"
+      "app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt"
     ],
     "acceptCriteria": [
       "Shell commands with metacharacters (;|&) are rejected or additional dangerous commands blocked",
       "Output exceeding MAX_OUTPUT_CHARS includes truncation indicator",
-      "grep -q 'truncated' app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt exits 0",
+      "grep -q 'truncated' app/src/main/kotlin/ai/closepaw/tool/impl/ShellTool.kt exits 0",
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
     ],
@@ -1037,13 +1037,13 @@
     "title": "Phase 5: 死代码清理批次",
     "description": "6 项确认的死代码清理: (1) 删除 UIActionInvocation.detectScrollBoundary() (lines 53-58, 87-110), (2) 删除 UiChangeDetector.detectScrollBoundary() (lines 31-49), (3) 删除 PolicyEngine.isEscape() 中 MobileActionName.Back/Home fallback 分支 (注意: enum 成员被 ToolUi.kt 使用，仅删分支), (4) 删除 OpenAppTool companion 中未使用的 UI_SETTLE_DELAY_MS 和 SUGGESTION_LIMIT, (5) SystemButtonTool.kt:71 else branch 改为 error('Unreachable'), (6) 删除 DataQueryInvocation.kt (零调用者), (7) 修复 ActionPriorityOrder.kt 中指向不存在路径的 doc 引用。",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/UIActionInvocation.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/UiChangeDetector.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/PolicyEngine.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/OpenAppTool.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/SystemButtonTool.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/DataQueryInvocation.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ActionPriorityOrder.kt"
+      "app/src/main/kotlin/ai/closepaw/tool/handlers/UIActionInvocation.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/action/UiChangeDetector.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/PolicyEngine.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/OpenAppTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/SystemButtonTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/handlers/DataQueryInvocation.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/action/ActionPriorityOrder.kt"
     ],
     "acceptCriteria": [
       "UIActionInvocation has no detectScrollBoundary method",
@@ -1067,8 +1067,8 @@
     "description": "Fix three concrete bugs in the protocol module: completion semantics leak into session recording, checkpoint persistence drops runtime-affecting fields, and approval allow-list mutation skips validation. Opportunistic dead event surface cleanup.",
     "design": "doc/todo/holistic-review/protocol-communication/final/improvement_plan.md",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/**",
-      "app/src/main/kotlin/com/moonkey/androidagent/session/**"
+      "app/src/main/kotlin/ai/closepaw/protocol/**",
+      "app/src/main/kotlin/ai/closepaw/session/**"
     ],
     "acceptCriteria": [
       "All child tasks done",
@@ -1089,7 +1089,7 @@
     "title": "Fix approval allow-list mutation skipping validation",
     "description": "handleApproval() in AgentSession.kt:589-611 persists allow-list changes via policyEngine.allowPackageForSession/allowPackagePersistent BEFORE calling toolRouter.resolveApproval(). The return value of resolveApproval() is ignored. A stale or duplicate Op.Approve can mutate security policy without matching a pending approval. Fix: call resolveApproval() first, gate allow-list mutation on it returning true, log warning on false.",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt"
+      "app/src/main/kotlin/ai/closepaw/session/AgentSession.kt"
     ],
     "acceptCriteria": [
       "In handleApproval(): toolRouter.resolveApproval() is called BEFORE any policyEngine.allowPackage* call",
@@ -1114,13 +1114,13 @@
     "title": "Split CompletionReason into TaskOutcome + SessionEndReason",
     "description": "CompletionReason.kt has 7 values shared by TaskCompleted and SessionCompleted, encoding impossible combinations. AgentSession emits task reasons (GOAL_ACHIEVED, MAX_TURNS, TASK_IMPOSSIBLE, ERROR) at task end and session reasons (USER_STOPPED, IDLE_TIMEOUT, INTERRUPTED) at session end, but the type does not enforce this.\n\nConcrete bug: SessionRecordingService.completeSession():211-217 derives completedNormally from the session-level CompletionReason — so a task that succeeds then idles out is recorded as not completed normally.\n\nConsumers with impossible branches:\n- AgentServiceEventHandler:117-127 handles GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE/ERROR for SessionCompleted (never emitted at session level)\n- CapsuleStateHolder.onSessionEnded():258-285 handles GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE for SessionCompleted (never emitted at session level)\n\nPlan: Replace CompletionReason with TaskOutcome + SessionEndReason. Update TaskCompleted/SessionCompleted. Remove SessionCompleted.result (always null). Fix SessionRecordingService to track last task outcome. Remove impossible branches.",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/CompletionReason.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/TaskLifecycleEvents.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionLifecycleEvents.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionRecordingService.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandler.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/overlay/CapsuleStateHolder.kt"
+      "app/src/main/kotlin/ai/closepaw/protocol/CompletionReason.kt",
+      "app/src/main/kotlin/ai/closepaw/protocol/TaskLifecycleEvents.kt",
+      "app/src/main/kotlin/ai/closepaw/protocol/SessionLifecycleEvents.kt",
+      "app/src/main/kotlin/ai/closepaw/session/AgentSession.kt",
+      "app/src/main/kotlin/ai/closepaw/history/SessionRecordingService.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AgentServiceEventHandler.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/CapsuleStateHolder.kt"
     ],
     "acceptCriteria": [
       "CompletionReason.kt no longer exists: test -f .../protocol/CompletionReason.kt fails",
@@ -1151,8 +1151,8 @@
     "title": "Fix checkpoint persistence dropping runtime-affecting fields",
     "description": "SessionCheckpointCoordinator.buildSnapshot():67-81 creates SessionRuntimeSnapshot via config.toConfigSnapshot(). The snapshot only captures model/agent/perception/platform data. These runtime-affecting fields are silently dropped on reload:\n- actionDelayMs (used in SessionAgentRunner:72-80)\n- approvalMode (security posture)\n- debugMode\n- traceEnabled (used in TraceRecorderFactory:12-16)\n- traceRunId (used in TraceRecorderFactory:35-44)\n- excludedTools (tool availability)\n\nReload can change approval behavior, disable tracing, and alter tool availability without user awareness.",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionCheckpointCoordinator.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/history/model/SessionRuntimeSnapshot.kt"
+      "app/src/main/kotlin/ai/closepaw/session/SessionCheckpointCoordinator.kt",
+      "app/src/main/kotlin/ai/closepaw/history/model/SessionRuntimeSnapshot.kt"
     ],
     "acceptCriteria": [
       "grep -n actionDelayMs SessionCheckpointCoordinator.kt shows the field in both persist and restore paths",
@@ -1182,13 +1182,13 @@
     "title": "Prune dead event surface",
     "description": "Remove unconsumed events and redundant fields. Evidence from re-evaluation:\n\n1. TodosUpdated/ScratchpadUpdated: emitted from AgentEventDispatcher:98-113, no consumer (all fall to else->Unit)\n2. ApprovalResolved: emitted from AgentSession:601-608, no event consumer (UI resolves locally)\n3. ApprovalRequired.actionId: duplicates details.callId (ApprovalEvents.kt:7). Consumers use details.callId (AgentServiceEventHandler:165-167, ServiceOverlayController:329-345)\n4. TurnStarted.phase: always PERCEPTION (AgentEventDispatcher:52), immediately followed by TurnPhaseChanged(PERCEPTION) (Agent.kt:93-94). ChatEventReducer uses TurnStarted only to clear buffer, not phase.\n5. StatusUpdate.emoji: String?=null, never populated non-null. All status strings embed emoji directly.",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/ApprovalEvents.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/PlanningStateEvents.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/TurnEvents.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/protocol/StatusEvents.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentEventDispatcher.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandler.kt"
+      "app/src/main/kotlin/ai/closepaw/protocol/ApprovalEvents.kt",
+      "app/src/main/kotlin/ai/closepaw/protocol/PlanningStateEvents.kt",
+      "app/src/main/kotlin/ai/closepaw/protocol/TurnEvents.kt",
+      "app/src/main/kotlin/ai/closepaw/protocol/StatusEvents.kt",
+      "app/src/main/kotlin/ai/closepaw/agent/AgentEventDispatcher.kt",
+      "app/src/main/kotlin/ai/closepaw/session/AgentSession.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AgentServiceEventHandler.kt"
     ],
     "acceptCriteria": [
       "grep -rn TodosUpdated app/src/ returns only the data class definition (no emission site)",
@@ -1255,36 +1255,36 @@
     "title": "Phase 1: Safe deletions — dead files, methods, composables, fields",
     "description": "Delete 3 entire dead files (StatusUtils.kt, SessionServicesSummaryFormatter.kt, .DS_Store), 9 dead methods from live files (SessionServices.getSummary/updateApprovalMode, AppClassifier.addUserOverride+userOverrides, ToolCallResult.isSuccess/getOutputOrNull, ToolSpec.toFunctionSchema/ValidationResult.isValid/ToolExecutionResult.isSuccess, ActionResult.isSuccess), 3 dead composables (ApiKeysSection, BackendSelector, SettingsDropdownOptionWithDescription), 1 dead auth function (refreshOAuthToken), and 1 dead field (ScreenSnapshotDebug.captureQualityPath + its setter in AccessibilityPlatform). All items verified as zero-callers by both Claude and Codex with rg.",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/util/StatusUtils.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionServicesSummaryFormatter.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/AppClassifier.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/ActionResult.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/ApiKeyFields.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdowns.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdown.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/auth/OpenAiSignIn.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/model/Models.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt"
+      "app/src/main/kotlin/ai/closepaw/util/StatusUtils.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServicesSummaryFormatter.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/AppClassifier.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolCallResult.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolSpec.kt",
+      "app/src/main/kotlin/ai/closepaw/platform/ActionResult.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/ApiKeyFields.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsDropdowns.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsDropdown.kt",
+      "app/src/main/kotlin/ai/closepaw/auth/OpenAiSignIn.kt",
+      "app/src/main/kotlin/ai/closepaw/model/Models.kt",
+      "app/src/main/kotlin/ai/closepaw/platform/AccessibilityPlatform.kt"
     ],
     "acceptCriteria": [
-      "app/src/main/kotlin/com/moonkey/androidagent/.DS_Store does not exist",
-      "app/src/main/kotlin/com/moonkey/androidagent/util/StatusUtils.kt does not exist",
-      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionServicesSummaryFormatter.kt does not exist",
-      "rg -c \"getSummary\\(\" app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt returns 0 or fails",
-      "rg -c \"updateApprovalMode\\(\" app/src/main/kotlin/com/moonkey/androidagent/session/SessionServices.kt returns 0 or fails",
-      "rg -c \"addUserOverride\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/AppClassifier.kt returns 0 or fails",
-      "rg -c \"fun isSuccess\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt returns 0 or fails",
-      "rg -c \"fun getOutputOrNull\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt returns 0 or fails",
-      "rg -c \"fun toFunctionSchema\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 or fails",
-      "rg -c \"fun isValid\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 or fails — covers ValidationResult.isValid() and ToolExecutionResult.isSuccess()",
-      "rg -c \"ApiKeysSection\" app/src/main/kotlin/com/moonkey/androidagent/ui/settings/ApiKeyFields.kt returns 0 or fails",
-      "rg -c \"BackendSelector\" app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdowns.kt returns 0 or fails",
-      "rg -c \"SettingsDropdownOptionWithDescription\" app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdown.kt returns 0 or fails",
-      "rg -c \"refreshOAuthToken\" app/src/main/kotlin/com/moonkey/androidagent/auth/OpenAiSignIn.kt returns 0 or fails",
-      "rg -c \"captureQualityPath\" app/src/main/kotlin/com/moonkey/androidagent/model/Models.kt returns 0 or fails",
+      "app/src/main/kotlin/ai/closepaw/.DS_Store does not exist",
+      "app/src/main/kotlin/ai/closepaw/util/StatusUtils.kt does not exist",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServicesSummaryFormatter.kt does not exist",
+      "rg -c \"getSummary\\(\" app/src/main/kotlin/ai/closepaw/session/SessionServices.kt returns 0 or fails",
+      "rg -c \"updateApprovalMode\\(\" app/src/main/kotlin/ai/closepaw/session/SessionServices.kt returns 0 or fails",
+      "rg -c \"addUserOverride\\(\" app/src/main/kotlin/ai/closepaw/tool/AppClassifier.kt returns 0 or fails",
+      "rg -c \"fun isSuccess\\(\" app/src/main/kotlin/ai/closepaw/tool/ToolCallResult.kt returns 0 or fails",
+      "rg -c \"fun getOutputOrNull\\(\" app/src/main/kotlin/ai/closepaw/tool/ToolCallResult.kt returns 0 or fails",
+      "rg -c \"fun toFunctionSchema\\(\" app/src/main/kotlin/ai/closepaw/tool/ToolSpec.kt returns 0 or fails",
+      "rg -c \"fun isValid\\(\" app/src/main/kotlin/ai/closepaw/tool/ToolSpec.kt returns 0 or fails — covers ValidationResult.isValid() and ToolExecutionResult.isSuccess()",
+      "rg -c \"ApiKeysSection\" app/src/main/kotlin/ai/closepaw/ui/settings/ApiKeyFields.kt returns 0 or fails",
+      "rg -c \"BackendSelector\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsDropdowns.kt returns 0 or fails",
+      "rg -c \"SettingsDropdownOptionWithDescription\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsDropdown.kt returns 0 or fails",
+      "rg -c \"refreshOAuthToken\" app/src/main/kotlin/ai/closepaw/auth/OpenAiSignIn.kt returns 0 or fails",
+      "rg -c \"captureQualityPath\" app/src/main/kotlin/ai/closepaw/model/Models.kt returns 0 or fails",
       "./gradlew :app:compileDebugKotlin exits 0",
       "./gradlew test exits 0"
     ],
@@ -1304,8 +1304,8 @@
     "title": "P1: Fix OpenAIErrorClassifier false-positive matching + rewrite tests",
     "description": "OpenAIErrorClassifier uses naive message.contains(\"429\") / message.contains(\"500\") matching, causing false positives (status 14291 matches 429, status 5002 matches 500). Tests currently preserve the bug as \"KNOWN BUG\". Fix the classifier to use structured status code comparison, then rewrite tests to assert correct behavior.",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIErrorClassifier.kt",
-      "app/src/test/kotlin/com/moonkey/androidagent/llm/OpenAIErrorClassifierTest.kt"
+      "app/src/main/kotlin/ai/closepaw/llm/OpenAIErrorClassifier.kt",
+      "app/src/test/kotlin/ai/closepaw/llm/OpenAIErrorClassifierTest.kt"
     ],
     "acceptCriteria": [
       "OpenAIErrorClassifier no longer uses message.contains(\"429\") or message.contains(\"500\") for status classification",
@@ -1338,27 +1338,27 @@
     "title": "Phase 2: Remove dead parameters, API surface, and payload plumbing",
     "description": "Three independent cleanups:\n\n(A) Remove unused constructor params: OnboardingViewModel.context and DefaultOnboardingDemoController.modelCatalog — delete from both declaration and MainActivity call sites.\n\n(B) Shrink SessionHistoryManager public API: make loadSessionByFileName() private, delete deleteSessionByFileName/getMostRecentSession/hasActiveSession/endSession (all zero-callers), remove unused scope stored property.\n\n(C) Remove dead success-payload plumbing: delete data field from ToolCallResult.Success and ToolExecutionResult.Success. Neither has any production reader. Remove the now-pointless data= arguments from all construction sites (WriteTodosTool, DelegateTaskTool, CompleteTaskTool, AskUserTool, textToolSuccess helper, ToolRouter forwarding).",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/DefaultOnboardingDemoController.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/WriteTodosTool.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/CompleteTaskTool.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/AskUserTool.kt"
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingViewModel.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/DefaultOnboardingDemoController.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt",
+      "app/src/main/kotlin/ai/closepaw/history/SessionHistoryManager.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolCallResult.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolSpec.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/ToolRouter.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/DelegateTaskTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/WriteTodosTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/CompleteTaskTool.kt",
+      "app/src/main/kotlin/ai/closepaw/tool/impl/AskUserTool.kt"
     ],
     "acceptCriteria": [
-      "rg \"\\bcontext\\b\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt shows no constructor parameter named context (only Android Context usage in methods is fine)",
-      "rg \"modelCatalog\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/DefaultOnboardingDemoController.kt returns 0 matches",
+      "rg \"\\bcontext\\b\" app/src/main/kotlin/ai/closepaw/onboarding/OnboardingViewModel.kt shows no constructor parameter named context (only Android Context usage in methods is fine)",
+      "rg \"modelCatalog\" app/src/main/kotlin/ai/closepaw/onboarding/DefaultOnboardingDemoController.kt returns 0 matches",
       "SessionHistoryManager.loadSessionByFileName is private (grep shows private fun loadSessionByFileName)",
-      "rg -c \"fun deleteSessionByFileName|fun getMostRecentSession|fun hasActiveSession|fun endSession\" app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt returns 0",
-      "rg \"\\bscope\\b\" app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt shows no stored scope property (CoroutineScope parameter if any is used, not stored dead)",
-      "rg -c \"val data\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt returns 0 — Success.data field removed",
-      "rg -c \"val data\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 — ToolExecutionResult.Success.data field removed",
-      "rg \"data\\s*=\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt shows no data= forwarding from execution result to call result",
+      "rg -c \"fun deleteSessionByFileName|fun getMostRecentSession|fun hasActiveSession|fun endSession\" app/src/main/kotlin/ai/closepaw/history/SessionHistoryManager.kt returns 0",
+      "rg \"\\bscope\\b\" app/src/main/kotlin/ai/closepaw/history/SessionHistoryManager.kt shows no stored scope property (CoroutineScope parameter if any is used, not stored dead)",
+      "rg -c \"val data\" app/src/main/kotlin/ai/closepaw/tool/ToolCallResult.kt returns 0 — Success.data field removed",
+      "rg -c \"val data\" app/src/main/kotlin/ai/closepaw/tool/ToolSpec.kt returns 0 — ToolExecutionResult.Success.data field removed",
+      "rg \"data\\s*=\" app/src/main/kotlin/ai/closepaw/tool/ToolRouter.kt shows no data= forwarding from execution result to call result",
       "./gradlew :app:compileDebugKotlin exits 0",
       "./gradlew test exits 0"
     ],
@@ -1378,7 +1378,7 @@
     "title": "P1: Add CodexRequestBuilderTest",
     "description": "CodexRequestBuilder.kt owns buildRequestBody(), convertInputItems(), and convertTools() with zero direct tests. This is pure serialization at an external-contract boundary — regressions are cheap to create and hard to notice until runtime.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/llm/CodexRequestBuilderTest.kt"
+      "app/src/test/kotlin/ai/closepaw/llm/CodexRequestBuilderTest.kt"
     ],
     "acceptCriteria": [
       "CodexRequestBuilderTest.kt exists with >=5 test methods",
@@ -1406,7 +1406,7 @@
     "title": "P1: Add ChatCompletionInteropTest",
     "description": "ChatCompletionInterop.kt converts between ResponseInputItem/FunctionTool and Chat Completions types. Now a real external-contract boundary since provider routing uses ChatCompletionClient for OpenRouter/chat-style models. Zero direct tests.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/llm/ChatCompletionInteropTest.kt"
+      "app/src/test/kotlin/ai/closepaw/llm/ChatCompletionInteropTest.kt"
     ],
     "acceptCriteria": [
       "ChatCompletionInteropTest.kt exists with >=4 test methods",
@@ -1432,7 +1432,7 @@
     "title": "P1: Add ToolParameterExtractorTest",
     "description": "ToolParameterExtractor.kt handles known/unknown/raw tool-schema representations from the OpenAI SDK, feeding CodexRequestBuilder.convertTools(). Broken schema extraction silently breaks tool calling for all providers. Zero direct tests.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/llm/ToolParameterExtractorTest.kt"
+      "app/src/test/kotlin/ai/closepaw/llm/ToolParameterExtractorTest.kt"
     ],
     "acceptCriteria": [
       "ToolParameterExtractorTest.kt exists with >=3 test methods",
@@ -1457,7 +1457,7 @@
     "title": "P1: Extend CodexSseParserTest with interleaved parallel tool-call tests",
     "description": "CodexSseParserTest exists with basic coverage but misses the highest-value case: interleaved parallel tool calls across multiple output_index values. Every current accumulator test uses a single output index.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/llm/CodexSseParserTest.kt"
+      "app/src/test/kotlin/ai/closepaw/llm/CodexSseParserTest.kt"
     ],
     "acceptCriteria": [
       "Test: interleaved tool-call deltas across >=2 output_index values accumulate into distinct, complete tool calls",
@@ -1480,8 +1480,8 @@
     "title": "P1: Add selected LLM client-level tests",
     "description": "CodexResponseClient, OpenAIResponseClient, and ChatCompletionClient have zero direct tests. Client orchestration (request construction, streaming terminal conditions, tool-call accumulation, error translation) is where provider regressions actually manifest. Focus on pure logic, not network calls.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/llm/CodexResponseClientTest.kt",
-      "app/src/test/kotlin/com/moonkey/androidagent/llm/ChatCompletionClientTest.kt"
+      "app/src/test/kotlin/ai/closepaw/llm/CodexResponseClientTest.kt",
+      "app/src/test/kotlin/ai/closepaw/llm/ChatCompletionClientTest.kt"
     ],
     "acceptCriteria": [
       "At least one of CodexResponseClientTest.kt or ChatCompletionClientTest.kt exists",
@@ -1508,19 +1508,19 @@
     "title": "Phase 3: Collapse OnboardingDemoController into concrete class with constructor injection",
     "description": "OnboardingDemoController is a single-implementation interface with harmful two-phase wiring: OnboardingViewModel holds a nullable mutable var that MainActivity assigns post-construction. This creates an invalid partially-wired state window.\n\nFix:\n1. Delete OnboardingDemoController.kt (interface file)\n2. Rename DefaultOnboardingDemoController to OnboardingDemoController (concrete class)\n3. Add it as a constructor parameter of OnboardingViewModel\n4. Remove the nullable mutable \"var demoController: OnboardingDemoController? = null\" field\n5. Update MainActivity to pass the concrete controller at ViewModel construction time\n6. Update all demoController?.method() calls to non-nullable demoController.method()",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingDemoController.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/DefaultOnboardingDemoController.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt",
-      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt"
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingDemoController.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/DefaultOnboardingDemoController.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingViewModel.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt"
     ],
     "acceptCriteria": [
-      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingDemoController.kt either does not exist (interface deleted) or is the renamed concrete class (not an interface)",
-      "! rg -q \"interface OnboardingDemoController\" app/src/main/kotlin/com/moonkey/androidagent/ — no interface declaration exists anywhere",
-      "rg -q \"class.*OnboardingDemoController\" app/src/main/kotlin/com/moonkey/androidagent/ — concrete class exists",
-      "! rg -q \"var demoController.*=\\s*null\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt — no nullable late-assigned field",
-      "rg -q \"demoController\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt — controller is still referenced (as constructor param)",
-      "! rg -q \"vm\\.demoController\\s*=\" app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt — no post-construction assignment",
-      "! rg -q \"demoController\\?\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt — no nullable access (?.)",
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingDemoController.kt either does not exist (interface deleted) or is the renamed concrete class (not an interface)",
+      "! rg -q \"interface OnboardingDemoController\" app/src/main/kotlin/ai/closepaw/ — no interface declaration exists anywhere",
+      "rg -q \"class.*OnboardingDemoController\" app/src/main/kotlin/ai/closepaw/ — concrete class exists",
+      "! rg -q \"var demoController.*=\\s*null\" app/src/main/kotlin/ai/closepaw/onboarding/OnboardingViewModel.kt — no nullable late-assigned field",
+      "rg -q \"demoController\" app/src/main/kotlin/ai/closepaw/onboarding/OnboardingViewModel.kt — controller is still referenced (as constructor param)",
+      "! rg -q \"vm\\.demoController\\s*=\" app/src/main/kotlin/ai/closepaw/app/MainActivity.kt — no post-construction assignment",
+      "! rg -q \"demoController\\?\" app/src/main/kotlin/ai/closepaw/onboarding/OnboardingViewModel.kt — no nullable access (?.)",
       "./gradlew :app:compileDebugKotlin exits 0",
       "./gradlew test exits 0"
     ],
@@ -1591,7 +1591,7 @@
     "title": "P2: Add TurnPlanningPhaseRunnerTest",
     "description": "TurnPlanningPhaseRunner.runPlanningPhase() now does more than originally recognized: prompt building, screen-observation history write, model resolution, trace request/response logging, arbitration, dropped-tool warnings, and agent_thought emission. Zero direct tests.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/agent/TurnPlanningPhaseRunnerTest.kt"
+      "app/src/test/kotlin/ai/closepaw/agent/TurnPlanningPhaseRunnerTest.kt"
     ],
     "acceptCriteria": [
       "TurnPlanningPhaseRunnerTest.kt exists with >=4 test methods",
@@ -1617,7 +1617,7 @@
     "title": "P2: Add TurnExecutionPhaseRunnerTest",
     "description": "TurnExecutionPhaseRunner.executeActions() is the execution seam where most cross-module regressions happen. TurnOutcomeDecision is now extracted and tested, but the phase runner itself (history writes, approval emission, observation capture, abort-on-failure) is not.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunnerTest.kt"
+      "app/src/test/kotlin/ai/closepaw/agent/TurnExecutionPhaseRunnerTest.kt"
     ],
     "acceptCriteria": [
       "TurnExecutionPhaseRunnerTest.kt exists with >=4 test methods",
@@ -1644,7 +1644,7 @@
     "title": "P2: Add SessionCoordinatorTest",
     "description": "SessionCoordinator is stateful, concurrent, user-visible. Owns submit(), createAndSubmit(), enqueue(), attachSession(), detachSession(), consumeDeadSessionFileName(), clearSession(), and automatic drain logic. Zero direct tests. Easy to regress with subtle queueing bugs.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/session/SessionCoordinatorTest.kt"
+      "app/src/test/kotlin/ai/closepaw/session/SessionCoordinatorTest.kt"
     ],
     "acceptCriteria": [
       "SessionCoordinatorTest.kt exists with >=4 test methods",
@@ -1670,7 +1670,7 @@
     "title": "P2: Add AgentServiceEventHandlerTest",
     "description": "AgentServiceEventHandler.handleEvent() contains a large when-expression over agent events, mutating recording state, status text, and overlay behavior. It is an extracted side-effect hub that unit tests should hit directly. Zero direct tests.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/app/AgentServiceEventHandlerTest.kt"
+      "app/src/test/kotlin/ai/closepaw/app/AgentServiceEventHandlerTest.kt"
     ],
     "acceptCriteria": [
       "AgentServiceEventHandlerTest.kt exists with >=3 test methods",
@@ -1695,7 +1695,7 @@
     "title": "P2: Add SessionCheckpointCoordinatorTest",
     "description": "SessionCheckpointCoordinator owns checkpoint scheduling and snapshot conversion logic. Was quietly dropped from the original plan but still has zero direct tests. Identified as a gap in the re-evaluation.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/session/SessionCheckpointCoordinatorTest.kt"
+      "app/src/test/kotlin/ai/closepaw/session/SessionCheckpointCoordinatorTest.kt"
     ],
     "acceptCriteria": [
       "SessionCheckpointCoordinatorTest.kt exists with >=2 test methods",
@@ -1721,12 +1721,12 @@
     "title": "Phase 4: Remove agent_name from delegate_task tool",
     "description": "DelegateTaskTool requires agent_name in its parameter schema and validation, but AgentDefRegistry.delegatableRoles() returns exactly one entry (ExecutorRoleDef). The planner is forced to \"choose\" among one valid option. This is fake flexibility that wastes a tool parameter and complicates the tool description injected into the planner prompt.\n\nFix:\n1. Remove agent_name from DelegateTaskTool.parameterSchema\n2. Remove agent_name validation and lookup logic in execute()\n3. Hardcode delegation target to executor role (resolve via AgentDefRegistry.delegatableRoles().single() or direct reference)\n4. Simplify tool description — remove \"Available agents:\" listing\n\nKeep AgentRoleDef/AgentDefRegistry — they resolve 3 real top-level roles and are not over-abstracted.",
     "scope": [
-      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt"
+      "app/src/main/kotlin/ai/closepaw/tool/impl/DelegateTaskTool.kt"
     ],
     "acceptCriteria": [
-      "rg -c \"agent_name\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt returns 0 — parameter completely removed from schema and execution",
-      "! rg -q \"Available agents\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt — no agent directory in tool description",
-      "rg -q \"delegatable\\|ExecutorRoleDef\\|executor\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt — executor target is resolved, not hardcoded string",
+      "rg -c \"agent_name\" app/src/main/kotlin/ai/closepaw/tool/impl/DelegateTaskTool.kt returns 0 — parameter completely removed from schema and execution",
+      "! rg -q \"Available agents\" app/src/main/kotlin/ai/closepaw/tool/impl/DelegateTaskTool.kt — no agent directory in tool description",
+      "rg -q \"delegatable\\|ExecutorRoleDef\\|executor\" app/src/main/kotlin/ai/closepaw/tool/impl/DelegateTaskTool.kt — executor target is resolved, not hardcoded string",
       "DelegateTaskToolTest still passes: ./gradlew test --tests \"*DelegateTaskToolTest\" exits 0",
       "./gradlew :app:compileDebugKotlin exits 0",
       "./gradlew test exits 0"
@@ -1802,7 +1802,7 @@
     "title": "P3: Add AskUserToolTest",
     "description": "AskUserTool has zero direct tests. UserResponseChannelTest tests the channel primitive, not the tool. Tool-level behavior (pending rejection when another ask is active, event emission, timeout output, cancellation mapping) is unprotected.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/tool/impl/AskUserToolTest.kt"
+      "app/src/test/kotlin/ai/closepaw/tool/impl/AskUserToolTest.kt"
     ],
     "acceptCriteria": [
       "AskUserToolTest.kt exists with >=3 test methods",
@@ -1828,8 +1828,8 @@
     "title": "P3: Extend ShellTool tests with execution path coverage",
     "description": "ShellToolBlocklistTest covers validate() (blocked commands, metacharacters, safe commands). The execution path in ShellInvocation.execute() (timeout, output truncation, exit-code formatting, pre-cancel short-circuit) is still untested.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/tool/impl/ShellToolBlocklistTest.kt",
-      "app/src/test/kotlin/com/moonkey/androidagent/tool/impl/ShellToolExecutionTest.kt"
+      "app/src/test/kotlin/ai/closepaw/tool/impl/ShellToolBlocklistTest.kt",
+      "app/src/test/kotlin/ai/closepaw/tool/impl/ShellToolExecutionTest.kt"
     ],
     "acceptCriteria": [
       "Execution-path tests exist (in new file or extending existing)",
@@ -1854,7 +1854,7 @@
     "title": "P3: Extend TypeExecutorTest with success/failure paths",
     "description": "TypeExecutorTest exists but every test is a cancellation-path test. The main success/failure behavior is unproven: direct set success, tap-to-focus fallback, no editable target failure, VD-mode behavior. Cancellation-only coverage creates false confidence.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/tool/action/TypeExecutorTest.kt"
+      "app/src/test/kotlin/ai/closepaw/tool/action/TypeExecutorTest.kt"
     ],
     "acceptCriteria": [
       "Test: direct text set success into focused editable field produces success result",
@@ -1879,7 +1879,7 @@
     "title": "P4: Add OnboardingViewModelTest",
     "description": "OnboardingViewModel is a 503-line async state machine with permission polling, provider selection, OAuth/manual auth branching, draft-key persistence, demo preflight, step skipping, and auto-advance timing. Zero direct tests — one of the highest-value blank areas in the entire codebase.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModelTest.kt"
+      "app/src/test/kotlin/ai/closepaw/onboarding/OnboardingViewModelTest.kt"
     ],
     "acceptCriteria": [
       "OnboardingViewModelTest.kt exists with >=5 test methods",
@@ -1907,7 +1907,7 @@
     "title": "P4: Add OnboardingStoreTest",
     "description": "OnboardingStore owns outcome persistence, auth-method storage, encrypted draft-key storage, and migration behavior. Not covered by fail-closed tests in other store tests.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/onboarding/OnboardingStoreTest.kt"
+      "app/src/test/kotlin/ai/closepaw/onboarding/OnboardingStoreTest.kt"
     ],
     "acceptCriteria": [
       "OnboardingStoreTest.kt exists with >=3 test methods",
@@ -1932,7 +1932,7 @@
     "title": "P4: Add PermissionStateMonitorTest",
     "description": "PermissionStateMonitor.deriveRepairModel() is pure logic that determines which permissions need repair. Very cheap to test, high leverage.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/onboarding/PermissionStateMonitorTest.kt"
+      "app/src/test/kotlin/ai/closepaw/onboarding/PermissionStateMonitorTest.kt"
     ],
     "acceptCriteria": [
       "PermissionStateMonitorTest.kt exists with >=3 test methods",
@@ -1957,7 +1957,7 @@
     "title": "P4: Add HttpLlmCredentialValidatorTest",
     "description": "HttpLlmCredentialValidator maps HTTP codes, SSL failures, timeouts, and IO failures into user-facing states. Classic high-leverage unit-test territory.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/onboarding/HttpLlmCredentialValidatorTest.kt"
+      "app/src/test/kotlin/ai/closepaw/onboarding/HttpLlmCredentialValidatorTest.kt"
     ],
     "acceptCriteria": [
       "HttpLlmCredentialValidatorTest.kt exists with >=4 test methods",
@@ -1983,7 +1983,7 @@
     "title": "P4: Add OpenAIOAuth pure helper tests",
     "description": "OpenAIOAuth has pure helpers for PKCE, URL construction, JWT parsing, callback parsing, and token expiry calculation. Test pure logic only, not live OAuth flow. May require extract-then-test refactor.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/auth/OpenAIOAuthTest.kt"
+      "app/src/test/kotlin/ai/closepaw/auth/OpenAIOAuthTest.kt"
     ],
     "acceptCriteria": [
       "OpenAIOAuthTest.kt exists with >=3 test methods",
@@ -2008,7 +2008,7 @@
     "title": "P5: Add ChatEventReducerTest",
     "description": "ChatEventReducer.handle() lifecycle coverage. Helper tests exist (5 files) but actual reducer behavior (task start, delta accumulation, action-card transitions, supplement insertion, completion/error transitions) is untested.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/ui/chat/ChatEventReducerTest.kt"
+      "app/src/test/kotlin/ai/closepaw/ui/chat/ChatEventReducerTest.kt"
     ],
     "acceptCriteria": [
       "ChatEventReducerTest.kt exists with >=4 test methods",
@@ -2034,7 +2034,7 @@
     "title": "P5: Add MessageConverterTest",
     "description": "MessageConverter in history/model/ contains real mapping logic in both directions including action-state parsing and UI-facing tool name/icon conversion. Small pure seam with zero direct protection.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/history/model/MessageConverterTest.kt"
+      "app/src/test/kotlin/ai/closepaw/history/model/MessageConverterTest.kt"
     ],
     "acceptCriteria": [
       "MessageConverterTest.kt exists with >=3 test methods",
@@ -2059,7 +2059,7 @@
     "title": "P5: Add ChatSessionHistoryControllerTest",
     "description": "ChatSessionHistoryController coordinates resume/new/delete session flows and view-model-facing callbacks. Small enough to test, still unprotected.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/ui/chat/ChatSessionHistoryControllerTest.kt"
+      "app/src/test/kotlin/ai/closepaw/ui/chat/ChatSessionHistoryControllerTest.kt"
     ],
     "acceptCriteria": [
       "ChatSessionHistoryControllerTest.kt exists with >=3 test methods",
@@ -2084,7 +2084,7 @@
     "title": "P5: Add ChatViewModelTest (coordination layer)",
     "description": "Test ChatViewModel coordination: startEventCollection(), pending input consumption, approvals, session history delegation, teardown. Do NOT re-test extracted helper functions already covered by existing helper tests.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/ui/chat/ChatViewModelTest.kt"
+      "app/src/test/kotlin/ai/closepaw/ui/chat/ChatViewModelTest.kt"
     ],
     "acceptCriteria": [
       "ChatViewModelTest.kt exists with >=3 test methods",
@@ -2110,7 +2110,7 @@
     "title": "P6: Add VirtualDisplayViewerTouchHandlerTest",
     "description": "VirtualDisplayViewerTouchHandler has pure, testable logic for coordinate scaling/clamping, display validity checks, tap vs swipe shell fallback, and action-state tracking across down/move/up. Zero direct tests.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayViewerTouchHandlerTest.kt"
+      "app/src/test/kotlin/ai/closepaw/platform/virtualdisplay/VirtualDisplayViewerTouchHandlerTest.kt"
     ],
     "acceptCriteria": [
       "VirtualDisplayViewerTouchHandlerTest.kt exists with >=3 test methods",
@@ -2135,7 +2135,7 @@
     "title": "P6: Add VirtualDisplaySurfaceControllerTest",
     "description": "VirtualDisplaySurfaceController is a unit-testable stateful collaborator with mode switching, invalid-surface guards, and Shizuku result handling.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplaySurfaceControllerTest.kt"
+      "app/src/test/kotlin/ai/closepaw/platform/virtualdisplay/VirtualDisplaySurfaceControllerTest.kt"
     ],
     "acceptCriteria": [
       "VirtualDisplaySurfaceControllerTest.kt exists with >=2 test methods",
@@ -2159,7 +2159,7 @@
     "title": "P6: Add VirtualDisplayCaptureCoordinatorTest",
     "description": "VirtualDisplayCaptureCoordinator owns PixelCopy fallback, repeated-failure demotion to ImageReader, trace artifact storage, and screenshot capture mode switching.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinatorTest.kt"
+      "app/src/test/kotlin/ai/closepaw/platform/virtualdisplay/VirtualDisplayCaptureCoordinatorTest.kt"
     ],
     "acceptCriteria": [
       "VirtualDisplayCaptureCoordinatorTest.kt exists with >=2 test methods",
@@ -2183,7 +2183,7 @@
     "title": "P6: Add AgentTraceArtifactsTest",
     "description": "AgentTraceArtifacts packages redacted request/response/tool/snapshot artifacts. A key trace-integrity seam with zero direct tests.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/trace/AgentTraceArtifactsTest.kt"
+      "app/src/test/kotlin/ai/closepaw/trace/AgentTraceArtifactsTest.kt"
     ],
     "acceptCriteria": [
       "AgentTraceArtifactsTest.kt exists with >=2 test methods",
@@ -2207,7 +2207,7 @@
     "title": "P6: Extend FileTraceRecorderTest with path sanitization + concurrency",
     "description": "FileTraceRecorderTest covers durability (flush, close, repeated rounds). Missing: newArtifactPath()/sanitizePathSegment() behavior, artifact directory creation, concurrent write channel behavior.",
     "scope": [
-      "app/src/test/kotlin/com/moonkey/androidagent/trace/FileTraceRecorderTest.kt"
+      "app/src/test/kotlin/ai/closepaw/trace/FileTraceRecorderTest.kt"
     ],
     "acceptCriteria": [
       "Test: sanitizePathSegment() rejects or sanitizes path traversal attempts (../, /)",

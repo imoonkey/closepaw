@@ -74,10 +74,10 @@ adb shell input keyevent KEYCODE_DEL    # backspace
 adb shell input swipe <x1> <y1> <x2> <y2> <duration_ms>
 
 # Force stop app
-adb shell am force-stop com.moonkey.androidagent
+adb shell am force-stop ai.closepaw
 
 # Launch app
-adb shell monkey -p com.moonkey.androidagent -c android.intent.category.LAUNCHER 1
+adb shell monkey -p ai.closepaw -c android.intent.category.LAUNCHER 1
 ```
 
 ### Smart Capsule State Reference

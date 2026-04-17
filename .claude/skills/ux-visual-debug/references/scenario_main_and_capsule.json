@@ -1,6 +1,6 @@
 {
   "name": "main-and-smart-capsule-smoke",
-  "package": "com.moonkey.androidagent",
+  "package": "ai.closepaw",
   "steps": [
     {
       "name": "Reset app state",

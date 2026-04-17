@@ -1,6 +1,6 @@
 {
   "name": "agent-linked-parallel-example",
-  "package": "com.moonkey.androidagent",
+  "package": "ai.closepaw",
   "steps": [
     {
       "name": "Reset app",

@@ -1,6 +1,6 @@
 {
   "name": "android-agent-ux-template",
-  "package": "com.moonkey.androidagent",
+  "package": "ai.closepaw",
   "steps": [
     {
       "name": "Force stop app",
