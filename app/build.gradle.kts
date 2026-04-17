@@ -129,4 +129,5 @@ dependencies {
     testImplementation("com.google.truth:truth:1.4.2")
     // Pure Java JSON library for unit tests (Android's JSONObject is not available in unit tests)
     testImplementation("org.json:json:20240303")
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.2.1")
 }
