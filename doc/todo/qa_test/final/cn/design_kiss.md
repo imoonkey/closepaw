@@ -2,20 +2,19 @@
 
 ## 目标
 
-两件事，别的都不做：
+给 app behavior 加 **regression guard**——把"应该是这样"的行为用可执行的 test 锁住，未来任何改坏它的 PR 都立刻知道。
 
-1. **显化已知的 UX bug**——每个 bug 写一个能稳定复现的 test，失败的 assertion 就是 bug 的定义。
-2. **guard regression**——bug 修好后把 assertion 翻过来，这个 test 就永久守住这条行为。
+不是 test 基建工程，不是 CI 治理项目，也不是"出 bug 才写 test"的被动模式。
 
-不是 test 基建工程，不是 CI 治理项目。
+Bug 只是触发**新增** guard 的一种契机。bootstrap 阶段就该按 behavior 主动 guard 高价值行为，bug 来了再补。
 
 ## 原则
 
-- **bug-driven**：先有 bug，才有 test。不预先造抽象。
-- **一个测试 = 一条行为**：名字直接写清楚它在查什么（`ChatInputClearsOnSend_Bug123Test`）。
-- **扁平目录**：所有 test 都放 `app/src/androidTest/kotlin/com/closepaw/qa/`。不分 smoke/permission/service 子目录。
+- **behavior-first**：每个 test guard 一条具体行为（"X 状态下显示 Y"、"点 A 触发 B"），名字直接写清楚（`Header_NewChatButtonHiddenWhenEmpty`、`WaitingForInput_SendEnabledOnlyWhenNonBlank`）。
+- **新增的两种契机**：(a) bootstrap 时按 area 把高价值 behavior inventory 一次性 guard 住；(b) bug 出现时为该 behavior 加新 guard。两种都正当。
+- **扁平目录**：所有 test 都放 `app/src/androidTest/kotlin/ai/closepaw/qa/`。不分 smoke/permission/service 子目录。
 - **重复 3 次再抽象**：helper、base class、Robot、annotation 都等到第 3 个 test 真的需要时再提。
-- **不纳入 CI**（第一阶段）：本地 `./gradlew connectedDebugAndroidTest` 能跑就够了，先用 test 驱动 fix，CI 以后再说。
+- **不纳入 CI**（第一阶段）：本地 `./gradlew connectedDebugAndroidTest` 能跑就够了。CI 以后再说。
 
 ## Stack
 
@@ -43,39 +42,40 @@ LLMClientFactory.forTest { messages ->
 ## 目录
 
 ```
-app/src/androidTest/kotlin/com/closepaw/qa/
-  OnboardingBackButtonBugTest.kt
-  ChatInputClearsOnSendBugTest.kt
-  SettingsSheetDismissBugTest.kt
+app/src/androidTest/kotlin/ai/closepaw/qa/
+  ChatHeaderTest.kt
+  ChatEmptyStateTest.kt
+  CapsuleRenderingTest.kt
+  CapsuleInputTest.kt
+  SettingsNavTest.kt
   ...
 ```
 
-就这样。没有 `base/`、`robots/`、`fixtures/`、`annotations/`。
+文件按 area + 主题分组（`ChatXxx`、`CapsuleXxx`、`SettingsXxx`），不分子目录、没有 `base/`、`robots/`、`fixtures/`、`annotations/`。
 
 第一个 helper（例如 `launchAppWithSeededOnboarding()`）写成顶层函数放在 `QaHelpers.kt`，只有在被 3 个 test 用到后才升级为 class。
 
-## 每个 bug test 的模板
+## 每个 test 的模板
 
 ```kotlin
 @RunWith(AndroidJUnit4::class)
-class OnboardingBackButtonBugTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+class ChatHeaderTest {
+    @get:Rule val compose = createComposeRule()
 
-    @Test fun back_button_on_permission_page_does_not_skip_onboarding() {
-        // 1. 直接 seed 到"权限页"状态（用已有的 OnboardingStore / debug intent extras）
-        // 2. 按返回键
-        // 3. assert 当前仍在 onboarding，不是被踢到主界面
-
-        //  bug 未修复时这里会 fail — 这就是 bug 的可执行定义。
-        //  修复后这个 test 会 pass — 从此成为 regression guard。
+    @Test fun new_chat_button_hidden_when_showNewChatButton_false() {
+        compose.setContent {
+            ChatHeader(onMenuClick = {}, onNewChatClick = {}, showNewChatButton = false)
+        }
+        compose.onAllNodesWithContentDescription("New conversation").assertCountEquals(0)
     }
 }
 ```
 
 关键点：
 
-- **seed state 直接走 existing store/debug extras**——不为 QA 新增 production 代码路径。
-- **assert 的是"正确行为"**，不是"当前行为"。test 一开始是红的，fix 之后变绿。这就是 TDD for bugs。
+- **assert 的是"正确行为"**——既适用于 bootstrap guard（一直绿，破时变红），也适用于 bug fix（先红后绿）。
+- **seed state 直接走 existing store/debug extras 或直接传参**——不为 QA 新增 production 代码路径。
+- **使用 `org.junit.Assert`**——NEVER kotlin built-in `assert(...)`，没有 `-ea` 时它是 no-op，会让坏 test 静默通过。
 - **失败时抓 screenshot**：用 `UiDevice.getInstance(...).takeScreenshot(...)` 一行调用写进 `@After`。单文件、不抽 rule。
 
 ## Gradle baseline（一次配置）
@@ -101,10 +101,21 @@ dependencies {
 
 ## 工作流
 
-1. 用户报 bug → 确认能人工复现。
-2. 写一个 `<BugName>BugTest.kt`，assertion 写"正确行为"。跑 `./gradlew connectedDebugAndroidTest --tests '*<BugName>*'`，**确认它是红的**（红的 test 才证明 bug 存在、且 test 写对了）。
+**Bootstrap 阶段（一次性，按 area 主动 guard 高价值 behavior）**：
+
+1. 选一个 area（Chat / Capsule / Settings / ...）。
+2. 列出该 area 用户可见的 behavior inventory（参见 `bootstrap_plan.md`）。
+3. 按 inventory 写 test，每条 behavior 一个 `@Test`。test 直接 pass = guard 已就位。
+4. commit。
+
+**Bug 阶段（事件驱动，guard 出错过的 behavior）**：
+
+1. 用户报 bug → 确认能复现。
+2. 写一个 test，assertion 写"正确行为"。跑一次 **确认它是红的**（红才证明 bug 存在 + test 写对了）。
 3. 改代码让它变绿。
 4. commit。Regression guard 达成。
+
+两种模式产出的 test 在仓库里没有区别——都是 behavior guard。Bug 阶段的 test 也不要在文件名/类名里加 `Bug123` 之类的标签，behavior 名字本身就够了。
 
 ## 何时扩展
 
@@ -129,6 +140,11 @@ dependencies {
 - 不写 Robot pattern、BDD DSL。
 - 不做 5-phase rollout plan。
 
-## Next step（需要你输入）
+## Next step
 
-给我**现在最烦的 5 个 UX bug**（简短复现步骤即可），我按上面模板写出第一批 test。从这 5 个开始，基建自然会从它们的重复中长出来，而不是反过来。
+参见 `bootstrap_plan.md` 的 area-by-area 列表。bootstrap 完成后，guard 持续靠两条路径增长：
+
+- 新增 UI behavior 时，开发者顺手补一条 test（review 时把关）。
+- 出 bug 时按 bug 阶段工作流补 test。
+
+**不要被动等 bug**——已经识别但还没 guard 的高价值 behavior，主动补上比等它出问题再补便宜得多。
