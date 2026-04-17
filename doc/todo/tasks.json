@@ -1199,7 +1199,7 @@
   "test-architecture": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Test Architecture 改进",
     "description": "Fix coverage imbalance: suite is strong for pure inner logic but weak at runtime boundaries. Fix known bugs, add boundary/seam tests, cover blank high-risk modules. Based on double-design review (Claude + Codex), re-evaluated against current code 2026-04-16.",
     "design": "doc/todo/holistic-review/test-architecture/final/improvement_plan.md",
@@ -1213,7 +1213,8 @@
       "test-architecture"
     ],
     "created": "2026-04-16T22:09:52Z",
-    "updated": "2026-04-16T22:09:52Z"
+    "updated": "2026-04-17T03:20:00+08:00",
+    "note": "28 tests added/extended across Phases 1-6. 3 rounds of codex review (v1 3 Medium → fixed, v2 1 Medium+1 Low → Medium fixed, v3 APPROVE). QA on real device PASS with S4 skip."
   },
   "dead-code-overabstraction": {
     "parent": null,
@@ -2269,7 +2270,7 @@
     "depends": [
       "ta-codex-review"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "QA Round: Real Device Validation",
     "description": "Run automated end-to-end QA on device via adb/accessibility to validate that new/changed tests actually catch regressions and the OpenAIErrorClassifier fix does not break live API calls. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) Error classifier fix: trigger a real LLM call → verify agent handles 429 rate-limit correctly (retries) and 401 auth error correctly (fails immediately). Check logcat for retry behavior.\n(2) Normal multi-turn task: complete a standard 3+ step task → verify no regression from any test-architecture changes. Capture session JSON.\n(3) Provider routing: if multiple providers configured, verify chat-completion and codex paths both work (ChatCompletionInterop exercised on real call).\n(4) Error recovery: trigger a transient error (e.g., airplane mode briefly) → verify retry policy works end-to-end.\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence.",
     "acceptCriteria": [
@@ -2289,6 +2290,7 @@
       "qa"
     ],
     "created": "2026-04-16T22:12:56Z",
-    "updated": "2026-04-16T22:12:56Z"
+    "updated": "2026-04-17T03:20:00+08:00",
+    "note": "QA report at doc/todo/holistic-review/test-architecture/qa_report.md: S1 PASS, S2 PASS, S3 PASS (partial), S4 SKIP (airplane-mode toggling disabled by operator). No crashes/ANRs on device."
   }
 }
