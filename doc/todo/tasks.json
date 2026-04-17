@@ -1491,7 +1491,7 @@
     "depends": [
       "dco-dead-params-api"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 3: Collapse OnboardingDemoController into concrete class with constructor injection",
     "description": "OnboardingDemoController is a single-implementation interface with harmful two-phase wiring: OnboardingViewModel holds a nullable mutable var that MainActivity assigns post-construction. This creates an invalid partially-wired state window.\n\nFix:\n1. Delete OnboardingDemoController.kt (interface file)\n2. Rename DefaultOnboardingDemoController to OnboardingDemoController (concrete class)\n3. Add it as a constructor parameter of OnboardingViewModel\n4. Remove the nullable mutable \"var demoController: OnboardingDemoController? = null\" field\n5. Update MainActivity to pass the concrete controller at ViewModel construction time\n6. Update all demoController?.method() calls to non-nullable demoController.method()",
     "scope": [
@@ -1517,7 +1517,8 @@
       "onboarding"
     ],
     "created": "2026-04-16T22:10:46Z",
-    "updated": "2026-04-16T22:10:46Z"
+    "updated": "2026-04-17T00:22:01Z",
+    "agent": "w-dco-onboarding-abstraction"
   },
   "pc-codex-review": {
     "parent": "protocol-communication",
@@ -1703,7 +1704,7 @@
     "depends": [
       "dco-dead-params-api"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 4: Remove agent_name from delegate_task tool",
     "description": "DelegateTaskTool requires agent_name in its parameter schema and validation, but AgentDefRegistry.delegatableRoles() returns exactly one entry (ExecutorRoleDef). The planner is forced to \"choose\" among one valid option. This is fake flexibility that wastes a tool parameter and complicates the tool description injected into the planner prompt.\n\nFix:\n1. Remove agent_name from DelegateTaskTool.parameterSchema\n2. Remove agent_name validation and lookup logic in execute()\n3. Hardcode delegation target to executor role (resolve via AgentDefRegistry.delegatableRoles().single() or direct reference)\n4. Simplify tool description — remove \"Available agents:\" listing\n\nKeep AgentRoleDef/AgentDefRegistry — they resolve 3 real top-level roles and are not over-abstracted.",
     "scope": [
@@ -1723,7 +1724,8 @@
       "tool-system"
     ],
     "created": "2026-04-16T22:11:01Z",
-    "updated": "2026-04-16T22:11:01Z"
+    "updated": "2026-04-17T00:22:01Z",
+    "agent": "w-dco-delegate-task-simplify"
   },
   "dco-codex-review": {
     "parent": "dead-code-overabstraction",

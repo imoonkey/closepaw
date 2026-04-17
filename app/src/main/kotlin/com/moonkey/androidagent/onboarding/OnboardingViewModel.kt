@@ -31,6 +31,7 @@ class OnboardingViewModel(
     private val modelCatalog: ModelCatalog,
     private val permissionMonitor: PermissionStateMonitor,
     private val oauthCredentialStore: OAuthCredentialStore,
+    private val demoController: OnboardingDemoController,
     private val scope: CoroutineScope
 ) {
     companion object {
@@ -53,10 +54,6 @@ class OnboardingViewModel(
 
     private val _effects = Channel<OnboardingEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
-
-    // ── Validator and demo controller (injected after construction) ──
-
-    var demoController: OnboardingDemoController? = null
 
     // ── Provider selection for API key step ──
 
@@ -262,7 +259,7 @@ class OnboardingViewModel(
         }
 
         stepState = DemoStepState.Running
-        demoController?.run(
+        demoController.run(
             onSuccess = { message ->
                 stepState = DemoStepState.Success(message)
                 store.saveOutcome(WizardStep.Demo, StepOutcome.Done)

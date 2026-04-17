@@ -26,7 +26,7 @@ import com.moonkey.androidagent.history.storage.SessionStorage
 import com.moonkey.androidagent.llm.LFMLLMClient
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.llm.ModelCatalog
-import com.moonkey.androidagent.onboarding.DefaultOnboardingDemoController
+import com.moonkey.androidagent.onboarding.OnboardingDemoController
 import com.moonkey.androidagent.onboarding.OnboardingEffect
 import com.moonkey.androidagent.onboarding.OnboardingStore
 import com.moonkey.androidagent.onboarding.OnboardingViewModel
@@ -153,11 +153,10 @@ class MainActivity : ComponentActivity() {
                 modelCatalog = modelCatalog,
                 permissionMonitor = PermissionStateMonitor(applicationContext),
                 oauthCredentialStore = oauthCredentialStore,
-                scope = lifecycleScope
-            )
-            // Wire demo controller
-            vm.demoController = DefaultOnboardingDemoController(
-                settingsState = settingsState,
+                demoController = OnboardingDemoController(
+                    settingsState = settingsState,
+                    scope = lifecycleScope
+                ),
                 scope = lifecycleScope
             )
             onboardingViewModel = vm
