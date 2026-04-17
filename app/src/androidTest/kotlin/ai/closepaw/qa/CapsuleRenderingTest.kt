@@ -3,6 +3,7 @@ package ai.closepaw.qa
 import ai.closepaw.ui.overlay.model.CapsuleMode
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -15,15 +16,38 @@ class CapsuleRenderingTest {
 
     @get:Rule val compose = createComposeRule()
 
-    // K1 — Hidden hides Row1/Row2 controls. Row3 prompt input is still rendered
-    // by design (new-task prompt); we only verify no active-task chrome.
-    @Test fun hidden_renders_no_row1_or_row2_controls() {
+    // K1 — Hidden draws no capsule state-chrome (Row1 thought, Row2 buttons,
+    // Row2-right nav icons). Row3 new-task prompt IS still drawn by design
+    // (it's the "What can I help you with?" entry point), and we verify that
+    // too so this test captures the actual contract.
+    @Test fun hidden_renders_no_capsule_state_chrome() {
         compose.setContent { TestCapsule(mode = CapsuleMode.Hidden) }
 
-        compose.onAllNodesWithText("Takeover").assertCountEquals(0)
-        compose.onAllNodesWithText("Stop").assertCountEquals(0)
-        compose.onAllNodesWithText("Resume").assertCountEquals(0)
-        compose.onAllNodesWithText("Close").assertCountEquals(0)
+        // Row3 prompt stays — intentional new-task entry point.
+        compose.onNodeWithText("What can I help you with?").assertExists()
+
+        // No Row2 primary/secondary/tertiary/stop button labels from any state.
+        listOf(
+            "Takeover", "Handing over", "Resume",
+            "Stop", "Stopping...", "Close", "Deny",
+            "Done", "Allow", "Session", "Always",
+        ).forEach { label ->
+            compose.onAllNodesWithText(label).assertCountEquals(0)
+        }
+
+        // No Row2-right nav icons.
+        listOf("Minimize", "Open app", "Open viewer").forEach { cd ->
+            compose.onAllNodesWithContentDescription(cd).assertCountEquals(0)
+        }
+
+        // No Row1 thought strings from any active state.
+        listOf(
+            "Thinking...", "Handing over...", "Paused",
+            "💬 Awaiting response", "✋ Action needed",
+            "🛡 Approve action?",
+        ).forEach { txt ->
+            compose.onAllNodesWithText(txt).assertCountEquals(0)
+        }
     }
 
     // K2
