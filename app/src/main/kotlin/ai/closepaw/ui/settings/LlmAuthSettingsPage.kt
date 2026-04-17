@@ -1,6 +1,7 @@
 package ai.closepaw.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ai.closepaw.llm.ApiType
 import ai.closepaw.llm.LLMProvider
@@ -195,11 +197,13 @@ private fun SignInTabContent(
     if (agentMode == AgentMode.PRO) {
         Spacer(modifier = Modifier.height(20.dp))
         SettingsSection(title = "Executor Model") {
-            ExecutorModelDropdown(
-                selectedModel = selectedExecutorModel,
-                modelOptions = modelOptions,
-                onModelChange = onExecutorModelChange
-            )
+            Box(modifier = Modifier.testTag("qa-executor-model-dropdown")) {
+                ExecutorModelDropdown(
+                    selectedModel = selectedExecutorModel,
+                    modelOptions = modelOptions,
+                    onModelChange = onExecutorModelChange
+                )
+            }
         }
     }
     Spacer(modifier = Modifier.height(20.dp))
@@ -280,11 +284,13 @@ private fun ApiKeyTabContent(
     if (agentMode == AgentMode.PRO) {
         Spacer(modifier = Modifier.height(20.dp))
         SettingsSection(title = "Executor Model") {
-            ExecutorModelDropdown(
-                selectedModel = selectedExecutorModel,
-                modelOptions = modelOptions,
-                onModelChange = onExecutorModelChange
-            )
+            Box(modifier = Modifier.testTag("qa-executor-model-dropdown")) {
+                ExecutorModelDropdown(
+                    selectedModel = selectedExecutorModel,
+                    modelOptions = modelOptions,
+                    onModelChange = onExecutorModelChange
+                )
+            }
         }
     }
 
