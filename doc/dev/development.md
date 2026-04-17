@@ -275,6 +275,12 @@ echo 'PLATFORM_MODE=virtual_display' >> .env
 | `ClassNotFoundException` / `NoSuchMethodError` only on release | Missing R8 keep rule — open `app/proguard-rules.pro`, add a targeted keep for the offending package/class, rebuild. Debug build won't reproduce. |
 | Verbose prompt/response log missing | You are running release. Switch to debug — `VERBOSE_LOGGING = BuildConfig.DEBUG`. |
 
+## Worktrees
+
+This repo uses git worktrees for isolated task branches (e.g., orchestrate's `.worktrees/<slug>/`). Two per-machine files — `.env` (LLM credentials) and `local.properties` (Android SDK path) — are gitignored and must be present in every worktree for `./gradlew` and `scripts/debug-run.sh` to work.
+
+`scripts/worktree-provision.sh` handles this automatically: the orchestrate skill's `worktree-create.sh` runs it once when a worktree is first created, symlinking `.env` and `local.properties` from the main checkout. It's idempotent — safe to re-run manually if a worktree is ever reset or missing the links.
+
 ## Detailed Documentation
 
 - **[Scripts README](../../scripts/README.md)** - Complete script reference and options
