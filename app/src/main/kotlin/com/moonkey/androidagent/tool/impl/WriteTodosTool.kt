@@ -145,7 +145,7 @@ private class WriteTodosInvocation(
         return try {
             state.update(todos)
             val output = buildOutput(todos)
-            textToolSuccess(output = output, data = todos)
+            textToolSuccess(output = output)
         } catch (e: Exception) {
             ToolExecutionResult.Failure("Failed to update todos: ${e.message}", e)
         }

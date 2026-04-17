@@ -112,12 +112,7 @@ class CompleteTaskInvocation(
         }
         
         return ToolExecutionResult.Success(
-            output = output,
-            data = mapOf(
-                "completed" to true,
-                "success" to isSuccess,
-                "answer" to answer
-            )
+            output = output
         )
     }
 }

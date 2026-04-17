@@ -1,6 +1,5 @@
 package com.moonkey.androidagent.onboarding
 
-import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,7 +26,6 @@ import kotlinx.coroutines.launch
  * Persists durable outcomes via [OnboardingStore]; transient UI state is derived on each resume.
  */
 class OnboardingViewModel(
-    private val context: Context,
     private val store: OnboardingStore,
     private val settingsState: AppSettingsState,
     private val modelCatalog: ModelCatalog,

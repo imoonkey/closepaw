@@ -1321,7 +1321,7 @@
     "depends": [
       "dco-safe-deletions"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 2: Remove dead parameters, API surface, and payload plumbing",
     "description": "Three independent cleanups:\n\n(A) Remove unused constructor params: OnboardingViewModel.context and DefaultOnboardingDemoController.modelCatalog — delete from both declaration and MainActivity call sites.\n\n(B) Shrink SessionHistoryManager public API: make loadSessionByFileName() private, delete deleteSessionByFileName/getMostRecentSession/hasActiveSession/endSession (all zero-callers), remove unused scope stored property.\n\n(C) Remove dead success-payload plumbing: delete data field from ToolCallResult.Success and ToolExecutionResult.Success. Neither has any production reader. Remove the now-pointless data= arguments from all construction sites (WriteTodosTool, DelegateTaskTool, CompleteTaskTool, AskUserTool, textToolSuccess helper, ToolRouter forwarding).",
     "scope": [
@@ -1355,7 +1355,8 @@
       "cleanup"
     ],
     "created": "2026-04-16T22:10:29Z",
-    "updated": "2026-04-16T22:10:29Z"
+    "updated": "2026-04-17T00:09:59Z",
+    "agent": "w-dco-dead-params-api"
   },
   "ta-codex-request-builder": {
     "parent": "test-architecture",

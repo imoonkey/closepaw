@@ -124,14 +124,12 @@ private class AskUserInvocation(
                     AskUserType.ACTION -> "User completed the requested action. Capture fresh screen to see result."
                 }
                 ToolExecutionResult.Success(
-                    output = observation,
-                    data = mapOf("response" to response, "type" to type.name.lowercase())
+                    output = observation
                 )
             } else {
                 // Timeout
                 ToolExecutionResult.Success(
-                    output = "User did not respond within the timeout. Consider continuing without their input or trying a different approach.",
-                    data = mapOf("timeout" to true, "type" to type.name.lowercase())
+                    output = "User did not respond within the timeout. Consider continuing without their input or trying a different approach."
                 )
             }
         } catch (e: CancellationException) {

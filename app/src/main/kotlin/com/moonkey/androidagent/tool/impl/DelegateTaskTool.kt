@@ -167,14 +167,8 @@ private class DelegateTaskInvocation(
             "Sub-agent failed: ${result.message}"
         }
 
-        val data = mapOf(
-                "agent" to roleDef.name,
-                "success" to result.success,
-                "message" to result.message
-        )
-
         return if (result.success) {
-            textToolSuccess(output = output, data = data)
+            textToolSuccess(output = output)
         } else {
             ToolExecutionResult.Failure(error = output)
         }

@@ -4,7 +4,6 @@ import android.util.Log
 import com.moonkey.androidagent.history.model.MessageRecord
 import com.moonkey.androidagent.history.model.SessionInfo
 import com.moonkey.androidagent.history.storage.SessionStorage
-import com.moonkey.androidagent.protocol.CompletionReason
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -25,8 +24,7 @@ import java.util.HashMap
  */
 class SessionHistoryManager(
     private val storage: SessionStorage,
-    private val recordingService: SessionRecordingService,
-    private val scope: CoroutineScope
+    private val recordingService: SessionRecordingService
 ) {
     companion object {
         private const val TAG = "SessionHistoryManager"
@@ -45,7 +43,7 @@ class SessionHistoryManager(
             scope: CoroutineScope
         ): SessionHistoryManager {
             val recordingService = SessionRecordingService(storage, scope)
-            return SessionHistoryManager(storage, recordingService, scope)
+            return SessionHistoryManager(storage, recordingService)
         }
     }
 
@@ -97,11 +95,11 @@ class SessionHistoryManager(
     
     /**
      * Load a session by file name.
-     * 
+     *
      * @param fileName The session file name
      * @return Result containing ResumedSessionData or an error
      */
-    suspend fun loadSessionByFileName(fileName: String): Result<ResumedSessionData> {
+    private suspend fun loadSessionByFileName(fileName: String): Result<ResumedSessionData> {
         return storage.readSession(fileName).map { record ->
             ResumedSessionData(
                 session = record,
@@ -109,7 +107,7 @@ class SessionHistoryManager(
             )
         }
     }
-    
+
     /**
      * Delete a session.
      *
@@ -127,31 +125,7 @@ class SessionHistoryManager(
             }
         }
     }
-    
-    /**
-     * Delete a session by file name.
-     */
-    suspend fun deleteSessionByFileName(fileName: String): Result<Unit> {
-        return storage.deleteSessionPair(fileName).onSuccess {
-            cacheMutex.withLock {
-                sessionInfoCache.remove(fileName)
-            }
-        }
-    }
-    
-    /**
-     * Get the most recent session (for "resume latest" feature).
-     * 
-     * @return The most recent SessionInfo, or null if no sessions exist
-     */
-    suspend fun getMostRecentSession(): SessionInfo? {
-        val files = storage.listSessionFiles()
-        if (files.isEmpty()) return null
-        
-        // Files are already sorted by modification time (newest first)
-        return getSessionInfoCached(files.first())
-    }
-    
+
     /**
      * Start a new session.
      * 
@@ -192,24 +166,10 @@ class SessionHistoryManager(
     }
     
     /**
-     * Check if there's an active session.
-     */
-    fun hasActiveSession(): Boolean {
-        return recordingService.hasActiveSession()
-    }
-    
-    /**
      * Get the recording service (for event recording).
      */
     fun getRecordingService(): SessionRecordingService = recordingService
-    
-    /**
-     * Clear session tracking (when ending a session).
-     */
-    fun endSession(reason: CompletionReason = CompletionReason.GOAL_ACHIEVED) {
-        recordingService.completeSession(reason)
-    }
-    
+
     // ===== Private Helpers =====
 
     /**

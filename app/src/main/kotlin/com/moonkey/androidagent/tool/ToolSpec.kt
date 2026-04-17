@@ -117,7 +117,6 @@ sealed interface ToolExecutionResult {
     /** Execution succeeded */
     data class Success(
         val output: String,
-        val data: Any? = null,
         val observation: ToolObservation? = null
     ) : ToolExecutionResult
     
@@ -157,10 +156,9 @@ sealed interface ToolObservation {
 }
 
 /** Standard success result for text-only tools. */
-fun textToolSuccess(output: String, data: Any? = null): ToolExecutionResult.Success =
+fun textToolSuccess(output: String): ToolExecutionResult.Success =
         ToolExecutionResult.Success(
                 output = output,
-                data = data,
                 observation = ToolObservation.TextOutput(output)
         )
 

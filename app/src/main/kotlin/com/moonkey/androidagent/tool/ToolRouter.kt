@@ -293,7 +293,6 @@ class ToolRouter(
                     ToolCallResult.Success(
                         callId = resolvedCallId,
                         output = executionResult.output,
-                        data = executionResult.data,
                         observation = executionResult.observation
                     )
                 }

@@ -16,7 +16,6 @@ sealed class ToolCallResult {
     data class Success(
         override val callId: String,
         val output: String,
-        val data: Any? = null,
         /** Post-action observation (screen state after tool execution) */
         val observation: ToolObservation? = null
     ) : ToolCallResult()

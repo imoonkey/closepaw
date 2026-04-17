@@ -148,7 +148,6 @@ class MainActivity : ComponentActivity() {
 
         if (onboardingRequired) {
             val vm = OnboardingViewModel(
-                context = applicationContext,
                 store = onboardingStore,
                 settingsState = settingsState,
                 modelCatalog = modelCatalog,
@@ -159,7 +158,6 @@ class MainActivity : ComponentActivity() {
             // Wire demo controller
             vm.demoController = DefaultOnboardingDemoController(
                 settingsState = settingsState,
-                modelCatalog = modelCatalog,
                 scope = lifecycleScope
             )
             onboardingViewModel = vm

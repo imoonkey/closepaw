@@ -4,7 +4,6 @@ import android.util.Log
 import com.moonkey.androidagent.app.AgentService
 import com.moonkey.androidagent.app.AppSettingsState
 import com.moonkey.androidagent.app.AppSettingsStore
-import com.moonkey.androidagent.llm.ModelCatalog
 import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.protocol.AgentMode
 import com.moonkey.androidagent.protocol.ApprovalMode
@@ -38,7 +37,6 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 class DefaultOnboardingDemoController(
     private val settingsState: AppSettingsState,
-    private val modelCatalog: ModelCatalog,
     private val scope: CoroutineScope
 ) : OnboardingDemoController {
 
