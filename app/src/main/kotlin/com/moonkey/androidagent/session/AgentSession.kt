@@ -587,6 +587,12 @@ private constructor(
     }
 
     private suspend fun handleApproval(op: Op.Approve) {
+        val resolved = services.toolRouter.resolveApproval(op.actionId, op.decision)
+        if (!resolved) {
+            Log.w(TAG, "Discarding approval with no pending match: ${op.actionId}")
+            return
+        }
+
         // Persist allow-list (only if APPROVED + package known)
         if (op.decision == ApprovalDecision.APPROVED && op.packageName != null) {
             when (op.scope) {
@@ -595,8 +601,6 @@ private constructor(
                 ApprovalScope.ONCE -> { /* no side effect */ }
             }
         }
-
-        services.toolRouter.resolveApproval(op.actionId, op.decision)
 
         emit(
                 ApprovalResolved(
