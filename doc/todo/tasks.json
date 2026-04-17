@@ -1758,7 +1758,7 @@
     "depends": [
       "dco-codex-review"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "QA Round: Build + Smoke Validation",
     "description": "Validate that dead-code-overabstraction changes do not regress any user-facing behavior. Run build, full test suite, lint, and targeted manual smoke tests on device.\n\nSmoke scenarios:\n(1) Onboarding flow: fresh install, walk through permissions + API key validation + demo step start/cancel — validates OnboardingDemoController constructor injection works\n(2) Settings UI: open settings, verify no crashes or missing UI elements from composable deletions\n(3) PRO mode delegation: start a multi-turn PRO task — validates delegate_task works without agent_name parameter\n(4) Session history: load previous sessions, verify list renders correctly after SessionHistoryManager API surface shrink\n(5) Normal single-turn task: complete a standard task — verify no regression from ToolCallResult/ToolExecutionResult payload removal\n\nCapture logcat, screenshots, and session JSON as evidence.",
     "acceptCriteria": [
@@ -1779,7 +1779,8 @@
       "qa"
     ],
     "created": "2026-04-16T22:11:28Z",
-    "updated": "2026-04-16T22:11:28Z"
+    "updated": "2026-04-16T20:45:00+08:00",
+    "agent": "w-dco-qa-validation"
   },
   "ta-ask-user-tool": {
     "parent": "test-architecture",
