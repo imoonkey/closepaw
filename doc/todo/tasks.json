@@ -1166,7 +1166,7 @@
     "depends": [
       "pc-approval-validation"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Prune dead event surface",
     "description": "Remove unconsumed events and redundant fields. Evidence from re-evaluation:\n\n1. TodosUpdated/ScratchpadUpdated: emitted from AgentEventDispatcher:98-113, no consumer (all fall to else->Unit)\n2. ApprovalResolved: emitted from AgentSession:601-608, no event consumer (UI resolves locally)\n3. ApprovalRequired.actionId: duplicates details.callId (ApprovalEvents.kt:7). Consumers use details.callId (AgentServiceEventHandler:165-167, ServiceOverlayController:329-345)\n4. TurnStarted.phase: always PERCEPTION (AgentEventDispatcher:52), immediately followed by TurnPhaseChanged(PERCEPTION) (Agent.kt:93-94). ChatEventReducer uses TurnStarted only to clear buffer, not phase.\n5. StatusUpdate.emoji: String?=null, never populated non-null. All status strings embed emoji directly.",
     "scope": [
