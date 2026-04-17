@@ -1218,7 +1218,7 @@
   "dead-code-overabstraction": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Dead Code & Over-Abstraction 清理",
     "description": "Remove verified dead code (files, methods, composables, fields, parameters), collapse single-impl onboarding interface, and simplify delegate_task tool boundary. Based on double-design review (Claude + Codex), reassessed 2026-04-16 after multiple code change rounds.",
     "design": "doc/todo/holistic-review/dead-code-overabstraction/final/improvement_plan.md",
@@ -1779,7 +1779,7 @@
       "qa"
     ],
     "created": "2026-04-16T22:11:28Z",
-    "updated": "2026-04-16T20:45:00+08:00",
+    "updated": "2026-04-17T00:47:15Z",
     "agent": "w-dco-qa-validation"
   },
   "ta-ask-user-tool": {
