@@ -1,0 +1,89 @@
+{
+    "sessionId": "26cb5c15-cb28-4537-bc45-6af551d0b8ae",
+    "startTime": 1776390209023,
+    "lastUpdated": 1776390216553,
+    "messages": [
+        {
+            "type": "user",
+            "id": "44c0a730-7319-4e0e-8c09-91342dfe4bfb",
+            "timestamp": 1776390209023,
+            "text": "Open Settings"
+        },
+        {
+            "type": "agent",
+            "id": "task-1776390209023",
+            "timestamp": 1776390216099,
+            "contentBlocks": [
+                {
+                    "type": "action",
+                    "id": "call_5s3wNVF0EeJ7WvFOCS4aYIRb",
+                    "toolName": "open_app",
+                    "description": "Open app: Settings",
+                    "state": "success",
+                    "resultSummary": "Launched 设置 (com.android.settings)"
+                },
+                {
+                    "type": "action",
+                    "id": "call_rSX6F9zYuRS8zbUiSkenc8Py",
+                    "toolName": "complete_task",
+                    "description": "Complete (success): Settings is open.",
+                    "state": "success",
+                    "resultSummary": "Task completed successfully.\n\nAnswer: Settings is open."
+                }
+            ],
+            "isComplete": true
+        }
+    ],
+    "screenStates": [
+        {
+            "id": "dc8d6793-f13e-4e63-9536-d820320e4112",
+            "timestamp": 1776390209119,
+            "turnId": "turn-1",
+            "turnNumber": 1,
+            "phase": "PRE_TURN",
+            "elementCount": 25,
+            "packageName": "com.moonkey.androidagent",
+            "activityName": null,
+            "rawA11yTreePath": "artifacts/raw_a11y_tree/1_raw_1776390209101.json",
+            "sanitizedA11yTreePath": "artifacts/sanitized_a11y_tree/2_sanitized_1776390209101.json",
+            "screenshotPath": "artifacts/screenshot/4_screenshot_1776390209116_1024x113.jpg",
+            "traceRunId": "20260416_214234"
+        },
+        {
+            "id": "89c7e7c3-254e-462a-ae49-4c2da4aa70d1",
+            "timestamp": 1776390212325,
+            "turnId": "turn-1",
+            "turnNumber": 1,
+            "phase": "POST_ACTION",
+            "elementCount": 33,
+            "packageName": "com.obric.security",
+            "activityName": null,
+            "rawA11yTreePath": "artifacts/raw_a11y_tree/12_raw_1776390212306.json",
+            "sanitizedA11yTreePath": "artifacts/sanitized_a11y_tree/13_sanitized_1776390212306.json",
+            "screenshotPath": "artifacts/screenshot/15_screenshot_1776390212318_1024x113.jpg",
+            "traceRunId": "20260416_214234"
+        },
+        {
+            "id": "4c2de806-73ac-41ff-b2c4-eee9303ac2e4",
+            "timestamp": 1776390214365,
+            "turnId": "turn-2",
+            "turnNumber": 2,
+            "phase": "PRE_TURN",
+            "elementCount": 33,
+            "packageName": "com.obric.security",
+            "activityName": null,
+            "rawA11yTreePath": "artifacts/raw_a11y_tree/18_raw_1776390214349.json",
+            "sanitizedA11yTreePath": "artifacts/sanitized_a11y_tree/19_sanitized_1776390214350.json",
+            "screenshotPath": "artifacts/screenshot/21_screenshot_1776390214363_1024x113.jpg",
+            "traceRunId": "20260416_214234"
+        }
+    ],
+    "summary": "Open Settings",
+    "metadata": {
+        "appVersion": null,
+        "model": "gpt-5.4",
+        "traceRunId": "20260416_214234",
+        "turnCount": 1,
+        "completedNormally": true
+    }
+}
