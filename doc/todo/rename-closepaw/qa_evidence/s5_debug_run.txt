@@ -1,0 +1,53 @@
+[0;34m> Debug output: /Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/debug-output/run_20260417_020345[0m
+[0;34m> Using LLM backend: openai[0m
+[0;34m> Using main model: gpt-5.4[0m
+[0;34m> Using execution mode: basic[0m
+[0;34m> Using perception mode: accessibility_only[0m
+[0;34m> Using platform mode: accessibility[0m
+[0;32m✓ Selected physical device: EP0110MZ0BC101266W[0m
+[0;34m> Starting agent with goal: Open Settings, then open Display settings[0m
+Warning: Activity not started, its current task has been brought to the front
+[0;32m✓ Agent started[0m
+
+[0;34m> Monitoring turns (max 80 captured turn-start events)...[0m
+[0;34m> Max wait before auto-stop: 240s (set DEBUG_MAX_WAIT_SECONDS to override)[0m
+
+  Turn 1 captured (#1) -> /Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/debug-output/run_20260417_020345/turn_001_n1.png
+  Turn 2 captured (#2) -> /Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/debug-output/run_20260417_020345/turn_002_n2.png
+  Turn 3 captured (#3) -> /Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/debug-output/run_20260417_020345/turn_003_n3.png
+
+[0;32m✓ Task completed![0m
+
+[0;34m> Saving full agent log...[0m
+[0;34m> Saving full system log...[0m
+[0;34m> Pulling LLM screenshots...[0m
+[0;34m> Pulling trace artifacts...[0m
+[0;34m> Compiling replay index...[0m
+
+[0;32m=============================================================[0m
+[0;32mDebug output saved to: /Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/debug-output/run_20260417_020345[0m
+
+Files:
+total 4128
+drwxr-xr-x  16 moonkey  staff     512 Apr 17 02:04 .
+drwxr-xr-x   6 moonkey  staff     192 Apr 17 02:03 ..
+-rw-r--r--   1 moonkey  staff   29804 Apr 17 02:04 agent.log
+-rw-r--r--   1 moonkey  staff   42165 Apr 17 02:03 device_getprop.txt
+drwxr-xr-x  11 moonkey  staff     352 Apr 17 02:04 llm_screens
+-rw-r--r--   1 moonkey  staff  642838 Apr 17 02:04 logcat_full.log
+-rw-r--r--   1 moonkey  staff   10238 Apr 17 02:03 package_dumpsys.txt
+-rw-r--r--   1 moonkey  staff     202 Apr 17 02:04 replay_compile.log
+-rw-r--r--   1 moonkey  staff   11661 Apr 17 02:04 system.log
+drwxr-xr-x   6 moonkey  staff     192 Apr 17 02:04 trace
+-rw-r--r--   1 moonkey  staff  137335 Apr 17 02:03 turn_001_n1.png
+-rw-r--r--   1 moonkey  staff   51241 Apr 17 02:03 turn_001_n1_log.txt
+-rw-r--r--   1 moonkey  staff  222222 Apr 17 02:03 turn_002_n2.png
+-rw-r--r--   1 moonkey  staff   50018 Apr 17 02:03 turn_002_n2_log.txt
+-rw-r--r--   1 moonkey  staff  806891 Apr 17 02:03 turn_003_n3.png
+-rw-r--r--   1 moonkey  staff   51435 Apr 17 02:03 turn_003_n3_log.txt
+
+To view:
+  Screenshots: open /Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/debug-output/run_20260417_020345/turn_*.png
+  Full log:    cat /Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/debug-output/run_20260417_020345/agent.log
+  Replay v2:   cd inspection_tool && ./serve.sh 8080  (open /replay_v2/index.html, pick /Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/debug-output/run_20260417_020345/trace)
+[0;32m=============================================================[0m

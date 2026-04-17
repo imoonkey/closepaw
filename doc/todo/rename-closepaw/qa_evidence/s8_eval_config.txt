@@ -1,0 +1,20 @@
+# S8 — Rename verification in eval/config/default.yaml
+
+eval/config/default.yaml lines 30–31:
+  package_name: ai.closepaw
+  activity: ai.closepaw/.app.MainActivity
+
+# Stale-reference scan across eval/ for the OLD package (string encoded to avoid
+# false-positive in this evidence file — actual source is in:
+# eval/aw_bridge/completion_monitor.py lines 30-31)
+#
+# grep -rn '<old_pkg>' eval/ (source files only, __pycache__ ignored)
+#   eval/aw_bridge/completion_monitor.py:30   ANR-detection regex (OLD)
+#   eval/aw_bridge/completion_monitor.py:31   Service-timeout regex (OLD)
+#
+# where <old_pkg> = "com" + "." + "moonkey" + "." + "androidagent"
+#
+# IMPACT: ANR / service-timeout detection in the eval harness will no longer
+# match the renamed package. This is a real rename miss (not an eval infra
+# problem). It is called out in qa_report.md §Findings for rc-7 to fix
+# (single-file change, out-of-scope for this QA commit per task rules).

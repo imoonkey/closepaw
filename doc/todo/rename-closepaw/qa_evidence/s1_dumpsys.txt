@@ -1,0 +1,200 @@
+Activity Resolver Table:
+  Non-Data Actions:
+      android.intent.action.MAIN:
+        d094efc ai.closepaw/.app.MainActivity filter 5ef9985
+          Action: "android.intent.action.MAIN"
+          Category: "android.intent.category.LAUNCHER"
+
+Receiver Resolver Table:
+  Non-Data Actions:
+      androidx.profileinstaller.action.SAVE_PROFILE:
+        9a913da ai.closepaw/androidx.profileinstaller.ProfileInstallReceiver filter 7954901
+          Action: "androidx.profileinstaller.action.SAVE_PROFILE"
+      androidx.profileinstaller.action.INSTALL_PROFILE:
+        9a913da ai.closepaw/androidx.profileinstaller.ProfileInstallReceiver filter 5a6100b
+          Action: "androidx.profileinstaller.action.INSTALL_PROFILE"
+      androidx.profileinstaller.action.SKIP_FILE:
+        9a913da ai.closepaw/androidx.profileinstaller.ProfileInstallReceiver filter 41a5ee8
+          Action: "androidx.profileinstaller.action.SKIP_FILE"
+      androidx.profileinstaller.action.BENCHMARK_OPERATION:
+        9a913da ai.closepaw/androidx.profileinstaller.ProfileInstallReceiver filter e9493a6
+          Action: "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+
+Service Resolver Table:
+  Non-Data Actions:
+      android.accessibilityservice.AccessibilityService:
+        2a3a1e7 ai.closepaw/.app.AgentService filter aaa8194 permission android.permission.BIND_ACCESSIBILITY_SERVICE
+          Action: "android.accessibilityservice.AccessibilityService"
+
+Domain verification status:
+
+Permissions:
+  Permission [ai.closepaw.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION] (f0df99e):
+    sourcePackage=ai.closepaw
+    uid=10252 gids=[] type=0 prot=signature
+    perm=PermissionInfo{c32a4eb ai.closepaw.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION}
+    flags=0x0
+
+Registered ContentProviders:
+  ai.closepaw/rikka.shizuku.ShizukuProvider:
+    Provider{8920248 ai.closepaw/rikka.shizuku.ShizukuProvider}
+  ai.closepaw/androidx.startup.InitializationProvider:
+    Provider{e8d18e1 ai.closepaw/androidx.startup.InitializationProvider}
+
+ContentProvider Authorities:
+  [ai.closepaw.androidx-startup]:
+    Provider{e8d18e1 ai.closepaw/androidx.startup.InitializationProvider}
+      applicationInfo=ApplicationInfo{9359c7f ai.closepaw}
+  [ai.closepaw.shizuku]:
+    Provider{8920248 ai.closepaw/rikka.shizuku.ShizukuProvider}
+      applicationInfo=ApplicationInfo{abc844c ai.closepaw}
+
+Key Set Manager:
+  [ai.closepaw]
+      Signing KeySets: 70
+
+Packages:
+  Package [ai.closepaw] (e53c25c):
+    appId=10252
+    pkg=Package{4e8faf4 ai.closepaw}
+    codePath=/data/app/~~s3V11tjdKkfHMj5gkWBF7Q==/ai.closepaw-MpXcvMa65wmupS2sM5tUmw==
+    resourcePath=/data/app/~~s3V11tjdKkfHMj5gkWBF7Q==/ai.closepaw-MpXcvMa65wmupS2sM5tUmw==
+    legacyNativeLibraryDir=/data/app/~~s3V11tjdKkfHMj5gkWBF7Q==/ai.closepaw-MpXcvMa65wmupS2sM5tUmw==/lib
+    extractNativeLibs=false
+    primaryCpuAbi=null
+    secondaryCpuAbi=null
+    cpuAbiOverride=null
+    versionCode=1 minSdk=31 targetSdk=36
+    minExtensionVersions=[]
+    versionName=1.0
+    hiddenApiEnforcementPolicy=2
+    usesNonSdkApi=false
+    splits=[base]
+    apkSigningVersion=2
+    flags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    privateFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    forceQueryable=false
+    pageSizeCompat=0
+    queriesIntents=[Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] }]
+    scannedAsStoppedSystemApp=false
+    supportsScreens=[small, medium, large, xlarge, resizeable, anyDensity]
+    timeStamp=2026-04-17 01:46:03
+    lastUpdateTime=2026-04-17 01:46:03
+    installerPackageName=null
+    installerPackageUid=-1
+    initiatingPackageName=com.android.shell
+    originatingPackageName=null
+    packageSource=1
+    appMetadataFilePath=null
+    appMetadataSource=0
+    signatures=PackageSignatures{61621d version:2, signatures:[27349f4b], past signatures:[]}
+    installPermissionsFixed=false
+    pkgFlags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ]
+    privatePkgFlags=[ PRIVATE_FLAG_ACTIVITIES_RESIZE_MODE_RESIZEABLE_VIA_SDK_VERSION ALLOW_AUDIO_PLAYBACK_CAPTURE PRIVATE_FLAG_ALLOW_NATIVE_HEAP_POINTER_TAGGING ]
+    apexModuleName=null
+    declared permissions:
+      ai.closepaw.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: prot=signature
+    requested permissions:
+      android.permission.SYSTEM_ALERT_WINDOW
+      com.android.permission.GET_INSTALLED_APPS
+      android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+      ai.closepaw.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+      android.permission.INTERNET
+      android.permission.READ_EXTERNAL_STORAGE
+      moe.shizuku.manager.permission.API_V23
+      android.permission.WRITE_EXTERNAL_STORAGE
+    install permissions:
+      android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS: granted=true
+      ai.closepaw.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION: granted=true
+      android.permission.INTERNET: granted=true
+    User 0: ceDataInode=148854 deDataInode=150032 installed=true hidden=false suspended=false distractionFlags=0 stopped=false notLaunched=false enabled=0 instant=false virtual=false quarantined=false
+      installReason=0
+      dataDir=/data/user/0/ai.closepaw
+      firstInstallTime=2026-04-17 01:46:03
+      uninstallReason=0
+      overlay paths:
+        /product/overlay/ObricDefaultTheme/ObricDefaultThemeOverlay.apk
+        /product/overlay/NavigationBarModeGestural/NavigationBarModeGesturalOverlay.apk
+      legacy overlay paths:
+        /product/overlay/ObricDefaultTheme/ObricDefaultThemeOverlay.apk
+        /product/overlay/NavigationBarModeGestural/NavigationBarModeGesturalOverlay.apk
+      gids=[3003]
+      runtime permissions:
+        com.android.permission.GET_INSTALLED_APPS: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        android.permission.READ_EXTERNAL_STORAGE: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED|RESTRICTION_INSTALLER_EXEMPT]
+        android.permission.WRITE_EXTERNAL_STORAGE: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED|RESTRICTION_INSTALLER_EXEMPT]
+
+Queries:
+  system apps queryable: false
+  queries via forceQueryable:
+  queries via package name:
+  queries via component:
+    com.android.settings.intelligence:
+      ai.closepaw
+    com.tencent.mm:
+      ai.closepaw
+    com.whatsapp:
+      ai.closepaw
+    com.xingin.xhs:
+      ai.closepaw
+    com.robinhood.android:
+      ai.closepaw
+    com.amazon.mShop.android.shopping:
+      ai.closepaw
+    com.zzkko:
+      ai.closepaw
+    com.instagram.android:
+      ai.closepaw
+    com.facebook.katana:
+      ai.closepaw
+    com.facebook.orca:
+      ai.closepaw
+    com.mcdonalds.app:
+      ai.closepaw
+    ai.closepaw:
+      com.bytedance.android.doubaoime
+      com.larus.nova
+      moe.shizuku.privileged.api
+      com.tailscale.ipn
+      com.android.cellbroadcastreceiver.module
+      com.obric.calculator
+      com.obric.clock
+      com.obric.calendar
+      com.obric.notes
+      com.obric.feedbackserviceproject
+      com.obric.compass
+      com.obric.weather
+      com.obric.lifelog
+      com.obric.securitymanager
+      com.obric.recorder
+      com.obric.filemanager
+      com.apkmirror.helper.prod
+      com.android.vending
+      com.aurora.store
+      notion.id
+      com.arm.aichat
+      com.google.android.gm
+      com.google.android.apps.maps
+      com.google.android.apps.docs
+      io.raindrop.raindropio
+      com.tencent.mm
+      com.openai.chatgpt
+      com.google.android.apps.dynamite
+      com.whatsapp
+      com.android.chrome
+      tech.butterfly.app
+      com.google.android.youtube
+      com.google.android.apps.youtube.music
+      com.xingin.xhs
+      com.doubao.android.community
+      ai.liquid.chatapp
+      com.robinhood.android
+      com.github.android
+      com.google.android.apps.bard
+      com.google.android.apps.labs.language.tailwind
+      com.amazon.mShop.android.shopping
+      com.alibaba.aliexpresshd
+      com.einnovation.temu
+      com.zzkko
+      com.android.virtualization.terminal
+      com.ubercab

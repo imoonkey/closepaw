@@ -1,0 +1,9 @@
+# S7 — run-as file listing
+#
+# adb shell run-as ai.closepaw ls /data/data/ai.closepaw/files/
+profileInstalled
+sessions
+#
+# adb shell run-as <OLD_PKG> ls    (where <OLD_PKG> = "com"+"."+"moonkey"+"."+"androidagent")
+# → run-as: unknown package: <OLD_PKG>
+# (confirms old package is completely uninstalled)

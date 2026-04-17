@@ -1,0 +1,655 @@
+--------- beginning of main
+04-17 02:05:30.548  9116  9240 D QtiRadioProxyHandler: : handleMessage msg.what = 101
+04-17 02:05:30.548  9116  9240 D QtiRadioProxyHandler: : EVENT_ON_DIAG_INFO
+04-17 02:05:30.548  9116  9240 D ExtTelephonyServiceImpl: Retrieved callbacks for event = 101 list = [com.qti.extphone.IExtPhoneCallback$Stub$Proxy@829c423, com.qti.extphone.IExtPhoneCallback$Stub$Proxy@e094687]
+04-17 02:05:30.549  5596  6077 D EventModemDiagCollection: CellInfo event reported :    slotID=0, plmn=310-410, globalCellId=194646039, band=B66, channel=66486, phyCellId=25, dlBandwidth=50, rsrp=[-117.4, -123.6], sinr=[3.6, -2.4], rssi=[-88.1, -90.8]
+04-17 02:05:30.561  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+--------- beginning of system
+04-17 02:05:30.589  3020  7409 D SystemServerTiming: KernelTrigger action:3
+04-17 02:05:30.590  3020  7409 I system_server: writeToSpecificNodeSo notifyId=3, fileNode=/dev/memcg/memory.app_force_swapin, params=22939
+04-17 02:05:30.590  3020  7409 D SystemServerTiming: tryDoUfsBoost duration:500
+04-17 02:05:30.590  3020  7409 I system_server: writeToSpecificNodeSo notifyId=2, fileNode=/sys/class/scsi_host/host0/../../../ufs_boost/ufs_boost, params=500
+04-17 02:05:30.590  3020  7409 D SystemServerTiming: ProcessIntercept - isActivityAllowStart
+04-17 02:05:30.591  3020  7409 W ActivityTaskManager: callingPackage for (uid=2000, pid=17446) has no WPC
+04-17 02:05:30.591  3020  7409 V ActivityTaskManager: Unable to get servicetracker HAL instance
+04-17 02:05:30.591  3020  7409 V ActivityTaskManager: Unable to get servicetracker HAL instance
+04-17 02:05:30.592  3020  7409 V GrammaticalInflectionUtils: AttributionSource: android.content.AttributionSource@b9ea3453 does not have READ_SYSTEM_GRAMMATICAL_GENDER permission.
+04-17 02:05:30.592  3020  7409 W OptProp : Cannot read opt property android.window.PROPERTY_COMPAT_ALLOW_RESIZEABLE_ACTIVITY_OVERRIDES
+04-17 02:05:30.592  3020  7409 W OptProp : Cannot read opt property android.window.PROPERTY_COMPAT_ALLOW_MIN_ASPECT_RATIO_OVERRIDE
+04-17 02:05:30.592  3020  7409 D BPerf   : BPerf module initialized
+04-17 02:05:30.592  3020  7409 D WindowOnBackDispatcher: App: ai.closepaw requestsPredictiveBack=false
+04-17 02:05:30.592  3020  7409 I AppRecordManagerService: getActivityStartType:ActivityRecord{159317051 u0 ai.closepaw/.app.MainActivity startType:2
+04-17 02:05:30.592  3020  7409 I IntelliScene: onActivityStartEventSync r:ActivityRecord{159317051 u0 ai.closepaw/.app.MainActivity t-1} startType:2 prefetchAffected:false uid:10252 pid:22939 pkg:ai.closepaw component:ai.closepaw/.app.MainActivity launchedFromPid:17446 launchedFromUid:2000
+04-17 02:05:30.593  1831  2009 D vendor.qti.hardware.perf2-hal-service: req == NULL, req_type: 2, handle: 856116, hId: 0x0, hType: 0, duration: 400, pkg: .
+04-17 02:05:30.593  3020  7409 I BoostFrameworkService: perfLockAcquire hint_id = 4227 ; dur 400 ; len = 44 config = ResSchedConfig{hintId=0x1083, type=0, duration=400, littleMaxFreq=2745, bigMaxFreq=4089, littleMinFreq=2745, bigMinFreq=4089, schedBoost=6, cpusetTopApp='-1', cpusetForeground='-1', cpusetSystemBackground='-1', cpusetBackground='-1', cpusetAudio='-1', cpusetBg3rd='-1', cpusetCamera='-1', topCpuShares=1024, foregroundCpuShares=1024, systemBackgroundCpuShares=512, backgroundCpuShares=512, topUclampMin=-1, topUclampMax=-1, fgUclampMin=-1, fgUclampMax=-1, sbgUclampMin=-1, sbgUclampMax=-1, bgUclampMin=-1, bgUclampMax=-1, bg3rdUclampMin=-1, bg3rdUclampMax=-1, clampedUtilMax=-1, schedMinTaskUtilForUclamp=51, gpuMinFreq=606, gpuMaxFreq=967, gpuTouchWakeup=1, cpuLlccBwMinFreq=600000, cpuLlccBwMaxFreq=1211000, storageBoostMinThreshold=64, storageBoostMaxThreshold=128, ddrLatMinfreqPrime=4761000, ddrLatMinfreqGold=4761000, thermalLimit=-1, thermalPrimeMax=-1, thermalGoldMax=-1, perfLimitGPUMax=-1, top_cpu_shares_min=-1, foreground_cpu_shares_min=-1, system_background_cpu_shares_min=0, background_cpu_shares_min=0, thermalBreak=1, cpu_gold_scaling_max_freq=-1, cpu_prime_scaling_max_freq=-1} ; ret = 856116
+04-17 02:05:30.593  3020  7409 D BPerf   : BPerf module initialized
+04-17 02:05:30.593  3020  7409 D PreStartingWindow: feature enable:true
+04-17 02:05:30.593  2300  2363 I PtePreload: onStartEvent: uid = 10252, startType = 2, component = ai.closepaw_.app.MainActivity, launchedFromPid = 17446, launchedFromUid = 2000
+04-17 02:05:30.593  1831  2009 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: cpu_options() 1566: Updated /sys/kernel/msm_performance/parameters/cpu_min_freq with 0:2745600 1:2745600 2:2745600 3:2745600 4:2745600 5:2745600 return value 59
+04-17 02:05:30.593  1831  2009 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: cpu_options() 1566: Updated /sys/kernel/msm_performance/parameters/cpu_min_freq with 6:4089600 7:4089600 return value 19
+04-17 02:05:30.593  1831  2009 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: cpu_options() 1566: Updated /sys/kernel/msm_performance/parameters/cpu_max_freq with 0:2745600 1:2745600 2:2745600 3:2745600 4:2745600 5:2745600 return value 59
+04-17 02:05:30.593  1831  2009 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: cpu_options() 1566: Updated /sys/kernel/msm_performance/parameters/cpu_max_freq with 6:4089600 7:4089600 return value 19
+04-17 02:05:30.594  3020  3150 I ActivityManager: freezed hot/warm start: set svp pid 22939
+04-17 02:05:30.594  3020  3150 D system_server: setSvpTask pid 22939 tid 22939 pri 2 packageName ai.closepaw fg 1 startType 2
+04-17 02:05:30.594  3020  3150 D system_server: setSvpFgState tid 22939 fg 1
+04-17 02:05:30.594  3020  3150 D system_server: setSvpTask pid 22939 tid 15031 pri 2 packageName ai.closepaw fg 0 startType 0
+04-17 02:05:30.594  3020  3150 D system_server: setSvpTask pid 22939 tid 15037 pri 2 packageName ai.closepaw fg 0 startType 0
+04-17 02:05:30.594  3020  3150 D system_server: setSvpTask pid 22939 tid 15038 pri 2 packageName ai.closepaw fg 0 startType 0
+04-17 02:05:30.594  3020  4268 I SvpSenarioHandler: svp senario: warm starting pid 22939
+04-17 02:05:30.594  3020  4268 D SvpCgroupManager: limit pid 4144 tid 4144
+04-17 02:05:30.594  1831  2009 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: thermal_break_apply() 5608: thermal_break_apply break Updated /sys/kernel/bst_lmt/bst_lmt with 1 return value 1
+04-17 02:05:30.595  3020  7409 I ExtTaskImpl: moveToFront, reason: intentActivityFound, task: Task{4dfa330 #1697 type=standard A=10252:ai.closepaw}
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 4144 tid 4800
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 4144 tid 4803
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 4144 tid 4799
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 12151 tid 12224
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 12151 tid 12151
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 12151 tid 12222
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 12151 tid 12223
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 3020 tid 3129
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 3020 tid 3130
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 3020 tid 3131
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 3020 tid 3179
+04-17 02:05:30.595  3020  4268 D SvpCgroupManager: limit pid 3020 tid 4268
+04-17 02:05:30.596  3020  7409 I ExtTransitionImpl:  checkout mHasDisplayChange of false and TransitionRecord{308b1 id=606 type=OPEN flags=0x0 c=[
+04-17 02:05:30.596  3020  7409 I ExtTransitionImpl:    ChangeInfo{7d6d196 container=ActivityRecord{159317051 u0 ai.closepaw/.app.MainActivity t-1} flags=0x0}
+04-17 02:05:30.596  3020  7409 I ExtTransitionImpl: ]
+04-17 02:05:30.596  3020  7409 I ExtTransitionImpl: }
+04-17 02:05:30.596  4144  4905 D KeyguardService: setOccluded(false)
+04-17 02:05:30.596  3020  7409 I ActivityTaskManager: START u0 {act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10000000 xflg=0x4 pkg=Settings cmp=ai.closepaw/.app.MainActivity (has extras)} with LAUNCH_SINGLE_TASK from uid 2000 (BAL_ALLOW_PERMISSION) result code=3
+04-17 02:05:30.597  4144  4440 D WindowManagerShell: onActivityRestartAttempt: topActivity=ComponentInfo{ai.closepaw/ai.closepaw.app.MainActivity}, wasVisible=true
+04-17 02:05:30.597 22939 22939 D MainActivity: onNewIntent called
+04-17 02:05:30.597 22939 22939 D MainActivity: Goal set from intent: Open
+04-17 02:05:30.600 22939 22939 I ExtViewRootImplImpl: setScaleInfo, ViewRootImpl[ai.closepaw/ai.closepaw.app.MainActivity] scaleChanged=false, byServer=false, isHwui=true, isHwuiChanged=false
+04-17 02:05:30.601  3020  7409 D WindowAnimatorSmtEx: [FEAT_BOOST_ANIMATION][0] scheduleAnimationBoost
+04-17 02:05:30.601  3020  3835 D WindowAnimatorSmtEx: [FEAT_BOOST_ANIMATION][10] ANIMATION_BOOST_ENABLE works
+04-17 02:05:30.602  1891  2732 D DisplayModeController: setDesiredMode 4630946416801175443 {mode={fps=60.00 Hz, modePtr={id=3, vsyncRate=60.00 Hz, peakRefreshRate=60.00 Hz}}, emitEvent=true, force=false}
+04-17 02:05:30.603  1831  2009 D vendor.qti.hardware.perf2-hal-service: req == NULL, req_type: 2, handle: 856118, hId: 0x1094, hType: 120, duration: 2147483647, pkg: .
+04-17 02:05:30.603  1831  2009 D vendor.qti.hardware.perf2-hal-service: req == NULL, req_type: 2, handle: 856119, hId: 0x1098, hType: 0, duration: 13, pkg: .
+04-17 02:05:30.604  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:30.604  1823  2106 I SDM     : HWDeviceDRM::SetupAtomic: vrefresh = 60, hskew = 0, hwc_current_mode = 3
+04-17 02:05:30.604  1831  2028 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: freqLogTimerCallback() 109: scaling_min 4089600
+04-17 02:05:30.604  1831  2028 D PERFHAL-OPTSHANDLER:  scaling_max 4089600
+04-17 02:05:30.609  2127  2127 D kdaservice: write pb file: 3343 byte
+04-17 02:05:30.631  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612867585165167, lux = 0, data=4000 0 230 112 0 2744 0 0 0 0 251 242 247 187 0
+04-17 02:05:30.641  1790 17799 I sensors-hal: qsh_event_parse:1140, sensor lsm6dsv Accelerometer Non-wakeup[1] event_id[1025(std_event)] data [-0.100698 0.214556 9.782457 ] qsh time=170:14:31.355 count 25/0/25
+04-17 02:05:30.662  5596  6077 D EventDataStallCollector: StallHandler handleMessage startStallPolling
+04-17 02:05:30.671  1759  1810 I caed    : WiFiPowerPrediction::predictPower() - Predicted power: 124.28 mW
+04-17 02:05:30.671  3020  5412 I WifiService: getConnectionInfo uid=1000
+04-17 02:05:30.671  3020  5412 V WifiService: Clearing REDACT_FOR_LOCAL_MAC_ADDRESS for com.obric.cae(uid=1000)
+04-17 02:05:30.671  3020  5412 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+04-17 02:05:30.671  3020  5412 V WifiService: Clearing REDACT_FOR_ACCESS_FINE_LOCATION for com.obric.cae(uid=1000)
+04-17 02:05:30.672  6734 21416 I CaeLog  : <CaeUtil> L4NetEvaluate netifStats:  statSrcType:WLAN0 uid:0 appPackageName:NULL ifName:wlan0 streamNum:1 rttAve:115 totalSendPackets:35135 totalRecvPackets:10141 totalSegsOut:45852 totalSegsIn:33845 totalSendBytes:39775263 totalRecvBytes:3942215 sendPackets:1 recvPackets:2 sendRate(Bps):32 recvRate(Bps):28 sendRetrans:0 recvOooPercent:0 unacked:0 errBitMap:0        SingleThroughputCalculation ifName: wlan0, actual ThroughputFactor{mWifiStandard=6, mCenterFreq=5220, mBandwidth=80, mRssi=-45, mRssiMgmt=-48, mRssiData=-56, mRssiAck=-57, mTxLinkSpeed=8884.0, mRxLinkSpeed=8698.0, mOntimeRate=96.0, mCcaBusyRate=21.0, mChannelBusyRate=38.0, mTotalTxMpdu=3, mTotalRxMpdu=1, mTotalTxRetriesMpdu=0, mPerRate=1.0, mTxSpeed=0, mRxSpeed=0, mBeContentionTime=149, mScanTime=0},used current caed data, :  formula_rx=564382, model_rx=580690.6, model_tx=243409.66, final_rx=580690 Kbps, final_tx=243409 Kbps        
+04-17 02:05:30.697  1823  2106 I SDM     : DisplayBase::CommitThread: Received Idle Timeout, panel: cmd, timeout: 70000 us
+04-17 02:05:30.718  1823  2235 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612867672580577ns
+04-17 02:05:30.726  7030  9636 D TTRequestCompress: Request compress is disabled.
+04-17 02:05:30.775  1823  2106 I SDM     : DisplayBase::CommitThread: Received Idle Timeout, panel: cmd, timeout: 70000 us
+04-17 02:05:30.801  1823  2233 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612867755910421ns
+04-17 02:05:30.803  1891  2732 D DisplayModeController: setDesiredMode 4630946416801175443 {mode={fps=360.00 Hz, modePtr={id=1, vsyncRate=360.00 Hz, peakRefreshRate=120.00 Hz}}, emitEvent=false, force=false}
+04-17 02:05:30.809  1823  2106 I SDM     : HWDeviceDRM::SetupAtomic: vrefresh = 120, hskew = 1, hwc_current_mode = 1
+04-17 02:05:30.826  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:30.826  1823  2234 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612867780995369ns
+04-17 02:05:30.867  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612867821026573, lux = 0, data=4000 0 1558 1066 284 4058 0 0 0 0 251 242 247 187 0
+04-17 02:05:30.896  1823  2106 I SDM     : DisplayBase::CommitThread: Received Idle Timeout, panel: cmd, timeout: 70000 us
+04-17 02:05:30.897  1831  2009 D vendor.qti.hardware.perf2-hal-service: req == NULL, req_type: 2, handle: 856129, hId: 0x1098, hType: 0, duration: 51, pkg: .
+04-17 02:05:30.915  1823  2235 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612867869737400ns
+04-17 02:05:30.969  1823  2106 I SDM     : DisplayBase::CommitThread: Received Idle Timeout, panel: cmd, timeout: 70000 us
+04-17 02:05:30.987  1823  2233 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612867942010212ns
+04-17 02:05:30.994  1831  2009 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: thermal_break_apply() 5602: thermal_break_apply releasing Updated /sys/kernel/bst_lmt/bst_lmt with 0 return value 1
+04-17 02:05:30.995  1831  2009 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: cpu_options() 1566: Updated /sys/kernel/msm_performance/parameters/cpu_max_freq with 6:2147483647 7:2147483647 return value 25
+04-17 02:05:30.995  1831  2009 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: cpu_options() 1566: Updated /sys/kernel/msm_performance/parameters/cpu_max_freq with 0:2147483647 1:2147483647 2:2147483647 3:2147483647 4:2147483647 5:2147483647 return value 77
+04-17 02:05:30.995  1831  2009 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: cpu_options() 1566: Updated /sys/kernel/msm_performance/parameters/cpu_min_freq with 6:0 7:0 return value 7
+04-17 02:05:30.995  1831  2009 D PERFHAL-OPTSHANDLER: PERFHAL-OPTSHANDLER: cpu_options() 1566: Updated /sys/kernel/msm_performance/parameters/cpu_min_freq with 0:0 1:0 2:0 3:0 4:0 5:0 return value 23
+04-17 02:05:31.016  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612867970417614, lux = 0, data=4000 0 1614 1136 306 4156 0 0 0 0 251 242 247 187 0
+04-17 02:05:31.041  1823  2106 I SDM     : DisplayBase::CommitThread: Received Idle Timeout, panel: cmd, timeout: 70000 us
+04-17 02:05:31.128 22939 16781 D SessionStorage: Read snapshot from context-2026-04-17T02-04-39-3be24d8a-24c5-4e9a-a433-c172edea9484.json, items=10
+04-17 02:05:31.129 22939 16781 I AppClassifier: Loaded 59 app tier entries
+04-17 02:05:31.129 22939 16781 I PlatformFactory: Using AccessibilityPlatform (real screen)
+04-17 02:05:31.129 22939 16781 D SessionServices: Creating SessionServices...
+04-17 02:05:31.129 22939 16781 D SessionServices: API keys available for providers: [OPENAI_API_KEY, OPENROUTER_API_KEY, NOVITA_API_KEY, __BASE_URL_OPENAI]
+04-17 02:05:31.129 22939 16781 D SessionLlmBootstrap: Applied provider base URL overrides: {OPENAI=https://laptop.tail6bd948.ts.net:8741/v1}
+04-17 02:05:31.129 22939 16781 D SessionLlmBootstrap: Loaded ModelCatalog with 10 models: [gpt-5.2, gpt-5.2-chat, glm-5, minimax-m2.5, kimi-k2.5, qwen3-vl-235b-a22b-instruct, autoglm-phone-9b-multilingual, qwen3.5, gpt-5.4, gpt-5.4-chat]
+04-17 02:05:31.129 22939 16781 D OpenAIResponseClient: Creating OpenAIResponseClient
+04-17 02:05:31.131 22939 16781 I OpenAIResponseClient: OpenAIResponseClient created successfully
+04-17 02:05:31.131 22939 16781 D LLMClientFactory: Created OpenAIResponseClient for model 'gpt-5.4' (provider=OPENAI, api=RESPONSE)
+04-17 02:05:31.131 22939 16781 D SessionServices: Created LLMClient: OpenAIResponseClient
+04-17 02:05:31.131 22939 16781 D ToolRegistry: Registered tool: complete_task
+04-17 02:05:31.132 22939 16781 D ToolRegistry: Registered tool: mobile_action
+04-17 02:05:31.132 22939 16781 D ToolRegistry: Registered tool: system_button
+04-17 02:05:31.132 22939 16781 D ToolRegistry: Registered tool: wait
+04-17 02:05:31.132 22939 16781 D ToolRegistry: Registered tool: open_app
+04-17 02:05:31.132 22939 16781 D ToolRegistry: Registered tool: shell
+04-17 02:05:31.132 22939 16781 D ToolRegistry: Registered tool: write_todos
+04-17 02:05:31.132 22939 16781 D ToolRegistry: Registered tool: scratchpad
+04-17 02:05:31.132 22939 16781 D SessionToolingBootstrap: Created policy/tool stack with 8 built-in tools
+04-17 02:05:31.132 22939 16781 D SessionHistoryBootstrap: Created history stack with token budget=18000
+04-17 02:05:31.132 22939 16781 D ToolRegistry: Registered tool: remember_experience
+04-17 02:05:31.132 22939 16781 I SessionServices: SessionServices created successfully
+04-17 02:05:31.132 22939 16781 D HistoryManager: History replaced, total items: 10
+04-17 02:05:31.132 22939 16781 I AgentSession: Reloaded session 3be24d8a-24c5-4e9a-a433-c172edea9484 with 10 history items
+04-17 02:05:31.136 22939 16781 D SessionStorage: Read session from session-2026-04-17T02-04-39-3be24d8a-24c5-4e9a-a433-c172edea9484.json, messages=2
+04-17 02:05:31.136 22939 22939 I SessionRecordingService: Resumed session: 3be24d8a-24c5-4e9a-a433-c172edea9484, file: session-2026-04-17T02-04-39-3be24d8a-24c5-4e9a-a433-c172edea9484.json
+04-17 02:05:31.136 22939 22939 I MainActivity: Reloaded session 3be24d8a-24c5-4e9a-a433-c172edea9484 from checkpoint
+04-17 02:05:31.136 22939 22939 I AgentService: Observing external session: 3be24d8a-24c5-4e9a-a433-c172edea9484, mode=ACCESSIBILITY
+04-17 02:05:31.136 22939 22939 I MainActivity: Session ready with backend=OPENAI and message sent
+04-17 02:05:31.136 22939 22939 D AgentSession: Received Op: UserInput(text=Open) (current state: Created)
+04-17 02:05:31.136 22939 22939 D AgentSession: Emitted event: SessionStarted
+04-17 02:05:31.137 22939 22939 D AgentSession: Emitted event: TaskStarted
+04-17 02:05:31.137 22939 22939 D ToolRegistry: Registered tool: ask_user
+04-17 02:05:31.138 22939 22939 D SessionAgentRunner: Started agent for task task-1776405931136
+04-17 02:05:31.138 22939 22939 I AgentSession: Task started: task-1776405931136, input: Open
+04-17 02:05:31.138 22939 22939 D AgentService: Received event: SessionStarted
+04-17 02:05:31.138 22939 22939 I AgentService: Session started: 3be24d8a-24c5-4e9a-a433-c172edea9484, goal: Open
+04-17 02:05:31.138 22939 22939 D AgentService: Received event: TaskStarted
+04-17 02:05:31.138 22939 22939 D SessionRecordingService: Recorded user message: Open...
+04-17 02:05:31.138 22939 22939 D SessionRecordingService: Started agent message: task-1776405931136
+04-17 02:05:31.139 22939 22939 I Agent   : Starting agent for goal: Open
+04-17 02:05:31.139 22939 22939 D AgentEventDispatcher: Status: 🚀 Starting agent...
+04-17 02:05:31.139 22939 22939 D AgentSession: Emitted event: StatusUpdate
+04-17 02:05:31.140 22939 22939 D HistoryManager: Added item: Message, total items: 11
+04-17 02:05:31.140 22939 22939 D Agent   : === TURN 1 START ===
+04-17 02:05:31.140 22939 22939 D ChatViewModel: TurnStarted: turn=1, clearing buffer
+04-17 02:05:31.140 22939 22939 D AgentSession: Emitted event: TurnStarted
+04-17 02:05:31.140 22939 22939 D AgentSession: Emitted event: TurnPhaseChanged
+04-17 02:05:31.140 22939 22939 D AgentEventDispatcher: Status: 👀 Scanning screen...
+04-17 02:05:31.140 22939 22939 D AgentSession: Emitted event: StatusUpdate
+04-17 02:05:31.143 22939 22939 D AgentService: Received event: StatusUpdate
+04-17 02:05:31.143 22939 22939 D AgentService: 🚀 Starting agent...
+04-17 02:05:31.143 22939 22939 D AgentService: Received event: TurnStarted
+04-17 02:05:31.143 22939 22939 D AgentService: Unhandled event type: TurnStarted
+04-17 02:05:31.143 22939 22939 D AgentService: Received event: TurnPhaseChanged
+04-17 02:05:31.143 22939 22939 D AgentService: Received event: StatusUpdate
+04-17 02:05:31.143 22939 22939 D AgentService: 👀 Scanning screen...
+04-17 02:05:31.172  1891  2732 D DisplayModeController: setDesiredMode 4630946416801175443 {mode={fps=60.00 Hz, modePtr={id=3, vsyncRate=60.00 Hz, peakRefreshRate=60.00 Hz}}, emitEvent=true, force=false}
+04-17 02:05:31.173  1831  2009 D vendor.qti.hardware.perf2-hal-service: req == NULL, req_type: 2, handle: 856131, hId: 0x1098, hType: 0, duration: 13, pkg: .
+04-17 02:05:31.174  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:31.174  1823  2106 I SDM     : HWDeviceDRM::SetupAtomic: vrefresh = 60, hskew = 0, hwc_current_mode = 3
+04-17 02:05:31.190  1891  2732 D DisplayModeController: setDesiredMode 4630946416801175443 {mode={fps=360.00 Hz, modePtr={id=1, vsyncRate=360.00 Hz, peakRefreshRate=120.00 Hz}}, emitEvent=true, force=false}
+04-17 02:05:31.194  1790  3929 I sensors-hal: handle_sns_std_sensor_event:83, rear_ambient_light_event: ts=612868054035948, lux = 0, data=4000 0 0 0 5 0 0 0 0 0 0 0 0 0 0
+04-17 02:05:31.214  1823  2106 I SDM     : HWDeviceDRM::SetupAtomic: vrefresh = 120, hskew = 1, hwc_current_mode = 1
+04-17 02:05:31.215  1822  2007 I SnapAlloc: Using graphics libs for alignment calculations
+04-17 02:05:31.218  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612868171441625, lux = 0, data=4000 0 1492 1038 288 3996 0 0 96 571 251 242 247 187 0
+04-17 02:05:31.227 22939 16781 D A11yScreenshotCapturer: Saved LLM screenshot: /storage/emulated/0/Android/data/ai.closepaw/files/debug-output/llm_screenshot_1776405931227_1024x51.jpg
+04-17 02:05:31.229 22939 22939 D AccessibilityPlatform: Captured screen [AccessibilityOnly]: 24 elements, screenshot=false
+04-17 02:05:31.229  3020  3129 I DisplayDeviceRepository: Display device changed render timings: "内置屏幕", renderFrameRate=360.0001, presentationDeadlineNanos=11333333, appVsyncOffsetNanos=1000000, frameRateOverrides=[]
+04-17 02:05:31.230  3020  3127 D WindowManager: DeferredDisplayUpdater: partially applying DisplayInfo(1264 x 2800) immediately
+04-17 02:05:31.230  3020  3225 D Power[PMSImpl]: onDisplayChanged: displayId=0
+04-17 02:05:31.231  1877 12778 D AudioFlinger: setParameters packageName:com.obric.cae
+04-17 02:05:31.231  1877 12778 I AudioDumpUtils: setParameters screen_state=on
+04-17 02:05:31.231  1877 12778 D DeviceHalAidl: [default] setParameters: parameters: "screen_state=on"
+04-17 02:05:31.231  1795  1846 D PAL: ResourceManager: setParameter: 11667: Enter param id: 8
+04-17 02:05:31.231  1795  1846 D PAL: ResourceManager: setParameter: 12832: Exit status: 0
+04-17 02:05:31.231  1877 12778 D DeviceHalAidl: [usb] setParameters: parameters: "screen_state=on"
+04-17 02:05:31.231  1795  2959 D AHAL_Module: updateScreenState: usb: 1
+04-17 02:05:31.231  1877 12778 D DeviceHalAidl: [r_submix] setParameters: parameters: "screen_state=on"
+04-17 02:05:31.231  1795  2959 D AHAL_Module: updateScreenState: r_submix: 1
+04-17 02:05:31.232  1877 12778 D DeviceHalAidl: [bluetooth] setParameters: parameters: "screen_state=on"
+04-17 02:05:31.232  1795  2959 D AHAL_Module: updateScreenState: bluetooth: 1
+04-17 02:05:31.232  4557  4557 D QtiLinkBandwidthEstimator-0: handleMessage: 1
+04-17 02:05:31.232  4557  4557 D QtiLinkBandwidthEstimator-1: handleMessage: 1
+04-17 02:05:31.233 22939 22939 D AgentSession: Emitted event: ScreenCaptured
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner: Turn 1: Screen has 24 elements
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner: Turn 1: Elements (first 20):
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [0] "02:05"  @(175,77)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [1] "Gmail通知："  @(293,77)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [2] "Google Play 商店通知："  @(360,77)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [3] "ChatGPT通知："  @(427,77)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [4] "豆包通知："  @(494,77)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [5] "Tailscale notification: "  @(561,77)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [6] "VPN on."  @(2399,76)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [7] "WLAN 信号满格。"  @(2478,76)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [8] "正在充电，已完成百分之 100。"  @(2573,76)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [9] "Open menu" C @(98,238)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [10] "New conversation" C @(2702,238)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [11] "Open menu"  @(98,238)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [12] "New conversation"  @(2702,238)
+04-17 02:05:31.233 22939 22939 D AgentTurnRunner:   [13] "Android Agent"  @(1399,238)
+04-17 02:05:31.234 22939 22939 D AgentTurnRunner:   [14] "" S @(1400,463)
+04-17 02:05:31.234 22939 22939 D AgentTurnRunner:   [15] "Open"  @(1430,666)
+04-17 02:05:31.234 22939 22939 D AgentTurnRunner:   [16] "Takeover" C @(276,829)
+04-17 02:05:31.234 22939 22939 D AgentTurnRunner:   [17] "Stop" C @(611,829)
+04-17 02:05:31.234 22939 22939 D AgentTurnRunner:   [18] "Takeover"  @(315,829)
+04-17 02:05:31.234 22939 22939 D AgentTurnRunner:   [19] "Stop"  @(649,829)
+04-17 02:05:31.237  1891  2732 D DisplayModeController: setDesiredMode 4630946416801175443 {mode={fps=60.00 Hz, modePtr={id=3, vsyncRate=60.00 Hz, peakRefreshRate=60.00 Hz}}, emitEvent=true, force=false}
+04-17 02:05:31.237 22939 22939 D AgentSession: Emitted event: TurnPhaseChanged
+04-17 02:05:31.237 22939 22939 D AgentEventDispatcher: Status: 🧠 Thinking...
+04-17 02:05:31.237 22939 22939 D AgentSession: Emitted event: StatusUpdate
+04-17 02:05:31.240 22939 22939 D TurnPlanningPhase: App skill lookup: pkg=ai.closepaw, found=false
+04-17 02:05:31.241  1823  2106 I SDM     : HWDeviceDRM::SetupAtomic: vrefresh = 60, hskew = 0, hwc_current_mode = 3
+04-17 02:05:31.241 22939 22939 D HistoryManager: Added item: Message, total items: 12
+04-17 02:05:31.261 22939 22939 D Turn    : Running streaming turn with LLM streaming, model=gpt-5.4
+04-17 02:05:31.263 22939 22939 D Turn    : Streaming turn with 12 input items
+04-17 02:05:31.264 22939 22939 D AgentService: Received event: ScreenCaptured
+04-17 02:05:31.264 22939 22939 D SessionRecordingService: Recorded screen state: turn=1, phase=PRE_TURN
+04-17 02:05:31.264 22939 22939 D AgentService: Received event: TurnPhaseChanged
+04-17 02:05:31.264 22939 22939 D AgentService: Received event: StatusUpdate
+04-17 02:05:31.264 22939 22939 D AgentService: 🧠 Thinking...
+04-17 02:05:31.264 22939 22939 D OpenAIResponseClient: Starting native streaming chat with 12 input items
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ╔══════════════════════════════════════════════════════════════
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ LLM INPUT
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ╠══════════════════════════════════════════════════════════════
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ SYSTEM PROMPT (3749 chars):
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] You are a standalone Android automation agent.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] ## Role
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] Complete the user's goal end-to-end by grounding each decision in the latest screen evidence.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] Execute actions yourself. Do not behave like a planner-only role.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] ## Critical Rules
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 1. Use structured tool calls only. Never emit raw JSON or fake tool syntax as plain text.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 2. You may batch multiple actions in one turn (e.g. filling several form fields). However, navigation actions that change the screen (click a link/button that opens a new page, back, open_app) must be the only screen action in that turn — observe the result before acting further.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 3. Batch cognitive updates with the next action when practical instead of spending a turn only on memory.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 4. Act from the current screen, warnings, and goal. Do not trust stale assumptions.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 5. Prefer semantic UI targets over coordinates. Use raw coordinates only as a last resort.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 6. Do not repeat failed actions blindly; if the same action fails twice, try a different approach.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 7. Ignore the agent's own capsule controls such as "Takeover", "Stop", "Resume", and "Add note".
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 8. Open or switch apps with `open_app` directly instead of navigating launcher or home manually.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 9. Use shell only for accessible file inspection or verification. If the same shell approach fails twice, switch strategies.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 10. When the goal names both a source app/file AND a destination app, open the destination app to enter data. Do not create artifacts in the source app.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] ## Execution Loop
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 1. Observe the latest screen state, warnings, and screenshot if present.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 2. Choose the smallest grounded action that advances the goal.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 3. Execute that action plus any needed memory update.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 4. Verify what changed before deciding the next step.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 5. Continue until the exact requested outcome is verified or you are genuinely blocked.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] ## Working Memory
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] - Use `scratchpad` to store facts before navigating away. Use `write_todos` for multi-step tasks.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [SYSTEM] - For survey/counting tasks: scan once systematically, write findings to s...[truncated 1749 chars]
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ INPUT ITEMS (12 total):
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [0] user: Goal: Open Settings, then open Display settings
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [1] user: Screen: 22 elements (compressed)
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [2] FUNCTION_CALL: open_app({"agent_thought":"Need to open the Android Settings app as requested.","app_name":"Settings"})
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [3] FUNCTION_OUTPUT: Output{string=Success: Launched 设置 (com.android.settings)}
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [4] user: Screen state (52 elements):
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ```json
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: [
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:   {
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "index": 0,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "class": "RecyclerView",
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "clickable": false,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "editable": false,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "scrollable": true,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "focused": false,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "long_clickable"...
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [5] FUNCTION_CALL: mobile_action({"agent_thought":"The Display settings entry is visible as '显示与亮度'; opening it completes the user's )
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [6] FUNCTION_OUTPUT: Output{string=Success: Tapped (632,560) via gesture_tap
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: Attempts: node_action_click: Node identity mismatch at (632,560): intended=[显示与亮度] found=[] -> gesture_tap: success}
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [7] user: Screen state (44 elements):
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ```json
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: [
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:   {
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "index": 0,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "class": "ScrollView",
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "clickable": false,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "editable": false,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "scrollable": true,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "focused": false,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "long_clickable": ...
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [8] FUNCTION_CALL: complete_task({"status":"success","answer":"Opened Settings and navigated to Display settings (显示与亮度)."})
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [9] FUNCTION_OUTPUT: Output{string=Success: Task completed successfully.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: Answer: Opened Settings and navigated to Display settings (显示与亮度).}
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [10] user: Goal: Open
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ [11] user: Turn 1/20
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: Screen state (24 elements):
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ```json
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: [
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:   {
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "index": 0,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "text": "02:05",
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "text_index": 0,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "desc": "02:05",
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "desc_index": 0,
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "class": "TextView",
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient:     "clickable": false...
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║ TOOLS (10 registered):
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║   - mobile_action: Perform touch interactions on the device screen.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: Targeting (click, long_press, type): specify EXACT
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║   - wait: Wait for UI updates to settle when transitions, animations, or async loading are in progress.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║   - scratchpad: Key-value store for multi-step tasks and cross-app handoffs. Shown in context every turn.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: Write all
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║   - shell: Execute a shell command on the device for file-oriented inspection only (cat, ls, stat).
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: Do NOT use 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║   - ask_user: Ask the user for help. Two types:
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: - question: Ask a question and wait for a text answer.
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: - action: A
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║   - write_todos: Update the task plan. Pass the FULL list (replaces previous).
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: Each item has description + status (pe
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║   - system_button: Press an Android system button (no element targeting needed).
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: Buttons: back, home, enter (IME enter 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║   - open_app: Launch an app by name. Always use this to open apps — do NOT navigate the app drawer or home screen 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║   - complete_task: Call this when you have finished working on the task. Call ONLY after verifying the exact requested 
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ║   - remember_experience: Save a durable learning to long-term memory. Call alongside complete_task when you learned something
+04-17 02:05:31.264 22939 22939 I OpenAIResponseClient: ╚══════════════════════════════════════════════════════════════
+04-17 02:05:31.264 22939 22939 D OpenAIResponseClient: Making streaming Responses API call to OpenAI (attempt 1)...
+04-17 02:05:31.265  3020  3129 I DisplayDeviceRepository: Display device changed render timings: "内置屏幕", renderFrameRate=60.000004, presentationDeadlineNanos=16666666, appVsyncOffsetNanos=1000000, frameRateOverrides=[]
+04-17 02:05:31.266  3020  3127 D WindowManager: DeferredDisplayUpdater: partially applying DisplayInfo(1264 x 2800) immediately
+04-17 02:05:31.266  3020  3225 D Power[PMSImpl]: onDisplayChanged: displayId=0
+04-17 02:05:31.267  1877 12778 D AudioFlinger: setParameters packageName:com.obric.cae
+04-17 02:05:31.267  3020  3149 I DisplayTeardown: [FEAT_POWER_TEARDOWN][0] error refreshRate: 360
+04-17 02:05:31.267  1877 12778 I AudioDumpUtils: setParameters screen_state=on
+04-17 02:05:31.267  1877 12778 D DeviceHalAidl: [default] setParameters: parameters: "screen_state=on"
+04-17 02:05:31.267  1795  1846 D PAL: ResourceManager: setParameter: 11667: Enter param id: 8
+04-17 02:05:31.267  1795  1846 D PAL: ResourceManager: setParameter: 12832: Exit status: 0
+04-17 02:05:31.267  1877 12778 D DeviceHalAidl: [usb] setParameters: parameters: "screen_state=on"
+04-17 02:05:31.267  1795  2959 D AHAL_Module: updateScreenState: usb: 1
+04-17 02:05:31.267  1877 12778 D DeviceHalAidl: [r_submix] setParameters: parameters: "screen_state=on"
+04-17 02:05:31.267  1795  5611 D AHAL_Module: updateScreenState: r_submix: 1
+04-17 02:05:31.267  1877 12778 D DeviceHalAidl: [bluetooth] setParameters: parameters: "screen_state=on"
+04-17 02:05:31.268  1795  5611 D AHAL_Module: updateScreenState: bluetooth: 1
+04-17 02:05:31.268  4557  4557 D QtiLinkBandwidthEstimator-0: handleMessage: 1
+04-17 02:05:31.268  4557  4557 D QtiLinkBandwidthEstimator-1: handleMessage: 1
+04-17 02:05:31.280  1823  2234 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612868234908598ns
+04-17 02:05:31.292  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:31.314  3020  3892 D WifiClientModeImpl[602717654:wlan0]: updateLinkLayerStatsRssiSpeedFrequencyCapabilities rssi=-46 TxLinkspeed=864 freq=5220 RxLinkSpeed=864
+04-17 02:05:31.315  3020  3892 D WifiClientModeImpl[602717654:wlan0]: reported txKbps 22512 rxKbps 199380
+04-17 02:05:31.315  3020  3892 D WifiDataStall: tx tput in kbps: 759150
+04-17 02:05:31.315  3020  3892 D WifiDataStall: rx tput in kbps: 813375
+04-17 02:05:31.315  3020  3892 V WifiConfigManager: Updating scan detail cache freq=5220 BSSID=fc:12:63:79:57:b6 RSSI=-45 for "WhoTMCars"WPA_PSK
+04-17 02:05:31.315  3020  3892 D WifiDataStall:  ccaLevel = 15
+04-17 02:05:31.315  3020  3892 D WifiDataStall: L2 txTputKbps: 650700, rxTputKbps: 813375, L3 txTputKbps: 14, rxTputKbps: 2, TxTrafficHigh: true, RxTrafficHigh: false, Throughput Sufficient: true
+04-17 02:05:31.315  3020  3892 D WifiThroughputPredictor:  utilization (LLS) 15 isBluetoothConnected: false final utilization: 15
+04-17 02:05:31.315  3020  3892 D WifiThroughputPredictor:  BW: 2 RSSI: -46 Nss: 2 Mode: 6 symDur: 13600 snrDb 28 bitPerTone: 8333 rate: 1200 throughput: 1129
+04-17 02:05:31.315  3020  3892 D WifiThroughputPredictor:  utilization (LLS) 15 isBluetoothConnected: false final utilization: 15
+04-17 02:05:31.315  3020  3892 D WifiThroughputPredictor:  BW: 2 RSSI: -46 Nss: 2 Mode: 6 symDur: 13600 snrDb 28 bitPerTone: 8333 rate: 1200 throughput: 1129
+04-17 02:05:31.315  3020  3892 D WifiScoreCard: BSSID update SIGNAL_POLL ID: 1212749653 SSID: "WhoTMCars", BSSID: fc:12:63:79:57:b6, MAC: 96:34:bb:76:ea:3e, IP: /192.168.1.35, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -46, Link speed: 864Mbps, Tx Link speed: 864Mbps, Max Supported Tx Link speed: 1200Mbps, Rx Link speed: 864Mbps, Max Supported Rx Link speed: 1200Mbps, Frequency: 5220MHz, Net ID: 2, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"WhoTMCars"wpa2-pskMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>
+04-17 02:05:31.315  3020  3892 D WifiScoreCard: txRate: 4 txSpeed: 864
+04-17 02:05:31.315  3020  3892 D WifiScoreCard: network update SIGNAL_POLL "WhoTMCars" ID: 934204130 RSSI -46 txSpeed 864
+04-17 02:05:31.315  3020  3892 D WifiClientModeImpl[602717654:wlan0]:  ClientModeImpl$L2ConnectedState screen=on 1 0 "WhoTMCars" fc:12:63:79:57:b6 rssi=-46 f=5220 sc=60 link=864 tx=2.9, 0.7, 0.0 rx=2.0 bcn=88435 [on:431 tx:2 rx:16 period:3018] from screen [on:1421751 period:10150611] score=60
+04-17 02:05:31.316  3020  4765 I WifiService: getWifiEnabledState uid=10144 state=3
+04-17 02:05:31.316  3020  7407 I WifiService: getConnectionInfo uid=1001
+04-17 02:05:31.316  4512  5620 D cneJni  : sendWifiStatus start
+04-17 02:05:31.316  3020  7407 V WifiService: Clearing REDACT_FOR_LOCAL_MAC_ADDRESS for com.bytedance.radioservice(uid=1001)
+04-17 02:05:31.316  3020  7407 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.bytedance.radioservice(uid=1001)
+04-17 02:05:31.316  3020  7407 V WifiService: Clearing REDACT_FOR_ACCESS_FINE_LOCATION for com.bytedance.radioservice(uid=1001)
+04-17 02:05:31.316 28266 28266 D wpa_supplicant: wlan0: Control interface command 'SIGNAL_POLL'
+04-17 02:05:31.317  4144  4144 D WifiTrackerLibInputLog: onWifiEntriesChanged: hasSecondaryNetwork=false
+04-17 02:05:31.317 28266 28266 D wpa_supplicant: EAPOL: EAP Session-Id not available
+04-17 02:05:31.318  3020  4207 I WifiService: getConnectionInfo uid=10194
+04-17 02:05:31.318  3020  4207 V WifiService: Clearing REDACT_FOR_LOCAL_MAC_ADDRESS for com.google.android.gms(uid=10194)
+04-17 02:05:31.318  3020  4207 V WifiPermissionsUtil: checkCallersLocationPermission(com.google.android.gms): ok because uid 10194 has app-op android:fine_location
+04-17 02:05:31.318  3020  4207 V WifiService: Clearing REDACT_FOR_ACCESS_FINE_LOCATION for com.google.android.gms(uid=10194)
+04-17 02:05:31.354  1823  2235 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612868309063337ns
+04-17 02:05:31.357  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:31.402  3020  3835 D WindowAnimatorSmtEx: [FEAT_BOOST_ANIMATION][20] ANIMATION_BOOST_RELEASE works
+04-17 02:05:31.417  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612868371459698, lux = 0, data=4000 0 1564 1070 290 4072 0 0 100 642 251 242 247 187 0
+04-17 02:05:31.438  1823  2233 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612868392814222ns
+04-17 02:05:31.441  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:31.522  1823  2234 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612868476840993ns
+04-17 02:05:31.524  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:31.578  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:31.579  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:31.588  1823  2235 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612868542902868ns
+04-17 02:05:31.591  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:31.617  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612868571451937, lux = 0, data=4000 0 1524 1068 288 4064 0 0 100 649 251 242 247 187 0
+04-17 02:05:31.664  5596  6077 D EventDataStallCollector: StallHandler handleMessage startStallPolling
+04-17 02:05:31.672  1823  2233 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612868627092399ns
+04-17 02:05:31.674  1759  1810 I caed    : WiFiPowerPrediction::predictPower() - Predicted power: 118.37 mW
+04-17 02:05:31.675  3020  7408 I WifiService: getConnectionInfo uid=1000
+04-17 02:05:31.675  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:31.675  3020  7408 V WifiService: Clearing REDACT_FOR_LOCAL_MAC_ADDRESS for com.obric.cae(uid=1000)
+04-17 02:05:31.675  3020  7408 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+04-17 02:05:31.675  3020  7408 V WifiService: Clearing REDACT_FOR_ACCESS_FINE_LOCATION for com.obric.cae(uid=1000)
+04-17 02:05:31.678  6734  6755 I CaeLog  : <CaeUtil> L4NetEvaluate netifStats:  statSrcType:WLAN0 uid:0 appPackageName:NULL ifName:wlan0 streamNum:1 rttAve:97 totalSendPackets:35142 totalRecvPackets:10144 totalSegsOut:45862 totalSegsIn:33856 totalSendBytes:39780047 totalRecvBytes:3942991 sendPackets:10 recvPackets:11 sendRate(Bps):4784 recvRate(Bps):776 sendRetrans:0 recvOooPercent:0 unacked:0 errBitMap:0        SingleThroughputCalculation ifName: wlan0, actual ThroughputFactor{mWifiStandard=6, mCenterFreq=5220, mBandwidth=80, mRssi=-46, mRssiMgmt=-48, mRssiData=-56, mRssiAck=-57, mTxLinkSpeed=8741.0, mRxLinkSpeed=8667.0, mOntimeRate=371.0, mCcaBusyRate=33.0, mChannelBusyRate=65.0, mTotalTxMpdu=42, mTotalRxMpdu=10, mTotalTxRetriesMpdu=3, mPerRate=9.0, mTxSpeed=371, mRxSpeed=38, mBeContentionTime=147, mScanTime=0},used current caed data, :  formula_rx=556598, model_rx=524301.0, model_tx=209072.23, final_rx=524301 Kbps, final_tx=209072 Kbps        
+04-17 02:05:31.755  1823  2234 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612868709159066ns
+04-17 02:05:31.757  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:31.768 22939 16779 D SessionStorage: Wrote snapshot to context-2026-04-17T02-04-39-3be24d8a-24c5-4e9a-a433-c172edea9484.json, size=31385 bytes
+04-17 02:05:31.772 22939 16779 D SessionStorage: Wrote session to session-2026-04-17T02-04-39-3be24d8a-24c5-4e9a-a433-c172edea9484.json, size=6204 bytes
+04-17 02:05:31.817  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612868771476677, lux = 0, data=4000 0 1544 1068 300 4082 0 0 103 658 251 242 247 187 0
+04-17 02:05:31.839  1823  2235 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612868793480837ns
+04-17 02:05:31.841  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:31.921  1823  2233 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612868875477712ns
+04-17 02:05:31.924  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:31.958  4223 28288 I TcpSocketTracker: DataStall result: fail percent: 0 sent: 103 receive: 65 last received count 65 retrans: 0 sent since last recv: 0
+04-17 02:05:32.002  6237 16347 D AlarmProvider1: isAllowablePackage: packageName = com.obric.clock
+04-17 02:05:32.005  1823  2234 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612868960113337ns
+04-17 02:05:32.008  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:32.017  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612868971517406, lux = 0, data=4000 0 1514 1072 290 4072 0 0 103 658 251 242 247 187 0
+04-17 02:05:32.096  3020  4268 I SvpSenarioHandler: svp senario: starting timeout: clearSvpStartType mState 2 mStartingPid 22939
+04-17 02:05:32.096  3020  4268 D SvpCgroupManager: recover pid 4144 tid 4144
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 4144 tid 4800
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 4144 tid 4803
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 4144 tid 4799
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 12151 tid 12224
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 12151 tid 12151
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 12151 tid 12222
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 12151 tid 12223
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 3020 tid 3129
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 3020 tid 3130
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 3020 tid 3131
+04-17 02:05:32.097  3020  4268 D SvpCgroupManager: recover pid 3020 tid 3179
+04-17 02:05:32.098  3020  4268 D SvpCgroupManager: recover pid 3020 tid 4268
+04-17 02:05:32.098  3020  4268 D system_server: clearSvpStartType tid 22939
+04-17 02:05:32.217  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612869171564385, lux = 0, data=4000 0 1560 1064 280 4062 0 0 103 658 251 242 247 187 0
+04-17 02:05:32.294  1790  3929 I sensors-hal: handle_sns_std_sensor_event:83, rear_ambient_light_event: ts=612869153991104, lux = 0, data=4000 1 0 0 7 0 0 0 0 0 0 0 0 0 0
+04-17 02:05:32.322  1823  2235 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612869276769430ns
+04-17 02:05:32.324  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:32.417  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612869371308448, lux = 0, data=4000 0 1554 1056 282 4052 0 0 100 649 251 242 247 187 0
+04-17 02:05:32.594  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:32.595  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:32.617  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612869571595167, lux = 0, data=4000 0 1562 1064 282 4094 0 0 94 658 251 242 247 187 0
+04-17 02:05:32.639  1823  2233 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612869593431462ns
+04-17 02:05:32.641  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:32.667  5596  6077 D EventDataStallCollector: StallHandler handleMessage startStallPolling
+04-17 02:05:32.671  7941  8368 D AppLogManager: Sender start doWork curTs=1776405932671
+04-17 02:05:32.672  7941  8368 D AppLogManager: sender worked:true
+04-17 02:05:32.677  1759  1810 I caed    : WiFiPowerPrediction::predictPower() - Predicted power: 118.37 mW
+04-17 02:05:32.678  3020  4207 I WifiService: getConnectionInfo uid=1000
+04-17 02:05:32.678  3020  4207 V WifiService: Clearing REDACT_FOR_LOCAL_MAC_ADDRESS for com.obric.cae(uid=1000)
+04-17 02:05:32.678  3020  4207 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+04-17 02:05:32.678  3020  4207 V WifiService: Clearing REDACT_FOR_ACCESS_FINE_LOCATION for com.obric.cae(uid=1000)
+04-17 02:05:32.679  6734 21416 I CaeLog  : <CaeUtil> L4NetEvaluate netifStats:  statSrcType:WLAN0 uid:0 appPackageName:NULL ifName:wlan0 streamNum:1 rttAve:120 totalSendPackets:35149 totalRecvPackets:10147 totalSegsOut:45872 totalSegsIn:33864 totalSendBytes:39785502 totalRecvBytes:3943942 sendPackets:10 recvPackets:8 sendRate(Bps):5455 recvRate(Bps):951 sendRetrans:0 recvOooPercent:0 unacked:0 errBitMap:0        SingleThroughputCalculation ifName: wlan0, actual ThroughputFactor{mWifiStandard=6, mCenterFreq=5220, mBandwidth=80, mRssi=-46, mRssiMgmt=-48, mRssiData=-56, mRssiAck=-57, mTxLinkSpeed=8684.0, mRxLinkSpeed=8654.0, mOntimeRate=558.0, mCcaBusyRate=13.0, mChannelBusyRate=95.0, mTotalTxMpdu=28, mTotalRxMpdu=11, mTotalTxRetriesMpdu=1, mPerRate=6.0, mTxSpeed=182, mRxSpeed=28, mBeContentionTime=138, mScanTime=0},used current caed data, :  formula_rx=560920, model_rx=579943.0, model_tx=222158.78, final_rx=579943 Kbps, final_tx=222158 Kbps        
+04-17 02:05:32.776  3020  3149 W SmartPowerMonitor: [FEAT_POWER_MON][0] ConfigurationService is null.
+04-17 02:05:32.817  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612869771598760, lux = 0, data=4000 0 1510 1062 288 4056 0 0 94 646 251 242 247 187 0
+04-17 02:05:32.954  1823  2234 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612869908272659ns
+04-17 02:05:32.957  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:33.017  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612869971599854, lux = 0, data=4000 0 1532 1074 300 4070 0 0 94 646 251 242 247 187 0
+04-17 02:05:33.109  9116  9240 D QtiRadioProxyHandler: : handleMessage msg.what = 101
+04-17 02:05:33.109  9116  9240 D QtiRadioProxyHandler: : EVENT_ON_DIAG_INFO
+04-17 02:05:33.109  9116  9240 D ExtTelephonyServiceImpl: Retrieved callbacks for event = 101 list = [com.qti.extphone.IExtPhoneCallback$Stub$Proxy@829c423, com.qti.extphone.IExtPhoneCallback$Stub$Proxy@e094687]
+04-17 02:05:33.111  5596  6077 D EventModemDiagCollection: CellInfo event reported :    slotID=0, plmn=310-410, globalCellId=194646039, band=B66, channel=66486, phyCellId=25, dlBandwidth=50, rsrp=[-117.6, -123.4], sinr=[3.8, -1.4], rssi=[-88.9, -91.0]
+04-17 02:05:33.217  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612870171702823, lux = 0, data=4000 0 1572 1088 294 4086 0 0 100 655 251 242 247 187 0
+04-17 02:05:33.272  1823  2235 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612870226514691ns
+04-17 02:05:33.274  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:33.394  1790  3929 I sensors-hal: handle_sns_std_sensor_event:83, rear_ambient_light_event: ts=612870253995271, lux = 0, data=4000 1 0 0 5 0 0 0 0 0 0 0 0 0 0
+04-17 02:05:33.419  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612870372714542, lux = 0, data=4000 0 1530 1040 278 4046 0 0 100 655 251 242 247 187 0
+04-17 02:05:33.604  1823  2233 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612870558974690ns
+04-17 02:05:33.608  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:33.612  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:33.612  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:33.618  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612870572692146, lux = 0, data=4000 0 1570 1062 290 4060 0 0 103 644 251 242 247 187 0
+04-17 02:05:33.669  5596  6077 D EventDataStallCollector: StallHandler handleMessage startStallPolling
+04-17 02:05:33.675  1759  1810 I caed    : WiFiPowerPrediction::predictPower() - Predicted power: 118.93 mW
+04-17 02:05:33.676  3020  7408 I WifiService: getConnectionInfo uid=1000
+04-17 02:05:33.676  3020  7408 V WifiService: Clearing REDACT_FOR_LOCAL_MAC_ADDRESS for com.obric.cae(uid=1000)
+04-17 02:05:33.676  3020  7408 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+04-17 02:05:33.676  3020  7408 V WifiService: Clearing REDACT_FOR_ACCESS_FINE_LOCATION for com.obric.cae(uid=1000)
+04-17 02:05:33.677  6734 21416 I CaeLog  : <CaeUtil> L4NetEvaluate netifStats:  statSrcType:WLAN0 uid:0 appPackageName:NULL ifName:wlan0 streamNum:1 rttAve:109 totalSendPackets:35150 totalRecvPackets:10148 totalSegsOut:45873 totalSegsIn:33866 totalSendBytes:39785530 totalRecvBytes:3943966 sendPackets:1 recvPackets:2 sendRate(Bps):28 recvRate(Bps):24 sendRetrans:0 recvOooPercent:0 unacked:0 errBitMap:0        SingleThroughputCalculation ifName: wlan0, actual ThroughputFactor{mWifiStandard=6, mCenterFreq=5220, mBandwidth=80, mRssi=-45, mRssiMgmt=-48, mRssiData=-56, mRssiAck=-57, mTxLinkSpeed=8661.0, mRxLinkSpeed=8649.0, mOntimeRate=266.0, mCcaBusyRate=12.0, mChannelBusyRate=62.0, mTotalTxMpdu=11, mTotalRxMpdu=5, mTotalTxRetriesMpdu=0, mPerRate=2.0, mTxSpeed=72, mRxSpeed=11, mBeContentionTime=145, mScanTime=0},used current caed data, :  formula_rx=565429, model_rx=600368.2, model_tx=241407.77, final_rx=600368 Kbps, final_tx=241407 Kbps        
+04-17 02:05:33.819  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612870772728969, lux = 0, data=4000 0 1510 1076 288 4056 0 0 103 644 251 242 247 187 0
+04-17 02:05:33.922  1823  2234 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612870876172242ns
+04-17 02:05:33.925  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:34.001  6237 16373 D AlarmProvider1: isAllowablePackage: packageName = com.obric.clock
+04-17 02:05:34.019  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612870972738760, lux = 0, data=4000 0 1532 1064 300 4074 0 0 103 644 251 242 247 187 0
+04-17 02:05:34.218  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612871172823344, lux = 0, data=4000 0 1520 1068 294 4050 0 0 103 639 251 242 247 187 0
+04-17 02:05:34.255  1823  2235 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612871209659378ns
+04-17 02:05:34.258  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:34.331  3020  3892 D WifiClientModeImpl[602717654:wlan0]: updateLinkLayerStatsRssiSpeedFrequencyCapabilities rssi=-46 TxLinkspeed=864 freq=5220 RxLinkSpeed=864
+04-17 02:05:34.332  3020  3892 D WifiDataStall: tx tput in kbps: 650700
+04-17 02:05:34.332  3020  3892 D WifiDataStall: rx tput in kbps: 813375
+04-17 02:05:34.332  3020  3892 V WifiConfigManager: Updating scan detail cache freq=5220 BSSID=fc:12:63:79:57:b6 RSSI=-45 for "WhoTMCars"WPA_PSK
+04-17 02:05:34.332  3020  3892 D WifiDataStall:  ccaLevel = 15
+04-17 02:05:34.332  3020  3892 D WifiDataStall: L2 txTputKbps: 707636, rxTputKbps: 813375, L3 txTputKbps: 208, rxTputKbps: 26, TxTrafficHigh: true, RxTrafficHigh: true, Throughput Sufficient: true
+04-17 02:05:34.332  3020  3892 D WifiThroughputPredictor:  utilization (LLS) 15 isBluetoothConnected: false final utilization: 15
+04-17 02:05:34.332  3020  3892 D WifiThroughputPredictor:  BW: 2 RSSI: -46 Nss: 2 Mode: 6 symDur: 13600 snrDb 28 bitPerTone: 8333 rate: 1200 throughput: 1129
+04-17 02:05:34.332  3020  3892 D WifiThroughputPredictor:  utilization (LLS) 15 isBluetoothConnected: false final utilization: 15
+04-17 02:05:34.332  3020  3892 D WifiThroughputPredictor:  BW: 2 RSSI: -46 Nss: 2 Mode: 6 symDur: 13600 snrDb 28 bitPerTone: 8333 rate: 1200 throughput: 1129
+04-17 02:05:34.332  3020  3892 D WifiScoreCard: BSSID update SIGNAL_POLL ID: 1212749653 SSID: "WhoTMCars", BSSID: fc:12:63:79:57:b6, MAC: 96:34:bb:76:ea:3e, IP: /192.168.1.35, Security type: 2, Supplicant state: COMPLETED, Wi-Fi standard: 11ax, RSSI: -46, Link speed: 864Mbps, Tx Link speed: 864Mbps, Max Supported Tx Link speed: 1200Mbps, Rx Link speed: 864Mbps, Max Supported Rx Link speed: 1200Mbps, Frequency: 5220MHz, Net ID: 2, Metered hint: false, score: 60, isUsable: true, CarrierMerged: false, SubscriptionId: -1, IsPrimary: 1, Trusted: true, Restricted: false, Ephemeral: false, OEM paid: false, OEM private: false, OSU AP: false, FQDN: <none>, Provider friendly name: <none>, Requesting package name: <none>"WhoTMCars"wpa2-pskMLO Information: , Is TID-To-Link negotiation supported by the AP: false, AP MLD Address: <none>, AP MLO Link Id: <none>, AP MLO Affiliated links: <none>, Vendor Data: <none>
+04-17 02:05:34.332  3020  3892 D WifiScoreCard: txRate: 14 txSpeed: 864
+04-17 02:05:34.332  3020  3892 D WifiScoreCard: network update SIGNAL_POLL "WhoTMCars" ID: 934204130 RSSI -46 txSpeed 864
+04-17 02:05:34.332  3020  3892 D WifiClientModeImpl[602717654:wlan0]:  ClientModeImpl$L2ConnectedState screen=on 1 0 "WhoTMCars" fc:12:63:79:57:b6 rssi=-46 f=5220 sc=60 link=864 tx=12.0, 1.9, 0.0 rx=7.4 bcn=88462 [on:1054 tx:11 rx:81 period:3017] from screen [on:1422805 period:10153628] score=60
+04-17 02:05:34.388  9116  9240 D QtiRadioProxyHandler: : handleMessage msg.what = 101
+04-17 02:05:34.388  9116  9240 D QtiRadioProxyHandler: : EVENT_ON_DIAG_INFO
+04-17 02:05:34.388  9116  9240 D ExtTelephonyServiceImpl: Retrieved callbacks for event = 101 list = [com.qti.extphone.IExtPhoneCallback$Stub$Proxy@829c423, com.qti.extphone.IExtPhoneCallback$Stub$Proxy@e094687]
+04-17 02:05:34.389  5596  6077 D EventModemDiagCollection: CellInfo event reported :    slotID=0, plmn=310-410, globalCellId=194646039, band=B66, channel=66486, phyCellId=25, dlBandwidth=50, rsrp=[-117.4, -123.9], sinr=[4.8, -2.2], rssi=[-88.9, -90.7]
+04-17 02:05:34.419  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612871372848604, lux = 0, data=4000 0 1572 1076 300 4066 0 0 107 644 251 242 247 187 0
+04-17 02:05:34.494  1790  3929 I sensors-hal: handle_sns_std_sensor_event:83, rear_ambient_light_event: ts=612871353990323, lux = 0, data=4000 0 0 0 5 0 0 0 0 0 0 0 0 0 0
+04-17 02:05:34.555  1823  2233 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612871509428648ns
+04-17 02:05:34.558  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:34.597  1905  1905 D SysOptService: SysOptService transact code 18
+04-17 02:05:34.597  1905  1905 D SysMonitorPerfService: SysMonitorPerfService transact code 18
+04-17 02:05:34.597  1905  1905 D SysMonitorPowerService: SysMonitorPowerService transact code 18
+04-17 02:05:34.597  1905  1905 D SysMonitorPowerStat: isSysNode, fdcheck, open, path: /sys/class/power_supply/battery/voltage_now
+04-17 02:05:34.597  1905  1905 D SysMonitorPowerStat: readSysNode, fdcheck, path: /sys/class/power_supply/battery/voltage_now
+04-17 02:05:34.618  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612871572621937, lux = 0, data=4000 0 1564 1080 288 4062 0 0 107 646 251 242 247 187 0
+04-17 02:05:34.631  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:34.632  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:34.671  1759  1810 I caed    : WiFiPowerPrediction::predictPower() - Predicted power: 119.43 mW
+04-17 02:05:34.671  6734  7675 I CaeLog  : <TrafficStatsMonitor> packageName = ai.closepaw, uid = 10252, interval = 20000ms, totalDataUsage = 0MB, appDataUsage = 0MB, backgroundDataUsage = 0MB
+04-17 02:05:34.672  3020  4207 I WifiService: getConnectionInfo uid=1000
+04-17 02:05:34.672  5596  6077 D EventDataStallCollector: StallHandler handleMessage startStallPolling
+04-17 02:05:34.672  3020  4207 V WifiService: Clearing REDACT_FOR_LOCAL_MAC_ADDRESS for com.obric.cae(uid=1000)
+04-17 02:05:34.672  3020  4207 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+04-17 02:05:34.672  3020  4207 V WifiService: Clearing REDACT_FOR_ACCESS_FINE_LOCATION for com.obric.cae(uid=1000)
+04-17 02:05:34.673  6734  6755 I CaeLog  : <CaeUtil> L4NetEvaluate netifStats:  statSrcType:WLAN0 uid:0 appPackageName:NULL ifName:wlan0 streamNum:0 rttAve:0 totalSendPackets:35150 totalRecvPackets:10148 totalSegsOut:45873 totalSegsIn:33866 totalSendBytes:39785530 totalRecvBytes:3943966 sendPackets:0 recvPackets:0 sendRate(Bps):0 recvRate(Bps):0 sendRetrans:0 recvOooPercent:0 unacked:0 errBitMap:0        SingleThroughputCalculation ifName: wlan0, actual ThroughputFactor{mWifiStandard=6, mCenterFreq=5220, mBandwidth=80, mRssi=-45, mRssiMgmt=-48, mRssiData=-56, mRssiAck=-57, mTxLinkSpeed=8652.0, mRxLinkSpeed=8647.0, mOntimeRate=190.0, mCcaBusyRate=40.0, mChannelBusyRate=79.0, mTotalTxMpdu=10, mTotalRxMpdu=3, mTotalTxRetriesMpdu=1, mPerRate=3.0, mTxSpeed=29, mRxSpeed=7, mBeContentionTime=175, mScanTime=0},used current caed data, :  formula_rx=558228, model_rx=540488.3, model_tx=231113.81, final_rx=540488 Kbps, final_tx=231113 Kbps        
+04-17 02:05:34.765  1790  3929 I sensors-hal: qsh_event_parse:1140, sensor stk_stk3b6x Rear Ambient Light Sensor Non-wakeup[33171006] event_id[1025(std_event)] data [0.000716 4000.000000 1.000000 0.000000 0.000000 5.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 0.000000 ] qsh time=170:14:35.649 count 46/0/46
+04-17 02:05:34.818  1790  3929 I sensors-hal: qsh_event_parse:1140, sensor stk_stk3bfx Ambient Light Sensor Non-wakeup[5] event_id[709()] data [] qsh time=170:14:35.737 count 25/0/50
+04-17 02:05:34.819  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612871772963708, lux = 0, data=4000 0 1520 1070 294 4056 0 0 107 646 251 242 247 187 0
+04-17 02:05:34.888  1823  2234 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612871842764742ns
+04-17 02:05:34.891  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:35.011  1905  1905 D SysOptService: SysOptService transact code 18
+04-17 02:05:35.011  1905  1905 D SysMonitorPerfService: SysMonitorPerfService transact code 18
+04-17 02:05:35.011  1905  1905 D SysMonitorPowerService: SysMonitorPowerService transact code 18
+04-17 02:05:35.011  1905  1905 D SysMonitorPowerStat: isSysNode, fdcheck, open, path: /sys/class/power_supply/battery/current_now
+04-17 02:05:35.011  1905  1905 D SysMonitorPowerStat: readSysNode, fdcheck, path: /sys/class/power_supply/battery/current_now
+04-17 02:05:35.014  1905  1905 D SysOptService: SysOptService transact code 18
+04-17 02:05:35.014  1905  1905 D SysMonitorPerfService: SysMonitorPerfService transact code 18
+04-17 02:05:35.014  1905  1905 D SysMonitorPowerService: SysMonitorPowerService transact code 18
+04-17 02:05:35.014  1905  1905 D SysMonitorPowerStat: isSysNode, fdcheck, open, path: /sys/class/power_supply/battery/voltage_now
+04-17 02:05:35.014  1905  1905 D SysMonitorPowerStat: readSysNode, fdcheck, path: /sys/class/power_supply/battery/voltage_now
+04-17 02:05:35.014  1905  4115 D SysOptService: SysOptService transact code 18
+04-17 02:05:35.014  1905  4115 D SysMonitorPerfService: SysMonitorPerfService transact code 18
+04-17 02:05:35.014  1905  4115 D SysMonitorPowerService: SysMonitorPowerService transact code 18
+04-17 02:05:35.014  1905  4115 D SysMonitorPowerStat: isSysNode, fdcheck, open, path: /sys/class/power_supply/usb/current_now
+04-17 02:05:35.014  1905  4115 D SysMonitorPowerStat: readSysNode, fdcheck, path: /sys/class/power_supply/usb/current_now
+04-17 02:05:35.017  1905  4115 D SysOptService: SysOptService transact code 18
+04-17 02:05:35.017  1905  4115 D SysMonitorPerfService: SysMonitorPerfService transact code 18
+04-17 02:05:35.017  1905  4115 D SysMonitorPowerService: SysMonitorPowerService transact code 18
+04-17 02:05:35.017  1905  4115 D SysMonitorPowerStat: isSysNode, fdcheck, open, path: /sys/class/power_supply/usb/voltage_now
+04-17 02:05:35.017  1905  4115 D SysMonitorPowerStat: readSysNode, fdcheck, path: /sys/class/power_supply/usb/voltage_now
+04-17 02:05:35.018  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612871972590323, lux = 0, data=4000 0 1514 1064 294 4058 0 0 107 642 251 242 247 187 0
+04-17 02:05:35.019  3020  3814 W PowerModelService: [FEAT_POWER_TEARDOWN][0] batteryPower or usbPower is invalid. batteryPower:0 usbPower:1932 batteryCurrent:0 batteryVoltage:4456 usbCurrent:375 usbVoltage:5153
+04-17 02:05:35.204  1823  2235 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612872158576148ns
+04-17 02:05:35.208  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:35.219  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612872173014385, lux = 0, data=4000 0 1512 1072 286 4044 0 0 107 642 251 242 247 187 0
+04-17 02:05:35.308  3020  4207 W MessageQueueUtils: MessageQueue is empty for handler: Handler (com.android.server.SysMonitorDumpUtils$MonitorReportManager$MonitorReportHandler) {e4bcd1b}
+04-17 02:05:35.308  3020  4207 D TransferServer: reportRenderFps messageCount 0
+04-17 02:05:35.328 22939 22939 D Turn    : Response created with ID: ac3Dl4XP7yEZ8nXNrZzUB80gFOqjt8vTzzV73XR6KqoJfA+/gMP4LgywYhxEZxpN9VvDoa2Ev/WMOXnJt9c5Rp1WmEOqU25GYQYN0IWNK6woysGMfi4cvoXakeBDmOdHQnVOx/NwlrasOf526JW0XjtDAU46f79t39ZMHwAPbamsADKSFGxKWvUkXszVZckBdaYTCTaYkA5G/xP/dn3XGPHs5UuloN1Mmo7wrLMsbGPakVhhWfWFhP121mHe4uBdbv3i4eK+KLVdyHmlf3XTT8p49a6WFdYS0NZcRoE1sbnTNUwaHdKlobUhSBx8WUvRZL9kQCiYIrKDB+G6/Cx5qL41Ef6yhAmkhezd3bp51bIcaRgZnFY7kZDzUIJTkLvS0Htk1xfbYtCuVL3YLnrCAAYd
+04-17 02:05:35.419  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612872373038187, lux = 0, data=4000 0 1576 1062 304 4072 0 0 107 642 251 242 247 187 0
+04-17 02:05:35.520  1823  2233 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612872475029898ns
+04-17 02:05:35.525  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:35.535 22939 22939 D Turn    : Received tool call: ask_user with id call_LpNZRHdBHNtJzCAjOlyhfhIO
+04-17 02:05:35.535 22939 22939 D TurnPlanningPhase: Turn 1: Received tool call: ask_user
+04-17 02:05:35.547 22939 16781 I OpenAIResponseClient: ╔══════════════════════════════════════════════════════════════
+04-17 02:05:35.547 22939 16781 I OpenAIResponseClient: ║ LLM OUTPUT
+04-17 02:05:35.547 22939 16781 I OpenAIResponseClient: ╠══════════════════════════════════════════════════════════════
+04-17 02:05:35.547 22939 16781 I OpenAIResponseClient: ║ TEXT CONTENT: (none)
+04-17 02:05:35.547 22939 16781 I OpenAIResponseClient: ║ TOOL CALLS (1):
+04-17 02:05:35.547 22939 16781 I OpenAIResponseClient: ║   - ask_user({"agent_thought":"The goal is incomplete; I need to know what app or item the user wants opened.","type":"question","message":"What would you like me to open? Please name the app, setting, or item."})
+04-17 02:05:35.547 22939 16781 I OpenAIResponseClient: ╚══════════════════════════════════════════════════════════════
+04-17 02:05:35.547 22939 22939 D Turn    : Response completed, building final result
+04-17 02:05:35.547 22939 22939 D OpenAIResponseClient: Streaming completed successfully
+04-17 02:05:35.548 22939 22939 D OpenAIResponseClient: Streaming flow closed
+04-17 02:05:35.549 22939 22939 D Turn    : Process result: 1 tool calls, isComplete=false
+04-17 02:05:35.549 22939 22939 D Turn    : Streaming turn complete: text=null..., toolCalls=1
+04-17 02:05:35.549 22939 22939 D TurnPlanningPhase: Turn 1: Stream complete, isComplete=false
+04-17 02:05:35.549 22939 22939 D TurnPlanningPhase: Turn 1: LLM response: null...
+04-17 02:05:35.549 22939 22939 D TurnPlanningPhase: Turn 1: Tool calls: [ask_user]
+04-17 02:05:35.554 22939 22939 D TurnPlanningPhase: Turn 1: agent_thought = The goal is incomplete; I need to know w...
+04-17 02:05:35.554 22939 22939 D AgentEventDispatcher: ThoughtUpdate: The goal is incomplete; I need to know w...
+04-17 02:05:35.554 22939 22939 D AgentSession: Emitted event: ThoughtUpdate
+04-17 02:05:35.554 22939 22939 D AgentSession: Emitted event: TurnPhaseChanged
+04-17 02:05:35.555 22939 22939 D AgentEventDispatcher: Status: 💡 Executing actions...
+04-17 02:05:35.555 22939 22939 D AgentSession: Emitted event: StatusUpdate
+04-17 02:05:35.555 22939 22939 D AgentService: Received event: ThoughtUpdate
+04-17 02:05:35.555 22939 22939 D AgentService: Received event: TurnPhaseChanged
+04-17 02:05:35.555 22939 22939 D AgentService: Received event: StatusUpdate
+04-17 02:05:35.555 22939 22939 D AgentService: 💡 Executing actions...
+04-17 02:05:35.594  1790  3929 I sensors-hal: handle_sns_std_sensor_event:83, rear_ambient_light_event: ts=612872453989802, lux = 0, data=4000 0 0 0 5 0 0 0 0 0 0 0 0 0 0
+04-17 02:05:35.620  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612872574054802, lux = 0, data=4000 0 1542 1064 284 4060 0 0 107 642 251 242 247 187 0
+04-17 02:05:35.645  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:35.646  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:35.669  9116  9240 D QtiRadioProxyHandler: : handleMessage msg.what = 101
+04-17 02:05:35.669  9116  9240 D QtiRadioProxyHandler: : EVENT_ON_DIAG_INFO
+04-17 02:05:35.669  9116  9240 D ExtTelephonyServiceImpl: Retrieved callbacks for event = 101 list = [com.qti.extphone.IExtPhoneCallback$Stub$Proxy@829c423, com.qti.extphone.IExtPhoneCallback$Stub$Proxy@e094687]
+04-17 02:05:35.670  5596  6077 D EventModemDiagCollection: CellInfo event reported :    slotID=0, plmn=310-410, globalCellId=194646039, band=B66, channel=66486, phyCellId=25, dlBandwidth=50, rsrp=[-117.4, -123.5], sinr=[4.6, -1.4], rssi=[-88.9, -91.0]
+04-17 02:05:35.673  5596  6077 D EventDataStallCollector: StallHandler handleMessage startStallPolling
+04-17 02:05:35.675  1759  1810 I caed    : WiFiPowerPrediction::predictPower() - Predicted power: 128.13 mW
+04-17 02:05:35.676  3020  7408 I WifiService: getConnectionInfo uid=1000
+04-17 02:05:35.677  3020  7408 V WifiService: Clearing REDACT_FOR_LOCAL_MAC_ADDRESS for com.obric.cae(uid=1000)
+04-17 02:05:35.677  3020  7408 V WifiService: Clearing REDACT_FOR_NETWORK_SETTINGS for com.obric.cae(uid=1000)
+04-17 02:05:35.677  3020  7408 V WifiService: Clearing REDACT_FOR_ACCESS_FINE_LOCATION for com.obric.cae(uid=1000)
+04-17 02:05:35.678  6734 21416 I CaeLog  : <CaeUtil> L4NetEvaluate netifStats:  statSrcType:WLAN0 uid:0 appPackageName:NULL ifName:wlan0 streamNum:0 rttAve:0 totalSendPackets:35150 totalRecvPackets:10148 totalSegsOut:45873 totalSegsIn:33866 totalSendBytes:39785530 totalRecvBytes:3943966 sendPackets:0 recvPackets:0 sendRate(Bps):0 recvRate(Bps):0 sendRetrans:0 recvOooPercent:0 unacked:0 errBitMap:0        SingleThroughputCalculation ifName: wlan0, actual ThroughputFactor{mWifiStandard=6, mCenterFreq=5220, mBandwidth=80, mRssi=-45, mRssiMgmt=-48, mRssiData=-56, mRssiAck=-57, mTxLinkSpeed=8648.0, mRxLinkSpeed=9222.0, mOntimeRate=217.0, mCcaBusyRate=40.0, mChannelBusyRate=112.0, mTotalTxMpdu=32, mTotalRxMpdu=16, mTotalTxRetriesMpdu=6, mPerRate=22.0, mTxSpeed=73, mRxSpeed=436, mBeContentionTime=159, mScanTime=0},used current caed data, :  formula_rx=562277, model_rx=478958.84, model_tx=191728.69, final_rx=478958 Kbps, final_tx=191728 Kbps        
+04-17 02:05:35.755 22939 22939 D TurnExecutionPhase: Using turn snapshot for actions: 24 elements
+04-17 02:05:35.755 22939 22939 D TurnExecutionPhase: Executing tool: ask_user with args: {"agent_thought":"The goal is incomplete; I need to know what app or item the user wants opened.","type":"question","message":"What would you like me to open? Please name the app, setting, or item."}
+04-17 02:05:35.757 22939 22939 D AgentEventDispatcher: ActionProposed: ask_user - Execute ask_user
+04-17 02:05:35.760 22939 22939 D AgentSession: Emitted event: ActionProposed
+04-17 02:05:35.760 22939 22939 D HistoryManager: Added item: FunctionCall, total items: 13
+04-17 02:05:35.765 22939 22939 D ToolRouter: Starting tool call: call_LpNZRHdBHNtJzCAjOlyhfhIO (ask_user)
+04-17 02:05:35.765 22939 22939 D ToolRouter: State: call_LpNZRHdBHNtJzCAjOlyhfhIO -> Validating
+04-17 02:05:35.766 22939 22939 D PolicyEngine: Policy check: tool=ask_user, pkg=ai.closepaw, dest=null, tier=NORMAL, mode=SMART
+04-17 02:05:35.766 22939 22939 D ToolRouter: Policy decision for ask_user: Allow
+04-17 02:05:35.766 22939 22939 D ToolRouter: State: call_LpNZRHdBHNtJzCAjOlyhfhIO -> Scheduled
+04-17 02:05:35.766 22939 22939 D ToolRouter: State: call_LpNZRHdBHNtJzCAjOlyhfhIO -> Executing
+04-17 02:05:35.766 22939 22939 D AgentEventDispatcher: AskUser: type=QUESTION, message=What would you like me to open? Please n, callId=call_LpNZRHdBHNtJzCAjOlyhfhIO
+04-17 02:05:35.766 22939 22939 D AgentSession: Emitted event: AskUser
+04-17 02:05:35.774  1790 17799 I sensors-hal: qsh_event_parse:1140, sensor lsm6dsv Accelerometer Non-wakeup[1] event_id[1025(std_event)] data [-0.100299 0.212363 9.780862 ] qsh time=170:14:36.542 count 25/0/25
+04-17 02:05:35.786 22939 22939 D AgentService: Received event: ActionProposed
+04-17 02:05:35.786 22939 22939 D SessionRecordingService: Recorded action: ask_user (proposed)
+04-17 02:05:35.787 22939 22939 D AgentService: Received event: AskUser
+04-17 02:05:35.787 22939 22939 I AgentService: AskUser: type=QUESTION, callId=call_LpNZRHdBHNtJzCAjOlyhfhIO
+04-17 02:05:35.820  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612872774021989, lux = 0, data=4000 0 1574 1072 290 4078 0 0 103 644 251 242 247 187 0
+04-17 02:05:35.831  3020  7408 W MessageQueueUtils: MessageQueue is empty for handler: Handler (com.android.server.SysMonitorDumpUtils$MonitorReportManager$MonitorReportHandler) {e4bcd1b}
+04-17 02:05:35.831  3020  7408 D TransferServer: reportRenderSingleFrameJank messageCount 0
+04-17 02:05:35.832  3020  7408 I TransferServer: report reportRenderSingleFrameJank trainNum : 56796 jankStartTs 568096322750319 jankEndTs 1776405935831698077
+04-17 02:05:35.832  3020  7408 I SysMonitorDump:  checkJankPerfetto packageName ai.closepaw layerName  ai.closepaw-/ai.closepaw.app.MainActivity dur  42 fps -1.0 currentFpsMode 0 launchTime  -1 launchType -1
+04-17 02:05:35.832  3020  7408 I SysMonitorDump: app = ai.closepaw-/ai.closepaw.app.MainActivity index 0
+04-17 02:05:35.832  3020  7408 I SysMonitorDump: checkJankPerfetto report data not reach sysinfo and perfetto threshold
+04-17 02:05:35.855  1823  2234 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612872809271773ns
+04-17 02:05:35.858  1823  2106 I SDM     : HWDeviceDRM::SetupConcurrentWriteback: Tear down the Concurrent Writeback topology
+04-17 02:05:35.860  4557  4592 W TelephonyPermissions: reportAccessDeniedToReadIdentifiers:com.bytedance.os.slardar:getDeviceId:-1
+04-17 02:05:35.861  7941  8368 V DrLog   : no get_phone_state permission,getDeviceId return null
+04-17 02:05:35.861  7941  8368 V DrLog   : Oaid#getOaidId sOaidId=null
+04-17 02:05:35.863  3020  4207 W TelephonyPermissions: reportAccessDeniedToReadIdentifiers:com.bytedance.os.slardar:getSerial:-1
+04-17 02:05:35.864  7941  8368 V DrLog   : Oaid#getOaidId sOaidId=null
+04-17 02:05:35.865  7941  8368 D AppLogManager: U SHALL NOT PASS!
+04-17 02:05:35.867  7941  8368 D AppLogManager: U SHALL NOT PASS!
+04-17 02:05:35.867  7941  8368 I DrLog   : ac worked:false 180000
+04-17 02:05:35.904 19840 19969 I PlayCommon: [2199] Preparing logs for uploading
+04-17 02:05:35.906 19840 19969 I PlayCommon: [2199] Connecting to server: https://play.googleapis.com/play/log?format=raw&proto_v2=true
+04-17 02:05:35.907 19840 19969 E PlayCommon: [2199] Failed to connect to server for log upload.
+04-17 02:05:35.929  1823  2106 I SDM     : DisplayBase::CommitThread: Received Idle Timeout, panel: cmd, timeout: 70000 us
+04-17 02:05:36.002  6237 16426 D AlarmProvider1: isAllowablePackage: packageName = com.obric.clock
+04-17 02:05:36.020  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612872973832875, lux = 0, data=4000 0 1518 1084 300 4064 0 0 103 649 251 242 247 187 0
+04-17 02:05:36.041  1891  2732 D DisplayModeController: setDesiredMode 4630946416801175443 {mode={fps=360.00 Hz, modePtr={id=1, vsyncRate=360.00 Hz, peakRefreshRate=120.00 Hz}}, emitEvent=false, force=false}
+04-17 02:05:36.041  1831  2009 D vendor.qti.hardware.perf2-hal-service: req == NULL, req_type: 2, handle: 856140, hId: 0x1098, hType: 0, duration: 26, pkg: .
+04-17 02:05:36.046  1823  2106 I SDM     : HWDeviceDRM::SetupAtomic: vrefresh = 120, hskew = 1, hwc_current_mode = 1
+04-17 02:05:36.134  1823  2106 I SDM     : DisplayBase::CommitThread: Received Idle Timeout, panel: cmd, timeout: 70000 us
+04-17 02:05:36.145  1831  2009 D vendor.qti.hardware.perf2-hal-service: req == NULL, req_type: 2, handle: 856146, hId: 0x1098, hType: 0, duration: 51, pkg: .
+04-17 02:05:36.165  1823  2235 I SDM     : PixelValue rr:251, gg:242, bb:247, timestamp 612873119969741ns
+04-17 02:05:36.223  1823  2106 I SDM     : DisplayBase::CommitThread: Received Idle Timeout, panel: cmd, timeout: 70000 us
+04-17 02:05:36.268  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612873222710896, lux = 0, data=4000 0 1512 1064 272 4036 0 0 103 649 251 242 247 187 0
+04-17 02:05:36.283  1905  4115 D SysOptService: SysOptService transact code 18
+04-17 02:05:36.283  1905  4115 D SysMonitorPerfService: SysMonitorPerfService transact code 18
+04-17 02:05:36.283  1905  4115 D SysMonitorPowerService: SysMonitorPowerService transact code 18
+04-17 02:05:36.283  1905  4115 D SysMonitorPowerStat: isSysNode, fdcheck, open, path: /sys/class/power_supply/battery/voltage_now
+04-17 02:05:36.283  1905  4115 D SysMonitorPowerStat: readSysNode, fdcheck, path: /sys/class/power_supply/battery/voltage_now
+04-17 02:05:36.298 22939 16779 D SessionStorage: Wrote snapshot to context-2026-04-17T02-04-39-3be24d8a-24c5-4e9a-a433-c172edea9484.json, size=31818 bytes
+04-17 02:05:36.316 22939 16779 D SessionStorage: Wrote session to session-2026-04-17T02-04-39-3be24d8a-24c5-4e9a-a433-c172edea9484.json, size=6727 bytes
+04-17 02:05:36.480  1790  3929 I sensors-hal: handle_sns_std_sensor_event:131, ambient_light_event: ts=612873433781781, lux = 0, data=4000 0 524 428 0 3154 0 0 96 644 251 242 247 187 0
+04-17 02:05:36.657  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown
+04-17 02:05:36.658  6734  7421 E CaeLog  : <L4NetEvaluate> ifName tun0 is unknown

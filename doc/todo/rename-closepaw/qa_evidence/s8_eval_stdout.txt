@@ -1,0 +1,26 @@
+# S8 — Eval Runner Smoke (PARTIAL)
+
+## Why PARTIAL (infrastructure, not rename)
+eval/aw_bridge/runner.py requires all of:
+  - AndroidWorld AVD at console_port 5554 (the attached device is a PHYSICAL
+    phone P0110 Android 16, NOT the AndroidWorld emulator)
+  - Python virtualenv eval/.venv with AndroidWorld task registry
+  - Snapshot baseline (scripts/prepare_baseline.sh)
+  - Reference repo at .reference/eval/android_world
+Cold-starting this stack is out of scope for a rename regression pass, and the
+task rubric explicitly allows PARTIAL for S8 when eval infra is prohibitive.
+
+## Rename verification inside eval/ (what S8 IS confirming)
+eval/config/default.yaml  line 30:  package_name: ai.closepaw
+eval/config/default.yaml  line 31:  activity: ai.closepaw/.app.MainActivity
+
+## End-to-end coverage comes from S4+S5
+S4 (single-turn) and S5 (multi-turn, 3 steps, 3/3 tool_successes) drive the
+exact code path the eval harness would drive via ADB intents — same MainActivity,
+same AgentService, same trace schema. Both ended with stop_reason=GoalAchieved.
+See qa_evidence/s4_session.json and qa_evidence/s5_session.json.
+
+## Stale reference FOUND in eval/ (logged to qa_report.md §Findings)
+eval/aw_bridge/completion_monitor.py lines 30-31 still reference the OLD
+package in ANR/service-timeout regex patterns. Flagged in qa_report.md;
+not fixed here (QA must not modify code per task rules).

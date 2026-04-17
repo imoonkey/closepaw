@@ -1,0 +1,15 @@
+{
+  "scenario": "S4 single-turn smoke",
+  "goal": "Open Settings",
+  "model": "gpt-5.4",
+  "run_dir": "debug-output/run_20260417_020254",
+  "session_id": "2e24a60c-529d-4bf7-a8c8-eb30e0855920",
+  "turns_executed": 2,
+  "stop_reason": "GoalAchieved",
+  "outcome": "GOAL_ACHIEVED",
+  "trace_event": {"v":1,"runId":"20260417_020254","seq":18,"tsMs":1776405836896,"sessionId":"2e24a60c-529d-4bf7-a8c8-eb30e0855920","type":"session_stopped","data":{"reason":"GoalAchieved","turns_executed":2},"artifacts":[{"kind":"run_summary","path":"artifacts/run_summary/31_run_summary.json","mimeType":"application/json"}]},
+  "agent_log_markers": [
+    "04-17 02:03:56.914 22939 22939 I AgentService: Task completed: task-1776405828737, outcome: GOAL_ACHIEVED",
+    "04-17 02:03:56.914 22939 22939 I AgentSession: Task task-1776405828737 completed (outcome=GOAL_ACHIEVED). Session idle, awaiting follow-up."
+  ]
+}

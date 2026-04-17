@@ -1,0 +1,10 @@
+[0;34m> Device: EP0110MZ0BC101266W[0m
+[0;34m> Broadcasting click...[0m
+Broadcasting: Intent { act=ai.closepaw.ACTION_DEBUG_EXEC flg=0x400000 pkg=ai.closepaw (has extras) }
+Broadcast completed: result=0
+/sdcard/Android/data/ai.closepaw/files/action-debug/latest/result.json: 1 file pulled, 0 skipped. 0.2 MB/s (463 bytes in 0.002s)
+
+[1m─── Result ───[0m
+[0;32m✓ action_accepted=success  ui_changed=unverifiable  elapsed=24ms[0m
+  message: ACTION_CLICK at (540,1200)
+  output:  /Users/moonkey/workspace/android-agent-workspace/androidagent/.worktrees/rename-closepaw/debug-output/action-test/qa_s6/

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "action": "click",
+  "layer": "platform",
+  "params": {
+    "x": 540,
+    "y": 1200,
+    "use_node": true
+  },
+  "action_accepted": {
+    "status": "success",
+    "message": "ACTION_CLICK at (540,1200)"
+  },
+  "ui_changed": {
+    "verdict": "unverifiable",
+    "element_count_before": -1,
+    "element_count_after": -1
+  },
+  "elapsed_ms": 24,
+  "settle_ms": 350,
+  "timestamp": "2026-04-17T06:05:16.645Z",
+  "device": "P0110",
+  "files": {}
+}

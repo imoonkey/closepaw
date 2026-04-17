@@ -1,0 +1,1 @@
+SYSTEM_ALERT_WINDOW: allow
