@@ -1,8 +1,8 @@
-# Android Agent Visual Debugging Guide
+# ClosePaw Visual Debugging Guide
 
 > **Prerequisites:** Understand the agent architecture in [doc/main/agent_infra.md](../doc/main/agent_infra.md)
 
-Visual debugging approach for the Android Agent's ReAct loop using screenshots + logs.
+Visual debugging approach for ClosePaw's ReAct loop using screenshots + logs.
 
 ## Issue Categories
 

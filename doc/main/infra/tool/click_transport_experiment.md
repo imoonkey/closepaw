@@ -12,7 +12,7 @@ Where Shizuku injection and `adb input tap` show different results despite using
 ## Environment
 
 - **Device**: Emulator `sdk_gphone64_arm64`, API 34
-- **App**: `com.moonkey.androidagent` debug build, accessibility service enabled
+- **App**: `ai.closepaw` debug build, accessibility service enabled
 - **Shizuku**: `moe.shizuku.privileged.api` v13.6.0, server running as uid=2000
 - **Files app**: `com.google.android.documentsui` (system DocumentsUI)
 - **Target**: clickable `LinearLayout` at (540,763) containing "task.html" in Downloads folder
@@ -94,8 +94,8 @@ D AccessibilityGestureInjector: dispatchGesture completed
 
 Without HiddenApiBypass:
 ```
-W ey.androidagent: Accessing hidden method IInputManager$Stub$Proxy.injectInputEvent (max-target-o, reflection, denied)
-W ey.androidagent: Accessing hidden method IInputManager.injectInputEvent (unsupported, reflection, allowed)
+W ai.closepaw: Accessing hidden method IInputManager$Stub$Proxy.injectInputEvent (max-target-o, reflection, denied)
+W ai.closepaw: Accessing hidden method IInputManager.injectInputEvent (unsupported, reflection, allowed)
 ```
 
 With HiddenApiBypass:

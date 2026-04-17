@@ -4,7 +4,7 @@
 
 ## Overview
 
-The eval runner bridges the Android Agent app with
+The eval runner bridges the ClosePaw app with
 [AndroidWorld](https://github.com/google-research/android_world) -- an open
 benchmark of ~116 tasks that test device-automation agents on real Android
 apps.  AndroidWorld owns task **definitions** (initialise, score, tear-down);

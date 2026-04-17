@@ -1,4 +1,4 @@
-# Android Agent Documentation
+# ClosePaw Documentation
 
 > Entry point and navigation guide for the codebase.
 > Last updated: 2026-04-16
@@ -75,7 +75,7 @@ doc/main/
 ## Code Structure
 
 ```
-app/src/main/kotlin/com/moonkey/androidagent/
+app/src/main/kotlin/ai/closepaw/
 │
 ├── app/                          # Application entry points
 │   ├── MainActivity.kt           # UI entry point

@@ -1,6 +1,6 @@
 # Agent Core Overview
 
-> Design principles, architecture, and package structure for the Android Agent.
+> Design principles, architecture, and package structure for ClosePaw.
 > Last updated: 2026-04-09
 
 ## Design Principles
@@ -54,7 +54,7 @@
 ## Package Structure
 
 ```
-com.moonkey.androidagent/
+ai.closepaw/
 ├── app/                                # Application entry points
 │   ├── MainActivity.kt                 # UI entry, session management
 │   ├── MainActivityContent.kt          # Root composable

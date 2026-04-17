@@ -5,7 +5,7 @@
 
 ## Design System
 
-The Android Agent uses Material 3 with a chat-focused aesthetic. Dark mode support via system theme detection.
+ClosePaw uses Material 3 with a chat-focused aesthetic. Dark mode support via system theme detection.
 
 ### Theme Files
 

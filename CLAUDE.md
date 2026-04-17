@@ -1,4 +1,4 @@
-# Android Agent
+# ClosePaw
 
 AI-powered Android automation using accessibility services. Kotlin/Jetpack Compose.
 

@@ -15,7 +15,7 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 ┌────────────────────────────────────────────────────────────────┐
 │                        ChatScreen                              │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │ ChatHeader     │ [≡] Android Agent [+]                  │   │
+│  │ ChatHeader     │ [≡] ClosePaw [+]                       │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
 │  │ MessageList   │ User/Agent bubbles, Action cards        │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │

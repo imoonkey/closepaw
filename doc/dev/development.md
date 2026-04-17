@@ -2,7 +2,7 @@
 
 > Last updated: 2026-04-16 (commit: b0509f75)
 
-This guide covers the development workflow for Android Agent - building, testing, and debugging.
+This guide covers the development workflow for ClosePaw - building, testing, and debugging.
 
 ## Debug vs Release APK — always debug unless shipping
 
@@ -88,7 +88,7 @@ Run the local JVM test suite after code changes:
 For faster iteration, run a single test class:
 
 ```bash
-./gradlew test --tests "com.moonkey.androidagent.history.HistoryManagerTest"
+./gradlew test --tests "ai.closepaw.history.HistoryManagerTest"
 ```
 
 ### Prompt Ownership

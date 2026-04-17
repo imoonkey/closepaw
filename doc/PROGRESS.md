@@ -53,7 +53,7 @@
 - The classifier bug shipped because tests preserved it as a `KNOWN BUG` marker; plan required both fixing the code and removing the marker.
 - Codex v2 review flagged 3 tests totaling 46s of real-time wait (`sleep 15`, `DISCONNECT_AT_START`, full retry backoff loop). Unit suite time budget matters; constructor injection was the right shape.
 
-**Key files:** `app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIErrorClassifier.kt`, `.../session/SessionCoordinator.kt`, `.../onboarding/PermissionStateMonitor.kt`, `.../onboarding/HttpLlmCredentialValidator.kt`, `.../tool/impl/ShellTool.kt`, `app/build.gradle.kts`, 26 new test files under `app/src/test/kotlin/com/moonkey/androidagent/`
+**Key files:** `app/src/main/kotlin/ai/closepaw/llm/OpenAIErrorClassifier.kt`, `.../session/SessionCoordinator.kt`, `.../onboarding/PermissionStateMonitor.kt`, `.../onboarding/HttpLlmCredentialValidator.kt`, `.../tool/impl/ShellTool.kt`, `app/build.gradle.kts`, 26 new test files under `app/src/test/kotlin/ai/closepaw/`
 **Verification:** `./gradlew :app:testDebugUnitTest` passes. 3 codex review rounds: v1 REQUEST CHANGES (3 Medium → fixed in `301df1d5`), v2 REQUEST CHANGES (1 Medium slow tests → fixed in `6c3ee6fb`), v3 **APPROVE**. Real-device QA (device EP0110MZ0BC): S1 classifier fail-fast PASS, S2 multi-turn GOAL_ACHIEVED PASS, S3 provider routing PARTIAL PASS (chat-API routed, upstream stream issue unrelated), S4 airplane-mode SKIP per operator. No crashes/ANRs.
 **Commit:** `ca787bc5..7c97c8e0` (30 commits)
 **Next:** Backlog items if they ever become load-bearing (`CloudLlmRetryTest`, `SessionLlmBootstrapperTest` extend, `LlmInputItemsTraceSerializerTest`).
@@ -191,7 +191,7 @@
 **Why:**
 - Phase 1 prerequisite for LLM integration holistic review — tests must lock down current behavior before correctness fixes in Phase 2
 
-**Key files:** `app/src/test/kotlin/com/moonkey/androidagent/llm/CloudStreamRetry{Runner,Policy}Test.kt`, `CodexSseParserTest.kt`, `OpenAIErrorClassifierTest.kt`
+**Key files:** `app/src/test/kotlin/ai/closepaw/llm/CloudStreamRetry{Runner,Policy}Test.kt`, `CodexSseParserTest.kt`, `OpenAIErrorClassifierTest.kt`
 **Verification:** `./gradlew test` passed
 **Commit:** 1391287e..11d76d0f
 **Next:** Phase 2 — Fix P0 streaming correctness (5 items + MessageContentExtractor bug)
@@ -451,7 +451,7 @@
 **Why:**
 - Bring runtime behavior in line with the agreed Memory V2 design: KISS scope-first files, deterministic recall, and no extra session-log memory layer.
 
-**Key files:** `app/src/main/kotlin/com/moonkey/androidagent/memory/MemorySchema.kt`, `app/src/main/kotlin/com/moonkey/androidagent/memory/MemoryStore.kt`, `app/src/main/kotlin/com/moonkey/androidagent/memory/MemoryRecaller.kt`, `app/src/main/kotlin/com/moonkey/androidagent/tool/impl/RememberExperienceTool.kt`, `app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt`, `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/StandaloneAgentDef.kt`, `doc/main/agent/memory.md`, `doc/todo/0.5_memory/memory_v2_implementation_plan.md`
+**Key files:** `app/src/main/kotlin/ai/closepaw/memory/MemorySchema.kt`, `app/src/main/kotlin/ai/closepaw/memory/MemoryStore.kt`, `app/src/main/kotlin/ai/closepaw/memory/MemoryRecaller.kt`, `app/src/main/kotlin/ai/closepaw/tool/impl/RememberExperienceTool.kt`, `app/src/main/kotlin/ai/closepaw/agent/Agent.kt`, `app/src/main/kotlin/ai/closepaw/agent/definition/StandaloneAgentDef.kt`, `doc/main/agent/memory.md`, `doc/todo/0.5_memory/memory_v2_implementation_plan.md`
 **Verification:** `./gradlew assembleDebug testDebugUnitTest`, `./gradlew assembleDebug lint test`
 **Commit:** `56aded7`
 **Blockers:** None
@@ -593,7 +593,7 @@
 - Mapped platform boundaries into three buckets: desktop/cloud-specific strengths, Android-portable capabilities, and mobile-native advantages that desktop/cloud agents do not naturally own.
 
 **Why:**
-- Provide a clearer product and architecture frame for deciding what Android Agent should absorb from OpenClaw-family systems versus what should be reinterpreted natively for a phone-first agent.
+- Provide a clearer product and architecture frame for deciding what ClosePaw should absorb from OpenClaw-family systems versus what should be reinterpreted natively for a phone-first agent.
 
 **Key files:** `doc/todo/0.5_openclaw/common/common_capabilities_analysis_cn_codex.md`, `doc/changelog.md`
 
@@ -718,7 +718,7 @@
 **Why:**
 - Files app regression: `container.center` landed on a dead zone where `ACTION_CLICK` was accepted but had no effect. The icon hotspot worked. Fix generalizes to any compound row without app-specific workarounds.
 
-**Key files:** `app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt`
+**Key files:** `app/src/main/kotlin/ai/closepaw/tool/action/PointActionExecutorCore.kt`
 
 ## 2026-03-06: Local Parallel Eval Workflow (`68d1f88`..`456d3aa`)
 
@@ -741,4 +741,4 @@
 **Why:**
 - Separate global behavior, tool semantics, and app-specific knowledge so tuning changes land in one clear owner layer instead of accumulating in one monolithic prompt.
 
-**Key files:** `app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/prompt/AppSkillRepository.kt`, `app/src/main/kotlin/com/moonkey/androidagent/agent/TurnPlanningPhaseRunner.kt`, `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/StandaloneAgentDef.kt`, `app/src/main/kotlin/com/moonkey/androidagent/agent/definition/PlannerAgentDef.kt`, `app/src/main/assets/app_skills/`
+**Key files:** `app/src/main/kotlin/ai/closepaw/agent/cognition/prompt/AppSkillRepository.kt`, `app/src/main/kotlin/ai/closepaw/agent/TurnPlanningPhaseRunner.kt`, `app/src/main/kotlin/ai/closepaw/agent/definition/StandaloneAgentDef.kt`, `app/src/main/kotlin/ai/closepaw/agent/definition/PlannerAgentDef.kt`, `app/src/main/assets/app_skills/`
