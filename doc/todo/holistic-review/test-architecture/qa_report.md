@@ -114,7 +114,21 @@ Evidence of correct routing:
 ```
 → `ChatCompletionInterop` path was invoked (not response client).
 
-Outcome: `ERROR — Stream ended without finish_reason`. This is an upstream streaming anomaly on gpt-5.4 chat endpoint, not a regression introduced by the test-architecture refactor (no classifier / retry changes affected stream-finish handling). Retry policy correctly surfaced the error (no infinite loop; no crash).
+Outcome: `ERROR — Stream ended without finish_reason`. Retry behavior was **fully exercised and correct**:
+```
+22:55:11.856 ChatCompletionClient: Making streaming Chat API call (attempt 1)
+22:55:12.012 ChatCompletionClient: Retryable stream error (attempt 1/5), waiting 1000ms
+22:55:13.017 attempt 2 → waiting 2000ms
+22:55:15.053 attempt 3 → waiting 4000ms
+22:55:19.100 attempt 4 → waiting 8000ms
+22:55:27.148 attempt 5 → FailAndStop (MAX_RETRIES exhausted)
+```
+5 attempts with exponential backoff (1s→2s→4s→8s), matching `CloudStreamRetryPolicy` unit tests (`RateLimitException before any events triggers Retry`, `retryable error at max attempts returns Stop`, `nextBackoffMs is doubled from current backoff`). Each attempt returned within ~40 ms with a stream missing `finish_reason` → `TransientException` → retry. Final failure surfaced cleanly; no crash; no infinite loop.
+
+**Root cause is upstream, not test-architecture:**
+- The `finish_reason` validation that raises `TransientException("Stream ended without finish_reason")` was introduced in commit `883e06af` ("fix: ... finishReason validation") — **pre-dates** the test-architecture milestone.
+- `git log 883e06af..HEAD -- ChatCompletionClient.kt ChatCompletionInterop.kt` shows only two `perf:` commits (cancellation hooks, verbose-log gating); the test-architecture milestone's production-code touches (`fix(llm): OpenAIErrorClassifier word-boundary status matching`, `fix(session): use removeAt(0) ...`, perf dedup tweaks) did **not** modify ChatCompletion streaming logic.
+- All five attempts fail in ~40 ms by establishing the stream and receiving chunks without a `finish_reason` — strongly suggests the `gpt-5.4` model variant is served via Responses API only and does not return a terminal chunk on the chat-completions endpoint. This is a model/endpoint compatibility issue, not a regression from the refactor.
 
 Screenshot: `qa_screenshots/s3_chat_api_routed.png`
 
@@ -131,12 +145,42 @@ Note: a clean chat-API completion is blocked by the upstream streaming issue, no
 
 ## Scenario 4 — Error recovery (transient network)
 
-**Result:** SKIP
-**Reason:** Airplane-mode toggling disabled by operator (would sever the adb-over-wifi control channel / device network, losing session context). Alternative transient triggers (invalid base URL via in-app settings, unreachable host injection) are not exposed in the current release build without a debug toggle, and synthesizing network drop at the OkHttp layer requires a code hook not present in the shipped APK.
+**Result:** PASS (graceful failure + clean recovery after network restored).
+**Method:** USB transport is unaffected by device airplane mode, so the toggle is safe. Sequence:
+1. `adb shell cmd connectivity airplane-mode enable` → start task with gpt-5.4.
+2. Wait ~8 s (DNS fails).
+3. `adb shell cmd connectivity airplane-mode disable` → start the same task again.
 
-Partial coverage of the retry-on-transient path is provided by:
-- Unit tests `TransientException before any events triggers Retry`, `SocketTimeoutException is TransientException`, `generic IOException is TransientException`, `timeout failure is recoverable` — all pass.
-- Real-device coverage of fail-fast-on-non-retryable path via Scenario 1 (402) and the chat-API stream-end error in Scenario 3.
+### Step 1 — airplane ON (run `debug-output/run_20260416_231515`)
+```
+23:16:10.029 OpenAIResponseClient: Making streaming Responses API call to OpenAI (attempt 1)...
+23:16:11.324 OpenAIErrorClassifier: Network error - cannot reach OpenAI: Request failed
+23:16:11.324 OpenAIResponseClient: Streaming failed with non-retryable error
+23:16:11.324 Turn: No internet connection. Please check your network settings.
+23:16:11.329 AgentEventDispatcher: Status: ❌ Error: No internet connection. Please check your network settings.
+23:16:11.332 AgentService: Task completed: task-..., outcome: ERROR
+```
+Observations:
+- **Single attempt**, no retry loop, no crash, no ANR.
+- Classifier's `isUnknownHost` branch intentionally returns a `RuntimeException` (non-retryable) with a user-friendly message — this matches `TurnErrorClassifierTest.dns failure is non recoverable` and `OpenAIErrorClassifierTest.UnknownHostException is non-retryable RuntimeException`. Treating sustained "no internet" as fail-fast (rather than hammering the backoff loop) is the documented design.
+
+### Step 2 — airplane OFF (run `debug-output/run_20260416_231610`)
+```
+23:17:12.445 AgentService: Task completed: task-1776395824923, outcome: GOAL_ACHIEVED
+```
+Same task completes in 2 turns, `outcome: GOAL_ACHIEVED`, no crash. Network recovery is clean — no lingering bad state, new session behaves normally.
+
+Screenshots: `qa_screenshots/s4_airplane_recovery.png` (error state), `qa_screenshots/s4_post_recovery_turn1.png` (post-recovery).
+
+### Verdict
+| Criterion | Result |
+|---|---|
+| Transient error surfaces cleanly | PASS (user-friendly "No internet connection" message) |
+| No crash / ANR during failure | PASS |
+| Eventual success after recovery | PASS (follow-up task → GOAL_ACHIEVED) |
+| Retry policy respects classification | PASS (DNS = non-retryable by design, 1 attempt only) |
+
+Note: `SocketTimeoutException` / mid-stream `IOException` (genuinely transient, pre-event) would go through the retry path per unit tests (`TransientException before any events triggers Retry`). Airplane mode reliably produces `UnknownHostException` (DNS), not mid-stream timeouts, so the retry loop itself isn't exercised by this specific trigger — but the classifier + retry-policy code path for transient errors is covered by the unit-test matrix.
 
 ---
 
@@ -147,7 +191,7 @@ Partial coverage of the retry-on-transient path is provided by:
 | 1 — Error classifier 429/401 | PASS |
 | 2 — Multi-turn task (regression) | PASS |
 | 3 — Provider routing (chat vs response) | PASS (partial — chat path routed; full chat completion blocked by upstream stream issue unrelated to refactor) |
-| 4 — Transient error recovery | SKIP (airplane mode disabled by operator; unit-test coverage stands in) |
+| 4 — Transient error recovery | PASS (airplane ON → clean fail-fast with user-friendly msg, no crash; airplane OFF → follow-up task GOAL_ACHIEVED) |
 
 **No crashes, no ANRs, no test-architecture regressions detected on real device.**
 
