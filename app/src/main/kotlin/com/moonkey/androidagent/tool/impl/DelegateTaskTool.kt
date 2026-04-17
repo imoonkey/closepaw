@@ -16,21 +16,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal class DelegateTaskTool(
-    private val delegatableRoles: List<AgentRoleDef>,
+    delegatableRoles: List<AgentRoleDef>,
     private val runnerFactory: (AgentRoleDef) -> SubAgentRunner,
     private val eventDispatcher: AgentEventDispatcher
 ) : ToolSpec {
 
-    private val rolesByName = delegatableRoles.associateBy { it.name }
+    private val roleDef: AgentRoleDef = delegatableRoles.single()
 
     override val name: String = "delegate_task"
 
     override val description: String =
         """
         Delegate ONE atomic UI action to a sub-agent.
-
-        Available agents:
-        ${delegatableRoles.joinToString("\n") { "- ${it.name}: ${it.description}" }}
 
         Query must be a single atomic intent: "Tap the Send button", "Scroll down", "Extract sender and subject", "Type 'hello' into search". NOT multi-step ("Open app, navigate to settings, change theme").
         """.trimIndent()
@@ -41,10 +38,6 @@ internal class DelegateTaskTool(
             put("agent_thought", JSONObject().apply {
                 put("type", "string")
                 put("description", "Brief reason for this delegation")
-            })
-            put("agent_name", JSONObject().apply {
-                put("type", "string")
-                put("description", "Name of sub-agent to run")
             })
             put("query", JSONObject().apply {
                 put("type", "string")
@@ -60,19 +53,12 @@ internal class DelegateTaskTool(
                 put("items", JSONObject().apply { put("type", "string") })
             })
         })
-        put("required", JSONArray(listOf("agent_name", "query")))
+        put("required", JSONArray(listOf("query")))
         put("additionalProperties", false)
     }
 
     override fun validate(params: JSONObject): ValidationResult {
         val errors = mutableListOf<String>()
-
-        val agentName = params.optString("agent_name", "").trim()
-        if (agentName.isEmpty()) {
-            errors.add("Missing required parameter: agent_name")
-        } else if (agentName !in rolesByName) {
-            errors.add("Unknown agent: $agentName")
-        }
 
         val query = params.optString("query", "").trim()
         if (query.isEmpty()) {
@@ -87,14 +73,11 @@ internal class DelegateTaskTool(
     }
 
     override fun createInvocation(params: JSONObject): ToolInvocation {
-        val agentName = params.getString("agent_name")
         val query = params.getString("query").trim()
         val currentSubgoal = params.optString("current_subgoal", "").trim().ifEmpty { null }
         val importantNotes = parseStringArray(params.optJSONArray("important_notes"))
         val agentThought = params.optString("agent_thought", "").trim()
-        val roleDef = rolesByName[agentName]
-            ?: throw IllegalArgumentException("Unknown agent: $agentName")
-        val description = buildDescription(agentName, query, agentThought)
+        val description = buildDescription(roleDef.name, query, agentThought)
 
         return DelegateTaskInvocation(
             params = params,

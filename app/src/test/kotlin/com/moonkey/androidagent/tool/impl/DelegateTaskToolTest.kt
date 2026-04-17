@@ -31,17 +31,14 @@ class DelegateTaskToolTest {
     )
 
     @Test
-    fun `validate fails for unknown agent`() {
+    fun `validate fails when query missing`() {
         val tool = DelegateTaskTool(
-            delegatableRoles = emptyList(),
+            delegatableRoles = listOf(executorRole),
             runnerFactory = { error("not used") },
             eventDispatcher = AgentEventDispatcher(SessionId("session-1")) { }
         )
 
-        val result = tool.validate(JSONObject().apply {
-            put("agent_name", "missing")
-            put("query", "tap login")
-        })
+        val result = tool.validate(JSONObject())
 
         assertThat(result is ValidationResult.Invalid).isTrue()
     }
@@ -63,7 +60,6 @@ class DelegateTaskToolTest {
         )
 
         val invocation = tool.createInvocation(JSONObject().apply {
-            put("agent_name", "executor")
             put("query", "tap login")
             put("current_subgoal", "open sign in")
             put("important_notes", JSONArray(listOf("button near bottom", "do not open settings")))
@@ -99,7 +95,6 @@ class DelegateTaskToolTest {
         )
 
         val invocation = tool.createInvocation(JSONObject().apply {
-            put("agent_name", "executor")
             put("query", "tap login")
         })
 
