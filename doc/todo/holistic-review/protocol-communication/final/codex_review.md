@@ -21,3 +21,29 @@ REQUEST-CHANGES
 - `./gradlew :app:testDebugUnitTest --tests 'com.moonkey.androidagent.history.SessionRecordingServiceTest'`
 - `./gradlew :app:testDebugUnitTest --tests 'com.moonkey.androidagent.session.SessionCheckpointConfigSnapshotTest'`
 - `./gradlew :app:testDebugUnitTest --tests 'com.moonkey.androidagent.ui.overlay.CapsuleStateHolderTest'`
+
+---
+
+## Round 2 Re-review (`236dfbf3`)
+
+APPROVE
+
+### Re-verification
+
+1. HIGH (`lastTaskOutcome` lifecycle): Addressed.
+   `TaskStarted` now clears the cached outcome via `SessionRecordingService.onTaskStarted()`, `handleShutdown()` emits `TaskCompleted(USER_STOPPED)` for active tasks before `SessionCompleted`, and checkpoint save/reload now persists and restores `lastTaskOutcome` through `SessionRuntimeSnapshot`.
+
+2. MEDIUM 1 (checkpoint regression coverage): Partially addressed, non-blocking.
+   `SessionCheckpointConfigSnapshotTest` now covers the six runtime-affecting config fields: `actionDelayMs`, `approvalMode`, `debugMode`, `traceEnabled`, `traceRunId`, and `excludedTools`. I still do not see a test that round-trips `lastTaskOutcome` through checkpoint persist+reload, so the commit message overstates the current coverage.
+
+3. MEDIUM 2 (stale approval invariant): Addressed.
+   `AgentSessionTest` now verifies an unmatched `Op.Approve` does not call `allowPackagePersistent()` or `allowPackageForSession()`.
+
+### Remaining Findings
+
+- Medium: There is still no automated regression test proving `lastTaskOutcome` survives checkpoint persist+restore. Source inspection shows the implementation path is correct, so this is not blocking approval for real-device QA.
+
+### Verification
+
+- `git show 236dfbf3`
+- `./gradlew :app:testDebugUnitTest --tests 'com.moonkey.androidagent.session.AgentSessionTest' --tests 'com.moonkey.androidagent.session.SessionCheckpointConfigSnapshotTest' --tests 'com.moonkey.androidagent.history.SessionRecordingServiceTest'`
