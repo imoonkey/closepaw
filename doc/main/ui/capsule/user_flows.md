@@ -90,7 +90,7 @@ Input enablement:
      - Mid-turn (`isAgentMidTurn=true`): "Received, will apply next step" (2000ms)
 
 5. **Task completion flow:**
-   - `TaskCompleted` maps to `Done`/`Error` per CompletionReason
+   - `TaskCompleted` maps to `Done`/`Error` per `TaskOutcome`
    - completion text always appended to chat (fallback `Task completed`)
    - `Done` auto-hides after 3s
    - Session transitions to `Idle` (Hot Idle) — lightweight state survives for follow-up

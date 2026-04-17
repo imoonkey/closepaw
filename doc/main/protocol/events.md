@@ -19,9 +19,9 @@ AgentEvent (sealed interface)
 │   └── SupplementReceived(text)
 ├── TaskLifecycleEvent
 │   ├── TaskStarted(taskId, input)
-│   └── TaskCompleted(taskId, result?, reason)
+│   └── TaskCompleted(taskId, result?, outcome: TaskOutcome)
 ├── TurnDomainEvent
-│   ├── TurnStarted(turnId, turnNumber, phase)
+│   ├── TurnStarted(turnId, turnNumber)
 │   ├── TurnCompleted(turnId, turnNumber)
 │   └── TurnPhaseChanged(turnId, phase)
 ├── StreamingDomainEvent
@@ -30,15 +30,11 @@ AgentEvent (sealed interface)
 │   ├── ActionProposed(actionId, toolName, description)
 │   └── ActionExecuted(actionId, toolName, success, result?)
 ├── ApprovalDomainEvent
-│   ├── ApprovalRequired(actionId, description, details)
-│   └── ApprovalResolved(actionId, decision)
+│   └── ApprovalRequired(actionId, description, details)
 ├── AskUserDomainEvent
 │   └── AskUser(type: AskUserType, message, callId)
 ├── ThoughtDomainEvent
 │   └── ThoughtUpdate(thought)
-├── PlanningStateEvent
-│   ├── TodosUpdated(todos)
-│   └── ScratchpadUpdated(key, action)
 ├── SubAgentDomainEvent
 │   ├── SubAgentStarted(agentName, query)
 │   ├── SubAgentActivity(agentName, activity)
@@ -46,7 +42,7 @@ AgentEvent (sealed interface)
 ├── PerceptionDomainEvent
 │   └── ScreenCaptured(elementCount, packageName?, ...)
 └── StatusDomainEvent
-    └── StatusUpdate(status, emoji?)
+    └── StatusUpdate(status)
 ```
 
 ## Key Events
@@ -61,8 +57,8 @@ AgentEvent (sealed interface)
 | `AskUser` | Agent needs user help | `type`, `message`, `callId` |
 | `SupplementReceived` | User sent mid-task supplement | `text` |
 | `SessionTakeover` | User takes over (after agent pauses) | — |
-| `TaskCompleted` | Task ends | `taskId`, `result`, `reason` |
-| `SessionCompleted` | Session terminates | `result`, `reason` |
+| `TaskCompleted` | Task ends | `taskId`, `result`, `outcome` |
+| `SessionCompleted` | Session terminates | `reason` |
 
 ## Enums
 
@@ -72,6 +68,8 @@ AgentEvent (sealed interface)
 
 **ScreenStatePhase**: `PRE_TURN` (before turn), `POST_ACTION` (after action execution).
 
-**CompletionReason**: `GOAL_ACHIEVED`, `USER_STOPPED`, `MAX_TURNS`, `TASK_IMPOSSIBLE`, `ERROR`, `INTERRUPTED`, `IDLE_TIMEOUT`.
+**TaskOutcome** (task-level): `GOAL_ACHIEVED`, `MAX_TURNS`, `TASK_IMPOSSIBLE`, `ERROR`, `USER_STOPPED`.
+
+**SessionEndReason** (session-level): `USER_STOPPED`, `IDLE_TIMEOUT`, `INTERRUPTED`. Kept distinct from `TaskOutcome` to eliminate impossible states (`SessionCompleted` carrying task-only values).
 
 **TodoStatus**: `PENDING`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`.

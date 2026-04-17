@@ -152,12 +152,12 @@ app/src/main/kotlin/com/moonkey/androidagent/
 ├── protocol/                     # Communication contracts (26 files)
 │   ├── Op.kt                     # Operations (UI → Agent, 8 ops)
 │   ├── AgentEvent.kt             # Events (Agent → UI, base sealed interface)
-│   ├── AgentEventDomains.kt      # 12 domain marker interfaces
+│   ├── AgentEventDomains.kt      # Domain marker interfaces
 │   ├── SessionState.kt           # State machine (5 states: Created/Running/Idle/Paused/Shutdown)
-│   ├── SessionConfig.kt          # Session configuration (12 fields)
-│   ├── AgentError.kt             # Error types (11 variants)
+│   ├── SessionConfig.kt          # Session configuration
 │   ├── ApprovalTypes.kt          # Approval decision types
-│   ├── CompletionReason.kt       # Task completion reasons
+│   ├── TaskOutcome.kt            # Task-level outcome (5 values)
+│   ├── SessionEndReason.kt       # Session-level shutdown reason (3 values)
 │   ├── TurnPhase.kt              # PLANNING / EXECUTION phase
 │   └── ...                       # Domain event files, models, utilities
 │

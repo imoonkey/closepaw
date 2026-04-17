@@ -152,4 +152,4 @@ Focus management: capsule overlay is focusable (soft keyboard) when `mode is Wai
 
 - [Overlay](../overlay.md) — rendering, overlay hosts, visual specs
 - [User Flows](user_flows.md) — location × platform interaction matrix
-- [Session](../../infra/session.md) — session lifecycle, CompletionReason
+- [Session](../../infra/session.md) — session lifecycle, TaskOutcome / SessionEndReason

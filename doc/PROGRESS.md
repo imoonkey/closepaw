@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-04-16: protocol-communication — 4 fixes, codex APPROVE, 5/6 QA PASS
+
+**What changed:**
+- Split `CompletionReason` into `TaskOutcome` (GOAL_ACHIEVED / MAX_TURNS / TASK_IMPOSSIBLE / ERROR / USER_STOPPED) and `SessionEndReason` (USER_STOPPED / IDLE_TIMEOUT / INTERRUPTED). `TaskCompleted.outcome` and `SessionCompleted.reason` now carry the right shape; `SessionCompleted.result` (always null) removed. Impossible branches pruned in `AgentServiceEventHandler` and `CapsuleStateHolder.onSessionEnded`.
+- `SessionRecordingService.completedNormally` now derives from `lastTaskOutcome` (cleared on `TaskStarted`, persisted in `SessionRuntimeSnapshot`, restored via `AgentSession.reload()`). `handleShutdown()` emits `TaskCompleted(USER_STOPPED)` for any in-flight task before `SessionCompleted`.
+- `SessionCheckpointCoordinator` now round-trips `actionDelayMs`, `approvalMode`, `debugMode`, `traceEnabled`, `traceRunId`, `excludedTools` (previously silently dropped on reload — could change security posture).
+- `AgentSession.handleApproval()` reordered: `toolRouter.resolveApproval()` gates allow-list mutation; unmatched/duplicate `Op.Approve` is logged and dropped without touching package allow-lists.
+- Pruned dead event surface: `TodosUpdated`, `ScratchpadUpdated`, `ApprovalResolved` (no consumers), `StatusUpdate.emoji` field, `TurnStarted.phase` field, `ApprovalRequired.actionId` field.
+
+**Why:**
+- Double-design holistic review dimension 11 identified completion-semantics as a data-integrity bug (successful tasks recorded as failed when session later idled out) and approval validation as a security invariant (stale `Op.Approve` could mutate policy without matching a pending request).
+- Checkpoint field loss silently changed runtime behavior after reload — `approvalMode: SMART` would become default, `traceEnabled` would reset.
+- ~257 lines of dead event types were pure protocol overhead.
+
+**Key files:** `protocol/TaskOutcome.kt`, `protocol/SessionEndReason.kt`, `protocol/TaskLifecycleEvents.kt`, `protocol/SessionLifecycleEvents.kt`, `session/AgentSession.kt`, `session/SessionCheckpointCoordinator.kt`, `history/SessionRecordingService.kt`, `history/model/SessionRuntimeSnapshot.kt`, `app/AgentServiceEventHandler.kt`, `ui/overlay/CapsuleStateHolder.kt`, `protocol/AgentEventDispatcher.kt`
+**Verification:** `./gradlew assembleDebug test lint` pass. 2 codex review rounds: v1 REQUEST CHANGES (1 High `lastTaskOutcome` lifecycle, 2 Medium test-coverage gaps → fixed in `236dfbf3`), v2 **APPROVE**. Real-device QA on device EP0110MZ0BC: 5/6 PASS, 1 SKIPPED (stale `Op.Approve` not externally triggerable, verified by code review + unit tests). No crashes. Evidence in `doc/todo/holistic-review/protocol-communication/final/qa_evidence/`.
+**Commit:** `9f7ddf72..682286b0` (12 commits)
+**Next:** dead-code-overabstraction (parallel milestone, already closed in same window).
+**Blockers:** None.
+
+## 2026-04-16: dead-code-overabstraction — 4 phases, ~600 lines deleted, codex APPROVE
+
+**What changed:**
+- Phase 1 (safe deletions): removed 3 dead files (`StatusUtils.kt`, `SessionServicesSummaryFormatter.kt`, stray `.DS_Store`), 9 dead methods (`SessionServices.getSummary/updateApprovalMode`, `AppClassifier.addUserOverride`, 4 tool-result helpers, `ToolSpec.toFunctionSchema`, `ActionResult.isSuccess`), 3 dead composables (`ApiKeysSection`, `BackendSelector`, `SettingsDropdownOptionWithDescription`), dead `refreshOAuthToken()` in `OpenAiSignIn`, and dead `ScreenSnapshotDebug.captureQualityPath` field.
+- Phase 2 (API surface): dropped dead `OnboardingViewModel.context` and `DefaultOnboardingDemoController.modelCatalog` constructor params; shrank `SessionHistoryManager` (made `loadSessionByFileName` private; deleted `deleteSessionByFileName`, `getMostRecentSession`, `hasActiveSession`, `endSession`, unused `scope` field); removed dead `data` field + writers from `ToolCallResult.Success` / `ToolExecutionResult.Success`.
+- Phase 3 (onboarding): collapsed single-impl interface — deleted `OnboardingDemoController` interface, promoted `DefaultOnboardingDemoController` → concrete `OnboardingDemoController`, switched `OnboardingViewModel` from nullable late-assigned field to constructor injection.
+- Phase 4 (delegate_task): removed `agent_name` parameter + validation + lookup from `DelegateTaskTool` (registry now always resolves to the single executor role); `AgentDefRegistry` + `AgentRoleDef` retained for real role resolution.
+
+**Why:**
+- Double-design holistic review dimension 12 identified these as zero-behavior-change safe deletions. Targets were confirmed dead by cross-file `rg` in both `app/src/main` and `app/src/test`. Speculative interface + two-phase injection in onboarding had one implementation and one call-site — the abstraction had no consumers.
+- `delegate_task` exposed a fake multi-agent choice (`agent_name`) but the registry only resolved to executor, so the LLM was burning tokens on a no-op parameter.
+
+**Key files:** `session/SessionServices.kt`, `tool/AppClassifier.kt`, `tool/ToolCallResult.kt`, `tool/ToolSpec.kt`, `tool/ToolRouter.kt`, `tool/impl/DelegateTaskTool.kt`, `platform/ActionResult.kt`, `platform/AccessibilityPlatform.kt`, `ui/settings/ApiKeyFields.kt`, `ui/settings/SettingsDropdowns.kt`, `auth/OpenAiSignIn.kt`, `onboarding/OnboardingViewModel.kt`, `onboarding/OnboardingDemoController.kt`, `app/MainActivity.kt`, `history/SessionHistoryManager.kt`
+**Verification:** `./gradlew assembleDebug test` pass; `./gradlew lint` pre-existing-baseline only (2 `NewApi` errors in untouched `ServiceOverlayController.kt` — later patched in `29793c26`). Codex review: **APPROVE** (zero Critical/High/Medium; one Low observation that `delegate_task` no longer rejects a stray `agent_name` at runtime — deliberate, schema drops the field). Real-device QA on device EP0110MZ0BC: 6/6 scenarios PASS (onboarding fresh-install, settings UI, PRO delegation without `agent_name`, session history, normal single-turn, logcat crash check). Evidence in `doc/todo/holistic-review/dead-code-overabstraction/qa_evidence/`.
+**Commit:** `43665d44..65897e0f` (7 commits)
+**Next:** None for dimension 12 — deferred items (`AgentError.kt`, `LlmCredentialValidator`, `AgentEventDomains` marker interfaces, `ToolRouterContext` flatten) intentionally left, documented in `final/improvement_plan.md`. `AgentError.kt` separately removed during error-resilience work (commit `799336d3`).
+**Blockers:** None.
+
 ## 2026-04-17: test-architecture — 28 unit-test tasks landed, codex APPROVE
 
 **What changed:**

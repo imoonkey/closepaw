@@ -107,7 +107,6 @@ Handles tool execution after planning.
 - Capture post-action screen observation via `ObservationBuilder` (with BLOCKED app masking applied)
 - Emit `ActionProposed` and `ActionExecuted` events via `AgentEventDispatcher`
 - Record tool results into history for future turns
-- Emit planning events (`TodosUpdated`, `ScratchpadUpdated`) when relevant tools run
 
 ### Turn
 

@@ -18,8 +18,8 @@
 | 8 | [Performance & Resources](#8-performance--resources) | 2 | 2 | 3 | 2 周 | **DONE** | R8 未启用 + O(n^2) 压缩/截断 |
 | 9 | [Error & Resilience](#9-error--resilience) | 4 | 8 | 5 | 3-4 周 | **DONE** | 完成判定不依赖执行结果 + approval 吞错 |
 | 10 | [Test Architecture](#10-test-architecture) | 0 | 6 | 3 | 3 周 | **DONE** | LLM wire format/retry 零测试覆盖 |
-| 11 | [Protocol & Communication](#11-protocol--communication) | 0 | 2 | 3 | 1-2 周 | ~257 行 dead event 类型可删 |
-| 12 | [Dead Code & Over-Abstraction](#12-dead-code--over-abstraction) | 0 | 3 | 2 | 1-2 周 | ~600 行确认 dead code 可删 |
+| 11 | [Protocol & Communication](#11-protocol--communication) | 0 | 2 | 3 | 1-2 周 | **DONE** | ~257 行 dead event 类型可删 |
+| 12 | [Dead Code & Over-Abstraction](#12-dead-code--over-abstraction) | 0 | 3 | 2 | 1-2 周 | **DONE** | ~600 行确认 dead code 可删 |
 
 **P0 总计: 22 项 | P1 总计: 46 项 | 总工作量估算: 4-5 个月**
 

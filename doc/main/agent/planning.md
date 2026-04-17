@@ -178,12 +178,9 @@ Turn N                                  Turn N+1
 
 ## Planning Events
 
-| Event | Description |
-|-------|-------------|
-| `TodosUpdated` | Emitted when todos change (carries `todos: List<Todo>`) |
-| `ScratchpadUpdated` | Emitted on write/delete/clear (mutation listener) |
+Planning-state mutation events (`TodosUpdated`, `ScratchpadUpdated`) were removed (pc-dead-event-cleanup, 2026-04-16) — no consumer existed. Todo/scratchpad state is observed via the UI history stream and the tool call results (`write_todos`, `scratchpad`) alone.
 
-→ See: [Protocol Events](../protocol/overview.md#planning-state-events)
+→ See: [Protocol Events](../protocol/overview.md)
 
 ---
 

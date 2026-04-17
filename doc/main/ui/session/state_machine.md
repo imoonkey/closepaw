@@ -72,24 +72,27 @@ Two distinct completion events:
 
 `TaskCompleted` does **not** imply the conversation is over. The user can send follow-up input.
 
-### 4.1 CompletionReason mapping
+### 4.1 Task/session outcome mapping
 
-`TaskCompleted` reasons (from `AgentStopReason`):
+`TaskCompleted.outcome` is `TaskOutcome` (task-level):
 
-| AgentStopReason | CompletionReason |
-|-----------------|-----------------|
+| AgentStopReason | TaskOutcome |
+|-----------------|-------------|
 | `GoalAchieved` | `GOAL_ACHIEVED` |
 | `MaxTurnsReached` | `MAX_TURNS` |
+| `TaskImpossible` | `TASK_IMPOSSIBLE` |
 | `UserRequested` | `USER_STOPPED` |
 | `Error` | `ERROR` |
 
-`SessionCompleted` reasons (from previous state):
+`SessionCompleted.reason` is `SessionEndReason` (session-level, no task outcomes):
 
-| Previous State | CompletionReason |
-|----------------|-----------------|
+| Previous State | SessionEndReason |
+|----------------|------------------|
 | `Running` / `Paused` | `USER_STOPPED` |
 | `Idle` | `IDLE_TIMEOUT` |
 | `Created` / other | `INTERRUPTED` |
+
+The split (pc-completion-semantics, 2026-04-16) removes the impossible-state overlap where `SessionCompleted` carried task-outcome values like `GOAL_ACHIEVED`.
 
 ## 5. Hot Idle
 

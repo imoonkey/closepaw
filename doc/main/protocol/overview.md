@@ -126,9 +126,10 @@ protocol/
 ├── SessionConfig.kt          # Session configuration
 ├── SessionState.kt           # 5-state machine
 ├── SessionId.kt              # Session identifier
-├── CompletionReason.kt       # Why session/task completed
+├── TaskOutcome.kt            # Task-level outcome (GOAL_ACHIEVED / MAX_TURNS / TASK_IMPOSSIBLE / ERROR / USER_STOPPED)
+├── SessionEndReason.kt       # Session-level shutdown reason (USER_STOPPED / IDLE_TIMEOUT / INTERRUPTED)
 ├── Session/Task/Turn/Streaming/Action/Approval/AskUser/
-│   Thought/PlanningState/SubAgent/Perception/StatusEvents.kt
+│   Thought/SubAgent/Perception/StatusEvents.kt
 ├── ApprovalTypes.kt          # ApprovalDecision, RiskLevel
 ├── TodoModels.kt             # Todo, TodoStatus
 └── TextUtils.kt              # sanitizeThought

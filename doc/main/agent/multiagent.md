@@ -66,12 +66,13 @@ Tool for delegating to a sub-agent:
 
 ```kotlin
 delegate_task(
-    agent_name = "executor",
     query = "Tap on the 'Send' button",
     current_subgoal = "Send the email",               // optional
     important_notes = ["Recipient: john@example.com"] // optional
 )
 ```
+
+Delegation always routes to the executor role. The `agent_name` parameter was removed (dco-delegate-task-simplify, 2026-04-16) since the registry resolves to a single delegatable target.
 
 ### Context Passing
 
