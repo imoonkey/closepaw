@@ -8,11 +8,11 @@ plugins {
 }
 
 android {
-    namespace = "com.moonkey.androidagent"
+    namespace = "ai.closepaw"
     compileSdk = 36  // Required by Leap SDK 0.9.2 (depends on androidx.core:core-ktx:1.17.0)
 
     defaultConfig {
-        applicationId = "com.moonkey.androidagent"
+        applicationId = "ai.closepaw"
         // Required by LiquidAI Leap SDK for local inference.
         // If we need to support Android < 12, consider a cloud-only flavor.
         minSdk = 31

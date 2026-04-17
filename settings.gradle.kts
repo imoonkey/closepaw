@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AndroidAgent"
+rootProject.name = "ClosePaw"
 include(":app")

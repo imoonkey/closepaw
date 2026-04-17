@@ -32,8 +32,8 @@
 }
 
 # App's own serializable models (covers subpackages)
--keep @kotlinx.serialization.Serializable class com.moonkey.androidagent.** { *; }
--keep class com.moonkey.androidagent.**$$serializer { *; }
+-keep @kotlinx.serialization.Serializable class ai.closepaw.** { *; }
+-keep class ai.closepaw.**$$serializer { *; }
 
 # ── Shizuku AIDL ────────────────────────────────────────────────────────
 # AIDL-generated Stub/Proxy classes use reflection and must be kept.
@@ -55,7 +55,7 @@
 
 # The app's own virtualdisplay package relies on reflective getMethod() calls
 # keyed by class name — keep members so those lookups keep matching.
--keep class com.moonkey.androidagent.platform.virtualdisplay.** { *; }
+-keep class ai.closepaw.platform.virtualdisplay.** { *; }
 
 # ── OpenAI SDK (openai-java) ────────────────────────────────────────────
 # The SDK uses Jackson for JSON (de)serialization with heavy reflection
@@ -104,9 +104,9 @@
 -keep class kotlinx.coroutines.android.AndroidExceptionPreHandler
 
 # ── App entry points referenced by manifest/XML/accessibility config ────
--keep class com.moonkey.androidagent.AgentService { *; }
--keep class com.moonkey.androidagent.MainActivity { *; }
--keep class com.moonkey.androidagent.SessionRecordingService { *; }
+-keep class ai.closepaw.AgentService { *; }
+-keep class ai.closepaw.MainActivity { *; }
+-keep class ai.closepaw.SessionRecordingService { *; }
 
 # Keep all Services / BroadcastReceivers / Providers / Activities
 -keep public class * extends android.app.Activity
