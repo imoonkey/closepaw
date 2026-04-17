@@ -69,8 +69,8 @@ internal object OpenAIErrorClassifier {
         }
     }
 
-    private val RATE_LIMIT_CODE = Regex("""(?<!\d)429(?!\d)""")
-    private val SERVER_ERROR_CODE = Regex("""(?<!\d)5(?:00|02|03|04)(?!\d)""")
+    private val RATE_LIMIT_CODE = Regex("""(?<![A-Za-z0-9])429(?![A-Za-z0-9])""")
+    private val SERVER_ERROR_CODE = Regex("""(?<![A-Za-z0-9])5(?:00|02|03|04)(?![A-Za-z0-9])""")
 
     private fun isRateLimit(message: String, cause: String): Boolean {
         return RATE_LIMIT_CODE.containsMatchIn(message) ||

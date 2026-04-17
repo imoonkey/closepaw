@@ -122,16 +122,19 @@ class ChatCompletionClientTest {
     }
 
     @Test
-    fun `provider SocketTimeoutException classifies to TransientException`() {
+    fun `provider SocketTimeoutException triggers retry loop`() {
         val client = ChatCompletionClient(apiKey)
+        val attempts = java.util.concurrent.atomic.AtomicInteger(0)
         installFailingOpenAIClient(client) {
+            attempts.incrementAndGet()
             throw java.net.SocketTimeoutException("read timed out")
         }
 
-        // CloudLlmRetry retries on TransientException — we only need to see that
-        // the terminal cause is a classified TransientException, not the raw SDK
-        // exception. After MAX_RETRIES, executeWithRetry rethrows cause-of-transient.
-        val ex = runCatching {
+        // Behavior: transient errors must be retried by CloudLlmRetry, not surfaced
+        // on first failure. Assert retry happened — do NOT pin the specific
+        // terminal exception type (that is a separate contract owned by
+        // CloudLlmRetry and may legitimately change).
+        runCatching {
             runBlocking {
                 client.chatWithTools(
                     systemPrompt = "s",
@@ -140,12 +143,9 @@ class ChatCompletionClientTest {
                     model = "gpt-4o"
                 )
             }
-        }.exceptionOrNull()
+        }
 
-        assertThat(ex).isNotNull()
-        // After retries, CloudLlmRetry re-throws the cause of the last TransientException,
-        // which is the original SocketTimeoutException we installed.
-        assertThat(ex).isInstanceOf(java.net.SocketTimeoutException::class.java)
+        assertThat(attempts.get()).isGreaterThan(1)
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

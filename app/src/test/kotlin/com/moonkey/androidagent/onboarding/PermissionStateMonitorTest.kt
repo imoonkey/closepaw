@@ -1,69 +1,56 @@
 package com.moonkey.androidagent.onboarding
 
-import android.content.Context
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.spyk
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
+import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 class PermissionStateMonitorTest {
 
-    private fun monitor(
+    private fun derive(
         accessibility: Boolean,
         overlay: Boolean,
-        battery: Boolean,
-    ): PermissionStateMonitor {
-        val context = mockk<Context>(relaxed = true)
-        val m = spyk(PermissionStateMonitor(context))
-        every { m.isAccessibilityEnabled() } returns accessibility
-        every { m.isOverlayEnabled() } returns overlay
-        every { m.isBatteryOptimized() } returns battery
-        return m
-    }
+        batteryIgnoring: Boolean,
+        batteryWasDone: Boolean = true,
+    ) = PermissionStateMonitor.deriveRepairModel(
+        accessibilityEnabled = accessibility,
+        overlayEnabled = overlay,
+        batteryIgnoringOptimizations = batteryIgnoring,
+        batteryWasDone = batteryWasDone,
+    )
 
     @Test
     fun `all granted returns null`() {
-        val m = monitor(accessibility = true, overlay = true, battery = true)
-        assertNull(m.deriveRepairModel(batteryWasDone = true))
+        assertThat(derive(true, true, true)).isNull()
     }
 
     @Test
     fun `accessibility missing is reported`() {
-        val m = monitor(accessibility = false, overlay = true, battery = true)
-        val model = m.deriveRepairModel(batteryWasDone = true)!!
-        assertTrue(model.accessibilityMissing)
-        assertFalse(model.overlayMissing)
-        assertFalse(model.batteryMissing)
-        assertEquals("Accessibility service is disabled", model.primaryIssue)
+        val model = derive(accessibility = false, overlay = true, batteryIgnoring = true)!!
+        assertThat(model.accessibilityMissing).isTrue()
+        assertThat(model.overlayMissing).isFalse()
+        assertThat(model.batteryMissing).isFalse()
+        assertThat(model.primaryIssue).isEqualTo("Accessibility service is disabled")
     }
 
     @Test
     fun `multiple missing permissions all reported`() {
-        val m = monitor(accessibility = false, overlay = false, battery = false)
-        val model = m.deriveRepairModel(batteryWasDone = true)!!
-        assertTrue(model.accessibilityMissing)
-        assertTrue(model.overlayMissing)
-        assertTrue(model.batteryMissing)
-        assertTrue(model.hasAnyIssue)
-        assertEquals("Accessibility service is disabled", model.primaryIssue)
+        val model = derive(accessibility = false, overlay = false, batteryIgnoring = false)!!
+        assertThat(model.accessibilityMissing).isTrue()
+        assertThat(model.overlayMissing).isTrue()
+        assertThat(model.batteryMissing).isTrue()
+        assertThat(model.hasAnyIssue).isTrue()
+        assertThat(model.primaryIssue).isEqualTo("Accessibility service is disabled")
     }
 
     @Test
     fun `battery ignored when not done during onboarding`() {
-        val m = monitor(accessibility = true, overlay = true, battery = false)
-        assertNull(m.deriveRepairModel(batteryWasDone = false))
+        assertThat(derive(true, true, batteryIgnoring = false, batteryWasDone = false)).isNull()
     }
 
     @Test
     fun `overlay missing primary issue when accessibility ok`() {
-        val m = monitor(accessibility = true, overlay = false, battery = true)
-        val model = m.deriveRepairModel(batteryWasDone = true)!!
-        assertFalse(model.accessibilityMissing)
-        assertTrue(model.overlayMissing)
-        assertEquals("Overlay permission is revoked", model.primaryIssue)
+        val model = derive(accessibility = true, overlay = false, batteryIgnoring = true)!!
+        assertThat(model.accessibilityMissing).isFalse()
+        assertThat(model.overlayMissing).isTrue()
+        assertThat(model.primaryIssue).isEqualTo("Overlay permission is revoked")
     }
 }

@@ -79,6 +79,19 @@ class OpenAIErrorClassifierTest {
     }
 
     @Test
+    fun `letter-adjacent 429 token does NOT match rate limit`() {
+        val result = OpenAIErrorClassifier.classify(RuntimeException("req_429abc failed"))
+        assertThat(result).isNotInstanceOf(RateLimitException::class.java)
+    }
+
+    @Test
+    fun `letter-adjacent 500 token does NOT match server error`() {
+        val result = OpenAIErrorClassifier.classify(RuntimeException("error500beta returned"))
+        assertThat(result).isNotInstanceOf(TransientException::class.java)
+        assertThat(result).isNotInstanceOf(RateLimitException::class.java)
+    }
+
+    @Test
     fun `HTTP 401 is non-retryable RuntimeException`() {
         val result = OpenAIErrorClassifier.classify(RuntimeException("HTTP 401 Unauthorized"))
         assertThat(result).isInstanceOf(RuntimeException::class.java)

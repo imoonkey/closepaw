@@ -47,12 +47,28 @@ class PermissionStateMonitor(private val context: Context) {
      * @param batteryWasDone true if the user granted battery during onboarding (not skipped)
      * @return null if everything is fine
      */
-    fun deriveRepairModel(batteryWasDone: Boolean): PermissionRepairModel? {
-        val model = PermissionRepairModel(
-            accessibilityMissing = !isAccessibilityEnabled(),
-            overlayMissing = !isOverlayEnabled(),
-            batteryMissing = batteryWasDone && !isBatteryOptimized()
+    fun deriveRepairModel(batteryWasDone: Boolean): PermissionRepairModel? =
+        deriveRepairModel(
+            accessibilityEnabled = isAccessibilityEnabled(),
+            overlayEnabled = isOverlayEnabled(),
+            batteryIgnoringOptimizations = isBatteryOptimized(),
+            batteryWasDone = batteryWasDone
         )
-        return if (model.hasAnyIssue) model else null
+
+    companion object {
+        /** Pure logic for repair-model derivation. Unit-testable without Android. */
+        fun deriveRepairModel(
+            accessibilityEnabled: Boolean,
+            overlayEnabled: Boolean,
+            batteryIgnoringOptimizations: Boolean,
+            batteryWasDone: Boolean
+        ): PermissionRepairModel? {
+            val model = PermissionRepairModel(
+                accessibilityMissing = !accessibilityEnabled,
+                overlayMissing = !overlayEnabled,
+                batteryMissing = batteryWasDone && !batteryIgnoringOptimizations
+            )
+            return if (model.hasAnyIssue) model else null
+        }
     }
 }
