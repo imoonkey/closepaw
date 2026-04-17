@@ -259,6 +259,164 @@ class CodexSseParserTest {
         assertThat(result).isNull()
     }
 
+    @Test
+    fun `interleaved tool-call deltas across two output indices assemble correctly`() {
+        val accumulator = CodexSseParser.ToolCallAccumulator()
+
+        // Two function calls added at different output indices
+        CodexSseParser.mapToStreamEvent(
+            sseEvent("response.output_item.added", JSONObject().apply {
+                put("output_index", 0)
+                put("item", JSONObject().apply {
+                    put("type", "function_call")
+                    put("call_id", "call-A")
+                    put("name", "click")
+                })
+            }),
+            accumulator
+        )
+        CodexSseParser.mapToStreamEvent(
+            sseEvent("response.output_item.added", JSONObject().apply {
+                put("output_index", 1)
+                put("item", JSONObject().apply {
+                    put("type", "function_call")
+                    put("call_id", "call-B")
+                    put("name", "type_text")
+                })
+            }),
+            accumulator
+        )
+
+        // Interleaved argument deltas: A, B, A, B, A
+        val deltaSequence = listOf(
+            0 to "{\"x\":",
+            1 to "{\"text\":\"he",
+            0 to "10",
+            1 to "llo\"}",
+            0 to ",\"y\":20}",
+        )
+        for ((idx, delta) in deltaSequence) {
+            CodexSseParser.mapToStreamEvent(
+                sseEvent("response.function_call_arguments.delta", JSONObject().apply {
+                    put("output_index", idx)
+                    put("delta", delta)
+                }),
+                accumulator
+            )
+        }
+
+        // Done for index 1 first (reverse order)
+        val resultB = CodexSseParser.mapToStreamEvent(
+            sseEvent("response.output_item.done", JSONObject().apply {
+                put("output_index", 1)
+                put("item", JSONObject().apply {
+                    put("type", "function_call")
+                    put("call_id", "call-B")
+                    put("name", "type_text")
+                })
+            }),
+            accumulator
+        )
+        val resultA = CodexSseParser.mapToStreamEvent(
+            sseEvent("response.output_item.done", JSONObject().apply {
+                put("output_index", 0)
+                put("item", JSONObject().apply {
+                    put("type", "function_call")
+                    put("call_id", "call-A")
+                    put("name", "click")
+                })
+            }),
+            accumulator
+        )
+
+        assertThat(resultB).isInstanceOf(LLMStreamEvent.ToolCallDone::class.java)
+        val toolB = (resultB as LLMStreamEvent.ToolCallDone).toolCall
+        assertThat(toolB.callId).isEqualTo("call-B")
+        assertThat(toolB.name).isEqualTo("type_text")
+        assertThat(toolB.arguments).isEqualTo("{\"text\":\"hello\"}")
+
+        assertThat(resultA).isInstanceOf(LLMStreamEvent.ToolCallDone::class.java)
+        val toolA = (resultA as LLMStreamEvent.ToolCallDone).toolCall
+        assertThat(toolA.callId).isEqualTo("call-A")
+        assertThat(toolA.name).isEqualTo("click")
+        assertThat(toolA.arguments).isEqualTo("{\"x\":10,\"y\":20}")
+    }
+
+    @Test
+    fun `three parallel tool calls with heavily interleaved chunks assemble correctly`() {
+        val accumulator = CodexSseParser.ToolCallAccumulator()
+
+        // Add three function calls at indices 0, 1, 2
+        val adds = listOf(
+            Triple(0, "call-0", "scroll"),
+            Triple(1, "call-1", "click"),
+            Triple(2, "call-2", "type_text"),
+        )
+        for ((idx, callId, name) in adds) {
+            CodexSseParser.mapToStreamEvent(
+                sseEvent("response.output_item.added", JSONObject().apply {
+                    put("output_index", idx)
+                    put("item", JSONObject().apply {
+                        put("type", "function_call")
+                        put("call_id", callId)
+                        put("name", name)
+                    })
+                }),
+                accumulator
+            )
+        }
+
+        // Heavily interleaved deltas across all three indices
+        val deltas = listOf(
+            2 to "{\"t",
+            0 to "{\"dir",
+            1 to "{",
+            2 to "ext\":",
+            1 to "\"id\"",
+            0 to "\":\"down\"",
+            2 to "\"bye\"",
+            1 to ":\"btn-1\"}",
+            0 to ",\"n\":3}",
+            2 to "}",
+        )
+        for ((idx, delta) in deltas) {
+            CodexSseParser.mapToStreamEvent(
+                sseEvent("response.function_call_arguments.delta", JSONObject().apply {
+                    put("output_index", idx)
+                    put("delta", delta)
+                }),
+                accumulator
+            )
+        }
+
+        // Emit done in an out-of-order sequence: 1, 2, 0
+        val results = listOf(1, 2, 0).map { idx ->
+            val (_, callId, name) = adds[idx]
+            CodexSseParser.mapToStreamEvent(
+                sseEvent("response.output_item.done", JSONObject().apply {
+                    put("output_index", idx)
+                    put("item", JSONObject().apply {
+                        put("type", "function_call")
+                        put("call_id", callId)
+                        put("name", name)
+                    })
+                }),
+                accumulator
+            )
+        }
+
+        val byId = results.map { (it as LLMStreamEvent.ToolCallDone).toolCall }.associateBy { it.callId }
+
+        assertThat(byId["call-0"]!!.name).isEqualTo("scroll")
+        assertThat(byId["call-0"]!!.arguments).isEqualTo("{\"dir\":\"down\",\"n\":3}")
+
+        assertThat(byId["call-1"]!!.name).isEqualTo("click")
+        assertThat(byId["call-1"]!!.arguments).isEqualTo("{\"id\":\"btn-1\"}")
+
+        assertThat(byId["call-2"]!!.name).isEqualTo("type_text")
+        assertThat(byId["call-2"]!!.arguments).isEqualTo("{\"text\":\"bye\"}")
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private fun sseEvent(type: String, json: JSONObject): CodexSseParser.SseEvent {
