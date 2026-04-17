@@ -1,9 +1,10 @@
 package ai.closepaw.qa
 
 import ai.closepaw.ui.overlay.model.CapsuleMode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -16,6 +17,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+
+private fun SemanticsNodeInteraction.editableTextValue(): String =
+    fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
 @RunWith(AndroidJUnit4::class)
 class CapsuleInputTest {
@@ -55,7 +59,7 @@ class CapsuleInputTest {
         compose.setContent { TestCapsule(mode = waiting) }
 
         compose.onNodeWithTag("qa-capsule-input").performTextInput("abc")
-        compose.onNodeWithTag("qa-capsule-input").assertTextContains("abc")
+        assertEquals("abc", compose.onNodeWithTag("qa-capsule-input").editableTextValue())
     }
 
     // K8
@@ -69,10 +73,12 @@ class CapsuleInputTest {
         }
 
         compose.onNodeWithTag("qa-capsule-input").performTextInput("hello")
+        assertEquals("hello", compose.onNodeWithTag("qa-capsule-input").editableTextValue())
+
         compose.onNodeWithContentDescription("Send →").performClick()
 
         assertEquals("c-1" to "hello", received)
-        compose.onNodeWithTag("qa-capsule-input").assertTextContains("")
+        assertEquals("", compose.onNodeWithTag("qa-capsule-input").editableTextValue())
         compose.onNodeWithContentDescription("Send →").assertIsNotEnabled()
     }
 }
