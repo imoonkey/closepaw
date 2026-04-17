@@ -27,8 +27,8 @@ ERROR_PATTERN = re.compile(
     r"AgentService: Session error|"
     r"Fatal error|"
     r"TurnExecutionPhase: Executing tool: ask_user|"
-    r"ANR in com\.moonkey\.androidagent|"
-    r"Timeout executing service: ServiceRecord\{[^}]*com\.moonkey\.androidagent/.app.AgentService)"
+    r"ANR in ai\.closepaw|"
+    r"Timeout executing service: ServiceRecord\{[^}]*ai\.closepaw/.app.AgentService)"
 )
 REASON_PATTERN = re.compile(r"reason[=:]\s*([A-Za-z_]+)")
 
