@@ -1050,7 +1050,7 @@
   "protocol-communication": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Protocol & Communication Fixes",
     "description": "Fix three concrete bugs in the protocol module: completion semantics leak into session recording, checkpoint persistence drops runtime-affecting fields, and approval allow-list mutation skips validation. Opportunistic dead event surface cleanup.",
     "design": "doc/todo/holistic-review/protocol-communication/final/improvement_plan.md",
@@ -1549,7 +1549,7 @@
     "depends": [
       "pc-codex-review"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "QA Round: Real Device Validation",
     "description": "Run end-to-end QA on device via adb/accessibility to validate protocol fixes do not regress user-facing behavior and bugs are actually fixed. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) Approval validation: trigger an approval, dismiss it, then replay the same Op.Approve via adb intent or logcat injection — verify allow-list was NOT mutated (check policyEngine state or logcat for warning)\n(2) Completion recording: complete a task successfully (GOAL_ACHIEVED), then let session idle timeout — verify session recording JSON shows task as completed normally (not failed)\n(3) Checkpoint round-trip: start session with non-default config (e.g. custom actionDelayMs or approvalMode via settings), trigger checkpoint, force-stop and relaunch — verify restored config matches original (check logcat for config values)\n(4) Dead event surface: run a normal task with logcat filtering for TodosUpdated, ScratchpadUpdated, ApprovalResolved — verify these events no longer appear in the event stream\n(5) Normal multi-turn task: complete a standard task — verify GOAL_ACHIEVED in session record and no regression in chat UI\n(6) Session error: trigger a bootstrap failure (e.g. invalid API key) — verify SessionError surfaces in chat UI with error message\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence. Write pass/fail report.",
     "acceptCriteria": [
