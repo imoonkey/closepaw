@@ -2132,36 +2132,5 @@
     ],
     "updated": "2026-04-17T03:30:00+08:00",
     "note": " [2026-04-17: verified code matches all acceptCriteria; marked done in bulk backfill.]"
-  },
-  "worktree-provision-hook": {
-    "parent": null,
-    "depends": [],
-    "state": "done",
-    "title": "Add worktree-provision.sh hook",
-    "description": "rc-qa surfaced F2: fresh worktrees under .worktrees/<slug> do NOT inherit the main checkout's per-machine untracked files. Two hit us during the rename project:\n- .env (LLM API keys) — scripts/debug-run.sh sources $PROJECT_ROOT/.env. Missing → agent hangs silently waiting for LLM responses with no credentials. Root cause of rc-6's S4 smoke-turn hang.\n- local.properties (Android SDK path) — gradle needs it. Missing → assembleDebug fails with 'SDK location not found'. rc-6 worker manually `cp ../../local.properties local.properties`.\n\nThe orchestrate skill's worktree-create.sh already provides a per-project hook point: it runs `$repo_root/scripts/worktree-provision.sh` (cwd=new worktree) on first worktree creation if the script exists and is executable. We just haven't written one.\n\nCreate scripts/worktree-provision.sh that symlinks .env and local.properties from the main checkout into the new worktree. Symlinks (not copies) so any update to main's .env propagates. Add a short note in doc/dev/development.md under a 'Worktrees' subsection explaining the hook and when it fires.\n\nThe main checkout's absolute path is derivable from the worktree's own git metadata: `git rev-parse --git-common-dir` returns the common .git dir; parent of that is the main checkout path. Use that instead of hardcoded absolute paths so the script works on any machine.",
-    "scope": [
-      "scripts/worktree-provision.sh",
-      "doc/dev/development.md"
-    ],
-    "acceptCriteria": [
-      "test -x scripts/worktree-provision.sh",
-      "bash -n scripts/worktree-provision.sh",
-      "grep -q 'main_checkout' scripts/worktree-provision.sh || grep -q 'git-common-dir\\|git common-dir\\|rev-parse.*common' scripts/worktree-provision.sh",
-      "grep -qE '\\.env' scripts/worktree-provision.sh",
-      "grep -q 'local\\.properties' scripts/worktree-provision.sh",
-      "grep -qiE 'worktree' doc/dev/development.md",
-      "grep -q 'worktree-provision' doc/dev/development.md",
-      "git diff --name-only HEAD~0 | sort -u | grep -v -E '^(scripts/worktree-provision\\.sh|doc/dev/development\\.md)$' | grep . && exit 1 || true"
-    ],
-    "priority": "normal",
-    "tags": [
-      "dev-ergonomics",
-      "worktree"
-    ],
-    "estimate": "xs",
-    "created": "2026-04-17T06:34:02Z",
-    "updated": "2026-04-17T06:36:50Z",
-    "agent": "w-wt-provision",
-    "note": "Commit e83a8302. scripts/worktree-provision.sh (executable, idempotent, symlinks .env + local.properties from main via git rev-parse --git-common-dir). doc/dev/development.md gained a Worktrees section pointing at the hook. Smoke-tested with throwaway worktree before commit."
   }
 }
