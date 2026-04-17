@@ -1073,7 +1073,7 @@
   "pc-approval-validation": {
     "parent": "protocol-communication",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Fix approval allow-list mutation skipping validation",
     "description": "handleApproval() in AgentSession.kt:589-611 persists allow-list changes via policyEngine.allowPackageForSession/allowPackagePersistent BEFORE calling toolRouter.resolveApproval(). The return value of resolveApproval() is ignored. A stale or duplicate Op.Approve can mutate security policy without matching a pending approval. Fix: call resolveApproval() first, gate allow-list mutation on it returning true, log warning on false.",
     "scope": [
@@ -1135,7 +1135,7 @@
   "pc-checkpoint-persistence": {
     "parent": "protocol-communication",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Fix checkpoint persistence dropping runtime-affecting fields",
     "description": "SessionCheckpointCoordinator.buildSnapshot():67-81 creates SessionRuntimeSnapshot via config.toConfigSnapshot(). The snapshot only captures model/agent/perception/platform data. These runtime-affecting fields are silently dropped on reload:\n- actionDelayMs (used in SessionAgentRunner:72-80)\n- approvalMode (security posture)\n- debugMode\n- traceEnabled (used in TraceRecorderFactory:12-16)\n- traceRunId (used in TraceRecorderFactory:35-44)\n- excludedTools (tool availability)\n\nReload can change approval behavior, disable tracing, and alter tool availability without user awareness.",
     "scope": [
