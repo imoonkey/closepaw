@@ -1,6 +1,5 @@
 package com.moonkey.androidagent.auth
 
-import android.util.Base64
 import android.util.Log
 import com.moonkey.androidagent.BuildConfig
 import java.io.BufferedReader
@@ -344,7 +343,7 @@ fun parseEmailFromJwt(jwt: String): String? {
     val parts = jwt.split(".")
     if (parts.size != 3) return null
     return try {
-        val payload = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_PADDING), Charsets.UTF_8)
+        val payload = String(base64UrlDecode(parts[1]), Charsets.UTF_8)
         val json = JSONObject(payload)
         json.optString("https://api.openai.com/profile.email", "").ifEmpty { null }
             ?: json.optString("email", "").ifEmpty { null }
@@ -354,7 +353,13 @@ fun parseEmailFromJwt(jwt: String): String? {
 }
 
 private fun ByteArray.toBase64Url(): String =
-    Base64.encodeToString(this, Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+    java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(this)
+
+private fun base64UrlDecode(s: String): ByteArray {
+    val padded = s.replace('-', '+').replace('_', '/')
+    val withPad = padded + "=".repeat((4 - padded.length % 4) % 4)
+    return java.util.Base64.getDecoder().decode(withPad)
+}
 
 /**
  * Validate OAuth access token by making a minimal call to ChatGPT backend-api.
@@ -374,7 +379,7 @@ object OAuthCodexValidator {
         val parts = accessToken.split(".")
         if (parts.size != 3) return null
         return try {
-            val payload = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_PADDING), Charsets.UTF_8)
+            val payload = String(base64UrlDecode(parts[1]), Charsets.UTF_8)
             val json = JSONObject(payload)
             val auth = json.optJSONObject("https://api.openai.com/auth")
             auth?.optString("chatgpt_account_id", "")?.ifEmpty { null }
