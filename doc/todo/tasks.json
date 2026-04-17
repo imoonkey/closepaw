@@ -928,7 +928,7 @@
   "tool-system-design": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Tool System Design 改进",
     "description": "基于 holistic review + 双盲验证的 tool system 改进。6 个阶段: 观测边界安全、ToolName 元数据修正、action runtime 规范化、shell 加固、router 合约收紧、死代码清理。",
     "design": "doc/todo/holistic-review/tool-system-design/final/improvement_plan.md",
@@ -936,12 +936,14 @@
       "All child tasks done",
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
-    ]
+    ],
+    "updated": "2026-04-17T03:30:00+08:00",
+    "note": " [2026-04-17: verified code matches all acceptCriteria; marked done in bulk backfill.]"
   },
   "tsd-observation-boundary": {
     "parent": "tool-system-design",
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Phase 0: 修复 PostActionAnalysis 观测遮蔽缺口",
     "description": "PostActionAnalysis.kt:45 调用 buildObservation(it, platform) 未传 appClassifier，导致 mobile_action (click/type/scroll/swipe/long_press) 的 post-action observation 在 BLOCKED app 上不遮蔽。将 appClassifier 从 ToolExecutionContext 线程到 capturePostActionAnalysis → buildObservation。同时让 open_app 在执行时 re-check 目标包的 tier。",
     "scope": [
@@ -960,12 +962,14 @@
       "grep -n 'buildObservation.*platform)$' app/src/main/kotlin/com/moonkey/androidagent/tool/action/PostActionAnalysis.kt returns empty",
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
-    ]
+    ],
+    "updated": "2026-04-17T03:30:00+08:00",
+    "note": " [2026-04-17: verified code matches all acceptCriteria; marked done in bulk backfill.]"
   },
   "tsd-toolname-stopgap": {
     "parent": "tool-system-design",
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Phase 1a: 添加 ask_user/shell 到 ToolName",
     "description": "ask_user 和 shell 不在 ToolName enum 中，解析为 Unknown(isScreenChanging=true)，导致: (1) CAUTIOUS app 上 ask_user 触发不必要的审批, (2) TurnToolPolicy 将两者归为 screen action 导致同 turn 的 complete_task 被丢弃。添加 AskUser 和 Shell 两个 data object，isScreenChanging 返回 false。",
     "scope": [
@@ -978,14 +982,16 @@
       "ToolName.Shell.isScreenChanging == false",
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
-    ]
+    ],
+    "updated": "2026-04-17T03:30:00+08:00",
+    "note": " [2026-04-17: verified code matches all acceptCriteria; marked done in bulk backfill.]"
   },
   "tsd-action-runtime": {
     "parent": "tool-system-design",
     "depends": [
       "tsd-observation-boundary"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 2: Action Runtime 规范化",
     "description": "三个修复: (1) SwipeExecutor.kt:49-53 将 ActionResult.Cancelled 映射为 Failed → 改为 Cancelled, (2) TypeExecutor 各路径添加显式 Cancelled 处理, (3) ScrollExecutor.resolveScrollArea() 在显式目标 (element_index/text) 解析失败时返回错误而非静默降级为全屏滚动, (4) refinePointActionTarget() 重定向时在 attempt trail 中添加说明。",
     "scope": [
@@ -1001,12 +1007,14 @@
       "refinePointActionTarget retargeting adds note to warnings/trail",
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
-    ]
+    ],
+    "updated": "2026-04-17T03:30:00+08:00",
+    "note": " [2026-04-17: verified code matches all acceptCriteria; marked done in bulk backfill.]"
   },
   "tsd-shell-hardening": {
     "parent": "tool-system-design",
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Phase 3: Shell 加固",
     "description": "两个修复: (1) Shell 验证扩展 — 拒绝包含元字符 (; | & $( `) 的命令，或添加 env/xargs/find 到 blocklist, (2) 输出截断时追加 '[output truncated at N chars]' 标记，让 LLM 知道数据不完整。",
     "scope": [
@@ -1018,12 +1026,14 @@
       "grep -q 'truncated' app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt exits 0",
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
-    ]
+    ],
+    "updated": "2026-04-17T03:30:00+08:00",
+    "note": " [2026-04-17: verified code matches all acceptCriteria; marked done in bulk backfill.]"
   },
   "tsd-dead-code-cleanup": {
     "parent": "tool-system-design",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Phase 5: 死代码清理批次",
     "description": "6 项确认的死代码清理: (1) 删除 UIActionInvocation.detectScrollBoundary() (lines 53-58, 87-110), (2) 删除 UiChangeDetector.detectScrollBoundary() (lines 31-49), (3) 删除 PolicyEngine.isEscape() 中 MobileActionName.Back/Home fallback 分支 (注意: enum 成员被 ToolUi.kt 使用，仅删分支), (4) 删除 OpenAppTool companion 中未使用的 UI_SETTLE_DELAY_MS 和 SUGGESTION_LIMIT, (5) SystemButtonTool.kt:71 else branch 改为 error('Unreachable'), (6) 删除 DataQueryInvocation.kt (零调用者), (7) 修复 ActionPriorityOrder.kt 中指向不存在路径的 doc 引用。",
     "scope": [
@@ -1045,7 +1055,9 @@
       "ActionPriorityOrder doc reference updated or removed",
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
-    ]
+    ],
+    "updated": "2026-04-17T03:30:00+08:00",
+    "note": " [2026-04-17: verified code matches all acceptCriteria; marked done in bulk backfill.]"
   },
   "protocol-communication": {
     "parent": null,
