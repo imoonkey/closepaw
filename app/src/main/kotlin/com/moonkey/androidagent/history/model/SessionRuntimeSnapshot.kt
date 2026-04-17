@@ -64,7 +64,13 @@ data class ConversationConfigSnapshot(
     val platformMode: String,
     val llmBackendType: String = "OPENAI",
     val localModelSlug: String? = null,
-    val localQuantizationSlug: String? = null
+    val localQuantizationSlug: String? = null,
+    val actionDelayMs: Long = 2000,
+    val approvalMode: String = "SMART",
+    val debugMode: Boolean = false,
+    val traceEnabled: Boolean = false,
+    val traceRunId: String? = null,
+    val excludedTools: List<String> = emptyList()
 )
 
 @Serializable

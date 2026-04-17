@@ -11,6 +11,7 @@ import com.moonkey.androidagent.history.model.TodoSnapshot
 import com.moonkey.androidagent.llm.LocalLLMConfig
 import com.moonkey.androidagent.perception.PerceptionConfig
 import com.moonkey.androidagent.protocol.AgentMode
+import com.moonkey.androidagent.protocol.ApprovalMode
 import com.moonkey.androidagent.protocol.LLMBackendType
 import com.moonkey.androidagent.protocol.PlatformMode
 import com.moonkey.androidagent.protocol.SessionConfig
@@ -90,7 +91,13 @@ internal fun SessionConfig.toConfigSnapshot() = ConversationConfigSnapshot(
     platformMode = platformMode.name,
     llmBackendType = llm.backendType.name,
     localModelSlug = llm.localConfig?.modelSlug,
-    localQuantizationSlug = llm.localConfig?.quantizationSlug
+    localQuantizationSlug = llm.localConfig?.quantizationSlug,
+    actionDelayMs = actionDelayMs,
+    approvalMode = approvalMode.name,
+    debugMode = debugMode,
+    traceEnabled = traceEnabled,
+    traceRunId = traceRunId,
+    excludedTools = excludedTools.toList()
 )
 
 private fun PerceptionConfig.toModeString(): String = when (this) {
@@ -124,5 +131,11 @@ internal fun ConversationConfigSnapshot.toSessionConfig(): SessionConfig = Sessi
         } else {
             null
         }
-    )
+    ),
+    actionDelayMs = actionDelayMs,
+    approvalMode = try { ApprovalMode.valueOf(approvalMode) } catch (_: Exception) { ApprovalMode.SMART },
+    debugMode = debugMode,
+    traceEnabled = traceEnabled,
+    traceRunId = traceRunId,
+    excludedTools = excludedTools.toSet()
 )
