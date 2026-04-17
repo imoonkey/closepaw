@@ -1,7 +1,5 @@
 package com.moonkey.androidagent.ui.settings
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,36 +23,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-
-@Composable
-internal fun ApiKeysSection(
-    openAiApiKey: String,
-    onOpenAiApiKeyChange: (String) -> Unit,
-    openRouterApiKey: String,
-    onOpenRouterApiKeyChange: (String) -> Unit,
-    novitaApiKey: String,
-    onNovitaApiKeyChange: (String) -> Unit
-) {
-    SettingsSection(title = "API Keys") {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            ApiKeyField(
-                label = "OpenAI Key",
-                value = openAiApiKey,
-                onValueChange = onOpenAiApiKeyChange
-            )
-            ApiKeyField(
-                label = "OpenRouter Key",
-                value = openRouterApiKey,
-                onValueChange = onOpenRouterApiKeyChange
-            )
-            ApiKeyField(
-                label = "Novita Key",
-                value = novitaApiKey,
-                onValueChange = onNovitaApiKeyChange
-            )
-        }
-    }
-}
 
 @Composable
 internal fun ApiKeyField(

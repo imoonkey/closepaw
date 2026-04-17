@@ -39,16 +39,6 @@ sealed class ToolCallResult {
     ) : ToolCallResult()
     
     /**
-     * Check if this result indicates success.
-     */
-    fun isSuccess(): Boolean = this is Success
-    
-    /**
-     * Get the output string, or null if not successful.
-     */
-    fun getOutputOrNull(): String? = (this as? Success)?.output
-    
-    /**
      * Convert to a string suitable for including in LLM context.
      */
     fun toContextString(): String {

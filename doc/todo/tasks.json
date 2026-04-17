@@ -4,7 +4,7 @@
     "depends": [],
     "state": "ready",
     "title": "Open Source Release",
-    "description": "README.md + LICENSE + CONTRIBUTING.md + SECURITY.md + .env.example + GitHub Actions CI (build+lint+test on PR) + release workflow (tag \u2192 signed APK \u2192 GitHub Release)\u3002",
+    "description": "README.md + LICENSE + CONTRIBUTING.md + SECURITY.md + .env.example + GitHub Actions CI (build+lint+test on PR) + release workflow (tag → signed APK → GitHub Release)。",
     "design": "doc/todo/open_source_release/note.md",
     "scope": [
       "README.md",
@@ -20,15 +20,15 @@
       "GitHub Actions CI runs build+lint+test on PR",
       "Release workflow produces signed APK on tag"
     ],
-    "note": "Pending human review \u2014 design not yet discussed",
+    "note": "Pending human review — design not yet discussed",
     "updated": "2026-04-08T03:10:00+08:00"
   },
   "phase2-utility": {
     "parent": null,
     "depends": [],
     "state": "blocked",
-    "title": "Phase 2: \u771f\u5b9e\u5b9e\u7528\u6027",
-    "description": "Prompt externalization + app skill discovery + eval regression CI\u3002Agent \u80fd\u5728\u7528\u6237\u65e5\u5e38\u7528\u7684 30+ app \u4e0a\u5de5\u4f5c\u3002",
+    "title": "Phase 2: 真实实用性",
+    "description": "Prompt externalization + app skill discovery + eval regression CI。Agent 能在用户日常用的 30+ app 上工作。",
     "acceptCriteria": [
       "All child tasks done",
       "30+ app skills generated via discovery system",
@@ -42,7 +42,7 @@
     "depends": [],
     "state": "blocked",
     "title": "Prompt Externalization",
-    "description": "System prompt \u4ece StandaloneAgentDef.kt \u7b49\u786c\u7f16\u7801\u5b57\u7b26\u4e32 \u2192 assets/persona/<role>/system_prompt.md\u3002\u65b0\u589e PersonaRepository\uff08\u63a5\u53e3 + asset \u5b9e\u73b0\uff09\u3002App skill \u8fed\u4ee3\u4e0d\u518d\u9700\u8981\u91cd\u65b0\u7f16\u8bd1 APK\u3002\u5bf9\u5e94 OpenClaw roadmap P3 Phase 1\u3002\u662f app skill discovery \u7684\u524d\u7f6e\u6761\u4ef6\u3002",
+    "description": "System prompt 从 StandaloneAgentDef.kt 等硬编码字符串 → assets/persona/<role>/system_prompt.md。新增 PersonaRepository（接口 + asset 实现）。App skill 迭代不再需要重新编译 APK。对应 OpenClaw roadmap P3 Phase 1。是 app skill discovery 的前置条件。",
     "design": "doc/todo/prompt_externalization/note.md",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/agent/definition/**",
@@ -55,7 +55,7 @@
       "Changing asset file changes agent behavior without APK rebuild",
       "./gradlew test passes"
     ],
-    "note": "Pending human review \u2014 design not yet discussed"
+    "note": "Pending human review — design not yet discussed"
   },
   "app-skill-discovery": {
     "parent": "phase2-utility",
@@ -63,8 +63,8 @@
       "prompt-externalization"
     ],
     "state": "blocked",
-    "title": "App Skill Discovery \u7cfb\u7edf",
-    "description": "\u5efa\u4e00\u4e2a\u7cfb\u7edf\u8ba9 agent \u81ea\u5df1\u63a2\u7d22 app \u5e76\u63d0\u70bc SKILL.md\uff08\u542b Safety section\uff09\u3002Discovery loop: \u7ed9\u5b9a target app \u2192 agent \u542f\u52a8 \u2192 \u7cfb\u7edf\u6027\u63a2\u7d22 UI \u8def\u5f84 \u2192 \u8bb0\u5f55 a11y tree \u7279\u5f81\u3001navigation pattern\u3001pitfall \u2192 \u751f\u6210 SKILL.md draft\u3002\u82f1\u6587\u5e02\u573a top 30 app \u4f18\u5148\u3002\u9700\u8981 quality gate\uff08\u8dd1 test task / \u4eba\u5de5 review\uff09\u3002",
+    "title": "App Skill Discovery 系统",
+    "description": "建一个系统让 agent 自己探索 app 并提炼 SKILL.md（含 Safety section）。Discovery loop: 给定 target app → agent 启动 → 系统性探索 UI 路径 → 记录 a11y tree 特征、navigation pattern、pitfall → 生成 SKILL.md draft。英文市场 top 30 app 优先。需要 quality gate（跑 test task / 人工 review）。",
     "design": "doc/todo/app_skill_discovery/note.md",
     "scope": [
       "app/src/main/assets/app_skills/**"
@@ -76,14 +76,14 @@
       "./gradlew assembleDebug passes"
     ],
     "requireHumanReview": true,
-    "note": "Pending human review \u2014 design not yet discussed"
+    "note": "Pending human review — design not yet discussed"
   },
   "eval-regression-ci": {
     "parent": "phase2-utility",
     "depends": [],
     "state": "blocked",
-    "title": "Eval \u8f6c Regression CI",
-    "description": "AndroidWorld full set \u4f5c\u4e3a regression gate\u3002PR \u8dd1 eval\uff0cregression \u624d fail\u3002\u505c\u6b62 autotune optimization loop\uff08R58 \u662f\u6700\u540e\u4e00\u8f6e\u4e3b\u52a8\u4f18\u5316\uff09\u3002\u4fdd\u7559 eval infra \u4e0d\u53d8\u3002",
+    "title": "Eval 转 Regression CI",
+    "description": "AndroidWorld full set 作为 regression gate。PR 跑 eval，regression 才 fail。停止 autotune optimization loop（R58 是最后一轮主动优化）。保留 eval infra 不变。",
     "design": "doc/todo/eval_regression_ci/note.md",
     "scope": [
       ".github/workflows/**",
@@ -94,7 +94,7 @@
       "Eval regression detected and reported as CI failure",
       "Eval pass/fail threshold configured based on R58 baseline"
     ],
-    "note": "Pending human review \u2014 design not yet discussed"
+    "note": "Pending human review — design not yet discussed"
   },
   "phase3-daily-assistant": {
     "parent": null,
@@ -102,8 +102,8 @@
       "phase2-utility"
     ],
     "state": "blocked",
-    "title": "Phase 3: \u65e5\u5e38\u52a9\u624b",
-    "description": "Scheduled tasks + notification handling + OpenAI OAuth\u3002\u628a Android Agent \u4ece\u4e00\u6b21\u6027\u5de5\u5177\u53d8\u6210\u6bcf\u5929\u90fd\u7528\u7684 assistant\u3002",
+    "title": "Phase 3: 日常助手",
+    "description": "Scheduled tasks + notification handling + OpenAI OAuth。把 Android Agent 从一次性工具变成每天都用的 assistant。",
     "acceptCriteria": [
       "All child tasks done"
     ],
@@ -114,7 +114,7 @@
     "depends": [],
     "state": "blocked",
     "title": "Scheduled Tasks",
-    "description": "Cron \u5f0f\u5b9a\u65f6\u4efb\u52a1\u6267\u884c\u3002\u7528\u6237\u8bbe\u5b9a schedule + natural language instruction\u3002AlarmManager/WorkManager \u89e6\u53d1 \u2192 \u542f\u52a8 agent session \u2192 \u6267\u884c \u2192 \u8bb0\u5f55\u7ed3\u679c\u3002UI: \u4efb\u52a1\u5217\u8868\u3001\u521b\u5efa/\u7f16\u8f91/\u5220\u9664\u3001\u6267\u884c\u5386\u53f2\u3002",
+    "description": "Cron 式定时任务执行。用户设定 schedule + natural language instruction。AlarmManager/WorkManager 触发 → 启动 agent session → 执行 → 记录结果。UI: 任务列表、创建/编辑/删除、执行历史。",
     "design": "doc/todo/scheduled_tasks/note.md",
     "acceptCriteria": [
       "User can create a scheduled task with cron expression and instruction",
@@ -122,14 +122,14 @@
       "Execution results recorded and viewable",
       "Failed tasks show error and can be retried"
     ],
-    "note": "Pending human review \u2014 design not yet discussed"
+    "note": "Pending human review — design not yet discussed"
   },
   "notification-handling": {
     "parent": "phase3-daily-assistant",
     "depends": [],
     "state": "blocked",
     "title": "Notification Handling",
-    "description": "NotificationListenerService \u76d1\u542c \u2192 \u6309\u7528\u6237\u5b9a\u4e49\u7684\u89c4\u5219\u89e6\u53d1 agent \u54cd\u5e94\u3002\u89c4\u5219\u5f15\u64ce\uff1aapp filter + keyword filter + sender filter \u2192 trigger action\u3002\u7528\u6237 explicit opt-in \u6bcf\u6761\u89c4\u5219\u3002",
+    "description": "NotificationListenerService 监听 → 按用户定义的规则触发 agent 响应。规则引擎：app filter + keyword filter + sender filter → trigger action。用户 explicit opt-in 每条规则。",
     "design": "doc/todo/notification_handling/note.md",
     "acceptCriteria": [
       "NotificationListenerService captures notifications",
@@ -137,14 +137,14 @@
       "Matching notifications trigger agent task execution",
       "Each rule requires explicit user opt-in"
     ],
-    "note": "Pending human review \u2014 design not yet discussed"
+    "note": "Pending human review — design not yet discussed"
   },
   "openai-oauth": {
     "parent": "phase3-daily-assistant",
     "depends": [],
     "state": "done",
     "title": "OpenAI OAuth Login",
-    "description": "\u53c2\u8003 OpenClaw \u5b9e\u73b0\uff1aOpenAI Codex OAuth flow\u3002\u7528\u6237\u7528 OpenAI \u8d26\u53f7\u767b\u5f55 \u2192 \u590d\u7528\u5df2\u6709 subscription\u3002\u548c\u624b\u52a8 API key \u5e76\u5b58\u3002\u964d\u4f4e\u65b0\u7528\u6237 onboarding friction\u3002",
+    "description": "参考 OpenClaw 实现：OpenAI Codex OAuth flow。用户用 OpenAI 账号登录 → 复用已有 subscription。和手动 API key 并存。降低新用户 onboarding friction。",
     "design": "doc/todo/openai_oauth/note.md",
     "acceptCriteria": [
       "OAuth login flow implemented for OpenAI",
@@ -158,8 +158,8 @@
     "parent": null,
     "depends": [],
     "state": "ready",
-    "title": "app_tiers.json \u6269\u5c55\u5230 100-1000 app",
-    "description": "\u5c06 app_tiers.json \u4ece\u5f53\u524d 61 \u4e2a app (36 blocked + 25 normal) \u6269\u5c55\u5230\u8986\u76d6\u4e16\u754c\u5e38\u7528 100-1000 \u4e2a app\u3002\u9700\u8981\u8bbe\u8ba1\u6570\u636e\u83b7\u53d6\u6d41\u7a0b: \u62c9\u53d6 package name + app name + category (Google Play top charts, AppBrain \u7b49) \u2192 \u7528 LLM \u6279\u91cf\u8bc4\u4f30 tier\u3002\u72ec\u7acb\u8bbe\u8ba1\u4efb\u52a1\u3002",
+    "title": "app_tiers.json 扩展到 100-1000 app",
+    "description": "将 app_tiers.json 从当前 61 个 app (36 blocked + 25 normal) 扩展到覆盖世界常用 100-1000 个 app。需要设计数据获取流程: 拉取 package name + app name + category (Google Play top charts, AppBrain 等) → 用 LLM 批量评估 tier。独立设计任务。",
     "requireHumanReview": true,
     "scope": [
       "app/src/main/assets/security/app_tiers.json"
@@ -229,8 +229,8 @@
       "compress() Phase 2 loop uses delta tracking instead of full rescan per removal",
       "No call to estimateTokenCount() inside the eviction while-loop body",
       "lastTokenEstimate invalidated only once after eviction completes, not per removal",
-      "Unit test: compress large history (500+ items over budget) \u2014 token count after compress matches items.sumOf{it.estimateTokens()}",
-      "Unit test: compress with mixed item types (screen observations, tool outputs, user messages) \u2014 correct items evicted per existing priority rules",
+      "Unit test: compress large history (500+ items over budget) — token count after compress matches items.sumOf{it.estimateTokens()}",
+      "Unit test: compress with mixed item types (screen observations, tool outputs, user messages) — correct items evicted per existing priority rules",
       "Existing HistoryManager tests still pass",
       "./gradlew test passes"
     ],
@@ -245,7 +245,7 @@
   },
   "perf-truncation-indexof": {
     "title": "Fix truncation O(n^2) indexOf in applyTruncation",
-    "description": "applyTruncation() in PerceptorInternals.kt calls candidates.indexOf(c) in three loops (interactive, non-interactive, fallback). Each indexOf is O(n) with expensive data-class equals(). With maxElements=500 and 2x over-collection (up to 1000 candidates), this is up to 500K comparisons. Fix: use a HashSet<PerceptorCandidateElement> for dedup instead of position-based indexOf. Build a \"seen\" set, add elements as they are selected. The kept list preserves insertion order (priority ordering). This also simplifies the code \u2014 no need to track indices at all.",
+    "description": "applyTruncation() in PerceptorInternals.kt calls candidates.indexOf(c) in three loops (interactive, non-interactive, fallback). Each indexOf is O(n) with expensive data-class equals(). With maxElements=500 and 2x over-collection (up to 1000 candidates), this is up to 500K comparisons. Fix: use a HashSet<PerceptorCandidateElement> for dedup instead of position-based indexOf. Build a \"seen\" set, add elements as they are selected. The kept list preserves insertion order (priority ordering). This also simplifies the code — no need to track indices at all.",
     "parent": "perf-resources",
     "depends": [],
     "state": "done",
@@ -256,7 +256,7 @@
     "acceptCriteria": [
       "applyTruncation() contains zero calls to candidates.indexOf()",
       "Dedup uses HashSet or equivalent O(1) lookup instead of linear scan",
-      "Unit test: truncation with 1000 synthetic candidates \u2014 same output elements as before (order-preserving)",
+      "Unit test: truncation with 1000 synthetic candidates — same output elements as before (order-preserving)",
       "Unit test: interactive elements get priority up to interactiveKeepRatio cap",
       "Unit test: no duplicate elements in output",
       "Unit test: candidates.size <= maxElements returns input unchanged (early exit)",
@@ -272,7 +272,7 @@
   },
   "perf-trace-flush": {
     "title": "Fix FileTraceRecorder flush() semantics + add write batching",
-    "description": "Two co-dependent issues: (IO-1) AppendLine handler calls writer.flush() on every event, defeating BufferedWriter batching. (RES-2) WriteOp.Flush handler only completes the deferred without calling writer.flush() \u2014 the public flush() API promises durability but delivers only a queue barrier. These MUST be co-fixed: removing per-line flush makes the broken Flush handler user-visible. Fix: (a) In WriteOp.Flush handler, call writer.flush() before completing the deferred. (b) Remove writer.flush() from AppendLine handler. (c) Optionally flush on batch threshold (every 10 lines or when channel.isEmpty) for reasonable latency.",
+    "description": "Two co-dependent issues: (IO-1) AppendLine handler calls writer.flush() on every event, defeating BufferedWriter batching. (RES-2) WriteOp.Flush handler only completes the deferred without calling writer.flush() — the public flush() API promises durability but delivers only a queue barrier. These MUST be co-fixed: removing per-line flush makes the broken Flush handler user-visible. Fix: (a) In WriteOp.Flush handler, call writer.flush() before completing the deferred. (b) Remove writer.flush() from AppendLine handler. (c) Optionally flush on batch threshold (every 10 lines or when channel.isEmpty) for reasonable latency.",
     "parent": "perf-resources",
     "depends": [],
     "state": "done",
@@ -284,8 +284,8 @@
       "WriteOp.AppendLine handler does NOT call writer.flush()",
       "WriteOp.Flush handler calls writer.flush() BEFORE completing op.done",
       "Writer is flushed in the finally block (on channel close/writer close)",
-      "Unit test: write 100 events then flush() \u2014 all 100 lines present in file after flush returns",
-      "Unit test: write events without explicit flush \u2014 file may be partially buffered (batching works)",
+      "Unit test: write 100 events then flush() — all 100 lines present in file after flush returns",
+      "Unit test: write events without explicit flush — file may be partially buffered (batching works)",
       "Unit test: close() flushes remaining buffered content to disk",
       "./gradlew test passes"
     ],
@@ -300,7 +300,7 @@
   },
   "perf-streaming-guard": {
     "title": "Guard streaming accumulation behind verbose logging flag",
-    "description": "All three streaming LLM clients (CodexResponseClient, OpenAIResponseClient, ChatCompletionClient) unconditionally build StringBuilder accumulators and tool-call lists for LlmLogger.logOutput(), which returns immediately in release builds. Fix: expose LlmLogger.isVerboseEnabled (= VERBOSE_LOGGING). In each streaming client, only allocate the text StringBuilder and completed tool-call buffers when isVerboseEnabled is true. Keep delta emission and tool call tracking for the actual response flow unchanged \u2014 only the logging-specific accumulators are guarded.",
+    "description": "All three streaming LLM clients (CodexResponseClient, OpenAIResponseClient, ChatCompletionClient) unconditionally build StringBuilder accumulators and tool-call lists for LlmLogger.logOutput(), which returns immediately in release builds. Fix: expose LlmLogger.isVerboseEnabled (= VERBOSE_LOGGING). In each streaming client, only allocate the text StringBuilder and completed tool-call buffers when isVerboseEnabled is true. Keep delta emission and tool call tracking for the actual response flow unchanged — only the logging-specific accumulators are guarded.",
     "parent": "perf-resources",
     "depends": [],
     "state": "done",
@@ -352,7 +352,7 @@
   },
   "perf-single-pass-perceptor": {
     "title": "Single-pass Perceptor tree traversal",
-    "description": "Perceptor.snapshot() traverses every accessibility root twice: once in INTERACTIVE_ONLY mode, then again in ALL mode. Each traverse() reads text/description/hint/resource ID, action support, bounds, visibility ratio, and class name per node. For 300-500 nodes with 2-3 roots, this doubles the work on the hottest capture path. Fix: merge into a single traversal that collects all eligible nodes in one pass, tagging each as interactive or non-interactive. The existing applyTruncation() already handles interactive/non-interactive separation via interactiveKeepRatio, so prioritization is preserved. Key constraint: the seenKeys dedup must still work correctly \u2014 currently it prevents duplicates across both passes, so the single pass must use the same dedup logic. Validate by comparing snapshot output (element counts, interactive coverage, element ordering) before and after.",
+    "description": "Perceptor.snapshot() traverses every accessibility root twice: once in INTERACTIVE_ONLY mode, then again in ALL mode. Each traverse() reads text/description/hint/resource ID, action support, bounds, visibility ratio, and class name per node. For 300-500 nodes with 2-3 roots, this doubles the work on the hottest capture path. Fix: merge into a single traversal that collects all eligible nodes in one pass, tagging each as interactive or non-interactive. The existing applyTruncation() already handles interactive/non-interactive separation via interactiveKeepRatio, so prioritization is preserved. Key constraint: the seenKeys dedup must still work correctly — currently it prevents duplicates across both passes, so the single pass must use the same dedup logic. Validate by comparing snapshot output (element counts, interactive coverage, element ordering) before and after.",
     "parent": "perf-resources",
     "depends": [
       "perf-truncation-indexof"
@@ -366,9 +366,9 @@
       "snapshot() contains exactly one traversal loop over roots (not two)",
       "TraversalMode enum still exists but single pass uses unified criteria",
       "Interactive elements are still prioritized in truncation (interactiveKeepRatio preserved)",
-      "Unit test: snapshot parity \u2014 same elements returned as before for representative tree fixtures",
-      "Unit test: interactive coverage \u2014 same number of interactive elements kept after truncation",
-      "Unit test: seenKeys dedup \u2014 no duplicate elements in output",
+      "Unit test: snapshot parity — same elements returned as before for representative tree fixtures",
+      "Unit test: interactive coverage — same number of interactive elements kept after truncation",
+      "Unit test: seenKeys dedup — no duplicate elements in output",
       "Unit test: empty tree and single-root tree edge cases",
       "./gradlew test passes"
     ],
@@ -396,10 +396,10 @@
     "acceptCriteria": [
       "enrichEmptyTextElements() no longer does O(n*m) full scan of textSources per interactive element",
       "mergedText() result is cached per source (not recomputed in inner loop)",
-      "Unit test: enrichment parity \u2014 same text assigned to same elements as before for representative fixtures",
-      "Unit test: nested button inside labeled container \u2014 button gets container text",
-      "Unit test: button with no nearby text source \u2014 remains unenriched (no false positives)",
-      "Unit test: performance \u2014 1000 candidates completes in <100ms (was potentially seconds)",
+      "Unit test: enrichment parity — same text assigned to same elements as before for representative fixtures",
+      "Unit test: nested button inside labeled container — button gets container text",
+      "Unit test: button with no nearby text source — remains unenriched (no false positives)",
+      "Unit test: performance — 1000 candidates completes in <100ms (was potentially seconds)",
       "./gradlew test passes"
     ],
     "estimate": "m",
@@ -422,8 +422,8 @@
     "acceptCriteria": [
       "All intermediate bitmaps (hardwareBitmap, softwareBitmap, scaledBitmap) are recycled on both normal and exceptional paths",
       "hardwareBuffer.close() still in finally block",
-      "No double-recycle \u2014 identity check (scaledBitmap !== softwareBitmap) preserved",
-      "Normal-path behavior unchanged \u2014 screenshot capture still produces correct ScreenImage",
+      "No double-recycle — identity check (scaledBitmap !== softwareBitmap) preserved",
+      "Normal-path behavior unchanged — screenshot capture still produces correct ScreenImage",
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
     ],
@@ -437,7 +437,7 @@
   },
   "perf-streaming-cancel": {
     "title": "Add cancellation hooks to remaining streaming LLM clients",
-    "description": "CodexResponseClient already stores activeCall and cancels it from awaitClose (fixed previously). OpenAIResponseClient and ChatCompletionClient still only log from awaitClose \u2014 no active stream/call handle is stored, so flow cancellation cannot proactively stop in-flight network reads or retry cycles. Fix: follow the CodexResponseClient pattern \u2014 store a reference to the active call/stream, cancel it from awaitClose. For OpenAIResponseClient (uses OpenAI Java SDK), check if the SDK exposes a cancellable stream handle. For ChatCompletionClient (uses OkHttp directly), store the Call reference like CodexResponseClient does. Ensure retry loops check for cancellation.",
+    "description": "CodexResponseClient already stores activeCall and cancels it from awaitClose (fixed previously). OpenAIResponseClient and ChatCompletionClient still only log from awaitClose — no active stream/call handle is stored, so flow cancellation cannot proactively stop in-flight network reads or retry cycles. Fix: follow the CodexResponseClient pattern — store a reference to the active call/stream, cancel it from awaitClose. For OpenAIResponseClient (uses OpenAI Java SDK), check if the SDK exposes a cancellable stream handle. For ChatCompletionClient (uses OkHttp directly), store the Call reference like CodexResponseClient does. Ensure retry loops check for cancellation.",
     "parent": "perf-resources",
     "depends": [],
     "state": "done",
@@ -449,7 +449,7 @@
       "OpenAIResponseClient stores active stream/call handle and cancels from awaitClose",
       "ChatCompletionClient stores active Call reference and cancels from awaitClose (matching CodexResponseClient pattern)",
       "Retry loops in both clients check for cancellation before retrying",
-      "Normal streaming still works \u2014 tool calls and text deltas emitted correctly",
+      "Normal streaming still works — tool calls and text deltas emitted correctly",
       "./gradlew assembleDebug passes",
       "./gradlew test passes"
     ],
@@ -462,7 +462,7 @@
     "updated": "2026-04-16T13:00:00+08:00"
   },
   "error-resilience": {
-    "title": "Error Resilience \u6539\u8fdb",
+    "title": "Error Resilience 改进",
     "description": "Fix cross-layer error semantics: false completion reporting, approval failure swallowing, delegate_task masking, shutdown ANR, action state flattening, and missing TASK_IMPOSSIBLE. Based on verified double-design review (Claude + Codex), revalidated 2026-04-15.",
     "parent": null,
     "depends": [],
@@ -479,7 +479,7 @@
   },
   "er-completion-correctness": {
     "title": "P0: Make completion depend on executed tool results",
-    "description": "AgentTurnRunner.decideCompletion() uses planned tool calls, not executed results. TurnExecutionPhaseRunner.executeActions() returns Unit \u2014 the runner has no way to know if complete_task actually ran.\n\nConcrete bug: Model plans remember_experience \u2192 complete_task(success). remember_experience fails, execution loop breaks, complete_task never runs. But decideCompletion() only checks planned tools, so the turn reports Complete(success=true).\n\nFix: Return minimal execution metadata from executeActions() \u2014 which tool IDs actually executed, whether execution terminated early, and the terminal result. AgentTurnRunner checks that complete_task is in the executed set before emitting TurnOutcome.Complete. If execution broke before complete_task, emit TurnOutcome.Error or TurnOutcome.Cancelled based on the actual terminal result.\n\nKeep it minimal: only add enough data to answer 'did complete_task actually run and succeed?'",
+    "description": "AgentTurnRunner.decideCompletion() uses planned tool calls, not executed results. TurnExecutionPhaseRunner.executeActions() returns Unit — the runner has no way to know if complete_task actually ran.\n\nConcrete bug: Model plans remember_experience → complete_task(success). remember_experience fails, execution loop breaks, complete_task never runs. But decideCompletion() only checks planned tools, so the turn reports Complete(success=true).\n\nFix: Return minimal execution metadata from executeActions() — which tool IDs actually executed, whether execution terminated early, and the terminal result. AgentTurnRunner checks that complete_task is in the executed set before emitting TurnOutcome.Complete. If execution broke before complete_task, emit TurnOutcome.Error or TurnOutcome.Cancelled based on the actual terminal result.\n\nKeep it minimal: only add enough data to answer 'did complete_task actually run and succeed?'",
     "parent": "error-resilience",
     "depends": [],
     "state": "done",
@@ -492,9 +492,9 @@
       "decideCompletion() checks that complete_task is in the executed set before emitting TurnOutcome.Complete",
       "When complete_task is planned but execution breaks before it runs, the turn emits TurnOutcome.Error (not Complete)",
       "When complete_task runs and succeeds, behavior unchanged from current",
-      "Test: mock remember_experience failure before complete_task \u2192 TurnOutcome is Error, not Complete",
-      "Test: complete_task executes normally \u2192 TurnOutcome.Complete as before",
-      "Test: no complete_task in plan, all tools succeed \u2192 TurnOutcome.Continue as before",
+      "Test: mock remember_experience failure before complete_task → TurnOutcome is Error, not Complete",
+      "Test: complete_task executes normally → TurnOutcome.Complete as before",
+      "Test: no complete_task in plan, all tools succeed → TurnOutcome.Continue as before",
       "grep -q 'executedToolIds\\|ExecutionPhaseResult\\|executionResult' app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
       "./gradlew test passes"
     ],
@@ -510,7 +510,7 @@
   },
   "er-approval-failfast": {
     "title": "P0: Fail fast when approval UI dispatch breaks",
-    "description": "TurnExecutionPhaseRunner.emitApprovalRequired() (lines 164-174) wraps the event emitter call in try/catch and swallows exceptions with Log.e(). ToolRouter is already prepared to convert approval-dispatch exceptions into ToolCallResult.Error, but never sees them because emitApprovalRequired suppresses the throw.\n\nResult: if the approval UI/overlay fails to display, the tool waits 60 seconds then returns 'Approval timed out' \u2014 blaming the user for not responding to a prompt they never saw.\n\nFix: Remove the try/catch in emitApprovalRequired(). Let the exception propagate to ToolRouter, which already handles it by returning ToolCallResult.Error('Approval request failed: ...'). This is a ~5-line change \u2014 delete the try/catch wrapper, keep the event emission.",
+    "description": "TurnExecutionPhaseRunner.emitApprovalRequired() (lines 164-174) wraps the event emitter call in try/catch and swallows exceptions with Log.e(). ToolRouter is already prepared to convert approval-dispatch exceptions into ToolCallResult.Error, but never sees them because emitApprovalRequired suppresses the throw.\n\nResult: if the approval UI/overlay fails to display, the tool waits 60 seconds then returns 'Approval timed out' — blaming the user for not responding to a prompt they never saw.\n\nFix: Remove the try/catch in emitApprovalRequired(). Let the exception propagate to ToolRouter, which already handles it by returning ToolCallResult.Error('Approval request failed: ...'). This is a ~5-line change — delete the try/catch wrapper, keep the event emission.",
     "parent": "error-resilience",
     "depends": [],
     "state": "done",
@@ -522,8 +522,8 @@
       "When event emitter throws, ToolRouter returns ToolCallResult.Error (not Cancelled/timeout)",
       "The error message includes 'Approval request failed' or similar diagnostic text",
       "Normal approval flow (no exception) is unchanged",
-      "Test: mock eventEmitter that throws \u2192 tool result is Error, not Cancelled",
-      "Test: normal eventEmitter \u2192 approval wait proceeds as before",
+      "Test: mock eventEmitter that throws → tool result is Error, not Cancelled",
+      "Test: normal eventEmitter → approval wait proceeds as before",
       "! grep -q 'catch.*emitApproval\\|catch.*approval.*Exception' app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt || echo 'swallow removed'",
       "./gradlew test passes"
     ],
@@ -550,8 +550,8 @@
       "When sub-agent result.success is false, DelegateTaskTool returns a failure/error result (not textToolSuccess)",
       "When sub-agent result.success is true, DelegateTaskTool returns textToolSuccess as before",
       "The failure result still contains the sub-agent's output message for parent LLM context",
-      "Test: mock sub-agent failure \u2192 tool result is Error/Failure type, not Success",
-      "Test: mock sub-agent success \u2192 tool result is Success",
+      "Test: mock sub-agent failure → tool result is Error/Failure type, not Success",
+      "Test: mock sub-agent success → tool result is Success",
       "! grep -A5 'result.success.*false\\|!result.success' app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt | grep -q 'textToolSuccess' || echo 'success-on-failure removed'",
       "./gradlew test passes"
     ],
@@ -567,7 +567,7 @@
   },
   "er-ondestroy-anr": {
     "title": "P0: Move onDestroy() shutdown off main thread",
-    "description": "AgentService.onDestroy() (lines 206-237) uses runBlocking { withTimeoutOrNull(5000) { ... submit(Op.Shutdown) ... } }. This blocks the main thread for up to 5 seconds during service restart, risking ANR.\n\nThe naive fix of scope.launch { shutdown } + scope.cancel() won't work \u2014 cancelling the scope kills the launched shutdown coroutine.\n\nFix: Use a dedicated shutdown scope that outlives the service scope. Options:\n- CoroutineScope(SupervisorJob() + Dispatchers.Default) with its own 5s timeout, then cancel\n- GlobalScope.launch(NonCancellable + Dispatchers.Default) with timeout\n\nThe session already handles checkpoint persistence via NonCancellable in deliverCompletion, so partial shutdown is tolerable \u2014 the main goal is avoiding the main-thread block.",
+    "description": "AgentService.onDestroy() (lines 206-237) uses runBlocking { withTimeoutOrNull(5000) { ... submit(Op.Shutdown) ... } }. This blocks the main thread for up to 5 seconds during service restart, risking ANR.\n\nThe naive fix of scope.launch { shutdown } + scope.cancel() won't work — cancelling the scope kills the launched shutdown coroutine.\n\nFix: Use a dedicated shutdown scope that outlives the service scope. Options:\n- CoroutineScope(SupervisorJob() + Dispatchers.Default) with its own 5s timeout, then cancel\n- GlobalScope.launch(NonCancellable + Dispatchers.Default) with timeout\n\nThe session already handles checkpoint persistence via NonCancellable in deliverCompletion, so partial shutdown is tolerable — the main goal is avoiding the main-thread block.",
     "parent": "error-resilience",
     "depends": [],
     "state": "done",
@@ -577,7 +577,7 @@
     "acceptCriteria": [
       "onDestroy() does not call runBlocking on the main thread",
       "Shutdown Op is dispatched to a scope/coroutine that is not immediately cancelled by onDestroy()",
-      "Shutdown still has a bounded timeout (\u22645s) to prevent leaked coroutines",
+      "Shutdown still has a bounded timeout (≤5s) to prevent leaked coroutines",
       "Normal service teardown still cleans up overlayController, scope, etc.",
       "! grep -q 'runBlocking' app/src/main/kotlin/com/moonkey/androidagent/app/AgentService.kt",
       "./gradlew test passes",
@@ -595,7 +595,7 @@
   },
   "er-task-impossible": {
     "title": "P1: Split TASK_IMPOSSIBLE from internal ERROR",
-    "description": "CompletionReason.TASK_IMPOSSIBLE exists in protocol and UI/recording layers are wired for it. But AgentStopReason has no TaskImpossible variant. When complete_task(status='failure') is called, Agent.kt maps it to AgentStopReason.Error, and AgentSession maps that to CompletionReason.ERROR. The distinction between 'system fault' and 'agent concluded task is impossible' is thrown away.\n\nFix: Add AgentStopReason.TaskImpossible(message: String). In Agent.kt, convert TurnOutcome.Complete(success=false) to TaskImpossible instead of Error. In AgentSession.toCompletionReason(), map TaskImpossible to CompletionReason.TASK_IMPOSSIBLE.\n\nThis depends on er-completion-correctness because that task changes how completion outcomes flow through AgentTurnRunner \u2014 the mapping point for success/failure must be stable first.",
+    "description": "CompletionReason.TASK_IMPOSSIBLE exists in protocol and UI/recording layers are wired for it. But AgentStopReason has no TaskImpossible variant. When complete_task(status='failure') is called, Agent.kt maps it to AgentStopReason.Error, and AgentSession maps that to CompletionReason.ERROR. The distinction between 'system fault' and 'agent concluded task is impossible' is thrown away.\n\nFix: Add AgentStopReason.TaskImpossible(message: String). In Agent.kt, convert TurnOutcome.Complete(success=false) to TaskImpossible instead of Error. In AgentSession.toCompletionReason(), map TaskImpossible to CompletionReason.TASK_IMPOSSIBLE.\n\nThis depends on er-completion-correctness because that task changes how completion outcomes flow through AgentTurnRunner — the mapping point for success/failure must be stable first.",
     "parent": "error-resilience",
     "depends": [
       "er-completion-correctness"
@@ -611,9 +611,9 @@
       "Agent.kt maps TurnOutcome.Complete(success=false) to AgentStopReason.TaskImpossible",
       "AgentSession.toCompletionReason() maps TaskImpossible to CompletionReason.TASK_IMPOSSIBLE",
       "Agent.kt maps TurnOutcome.Complete(success=true) to GoalAchieved (unchanged)",
-      "Test: complete_task(status=failure) \u2192 CompletionReason is TASK_IMPOSSIBLE, not ERROR",
-      "Test: complete_task(status=success) \u2192 CompletionReason is GOAL_ACHIEVED (unchanged)",
-      "Test: real agent error (LLM throws) \u2192 CompletionReason is still ERROR",
+      "Test: complete_task(status=failure) → CompletionReason is TASK_IMPOSSIBLE, not ERROR",
+      "Test: complete_task(status=success) → CompletionReason is GOAL_ACHIEVED (unchanged)",
+      "Test: real agent error (LLM throws) → CompletionReason is still ERROR",
       "grep -q 'TaskImpossible' app/src/main/kotlin/com/moonkey/androidagent/agent/AgentRuntimeTypes.kt",
       "./gradlew test passes"
     ],
@@ -629,7 +629,7 @@
   },
   "er-harden-cleanup": {
     "title": "P1: Harden cleanup and observation fallback",
-    "description": "Two independent hardening fixes:\n\n(A) SessionServices.cleanup() (lines 210-237): only platform.stop() is guarded with try/catch. llmClient.cleanup(), llmClientFactory.cleanupAll(), and traceRecorder.close() are unguarded \u2014 if any throws, teardown aborts mid-sequence and later cleanup steps never run.\n\nFix A: Wrap each cleanup call independently with try/catch + Log.w. Continue cleanup regardless of individual failures.\n\n(B) TurnExecutionPhaseRunner.captureObservationWithSnapshot() (lines 210-235): called after tool failures without shielding. If screen capture throws (e.g., accessibility service disconnected), a local tool failure escalates to a turn-level failure. Error handling should not itself be fragile.\n\nFix B: Wrap captureObservationWithSnapshot() in runCatching. On failure, fall back to ToolObservation.TextOutput(result.toContextString()) with no new snapshot \u2014 the agent still gets the tool result text and can continue.",
+    "description": "Two independent hardening fixes:\n\n(A) SessionServices.cleanup() (lines 210-237): only platform.stop() is guarded with try/catch. llmClient.cleanup(), llmClientFactory.cleanupAll(), and traceRecorder.close() are unguarded — if any throws, teardown aborts mid-sequence and later cleanup steps never run.\n\nFix A: Wrap each cleanup call independently with try/catch + Log.w. Continue cleanup regardless of individual failures.\n\n(B) TurnExecutionPhaseRunner.captureObservationWithSnapshot() (lines 210-235): called after tool failures without shielding. If screen capture throws (e.g., accessibility service disconnected), a local tool failure escalates to a turn-level failure. Error handling should not itself be fragile.\n\nFix B: Wrap captureObservationWithSnapshot() in runCatching. On failure, fall back to ToolObservation.TextOutput(result.toContextString()) with no new snapshot — the agent still gets the tool result text and can continue.",
     "parent": "error-resilience",
     "depends": [],
     "state": "done",
@@ -642,8 +642,8 @@
       "If llmClient.cleanup() throws, llmClientFactory.cleanupAll() and traceRecorder.close() still execute",
       "captureObservationWithSnapshot() is wrapped in runCatching (or equivalent try/catch)",
       "When screen capture fails after a tool failure, the turn continues with a text-only observation",
-      "Test: mock llmClient.cleanup() throw \u2192 remaining cleanup steps still run",
-      "Test: mock captureScreen() throw during observation \u2192 turn gets text-only observation, no crash",
+      "Test: mock llmClient.cleanup() throw → remaining cleanup steps still run",
+      "Test: mock captureScreen() throw during observation → turn gets text-only observation, no crash",
       "./gradlew test passes"
     ],
     "priority": "high",
@@ -658,7 +658,7 @@
   },
   "er-action-outcome": {
     "title": "P1: Preserve action outcome semantics end to end",
-    "description": "ActionExecuted carries only success: Boolean, collapsing policy denial, user denial, approval timeout, and real execution failure into the same 'failed' bucket. TurnExecutionPhaseRunner emits '\u2713 <tool> executed' status even for failed actions. ActionState.Skipped exists in UI model but is never used.\n\nFix: Replace Boolean success with a three-value enum:\n  enum class ActionOutcome { SUCCESS, FAILED, SKIPPED }\n\nDerive from ToolCallResult type (no string matching):\n- ToolCallResult.Success \u2192 SUCCESS\n- ToolCallResult.Error \u2192 FAILED\n- ToolCallResult.Cancelled \u2192 SKIPPED\n\nUpdate ActionExecuted, TurnExecutionPhaseRunner (status emission), AgentServiceEventHandler, and ChatEventReducer to use the enum. Only show \u2713 checkmark for SUCCESS. Wire ActionState.Skipped for SKIPPED results.",
+    "description": "ActionExecuted carries only success: Boolean, collapsing policy denial, user denial, approval timeout, and real execution failure into the same 'failed' bucket. TurnExecutionPhaseRunner emits '✓ <tool> executed' status even for failed actions. ActionState.Skipped exists in UI model but is never used.\n\nFix: Replace Boolean success with a three-value enum:\n  enum class ActionOutcome { SUCCESS, FAILED, SKIPPED }\n\nDerive from ToolCallResult type (no string matching):\n- ToolCallResult.Success → SUCCESS\n- ToolCallResult.Error → FAILED\n- ToolCallResult.Cancelled → SKIPPED\n\nUpdate ActionExecuted, TurnExecutionPhaseRunner (status emission), AgentServiceEventHandler, and ChatEventReducer to use the enum. Only show ✓ checkmark for SUCCESS. Wire ActionState.Skipped for SKIPPED results.",
     "parent": "error-resilience",
     "depends": [],
     "state": "done",
@@ -671,12 +671,12 @@
     "acceptCriteria": [
       "ActionExecuted uses an enum (ActionOutcome or similar) instead of Boolean success",
       "ToolCallResult.Success maps to SUCCESS, Error to FAILED, Cancelled to SKIPPED",
-      "TurnExecutionPhaseRunner only emits \u2713 status for SUCCESS outcomes",
+      "TurnExecutionPhaseRunner only emits ✓ status for SUCCESS outcomes",
       "ChatEventReducer maps SKIPPED to ActionState.Skipped (which already exists in the model)",
       "AgentServiceEventHandler distinguishes failed from skipped in history recording",
-      "Test: ToolCallResult.Cancelled \u2192 ActionExecuted has SKIPPED outcome",
-      "Test: ToolCallResult.Error \u2192 ActionExecuted has FAILED outcome",
-      "Test: ToolCallResult.Success \u2192 ActionExecuted has SUCCESS outcome, \u2713 status emitted",
+      "Test: ToolCallResult.Cancelled → ActionExecuted has SKIPPED outcome",
+      "Test: ToolCallResult.Error → ActionExecuted has FAILED outcome",
+      "Test: ToolCallResult.Success → ActionExecuted has SUCCESS outcome, ✓ status emitted",
       "grep -q 'ActionOutcome\\|SKIPPED' app/src/main/kotlin/com/moonkey/androidagent/protocol/ActionEvents.kt",
       "./gradlew test passes"
     ],
@@ -692,7 +692,7 @@
   },
   "er-bootstrap-ux": {
     "title": "P1: Improve bootstrap/session failure UX",
-    "description": "When session creation or LLM bootstrap fails, the error surfaces only as toast/overlay status text. The user's input text only enters chat on TaskStarted \u2014 if startup fails before that event, the input disappears from chat history. The user has no clear path to retry.\n\nFix (scope tightly to three changes):\n1. Preserve the user's pending input text when session creation fails \u2014 store it so it can be re-submitted or at least displayed\n2. Surface startup failure as a visible error state in the main chat/session UI (not just toast)\n3. Provide explicit retry/reload affordance\n\nKey files: ChatViewModel handles the submission flow, AgentSession.initializeForFirstTask() is the failure point, ChatEventReducer needs to handle a new 'startup failed' state.",
+    "description": "When session creation or LLM bootstrap fails, the error surfaces only as toast/overlay status text. The user's input text only enters chat on TaskStarted — if startup fails before that event, the input disappears from chat history. The user has no clear path to retry.\n\nFix (scope tightly to three changes):\n1. Preserve the user's pending input text when session creation fails — store it so it can be re-submitted or at least displayed\n2. Surface startup failure as a visible error state in the main chat/session UI (not just toast)\n3. Provide explicit retry/reload affordance\n\nKey files: ChatViewModel handles the submission flow, AgentSession.initializeForFirstTask() is the failure point, ChatEventReducer needs to handle a new 'startup failed' state.",
     "parent": "error-resilience",
     "depends": [],
     "state": "done",
@@ -707,7 +707,7 @@
       "Startup failure is visible in chat UI as an error message (not just toast/overlay)",
       "User can retry the failed input without retyping it",
       "Normal session startup flow is unchanged",
-      "Test: mock bootstrap failure \u2192 chat shows error state with user's original input preserved",
+      "Test: mock bootstrap failure → chat shows error state with user's original input preserved",
       "./gradlew test passes",
       "./gradlew assembleDebug passes"
     ],
@@ -723,7 +723,7 @@
   },
   "er-dead-error-surface": {
     "title": "P2: Clean up dead typed error surface",
-    "description": "AgentError.kt defines 11 error variants (LLMError, PlatformError, PermissionError, etc.) and SessionLifecycleEvents.kt defines SessionError. Neither is produced by the live runtime \u2014 all error paths use TurnErrorClassifier \u2192 strings \u2192 CompletionReason.ERROR.\n\nAfter P0/P1 fixes land (completion correctness, TASK_IMPOSSIBLE, action outcome), reassess what typed error structure the runtime actually needs. Two options:\n(a) Delete dead types \u2014 the semantic fixes already address the concrete problems\n(b) Replace with 3-4 live variants used only where structure materially helps (e.g., LLMError, PlatformError, PolicyError)\n\nDecide based on what gaps remain after P0/P1.",
+    "description": "AgentError.kt defines 11 error variants (LLMError, PlatformError, PermissionError, etc.) and SessionLifecycleEvents.kt defines SessionError. Neither is produced by the live runtime — all error paths use TurnErrorClassifier → strings → CompletionReason.ERROR.\n\nAfter P0/P1 fixes land (completion correctness, TASK_IMPOSSIBLE, action outcome), reassess what typed error structure the runtime actually needs. Two options:\n(a) Delete dead types — the semantic fixes already address the concrete problems\n(b) Replace with 3-4 live variants used only where structure materially helps (e.g., LLMError, PlatformError, PolicyError)\n\nDecide based on what gaps remain after P0/P1.",
     "parent": "error-resilience",
     "depends": [
       "er-task-impossible",
@@ -735,7 +735,7 @@
       "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionLifecycleEvents.kt"
     ],
     "acceptCriteria": [
-      "AgentError.kt either deleted or trimmed to \u22644 variants that are actually produced by runtime code",
+      "AgentError.kt either deleted or trimmed to ≤4 variants that are actually produced by runtime code",
       "If AgentError is kept, at least one call site instantiates each remaining variant",
       "SessionError either deleted or wired to at least one emitter",
       "No dead sealed class variants (every variant has a producer)",
@@ -767,7 +767,7 @@
       "The placeholder shows the file name and an indication that the session is corrupted/unreadable",
       "Corrupted session parse failures are logged at warning level with the file name and exception",
       "Normal session files still load and display correctly",
-      "Test: write a malformed session file \u2192 session list shows placeholder entry for it",
+      "Test: write a malformed session file → session list shows placeholder entry for it",
       "./gradlew test passes"
     ],
     "priority": "low",
@@ -794,7 +794,7 @@
       "The user-friendly message includes actionable guidance (e.g., 'start a new task')",
       "The raw provider error is still logged at warning/error level for debugging",
       "Non-context-limit errors are unchanged",
-      "Test: exception with 'maximum context length' \u2192 user-facing message is friendly, not raw API text",
+      "Test: exception with 'maximum context length' → user-facing message is friendly, not raw API text",
       "./gradlew test passes"
     ],
     "priority": "low",
@@ -809,7 +809,7 @@
   },
   "perf-codex-review": {
     "title": "Codex Code Review + Fix Round",
-    "description": "Send all perf-resources changes to Codex for systematic code review. Codex reviews the diff of all perf-* implementation tasks against the improvement plan (doc/todo/holistic-review/performance-resources/final/improvement_plan.md). Focus areas: (1) correctness \u2014 do the O(n^2) fixes preserve existing behavior? (2) single-pass Perceptor \u2014 does it maintain interactive priority and dedup semantics? (3) R8 keep rules \u2014 are they sufficient for all reflection/serialization/JNI paths? (4) trace flush \u2014 does the co-fix of IO-1+RES-2 maintain durability guarantees? Fix any critical/high findings before QA.",
+    "description": "Send all perf-resources changes to Codex for systematic code review. Codex reviews the diff of all perf-* implementation tasks against the improvement plan (doc/todo/holistic-review/performance-resources/final/improvement_plan.md). Focus areas: (1) correctness — do the O(n^2) fixes preserve existing behavior? (2) single-pass Perceptor — does it maintain interactive priority and dedup semantics? (3) R8 keep rules — are they sufficient for all reflection/serialization/JNI paths? (4) trace flush — does the co-fix of IO-1+RES-2 maintain durability guarantees? Fix any critical/high findings before QA.",
     "parent": "perf-resources",
     "depends": [
       "perf-r8-minify",
@@ -837,11 +837,11 @@
     ],
     "created": "2026-04-16T14:00:00+08:00",
     "updated": "2026-04-16T14:15:00+08:00",
-    "note": "Review saved to codex_review.md; 2 high + 1 medium fixed; medium-3 (pre-publication streaming cancel) deferred \u2014 SDK lacks a cancellable handle before createStreaming returns."
+    "note": "Review saved to codex_review.md; 2 high + 1 medium fixed; medium-3 (pre-publication streaming cancel) deferred — SDK lacks a cancellable handle before createStreaming returns."
   },
   "perf-qa-real-device": {
     "title": "QA Round: Real Device Validation",
-    "description": "Run end-to-end QA on real device to validate perf-resources changes do not regress agent behavior. Test scenarios: (1) Normal multi-turn task \u2014 agent completes a 5+ turn task without errors, verify perception captures correct elements (single-pass Perceptor validation). (2) Dense screen capture \u2014 open an app with 300+ UI elements, verify truncation returns correct interactive elements and text enrichment labels unlabeled buttons. (3) Long session \u2014 run 15+ turns to trigger history compression, verify session completes and history is coherent (no missing turns). (4) Release APK smoke test \u2014 install release build, run a simple task end-to-end (validates R8 keep rules in production). (5) Trace recording \u2014 enable tracing, run a task, verify trace file is complete and flush semantics work (last events present after session end). Use /ux-visual-debug or adb-driven interaction.",
+    "description": "Run end-to-end QA on real device to validate perf-resources changes do not regress agent behavior. Test scenarios: (1) Normal multi-turn task — agent completes a 5+ turn task without errors, verify perception captures correct elements (single-pass Perceptor validation). (2) Dense screen capture — open an app with 300+ UI elements, verify truncation returns correct interactive elements and text enrichment labels unlabeled buttons. (3) Long session — run 15+ turns to trigger history compression, verify session completes and history is coherent (no missing turns). (4) Release APK smoke test — install release build, run a simple task end-to-end (validates R8 keep rules in production). (5) Trace recording — enable tracing, run a task, verify trace file is complete and flush semantics work (last events present after session end). Use /ux-visual-debug or adb-driven interaction.",
     "parent": "perf-resources",
     "depends": [
       "perf-codex-review"
@@ -851,7 +851,7 @@
       "QA report exists with pass/fail per scenario at doc/todo/holistic-review/performance-resources/qa_report.md",
       "Normal multi-turn task: completes without error, correct elements captured",
       "Dense screen: truncation returns expected interactive element count, enriched text matches visible labels",
-      "Long session: 15+ turns with compression \u2014 no missing turns, session history coherent",
+      "Long session: 15+ turns with compression — no missing turns, session history coherent",
       "Release APK: installs, starts, completes a task without crash or ClassNotFoundException",
       "Trace recording: trace file contains all expected events, no truncation at end",
       "No ANR or crash in logcat during QA run"
@@ -899,7 +899,7 @@
   },
   "er-qa-real-device": {
     "title": "QA Round: Real Device Validation",
-    "description": "Run automated end-to-end QA on device via adb/accessibility to validate error-resilience fixes don't regress user-facing behavior and correctness bugs are actually fixed. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) False completion: trigger a task where a cognitive tool fails before complete_task \u2014 verify agent does NOT report success (check session recording/completion reason)\n(2) Approval dispatch: mock overlay failure path or disconnect overlay \u2014 verify error is immediate (not 60s timeout), check logcat for 'Approval request failed'\n(3) Delegate failure: trigger a PRO-mode task where sub-agent fails \u2014 verify action card shows failure in chat history JSON\n(4) Service restart: force-stop via adb mid-task, relaunch \u2014 verify no ANR in logcat, session checkpoint loads\n(5) Action outcome display: trigger a policy-denied action on a blocked app \u2014 verify UI state is Skipped (screenshot + chat model dump)\n(6) Task impossible: give agent an impossible task (e.g., 'open app that doesn't exist') \u2014 verify CompletionReason is TASK_IMPOSSIBLE in session record\n(7) Normal multi-turn task: complete a standard task \u2014 verify no regression\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence. Write pass/fail report.",
+    "description": "Run automated end-to-end QA on device via adb/accessibility to validate error-resilience fixes don't regress user-facing behavior and correctness bugs are actually fixed. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) False completion: trigger a task where a cognitive tool fails before complete_task — verify agent does NOT report success (check session recording/completion reason)\n(2) Approval dispatch: mock overlay failure path or disconnect overlay — verify error is immediate (not 60s timeout), check logcat for 'Approval request failed'\n(3) Delegate failure: trigger a PRO-mode task where sub-agent fails — verify action card shows failure in chat history JSON\n(4) Service restart: force-stop via adb mid-task, relaunch — verify no ANR in logcat, session checkpoint loads\n(5) Action outcome display: trigger a policy-denied action on a blocked app — verify UI state is Skipped (screenshot + chat model dump)\n(6) Task impossible: give agent an impossible task (e.g., 'open app that doesn't exist') — verify CompletionReason is TASK_IMPOSSIBLE in session record\n(7) Normal multi-turn task: complete a standard task — verify no regression\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence. Write pass/fail report.",
     "parent": "error-resilience",
     "depends": [
       "er-codex-review"
@@ -912,7 +912,7 @@
       "Approval dispatch failure: logcat shows 'Approval request failed' or similar, no 60s hang",
       "Delegate failure: session history JSON shows failed action (not success) for delegate_task",
       "Service restart: no ANR in 'adb logcat -d | grep ANR', checkpoint file exists and loads",
-      "Action outcome: chat model or screenshot shows skipped/denied state (not \u2713 executed)",
+      "Action outcome: chat model or screenshot shows skipped/denied state (not ✓ executed)",
       "Task impossible: session record JSON contains TASK_IMPOSSIBLE",
       "Normal multi-turn task: completes with GOAL_ACHIEVED",
       "No crash in 'adb logcat -d | grep -i \"fatal\\|crash\"' during QA run"
@@ -929,8 +929,8 @@
     "parent": null,
     "depends": [],
     "state": "ready",
-    "title": "Tool System Design \u6539\u8fdb",
-    "description": "\u57fa\u4e8e holistic review + \u53cc\u76f2\u9a8c\u8bc1\u7684 tool system \u6539\u8fdb\u30026 \u4e2a\u9636\u6bb5: \u89c2\u6d4b\u8fb9\u754c\u5b89\u5168\u3001ToolName \u5143\u6570\u636e\u4fee\u6b63\u3001action runtime \u89c4\u8303\u5316\u3001shell \u52a0\u56fa\u3001router \u5408\u7ea6\u6536\u7d27\u3001\u6b7b\u4ee3\u7801\u6e05\u7406\u3002",
+    "title": "Tool System Design 改进",
+    "description": "基于 holistic review + 双盲验证的 tool system 改进。6 个阶段: 观测边界安全、ToolName 元数据修正、action runtime 规范化、shell 加固、router 合约收紧、死代码清理。",
     "design": "doc/todo/holistic-review/tool-system-design/final/improvement_plan.md",
     "acceptCriteria": [
       "All child tasks done",
@@ -942,8 +942,8 @@
     "parent": "tool-system-design",
     "depends": [],
     "state": "running",
-    "title": "Phase 0: \u4fee\u590d PostActionAnalysis \u89c2\u6d4b\u906e\u853d\u7f3a\u53e3",
-    "description": "PostActionAnalysis.kt:45 \u8c03\u7528 buildObservation(it, platform) \u672a\u4f20 appClassifier\uff0c\u5bfc\u81f4 mobile_action (click/type/scroll/swipe/long_press) \u7684 post-action observation \u5728 BLOCKED app \u4e0a\u4e0d\u906e\u853d\u3002\u5c06 appClassifier \u4ece ToolExecutionContext \u7ebf\u7a0b\u5230 capturePostActionAnalysis \u2192 buildObservation\u3002\u540c\u65f6\u8ba9 open_app \u5728\u6267\u884c\u65f6 re-check \u76ee\u6807\u5305\u7684 tier\u3002",
+    "title": "Phase 0: 修复 PostActionAnalysis 观测遮蔽缺口",
+    "description": "PostActionAnalysis.kt:45 调用 buildObservation(it, platform) 未传 appClassifier，导致 mobile_action (click/type/scroll/swipe/long_press) 的 post-action observation 在 BLOCKED app 上不遮蔽。将 appClassifier 从 ToolExecutionContext 线程到 capturePostActionAnalysis → buildObservation。同时让 open_app 在执行时 re-check 目标包的 tier。",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PostActionAnalysis.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt",
@@ -966,8 +966,8 @@
     "parent": "tool-system-design",
     "depends": [],
     "state": "running",
-    "title": "Phase 1a: \u6dfb\u52a0 ask_user/shell \u5230 ToolName",
-    "description": "ask_user \u548c shell \u4e0d\u5728 ToolName enum \u4e2d\uff0c\u89e3\u6790\u4e3a Unknown(isScreenChanging=true)\uff0c\u5bfc\u81f4: (1) CAUTIOUS app \u4e0a ask_user \u89e6\u53d1\u4e0d\u5fc5\u8981\u7684\u5ba1\u6279, (2) TurnToolPolicy \u5c06\u4e24\u8005\u5f52\u4e3a screen action \u5bfc\u81f4\u540c turn \u7684 complete_task \u88ab\u4e22\u5f03\u3002\u6dfb\u52a0 AskUser \u548c Shell \u4e24\u4e2a data object\uff0cisScreenChanging \u8fd4\u56de false\u3002",
+    "title": "Phase 1a: 添加 ask_user/shell 到 ToolName",
+    "description": "ask_user 和 shell 不在 ToolName enum 中，解析为 Unknown(isScreenChanging=true)，导致: (1) CAUTIOUS app 上 ask_user 触发不必要的审批, (2) TurnToolPolicy 将两者归为 screen action 导致同 turn 的 complete_task 被丢弃。添加 AskUser 和 Shell 两个 data object，isScreenChanging 返回 false。",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolName.kt"
     ],
@@ -986,8 +986,8 @@
       "tsd-observation-boundary"
     ],
     "state": "ready",
-    "title": "Phase 2: Action Runtime \u89c4\u8303\u5316",
-    "description": "\u4e09\u4e2a\u4fee\u590d: (1) SwipeExecutor.kt:49-53 \u5c06 ActionResult.Cancelled \u6620\u5c04\u4e3a Failed \u2192 \u6539\u4e3a Cancelled, (2) TypeExecutor \u5404\u8def\u5f84\u6dfb\u52a0\u663e\u5f0f Cancelled \u5904\u7406, (3) ScrollExecutor.resolveScrollArea() \u5728\u663e\u5f0f\u76ee\u6807 (element_index/text) \u89e3\u6790\u5931\u8d25\u65f6\u8fd4\u56de\u9519\u8bef\u800c\u975e\u9759\u9ed8\u964d\u7ea7\u4e3a\u5168\u5c4f\u6eda\u52a8, (4) refinePointActionTarget() \u91cd\u5b9a\u5411\u65f6\u5728 attempt trail \u4e2d\u6dfb\u52a0\u8bf4\u660e\u3002",
+    "title": "Phase 2: Action Runtime 规范化",
+    "description": "三个修复: (1) SwipeExecutor.kt:49-53 将 ActionResult.Cancelled 映射为 Failed → 改为 Cancelled, (2) TypeExecutor 各路径添加显式 Cancelled 处理, (3) ScrollExecutor.resolveScrollArea() 在显式目标 (element_index/text) 解析失败时返回错误而非静默降级为全屏滚动, (4) refinePointActionTarget() 重定向时在 attempt trail 中添加说明。",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/tool/action/SwipeExecutor.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/tool/action/TypeExecutor.kt",
@@ -1007,8 +1007,8 @@
     "parent": "tool-system-design",
     "depends": [],
     "state": "running",
-    "title": "Phase 3: Shell \u52a0\u56fa",
-    "description": "\u4e24\u4e2a\u4fee\u590d: (1) Shell \u9a8c\u8bc1\u6269\u5c55 \u2014 \u62d2\u7edd\u5305\u542b\u5143\u5b57\u7b26 (; | & $( `) \u7684\u547d\u4ee4\uff0c\u6216\u6dfb\u52a0 env/xargs/find \u5230 blocklist, (2) \u8f93\u51fa\u622a\u65ad\u65f6\u8ffd\u52a0 '[output truncated at N chars]' \u6807\u8bb0\uff0c\u8ba9 LLM \u77e5\u9053\u6570\u636e\u4e0d\u5b8c\u6574\u3002",
+    "title": "Phase 3: Shell 加固",
+    "description": "两个修复: (1) Shell 验证扩展 — 拒绝包含元字符 (; | & $( `) 的命令，或添加 env/xargs/find 到 blocklist, (2) 输出截断时追加 '[output truncated at N chars]' 标记，让 LLM 知道数据不完整。",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt"
     ],
@@ -1024,8 +1024,8 @@
     "parent": "tool-system-design",
     "depends": [],
     "state": "ready",
-    "title": "Phase 5: \u6b7b\u4ee3\u7801\u6e05\u7406\u6279\u6b21",
-    "description": "6 \u9879\u786e\u8ba4\u7684\u6b7b\u4ee3\u7801\u6e05\u7406: (1) \u5220\u9664 UIActionInvocation.detectScrollBoundary() (lines 53-58, 87-110), (2) \u5220\u9664 UiChangeDetector.detectScrollBoundary() (lines 31-49), (3) \u5220\u9664 PolicyEngine.isEscape() \u4e2d MobileActionName.Back/Home fallback \u5206\u652f (\u6ce8\u610f: enum \u6210\u5458\u88ab ToolUi.kt \u4f7f\u7528\uff0c\u4ec5\u5220\u5206\u652f), (4) \u5220\u9664 OpenAppTool companion \u4e2d\u672a\u4f7f\u7528\u7684 UI_SETTLE_DELAY_MS \u548c SUGGESTION_LIMIT, (5) SystemButtonTool.kt:71 else branch \u6539\u4e3a error('Unreachable'), (6) \u5220\u9664 DataQueryInvocation.kt (\u96f6\u8c03\u7528\u8005), (7) \u4fee\u590d ActionPriorityOrder.kt \u4e2d\u6307\u5411\u4e0d\u5b58\u5728\u8def\u5f84\u7684 doc \u5f15\u7528\u3002",
+    "title": "Phase 5: 死代码清理批次",
+    "description": "6 项确认的死代码清理: (1) 删除 UIActionInvocation.detectScrollBoundary() (lines 53-58, 87-110), (2) 删除 UiChangeDetector.detectScrollBoundary() (lines 31-49), (3) 删除 PolicyEngine.isEscape() 中 MobileActionName.Back/Home fallback 分支 (注意: enum 成员被 ToolUi.kt 使用，仅删分支), (4) 删除 OpenAppTool companion 中未使用的 UI_SETTLE_DELAY_MS 和 SUGGESTION_LIMIT, (5) SystemButtonTool.kt:71 else branch 改为 error('Unreachable'), (6) 删除 DataQueryInvocation.kt (零调用者), (7) 修复 ActionPriorityOrder.kt 中指向不存在路径的 doc 引用。",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/UIActionInvocation.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/tool/action/UiChangeDetector.kt",
@@ -1100,7 +1100,7 @@
     "depends": [],
     "state": "ready",
     "title": "Split CompletionReason into TaskOutcome + SessionEndReason",
-    "description": "CompletionReason.kt has 7 values shared by TaskCompleted and SessionCompleted, encoding impossible combinations. AgentSession emits task reasons (GOAL_ACHIEVED, MAX_TURNS, TASK_IMPOSSIBLE, ERROR) at task end and session reasons (USER_STOPPED, IDLE_TIMEOUT, INTERRUPTED) at session end, but the type does not enforce this.\n\nConcrete bug: SessionRecordingService.completeSession():211-217 derives completedNormally from the session-level CompletionReason \u2014 so a task that succeeds then idles out is recorded as not completed normally.\n\nConsumers with impossible branches:\n- AgentServiceEventHandler:117-127 handles GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE/ERROR for SessionCompleted (never emitted at session level)\n- CapsuleStateHolder.onSessionEnded():258-285 handles GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE for SessionCompleted (never emitted at session level)\n\nPlan: Replace CompletionReason with TaskOutcome + SessionEndReason. Update TaskCompleted/SessionCompleted. Remove SessionCompleted.result (always null). Fix SessionRecordingService to track last task outcome. Remove impossible branches.",
+    "description": "CompletionReason.kt has 7 values shared by TaskCompleted and SessionCompleted, encoding impossible combinations. AgentSession emits task reasons (GOAL_ACHIEVED, MAX_TURNS, TASK_IMPOSSIBLE, ERROR) at task end and session reasons (USER_STOPPED, IDLE_TIMEOUT, INTERRUPTED) at session end, but the type does not enforce this.\n\nConcrete bug: SessionRecordingService.completeSession():211-217 derives completedNormally from the session-level CompletionReason — so a task that succeeds then idles out is recorded as not completed normally.\n\nConsumers with impossible branches:\n- AgentServiceEventHandler:117-127 handles GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE/ERROR for SessionCompleted (never emitted at session level)\n- CapsuleStateHolder.onSessionEnded():258-285 handles GOAL_ACHIEVED/MAX_TURNS/TASK_IMPOSSIBLE for SessionCompleted (never emitted at session level)\n\nPlan: Replace CompletionReason with TaskOutcome + SessionEndReason. Update TaskCompleted/SessionCompleted. Remove SessionCompleted.result (always null). Fix SessionRecordingService to track last task outcome. Remove impossible branches.",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/protocol/CompletionReason.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/protocol/TaskLifecycleEvents.kt",
@@ -1200,7 +1200,7 @@
     "parent": null,
     "depends": [],
     "state": "ready",
-    "title": "Test Architecture \u6539\u8fdb",
+    "title": "Test Architecture 改进",
     "description": "Fix coverage imbalance: suite is strong for pure inner logic but weak at runtime boundaries. Fix known bugs, add boundary/seam tests, cover blank high-risk modules. Based on double-design review (Claude + Codex), re-evaluated against current code 2026-04-16.",
     "design": "doc/todo/holistic-review/test-architecture/final/improvement_plan.md",
     "acceptCriteria": [
@@ -1219,7 +1219,7 @@
     "parent": null,
     "depends": [],
     "state": "ready",
-    "title": "Dead Code & Over-Abstraction \u6e05\u7406",
+    "title": "Dead Code & Over-Abstraction 清理",
     "description": "Remove verified dead code (files, methods, composables, fields, parameters), collapse single-impl onboarding interface, and simplify delegate_task tool boundary. Based on double-design review (Claude + Codex), reassessed 2026-04-16 after multiple code change rounds.",
     "design": "doc/todo/holistic-review/dead-code-overabstraction/final/improvement_plan.md",
     "acceptCriteria": [
@@ -1238,8 +1238,8 @@
   "dco-safe-deletions": {
     "parent": "dead-code-overabstraction",
     "depends": [],
-    "state": "ready",
-    "title": "Phase 1: Safe deletions \u2014 dead files, methods, composables, fields",
+    "state": "done",
+    "title": "Phase 1: Safe deletions — dead files, methods, composables, fields",
     "description": "Delete 3 entire dead files (StatusUtils.kt, SessionServicesSummaryFormatter.kt, .DS_Store), 9 dead methods from live files (SessionServices.getSummary/updateApprovalMode, AppClassifier.addUserOverride+userOverrides, ToolCallResult.isSuccess/getOutputOrNull, ToolSpec.toFunctionSchema/ValidationResult.isValid/ToolExecutionResult.isSuccess, ActionResult.isSuccess), 3 dead composables (ApiKeysSection, BackendSelector, SettingsDropdownOptionWithDescription), 1 dead auth function (refreshOAuthToken), and 1 dead field (ScreenSnapshotDebug.captureQualityPath + its setter in AccessibilityPlatform). All items verified as zero-callers by both Claude and Codex with rg.",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/util/StatusUtils.kt",
@@ -1266,7 +1266,7 @@
       "rg -c \"fun isSuccess\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt returns 0 or fails",
       "rg -c \"fun getOutputOrNull\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt returns 0 or fails",
       "rg -c \"fun toFunctionSchema\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 or fails",
-      "rg -c \"fun isValid\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 or fails \u2014 covers ValidationResult.isValid() and ToolExecutionResult.isSuccess()",
+      "rg -c \"fun isValid\\(\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 or fails — covers ValidationResult.isValid() and ToolExecutionResult.isSuccess()",
       "rg -c \"ApiKeysSection\" app/src/main/kotlin/com/moonkey/androidagent/ui/settings/ApiKeyFields.kt returns 0 or fails",
       "rg -c \"BackendSelector\" app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdowns.kt returns 0 or fails",
       "rg -c \"SettingsDropdownOptionWithDescription\" app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsDropdown.kt returns 0 or fails",
@@ -1281,7 +1281,8 @@
       "cleanup"
     ],
     "created": "2026-04-16T22:10:11Z",
-    "updated": "2026-04-16T22:10:11Z"
+    "updated": "2026-04-17T00:03:59Z",
+    "agent": "w-dco-safe-deletions"
   },
   "ta-error-classifier": {
     "parent": "test-architecture",
@@ -1322,7 +1323,7 @@
     ],
     "state": "ready",
     "title": "Phase 2: Remove dead parameters, API surface, and payload plumbing",
-    "description": "Three independent cleanups:\n\n(A) Remove unused constructor params: OnboardingViewModel.context and DefaultOnboardingDemoController.modelCatalog \u2014 delete from both declaration and MainActivity call sites.\n\n(B) Shrink SessionHistoryManager public API: make loadSessionByFileName() private, delete deleteSessionByFileName/getMostRecentSession/hasActiveSession/endSession (all zero-callers), remove unused scope stored property.\n\n(C) Remove dead success-payload plumbing: delete data field from ToolCallResult.Success and ToolExecutionResult.Success. Neither has any production reader. Remove the now-pointless data= arguments from all construction sites (WriteTodosTool, DelegateTaskTool, CompleteTaskTool, AskUserTool, textToolSuccess helper, ToolRouter forwarding).",
+    "description": "Three independent cleanups:\n\n(A) Remove unused constructor params: OnboardingViewModel.context and DefaultOnboardingDemoController.modelCatalog — delete from both declaration and MainActivity call sites.\n\n(B) Shrink SessionHistoryManager public API: make loadSessionByFileName() private, delete deleteSessionByFileName/getMostRecentSession/hasActiveSession/endSession (all zero-callers), remove unused scope stored property.\n\n(C) Remove dead success-payload plumbing: delete data field from ToolCallResult.Success and ToolExecutionResult.Success. Neither has any production reader. Remove the now-pointless data= arguments from all construction sites (WriteTodosTool, DelegateTaskTool, CompleteTaskTool, AskUserTool, textToolSuccess helper, ToolRouter forwarding).",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt",
       "app/src/main/kotlin/com/moonkey/androidagent/onboarding/DefaultOnboardingDemoController.kt",
@@ -1342,8 +1343,8 @@
       "SessionHistoryManager.loadSessionByFileName is private (grep shows private fun loadSessionByFileName)",
       "rg -c \"fun deleteSessionByFileName|fun getMostRecentSession|fun hasActiveSession|fun endSession\" app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt returns 0",
       "rg \"\\bscope\\b\" app/src/main/kotlin/com/moonkey/androidagent/history/SessionHistoryManager.kt shows no stored scope property (CoroutineScope parameter if any is used, not stored dead)",
-      "rg -c \"val data\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt returns 0 \u2014 Success.data field removed",
-      "rg -c \"val data\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 \u2014 ToolExecutionResult.Success.data field removed",
+      "rg -c \"val data\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolCallResult.kt returns 0 — Success.data field removed",
+      "rg -c \"val data\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt returns 0 — ToolExecutionResult.Success.data field removed",
       "rg \"data\\s*=\" app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt shows no data= forwarding from execution result to call result",
       "./gradlew :app:compileDebugKotlin exits 0",
       "./gradlew test exits 0"
@@ -1361,7 +1362,7 @@
     "depends": [],
     "state": "ready",
     "title": "P1: Add CodexRequestBuilderTest",
-    "description": "CodexRequestBuilder.kt owns buildRequestBody(), convertInputItems(), and convertTools() with zero direct tests. This is pure serialization at an external-contract boundary \u2014 regressions are cheap to create and hard to notice until runtime.",
+    "description": "CodexRequestBuilder.kt owns buildRequestBody(), convertInputItems(), and convertTools() with zero direct tests. This is pure serialization at an external-contract boundary — regressions are cheap to create and hard to notice until runtime.",
     "scope": [
       "app/src/test/kotlin/com/moonkey/androidagent/llm/CodexRequestBuilderTest.kt"
     ],
@@ -1500,12 +1501,12 @@
     ],
     "acceptCriteria": [
       "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingDemoController.kt either does not exist (interface deleted) or is the renamed concrete class (not an interface)",
-      "! rg -q \"interface OnboardingDemoController\" app/src/main/kotlin/com/moonkey/androidagent/ \u2014 no interface declaration exists anywhere",
-      "rg -q \"class.*OnboardingDemoController\" app/src/main/kotlin/com/moonkey/androidagent/ \u2014 concrete class exists",
-      "! rg -q \"var demoController.*=\\s*null\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt \u2014 no nullable late-assigned field",
-      "rg -q \"demoController\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt \u2014 controller is still referenced (as constructor param)",
-      "! rg -q \"vm\\.demoController\\s*=\" app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt \u2014 no post-construction assignment",
-      "! rg -q \"demoController\\?\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt \u2014 no nullable access (?.)",
+      "! rg -q \"interface OnboardingDemoController\" app/src/main/kotlin/com/moonkey/androidagent/ — no interface declaration exists anywhere",
+      "rg -q \"class.*OnboardingDemoController\" app/src/main/kotlin/com/moonkey/androidagent/ — concrete class exists",
+      "! rg -q \"var demoController.*=\\s*null\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt — no nullable late-assigned field",
+      "rg -q \"demoController\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt — controller is still referenced (as constructor param)",
+      "! rg -q \"vm\\.demoController\\s*=\" app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt — no post-construction assignment",
+      "! rg -q \"demoController\\?\" app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModel.kt — no nullable access (?.)",
       "./gradlew :app:compileDebugKotlin exits 0",
       "./gradlew test exits 0"
     ],
@@ -1548,13 +1549,13 @@
     ],
     "state": "ready",
     "title": "QA Round: Real Device Validation",
-    "description": "Run end-to-end QA on device via adb/accessibility to validate protocol fixes do not regress user-facing behavior and bugs are actually fixed. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) Approval validation: trigger an approval, dismiss it, then replay the same Op.Approve via adb intent or logcat injection \u2014 verify allow-list was NOT mutated (check policyEngine state or logcat for warning)\n(2) Completion recording: complete a task successfully (GOAL_ACHIEVED), then let session idle timeout \u2014 verify session recording JSON shows task as completed normally (not failed)\n(3) Checkpoint round-trip: start session with non-default config (e.g. custom actionDelayMs or approvalMode via settings), trigger checkpoint, force-stop and relaunch \u2014 verify restored config matches original (check logcat for config values)\n(4) Dead event surface: run a normal task with logcat filtering for TodosUpdated, ScratchpadUpdated, ApprovalResolved \u2014 verify these events no longer appear in the event stream\n(5) Normal multi-turn task: complete a standard task \u2014 verify GOAL_ACHIEVED in session record and no regression in chat UI\n(6) Session error: trigger a bootstrap failure (e.g. invalid API key) \u2014 verify SessionError surfaces in chat UI with error message\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence. Write pass/fail report.",
+    "description": "Run end-to-end QA on device via adb/accessibility to validate protocol fixes do not regress user-facing behavior and bugs are actually fixed. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) Approval validation: trigger an approval, dismiss it, then replay the same Op.Approve via adb intent or logcat injection — verify allow-list was NOT mutated (check policyEngine state or logcat for warning)\n(2) Completion recording: complete a task successfully (GOAL_ACHIEVED), then let session idle timeout — verify session recording JSON shows task as completed normally (not failed)\n(3) Checkpoint round-trip: start session with non-default config (e.g. custom actionDelayMs or approvalMode via settings), trigger checkpoint, force-stop and relaunch — verify restored config matches original (check logcat for config values)\n(4) Dead event surface: run a normal task with logcat filtering for TodosUpdated, ScratchpadUpdated, ApprovalResolved — verify these events no longer appear in the event stream\n(5) Normal multi-turn task: complete a standard task — verify GOAL_ACHIEVED in session record and no regression in chat UI\n(6) Session error: trigger a bootstrap failure (e.g. invalid API key) — verify SessionError surfaces in chat UI with error message\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence. Write pass/fail report.",
     "acceptCriteria": [
       "QA report exists at doc/todo/holistic-review/protocol-communication/final/qa_report.md with pass/fail per scenario",
       "Each scenario has evidence: logcat excerpt, screenshot, or session JSON snippet",
       "Approval validation: logcat shows warning when stale approval is rejected, no allow-list mutation observed",
       "Completion recording: session record JSON shows completedNormally=true for successful task even after idle timeout shutdown",
-      "Checkpoint round-trip: restored config matches original \u2014 logcat or debugger shows actionDelayMs/approvalMode/traceEnabled preserved",
+      "Checkpoint round-trip: restored config matches original — logcat or debugger shows actionDelayMs/approvalMode/traceEnabled preserved",
       "Dead events: logcat grep for TodosUpdated|ScratchpadUpdated|ApprovalResolved returns no matches during task execution",
       "Normal task: completes with GOAL_ACHIEVED (or TaskOutcome equivalent), chat UI shows success state",
       "Session error: bootstrap failure shows error message in chat, not a blank screen or crash",
@@ -1703,14 +1704,14 @@
     ],
     "state": "ready",
     "title": "Phase 4: Remove agent_name from delegate_task tool",
-    "description": "DelegateTaskTool requires agent_name in its parameter schema and validation, but AgentDefRegistry.delegatableRoles() returns exactly one entry (ExecutorRoleDef). The planner is forced to \"choose\" among one valid option. This is fake flexibility that wastes a tool parameter and complicates the tool description injected into the planner prompt.\n\nFix:\n1. Remove agent_name from DelegateTaskTool.parameterSchema\n2. Remove agent_name validation and lookup logic in execute()\n3. Hardcode delegation target to executor role (resolve via AgentDefRegistry.delegatableRoles().single() or direct reference)\n4. Simplify tool description \u2014 remove \"Available agents:\" listing\n\nKeep AgentRoleDef/AgentDefRegistry \u2014 they resolve 3 real top-level roles and are not over-abstracted.",
+    "description": "DelegateTaskTool requires agent_name in its parameter schema and validation, but AgentDefRegistry.delegatableRoles() returns exactly one entry (ExecutorRoleDef). The planner is forced to \"choose\" among one valid option. This is fake flexibility that wastes a tool parameter and complicates the tool description injected into the planner prompt.\n\nFix:\n1. Remove agent_name from DelegateTaskTool.parameterSchema\n2. Remove agent_name validation and lookup logic in execute()\n3. Hardcode delegation target to executor role (resolve via AgentDefRegistry.delegatableRoles().single() or direct reference)\n4. Simplify tool description — remove \"Available agents:\" listing\n\nKeep AgentRoleDef/AgentDefRegistry — they resolve 3 real top-level roles and are not over-abstracted.",
     "scope": [
       "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt"
     ],
     "acceptCriteria": [
-      "rg -c \"agent_name\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt returns 0 \u2014 parameter completely removed from schema and execution",
-      "! rg -q \"Available agents\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt \u2014 no agent directory in tool description",
-      "rg -q \"delegatable\\|ExecutorRoleDef\\|executor\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt \u2014 executor target is resolved, not hardcoded string",
+      "rg -c \"agent_name\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt returns 0 — parameter completely removed from schema and execution",
+      "! rg -q \"Available agents\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt — no agent directory in tool description",
+      "rg -q \"delegatable\\|ExecutorRoleDef\\|executor\" app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt — executor target is resolved, not hardcoded string",
       "DelegateTaskToolTest still passes: ./gradlew test --tests \"*DelegateTaskToolTest\" exits 0",
       "./gradlew :app:compileDebugKotlin exits 0",
       "./gradlew test exits 0"
@@ -1755,17 +1756,17 @@
     ],
     "state": "ready",
     "title": "QA Round: Build + Smoke Validation",
-    "description": "Validate that dead-code-overabstraction changes do not regress any user-facing behavior. Run build, full test suite, lint, and targeted manual smoke tests on device.\n\nSmoke scenarios:\n(1) Onboarding flow: fresh install, walk through permissions + API key validation + demo step start/cancel \u2014 validates OnboardingDemoController constructor injection works\n(2) Settings UI: open settings, verify no crashes or missing UI elements from composable deletions\n(3) PRO mode delegation: start a multi-turn PRO task \u2014 validates delegate_task works without agent_name parameter\n(4) Session history: load previous sessions, verify list renders correctly after SessionHistoryManager API surface shrink\n(5) Normal single-turn task: complete a standard task \u2014 verify no regression from ToolCallResult/ToolExecutionResult payload removal\n\nCapture logcat, screenshots, and session JSON as evidence.",
+    "description": "Validate that dead-code-overabstraction changes do not regress any user-facing behavior. Run build, full test suite, lint, and targeted manual smoke tests on device.\n\nSmoke scenarios:\n(1) Onboarding flow: fresh install, walk through permissions + API key validation + demo step start/cancel — validates OnboardingDemoController constructor injection works\n(2) Settings UI: open settings, verify no crashes or missing UI elements from composable deletions\n(3) PRO mode delegation: start a multi-turn PRO task — validates delegate_task works without agent_name parameter\n(4) Session history: load previous sessions, verify list renders correctly after SessionHistoryManager API surface shrink\n(5) Normal single-turn task: complete a standard task — verify no regression from ToolCallResult/ToolExecutionResult payload removal\n\nCapture logcat, screenshots, and session JSON as evidence.",
     "acceptCriteria": [
       "QA report exists at doc/todo/holistic-review/dead-code-overabstraction/qa_report.md with pass/fail per scenario",
       "./gradlew assembleDebug exits 0",
       "./gradlew test exits 0",
       "./gradlew lint exits 0 (no new warnings)",
-      "Onboarding flow: permissions, API key entry, and demo step all function \u2014 screenshot evidence",
-      "Settings UI: settings sheet opens without crash, no missing sections \u2014 screenshot evidence",
-      "PRO mode: delegate_task executes without agent_name, sub-agent completes \u2014 logcat shows delegation success",
-      "Session history: previous sessions render in list, tapping loads session \u2014 screenshot evidence",
-      "Normal task: single-turn task completes with GOAL_ACHIEVED \u2014 session JSON shows correct CompletionReason",
+      "Onboarding flow: permissions, API key entry, and demo step all function — screenshot evidence",
+      "Settings UI: settings sheet opens without crash, no missing sections — screenshot evidence",
+      "PRO mode: delegate_task executes without agent_name, sub-agent completes — logcat shows delegation success",
+      "Session history: previous sessions render in list, tapping loads session — screenshot evidence",
+      "Normal task: single-turn task completes with GOAL_ACHIEVED — session JSON shows correct CompletionReason",
       "No crash in adb logcat during QA run: adb logcat -d | grep -i \"fatal\\|crash\" returns no androidagent matches"
     ],
     "estimate": "m",
@@ -1858,7 +1859,7 @@
     "depends": [],
     "state": "ready",
     "title": "P4: Add OnboardingViewModelTest",
-    "description": "OnboardingViewModel is a 503-line async state machine with permission polling, provider selection, OAuth/manual auth branching, draft-key persistence, demo preflight, step skipping, and auto-advance timing. Zero direct tests \u2014 one of the highest-value blank areas in the entire codebase.",
+    "description": "OnboardingViewModel is a 503-line async state machine with permission polling, provider selection, OAuth/manual auth branching, draft-key persistence, demo preflight, step skipping, and auto-advance timing. Zero direct tests — one of the highest-value blank areas in the entire codebase.",
     "scope": [
       "app/src/test/kotlin/com/moonkey/androidagent/onboarding/OnboardingViewModelTest.kt"
     ],
@@ -1917,9 +1918,9 @@
     ],
     "acceptCriteria": [
       "PermissionStateMonitorTest.kt exists with >=3 test methods",
-      "Test: all permissions granted \u2192 empty repair model",
-      "Test: accessibility missing \u2192 repair model includes accessibility",
-      "Test: multiple permissions missing \u2192 repair model includes all missing",
+      "Test: all permissions granted → empty repair model",
+      "Test: accessibility missing → repair model includes accessibility",
+      "Test: multiple permissions missing → repair model includes all missing",
       "./gradlew test passes"
     ],
     "priority": "normal",
@@ -1942,10 +1943,10 @@
     ],
     "acceptCriteria": [
       "HttpLlmCredentialValidatorTest.kt exists with >=4 test methods",
-      "Test: HTTP 200 \u2192 valid credential state",
-      "Test: HTTP 401/403 \u2192 invalid-key state",
-      "Test: HTTP 429/5xx \u2192 transient-error state (not invalid-key)",
-      "Test: timeout/IO exception \u2192 transient-error state",
+      "Test: HTTP 200 → valid credential state",
+      "Test: HTTP 401/403 → invalid-key state",
+      "Test: HTTP 429/5xx → transient-error state (not invalid-key)",
+      "Test: timeout/IO exception → transient-error state",
       "./gradlew test passes"
     ],
     "priority": "normal",
@@ -1995,7 +1996,7 @@
       "ChatEventReducerTest.kt exists with >=4 test methods",
       "Test: task-start event initializes reducer state",
       "Test: streaming delta events accumulate text content correctly",
-      "Test: action-card proposal \u2192 execution \u2192 success transitions in correct order",
+      "Test: action-card proposal → execution → success transitions in correct order",
       "Test: task completion/error event produces terminal state",
       "./gradlew test passes"
     ],
@@ -2019,7 +2020,7 @@
     ],
     "acceptCriteria": [
       "MessageConverterTest.kt exists with >=3 test methods",
-      "Test: MessageRecord \u2192 ChatMessage conversion preserves content and role",
+      "Test: MessageRecord → ChatMessage conversion preserves content and role",
       "Test: action-state field parsed correctly (proposed/executing/succeeded/failed)",
       "Test: tool name maps to correct UI display name and icon",
       "./gradlew test passes"
@@ -2264,7 +2265,7 @@
     ],
     "state": "ready",
     "title": "QA Round: Real Device Validation",
-    "description": "Run automated end-to-end QA on device via adb/accessibility to validate that new/changed tests actually catch regressions and the OpenAIErrorClassifier fix does not break live API calls. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) Error classifier fix: trigger a real LLM call \u2192 verify agent handles 429 rate-limit correctly (retries) and 401 auth error correctly (fails immediately). Check logcat for retry behavior.\n(2) Normal multi-turn task: complete a standard 3+ step task \u2192 verify no regression from any test-architecture changes. Capture session JSON.\n(3) Provider routing: if multiple providers configured, verify chat-completion and codex paths both work (ChatCompletionInterop exercised on real call).\n(4) Error recovery: trigger a transient error (e.g., airplane mode briefly) \u2192 verify retry policy works end-to-end.\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence.",
+    "description": "Run automated end-to-end QA on device via adb/accessibility to validate that new/changed tests actually catch regressions and the OpenAIErrorClassifier fix does not break live API calls. Use /ux-visual-debug for ADB-driven interaction and screenshot evidence.\n\nTest scenarios:\n(1) Error classifier fix: trigger a real LLM call → verify agent handles 429 rate-limit correctly (retries) and 401 auth error correctly (fails immediately). Check logcat for retry behavior.\n(2) Normal multi-turn task: complete a standard 3+ step task → verify no regression from any test-architecture changes. Capture session JSON.\n(3) Provider routing: if multiple providers configured, verify chat-completion and codex paths both work (ChatCompletionInterop exercised on real call).\n(4) Error recovery: trigger a transient error (e.g., airplane mode briefly) → verify retry policy works end-to-end.\n\nFor each scenario: capture logcat, screenshots, and session JSON as evidence.",
     "acceptCriteria": [
       "QA report exists at doc/todo/holistic-review/test-architecture/qa_report.md with pass/fail per scenario",
       "Each scenario has evidence: logcat excerpt, screenshot, or session JSON snippet",

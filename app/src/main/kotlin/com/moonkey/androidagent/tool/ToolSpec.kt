@@ -34,25 +34,11 @@ interface ToolSpec {
     
     /**
      * Create an executable invocation from validated parameters.
-     * 
+     *
      * @param params The validated parameters
      * @return A ToolInvocation ready to execute
      */
     fun createInvocation(params: JSONObject): ToolInvocation
-    
-    /**
-     * Generate an OpenAI-compatible function schema for this tool.
-     */
-    fun toFunctionSchema(): JSONObject {
-        return JSONObject().apply {
-            put("type", "function")
-            put("function", JSONObject().apply {
-                put("name", name)
-                put("description", description)
-                put("parameters", parameterSchema)
-            })
-        }
-    }
 }
 
 /**
@@ -68,8 +54,6 @@ sealed interface ValidationResult {
     ) : ValidationResult {
         constructor(error: String) : this(listOf(error))
     }
-    
-    fun isValid(): Boolean = this is Valid
 }
 
 /**
@@ -147,8 +131,6 @@ sealed interface ToolExecutionResult {
     data class Cancelled(
         val reason: String = "Cancelled"
     ) : ToolExecutionResult
-    
-    fun isSuccess(): Boolean = this is Success
 }
 
 /**

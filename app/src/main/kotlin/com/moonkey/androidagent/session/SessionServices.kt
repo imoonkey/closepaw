@@ -191,17 +191,6 @@ class SessionServices internal constructor(
         )
     }
 
-    /** Update the approval mode at runtime. */
-    fun updateApprovalMode(mode: com.moonkey.androidagent.protocol.ApprovalMode) {
-        policyEngine.setApprovalMode(mode)
-        Log.d(TAG, "Updated approval mode to: $mode")
-    }
-
-    /** Get a summary of all services for debugging. */
-    fun getSummary(): String {
-        return SessionServicesSummaryFormatter.format(this)
-    }
-
     /**
      * Cleanup all services.
      *

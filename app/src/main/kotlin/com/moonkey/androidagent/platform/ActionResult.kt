@@ -17,6 +17,4 @@ sealed interface ActionResult {
 
     /** Action was cancelled before completion. */
     data class Cancelled(val reason: String = "Action cancelled") : ActionResult
-
-    fun isSuccess(): Boolean = this is Success
 }

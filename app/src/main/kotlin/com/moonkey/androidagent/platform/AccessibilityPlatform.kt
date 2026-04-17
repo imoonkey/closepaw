@@ -101,8 +101,7 @@ class AccessibilityPlatform(
                     ScreenSnapshotDebug(
                             rawA11yTreePath = a11yResult.rawTreeArtifactPath,
                             sanitizedA11yTreePath = a11yResult.sanitizedTreeArtifactPath,
-                            screenshotPath = screenshotCapture?.tracePath,
-                            captureQualityPath = a11yResult.captureQualityArtifactPath
+                            screenshotPath = screenshotCapture?.tracePath
                     )
                 } else {
                     null

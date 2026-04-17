@@ -1,59 +1,15 @@
 package com.moonkey.androidagent.ui.settings
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Memory
-import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.dp
 import com.moonkey.androidagent.protocol.AgentMode
-import com.moonkey.androidagent.protocol.LLMBackendType
-
-@Composable
-internal fun BackendSelector(
-    selectedBackend: LLMBackendType,
-    onBackendChange: (LLMBackendType) -> Unit
-) {
-    val backends = listOf(
-        LLMBackendType.OPENAI to "Cloud (OpenAI)",
-        LLMBackendType.LOCAL to "Local (On-Device)"
-    )
-    val selectedDisplayName = backends.find { it.first == selectedBackend }?.second ?: "Cloud (OpenAI)"
-
-    SettingsDropdown(
-        label = "Backend",
-        value = selectedDisplayName,
-        leadingIcon = backendIcon(selectedBackend),
-        options = backends,
-        isSelected = { (backend, _) -> backend == selectedBackend },
-        onOptionSelected = { (backend, _) -> onBackendChange(backend) },
-        optionText = { (_, displayName) -> Text(displayName) },
-        optionLeadingIcon = { (backend, _), selected ->
-            {
-                Icon(
-                    imageVector = backendIcon(backend),
-                    contentDescription = null,
-                    modifier = androidx.compose.ui.Modifier.size(20.dp),
-                    tint =
-                        if (selected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                )
-            }
-        }
-    )
-}
 
 @Composable
 internal fun CloudModelDropdown(
@@ -174,12 +130,4 @@ internal fun AgentModeDropdown(
             if (selected) { { DropdownSelectedIndicator() } } else null
         }
     )
-}
-
-private fun backendIcon(backend: LLMBackendType): ImageVector {
-    return if (backend == LLMBackendType.OPENAI) {
-        Icons.Outlined.Cloud
-    } else {
-        Icons.Outlined.PhoneAndroid
-    }
 }

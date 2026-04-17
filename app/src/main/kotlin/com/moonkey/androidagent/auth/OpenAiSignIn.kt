@@ -84,14 +84,3 @@ suspend fun openAiSignIn(
         server.stop()
     }
 }
-
-/**
- * Refresh an OAuth access token. Thin wrapper around [OAuthTokenExchange.refresh]
- * that maps the result to [OpenAiSignInResult].
- */
-suspend fun refreshOAuthToken(refreshToken: String): OpenAiSignInResult {
-    return when (val result = OAuthTokenExchange.refresh(refreshToken)) {
-        is OAuthTokenExchange.Result.Success -> OpenAiSignInResult.Success(result.tokens)
-        is OAuthTokenExchange.Result.Error -> OpenAiSignInResult.Error(result.message)
-    }
-}

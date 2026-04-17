@@ -4,7 +4,6 @@ package com.moonkey.androidagent.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -109,17 +108,5 @@ internal fun <T> SettingsDropdown(
                 leadingIcon = optionLeadingIcon?.invoke(item, selected)
             )
         }
-    }
-}
-
-@Composable
-internal fun SettingsDropdownOptionWithDescription(primary: String, secondary: String) {
-    Column {
-        Text(primary)
-        Text(
-            text = secondary,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
