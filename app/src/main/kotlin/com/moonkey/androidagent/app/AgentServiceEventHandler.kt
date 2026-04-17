@@ -27,12 +27,7 @@ internal class AgentServiceEventHandler(
 
         when (event) {
             is StatusUpdate -> {
-                val displayStatus = if (event.emoji != null) {
-                    "${event.emoji} ${event.status}"
-                } else {
-                    event.status
-                }
-                updateStatus(displayStatus)
+                updateStatus(event.status)
             }
             is SessionStarted -> {
                 Log.i(logTag, "Session started: ${event.sessionId}, goal: ${event.goal}")
@@ -160,7 +155,7 @@ internal class AgentServiceEventHandler(
                 overlay?.onAskUser(event.type, event.message, event.callId)
             }
             is ApprovalRequired -> {
-                Log.i(logTag, "ApprovalRequired: actionId=${event.actionId}, callId=${event.details.callId}")
+                Log.i(logTag, "ApprovalRequired: callId=${event.details.callId}")
                 overlay?.onApprovalRequired(event.details)
             }
 

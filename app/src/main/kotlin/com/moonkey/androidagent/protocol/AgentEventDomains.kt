@@ -6,9 +6,6 @@ sealed interface SessionLifecycleEvent : AgentEvent
 /** Task lifecycle domain events. */
 sealed interface TaskLifecycleEvent : AgentEvent
 
-/** Planning state domain events. */
-sealed interface PlanningStateEvent : AgentEvent
-
 /** Sub-agent lifecycle/activity domain events. */
 sealed interface SubAgentDomainEvent : AgentEvent
 

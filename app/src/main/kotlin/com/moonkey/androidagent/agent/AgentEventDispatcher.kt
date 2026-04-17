@@ -47,8 +47,7 @@ class AgentEventDispatcher(
             sessionId = sessionId,
             timestamp = now(),
             turnId = turnId,
-            turnNumber = turnNumber,
-            phase = TurnPhase.PERCEPTION
+            turnNumber = turnNumber
         ))
     }
 
@@ -95,23 +94,6 @@ class AgentEventDispatcher(
         ))
     }
 
-    suspend fun todosUpdated(todos: List<Todo>) {
-        eventEmitter(TodosUpdated(
-            sessionId = sessionId,
-            timestamp = now(),
-            todos = todos
-        ))
-    }
-
-    suspend fun scratchpadUpdated(key: String, action: String) {
-        eventEmitter(ScratchpadUpdated(
-            sessionId = sessionId,
-            timestamp = now(),
-            key = key,
-            action = action
-        ))
-    }
-
     /**
      * Emit a thought update for the Smart Capsule.
      * Extracted from agent_thought in tool call parameters.
@@ -155,12 +137,11 @@ class AgentEventDispatcher(
         ))
     }
 
-    suspend fun approvalRequired(actionId: String, description: String, details: ApprovalDetails) {
+    suspend fun approvalRequired(description: String, details: ApprovalDetails) {
         Log.d(TAG, "ApprovalRequired: $description")
         eventEmitter(ApprovalRequired(
             sessionId = sessionId,
             timestamp = now(),
-            actionId = actionId,
             description = description,
             details = details
         ))

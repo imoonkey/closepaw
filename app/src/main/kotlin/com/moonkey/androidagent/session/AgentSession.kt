@@ -266,14 +266,13 @@ private constructor(
         }
     }
 
-    internal fun emitStatus(status: String, emoji: String? = null) {
+    internal fun emitStatus(status: String) {
         scope.launch {
             emit(
                     StatusUpdate(
                             sessionId = sessionId,
                             timestamp = now(),
-                            status = status,
-                            emoji = emoji
+                            status = status
                     )
             )
         }
@@ -600,15 +599,6 @@ private constructor(
                 ApprovalScope.ONCE -> { /* no side effect */ }
             }
         }
-
-        emit(
-                ApprovalResolved(
-                        sessionId = sessionId,
-                        timestamp = now(),
-                        actionId = op.actionId,
-                        decision = op.decision
-                )
-        )
 
         Log.d(TAG, "Resolved approval: ${op.actionId} -> ${op.decision}")
     }

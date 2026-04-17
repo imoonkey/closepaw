@@ -4,6 +4,5 @@ package com.moonkey.androidagent.protocol
 data class StatusUpdate(
         override val sessionId: SessionId,
         override val timestamp: Long,
-        val status: String,
-        val emoji: String? = null
+        val status: String
 ) : StatusDomainEvent

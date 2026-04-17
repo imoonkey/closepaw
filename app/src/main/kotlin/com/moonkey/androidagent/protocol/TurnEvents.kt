@@ -5,8 +5,7 @@ data class TurnStarted(
         override val sessionId: SessionId,
         override val timestamp: Long,
         val turnId: String,
-        val turnNumber: Int,
-        val phase: TurnPhase
+        val turnNumber: Int
 ) : TurnDomainEvent
 
 /** A turn has completed. */

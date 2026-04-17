@@ -120,8 +120,6 @@ internal class TurnExecutionPhaseRunner(
                                 onApprovalRequired = { details -> emitApprovalRequired(details) }
                         )
 
-                emitPlanningEvents(toolCall, toolResult)
-
                 val observationCapture = resolveObservation(toolCall, toolResult)
                 val observation = observationCapture.observation
                 val observedSnapshot = observationCapture.snapshot
@@ -183,7 +181,6 @@ internal class TurnExecutionPhaseRunner(
 
         private suspend fun emitApprovalRequired(details: ApprovalDetails) {
                 eventDispatcher.approvalRequired(
-                        actionId = details.callId,
                         description = details.description,
                         details = details
                 )
@@ -255,28 +252,6 @@ internal class TurnExecutionPhaseRunner(
                                 ),
                         snapshot = snapshot
                 )
-        }
-
-        private suspend fun emitPlanningEvents(
-                toolCall: ToolCallRequest,
-                toolResult: ToolCallResult
-        ) {
-                if (toolResult !is ToolCallResult.Success) return
-                when (ToolName.from(toolCall.name)) {
-                        ToolName.WriteTodos -> {
-                                eventDispatcher.todosUpdated(services.sessionState.todos.get())
-                        }
-                        ToolName.Scratchpad -> {
-                                val action = toolCall.arguments.optString("action", "")
-                                if (action == "write" || action == "delete") {
-                                        val key = toolCall.arguments.optString("key", "")
-                                        if (key.isNotBlank()) {
-                                                eventDispatcher.scratchpadUpdated(key, action)
-                                        }
-                                }
-                        }
-                        else -> Unit
-                }
         }
 
         /** Meta-only: no screen state in tool results. */
