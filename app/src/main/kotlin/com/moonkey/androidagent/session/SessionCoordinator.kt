@@ -211,7 +211,7 @@ class SessionCoordinator(private val scope: CoroutineScope) {
         while (pendingInputs.isNotEmpty()) {
             val state = session.state.value
             if (state != SessionState.Idle && state != SessionState.Created) break
-            session.submit(Op.UserInput(pendingInputs.removeFirst()))
+            session.submit(Op.UserInput(pendingInputs.removeAt(0)))
         }
     }
 }
