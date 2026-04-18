@@ -5,6 +5,7 @@ import ai.closepaw.protocol.Op
 import ai.closepaw.protocol.SessionState
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
@@ -239,9 +240,15 @@ class SessionCoordinatorTest {
         state.value = SessionState.Idle
         advanceUntilIdle()
 
-        coVerify { session.submit(Op.UserInput("a")) }
-        coVerify { session.submit(Op.UserInput("b")) }
-        coVerify { session.submit(Op.UserInput("c")) }
+        // Strict order + exact counts: rules out a/c/b reordering and duplicates.
+        coVerifyOrder {
+            session.submit(Op.UserInput("a"))
+            session.submit(Op.UserInput("b"))
+            session.submit(Op.UserInput("c"))
+        }
+        coVerify(exactly = 1) { session.submit(Op.UserInput("a")) }
+        coVerify(exactly = 1) { session.submit(Op.UserInput("b")) }
+        coVerify(exactly = 1) { session.submit(Op.UserInput("c")) }
     }
 
     @Test
@@ -427,5 +434,103 @@ class SessionCoordinatorTest {
         advanceUntilIdle()
 
         assertThat(coordinator.consumeDeadSessionFileName()).isNull()
+    }
+
+    // --- Additional FSM edge coverage ---
+
+    @Test
+    fun `clearSession swallows shutdown exception and still tears down`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Idle)
+        val session = mockk<AgentSession>(relaxed = true)
+        every { session.state } returns state
+        coEvery { session.submit(Op.Shutdown) } throws RuntimeException("boom")
+
+        coordinator.attachSession(session)
+        advanceUntilIdle()
+
+        coordinator.clearSession()
+        advanceUntilIdle()
+
+        assertThat(coordinator.currentSession).isNull()
+        assertThat(coordinator.submit("after")).isEqualTo(SubmitResult.NO_SESSION)
+    }
+
+    @Test
+    fun `SESSION_DEAD records filename before teardown and does not replay input`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Shutdown)
+        val session = mockk<AgentSession>(relaxed = true)
+        every { session.state } returns state
+        val services = mockk<SessionServices>(relaxed = true)
+        every { session.getServices() } returns services
+        every { services.recordingService.getCurrentFileName() } returns "dead.json"
+        coEvery { session.submit(any()) } returns Unit
+
+        coordinator.attachSession(session)
+        advanceUntilIdle()
+
+        val result = coordinator.submit("lost-input")
+        advanceUntilIdle()
+
+        assertThat(result).isEqualTo(SubmitResult.SESSION_DEAD)
+        assertThat(coordinator.currentSession).isNull()
+        // Filename was captured before teardown cleared currentSession.
+        assertThat(coordinator.consumeDeadSessionFileName()).isEqualTo("dead.json")
+        // Input was NOT forwarded — caller must resubmit after recreating.
+        coVerify(exactly = 0) { session.submit(Op.UserInput("lost-input")) }
+    }
+
+    @Test
+    fun `attachSession with Idle initial state drains pendingInputs via initial emission`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+
+        // Pre-existing queued inputs (e.g. from a LockBusy fallback path).
+        coordinator.enqueue("p1")
+        coordinator.enqueue("p2")
+
+        val state = MutableStateFlow<SessionState>(SessionState.Idle)
+        val session = fakeSession(state)
+        coordinator.attachSession(session)
+        advanceUntilIdle()
+
+        coVerifyOrder {
+            session.submit(Op.UserInput("p1"))
+            session.submit(Op.UserInput("p2"))
+        }
+        coVerify(exactly = 1) { session.submit(Op.UserInput("p1")) }
+        coVerify(exactly = 1) { session.submit(Op.UserInput("p2")) }
+    }
+
+    @Test
+    fun `createAndSubmit Success drains queued inputs after first input in order`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+        val state = MutableStateFlow<SessionState>(SessionState.Idle)
+        val session = fakeSession(state)
+
+        coordinator.enqueue("q1")
+        coordinator.enqueue("q2")
+
+        val result = coordinator.createAndSubmit("first") { session }
+        advanceUntilIdle()
+
+        assertThat(result).isEqualTo(CreateResult.Success)
+        // first input must precede the drained queue, FIFO preserved.
+        coVerifyOrder {
+            session.submit(Op.UserInput("first"))
+            session.submit(Op.UserInput("q1"))
+            session.submit(Op.UserInput("q2"))
+        }
+        coVerify(exactly = 1) { session.submit(Op.UserInput("first")) }
+        coVerify(exactly = 1) { session.submit(Op.UserInput("q1")) }
+        coVerify(exactly = 1) { session.submit(Op.UserInput("q2")) }
     }
 }
