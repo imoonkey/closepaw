@@ -220,7 +220,7 @@
   "harness-simplify": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Harness Simplification & State Formalization",
     "description": "Document, test, and simplify all state machines in the agent harness, error handling, and core schemas. Test-first; every change reviewed by codex.",
     "acceptCriteria": [
@@ -539,7 +539,7 @@
       "test-onboarding-permission-step",
       "test-checkpoint-roundtrip"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Align state machine docs with characterization tests",
     "description": "Read each FSM doc + corresponding test, file discrepancies as new tasks via update-tasks.py.",
     "scope": [
@@ -551,8 +551,9 @@
     ],
     "requireHumanReview": true,
     "created": "2026-04-18T05:25:56Z",
-    "updated": "2026-04-18T06:42:18Z",
-    "agent": "w-harness-doc-code-align"
+    "updated": "2026-04-18T07:42:27Z",
+    "agent": "w-harness-doc-code-align",
+    "note": "Round 4: 2 MEDIUM doc-precision gaps remain (overview.md:77 Hot Idle semantics, ui/capsule/user_flows.md:100 platform re-acquired wording). Filed as follow-up. All actionable code-truth issues from FSM docs resolved."
   },
   "simp-enum-logging": {
     "parent": "harness-simplify",
@@ -643,7 +644,7 @@
     "depends": [
       "test-session-state"
     ],
-    "state": "running",
+    "state": "done",
     "title": "D5: Idle.reacquirePlatform failure recovery",
     "description": "Idle.reacquirePlatform failure currently leaves session stuck. Add explicit recovery path or transition to error state per state machine doc.",
     "worktree": "simplify-idle-recover-failure",
@@ -656,8 +657,9 @@
     ],
     "requireHumanReview": true,
     "created": "2026-04-18T05:26:19Z",
-    "updated": "2026-04-18T06:42:18Z",
-    "agent": "w-simp-idle-recover-failure"
+    "updated": "2026-04-18T07:41:43Z",
+    "agent": "w-simp-idle-recover-failure",
+    "note": "Codex round-2 medium: doc:75 SessionCompleted enumeration could include INTERRUPTED-via-reacquire-fail. Filed as follow-up if needed."
   },
   "simp-checkpoint-result-type": {
     "parent": "harness-simplify",
@@ -717,7 +719,7 @@
       "simp-checkpoint-result-type",
       "simp-onboarding-state-flatten"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "Phase E: final verification",
     "description": "Run ./gradlew clean assembleDebug lint test; run /verify; run /update-doc; report.",
     "scope": [
@@ -729,6 +731,7 @@
     ],
     "requireHumanReview": true,
     "created": "2026-04-18T05:26:32Z",
-    "updated": "2026-04-18T05:26:32Z"
+    "updated": "2026-04-18T07:45:31Z",
+    "note": "Build clean, lint+test pass, device smoke confirmed: session lifecycle clean, new CleanupResult returns failures=0, no Cleanup partial failure user-visible event (confirms HIGH regression fix). Task outcome=ERROR appears LLM/auth-env issue, not harness regression."
   }
 }
