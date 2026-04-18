@@ -24,7 +24,7 @@ class SettingsAgentBehaviorTest {
     // S9a
     @Test fun pro_mode_shows_executor_dropdown() {
         compose.setContent {
-            TestLlmAuthPage(authMethod = "oauth", agentMode = AgentMode.PRO)
+            TestLlmAuthPage(agentMode = AgentMode.PRO)
         }
         compose.onNodeWithTag("qa-executor-model-dropdown").assertExists()
     }
@@ -32,7 +32,7 @@ class SettingsAgentBehaviorTest {
     // S9b
     @Test fun basic_mode_hides_executor_dropdown() {
         compose.setContent {
-            TestLlmAuthPage(authMethod = "oauth", agentMode = AgentMode.BASIC)
+            TestLlmAuthPage(agentMode = AgentMode.BASIC)
         }
         compose.onAllNodesWithTag("qa-executor-model-dropdown").assertCountEquals(0)
     }

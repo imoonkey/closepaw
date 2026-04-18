@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ai.closepaw.BuildConfig
+import ai.closepaw.llm.AuthMode
+import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 
@@ -22,7 +24,7 @@ internal fun SettingsHomePage(
     selectedModel: String,
     modelOptions: List<Pair<String, String>>,
     selectedLocalModel: String,
-    authMethod: String?,
+    modelCatalog: ModelCatalog,
     agentMode: AgentMode,
     maxTurns: Int,
     perceptionMode: String,
@@ -43,7 +45,7 @@ internal fun SettingsHomePage(
         ) {
             SettingsNavigationRow(
                 title = "LLM & Authentication",
-                subtitle = llmSubtitle(llmBackend, selectedModel, modelOptions, selectedLocalModel, authMethod),
+                subtitle = llmSubtitle(llmBackend, selectedModel, modelOptions, selectedLocalModel, modelCatalog),
                 onClick = { onNavigate(SettingsPage.LLM_AUTH) }
             )
 
@@ -79,12 +81,17 @@ private fun llmSubtitle(
     selectedModel: String,
     modelOptions: List<Pair<String, String>>,
     selectedLocalModel: String,
-    authMethod: String?
+    modelCatalog: ModelCatalog,
 ): String = if (llmBackend == LLMBackendType.LOCAL) {
     AVAILABLE_LOCAL_MODELS.find { it.id == selectedLocalModel }?.displayName ?: selectedLocalModel
 } else {
     val modelName = modelOptions.find { it.first == selectedModel }?.second ?: selectedModel
-    val authLabel = if (authMethod == "oauth") "OAuth" else "API key"
+    val mode = modelCatalog.resolveOrNull(selectedModel)?.provider?.mode
+    val authLabel = when (mode) {
+        AuthMode.OAuth -> "OAuth"
+        AuthMode.ApiKey -> "API key"
+        AuthMode.Local, null -> "API key"
+    }
     "$modelName · $authLabel"
 }
 

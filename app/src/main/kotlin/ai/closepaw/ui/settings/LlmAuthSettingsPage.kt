@@ -17,19 +17,29 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import ai.closepaw.app.AuthStoreHolder
+import ai.closepaw.auth.AuthCredential
+import ai.closepaw.auth.AuthStore
 import ai.closepaw.llm.ApiType
+import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.displayLabel
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 enum class LlmAuthTab { SIGN_IN, API_KEY, LOCAL }
 
@@ -40,15 +50,34 @@ private val LlmAuthTab.label: String
         LlmAuthTab.LOCAL -> "Local"
     }
 
+private val LlmAuthTab.mode: AuthMode
+    get() = when (this) {
+        LlmAuthTab.SIGN_IN -> AuthMode.OAuth
+        LlmAuthTab.API_KEY -> AuthMode.ApiKey
+        LlmAuthTab.LOCAL -> AuthMode.Local
+    }
+
+private fun AuthMode.toTab(): LlmAuthTab = when (this) {
+    AuthMode.OAuth -> LlmAuthTab.SIGN_IN
+    AuthMode.ApiKey -> LlmAuthTab.API_KEY
+    AuthMode.Local -> LlmAuthTab.LOCAL
+}
+
+/** Default provider per tab when the current selected model's mode doesn't match the tab. */
+private val LlmAuthTab.defaultProvider: LLMProvider
+    get() = when (this) {
+        LlmAuthTab.SIGN_IN -> LLMProvider.OPENAI_CODEX
+        LlmAuthTab.API_KEY -> LLMProvider.OPENAI_API
+        LlmAuthTab.LOCAL -> LLMProvider.LOCAL_LFM
+    }
+
 /** Providers available in the API Key tab sub-selector. */
-private val API_KEY_PROVIDERS = listOf(LLMProvider.OPENAI, LLMProvider.OPENROUTER, LLMProvider.NOVITA)
+private val API_KEY_PROVIDERS = listOf(LLMProvider.OPENAI_API, LLMProvider.OPENROUTER, LLMProvider.NOVITA)
 
 @Composable
 internal fun LlmAuthSettingsPage(
     llmBackend: LLMBackendType,
     onBackendChange: (LLMBackendType) -> Unit,
-    authMethod: String?,
-    onAuthMethodChange: (String?) -> Unit,
     selectedModel: String,
     onModelChange: (String) -> Unit,
     modelCatalog: ModelCatalog,
@@ -58,40 +87,39 @@ internal fun LlmAuthSettingsPage(
     selectedLocalModel: String,
     onLocalModelChange: (LocalModelOption) -> Unit,
     modelLoadingStatus: ModelLoadingStatus,
-    openAiApiKey: String,
-    onOpenAiApiKeyChange: (String) -> Unit,
-    openRouterApiKey: String,
-    onOpenRouterApiKeyChange: (String) -> Unit,
-    novitaApiKey: String,
-    onNovitaApiKeyChange: (String) -> Unit,
     openAiAuthUiState: OpenAiAuthUiState,
     onStartOAuth: () -> Unit,
     onCancelOAuth: () -> Unit,
     onSignOut: () -> Unit,
     onBack: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    initialAuthTab: AuthMode? = null,
 ) {
-    // Re-derive from external state when authMethod/llmBackend change;
-    // survive rotation via rememberSaveable when they stay the same.
-    var selectedTab by rememberSaveable(authMethod, llmBackend) {
+    // Initial tab: explicit caller request wins; else derive from selected model's provider mode.
+    val modelMode = modelCatalog.resolveOrNull(selectedModel)?.provider?.mode
+    var selectedTab by rememberSaveable(initialAuthTab, modelMode, llmBackend) {
         mutableStateOf(
             when {
-                authMethod == "oauth" -> LlmAuthTab.SIGN_IN
+                initialAuthTab != null -> initialAuthTab.toTab()
+                modelMode == AuthMode.OAuth -> LlmAuthTab.SIGN_IN
                 llmBackend == LLMBackendType.LOCAL -> LlmAuthTab.LOCAL
                 else -> LlmAuthTab.API_KEY
             }
         )
     }
 
-    // Commit backend/auth state before delegating to the original callback.
-    // Called lazily on real user actions inside tab content, NOT on tab tap.
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val authStore = remember(context) { AuthStoreHolder.get(context) }
+
+    // Commit wrappers — called on real user actions inside tab content, NOT on tab tap.
     fun commitSignIn(action: () -> Unit) {
         onBackendChange(LLMBackendType.OPENAI)
-        onAuthMethodChange("oauth")
+        val target = resolveProviderForTab(LlmAuthTab.SIGN_IN, selectedModel, modelCatalog)
         canonicalizeModels(
             modelCatalog = modelCatalog,
-            provider = LLMProvider.OPENAI,
-            api = ApiType.RESPONSE,
+            provider = target,
+            api = null,
             selectedModel = selectedModel,
             onModelChange = onModelChange,
             selectedExecutorModel = selectedExecutorModel,
@@ -102,13 +130,11 @@ internal fun LlmAuthSettingsPage(
 
     fun commitApiKey(action: () -> Unit) {
         onBackendChange(LLMBackendType.OPENAI)
-        onAuthMethodChange(null)
         action()
     }
 
     fun commitLocal(action: () -> Unit) {
         onBackendChange(LLMBackendType.LOCAL)
-        onAuthMethodChange(null)
         action()
     }
 
@@ -142,7 +168,10 @@ internal fun LlmAuthSettingsPage(
                     openAiAuthUiState = openAiAuthUiState,
                     onStartOAuth = { commitSignIn { onStartOAuth() } },
                     onCancelOAuth = onCancelOAuth,
-                    onSignOut = onSignOut
+                    onSignOut = {
+                        scope.launch { authStore.clear(LLMProvider.OPENAI_CODEX) }
+                        onSignOut()
+                    }
                 )
                 LlmAuthTab.API_KEY -> ApiKeyTabContent(
                     selectedModel = selectedModel,
@@ -151,12 +180,11 @@ internal fun LlmAuthSettingsPage(
                     selectedExecutorModel = selectedExecutorModel,
                     onExecutorModelChange = { commitApiKey { onExecutorModelChange(it) } },
                     agentMode = agentMode,
-                    openAiApiKey = openAiApiKey,
-                    onOpenAiApiKeyChange = { commitApiKey { onOpenAiApiKeyChange(it) } },
-                    openRouterApiKey = openRouterApiKey,
-                    onOpenRouterApiKeyChange = { commitApiKey { onOpenRouterApiKeyChange(it) } },
-                    novitaApiKey = novitaApiKey,
-                    onNovitaApiKeyChange = { commitApiKey { onNovitaApiKeyChange(it) } }
+                    authStore = authStore,
+                    onApiKeyPersist = { provider, key ->
+                        commitApiKey { }
+                        persistApiKey(scope, authStore, provider, key)
+                    }
                 )
                 LlmAuthTab.LOCAL -> LocalTabContent(
                     selectedLocalModel = selectedLocalModel,
@@ -166,6 +194,33 @@ internal fun LlmAuthSettingsPage(
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+}
+
+/**
+ * Section 5 canonicalization rule: `selectedProviderForTab` derivation.
+ * - If [selectedModel]'s provider matches [tab]'s mode → use that provider.
+ * - Else → [tab]'s default provider.
+ */
+private fun resolveProviderForTab(
+    tab: LlmAuthTab,
+    selectedModel: String,
+    modelCatalog: ModelCatalog,
+): LLMProvider {
+    val modelProvider = modelCatalog.resolveOrNull(selectedModel)?.provider
+    return if (modelProvider != null && modelProvider.mode == tab.mode) modelProvider
+    else tab.defaultProvider
+}
+
+private fun persistApiKey(
+    scope: CoroutineScope,
+    authStore: AuthStore,
+    provider: LLMProvider,
+    key: String,
+) {
+    scope.launch {
+        if (key.isBlank()) authStore.clear(provider)
+        else authStore.set(provider, AuthCredential.ApiKey(key))
     }
 }
 
@@ -182,10 +237,9 @@ private fun SignInTabContent(
     onCancelOAuth: () -> Unit,
     onSignOut: () -> Unit
 ) {
-    // Sign In tab: OpenAI RESPONSE models only
-    val modelOptions = catalogModelOptions(
-        modelCatalog.modelsFor(LLMProvider.OPENAI, ApiType.RESPONSE)
-    )
+    // Canonical provider for this tab: selected model if OAuth-mode, else OPENAI_CODEX.
+    val provider = resolveProviderForTab(LlmAuthTab.SIGN_IN, selectedModel, modelCatalog)
+    val modelOptions = catalogModelOptions(modelCatalog.modelsFor(provider))
 
     SettingsSection(title = "Cloud Model") {
         CloudModelDropdown(
@@ -226,41 +280,30 @@ private fun ApiKeyTabContent(
     selectedExecutorModel: String?,
     onExecutorModelChange: (String?) -> Unit,
     agentMode: AgentMode,
-    openAiApiKey: String,
-    onOpenAiApiKeyChange: (String) -> Unit,
-    openRouterApiKey: String,
-    onOpenRouterApiKeyChange: (String) -> Unit,
-    novitaApiKey: String,
-    onNovitaApiKeyChange: (String) -> Unit
+    authStore: AuthStore,
+    onApiKeyPersist: (LLMProvider, String) -> Unit,
 ) {
-    // Re-derive from external model when it changes; survive rotation otherwise.
-    var selectedProvider by rememberSaveable(selectedModel) {
-        val resolved = modelCatalog.resolveOrNull(selectedModel)?.provider ?: LLMProvider.OPENAI
-        mutableStateOf(resolved)
-    }
+    // Canonical provider rule — re-derives whenever the external model changes.
+    val derivedProvider = resolveProviderForTab(LlmAuthTab.API_KEY, selectedModel, modelCatalog)
+    var selectedProvider by rememberSaveable(derivedProvider) { mutableStateOf(derivedProvider) }
 
     val modelOptions = catalogModelOptions(modelCatalog.modelsFor(selectedProvider))
 
-    // Provider sub-selector — local-only, no committed mutations.
+    // Per-provider API key text, seeded from AuthStore. Process-transient for typing;
+    // blur/change invokes onApiKeyPersist to write through to AuthStore.
+    var apiKeyText by remember(selectedProvider) { mutableStateOf("") }
+    LaunchedEffect(selectedProvider) {
+        val cred = authStore.get(selectedProvider)
+        apiKeyText = (cred as? AuthCredential.ApiKey)?.key.orEmpty()
+    }
+
+    // Provider sub-selector — local view state only, no settings writes on click.
     SettingsSection(title = "Provider") {
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             API_KEY_PROVIDERS.forEachIndexed { index, provider ->
                 SegmentedButton(
                     selected = selectedProvider == provider,
-                    onClick = {
-                        if (selectedProvider != provider) {
-                            selectedProvider = provider
-                            canonicalizeModels(
-                                modelCatalog = modelCatalog,
-                                provider = provider,
-                                api = null,
-                                selectedModel = selectedModel,
-                                onModelChange = onModelChange,
-                                selectedExecutorModel = selectedExecutorModel,
-                                onExecutorModelChange = onExecutorModelChange
-                            )
-                        }
-                    },
+                    onClick = { selectedProvider = provider },
                     shape = SegmentedButtonDefaults.itemShape(
                         index = index,
                         count = API_KEY_PROVIDERS.size
@@ -278,7 +321,16 @@ private fun ApiKeyTabContent(
         CloudModelDropdown(
             selectedModel = selectedModel,
             modelOptions = modelOptions,
-            onModelChange = onModelChange
+            onModelChange = { picked ->
+                // Commit canonicalizes main + executor if provider changed.
+                onModelChange(picked)
+                canonicalizeExecutorOnProviderChange(
+                    modelCatalog = modelCatalog,
+                    newMainModel = picked,
+                    selectedExecutorModel = selectedExecutorModel,
+                    onExecutorModelChange = onExecutorModelChange
+                )
+            }
         )
     }
     if (agentMode == AgentMode.PRO) {
@@ -296,23 +348,22 @@ private fun ApiKeyTabContent(
 
     Spacer(modifier = Modifier.height(20.dp))
 
-    // Provider-linked API key field
+    // Provider-linked API key field — value backed by AuthStore.
     SettingsSection(title = "API Key") {
-        when (selectedProvider) {
-            LLMProvider.OPENAI -> ApiKeyField(
-                label = "OpenAI Key",
-                value = openAiApiKey,
-                onValueChange = onOpenAiApiKeyChange
-            )
-            LLMProvider.OPENROUTER -> ApiKeyField(
-                label = "OpenRouter Key",
-                value = openRouterApiKey,
-                onValueChange = onOpenRouterApiKeyChange
-            )
-            LLMProvider.NOVITA -> ApiKeyField(
-                label = "Novita Key",
-                value = novitaApiKey,
-                onValueChange = onNovitaApiKeyChange
+        val label = when (selectedProvider) {
+            LLMProvider.OPENAI_API -> "OpenAI Key"
+            LLMProvider.OPENROUTER -> "OpenRouter Key"
+            LLMProvider.NOVITA -> "Novita Key"
+            LLMProvider.OPENAI_CODEX, LLMProvider.LOCAL_LFM -> null
+        }
+        if (label != null) {
+            ApiKeyField(
+                label = label,
+                value = apiKeyText,
+                onValueChange = { key ->
+                    apiKeyText = key
+                    onApiKeyPersist(selectedProvider, key)
+                }
             )
         }
     }
@@ -337,8 +388,9 @@ private fun LocalTabContent(
 
 /**
  * Canonicalize main/executor model when provider or auth context changes.
- * If the current model is invalid for the new context, replace with preferred.
- * If executor model is invalid, reset to null.
+ * If the current main model is invalid for the new context, replace with preferred.
+ * If executor's provider doesn't match new main's provider, reset to provider default
+ * (or null if the provider has no entry).
  */
 private fun canonicalizeModels(
     modelCatalog: ModelCatalog,
@@ -351,13 +403,36 @@ private fun canonicalizeModels(
 ) {
     val validModels = modelCatalog.modelsFor(provider, api)
     val validNames = validModels.map { it.name }.toSet()
+    val currentProvider = modelCatalog.resolveOrNull(selectedModel)?.provider
 
     if (selectedModel !in validNames) {
         val preferred = validModels.firstOrNull()
         if (preferred != null) onModelChange(preferred.name)
     }
 
-    if (selectedExecutorModel != null && selectedExecutorModel !in validNames) {
-        onExecutorModelChange(null)
+    // Executor canonicalization: provider-change triggers reset.
+    if (currentProvider != provider) {
+        val execProvider = selectedExecutorModel?.let { modelCatalog.resolveOrNull(it)?.provider }
+        if (execProvider != provider) {
+            val execDefault = modelCatalog.preferredModelFor(provider)?.name
+            onExecutorModelChange(execDefault)
+        }
+    }
+}
+
+/**
+ * On a main-model commit inside a tab that already matches the selected provider
+ * (e.g. user picks a different model in API Key tab), ensure executor still matches.
+ */
+private fun canonicalizeExecutorOnProviderChange(
+    modelCatalog: ModelCatalog,
+    newMainModel: String,
+    selectedExecutorModel: String?,
+    onExecutorModelChange: (String?) -> Unit,
+) {
+    val newProvider = modelCatalog.resolveOrNull(newMainModel)?.provider ?: return
+    val execProvider = selectedExecutorModel?.let { modelCatalog.resolveOrNull(it)?.provider }
+    if (execProvider != null && execProvider != newProvider) {
+        onExecutorModelChange(modelCatalog.preferredModelFor(newProvider)?.name)
     }
 }

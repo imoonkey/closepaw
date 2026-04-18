@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
@@ -38,14 +39,6 @@ fun SettingsSheet(
     selectedLocalModel: String,
     onLocalModelChange: (LocalModelOption) -> Unit,
     modelLoadingStatus: ModelLoadingStatus,
-    authMethod: String?,
-    onAuthMethodChange: (String?) -> Unit,
-    openAiApiKey: String,
-    onOpenAiApiKeyChange: (String) -> Unit,
-    openRouterApiKey: String,
-    onOpenRouterApiKeyChange: (String) -> Unit,
-    novitaApiKey: String,
-    onNovitaApiKeyChange: (String) -> Unit,
     maxTurns: Int,
     onMaxTurnsChange: (Int) -> Unit,
     agentMode: AgentMode,
@@ -65,9 +58,11 @@ fun SettingsSheet(
     onCancelOAuth: () -> Unit,
     onSignOut: () -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    initialPage: SettingsPage = SettingsPage.HOME,
+    initialAuthTab: AuthMode? = null,
 ) {
-    var settingsPage by rememberSaveable { mutableStateOf(SettingsPage.HOME) }
+    var settingsPage by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
 
     Column(
         modifier = modifier
@@ -93,7 +88,7 @@ fun SettingsSheet(
                     selectedModel = selectedModel,
                     modelOptions = catalogModelOptions(modelCatalog.all()),
                     selectedLocalModel = selectedLocalModel,
-                    authMethod = authMethod,
+                    modelCatalog = modelCatalog,
                     agentMode = agentMode,
                     maxTurns = maxTurns,
                     perceptionMode = perceptionMode,
@@ -106,8 +101,6 @@ fun SettingsSheet(
                 SettingsPage.LLM_AUTH -> LlmAuthSettingsPage(
                     llmBackend = llmBackend,
                     onBackendChange = onBackendChange,
-                    authMethod = authMethod,
-                    onAuthMethodChange = onAuthMethodChange,
                     selectedModel = selectedModel,
                     onModelChange = onModelChange,
                     modelCatalog = modelCatalog,
@@ -117,18 +110,13 @@ fun SettingsSheet(
                     selectedLocalModel = selectedLocalModel,
                     onLocalModelChange = onLocalModelChange,
                     modelLoadingStatus = modelLoadingStatus,
-                    openAiApiKey = openAiApiKey,
-                    onOpenAiApiKeyChange = onOpenAiApiKeyChange,
-                    openRouterApiKey = openRouterApiKey,
-                    onOpenRouterApiKeyChange = onOpenRouterApiKeyChange,
-                    novitaApiKey = novitaApiKey,
-                    onNovitaApiKeyChange = onNovitaApiKeyChange,
                     openAiAuthUiState = openAiAuthUiState,
                     onStartOAuth = onStartOAuth,
                     onCancelOAuth = onCancelOAuth,
                     onSignOut = onSignOut,
                     onBack = { settingsPage = SettingsPage.HOME },
-                    onClose = onDismiss
+                    onClose = onDismiss,
+                    initialAuthTab = initialAuthTab,
                 )
                 SettingsPage.AGENT_BEHAVIOR -> AgentBehaviorSettingsPage(
                     maxTurns = maxTurns,
