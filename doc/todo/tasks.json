@@ -220,7 +220,7 @@
   "harness-simplify": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Harness Simplification & State Formalization",
     "description": "Document, test, and simplify all state machines in the agent harness, error handling, and core schemas. Test-first; every change reviewed by codex.",
     "acceptCriteria": [
@@ -755,7 +755,7 @@
   "followup-authstore-mainthread-io": {
     "parent": "harness-simplify",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "AuthStore.set main-thread I/O regression",
     "description": "MainActivityIntentApplier.kt:16 documents that AuthStore.set does encrypted-prefs init + disk I/O and must NOT run on main thread. Three call sites still violate this: LlmAuthSettingsPage.kt:215 (per-keystroke API-key persistence), OnboardingViewModel.kt:104+219 (onboarding writes), MainActivity.kt:751 (settings OAuth writes). UI-jank risk.",
     "scope": [
@@ -769,7 +769,7 @@
     ],
     "note": "Surfaced by holistic codex review. Likely predates harness-simplify milestone but worth tracking.",
     "created": "2026-04-18T16:56:51Z",
-    "updated": "2026-04-18T16:56:51Z"
+    "updated": "2026-04-18T22:48:53Z"
   },
   "followup-doc-interrupted-enum": {
     "parent": "harness-simplify",
