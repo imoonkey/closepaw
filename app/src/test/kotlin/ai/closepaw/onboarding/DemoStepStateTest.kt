@@ -198,43 +198,37 @@ class DemoStepStateTest {
     }
 
     @Test
-    fun `startDemo preflight bounces to ApiKey when apiKey outcome not Done`() = runTest {
-        // Force VM to start on Demo even though apiKey is Pending — mimic a stale
-        // outcome set where apiKey was cleared after demo was first reached.
-        every { store.loadOutcomes() } returns StepOutcomes(
-            accessibility = StepOutcome.Done,
-            overlay = StepOutcome.Done,
-            battery = StepOutcome.Skipped,
-            apiKey = StepOutcome.Done,
-            demo = StepOutcome.Pending,
-        )
+    fun `startDemo preflight bounces to ApiKey when apiKey outcome reverted to Pending`() = runTest {
+        // Reach the guard authentically: start on Demo with apiKey Done, then
+        // goBack() into ApiKey. enterStep(ApiKey) sees outcomes.apiKey == Done
+        // but no AuthStore credential, so it resets the outcome to Pending.
+        // continueForward() re-enters Demo (state=Ready, currentStep=Demo) with
+        // apiKey now Pending — startDemo() must hit the Preflight->ApiKey guard.
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope)
         drain(scope, this)
         assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
+        assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
 
-        // Now simulate apiKey outcome having been reset behind the scenes by
-        // calling goToAuthStep then re-entering Demo via continueForward path
-        // is fragile; instead we directly re-arm via reflection-free contract:
-        // override store.loadOutcomes for a fresh VM on the Demo step but with
-        // apiKey Pending — cover the guard inside startDemo.
-        val scope2 = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
-        every { store.loadOutcomes() } returns StepOutcomes(
-            accessibility = StepOutcome.Done,
-            overlay = StepOutcome.Done,
-            battery = StepOutcome.Skipped,
-            apiKey = StepOutcome.Pending,
-            demo = StepOutcome.Pending,
-        )
-        val vm2 = makeVm(scope2)
-        drain(scope2, this)
-        // With apiKey Pending, firstIncompleteStep returns ApiKey — guard is
-        // hit via the not-on-Demo-step path covered separately. Skip direct
-        // check here; both code paths land on ApiKey.
-        assertThat(vm2.currentStep).isEqualTo(WizardStep.ApiKey)
+        vm.goBack()
+        drain(scope, this)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.ApiKey)
+        assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Pending)
+
+        vm.continueForward()
+        drain(scope, this)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
+        assertThat(vm.stepState).isEqualTo(DemoStepState.Ready)
+
+        vm.startDemo()
+        drain(scope, this)
+
+        assertThat(vm.currentStep).isEqualTo(WizardStep.ApiKey)
+        verify(exactly = 0) {
+            demoController.run(any(), any(), any(), any())
+        }
 
         scope.coroutineContext.job.cancel()
-        scope2.coroutineContext.job.cancel()
     }
 
     // ── Happy path: Ready → Preflight → Running → Success ──
@@ -388,6 +382,69 @@ class DemoStepStateTest {
         assertThat(vm.outcomes.demo).isEqualTo(StepOutcome.Skipped)
         verify { store.saveOutcome(WizardStep.Demo, StepOutcome.Skipped) }
         assertThat(vm.currentStep).isEqualTo(WizardStep.Complete)
+
+        scope.coroutineContext.job.cancel()
+    }
+
+    @Test
+    fun `skipStep on Demo from Failure records Skipped and advances to Complete`() = runTest {
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
+        val vm = makeVm(scope)
+        drain(scope, this)
+
+        vm.startDemo()
+        drain(scope, this)
+        onFailureSlot.captured("first failure")
+        drain(scope, this)
+        assertThat(vm.stepState).isInstanceOf(DemoStepState.Failure::class.java)
+
+        vm.skipStep()
+        drain(scope, this)
+
+        assertThat(vm.outcomes.demo).isEqualTo(StepOutcome.Skipped)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Complete)
+
+        scope.coroutineContext.job.cancel()
+    }
+
+    @Test
+    fun `skipStep on Demo from CredentialError records Skipped and advances to Complete`() = runTest {
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
+        val vm = makeVm(scope)
+        drain(scope, this)
+
+        vm.startDemo()
+        drain(scope, this)
+        onCredErrSlot.captured("expired", true)
+        drain(scope, this)
+        assertThat(vm.stepState).isInstanceOf(DemoStepState.CredentialError::class.java)
+
+        vm.skipStep()
+        drain(scope, this)
+
+        assertThat(vm.outcomes.demo).isEqualTo(StepOutcome.Skipped)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Complete)
+
+        scope.coroutineContext.job.cancel()
+    }
+
+    // ── Re-entry: Complete -> Demo via goBack, Failure -> Running ──
+
+    @Test
+    fun `goBack from Complete re-enters Demo step in Ready state`() = runTest {
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
+        val vm = makeVm(scope)
+        drain(scope, this)
+
+        vm.skipStep()
+        drain(scope, this)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Complete)
+
+        vm.goBack()
+        drain(scope, this)
+
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
+        assertThat(vm.stepState).isEqualTo(DemoStepState.Ready)
 
         scope.coroutineContext.job.cancel()
     }
