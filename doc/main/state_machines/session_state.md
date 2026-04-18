@@ -85,7 +85,7 @@ Transient (lost on process death):
 | `Running → TakeoverPending` | `agentRunner.pause()` (returns Deferred); release mutex while awaiting (AgentSession.kt:469-482) |
 | `TakeoverPending → Paused` | Re-acquire mutex; emit `SessionTakeover` (AgentSession.kt:484-495) |
 | `Paused → Running` | `agentRunner.resume()`, emit `SessionResumed` (AgentSession.kt:508-514) |
-| any → `Shutdown` | If task active, emit `TaskCompleted(USER_STOPPED)`; `cancelIdleTimeout()`, `flushClosed()`, disable mutation listeners, cancel `userResponseChannel`, `agentRunner.shutdown()` + close completions channel, `services.cleanup()`, emit `SessionCompleted` with `SessionEndReason.{USER_STOPPED|IDLE_TIMEOUT}` (AgentSession.kt:558-619) |
+| any → `Shutdown` | If task active, emit `TaskCompleted(USER_STOPPED)`; `cancelIdleTimeout()`, `flushClosed()`, disable mutation listeners, cancel `userResponseChannel`, `agentRunner.shutdown()` + close completions channel, `services.cleanup()`, emit `SessionCompleted` with `SessionEndReason` derived from `ShutdownCause`: `UserRequested→USER_STOPPED`, `IdleTimeout→IDLE_TIMEOUT`, `ReacquireFailed→INTERRUPTED` (AgentSession.kt:558-628) |
 
 ## Error / recovery paths
 
