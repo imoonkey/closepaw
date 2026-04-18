@@ -141,6 +141,10 @@ class ChatViewModel(
     private val _startupError = MutableStateFlow<String?>(null)
     val startupError: StateFlow<String?> = _startupError.asStateFlow()
 
+    // Deep-link target when the startup-failure banner is tapped. Null when no error.
+    private val _startupErrorDeepLink = MutableStateFlow<SettingsDeepLink?>(null)
+    val startupErrorDeepLink: StateFlow<SettingsDeepLink?> = _startupErrorDeepLink.asStateFlow()
+
     // Messages (Compose observable list)
     private val _messages = mutableStateListOf<ChatMessage>()
     val messages: List<ChatMessage>
@@ -287,7 +291,11 @@ class ChatViewModel(
      * reached the chat). Preserves the user's input so they can retry, and
      * appends a visible error message to the chat history.
      */
-    fun reportStartupFailure(inputText: String, errorMessage: String) {
+    fun reportStartupFailure(
+        inputText: String,
+        errorMessage: String,
+        deepLink: SettingsDeepLink? = null,
+    ) {
         synchronized(chatStateLock) {
             appendStartupFailureMessages(
                     messages = _messages,
@@ -299,6 +307,7 @@ class ChatViewModel(
         }
         _pendingInput.value = inputText
         _startupError.value = errorMessage
+        _startupErrorDeepLink.value = deepLink
     }
 
     /** Consume preserved input (e.g. after the compose box has been re-populated). */
@@ -311,6 +320,7 @@ class ChatViewModel(
     /** Dismiss the startup-error banner without clearing pending input. */
     fun dismissStartupError() {
         _startupError.value = null
+        _startupErrorDeepLink.value = null
     }
 
     /** Clear conversation history. */

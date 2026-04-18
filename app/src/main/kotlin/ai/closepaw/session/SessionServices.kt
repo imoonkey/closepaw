@@ -6,10 +6,12 @@ import ai.closepaw.app.AppSettingsStore
 import ai.closepaw.agent.cognition.prompt.AppSkillRepository
 import ai.closepaw.agent.cognition.prompt.AssetAppSkillRepository
 import ai.closepaw.agent.cognition.prompt.EmptyAppSkillRepository
+import ai.closepaw.auth.AuthStore
 import ai.closepaw.history.HistoryManager
 import ai.closepaw.history.SessionRecordingService
 import ai.closepaw.llm.LLMClient
 import ai.closepaw.llm.LLMClientFactory
+import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.memory.MemoryRecaller
 import ai.closepaw.memory.MemoryStore
@@ -41,11 +43,11 @@ import kotlinx.coroutines.CoroutineScope
  * Usage:
  * ```kotlin
  * // For OpenAI backend:
- * val services = SessionServices.create(config, platform, apiKeys = mapOf("OPENAI_API_KEY" to "sk-..."))
+ * val services = SessionServices.create(config, platform, authStore = AuthStore(context), context = context, ...)
  *
  * // For local LLM backend:
  * val localConfig = config.copy(llm = SessionLlmConfig(backendType = LLMBackendType.LOCAL))
- * val services = SessionServices.create(localConfig, platform, context = context)
+ * val services = SessionServices.create(localConfig, platform, authStore = null, context = context, ...)
  * ```
  */
 class SessionServices internal constructor(
@@ -75,27 +77,24 @@ class SessionServices internal constructor(
          *
          * @param config Session configuration
          * @param platform Android platform abstraction
-         * @param apiKeys Per-provider API keys, keyed by env var name
-         * ```
-         *               (e.g. "OPENAI_API_KEY" → "sk-...", "OPENROUTER_API_KEY" → "sk-or-...")
-         * @param context
-         * ```
-         * Android context (required for LOCAL backend for model downloading)
+         * @param authStore Unified credential store (OAuth + API keys). Null for test factories.
+         * @param baseUrlOverrides Debug-only per-provider base URL overrides.
+         * @param context Android context (required for LOCAL backend for model downloading)
          * @return Fully initialized SessionServices
          */
         fun create(
                 config: SessionConfig,
                 platform: AndroidPlatform,
-                apiKeys: Map<String, String> = emptyMap(),
+                authStore: AuthStore?,
+                baseUrlOverrides: Map<LLMProvider, String> = emptyMap(),
                 context: Context,
                 scope: CoroutineScope,
                 traceRecorder: TraceRecorder,
                 appClassifier: AppClassifier? = null
         ): SessionServices {
             Log.d(TAG, "Creating SessionServices...")
-            Log.d(TAG, "API keys available for providers: ${apiKeys.keys}")
 
-            val llmBootstrap = SessionLlmBootstrapper.create(config, context, apiKeys)
+            val llmBootstrap = SessionLlmBootstrapper.create(config, context, authStore, baseUrlOverrides)
             val modelCatalog = llmBootstrap.modelCatalog
             val llmClientFactory = llmBootstrap.llmClientFactory
             val llmClient: LLMClient = llmBootstrap.llmClient

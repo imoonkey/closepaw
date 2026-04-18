@@ -1,8 +1,11 @@
 package ai.closepaw.app
 
+import ai.closepaw.auth.AuthCredential
+import ai.closepaw.auth.AuthStore
+import ai.closepaw.llm.LLMProvider
 import com.google.common.truth.Truth.assertThat
 import io.mockk.mockk
-import io.mockk.verify
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
 /**
@@ -11,9 +14,10 @@ import org.junit.Test
 class MainActivityIntentApplierSecurityTest {
 
     private val settingsState = AppSettingsState(mockk(relaxed = true))
+    private val authStore = AuthStore(mockk(relaxed = true))
 
     @Test
-    fun `production build ignores all sensitive intent extras`() {
+    fun `production build ignores all sensitive intent extras`() = runBlocking<Unit> {
         val payload = MainActivityIntentPayload(
             apiKey = "injected-key",
             openRouterApiKey = "injected-or-key",
@@ -37,6 +41,7 @@ class MainActivityIntentApplierSecurityTest {
         val result = applyIntentPayloadToSettings(
             payload = payload,
             settingsState = settingsState,
+            authStore = authStore,
             isDebugBuild = false,
             currentPendingTraceEnabled = null,
             currentPendingTraceRunId = null,
@@ -45,16 +50,16 @@ class MainActivityIntentApplierSecurityTest {
         )
 
         // Nothing should change — all extras ignored
-        assertThat(settingsState.apiKey).isEmpty()
-        assertThat(settingsState.openRouterApiKey).isEmpty()
-        assertThat(settingsState.novitaApiKey).isEmpty()
+        assertThat(authStore.has(LLMProvider.OPENAI_API)).isFalse()
+        assertThat(authStore.has(LLMProvider.OPENROUTER)).isFalse()
+        assertThat(authStore.has(LLMProvider.NOVITA)).isFalse()
         assertThat(result.pendingTraceEnabled).isNull()
         assertThat(result.pendingTraceRunId).isNull()
         assertThat(result.pendingExcludedTools).isEmpty()
     }
 
     @Test
-    fun `production build preserves existing pending state`() {
+    fun `production build preserves existing pending state`() = runBlocking<Unit> {
         val payload = MainActivityIntentPayload(
             apiKey = "injected-key",
             openRouterApiKey = null,
@@ -78,6 +83,7 @@ class MainActivityIntentApplierSecurityTest {
         val result = applyIntentPayloadToSettings(
             payload = payload,
             settingsState = settingsState,
+            authStore = authStore,
             isDebugBuild = false,
             currentPendingTraceEnabled = true,
             currentPendingTraceRunId = "existing-run",
@@ -92,7 +98,7 @@ class MainActivityIntentApplierSecurityTest {
     }
 
     @Test
-    fun `debug build applies intent extras normally`() {
+    fun `debug build applies intent extras normally`() = runBlocking<Unit> {
         val payload = MainActivityIntentPayload(
             apiKey = "debug-key",
             openRouterApiKey = null,
@@ -116,6 +122,7 @@ class MainActivityIntentApplierSecurityTest {
         val result = applyIntentPayloadToSettings(
             payload = payload,
             settingsState = settingsState,
+            authStore = authStore,
             isDebugBuild = true,
             currentPendingTraceEnabled = null,
             currentPendingTraceRunId = null,
@@ -123,7 +130,8 @@ class MainActivityIntentApplierSecurityTest {
             log = {}
         )
 
-        assertThat(settingsState.apiKey).isEqualTo("debug-key")
+        val cred = runBlocking { authStore.get(LLMProvider.OPENAI_API) }
+        assertThat(cred).isEqualTo(AuthCredential.ApiKey("debug-key"))
         assertThat(result.pendingTraceEnabled).isTrue()
         assertThat(result.pendingTraceRunId).isEqualTo("debug-run")
     }

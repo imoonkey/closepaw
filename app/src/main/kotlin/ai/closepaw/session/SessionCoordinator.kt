@@ -77,9 +77,14 @@ class SessionCoordinator(private val scope: CoroutineScope) {
     /**
      * Create a session and submit the first input, all under the creation lock.
      *
-     * If the lock is already held (another creation in progress), returns false
-     * without blocking — the caller should fall back to [enqueue] to ensure
-     * the input is delivered once the in-progress creation completes.
+     * Returns:
+     * - [CreateResult.Success]: session created and first input submitted.
+     * - [CreateResult.LockBusy]: lock already held (another creation in progress);
+     *   caller should fall back to [enqueue] so input is delivered once the
+     *   in-progress creation completes.
+     * - [CreateResult.Aborted]: [create] returned null (explicit abort, e.g. a
+     *   non-reloadable checkpoint). Pending inputs are cleared so the aborted
+     *   text does not auto-run in the next fresh session.
      *
      * Concurrency note: [observeSessionState] launches a collector that calls
      * [drainPending] on state transitions. Since the collector runs in a separate
@@ -89,20 +94,23 @@ class SessionCoordinator(private val scope: CoroutineScope) {
      *
      * @param text First user input to send after creation.
      * @param create Factory that creates and configures the session. Return null to abort.
-     * @return true if creation succeeded, false if lock unavailable or creation returned null.
      */
     suspend fun createAndSubmit(
         text: String,
         create: suspend () -> AgentSession?
-    ): Boolean {
-        if (!mutex.tryLock()) return false
+    ): CreateResult {
+        if (!mutex.tryLock()) return CreateResult.LockBusy
         try {
-            val session = create() ?: return false
+            val session = create()
+            if (session == null) {
+                pendingInputs.clear()
+                return CreateResult.Aborted
+            }
             currentSession = session
             observeSessionState(session)
             session.submit(Op.UserInput(text))
             drainLocked(session)
-            return true
+            return CreateResult.Success
         } finally {
             mutex.unlock()
         }
@@ -111,8 +119,9 @@ class SessionCoordinator(private val scope: CoroutineScope) {
     /**
      * Directly queue input for delivery when the next session becomes available.
      *
-     * Use when [createAndSubmit] returns false (another creation is in-progress).
-     * The input will be drained when the session transitions to Idle/Created.
+     * Use when [createAndSubmit] returns [CreateResult.LockBusy] (another
+     * creation is in-progress). The input will be drained when the session
+     * transitions to Idle/Created.
      *
      * Must be called from the main thread.
      */
@@ -226,4 +235,14 @@ enum class SubmitResult {
     NO_SESSION,
     /** Session was dead (shutdown); caller should create a new one. */
     SESSION_DEAD
+}
+
+/** Result of [SessionCoordinator.createAndSubmit]. */
+sealed class CreateResult {
+    /** Session created; first input submitted. */
+    data object Success : CreateResult()
+    /** Creation lock held by another caller; caller should [SessionCoordinator.enqueue]. */
+    data object LockBusy : CreateResult()
+    /** Creation factory returned null (explicit abort); pending inputs cleared. */
+    data object Aborted : CreateResult()
 }

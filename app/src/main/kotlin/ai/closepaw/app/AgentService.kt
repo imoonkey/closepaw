@@ -298,7 +298,7 @@ class AgentService : AccessibilityService() {
 
     fun runAgent(
             goal: String,
-            apiKeys: Map<String, String> = emptyMap(),
+            authStore: ai.closepaw.auth.AuthStore? = null,
             maxSteps: Int = 20,
             platformMode: PlatformMode = PlatformMode.ACCESSIBILITY
     ) {
@@ -336,7 +336,7 @@ class AgentService : AccessibilityService() {
                                     config = sessionConfig,
                                     service = this@AgentService,
                                     scope = scope,
-                                    apiKeys = apiKeys,
+                                    authStore = authStore,
                                     visualizer = visualizer,
                                     overlayTouchGate = touchGate,
                             )

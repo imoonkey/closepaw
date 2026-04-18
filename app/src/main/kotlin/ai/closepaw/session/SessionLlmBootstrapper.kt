@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.res.AssetManager
 import android.os.Looper
 import android.util.Log
+import ai.closepaw.auth.AuthStore
+import ai.closepaw.auth.MissingCredential
 import ai.closepaw.llm.LFMLLMClient
 import ai.closepaw.llm.LLMClient
 import ai.closepaw.llm.LLMClientFactory
@@ -31,14 +33,13 @@ internal object SessionLlmBootstrapper {
     fun create(
             config: SessionConfig,
             context: Context,
-            apiKeys: Map<String, String>
+            authStore: AuthStore?,
+            baseUrlOverrides: Map<LLMProvider, String> = emptyMap()
     ): SessionLlmBootstrap {
         requireOffMainThread()
         val backend = config.llm.backendType
         val baseCatalog = getOrLoadModelCatalog(context)
 
-        // Extract provider base URL overrides from apiKeys (__BASE_URL_<PROVIDER> convention)
-        val baseUrlOverrides = extractBaseUrlOverrides(apiKeys)
         val modelCatalog = baseCatalog.withBaseUrlOverrides(baseUrlOverrides)
         if (baseUrlOverrides.isNotEmpty()) {
             Log.d(TAG, "Applied provider base URL overrides: $baseUrlOverrides")
@@ -48,13 +49,14 @@ internal object SessionLlmBootstrapper {
         val llmClientFactory =
                 LLMClientFactory(
                         catalog = modelCatalog,
-                        apiKeyResolver = { envVar -> apiKeys[envVar] }
+                        authStore = authStore,
+                        baseUrlOverrides = baseUrlOverrides
                 )
 
         val llmClient =
                 when (backend) {
                     LLMBackendType.OPENAI -> {
-                        ensureRequiredCloudKeys(config, modelCatalog, apiKeys)
+                        ensureRequiredCredentials(config, modelCatalog, authStore)
                         llmClientFactory.create(config.mainModel)
                     }
                     LLMBackendType.LOCAL -> {
@@ -70,13 +72,6 @@ internal object SessionLlmBootstrapper {
         )
     }
 
-    /**
-     * Load ModelCatalog from assets/llm_models.json. Falls back to a minimal single-model catalog
-     * when the asset is missing or malformed.
-     *
-     * Note: Performs blocking I/O on the calling thread. Callers must ensure this runs off the
-     * main thread (e.g. `Dispatchers.IO`).
-     */
     private fun getOrLoadModelCatalog(context: Context): ModelCatalog {
         val assets = context.assets
         synchronized(catalogLock) {
@@ -88,7 +83,7 @@ internal object SessionLlmBootstrapper {
     }
 
     private fun requireOffMainThread() {
-        val mainLooper = Looper.getMainLooper() ?: return // null in unit-test environment
+        val mainLooper = Looper.getMainLooper() ?: return
         check(Looper.myLooper() != mainLooper) {
             "SessionLlmBootstrapper.create() must not be called on the main thread; " +
                     "asset I/O would block the UI"
@@ -108,42 +103,25 @@ internal object SessionLlmBootstrapper {
         }
     }
 
-    private fun ensureRequiredCloudKeys(
+    private fun ensureRequiredCredentials(
             config: SessionConfig,
             catalog: ModelCatalog,
-            apiKeys: Map<String, String>
+            authStore: AuthStore?
     ) {
+        if (authStore == null) return
         val requiredModels = linkedSetOf(config.mainModel)
         if (config.agentMode == AgentMode.PRO) {
             config.executorModel?.let(requiredModels::add)
         }
-
         requiredModels.forEach { modelName ->
             val entry = catalog.resolve(modelName)
-            val requiredEnv = entry.effectiveApiKeyEnv
-            if (apiKeys[requiredEnv].isNullOrBlank()) {
-                throw IllegalStateException(
-                        "Missing API key '$requiredEnv' for model '$modelName' " +
-                                "(provider=${entry.provider}, api=${entry.api})."
-                )
+            val provider = entry.provider
+            if (provider == LLMProvider.LOCAL_LFM) return@forEach
+            if (!authStore.has(provider)) {
+                throw MissingCredential(provider)
             }
         }
     }
-
-    private const val BASE_URL_PREFIX = "__BASE_URL_"
-
-    private fun extractBaseUrlOverrides(apiKeys: Map<String, String>): Map<LLMProvider, String> =
-            apiKeys.entries
-                    .filter { it.key.startsWith(BASE_URL_PREFIX) }
-                    .mapNotNull { (key, value) ->
-                        try {
-                            LLMProvider.valueOf(key.removePrefix(BASE_URL_PREFIX)) to value
-                        } catch (_: IllegalArgumentException) {
-                            Log.w(TAG, "Unknown provider in base URL override key: $key")
-                            null
-                        }
-                    }
-                    .toMap()
 
     private const val FALLBACK_CATALOG_JSON =
             """

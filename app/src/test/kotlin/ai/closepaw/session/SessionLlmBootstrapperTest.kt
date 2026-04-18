@@ -36,7 +36,7 @@ class SessionLlmBootstrapperTest {
                                                 maxTurns = 1
                                         ),
                                 context = mockk(relaxed = true),
-                                apiKeys = emptyMap()
+                                authStore = null
                         )
                     }
             assertThat(error.message).contains("main thread")

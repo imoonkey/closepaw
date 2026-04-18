@@ -70,6 +70,7 @@ fun SmartCapsuleSurface(
     onPendingInputConsumed: () -> Unit = {},
     startupError: String? = null,
     onDismissStartupError: () -> Unit = {},
+    onStartupErrorClick: (() -> Unit)? = null,
 ) {
     var inputText by remember { mutableStateOf("") }
 
@@ -155,6 +156,7 @@ fun SmartCapsuleSurface(
                     StartupErrorBanner(
                         message = startupError,
                         onDismiss = onDismissStartupError,
+                        onClick = onStartupErrorClick,
                     )
                 }
                 CapsuleRow3(
@@ -196,11 +198,14 @@ private fun CapsuleDivider() {
 private fun StartupErrorBanner(
     message: String,
     onDismiss: () -> Unit,
+    onClick: (() -> Unit)? = null,
 ) {
+    val surfaceModifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 4.dp)
+        .let { if (onClick != null) it.clickable { onClick() } else it }
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = surfaceModifier,
         color = MaterialTheme.colorScheme.errorContainer,
         shape = RoundedCornerShape(10.dp),
     ) {

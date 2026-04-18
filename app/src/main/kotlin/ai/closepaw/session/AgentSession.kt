@@ -56,7 +56,8 @@ private constructor(
                 config: SessionConfig,
                 service: AccessibilityService,
                 scope: CoroutineScope,
-                apiKeys: Map<String, String> = emptyMap(),
+                authStore: ai.closepaw.auth.AuthStore?,
+                baseUrlOverrides: Map<ai.closepaw.llm.LLMProvider, String> = emptyMap(),
                 visualizer: ActionVisualizerManager? = null,
                 overlayTouchGate: OverlayTouchGate? = null,
         ): AgentSession {
@@ -76,7 +77,8 @@ private constructor(
                     SessionServices.create(
                             config = config,
                             platform = platform,
-                            apiKeys = apiKeys,
+                            authStore = authStore,
+                            baseUrlOverrides = baseUrlOverrides,
                             context = service,
                             scope = scope,
                             traceRecorder = traceRecorder,
@@ -120,12 +122,13 @@ private constructor(
                 snapshot: SessionRuntimeSnapshot,
                 service: AccessibilityService,
                 scope: CoroutineScope,
-                apiKeys: Map<String, String> = emptyMap(),
+                authStore: ai.closepaw.auth.AuthStore?,
+                baseUrlOverrides: Map<ai.closepaw.llm.LLMProvider, String> = emptyMap(),
                 visualizer: ActionVisualizerManager? = null,
                 overlayTouchGate: OverlayTouchGate? = null,
         ): AgentSession? {
-            if (snapshot.schemaVersion != 1) {
-                Log.w(TAG, "Unsupported schema version ${snapshot.schemaVersion}, cannot reload")
+            if (snapshot.schemaVersion != 2) {
+                Log.w(TAG, "Session from previous version — start a new session. (schema=${snapshot.schemaVersion})")
                 return null
             }
             if (!snapshot.checkpointState.isReloadable()) {
@@ -153,7 +156,8 @@ private constructor(
                     SessionServices.create(
                             config = config,
                             platform = platform,
-                            apiKeys = apiKeys,
+                            authStore = authStore,
+                            baseUrlOverrides = baseUrlOverrides,
                             context = service,
                             scope = scope,
                             traceRecorder = traceRecorder,

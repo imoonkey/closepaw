@@ -42,6 +42,7 @@ fun SmartCapsuleCompose(
     onPendingInputConsumed: () -> Unit = {},
     startupError: String? = null,
     onDismissStartupError: () -> Unit = {},
+    onStartupErrorClick: (() -> Unit)? = null,
 ) {
     SmartCapsuleSurface(
         mode = mode,
@@ -63,5 +64,6 @@ fun SmartCapsuleCompose(
         onPendingInputConsumed = onPendingInputConsumed,
         startupError = startupError,
         onDismissStartupError = onDismissStartupError,
+        onStartupErrorClick = onStartupErrorClick,
     )
 }

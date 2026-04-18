@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class SessionRuntimeSnapshot(
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = 2,
     val sessionId: String,
     val config: ConversationConfigSnapshot,
     val historyItems: List<PersistedHistoryItem>,

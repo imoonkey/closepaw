@@ -71,6 +71,7 @@ internal class SessionCheckpointCoordinator(
         val scratchpadJson = sessionState.scratchpad.toJsonObject().toString()
 
         return SessionRuntimeSnapshot(
+            schemaVersion = 2,
             sessionId = sessionId,
             config = config.toConfigSnapshot(),
             historyItems = HistoryItemConverter.toRecords(items),

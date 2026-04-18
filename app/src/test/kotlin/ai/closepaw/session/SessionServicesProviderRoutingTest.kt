@@ -3,7 +3,11 @@ package ai.closepaw.session
 import android.content.Context
 import android.content.res.AssetManager
 import com.google.common.truth.Truth.assertThat
+import ai.closepaw.auth.AuthCredential
+import ai.closepaw.auth.AuthStore
+import ai.closepaw.auth.MissingCredential
 import ai.closepaw.llm.ChatCompletionClient
+import ai.closepaw.llm.LLMProvider
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
@@ -13,6 +17,7 @@ import ai.closepaw.trace.NoopTraceRecorder
 import io.mockk.every
 import io.mockk.mockk
 import java.io.ByteArrayInputStream
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -21,6 +26,10 @@ class SessionServicesProviderRoutingTest {
   @Test
   fun `openrouter model works without openai key`() {
     val context = contextWithCatalog()
+    val authStore = AuthStore(context)
+    runBlocking {
+      authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("sk-or-test"))
+    }
     val config =
             SessionConfig(
                     llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
@@ -31,7 +40,7 @@ class SessionServicesProviderRoutingTest {
             SessionServices.create(
                     config = config,
                     platform = FakeAndroidPlatform(),
-                    apiKeys = mapOf("OPENROUTER_API_KEY" to "sk-or-test"),
+                    authStore = authStore,
                     context = context,
                     scope =
                             kotlinx.coroutines.CoroutineScope(
@@ -46,6 +55,10 @@ class SessionServicesProviderRoutingTest {
   @Test
   fun `pro mode validates executor model provider key`() {
     val context = contextWithCatalog()
+    val authStore = AuthStore(context)
+    runBlocking {
+      authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("sk-openai-test"))
+    }
     val config =
             SessionConfig(
                     llm = SessionLlmConfig(backendType = LLMBackendType.OPENAI),
@@ -56,11 +69,11 @@ class SessionServicesProviderRoutingTest {
             )
 
     val error =
-            assertThrows(IllegalStateException::class.java) {
+            assertThrows(MissingCredential::class.java) {
               SessionServices.create(
                       config = config,
                       platform = FakeAndroidPlatform(),
-                      apiKeys = mapOf("OPENAI_API_KEY" to "sk-openai-test"),
+                      authStore = authStore,
                       context = context,
                       scope =
                               kotlinx.coroutines.CoroutineScope(
@@ -69,7 +82,7 @@ class SessionServicesProviderRoutingTest {
                       traceRecorder = NoopTraceRecorder
               )
             }
-    assertThat(error.message).contains("NOVITA_API_KEY")
+    assertThat(error.provider).isEqualTo(LLMProvider.NOVITA)
   }
 
   private fun contextWithCatalog(): Context {
@@ -94,7 +107,7 @@ class SessionServicesProviderRoutingTest {
         {
           "gpt-5.2": {
             "display_name": "GPT-5.2",
-            "provider": "OPENAI",
+            "provider":"OPENAI_API",
             "api": "response",
             "model_id": "gpt-5.2"
           },

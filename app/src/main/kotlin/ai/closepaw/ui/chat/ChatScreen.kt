@@ -66,7 +66,7 @@ fun ChatScreen(
     sessions: List<SessionInfo>,
     currentModel: String,
     appVersion: String,
-    onOpenSettings: () -> Unit,
+    onOpenSettings: (SettingsDeepLink?) -> Unit,
     onSessionSelect: (SessionInfo) -> Unit,
     onNewSession: () -> Unit,
     onDeleteSession: (SessionInfo) -> Unit,
@@ -117,7 +117,7 @@ fun ChatScreen(
                 onDeleteSession = onDeleteSession,
                 onSettingsClick = {
                     scope.launch { drawerState.close() }
-                    onOpenSettings()
+                    onOpenSettings(null)
                 },
                 onClose = {
                     scope.launch { drawerState.close() }
@@ -175,6 +175,9 @@ fun ChatScreen(
                         onPendingInputConsumed = { viewModel.consumePendingInput() },
                         startupError = startupError,
                         onDismissStartupError = { viewModel.dismissStartupError() },
+                        onStartupErrorClick = {
+                            onOpenSettings(viewModel.startupErrorDeepLink.value)
+                        },
                     )
                 }
             }

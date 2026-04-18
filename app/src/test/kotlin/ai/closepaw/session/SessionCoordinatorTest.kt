@@ -74,9 +74,35 @@ class SessionCoordinatorTest {
         val created = coordinator.createAndSubmit("first-input") { session }
         advanceUntilIdle()
 
-        assertThat(created).isTrue()
+        assertThat(created).isEqualTo(CreateResult.Success)
         coVerify { session.submit(Op.UserInput("first-input")) }
         coVerify { session.submit(Op.UserInput("queued-before-create")) }
+    }
+
+    @Test
+    fun `createAndSubmit with null factory returns Aborted and clears pending inputs`() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val scope = TestScope(dispatcher)
+        val coordinator = SessionCoordinator(scope)
+
+        coordinator.enqueue("stale-input")
+
+        val result = coordinator.createAndSubmit("rejected-input") { null }
+        advanceUntilIdle()
+
+        assertThat(result).isEqualTo(CreateResult.Aborted)
+        assertThat(coordinator.currentSession).isNull()
+
+        // Next session should NOT auto-run the stale or rejected input.
+        val state = MutableStateFlow<SessionState>(SessionState.Idle)
+        val session = fakeSession(state)
+        val created = coordinator.createAndSubmit("fresh-input") { session }
+        advanceUntilIdle()
+
+        assertThat(created).isEqualTo(CreateResult.Success)
+        coVerify { session.submit(Op.UserInput("fresh-input")) }
+        coVerify(exactly = 0) { session.submit(Op.UserInput("stale-input")) }
+        coVerify(exactly = 0) { session.submit(Op.UserInput("rejected-input")) }
     }
 
     @Test

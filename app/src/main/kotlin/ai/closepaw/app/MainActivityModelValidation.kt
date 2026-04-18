@@ -1,16 +1,29 @@
 package ai.closepaw.app
 
+import ai.closepaw.auth.AuthStore
+import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 
+/** Deep-link target for a missing-credential banner tap. */
+data class MissingCredentialTarget(
+    val provider: LLMProvider,
+    val message: String,
+)
+
+/**
+ * Validate that credentials exist for the main + executor models selected for the next
+ * session. Returns one entry per missing credential with provider info so the caller
+ * can deep-link into the right settings tab.
+ */
 internal fun findMissingCloudKeys(
     settingsState: AppSettingsState,
-    modelCatalog: ModelCatalog
-): List<String> {
+    modelCatalog: ModelCatalog,
+    authStore: AuthStore,
+): List<MissingCredentialTarget> {
     if (settingsState.llmBackend != LLMBackendType.OPENAI) return emptyList()
 
-    val apiKeys = settingsState.buildApiKeys()
     val modelsToValidate = linkedSetOf(settingsState.selectedModel)
     if (settingsState.agentMode == AgentMode.PRO) {
         settingsState.executorModel?.let(modelsToValidate::add)
@@ -20,12 +33,20 @@ internal fun findMissingCloudKeys(
         for (modelName in modelsToValidate) {
             val entry = modelCatalog.resolveOrNull(modelName)
             if (entry == null) {
-                add("Unknown model: $modelName")
+                add(MissingCredentialTarget(LLMProvider.OPENAI_API, "Unknown model: $modelName"))
                 continue
             }
-            val requiredEnv = entry.effectiveApiKeyEnv
-            if (apiKeys[requiredEnv].isNullOrBlank()) {
-                add("${entry.displayName} requires $requiredEnv")
+            val provider = entry.provider
+            if (provider == LLMProvider.LOCAL_LFM) continue
+            if (!authStore.has(provider)) {
+                val label = when (provider) {
+                    LLMProvider.OPENAI_CODEX -> "ChatGPT sign-in required"
+                    LLMProvider.OPENAI_API -> "OpenAI API key required"
+                    LLMProvider.OPENROUTER -> "OpenRouter API key required"
+                    LLMProvider.NOVITA -> "Novita API key required"
+                    LLMProvider.LOCAL_LFM -> continue
+                }
+                add(MissingCredentialTarget(provider, "${entry.displayName}: $label"))
             }
         }
     }

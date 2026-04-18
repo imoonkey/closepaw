@@ -331,7 +331,7 @@ class AgentSessionTest {
                 val config = SessionConfig(maxTurns = 2, actionDelayMs = 0)
                 val testCatalog =
                         ModelCatalog.fromJson(
-                                """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+                                """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""
                         )
                 val testLlm = SessionTestLLMClient(0L)
                 val services =
@@ -393,7 +393,7 @@ private fun buildSession(
         val config = SessionConfig(maxTurns = maxTurns, actionDelayMs = 0, agentMode = agentMode)
         val testCatalog =
                 ModelCatalog.fromJson(
-                        """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+                        """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""
                 )
         val testLlm = llmClient ?: SessionTestLLMClient(llmDelayMs)
         val services =

@@ -1,23 +1,36 @@
 package ai.closepaw.app
 
+import ai.closepaw.auth.AuthCredential
+import ai.closepaw.auth.AuthStore
+import ai.closepaw.llm.LLMProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 internal data class MainActivityIntentApplyResult(
     val pendingTraceEnabled: Boolean?,
     val pendingTraceRunId: String?,
     val pendingExcludedTools: Set<String>
 )
 
-internal fun applyIntentPayloadToSettings(
+/**
+ * Apply intent extras to runtime state. Credential writes go to [authStore]
+ * on [Dispatchers.IO] because [AuthStore.set] performs EncryptedSharedPreferences
+ * init + disk I/O and must not block the main thread. Base URL override goes to
+ * [AppSettingsState.openaiBaseUrl] (debug-only). Release builds no-op on every extra.
+ *
+ * This function is `suspend`; callers must invoke it inside a coroutine so that
+ * any session launch observing the credential state happens-after the writes.
+ */
+internal suspend fun applyIntentPayloadToSettings(
     payload: MainActivityIntentPayload,
     settingsState: AppSettingsState,
+    authStore: AuthStore,
     isDebugBuild: Boolean,
     currentPendingTraceEnabled: Boolean?,
     currentPendingTraceRunId: String?,
     currentPendingExcludedTools: Set<String>,
     log: (String) -> Unit
 ): MainActivityIntentApplyResult {
-    // Production: ignore ALL security-sensitive intent extras.
-    // External callers must not persist API keys, override routing/modes,
-    // or toggle debug/trace flags.
     if (!isDebugBuild) {
         return MainActivityIntentApplyResult(
             pendingTraceEnabled = currentPendingTraceEnabled,
@@ -26,19 +39,20 @@ internal fun applyIntentPayloadToSettings(
         )
     }
 
-    payload.apiKey?.let { key ->
-        settingsState.updateApiKey(key)
-        // Explicit API key from intent overrides OAuth — use direct API path
-        settingsState.updateAuthMethod(null)
-        log("API key set from intent (auth method reset to manual)")
-    }
-    payload.openRouterApiKey?.let { key ->
-        settingsState.updateOpenRouterApiKey(key)
-        log("OpenRouter API key set from intent")
-    }
-    payload.novitaApiKey?.let { key ->
-        settingsState.updateNovitaApiKey(key)
-        log("Novita API key set from intent")
+    // Credential writes are I/O-bound; batch on Dispatchers.IO off the caller's thread.
+    withContext(Dispatchers.IO) {
+        payload.apiKey?.let { key ->
+            authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey(key))
+            log("OPENAI_API key set from intent via AuthStore")
+        }
+        payload.openRouterApiKey?.let { key ->
+            authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey(key))
+            log("OPENROUTER key set from intent via AuthStore")
+        }
+        payload.novitaApiKey?.let { key ->
+            authStore.set(LLMProvider.NOVITA, AuthCredential.ApiKey(key))
+            log("NOVITA key set from intent via AuthStore")
+        }
     }
     payload.openaiBaseUrl?.let { url ->
         settingsState.updateOpenaiBaseUrl(url)
