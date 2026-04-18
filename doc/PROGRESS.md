@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-04-18: onboarding UX — OAuth latency cut, recap reads live permissions, "Finishing up" copy, ClosePaw rename
+
+**What changed:**
+- `auth/OpenAiSignIn.kt`: dropped `OAuthCodexValidator.validate()` after token exchange. That step issued a real chat-completion to `chatgpt.com/backend-api/codex/responses` and blocked until SSE headers arrived (5-15s + Android background-socket throttling). Run Demo on step 5 already exercises the same path, so the separate validation was redundant. Post-Chrome wait dropped from ~30s to ~10s on EP0110MZ0BC101266W.
+- `auth/OpenAiSignIn.kt`: added optional `onCallbackReceived: () -> Unit = {}` arg fired right after `waitForCallback()` returns Success and before `OAuthTokenExchange.exchange()` runs. New `ApiKeyStepState.OAuthFinishing` and `OpenAiAuthUiState.Finishing` rendered with copy "Browser sign-in complete. Finishing up with OpenAI — this can take ~20 seconds." Removes the ambiguous "Complete sign-in in your browser" spinner state during the ~20s server-side token-exchange wait at `auth.openai.com/oauth/token`.
+- `ui/onboarding/OnboardingSteps.kt` recap (`CompleteStepContent`): three permission rows (accessibility/overlay/battery) now render via new `LiveStatusRow` reading `vm.isAccessibilityEnabled() / isOverlayEnabled() / isBatteryOptimized()` from `PermissionStateMonitor`. Previous code read `outcomes.accessibility/overlay/battery` from `OnboardingStore` (cached). Auto-skipped permission steps never wrote `StepOutcome.Done`, so the recap rendered red ✗ for actually-granted permissions when launched via setup.sh. Same anti-pattern as the `authMethod` side-channel the auth-setting-cleanup milestone removed.
+- 7 user-visible strings renamed "Android Agent" → "ClosePaw": OAuth Sign-in complete HTML page, onboarding Complete CTA, Accessibility + Overlay permission copy, onboarding screen title, ChatHeader, EmptyState, CapsuleContext doc comment.
+
+**Why:**
+- The OAuth latency investigation (logcat on device) attributed ~20s to `OpenAIOAuth.kt:301 postTokenRequest` (the auth_code → tokens POST itself, server-side at auth.openai.com). `exchangeForApiKey` is fast (~300ms, 401s, falls back to access_token — expected for Codex tokens). The 5-15s LLM validation was extra cost on top of that and the easiest to drop. The remaining ~20s is server-side and not worth chasing without changing the OAuth mechanism; instead the UX copy fix tells the user what's happening.
+- The recap bug shipped with the auth-setting-cleanup milestone but only surfaced once a tester used setup.sh (which auto-grants permissions before launch). User caught it on the first fresh-install walkthrough after the milestone closed.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/auth/{OpenAiSignIn, OpenAIOAuth}.kt`, `app/src/main/kotlin/ai/closepaw/onboarding/{OnboardingViewModel, OnboardingState}.kt`, `app/src/main/kotlin/ai/closepaw/ui/onboarding/{OnboardingScreen, OnboardingSteps}.kt`, `app/src/main/kotlin/ai/closepaw/ui/settings/OpenAiAuthCard.kt`, `app/src/main/kotlin/ai/closepaw/ui/chat/components/{ChatHeader, EmptyState}.kt`, `app/src/main/kotlin/ai/closepaw/app/MainActivity.kt`.
+
+**Verification:** `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest :app:assembleDebug` green. Device EP0110MZ0BC101266W: fresh-install walkthrough — OAuth post-Chrome wait observed ~10s (down from ~30s), recap shows ✓ for granted permissions, "Finishing up" copy renders correctly during the post-callback exchange window.
+**Commit:** 556aae84, a40130ad
+**Next:** Investigate auto-return from Chrome to ClosePaw after OAuth (currently requires manual app switch).
+**Blockers:** None.
+
 ## 2026-04-18: holistic-review followups — demo baseUrl, AuthStore off-main, doc enum
 
 **What changed:**
