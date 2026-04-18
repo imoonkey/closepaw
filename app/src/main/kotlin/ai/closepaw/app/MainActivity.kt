@@ -18,18 +18,22 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import ai.closepaw.BuildConfig
+import ai.closepaw.auth.AuthCredential
+import ai.closepaw.auth.AuthStore
 import ai.closepaw.history.ResumedSessionData
 import ai.closepaw.history.SessionHistoryManager
 import ai.closepaw.history.model.SessionInfo
 import ai.closepaw.history.model.isReloadable
 import ai.closepaw.history.storage.SessionStorage
 import ai.closepaw.llm.LFMLLMClient
+import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.LocalLLMConfig
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.onboarding.OnboardingDemoController
 import ai.closepaw.onboarding.OnboardingEffect
 import ai.closepaw.onboarding.OnboardingStore
 import ai.closepaw.onboarding.OnboardingViewModel
+import ai.closepaw.onboarding.OnboardingViewModelFactory
 import ai.closepaw.onboarding.PermissionStateMonitor
 import ai.closepaw.perception.PerceptionConfig
 import ai.closepaw.protocol.LLMBackendType
@@ -91,8 +95,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var sessionHistoryManager: SessionHistoryManager
     private lateinit var viewModel: ChatViewModel
     private var showSettings by mutableStateOf(false)
+    private var pendingSettingsDeepLink by mutableStateOf<ai.closepaw.ui.chat.SettingsDeepLink?>(null)
     private lateinit var onboardingStore: OnboardingStore
-    private lateinit var oauthCredentialStore: ai.closepaw.auth.OAuthCredentialStore
+    private lateinit var authStore: AuthStore
     private var onboardingViewModel: OnboardingViewModel? = null
     private var onboardingRequired by mutableStateOf(false)
     private var openAiAuthUiState by mutableStateOf<ai.closepaw.ui.settings.OpenAiAuthUiState>(
@@ -127,16 +132,9 @@ class MainActivity : ComponentActivity() {
 
         // Onboarding: migrate + check completion
         onboardingStore = OnboardingStore(applicationContext)
-        oauthCredentialStore = ai.closepaw.auth.OAuthCredentialStore(applicationContext)
+        authStore = AuthStoreHolder.get(applicationContext)
         onboardingStore.migrateIfNeeded {
             hasLegacyUsageEvidence()
-        }
-        AppSettingsStore(applicationContext).migrateCredentialSplit(
-            oauthCredentialStore.load()?.accessToken
-        )
-        settingsState.updateAuthMethod(onboardingStore.loadAuthMethod())
-        oauthCredentialStore.load()?.let { creds ->
-            settingsState.updateOpenAiOAuthAccessToken(creds.accessToken)
         }
         deriveOpenAiAuthUiState()
 
@@ -147,12 +145,12 @@ class MainActivity : ComponentActivity() {
         onboardingRequired = !onboardingStore.isCompleted && !isEvalMode
 
         if (onboardingRequired) {
-            val vm = OnboardingViewModel(
+            val vm = OnboardingViewModelFactory.create(
+                context = applicationContext,
                 store = onboardingStore,
                 settingsState = settingsState,
                 modelCatalog = modelCatalog,
                 permissionMonitor = PermissionStateMonitor(applicationContext),
-                oauthCredentialStore = oauthCredentialStore,
                 demoController = OnboardingDemoController(
                     settingsState = settingsState,
                     scope = lifecycleScope
@@ -195,9 +193,9 @@ class MainActivity : ComponentActivity() {
                         onValidateApiKey = { vm.validateApiKey() },
                         onRetryValidation = { vm.retryValidation() },
                         onStartDemo = { vm.startDemo() },
+                        onGoToAuthStep = { vm.goToAuthStep() },
                         onFinish = {
                             vm.finish()
-                            settingsState.updateAuthMethod(onboardingStore.loadAuthMethod())
                             onboardingRequired = false
                         },
                         onEffect = { effect -> handleOnboardingEffect(effect) }
@@ -210,7 +208,11 @@ class MainActivity : ComponentActivity() {
                     modelCatalog = modelCatalog,
                     appVersion = BuildConfig.VERSION_NAME,
                     showSettings = showSettings,
-                    onShowSettingsChange = { showSettings = it },
+                    onShowSettingsChange = {
+                        showSettings = it
+                        if (!it) pendingSettingsDeepLink = null
+                    },
+                    initialSettingsDeepLink = pendingSettingsDeepLink,
                     onSessionSelect = { session ->
                         coordinator.selectedSessionForReload = session
                         viewModel.resumeSession(session) {
@@ -238,7 +240,6 @@ class MainActivity : ComponentActivity() {
                         handleOnboardingEffect(OnboardingEffect.OpenBatteryOptimization)
                     },
                     openAiAuthUiState = openAiAuthUiState,
-                    onAuthMethodChange = ::handleAuthMethodChange,
                     onStartOAuth = ::handleStartOAuth,
                     onCancelOAuth = ::handleCancelOAuth,
                     onSignOut = ::handleSignOut
@@ -307,31 +308,31 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent) {
         val payload = MainActivityIntentPayload.from(intent)
-        val applyResult =
-                applyIntentPayloadToSettings(
-                        payload = payload,
-                        settingsState = settingsState,
-                        isDebugBuild = BuildConfig.DEBUG,
-                        currentPendingTraceEnabled = pendingTraceEnabled,
-                        currentPendingTraceRunId = pendingTraceRunId,
-                        currentPendingExcludedTools = pendingExcludedTools,
-                        log = { message -> Log.d(TAG, message) }
-                )
-        pendingTraceEnabled = applyResult.pendingTraceEnabled
-        pendingTraceRunId = applyResult.pendingTraceRunId
-        pendingExcludedTools = applyResult.pendingExcludedTools
-
-        if (intentPayloadConsumed) {
-            Log.d(TAG, "Intent payload already consumed, skipping action dispatch")
-            return
-        }
+        val alreadyConsumed = intentPayloadConsumed
         intentPayloadConsumed = true
+        lifecycleScope.launch {
+            val applyResult = applyIntentPayloadToSettings(
+                payload = payload,
+                settingsState = settingsState,
+                authStore = authStore,
+                isDebugBuild = BuildConfig.DEBUG,
+                currentPendingTraceEnabled = pendingTraceEnabled,
+                currentPendingTraceRunId = pendingTraceRunId,
+                currentPendingExcludedTools = pendingExcludedTools,
+                log = { message -> Log.d(TAG, message) }
+            )
+            pendingTraceEnabled = applyResult.pendingTraceEnabled
+            pendingTraceRunId = applyResult.pendingTraceRunId
+            pendingExcludedTools = applyResult.pendingExcludedTools
 
-        if (BuildConfig.DEBUG) {
-            // Debug build: auto-dispatch goals (eval/debug workflow)
-            if (payload.freshSession) {
-                Log.d(TAG, "Fresh session requested, clearing existing state")
-                lifecycleScope.launch {
+            if (alreadyConsumed) {
+                Log.d(TAG, "Intent payload already consumed, skipping action dispatch")
+                return@launch
+            }
+
+            if (BuildConfig.DEBUG) {
+                if (payload.freshSession) {
+                    Log.d(TAG, "Fresh session requested, clearing existing state")
                     clearCurrentSession()
                     coordinator.selectedSessionForReload = null
                     payload.goalText?.let {
@@ -339,19 +340,17 @@ class MainActivity : ComponentActivity() {
                         delay(500)
                         ensureSessionAndSend(it, launchPolicy = SessionLaunchPolicy.FORCE_FRESH)
                     }
+                } else {
+                    payload.goalText?.let {
+                        Log.d(TAG, "Goal set from intent: $it")
+                        scheduleGoalDispatch(it)
+                    }
                 }
             } else {
-                payload.goalText?.let {
-                    Log.d(TAG, "Goal set from intent: $it")
-                    scheduleGoalDispatch(it)
+                payload.goalText?.let { goal ->
+                    Log.d(TAG, "External goal received, awaiting user confirmation: $goal")
+                    pendingGoalForConfirmation = goal
                 }
-            }
-        } else {
-            // Production: require explicit user confirmation for external goals.
-            // freshSession and all config extras are ignored.
-            payload.goalText?.let { goal ->
-                Log.d(TAG, "External goal received, awaiting user confirmation: $goal")
-                pendingGoalForConfirmation = goal
             }
         }
     }
@@ -461,13 +460,20 @@ class MainActivity : ComponentActivity() {
 
             // Create new session under coordinator's creation lock
             try {
-                val created = coordinator.createAndSubmit(text) {
+                val result = coordinator.createAndSubmit(text) {
                     createOrReloadSession(service, launchPolicy, autoReload)
                 }
-                if (!created) {
-                    // Creation lock unavailable (another creation in progress).
-                    // Enqueue directly — input drains when session transitions to Idle/Created.
-                    coordinator.enqueue(text)
+                when (result) {
+                    ai.closepaw.session.CreateResult.Success -> { /* done */ }
+                    ai.closepaw.session.CreateResult.LockBusy -> {
+                        // Another creation in progress — enqueue so input drains
+                        // once the in-flight session becomes Idle/Created.
+                        coordinator.enqueue(text)
+                    }
+                    ai.closepaw.session.CreateResult.Aborted -> {
+                        // Creation explicitly refused (e.g. non-reloadable checkpoint).
+                        // Coordinator has cleared pendingInputs; do NOT enqueue.
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create session", e)
@@ -477,7 +483,21 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 val errMsg = e.message ?: "Unknown error"
-                viewModel.reportStartupFailure(text, errMsg)
+                val deepLink = when (e) {
+                    is ai.closepaw.auth.MissingCredential,
+                    is ai.closepaw.auth.OAuthRefreshFailed,
+                    is ai.closepaw.auth.WrongCredentialType -> {
+                        val provider = (e as? ai.closepaw.auth.MissingCredential)?.provider
+                            ?: (e as? ai.closepaw.auth.OAuthRefreshFailed)?.provider
+                            ?: (e as? ai.closepaw.auth.WrongCredentialType)?.provider
+                        ai.closepaw.ui.chat.SettingsDeepLink(
+                            page = ai.closepaw.ui.chat.SettingsPage.LLM_AUTH,
+                            authTab = provider?.mode,
+                        )
+                    }
+                    else -> null
+                }
+                viewModel.reportStartupFailure(text, errMsg, deepLink)
                 Toast.makeText(
                                 this@MainActivity,
                                 "Failed to start: $errMsg",
@@ -500,8 +520,9 @@ class MainActivity : ComponentActivity() {
             launchPolicy: SessionLaunchPolicy,
             autoReload: Boolean = false
     ): AgentSession? {
-        refreshOAuthTokenIfNeeded()
-        val apiKeys = settingsState.buildApiKeys()
+        val baseUrlOverrides: Map<LLMProvider, String> = if (settingsState.openaiBaseUrl.isNotBlank()) {
+            mapOf(LLMProvider.OPENAI_API to settingsState.openaiBaseUrl)
+        } else emptyMap()
         val visualizer = service.getActionVisualizer()
         val touchGate = service.getOverlayTouchGate()
         val selectedForReload =
@@ -511,7 +532,7 @@ class MainActivity : ComponentActivity() {
         val session = if (selectedForReload != null) {
             val reloaded = tryReloadSelectedSession(
                     service = service,
-                    apiKeys = apiKeys,
+                    baseUrlOverrides = baseUrlOverrides,
                     visualizer = visualizer,
                     touchGate = touchGate,
                     selected = selectedForReload
@@ -522,16 +543,16 @@ class MainActivity : ComponentActivity() {
             } else if (autoReload) {
                 Log.w(TAG, "Auto-reload failed for ${selectedForReload.id}, falling back to fresh session")
                 coordinator.selectedSessionForReload = null
-                createFreshSession(service, apiKeys, visualizer, touchGate)
+                createFreshSession(service, baseUrlOverrides, visualizer, touchGate)
             } else {
                 Log.w(TAG, "Explicit resume failed for ${selectedForReload.id}, checkpoint not reloadable")
                 coordinator.selectedSessionForReload = null
-                Toast.makeText(this, "Session checkpoint not reloadable", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Session from previous version — start a new session.", Toast.LENGTH_SHORT).show()
                 return null
             }
         } else {
             coordinator.selectedSessionForReload = null
-            createFreshSession(service, apiKeys, visualizer, touchGate)
+            createFreshSession(service, baseUrlOverrides, visualizer, touchGate)
         }
 
         pendingTraceEnabled = null
@@ -549,7 +570,7 @@ class MainActivity : ComponentActivity() {
 
     private suspend fun tryReloadSelectedSession(
             service: AgentService,
-            apiKeys: Map<String, String>,
+            baseUrlOverrides: Map<LLMProvider, String>,
             visualizer: ActionVisualizerManager?,
             touchGate: OverlayTouchGate?,
             selected: SessionInfo
@@ -557,7 +578,7 @@ class MainActivity : ComponentActivity() {
         val storage = SessionStorage(applicationContext)
         val contextFileName = storage.contextFileNameFor(selected.fileName)
         val snapshot = storage.readSnapshot(contextFileName).getOrNull() ?: return null
-        if (snapshot.schemaVersion != 1) return null
+        if (snapshot.schemaVersion != 2) return null
         if (!snapshot.checkpointState.isReloadable()) return null
 
         val session = withContext(Dispatchers.Default) {
@@ -565,7 +586,8 @@ class MainActivity : ComponentActivity() {
                     snapshot = snapshot,
                     service = service,
                     scope = sessionScope,
-                    apiKeys = apiKeys,
+                    authStore = authStore,
+                    baseUrlOverrides = baseUrlOverrides,
                     visualizer = visualizer,
                     overlayTouchGate = touchGate,
             )
@@ -586,7 +608,7 @@ class MainActivity : ComponentActivity() {
 
     private suspend fun createFreshSession(
             service: AgentService,
-            apiKeys: Map<String, String>,
+            baseUrlOverrides: Map<LLMProvider, String>,
             visualizer: ActionVisualizerManager?,
             touchGate: OverlayTouchGate?
     ): AgentSession {
@@ -633,7 +655,8 @@ class MainActivity : ComponentActivity() {
                             config = sessionConfig,
                             service = service,
                             scope = sessionScope,
-                            apiKeys = apiKeys,
+                            authStore = authStore,
+                            baseUrlOverrides = baseUrlOverrides,
                             visualizer = visualizer,
                             overlayTouchGate = touchGate,
                     )
@@ -659,7 +682,7 @@ class MainActivity : ComponentActivity() {
         val pendingGoal = pendingAutoStartGoal ?: return
         if (AgentService.instance == null) return
         if (!Settings.canDrawOverlays(this)) return
-        if (findMissingCloudKeys(settingsState, modelCatalog).isNotEmpty()) return
+        if (findMissingCloudKeys(settingsState, modelCatalog, authStore).isNotEmpty()) return
         // Clear before dispatching to prevent double-fire from rapid lifecycle callbacks
         pendingAutoStartGoal = null
         ensureSessionAndSend(pendingGoal)
@@ -677,27 +700,27 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun validateCloudKeysForSelectedModels(): Boolean {
-        val missing = findMissingCloudKeys(settingsState, modelCatalog)
+        val missing = findMissingCloudKeys(settingsState, modelCatalog, authStore)
 
         if (missing.isEmpty()) return true
 
-        Toast.makeText(this, "Missing API key(s): ${missing.joinToString("; ")}", Toast.LENGTH_LONG)
+        Toast.makeText(this, "Missing credential(s): ${missing.joinToString("; ") { it.message }}", Toast.LENGTH_LONG)
                 .show()
+        pendingSettingsDeepLink = ai.closepaw.ui.chat.SettingsDeepLink(
+            page = ai.closepaw.ui.chat.SettingsPage.LLM_AUTH,
+            authTab = missing.first().provider.mode,
+        )
         showSettings = true
         return false
     }
 
     // ── Settings OAuth handlers ──
 
-    private fun handleAuthMethodChange(method: String?) {
-        settingsState.updateAuthMethod(method)
-        onboardingStore.saveAuthMethod(method ?: "")
-    }
-
     private fun deriveOpenAiAuthUiState() {
-        val creds = oauthCredentialStore.load()
-        openAiAuthUiState = if (settingsState.authMethod == "oauth") {
-            ai.closepaw.ui.settings.OpenAiAuthUiState.SignedIn(creds?.email)
+        val cred = kotlinx.coroutines.runBlocking { authStore.get(LLMProvider.OPENAI_CODEX) }
+        val oauthCred = cred as? AuthCredential.OAuth
+        openAiAuthUiState = if (oauthCred != null) {
+            ai.closepaw.ui.settings.OpenAiAuthUiState.SignedIn(oauthCred.email)
         } else {
             ai.closepaw.ui.settings.OpenAiAuthUiState.SignedOut
         }
@@ -721,11 +744,17 @@ class MainActivity : ComponentActivity() {
             when (result) {
                 is ai.closepaw.auth.OpenAiSignInResult.Success -> {
                     val tokens = result.tokens
-                    oauthCredentialStore.save(tokens)
-                    settingsState.updateOpenAiOAuthAccessToken(tokens.accessToken)
-                    settingsState.updateAuthMethod("oauth")
+                    authStore.set(
+                        LLMProvider.OPENAI_CODEX,
+                        AuthCredential.OAuth(
+                            accessToken = tokens.accessToken,
+                            refreshToken = tokens.refreshToken,
+                            expiresAt = tokens.expiresAt,
+                            email = tokens.email,
+                            idToken = tokens.idToken,
+                        )
+                    )
                     settingsState.updateBackend(ai.closepaw.protocol.LLMBackendType.OPENAI)
-                    onboardingStore.saveAuthMethod("oauth")
                     openAiAuthUiState = ai.closepaw.ui.settings.OpenAiAuthUiState.SignedIn(tokens.email)
                     Log.d(TAG, "Settings OAuth success")
                 }
@@ -744,33 +773,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleSignOut() {
-        oauthCredentialStore.clear()
-        settingsState.updateAuthMethod(null)
-        settingsState.updateOpenAiOAuthAccessToken("")
-        onboardingStore.saveAuthMethod("")
+        lifecycleScope.launch { authStore.clear(LLMProvider.OPENAI_CODEX) }
         openAiAuthUiState = ai.closepaw.ui.settings.OpenAiAuthUiState.SignedOut
         Log.d(TAG, "Settings OAuth sign-out, manual key preserved")
-    }
-
-    // ── OAuth token refresh ──
-
-    private suspend fun refreshOAuthTokenIfNeeded() {
-        val creds = oauthCredentialStore.load() ?: return
-        if (!oauthCredentialStore.isExpiringSoon()) return
-
-        Log.d(TAG, "OAuth token expiring soon, refreshing...")
-        val result = ai.closepaw.auth.OAuthTokenExchange.refresh(creds.refreshToken)
-        when (result) {
-            is ai.closepaw.auth.OAuthTokenExchange.Result.Success -> {
-                oauthCredentialStore.save(result.tokens)
-                settingsState.updateOpenAiOAuthAccessToken(result.tokens.accessToken)
-                Log.d(TAG, "OAuth token refreshed successfully")
-            }
-            is ai.closepaw.auth.OAuthTokenExchange.Result.Error -> {
-                Log.w(TAG, "OAuth token refresh failed: ${result.message}")
-                // Proceed with current token — may fail at API call
-            }
-        }
     }
 
     // ── Onboarding helpers ──
@@ -834,10 +839,14 @@ class MainActivity : ComponentActivity() {
     /** Check for evidence this is an existing user (for onboarding migration). */
     private fun hasLegacyUsageEvidence(): Boolean {
         val settings = settingsState
-        // Existing API key or non-default model/backend → existing user
-        if (settings.apiKey.isNotBlank()) return true
-        if (settings.openRouterApiKey.isNotBlank()) return true
-        if (settings.novitaApiKey.isNotBlank()) return true
+        // Any stored cloud credential indicates prior use.
+        val providers = listOf(
+            LLMProvider.OPENAI_API,
+            LLMProvider.OPENAI_CODEX,
+            LLMProvider.OPENROUTER,
+            LLMProvider.NOVITA,
+        )
+        if (providers.any { authStore.has(it) }) return true
         if (settings.selectedModel != AppSettingsStore.DEFAULT_MODEL) return true
         if (settings.llmBackend != AppSettingsStore.DEFAULT_LLM_BACKEND) return true
         // Allow-list entries

@@ -6,13 +6,19 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
 import ai.closepaw.ui.chat.ChatScreen
 import ai.closepaw.ui.chat.ChatViewModel
+import ai.closepaw.ui.chat.SettingsDeepLink
+import ai.closepaw.ui.chat.SettingsPage as DeepLinkPage
 import ai.closepaw.ui.onboarding.PermissionRepairCard
 import ai.closepaw.ui.settings.OpenAiAuthUiState
+import ai.closepaw.ui.settings.SettingsPage
 import ai.closepaw.ui.settings.SettingsSheet
 import ai.closepaw.ui.theme.ChatTheme
 
@@ -35,16 +41,23 @@ internal fun MainActivityContent(
     repairModel: PermissionRepairModel? = null,
     onFixBattery: () -> Unit = {},
     openAiAuthUiState: OpenAiAuthUiState = OpenAiAuthUiState.SignedOut,
-    onAuthMethodChange: (String?) -> Unit = {},
     onStartOAuth: () -> Unit = {},
     onCancelOAuth: () -> Unit = {},
-    onSignOut: () -> Unit = {}
+    onSignOut: () -> Unit = {},
+    initialSettingsDeepLink: SettingsDeepLink? = null,
 ) {
     ChatTheme {
         val sessions by viewModel.sessions.collectAsStateWithLifecycle()
 
+        // Deep-link target captured when a banner/tap wants Settings opened at a
+        // specific tab. Forwarded into SettingsSheet via initialPage/initialAuthTab.
+        // Seeded from [initialSettingsDeepLink] (set by host pre-flight checks like
+        // missing-credential validation) so auto-opened sheets land on the right page.
+        var pendingDeepLink by remember(initialSettingsDeepLink) {
+            mutableStateOf<SettingsDeepLink?>(initialSettingsDeepLink)
+        }
+
         Column {
-            // Repair card for revoked permissions
             if (repairModel != null) {
                 PermissionRepairCard(
                     model = repairModel,
@@ -59,7 +72,10 @@ internal fun MainActivityContent(
                 sessions = sessions,
                 currentModel = settingsState.selectedModel,
                 appVersion = appVersion,
-                onOpenSettings = { onShowSettingsChange(true) },
+                onOpenSettings = { deepLink ->
+                    pendingDeepLink = deepLink
+                    onShowSettingsChange(true)
+                },
                 onSessionSelect = onSessionSelect,
                 onNewSession = onNewSession,
                 onDeleteSession = { session -> viewModel.deleteSession(session) },
@@ -71,7 +87,10 @@ internal fun MainActivityContent(
         if (showSettings) {
             val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
             ModalBottomSheet(
-                onDismissRequest = { onShowSettingsChange(false) },
+                onDismissRequest = {
+                    onShowSettingsChange(false)
+                    pendingDeepLink = null
+                },
                 sheetState = sheetState,
                 dragHandle = {}
             ) {
@@ -86,14 +105,6 @@ internal fun MainActivityContent(
                     selectedLocalModel = settingsState.selectedLocalModelId,
                     onLocalModelChange = settingsState::updateLocalModel,
                     modelLoadingStatus = settingsState.modelLoadingStatus,
-                    authMethod = settingsState.authMethod,
-                    onAuthMethodChange = onAuthMethodChange,
-                    openAiApiKey = settingsState.openAiManualApiKey,
-                    onOpenAiApiKeyChange = settingsState::updateOpenAiManualApiKey,
-                    openRouterApiKey = settingsState.openRouterApiKey,
-                    onOpenRouterApiKeyChange = settingsState::updateOpenRouterApiKey,
-                    novitaApiKey = settingsState.novitaApiKey,
-                    onNovitaApiKeyChange = settingsState::updateNovitaApiKey,
                     maxTurns = settingsState.maxTurns,
                     onMaxTurnsChange = settingsState::updateMaxTurns,
                     agentMode = settingsState.agentMode,
@@ -112,7 +123,15 @@ internal fun MainActivityContent(
                     onStartOAuth = onStartOAuth,
                     onCancelOAuth = onCancelOAuth,
                     onSignOut = onSignOut,
-                    onDismiss = { onShowSettingsChange(false) }
+                    onDismiss = {
+                        onShowSettingsChange(false)
+                        pendingDeepLink = null
+                    },
+                    initialPage = when (pendingDeepLink?.page) {
+                        DeepLinkPage.LLM_AUTH -> SettingsPage.LLM_AUTH
+                        DeepLinkPage.HOME, null -> SettingsPage.HOME
+                    },
+                    initialAuthTab = pendingDeepLink?.authTab,
                 )
             }
         }

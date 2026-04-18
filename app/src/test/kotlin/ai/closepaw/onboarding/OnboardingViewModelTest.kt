@@ -2,12 +2,15 @@ package ai.closepaw.onboarding
 
 import com.google.common.truth.Truth.assertThat
 import ai.closepaw.app.AppSettingsState
-import ai.closepaw.auth.OAuthCredentialStore
+import ai.closepaw.auth.AuthCredential
+import ai.closepaw.auth.AuthStore
 import ai.closepaw.auth.OAuthTokens
 import ai.closepaw.auth.OpenAiSignInResult
 import ai.closepaw.auth.openAiSignIn
+import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -19,7 +22,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -33,7 +35,7 @@ class OnboardingViewModelTest {
     private lateinit var store: OnboardingStore
     private lateinit var settingsState: AppSettingsState
     private lateinit var permissionMonitor: PermissionStateMonitor
-    private lateinit var oauthCredentialStore: OAuthCredentialStore
+    private lateinit var authStore: AuthStore
     private lateinit var demoController: OnboardingDemoController
     private lateinit var server: MockWebServer
     private lateinit var catalog: ModelCatalog
@@ -44,8 +46,9 @@ class OnboardingViewModelTest {
         val baseUrl = server.url("/v1").toString()
         val catalogJson = """
             {
-              "oai-resp":{"display_name":"OAI","provider":"OPENAI","api":"response","model_id":"gpt-test"},
-              "oai-chat":{"display_name":"OAI-Chat","provider":"OPENAI","api":"chat","model_id":"gpt-chat","base_url":"$baseUrl"},
+              "oai-resp":{"display_name":"OAI","provider":"OPENAI_API","api":"response","model_id":"gpt-test"},
+              "oai-chat":{"display_name":"OAI-Chat","provider":"OPENAI_API","api":"chat","model_id":"gpt-chat","base_url":"$baseUrl"},
+              "oai-codex":{"display_name":"Codex","provider":"OPENAI_CODEX","api":"response","model_id":"gpt-test"},
               "or-chat":{"display_name":"OR","provider":"OPENROUTER","api":"chat","model_id":"or-test","base_url":"$baseUrl"}
             }
         """.trimIndent()
@@ -54,13 +57,11 @@ class OnboardingViewModelTest {
         store = mockk(relaxed = true)
         settingsState = mockk(relaxed = true)
         permissionMonitor = mockk(relaxed = true)
-        oauthCredentialStore = mockk(relaxed = true)
+        authStore = mockk(relaxed = true)
         demoController = mockk(relaxed = true)
 
         every { store.loadOutcomes() } returns StepOutcomes()
-        every { store.loadAuthMethod() } returns null
-        every { store.loadApiKeyDraft() } returns null
-        every { settingsState.buildApiKeys() } returns emptyMap()
+        every { authStore.has(any()) } returns false
         every { permissionMonitor.isAccessibilityEnabled() } returns false
         every { permissionMonitor.isOverlayEnabled() } returns false
         every { permissionMonitor.isBatteryOptimized() } returns false
@@ -79,7 +80,7 @@ class OnboardingViewModelTest {
         settingsState = settingsState,
         modelCatalog = catalog,
         permissionMonitor = permissionMonitor,
-        oauthCredentialStore = oauthCredentialStore,
+        authStore = authStore,
         demoController = demoController,
         scope = scope
     )
@@ -143,7 +144,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `OAuth success saves tokens and advances past ApiKey step`() = runTest {
+    fun `OAuth success writes AuthStore and advances past ApiKey step`() = runTest {
         allPermissionsGranted()
         every { store.loadOutcomes() } returns StepOutcomes(
             accessibility = StepOutcome.Done,
@@ -169,9 +170,13 @@ class OnboardingViewModelTest {
 
         assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
         assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
-        verify { oauthCredentialStore.save(tokens) }
-        verify { settingsState.updateOpenAiOAuthAccessToken("acc-123") }
-        verify { store.saveAuthMethod("oauth") }
+        coVerify {
+            authStore.set(
+                LLMProvider.OPENAI_CODEX,
+                match<AuthCredential.OAuth> { it.accessToken == "acc-123" }
+            )
+        }
+        verify { settingsState.updateModel("oai-codex") }
 
         scope.coroutineContext.job.cancel()
     }
@@ -204,7 +209,7 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `manual API key validation success advances past ApiKey`() = runTest {
+    fun `manual API key validation success writes AuthStore and advances`() = runTest {
         allPermissionsGranted()
         every { store.loadOutcomes() } returns StepOutcomes(
             accessibility = StepOutcome.Done,
@@ -224,7 +229,10 @@ class OnboardingViewModelTest {
 
         assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
         assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
-        verify { settingsState.updateOpenRouterApiKey("sk-good") }
+        coVerify {
+            authStore.set(LLMProvider.OPENROUTER, AuthCredential.ApiKey("sk-good"))
+        }
+        verify { settingsState.updateModel("or-chat") }
 
         scope.coroutineContext.job.cancel()
     }
@@ -251,6 +259,40 @@ class OnboardingViewModelTest {
         assertThat(vm.currentStep).isEqualTo(WizardStep.ApiKey)
         assertThat(vm.stepState).isInstanceOf(ApiKeyStepState.Invalid::class.java)
         assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Pending)
+
+        scope.coroutineContext.job.cancel()
+    }
+
+    @Test
+    fun `OPENAI_API validator honors AppSettingsState openaiBaseUrl override (debug proxy)`() = runTest {
+        // Catalog 'oai-resp' has no base_url, so absent override the validator would hit
+        // api.openai.com and never reach our MockWebServer. With override set, the request
+        // must land on the server — otherwise enqueue() goes unconsumed and the validator
+        // sees a TransientError (network failure to api.openai.com from JVM tests).
+        allPermissionsGranted()
+        every { store.loadOutcomes() } returns StepOutcomes(
+            accessibility = StepOutcome.Done,
+            overlay = StepOutcome.Done,
+            battery = StepOutcome.Skipped
+        )
+        every { settingsState.openaiBaseUrl } returns server.url("/v1").toString()
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"choices":[]}"""))
+
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
+        val vm = makeVm(scope)
+        drain(scope, this)
+
+        vm.selectProvider(OnboardingProvider.OPENAI_API)
+        vm.selectAuthMethod(ApiKeyAuthMethod.MANUAL)
+        vm.onApiKeyChanged("sk-debug")
+        vm.validateApiKey()
+        drain(scope, this)
+
+        assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
+        assertThat(server.requestCount).isEqualTo(1)
+        coVerify {
+            authStore.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("sk-debug"))
+        }
 
         scope.coroutineContext.job.cancel()
     }

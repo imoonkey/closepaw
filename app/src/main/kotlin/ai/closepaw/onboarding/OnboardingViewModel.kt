@@ -5,11 +5,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import ai.closepaw.app.AppSettingsState
-import ai.closepaw.app.AppSettingsStore
-import ai.closepaw.auth.OAuthCredentialStore
+import ai.closepaw.auth.AuthCredential
+import ai.closepaw.auth.AuthStore
 import ai.closepaw.auth.OpenAiSignInResult
 import ai.closepaw.auth.openAiSignIn
-import ai.closepaw.llm.ApiType
 import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.ModelEntry
@@ -22,15 +21,16 @@ import kotlinx.coroutines.launch
 /**
  * Onboarding wizard state machine.
  *
- * Manages step transitions, permission checks, credential validation, and demo lifecycle.
- * Persists durable outcomes via [OnboardingStore]; transient UI state is derived on each resume.
+ * Auth credentials are read from and written to [AuthStore]; the API-key typed
+ * during manual entry is held only in `stepState` and is lost on process death.
+ * Wizard progress (step outcomes, completion) persists via [OnboardingStore].
  */
 class OnboardingViewModel(
     private val store: OnboardingStore,
     private val settingsState: AppSettingsState,
     private val modelCatalog: ModelCatalog,
     private val permissionMonitor: PermissionStateMonitor,
-    private val oauthCredentialStore: OAuthCredentialStore,
+    private val authStore: AuthStore,
     private val demoController: OnboardingDemoController,
     private val scope: CoroutineScope
 ) {
@@ -57,7 +57,7 @@ class OnboardingViewModel(
 
     // ── Provider selection for API key step ──
 
-    var selectedProvider by mutableStateOf(OnboardingProvider.OPENAI)
+    var selectedProvider by mutableStateOf(OnboardingProvider.OPENAI_API)
         private set
 
     var authMethod by mutableStateOf(ApiKeyAuthMethod.OAUTH)
@@ -65,35 +65,26 @@ class OnboardingViewModel(
 
     val providerLabel: String get() = selectedProvider.label
 
-    // ── OAuth state (in-memory, not persisted) ──
-
     private var oauthJob: kotlinx.coroutines.Job? = null
 
     fun selectProvider(provider: OnboardingProvider) {
         if (currentStep != WizardStep.ApiKey) return
         if (provider == selectedProvider) return
         selectedProvider = provider
-        if (provider == OnboardingProvider.OPENAI) {
+        if (provider == OnboardingProvider.OPENAI_API) {
             authMethod = ApiKeyAuthMethod.OAUTH
             stepState = ApiKeyStepState.OAuthReady
         } else {
             authMethod = ApiKeyAuthMethod.MANUAL
-            val existingKey = getExistingApiKeyForProvider(provider)
-            stepState = if (existingKey?.isNotBlank() == true) ApiKeyStepState.Editing(existingKey)
-                else ApiKeyStepState.Empty
+            stepState = ApiKeyStepState.Empty
         }
     }
 
     fun selectAuthMethod(method: ApiKeyAuthMethod) {
         if (currentStep != WizardStep.ApiKey) return
         authMethod = method
-        if (method == ApiKeyAuthMethod.MANUAL) {
-            val existingKey = getExistingApiKeyForProvider(selectedProvider)
-            stepState = if (existingKey?.isNotBlank() == true) ApiKeyStepState.Editing(existingKey)
-                else ApiKeyStepState.Empty
-        } else {
-            stepState = ApiKeyStepState.OAuthReady
-        }
+        stepState = if (method == ApiKeyAuthMethod.MANUAL) ApiKeyStepState.Empty
+        else ApiKeyStepState.OAuthReady
     }
 
     /** Launch OAuth flow using shared suspend helper. */
@@ -110,12 +101,17 @@ class OnboardingViewModel(
             when (result) {
                 is OpenAiSignInResult.Success -> {
                     val tokens = result.tokens
-                    oauthCredentialStore.save(tokens)
-                    settingsState.updateOpenAiOAuthAccessToken(tokens.accessToken)
-                    val entry = findModelForProvider(OnboardingProvider.OPENAI)
-                    if (entry != null) settingsState.updateModel(entry.name)
-                    store.saveAuthMethod("oauth")
-                    store.clearApiKeyDraft()
+                    authStore.set(
+                        LLMProvider.OPENAI_CODEX,
+                        AuthCredential.OAuth(
+                            accessToken = tokens.accessToken,
+                            refreshToken = tokens.refreshToken,
+                            expiresAt = tokens.expiresAt,
+                            email = tokens.email,
+                            idToken = tokens.idToken,
+                        )
+                    )
+                    applyDefaultModelFor(LLMProvider.OPENAI_CODEX)
                     store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done)
                     outcomes = outcomes.copy(apiKey = StepOutcome.Done)
                     stepState = ApiKeyStepState.OAuthSuccess(tokens.email ?: "")
@@ -166,6 +162,18 @@ class OnboardingViewModel(
         advanceToNextStep()
     }
 
+    /** Jump back to the ApiKey step from a credential error in the demo. */
+    fun goToAuthStep() {
+        store.saveOutcome(WizardStep.ApiKey, StepOutcome.Pending)
+        store.saveOutcome(WizardStep.Demo, StepOutcome.Pending)
+        outcomes = outcomes.copy(
+            apiKey = StepOutcome.Pending,
+            demo = StepOutcome.Pending,
+        )
+        currentStep = WizardStep.ApiKey
+        enterStep(WizardStep.ApiKey, isResume = false)
+    }
+
     fun openSystemSettings() {
         when (currentStep) {
             WizardStep.Accessibility -> {
@@ -187,7 +195,6 @@ class OnboardingViewModel(
     fun onApiKeyChanged(key: String) {
         if (currentStep != WizardStep.ApiKey) return
         stepState = if (key.isBlank()) ApiKeyStepState.Empty else ApiKeyStepState.Editing(key)
-        if (key.isNotBlank()) store.saveApiKeyDraft(key) else store.clearApiKeyDraft()
     }
 
     fun validateApiKey() {
@@ -209,9 +216,9 @@ class OnboardingViewModel(
             val result = validator.validate(key)
             when (result) {
                 is LlmCredentialValidator.Result.Valid -> {
+                    authStore.set(selectedProvider.llmProvider, AuthCredential.ApiKey(key))
+                    applyDefaultModelFor(selectedProvider.llmProvider)
                     stepState = ApiKeyStepState.Valid(key)
-                    saveApiKeyForProvider(selectedProvider, key)
-                    store.clearApiKeyDraft()
                     store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done)
                     outcomes = outcomes.copy(apiKey = StepOutcome.Done)
                     delay(AUTO_ADVANCE_DELAY_MS)
@@ -272,6 +279,9 @@ class OnboardingViewModel(
             onFailure = { reason ->
                 stepState = DemoStepState.Failure(reason)
             },
+            onCredentialError = { message, isOAuth ->
+                stepState = DemoStepState.CredentialError(message, isOAuth)
+            },
             onBringToFront = {
                 _effects.trySend(OnboardingEffect.BringMainActivityToFront)
             }
@@ -320,41 +330,36 @@ class OnboardingViewModel(
                 checkCurrentPermission(isReturnFromSettings = isResume, autoAdvance = autoAdvance)
             }
             WizardStep.ApiKey -> {
-                // If already completed, show success state (e.g. back navigation)
+                // If step already Done (back navigation), show a success state
+                // derived from AuthStore rather than any OnboardingStore value.
+                // If AuthStore has no matching credential (cleared/upgraded), fall
+                // through to the normal editable state so the user can recover.
                 if (outcomes.apiKey == StepOutcome.Done) {
-                    val savedMethod = store.loadAuthMethod()
-                    if (savedMethod == "oauth") {
+                    if (authStore.has(LLMProvider.OPENAI_CODEX)) {
                         authMethod = ApiKeyAuthMethod.OAUTH
-                        selectedProvider = OnboardingProvider.OPENAI
-                        val email = oauthCredentialStore.load()?.email ?: ""
-                        stepState = ApiKeyStepState.OAuthSuccess(email)
-                    } else {
-                        authMethod = ApiKeyAuthMethod.MANUAL
-                        stepState = ApiKeyStepState.Valid("")
+                        selectedProvider = OnboardingProvider.OPENAI_API
+                        stepState = ApiKeyStepState.OAuthSuccess("")
+                        return
                     }
-                    return
+                    val matched = OnboardingProvider.entries
+                        .firstOrNull { authStore.has(it.llmProvider) }
+                    if (matched != null) {
+                        authMethod = ApiKeyAuthMethod.MANUAL
+                        selectedProvider = matched
+                        stepState = ApiKeyStepState.Valid("")
+                        return
+                    }
+                    // Credential was deleted — reset outcome so user can re-enter.
+                    store.saveOutcome(WizardStep.ApiKey, StepOutcome.Pending)
+                    outcomes = outcomes.copy(apiKey = StepOutcome.Pending)
                 }
 
-                // Auto-select provider if user already has a key for one
-                val openaiKey = getExistingApiKeyForProvider(OnboardingProvider.OPENAI)
-                val openrouterKey = getExistingApiKeyForProvider(OnboardingProvider.OPENROUTER)
-                if (openaiKey?.isNotBlank() == true) {
-                    selectedProvider = OnboardingProvider.OPENAI
-                } else if (openrouterKey?.isNotBlank() == true) {
-                    selectedProvider = OnboardingProvider.OPENROUTER
-                }
-
-                if (selectedProvider == OnboardingProvider.OPENAI) {
-                    // Default to OAuth for OpenAI
+                if (selectedProvider == OnboardingProvider.OPENAI_API) {
                     authMethod = ApiKeyAuthMethod.OAUTH
                     stepState = ApiKeyStepState.OAuthReady
                 } else {
-                    // OpenRouter: manual only
                     authMethod = ApiKeyAuthMethod.MANUAL
-                    val draft = store.loadApiKeyDraft()
-                    val existingKey = getExistingApiKeyForProvider(selectedProvider)
-                    val key = draft ?: existingKey
-                    stepState = if (key?.isNotBlank() == true) ApiKeyStepState.Editing(key) else ApiKeyStepState.Empty
+                    stepState = ApiKeyStepState.Empty
                 }
             }
             WizardStep.Demo -> {
@@ -380,7 +385,6 @@ class OnboardingViewModel(
             if (autoAdvance) {
                 onPermissionSatisfied()
             } else {
-                // Show satisfied state without auto-advancing (user navigated back)
                 stepState = PermissionStepState.Satisfied
             }
             return
@@ -449,49 +453,32 @@ class OnboardingViewModel(
     // ── Permission checks (delegate to monitor) ──
 
     private fun isAccessibilityEnabled(): Boolean = permissionMonitor.isAccessibilityEnabled()
-
     private fun isOverlayEnabled(): Boolean = permissionMonitor.isOverlayEnabled()
-
     private fun isBatteryOptimized(): Boolean = permissionMonitor.isBatteryOptimized()
 
-    // ── Settings integration ──
+    // ── Settings/catalog integration ──
 
-    private fun getExistingApiKeyForProvider(provider: OnboardingProvider): String? {
-        val keys = settingsState.buildApiKeys()
-        return keys[provider.apiKeyEnv]?.takeIf { it.isNotBlank() }
-    }
-
-    /** Find a model entry for the given provider. OAuth users need RESPONSE api type for Codex backend. */
-    private fun findModelForProvider(provider: OnboardingProvider): ModelEntry? {
-        val llmProvider = when (provider) {
-            OnboardingProvider.OPENAI -> LLMProvider.OPENAI
-            OnboardingProvider.OPENROUTER -> LLMProvider.OPENROUTER
-        }
-        val models = modelCatalog.all().filter { it.provider == llmProvider }
-        // OAuth: Codex backend only supports Responses API format
-        if (authMethod == ApiKeyAuthMethod.OAUTH) {
-            return models.lastOrNull { it.api == ApiType.RESPONSE } ?: models.lastOrNull()
-        }
-        return models.lastOrNull()
+    private fun applyDefaultModelFor(provider: LLMProvider) {
+        val entry = modelCatalog.modelsFor(provider).lastOrNull() ?: return
+        settingsState.updateModel(entry.name)
+        Log.d(TAG, "Default model set to ${entry.name} for provider $provider")
     }
 
     private fun createValidatorForProvider(provider: OnboardingProvider): LlmCredentialValidator? {
-        val entry = findModelForProvider(provider) ?: return null
-        val baseUrl = entry.effectiveBaseUrl ?: "https://api.openai.com/v1"
+        val entry: ModelEntry = modelCatalog.modelsFor(provider.llmProvider).lastOrNull() ?: return null
+        val baseUrl = resolveBaseUrl(entry)
         return HttpLlmCredentialValidator(baseUrl, entry.modelId)
     }
 
-    private fun saveApiKeyForProvider(provider: OnboardingProvider, key: String) {
-        when (provider) {
-            OnboardingProvider.OPENAI -> settingsState.updateOpenAiManualApiKey(key)
-            OnboardingProvider.OPENROUTER -> settingsState.updateOpenRouterApiKey(key)
-        }
-        // Set default model to one from the chosen provider
-        val entry = findModelForProvider(provider)
-        if (entry != null) {
-            settingsState.updateModel(entry.name)
-            Log.d(TAG, "Default model set to ${entry.name} (${provider.label})")
-        }
-        Log.d(TAG, "API key saved for provider ${provider.label}")
+    /**
+     * Mirrors [ai.closepaw.llm.LLMClientFactory.build]: for OPENAI_API entries, an
+     * [AppSettingsState.openaiBaseUrl] override (set from `.env` via intent) wins over
+     * the catalog entry's baseUrl. Required so debug builds talking to a proxy validate
+     * against the proxy, not api.openai.com.
+     */
+    private fun resolveBaseUrl(entry: ModelEntry): String {
+        val override = settingsState.openaiBaseUrl
+        if (entry.provider == LLMProvider.OPENAI_API && override.isNotBlank()) return override
+        return entry.effectiveBaseUrl ?: "https://api.openai.com/v1"
     }
 }
