@@ -116,7 +116,7 @@ After task completion, the session enters `Idle` instead of shutting down.
 | LLM client (cloud) | Yes | Shutdown | Stateless HTTP wrapper, negligible |
 | ToolRouter | Yes | Shutdown | Cheap; tool registry reused |
 | TraceRecorder | Yes | Shutdown | May append follow-up traces |
-| Event stream (SharedFlow) | Yes | Shutdown (`closeChannelWithDelay`) | Open for follow-up events |
+| Event stream (SharedFlow) | Yes | (never closed) | `MutableSharedFlow` exposed via `asSharedFlow()`; outlives session per coroutine scope cancellation by collectors |
 
 Total Idle memory footprint: < 2MB.
 
@@ -167,7 +167,7 @@ Guard: only `IDLE_READY` and `CLOSED` snapshots are reloadable.
 Created → Running:  platform.start()       (first task)
 Idle    → Running:  platform.start()       (idempotent — no-op if already running)
 Running → Idle:     (no platform.stop)     — VD/recording stay alive across Hot Idle
-Any     → Shutdown: services.cleanup()     — releases platform + recording
+Any     → Shutdown: services.cleanup()     — stops platform, clears history, releases LLM clients, closes trace recorder (recording session is finalized separately by `AgentServiceEventHandler` on `SessionCompleted`)
 ```
 
 If `platform.start()` fails on follow-up, session re-arms idle timeout and stays in Idle.

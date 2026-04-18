@@ -80,7 +80,7 @@ Set to `ISLAND` on:
 - `onViewerClosed`
 
 Forced normalization in visibility policy:
-- mode in `WaitingForInput|WaitingForAction|Error` ⇒ effective preference = `CAPSULE`
+- mode in `WaitingForInput|WaitingForAction|WaitingForApproval|Error` ⇒ effective preference = `CAPSULE`
 
 Location transitions:
 - `handleWindowStateChanged` via `resolveUserLocation`
