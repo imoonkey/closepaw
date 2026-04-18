@@ -94,14 +94,13 @@ Two distinct completion events:
 | `UserRequested` | `USER_STOPPED` |
 | `Error` | `ERROR` |
 
-`SessionCompleted.reason` is `SessionEndReason` (session-level, no task outcomes). It is derived from the **shutdown cause**, not the prior state:
+`SessionCompleted.reason` is `SessionEndReason` (session-level, no task outcomes). It is derived from the **shutdown cause**, not the prior state (`AgentSession.kt:624-628`):
 
-| Previous State | SessionEndReason |
-|----------------|------------------|
-| `Running` / `Paused` | `USER_STOPPED` |
-| `Idle` | `IDLE_TIMEOUT` |
-| `Idle` (3 consecutive reacquire failures) | `INTERRUPTED` |
-| `Created` / other | `INTERRUPTED` |
+| ShutdownCause | SessionEndReason | Trigger |
+|---------------|------------------|---------|
+| `UserRequested` | `USER_STOPPED` | `Op.Shutdown` from any non-Shutdown state (`Created`, `Running`, `Paused`, `TakeoverPending`, `Idle`) |
+| `IdleTimeout` | `IDLE_TIMEOUT` | Idle timeout job fires after `IDLE_TIMEOUT_MS` (5 min) in `Idle` |
+| `ReacquireFailed` | `INTERRUPTED` | 3rd consecutive `platform.start()` failure on `Op.UserInput` from `Idle` |
 
 The split (pc-completion-semantics, 2026-04-16) removes the impossible-state overlap where `SessionCompleted` carried task-outcome values like `GOAL_ACHIEVED`.
 
