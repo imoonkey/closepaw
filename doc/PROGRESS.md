@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-04-18: auth-setting-cleanup — F1/F2 device-QA defects fixed
+
+**What changed:**
+- F1: `OnboardingViewModel.resolveBaseUrl(entry)` now mirrors `LLMClientFactory.build()` — for `OPENAI_API` entries, `AppSettingsState.openaiBaseUrl` (debug-only intent override) wins over `entry.effectiveBaseUrl`. JVM test added in `OnboardingViewModelTest`.
+- F2: `MainActivity.pendingSettingsDeepLink` state + `validateCloudKeysForSelectedModels()` now populate a `SettingsDeepLink(LLM_AUTH, missing.first().provider.mode)` before flipping `showSettings`. `MainActivityContent` accepts `initialSettingsDeepLink` and seeds its internal `pendingDeepLink` from it. Banner-tap path was already wired; gap was the pre-flight auto-open.
+- Removed stale TODO in `SettingsDeepLink.kt`.
+- `doc/main/app/settings.md`: documented Settings Deep-Link two-path convergence + onboarding base URL resolution rule.
+
+**Why:**
+- F1 blocked debug-build onboarding via OpenAI: validator hit `api.openai.com` with `gpt-5.4` mock IDs → HTTP 400 → "Provider configuration issue". Fix unblocks the proxy path the rest of the runtime already used.
+- F2: pre-flight credential check was a separate code path from the banner-tap path; only the latter was deep-link-aware. Result: missing-credential auto-open landed on Settings home, requiring an extra navigation step.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/onboarding/OnboardingViewModel.kt`, `app/src/main/kotlin/ai/closepaw/app/MainActivity.kt`, `app/src/main/kotlin/ai/closepaw/app/MainActivityContent.kt`, `app/src/main/kotlin/ai/closepaw/ui/chat/SettingsDeepLink.kt`, `doc/todo/auth-setting-cleanup/qa_report.md`, `doc/main/app/settings.md`
+**Verification:** `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest :app:assembleDebug` green. Device EP0110MZ0BC101266W: S2 → HTTP 200 advances to step 5; S8 → sheet auto-opens on LLM Auth / API Key / OpenAI tab; end-to-end `gpt-5.4` proxy run completed in 2 turns (open_app → complete_task).
+**Commit:** 97d5362c
+**Next:** Re-run S1 (OAuth), S6/S7 (prior-build upgrade) when a baseline APK is available.
+**Blockers:** None.
+
 ## 2026-04-17: qa_test — Compose UI behavior-guard layer bootstrapped (45 tests, 3 batches)
 
 **What changed:**

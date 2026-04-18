@@ -168,6 +168,20 @@ First-launch onboarding wizard gates chat behind required permissions and a vali
 - Legacy users detected via API key presence, session history, or non-default settings → auto-skip onboarding
 - Eval/debug bypass: `EXTRA_FRESH_SESSION + EXTRA_GOAL` intent skips onboarding
 - Post-onboarding: `PermissionRepairCard` shows targeted repair if a permission is later revoked
+- API-key validator base URL resolution mirrors `LLMClientFactory.build()` — for `OPENAI_API` entries, `AppSettingsState.openaiBaseUrl` (set from intent extra `openai_base_url`, debug-only) wins over `entry.effectiveBaseUrl`. Required so debug builds talking to the in-house proxy validate forward-versioned mock model IDs (`gpt-5.4`, etc.) instead of hitting `api.openai.com`.
+
+---
+
+## Settings Deep-Link
+
+> See: `ui/chat/SettingsDeepLink.kt`, `app/MainActivityContent.kt`, `app/MainActivity.kt`
+
+Two paths open Settings with a target page/tab pre-selected:
+
+1. **Banner tap** — session bootstrap throws `MissingCredential` / `OAuthRefreshFailed` / `WrongCredentialType` → `ChatViewModel.reportStartupFailure(deepLink)` stores the link in `_startupErrorDeepLink` → tapping the banner calls `onOpenSettings(viewModel.startupErrorDeepLink.value)`.
+2. **Pre-flight check** — `MainActivity.validateCloudKeysForSelectedModels()` runs before send; on missing credentials, it sets `pendingSettingsDeepLink` (passed as `initialSettingsDeepLink` to `MainActivityContent`) and flips `showSettings = true`.
+
+Both paths converge on `MainActivityContent.pendingDeepLink`, forwarded as `initialPage` / `initialAuthTab` to `SettingsSheet` → `LlmAuthSettingsPage`. The auth tab is derived from the missing provider's `mode` (OAuth → Sign In, ApiKey → API Key).
 
 ---
 
