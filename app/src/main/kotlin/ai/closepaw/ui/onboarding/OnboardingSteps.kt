@@ -200,6 +200,7 @@ fun ApiKeyStepContent(
                     enabled = state !is ApiKeyStepState.Validating
                             && state !is ApiKeyStepState.Valid
                             && state !is ApiKeyStepState.OAuthInProgress
+                            && state !is ApiKeyStepState.OAuthFinishing
                 )
             }
         }
@@ -293,6 +294,28 @@ private fun ColumnScope.OAuthContent(
             ) {
                 Text("Cancel")
             }
+        }
+
+        is ApiKeyStepState.OAuthFinishing -> {
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Browser sign-in complete.\nFinishing up with OpenAI — this can take ~20 seconds.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
         }
 
         is ApiKeyStepState.OAuthSuccess -> {
@@ -622,7 +645,7 @@ fun CompleteStepContent(
             onClick = onFinish,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Start Using Android Agent")
+            Text("Start Using ClosePaw")
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -784,12 +807,12 @@ private fun permissionStepCopy(step: WizardStep): PermissionCopy = when (step) {
     WizardStep.Accessibility -> PermissionCopy(
         icon = Icons.Outlined.Security,
         description = "Android only allows trusted automation through Accessibility. This lets the agent read screens and perform taps in other apps.",
-        consequence = "Without Accessibility, Android Agent cannot automate tasks.",
+        consequence = "Without Accessibility, ClosePaw cannot automate tasks.",
         ctaLabel = "Open Accessibility Settings"
     )
     WizardStep.Overlay -> PermissionCopy(
         icon = Icons.Outlined.Layers,
-        description = "The floating capsule shows progress and lets you stop, take over, or return to Android Agent.",
+        description = "The floating capsule shows progress and lets you stop, take over, or return to ClosePaw.",
         consequence = "Without Overlay, you won't see controls while the agent works in other apps.",
         ctaLabel = "Grant Overlay Permission"
     )

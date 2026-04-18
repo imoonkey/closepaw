@@ -7,7 +7,7 @@ package ai.closepaw.ui.overlay.model
  * and how the capsule is rendered (overlay vs embedded).
  */
 enum class CapsuleContext {
-    /** User is in the Android Agent main app. Capsule is embedded via Compose. */
+    /** User is in the ClosePaw main app. Capsule is embedded via Compose. */
     MAIN_APP,
 
     /** User is viewing the agent's screen (A11y overlay or VD viewer). Capsule is a system overlay. */

@@ -31,6 +31,7 @@ import ai.closepaw.ui.theme.ChatSuccess
 sealed interface OpenAiAuthUiState {
     data object SignedOut : OpenAiAuthUiState
     data object InProgress : OpenAiAuthUiState
+    data object Finishing : OpenAiAuthUiState
     data class SignedIn(val email: String?) : OpenAiAuthUiState
     data class Error(val message: String) : OpenAiAuthUiState
 }
@@ -52,6 +53,7 @@ internal fun OpenAiAuthCard(
             when (state) {
                 is OpenAiAuthUiState.SignedOut -> SignedOutContent(onStartOAuth)
                 is OpenAiAuthUiState.InProgress -> InProgressContent(onCancelOAuth)
+                is OpenAiAuthUiState.Finishing -> FinishingContent()
                 is OpenAiAuthUiState.SignedIn -> SignedInContent(state.email, onSignOut)
                 is OpenAiAuthUiState.Error -> ErrorContent(state.message, onStartOAuth)
             }
@@ -91,6 +93,21 @@ private fun InProgressContent(onCancelOAuth: () -> Unit) {
     Spacer(modifier = Modifier.height(12.dp))
     TextButton(onClick = onCancelOAuth) {
         Text("Cancel")
+    }
+}
+
+@Composable
+private fun FinishingContent() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        Text(
+            text = "Finishing up with OpenAI...",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

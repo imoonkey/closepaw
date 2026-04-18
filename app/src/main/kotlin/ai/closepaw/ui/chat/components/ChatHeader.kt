@@ -70,7 +70,7 @@ fun ChatHeader(
             
             // Title (center) - slightly lighter weight for elegance
             Text(
-                text = "Android Agent",
+                text = "ClosePaw",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Medium,  // Lighter than SemiBold
                 color = MaterialTheme.colorScheme.onSurface

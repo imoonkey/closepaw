@@ -457,7 +457,7 @@ class ApiKeyStepStateTest {
         val tokens = OAuthTokens(
             accessToken = "acc-1", refreshToken = "ref", expiresAt = 0L, email = "u@x"
         )
-        coEvery { openAiSignIn(any()) } returns OpenAiSignInResult.Success(tokens)
+        coEvery { openAiSignIn(any(), any()) } returns OpenAiSignInResult.Success(tokens)
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
 
@@ -478,7 +478,7 @@ class ApiKeyStepStateTest {
     @Test
     fun `OAuthInProgress to OAuthError on Error result`() = runTest {
         mockkStatic("ai.closepaw.auth.OpenAiSignInKt")
-        coEvery { openAiSignIn(any()) } returns OpenAiSignInResult.Error("denied")
+        coEvery { openAiSignIn(any(), any()) } returns OpenAiSignInResult.Error("denied")
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
 
@@ -495,7 +495,7 @@ class ApiKeyStepStateTest {
     fun `OAuthError to OAuthInProgress on retry via startOAuth`() = runTest {
         mockkStatic("ai.closepaw.auth.OpenAiSignInKt")
         val tokens = OAuthTokens("acc-2", "r", 0L, "u@x")
-        coEvery { openAiSignIn(any()) } returnsMany listOf(
+        coEvery { openAiSignIn(any(), any()) } returnsMany listOf(
             OpenAiSignInResult.Error("first"),
             OpenAiSignInResult.Success(tokens),
         )
@@ -514,7 +514,7 @@ class ApiKeyStepStateTest {
     fun `OAuthInProgress to OAuthReady via cancelOAuth`() = runTest {
         mockkStatic("ai.closepaw.auth.OpenAiSignInKt")
         val gate = CompletableDeferred<OpenAiSignInResult>()
-        coEvery { openAiSignIn(any()) } coAnswers { gate.await() }
+        coEvery { openAiSignIn(any(), any()) } coAnswers { gate.await() }
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
 
@@ -541,7 +541,7 @@ class ApiKeyStepStateTest {
         mockkStatic("ai.closepaw.auth.OpenAiSignInKt")
         val gate = CompletableDeferred<OpenAiSignInResult>()
         var calls = 0
-        coEvery { openAiSignIn(any()) } coAnswers { calls++; gate.await() }
+        coEvery { openAiSignIn(any(), any()) } coAnswers { calls++; gate.await() }
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
 

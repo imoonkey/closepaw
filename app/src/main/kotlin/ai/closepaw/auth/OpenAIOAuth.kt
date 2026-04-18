@@ -160,7 +160,7 @@ class OAuthCallbackServer(private val expectedState: String) {
         <title>Sign-in Complete</title>
         <style>body{font-family:system-ui;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f9f9f9}
         .card{text-align:center;padding:2rem;max-width:400px}h1{color:#10a37f;font-size:1.5rem}p{color:#666}</style>
-        </head><body><div class="card"><h1>Sign-in complete</h1><p>You can close this tab and return to Android Agent.</p></div></body></html>
+        </head><body><div class="card"><h1>Sign-in complete</h1><p>You can close this tab and return to ClosePaw.</p></div></body></html>
     """.trimIndent()
 
     private fun errorHtml(message: String) = """

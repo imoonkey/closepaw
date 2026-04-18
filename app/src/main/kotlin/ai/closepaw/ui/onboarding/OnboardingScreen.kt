@@ -60,7 +60,7 @@ fun OnboardingScreen(
             OnboardingShell(
                 stepIndex = 1,
                 totalSteps = totalSteps,
-                title = "Let Android Agent control your phone"
+                title = "Let ClosePaw control your phone"
             ) {
                 PermissionStepContent(
                     step = WizardStep.Accessibility,

@@ -62,6 +62,7 @@ sealed interface ApiKeyStepState : OnboardingStepState {
     // OAuth states
     data object OAuthReady : ApiKeyStepState
     data object OAuthInProgress : ApiKeyStepState
+    data object OAuthFinishing : ApiKeyStepState
     data class OAuthSuccess(val email: String) : ApiKeyStepState
     data class OAuthError(val message: String) : ApiKeyStepState
 }

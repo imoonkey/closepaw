@@ -158,7 +158,7 @@ class OnboardingViewModelTest {
             expiresAt = 0L,
             email = "user@example.com"
         )
-        coEvery { openAiSignIn(any()) } returns OpenAiSignInResult.Success(tokens)
+        coEvery { openAiSignIn(any(), any()) } returns OpenAiSignInResult.Success(tokens)
 
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope)
@@ -190,7 +190,7 @@ class OnboardingViewModelTest {
             battery = StepOutcome.Skipped
         )
         mockkStatic("ai.closepaw.auth.OpenAiSignInKt")
-        coEvery { openAiSignIn(any()) } returns OpenAiSignInResult.Error("browser closed")
+        coEvery { openAiSignIn(any(), any()) } returns OpenAiSignInResult.Error("browser closed")
 
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope)

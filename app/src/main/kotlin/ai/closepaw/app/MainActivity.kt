@@ -738,15 +738,20 @@ class MainActivity : ComponentActivity() {
 
         openAiAuthUiState = ai.closepaw.ui.settings.OpenAiAuthUiState.InProgress
         oauthJob = lifecycleScope.launch {
-            val result = ai.closepaw.auth.openAiSignIn { url ->
-                try {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to launch OAuth browser", e)
-                    throw e
-                }
-            }
+            val result = ai.closepaw.auth.openAiSignIn(
+                launchBrowser = { url ->
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to launch OAuth browser", e)
+                        throw e
+                    }
+                },
+                onCallbackReceived = {
+                    openAiAuthUiState = ai.closepaw.ui.settings.OpenAiAuthUiState.Finishing
+                },
+            )
 
             when (result) {
                 is ai.closepaw.auth.OpenAiSignInResult.Success -> {

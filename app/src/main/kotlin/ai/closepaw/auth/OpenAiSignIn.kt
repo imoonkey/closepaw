@@ -28,6 +28,7 @@ sealed interface OpenAiSignInResult {
  */
 suspend fun openAiSignIn(
     launchBrowser: suspend (url: String) -> Unit,
+    onCallbackReceived: () -> Unit = {},
 ): OpenAiSignInResult {
     val pkce = generatePkce()
     val state = generateOAuthState()
@@ -61,6 +62,10 @@ suspend fun openAiSignIn(
                 OpenAiSignInResult.Error(callbackResult.message)
             }
             is OAuthCallbackServer.CallbackResult.Success -> {
+                // Browser handed control back — notify host so UI can switch from
+                // "waiting for browser" to "finishing handshake". The token exchange
+                // POST below typically takes ~20s.
+                onCallbackReceived()
                 // 5. Exchange code for tokens
                 when (val exchange = OAuthTokenExchange.exchange(callbackResult.code, pkce.verifier)) {
                     is OAuthTokenExchange.Result.Error -> {

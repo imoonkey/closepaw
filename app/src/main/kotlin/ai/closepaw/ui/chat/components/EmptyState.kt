@@ -53,7 +53,7 @@ fun EmptyState(
         
         // Title - clear, readable
         Text(
-            text = "Android Agent",
+            text = "ClosePaw",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface

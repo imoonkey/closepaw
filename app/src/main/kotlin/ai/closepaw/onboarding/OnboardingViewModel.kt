@@ -96,9 +96,10 @@ class OnboardingViewModel(
         oauthJob = scope.launch {
             stepState = ApiKeyStepState.OAuthInProgress
 
-            val result = openAiSignIn { url ->
-                _effects.trySend(OnboardingEffect.LaunchOAuth(url))
-            }
+            val result = openAiSignIn(
+                launchBrowser = { url -> _effects.trySend(OnboardingEffect.LaunchOAuth(url)) },
+                onCallbackReceived = { stepState = ApiKeyStepState.OAuthFinishing },
+            )
 
             when (result) {
                 is OpenAiSignInResult.Success -> {
