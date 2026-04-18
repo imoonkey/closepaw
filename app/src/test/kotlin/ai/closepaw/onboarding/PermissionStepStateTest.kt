@@ -12,6 +12,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.job
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -217,7 +219,7 @@ class PermissionStepStateTest {
         // Initially missing. After onHostResumed, polling should pick up the change.
         var calls = 0
         every { permissionMonitor.isAccessibilityEnabled() } answers {
-            // Become true on the 3rd call (after 2 poll iterations)
+            // Become true on the first poll iteration (4th overall call: init x2 + onHostResumed sync x1).
             calls++ >= 3
         }
 
@@ -227,10 +229,24 @@ class PermissionStepStateTest {
         assertThat(vm.currentStep).isEqualTo(WizardStep.Accessibility)
         assertThat(vm.stepState).isEqualTo(PermissionStepState.Ready)
 
+        // Step the FSM manually so transient Checking and Satisfied states are observable
+        // before the auto-advance delay collapses them into the next step.
         vm.onHostResumed()
-        drain(scope, this)
+        // checkCurrentPermission set Checking synchronously before launching the poll.
+        assertThat(vm.stepState).isEqualTo(PermissionStepState.Checking)
 
-        // Poll succeeded → onPermissionSatisfied → advance to Overlay
+        // First poll iteration is enough — the mock flips on the 4th call
+        // (init=2, onHostResumed sync check=1, first poll=1). Stop before the
+        // 400ms auto-advance fires so Satisfied is observable.
+        testScheduler.advanceTimeBy(250)
+        testScheduler.runCurrent()
+        // Poll succeeded → onPermissionSatisfied set Satisfied; AUTO_ADVANCE_DELAY (400ms)
+        // not yet elapsed.
+        assertThat(vm.stepState).isEqualTo(PermissionStepState.Satisfied)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Accessibility)
+
+        drain(scope, this)
+        // Auto-advance fired → next step is Overlay.
         assertThat(vm.currentStep).isEqualTo(WizardStep.Overlay)
         verify { store.saveOutcome(WizardStep.Accessibility, StepOutcome.Done) }
 
@@ -247,6 +263,8 @@ class PermissionStepStateTest {
         assertThat(vm.currentStep).isEqualTo(WizardStep.Accessibility)
 
         vm.onHostResumed()
+        // Transient Checking observable before poll suspends on first delay.
+        assertThat(vm.stepState).isEqualTo(PermissionStepState.Checking)
         drain(scope, this)
 
         assertThat(vm.currentStep).isEqualTo(WizardStep.Accessibility)
@@ -259,23 +277,29 @@ class PermissionStepStateTest {
     // ── Ready → OpeningSettings (and emits effect) ──
 
     @Test
-    fun `openSystemSettings on Accessibility transitions Ready to OpeningSettings`() = runTest {
+    fun `openSystemSettings on Accessibility transitions Ready to OpeningSettings and emits effect`() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope)
         drain(scope, this)
         assertThat(vm.stepState).isEqualTo(PermissionStepState.Ready)
 
+        val emitted = mutableListOf<OnboardingEffect>()
+        val collector = scope.launch { vm.effects.toList(emitted) }
+
         vm.openSystemSettings()
+        testScheduler.runCurrent()
 
         assertThat(vm.stepState).isEqualTo(PermissionStepState.OpeningSettings)
+        assertThat(emitted).contains(OnboardingEffect.OpenAccessibilitySettings)
 
+        collector.cancel()
         scope.coroutineContext.job.cancel()
     }
 
     // ── Unsatisfied → OpeningSettings ──
 
     @Test
-    fun `openSystemSettings on Overlay Unsatisfied transitions to OpeningSettings`() = runTest {
+    fun `openSystemSettings on Overlay Unsatisfied transitions to OpeningSettings and emits effect`() = runTest {
         every { permissionMonitor.isAccessibilityEnabled() } returns true
 
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
@@ -286,17 +310,23 @@ class PermissionStepStateTest {
         assertThat(vm.currentStep).isEqualTo(WizardStep.Overlay)
         assertThat(vm.stepState).isEqualTo(PermissionStepState.Unsatisfied)
 
+        val emitted = mutableListOf<OnboardingEffect>()
+        val collector = scope.launch { vm.effects.toList(emitted) }
+
         vm.openSystemSettings()
+        testScheduler.runCurrent()
 
         assertThat(vm.stepState).isEqualTo(PermissionStepState.OpeningSettings)
+        assertThat(emitted).contains(OnboardingEffect.OpenOverlaySettings)
 
+        collector.cancel()
         scope.coroutineContext.job.cancel()
     }
 
     // ── OpeningSettings → Checking (re-enters via onHostResumed) ──
 
     @Test
-    fun `onHostResumed from OpeningSettings re-enters Checking and resolves to Ready`() = runTest {
+    fun `onHostResumed from OpeningSettings re-enters Checking before settling on Unsatisfied`() = runTest {
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope)
         drain(scope, this)
@@ -304,13 +334,13 @@ class PermissionStepStateTest {
         vm.openSystemSettings()
         assertThat(vm.stepState).isEqualTo(PermissionStepState.OpeningSettings)
 
-        // Permission still missing on resume → for Accessibility, poll path runs and exhausts.
+        // Permission still missing on resume → poll path runs (Accessibility step) and
+        // exhausts. The Checking transition is observable synchronously before the poll
+        // suspends on its first delay.
         vm.onHostResumed()
-        drain(scope, this)
+        assertThat(vm.stepState).isEqualTo(PermissionStepState.Checking)
 
-        // Final settled state on Accessibility w/ isReturnFromSettings=true and missing perm
-        // is Unsatisfied (poll exhaust), not Ready. The Checking transition is implicit
-        // (set first inside checkCurrentPermission).
+        drain(scope, this)
         assertThat(vm.stepState).isEqualTo(PermissionStepState.Unsatisfied)
 
         scope.coroutineContext.job.cancel()
@@ -319,7 +349,7 @@ class PermissionStepStateTest {
     // ── Battery Ready → Skipped via skipStep ──
 
     @Test
-    fun `skipStep on Battery persists Skipped and advances`() = runTest {
+    fun `skipStep on Battery Ready persists Skipped and advances`() = runTest {
         every { permissionMonitor.isAccessibilityEnabled() } returns true
         every { permissionMonitor.isOverlayEnabled() } returns true
 
@@ -328,6 +358,32 @@ class PermissionStepStateTest {
         drain(scope, this)
         assertThat(vm.currentStep).isEqualTo(WizardStep.Battery)
         assertThat(vm.stepState).isEqualTo(PermissionStepState.Ready)
+
+        vm.skipStep()
+        drain(scope, this)
+
+        verify { store.saveOutcome(WizardStep.Battery, StepOutcome.Skipped) }
+        assertThat(vm.outcomes.battery).isEqualTo(StepOutcome.Skipped)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.ApiKey)
+
+        scope.coroutineContext.job.cancel()
+    }
+
+    // ── Battery Unsatisfied → Skipped via skipStep ──
+
+    @Test
+    fun `skipStep on Battery Unsatisfied persists Skipped and advances`() = runTest {
+        every { permissionMonitor.isAccessibilityEnabled() } returns true
+        every { permissionMonitor.isOverlayEnabled() } returns true
+
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
+        val vm = makeVm(scope)
+        drain(scope, this)
+        // Drive Battery into Unsatisfied via a return-from-settings re-check.
+        vm.onHostResumed()
+        drain(scope, this)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Battery)
+        assertThat(vm.stepState).isEqualTo(PermissionStepState.Unsatisfied)
 
         vm.skipStep()
         drain(scope, this)
