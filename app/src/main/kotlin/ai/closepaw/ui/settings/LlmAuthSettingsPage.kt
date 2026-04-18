@@ -38,11 +38,15 @@ import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.displayLabel
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
 
 enum class LlmAuthTab { SIGN_IN, API_KEY, LOCAL }
 
@@ -114,10 +118,11 @@ internal fun LlmAuthSettingsPage(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val authStore = remember(context) { AuthStoreHolder.get(context) }
-    // Single-flight + debounce: cancel pending write on every keystroke so only
-    // the last typed value is persisted. Avoids out-of-order writes since
-    // AuthStore.set is not internally serialized.
+    // Debounce + single-flight + FIFO mutex: cancel any pending write on each
+    // keystroke; the mutex serializes writes that already passed the debounce
+    // so the final keystroke wins even if an earlier write reached AuthStore.
     val pendingApiKeyPersist = remember { arrayOf<Job?>(null) }
+    val apiKeyPersistMutex = remember { Mutex() }
 
     // Commit wrappers — called on real user actions inside tab content, NOT on tab tap.
     fun commitSignIn(action: () -> Unit) {
@@ -190,14 +195,14 @@ internal fun LlmAuthSettingsPage(
                     authStore = authStore,
                     onApiKeyPersist = { provider, key ->
                         commitApiKey { }
-                        pendingApiKeyPersist[0]?.cancel()
-                        pendingApiKeyPersist[0] = scope.launch {
-                            delay(API_KEY_PERSIST_DEBOUNCE_MS)
-                            withContext(Dispatchers.IO) {
-                                if (key.isBlank()) authStore.clear(provider)
-                                else authStore.set(provider, AuthCredential.ApiKey(key))
-                            }
-                        }
+                        launchDebouncedApiKeyPersist(
+                            scope = scope,
+                            authStore = authStore,
+                            mutex = apiKeyPersistMutex,
+                            pending = pendingApiKeyPersist,
+                            provider = provider,
+                            key = key,
+                        )
                     }
                 )
                 LlmAuthTab.LOCAL -> LocalTabContent(
@@ -227,6 +232,34 @@ private fun resolveProviderForTab(
 }
 
 private const val API_KEY_PERSIST_DEBOUNCE_MS = 300L
+
+/**
+ * Debounce + single-flight + FIFO mutex for per-keystroke AuthStore writes.
+ * Cancels the previous pending write; the mutex guarantees that any write that
+ * already passed the debounce completes in launch order, so the final keystroke
+ * always wins even though [AuthStore.set] has no internal write lock.
+ */
+internal fun launchDebouncedApiKeyPersist(
+    scope: CoroutineScope,
+    authStore: AuthStore,
+    mutex: Mutex,
+    pending: Array<Job?>,
+    provider: LLMProvider,
+    key: String,
+    debounceMs: Long = API_KEY_PERSIST_DEBOUNCE_MS,
+    ioContext: CoroutineContext = Dispatchers.IO,
+) {
+    pending[0]?.cancel()
+    pending[0] = scope.launch {
+        delay(debounceMs)
+        mutex.withLock {
+            withContext(ioContext) {
+                if (key.isBlank()) authStore.clear(provider)
+                else authStore.set(provider, AuthCredential.ApiKey(key))
+            }
+        }
+    }
+}
 
 @Composable
 private fun SignInTabContent(
