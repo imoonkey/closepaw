@@ -4,6 +4,8 @@ import android.content.Context
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.ui.settings.AVAILABLE_LOCAL_MODELS
+import ai.closepaw.ui.settings.LocalModelOption
 
 data class AppSettings(
         val selectedModel: String,
@@ -12,9 +14,7 @@ data class AppSettings(
         val perceptionMode: String,
         val agentMode: AgentMode,
         val llmBackend: LLMBackendType,
-        val localModelId: String,
-        val localModelSlug: String,
-        val localModelQuant: String,
+        val localModel: LocalModelOption,
         val executorModel: String?,
         val platformMode: PlatformMode,
         val traceEnabled: Boolean
@@ -32,8 +32,6 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_AGENT_MODE = "agent_mode"
         private const val KEY_LLM_BACKEND = "llm_backend"
         private const val KEY_LOCAL_MODEL_ID = "local_model_id"
-        private const val KEY_LOCAL_MODEL_SLUG = "local_model_slug"
-        private const val KEY_LOCAL_MODEL_QUANT = "local_model_quant"
         private const val KEY_EXECUTOR_MODEL = "executor_model"
         private const val KEY_PLATFORM_MODE = "platform_mode"
         private const val KEY_USER_ALLOWED_PACKAGES = "user_allowed_packages"
@@ -45,9 +43,7 @@ class AppSettingsStore(private val context: Context) {
         const val DEFAULT_PERCEPTION_MODE = "accessibility_only"
         val DEFAULT_AGENT_MODE = AgentMode.PRO
         val DEFAULT_LLM_BACKEND = LLMBackendType.OPENAI
-        const val DEFAULT_LOCAL_MODEL_ID = "LFM2.5-1.2B-Instruct"
-        const val DEFAULT_LOCAL_MODEL_SLUG = "LFM2.5-1.2B-Instruct"
-        const val DEFAULT_LOCAL_MODEL_QUANT = "Q4_K_M"
+        val DEFAULT_LOCAL_MODEL: LocalModelOption = AVAILABLE_LOCAL_MODELS.first()
         val DEFAULT_PLATFORM_MODE = PlatformMode.ACCESSIBILITY
         const val DEFAULT_TRACE_ENABLED = false
     }
@@ -84,15 +80,10 @@ class AppSettingsStore(private val context: Context) {
                     DEFAULT_LLM_BACKEND
                 }
 
-        val localModelId =
-                prefs.getString(KEY_LOCAL_MODEL_ID, DEFAULT_LOCAL_MODEL_ID)
-                        ?: DEFAULT_LOCAL_MODEL_ID
-        val localModelSlug =
-                prefs.getString(KEY_LOCAL_MODEL_SLUG, DEFAULT_LOCAL_MODEL_SLUG)
-                        ?: DEFAULT_LOCAL_MODEL_SLUG
-        val localModelQuant =
-                prefs.getString(KEY_LOCAL_MODEL_QUANT, DEFAULT_LOCAL_MODEL_QUANT)
-                        ?: DEFAULT_LOCAL_MODEL_QUANT
+        val localModelId = prefs.getString(KEY_LOCAL_MODEL_ID, null)
+        val localModel = localModelId?.let { id ->
+            AVAILABLE_LOCAL_MODELS.find { it.id == id }
+        } ?: DEFAULT_LOCAL_MODEL
         val executorModel = prefs.getString(KEY_EXECUTOR_MODEL, null)
         val platformModeName = prefs.getString(KEY_PLATFORM_MODE, DEFAULT_PLATFORM_MODE.name)
                 ?: DEFAULT_PLATFORM_MODE.name
@@ -110,9 +101,7 @@ class AppSettingsStore(private val context: Context) {
                 perceptionMode = perceptionMode,
                 agentMode = agentMode,
                 llmBackend = llmBackend,
-                localModelId = localModelId,
-                localModelSlug = localModelSlug,
-                localModelQuant = localModelQuant,
+                localModel = localModel,
                 executorModel = executorModel,
                 platformMode = platformMode,
                 traceEnabled = traceEnabled
@@ -159,12 +148,8 @@ class AppSettingsStore(private val context: Context) {
         prefs().edit().putString(KEY_PLATFORM_MODE, value.name).apply()
     }
 
-    fun saveLocalModel(id: String, slug: String, quantization: String) {
-        prefs().edit()
-                .putString(KEY_LOCAL_MODEL_ID, id)
-                .putString(KEY_LOCAL_MODEL_SLUG, slug)
-                .putString(KEY_LOCAL_MODEL_QUANT, quantization)
-                .apply()
+    fun saveLocalModel(model: LocalModelOption) {
+        prefs().edit().putString(KEY_LOCAL_MODEL_ID, model.id).apply()
     }
 
     // ===== Persistent allow-list =====

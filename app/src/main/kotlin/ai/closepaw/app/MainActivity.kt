@@ -619,8 +619,8 @@ class MainActivity : ComponentActivity() {
         val localConfig =
                 if (settingsState.llmBackend == LLMBackendType.LOCAL) {
                     LocalLLMConfig(
-                            modelSlug = settingsState.localModelSlug,
-                            quantizationSlug = settingsState.localModelQuant
+                            modelSlug = settingsState.localModel.modelSlug,
+                            quantizationSlug = settingsState.localModel.quantizationSlug
                     )
                 } else null
 

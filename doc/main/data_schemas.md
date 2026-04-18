@@ -2,21 +2,11 @@
 
 Catalog of core in-memory and persisted schemas in ClosePaw, plus redundancy / inconsistency findings worth tracking. Sourced from code on 2026-04-18.
 
-## 1. AppSettingsState — local model trio
+## 1. AppSettingsState — local model
 
 File: `app/src/main/kotlin/ai/closepaw/app/AppSettingsState.kt`
 
-Three fields together identify the on-device model:
-
-| Field                  | Type   | Source                                  |
-|------------------------|--------|-----------------------------------------|
-| `selectedLocalModelId` | String | `LocalModelOption.id`                   |
-| `localModelSlug`       | String | `LocalModelOption.modelSlug`            |
-| `localModelQuant`      | String | `LocalModelOption.quantizationSlug`     |
-
-`LocalModelOption` (`ui/settings/SettingsModels.kt:27`) bundles all three. `updateLocalModel(model)` writes them as a unit; `load()` reads them as a unit. The slug + quant pair is fully derivable from `id` via the static `LOCAL_MODEL_OPTIONS` table — they are persisted only as a denormalized convenience so the LLM client can construct without a lookup.
-
-**Redundancy:** any two of the three suffice. If the option table is the source of truth, persist only `id` and resolve the other two on read. Keeping all three risks drift if the catalog is ever edited.
+A single non-null `localModel: LocalModelOption` identifies the on-device model. `LocalModelOption` (`ui/settings/SettingsModels.kt:27`) bundles `id`, `modelSlug`, `quantizationSlug`, plus display fields. `AppSettingsStore` persists only `id` and rehydrates by lookup in the static `AVAILABLE_LOCAL_MODELS` table; if the persisted id is unknown, `DEFAULT_LOCAL_MODEL` is returned. The catalog is the single source of truth — slug/quant are never persisted independently.
 
 ## 2. SessionRuntimeSnapshot — scratchpad dual format
 

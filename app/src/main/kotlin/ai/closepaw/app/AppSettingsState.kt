@@ -26,11 +26,7 @@ class AppSettingsState(private val store: AppSettingsStore) {
         private set
     var llmBackend by mutableStateOf(AppSettingsStore.DEFAULT_LLM_BACKEND)
         private set
-    var selectedLocalModelId by mutableStateOf(AppSettingsStore.DEFAULT_LOCAL_MODEL_ID)
-        private set
-    var localModelSlug by mutableStateOf(AppSettingsStore.DEFAULT_LOCAL_MODEL_SLUG)
-        private set
-    var localModelQuant by mutableStateOf(AppSettingsStore.DEFAULT_LOCAL_MODEL_QUANT)
+    var localModel by mutableStateOf<LocalModelOption>(AppSettingsStore.DEFAULT_LOCAL_MODEL)
         private set
     var executorModel by mutableStateOf<String?>(null)
         private set
@@ -51,16 +47,14 @@ class AppSettingsState(private val store: AppSettingsStore) {
         perceptionMode = settings.perceptionMode
         agentMode = settings.agentMode
         llmBackend = settings.llmBackend
-        selectedLocalModelId = settings.localModelId
-        localModelSlug = settings.localModelSlug
-        localModelQuant = settings.localModelQuant
+        localModel = settings.localModel
         executorModel = settings.executorModel
         platformMode = settings.platformMode
         traceEnabled = settings.traceEnabled
 
         Log.d(
                 TAG,
-                "Settings loaded: backend=$llmBackend, model=$selectedModel, executorModel=$executorModel, localModel=$selectedLocalModelId, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, agentMode=$agentMode, platformMode=$platformMode"
+                "Settings loaded: backend=$llmBackend, model=$selectedModel, executorModel=$executorModel, localModel=${localModel.id}, maxTurns=$maxTurns, debugMode=$debugMode, perceptionMode=$perceptionMode, agentMode=$agentMode, platformMode=$platformMode"
         )
     }
 
@@ -80,10 +74,8 @@ class AppSettingsState(private val store: AppSettingsStore) {
     }
 
     fun updateLocalModel(model: LocalModelOption) {
-        selectedLocalModelId = model.id
-        localModelSlug = model.modelSlug
-        localModelQuant = model.quantizationSlug
-        store.saveLocalModel(model.id, model.modelSlug, model.quantizationSlug)
+        localModel = model
+        store.saveLocalModel(model)
     }
 
     fun updateOpenaiBaseUrl(url: String) {
