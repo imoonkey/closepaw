@@ -602,7 +602,10 @@ private constructor(
         agentRunner.shutdown()
         agentRunner.completions.close()
 
-        services.cleanup()
+        val cleanupResult = services.cleanup()
+        if (cleanupResult is CleanupResult.PartialFailure) {
+            Log.w(TAG, "Cleanup partial failure: ${cleanupResult.failures.joinToString(", ") { it.step }}")
+        }
 
         val reason = when (cause) {
             ShutdownCause.UserRequested -> SessionEndReason.USER_STOPPED
