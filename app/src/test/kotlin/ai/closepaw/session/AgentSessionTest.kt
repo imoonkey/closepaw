@@ -1008,6 +1008,38 @@ class AgentSessionTest {
                 assertThat(events.filterIsInstance<SupplementReceived>()).isEmpty()
                 job.cancel()
         }
+
+        @Test
+        fun `repeated reacquire failure from idle forces shutdown`() = runTest {
+                // Platform succeeds on first start (Created -> Running) but throws on
+                // every subsequent start (reacquire from Idle), simulating a broken
+                // VirtualDisplay.
+                val platform = ReacquireFailingPlatform()
+                val session = buildSessionWith(
+                        scope = this,
+                        platform = platform
+                )
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                // First task: succeeds, drops to Idle
+                session.submit(Op.UserInput("first"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                // Three follow-up attempts; each reacquire throws
+                repeat(3) { i ->
+                        session.submit(Op.UserInput("retry-$i"))
+                        advanceTimeBy(1_000L)
+                }
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+                val completed = events.filterIsInstance<SessionCompleted>().single()
+                assertThat(completed.reason).isEqualTo(SessionEndReason.INTERRUPTED)
+
+                job.cancel()
+        }
 }
 
 private fun buildSession(
@@ -1017,11 +1049,26 @@ private fun buildSession(
         maxTurns: Int = 2,
         agentMode: AgentMode = AgentMode.PRO,
         llmClient: LLMClient? = null
+): AgentSession = buildSessionWith(
+        scope = scope,
+        platform = FakeAndroidPlatform(captureDelayMs = captureDelayMs),
+        llmDelayMs = llmDelayMs,
+        maxTurns = maxTurns,
+        agentMode = agentMode,
+        llmClient = llmClient
+)
+
+private fun buildSessionWith(
+        scope: kotlinx.coroutines.CoroutineScope,
+        platform: ai.closepaw.platform.AndroidPlatform,
+        llmDelayMs: Long = 0L,
+        maxTurns: Int = 2,
+        agentMode: AgentMode = AgentMode.PRO,
+        llmClient: LLMClient? = null
 ): AgentSession {
         val toolRegistry = ToolRegistry()
         val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
         val toolRouter = ToolRouter(toolRegistry, policyEngine)
-        val platform = FakeAndroidPlatform(captureDelayMs = captureDelayMs)
         val config = SessionConfig(maxTurns = maxTurns, actionDelayMs = 0, agentMode = agentMode)
         val testCatalog =
                 ModelCatalog.fromJson(
@@ -1051,6 +1098,26 @@ private fun buildSession(
                 scope = scope,
                 services = services
         )
+}
+
+/** Platform that succeeds on the very first start() and throws on every subsequent call. */
+private class ReacquireFailingPlatform : ai.closepaw.platform.AndroidPlatform {
+        private var startCount = 0
+        override suspend fun start() {
+                startCount++
+                if (startCount > 1) error("simulated reacquire failure (#$startCount)")
+        }
+        override suspend fun captureScreen(): ai.closepaw.model.ScreenSnapshot =
+                ai.closepaw.model.ScreenSnapshot(timestamp = 0L, elements = emptyList())
+        override suspend fun performAction(action: ai.closepaw.platform.UIAction): ai.closepaw.platform.ActionResult =
+                ai.closepaw.platform.ActionResult.Success()
+        override fun hasRequiredPermissions(): Boolean = true
+        override fun getCurrentPackageName(): String? = "com.example.fake"
+        override fun getDisplayInfo(): ai.closepaw.platform.DisplayInfo =
+                ai.closepaw.platform.DisplayInfo(widthPixels = 1080, heightPixels = 1920, density = 2f)
+        override suspend fun getInstalledApps(): List<ai.closepaw.platform.AppInfo> = emptyList()
+        override suspend fun launchApp(packageName: String): ai.closepaw.platform.ActionResult =
+                ai.closepaw.platform.ActionResult.Success()
 }
 
 private class SessionTestLLMClient(private val delayMs: Long) : LLMClient() {
