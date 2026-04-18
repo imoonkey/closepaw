@@ -12,9 +12,11 @@ All three implement the marker `OnboardingStepState`, which is what the ViewMode
 
 **Disjoint domains.** Permission states model OS settings round-trips. API-key states model network credential validation and OAuth. Demo states model an agent run with credential-error fallback. The states do not share semantics; merging them produces a 23-case sealed type whose members are mutually exclusive by construction.
 
-**Per-step UI dispatch.** `OnboardingScreen.kt` routes each `WizardStep` to a dedicated composable (`PermissionStep`, `ApiKeyStep`, `DemoStep`). Each renderer pattern-matches only its own state set. A flat `OnboardingStepState` would force every renderer to either handle all 23 cases or fall back to a default — exactly the opposite of what sealed types are for.
+**Per-step UI dispatch.** `OnboardingScreen.kt` routes each `WizardStep` to a dedicated composable (`PermissionStepContent`, `ApiKeyStepContent`, `DemoStepContent`). Each renderer's `when` is exhaustive over its own sealed type — the compiler proves every state is handled.
 
-**Cast cost is local.** The `stepState as? X ?: defaultX` casts in `OnboardingScreen.kt` (5 sites) are the only price. Flattening would push branching into every renderer instead of containing it at the dispatch boundary, and would not reduce line count.
+**Flattening loses exhaustiveness.** A unified `OnboardingStepState` with 23 members would make every renderer's `when` non-exhaustive over the parent type. Each renderer would then have to encode subset-membership ("am I a permission state?") in code — duplicated across all three call sites and unverifiable by the compiler. The current sealed split lets the type system carry that invariant.
+
+**Narrowing cost is local.** The `stepState as? X ?: defaultX` casts at `OnboardingScreen.kt:64,81,98,114,137` are the only price (one per step instance). They contain the dynamic check at the dispatch boundary so renderers stay statically typed.
 
 **Test isolation.** `PermissionStepStateTest`, `ApiKeyStepStateTest`, and `DemoStepStateTest` characterize each FSM independently. Splitting the type aligns with how the behavior is actually verified.
 
