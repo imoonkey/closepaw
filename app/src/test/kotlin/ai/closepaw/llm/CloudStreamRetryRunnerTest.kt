@@ -403,8 +403,39 @@ class CloudStreamRetryRunnerTest {
 
         assertThat(result.completed).isFalse()
         assertThat(result.failureEmitted).isFalse()
-        // Non-retryable; classifier wraps into something — surfaced via lastError.
-        assertThat(result.lastError).isNotNull()
+        // OpenAIErrorClassifier wraps unknown exceptions as RuntimeException
+        // with message "LLM error: <SimpleName> - <msg>" and the original as cause.
+        assertThat(result.lastError).isInstanceOf(RuntimeException::class.java)
+        assertThat(result.lastError).isNotInstanceOf(TransientException::class.java)
+        assertThat(result.lastError).isNotInstanceOf(RateLimitException::class.java)
+        assertThat(result.lastError!!.message).isEqualTo("LLM error: IllegalStateException - boom")
+        assertThat(result.lastError!!.cause).isSameInstanceAs(fatal)
+    }
+
+    // ── Classify→Stop on attempt == MAX_RETRIES (policy guard, not loop exit) ──
+
+    @Test
+    fun `attempt equal to policy MAX_RETRIES returns Stop without further delay`() = runTest {
+        // Policy compares against LLMClient.MAX_RETRIES (5), not the runner's maxRetries.
+        // With maxRetries=5 and always-throwing retryable: attempts 1..4 → Retry
+        // (delays 10+20+40+80=150ms); attempt 5 → Stop (no delay), returns early.
+        var attempts = 0
+        val result = streamWithRetry(
+            tag = "test",
+            emitToFlow = {},
+            maxRetries = LLMClient.MAX_RETRIES,
+            initialBackoffMs = 10L
+        ) { _, _ ->
+            attempts++
+            throw SocketTimeoutException("always")
+        }
+
+        assertThat(attempts).isEqualTo(LLMClient.MAX_RETRIES)
+        assertThat(result.completed).isFalse()
+        assertThat(result.failureEmitted).isFalse()
+        assertThat(result.lastError).isInstanceOf(TransientException::class.java)
+        // 4 retry delays before attempt 5 hits Stop with no further wait.
+        assertThat(testScheduler.currentTime).isEqualTo(150L)
     }
 
     // ── Non-domain exception is funneled through OpenAIErrorClassifier ───
