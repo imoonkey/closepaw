@@ -100,6 +100,43 @@ class CloudStreamRetryPolicyTest {
     }
 
     // ── Fail-fast after emitted event ─────────────────────────────────────
+    //
+    // Boundary: this file characterizes ONLY the pure decision matrix in
+    // CloudStreamRetryPolicy.decide. The runner-side semantics for *which*
+    // events flip emittedEvent (TextDelta / ToolCallDone / Failed in
+    // StreamAttemptEmitter) are owned by CloudStreamRetryRunnerTest. Here we
+    // treat emittedEvent as an opaque boolean input to the policy and assert
+    // its guard rejects retry of any partially-emitted stream.
+
+    @Test
+    fun `policy guard - retryable plus emittedEvent always returns FailAndStop`() {
+        // Explicit FSM-guard characterization: per llm_retry.md, the
+        // `retryable && emittedEvent` branch must return FailAndStop for
+        // every retryable classification, on every attempt within budget,
+        // regardless of backoff value. This protects the consumer from
+        // duplicated tokens/tool calls after partial output.
+        val retryableErrors = listOf<Exception>(
+            TransientException("io"),
+            TransientException("io", cause = RuntimeException("socket")),
+            RateLimitException("429"),
+            RateLimitException("429", retryAfterMs = 0L),
+            RateLimitException("429", retryAfterMs = 5000L),
+        )
+        for (err in retryableErrors) {
+            for (attempt in 1..LLMClient.MAX_RETRIES) {
+                val action = CloudStreamRetryPolicy.decide(
+                    tag = tag,
+                    classified = err,
+                    attempt = attempt,
+                    emittedEvent = true,
+                    backoffMs = 1000L
+                )
+                assertThat(action).isInstanceOf(StreamRetryAction.FailAndStop::class.java)
+                assertThat((action as StreamRetryAction.FailAndStop).message)
+                    .contains("partial output")
+            }
+        }
+    }
 
     @Test
     fun `retryable error after emitted event returns FailAndStop`() {
@@ -189,5 +226,116 @@ class CloudStreamRetryPolicyTest {
             backoffMs = 1000L
         )
         assertThat(action).isInstanceOf(StreamRetryAction.Retry::class.java)
+    }
+
+    @Test
+    fun `retryable error past max attempts returns Stop`() {
+        val action = CloudStreamRetryPolicy.decide(
+            tag = tag,
+            classified = TransientException("timeout"),
+            attempt = LLMClient.MAX_RETRIES + 5,
+            emittedEvent = false,
+            backoffMs = 1000L
+        )
+        assertThat(action).isEqualTo(StreamRetryAction.Stop)
+    }
+
+    @Test
+    fun `RateLimit at max attempts returns Stop even when retryAfterMs is set`() {
+        // emittedEvent guard does not apply here, but MAX_RETRIES exhaustion
+        // overrides the rate-limit hint — caller should not wait or retry.
+        val action = CloudStreamRetryPolicy.decide(
+            tag = tag,
+            classified = RateLimitException("rate limited", retryAfterMs = 9999L),
+            attempt = LLMClient.MAX_RETRIES,
+            emittedEvent = false,
+            backoffMs = 1000L
+        )
+        assertThat(action).isEqualTo(StreamRetryAction.Stop)
+    }
+
+    // ── emittedEvent guard precedence ─────────────────────────────────────
+
+    @Test
+    fun `emittedEvent guard takes priority over max-attempts exhaustion`() {
+        // Even at exhaustion, the emittedEvent guard still fires FailAndStop
+        // because it is checked before the attempt-budget guard.
+        val action = CloudStreamRetryPolicy.decide(
+            tag = tag,
+            classified = TransientException("late failure"),
+            attempt = LLMClient.MAX_RETRIES,
+            emittedEvent = true,
+            backoffMs = 1000L
+        )
+        assertThat(action).isInstanceOf(StreamRetryAction.FailAndStop::class.java)
+    }
+
+    @Test
+    fun `non-retryable error with emittedEvent still returns Stop not FailAndStop`() {
+        // FailAndStop only applies when the error is retryable; a programming
+        // error after partial output still falls through to Stop.
+        val action = CloudStreamRetryPolicy.decide(
+            tag = tag,
+            classified = IllegalArgumentException("bad arg"),
+            attempt = 1,
+            emittedEvent = true,
+            backoffMs = 1000L
+        )
+        assertThat(action).isEqualTo(StreamRetryAction.Stop)
+    }
+
+    @Test
+    fun `FailAndStop message includes original exception message`() {
+        val action = CloudStreamRetryPolicy.decide(
+            tag = tag,
+            classified = RateLimitException("quota exhausted"),
+            attempt = 2,
+            emittedEvent = true,
+            backoffMs = 1000L
+        )
+        assertThat((action as StreamRetryAction.FailAndStop).message)
+            .contains("quota exhausted")
+    }
+
+    // ── Backoff growth detail ─────────────────────────────────────────────
+
+    @Test
+    fun `nextBackoffMs grows by BACKOFF_MULTIPLIER from initial backoff`() {
+        val action = CloudStreamRetryPolicy.decide(
+            tag = tag,
+            classified = TransientException("error"),
+            attempt = 1,
+            emittedEvent = false,
+            backoffMs = LLMClient.INITIAL_BACKOFF_MS
+        )
+        val expected = (LLMClient.INITIAL_BACKOFF_MS * LLMClient.BACKOFF_MULTIPLIER).toLong()
+        assertThat((action as StreamRetryAction.Retry).nextBackoffMs).isEqualTo(expected)
+    }
+
+    @Test
+    fun `nextBackoffMs at exact cap stays at MAX_BACKOFF_MS`() {
+        val action = CloudStreamRetryPolicy.decide(
+            tag = tag,
+            classified = TransientException("error"),
+            attempt = 1,
+            emittedEvent = false,
+            backoffMs = LLMClient.MAX_BACKOFF_MS
+        )
+        assertThat((action as StreamRetryAction.Retry).nextBackoffMs)
+            .isEqualTo(LLMClient.MAX_BACKOFF_MS)
+    }
+
+    @Test
+    fun `RateLimit retryAfterMs of zero is honored over backoff`() {
+        // Server-supplied "retry immediately" (0) wins over computed backoff,
+        // because the policy uses Elvis on null only — not on zero.
+        val action = CloudStreamRetryPolicy.decide(
+            tag = tag,
+            classified = RateLimitException("ok now", retryAfterMs = 0L),
+            attempt = 1,
+            emittedEvent = false,
+            backoffMs = 5000L
+        )
+        assertThat((action as StreamRetryAction.Retry).waitMs).isEqualTo(0L)
     }
 }
