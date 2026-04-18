@@ -1,80 +1,79 @@
 package ai.closepaw.llm
 
+import ai.closepaw.auth.CodexHeaders
 import com.google.common.truth.Truth.assertThat
-import ai.closepaw.auth.OAuthCodexValidator
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
-import io.mockk.every
-import io.mockk.mockkObject
-import io.mockk.unmockkObject
+import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.json.JSONObject
-import org.junit.After
-import org.junit.Before
 import org.junit.Test
 
 /**
  * Direct unit tests for [CodexResponseClient].
  *
  * Covers the pure logic paths that don't require real HTTP:
- * - Constructor validation of the OAuth access token
- * - Codex-specific request construction (headers + body shape)
+ * - Codex-specific request construction (headers + body shape) via the
+ *   suspend-supplied [CodexHeaders]
  * - Error-response classification (handleErrorResponse)
  * - Streaming event mapping used by chatWithToolsStreaming
  */
 class CodexResponseClientTest {
 
-    private val token = "header.payload.sig"
-    private val accountId = "acct-test-1234"
-
-    @Before
-    fun setUp() {
-        mockkObject(OAuthCodexValidator)
-        every { OAuthCodexValidator.extractAccountId(token) } returns accountId
-        every { OAuthCodexValidator.extractAccountId("invalid") } returns null
-    }
-
-    @After
-    fun tearDown() {
-        unmockkObject(OAuthCodexValidator)
-    }
-
-    // ── Construction ──────────────────────────────────────────────────────
-
-    @Test(expected = IllegalStateException::class)
-    fun `constructor throws when token has no account id`() {
-        CodexResponseClient("invalid")
-    }
-
-    @Test
-    fun `constructor succeeds with valid JWT containing account id`() {
-        val client = CodexResponseClient(token)
-        assertThat(client.isReady()).isTrue()
-    }
+    private val headers = CodexHeaders(
+        accessToken = "acc-token",
+        chatgptAccountId = "acct-test-1234",
+        email = "user@example.com",
+    )
+    private val supplier: suspend () -> CodexHeaders = { headers }
 
     // ── Request construction ──────────────────────────────────────────────
 
     @Test
-    fun `buildRequest adds all required Codex headers`() {
-        val client = CodexResponseClient(token)
-        val request = invokeBuildRequest(client, """{"foo":"bar"}""")
+    fun `buildRequest adds all required Codex headers from supplier`() {
+        val client = CodexResponseClient(supplier)
+        val request = invokeBuildRequest(client, """{"foo":"bar"}""", headers)
 
         assertThat(request.url.toString()).isEqualTo(
             "https://chatgpt.com/backend-api/codex/responses"
         )
         assertThat(request.method).isEqualTo("POST")
-        assertThat(request.header("Authorization")).isEqualTo("Bearer $token")
-        assertThat(request.header("chatgpt-account-id")).isEqualTo(accountId)
+        assertThat(request.header("Authorization")).isEqualTo("Bearer ${headers.accessToken}")
+        assertThat(request.header("chatgpt-account-id")).isEqualTo(headers.chatgptAccountId)
         assertThat(request.header("originator")).isEqualTo("pi")
         assertThat(request.header("OpenAI-Beta")).isEqualTo("responses=experimental")
         assertThat(request.header("Accept")).isEqualTo("text/event-stream")
         assertThat(request.header("Content-Type")).isEqualTo("application/json")
         // ChatGPT backend rejects charset=utf-8 on the body's media type
         assertThat(request.body?.contentType()).isNull()
+    }
+
+    @Test
+    fun `buildRequest omits account id header when supplier returns null`() {
+        val noAccount = headers.copy(chatgptAccountId = null)
+        val client = CodexResponseClient { noAccount }
+        val request = invokeBuildRequest(client, "{}", noAccount)
+        assertThat(request.header("chatgpt-account-id")).isNull()
+    }
+
+    @Test
+    fun `supplier is called per request`() = runBlocking {
+        var calls = 0
+        val dyn: suspend () -> CodexHeaders = {
+            calls++
+            headers
+        }
+        val client = CodexResponseClient(dyn)
+        // Simulate two independent calls — client caches nothing.
+        dyn.invoke()
+        dyn.invoke()
+        // Two direct invocations + the client holds a reference but does not cache headers itself.
+        assertThat(calls).isEqualTo(2)
+        assertThat(client).isNotNull()
     }
 
     @Test
@@ -102,14 +101,14 @@ class CodexResponseClientTest {
 
     @Test(expected = RateLimitException::class)
     fun `429 response maps to RateLimitException`() {
-        val client = CodexResponseClient(token)
+        val client = CodexResponseClient(supplier)
         val response = mockResponse(429, """{"error":{"code":"rate_limit_exceeded","message":"slow down"}}""")
         invokeHandleErrorResponse(client, response)
     }
 
     @Test(expected = RateLimitException::class)
     fun `usage_limit error code maps to RateLimitException regardless of status`() {
-        val client = CodexResponseClient(token)
+        val client = CodexResponseClient(supplier)
         val response = mockResponse(
             200,
             """{"error":{"code":"usage_limit_reached","message":"plan exceeded","plan_type":"plus"}}"""
@@ -119,7 +118,7 @@ class CodexResponseClientTest {
 
     @Test
     fun `401 maps to IllegalStateException mentioning token`() {
-        val client = CodexResponseClient(token)
+        val client = CodexResponseClient(supplier)
         val response = mockResponse(401, """{"error":{"message":"bad token"}}""")
         val ex = runCatching { invokeHandleErrorResponse(client, response) }.exceptionOrNull()
 
@@ -129,14 +128,14 @@ class CodexResponseClientTest {
 
     @Test(expected = TransientException::class)
     fun `5xx maps to TransientException`() {
-        val client = CodexResponseClient(token)
+        val client = CodexResponseClient(supplier)
         val response = mockResponse(503, "service unavailable")
         invokeHandleErrorResponse(client, response)
     }
 
     @Test
     fun `other 4xx maps to plain RuntimeException (not retryable)`() {
-        val client = CodexResponseClient(token)
+        val client = CodexResponseClient(supplier)
         val response = mockResponse(400, """{"error":{"message":"bad request"}}""")
         val ex = runCatching { invokeHandleErrorResponse(client, response) }.exceptionOrNull()
 
@@ -146,11 +145,6 @@ class CodexResponseClientTest {
     }
 
     // ── Streaming finish / terminal events ────────────────────────────────
-    //
-    // CodexResponseClient.chatWithToolsStreaming delegates event → LLMStreamEvent
-    // mapping to CodexSseParser.mapToStreamEvent. These tests pin the finish
-    // semantics the client relies on: done/completed → Completed, failed/error
-    // → Failed (classified error, never a raw exception bubbled to the flow).
 
     @Test
     fun `response_completed event maps to Completed`() {
@@ -198,11 +192,11 @@ class CodexResponseClientTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
-    private fun invokeBuildRequest(client: CodexResponseClient, body: String): Request {
+    private fun invokeBuildRequest(client: CodexResponseClient, body: String, headers: CodexHeaders): Request {
         val m = CodexResponseClient::class.java
-            .getDeclaredMethod("buildRequest", String::class.java)
+            .getDeclaredMethod("buildRequest", String::class.java, CodexHeaders::class.java)
         m.isAccessible = true
-        return m.invoke(client, body) as Request
+        return m.invoke(client, body, headers) as Request
     }
 
     private fun invokeHandleErrorResponse(client: CodexResponseClient, response: Response) {

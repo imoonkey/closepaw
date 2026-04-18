@@ -1,7 +1,7 @@
 package ai.closepaw.llm
 
+import ai.closepaw.auth.CodexHeaders
 import android.util.Log
-import ai.closepaw.auth.OAuthCodexValidator
 import com.openai.models.responses.FunctionTool
 import com.openai.models.responses.ResponseInputItem
 import kotlinx.coroutines.Dispatchers
@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -21,14 +20,16 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * LLM client that talks to ChatGPT's Codex backend via OAuth access token.
  *
+ * Captures no OAuth state. Each request invokes [headerSupplier] for a fresh
+ * [CodexHeaders] bundle — the supplier is expected to return a refreshed token
+ * when near expiry (see `AuthStore.codexHeaders`). This makes a cached client
+ * valid across token rotations and account switches.
+ *
  * Uses raw OkHttp + [CodexRequestBuilder] / [CodexSseParser] to stream
  * responses from `chatgpt.com/backend-api/codex/responses`.
- *
- * The Codex backend always requires `stream: true`, so even the non-streaming
- * [chatWithTools] sends a streaming request and collects events into a result.
  */
 class CodexResponseClient(
-    accessToken: String
+    private val headerSupplier: suspend () -> CodexHeaders
 ) : LLMClient() {
 
     companion object {
@@ -36,16 +37,7 @@ class CodexResponseClient(
         private const val CODEX_URL = "https://chatgpt.com/backend-api/codex/responses"
     }
 
-    private val accessToken: String = accessToken
-    private val accountId: String = OAuthCodexValidator.extractAccountId(accessToken)
-        ?: throw IllegalStateException(
-            "OAuth token does not contain a ChatGPT account ID. Please sign in again."
-        )
     private val httpClient: OkHttpClient = buildHttpClient()
-
-    init {
-        Log.d(TAG, "CodexResponseClient created (account=...${accountId.takeLast(4)})")
-    }
 
     // ── Non-streaming ────────────────────────────────────────────────────
 
@@ -59,7 +51,7 @@ class CodexResponseClient(
 
         CloudLlmRetry.executeWithRetry(tag = TAG, operationName = "codex chatWithTools") {
             val body = CodexRequestBuilder.buildRequestBody(systemPrompt, inputItems, tools, model)
-            val request = buildRequest(body)
+            val request = buildRequest(body, headerSupplier())
 
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) handleErrorResponse(response)
@@ -150,7 +142,7 @@ class CodexResponseClient(
                 emitToFlow = { event -> trySend(event) }
             ) { attempt, emitter ->
                 val body = CodexRequestBuilder.buildRequestBody(systemPrompt, inputItems, tools, model)
-                val request = buildRequest(body)
+                val request = buildRequest(body, headerSupplier())
 
                 withContext(Dispatchers.IO) {
                     val call = httpClient.newCall(request)
@@ -230,17 +222,18 @@ class CodexResponseClient(
     // ── Private helpers ──────────────────────────────────────────────────
 
     /** MediaType without charset — ChatGPT backend rejects `charset=utf-8`. */
-    private fun buildRequest(body: String): Request =
-        Request.Builder()
+    private fun buildRequest(body: String, headers: CodexHeaders): Request {
+        val builder = Request.Builder()
             .url(CODEX_URL)
             .post(body.toRequestBody(null)) // no media type on body
             .header("Content-Type", "application/json") // set header directly
-            .header("Authorization", "Bearer $accessToken")
-            .header("chatgpt-account-id", accountId)
+            .header("Authorization", "Bearer ${headers.accessToken}")
             .header("originator", "pi")
             .header("OpenAI-Beta", "responses=experimental")
             .header("Accept", "text/event-stream")
-            .build()
+        headers.chatgptAccountId?.let { builder.header("chatgpt-account-id", it) }
+        return builder.build()
+    }
 
     private fun buildHttpClient(): OkHttpClient =
         OkHttpClient.Builder()

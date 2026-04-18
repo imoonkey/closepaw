@@ -1,24 +1,31 @@
 package ai.closepaw.llm
 
+import ai.closepaw.auth.AuthStore
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.runBlocking
 
 /**
  * Creates [LLMClient] instances from model names using the [ModelCatalog].
  *
- * Resolves API keys via a caller-supplied lambda (so the factory is decoupled from Android system
- * properties, SharedPreferences, etc.).
+ * Routes purely by [LLMProvider]. Credentials are sourced from [AuthStore]; no
+ * resolver lambda or signal keys. The Codex client receives a header supplier
+ * closure that reads [AuthStore] per request, so cached clients stay valid
+ * across token rotations and account switches.
  *
- * Caches clients by `(provider, baseUrl, api)` tuple — multiple models from the same provider share
- * a connection pool. This makes per-turn client resolution efficient: the underlying OkHttp client
- * is reused.
+ * Each cache entry carries the [AuthStore.generation] it was built under.
+ * `create()` uses [ConcurrentHashMap.compute] to atomically check-and-rebuild:
+ * a stale entry is cleaned up and replaced with a fresh client inside the same
+ * per-key critical section, so concurrent callers either both see a new client
+ * or one old + one new — never a stale client produced after a generation bump.
  *
  * Thread-safe: [create] and [cleanupAll] may be called from any thread.
  */
 class LLMClientFactory(
         private val catalog: ModelCatalog,
-        private val apiKeyResolver: (String) -> String?,
-        private val clientOverride: LLMClient? = null
+        private val authStore: AuthStore?,
+        private val baseUrlOverrides: Map<LLMProvider, String> = emptyMap(),
+        private val clientOverride: LLMClient? = null,
 ) {
     companion object {
         private const val TAG = "LLMClientFactory"
@@ -28,72 +35,90 @@ class LLMClientFactory(
          * for unit tests that inject a mock/fake LLM.
          */
         fun forTest(catalog: ModelCatalog, client: LLMClient): LLMClientFactory =
-                LLMClientFactory(catalog, apiKeyResolver = { "test-key" }, clientOverride = client)
+                LLMClientFactory(catalog, authStore = null, clientOverride = client)
     }
 
-    private val clientCache = ConcurrentHashMap<String, LLMClient>()
+    private data class Entry(val generation: Long, val client: LLMClient)
+
+    private val clientCache = ConcurrentHashMap<String, Entry>()
 
     /**
      * Create (or return cached) LLMClient for the given model name.
      *
-     * @param modelName Key from llm_models.json (e.g. "gpt-5.2", "glm-4.7")
      * @throws IllegalArgumentException if model is not in the catalog
-     * @throws IllegalStateException if API key is not found
+     * @throws ai.closepaw.auth.MissingCredential if the provider's credential is absent
+     * @throws ai.closepaw.auth.WrongCredentialType if the stored credential is the wrong shape
      */
     fun create(modelName: String): LLMClient {
-        // Test override: skip catalog lookup and cache, just return the injected client.
-        clientOverride?.let {
-            return it
-        }
+        clientOverride?.let { return it }
 
         val entry = catalog.resolve(modelName)
-        val oauth = isOAuth(entry)
-        val cacheKey = "${entry.provider}|${entry.effectiveBaseUrl ?: "default"}|${entry.api}|$oauth"
+        val provider = entry.provider
+        val store = authStore
 
-        return clientCache.computeIfAbsent(cacheKey) {
-            val apiKey = resolveApiKey(entry)
-            val client =
-                    when (entry.api) {
-                        ApiType.RESPONSE -> {
-                            if (oauth) CodexResponseClient(apiKey)
-                            else OpenAIResponseClient(apiKey, entry.effectiveBaseUrl)
+        val result = clientCache.compute(modelName) { _, existing ->
+            // Read generation inside the per-key critical section so a concurrent
+            // authStore.set() bump either happens-before this block (we see the new
+            // gen and rebuild) or happens-after (the next create() sees the bump).
+            val currentGen = if (store != null && provider != LLMProvider.LOCAL_LFM) {
+                store.generation(provider)
+            } else 0L
+
+            if (existing != null && existing.generation == currentGen) {
+                existing
+            } else {
+                existing?.let { stale ->
+                    runBlocking {
+                        try { stale.client.cleanup() } catch (e: Exception) {
+                            Log.w(TAG, "cleanup of stale client failed: ${e.message}")
                         }
-                        ApiType.CHAT -> ChatCompletionClient(apiKey, entry.effectiveBaseUrl)
                     }
-            Log.d(
-                    TAG,
-                    "Created ${client.javaClass.simpleName} for model '$modelName' " +
-                            "(provider=${entry.provider}, api=${entry.api})"
-            )
-            client
-        }
-    }
-
-    /**
-     * Resolve the API key for a model entry.
-     *
-     * Checks the entry's effective env var via the resolver lambda.
-     */
-    private fun resolveApiKey(entry: ModelEntry): String {
-        val envVar = entry.effectiveApiKeyEnv
-        return apiKeyResolver(envVar)
-                ?: throw IllegalStateException(
-                        "API key not found for env var '$envVar' " +
-                                "(model '${entry.name}', provider ${entry.provider}). " +
-                                "Ensure the key is set in environment, intent extras, or settings."
+                }
+                val built = build(entry)
+                Log.d(
+                        TAG,
+                        "Created ${built.javaClass.simpleName} for model '$modelName' " +
+                                "(provider=$provider, api=${entry.api}, gen=$currentGen)"
                 )
+                Entry(currentGen, built)
+            }
+        }!!
+        return result.client
     }
 
-    /** Detect OAuth auth method via the __AUTH_METHOD_OPENAI signal key. */
-    private fun isOAuth(entry: ModelEntry): Boolean {
-        if (entry.provider != LLMProvider.OPENAI) return false
-        return apiKeyResolver("__AUTH_METHOD_OPENAI") == "oauth"
+    private fun build(entry: ModelEntry): LLMClient {
+        val store = authStore
+                ?: throw IllegalStateException(
+                        "LLMClientFactory has no AuthStore — test-only factory cannot build clients for model '${entry.name}'."
+                )
+        val baseUrl = baseUrlOverrides[entry.provider] ?: entry.effectiveBaseUrl
+        return when (entry.provider) {
+            LLMProvider.OPENAI_API ->
+                    when (entry.api) {
+                        ApiType.RESPONSE ->
+                                OpenAIResponseClient(store.requireApiKey(LLMProvider.OPENAI_API), baseUrl)
+                        ApiType.CHAT ->
+                                ChatCompletionClient(store.requireApiKey(LLMProvider.OPENAI_API), baseUrl)
+                    }
+            LLMProvider.OPENAI_CODEX ->
+                    CodexResponseClient(
+                            headerSupplier = { store.codexHeaders(LLMProvider.OPENAI_CODEX) }
+                    )
+            LLMProvider.OPENROUTER ->
+                    ChatCompletionClient(store.requireApiKey(LLMProvider.OPENROUTER), baseUrl)
+            LLMProvider.NOVITA ->
+                    ChatCompletionClient(store.requireApiKey(LLMProvider.NOVITA), baseUrl)
+            LLMProvider.LOCAL_LFM ->
+                    throw IllegalStateException(
+                            "LLMClientFactory does not build LFMLLMClient; use LFMLLMClient(context) directly."
+                    )
+        }
     }
 
     /** Cleanup all cached clients. Call from session teardown. */
     suspend fun cleanupAll() {
         Log.d(TAG, "Cleaning up ${clientCache.size} cached clients")
-        clientCache.values.forEach { it.cleanup() }
+        clientCache.values.forEach { it.client.cleanup() }
         clientCache.clear()
     }
 }
