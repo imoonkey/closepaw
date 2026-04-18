@@ -676,6 +676,49 @@ class OnboardingViewModelTest {
         scope.coroutineContext.job.cancel()
     }
 
+    @Test
+    fun `skipStep on Complete is no-op`() = runTest {
+        allPermissionsGranted()
+        every { store.loadOutcomes() } returns allComplete
+        val scope = newScope(this)
+        val vm = makeVm(scope); drain(scope, this)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Complete)
+
+        vm.skipStep(); drain(scope, this)
+
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Complete)
+        verify(exactly = 0) { store.saveOutcome(WizardStep.Complete, any()) }
+        // Per spec, only Battery + Demo accept Skipped — Complete never persists outcome at all.
+        scope.coroutineContext.job.cancel()
+    }
+
+    // ── ApiKey recovery: stored Done but AuthStore lost the credential ──
+
+    @Test
+    fun `enterStep ApiKey resets to Pending and shows editable state when AuthStore has no matching credential`() = runTest {
+        // Spec: doc/main/state_machines/onboarding_wizard.md L125-128 + OnboardingViewModel.kt:344-355
+        // Land on Demo (apiKey=Done), then goBack to ApiKey. AuthStore.has(*) all false (setUp default).
+        // VM should rewrite apiKey outcome to Pending and present the default editable state.
+        allPermissionsGranted()
+        every { store.loadOutcomes() } returns allDoneExceptDemo
+        // authStore.has(any()) returns false from setUp — no credential anywhere.
+        val scope = newScope(this)
+        val vm = makeVm(scope); drain(scope, this)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
+        assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Done)
+
+        vm.goBack(); drain(scope, this)
+
+        assertThat(vm.currentStep).isEqualTo(WizardStep.ApiKey)
+        assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Pending)
+        verify { store.saveOutcome(WizardStep.ApiKey, StepOutcome.Pending) }
+        // Default selectedProvider is OPENAI_API → editable state is OAuthReady
+        assertThat(vm.selectedProvider).isEqualTo(OnboardingProvider.OPENAI_API)
+        assertThat(vm.authMethod).isEqualTo(ApiKeyAuthMethod.OAUTH)
+        assertThat(vm.stepState).isEqualTo(ApiKeyStepState.OAuthReady)
+        scope.coroutineContext.job.cancel()
+    }
+
     // ── Special transitions ──
 
     @Test
