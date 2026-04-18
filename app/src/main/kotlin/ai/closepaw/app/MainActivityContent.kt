@@ -18,6 +18,7 @@ import ai.closepaw.ui.chat.SettingsDeepLink
 import ai.closepaw.ui.chat.SettingsPage as DeepLinkPage
 import ai.closepaw.ui.onboarding.PermissionRepairCard
 import ai.closepaw.ui.settings.OpenAiAuthUiState
+import ai.closepaw.ui.settings.ModelLoadingStatus
 import ai.closepaw.ui.settings.SettingsPage
 import ai.closepaw.ui.settings.SettingsSheet
 import ai.closepaw.ui.theme.ChatTheme
@@ -27,6 +28,7 @@ import ai.closepaw.ui.theme.ChatTheme
 internal fun MainActivityContent(
     viewModel: ChatViewModel,
     settingsState: AppSettingsState,
+    modelLoadingStatusHolder: ModelLoadingStatusHolder,
     modelCatalog: ModelCatalog,
     appVersion: String,
     showSettings: Boolean,
@@ -96,15 +98,21 @@ internal fun MainActivityContent(
             ) {
                 SettingsSheet(
                     llmBackend = settingsState.llmBackend,
-                    onBackendChange = settingsState::updateBackend,
+                    onBackendChange = {
+                        settingsState.updateBackend(it)
+                        modelLoadingStatusHolder.update(ModelLoadingStatus.Idle)
+                    },
                     selectedModel = settingsState.selectedModel,
                     onModelChange = settingsState::updateModel,
                     modelCatalog = modelCatalog,
                     selectedExecutorModel = settingsState.executorModel,
                     onExecutorModelChange = settingsState::updateExecutorModel,
                     selectedLocalModel = settingsState.selectedLocalModelId,
-                    onLocalModelChange = settingsState::updateLocalModel,
-                    modelLoadingStatus = settingsState.modelLoadingStatus,
+                    onLocalModelChange = {
+                        settingsState.updateLocalModel(it)
+                        modelLoadingStatusHolder.update(ModelLoadingStatus.Idle)
+                    },
+                    modelLoadingStatus = modelLoadingStatusHolder.status,
                     maxTurns = settingsState.maxTurns,
                     onMaxTurnsChange = settingsState::updateMaxTurns,
                     agentMode = settingsState.agentMode,

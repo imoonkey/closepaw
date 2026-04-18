@@ -8,7 +8,6 @@ import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.settings.LocalModelOption
-import ai.closepaw.ui.settings.ModelLoadingStatus
 
 class AppSettingsState(private val store: AppSettingsStore) {
     companion object {
@@ -32,8 +31,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
     var localModelSlug by mutableStateOf(AppSettingsStore.DEFAULT_LOCAL_MODEL_SLUG)
         private set
     var localModelQuant by mutableStateOf(AppSettingsStore.DEFAULT_LOCAL_MODEL_QUANT)
-        private set
-    var modelLoadingStatus by mutableStateOf<ModelLoadingStatus>(ModelLoadingStatus.Idle)
         private set
     var executorModel by mutableStateOf<String?>(null)
         private set
@@ -70,7 +67,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
     fun updateBackend(backend: LLMBackendType) {
         llmBackend = backend
         store.saveBackend(backend)
-        modelLoadingStatus = ModelLoadingStatus.Idle
     }
 
     fun updateModel(model: String) {
@@ -88,7 +84,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
         localModelSlug = model.modelSlug
         localModelQuant = model.quantizationSlug
         store.saveLocalModel(model.id, model.modelSlug, model.quantizationSlug)
-        modelLoadingStatus = ModelLoadingStatus.Idle
     }
 
     fun updateOpenaiBaseUrl(url: String) {
@@ -118,10 +113,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
     fun updateAgentMode(value: AgentMode) {
         agentMode = value
         store.saveAgentMode(value)
-    }
-
-    fun updateModelLoadingStatus(status: ModelLoadingStatus) {
-        modelLoadingStatus = status
     }
 
     fun updatePlatformMode(value: PlatformMode) {
