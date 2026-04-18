@@ -603,16 +603,7 @@ private constructor(
 
         val cleanupResult = services.cleanup()
         if (cleanupResult is CleanupResult.PartialFailure) {
-            val summary = cleanupResult.failures.joinToString(", ") {
-                "${it.step}: ${it.cause.message ?: it.cause::class.simpleName}"
-            }
-            emit(
-                    SessionError(
-                            sessionId = sessionId,
-                            timestamp = now(),
-                            message = "Cleanup partial failure: $summary"
-                    )
-            )
+            Log.w(TAG, "Cleanup partial failure: ${cleanupResult.failures.joinToString(", ") { it.step }}")
         }
 
         val reason = when (cause) {

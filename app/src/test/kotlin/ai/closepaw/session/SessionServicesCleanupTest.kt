@@ -57,11 +57,13 @@ class SessionServicesCleanupTest {
 
         val services = buildServices(throwingClient, factory, traceRecorder)
 
-        services.cleanup()
+        val result = services.cleanup()
 
         assert(throwingClient.cleanupCalled) { "llmClient.cleanup must be invoked" }
         coVerify { factory.cleanupAll() }
         coVerify { traceRecorder.close() }
+        check(result is CleanupResult.PartialFailure) { "expected PartialFailure, got $result" }
+        assert(result.failures.any { it.step == "llmClient.cleanup" }) { "missing llmClient failure: ${result.failures}" }
     }
 
     @Test
@@ -89,6 +91,32 @@ class SessionServicesCleanupTest {
         services.cleanup()
 
         coVerify { traceRecorder.close() }
+    }
+
+    @Test
+    fun `cleanup returns Success when all steps succeed`() = runBlocking {
+        val factory = mockk<LLMClientFactory>(relaxed = true)
+        coEvery { factory.cleanupAll() } returns Unit
+        val traceRecorder = mockk<TraceRecorder>(relaxed = true)
+        val client = object : LLMClient() {
+            override suspend fun chatWithTools(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+            ): ResponsesResult = error("unused")
+
+            override fun chatWithToolsStreaming(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+            ): Flow<LLMStreamEvent> = flow { error("unused") }
+        }
+
+        val result = buildServices(client, factory, traceRecorder).cleanup()
+
+        check(result is CleanupResult.Success) { "expected Success, got $result" }
     }
 
     private fun buildServices(
