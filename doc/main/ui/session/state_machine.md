@@ -16,22 +16,25 @@ A session contains one or more sequential tasks. `TaskCompleted` ends a task; `S
 
 ```kotlin
 sealed interface SessionState {
-    data object Created  : SessionState  // constructed, not yet started
-    data object Running  : SessionState  // actively executing a task
-    data object Paused   : SessionState  // cooperative takeover (user has control)
-    data object Idle     : SessionState  // between tasks (Hot Idle)
-    data object Shutdown : SessionState  // terminal — all resources released
+    data object Created         : SessionState  // constructed, not yet started
+    data object Running         : SessionState  // actively executing a task
+    data object TakeoverPending : SessionState  // takeover requested; awaiting agent pause-point
+    data object Paused          : SessionState  // cooperative takeover (user has control)
+    data object Idle            : SessionState  // between tasks (Hot Idle)
+    data object Shutdown        : SessionState  // terminal — all resources released
 }
 ```
 
 Terminal state: `Shutdown` (irreversible).
 
+`TakeoverPending` is a transient gate between `Running` and `Paused`: `handleTakeover` flips state to `TakeoverPending`, releases the lifecycle mutex, awaits the agent's pause-point deferred, then re-acquires the mutex and flips to `Paused`. `Op.Resume` is rejected while in `TakeoverPending`.
+
 ## 3. Transition Rules
 
 ```
-Created ──(UserInput)──► Running ──(Takeover)──► Paused
-                           │  ▲                    │
-                           │  └────(Resume)────────┘
+Created ──(UserInput)──► Running ──(Takeover)──► TakeoverPending ──(agent pause-point)──► Paused
+                           │  ▲                                                              │
+                           │  └────────────────────(Resume)────────────────────────────────-─┘
                            │
                            └──(TaskCompleted)──► Idle ──(UserInput)──► Running
                                                   │
@@ -45,10 +48,11 @@ Created ──(UserInput)──► Running ──(Takeover)──► Paused
 | Current State | Trigger | New State | Actions |
 |---------------|---------|-----------|---------|
 | `Created` | `Op.UserInput` | `Running` | init recording, `platform.start()`, emit `SessionStarted` + `TaskStarted`, start agent |
-| `Running` | `Op.UserInput` | — (rejected) | emit status "Agent is busy" |
-| `Running` | agent completes | `Idle` | emit `TaskCompleted`, flush checkpoint, `agentRunner.clear()`, `platform.stop()`, schedule idle timeout |
-| `Running` | `Op.Takeover` | `Paused` | `agentRunner.pause()`, await deferred, emit `SessionTakeover` |
-| `Running` | `Op.Interrupt` | stays `Running` | `agentRunner.stop()` (cooperative, agent stops at next turn boundary) |
+| `Running` / `Paused` / `TakeoverPending` | `Op.UserInput` | — (rejected) | emit status "Agent is busy" |
+| `Running` | agent completes | `Idle` | emit `TaskCompleted`, flush checkpoint, `agentRunner.clear()`, schedule idle timeout (note: platform stays alive) |
+| `Running` | `Op.Takeover` | `TakeoverPending` → `Paused` | `agentRunner.pause()` then await deferred (mutex released); on confirm flip to `Paused` and emit `SessionTakeover` |
+| `Running` / `TakeoverPending` | `Op.Interrupt` | unchanged | cancel pending `ask_user`, `agentRunner.stop()` + `cancelJob()` |
+| `TakeoverPending` | `Op.Resume` | — (rejected) | log warn (agent hasn't reached pause-point) |
 | `Paused` | `Op.Resume` | `Running` | `agentRunner.resume()`, emit `SessionResumed` |
 | `Idle` | `Op.UserInput` | `Running` | cancel idle timeout, `platform.start()`, emit `TaskStarted`, start agent |
 | `Idle` | `Op.UserInput` + `platform.start()` fails (< 3 consecutive) | stays `Idle` | emit bootstrap-failure events, re-arm idle timeout, increment failure counter |
@@ -57,11 +61,13 @@ Created ──(UserInput)──► Running ──(Takeover)──► Paused
 | Any | `Op.Shutdown` | `Shutdown` | cancel idle timeout, flush CLOSED checkpoint, `agentRunner.shutdown()`, `services.cleanup()`, emit `SessionCompleted` |
 | `Shutdown` | any Op | — (ignored) | idempotent guard |
 
+> Note: `Running → Idle` does **not** call `platform.stop()` — the platform stays alive across Hot Idle and is only released by `Shutdown` (`services.cleanup()`). See Section 7.
+
 ### 3.2 Supplement and UserResponse (non-state-changing)
 
 | Current State | Trigger | Effect |
 |---------------|---------|--------|
-| `Running` or `Paused` | `Op.Supplement` | inject text into conversation history, emit `SupplementReceived` |
+| `Running`, `Paused`, or `TakeoverPending` | `Op.Supplement` | inject text into conversation history, emit `SupplementReceived` |
 | Any | `Op.UserResponse` | deliver response to pending `ask_user` call via `UserResponseChannel` |
 | Any | `Op.Approve` | resolve pending tool approval |
 
@@ -88,7 +94,7 @@ Two distinct completion events:
 | `UserRequested` | `USER_STOPPED` |
 | `Error` | `ERROR` |
 
-`SessionCompleted.reason` is `SessionEndReason` (session-level, no task outcomes):
+`SessionCompleted.reason` is `SessionEndReason` (session-level, no task outcomes). It is derived from the **shutdown cause**, not the prior state:
 
 | Previous State | SessionEndReason |
 |----------------|------------------|
@@ -107,14 +113,14 @@ After task completion, the session enters `Idle` instead of shutting down.
 
 | Resource | Held during Idle? | Released on | Rationale |
 |----------|-------------------|-------------|-----------|
-| VirtualDisplay + ImageReader | **No** (`platform.stop()`) | TaskCompleted | Expensive; re-acquired on follow-up |
+| VirtualDisplay + ImageReader | Yes (released only on Shutdown via `services.cleanup()`) | Shutdown | Kept alive for instant follow-up; running VD apps survive |
 | AgentRunner state | **No** (`agentRunner.clear()`) | TaskCompleted | Loop references; rebuilt on follow-up |
 | HistoryManager | Yes | Shutdown | ~100KB-1MB; needed for follow-up context |
 | TodoState + ScratchpadState | Yes | Shutdown | ~2KB conversation state |
 | LLM client (cloud) | Yes | Shutdown | Stateless HTTP wrapper, negligible |
 | ToolRouter | Yes | Shutdown | Cheap; tool registry reused |
 | TraceRecorder | Yes | Shutdown | May append follow-up traces |
-| Event stream (SharedFlow) | Yes | Shutdown (`closeChannelWithDelay`) | Open for follow-up events |
+| Event stream (SharedFlow) | Yes | (never closed) | `MutableSharedFlow` exposed via `asSharedFlow()`; outlives session per coroutine scope cancellation by collectors |
 
 Total Idle memory footprint: < 2MB.
 
@@ -159,13 +165,13 @@ Guard: only `IDLE_READY` and `CLOSED` snapshots are reloadable.
 
 ## 7. Platform Lifecycle
 
-`platform.start()` and `platform.stop()` bracket each task execution:
+`platform.start()` is invoked at the start of each task; `services.cleanup()` (which stops the platform) runs only at Shutdown:
 
 ```
-Created → Running:  platform.start()  (first task)
-Idle → Running:     platform.start()  (follow-up task)
-Running → Idle:     platform.stop()   (task done)
-Any → Shutdown:     services.cleanup() → platform.stop()
+Created → Running:  platform.start()       (first task)
+Idle    → Running:  platform.start()       (idempotent — no-op if already running)
+Running → Idle:     (no platform.stop)     — VD/recording stay alive across Hot Idle
+Any     → Shutdown: services.cleanup()     — stops platform, clears history, releases LLM clients, closes trace recorder (recording session is finalized separately by `AgentServiceEventHandler` on `SessionCompleted`)
 ```
 
 If `platform.start()` fails on follow-up, session re-arms idle timeout and stays in Idle. A consecutive-failure counter (`MAX_REACQUIRE_FAILURES = 3`) bounds the retry loop: on the 3rd consecutive failure the session force-shuts-down with `SessionEndReason.INTERRUPTED`. The counter resets on the first successful reacquire.

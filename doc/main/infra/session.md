@@ -15,7 +15,7 @@ Thin lifecycle manager. It does not implement planning/action logic directly.
 - Manage session state transitions (`Created`/`Running`/`Paused`/`Idle`/`Shutdown`)
 - Manage per-task lifecycle via `handleUserInput()`
 - Coordinate checkpoint persistence via `SessionCheckpointCoordinator`
-- Manage Hot Idle (platform release, idle timeout, follow-up re-acquisition)
+- Manage Hot Idle (platform stays alive; idle timeout; idempotent `platform.start()` on follow-up)
 - Delegate runtime start/stop to `SessionAgentRunner`
 
 ### Key Methods
@@ -30,12 +30,12 @@ class AgentSession {
 
 ### Platform Lifecycle
 
-Platform resources are acquired per-task, not per-session:
+Platform is acquired on first task and stays alive across Hot Idle until shutdown:
 
 - `Created → Running` (first task): `platform.start()`
-- `Running → Idle` (task complete): `platform.stop()` — releases VirtualDisplay, ImageReader
-- `Idle → Running` (follow-up): `platform.start()` — re-acquires resources
-- `Any → Shutdown`: `services.cleanup()` → `platform.stop()`
+- `Running → Idle` (task complete): platform stays alive (no `platform.stop()`); only `agentRunner.clear()` runs
+- `Idle → Running` (follow-up): `platform.start()` (idempotent — no-op if already running)
+- `Any → Shutdown`: `services.cleanup()` stops platform, clears history, releases LLM clients, closes trace recorder
 
 If `platform.start()` fails on follow-up, session re-arms idle timeout and stays in Idle.
 
@@ -44,9 +44,9 @@ If `platform.start()` fails on follow-up, session re-arms idle timeout and stays
 ### State Transitions
 
 ```
-Created ──(UserInput)──► Running ──(Takeover)──► Paused
-                           │  ▲                    │
-                           │  └────(Resume)────────┘
+Created ──(UserInput)──► Running ──(Takeover)──► TakeoverPending ──(agent pause-point)──► Paused
+                           │  ▲                                                              │
+                           │  └────────────────────(Resume)────────────────────────────────-─┘
                            │
                            └──(TaskCompleted)──► Idle ──(UserInput)──► Running
                                                   │
@@ -57,7 +57,7 @@ Created ──(UserInput)──► Running ──(Takeover)──► Paused
 
 ### Hot Idle
 
-After task completion, the session enters `Idle` instead of shutting down. Expensive resources (platform, agent runner) are released; lightweight state (history, todos, scratchpad, LLM client) stays in memory for instant follow-up. Auto-shutdown after 5 minutes of inactivity (`IDLE_TIMEOUT_MS = 300_000`).
+After task completion, the session enters `Idle` instead of shutting down. Only `AgentRunner` state is cleared; platform (VirtualDisplay/recording), history, todos, scratchpad, LLM client, trace recorder, and the event SharedFlow remain live for instant follow-up. Auto-shutdown after 5 minutes of inactivity (`IDLE_TIMEOUT_MS = 300_000`).
 
 → See: [Session User Flows](../ui/session/user_flows.md) for follow-up task flow.
 

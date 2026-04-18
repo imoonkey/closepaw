@@ -9,7 +9,7 @@ UI behavior is determined by 4 dimensions:
 
 1. `PlatformMode`: `ACCESSIBILITY | VIRTUAL_DISPLAY`
 2. `OverlayUserLocation`: `MAIN_APP | VD_VIEWER | OTHER_APP`
-3. `CapsuleMode`: `Hidden | Running | TakeoverPending | Takeover | WaitingForInput | WaitingForAction | Done | Error`
+3. `CapsuleMode`: `Hidden | Running | TakeoverPending | Takeover | WaitingForInput | WaitingForAction | WaitingForApproval | Done | Error`
 4. `ShowPreference`: `CAPSULE | ISLAND`
 
 Ownership:
@@ -26,6 +26,7 @@ Ownership:
 - `onError(message)` → `Error(sanitizeThought(message))` — also clears `isStopPending`
 - `onAskUser(QUESTION, msg, callId)` → `WaitingForInput(msg, callId)`
 - `onAskUser(ACTION, msg, callId)` → `WaitingForAction(msg, callId)`
+- `onApprovalRequired(callId, description, appLabel, packageName, reason)` → `WaitingForApproval(...)`
 
 ### 2.2 Guarded events
 
@@ -34,7 +35,8 @@ Ownership:
 - `onTakeoverConfirmed()`: `Running|TakeoverPending` → `Takeover(lastThought)`
 - `onResumed()`: `Takeover|TakeoverPending` → `Running("Thinking...")` — also clears `turnPhase` and `isAgentMidTurn`
 - `onUserResponseSent(callId)`: `WaitingForInput|WaitingForAction` + callId match → `Running("Processing response...")` — returns `Boolean` (false on guard/callId mismatch)
-- `onStopRequested()`: `Running|TakeoverPending|Takeover|WaitingForInput|WaitingForAction` + not already stop-pending → sets `isStopPending = true`, returns `Boolean` — does **not** change mode
+- `onApprovalResolved(callId)`: `WaitingForApproval` + callId match → `Running("Processing...")` — returns `Boolean` (false on guard/callId mismatch)
+- `onStopRequested()`: `Running|TakeoverPending|Takeover|WaitingForInput|WaitingForAction|WaitingForApproval` + not already stop-pending → sets `isStopPending = true`, returns `Boolean` — does **not** change mode
 - `onDismissError()`: `Error` only → `Hidden`
 
 Invalid source/callId are ignored.
@@ -47,21 +49,19 @@ Guard: ignore when already `Hidden|Done|Error`. Clears `isStopPending`.
 - `MAX_TURNS` → `Done("Max steps reached")`
 - `TASK_IMPOSSIBLE` → `Done("Task impossible")`
 - `USER_STOPPED` → `Done("Stopped")`
-- `INTERRUPTED` → `Done("Interrupted")`
-- `IDLE_TIMEOUT` → `Done("Session timed out")`
 - `ERROR` → `Error("Error occurred")`
 
 `Done` auto-hides to `Hidden` after 3s.
+
+(`TaskOutcome` enum is exactly these five values; there is no `INTERRUPTED` or `IDLE_TIMEOUT` task outcome.)
 
 ### 2.4 Session completion path (`onSessionEnded`)
 
 This is distinct from task completion routing. Cancels any pending auto-hide, clears `isStopPending`.
 
-- `GOAL_ACHIEVED` → `Done(preserve current done text or default)` → auto-hide
-- `MAX_TURNS` → `Done("Max steps reached")` → auto-hide
-- `TASK_IMPOSSIBLE` → `Done("Task impossible")` → auto-hide
-- `USER_STOPPED|INTERRUPTED|IDLE_TIMEOUT` → `Hidden` (immediate)
-- `ERROR` → `Error("Error occurred")` (if not already Error)
+For all `SessionEndReason` values (`USER_STOPPED|INTERRUPTED|IDLE_TIMEOUT`) → `Hidden` (immediate).
+
+The capsule does not render a session-level outcome; per-task outcome was already shown via `onTaskCompleted`.
 
 ## 3. ShowPreference and Location Transitions
 
@@ -80,7 +80,7 @@ Set to `ISLAND` on:
 - `onViewerClosed`
 
 Forced normalization in visibility policy:
-- mode in `WaitingForInput|WaitingForAction|Error` ⇒ effective preference = `CAPSULE`
+- mode in `WaitingForInput|WaitingForAction|WaitingForApproval|Error` ⇒ effective preference = `CAPSULE`
 
 Location transitions:
 - `handleWindowStateChanged` via `resolveUserLocation`

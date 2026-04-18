@@ -52,7 +52,7 @@ Input enablement:
 ### 3.4 VD + VD_VIEWER
 
 - Active: capsule or island by `showPreference`
-- `WaitingForInput|WaitingForAction|Error`: forced to capsule
+- `WaitingForInput|WaitingForAction|WaitingForApproval|Error`: forced to capsule
 - Glow shown only when `hasActiveTask=true`
 - Interaction locked: touch shield on (unlocked in Takeover/Done/Error/Hidden)
 - Island tap in viewer toggles directly to capsule (no re-open viewer)
@@ -60,7 +60,7 @@ Input enablement:
 ### 3.5 VD + OTHER_APP
 
 - Active: capsule or island by `showPreference`
-- `WaitingForInput|WaitingForAction|Error`: forced to capsule
+- `WaitingForInput|WaitingForAction|WaitingForApproval|Error`: forced to capsule
 - Glow hidden in VD background
 - Island tap behavior:
   - no active task and non-terminal: open Main App
@@ -104,7 +104,7 @@ Input enablement:
 
 - Nav derivation is context-based (`NavSpec`)
 - `Done` hides all nav buttons (Row2 hidden entirely)
-- `WaitingForInput|WaitingForAction|Error` hide minimize button
+- `WaitingForInput|WaitingForAction|WaitingForApproval|Error` hide minimize button
 - A11y mode blocks app and viewer nav icons
 - VD viewer: `showWatch` hidden when already in `SCREEN_VIEWING` context
 
