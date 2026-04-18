@@ -364,15 +364,19 @@ class ApiKeyStepStateTest {
     }
 
     @Test
-    fun `validateApiKey from Valid is no-op (not Editing or Invalid)`() = runTest {
+    fun `validateApiKey after success auto-advance does not re-validate`() = runTest {
+        // After Valid the VM auto-advances to Demo (stepState becomes DemoStepState.Ready),
+        // so the `else -> return` branch in validateApiKey() short-circuits any further
+        // validation attempt. We can't easily pause mid-Valid (delay(400) runs under
+        // UnconfinedTestDispatcher), so this characterizes the post-advance no-op path.
         server.enqueue(MockResponse().setResponseCode(200).setBody("""{"choices":[]}"""))
         val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
         val vm = makeVm(scope); drain(scope, this)
         vm.selectProvider(OnboardingProvider.OPENROUTER)
         vm.onApiKeyChanged("sk-good")
         vm.validateApiKey(); drain(scope, this)
-        // After Valid auto-advance, currentStep is Demo so validateApiKey is also gated by step.
         assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
+        assertThat(vm.stepState).isInstanceOf(DemoStepState::class.java)
 
         vm.validateApiKey(); drain(scope, this)
         assertThat(server.requestCount).isEqualTo(1)
@@ -519,7 +523,12 @@ class ApiKeyStepStateTest {
 
         vm.cancelOAuth()
         assertThat(vm.stepState).isEqualTo(ApiKeyStepState.OAuthReady)
+
+        // Late completion after cancel must not mutate state — if the job were
+        // not actually cancelled, this would flip stepState to OAuthError("late").
         gate.complete(OpenAiSignInResult.Error("late"))
+        drain(scope, this)
+        assertThat(vm.stepState).isEqualTo(ApiKeyStepState.OAuthReady)
         scope.coroutineContext.job.cancel()
     }
 
