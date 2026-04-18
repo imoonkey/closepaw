@@ -102,7 +102,7 @@ internal fun MainActivityContent(
                     modelCatalog = modelCatalog,
                     selectedExecutorModel = settingsState.executorModel,
                     onExecutorModelChange = settingsState::updateExecutorModel,
-                    selectedLocalModel = settingsState.selectedLocalModelId,
+                    selectedLocalModel = settingsState.localModel?.id ?: "",
                     onLocalModelChange = settingsState::updateLocalModel,
                     modelLoadingStatus = settingsState.modelLoadingStatus,
                     maxTurns = settingsState.maxTurns,
