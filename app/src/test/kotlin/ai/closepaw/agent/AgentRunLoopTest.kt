@@ -12,6 +12,12 @@ import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.SessionConfig
 import ai.closepaw.protocol.SessionId
 import ai.closepaw.protocol.SessionLlmConfig
+import ai.closepaw.model.ScreenSnapshot
+import ai.closepaw.platform.ActionResult
+import ai.closepaw.platform.AndroidPlatform
+import ai.closepaw.platform.AppInfo
+import ai.closepaw.platform.DisplayInfo
+import ai.closepaw.platform.UIAction
 import ai.closepaw.session.AgentSessionState
 import ai.closepaw.session.SessionServices
 import ai.closepaw.test.FakeAndroidPlatform
@@ -33,8 +39,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.yield
-import org.junit.Ignore
 import org.junit.Test
 
 /**
@@ -259,11 +263,11 @@ class AgentRunLoopTest {
         // Release turn 2's behavior so the runner finishes; the next iteration
         // is where the pause check fires.
         llm.completeTurn(LLMBehavior.Continue)
-        // Now the loop iterates back to the top, sees pauseState=true, and
-        // completes the pauseConfirmed Deferred before parking.
-        // Allow scheduler to run the pause-detection iteration.
-        yield()
-        assertThat(pauseConfirmed.isCompleted).isTrue()
+        // Hard sync: await() returns only when the loop has reached the pause
+        // block and called pauseConfirmed.complete(Unit). At that point the
+        // loop is provably parked on `pauseState.first { !it }` — no scheduler
+        // sensitivity, no yield() races.
+        pauseConfirmed.await()
 
         agent.resume()
         // After resume, loop runs another turn — let it queue and then stop.
@@ -288,8 +292,8 @@ class AgentRunLoopTest {
         llm.awaitTurnCalled()
         val pauseConfirmed = agent.pause()
         llm.completeTurn(LLMBehavior.Continue)
-        yield()
-        assertThat(pauseConfirmed.isCompleted).isTrue()
+        // Hard sync: loop is provably parked in the pause block once this resolves.
+        pauseConfirmed.await()
 
         // stop() flips pauseState=false, which both wakes `first { !it }`
         // AND makes the next shouldContinue() return false.
@@ -301,17 +305,33 @@ class AgentRunLoopTest {
 
     // ---------------- Outcome: Cancelled (in-turn) ----------------
 
-    @Ignore(
-        "TurnOutcome.Cancelled is produced inside AgentTurnRunner when " +
-            "isTurnCancelled() is true after pre-turn snapshot capture. The Agent " +
-            "constructs AgentTurnRunner internally with no seam, so we cannot " +
-            "directly drive the in-turn Cancelled path without changing production " +
-            "code. The pre-run cancellation path is covered by " +
-            "`cancellation signal completed before run causes UserRequested`."
-    )
     @Test
-    fun `in turn Cancelled outcome maps to UserRequested`() {
-        // Documented for completeness; see @Ignore message above.
+    fun `in turn Cancelled outcome maps to UserRequested`() = runTest(
+        UnconfinedTestDispatcher()
+    ) {
+        // To exercise AgentTurnRunner.executeTurn's `isTurnCancelled()` check
+        // (which fires AFTER capturePreTurnSnapshot returns), we let the screen
+        // capture itself complete the cancellation signal. The turn enters with
+        // shouldContinue()=true at the loop top, captures the screen, then sees
+        // cancellation and returns TurnOutcome.Cancelled — the very transition
+        // documented at agent_run_loop.md "Running (turn) -> UserRequested".
+        val cancellation = CompletableDeferred<AgentStopReason>()
+        val platform = CancellingCapturePlatform(cancellation)
+        // The LLM must never be invoked: planning is reached only if the
+        // cancellation gate fails to short-circuit the turn.
+        val llm = ProgrammableLLMClient(emptyList())
+        val agent = newAgent(
+            llm,
+            maxTurns = 5,
+            cancellationSignal = cancellation,
+            platform = platform
+        )
+
+        val reason = agent.run()
+
+        assertThat(reason).isEqualTo(AgentStopReason.UserRequested)
+        assertThat(platform.captureCount).isEqualTo(1)
+        assertThat(llm.callCount).isEqualTo(0) // confirms planning was skipped
     }
 
     // -------------------- Helpers --------------------
@@ -320,7 +340,8 @@ class AgentRunLoopTest {
         llm: LLMClient,
         maxTurns: Int,
         registerCompleteTask: Boolean = false,
-        cancellationSignal: CompletableDeferred<AgentStopReason> = CompletableDeferred()
+        cancellationSignal: CompletableDeferred<AgentStopReason> = CompletableDeferred(),
+        platform: AndroidPlatform = FakeAndroidPlatform()
     ): Agent {
         val toolRegistry = ToolRegistry().apply {
             if (registerCompleteTask) register(CompleteTaskTool())
@@ -341,7 +362,7 @@ class AgentRunLoopTest {
             sessionState = AgentSessionState(),
             policyEngine = policyEngine,
             appClassifier = AppClassifier(emptyMap()),
-            platform = FakeAndroidPlatform(),
+            platform = platform,
             config = sessionConfig,
             llmClient = llm,
             modelCatalog = testCatalog,
@@ -492,4 +513,29 @@ private class GatedLLMClient : LLMClient() {
             is LLMBehavior.Throw -> throw behavior.error
         }
     }
+}
+
+/**
+ * Platform whose [captureScreen] completes the agent's cancellation signal,
+ * exercising the `isTurnCancelled()` check inside `AgentTurnRunner.executeTurn`.
+ */
+private class CancellingCapturePlatform(
+    private val signal: CompletableDeferred<AgentStopReason>
+) : AndroidPlatform {
+    var captureCount: Int = 0
+        private set
+
+    override suspend fun captureScreen(): ScreenSnapshot {
+        captureCount += 1
+        signal.complete(AgentStopReason.UserRequested)
+        return ScreenSnapshot(timestamp = 0L, elements = emptyList())
+    }
+
+    override suspend fun performAction(action: UIAction): ActionResult = ActionResult.Success()
+    override fun hasRequiredPermissions(): Boolean = true
+    override fun getCurrentPackageName(): String? = "com.example.fake"
+    override fun getDisplayInfo(): DisplayInfo =
+        DisplayInfo(widthPixels = 1080, heightPixels = 1920, density = 2f)
+    override suspend fun getInstalledApps(): List<AppInfo> = emptyList()
+    override suspend fun launchApp(packageName: String): ActionResult = ActionResult.Success()
 }
