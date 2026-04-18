@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.junit.Test
@@ -240,27 +241,41 @@ class AgentSessionTest {
 
         @Test
         fun `takeover and resume events emitted in valid order`() = runTest {
-                // Long capture delay keeps agent busy so it can't confirm pause
-                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                // Drive a full Takeover -> Paused -> Resume cycle and assert event ordering.
+                val gatedLlm = GatedStreamingLLMClient()
+                val session = buildSession(
+                        scope = this,
+                        captureDelayMs = 0L,
+                        llmDelayMs = 0L,
+                        maxTurns = 5,
+                        llmClient = gatedLlm
+                )
                 val events = mutableListOf<AgentEvent>()
                 val job = launch { session.events.collect { events.add(it) } }
 
                 session.submit(Op.UserInput("goal"))
+                gatedLlm.streamStarted.await()
 
                 val takeoverJob = launch { session.submit(Op.Takeover) }
                 yield()
-
-                // State is TakeoverPending — agent hasn't confirmed pause yet
                 assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
-                // SessionTakeover must not be emitted until agent confirms
-                assertThat(events.filterIsInstance<SessionTakeover>()).isEmpty()
-                // SessionResumed never appears without SessionTakeover
-                assertThat(events.filterIsInstance<SessionResumed>()).isEmpty()
 
-                // Shutdown and verify invariant holds across all emitted events
-                takeoverJob.cancel()
+                gatedLlm.release(0)
+                runCurrent()
+                takeoverJob.join()
+                assertThat(session.state.value).isEqualTo(SessionState.Paused)
+
+                session.submit(Op.Resume)
+                yield()
+
+                gatedLlm.release(1)
                 session.submit(Op.Shutdown)
                 advanceUntilIdle()
+
+                val takeoverIdx = events.indexOfFirst { it is SessionTakeover }
+                val resumedIdx = events.indexOfFirst { it is SessionResumed }
+                assertThat(takeoverIdx).isAtLeast(0)
+                assertThat(resumedIdx).isGreaterThan(takeoverIdx)
 
                 events.forEachIndexed { idx, event ->
                         if (event is SessionResumed) {
@@ -411,6 +426,588 @@ class AgentSessionTest {
 
                 assertThat(result).isNull()
         }
+
+        // ===== FSM Transition Coverage =====
+        // Spec source: app/src/main/kotlin/ai/closepaw/protocol/SessionState.kt
+        // Guards live in AgentSession.handle*() — these tests exercise every valid
+        // transition and every guard rejection in the FSM.
+
+        // ---- Valid transitions ----
+
+        @Test
+        fun `created to shutdown direct without task`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                assertThat(session.state.value).isEqualTo(SessionState.Created)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+                assertThat(events.filterIsInstance<TaskStarted>()).isEmpty()
+                val completed = events.filterIsInstance<SessionCompleted>().single()
+                assertThat(completed.reason).isEqualTo(SessionEndReason.USER_STOPPED)
+
+                job.cancel()
+        }
+
+        @Test
+        fun `idle to running on followup user input`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("first"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.UserInput("second"))
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+                assertThat(events.filterIsInstance<TaskStarted>().map { it.input })
+                        .containsExactly("first", "second")
+                        .inOrder()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `running to idle on task completion`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceTimeBy(1_000L)
+
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+                assertThat(events.filterIsInstance<TaskCompleted>()).hasSize(1)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `running to takeover pending on takeover op`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val job = launch { session.events.collect { } }
+
+                session.submit(Op.UserInput("goal"))
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                takeoverJob.cancel()
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `paused to running via resume`() = runTest {
+                // Deterministic Paused arrival: a gated LLM holds turn 1 inside the
+                // streaming call. We submit Takeover (sets pauseState), release the
+                // gate to let turn 1 finish, then the agent loops, observes pauseState,
+                // confirms the pause, and handleTakeover transitions to Paused.
+                val gatedLlm = GatedStreamingLLMClient()
+                val session = buildSession(
+                        scope = this,
+                        captureDelayMs = 0L,
+                        llmDelayMs = 0L,
+                        maxTurns = 5,
+                        llmClient = gatedLlm
+                )
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                gatedLlm.streamStarted.await()
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                gatedLlm.release(0)         // turn 1 LLM completes
+                runCurrent()
+                takeoverJob.join()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Paused)
+                assertThat(events.filterIsInstance<SessionTakeover>()).hasSize(1)
+
+                session.submit(Op.Resume)
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+                assertThat(events.filterIsInstance<SessionResumed>()).hasSize(1)
+
+                gatedLlm.release(1)         // unblock turn 2 so agent can finish naturally
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `paused to shutdown allowed`() = runTest {
+                val gatedLlm = GatedStreamingLLMClient()
+                val session = buildSession(
+                        scope = this,
+                        captureDelayMs = 0L,
+                        llmDelayMs = 0L,
+                        maxTurns = 5,
+                        llmClient = gatedLlm
+                )
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                gatedLlm.streamStarted.await()
+
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                gatedLlm.release(0)
+                runCurrent()
+                takeoverJob.join()
+                assertThat(session.state.value).isEqualTo(SessionState.Paused)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+                val completed = events.filterIsInstance<SessionCompleted>().single()
+                assertThat(completed.reason).isEqualTo(SessionEndReason.USER_STOPPED)
+
+                job.cancel()
+        }
+
+        @Test
+        fun `takeover pending to shutdown allowed`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+                val completed = events.filterIsInstance<SessionCompleted>().single()
+                assertThat(completed.reason).isEqualTo(SessionEndReason.USER_STOPPED)
+
+                takeoverJob.cancel()
+                job.cancel()
+        }
+
+        // ---- Guard rejections ----
+
+        @Test
+        fun `userinput rejected after shutdown`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                session.submit(Op.UserInput("late"))
+                advanceUntilIdle()
+
+                assertThat(events.filterIsInstance<TaskStarted>()).isEmpty()
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+
+                job.cancel()
+        }
+
+        @Test
+        fun `userinput rejected while running`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("first"))
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+                session.submit(Op.UserInput("second"))
+                yield()
+                assertThat(events.filterIsInstance<TaskStarted>()).hasSize(1)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `userinput rejected while takeover pending`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("first"))
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                session.submit(Op.UserInput("second"))
+                yield()
+
+                assertThat(events.filterIsInstance<TaskStarted>()).hasSize(1)
+
+                takeoverJob.cancel()
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `resume rejected in created`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Resume)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Created)
+                assertThat(events.filterIsInstance<SessionResumed>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `resume rejected in running`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+                session.submit(Op.Resume)
+                yield()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+                assertThat(events.filterIsInstance<SessionResumed>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `resume rejected in idle`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.Resume)
+                yield()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+                assertThat(events.filterIsInstance<SessionResumed>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `resume rejected after shutdown`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                session.submit(Op.Resume)
+                advanceUntilIdle()
+
+                assertThat(events.filterIsInstance<SessionResumed>()).isEmpty()
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+
+                job.cancel()
+        }
+
+        @Test
+        fun `takeover rejected in created`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Takeover)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Created)
+                assertThat(events.filterIsInstance<SessionTakeover>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `takeover rejected in idle`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.Takeover)
+                yield()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+                assertThat(events.filterIsInstance<SessionTakeover>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `takeover rejected after shutdown`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                session.submit(Op.Takeover)
+                advanceUntilIdle()
+
+                assertThat(events.filterIsInstance<SessionTakeover>()).isEmpty()
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+
+                job.cancel()
+        }
+
+        @Test
+        fun `interrupt rejected in created`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val job = launch { session.events.collect { } }
+
+                session.submit(Op.Interrupt)
+                advanceUntilIdle()
+                assertThat(session.state.value).isEqualTo(SessionState.Created)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `interrupt rejected in idle`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val job = launch { session.events.collect { } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.Interrupt)
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `interrupt rejected after shutdown`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val job = launch { session.events.collect { } }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                session.submit(Op.Interrupt)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+                job.cancel()
+        }
+
+        @Test
+        fun `interrupt from running yields idle with user stopped task completed`() = runTest {
+                val gatedLlm = GatedStreamingLLMClient()
+                val session = buildSession(
+                        scope = this,
+                        captureDelayMs = 0L,
+                        llmDelayMs = 0L,
+                        llmClient = gatedLlm
+                )
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                gatedLlm.streamStarted.await()
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+                session.submit(Op.Interrupt)
+                // Stay below the 300_000ms idle timeout while letting cancellation
+                // propagate through the runner -> completions channel -> handleAgentComplete.
+                advanceTimeBy(1_000L)
+                runCurrent()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+                val completed = events.filterIsInstance<TaskCompleted>().single()
+                assertThat(completed.outcome).isEqualTo(TaskOutcome.USER_STOPPED)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `interrupt from takeover pending yields idle with user stopped task completed`() = runTest {
+                val gatedLlm = GatedStreamingLLMClient()
+                val session = buildSession(
+                        scope = this,
+                        captureDelayMs = 0L,
+                        llmDelayMs = 0L,
+                        maxTurns = 5,
+                        llmClient = gatedLlm
+                )
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                gatedLlm.streamStarted.await()
+
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                session.submit(Op.Interrupt)
+                advanceTimeBy(1_000L)
+                runCurrent()
+                takeoverJob.cancel()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+                val completed = events.filterIsInstance<TaskCompleted>().single()
+                assertThat(completed.outcome).isEqualTo(TaskOutcome.USER_STOPPED)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `supplement accepted in running and emits event`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+                session.submit(Op.Supplement("hint"))
+                yield()
+
+                val supp = events.filterIsInstance<SupplementReceived>().single()
+                assertThat(supp.text).isEqualTo("hint")
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `supplement accepted in takeover pending and emits event`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                session.submit(Op.Supplement("hint"))
+                yield()
+
+                val supp = events.filterIsInstance<SupplementReceived>().single()
+                assertThat(supp.text).isEqualTo("hint")
+
+                takeoverJob.cancel()
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `supplement rejected in created`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Supplement("hint"))
+                advanceUntilIdle()
+
+                assertThat(events.filterIsInstance<SupplementReceived>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `supplement rejected in idle`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.Supplement("hint"))
+                yield()
+
+                assertThat(events.filterIsInstance<SupplementReceived>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `supplement rejected after shutdown`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                session.submit(Op.Supplement("hint"))
+                advanceUntilIdle()
+
+                assertThat(events.filterIsInstance<SupplementReceived>()).isEmpty()
+                job.cancel()
+        }
 }
 
 private fun buildSession(
@@ -503,5 +1100,53 @@ private class FailingStreamingSessionTestLLMClient : LLMClient() {
                 trySend(LLMStreamEvent.Failed("synthetic stream failure"))
                 close(RuntimeException("synthetic stream failure"))
                 awaitClose {}
+        }
+}
+
+/**
+ * LLM whose streaming flow blocks on a per-call [kotlinx.coroutines.CompletableDeferred]
+ * gate, allowing tests to deterministically hold the agent inside a turn until
+ * release. [streamStarted] resolves the first time a stream is collected so the
+ * test can synchronize.
+ */
+private class GatedStreamingLLMClient : LLMClient() {
+        val streamStarted = kotlinx.coroutines.CompletableDeferred<Unit>()
+        private val gates = mutableListOf<kotlinx.coroutines.CompletableDeferred<Unit>>()
+        private var callIndex = 0
+
+        @Synchronized
+        private fun nextGate(): kotlinx.coroutines.CompletableDeferred<Unit> {
+                val idx = callIndex++
+                while (gates.size <= idx) gates.add(kotlinx.coroutines.CompletableDeferred())
+                return gates[idx]
+        }
+
+        @Synchronized
+        fun release(callIndex: Int = 0) {
+                while (gates.size <= callIndex) gates.add(kotlinx.coroutines.CompletableDeferred())
+                gates[callIndex].complete(Unit)
+        }
+
+        override suspend fun chatWithTools(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+        ): ResponsesResult = ResponsesResult(textContent = "done", toolCalls = emptyList(), responseId = "resp")
+
+        override fun chatWithToolsStreaming(
+                systemPrompt: String,
+                inputItems: List<ResponseInputItem>,
+                tools: List<FunctionTool>,
+                model: String
+        ): Flow<LLMStreamEvent> = flow {
+                val gate = nextGate()
+                if (!streamStarted.isCompleted) streamStarted.complete(Unit)
+                gate.await()
+                // Intentionally emit no TextDelta so the turn does NOT mark itself
+                // complete (TurnToolPolicy treats text-only output as goal-achieved).
+                // This keeps the agent in a Continue loop so we can deterministically
+                // observe the pause confirmation path.
+                emit(LLMStreamEvent.Completed)
         }
 }
