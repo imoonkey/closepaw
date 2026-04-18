@@ -18,7 +18,7 @@ sealed interface OpenAiSignInResult {
  * Run the full OpenAI OAuth sign-in sequence as a suspend function.
  *
  * Steps: PKCE generation -> callback server start -> browser launch ->
- * callback wait -> auth-code exchange -> Codex validation -> cleanup.
+ * callback wait -> auth-code exchange -> cleanup.
  *
  * [launchBrowser] is called with the authorization URL; the host is
  * responsible for opening it (e.g. via an Activity intent or effect channel).
@@ -67,15 +67,10 @@ suspend fun openAiSignIn(
                         OpenAiSignInResult.Error(exchange.message)
                     }
                     is OAuthTokenExchange.Result.Success -> {
-                        // 6. Validate against Codex backend
-                        val validation = OAuthCodexValidator.validate(exchange.tokens.accessToken)
-                        if (validation is OAuthCodexValidator.Result.Invalid) {
-                            Log.w(TAG, "Codex validation failed: ${validation.message}")
-                            OpenAiSignInResult.Error(validation.message)
-                        } else {
-                            Log.d(TAG, "Sign-in complete")
-                            OpenAiSignInResult.Success(exchange.tokens)
-                        }
+                        // Skip Codex backend validation here — Run Demo (step 5) exercises a
+                        // real LLM call; a separate validation adds 5-15s of SSE wait for no gain.
+                        Log.d(TAG, "Sign-in complete")
+                        OpenAiSignInResult.Success(exchange.tokens)
                     }
                 }
             }

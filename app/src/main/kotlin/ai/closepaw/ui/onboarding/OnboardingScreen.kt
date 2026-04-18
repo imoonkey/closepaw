@@ -26,6 +26,9 @@ fun OnboardingScreen(
     outcomes: StepOutcomes,
     selectedProvider: OnboardingProvider,
     authMethod: ApiKeyAuthMethod,
+    accessibilityGranted: Boolean,
+    overlayGranted: Boolean,
+    batteryGranted: Boolean,
     effects: Flow<OnboardingEffect>,
     onBack: () -> Unit,
     onContinue: () -> Unit,
@@ -146,6 +149,9 @@ fun OnboardingScreen(
             CompleteStepContent(
                 outcomes = outcomes,
                 authMethod = authMethod,
+                accessibilityGranted = accessibilityGranted,
+                overlayGranted = overlayGranted,
+                batteryGranted = batteryGranted,
                 onFinish = onFinish
             )
         }

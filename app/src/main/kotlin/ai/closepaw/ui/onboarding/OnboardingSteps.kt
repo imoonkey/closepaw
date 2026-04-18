@@ -578,6 +578,9 @@ fun DemoStepContent(
 fun CompleteStepContent(
     outcomes: StepOutcomes,
     authMethod: ApiKeyAuthMethod,
+    accessibilityGranted: Boolean,
+    overlayGranted: Boolean,
+    batteryGranted: Boolean,
     onFinish: () -> Unit
 ) {
     Column(
@@ -603,10 +606,11 @@ fun CompleteStepContent(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Checklist
-        OutcomeRow("Accessibility service", outcomes.accessibility)
-        OutcomeRow("Display overlay", outcomes.overlay)
-        OutcomeRow("Battery optimization", outcomes.battery)
+        // Checklist — permission rows reflect live state (auto-skipped steps
+        // never write StepOutcome.Done, so reading `outcomes` here would lie).
+        LiveStatusRow("Accessibility service", accessibilityGranted)
+        LiveStatusRow("Display overlay", overlayGranted)
+        LiveStatusRow("Battery optimization", batteryGranted)
         val apiKeyLabel = if (authMethod == ApiKeyAuthMethod.OAUTH) "Signed in with OpenAI"
             else "API key verified"
         OutcomeRow(apiKeyLabel, outcomes.apiKey)
@@ -695,6 +699,34 @@ private fun SuccessButton(text: String) {
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(text)
+    }
+}
+
+@Composable
+private fun LiveStatusRow(label: String, granted: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp, horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val (icon, tint) = if (granted) {
+            Icons.Filled.Check to MaterialTheme.colorScheme.secondary
+        } else {
+            Icons.Filled.Close to MaterialTheme.colorScheme.error
+        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = tint
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
     }
 }
 

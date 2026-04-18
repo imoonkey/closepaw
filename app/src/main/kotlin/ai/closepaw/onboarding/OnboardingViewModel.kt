@@ -458,9 +458,9 @@ class OnboardingViewModel(
 
     // ── Permission checks (delegate to monitor) ──
 
-    private fun isAccessibilityEnabled(): Boolean = permissionMonitor.isAccessibilityEnabled()
-    private fun isOverlayEnabled(): Boolean = permissionMonitor.isOverlayEnabled()
-    private fun isBatteryOptimized(): Boolean = permissionMonitor.isBatteryOptimized()
+    fun isAccessibilityEnabled(): Boolean = permissionMonitor.isAccessibilityEnabled()
+    fun isOverlayEnabled(): Boolean = permissionMonitor.isOverlayEnabled()
+    fun isBatteryOptimized(): Boolean = permissionMonitor.isBatteryOptimized()
 
     // ── Settings/catalog integration ──
 
