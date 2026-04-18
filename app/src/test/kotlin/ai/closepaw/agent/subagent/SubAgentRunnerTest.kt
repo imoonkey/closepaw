@@ -211,7 +211,7 @@ private fun buildServices(
         val policyEngine = PolicyEngine(appClassifier = AppClassifier(emptyMap()))
         val testCatalog =
                 ModelCatalog.fromJson(
-                        """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+                        """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""
                 )
         return SessionServices(
                 toolRegistry = toolRegistry,

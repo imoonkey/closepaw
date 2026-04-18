@@ -13,13 +13,13 @@ class ModelCatalogTest {
         {
           "gpt-5.2": {
             "display_name": "GPT-5.2",
-            "provider": "OPENAI",
+            "provider":"OPENAI_API",
             "api": "response",
             "model_id": "gpt-5.2"
           },
           "gpt-5.2-chat": {
             "display_name": "GPT-5.2 (Chat API)",
-            "provider": "OPENAI",
+            "provider":"OPENAI_API",
             "api": "chat",
             "model_id": "gpt-5.2"
           },
@@ -48,7 +48,7 @@ class ModelCatalogTest {
 
         assertEquals("gpt-5.2", entry.name)
         assertEquals("GPT-5.2", entry.displayName)
-        assertEquals(LLMProvider.OPENAI, entry.provider)
+        assertEquals(LLMProvider.OPENAI_API, entry.provider)
         assertEquals(ApiType.RESPONSE, entry.api)
         assertEquals("gpt-5.2", entry.modelId)
         assertNull(entry.baseUrl)
@@ -62,7 +62,7 @@ class ModelCatalogTest {
         val entry = catalog.resolve("gpt-5.2-chat")
 
         assertEquals(ApiType.CHAT, entry.api)
-        assertEquals(LLMProvider.OPENAI, entry.provider)
+        assertEquals(LLMProvider.OPENAI_API, entry.provider)
         assertEquals("gpt-5.2", entry.modelId)
     }
 
@@ -136,7 +136,7 @@ class ModelCatalogTest {
             {
               "custom": {
                 "display_name": "Custom",
-                "provider": "OPENAI",
+                "provider":"OPENAI_API",
                 "api": "chat",
                 "model_id": "custom-model",
                 "api_key_env": "MY_CUSTOM_KEY"
@@ -163,7 +163,7 @@ class ModelCatalogTest {
             {
               "local": {
                 "display_name": "Local vLLM",
-                "provider": "OPENAI",
+                "provider":"OPENAI_API",
                 "api": "chat",
                 "model_id": "my-model",
                 "base_url": "http://localhost:8000/v1"
@@ -201,7 +201,7 @@ class ModelCatalogTest {
             {
               "bad": {
                 "display_name": "Bad",
-                "provider": "OPENAI",
+                "provider":"OPENAI_API",
                 "api": "graphql",
                 "model_id": "bad"
               }
@@ -221,7 +221,7 @@ class ModelCatalogTest {
             {
               "no-vision": {
                 "display_name": "No Vision",
-                "provider": "OPENAI",
+                "provider":"OPENAI_API",
                 "api": "chat",
                 "model_id": "text-only",
                 "supports_vision": false
@@ -238,13 +238,13 @@ class ModelCatalogTest {
         {
           "gpt-5.2": {
             "display_name": "GPT-5.2",
-            "provider": "OPENAI",
+            "provider":"OPENAI_API",
             "api": "response",
             "model_id": "gpt-5.2"
           },
           "gpt-5.2-chat": {
             "display_name": "GPT-5.2 (Chat)",
-            "provider": "OPENAI",
+            "provider":"OPENAI_API",
             "api": "chat",
             "model_id": "gpt-5.2"
           },
@@ -266,10 +266,10 @@ class ModelCatalogTest {
     @Test
     fun `modelsFor OPENAI returns only OpenAI models`() {
         val catalog = ModelCatalog.fromJson(multiProviderJson)
-        val models = catalog.modelsFor(LLMProvider.OPENAI)
+        val models = catalog.modelsFor(LLMProvider.OPENAI_API)
 
         assertEquals(2, models.size)
-        assertTrue(models.all { it.provider == LLMProvider.OPENAI })
+        assertTrue(models.all { it.provider == LLMProvider.OPENAI_API })
         assertEquals(listOf("gpt-5.2", "gpt-5.2-chat"), models.map { it.name })
     }
 
@@ -294,7 +294,7 @@ class ModelCatalogTest {
     @Test
     fun `modelsFor with api filter returns only matching api type`() {
         val catalog = ModelCatalog.fromJson(multiProviderJson)
-        val responseModels = catalog.modelsFor(LLMProvider.OPENAI, ApiType.RESPONSE)
+        val responseModels = catalog.modelsFor(LLMProvider.OPENAI_API, ApiType.RESPONSE)
 
         assertEquals(1, responseModels.size)
         assertEquals("gpt-5.2", responseModels[0].name)
@@ -304,7 +304,7 @@ class ModelCatalogTest {
     @Test
     fun `modelsFor OPENAI CHAT excludes RESPONSE models`() {
         val catalog = ModelCatalog.fromJson(multiProviderJson)
-        val chatModels = catalog.modelsFor(LLMProvider.OPENAI, ApiType.CHAT)
+        val chatModels = catalog.modelsFor(LLMProvider.OPENAI_API, ApiType.CHAT)
 
         assertEquals(1, chatModels.size)
         assertEquals("gpt-5.2-chat", chatModels[0].name)
@@ -313,7 +313,7 @@ class ModelCatalogTest {
     @Test
     fun `preferredModelFor returns first matching model`() {
         val catalog = ModelCatalog.fromJson(multiProviderJson)
-        val preferred = catalog.preferredModelFor(LLMProvider.OPENAI)
+        val preferred = catalog.preferredModelFor(LLMProvider.OPENAI_API)
 
         assertNotNull(preferred)
         assertEquals("gpt-5.2", preferred!!.name)
@@ -322,7 +322,7 @@ class ModelCatalogTest {
     @Test
     fun `preferredModelFor with api filter returns first matching`() {
         val catalog = ModelCatalog.fromJson(multiProviderJson)
-        val preferred = catalog.preferredModelFor(LLMProvider.OPENAI, ApiType.RESPONSE)
+        val preferred = catalog.preferredModelFor(LLMProvider.OPENAI_API, ApiType.RESPONSE)
 
         assertNotNull(preferred)
         assertEquals("gpt-5.2", preferred!!.name)
@@ -343,7 +343,7 @@ class ModelCatalogTest {
             {
               "model-a": {
                 "display_name": "A",
-                "provider": "OPENAI",
+                "provider":"OPENAI_API",
                 "api": "response",
                 "model_id": "a"
               }
@@ -360,7 +360,7 @@ class ModelCatalogTest {
     fun `withBaseUrlOverrides applies override to provider without entry baseUrl`() {
         val catalog = ModelCatalog.fromJson(multiProviderJson)
         val overridden = catalog.withBaseUrlOverrides(
-                mapOf(LLMProvider.OPENAI to "http://localhost:8000/v1")
+                mapOf(LLMProvider.OPENAI_API to "http://localhost:8000/v1")
         )
         val entry = overridden.resolve("gpt-5.2")
 
@@ -373,7 +373,7 @@ class ModelCatalogTest {
             {
               "custom": {
                 "display_name": "Custom",
-                "provider": "OPENAI",
+                "provider":"OPENAI_API",
                 "api": "chat",
                 "model_id": "custom",
                 "base_url": "http://custom.example.com/v1"
@@ -382,7 +382,7 @@ class ModelCatalogTest {
         """.trimIndent()
         val catalog = ModelCatalog.fromJson(json)
         val overridden = catalog.withBaseUrlOverrides(
-                mapOf(LLMProvider.OPENAI to "http://localhost:8000/v1")
+                mapOf(LLMProvider.OPENAI_API to "http://localhost:8000/v1")
         )
         val entry = overridden.resolve("custom")
 
@@ -410,7 +410,7 @@ class ModelCatalogTest {
             {
               "bad": {
                 "display_name": "Bad",
-                "provider": "OPENAI",
+                "provider":"OPENAI_API",
                 "api": "chat",
                 "model_id": "  "
               }
@@ -424,7 +424,7 @@ class ModelCatalogTest {
             {
               "model": {
                 "display_name": "Model",
-                "provider": "OPENAI",
+                "provider":"OPENAI_API",
                 "api": "response",
                 "model_id": "m",
                 "future_field": "should be ignored"

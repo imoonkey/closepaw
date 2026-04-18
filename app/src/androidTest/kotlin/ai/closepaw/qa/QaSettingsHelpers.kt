@@ -15,8 +15,8 @@ import androidx.compose.runtime.Composable
 internal fun testModelCatalog(): ModelCatalog = ModelCatalog.fromJson(
     """
     {
-      "gpt-5.2": {"display_name": "GPT-5.2", "provider": "OPENAI", "api": "response", "model_id": "gpt-5.2"},
-      "gpt-5.2-chat": {"display_name": "GPT-5.2 (Chat API)", "provider": "OPENAI", "api": "chat", "model_id": "gpt-5.2"},
+      "gpt-5.2": {"display_name": "GPT-5.2", "provider":"OPENAI_API", "api": "response", "model_id": "gpt-5.2"},
+      "gpt-5.2-chat": {"display_name": "GPT-5.2 (Chat API)", "provider":"OPENAI_API", "api": "chat", "model_id": "gpt-5.2"},
       "glm-5": {"display_name": "GLM-5", "provider": "OPENROUTER", "api": "chat", "model_id": "z-ai/glm-5"},
       "autoglm": {"display_name": "AutoGLM", "provider": "NOVITA", "api": "chat", "model_id": "zai-org/autoglm"}
     }
@@ -31,7 +31,6 @@ internal fun testModelCatalog(): ModelCatalog = ModelCatalog.fromJson(
 internal fun TestSettingsSheet(
     llmBackend: LLMBackendType = LLMBackendType.OPENAI,
     selectedModel: String = "gpt-5.2",
-    authMethod: String? = null,
     agentMode: AgentMode = AgentMode.BASIC,
     onDismiss: () -> Unit = {},
 ) {
@@ -46,14 +45,6 @@ internal fun TestSettingsSheet(
         selectedLocalModel = "LFM2.5-1.2B-Instruct",
         onLocalModelChange = {},
         modelLoadingStatus = ModelLoadingStatus.Idle,
-        authMethod = authMethod,
-        onAuthMethodChange = {},
-        openAiApiKey = "",
-        onOpenAiApiKeyChange = {},
-        openRouterApiKey = "",
-        onOpenRouterApiKeyChange = {},
-        novitaApiKey = "",
-        onNovitaApiKeyChange = {},
         maxTurns = 20,
         onMaxTurnsChange = {},
         agentMode = agentMode,
@@ -83,8 +74,6 @@ internal fun TestSettingsSheet(
 internal fun TestLlmAuthPage(
     llmBackend: LLMBackendType = LLMBackendType.OPENAI,
     onBackendChange: (LLMBackendType) -> Unit = {},
-    authMethod: String? = null,
-    onAuthMethodChange: (String?) -> Unit = {},
     selectedModel: String = "gpt-5.2",
     onModelChange: (String) -> Unit = {},
     selectedExecutorModel: String? = null,
@@ -98,8 +87,6 @@ internal fun TestLlmAuthPage(
     LlmAuthSettingsPage(
         llmBackend = llmBackend,
         onBackendChange = onBackendChange,
-        authMethod = authMethod,
-        onAuthMethodChange = onAuthMethodChange,
         selectedModel = selectedModel,
         onModelChange = onModelChange,
         modelCatalog = testModelCatalog(),
@@ -109,12 +96,6 @@ internal fun TestLlmAuthPage(
         selectedLocalModel = selectedLocalModel,
         onLocalModelChange = onLocalModelChange,
         modelLoadingStatus = ModelLoadingStatus.Idle,
-        openAiApiKey = "",
-        onOpenAiApiKeyChange = {},
-        openRouterApiKey = "",
-        onOpenRouterApiKeyChange = {},
-        novitaApiKey = "",
-        onNovitaApiKeyChange = {},
         openAiAuthUiState = openAiAuthUiState,
         onStartOAuth = onStartOAuth,
         onCancelOAuth = {},

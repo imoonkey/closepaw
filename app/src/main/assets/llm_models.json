@@ -1,14 +1,20 @@
 {
   "gpt-5.2": {
     "display_name": "GPT-5.2",
-    "provider": "OPENAI",
+    "provider": "OPENAI_API",
     "api": "response",
     "model_id": "gpt-5.2"
   },
   "gpt-5.2-chat": {
     "display_name": "GPT-5.2 (Chat API)",
-    "provider": "OPENAI",
+    "provider": "OPENAI_API",
     "api": "chat",
+    "model_id": "gpt-5.2"
+  },
+  "gpt-5.2-codex": {
+    "display_name": "GPT-5.2 (ChatGPT sign-in)",
+    "provider": "OPENAI_CODEX",
+    "api": "response",
     "model_id": "gpt-5.2"
   },
   "glm-5": {
@@ -49,14 +55,20 @@
   },
   "gpt-5.4": {
     "display_name": "GPT-5.4",
-    "provider": "OPENAI",
+    "provider": "OPENAI_API",
     "api": "response",
     "model_id": "gpt-5.4"
   },
   "gpt-5.4-chat": {
     "display_name": "GPT-5.4 (Chat API)",
-    "provider": "OPENAI",
+    "provider": "OPENAI_API",
     "api": "chat",
+    "model_id": "gpt-5.4"
+  },
+  "gpt-5.4-codex": {
+    "display_name": "GPT-5.4 (ChatGPT sign-in)",
+    "provider": "OPENAI_CODEX",
+    "api": "response",
     "model_id": "gpt-5.4"
   }
 }

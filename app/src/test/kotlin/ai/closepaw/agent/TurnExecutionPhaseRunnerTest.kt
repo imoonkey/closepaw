@@ -182,7 +182,7 @@ private class TestHarness(
             }
             val toolRouter = ToolRouter(registry, policyEngine)
             val catalog = ModelCatalog.fromJson(
-                """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+                """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""
             )
             val sessionConfig = SessionConfig(
                 maxTurns = 1,
@@ -200,7 +200,7 @@ private class TestHarness(
                 config = sessionConfig,
                 llmClient = mockk(relaxed = true),
                 modelCatalog = catalog,
-                llmClientFactory = LLMClientFactory(catalog = catalog, apiKeyResolver = { null }),
+                llmClientFactory = LLMClientFactory(catalog = catalog, authStore = null),
                 traceRecorder = NoopTraceRecorder,
                 recordingService = mockk(relaxed = true)
             )

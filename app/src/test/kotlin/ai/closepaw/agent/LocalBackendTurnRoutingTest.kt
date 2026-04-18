@@ -34,7 +34,7 @@ class LocalBackendTurnRoutingTest {
                 val localClient = LocalBackendTestLLMClient()
                 val catalog =
                         ModelCatalog.fromJson(
-                                """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}"""
+                                """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}"""
                         )
 
                 val sessionConfig =
@@ -60,7 +60,7 @@ class LocalBackendTurnRoutingTest {
                                 llmClientFactory =
                                         LLMClientFactory(
                                                 catalog = catalog,
-                                                apiKeyResolver = { null }
+                                                authStore = null
                                         ),
                                 traceRecorder = NoopTraceRecorder,
                                 recordingService = io.mockk.mockk(relaxed = true)

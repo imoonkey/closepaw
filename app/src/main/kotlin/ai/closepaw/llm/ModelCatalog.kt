@@ -19,35 +19,6 @@ enum class ApiType {
 }
 
 /**
- * LLM provider — determines default API key env var and base URL.
- *
- * Adding a new provider is a two-line change:
- * 1. Add the enum value here with its defaults.
- * 2. Add entries to `llm_models.json`.
- */
-enum class LLMProvider(val defaultApiKeyEnv: String, val defaultBaseUrl: String?) {
-    /** OpenAI — api.openai.com */
-    OPENAI(defaultApiKeyEnv = "OPENAI_API_KEY", defaultBaseUrl = null),
-
-    /** OpenRouter — openrouter.ai (aggregates many model providers) */
-    OPENROUTER(
-            defaultApiKeyEnv = "OPENROUTER_API_KEY",
-            defaultBaseUrl = "https://openrouter.ai/api/v1"
-    ),
-
-    /** Novita — api.novita.ai */
-    NOVITA(defaultApiKeyEnv = "NOVITA_API_KEY", defaultBaseUrl = "https://api.novita.ai/openai/v1")
-}
-
-/** Human-readable label for UI display. */
-val LLMProvider.displayLabel: String
-    get() = when (this) {
-        LLMProvider.OPENAI -> "OpenAI"
-        LLMProvider.OPENROUTER -> "OpenRouter"
-        LLMProvider.NOVITA -> "Novita"
-    }
-
-/**
  * One model entry from `llm_models.json`.
  *
  * Intentionally flat — no inheritance, no generics, no builder patterns. All fields are resolved at
@@ -126,6 +97,17 @@ class ModelCatalog private constructor(private val entries: Map<String, ModelEnt
     /** First (preferred) model for a given provider/API type, or null if none match. */
     fun preferredModelFor(provider: LLMProvider, api: ApiType? = null): ModelEntry? =
             modelsFor(provider, api).firstOrNull()
+
+    /**
+     * Default model key for a provider — the first catalog entry whose provider matches.
+     *
+     * @throws IllegalArgumentException if no entry exists for [provider].
+     */
+    fun defaultModel(provider: LLMProvider): String =
+            preferredModelFor(provider)?.name
+                    ?: throw IllegalArgumentException(
+                            "No catalog entry for provider $provider"
+                    )
 
     /**
      * Return a new catalog with provider-level base URL overrides applied.

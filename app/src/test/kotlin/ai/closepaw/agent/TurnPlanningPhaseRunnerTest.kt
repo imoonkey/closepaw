@@ -124,7 +124,7 @@ class TurnPlanningPhaseRunnerTest {
     @Test
     fun `model resolution selects correct model for planning phase`() = runTest {
         val catalogJson =
-            """{"planner":{"display_name":"Planner","provider":"OPENAI","api":"response","model_id":"planner-actual-id"}}"""
+            """{"planner":{"display_name":"Planner","provider":"OPENAI_API","api":"response","model_id":"planner-actual-id"}}"""
         val harness = PlanningHarness.build(
             catalogJson = catalogJson,
             modelName = "planner"
@@ -154,7 +154,7 @@ private class PlanningHarness(
             toolCalls: List<LLMToolCall> = emptyList(),
             textContent: String? = null,
             catalogJson: String =
-                """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI","api":"response","model_id":"gpt-5.2"}}""",
+                """{"gpt-5.2":{"display_name":"GPT-5.2","provider":"OPENAI_API","api":"response","model_id":"gpt-5.2"}}""",
             modelName: String = "gpt-5.2"
         ): PlanningHarness {
             val events = CopyOnWriteArrayList<AgentEvent>()
