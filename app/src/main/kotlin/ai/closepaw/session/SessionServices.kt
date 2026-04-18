@@ -191,49 +191,44 @@ class SessionServices internal constructor(
     }
 
     /**
-     * Cleanup all services.
-     *
-     * Should be called when the session is ending.
+     * Cleanup all services. Aggregates per-step failures rather than aborting,
+     * so callers can surface partial teardown errors.
      */
-    suspend fun cleanup() {
+    suspend fun cleanup(): CleanupResult {
         Log.d(TAG, "Cleaning up SessionServices...")
 
-        // Cancel any pending tool calls
         toolRouter.cancelAll()
-
-        // Cancel any pending ask_user request
         userResponseChannel.cancel()
-
-        // Clear history
         historyManager.clear()
 
-        // Release platform resources (VirtualDisplayPlatform releases display here).
-        try {
-            platform.stop()
-        } catch (e: Exception) {
-            Log.w(TAG, "Platform stop failed (non-fatal)", e)
-        }
-
-        // Release LLM resources (especially important for local models)
-        try {
-            llmClient.cleanup()
-        } catch (e: Exception) {
-            Log.w(TAG, "LLM client cleanup failed (non-fatal)", e)
-        }
-
-        try {
-            llmClientFactory.cleanupAll()
-        } catch (e: Exception) {
-            Log.w(TAG, "LLM client factory cleanup failed (non-fatal)", e)
-        }
-
+        val failures = mutableListOf<CleanupFailure>()
+        runStep("platform.stop", failures) { platform.stop() }
+        runStep("llmClient.cleanup", failures) { llmClient.cleanup() }
+        runStep("llmClientFactory.cleanupAll", failures) { llmClientFactory.cleanupAll() }
         // Flush/close trace last so we still capture teardown artifacts if needed
-        try {
-            traceRecorder.close()
-        } catch (e: Exception) {
-            Log.w(TAG, "Trace recorder close failed (non-fatal)", e)
-        }
+        runStep("traceRecorder.close", failures) { traceRecorder.close() }
 
-        Log.i(TAG, "SessionServices cleaned up")
+        Log.i(TAG, "SessionServices cleaned up (failures=${failures.size})")
+        return if (failures.isEmpty()) CleanupResult.Success else CleanupResult.PartialFailure(failures)
     }
+
+    private suspend inline fun runStep(
+        name: String,
+        failures: MutableList<CleanupFailure>,
+        block: () -> Unit
+    ) {
+        try {
+            block()
+        } catch (e: Exception) {
+            Log.w(TAG, "$name failed (non-fatal)", e)
+            failures.add(CleanupFailure(name, e))
+        }
+    }
+}
+
+data class CleanupFailure(val step: String, val cause: Throwable)
+
+sealed class CleanupResult {
+    object Success : CleanupResult()
+    data class PartialFailure(val failures: List<CleanupFailure>) : CleanupResult()
 }
