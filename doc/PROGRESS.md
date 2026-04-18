@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-04-18: Characterization tests — LFMLLMClient model loading FSM
+
+**What changed:**
+- New JVM unit test `ai.closepaw.llm.LFMLLMClientTest` (11 tests) characterizing every transition and guard in `doc/main/state_machines/local_model_loading.md`: NotLoaded→Downloading→Loading→Ready, Downloading/Loading→Error (rethrow), Error→Downloading retry, Ready→NotLoaded via `cleanup()`, idempotency guard when `modelRunner != null`, `"Unknown error"` fallback, strict `onProgress` ordering.
+- Uses `mockkConstructor(LeapDownloader::class)` to capture the progress lambda and drive `ProgressData(bytes, total)` events; `ModelRunner` is a relaxed mock; `Context.filesDir` returns a tmp dir.
+
+**Why:**
+- Locks in the FSM doc as executable spec so future refactors of `LFMLLMClient.loadModelLocked` cannot silently regress state ordering, the `progress >= 1f` Loading boundary, the post-error retry path, or the `modelRunner != null` early-return guard.
+
+**Key files:** `app/src/test/kotlin/ai/closepaw/llm/LFMLLMClientTest.kt`.
+**Verification:** `./gradlew :app:testDebugUnitTest --tests 'ai.closepaw.llm.LFMLLMClientTest'` (11/11 green); full `:app:testDebugUnitTest` suite green. No production code changed (`git diff` shows only the new test file).
+**Commit:** c22de8b2.
+**Next:** None.
+**Blockers:** None.
+
 ## 2026-04-18: auth-setting-cleanup milestone — single AuthStore, flat LLMProvider
 
 **What changed:**
