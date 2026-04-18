@@ -18,7 +18,6 @@ import ai.closepaw.ui.chat.SettingsDeepLink
 import ai.closepaw.ui.chat.SettingsPage as DeepLinkPage
 import ai.closepaw.ui.onboarding.PermissionRepairCard
 import ai.closepaw.ui.settings.OpenAiAuthUiState
-import ai.closepaw.ui.settings.ModelLoadingStatus
 import ai.closepaw.ui.settings.SettingsPage
 import ai.closepaw.ui.settings.SettingsSheet
 import ai.closepaw.ui.theme.ChatTheme
@@ -98,20 +97,14 @@ internal fun MainActivityContent(
             ) {
                 SettingsSheet(
                     llmBackend = settingsState.llmBackend,
-                    onBackendChange = {
-                        settingsState.updateBackend(it)
-                        modelLoadingStatusHolder.update(ModelLoadingStatus.Idle)
-                    },
+                    onBackendChange = modelLoadingStatusHolder::updateBackend,
                     selectedModel = settingsState.selectedModel,
                     onModelChange = settingsState::updateModel,
                     modelCatalog = modelCatalog,
                     selectedExecutorModel = settingsState.executorModel,
                     onExecutorModelChange = settingsState::updateExecutorModel,
                     selectedLocalModel = settingsState.selectedLocalModelId,
-                    onLocalModelChange = {
-                        settingsState.updateLocalModel(it)
-                        modelLoadingStatusHolder.update(ModelLoadingStatus.Idle)
-                    },
+                    onLocalModelChange = modelLoadingStatusHolder::updateLocalModel,
                     modelLoadingStatus = modelLoadingStatusHolder.status,
                     maxTurns = settingsState.maxTurns,
                     onMaxTurnsChange = settingsState::updateMaxTurns,

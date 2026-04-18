@@ -24,6 +24,7 @@ internal data class MainActivityIntentApplyResult(
 internal suspend fun applyIntentPayloadToSettings(
     payload: MainActivityIntentPayload,
     settingsState: AppSettingsState,
+    modelLoadingStatusHolder: ModelLoadingStatusHolder,
     authStore: AuthStore,
     isDebugBuild: Boolean,
     currentPendingTraceEnabled: Boolean?,
@@ -59,7 +60,7 @@ internal suspend fun applyIntentPayloadToSettings(
         log("OpenAI base URL override set from intent: $url")
     }
     payload.backendType?.let {
-        settingsState.updateBackend(it)
+        modelLoadingStatusHolder.updateBackend(it)
         log("LLM backend set from intent: $it")
     }
     payload.agentMode?.let {

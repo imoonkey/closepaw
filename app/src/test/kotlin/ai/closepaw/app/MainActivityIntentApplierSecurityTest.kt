@@ -14,6 +14,7 @@ import org.junit.Test
 class MainActivityIntentApplierSecurityTest {
 
     private val settingsState = AppSettingsState(mockk(relaxed = true))
+    private val modelLoadingStatusHolder = ModelLoadingStatusHolder(settingsState)
     private val authStore = AuthStore(mockk(relaxed = true))
 
     @Test
@@ -41,6 +42,7 @@ class MainActivityIntentApplierSecurityTest {
         val result = applyIntentPayloadToSettings(
             payload = payload,
             settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
             authStore = authStore,
             isDebugBuild = false,
             currentPendingTraceEnabled = null,
@@ -83,6 +85,7 @@ class MainActivityIntentApplierSecurityTest {
         val result = applyIntentPayloadToSettings(
             payload = payload,
             settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
             authStore = authStore,
             isDebugBuild = false,
             currentPendingTraceEnabled = true,
@@ -122,6 +125,7 @@ class MainActivityIntentApplierSecurityTest {
         val result = applyIntentPayloadToSettings(
             payload = payload,
             settingsState = settingsState,
+            modelLoadingStatusHolder = modelLoadingStatusHolder,
             authStore = authStore,
             isDebugBuild = true,
             currentPendingTraceEnabled = null,

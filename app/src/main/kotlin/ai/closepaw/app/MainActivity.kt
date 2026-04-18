@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val coordinator = SessionCoordinator(sessionScope)
     private lateinit var settingsState: AppSettingsState
-    private val modelLoadingStatusHolder = ModelLoadingStatusHolder()
+    private lateinit var modelLoadingStatusHolder: ModelLoadingStatusHolder
     private var pendingTraceEnabled: Boolean? = null
     private var pendingTraceRunId: String? = null
     private var pendingExcludedTools: Set<String> = emptySet()
@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity() {
         pendingGoalForConfirmation = savedInstanceState?.getString(KEY_PENDING_GOAL_CONFIRMATION)
         settingsState = AppSettingsState(AppSettingsStore(applicationContext))
         settingsState.load()
+        modelLoadingStatusHolder = ModelLoadingStatusHolder(settingsState)
 
         // Onboarding: migrate + check completion
         onboardingStore = OnboardingStore(applicationContext)
@@ -316,6 +317,7 @@ class MainActivity : ComponentActivity() {
             val applyResult = applyIntentPayloadToSettings(
                 payload = payload,
                 settingsState = settingsState,
+                modelLoadingStatusHolder = modelLoadingStatusHolder,
                 authStore = authStore,
                 isDebugBuild = BuildConfig.DEBUG,
                 currentPendingTraceEnabled = pendingTraceEnabled,
