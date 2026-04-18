@@ -36,6 +36,8 @@ enum class ShutdownCause {
     UserRequested,
     /** No follow-up arrived within the idle-timeout window. */
     IdleTimeout,
+    /** Repeated failure to reacquire platform from Idle — session can't make progress. */
+    ReacquireFailed,
 }
 
 class AgentSession
@@ -51,6 +53,9 @@ private constructor(
 
         /** Hot Idle timeout: auto-shutdown after 5 minutes of inactivity. */
         private const val IDLE_TIMEOUT_MS = 300_000L
+
+        /** Consecutive reacquirePlatform failures from Idle before forcing shutdown. */
+        private const val MAX_REACQUIRE_FAILURES = 3
 
         fun create(
                 config: SessionConfig,
@@ -264,6 +269,9 @@ private constructor(
     /** Idle timeout job — auto-triggers Shutdown after [IDLE_TIMEOUT_MS] of inactivity. */
     private var idleTimeoutJob: Job? = null
 
+    /** Consecutive failed reacquirePlatform attempts from Idle. Reset on success. */
+    private var consecutiveReacquireFailures = 0
+
     suspend fun submit(op: Op) {
         Log.d(TAG, "Received Op: $op (current state: ${_state.value})")
 
@@ -312,6 +320,10 @@ private constructor(
             SessionState.Idle -> {
                 if (!reacquirePlatform()) {
                     emitBootstrapFailure(op.text, "Platform start failed")
+                    if (consecutiveReacquireFailures >= MAX_REACQUIRE_FAILURES) {
+                        Log.e(TAG, "Reacquire failed $consecutiveReacquireFailures times; auto-shutdown")
+                        handleShutdown(ShutdownCause.ReacquireFailed)
+                    }
                     return
                 }
             }
@@ -370,9 +382,11 @@ private constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Platform start failed on follow-up", e)
             emitStatus("⚠️ Platform start failed: ${e.message}")
+            consecutiveReacquireFailures++
             scheduleIdleTimeout() // re-arm so session doesn't leak in Idle
             return false
         }
+        consecutiveReacquireFailures = 0
         Log.i(TAG, "Hot Idle follow-up: platform ready")
         return true
     }
@@ -610,6 +624,7 @@ private constructor(
         val reason = when (cause) {
             ShutdownCause.UserRequested -> SessionEndReason.USER_STOPPED
             ShutdownCause.IdleTimeout -> SessionEndReason.IDLE_TIMEOUT
+            ShutdownCause.ReacquireFailed -> SessionEndReason.INTERRUPTED
         }
         emit(
                 SessionCompleted(
