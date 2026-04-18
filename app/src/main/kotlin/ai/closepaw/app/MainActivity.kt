@@ -85,6 +85,7 @@ class MainActivity : ComponentActivity() {
     private val sessionScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val coordinator = SessionCoordinator(sessionScope)
     private lateinit var settingsState: AppSettingsState
+    private lateinit var modelLoadingStatusHolder: ModelLoadingStatusHolder
     private var pendingTraceEnabled: Boolean? = null
     private var pendingTraceRunId: String? = null
     private var pendingExcludedTools: Set<String> = emptySet()
@@ -129,6 +130,7 @@ class MainActivity : ComponentActivity() {
         pendingGoalForConfirmation = savedInstanceState?.getString(KEY_PENDING_GOAL_CONFIRMATION)
         settingsState = AppSettingsState(AppSettingsStore(applicationContext))
         settingsState.load()
+        modelLoadingStatusHolder = ModelLoadingStatusHolder(settingsState)
 
         // Onboarding: migrate + check completion
         onboardingStore = OnboardingStore(applicationContext)
@@ -205,6 +207,7 @@ class MainActivity : ComponentActivity() {
                 MainActivityContent(
                     viewModel = viewModel,
                     settingsState = settingsState,
+                    modelLoadingStatusHolder = modelLoadingStatusHolder,
                     modelCatalog = modelCatalog,
                     appVersion = BuildConfig.VERSION_NAME,
                     showSettings = showSettings,
@@ -314,6 +317,7 @@ class MainActivity : ComponentActivity() {
             val applyResult = applyIntentPayloadToSettings(
                 payload = payload,
                 settingsState = settingsState,
+                modelLoadingStatusHolder = modelLoadingStatusHolder,
                 authStore = authStore,
                 isDebugBuild = BuildConfig.DEBUG,
                 currentPendingTraceEnabled = pendingTraceEnabled,
@@ -478,7 +482,7 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create session", e)
                 if (settingsState.llmBackend == LLMBackendType.LOCAL) {
-                    settingsState.updateModelLoadingStatus(
+                    modelLoadingStatusHolder.update(
                             ModelLoadingStatus.Error(e.message ?: "Unknown error")
                     )
                 }
@@ -621,7 +625,7 @@ class MainActivity : ComponentActivity() {
                 } else null
 
         if (settingsState.llmBackend == LLMBackendType.LOCAL) {
-            settingsState.updateModelLoadingStatus(ModelLoadingStatus.Loading)
+            modelLoadingStatusHolder.update(ModelLoadingStatus.Loading)
         }
 
         val sessionConfig =
@@ -665,12 +669,12 @@ class MainActivity : ComponentActivity() {
         if (settingsState.llmBackend == LLMBackendType.LOCAL) {
             val localClient = session.getServices().llmClient as? LFMLLMClient
             if (localClient == null) {
-                settingsState.updateModelLoadingStatus(
+                modelLoadingStatusHolder.update(
                         ModelLoadingStatus.Error("Local LLM client unavailable")
                 )
             } else {
                 localClient.loadModel { state ->
-                    settingsState.updateModelLoadingStatus(state.toUiStatus())
+                    modelLoadingStatusHolder.update(state.toUiStatus())
                 }
             }
         }

@@ -27,6 +27,7 @@ import ai.closepaw.ui.theme.ChatTheme
 internal fun MainActivityContent(
     viewModel: ChatViewModel,
     settingsState: AppSettingsState,
+    modelLoadingStatusHolder: ModelLoadingStatusHolder,
     modelCatalog: ModelCatalog,
     appVersion: String,
     showSettings: Boolean,
@@ -96,15 +97,15 @@ internal fun MainActivityContent(
             ) {
                 SettingsSheet(
                     llmBackend = settingsState.llmBackend,
-                    onBackendChange = settingsState::updateBackend,
+                    onBackendChange = modelLoadingStatusHolder::updateBackend,
                     selectedModel = settingsState.selectedModel,
                     onModelChange = settingsState::updateModel,
                     modelCatalog = modelCatalog,
                     selectedExecutorModel = settingsState.executorModel,
                     onExecutorModelChange = settingsState::updateExecutorModel,
                     selectedLocalModel = settingsState.selectedLocalModelId,
-                    onLocalModelChange = settingsState::updateLocalModel,
-                    modelLoadingStatus = settingsState.modelLoadingStatus,
+                    onLocalModelChange = modelLoadingStatusHolder::updateLocalModel,
+                    modelLoadingStatus = modelLoadingStatusHolder.status,
                     maxTurns = settingsState.maxTurns,
                     onMaxTurnsChange = settingsState::updateMaxTurns,
                     agentMode = settingsState.agentMode,
