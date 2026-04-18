@@ -4,7 +4,7 @@
     "depends": [],
     "state": "ready",
     "title": "Open Source Release",
-    "description": "README.md + LICENSE + CONTRIBUTING.md + SECURITY.md + .env.example + GitHub Actions CI (build+lint+test on PR) + release workflow (tag → signed APK → GitHub Release)。",
+    "description": "README.md + LICENSE + CONTRIBUTING.md + SECURITY.md + .env.example + GitHub Actions CI (build+lint+test on PR) + release workflow (tag \u2192 signed APK \u2192 GitHub Release)\u3002",
     "design": "doc/todo/open_source_release/note.md",
     "scope": [
       "README.md",
@@ -20,15 +20,15 @@
       "GitHub Actions CI runs build+lint+test on PR",
       "Release workflow produces signed APK on tag"
     ],
-    "note": "Pending human review — design not yet discussed",
+    "note": "Pending human review \u2014 design not yet discussed",
     "updated": "2026-04-08T03:10:00+08:00"
   },
   "phase2-utility": {
     "parent": null,
     "depends": [],
     "state": "blocked",
-    "title": "Phase 2: 真实实用性",
-    "description": "Prompt externalization + app skill discovery + eval regression CI。Agent 能在用户日常用的 30+ app 上工作。",
+    "title": "Phase 2: \u771f\u5b9e\u5b9e\u7528\u6027",
+    "description": "Prompt externalization + app skill discovery + eval regression CI\u3002Agent \u80fd\u5728\u7528\u6237\u65e5\u5e38\u7528\u7684 30+ app \u4e0a\u5de5\u4f5c\u3002",
     "acceptCriteria": [
       "All child tasks done",
       "30+ app skills generated via discovery system",
@@ -42,7 +42,7 @@
     "depends": [],
     "state": "blocked",
     "title": "Prompt Externalization",
-    "description": "System prompt 从 StandaloneAgentDef.kt 等硬编码字符串 → assets/persona/<role>/system_prompt.md。新增 PersonaRepository（接口 + asset 实现）。App skill 迭代不再需要重新编译 APK。对应 OpenClaw roadmap P3 Phase 1。是 app skill discovery 的前置条件。",
+    "description": "System prompt \u4ece StandaloneAgentDef.kt \u7b49\u786c\u7f16\u7801\u5b57\u7b26\u4e32 \u2192 assets/persona/<role>/system_prompt.md\u3002\u65b0\u589e PersonaRepository\uff08\u63a5\u53e3 + asset \u5b9e\u73b0\uff09\u3002App skill \u8fed\u4ee3\u4e0d\u518d\u9700\u8981\u91cd\u65b0\u7f16\u8bd1 APK\u3002\u5bf9\u5e94 OpenClaw roadmap P3 Phase 1\u3002\u662f app skill discovery \u7684\u524d\u7f6e\u6761\u4ef6\u3002",
     "design": "doc/todo/prompt_externalization/note.md",
     "scope": [
       "app/src/main/kotlin/ai/closepaw/agent/definition/**",
@@ -55,7 +55,7 @@
       "Changing asset file changes agent behavior without APK rebuild",
       "./gradlew test passes"
     ],
-    "note": "Pending human review — design not yet discussed"
+    "note": "Pending human review \u2014 design not yet discussed"
   },
   "app-skill-discovery": {
     "parent": "phase2-utility",
@@ -63,8 +63,8 @@
       "prompt-externalization"
     ],
     "state": "blocked",
-    "title": "App Skill Discovery 系统",
-    "description": "建一个系统让 agent 自己探索 app 并提炼 SKILL.md（含 Safety section）。Discovery loop: 给定 target app → agent 启动 → 系统性探索 UI 路径 → 记录 a11y tree 特征、navigation pattern、pitfall → 生成 SKILL.md draft。英文市场 top 30 app 优先。需要 quality gate（跑 test task / 人工 review）。",
+    "title": "App Skill Discovery \u7cfb\u7edf",
+    "description": "\u5efa\u4e00\u4e2a\u7cfb\u7edf\u8ba9 agent \u81ea\u5df1\u63a2\u7d22 app \u5e76\u63d0\u70bc SKILL.md\uff08\u542b Safety section\uff09\u3002Discovery loop: \u7ed9\u5b9a target app \u2192 agent \u542f\u52a8 \u2192 \u7cfb\u7edf\u6027\u63a2\u7d22 UI \u8def\u5f84 \u2192 \u8bb0\u5f55 a11y tree \u7279\u5f81\u3001navigation pattern\u3001pitfall \u2192 \u751f\u6210 SKILL.md draft\u3002\u82f1\u6587\u5e02\u573a top 30 app \u4f18\u5148\u3002\u9700\u8981 quality gate\uff08\u8dd1 test task / \u4eba\u5de5 review\uff09\u3002",
     "design": "doc/todo/app_skill_discovery/note.md",
     "scope": [
       "app/src/main/assets/app_skills/**"
@@ -76,14 +76,14 @@
       "./gradlew assembleDebug passes"
     ],
     "requireHumanReview": true,
-    "note": "Pending human review — design not yet discussed"
+    "note": "Pending human review \u2014 design not yet discussed"
   },
   "eval-regression-ci": {
     "parent": "phase2-utility",
     "depends": [],
     "state": "blocked",
-    "title": "Eval 转 Regression CI",
-    "description": "AndroidWorld full set 作为 regression gate。PR 跑 eval，regression 才 fail。停止 autotune optimization loop（R58 是最后一轮主动优化）。保留 eval infra 不变。",
+    "title": "Eval \u8f6c Regression CI",
+    "description": "AndroidWorld full set \u4f5c\u4e3a regression gate\u3002PR \u8dd1 eval\uff0cregression \u624d fail\u3002\u505c\u6b62 autotune optimization loop\uff08R58 \u662f\u6700\u540e\u4e00\u8f6e\u4e3b\u52a8\u4f18\u5316\uff09\u3002\u4fdd\u7559 eval infra \u4e0d\u53d8\u3002",
     "design": "doc/todo/eval_regression_ci/note.md",
     "scope": [
       ".github/workflows/**",
@@ -94,7 +94,7 @@
       "Eval regression detected and reported as CI failure",
       "Eval pass/fail threshold configured based on R58 baseline"
     ],
-    "note": "Pending human review — design not yet discussed"
+    "note": "Pending human review \u2014 design not yet discussed"
   },
   "phase3-daily-assistant": {
     "parent": null,
@@ -102,8 +102,8 @@
       "phase2-utility"
     ],
     "state": "blocked",
-    "title": "Phase 3: 日常助手",
-    "description": "Scheduled tasks + notification handling + OpenAI OAuth。把 Android Agent 从一次性工具变成每天都用的 assistant。",
+    "title": "Phase 3: \u65e5\u5e38\u52a9\u624b",
+    "description": "Scheduled tasks + notification handling + OpenAI OAuth\u3002\u628a Android Agent \u4ece\u4e00\u6b21\u6027\u5de5\u5177\u53d8\u6210\u6bcf\u5929\u90fd\u7528\u7684 assistant\u3002",
     "acceptCriteria": [
       "All child tasks done"
     ],
@@ -114,7 +114,7 @@
     "depends": [],
     "state": "blocked",
     "title": "Scheduled Tasks",
-    "description": "Cron 式定时任务执行。用户设定 schedule + natural language instruction。AlarmManager/WorkManager 触发 → 启动 agent session → 执行 → 记录结果。UI: 任务列表、创建/编辑/删除、执行历史。",
+    "description": "Cron \u5f0f\u5b9a\u65f6\u4efb\u52a1\u6267\u884c\u3002\u7528\u6237\u8bbe\u5b9a schedule + natural language instruction\u3002AlarmManager/WorkManager \u89e6\u53d1 \u2192 \u542f\u52a8 agent session \u2192 \u6267\u884c \u2192 \u8bb0\u5f55\u7ed3\u679c\u3002UI: \u4efb\u52a1\u5217\u8868\u3001\u521b\u5efa/\u7f16\u8f91/\u5220\u9664\u3001\u6267\u884c\u5386\u53f2\u3002",
     "design": "doc/todo/scheduled_tasks/note.md",
     "acceptCriteria": [
       "User can create a scheduled task with cron expression and instruction",
@@ -122,14 +122,14 @@
       "Execution results recorded and viewable",
       "Failed tasks show error and can be retried"
     ],
-    "note": "Pending human review — design not yet discussed"
+    "note": "Pending human review \u2014 design not yet discussed"
   },
   "notification-handling": {
     "parent": "phase3-daily-assistant",
     "depends": [],
     "state": "blocked",
     "title": "Notification Handling",
-    "description": "NotificationListenerService 监听 → 按用户定义的规则触发 agent 响应。规则引擎：app filter + keyword filter + sender filter → trigger action。用户 explicit opt-in 每条规则。",
+    "description": "NotificationListenerService \u76d1\u542c \u2192 \u6309\u7528\u6237\u5b9a\u4e49\u7684\u89c4\u5219\u89e6\u53d1 agent \u54cd\u5e94\u3002\u89c4\u5219\u5f15\u64ce\uff1aapp filter + keyword filter + sender filter \u2192 trigger action\u3002\u7528\u6237 explicit opt-in \u6bcf\u6761\u89c4\u5219\u3002",
     "design": "doc/todo/notification_handling/note.md",
     "acceptCriteria": [
       "NotificationListenerService captures notifications",
@@ -137,14 +137,14 @@
       "Matching notifications trigger agent task execution",
       "Each rule requires explicit user opt-in"
     ],
-    "note": "Pending human review — design not yet discussed"
+    "note": "Pending human review \u2014 design not yet discussed"
   },
   "openai-oauth": {
     "parent": "phase3-daily-assistant",
     "depends": [],
     "state": "done",
     "title": "OpenAI OAuth Login",
-    "description": "参考 OpenClaw 实现：OpenAI Codex OAuth flow。用户用 OpenAI 账号登录 → 复用已有 subscription。和手动 API key 并存。降低新用户 onboarding friction。",
+    "description": "\u53c2\u8003 OpenClaw \u5b9e\u73b0\uff1aOpenAI Codex OAuth flow\u3002\u7528\u6237\u7528 OpenAI \u8d26\u53f7\u767b\u5f55 \u2192 \u590d\u7528\u5df2\u6709 subscription\u3002\u548c\u624b\u52a8 API key \u5e76\u5b58\u3002\u964d\u4f4e\u65b0\u7528\u6237 onboarding friction\u3002",
     "design": "doc/todo/openai_oauth/note.md",
     "acceptCriteria": [
       "OAuth login flow implemented for OpenAI",
@@ -158,8 +158,8 @@
     "parent": null,
     "depends": [],
     "state": "ready",
-    "title": "app_tiers.json 扩展到 100-1000 app",
-    "description": "将 app_tiers.json 从当前 61 个 app (36 blocked + 25 normal) 扩展到覆盖世界常用 100-1000 个 app。需要设计数据获取流程: 拉取 package name + app name + category (Google Play top charts, AppBrain 等) → 用 LLM 批量评估 tier。独立设计任务。",
+    "title": "app_tiers.json \u6269\u5c55\u5230 100-1000 app",
+    "description": "\u5c06 app_tiers.json \u4ece\u5f53\u524d 61 \u4e2a app (36 blocked + 25 normal) \u6269\u5c55\u5230\u8986\u76d6\u4e16\u754c\u5e38\u7528 100-1000 \u4e2a app\u3002\u9700\u8981\u8bbe\u8ba1\u6570\u636e\u83b7\u53d6\u6d41\u7a0b: \u62c9\u53d6 package name + app name + category (Google Play top charts, AppBrain \u7b49) \u2192 \u7528 LLM \u6279\u91cf\u8bc4\u4f30 tier\u3002\u72ec\u7acb\u8bbe\u8ba1\u4efb\u52a1\u3002",
     "requireHumanReview": true,
     "scope": [
       "app/src/main/assets/security/app_tiers.json"
@@ -176,7 +176,7 @@
     "depends": [],
     "state": "done",
     "priority": "normal",
-    "title": "QA Batch 2 — SmartCapsule state-machine tests (K1-K14)",
+    "title": "QA Batch 2 \u2014 SmartCapsule state-machine tests (K1-K14)",
     "description": "Implement 14 Compose instrumented tests for the SmartCapsule state machine, following Batch 1 pattern (flat layout under app/src/androidTest/kotlin/ai/closepaw/qa/, prefer text/contentDescription selectors, add testTag only when needed, use org.junit.Assert not kotlin built-in assert).\n\nTest IDs per bootstrap plan (doc/todo/qa_test/final/cn/bootstrap_plan.md):\nK1  Hidden_RendersNothing\nK2  Running_ShowsThoughtAndTakeoverButton\nK3  Running_ShowsStopButton\nK4  Takeover_ShowsResumeInsteadOfTakeover\nK5  WaitingForInput_ExpandsWithTextFieldAndHint\nK6  WaitingForInput_SendEnabledOnlyWhenNonBlank\nK7  WaitingForInput_TypingFiresOnInputChange\nK8  WaitingForInput_SendClearsField\nK9  WaitingForAction_ShowsInstructionAndDoneButton\nK10 WaitingForApproval_ShowsFourScopeButtons\nK11 Done_ShowsSuccessMessageAndAutoDismisses\nK12 Error_DismissButtonFiresCallback\nK13 Stop_IsStopPendingDimsButton\nK14 NavigationButtons_FireCorrectEnum\n\nRelevant source: app/src/main/kotlin/ai/closepaw/ui/capsule/** (SmartCapsuleCompose.kt + surface/*.kt; discover CapsuleState location).\n\nPattern from Batch 1 (ref commits 3c4f586d, 2966ffdd, 21e34233):\n- createComposeRule() + setContent\n- org.junit.Assert.assertTrue/assertEquals (NEVER kotlin built-in assert)\n- testTag in production only when text/contentDescription is unavailable\n- For K11 auto-dismiss: compose.mainClock.autoAdvance = false + advanceTimeBy",
     "design": "doc/todo/qa_test/final/cn/bootstrap_plan.md",
     "scope": [
@@ -192,14 +192,14 @@
     "created": "2026-04-17T15:15:22Z",
     "updated": "2026-04-17T15:31:33Z",
     "agent": "w-qa-capsule-batch2",
-    "note": "32 tests green (17 Batch 1 + 15 Batch 2). Codex review found 1 blocker (K11 not exercising real auto-dismiss) + 2 concerns (K1 weak, K8 vacuous). All fixed on top: K11 now drives CapsuleStateHolder.scheduleAutoHide, K1 broadened, K7/K8 use EditableText semantics. Fix changes landed in e2b6e212 (concurrent commit sweep — attribution noisy but code correct)."
+    "note": "32 tests green (17 Batch 1 + 15 Batch 2). Codex review found 1 blocker (K11 not exercising real auto-dismiss) + 2 concerns (K1 weak, K8 vacuous). All fixed on top: K11 now drives CapsuleStateHolder.scheduleAutoHide, K1 broadened, K7/K8 use EditableText semantics. Fix changes landed in e2b6e212 (concurrent commit sweep \u2014 attribution noisy but code correct)."
   },
   "qa-settings-batch3": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
     "priority": "normal",
-    "title": "QA Batch 3 — Settings tests (S1-S12)",
+    "title": "QA Batch 3 \u2014 Settings tests (S1-S12)",
     "description": "Implement 12 Compose instrumented tests for the Settings surface, following the pattern from Batches 1-2. Flat layout under app/src/androidTest/kotlin/ai/closepaw/qa/, prefer text or contentDescription, testTag only when needed, org.junit.Assert (NEVER kotlin built-in assert which is a no-op without -ea).\n\nTest IDs per bootstrap plan (doc/todo/qa_test/final/cn/bootstrap_plan.md Batch 3):\nS1  Sheet_OpensToHomePage\nS2  Sheet_DismissClosesSheet\nS3  Sheet_BackFromSubPageReturnsToHome\nS4  Sheet_PageStateSurvivesRotation (rememberSaveable)\nS5  LlmAuth_TabSwitchDoesNotCommitBackend\nS6  LlmAuth_OAuthStartCommitsBackendAndMethod\nS7  LlmAuth_ApiKeyProviderSwitchesModelOptions\nS8  LlmAuth_IncompatibleModelAutoResetsOnMethodSwitch\nS9  AgentBehavior_ProModeShowsExecutorDropdown\nS10 Permissions_SessionTracesToggleShowsWarningBanner\nS11 Permissions_ClearTracesShowsConfirmDialog\nS12 Permissions_ClearTracesConfirmDisablesButton\n\nRelevant source files under app/src/main/kotlin/ai/closepaw/ui/settings/: SettingsSheet, SettingsHomePage, LlmAuthSettingsPage, AgentBehaviorSettingsPage, PermissionsAdvancedSettingsPage, SettingsModels, SettingsDropdowns, SettingsWidgets.\n\nPattern rules (non-negotiable):\n- org.junit.Assert for verdicts, NEVER kotlin built-in assert\n- Flat layout, group into a few files by theme (SettingsNavTest, SettingsLlmAuthTest, SettingsAgentBehaviorTest, SettingsPermissionsTest)\n- testTag in production only when text or contentDescription is not a stable selector\n- For S4 rotation: use StateRestorationTester from androidx.compose.ui.test to exercise rememberSaveable without actually rotating\n- For S8 model canonicalization: call the composable with an incompatible provider/model pair and assert onModelChange fires with a valid model, OR that the dropdown shows only valid options",
     "design": "doc/todo/qa_test/final/cn/bootstrap_plan.md",
     "scope": [
@@ -213,7 +213,241 @@
       "testTag additions in app/src/main/kotlin/ai/closepaw/ui/settings/ are minimal and justified"
     ],
     "created": "2026-04-17T15:34:42Z",
-    "updated": "2026-04-17T15:34:47Z",
-    "agent": "w-qa-settings-batch3"
+    "updated": "2026-04-17T15:56:25Z",
+    "agent": "w-qa-settings-batch3",
+    "note": "45 tests green total (17 Batch 1 + 15 Batch 2 + 13 Batch 3 \u2014 S9 split into Pro/Basic halves). Codex review caught 2 blockers (S9 false positive via shared Executor Model title, S11 text-only dialog check); both fixed in ffae2baa."
+  },
+  "auth-setting-cleanup": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Auth Setting Cleanup (mode/provider/model separation)",
+    "description": "Flatten mode\u00d7provider into a single LLMProvider enum; consolidate all cloud credentials (OAuth + ApiKey) into one AuthStore; eliminate buildApiKeys fallback chain and __AUTH_METHOD_OPENAI magic key; bump SessionRuntimeSnapshot schemaVersion; no runtime migration (pre-release one-time re-auth on upgrade). Fixes Codex OAuth \u2192 Run Demo failure.",
+    "design": "doc/todo/auth-setting-cleanup/design_claude.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "Onboarding OAuth \u2192 Run Demo succeeds on device",
+      "Onboarding API key \u2192 Run Demo succeeds",
+      "Upgrade from prior build \u2192 empty AuthStore \u2192 banner \u2192 Settings re-auth path works"
+    ],
+    "note": "v4 design (KISS, zero migration). Reviewed by Codex v1 + v2. Ready for orchestrate.",
+    "updated": "2026-04-18T01:51:06.144523+00:00"
+  },
+  "auth-store-core": {
+    "parent": "auth-setting-cleanup",
+    "depends": [],
+    "state": "done",
+    "title": "AuthStore + AuthCredential + AuthErrors",
+    "description": "New unified credential store keyed by flat LLMProvider. Sealed AuthCredential = ApiKey | OAuth. Internal Mutex guards OAuth refresh. codexHeaders() returns full {accessToken, chatgptAccountId, email} bundle. Encrypted-prefs backed with in-memory fallback on crypto failure (same pattern as existing OAuthCredentialStore). Per-provider generation counter for cache invalidation.",
+    "design": "doc/todo/auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/auth/AuthStore.kt",
+      "app/src/main/kotlin/ai/closepaw/auth/AuthCredential.kt",
+      "app/src/main/kotlin/ai/closepaw/auth/AuthErrors.kt",
+      "app/src/test/kotlin/ai/closepaw/auth/**"
+    ],
+    "acceptCriteria": [
+      "AuthStore.kt, AuthCredential.kt, AuthErrors.kt exist",
+      "get/set/clear/has work for all cloud providers",
+      "codexHeaders() refreshes near expiry under mutex",
+      "Wrong credential type clears store and throws WrongCredentialType",
+      "Encryption-degraded mode uses in-memory fallback",
+      "./gradlew :app:testDebugUnitTest --tests ai.closepaw.auth.AuthStoreTest passes"
+    ],
+    "estimate": "s",
+    "updated": "2026-04-17T21:40:20.118769+00:00",
+    "agent": "w-auth-store-core"
+  },
+  "provider-enum-split": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "auth-store-core"
+    ],
+    "state": "done",
+    "title": "Flatten LLMProvider enum + split catalog",
+    "description": "Rename OPENAI\u2192OPENAI_API; add OPENAI_CODEX; add provider.mode accessor returning AuthMode. Split llm_models.json: OpenAI RESPONSE models get -codex variants under OPENAI_CODEX. Add catalog.defaultModel(provider) helper.",
+    "design": "doc/todo/auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/llm/LLMProvider.kt",
+      "app/src/main/assets/llm_models.json",
+      "app/src/main/kotlin/ai/closepaw/llm/ModelCatalog.kt"
+    ],
+    "acceptCriteria": [
+      "Enum contains OPENAI_API, OPENAI_CODEX, OPENROUTER, NOVITA, LOCAL_LFM",
+      "provider.mode returns correct AuthMode for each",
+      "gpt-5.4 resolves under OPENAI_API, gpt-5.4-codex under OPENAI_CODEX",
+      "catalog.defaultModel(OPENAI_CODEX) returns a valid -codex model key",
+      "./gradlew :app:compileDebugKotlin succeeds"
+    ],
+    "estimate": "s",
+    "updated": "2026-04-17T21:46:24.964393+00:00",
+    "agent": "w-provider-enum-split"
+  },
+  "factory-rewrite": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "provider-enum-split"
+    ],
+    "state": "done",
+    "title": "LLMClientFactory by-provider routing + Codex header supplier",
+    "description": "Factory routes purely on entry.provider. CodexResponseClient accepts suspend () -> CodexHeaders supplier instead of captured accessToken/accountId. ApiKey providers use generation counter for cache invalidation; Codex cache also invalidates on OAuth set/clear. Delete apiKeyResolver, resolveApiKey, isOAuth, __AUTH_METHOD_OPENAI.",
+    "design": "doc/todo/auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/llm/LLMClientFactory.kt",
+      "app/src/main/kotlin/ai/closepaw/llm/CodexResponseClient.kt",
+      "app/src/test/kotlin/ai/closepaw/llm/**"
+    ],
+    "acceptCriteria": [
+      "Factory resolves client purely from entry.provider (no env-var sniffing)",
+      "CodexResponseClient has no captured OAuth state; reads headers via supplier per request",
+      "ApiKey cache invalidates on authStore.set via generation mismatch",
+      "__AUTH_METHOD_OPENAI constant removed from codebase",
+      "MissingCredential / OAuthRefreshFailed / WrongCredentialType thrown at correct sites",
+      "Factory unit tests pass"
+    ],
+    "estimate": "m",
+    "updated": "2026-04-17T22:02:31.404740+00:00",
+    "agent": "w-factory-rewrite"
+  },
+  "runtime-wiring": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "factory-rewrite"
+    ],
+    "state": "done",
+    "title": "Runtime wiring: session boot, checkpoint schema, banner deep-link",
+    "description": "Update all session/main-activity callsites to resolve credentials via AuthStore (not apiKeys map / env vars). Bump SessionRuntimeSnapshot.schemaVersion 1\u21922; AgentSession.reload rejects v1 snapshots with user message. ChatViewModel.reportStartupFailure banner payload carries openSettingsAt(page=LLM_AUTH, tab=mode) action. SmartCapsuleSurface banner becomes tappable; ChatScreen/MainActivityContent route the action to SettingsSheet. Debug intent handlers write credentials to AuthStore; openai_base_url moves to AppSettingsState.openAiBaseUrlOverride.",
+    "design": "doc/todo/auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityContent.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityModelValidation.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityIntentApplier.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityIntentPayload.kt",
+      "app/src/main/kotlin/ai/closepaw/session/AgentSession.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionCheckpointCoordinator.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionLlmBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatViewModel.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/SmartCapsuleSurface.kt"
+    ],
+    "acceptCriteria": [
+      "No callsite reads appSettings.authMethod / openAiOAuthAccessToken / openAiManualApiKey / apiKey / openRouterApiKey / novitaApiKey / buildApiKeys",
+      "SessionCheckpointCoordinator writes schemaVersion=2; AgentSession.reload returns null for schemaVersion==1 snapshots",
+      "Startup failure banner is tappable and opens SettingsSheet on correct LLM auth tab",
+      "Debug intent api_key/openrouter_api_key/novita_api_key write to AuthStore; openai_base_url writes to openAiBaseUrlOverride",
+      "./gradlew :app:compileDebugKotlin succeeds"
+    ],
+    "estimate": "l",
+    "updated": "2026-04-17T22:34:19.840287+00:00",
+    "agent": "w-runtime-wiring"
+  },
+  "settings-ui-align": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "runtime-wiring"
+    ],
+    "state": "done",
+    "title": "Settings UI tab canonicalization + executor model safety",
+    "description": "LlmAuthSettingsPage: tabs drive selectedProviderForTab via canonicalization rule (if selectedModel.provider.mode != tab.mode, use tab default provider). Tab switch itself is inert \u2014 no writes until model commit. On model commit, executorModel is reset/remapped if its provider no longer matches selectedModel.provider. SettingsSheet accepts initialPage + initialAuthTab for deep-link.",
+    "design": "doc/todo/auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "app/src/androidTest/kotlin/ai/closepaw/qa/SettingsLlmAuthTest.kt"
+    ],
+    "acceptCriteria": [
+      "Tab switch writes nothing to settings state until a model pick is committed",
+      "Selecting OAuth tab while selectedModel is OPENAI_API shows OPENAI_CODEX provider by default",
+      "Changing main model provider resets executorModel when provider mismatches",
+      "SettingsSheet(initialPage=LLM_AUTH, initialAuthTab=OAUTH) opens correct tab",
+      "SettingsLlmAuthTest updated and passes on device"
+    ],
+    "estimate": "m",
+    "updated": "2026-04-17T22:45:52.873643+00:00",
+    "agent": "w-settings-ui-align"
+  },
+  "onboarding-rewrite": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "runtime-wiring"
+    ],
+    "state": "done",
+    "title": "Onboarding rewrite: AuthStore writes, no drafts, transient text",
+    "description": "OnboardingViewModel: OAuth success writes authStore.set(OPENAI_CODEX); API key text is ViewModel-transient (no encrypted draft); Next/Run Demo commits to AuthStore. OnboardingStore: delete KEY_AUTH_METHOD, KEY_API_KEY_DRAFT, onboarding_secure_prefs entirely. Step-resume derives mode from selectedModel.provider.mode + AuthStore.has(). OnboardingState cloud provider enum aligned with flat LLMProvider. MissingCredential / OAuthRefreshFailed render inline error card with re-auth action.",
+    "design": "doc/todo/auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingViewModel.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingState.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingStore.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingDemoController.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingSteps.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingScreen.kt"
+    ],
+    "acceptCriteria": [
+      "OnboardingStore has no KEY_AUTH_METHOD or KEY_API_KEY_DRAFT",
+      "OAuth completion results in authStore.has(OPENAI_CODEX) == true",
+      "ApiKey typed text not persisted across process death",
+      "Step-resume does not call loadAuthMethod() or loadApiKeyDraft()",
+      "Run Demo succeeds end-to-end on device for both OAuth and API key paths",
+      "Missing credential surfaces inline error card with re-auth action"
+    ],
+    "estimate": "m",
+    "updated": "2026-04-17T22:45:52.873643+00:00",
+    "agent": "w-onboarding-rewrite"
+  },
+  "settings-state-shrink": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "settings-ui-align",
+      "onboarding-rewrite"
+    ],
+    "state": "done",
+    "title": "Delete legacy AppSettingsState auth fields",
+    "description": "Remove authMethod, openAiOAuthAccessToken, openAiManualApiKey, apiKey, openRouterApiKey, novitaApiKey, buildApiKeys() from AppSettingsState + AppSettingsStore. Add openAiBaseUrlOverride (debug). Delete OAuthCredentialStore.kt. Project must still compile \u2014 by construction there should be no remaining readers after tasks 5 and 6.",
+    "design": "doc/todo/auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsState.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt",
+      "app/src/main/kotlin/ai/closepaw/auth/OAuthCredentialStore.kt"
+    ],
+    "acceptCriteria": [
+      "AppSettingsState has no authMethod, openAiOAuthAccessToken, openAiManualApiKey, apiKey, openRouterApiKey, novitaApiKey, buildApiKeys fields",
+      "openAiBaseUrlOverride exists (debug-only semantics)",
+      "OAuthCredentialStore.kt deleted",
+      "grep -r openAiManualApiKey app/src returns no hits",
+      "grep -r __AUTH_METHOD_OPENAI app/src returns no hits",
+      "./gradlew :app:assembleDebug succeeds"
+    ],
+    "estimate": "s",
+    "updated": "2026-04-17T22:56:11.345865+00:00",
+    "agent": "w-settings-state-shrink"
+  },
+  "auth-cleanup-qa-device": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "settings-state-shrink"
+    ],
+    "state": "done",
+    "title": "Device QA: end-to-end auth flows",
+    "description": "Use /ux-visual-debug to verify all user-facing auth paths on a real device.",
+    "design": "doc/todo/auth-setting-cleanup/design_claude.md",
+    "acceptCriteria": [
+      "Fresh install \u2192 Onboarding OAuth \u2192 Run Demo succeeds",
+      "Fresh install \u2192 Onboarding API key (OpenAI) \u2192 Run Demo succeeds",
+      "Fresh install \u2192 Onboarding API key (OpenRouter) \u2192 Run Demo succeeds",
+      "Novita key entered via Settings \u2192 chat Run succeeds",
+      "Settings tab switch preserves credentials",
+      "Upgrade from prior build \u2192 empty AuthStore \u2192 startup banner appears \u2192 tap \u2192 Settings \u2192 re-auth \u2192 Run Demo succeeds",
+      "Old (v1 schema) checkpoint shows rejection message; new session can be started",
+      "Startup failure banner tap opens Settings on correct LLM auth tab"
+    ],
+    "estimate": "m",
+    "updated": "2026-04-18T01:51:06.144523+00:00",
+    "agent": "w-qa-device",
+    "blockReason": null,
+    "note": "S2-S5,S8 verified on device EP0110MZ0BC101266W. F1+F2 fixed and re-verified. S1/S6/S7 skipped (OAuth + prior-build APK needed)."
   }
 }
