@@ -78,7 +78,7 @@ User types follow-up in capsule input → taps Send
   └─ Agent completes → Idle again → cycle repeats
 ```
 
-Key difference from first task: no `SessionStarted` event, no recording service init, conversation context preserved in memory (no checkpoint reload needed).
+Key difference from first task: no `SessionStarted` event, no recording service init, conversation context preserved in memory (no checkpoint reload needed). Platform is **not** re-acquired — `platform.start()` is idempotent and the platform stayed alive across Hot Idle; release happens only on Shutdown via `services.cleanup()`.
 
 ## 4. Takeover / Resume Flow
 
@@ -172,7 +172,7 @@ User selects a session from history drawer
   │   ├─ MainActivity: selectedSessionForReload != null
   │   ├─ tryReloadSelectedSession()
   │   │   ├─ Read context-*.json from SessionStorage
-  │   │   ├─ Validate: schemaVersion == 1, checkpoint isReloadable()
+  │   │   ├─ Validate: schemaVersion == 2, checkpoint isReloadable()
   │   │   ├─ AgentSession.reload(snapshot)
   │   │   │   ├─ Hydrate HistoryManager (replaceAll)
   │   │   │   ├─ Restore TodoState + ScratchpadState

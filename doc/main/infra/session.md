@@ -15,7 +15,7 @@ Thin lifecycle manager. It does not implement planning/action logic directly.
 - Manage session state transitions (`Created`/`Running`/`Paused`/`Idle`/`Shutdown`)
 - Manage per-task lifecycle via `handleUserInput()`
 - Coordinate checkpoint persistence via `SessionCheckpointCoordinator`
-- Manage Hot Idle (platform release, idle timeout, follow-up re-acquisition)
+- Manage Hot Idle (platform stays alive; idle timeout; idempotent `platform.start()` on follow-up)
 - Delegate runtime start/stop to `SessionAgentRunner`
 
 ### Key Methods
