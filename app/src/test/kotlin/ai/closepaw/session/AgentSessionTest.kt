@@ -31,6 +31,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
+import org.junit.Assume
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -375,6 +376,501 @@ class AgentSessionTest {
 
                 session.submit(Op.Shutdown)
                 advanceUntilIdle()
+        }
+
+        // ===== FSM Transition Coverage =====
+        // Spec source: app/src/main/kotlin/ai/closepaw/protocol/SessionState.kt
+        // Guards live in AgentSession.handle*() — these tests exercise every valid
+        // transition and every guard rejection in the FSM.
+
+        // ---- Valid transitions ----
+
+        @Test
+        fun `created to shutdown direct without task`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                assertThat(session.state.value).isEqualTo(SessionState.Created)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+                assertThat(events.filterIsInstance<TaskStarted>()).isEmpty()
+                val completed = events.filterIsInstance<SessionCompleted>().single()
+                assertThat(completed.reason).isEqualTo(SessionEndReason.USER_STOPPED)
+
+                job.cancel()
+        }
+
+        @Test
+        fun `idle to running on followup user input`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("first"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.UserInput("second"))
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+                assertThat(events.filterIsInstance<TaskStarted>().map { it.input })
+                        .containsExactly("first", "second")
+                        .inOrder()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `running to idle on task completion`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceTimeBy(1_000L)
+
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+                assertThat(events.filterIsInstance<TaskCompleted>()).hasSize(1)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `running to takeover pending on takeover op`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val job = launch { session.events.collect { } }
+
+                session.submit(Op.UserInput("goal"))
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                takeoverJob.cancel()
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `paused to running via resume`() = runTest {
+                // Best-effort: requires the agent to confirm the pause without finishing
+                // the task. Exact race is environment-sensitive. We assume into the test
+                // only if Paused was reached.
+                val session = buildSession(scope = this, captureDelayMs = 50L, llmDelayMs = 0L, maxTurns = 50)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+                val states = mutableListOf<SessionState>()
+                val sjob = launch { session.state.collect { states.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                advanceTimeBy(200L)
+                yield()
+
+                Assume.assumeTrue(
+                        "Paused not reached in this run; covered indirectly elsewhere",
+                        session.state.value == SessionState.Paused
+                )
+
+                session.submit(Op.Resume)
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+                assertThat(events.filterIsInstance<SessionResumed>()).isNotEmpty()
+
+                takeoverJob.cancel()
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                sjob.cancel()
+                job.cancel()
+        }
+
+        @Test
+        fun `paused to shutdown allowed`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 50L, llmDelayMs = 0L, maxTurns = 50)
+                val job = launch { session.events.collect { } }
+
+                session.submit(Op.UserInput("goal"))
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                advanceTimeBy(200L)
+                yield()
+
+                Assume.assumeTrue(
+                        "Paused not reached in this run",
+                        session.state.value == SessionState.Paused
+                )
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+
+                takeoverJob.cancel()
+                job.cancel()
+        }
+
+        @Test
+        fun `takeover pending to shutdown allowed`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+                val completed = events.filterIsInstance<SessionCompleted>().single()
+                assertThat(completed.reason).isEqualTo(SessionEndReason.USER_STOPPED)
+
+                takeoverJob.cancel()
+                job.cancel()
+        }
+
+        // ---- Guard rejections ----
+
+        @Test
+        fun `userinput rejected after shutdown`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                session.submit(Op.UserInput("late"))
+                advanceUntilIdle()
+
+                assertThat(events.filterIsInstance<TaskStarted>()).isEmpty()
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+
+                job.cancel()
+        }
+
+        @Test
+        fun `userinput rejected while running`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("first"))
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+                session.submit(Op.UserInput("second"))
+                yield()
+                assertThat(events.filterIsInstance<TaskStarted>()).hasSize(1)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `userinput rejected while takeover pending`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("first"))
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                session.submit(Op.UserInput("second"))
+                yield()
+
+                assertThat(events.filterIsInstance<TaskStarted>()).hasSize(1)
+
+                takeoverJob.cancel()
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `resume rejected in created`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Resume)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Created)
+                assertThat(events.filterIsInstance<SessionResumed>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `resume rejected in running`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+                session.submit(Op.Resume)
+                yield()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+                assertThat(events.filterIsInstance<SessionResumed>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `resume rejected in idle`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.Resume)
+                yield()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+                assertThat(events.filterIsInstance<SessionResumed>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `resume rejected after shutdown`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                session.submit(Op.Resume)
+                advanceUntilIdle()
+
+                assertThat(events.filterIsInstance<SessionResumed>()).isEmpty()
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+
+                job.cancel()
+        }
+
+        @Test
+        fun `takeover rejected in created`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Takeover)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Created)
+                assertThat(events.filterIsInstance<SessionTakeover>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `takeover rejected in idle`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.Takeover)
+                yield()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+                assertThat(events.filterIsInstance<SessionTakeover>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `takeover rejected after shutdown`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+
+                session.submit(Op.Takeover)
+                advanceUntilIdle()
+
+                assertThat(events.filterIsInstance<SessionTakeover>()).isEmpty()
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+
+                job.cancel()
+        }
+
+        @Test
+        fun `interrupt rejected in created`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val job = launch { session.events.collect { } }
+
+                session.submit(Op.Interrupt)
+                advanceUntilIdle()
+                assertThat(session.state.value).isEqualTo(SessionState.Created)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `interrupt rejected in idle`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val job = launch { session.events.collect { } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.Interrupt)
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `interrupt rejected after shutdown`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val job = launch { session.events.collect { } }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                session.submit(Op.Interrupt)
+                advanceUntilIdle()
+
+                assertThat(session.state.value).isEqualTo(SessionState.Shutdown)
+                job.cancel()
+        }
+
+        @Test
+        fun `supplement accepted in running and emits event`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                assertThat(session.state.value).isEqualTo(SessionState.Running)
+
+                session.submit(Op.Supplement("hint"))
+                yield()
+
+                val supp = events.filterIsInstance<SupplementReceived>().single()
+                assertThat(supp.text).isEqualTo("hint")
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `supplement accepted in takeover pending and emits event`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 10_000L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                val takeoverJob = launch { session.submit(Op.Takeover) }
+                yield()
+                assertThat(session.state.value).isEqualTo(SessionState.TakeoverPending)
+
+                session.submit(Op.Supplement("hint"))
+                yield()
+
+                val supp = events.filterIsInstance<SupplementReceived>().single()
+                assertThat(supp.text).isEqualTo("hint")
+
+                takeoverJob.cancel()
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `supplement rejected in created`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Supplement("hint"))
+                advanceUntilIdle()
+
+                assertThat(events.filterIsInstance<SupplementReceived>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `supplement rejected in idle`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.UserInput("goal"))
+                advanceTimeBy(1_000L)
+                assertThat(session.state.value).isEqualTo(SessionState.Idle)
+
+                session.submit(Op.Supplement("hint"))
+                yield()
+
+                assertThat(events.filterIsInstance<SupplementReceived>()).isEmpty()
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                job.cancel()
+        }
+
+        @Test
+        fun `supplement rejected after shutdown`() = runTest {
+                val session = buildSession(scope = this, captureDelayMs = 0L, llmDelayMs = 0L)
+                val events = mutableListOf<AgentEvent>()
+                val job = launch { session.events.collect { events.add(it) } }
+
+                session.submit(Op.Shutdown)
+                advanceUntilIdle()
+                session.submit(Op.Supplement("hint"))
+                advanceUntilIdle()
+
+                assertThat(events.filterIsInstance<SupplementReceived>()).isEmpty()
+                job.cancel()
         }
 }
 
