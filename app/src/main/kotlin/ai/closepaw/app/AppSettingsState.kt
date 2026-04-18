@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import ai.closepaw.llm.LLMProvider
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
@@ -16,14 +15,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
         private const val TAG = "AppSettingsState"
     }
 
-    var apiKey by mutableStateOf("")
-        private set
-    var openAiManualApiKey by mutableStateOf("")
-        private set
-    var openRouterApiKey by mutableStateOf("")
-        private set
-    var novitaApiKey by mutableStateOf("")
-        private set
     var selectedModel by mutableStateOf(AppSettingsStore.DEFAULT_MODEL)
         private set
     var maxTurns by mutableStateOf(AppSettingsStore.DEFAULT_MAX_TURNS)
@@ -55,24 +46,8 @@ class AppSettingsState(private val store: AppSettingsStore) {
     var openaiBaseUrl by mutableStateOf("")
         private set
 
-    /** Auth method for OpenAI provider ("oauth" or null). Set from OnboardingStore at startup. */
-    var authMethod by mutableStateOf<String?>(null)
-        private set
-
-    /** Transient OAuth access token, loaded from OAuthCredentialStore by caller. */
-    var openAiOAuthAccessToken by mutableStateOf("")
-        private set
-
-    /** True when any credential store failed to initialize encrypted storage. */
-    var encryptionDegraded by mutableStateOf(false)
-        private set
-
     fun load() {
         val settings = store.load()
-        apiKey = settings.apiKey
-        openAiManualApiKey = settings.openAiManualApiKey
-        openRouterApiKey = settings.openRouterApiKey
-        novitaApiKey = settings.novitaApiKey
         selectedModel = settings.selectedModel
         maxTurns = settings.maxTurns
         debugMode = settings.debugMode
@@ -85,7 +60,6 @@ class AppSettingsState(private val store: AppSettingsStore) {
         executorModel = settings.executorModel
         platformMode = settings.platformMode
         traceEnabled = settings.traceEnabled
-        encryptionDegraded = store.encryptionDegraded
 
         Log.d(
                 TAG,
@@ -117,70 +91,8 @@ class AppSettingsState(private val store: AppSettingsStore) {
         modelLoadingStatus = ModelLoadingStatus.Idle
     }
 
-    fun updateApiKey(key: String) {
-        apiKey = key
-        store.saveApiKey(key)
-    }
-
-    fun updateOpenRouterApiKey(key: String) {
-        openRouterApiKey = key
-        store.saveOpenRouterApiKey(key)
-    }
-
-    fun updateNovitaApiKey(key: String) {
-        novitaApiKey = key
-        store.saveNovitaApiKey(key)
-    }
-
-    fun updateOpenAiManualApiKey(key: String) {
-        openAiManualApiKey = key
-        store.saveOpenAiManualApiKey(key)
-    }
-
-    fun updateOpenAiOAuthAccessToken(token: String) {
-        openAiOAuthAccessToken = token
-    }
-
     fun updateOpenaiBaseUrl(url: String) {
         openaiBaseUrl = url
-    }
-
-    fun updateAuthMethod(method: String?) {
-        authMethod = method
-    }
-
-    /** Merge degraded flag from other credential stores (OAuth, onboarding). */
-    fun mergeEncryptionDegraded(otherDegraded: Boolean) {
-        if (otherDegraded) encryptionDegraded = true
-    }
-
-    /**
-     * Build a map of provider env var name → API key for [SessionServices.create].
-     *
-     * Selects the active OpenAI credential based on [authMethod]:
-     * - OAuth: uses transient [openAiOAuthAccessToken]
-     * - Manual: uses persisted [openAiManualApiKey]
-     * Falls back to legacy [apiKey] during transition (callers not yet updated).
-     *
-     * Also includes provider base URL overrides with `__BASE_URL_<PROVIDER>` keys,
-     * extracted by [SessionLlmBootstrapper] at catalog load time.
-     */
-    fun buildApiKeys(): Map<String, String> = buildMap {
-        val openAiKey = if (authMethod == "oauth") {
-            openAiOAuthAccessToken.ifBlank { apiKey }
-        } else {
-            openAiManualApiKey.ifBlank { apiKey }
-        }
-        if (openAiKey.isNotBlank()) put("OPENAI_API_KEY", openAiKey)
-        if (openRouterApiKey.isNotBlank()) put("OPENROUTER_API_KEY", openRouterApiKey)
-        if (novitaApiKey.isNotBlank()) put("NOVITA_API_KEY", novitaApiKey)
-        if (openaiBaseUrl.isNotBlank()) put("__BASE_URL_OPENAI", openaiBaseUrl)
-        if (authMethod == "oauth") put("__AUTH_METHOD_OPENAI", "oauth")
-    }
-
-    /** Build provider → base URL override map from intent-supplied values. */
-    fun buildBaseUrlOverrides(): Map<LLMProvider, String> = buildMap {
-        if (openaiBaseUrl.isNotBlank()) put(LLMProvider.OPENAI, openaiBaseUrl)
     }
 
     fun updateMaxTurns(value: Int) {

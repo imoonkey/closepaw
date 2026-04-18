@@ -1,22 +1,11 @@
 package ai.closepaw.app
 
 import android.content.Context
-import android.content.SharedPreferences
-import android.os.Environment
-import android.util.Log
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
-import ai.closepaw.BuildConfig
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
-import java.io.File
 
 data class AppSettings(
-        val apiKey: String,
-        val openAiManualApiKey: String,
-        val openRouterApiKey: String,
-        val novitaApiKey: String,
         val selectedModel: String,
         val maxTurns: Int,
         val debugMode: Boolean,
@@ -33,12 +22,8 @@ data class AppSettings(
 
 class AppSettingsStore(private val context: Context) {
     companion object {
-        private const val TAG = "AppSettingsStore"
         private const val PREFS_NAME = "agent_prefs"
-        private const val ENCRYPTED_PREFS_NAME = "agent_secure_prefs"
 
-
-        private const val KEY_API_KEY = "api_key"
         private const val KEY_MODEL = "model"
         private const val KEY_MAX_TURNS = "max_turns"
         private const val KEY_DEBUG_MODE = "debug_mode"
@@ -50,12 +35,8 @@ class AppSettingsStore(private val context: Context) {
         private const val KEY_LOCAL_MODEL_SLUG = "local_model_slug"
         private const val KEY_LOCAL_MODEL_QUANT = "local_model_quant"
         private const val KEY_EXECUTOR_MODEL = "executor_model"
-        private const val KEY_OPENROUTER_API_KEY = "openrouter_api_key"
-        private const val KEY_NOVITA_API_KEY = "novita_api_key"
-        private const val KEY_OPENAI_MANUAL_API_KEY = "openai_manual_api_key"
         private const val KEY_PLATFORM_MODE = "platform_mode"
         private const val KEY_USER_ALLOWED_PACKAGES = "user_allowed_packages"
-        private const val KEY_CREDENTIAL_SPLIT_MIGRATED = "credential_split_migrated"
         private const val KEY_TRACE_ENABLED = "trace_enabled"
 
         const val DEFAULT_MODEL = "glm-5"
@@ -74,64 +55,8 @@ class AppSettingsStore(private val context: Context) {
     /** Plain prefs for non-secret settings only (model, turns, mode, etc.). */
     private fun prefs() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    private var _securePrefs: SharedPreferences? = null
-    private var _encryptionDegraded = false
-
-    /** True when encrypted storage is unavailable. Credentials exist only in memory. */
-    val encryptionDegraded: Boolean get() = _encryptionDegraded
-
-    /** In-memory cache for secrets when encryption is unavailable. */
-    private val memorySecrets = mutableMapOf<String, String>()
-
-    private fun securePrefs(): SharedPreferences? {
-        if (_encryptionDegraded) return null
-        _securePrefs?.let { return it }
-        return try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            EncryptedSharedPreferences.create(
-                context,
-                ENCRYPTED_PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            ).also { _securePrefs = it }
-        } catch (e: Exception) {
-            Log.w(TAG, "EncryptedSharedPreferences unavailable, credentials will be memory-only: ${e.message}")
-            _encryptionDegraded = true
-            null
-        }
-    }
-
-    private fun readSecure(key: String): String? {
-        val prefs = securePrefs() ?: return memorySecrets[key]
-        return try {
-            prefs.getString(key, null)
-        } catch (e: Exception) {
-            Log.w(TAG, "Encrypted read failed for $key: ${e.message}")
-            memorySecrets[key]
-        }
-    }
-
-    private fun writeSecure(key: String, value: String) {
-        val prefs = securePrefs()
-        if (prefs == null) {
-            memorySecrets[key] = value
-            return
-        }
-        try {
-            prefs.edit().putString(key, value).apply()
-        } catch (e: Exception) {
-            Log.w(TAG, "Encrypted write failed for $key: ${e.message}")
-            memorySecrets[key] = value
-        }
-    }
-
     fun load(): AppSettings {
         val prefs = prefs()
-        val savedKey = readSecure(KEY_API_KEY)?.takeIf { it.isNotBlank() }
-        val apiKey = savedKey ?: loadApiKeyFromFile().orEmpty()
 
         val selectedModel = prefs.getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
         val maxTurns = prefs.getInt(KEY_MAX_TURNS, DEFAULT_MAX_TURNS)
@@ -169,9 +94,6 @@ class AppSettingsStore(private val context: Context) {
                 prefs.getString(KEY_LOCAL_MODEL_QUANT, DEFAULT_LOCAL_MODEL_QUANT)
                         ?: DEFAULT_LOCAL_MODEL_QUANT
         val executorModel = prefs.getString(KEY_EXECUTOR_MODEL, null)
-        val openRouterApiKey = readSecure(KEY_OPENROUTER_API_KEY) ?: ""
-        val novitaApiKey = readSecure(KEY_NOVITA_API_KEY) ?: ""
-        val openAiManualApiKey = readSecure(KEY_OPENAI_MANUAL_API_KEY) ?: ""
         val platformModeName = prefs.getString(KEY_PLATFORM_MODE, DEFAULT_PLATFORM_MODE.name)
                 ?: DEFAULT_PLATFORM_MODE.name
         val platformMode = try {
@@ -182,10 +104,6 @@ class AppSettingsStore(private val context: Context) {
         val traceEnabled = prefs.getBoolean(KEY_TRACE_ENABLED, DEFAULT_TRACE_ENABLED)
 
         return AppSettings(
-                apiKey = apiKey,
-                openAiManualApiKey = openAiManualApiKey,
-                openRouterApiKey = openRouterApiKey,
-                novitaApiKey = novitaApiKey,
                 selectedModel = selectedModel,
                 maxTurns = maxTurns,
                 debugMode = debugMode,
@@ -207,48 +125,6 @@ class AppSettingsStore(private val context: Context) {
         } else {
             prefs().edit().putString(KEY_EXECUTOR_MODEL, value).apply()
         }
-    }
-
-    fun saveApiKey(value: String) {
-        writeSecure(KEY_API_KEY, value)
-    }
-
-    fun saveOpenAiManualApiKey(value: String) {
-        writeSecure(KEY_OPENAI_MANUAL_API_KEY, value)
-    }
-
-    /**
-     * One-time migration: split legacy [KEY_API_KEY] into [KEY_OPENAI_MANUAL_API_KEY].
-     *
-     * If the legacy value matches [oauthAccessToken], it was an OAuth artifact written
-     * before the credential split — clear it from the manual-key slot.
-     * Otherwise copy it as the persisted manual OpenAI key.
-     */
-    fun migrateCredentialSplit(oauthAccessToken: String?) {
-        try {
-            val prefs = securePrefs() ?: return // can't migrate without encryption
-
-            if (prefs.getBoolean(KEY_CREDENTIAL_SPLIT_MIGRATED, false)) return
-
-            val legacyKey = readSecure(KEY_API_KEY) ?: ""
-            if (legacyKey.isNotBlank() && readSecure(KEY_OPENAI_MANUAL_API_KEY).isNullOrBlank()) {
-                if (oauthAccessToken == null || legacyKey != oauthAccessToken) {
-                    writeSecure(KEY_OPENAI_MANUAL_API_KEY, legacyKey)
-                }
-            }
-            prefs.edit().putBoolean(KEY_CREDENTIAL_SPLIT_MIGRATED, true).apply()
-            Log.d(TAG, "Credential split migration completed")
-        } catch (e: Exception) {
-            Log.w(TAG, "Credential split migration failed: ${e.message}")
-        }
-    }
-
-    fun saveOpenRouterApiKey(value: String) {
-        writeSecure(KEY_OPENROUTER_API_KEY, value)
-    }
-
-    fun saveNovitaApiKey(value: String) {
-        writeSecure(KEY_NOVITA_API_KEY, value)
     }
 
     fun saveModel(value: String) {
@@ -299,26 +175,4 @@ class AppSettingsStore(private val context: Context) {
     fun savePersistentAllowList(packages: Set<String>) {
         prefs().edit().putStringSet(KEY_USER_ALLOWED_PACKAGES, packages).apply()
     }
-
-    private fun loadApiKeyFromFile(): String? {
-        if (!BuildConfig.DEBUG) return null
-        return try {
-            @Suppress("DEPRECATION")
-            val file = File(Environment.getExternalStorageDirectory(), "api_key.txt")
-            if (!file.exists()) return null
-
-            val key = file.readText().trim()
-            if (key.isNotBlank() && key.startsWith("sk-")) {
-                saveApiKey(key)
-                Log.d(TAG, "API key loaded from file")
-                key
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not load API key from file: ${e.message}")
-            null
-        }
-    }
-
 }
