@@ -472,4 +472,22 @@ class DemoStepStateTest {
 
         scope.coroutineContext.job.cancel()
     }
+
+    // ── Base URL override propagation ──
+
+    @Test
+    fun `resolveBaseUrlOverrides maps non-blank openaiBaseUrl to OPENAI_API`() {
+        val overrides = OnboardingDemoController.resolveBaseUrlOverrides(
+            "https://proxy.example.test/v1"
+        )
+        assertThat(overrides).containsExactly(
+            LLMProvider.OPENAI_API, "https://proxy.example.test/v1",
+        )
+    }
+
+    @Test
+    fun `resolveBaseUrlOverrides returns empty map for blank openaiBaseUrl`() {
+        assertThat(OnboardingDemoController.resolveBaseUrlOverrides("")).isEmpty()
+        assertThat(OnboardingDemoController.resolveBaseUrlOverrides("   ")).isEmpty()
+    }
 }

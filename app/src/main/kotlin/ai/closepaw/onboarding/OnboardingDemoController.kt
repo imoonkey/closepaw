@@ -51,6 +51,18 @@ class OnboardingDemoController(
         private const val TIMEOUT_MS = 60_000L
         private const val MAX_TURNS = 5
         private const val SETTINGS_PACKAGE = "com.android.settings"
+
+        /**
+         * Mirrors MainActivity.createOrReloadSession: a non-blank
+         * [AppSettingsState.openaiBaseUrl] (set from `.env` / debug-run intent)
+         * must override the catalog's OPENAI_API base URL, otherwise the demo
+         * session would talk to api.openai.com even though onboarding validated
+         * a proxy.
+         */
+        internal fun resolveBaseUrlOverrides(openaiBaseUrl: String): Map<LLMProvider, String> =
+            if (openaiBaseUrl.isNotBlank()) {
+                mapOf(LLMProvider.OPENAI_API to openaiBaseUrl)
+            } else emptyMap()
     }
 
     private val mutex = Mutex()
@@ -93,12 +105,15 @@ class OnboardingDemoController(
                 val visualizer = service.getActionVisualizer()
                 val touchGate = service.getOverlayTouchGate()
 
+                val baseUrlOverrides = resolveBaseUrlOverrides(settingsState.openaiBaseUrl)
+
                 val session = withContext(Dispatchers.IO) {
                     AgentSession.create(
                         config = config,
                         service = service,
                         scope = scope,
                         authStore = authStore,
+                        baseUrlOverrides = baseUrlOverrides,
                         visualizer = visualizer,
                         overlayTouchGate = touchGate
                     )
