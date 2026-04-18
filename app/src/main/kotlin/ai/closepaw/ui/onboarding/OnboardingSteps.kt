@@ -192,7 +192,7 @@ fun ApiKeyStepContent(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            OnboardingProvider.entries.forEach { provider ->
+            OnboardingProvider.visibleInUi.forEach { provider ->
                 FilterChip(
                     selected = selectedProvider == provider,
                     onClick = { onProviderSelected(provider) },
@@ -207,7 +207,7 @@ fun ApiKeyStepContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Show OAuth or manual content based on auth method + provider
-        if (selectedProvider == OnboardingProvider.OPENAI && authMethod == ApiKeyAuthMethod.OAUTH) {
+        if (selectedProvider == OnboardingProvider.OPENAI_API && authMethod == ApiKeyAuthMethod.OAUTH) {
             OAuthContent(
                 state = state,
                 onStartOAuth = onStartOAuth,
@@ -225,7 +225,7 @@ fun ApiKeyStepContent(
                 onKeyChanged = onKeyChanged,
                 onValidate = onValidate,
                 onRetry = onRetry,
-                showSwitchToOAuth = selectedProvider == OnboardingProvider.OPENAI,
+                showSwitchToOAuth = selectedProvider == OnboardingProvider.OPENAI_API,
                 onSwitchToOAuth = { onAuthMethodSelected(ApiKeyAuthMethod.OAUTH) }
             )
         }
@@ -451,7 +451,8 @@ private fun ColumnScope.ManualApiKeyContent(
 fun DemoStepContent(
     state: DemoStepState,
     onRunDemo: () -> Unit,
-    onSkip: () -> Unit
+    onSkip: () -> Unit,
+    onGoToAuthStep: () -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Icon(
@@ -492,6 +493,28 @@ fun DemoStepContent(
                     color = MaterialTheme.colorScheme.error
                 )
             }
+            is DemoStepState.CredentialError -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Credential problem",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = state.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
             DemoStepState.Skipped -> {}
         }
 
@@ -517,6 +540,19 @@ fun DemoStepContent(
             is DemoStepState.Failure -> {
                 Button(onClick = onRunDemo, modifier = Modifier.fillMaxWidth()) {
                     Text("Try Again")
+                }
+                TextButton(
+                    onClick = onSkip,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                ) {
+                    Text("Skip for now")
+                }
+            }
+            is DemoStepState.CredentialError -> {
+                Button(onClick = onGoToAuthStep, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (state.isOAuth) "Sign in again" else "Re-enter API key")
                 }
                 TextButton(
                     onClick = onSkip,

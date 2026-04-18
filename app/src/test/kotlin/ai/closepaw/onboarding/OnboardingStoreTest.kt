@@ -2,13 +2,9 @@ package ai.closepaw.onboarding
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import com.google.common.truth.Truth.assertThat
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkConstructor
-import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import org.junit.After
 import org.junit.Before
@@ -18,40 +14,14 @@ class OnboardingStoreTest {
 
     private lateinit var context: Context
     private lateinit var plainBacking: MutableMap<String, Any?>
-    private lateinit var secureBacking: MutableMap<String, Any?>
 
     @Before
     fun setUp() {
         plainBacking = mutableMapOf()
-        secureBacking = mutableMapOf()
-
         val plainPrefs = fakePrefs(plainBacking)
-        val securePrefs = fakePrefs(secureBacking)
-
         context = mockk<Context>(relaxed = true) {
             every { getSharedPreferences("onboarding_prefs", any()) } returns plainPrefs
-            every { getSharedPreferences("onboarding_secure_prefs", any()) } returns securePrefs
         }
-
-        // MasterKey.Builder succeeds
-        mockkConstructor(MasterKey.Builder::class)
-        every {
-            anyConstructed<MasterKey.Builder>().setKeyScheme(any())
-        } returns mockk(relaxed = true) {
-            every { build() } returns mockk(relaxed = true)
-        }
-
-        // Return fake encrypted prefs (uses same in-memory map)
-        mockkStatic(EncryptedSharedPreferences::class)
-        every {
-            EncryptedSharedPreferences.create(
-                any<Context>(),
-                any<String>(),
-                any<MasterKey>(),
-                any<EncryptedSharedPreferences.PrefKeyEncryptionScheme>(),
-                any<EncryptedSharedPreferences.PrefValueEncryptionScheme>()
-            )
-        } returns securePrefs
     }
 
     @After
@@ -112,42 +82,32 @@ class OnboardingStoreTest {
     }
 
     @Test
-    fun `saveAuthMethod persists and loadAuthMethod returns stored method`() {
-        val store = OnboardingStore(context)
+    fun `migrateIfNeeded on a new install without evidence leaves onboarding incomplete`() {
+        OnboardingStore(context).migrateIfNeeded { false }
 
-        assertThat(store.loadAuthMethod()).isNull()
-
-        store.saveAuthMethod("oauth")
-        assertThat(OnboardingStore(context).loadAuthMethod()).isEqualTo("oauth")
-
-        store.saveAuthMethod("manual")
-        assertThat(OnboardingStore(context).loadAuthMethod()).isEqualTo("manual")
+        assertThat(plainBacking["schema_version"]).isEqualTo(2)
+        assertThat(plainBacking["onboarding_completed"]).isEqualTo(false)
     }
 
     @Test
-    fun `saveApiKeyDraft writes to encrypted prefs and loadApiKeyDraft reads it back`() {
-        val store = OnboardingStore(context)
+    fun `migrateIfNeeded detects existing user and marks onboarding complete`() {
+        OnboardingStore(context).migrateIfNeeded { true }
 
-        assertThat(store.loadApiKeyDraft()).isNull()
-
-        store.saveApiKeyDraft("sk-secret-draft-123")
-        assertThat(store.encryptionDegraded).isFalse()
-        assertThat(secureBacking["onboarding_api_key_draft"]).isEqualTo("sk-secret-draft-123")
-
-        val reloaded = OnboardingStore(context).loadApiKeyDraft()
-        assertThat(reloaded).isEqualTo("sk-secret-draft-123")
-
-        // Draft must not leak into plain prefs
-        assertThat(plainBacking).doesNotContainKey("onboarding_api_key_draft")
+        assertThat(plainBacking["schema_version"]).isEqualTo(2)
+        assertThat(plainBacking["onboarding_completed"]).isEqualTo(true)
     }
 
     @Test
-    fun `clearApiKeyDraft removes the stored draft`() {
-        val store = OnboardingStore(context)
-        store.saveApiKeyDraft("sk-secret")
-        assertThat(store.loadApiKeyDraft()).isEqualTo("sk-secret")
+    fun `migrateIfNeeded from schema v1 strips legacy auth_method key`() {
+        plainBacking["schema_version"] = 1
+        plainBacking["auth_method"] = "oauth"
+        plainBacking["onboarding_completed"] = true
 
-        store.clearApiKeyDraft()
-        assertThat(store.loadApiKeyDraft()).isNull()
+        OnboardingStore(context).migrateIfNeeded { false }
+
+        assertThat(plainBacking["schema_version"]).isEqualTo(2)
+        assertThat(plainBacking).doesNotContainKey("auth_method")
+        // Completion flag preserved across migration
+        assertThat(plainBacking["onboarding_completed"]).isEqualTo(true)
     }
 }

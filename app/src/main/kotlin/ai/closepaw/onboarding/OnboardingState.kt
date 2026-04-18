@@ -1,15 +1,29 @@
 package ai.closepaw.onboarding
 
+import ai.closepaw.llm.LLMProvider
+
 /** Steps in the onboarding wizard, in funnel order. */
 enum class WizardStep { Accessibility, Overlay, Battery, ApiKey, Demo, Complete }
 
 /** Durable outcome persisted for each step. */
 enum class StepOutcome { Pending, Done, Skipped }
 
-/** Provider choices available during onboarding API key step. */
-enum class OnboardingProvider(val label: String, val apiKeyEnv: String) {
-    OPENAI("OpenAI", "OPENAI_API_KEY"),
-    OPENROUTER("OpenRouter", "OPENROUTER_API_KEY")
+/**
+ * Cloud providers selectable during onboarding's API-key path.
+ *
+ * Aligned one-to-one with the ApiKey-mode entries of [LLMProvider]. OAuth (OPENAI_CODEX)
+ * lives on its own tab and is not part of this picker. NOVITA is included for enum
+ * alignment but hidden from UI by default (see [OnboardingProvider.visibleInUi]).
+ */
+enum class OnboardingProvider(val label: String, val llmProvider: LLMProvider) {
+    OPENAI_API("OpenAI", LLMProvider.OPENAI_API),
+    OPENROUTER("OpenRouter", LLMProvider.OPENROUTER),
+    NOVITA("Novita", LLMProvider.NOVITA);
+
+    companion object {
+        /** Providers rendered in the onboarding provider picker. */
+        val visibleInUi: List<OnboardingProvider> = listOf(OPENAI_API, OPENROUTER)
+    }
 }
 
 /** Auth method within the API key step (OpenAI only offers OAuth). */
@@ -58,6 +72,8 @@ sealed interface DemoStepState : OnboardingStepState {
     data object Running : DemoStepState
     data class Success(val message: String) : DemoStepState
     data class Failure(val reason: String) : DemoStepState
+    /** Credential error surfaced inline on the demo step with a re-auth CTA. */
+    data class CredentialError(val message: String, val isOAuth: Boolean) : DemoStepState
     data object Skipped : DemoStepState
 }
 

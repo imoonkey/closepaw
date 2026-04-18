@@ -40,6 +40,7 @@ fun OnboardingScreen(
     onRetryValidation: () -> Unit,
     onStartDemo: () -> Unit,
     onFinish: () -> Unit,
+    onGoToAuthStep: () -> Unit,
     onEffect: (OnboardingEffect) -> Unit
 ) {
     // Consume one-shot effects
@@ -135,7 +136,8 @@ fun OnboardingScreen(
                 DemoStepContent(
                     state = stepState as? DemoStepState ?: DemoStepState.Ready,
                     onRunDemo = onStartDemo,
-                    onSkip = onSkipStep
+                    onSkip = onSkipStep,
+                    onGoToAuthStep = onGoToAuthStep
                 )
             }
         }

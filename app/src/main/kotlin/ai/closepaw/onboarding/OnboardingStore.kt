@@ -3,21 +3,18 @@ package ai.closepaw.onboarding
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 
 /**
- * Persistence for onboarding wizard state.
+ * Persistence for onboarding wizard state (step outcomes + completion flag).
  *
- * Uses its own prefs file ("onboarding_prefs") — separate from AppSettingsStore.
- * Encrypted storage for the API key draft (survives process death without re-entry).
+ * Auth credentials live in [ai.closepaw.auth.AuthStore]; the API-key typed during
+ * onboarding is ViewModel-transient (process-death → retype).
  */
 class OnboardingStore(private val context: Context) {
 
     companion object {
         private const val TAG = "OnboardingStore"
         private const val PREFS_NAME = "onboarding_prefs"
-        private const val ENCRYPTED_PREFS_NAME = "onboarding_secure_prefs"
 
         private const val KEY_SCHEMA_VERSION = "schema_version"
         private const val KEY_COMPLETED = "onboarding_completed"
@@ -26,43 +23,15 @@ class OnboardingStore(private val context: Context) {
         private const val KEY_STEP_BATTERY = "step_battery"
         private const val KEY_STEP_API_KEY = "step_api_key"
         private const val KEY_STEP_DEMO = "step_demo"
-        private const val KEY_API_KEY_DRAFT = "onboarding_api_key_draft"
-        private const val KEY_AUTH_METHOD = "auth_method"
 
-        private const val CURRENT_SCHEMA_VERSION = 1
+        // Legacy keys removed in schema v2 — retained only for migration cleanup.
+        private const val LEGACY_KEY_AUTH_METHOD = "auth_method"
+
+        private const val CURRENT_SCHEMA_VERSION = 2
     }
 
     private fun prefs(): SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
-    // ── Encrypted prefs for API key draft ──
-
-    private var _securePrefs: SharedPreferences? = null
-    private var _encryptionDegraded = false
-
-    /** True when encrypted storage is unavailable. API key draft is not persisted. */
-    val encryptionDegraded: Boolean get() = _encryptionDegraded
-
-    private fun securePrefs(): SharedPreferences? {
-        if (_encryptionDegraded) return null
-        _securePrefs?.let { return it }
-        return try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            EncryptedSharedPreferences.create(
-                context,
-                ENCRYPTED_PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            ).also { _securePrefs = it }
-        } catch (e: Exception) {
-            Log.w(TAG, "EncryptedSharedPreferences unavailable: ${e.message}")
-            _encryptionDegraded = true
-            null
-        }
-    }
 
     // ── Public API ──
 
@@ -100,68 +69,41 @@ class OnboardingStore(private val context: Context) {
         prefs().edit().putString(key, outcome.toStorageValue()).apply()
     }
 
-    // ── Auth method ──
-
-    fun saveAuthMethod(method: String) {
-        prefs().edit().putString(KEY_AUTH_METHOD, method).apply()
-    }
-
-    fun loadAuthMethod(): String? = prefs().getString(KEY_AUTH_METHOD, null)
-
-    // ── Encrypted API key draft ──
-    // Draft is only stored in encrypted prefs. If encryption is unavailable,
-    // the draft is not persisted (user must re-enter on next launch).
-
-    fun loadApiKeyDraft(): String? {
-        val sp = securePrefs() ?: return null
-        return try {
-            sp.getString(KEY_API_KEY_DRAFT, null)?.takeIf { it.isNotBlank() }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to read API key draft: ${e.message}")
-            null
-        }
-    }
-
-    fun saveApiKeyDraft(key: String) {
-        val sp = securePrefs() ?: return
-        try {
-            sp.edit().putString(KEY_API_KEY_DRAFT, key).apply()
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to save API key draft: ${e.message}")
-        }
-    }
-
-    fun clearApiKeyDraft() {
-        val sp = securePrefs() ?: return
-        try {
-            sp.edit().remove(KEY_API_KEY_DRAFT).apply()
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to clear API key draft: ${e.message}")
-        }
-    }
-
     // ── Migration ──
 
     /**
-     * Run on first access. If schema_version is absent:
-     * - Check for legacy usage evidence (stored keys, session history, non-default settings).
-     * - If evidence exists → mark onboarding complete (existing user).
-     * - Otherwise → leave incomplete (new install).
+     * Run on first access. Idempotent.
+     *
+     * - No schema key present → brand-new install (or pre-onboarding legacy user).
+     *   Detect existing users via [hasLegacyUsageEvidence] and mark them complete.
+     * - Schema < 2 → strip legacy keys introduced before the auth-cleanup split
+     *   ([LEGACY_KEY_AUTH_METHOD]). The legacy encrypted prefs file
+     *   `onboarding_secure_prefs` is left on disk; nothing reads it anymore.
      */
     fun migrateIfNeeded(hasLegacyUsageEvidence: () -> Boolean) {
         val p = prefs()
-        if (p.contains(KEY_SCHEMA_VERSION)) return
+        val existing = p.getInt(KEY_SCHEMA_VERSION, -1)
 
-        val isExistingUser = hasLegacyUsageEvidence()
-        p.edit()
-            .putInt(KEY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION)
-            .putBoolean(KEY_COMPLETED, isExistingUser)
-            .apply()
+        if (existing == -1) {
+            val isExistingUser = hasLegacyUsageEvidence()
+            p.edit()
+                .putInt(KEY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION)
+                .putBoolean(KEY_COMPLETED, isExistingUser)
+                .apply()
+            Log.d(
+                TAG,
+                if (isExistingUser) "Existing user detected — onboarding marked complete"
+                else "New install — onboarding required"
+            )
+            return
+        }
 
-        if (isExistingUser) {
-            Log.d(TAG, "Existing user detected — onboarding marked complete")
-        } else {
-            Log.d(TAG, "New install — onboarding required")
+        if (existing < CURRENT_SCHEMA_VERSION) {
+            p.edit()
+                .remove(LEGACY_KEY_AUTH_METHOD)
+                .putInt(KEY_SCHEMA_VERSION, CURRENT_SCHEMA_VERSION)
+                .apply()
+            Log.d(TAG, "Migrated onboarding schema $existing → $CURRENT_SCHEMA_VERSION")
         }
     }
 

@@ -3,6 +3,11 @@ package ai.closepaw.onboarding
 import android.util.Log
 import ai.closepaw.app.AgentService
 import ai.closepaw.app.AppSettingsState
+import ai.closepaw.app.AuthStoreHolder
+import ai.closepaw.auth.MissingCredential
+import ai.closepaw.auth.OAuthRefreshFailed
+import ai.closepaw.auth.WrongCredentialType
+import ai.closepaw.llm.LLMProvider
 import ai.closepaw.perception.PerceptionConfig
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.ApprovalMode
@@ -32,7 +37,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * Success: GOAL_ACHIEVED + last captured package == com.android.settings
  * Timeout: 60 seconds
  *
- * Not bound to SessionCoordinator or ChatViewModel.
+ * Pulls credentials from the app-scoped [ai.closepaw.auth.AuthStore] — no
+ * synthesized bridge, no legacy settings fields.
  */
 class OnboardingDemoController(
     private val settingsState: AppSettingsState,
@@ -54,6 +60,7 @@ class OnboardingDemoController(
     fun run(
         onSuccess: (message: String) -> Unit,
         onFailure: (reason: String) -> Unit,
+        onCredentialError: (message: String, isOAuth: Boolean) -> Unit,
         onBringToFront: () -> Unit
     ) {
         cancel() // clean up any prior run
@@ -66,6 +73,8 @@ class OnboardingDemoController(
                 }
                 return@launch
             }
+
+            val authStore = AuthStoreHolder.get(service.applicationContext)
 
             try {
                 val config = SessionConfig(
@@ -81,7 +90,6 @@ class OnboardingDemoController(
                     mainModel = settingsState.selectedModel
                 )
 
-                val apiKeys = settingsState.buildApiKeys()
                 val visualizer = service.getActionVisualizer()
                 val touchGate = service.getOverlayTouchGate()
 
@@ -90,7 +98,7 @@ class OnboardingDemoController(
                         config = config,
                         service = service,
                         scope = scope,
-                        apiKeys = apiKeys,
+                        authStore = authStore,
                         visualizer = visualizer,
                         overlayTouchGate = touchGate
                     )
@@ -163,6 +171,30 @@ class OnboardingDemoController(
                         onFailure("The demo timed out before opening Settings.")
                     }
                 }
+            } catch (e: MissingCredential) {
+                Log.w(TAG, "Demo credential missing for ${e.provider}")
+                withContext(Dispatchers.Main) {
+                    onCredentialError(
+                        "No ${e.provider.displayName()} credential found. Sign in again.",
+                        e.provider == LLMProvider.OPENAI_CODEX,
+                    )
+                }
+            } catch (e: OAuthRefreshFailed) {
+                Log.w(TAG, "Demo OAuth refresh failed for ${e.provider}: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    onCredentialError(
+                        "Sign-in expired. Please sign in again.",
+                        true,
+                    )
+                }
+            } catch (e: WrongCredentialType) {
+                Log.w(TAG, "Demo wrong credential type for ${e.provider}: expected ${e.expected}")
+                withContext(Dispatchers.Main) {
+                    onCredentialError(
+                        "Credential mismatch for ${e.provider.displayName()}. Re-enter it.",
+                        e.provider == LLMProvider.OPENAI_CODEX,
+                    )
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Demo failed with exception", e)
                 withContext(Dispatchers.Main) {
@@ -192,4 +224,12 @@ class OnboardingDemoController(
             Log.w(TAG, "Demo session shutdown error: ${e.message}")
         }
     }
+}
+
+private fun LLMProvider.displayName(): String = when (this) {
+    LLMProvider.OPENAI_API -> "OpenAI"
+    LLMProvider.OPENAI_CODEX -> "OpenAI"
+    LLMProvider.OPENROUTER -> "OpenRouter"
+    LLMProvider.NOVITA -> "Novita"
+    LLMProvider.LOCAL_LFM -> "Local"
 }
