@@ -326,6 +326,60 @@ class ToolCallStateTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
+    fun `Scheduled to Cancelled - router cancel(callId) signals per-call token before exec`() = runTest {
+        val registry = ToolRegistry().apply { register(SuccessToolSpec()) }
+        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.AUTO_APPROVE, AppClassifier(emptyMap())))
+        val context = SimpleToolRouterContext(FakeAndroidPlatform())
+        val states = mutableListOf<ToolCallState>()
+
+        router.execute(
+            toolName = "success_tool",
+            params = JSONObject(),
+            context = context,
+            callId = "router-cancel-1",
+            onStateChange = { state ->
+                states.add(state)
+                if (state is ToolCallState.Scheduled) router.cancel(state.callId)
+            }
+        )
+
+        assertThat(states.map { it::class }).containsExactly(
+            ToolCallState.Validating::class,
+            ToolCallState.Scheduled::class,
+            ToolCallState.Cancelled::class
+        ).inOrder()
+        assertThat((states.last() as ToolCallState.Cancelled).reason).isEqualTo("Cancelled before execution")
+        assertThat(router.getActiveCallIds()).isEmpty()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `Scheduled to Cancelled - router cancelAll signals per-call token before exec`() = runTest {
+        val registry = ToolRegistry().apply { register(SuccessToolSpec()) }
+        val router = ToolRouter(registry, PolicyEngine(ApprovalMode.AUTO_APPROVE, AppClassifier(emptyMap())))
+        val states = mutableListOf<ToolCallState>()
+
+        router.execute(
+            toolName = "success_tool",
+            params = JSONObject(),
+            context = SimpleToolRouterContext(FakeAndroidPlatform()),
+            onStateChange = { state ->
+                states.add(state)
+                if (state is ToolCallState.Scheduled) router.cancelAll()
+            }
+        )
+
+        assertThat(states.map { it::class }).containsExactly(
+            ToolCallState.Validating::class,
+            ToolCallState.Scheduled::class,
+            ToolCallState.Cancelled::class
+        ).inOrder()
+        assertThat((states.last() as ToolCallState.Cancelled).reason).isEqualTo("Cancelled before execution")
+        assertThat(router.getActiveCallIds()).isEmpty()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
     fun `Executing to Error - invocation returns Failure`() = runTest {
         val registry = ToolRegistry().apply { register(FailingToolSpec()) }
         val router = ToolRouter(registry, PolicyEngine(ApprovalMode.AUTO_APPROVE, AppClassifier(emptyMap())))
