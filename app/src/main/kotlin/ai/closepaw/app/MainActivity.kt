@@ -748,16 +748,18 @@ class MainActivity : ComponentActivity() {
             when (result) {
                 is ai.closepaw.auth.OpenAiSignInResult.Success -> {
                     val tokens = result.tokens
-                    authStore.set(
-                        LLMProvider.OPENAI_CODEX,
-                        AuthCredential.OAuth(
-                            accessToken = tokens.accessToken,
-                            refreshToken = tokens.refreshToken,
-                            expiresAt = tokens.expiresAt,
-                            email = tokens.email,
-                            idToken = tokens.idToken,
+                    withContext(Dispatchers.IO) {
+                        authStore.set(
+                            LLMProvider.OPENAI_CODEX,
+                            AuthCredential.OAuth(
+                                accessToken = tokens.accessToken,
+                                refreshToken = tokens.refreshToken,
+                                expiresAt = tokens.expiresAt,
+                                email = tokens.email,
+                                idToken = tokens.idToken,
+                            )
                         )
-                    )
+                    }
                     settingsState.updateBackend(ai.closepaw.protocol.LLMBackendType.OPENAI)
                     openAiAuthUiState = ai.closepaw.ui.settings.OpenAiAuthUiState.SignedIn(tokens.email)
                     Log.d(TAG, "Settings OAuth success")

@@ -13,10 +13,12 @@ import ai.closepaw.llm.LLMProvider
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.ModelEntry
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Onboarding wizard state machine.
@@ -101,16 +103,18 @@ class OnboardingViewModel(
             when (result) {
                 is OpenAiSignInResult.Success -> {
                     val tokens = result.tokens
-                    authStore.set(
-                        LLMProvider.OPENAI_CODEX,
-                        AuthCredential.OAuth(
-                            accessToken = tokens.accessToken,
-                            refreshToken = tokens.refreshToken,
-                            expiresAt = tokens.expiresAt,
-                            email = tokens.email,
-                            idToken = tokens.idToken,
+                    withContext(Dispatchers.IO) {
+                        authStore.set(
+                            LLMProvider.OPENAI_CODEX,
+                            AuthCredential.OAuth(
+                                accessToken = tokens.accessToken,
+                                refreshToken = tokens.refreshToken,
+                                expiresAt = tokens.expiresAt,
+                                email = tokens.email,
+                                idToken = tokens.idToken,
+                            )
                         )
-                    )
+                    }
                     applyDefaultModelFor(LLMProvider.OPENAI_CODEX)
                     store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done)
                     outcomes = outcomes.copy(apiKey = StepOutcome.Done)
@@ -216,7 +220,9 @@ class OnboardingViewModel(
             val result = validator.validate(key)
             when (result) {
                 is LlmCredentialValidator.Result.Valid -> {
-                    authStore.set(selectedProvider.llmProvider, AuthCredential.ApiKey(key))
+                    withContext(Dispatchers.IO) {
+                        authStore.set(selectedProvider.llmProvider, AuthCredential.ApiKey(key))
+                    }
                     applyDefaultModelFor(selectedProvider.llmProvider)
                     stepState = ApiKeyStepState.Valid(key)
                     store.saveOutcome(WizardStep.ApiKey, StepOutcome.Done)

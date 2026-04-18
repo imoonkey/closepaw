@@ -39,7 +39,9 @@ import ai.closepaw.llm.displayLabel
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class LlmAuthTab { SIGN_IN, API_KEY, LOCAL }
 
@@ -219,8 +221,10 @@ private fun persistApiKey(
     key: String,
 ) {
     scope.launch {
-        if (key.isBlank()) authStore.clear(provider)
-        else authStore.set(provider, AuthCredential.ApiKey(key))
+        withContext(Dispatchers.IO) {
+            if (key.isBlank()) authStore.clear(provider)
+            else authStore.set(provider, AuthCredential.ApiKey(key))
+        }
     }
 }
 
