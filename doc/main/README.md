@@ -1,7 +1,7 @@
 # ClosePaw Documentation
 
 > Entry point and navigation guide for the codebase.
-> Last updated: 2026-04-17
+> Last updated: 2026-04-18
 
 ## Quick Start
 
@@ -54,21 +54,38 @@ doc/main/
 │   │   └── models.md      # SessionRecord, MessageRecord, ScreenStateRecord
 │   └── settings.md    # User settings, preferences, SessionConfig compilation
 │
-└── ui/                # User interface
-    ├── style.md       # Design system: colors, typography, shapes
-    ├── tech_design.md # Technical implementation: ViewModel, event reducers
-    ├── user_interaction.md # Pages, user flows, event→UI mapping
-    ├── overlay.md     # Edge Glow, Island, Visualizer, overlay infrastructure
-    ├── capsule/       # Smart Capsule
-    │   ├── architecture.md # Modes, rendering, state transitions, callbacks
-    │   ├── state_machine.md
-    │   └── user_flows.md
-    └── session/       # Session lifecycle state machine + user flows
-        ├── state_machine.md
-        └── user_flows.md
-
-├── eval/              # Evaluation & benchmarking
-│   └── eval.md        # Eval runner architecture, AndroidWorld bridge
+├── ui/                # User interface
+│   ├── style.md       # Design system: colors, typography, shapes
+│   ├── tech_design.md # Technical implementation: ViewModel, event reducers
+│   ├── user_interaction.md # Pages, user flows, event→UI mapping
+│   ├── overlay.md     # Edge Glow, Island, Visualizer, overlay infrastructure
+│   ├── capsule/       # Smart Capsule
+│   │   ├── architecture.md # Modes, rendering, state transitions, callbacks
+│   │   ├── state_machine.md
+│   │   └── user_flows.md
+│   └── session/       # Session lifecycle state machine + user flows
+│       ├── state_machine.md
+│       └── user_flows.md
+│
+├── state_machines/    # Authoritative FSM reference (mermaid + invariants)
+│   ├── README.md            # Index + quick FSM overview
+│   ├── session_state.md     # AgentSession lifecycle (Created/Running/Idle/TakeoverPending/Paused/Shutdown)
+│   ├── session_coordinator.md # SubmitResult queue + drain semantics
+│   ├── agent_run_loop.md    # Agent.run TurnOutcome loop
+│   ├── tool_call.md         # ToolCallState 7-state lifecycle
+│   ├── llm_retry.md         # CloudStreamRetryPolicy + StreamRetryRunner
+│   ├── local_model_loading.md # LFMLLMClient ModelLoadingState
+│   ├── onboarding_wizard.md # WizardStep funnel + StepOutcome
+│   ├── onboarding_apikey_step.md # ApiKeyStepState (manual + OAuth)
+│   ├── onboarding_demo_step.md   # DemoStepState
+│   ├── onboarding_permission_step.md # PermissionStepState
+│   └── onboarding_step_states.md # Why 3 hierarchies are kept (KISS rationale)
+│
+├── error_handling.md  # Error patterns + silent-failure inventory
+├── data_schemas.md    # Core schemas + redundancy findings
+│
+└── eval/              # Evaluation & benchmarking
+    └── eval.md        # Eval runner architecture, AndroidWorld bridge
 ```
 
 ---

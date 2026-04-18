@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-04-18: harness-simplify milestone — formalize all FSMs, characterize, simplify
+
+**What changed:**
+- New `doc/main/state_machines/` (11 FSM docs + index): authoritative reference for SessionState, SessionCoordinator, Agent.run loop, ToolCall, CloudStreamRetryPolicy + StreamRetryRunner, LFMLLMClient ModelLoadingState, OnboardingWizard + 3 step states, plus a KISS-rationale doc explaining why the 3 step-state hierarchies are kept (5 cast sites < 23-case flat sealed in every renderer).
+- New `doc/main/error_handling.md` and `doc/main/data_schemas.md`: catalog silent-failure sites with file:line refs and core-schema redundancy findings.
+- 12 characterization test classes added under `app/src/test/`, exhaustively covering every transition + guard rejection in each FSM. Each survived 1–4 codex review rounds; recurring high-severity catches: skipped pause tests via `Assume.assumeTrue`, vacuous FIFO assertions, `@Ignore`'d cancellation paths, missing listener wiring/unwiring tests, scheduler-sensitive sync points.
+- 5 production simplifications merged:
+  - `simp-enum-logging` — `Log.w` on silent enum-parse fallbacks in `AgentSession.reload` + `SessionCheckpointCoordinator.toSessionConfig`.
+  - `simp-app-settings-local-model-trio` — collapse `selectedLocalModelId/localModelSlug/localModelQuant` → non-null `LocalModelOption` (net −21 LOC; eliminates `?.let / ?: ""` shims).
+  - `simp-app-settings-loading-status` — extract `ModelLoadingStatusHolder`; reset is centralized so all backend-change paths (UI lambda + `applyIntentPayloadToSettings`) clear stale status uniformly. (Round-1 caught HIGH stale-status regression on intent-driven backend switch; fixed by routing intent applier through holder.)
+  - `simp-services-cleanup-result` — `SessionServices.cleanup()` returns `CleanupResult` sealed type. (Round-1 caught HIGH user-visible regression: partial failures emitted `SessionError` → user-visible `⚠️ Cleanup partial failure...`. Reverted to log-only; `CleanupResult` is now an internal contract for tests.)
+  - `simp-idle-recover-failure` — bounded `reacquirePlatform()` retries: after `MAX_REACQUIRE_FAILURES = 3`, transition `Idle → Shutdown(SessionEndReason.INTERRUPTED)`. Counter resets on success. Bug fix; previously stuck Idle forever.
+- 1 production simplification cancelled: `simp-checkpoint-result-type` — codex flagged KISS violation (synthetic `IOException` at `flushIdleReady()` adds API surface without real failure-info, since `forceCheckpoint()` still returns `Boolean`). Filed as note for potential follow-up.
+- `simp-onboarding-state-flatten` — KEEP decision documented in new `doc/main/state_machines/onboarding_step_states.md`.
+- Doc-code alignment pass closed major drift in `doc/main/ui/session/state_machine.md`, `infra/session.md`, `ui/capsule/state_machine.md`, `ui/capsule/user_flows.md`, `ui/session/user_flows.md` (Hot Idle wording, `WaitingForApproval` in force-capsule, `schemaVersion == 2`, reacquire-failure transitions). 2 minor MEDIUM doc-precision gaps remain in `protocol/overview.md:77` and `ui/capsule/user_flows.md:100` — filed as follow-up.
+- `scripts/debug-run.sh` — default `MAIN_MODEL` is now backend-aware (`gpt-5.4` for `openai`, `minimax-m2.5` otherwise); `.env`-sourced `OPENAI_API_KEY` + `OPENAI_BASE_URL` already propagated.
+- `doc/main/README.md` doc map updated to link new `state_machines/` folder + `error_handling.md` + `data_schemas.md`.
+
+**Why:**
+- KISS-direction: production code net-flat-or-smaller while doubling the executable spec coverage. Codex review on every diff was the load-bearing safety net — caught two HIGH user-visible regressions before merge and forced the `checkpoint-result-type` cancellation that would otherwise have added API surface for no real benefit.
+- Tests-first sequencing: every Phase-D simplification was gated on the matching characterization test landing first, so behavior-preservation was provable rather than asserted.
+- Bounded `reacquirePlatform` retries fix a real stuck-Idle bug surfaced by reading the FSM doc against the code.
+
+**Key files:** `doc/main/state_machines/*` (12 new), `doc/main/error_handling.md`, `doc/main/data_schemas.md`, `doc/main/README.md` (doc map update); `app/src/main/kotlin/ai/closepaw/session/{AgentSession,SessionServices,SessionCheckpointCoordinator}.kt`; `app/src/main/kotlin/ai/closepaw/app/{AppSettingsState,AppSettingsStore,ModelLoadingStatusHolder,MainActivity,MainActivityContent,MainActivityIntentApplier}.kt`; `app/src/test/kotlin/ai/closepaw/{session,llm,onboarding,tool,agent}/*Test.kt` (12 new/augmented); `scripts/debug-run.sh`.
+**Verification:** `./gradlew clean assembleDebug lint test` green; device smoke test (`./scripts/debug-run.sh "Open Settings"`) — session lifecycle clean (`Created → Running → Idle → Shutdown(USER_STOPPED) → SessionCompleted`), new `CleanupResult` returns `failures=0`, no user-visible cleanup error event (confirms HIGH regression fix held).
+**Commits:** 96024d91..HEAD (~52 commits incl. 12 test merges + 5 simp merges + 1 doc-align merge + 11 fix follow-ups).
+**Next:** Optional follow-ups noted in `tasks.json`: 2 MEDIUM doc-precision gaps; potential push of `Result<Unit>` down into `SessionRecordingService.forceCheckpoint()` if richer failure info ever wanted.
+**Blockers:** None.
+
 ## 2026-04-18: Characterization tests — LFMLLMClient model loading FSM
 
 **What changed:**
