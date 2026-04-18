@@ -220,7 +220,7 @@
   "harness-simplify": {
     "parent": null,
     "depends": [],
-    "state": "done",
+    "state": "running",
     "title": "Harness Simplification & State Formalization",
     "description": "Document, test, and simplify all state machines in the agent harness, error handling, and core schemas. Test-first; every change reviewed by codex.",
     "acceptCriteria": [
@@ -733,5 +733,60 @@
     "created": "2026-04-18T05:26:32Z",
     "updated": "2026-04-18T07:45:31Z",
     "note": "Build clean, lint+test pass, device smoke confirmed: session lifecycle clean, new CleanupResult returns failures=0, no Cleanup partial failure user-visible event (confirms HIGH regression fix). Task outcome=ERROR appears LLM/auth-env issue, not harness regression."
+  },
+  "followup-onboarding-demo-baseurl": {
+    "parent": "harness-simplify",
+    "depends": [],
+    "state": "ready",
+    "title": "Onboarding demo session missing baseUrlOverrides",
+    "description": "OnboardingViewModel.kt:467 validates OPENAI_API against settingsState.openaiBaseUrl, but OnboardingDemoController.kt:77 does NOT pass baseUrlOverrides when creating the demo session (real runtime does at MainActivity.kt:527,656). Result: proxy-based onboarding validates OK, then Run Demo fails one step later. Tests miss the seam (validation stops at 904 in OnboardingViewModelTest; demo mocks the controller in DemoStepStateTest:78).",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingDemoController.kt",
+      "app/src/test/kotlin/ai/closepaw/onboarding/DemoStepStateTest.kt"
+    ],
+    "acceptCriteria": [
+      "Demo controller propagates baseUrlOverrides from settingsState",
+      "New end-to-end test covers demo session creation with custom base URL"
+    ],
+    "note": "Surfaced by holistic codex review of harness-simplify milestone.",
+    "created": "2026-04-18T16:56:51Z",
+    "updated": "2026-04-18T16:56:51Z"
+  },
+  "followup-authstore-mainthread-io": {
+    "parent": "harness-simplify",
+    "depends": [],
+    "state": "ready",
+    "title": "AuthStore.set main-thread I/O regression",
+    "description": "MainActivityIntentApplier.kt:16 documents that AuthStore.set does encrypted-prefs init + disk I/O and must NOT run on main thread. Three call sites still violate this: LlmAuthSettingsPage.kt:215 (per-keystroke API-key persistence), OnboardingViewModel.kt:104+219 (onboarding writes), MainActivity.kt:751 (settings OAuth writes). UI-jank risk.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingViewModel.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt"
+    ],
+    "acceptCriteria": [
+      "All AuthStore.set calls offloaded via Dispatchers.IO or equivalent",
+      "No new main-thread I/O introduced"
+    ],
+    "note": "Surfaced by holistic codex review. Likely predates harness-simplify milestone but worth tracking.",
+    "created": "2026-04-18T16:56:51Z",
+    "updated": "2026-04-18T16:56:51Z"
+  },
+  "followup-doc-interrupted-enum": {
+    "parent": "harness-simplify",
+    "depends": [],
+    "state": "ready",
+    "title": "Doc INTERRUPTED enumeration off-by-one",
+    "description": "doc/main/ui/session/state_machine.md:97 says Created/other -> INTERRUPTED but AgentSession.kt:624 emits USER_STOPPED for explicit shutdown from Created. Also doc/main/state_machines/session_state.md:88 omits INTERRUPTED entirely.",
+    "scope": [
+      "doc/main/ui/session/state_machine.md",
+      "doc/main/state_machines/session_state.md"
+    ],
+    "acceptCriteria": [
+      "Both docs accurately enumerate SessionEndReason mapping",
+      "No remaining ambiguity between Created->shutdown and reacquire-fail->shutdown"
+    ],
+    "note": "Surfaced by holistic codex review. Doc-only, low risk.",
+    "created": "2026-04-18T16:56:51Z",
+    "updated": "2026-04-18T16:56:51Z"
   }
 }
