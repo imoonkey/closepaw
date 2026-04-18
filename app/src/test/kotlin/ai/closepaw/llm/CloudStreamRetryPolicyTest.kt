@@ -100,6 +100,43 @@ class CloudStreamRetryPolicyTest {
     }
 
     // ── Fail-fast after emitted event ─────────────────────────────────────
+    //
+    // Boundary: this file characterizes ONLY the pure decision matrix in
+    // CloudStreamRetryPolicy.decide. The runner-side semantics for *which*
+    // events flip emittedEvent (TextDelta / ToolCallDone / Failed in
+    // StreamAttemptEmitter) are owned by CloudStreamRetryRunnerTest. Here we
+    // treat emittedEvent as an opaque boolean input to the policy and assert
+    // its guard rejects retry of any partially-emitted stream.
+
+    @Test
+    fun `policy guard - retryable plus emittedEvent always returns FailAndStop`() {
+        // Explicit FSM-guard characterization: per llm_retry.md, the
+        // `retryable && emittedEvent` branch must return FailAndStop for
+        // every retryable classification, on every attempt within budget,
+        // regardless of backoff value. This protects the consumer from
+        // duplicated tokens/tool calls after partial output.
+        val retryableErrors = listOf<Exception>(
+            TransientException("io"),
+            TransientException("io", cause = RuntimeException("socket")),
+            RateLimitException("429"),
+            RateLimitException("429", retryAfterMs = 0L),
+            RateLimitException("429", retryAfterMs = 5000L),
+        )
+        for (err in retryableErrors) {
+            for (attempt in 1..LLMClient.MAX_RETRIES) {
+                val action = CloudStreamRetryPolicy.decide(
+                    tag = tag,
+                    classified = err,
+                    attempt = attempt,
+                    emittedEvent = true,
+                    backoffMs = 1000L
+                )
+                assertThat(action).isInstanceOf(StreamRetryAction.FailAndStop::class.java)
+                assertThat((action as StreamRetryAction.FailAndStop).message)
+                    .contains("partial output")
+            }
+        }
+    }
 
     @Test
     fun `retryable error after emitted event returns FailAndStop`() {
