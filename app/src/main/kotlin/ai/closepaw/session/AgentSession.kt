@@ -172,6 +172,7 @@ private constructor(
                         val status = try {
                             TodoStatus.valueOf(todo.status)
                         } catch (_: IllegalArgumentException) {
+                            Log.w(TAG, "Unknown TodoStatus in snapshot: ${todo.status}")
                             TodoStatus.PENDING
                         }
                         ai.closepaw.protocol.Todo(

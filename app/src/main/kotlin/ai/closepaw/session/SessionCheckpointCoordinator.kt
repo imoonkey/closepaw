@@ -111,18 +111,23 @@ private fun PerceptionConfig.toModeString(): String = when (this) {
 internal fun ConversationConfigSnapshot.toSessionConfig(): SessionConfig = SessionConfig(
     mainModel = mainModel,
     executorModel = executorModel,
-    agentMode = try { AgentMode.valueOf(agentMode) } catch (_: Exception) { AgentMode.PRO },
+    agentMode = try { AgentMode.valueOf(agentMode) } catch (_: Exception) {
+        Log.w(SNAPSHOT_TAG, "Unknown AgentMode in snapshot: $agentMode"); AgentMode.PRO
+    },
     maxTurns = maxTurns,
     perceptionConfig = when (perceptionMode) {
         "screenshot_only" -> PerceptionConfig.ScreenshotOnly()
         "hybrid" -> PerceptionConfig.Hybrid()
         else -> PerceptionConfig.AccessibilityOnly
     },
-    platformMode = try { PlatformMode.valueOf(platformMode) } catch (_: Exception) { PlatformMode.ACCESSIBILITY },
+    platformMode = try { PlatformMode.valueOf(platformMode) } catch (_: Exception) {
+        Log.w(SNAPSHOT_TAG, "Unknown PlatformMode in snapshot: $platformMode"); PlatformMode.ACCESSIBILITY
+    },
     llm = SessionLlmConfig(
         backendType = try {
             LLMBackendType.valueOf(llmBackendType)
         } catch (_: Exception) {
+            Log.w(SNAPSHOT_TAG, "Unknown LLMBackendType in snapshot: $llmBackendType")
             LLMBackendType.OPENAI
         },
         localConfig = if (llmBackendType == LLMBackendType.LOCAL.name) {
@@ -135,9 +140,13 @@ internal fun ConversationConfigSnapshot.toSessionConfig(): SessionConfig = Sessi
         }
     ),
     actionDelayMs = actionDelayMs,
-    approvalMode = try { ApprovalMode.valueOf(approvalMode) } catch (_: Exception) { ApprovalMode.SMART },
+    approvalMode = try { ApprovalMode.valueOf(approvalMode) } catch (_: Exception) {
+        Log.w(SNAPSHOT_TAG, "Unknown ApprovalMode in snapshot: $approvalMode"); ApprovalMode.SMART
+    },
     debugMode = debugMode,
     traceEnabled = traceEnabled,
     traceRunId = traceRunId,
     excludedTools = excludedTools.toSet()
 )
+
+private const val SNAPSHOT_TAG = "ConfigSnapshot"
