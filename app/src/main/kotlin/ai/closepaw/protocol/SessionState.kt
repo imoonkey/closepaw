@@ -25,9 +25,10 @@ package ai.closepaw.protocol
  * reaches a safe pause point (end of current turn).
  *
  * Hot Idle: After task completion, session enters Idle.
- * Expensive resources (platform, VD) are released. Lightweight state
- * (history, todos, LLM client) stays in memory for instant follow-up.
- * A 5-minute idle timeout auto-triggers Shutdown.
+ * Only the AgentRunner state is cleared; platform (VirtualDisplay), history,
+ * todos, scratchpad, LLM client, trace recorder, and event stream stay in
+ * memory for instant follow-up. Resources are released only on Shutdown
+ * via SessionServices.cleanup(). A 5-minute idle timeout auto-triggers Shutdown.
  */
 sealed interface SessionState {
     /** Session created but not yet started */

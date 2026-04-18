@@ -46,7 +46,7 @@ User types goal in capsule input → taps Send
       ├─ AgentSession: Running → Idle
       │   ├─ Emits TaskCompleted
       │   ├─ Flushes IDLE_READY checkpoint
-      │   ├─ platform.stop() — releases expensive resources
+      │   ├─ agentRunner.clear() — platform stays alive for follow-up
       │   ├─ Schedules 5-min idle timeout
       │
       ├─ UI: TaskCompleted → completion text appended to chat
@@ -69,7 +69,7 @@ User types follow-up in capsule input → taps Send
   │
   ├─ AgentSession: Idle → Running
   │   ├─ Cancels idle timeout
-  │   ├─ platform.start() — re-acquires resources
+  │   ├─ platform.start() — idempotent (no-op if already running)
   │   ├─ Emits TaskStarted (NOT SessionStarted — same session)
   │   ├─ Starts agent with full conversation history in memory
   │
