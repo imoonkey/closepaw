@@ -196,15 +196,21 @@ if [[ -f "$PROJECT_ROOT/.env" ]]; then
     source "$PROJECT_ROOT/.env"
 fi
 
-# Determine effective models early for logging
-EFFECTIVE_MAIN_MODEL="${FORCED_MAIN_MODEL:-${MAIN_MODEL:-minimax-m2.5}}"
-EFFECTIVE_EXECUTOR_MODEL="${FORCED_EXECUTOR_MODEL:-${EXECUTOR_MODEL:-}}"
-
 # Determine LLM backend
 LLM_BACKEND="${LLM_BACKEND:-openai}"
 if [[ "$USE_LOCAL" == "true" ]]; then
     LLM_BACKEND="local"
 fi
+
+# Keep the fallback model aligned with the selected backend.
+DEFAULT_MAIN_MODEL="minimax-m2.5"
+if [[ "$LLM_BACKEND" == "openai" ]]; then
+    DEFAULT_MAIN_MODEL="gpt-5.4"
+fi
+
+# Determine effective models early for logging
+EFFECTIVE_MAIN_MODEL="${FORCED_MAIN_MODEL:-${MAIN_MODEL:-$DEFAULT_MAIN_MODEL}}"
+EFFECTIVE_EXECUTOR_MODEL="${FORCED_EXECUTOR_MODEL:-${EXECUTOR_MODEL:-}}"
 
 # Determine execution mode
 AGENT_MODE="${AGENT_MODE:-basic}"
