@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-04-18: holistic-review followups — demo baseUrl, AuthStore off-main, doc enum
+
+**What changed:**
+- HIGH bug fix: `OnboardingDemoController` now resolves `baseUrlOverrides` from `AppSettingsState.openaiBaseUrl` and passes them into the demo `AgentSession`, matching the `MainActivity.kt:527` pattern. Previously demo sessions ignored the debug intent override and hit `api.openai.com`. New JVM test in `DemoStepStateTest`.
+- MEDIUM regression fix: `AuthStore.set` is no longer called from the main thread. Three call sites moved to `Dispatchers.IO`: `LlmAuthSettingsPage:215` (per-keystroke API-key writes), `OnboardingViewModel:104+219`, `MainActivity:751`.
+- HIGH catch on the round-2 fix: per-keystroke off-main writes were not serialized — concurrent IO dispatches could persist out-of-order, last-typed key not always winning. Round-3 fix in `LlmAuthSettingsPage`: 250 ms debounce per provider + `Mutex.withLock` around the IO block. New 109-line JVM test `LlmAuthApiKeyPersistTest` asserts last-write-wins under interleaved keystrokes.
+- LOW doc fix: corrected `SessionEndReason` enumeration in `doc/main/state_machines/session_state.md` and `doc/main/ui/session/state_machine.md`. `Created → Shutdown` emits `USER_STOPPED` (not `INTERRUPTED`); `INTERRUPTED` is documented as the reacquire-fail terminal source.
+
+**Why:**
+- Filed by codex holistic review after the harness-simplify milestone landed. Two were latent bugs (demo override silently dropped; main-thread encrypted-prefs write); one was doc drift surfaced by the new state-machine docs themselves.
+- Round-2 fix exposed a subtler concurrency hole: `Dispatchers.IO` parallelism + per-keystroke writes ≠ ordered persistence. Debounce alone collapses keystroke storms; mutex guarantees serialization across whatever writes still survive the debounce.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/app/MainActivity.kt`, `app/src/main/kotlin/ai/closepaw/onboarding/{OnboardingDemoController,OnboardingViewModel}.kt`, `app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthSettingsPage.kt`, `app/src/test/kotlin/ai/closepaw/ui/settings/LlmAuthApiKeyPersistTest.kt`, `doc/main/state_machines/session_state.md`, `doc/main/ui/session/state_machine.md`.
+**Verification:** `./gradlew :app:testDebugUnitTest` green after each merge (3 separate fix-loop iterations for the AuthStore item).
+**Commits:** d5132e2f..HEAD (~11 commits incl. 3 fix merges, 1 doc merge, task-tracking chores).
+**Next:** None outstanding from this review.
+**Blockers:** None.
+
 ## 2026-04-18: harness-simplify milestone — formalize all FSMs, characterize, simplify
 
 **What changed:**
