@@ -285,7 +285,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: SessionState transitions",
     "description": "Augment AgentSessionTest.kt with exhaustive transition tests for SessionState. Cover all valid and rejected transitions per doc/main/state_machines/session_state.md. Additive only — no production code changes.",
     "worktree": "tests-session-state",
@@ -297,7 +297,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:17Z",
-    "updated": "2026-04-18T05:36:33Z",
+    "updated": "2026-04-18T06:42:16Z",
     "agent": "w-test-session-state"
   },
   "test-session-coordinator-queue": {
@@ -305,7 +305,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: SessionCoordinator queue",
     "description": "Augment SessionCoordinator tests with exhaustive SubmitResult + drain ordering tests. Additive only.",
     "worktree": "tests-session-coordinator-queue",
@@ -317,7 +317,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:20Z",
-    "updated": "2026-04-18T05:36:34Z",
+    "updated": "2026-04-18T06:42:16Z",
     "agent": "w-test-session-coordinator-queue"
   },
   "test-agent-run-loop": {
@@ -325,7 +325,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: Agent.run loop",
     "description": "Tests for Agent.run TurnOutcome handling: Continue / Complete / Error(recoverable) / Cancelled; max retries; pause/resume confirmation deferred. Additive only.",
     "worktree": "tests-agent-run-loop",
@@ -337,7 +337,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:23Z",
-    "updated": "2026-04-18T05:36:35Z",
+    "updated": "2026-04-18T06:42:16Z",
     "agent": "w-test-agent-run-loop"
   },
   "test-tool-call-state": {
@@ -345,7 +345,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: ToolCallState",
     "description": "Augment ToolCallStateTest.kt with transitions through all 7 states including approval timeout + cancellation. Additive only.",
     "worktree": "tests-tool-call-state",
@@ -357,7 +357,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:26Z",
-    "updated": "2026-04-18T05:36:37Z",
+    "updated": "2026-04-18T06:42:16Z",
     "agent": "w-test-tool-call-state"
   },
   "test-llm-retry-policy": {
@@ -365,7 +365,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: CloudStreamRetryPolicy",
     "description": "Tests for CloudStreamRetryPolicy decision matrix: rate-limit vs transient, emittedEvent gating, MAX_RETRIES boundary, backoff growth + cap. Additive only.",
     "worktree": "tests-llm-retry-policy",
@@ -377,7 +377,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:29Z",
-    "updated": "2026-04-18T05:36:38Z",
+    "updated": "2026-04-18T06:42:16Z",
     "agent": "w-test-llm-retry-policy"
   },
   "test-stream-retry-runner": {
@@ -385,7 +385,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: StreamRetryRunner",
     "description": "Tests for StreamRetryRunner outer loop: emits ordering, FailAndStop/Stop/Retry handling, lastError surfaced. Additive only.",
     "worktree": "tests-stream-retry-runner",
@@ -397,7 +397,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:31Z",
-    "updated": "2026-04-18T05:36:40Z",
+    "updated": "2026-04-18T06:42:17Z",
     "agent": "w-test-stream-retry-runner"
   },
   "test-local-model-loading": {
@@ -425,7 +425,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: Onboarding WizardStep funnel",
     "description": "Augment OnboardingViewModelTest.kt with exhaustive WizardStep funnel + StepOutcome rollup tests. Additive only.",
     "worktree": "tests-onboarding-wizard",
@@ -437,7 +437,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:35Z",
-    "updated": "2026-04-18T05:36:43Z",
+    "updated": "2026-04-18T06:42:17Z",
     "agent": "w-test-onboarding-wizard"
   },
   "test-onboarding-apikey-step": {
@@ -445,7 +445,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: ApiKeyStepState",
     "description": "Tests for ApiKeyStepState manual + OAuth paths. Additive only.",
     "worktree": "tests-onboarding-apikey-step",
@@ -457,7 +457,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:42Z",
-    "updated": "2026-04-18T05:36:45Z",
+    "updated": "2026-04-18T06:42:17Z",
     "agent": "w-test-onboarding-apikey-step"
   },
   "test-onboarding-demo-step": {
@@ -465,7 +465,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: DemoStepState",
     "description": "Tests for DemoStepState including credential-error recovery into ApiKey step. Additive only.",
     "worktree": "tests-onboarding-demo-step",
@@ -477,7 +477,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:44Z",
-    "updated": "2026-04-18T05:36:47Z",
+    "updated": "2026-04-18T06:42:17Z",
     "agent": "w-test-onboarding-demo-step"
   },
   "test-onboarding-permission-step": {
@@ -485,7 +485,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: PermissionStepState",
     "description": "Tests for PermissionStepState + a11y polling timeout. Additive only.",
     "worktree": "tests-onboarding-permission-step",
@@ -497,7 +497,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:47Z",
-    "updated": "2026-04-18T05:36:49Z",
+    "updated": "2026-04-18T06:42:17Z",
     "agent": "w-test-onboarding-permission-step"
   },
   "test-checkpoint-roundtrip": {
@@ -505,7 +505,7 @@
     "depends": [
       "harness-doc-state-machines"
     ],
-    "state": "running",
+    "state": "done",
     "title": "Characterization tests: SessionCheckpointCoordinator round-trip",
     "description": "Augment SessionCheckpointCoordinator tests: snapshot -> restore round-trip preserves todos/scratchpad/history. Additive only.",
     "worktree": "tests-checkpoint-roundtrip",
@@ -517,7 +517,7 @@
       "no production code in git diff"
     ],
     "created": "2026-04-18T05:25:48Z",
-    "updated": "2026-04-18T05:36:53Z",
+    "updated": "2026-04-18T06:42:17Z",
     "agent": "w-test-checkpoint-roundtrip"
   },
   "harness-doc-code-align": {
@@ -539,7 +539,7 @@
       "test-onboarding-permission-step",
       "test-checkpoint-roundtrip"
     ],
-    "state": "ready",
+    "state": "running",
     "title": "Align state machine docs with characterization tests",
     "description": "Read each FSM doc + corresponding test, file discrepancies as new tasks via update-tasks.py.",
     "scope": [
@@ -551,14 +551,15 @@
     ],
     "requireHumanReview": true,
     "created": "2026-04-18T05:25:56Z",
-    "updated": "2026-04-18T05:25:56Z"
+    "updated": "2026-04-18T06:42:18Z",
+    "agent": "w-harness-doc-code-align"
   },
   "simp-enum-logging": {
     "parent": "harness-simplify",
     "depends": [
       "test-checkpoint-roundtrip"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "D1: surface silent enum-parse failures with Log.w",
     "description": "Surface silent enum-parse failures with Log.w in AgentSession.reload (lines ~172-207) and SessionCheckpointCoordinator.toSessionConfig (~114-138). No behavior change otherwise.",
     "worktree": "simplify-enum-logging",
@@ -571,7 +572,7 @@
       "tests still pass"
     ],
     "created": "2026-04-18T05:26:06Z",
-    "updated": "2026-04-18T05:26:06Z"
+    "updated": "2026-04-18T06:42:18Z"
   },
   "simp-app-settings-local-model-trio": {
     "parent": "harness-simplify",
@@ -579,7 +580,7 @@
       "test-onboarding-wizard",
       "test-onboarding-apikey-step"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "D2: collapse local model trio into LocalModelOption?",
     "description": "Collapse selectedLocalModelId/localModelSlug/localModelQuant in AppSettingsState into single LocalModelOption?. Update store, intent applier, validation.",
     "worktree": "simplify-app-settings-local-model-trio",
@@ -593,7 +594,7 @@
       "JVM tests pass"
     ],
     "created": "2026-04-18T05:26:10Z",
-    "updated": "2026-04-18T05:34:35Z"
+    "updated": "2026-04-18T06:40:05Z"
   },
   "simp-app-settings-loading-status": {
     "parent": "harness-simplify",
@@ -601,7 +602,7 @@
       "test-onboarding-wizard",
       "test-onboarding-apikey-step"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "D3: move ModelLoadingStatus out of AppSettingsState",
     "description": "Move ModelLoadingStatus out of AppSettingsState (transient UI) into the relevant ViewModel/state holder.",
     "worktree": "simplify-app-settings-loading-status",
@@ -614,14 +615,14 @@
       "UI still observes status"
     ],
     "created": "2026-04-18T05:26:13Z",
-    "updated": "2026-04-18T05:34:35Z"
+    "updated": "2026-04-18T06:40:04Z"
   },
   "simp-services-cleanup-result": {
     "parent": "harness-simplify",
     "depends": [
       "test-session-state"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "D4: SessionServices.cleanup returns CleanupResult",
     "description": "SessionServices.cleanup() returns CleanupResult sealed type instead of void; aggregate failures.",
     "worktree": "simplify-services-cleanup-result",
@@ -635,14 +636,14 @@
       "tests pass"
     ],
     "created": "2026-04-18T05:26:16Z",
-    "updated": "2026-04-18T05:26:16Z"
+    "updated": "2026-04-18T06:42:18Z"
   },
   "simp-idle-recover-failure": {
     "parent": "harness-simplify",
     "depends": [
       "test-session-state"
     ],
-    "state": "ready",
+    "state": "running",
     "title": "D5: Idle.reacquirePlatform failure recovery",
     "description": "Idle.reacquirePlatform failure currently leaves session stuck. Add explicit recovery path or transition to error state per state machine doc.",
     "worktree": "simplify-idle-recover-failure",
@@ -655,14 +656,15 @@
     ],
     "requireHumanReview": true,
     "created": "2026-04-18T05:26:19Z",
-    "updated": "2026-04-18T05:26:19Z"
+    "updated": "2026-04-18T06:42:18Z",
+    "agent": "w-simp-idle-recover-failure"
   },
   "simp-checkpoint-result-type": {
     "parent": "harness-simplify",
     "depends": [
       "test-checkpoint-roundtrip"
     ],
-    "state": "ready",
+    "state": "cancelled",
     "title": "D6: checkpoint flush returns Result<Unit>",
     "description": "SessionCheckpointCoordinator.flushIdleReady/flushClosed return Result<Unit> instead of bool; callers handle failure explicitly.",
     "worktree": "simplify-checkpoint-result-type",
@@ -677,7 +679,8 @@
     ],
     "requireHumanReview": true,
     "created": "2026-04-18T05:26:24Z",
-    "updated": "2026-04-18T05:26:24Z"
+    "updated": "2026-04-18T06:40:06Z",
+    "note": "Codex review: synthetic IOException at flushIdleReady() adds API surface without real failure-info gain (forceCheckpoint() still Boolean). Reverting to Boolean is the KISS choice. Filing follow-up to push Result<Unit> down to forceCheckpoint() if desired."
   },
   "simp-onboarding-state-flatten": {
     "parent": "harness-simplify",
@@ -687,7 +690,7 @@
       "test-onboarding-demo-step",
       "test-onboarding-permission-step"
     ],
-    "state": "ready",
+    "state": "done",
     "title": "D7: flatten onboarding step state hierarchies (or justify)",
     "description": "Either flatten Permission/ApiKey/Demo step state hierarchies into one OnboardingStepState OR justify keeping them in doc. Decision based on call-site complexity.",
     "worktree": "simplify-onboarding-state-flatten",
@@ -701,7 +704,7 @@
     ],
     "requireHumanReview": true,
     "created": "2026-04-18T05:26:25Z",
-    "updated": "2026-04-18T05:26:25Z"
+    "updated": "2026-04-18T06:40:05Z"
   },
   "harness-verify-final": {
     "parent": "harness-simplify",
