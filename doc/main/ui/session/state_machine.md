@@ -36,6 +36,8 @@ Created ──(UserInput)──► Running ──(Takeover)──► Paused
                            └──(TaskCompleted)──► Idle ──(UserInput)──► Running
                                                   │
                                  Any ──(Shutdown)──► Shutdown ◄──(IdleTimeout)──┘
+                                                       ▲
+                                  (3× reacquirePlatform failure from Idle)──┘
 ```
 
 ### 3.1 State transition table
@@ -49,6 +51,8 @@ Created ──(UserInput)──► Running ──(Takeover)──► Paused
 | `Running` | `Op.Interrupt` | stays `Running` | `agentRunner.stop()` (cooperative, agent stops at next turn boundary) |
 | `Paused` | `Op.Resume` | `Running` | `agentRunner.resume()`, emit `SessionResumed` |
 | `Idle` | `Op.UserInput` | `Running` | cancel idle timeout, `platform.start()`, emit `TaskStarted`, start agent |
+| `Idle` | `Op.UserInput` + `platform.start()` fails (< 3 consecutive) | stays `Idle` | emit bootstrap-failure events, re-arm idle timeout, increment failure counter |
+| `Idle` | `Op.UserInput` + 3rd consecutive `platform.start()` failure | `Shutdown` | emit bootstrap-failure events, then `handleShutdown(ReacquireFailed)` → `SessionCompleted(INTERRUPTED)` |
 | `Idle` | idle timeout (5min) | `Shutdown` | via `handleShutdown()` |
 | Any | `Op.Shutdown` | `Shutdown` | cancel idle timeout, flush CLOSED checkpoint, `agentRunner.shutdown()`, `services.cleanup()`, emit `SessionCompleted` |
 | `Shutdown` | any Op | — (ignored) | idempotent guard |
@@ -90,6 +94,7 @@ Two distinct completion events:
 |----------------|------------------|
 | `Running` / `Paused` | `USER_STOPPED` |
 | `Idle` | `IDLE_TIMEOUT` |
+| `Idle` (3 consecutive reacquire failures) | `INTERRUPTED` |
 | `Created` / other | `INTERRUPTED` |
 
 The split (pc-completion-semantics, 2026-04-16) removes the impossible-state overlap where `SessionCompleted` carried task-outcome values like `GOAL_ACHIEVED`.
@@ -163,7 +168,7 @@ Running → Idle:     platform.stop()   (task done)
 Any → Shutdown:     services.cleanup() → platform.stop()
 ```
 
-If `platform.start()` fails on follow-up, session re-arms idle timeout and stays in Idle.
+If `platform.start()` fails on follow-up, session re-arms idle timeout and stays in Idle. A consecutive-failure counter (`MAX_REACQUIRE_FAILURES = 3`) bounds the retry loop: on the 3rd consecutive failure the session force-shuts-down with `SessionEndReason.INTERRUPTED`. The counter resets on the first successful reacquire.
 
 ## 8. Session Creation Paths
 
