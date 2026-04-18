@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-04-18: auth-setting-cleanup milestone — single AuthStore, flat LLMProvider
+
+**What changed:**
+- New `auth/AuthStore` (`EncryptedSharedPreferences`-backed, app-scoped via `AuthStoreHolder`) is the single source of truth for all cloud credentials, keyed by flat `LLMProvider`. Sealed `AuthCredential` (`ApiKey | OAuth`); typed errors `MissingCredential` / `OAuthRefreshFailed` / `WrongCredentialType`. Mutex-guarded OAuth refresh near 5-min expiry with abort-protection if the credential changes mid-refresh.
+- Flat `LLMProvider` enum: `OPENAI_API`, `OPENAI_CODEX`, `OPENROUTER`, `NOVITA`, `LOCAL_LFM`, each carrying a `mode: AuthMode` accessor for UI grouping. New catalog entries `gpt-5.4-codex` / `gpt-5.2-codex` under `OPENAI_CODEX`.
+- `LLMClientFactory` rewritten: routes purely on `entry.provider`, atomic `compute()` cache keyed by `(modelName → Entry(generation, client))`, generation-bump invalidation on any `AuthStore.set/clear`.
+- `CodexResponseClient` no longer captures OAuth state. Constructor takes `suspend () -> CodexHeaders` supplier; every request reads fresh `accessToken` + `chatgptAccountId` + `email`. Account switches and token rotations work without invalidating the cached client.
+- Runtime wiring: `MainActivity`, `AgentSession.create/reload`, `SessionServices`, `SessionLlmBootstrapper`, intent applier, banner deep-link all share the same `AuthStore` instance. `MainActivityIntentApplier` writes credentials off-main via `Dispatchers.IO` inside `lifecycleScope.launch`. `SessionRuntimeSnapshot.schemaVersion` bumped 1→2; `AgentSession.reload` rejects v1 with user-visible "Session from previous version" message. `SessionCoordinator.createAndSubmit` returns sealed `CreateResult { Success, LockBusy, Aborted }`; `Aborted` clears `pendingInputs` so a v1-rejected goal does not auto-run in the next fresh session.
+- Settings UI canonicalization: tab switch is view-only; `selectedProviderForTab` derives from `selectedModel.provider` when its mode matches the tab, otherwise the tab's default provider. Provider sub-selector clicks no longer commit a model. `executorModel` reset/remapped on commit when its provider no longer matches main. `SettingsSheet` accepts `initialPage` / `initialAuthTab` for banner deep-links.
+- Onboarding: `OnboardingProvider` aligned with flat `LLMProvider`; `OnboardingStore` schema v2 deletes legacy `auth_method` + encrypted `api_key_draft` keys; step-resume derives state from `AuthStore.has(provider)`; demo errors surface as inline card with required `onGoToAuthStep` recovery action.
+- Settings state shrink: deleted `OAuthCredentialStore.kt`, `AppSettingsState.{authMethod, openAiOAuthAccessToken, openAiManualApiKey, apiKey, openRouterApiKey, novitaApiKey, buildApiKeys}`, plus three obsolete tests. Zero migration code (pre-release; design Section 8 — empty AuthStore on upgrade → banner → re-auth).
+- Docs: `doc/main/infra/llm.md` updated for flat enum + factory + Codex header supplier; `doc/main/app/settings.md` rewritten for credential-elsewhere model. New `doc/todo/auth-setting-cleanup/implementation_summary.md`.
+
+**Why:**
+- Original bug: onboarding Codex OAuth → "Run Demo" failed with `openai_api_key not found for model gpt-5.4`. Root cause was three concepts (auth mode, provider, credential) tangled across `AppSettingsState` (fallback chains), `OnboardingStore` (duplicate `auth_method` + encrypted draft), and `LLMClientFactory` (`__AUTH_METHOD_OPENAI` magic key, `isOAuth` sniff). The selected model was supposed to determine which client runs, but two different "OpenAI" usages (API-key vs OAuth) collided on a single enum value.
+- Fix isolates auth mode at the type layer: `OPENAI_API` and `OPENAI_CODEX` are distinct flat-enum entries with separate catalog entries. The selected model now determines provider, which deterministically determines credential source and client class.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/auth/{AuthStore, AuthCredential, AuthErrors}.kt`, `app/src/main/kotlin/ai/closepaw/llm/{LLMProvider, LLMClientFactory, CodexResponseClient, ModelCatalog}.kt`, `app/src/main/assets/llm_models.json`, `app/src/main/kotlin/ai/closepaw/app/{MainActivity, MainActivityContent, MainActivityIntentApplier, MainActivityModelValidation, AuthStoreHolder}.kt`, `app/src/main/kotlin/ai/closepaw/session/{AgentSession, SessionCoordinator, SessionServices, SessionLlmBootstrapper, SessionCheckpointCoordinator}.kt`, `app/src/main/kotlin/ai/closepaw/ui/{settings/LlmAuthSettingsPage, settings/SettingsSheet, chat/ChatViewModel, chat/SettingsDeepLink, capsule/surface/SmartCapsuleSurface}.kt`, `app/src/main/kotlin/ai/closepaw/onboarding/{OnboardingViewModel, OnboardingState, OnboardingStore, OnboardingDemoController, OnboardingViewModelFactory}.kt`.
+
+**Verification:** `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest :app:assembleDebug :app:compileDebugAndroidTestKotlin` all green (888 unit tests pass, including 14 new AuthStore tests with concurrent-clear-during-refresh + 50-way concurrent-set generation count + factory atomic-cache torture). Device QA on EP0110MZ0BC101266W: S2/S3/S4/S5/S8 verified after F1/F2 fixes (see `doc/todo/auth-setting-cleanup/qa_report.md`); S1 (OAuth), S6/S7 (prior-build upgrade) skipped per scope.
+
+**Commit:** 894d10f3..900b606f (8 milestone commits + 2 inline F1/F2 fixes at 97d5362c, be68d8c6).
+**Next:** Re-run S1 (OAuth) + S6/S7 (upgrade-from-prior-build) when a baseline APK is available; archive milestone.
+**Blockers:** None.
+
 ## 2026-04-18: auth-setting-cleanup — F1/F2 device-QA defects fixed
 
 **What changed:**

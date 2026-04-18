@@ -1,7 +1,7 @@
 # LLM Integration
 
 > LLM clients, model catalog, streaming, and retry infrastructure.
-> Last updated: 2026-04-02
+> Last updated: 2026-04-18 (auth-setting-cleanup: flat LLMProvider, AuthStore, header-supplier Codex)
 
 ## Overview
 
@@ -46,7 +46,7 @@ Cloud client using Chat Completions API. Works with any OpenAI-compatible endpoi
 
 > See: `llm/CodexResponseClient.kt`
 
-Cloud client for OAuth users, targeting `chatgpt.com/backend-api/codex/responses`. OAuth access tokens lack platform API scopes, so they cannot use `api.openai.com`. Uses raw OkHttp + manual SSE parsing via `CodexRequestBuilder` (JSON serialization) and `CodexSseParser` (SSE parsing with parallel-safe `ToolCallAccumulator`). Routed via `LLMClientFactory` when `__AUTH_METHOD_OPENAI == "oauth"` is in the apiKeys map. The active OkHttp `Call` is stored in an `AtomicReference` and cancelled from `awaitClose`.
+Cloud client for OAuth users, targeting `chatgpt.com/backend-api/codex/responses`. OAuth access tokens lack platform API scopes, so they cannot use `api.openai.com`. Uses raw OkHttp + manual SSE parsing via `CodexRequestBuilder` (JSON serialization) and `CodexSseParser` (SSE parsing with parallel-safe `ToolCallAccumulator`). Routed by `LLMClientFactory` when `entry.provider == OPENAI_CODEX`. Constructor takes a `suspend () -> CodexHeaders` supplier; every request reads fresh `accessToken`/`chatgptAccountId`/`email` from `AuthStore.codexHeaders()` so account switches and token rotations work without invalidating the cached client. The active OkHttp `Call` is stored in an `AtomicReference` and cancelled from `awaitClose`.
 
 Wire format note: Codex requires wrapped content arrays where user messages use `"type": "input_text"` and assistant messages use `"type": "output_text"` (not `input_text` — the API rejects it with HTTP 400).
 
@@ -76,7 +76,14 @@ Catalog-driven model resolution from `assets/llm_models.json`.
 
 **ModelEntry**: `name` (stable ID), `displayName`, `provider: LLMProvider`, `api: ApiType`, `modelId` (sent to API), optional `baseUrl`/`apiKeyEnv` overrides, `supportsVision`.
 
-**LLMProvider**: `OPENAI` (default key: `OPENAI_API_KEY`), `OPENROUTER` (base: `openrouter.ai`), `NOVITA` (base: `api.novita.ai`).
+**LLMProvider** (flat enum, mode encoded per entry):
+- `OPENAI_API` (mode=ApiKey, default key: `OPENAI_API_KEY`)
+- `OPENAI_CODEX` (mode=OAuth, target: `chatgpt.com/backend-api/codex/responses`)
+- `OPENROUTER` (mode=ApiKey, base: `openrouter.ai`)
+- `NOVITA` (mode=ApiKey, base: `api.novita.ai`)
+- `LOCAL_LFM` (mode=Local, on-device LFMLLMClient)
+
+`provider.mode: AuthMode` accessor drives the UI's three-tab grouping (OAuth / API Key / Local). The split between `OPENAI_API` and `OPENAI_CODEX` is what lets the factory route purely on provider — no `__AUTH_METHOD_OPENAI` signal key, no `isOAuth` sniff.
 
 **ApiType**: `RESPONSE` (→ OpenAIResponseClient), `CHAT` (→ ChatCompletionClient).
 
@@ -88,13 +95,13 @@ Catalog-driven model resolution from `assets/llm_models.json`.
 
 > See: `llm/LLMClientFactory.kt`
 
-Creates `LLMClient` instances from model names. Cached by `(provider, baseUrl, api, oauth)` tuple — models from the same provider share a connection pool. Thread-safe via `ConcurrentHashMap`. OAuth routing: when `__AUTH_METHOD_OPENAI == "oauth"` is in the apiKeys map, creates `CodexResponseClient` instead of `OpenAIResponseClient` for RESPONSE API models.
+Creates `LLMClient` instances from model names. Constructor takes the catalog, an `AuthStore` (single credential source), and a base-URL override map. Cached as `ConcurrentHashMap<modelName, Entry(generation, client)>` — atomic `compute()` for lookup+rebuild guarantees that a credential rotation never returns a stale client (factory consults `authStore.generation(provider)` and rebuilds when it changes). Routes purely on `entry.provider`: `OPENAI_API`/`OPENROUTER`/`NOVITA` → `OpenAIResponseClient`/`OpenAIChatClient` with `authStore.requireApiKey(provider)`; `OPENAI_CODEX` → `CodexResponseClient` with `headerSupplier = { authStore.codexHeaders() }`; `LOCAL_LFM` → `LFMLLMClient`. `requireApiKey` throws typed `MissingCredential` / `WrongCredentialType` errors that runtime surfaces as a startup-failure banner deep-link.
 
 ## Session Bootstrap
 
 > See: `session/SessionLlmBootstrapper.kt`
 
-Startup: load catalog → extract provider base URL overrides (`__BASE_URL_<PROVIDER>`) → apply via `withBaseUrlOverrides()` → build factory → create client.
+Startup: load catalog → apply base-URL overrides → build factory with the app-scoped `AuthStore` (from `AuthStoreHolder.get(context)`) → `ensureRequiredCredentials` checks `authStore.has(provider)` for the selected main and executor models → create client.
 
 Fallback: if `llm_models.json` missing/malformed, uses built-in catalog (`glm-5`). For local backend, returns `LFMLLMClient`.
 

@@ -1,11 +1,13 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-04-09 (commit: 788a371)
+> Last updated: 2026-04-18 (auth-setting-cleanup: credentials moved to AuthStore)
 
 ## Overview
 
-The app manages user preferences through `AppSettingsState` + `AppSettingsStore`. Non-secret settings use plain `SharedPreferences`; secrets (API keys, tokens) use `EncryptedSharedPreferences` exclusively — no plaintext fallback. If encryption is unavailable, secrets exist in memory only for the current session and `encryptionDegraded` flag is set for UI to show a warning banner.
+The app manages user preferences through `AppSettingsState` + `AppSettingsStore` (plain `SharedPreferences`). **Credentials live in a separate `AuthStore`** (`EncryptedSharedPreferences`, app-scoped singleton via `AuthStoreHolder`) keyed by flat `LLMProvider` — not in `AppSettingsState`. If encryption is unavailable, `AuthStore` falls back to in-memory storage for the current process.
+
+> See: [infra/llm.md](../infra/llm.md) for the flat `LLMProvider` enum and `AuthStore` integration with the factory.
 
 ---
 
@@ -15,14 +17,13 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `llmBackend` | `LLMBackendType` | `OPENAI` | `OPENAI` (Cloud: OpenAI/OpenRouter/Novita) or `LOCAL` (On-device) |
-| `model` | `String` | `"glm-5"` | Main agent model (cloud), resolved via `ModelCatalog` |
-| `executorModel` | `String?` | `null` | Executor agent model (cloud, optional override — falls back to main) |
-| `localModel` | `String` | `"LFM2.5-1.2B-Instruct"` | Local model selection |
-| `openAiApiKey` | `String` | `""` | API key for OpenAI |
-| `authMethod` | `String?` | `null` | `"oauth"` for OpenAI OAuth, `null` for manual API key |
-| `openRouterApiKey` | `String` | `""` | API key for OpenRouter |
-| `novitaApiKey` | `String` | `""` | API key for Novita |
+| `llmBackend` | `LLMBackendType` | `OPENAI` | `OPENAI` (Cloud) or `LOCAL` (On-device) |
+| `selectedModel` | `String` | `"glm-5"` | Main agent model, resolved via `ModelCatalog` (carries flat `LLMProvider`) |
+| `executorModel` | `String?` | `null` | Executor agent model (PRO mode override; canonicalized to selectedModel.provider on commit) |
+| `selectedLocalModel` | `String` | `"LFM2.5-1.2B-Instruct"` | Local model selection |
+| `openaiBaseUrl` | `String` | `""` | Debug-only base URL override (set via `openai_base_url` intent) |
+
+**Credentials are NOT in `AppSettingsState`.** They live in `AuthStore`, keyed by flat `LLMProvider` (`OPENAI_API`, `OPENAI_CODEX`, `OPENROUTER`, `NOVITA`). The selected model encodes the provider, which determines exactly which credential is loaded and which client class runs — no fallback chains, no `__AUTH_METHOD` signal keys.
 
 ### Execution
 
@@ -106,7 +107,7 @@ The settings sheet is a modal bottom sheet with sectioned layout:
 | Max Turns | Dropdown: 10, 20, 50 |
 | Execution Mode | Basic/Pro dropdown (`AgentModeDropdown`) |
 | Perception Mode | 3-button toggle: Accessibility Only, Hybrid, Screenshot Only |
-| API Keys | OpenAI, OpenRouter, Novita key fields (password masked, toggle visibility) |
+| API Keys | LLM & Authentication page (mode → provider → model hierarchy: Sign In / API Key / Local tabs) — see Auth Section below |
 | Permissions | Accessibility Service + Overlay permission status indicators |
 | About & Debug | App version + debug mode switch |
 
@@ -136,25 +137,27 @@ ui/settings/
 
 ## Persistence
 
-Settings are persisted in SharedPreferences via `AppSettingsStore`.
+`AppSettingsState` (non-secret) is persisted in plain `SharedPreferences` via `AppSettingsStore`. Credentials are persisted separately in `AuthStore` (`EncryptedSharedPreferences`).
 
-Key preference keys:
+`AppSettingsStore` keys:
 - `agent_mode` — `BASIC` or `PRO`
 - `llm_backend` — `OPENAI` or `LOCAL`
 - `max_turns` — integer
 - `debug_mode` — boolean
 - `perception_mode` — `accessibility_only`, `screenshot_only`, `hybrid`
 - `platform_mode` — `ACCESSIBILITY`, `VIRTUAL_DISPLAY`
-- `main_model` — model name string
-- `executor_model` — model name string (nullable)
-- `api_key` / `openrouter_api_key` / `novita_api_key` — provider API keys
+- `main_model` / `executor_model` — model name strings
+- `openai_base_url` — debug-only proxy override
+
+`AuthStore` keys (`EncryptedSharedPreferences`, file `auth_store.xml`):
+- One entry per `LLMProvider.name` (e.g. `OPENAI_API`, `OPENAI_CODEX`, `OPENROUTER`, `NOVITA`), value is a JSON-encoded `AuthCredential` (`ApiKey` or `OAuth`).
+- Per-provider generation counter for cache invalidation in `LLMClientFactory`.
 
 ### Security
 
-- API keys are persisted in `EncryptedSharedPreferences` (AES256-GCM), with fallback to plain SharedPreferences if KeyStore is unavailable
-- Keys are masked in UI input fields and not emitted in normal debug logs
-- Optional legacy bootstrap: if `api_key` is empty, app can import `/sdcard/api_key.txt` once
-- Onboarding API key draft stored in separate encrypted prefs; skipped entirely if encryption unavailable
+- Credentials are persisted only in `EncryptedSharedPreferences` (AES256-GCM via `MasterKey`). No plaintext fallback file. If KeyStore is unavailable, `AuthStore` falls back to in-memory storage for the current process — credentials are lost on restart.
+- API keys are masked in UI input fields and not emitted in normal debug logs.
+- `CodexResponseClient` never captures OAuth state; every request reads fresh `CodexHeaders` from `AuthStore.codexHeaders()` (mutex-guarded refresh near 5-min expiry).
 
 ---
 
@@ -164,8 +167,9 @@ Key preference keys:
 
 First-launch onboarding wizard gates chat behind required permissions and a validated API key. Steps: Accessibility (hard) → Overlay (hard) → Battery (soft/skippable) → API Key (validated) → Demo → Complete.
 
-- `OnboardingStore` manages its own prefs file (`onboarding_prefs`), separate from settings
-- Legacy users detected via API key presence, session history, or non-default settings → auto-skip onboarding
+- `OnboardingStore` manages its own prefs file (`onboarding_prefs`), separate from settings. Schema v2 — legacy `auth_method` and encrypted `api_key_draft` keys removed; auth state derives from `selectedModel.provider.mode + AuthStore.has(provider)`.
+- Typed API-key text in onboarding is ViewModel-transient (no encrypted draft persistence) — process death means re-type.
+- Legacy users detected via AuthStore presence, session history, or non-default settings → auto-skip onboarding
 - Eval/debug bypass: `EXTRA_FRESH_SESSION + EXTRA_GOAL` intent skips onboarding
 - Post-onboarding: `PermissionRepairCard` shows targeted repair if a permission is later revoked
 - API-key validator base URL resolution mirrors `LLMClientFactory.build()` — for `OPENAI_API` entries, `AppSettingsState.openaiBaseUrl` (set from intent extra `openai_base_url`, debug-only) wins over `entry.effectiveBaseUrl`. Required so debug builds talking to the in-house proxy validate forward-versioned mock model IDs (`gpt-5.4`, etc.) instead of hitting `api.openai.com`.
