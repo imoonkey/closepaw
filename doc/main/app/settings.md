@@ -20,7 +20,7 @@ The app manages user preferences through `AppSettingsState` + `AppSettingsStore`
 | `llmBackend` | `LLMBackendType` | `OPENAI` | `OPENAI` (Cloud) or `LOCAL` (On-device) |
 | `selectedModel` | `String` | `"glm-5"` | Main agent model, resolved via `ModelCatalog` (carries flat `LLMProvider`) |
 | `executorModel` | `String?` | `null` | Executor agent model (PRO mode override; canonicalized to selectedModel.provider on commit) |
-| `selectedLocalModel` | `String` | `"LFM2.5-1.2B-Instruct"` | Local model selection |
+| `localModel` | `LocalModelOption` | `AVAILABLE_LOCAL_MODELS.first()` | Local model selection (id-only persistence; rehydrated via catalog lookup) |
 | `openaiBaseUrl` | `String` | `""` | Debug-only base URL override (set via `openai_base_url` intent) |
 
 **Credentials are NOT in `AppSettingsState`.** They live in `AuthStore`, keyed by flat `LLMProvider` (`OPENAI_API`, `OPENAI_CODEX`, `OPENROUTER`, `NOVITA`). The selected model encodes the provider, which determines exactly which credential is loaded and which client class runs — no fallback chains, no `__AUTH_METHOD` signal keys.

@@ -14,7 +14,7 @@ data class AppSettings(
         val perceptionMode: String,
         val agentMode: AgentMode,
         val llmBackend: LLMBackendType,
-        val localModel: LocalModelOption?,
+        val localModel: LocalModelOption,
         val executorModel: String?,
         val platformMode: PlatformMode,
         val traceEnabled: Boolean

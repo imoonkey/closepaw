@@ -614,12 +614,10 @@ class MainActivity : ComponentActivity() {
     ): AgentSession {
         val localConfig =
                 if (settingsState.llmBackend == LLMBackendType.LOCAL) {
-                    settingsState.localModel?.let {
-                        LocalLLMConfig(
-                                modelSlug = it.modelSlug,
-                                quantizationSlug = it.quantizationSlug
-                        )
-                    }
+                    LocalLLMConfig(
+                            modelSlug = settingsState.localModel.modelSlug,
+                            quantizationSlug = settingsState.localModel.quantizationSlug
+                    )
                 } else null
 
         if (settingsState.llmBackend == LLMBackendType.LOCAL) {
