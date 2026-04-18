@@ -296,4 +296,32 @@ class OnboardingViewModelTest {
 
         scope.coroutineContext.job.cancel()
     }
+
+    @Test
+    fun `back to ApiKey with Done outcome but cleared credential resets to Pending`() = runTest {
+        allPermissionsGranted()
+        every { store.loadOutcomes() } returns StepOutcomes(
+            accessibility = StepOutcome.Done,
+            overlay = StepOutcome.Done,
+            battery = StepOutcome.Skipped,
+            apiKey = StepOutcome.Done,
+            demo = StepOutcome.Pending,
+        )
+        every { authStore.has(any()) } returns false
+
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + Job())
+        val vm = makeVm(scope)
+        drain(scope, this)
+        assertThat(vm.currentStep).isEqualTo(WizardStep.Demo)
+
+        vm.goBack()
+        drain(scope, this)
+
+        assertThat(vm.currentStep).isEqualTo(WizardStep.ApiKey)
+        assertThat(vm.outcomes.apiKey).isEqualTo(StepOutcome.Pending)
+        verify { store.saveOutcome(WizardStep.ApiKey, StepOutcome.Pending) }
+        assertThat(vm.stepState).isInstanceOf(ApiKeyStepState.OAuthReady::class.java)
+
+        scope.coroutineContext.job.cancel()
+    }
 }

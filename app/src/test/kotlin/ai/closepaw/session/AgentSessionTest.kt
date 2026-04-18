@@ -3,6 +3,9 @@ package ai.closepaw.session
 import android.accessibilityservice.AccessibilityService
 import com.google.common.truth.Truth.assertThat
 import ai.closepaw.history.HistoryManager
+import ai.closepaw.history.model.CheckpointState
+import ai.closepaw.history.model.ConversationConfigSnapshot
+import ai.closepaw.history.model.SessionRuntimeSnapshot
 import ai.closepaw.llm.LLMClient
 import ai.closepaw.llm.LLMClientFactory
 import ai.closepaw.llm.LLMStreamEvent
@@ -375,6 +378,38 @@ class AgentSessionTest {
 
                 session.submit(Op.Shutdown)
                 advanceUntilIdle()
+        }
+
+        // ===== Checkpoint schema versioning =====
+
+        @Test
+        fun `reload returns null for v1 schema snapshot`() {
+                val snapshot = SessionRuntimeSnapshot(
+                        schemaVersion = 1,
+                        sessionId = "old-session",
+                        config = ConversationConfigSnapshot(
+                                mainModel = "gpt-5.2",
+                                agentMode = "PRO",
+                                maxTurns = 1,
+                                perceptionMode = "DEFAULT",
+                                platformMode = "DEFAULT",
+                        ),
+                        historyItems = emptyList(),
+                        todos = emptyList(),
+                        checkpointState = CheckpointState.IDLE_READY,
+                        lastCheckpointAt = 0L,
+                )
+                val service = mockk<AccessibilityService>(relaxed = true)
+                val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
+
+                val result = AgentSession.reload(
+                        snapshot = snapshot,
+                        service = service,
+                        scope = scope,
+                        authStore = null,
+                )
+
+                assertThat(result).isNull()
         }
 }
 

@@ -98,6 +98,28 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun `reportStartupFailure with deepLink populates startupErrorDeepLink and dismiss clears it`() = runTest {
+        val session = fakeSession()
+        val vm = ChatViewModel(sessionProvider = { session })
+        val deepLink = SettingsDeepLink(
+            page = SettingsPage.LLM_AUTH,
+            authTab = ai.closepaw.llm.AuthMode.ApiKey,
+        )
+
+        vm.reportStartupFailure("Open Settings", "missing key", deepLink)
+
+        assertThat(vm.startupErrorDeepLink.value).isEqualTo(deepLink)
+        assertThat(vm.startupError.value).isEqualTo("missing key")
+
+        vm.dismissStartupError()
+
+        assertThat(vm.startupErrorDeepLink.value).isNull()
+        assertThat(vm.startupError.value).isNull()
+        // pending input is preserved on dismiss
+        assertThat(vm.pendingInput.value).isEqualTo("Open Settings")
+    }
+
+    @Test
     fun `teardown cancels event collection job`() = runTest {
         val events =
             MutableSharedFlow<ai.closepaw.protocol.AgentEvent>(

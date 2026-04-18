@@ -311,6 +311,45 @@ class AuthStoreTest {
     }
 
     @Test
+    fun `concurrent refresh and set - new credential wins, refreshed value discarded`() = runTest {
+        val now = 1_000_000L
+        val refreshGate = CompletableDeferred<Unit>()
+        val store = newStore(
+            now = { now },
+            refresher = {
+                refreshGate.await()
+                AuthCredential.OAuth(
+                    accessToken = "at-refreshed",
+                    refreshToken = "rt-refreshed",
+                    expiresAt = now + 3600_000,
+                    email = "old@x",
+                    idToken = null,
+                )
+            },
+        )
+        val provider = LLMProvider.OPENAI_API
+        store.set(provider, AuthCredential.OAuth("old", "rt", now + 10_000, "old@x", null))
+
+        val refresh = async {
+            try {
+                store.codexHeaders(provider)
+            } catch (_: Throwable) {
+                null
+            }
+        }
+        delay(10)
+        // User signs in with a new account while refresh is in flight.
+        store.set(provider, AuthCredential.OAuth("at-new-account", "rt-new", now + 3600_000, "new@x", null))
+        refreshGate.complete(Unit)
+        refresh.await()
+
+        // The new account's credential must remain - refresh result is discarded.
+        val current = store.get(provider) as AuthCredential.OAuth
+        assertThat(current.accessToken).isEqualTo("at-new-account")
+        assertThat(current.email).isEqualTo("new@x")
+    }
+
+    @Test
     fun `concurrent set produces correct generation count`() = runTest {
         val store = newStore()
         val provider = LLMProvider.OPENAI_API

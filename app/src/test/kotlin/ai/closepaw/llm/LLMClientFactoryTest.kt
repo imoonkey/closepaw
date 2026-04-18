@@ -161,6 +161,27 @@ class LLMClientFactoryTest {
     }
 
     @Test
+    fun `Codex generation bump invalidates cached client`() = runBlocking {
+        val store = realStore()
+        store.set(
+            LLMProvider.OPENAI_CODEX,
+            AuthCredential.OAuth("at-1", "rt", Long.MAX_VALUE, "a@x", null),
+        )
+        val factory = LLMClientFactory(catalog, store)
+
+        val c1 = factory.create("gpt-5.2-codex")
+        // Re-sign-in with a different account → bumps generation → factory must rebuild
+        // even though provider is OPENAI_CODEX (header-supplier path).
+        store.set(
+            LLMProvider.OPENAI_CODEX,
+            AuthCredential.OAuth("at-2", "rt", Long.MAX_VALUE, "b@x", null),
+        )
+        val c2 = factory.create("gpt-5.2-codex")
+
+        assertNotSame(c1, c2)
+    }
+
+    @Test
     fun `concurrent create across set bump never returns stale client`() = runBlocking {
         val store = realStore()
         store.set(LLMProvider.OPENAI_API, AuthCredential.ApiKey("sk-0"))
