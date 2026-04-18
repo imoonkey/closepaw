@@ -38,8 +38,9 @@ import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.llm.displayLabel
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -113,6 +114,10 @@ internal fun LlmAuthSettingsPage(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val authStore = remember(context) { AuthStoreHolder.get(context) }
+    // Single-flight + debounce: cancel pending write on every keystroke so only
+    // the last typed value is persisted. Avoids out-of-order writes since
+    // AuthStore.set is not internally serialized.
+    val pendingApiKeyPersist = remember { arrayOf<Job?>(null) }
 
     // Commit wrappers — called on real user actions inside tab content, NOT on tab tap.
     fun commitSignIn(action: () -> Unit) {
@@ -185,7 +190,14 @@ internal fun LlmAuthSettingsPage(
                     authStore = authStore,
                     onApiKeyPersist = { provider, key ->
                         commitApiKey { }
-                        persistApiKey(scope, authStore, provider, key)
+                        pendingApiKeyPersist[0]?.cancel()
+                        pendingApiKeyPersist[0] = scope.launch {
+                            delay(API_KEY_PERSIST_DEBOUNCE_MS)
+                            withContext(Dispatchers.IO) {
+                                if (key.isBlank()) authStore.clear(provider)
+                                else authStore.set(provider, AuthCredential.ApiKey(key))
+                            }
+                        }
                     }
                 )
                 LlmAuthTab.LOCAL -> LocalTabContent(
@@ -214,19 +226,7 @@ private fun resolveProviderForTab(
     else tab.defaultProvider
 }
 
-private fun persistApiKey(
-    scope: CoroutineScope,
-    authStore: AuthStore,
-    provider: LLMProvider,
-    key: String,
-) {
-    scope.launch {
-        withContext(Dispatchers.IO) {
-            if (key.isBlank()) authStore.clear(provider)
-            else authStore.set(provider, AuthCredential.ApiKey(key))
-        }
-    }
-}
+private const val API_KEY_PERSIST_DEBOUNCE_MS = 300L
 
 @Composable
 private fun SignInTabContent(
