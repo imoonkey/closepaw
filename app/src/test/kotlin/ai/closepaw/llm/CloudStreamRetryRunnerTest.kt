@@ -300,4 +300,213 @@ class CloudStreamRetryRunnerTest {
         // A fixed 10ms delay would yield 30ms — this proves backoff growth.
         assertThat(testScheduler.currentTime).isEqualTo(70L)
     }
+
+    // ── ToolCallDone is also a "semantic output" gate ─────────────────────
+
+    @Test
+    fun `ToolCallDone before retryable error triggers FailAndStop`() = runTest {
+        var attempts = 0
+        val events = mutableListOf<LLMStreamEvent>()
+
+        val result = streamWithRetry(
+            tag = "test",
+            emitToFlow = { events += it },
+            maxRetries = 5,
+            initialBackoffMs = 10L
+        ) { _, emitter ->
+            attempts++
+            emitter.emit(LLMStreamEvent.ToolCallDone(LLMToolCall("c1", "f", "{}")))
+            throw SocketTimeoutException("after tool call")
+        }
+
+        assertThat(attempts).isEqualTo(1)
+        assertThat(result.completed).isFalse()
+        assertThat(result.failureEmitted).isTrue()
+        val failed = events.filterIsInstance<LLMStreamEvent.Failed>().single()
+        // FSM spec: FailAndStop("Stream interrupted after partial output: …")
+        assertThat(failed.error).startsWith("Stream interrupted after partial output:")
+    }
+
+    // ── FailAndStop does NOT re-emit Failed if attempt already emitted one ─
+
+    @Test
+    fun `FailAndStop does not double-emit Failed when attempt already emitted Failed`() = runTest {
+        // emitter sets failureEmitted=true on Failed; FailAndStop branch checks
+        // !failureEmitted before emitting its synthetic Failed.
+        val events = mutableListOf<LLMStreamEvent>()
+
+        val result = streamWithRetry(
+            tag = "test",
+            emitToFlow = { events += it },
+            maxRetries = 3,
+            initialBackoffMs = 10L
+        ) { _, emitter ->
+            emitter.emit(LLMStreamEvent.Failed("explicit"))
+            throw SocketTimeoutException("after explicit failure")
+        }
+
+        assertThat(result.completed).isFalse()
+        assertThat(result.failureEmitted).isTrue()
+        val failed = events.filterIsInstance<LLMStreamEvent.Failed>()
+        assertThat(failed).hasSize(1)
+        assertThat(failed[0].error).isEqualTo("explicit")
+    }
+
+    // ── RateLimit waitMs fallback when retryAfterMs is null ──────────────
+
+    @Test
+    fun `RateLimitException with null retryAfterMs falls back to backoffMs`() = runTest {
+        val result = streamWithRetry(
+            tag = "test",
+            emitToFlow = {},
+            maxRetries = 2,
+            initialBackoffMs = 10L
+        ) { attempt, _ ->
+            if (attempt == 1) throw RateLimitException("rate limited", retryAfterMs = null)
+        }
+
+        assertThat(result.completed).isTrue()
+        // Falls back to initialBackoffMs (10) since retryAfterMs is null.
+        assertThat(testScheduler.currentTime).isEqualTo(10L)
+    }
+
+    // ── lastError surfacing ──────────────────────────────────────────────
+
+    @Test
+    fun `lastError surfaces classified exception after FailAndStop`() = runTest {
+        val original = SocketTimeoutException("late timeout")
+        val result = streamWithRetry(
+            tag = "test",
+            emitToFlow = {},
+            maxRetries = 3,
+            initialBackoffMs = 10L
+        ) { _, emitter ->
+            emitter.emit(LLMStreamEvent.TextDelta("x"))
+            throw original
+        }
+
+        assertThat(result.completed).isFalse()
+        assertThat(result.lastError).isNotNull()
+        // Reclassified to TransientException via OpenAIErrorClassifier
+        assertThat(result.lastError).isInstanceOf(TransientException::class.java)
+    }
+
+    @Test
+    fun `lastError surfaces classified exception after Stop`() = runTest {
+        val fatal = IllegalStateException("boom")
+        val result = streamWithRetry(
+            tag = "test",
+            emitToFlow = {},
+            maxRetries = 3,
+            initialBackoffMs = 10L
+        ) { _, _ -> throw fatal }
+
+        assertThat(result.completed).isFalse()
+        assertThat(result.failureEmitted).isFalse()
+        // OpenAIErrorClassifier wraps unknown exceptions as RuntimeException
+        // with message "LLM error: <SimpleName> - <msg>" and the original as cause.
+        assertThat(result.lastError).isInstanceOf(RuntimeException::class.java)
+        assertThat(result.lastError).isNotInstanceOf(TransientException::class.java)
+        assertThat(result.lastError).isNotInstanceOf(RateLimitException::class.java)
+        assertThat(result.lastError!!.message).isEqualTo("LLM error: IllegalStateException - boom")
+        assertThat(result.lastError!!.cause).isSameInstanceAs(fatal)
+    }
+
+    // ── Classify→Stop on attempt == MAX_RETRIES (policy guard, not loop exit) ──
+
+    @Test
+    fun `attempt equal to policy MAX_RETRIES returns Stop without further delay`() = runTest {
+        // Policy compares against LLMClient.MAX_RETRIES (5), not the runner's maxRetries.
+        // With maxRetries=5 and always-throwing retryable: attempts 1..4 → Retry
+        // (delays 10+20+40+80=150ms); attempt 5 → Stop (no delay), returns early.
+        var attempts = 0
+        val result = streamWithRetry(
+            tag = "test",
+            emitToFlow = {},
+            maxRetries = LLMClient.MAX_RETRIES,
+            initialBackoffMs = 10L
+        ) { _, _ ->
+            attempts++
+            throw SocketTimeoutException("always")
+        }
+
+        assertThat(attempts).isEqualTo(LLMClient.MAX_RETRIES)
+        assertThat(result.completed).isFalse()
+        assertThat(result.failureEmitted).isFalse()
+        assertThat(result.lastError).isInstanceOf(TransientException::class.java)
+        // 4 retry delays before attempt 5 hits Stop with no further wait.
+        assertThat(testScheduler.currentTime).isEqualTo(150L)
+    }
+
+    // ── Non-domain exception is funneled through OpenAIErrorClassifier ───
+
+    @Test
+    fun `IOException is reclassified by OpenAIErrorClassifier and retried`() = runTest {
+        var attempts = 0
+        val result = streamWithRetry(
+            tag = "test",
+            emitToFlow = {},
+            maxRetries = 3,
+            initialBackoffMs = 10L
+        ) { _, _ ->
+            attempts++
+            if (attempts < 2) throw IOException("network blip")
+        }
+
+        // OpenAIErrorClassifier maps IOException → TransientException → retryable.
+        assertThat(attempts).isEqualTo(2)
+        assertThat(result.completed).isTrue()
+    }
+
+    // ── closeFlow() finalization helper ──────────────────────────────────
+
+    @Test
+    fun `closeFlow emits no Failed when completed`() {
+        val emitted = mutableListOf<LLMStreamEvent>()
+        var closed = false
+        StreamRetryRunResult(completed = true, failureEmitted = false, lastError = null)
+            .closeFlow(emitted::add) { closed = true }
+
+        assertThat(emitted).isEmpty()
+        assertThat(closed).isTrue()
+    }
+
+    @Test
+    fun `closeFlow emits no Failed when failure already emitted`() {
+        val emitted = mutableListOf<LLMStreamEvent>()
+        var closed = false
+        StreamRetryRunResult(
+            completed = false,
+            failureEmitted = true,
+            lastError = SocketTimeoutException("x")
+        ).closeFlow(emitted::add) { closed = true }
+
+        assertThat(emitted).isEmpty()
+        assertThat(closed).isTrue()
+    }
+
+    @Test
+    fun `closeFlow emits Failed with lastError message when neither completed nor emitted`() {
+        val emitted = mutableListOf<LLMStreamEvent>()
+        var closed = false
+        StreamRetryRunResult(
+            completed = false,
+            failureEmitted = false,
+            lastError = TransientException("downstream gave up")
+        ).closeFlow(emitted::add) { closed = true }
+
+        val failed = emitted.filterIsInstance<LLMStreamEvent.Failed>().single()
+        assertThat(failed.error).isEqualTo("downstream gave up")
+        assertThat(closed).isTrue()
+    }
+
+    @Test
+    fun `closeFlow emits Failed with Unknown error when lastError is null`() {
+        val emitted = mutableListOf<LLMStreamEvent>()
+        StreamRetryRunResult(completed = false, failureEmitted = false, lastError = null)
+            .closeFlow(emitted::add) {}
+
+        val failed = emitted.filterIsInstance<LLMStreamEvent.Failed>().single()
+        assertThat(failed.error).isEqualTo("Unknown error")
+    }
 }
