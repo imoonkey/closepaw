@@ -205,7 +205,7 @@ fi
 # Keep the fallback model aligned with the selected backend.
 DEFAULT_MAIN_MODEL="minimax-m2.5"
 if [[ "$LLM_BACKEND" == "openai" ]]; then
-    DEFAULT_MAIN_MODEL="gpt-5.2"
+    DEFAULT_MAIN_MODEL="gpt-5.4"
 fi
 
 # Determine effective models early for logging
