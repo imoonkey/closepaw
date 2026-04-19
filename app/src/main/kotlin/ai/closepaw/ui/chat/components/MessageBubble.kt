@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,7 +28,7 @@ import java.util.Locale
 
 /**
  * MessageBubble - Displays a single message in the conversation.
- * 
+ *
  * Handles both User and Agent message types with appropriate styling.
  */
 @Composable
@@ -36,7 +37,7 @@ fun MessageBubble(
     modifier: Modifier = Modifier
 ) {
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-    
+
     when (message) {
         is ChatMessage.User -> UserBubble(
             message = message,
@@ -53,7 +54,7 @@ fun MessageBubble(
 
 /**
  * UserBubble - Right-aligned user message.
- * 
+ *
  * Uses light gray bubble for a clean, modern look (not dark/heavy).
  */
 @Composable
@@ -75,14 +76,16 @@ private fun UserBubble(
                 shape = BubbleShapeUser,
                 color = ai.closepaw.ui.theme.UserBubble  // Light gray bubble
             ) {
-                Text(
-                    text = message.text,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = ai.closepaw.ui.theme.UserBubbleText,  // Dark text
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                )
+                SelectionContainer {
+                    Text(
+                        text = message.text,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = ai.closepaw.ui.theme.UserBubbleText,  // Dark text
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                }
             }
-            
+
             // Timestamp
             Text(
                 text = formatTime(message.timestamp),
@@ -95,7 +98,7 @@ private fun UserBubble(
 
 /**
  * AgentBubble - Left-aligned agent message with streaming support.
- * 
+ *
  * Renders content blocks in order to support interleaved text and actions:
  * "I'll click Chrome" → [Click Action Card] → "Now I see the homepage"
  */
@@ -128,17 +131,17 @@ private fun AgentBubble(
                     } else {
                         // Render content blocks in order (interleaved text and actions)
                         val isLastBlockText = message.contentBlocks.lastOrNull() is ContentBlock.Text
-                        
+
                         message.contentBlocks.forEachIndexed { index, block ->
                             val isLastBlock = index == message.contentBlocks.lastIndex
-                            
+
                             when (block) {
                                 is ContentBlock.Text -> {
                                     if (block.text.isNotEmpty()) {
                                         // Show streaming cursor only on the last text block while streaming
-                                        val showCursor = isLastBlock && 
+                                        val showCursor = isLastBlock &&
                                             message.state == AgentMessageState.Streaming
-                                        
+
                                         if (showCursor) {
                                             StreamingText(
                                                 text = block.text,
@@ -146,11 +149,13 @@ private fun AgentBubble(
                                                 textColor = MaterialTheme.colorScheme.onSurface
                                             )
                                         } else {
-                                            Text(
-                                                text = block.text,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
+                                            SelectionContainer {
+                                                Text(
+                                                    text = block.text,
+                                                    style = MaterialTheme.typography.bodyLarge,
+                                                    color = MaterialTheme.colorScheme.onSurface
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -162,7 +167,7 @@ private fun AgentBubble(
                                 }
                             }
                         }
-                        
+
                         // If streaming and last block is NOT text (e.g., just added an action),
                         // show a thinking indicator for the next text
                         if (message.state == AgentMessageState.Streaming && !isLastBlockText) {
@@ -171,7 +176,7 @@ private fun AgentBubble(
                     }
                 }
             }
-            
+
             // Timestamp (only show when complete)
             if (message.state == AgentMessageState.Complete) {
                 Text(
