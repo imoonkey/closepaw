@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-04-18: settings — Cloud Model dropdown placeholder when cross-provider
+
+**What changed:**
+- `ui/settings/SettingsDropdowns.kt` `CloudModelDropdown`: when the global `selectedModel` isn't in the current provider's `modelOptions`, render the placeholder `"Select a model"` instead of falling back to the raw model id.
+
+**Why:**
+- The API Key tab's Provider segmented selector is local view state; the global `selectedModel` doesn't change on provider toggle. Previously, an OAuth user with `gpt-5.4-codex` who tapped OpenRouter or Novita on the API Key tab saw `"gpt-5.4-codex"` in the Cloud Model dropdown — a model that doesn't belong to those providers — because the dropdown's text fallback was the raw id.
+- Placeholder is the safest fix: no auto-write to settings on a tab/segment click (would surprise users), and the dropdown clearly invites a fresh selection for the segmented provider.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/settings/SettingsDropdowns.kt`.
+**Verification:** `./gradlew assembleDebug` green. UX QA on EP0110MZ0BC101266W (OAuth signed-in, global=gpt-5.4-codex): API Key tab → OpenAI/OpenRouter/Novita segments all show "Select a model"; picking GLM-5 in OpenRouter then displays "GLM-5" correctly. Sign In tab still shows "GPT-5.4 (ChatGPT sign-in)" since that provider owns the global model.
+**Commit:** 60a74d59
+**Next:** None.
+**Blockers:** None.
+
 ## 2026-04-18: onboarding UX — auto-return from browser via custom scheme
 
 **What changed:**
