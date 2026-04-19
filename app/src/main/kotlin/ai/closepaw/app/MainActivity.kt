@@ -141,10 +141,7 @@ class MainActivity : ComponentActivity() {
         deriveOpenAiAuthUiState()
 
         // Eval/debug bypass: EXTRA_FRESH_SESSION + EXTRA_GOAL → skip onboarding (debug only)
-        val isEvalMode = BuildConfig.DEBUG &&
-            intent.getBooleanExtra(EXTRA_FRESH_SESSION, false) &&
-            intent.hasExtra(EXTRA_GOAL)
-        onboardingRequired = !onboardingStore.isCompleted && !isEvalMode
+        onboardingRequired = !onboardingStore.isCompleted && !isEvalIntent(intent)
 
         if (onboardingRequired) {
             val vm = OnboardingViewModelFactory.create(
@@ -278,9 +275,18 @@ class MainActivity : ComponentActivity() {
         Log.d(TAG, "onNewIntent called")
         setIntent(intent)
         intentPayloadConsumed = false
+        if (onboardingRequired && isEvalIntent(intent)) {
+            Log.d(TAG, "Eval intent received during onboarding; bypassing onboarding")
+            onboardingRequired = false
+        }
         handleIntent(intent)
         AgentService.instance?.onMainAppVisible()
     }
+
+    private fun isEvalIntent(intent: Intent): Boolean =
+        BuildConfig.DEBUG &&
+            intent.getBooleanExtra(EXTRA_FRESH_SESSION, false) &&
+            intent.hasExtra(EXTRA_GOAL)
 
     override fun onStart() {
         super.onStart()
