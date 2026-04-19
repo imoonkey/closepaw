@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-04-18: onboarding UX — auto-return from browser via custom scheme
+
+**What changed:**
+- `app/src/main/AndroidManifest.xml`: new VIEW intent-filter on MainActivity for `closepaw://oauth-complete` (BROWSABLE / DEFAULT categories).
+- `auth/OpenAIOAuth.kt` `successHtml()`: page now contains `<meta http-equiv="refresh" content="0;url=closepaw://oauth-complete">` plus a 50ms JS fallback `setTimeout(...location.href=...)` plus a "tap here" link as a manual fallback. Once the localhost callback server has captured `code`/`state` and rendered the success page, the browser navigates to the deep-link, Android matches the intent-filter, ClosePaw is brought to front automatically.
+
+**Why:**
+- Manual swipe-back from Chrome to ClosePaw after Sign-in complete was annoying. Looked at four options: custom scheme (chosen), `intent://` URL (Chrome-only), JVM-side `FLAG_ACTIVITY_REORDER_TO_FRONT` from the callback server (blocked by Android 12+ background-activity-launch restrictions when our task isn't visible), and AndroidX Custom Tabs (cleanest UX but requires new dependency + reroutes auth.openai.com through CCT — much larger change).
+- Custom scheme is browser-agnostic, fires from foreground (no BAL issues), and adds one intent-filter. Deep-link carries no extras → `MainActivityIntentPayload.from(intent)` produces all-null payload → `applyIntentPayloadToSettings` no-ops, so existing intent handling for `goal`/`agent_mode`/`openai_base_url`/etc. is untouched.
+
+**Key files:** `app/src/main/AndroidManifest.xml`, `app/src/main/kotlin/ai/closepaw/auth/OpenAIOAuth.kt`.
+**Verification:** `./gradlew assembleDebug` green. EP0110MZ0BC101266W: simulated via `adb shell am start -a VIEW -d "closepaw://oauth-complete"` from Home → MainActivity brought to front cleanly. End-to-end Settings → sign out → sign in confirmed by user: auto-return works, "Finishing up with OpenAI" visible for ~15-20s during server-side token exchange (expected).
+**Commit:** da4252e5
+**Next:** None.
+**Blockers:** None.
+
 ## 2026-04-18: onboarding UX — OAuth latency cut, recap reads live permissions, "Finishing up" copy, ClosePaw rename
 
 **What changed:**
