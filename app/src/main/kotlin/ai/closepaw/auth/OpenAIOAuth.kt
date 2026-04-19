@@ -157,10 +157,12 @@ class OAuthCallbackServer(private val expectedState: String) {
     private fun successHtml() = """
         <!DOCTYPE html><html><head><meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta http-equiv="refresh" content="0;url=closepaw://oauth-complete">
         <title>Sign-in Complete</title>
         <style>body{font-family:system-ui;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f9f9f9}
-        .card{text-align:center;padding:2rem;max-width:400px}h1{color:#10a37f;font-size:1.5rem}p{color:#666}</style>
-        </head><body><div class="card"><h1>Sign-in complete</h1><p>You can close this tab and return to ClosePaw.</p></div></body></html>
+        .card{text-align:center;padding:2rem;max-width:400px}h1{color:#10a37f;font-size:1.5rem}p{color:#666}a{color:#10a37f}</style>
+        <script>setTimeout(function(){window.location.href='closepaw://oauth-complete'},50);</script>
+        </head><body><div class="card"><h1>Sign-in complete</h1><p>Returning to ClosePaw… <a href="closepaw://oauth-complete">tap here</a> if it doesn't switch automatically.</p></div></body></html>
     """.trimIndent()
 
     private fun errorHtml(message: String) = """
