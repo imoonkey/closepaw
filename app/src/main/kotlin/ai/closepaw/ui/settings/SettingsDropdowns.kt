@@ -17,7 +17,8 @@ internal fun CloudModelDropdown(
     modelOptions: List<Pair<String, String>>,
     onModelChange: (String) -> Unit
 ) {
-    val selectedDisplayName = modelOptions.find { it.first == selectedModel }?.second ?: selectedModel
+    val matched = modelOptions.find { it.first == selectedModel }
+    val selectedDisplayName = matched?.second ?: "Select a model"
 
     SettingsDropdown(
         label = "Model",
