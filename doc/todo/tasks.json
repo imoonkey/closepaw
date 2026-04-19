@@ -170,51 +170,5 @@
       "Financial/payment/auth apps correctly classified as BLOCKED",
       "Classification methodology documented"
     ]
-  },
-  "qa-capsule-batch2": {
-    "parent": null,
-    "depends": [],
-    "state": "done",
-    "priority": "normal",
-    "title": "QA Batch 2 — SmartCapsule state-machine tests (K1-K14)",
-    "description": "Implement 14 Compose instrumented tests for the SmartCapsule state machine, following Batch 1 pattern (flat layout under app/src/androidTest/kotlin/ai/closepaw/qa/, prefer text/contentDescription selectors, add testTag only when needed, use org.junit.Assert not kotlin built-in assert).\n\nTest IDs per bootstrap plan (doc/todo/qa_test/final/cn/bootstrap_plan.md):\nK1  Hidden_RendersNothing\nK2  Running_ShowsThoughtAndTakeoverButton\nK3  Running_ShowsStopButton\nK4  Takeover_ShowsResumeInsteadOfTakeover\nK5  WaitingForInput_ExpandsWithTextFieldAndHint\nK6  WaitingForInput_SendEnabledOnlyWhenNonBlank\nK7  WaitingForInput_TypingFiresOnInputChange\nK8  WaitingForInput_SendClearsField\nK9  WaitingForAction_ShowsInstructionAndDoneButton\nK10 WaitingForApproval_ShowsFourScopeButtons\nK11 Done_ShowsSuccessMessageAndAutoDismisses\nK12 Error_DismissButtonFiresCallback\nK13 Stop_IsStopPendingDimsButton\nK14 NavigationButtons_FireCorrectEnum\n\nRelevant source: app/src/main/kotlin/ai/closepaw/ui/capsule/** (SmartCapsuleCompose.kt + surface/*.kt; discover CapsuleState location).\n\nPattern from Batch 1 (ref commits 3c4f586d, 2966ffdd, 21e34233):\n- createComposeRule() + setContent\n- org.junit.Assert.assertTrue/assertEquals (NEVER kotlin built-in assert)\n- testTag in production only when text/contentDescription is unavailable\n- For K11 auto-dismiss: compose.mainClock.autoAdvance = false + advanceTimeBy",
-    "design": "doc/todo/qa_test/final/cn/bootstrap_plan.md",
-    "scope": [
-      "app/src/androidTest/kotlin/ai/closepaw/qa/**",
-      "app/src/main/kotlin/ai/closepaw/ui/capsule/**"
-    ],
-    "acceptCriteria": [
-      "All 14 K1-K14 tests exist as @Test methods under app/src/androidTest/kotlin/ai/closepaw/qa/",
-      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa exits 0 on connected device",
-      "grep -RE \"^\\s*assert\\(\" app/src/androidTest/kotlin/ai/closepaw/qa/ returns no matches (no kotlin built-in assert for verdicts)",
-      "testTag additions in app/src/main/kotlin/ai/closepaw/ui/capsule/ are minimal and justified"
-    ],
-    "created": "2026-04-17T15:15:22Z",
-    "updated": "2026-04-17T15:31:33Z",
-    "agent": "w-qa-capsule-batch2",
-    "note": "32 tests green (17 Batch 1 + 15 Batch 2). Codex review found 1 blocker (K11 not exercising real auto-dismiss) + 2 concerns (K1 weak, K8 vacuous). All fixed on top: K11 now drives CapsuleStateHolder.scheduleAutoHide, K1 broadened, K7/K8 use EditableText semantics. Fix changes landed in e2b6e212 (concurrent commit sweep — attribution noisy but code correct)."
-  },
-  "qa-settings-batch3": {
-    "parent": null,
-    "depends": [],
-    "state": "done",
-    "priority": "normal",
-    "title": "QA Batch 3 — Settings tests (S1-S12)",
-    "description": "Implement 12 Compose instrumented tests for the Settings surface, following the pattern from Batches 1-2. Flat layout under app/src/androidTest/kotlin/ai/closepaw/qa/, prefer text or contentDescription, testTag only when needed, org.junit.Assert (NEVER kotlin built-in assert which is a no-op without -ea).\n\nTest IDs per bootstrap plan (doc/todo/qa_test/final/cn/bootstrap_plan.md Batch 3):\nS1  Sheet_OpensToHomePage\nS2  Sheet_DismissClosesSheet\nS3  Sheet_BackFromSubPageReturnsToHome\nS4  Sheet_PageStateSurvivesRotation (rememberSaveable)\nS5  LlmAuth_TabSwitchDoesNotCommitBackend\nS6  LlmAuth_OAuthStartCommitsBackendAndMethod\nS7  LlmAuth_ApiKeyProviderSwitchesModelOptions\nS8  LlmAuth_IncompatibleModelAutoResetsOnMethodSwitch\nS9  AgentBehavior_ProModeShowsExecutorDropdown\nS10 Permissions_SessionTracesToggleShowsWarningBanner\nS11 Permissions_ClearTracesShowsConfirmDialog\nS12 Permissions_ClearTracesConfirmDisablesButton\n\nRelevant source files under app/src/main/kotlin/ai/closepaw/ui/settings/: SettingsSheet, SettingsHomePage, LlmAuthSettingsPage, AgentBehaviorSettingsPage, PermissionsAdvancedSettingsPage, SettingsModels, SettingsDropdowns, SettingsWidgets.\n\nPattern rules (non-negotiable):\n- org.junit.Assert for verdicts, NEVER kotlin built-in assert\n- Flat layout, group into a few files by theme (SettingsNavTest, SettingsLlmAuthTest, SettingsAgentBehaviorTest, SettingsPermissionsTest)\n- testTag in production only when text or contentDescription is not a stable selector\n- For S4 rotation: use StateRestorationTester from androidx.compose.ui.test to exercise rememberSaveable without actually rotating\n- For S8 model canonicalization: call the composable with an incompatible provider/model pair and assert onModelChange fires with a valid model, OR that the dropdown shows only valid options",
-    "design": "doc/todo/qa_test/final/cn/bootstrap_plan.md",
-    "scope": [
-      "app/src/androidTest/kotlin/ai/closepaw/qa/**",
-      "app/src/main/kotlin/ai/closepaw/ui/settings/**"
-    ],
-    "acceptCriteria": [
-      "All 12 S1-S12 tests exist as @Test methods under app/src/androidTest/kotlin/ai/closepaw/qa/",
-      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa exits 0 on connected device",
-      "grep -RE on kotlin built-in assert under app/src/androidTest/kotlin/ai/closepaw/qa/ returns no matches",
-      "testTag additions in app/src/main/kotlin/ai/closepaw/ui/settings/ are minimal and justified"
-    ],
-    "created": "2026-04-17T15:34:42Z",
-    "updated": "2026-04-17T15:56:25Z",
-    "agent": "w-qa-settings-batch3",
-    "note": "45 tests green total (17 Batch 1 + 15 Batch 2 + 13 Batch 3 — S9 split into Pro/Basic halves). Codex review caught 2 blockers (S9 false positive via shared Executor Model title, S11 text-only dialog check); both fixed in ffae2baa."
   }
 }

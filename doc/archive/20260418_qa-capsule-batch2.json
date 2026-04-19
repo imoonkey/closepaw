@@ -1,0 +1,25 @@
+{
+  "qa-capsule-batch2": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "priority": "normal",
+    "title": "QA Batch 2 — SmartCapsule state-machine tests (K1-K14)",
+    "description": "Implement 14 Compose instrumented tests for the SmartCapsule state machine, following Batch 1 pattern (flat layout under app/src/androidTest/kotlin/ai/closepaw/qa/, prefer text/contentDescription selectors, add testTag only when needed, use org.junit.Assert not kotlin built-in assert).\n\nTest IDs per bootstrap plan (doc/todo/qa_test/final/cn/bootstrap_plan.md):\nK1  Hidden_RendersNothing\nK2  Running_ShowsThoughtAndTakeoverButton\nK3  Running_ShowsStopButton\nK4  Takeover_ShowsResumeInsteadOfTakeover\nK5  WaitingForInput_ExpandsWithTextFieldAndHint\nK6  WaitingForInput_SendEnabledOnlyWhenNonBlank\nK7  WaitingForInput_TypingFiresOnInputChange\nK8  WaitingForInput_SendClearsField\nK9  WaitingForAction_ShowsInstructionAndDoneButton\nK10 WaitingForApproval_ShowsFourScopeButtons\nK11 Done_ShowsSuccessMessageAndAutoDismisses\nK12 Error_DismissButtonFiresCallback\nK13 Stop_IsStopPendingDimsButton\nK14 NavigationButtons_FireCorrectEnum\n\nRelevant source: app/src/main/kotlin/ai/closepaw/ui/capsule/** (SmartCapsuleCompose.kt + surface/*.kt; discover CapsuleState location).\n\nPattern from Batch 1 (ref commits 3c4f586d, 2966ffdd, 21e34233):\n- createComposeRule() + setContent\n- org.junit.Assert.assertTrue/assertEquals (NEVER kotlin built-in assert)\n- testTag in production only when text/contentDescription is unavailable\n- For K11 auto-dismiss: compose.mainClock.autoAdvance = false + advanceTimeBy",
+    "design": "doc/todo/qa_test/final/cn/bootstrap_plan.md",
+    "scope": [
+      "app/src/androidTest/kotlin/ai/closepaw/qa/**",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/**"
+    ],
+    "acceptCriteria": [
+      "All 14 K1-K14 tests exist as @Test methods under app/src/androidTest/kotlin/ai/closepaw/qa/",
+      "./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa exits 0 on connected device",
+      "grep -RE \"^\\s*assert\\(\" app/src/androidTest/kotlin/ai/closepaw/qa/ returns no matches (no kotlin built-in assert for verdicts)",
+      "testTag additions in app/src/main/kotlin/ai/closepaw/ui/capsule/ are minimal and justified"
+    ],
+    "created": "2026-04-17T15:15:22Z",
+    "updated": "2026-04-17T15:31:33Z",
+    "agent": "w-qa-capsule-batch2",
+    "note": "32 tests green (17 Batch 1 + 15 Batch 2). Codex review found 1 blocker (K11 not exercising real auto-dismiss) + 2 concerns (K1 weak, K8 vacuous). All fixed on top: K11 now drives CapsuleStateHolder.scheduleAutoHide, K1 broadened, K7/K8 use EditableText semantics. Fix changes landed in e2b6e212 (concurrent commit sweep — attribution noisy but code correct)."
+  }
+}
