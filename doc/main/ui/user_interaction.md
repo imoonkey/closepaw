@@ -35,7 +35,7 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 | Component | Purpose |
 |-----------|---------|
 | **ChatHeader** | Menu (≡) left, title center, new chat (+) right (visible when messages exist) |
-| **MessageBubble** | User/Agent message bubbles (asymmetric corner shapes) |
+| **MessageBubble** | User/Agent message bubbles (asymmetric corner shapes; text wrapped in `SelectionContainer` so users can long-press to select & copy via the native menu) |
 | **StreamingText** | Text with blinking cursor (530ms alpha animation) |
 | **ThinkingIndicator** | 3 animated dots (staggered 200ms delay, 600ms alpha cycle) |
 | **ActionCard** | Tool execution card with state-dependent styling |

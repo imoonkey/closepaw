@@ -126,6 +126,8 @@ prompt between Working Memory and Observation.
 
 Run the agent with a goal. `debug-run.sh` captures screenshots at each turn, records trace artifacts, and saves comprehensive logs for post-run analysis. Press Ctrl+C to gracefully stop the agent.
 
+> Onboarding bypass: debug builds skip the onboarding wizard whenever the launch intent carries both `fresh_session=true` and a `goal` extra (handled in both `onCreate` and `onNewIntent` of `MainActivity`). `debug-run.sh` always sets these, so you never need to complete the wizard before iterating.
+
 ```bash
 ./scripts/debug-run.sh "Open Settings"                        # Default OpenAI backend
 ./scripts/debug-run.sh --local "Open Settings"                # Use local LLM
