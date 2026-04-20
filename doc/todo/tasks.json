@@ -484,7 +484,7 @@
       "d2-5-settings-drawer-onboarding-rollout",
       "d2-6-contrast-handoff"
     ],
-    "state": "blocked",
+    "state": "running",
     "title": "Codex Review + Fix Loop",
     "description": "Run /code-review via Codex against all frontend-ui-revamp implementation diffs (Track A impl + D2-1..D2-6). Iterate fix-then-rereview until Codex approves with no blocking findings. Capture review transcript and final approval as artifact.",
     "scope": [
@@ -499,8 +499,8 @@
     ],
     "estimate": "m",
     "created": "2026-04-20T07:09:00Z",
-    "updated": "2026-04-20T08:52:15Z",
-    "agent": "w-ui-revamp-codex-review",
+    "updated": "2026-04-20T09:08:39Z",
+    "agent": "w-ui-revamp-codex-review-r2",
     "blockReason": "verification-failed",
     "note": "Round 1 review found 2 critical + 6 important + 1 nit. Fixer dispatched as ui-revamp-fix-codex-findings. Re-review after fixer lands."
   },
@@ -530,7 +530,7 @@
   "d2-fontbinary-followup": {
     "parent": "frontend-ui-revamp",
     "depends": [],
-    "state": "blocked",
+    "state": "done",
     "title": "D2 font binary rollout follow-up",
     "description": "D2-1 stubbed Geist/Fraunces/JetBrainsMono as system aliases pending the actual font binaries landing in app/src/main/res/font/. Codex review flagged this as Important #3. Needs human to source/license the binaries (FONT_ATTRIBUTION.md exists). After binaries land, swap aliases in app/src/main/kotlin/ai/closepaw/ui/theme/Type.kt:10.",
     "scope": [
@@ -545,12 +545,13 @@
     "blockReason": "external",
     "note": "Blocked on human providing font binaries.",
     "created": "2026-04-20T08:51:38Z",
-    "updated": "2026-04-20T08:51:38Z"
+    "updated": "2026-04-20T09:24:32Z",
+    "agent": "w-d2-fontbinary"
   },
   "ui-revamp-fix-codex-findings": {
     "parent": "frontend-ui-revamp",
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Fix codex review findings (round 1)",
     "description": "Address critical + important findings from doc/todo/frontend-ui-review/eng-design/codex_review.md, except font binaries (carved out to d2-fontbinary-followup).",
     "scope": [
@@ -570,6 +571,6 @@
     ],
     "agent": "w-ui-revamp-fixer",
     "created": "2026-04-20T08:51:38Z",
-    "updated": "2026-04-20T08:51:38Z"
+    "updated": "2026-04-20T09:08:39Z"
   }
 }
