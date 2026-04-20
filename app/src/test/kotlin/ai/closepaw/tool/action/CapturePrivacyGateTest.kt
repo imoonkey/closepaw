@@ -274,6 +274,8 @@ private class RichFakePlatform(
     private val installedApps: List<AppInfo> = emptyList()
 ) : AndroidPlatform {
 
+    override val mode: ai.closepaw.protocol.PlatformMode = ai.closepaw.protocol.PlatformMode.ACCESSIBILITY
+
     private fun element(index: Int) = PerceptionElement(
         index = index,
         text = "Element $index",

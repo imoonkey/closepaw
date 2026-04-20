@@ -48,6 +48,8 @@ class AccessibilityPlatform(
         private val isPackageBlocked: (String?) -> Boolean = { false },
 ) : AndroidPlatform {
 
+    override val mode: ai.closepaw.protocol.PlatformMode = ai.closepaw.protocol.PlatformMode.ACCESSIBILITY
+
     companion object {
         private const val TAG = "AccessibilityPlatform"
     }

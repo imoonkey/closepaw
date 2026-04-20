@@ -245,7 +245,9 @@ class MainActivity : ComponentActivity() {
                     openAiAuthUiState = openAiAuthUiState,
                     onStartOAuth = ::handleStartOAuth,
                     onCancelOAuth = ::handleCancelOAuth,
-                    onSignOut = ::handleSignOut
+                    onSignOut = ::handleSignOut,
+                    effectivePlatformModeFlow = AgentService.instance?.effectivePlatformMode
+                        ?: kotlinx.coroutines.flow.MutableStateFlow(null)
                 )
                 pendingGoalForConfirmation?.let { goal ->
                     AlertDialog(
@@ -575,7 +577,7 @@ class MainActivity : ComponentActivity() {
 
         sessionHistoryManager.setActiveSessionId(session.sessionId.value)
         viewModel.startEventCollection(session)
-        service.observeExternalSession(session, settingsState.platformMode)
+        service.observeExternalSession(session, session.getServices().platform.mode)
 
         Log.i(TAG, "Session ready with backend=${settingsState.llmBackend} and message sent")
         return session

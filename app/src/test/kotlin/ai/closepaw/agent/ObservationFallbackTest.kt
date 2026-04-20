@@ -106,6 +106,7 @@ class ObservationFallbackTest {
 }
 
 private class ThrowingCapturePlatform : AndroidPlatform {
+    override val mode: ai.closepaw.protocol.PlatformMode = ai.closepaw.protocol.PlatformMode.ACCESSIBILITY
     var captureAttempts: Int = 0
     override suspend fun captureScreen(): ScreenSnapshot {
         captureAttempts++

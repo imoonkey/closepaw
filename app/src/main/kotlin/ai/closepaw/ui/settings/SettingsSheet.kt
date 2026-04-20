@@ -19,6 +19,7 @@ import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
+import ai.closepaw.protocol.PlatformMode
 
 enum class SettingsPage {
     HOME,
@@ -53,6 +54,9 @@ fun SettingsSheet(
     isOverlayEnabled: Boolean,
     onAccessibilityClick: () -> Unit,
     onOverlayClick: () -> Unit,
+    platformMode: PlatformMode,
+    effectivePlatformMode: PlatformMode?,
+    onPlatformModeChange: (PlatformMode) -> Unit,
     openAiAuthUiState: OpenAiAuthUiState,
     onStartOAuth: () -> Unit,
     onCancelOAuth: () -> Unit,
@@ -95,6 +99,7 @@ fun SettingsSheet(
                     isAccessibilityEnabled = isAccessibilityEnabled,
                     isOverlayEnabled = isOverlayEnabled,
                     debugMode = debugMode,
+                    effectivePlatformMode = effectivePlatformMode,
                     onNavigate = { settingsPage = it },
                     onDismiss = onDismiss
                 )
@@ -133,6 +138,9 @@ fun SettingsSheet(
                     isOverlayEnabled = isOverlayEnabled,
                     onAccessibilityClick = onAccessibilityClick,
                     onOverlayClick = onOverlayClick,
+                    platformMode = platformMode,
+                    effectivePlatformMode = effectivePlatformMode,
+                    onPlatformModeChange = onPlatformModeChange,
                     debugMode = debugMode,
                     onDebugModeChange = onDebugModeChange,
                     traceEnabled = traceEnabled,

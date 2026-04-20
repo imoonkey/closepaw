@@ -1,6 +1,7 @@
 package ai.closepaw.platform
 
 import ai.closepaw.model.ScreenSnapshot
+import ai.closepaw.protocol.PlatformMode
 
 /**
  * AndroidPlatform - Abstraction for Android-specific operations.
@@ -13,6 +14,14 @@ import ai.closepaw.model.ScreenSnapshot
  * - MockPlatform: Test implementation with predefined responses
  */
 interface AndroidPlatform {
+
+    /**
+     * Which platform implementation this is. AccessibilityPlatform vs.
+     * VirtualDisplayPlatform must be distinguishable so the UI can render the
+     * effective mode of the live session (which may diverge from the persisted
+     * intent when PlatformFactory falls back).
+     */
+    val mode: PlatformMode
 
     /**
      * Initialize platform resources.

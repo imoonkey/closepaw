@@ -17,6 +17,7 @@ import ai.closepaw.llm.AuthMode
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
+import ai.closepaw.protocol.PlatformMode
 
 @Composable
 internal fun SettingsHomePage(
@@ -31,6 +32,7 @@ internal fun SettingsHomePage(
     isAccessibilityEnabled: Boolean,
     isOverlayEnabled: Boolean,
     debugMode: Boolean,
+    effectivePlatformMode: PlatformMode?,
     onNavigate: (SettingsPage) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -57,7 +59,7 @@ internal fun SettingsHomePage(
 
             SettingsNavigationRow(
                 title = "Permissions & Advanced",
-                subtitle = permissionsSubtitle(isAccessibilityEnabled, isOverlayEnabled, debugMode),
+                subtitle = permissionsSubtitle(isAccessibilityEnabled, isOverlayEnabled, debugMode, effectivePlatformMode),
                 onClick = { onNavigate(SettingsPage.PERMISSIONS_ADVANCED) }
             )
 
@@ -112,7 +114,8 @@ private fun agentBehaviorSubtitle(
 private fun permissionsSubtitle(
     isAccessibilityEnabled: Boolean,
     isOverlayEnabled: Boolean,
-    debugMode: Boolean
+    debugMode: Boolean,
+    effectivePlatformMode: PlatformMode?,
 ): String {
     val grantedCount = listOf(isAccessibilityEnabled, isOverlayEnabled).count { it }
     val permSummary = when (grantedCount) {
@@ -120,5 +123,10 @@ private fun permissionsSubtitle(
         1 -> "1 of 2 granted"
         else -> "Setup required"
     }
-    return "$permSummary · Debug ${if (debugMode) "on" else "off"}"
+    val modeChip = when (effectivePlatformMode) {
+        PlatformMode.VIRTUAL_DISPLAY -> " · VD"
+        PlatformMode.ACCESSIBILITY -> " · A11y"
+        null -> ""
+    }
+    return "$permSummary · Debug ${if (debugMode) "on" else "off"}$modeChip"
 }

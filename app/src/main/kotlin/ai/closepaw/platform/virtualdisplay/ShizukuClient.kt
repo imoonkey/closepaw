@@ -53,6 +53,16 @@ class ShizukuClient {
         runtimeGateway.removeBinderDeadListener(listener)
     }
 
+    /** Register a listener for Shizuku permission request results. */
+    fun addRequestPermissionResultListener(listener: Shizuku.OnRequestPermissionResultListener) {
+        runtimeGateway.addRequestPermissionResultListener(listener)
+    }
+
+    /** Remove a previously registered permission result listener. */
+    fun removeRequestPermissionResultListener(listener: Shizuku.OnRequestPermissionResultListener) {
+        runtimeGateway.removeRequestPermissionResultListener(listener)
+    }
+
     // ── Hidden API Bypass ───────────────────────────────────────
 
     /**

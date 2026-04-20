@@ -228,6 +228,7 @@ private class TestHarness(
 }
 
 private class FakePlatform : AndroidPlatform {
+    override val mode: ai.closepaw.protocol.PlatformMode = ai.closepaw.protocol.PlatformMode.ACCESSIBILITY
     var captureCount: Int = 0
     override suspend fun captureScreen(): ScreenSnapshot {
         captureCount++

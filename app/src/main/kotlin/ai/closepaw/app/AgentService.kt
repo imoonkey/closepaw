@@ -48,6 +48,9 @@ class AgentService : AccessibilityService() {
         val statusFlow: StateFlow<String> = _statusFlow.asStateFlow()
     }
 
+    private val _effectivePlatformMode = MutableStateFlow<PlatformMode?>(null)
+    val effectivePlatformMode: StateFlow<PlatformMode?> = _effectivePlatformMode.asStateFlow()
+
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val serviceLifecycleOwner = ServiceLifecycleOwner()
     private var session: AgentSession? = null
@@ -67,7 +70,10 @@ class AgentService : AccessibilityService() {
             AgentServiceEventHandler(
                     logTag = TAG,
                     updateStatus = ::updateStatus,
-                    sessionCleared = { session = null },
+                    sessionCleared = {
+                        session = null
+                        _effectivePlatformMode.value = null
+                    },
                     overlayController = { overlayController }
             )
 
@@ -97,6 +103,7 @@ class AgentService : AccessibilityService() {
         Log.i(TAG, "Observing external session: ${externalSession.sessionId}, mode=$platformMode")
         session = externalSession
         currentPlatformMode = platformMode
+        _effectivePlatformMode.value = platformMode
         overlayController?.setPlatformMode(platformMode)
         observeSession(externalSession)
     }
@@ -230,6 +237,7 @@ class AgentService : AccessibilityService() {
             }
         }
         session = null
+        _effectivePlatformMode.value = null
 
         overlayController?.dispose()
         overlayController = null

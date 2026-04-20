@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
+import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.chat.ChatScreen
 import ai.closepaw.ui.chat.ChatViewModel
 import ai.closepaw.ui.chat.SettingsDeepLink
@@ -21,6 +22,8 @@ import ai.closepaw.ui.settings.OpenAiAuthUiState
 import ai.closepaw.ui.settings.SettingsPage
 import ai.closepaw.ui.settings.SettingsSheet
 import ai.closepaw.ui.theme.ChatTheme
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,9 +49,11 @@ internal fun MainActivityContent(
     onCancelOAuth: () -> Unit = {},
     onSignOut: () -> Unit = {},
     initialSettingsDeepLink: SettingsDeepLink? = null,
+    effectivePlatformModeFlow: StateFlow<PlatformMode?> = MutableStateFlow(null),
 ) {
     ChatTheme {
         val sessions by viewModel.sessions.collectAsStateWithLifecycle()
+        val effectivePlatformMode by effectivePlatformModeFlow.collectAsStateWithLifecycle()
 
         // Deep-link target captured when a banner/tap wants Settings opened at a
         // specific tab. Forwarded into SettingsSheet via initialPage/initialAuthTab.
@@ -120,6 +125,9 @@ internal fun MainActivityContent(
                     isOverlayEnabled = isOverlayEnabled,
                     onAccessibilityClick = onAccessibilityClick,
                     onOverlayClick = onOverlayClick,
+                    platformMode = settingsState.platformMode,
+                    effectivePlatformMode = effectivePlatformMode,
+                    onPlatformModeChange = settingsState::updatePlatformMode,
                     openAiAuthUiState = openAiAuthUiState,
                     onStartOAuth = onStartOAuth,
                     onCancelOAuth = onCancelOAuth,

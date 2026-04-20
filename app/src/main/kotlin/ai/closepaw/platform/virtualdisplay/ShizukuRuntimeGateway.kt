@@ -42,6 +42,18 @@ internal class ShizukuRuntimeGateway {
                 Shizuku.removeBinderDeadListener(listener)
         }
 
+        fun addRequestPermissionResultListener(
+                listener: Shizuku.OnRequestPermissionResultListener
+        ) {
+                Shizuku.addRequestPermissionResultListener(listener)
+        }
+
+        fun removeRequestPermissionResultListener(
+                listener: Shizuku.OnRequestPermissionResultListener
+        ) {
+                Shizuku.removeRequestPermissionResultListener(listener)
+        }
+
         fun bypassHiddenApis() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         HiddenApiBypass.addHiddenApiExemptions("")

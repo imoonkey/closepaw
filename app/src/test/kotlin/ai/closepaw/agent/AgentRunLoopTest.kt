@@ -522,6 +522,7 @@ private class GatedLLMClient : LLMClient() {
 private class CancellingCapturePlatform(
     private val signal: CompletableDeferred<AgentStopReason>
 ) : AndroidPlatform {
+    override val mode: ai.closepaw.protocol.PlatformMode = ai.closepaw.protocol.PlatformMode.ACCESSIBILITY
     var captureCount: Int = 0
         private set
 

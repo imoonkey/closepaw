@@ -607,6 +607,7 @@ private class RecordingPlatform(
     private val actionResults: List<ActionResult>,
     private val capturedSnapshots: List<ScreenSnapshot>
 ) : AndroidPlatform {
+    override val mode: ai.closepaw.protocol.PlatformMode = ai.closepaw.protocol.PlatformMode.ACCESSIBILITY
     val performedActions = mutableListOf<UIAction>()
     private var actionIndex = 0
     private var captureIndex = 0

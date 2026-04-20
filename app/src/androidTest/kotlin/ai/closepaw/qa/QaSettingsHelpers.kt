@@ -3,6 +3,7 @@ package ai.closepaw.qa
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
+import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.settings.LlmAuthSettingsPage
 import ai.closepaw.ui.settings.LocalModelOption
 import ai.closepaw.ui.settings.ModelLoadingStatus
@@ -63,6 +64,9 @@ internal fun TestSettingsSheet(
         onStartOAuth = {},
         onCancelOAuth = {},
         onSignOut = {},
+        platformMode = PlatformMode.ACCESSIBILITY,
+        effectivePlatformMode = null,
+        onPlatformModeChange = {},
         onDismiss = onDismiss,
     )
 }
@@ -120,6 +124,9 @@ internal fun TestPermissionsPage(
         onDebugModeChange = {},
         traceEnabled = traceEnabled,
         onTraceEnabledChange = onTraceEnabledChange,
+        platformMode = PlatformMode.ACCESSIBILITY,
+        effectivePlatformMode = null,
+        onPlatformModeChange = {},
         onBack = {},
         onClose = {},
     )

@@ -36,6 +36,9 @@ class VirtualDisplayPlatform(
         private val traceRecorder: TraceRecorder,
         private val isPackageBlocked: (String?) -> Boolean = { false }
 ) : AndroidPlatform {
+
+    override val mode: ai.closepaw.protocol.PlatformMode = ai.closepaw.protocol.PlatformMode.VIRTUAL_DISPLAY
+
     companion object {
         private const val TAG = "VirtualDisplayPlatform"
 

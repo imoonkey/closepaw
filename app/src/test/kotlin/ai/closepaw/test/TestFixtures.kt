@@ -7,6 +7,7 @@ import ai.closepaw.platform.AndroidPlatform
 import ai.closepaw.platform.AppInfo
 import ai.closepaw.platform.DisplayInfo
 import ai.closepaw.platform.UIAction
+import ai.closepaw.protocol.PlatformMode
 import io.mockk.every
 import io.mockk.mockk
 import java.io.File
@@ -30,6 +31,8 @@ class FakeAndroidPlatform(
     private val installedApps: List<AppInfo> = emptyList(),
     private val launchResult: ActionResult = ActionResult.Success()
 ) : AndroidPlatform {
+    override val mode: PlatformMode = PlatformMode.ACCESSIBILITY
+
     override suspend fun captureScreen(): ScreenSnapshot {
         if (captureDelayMs > 0) {
             delay(captureDelayMs)

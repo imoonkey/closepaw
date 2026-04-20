@@ -1102,6 +1102,7 @@ private fun buildSessionWith(
 
 /** Platform that succeeds on the very first start() and throws on every subsequent call. */
 private class ReacquireFailingPlatform : ai.closepaw.platform.AndroidPlatform {
+        override val mode: ai.closepaw.protocol.PlatformMode = ai.closepaw.protocol.PlatformMode.ACCESSIBILITY
         private var startCount = 0
         override suspend fun start() {
                 startCount++
