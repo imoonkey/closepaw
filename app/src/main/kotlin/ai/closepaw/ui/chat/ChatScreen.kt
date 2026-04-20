@@ -37,9 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import ai.closepaw.app.AgentService
 import ai.closepaw.history.model.SessionInfo
-import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.ui.capsule.CapsuleBinding
 import ai.closepaw.ui.capsule.NavAction
 import ai.closepaw.ui.capsule.surface.SmartCapsuleSurface
 import ai.closepaw.ui.capsule.surface.smartCapsuleHostPadding
@@ -50,12 +49,11 @@ import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
 import ai.closepaw.ui.navigation.NavigationDrawerContent
 import ai.closepaw.ui.overlay.model.CapsuleContext
-import ai.closepaw.ui.overlay.model.CapsuleMode
 import kotlinx.coroutines.launch
 
 /**
  * ChatScreen - Main chat interface composable.
- * 
+ *
  * Orchestrates all chat components into a cohesive conversation experience.
  * Includes navigation drawer for session history and settings access.
  * Uses SmartCapsuleSurface as bottomBar (replaces old InputDock).
@@ -63,6 +61,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ChatScreen(
     viewModel: ChatViewModel,
+    capsuleBinding: CapsuleBinding,
     sessions: List<SessionInfo>,
     currentModel: String,
     appVersion: String,
@@ -79,15 +78,9 @@ fun ChatScreen(
     val pendingInput by viewModel.pendingInput.collectAsStateWithLifecycle()
     val startupError by viewModel.startupError.collectAsStateWithLifecycle()
 
-    // Collect capsule mode from CapsuleStateHolder (via AgentService singleton).
-    // Fallback flows are stable (remembered) to avoid recomposition churn when service is null.
-    val stateHolder = AgentService.instance?.capsuleStateHolder
-    val fallbackMode = remember { kotlinx.coroutines.flow.MutableStateFlow<CapsuleMode>(CapsuleMode.Hidden) }
-    val fallbackPlatform = remember { kotlinx.coroutines.flow.MutableStateFlow(PlatformMode.ACCESSIBILITY) }
-    val fallbackStopPending = remember { kotlinx.coroutines.flow.MutableStateFlow(false) }
-    val capsuleMode by (stateHolder?.mode ?: fallbackMode).collectAsStateWithLifecycle()
-    val capsulePlatformMode by (stateHolder?.platformMode ?: fallbackPlatform).collectAsStateWithLifecycle()
-    val isStopPending by (stateHolder?.isStopPending ?: fallbackStopPending).collectAsStateWithLifecycle()
+    val capsuleMode by capsuleBinding.mode.collectAsStateWithLifecycle()
+    val capsulePlatformMode by capsuleBinding.platformMode.collectAsStateWithLifecycle()
+    val isStopPending by capsuleBinding.isStopPending.collectAsStateWithLifecycle()
 
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -153,13 +146,13 @@ fun ChatScreen(
                         onTakeover = viewModel::requestTakeover,
                         onResume = viewModel::requestResume,
                         onStop = {
-                            if (stateHolder?.onStopRequested() != false) {
+                            if (capsuleBinding.onStopRequested()) {
                                 viewModel.stopTask()
                             }
                         },
                         onUserResponse = viewModel::sendUserResponse,
                         onApprovalResponse = { callId, decision, approvalScope, packageName ->
-                            if (stateHolder?.onApprovalResolved(callId) != false) {
+                            if (capsuleBinding.onApprovalResolved(callId)) {
                                 viewModel.sendApprovalResponse(callId, decision, approvalScope, packageName)
                             }
                         },
@@ -170,7 +163,7 @@ fun ChatScreen(
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        previousMode = stateHolder?.previousMode,
+                        previousMode = capsuleBinding.previousMode(),
                         pendingInputText = pendingInput,
                         onPendingInputConsumed = { viewModel.consumePendingInput() },
                         startupError = startupError,
@@ -246,10 +239,12 @@ private fun MessageList(
             val last = messages.lastOrNull()
             val contentSignal = when (last) {
                 is ChatMessage.Agent -> {
-                    var signal = last.contentBlocks.size.toLong() + last.content.length
+                    var signal = last.contentBlocks.size.toLong()
                     for (block in last.contentBlocks) {
-                        if (block is ContentBlock.Action) {
-                            signal += block.data.state.ordinal + (block.data.resultSummary?.length ?: 0)
+                        when (block) {
+                            is ContentBlock.Text -> signal += block.text.length
+                            is ContentBlock.Action -> signal += block.data.state.ordinal +
+                                (block.data.resultSummary?.length ?: 0)
                         }
                     }
                     signal

@@ -13,6 +13,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.ui.capsule.CapsuleBinding
+import ai.closepaw.ui.capsule.InertCapsuleBinding
 import ai.closepaw.ui.chat.ChatScreen
 import ai.closepaw.ui.chat.ChatViewModel
 import ai.closepaw.ui.chat.SettingsDeepLink
@@ -24,6 +26,25 @@ import ai.closepaw.ui.settings.SettingsSheet
 import ai.closepaw.ui.theme.ChatTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+
+/**
+ * Build a [CapsuleBinding] backed by the running [AgentService], or [InertCapsuleBinding]
+ * when the service isn't bound yet (so the chat surface still renders its idle state).
+ */
+@Composable
+private fun rememberCapsuleBinding(): CapsuleBinding {
+    val holder = AgentService.instance?.capsuleStateHolder ?: return InertCapsuleBinding
+    return remember(holder) {
+        CapsuleBinding(
+            mode = holder.mode,
+            platformMode = holder.platformMode,
+            isStopPending = holder.isStopPending,
+            previousMode = { holder.previousMode },
+            onStopRequested = { holder.onStopRequested() },
+            onApprovalResolved = { callId -> holder.onApprovalResolved(callId) },
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,6 +96,7 @@ internal fun MainActivityContent(
 
             ChatScreen(
                 viewModel = viewModel,
+                capsuleBinding = rememberCapsuleBinding(),
                 sessions = sessions,
                 currentModel = settingsState.selectedModel,
                 appVersion = appVersion,

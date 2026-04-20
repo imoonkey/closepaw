@@ -23,7 +23,7 @@ sealed interface ChatMessage {
     
     /**
      * Agent message bubble with streaming support and interleaved content.
-     * 
+     *
      * Content blocks allow text and actions to be displayed in the order they occurred,
      * supporting the natural flow: "I'll click this" → [Action Card] → "Now I see..."
      */
@@ -32,23 +32,7 @@ sealed interface ChatMessage {
         override val timestamp: Long,
         val contentBlocks: List<ContentBlock>,
         val state: AgentMessageState
-    ) : ChatMessage {
-        /** 
-         * Convenience: get all text content concatenated (for backward compatibility).
-         */
-        val content: String 
-            get() = contentBlocks
-                .filterIsInstance<ContentBlock.Text>()
-                .joinToString("") { it.text }
-        
-        /**
-         * Convenience: get all actions (for backward compatibility).
-         */
-        val actions: List<ActionCardData>
-            get() = contentBlocks
-                .filterIsInstance<ContentBlock.Action>()
-                .map { it.data }
-    }
+    ) : ChatMessage
 }
 
 /**
