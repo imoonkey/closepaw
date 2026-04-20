@@ -303,7 +303,7 @@
     "depends": [
       "ui-visual-impl-design"
     ],
-    "state": "ready",
+    "state": "running",
     "title": "D2-1: Theme Foundation",
     "description": "Land ClosePawTheme wrapping MaterialTheme + thin MaterialTheme.closePaw token accessor (single LocalClosePawTokens). Populate Tokens.kt and Motion.kt. Wire fonts (Geist, Fraunces, JetBrains Mono) to res/font/ with attribution. Mechanical sweep removing legacy color/shape symbols.",
     "design": "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md",
@@ -322,7 +322,8 @@
     "estimate": "m",
     "worktree": "d2-impl",
     "created": "2026-04-20T07:04:36Z",
-    "updated": "2026-04-20T07:04:36Z"
+    "updated": "2026-04-20T07:13:02Z",
+    "agent": "w-d2-1-theme-foundation"
   },
   "d2-2-semantic-visual-model-cleanup": {
     "parent": "frontend-ui-revamp",
@@ -446,7 +447,7 @@
       "ui-chat-info-arch",
       "ui-arch-refactor"
     ],
-    "state": "ready",
+    "state": "running",
     "title": "Track A Impl: Chat Row Info Architecture",
     "description": "Implement Track A spec in chat: add ContentBlock.Thought(text) variant, route ThoughtUpdate via new branch in ChatEventReducer.handle, lift four row states (Live/Waiting/Complete/Error) into an explicit row-level enum, implement single-tap collapse/expand (one axis). Chronological-trace ordering invariant from §5 must hold (no reordering, no dedup).",
     "design": "doc/todo/frontend-ui-review/eng-design/track-a/final/design_aligned.md",
@@ -465,7 +466,8 @@
     "estimate": "m",
     "worktree": "a-impl",
     "created": "2026-04-20T07:06:35Z",
-    "updated": "2026-04-20T07:06:35Z"
+    "updated": "2026-04-20T07:13:02Z",
+    "agent": "w-a-impl-chat-row"
   },
   "ui-revamp-codex-review": {
     "parent": "frontend-ui-revamp",
