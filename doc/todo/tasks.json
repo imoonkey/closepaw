@@ -572,5 +572,30 @@
     "agent": "w-ui-revamp-fixer",
     "created": "2026-04-20T08:51:38Z",
     "updated": "2026-04-20T09:08:39Z"
+  },
+  "ui-revamp-fix-codex-r2": {
+    "parent": "frontend-ui-revamp",
+    "depends": [],
+    "state": "done",
+    "title": "Fix codex review round-2 findings",
+    "description": "Address the 4 important findings from codex_review_r2.md — all are regressions introduced by the round-1 fixer.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**",
+      "app/src/androidTest/kotlin/ai/closepaw/qa/**",
+      "app/src/main/kotlin/ai/closepaw/history/**",
+      "app/src/main/kotlin/ai/closepaw/app/AgentServiceEventHandler.kt"
+    ],
+    "acceptCriteria": [
+      "ChatAgentRowDisclosureTest no longer throws (wraps MessageBubble in ClosePawTheme)",
+      "ChatAgentRowDisclosureTest passes on device",
+      "completedTimestamp persisted to MessageRecord and restored",
+      "ThoughtUpdate emits ContentBlock.Thought into AgentMessageBuffer for recording",
+      "Resumed sessions surface Thought blocks",
+      "RowState.Error rows render OutcomeFooter with the error summary",
+      "./gradlew :app:testDebugUnitTest passes"
+    ],
+    "agent": "w-ui-revamp-fixer-r2",
+    "created": "2026-04-20T09:25:03Z",
+    "updated": "2026-04-20T09:41:31Z"
   }
 }
