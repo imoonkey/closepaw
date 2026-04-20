@@ -248,7 +248,9 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
             TaskOutcome.MAX_TURNS -> CapsuleMode.Done("Max steps reached")
             TaskOutcome.TASK_IMPOSSIBLE -> CapsuleMode.Done("Task impossible")
             TaskOutcome.USER_STOPPED -> CapsuleMode.Done("Stopped")
-            TaskOutcome.ERROR -> CapsuleMode.Error("Error occurred")
+            TaskOutcome.ERROR -> CapsuleMode.Error(
+                message?.takeIf { it.isNotBlank() }?.let(::sanitizeThought) ?: "Error occurred"
+            )
         }
         setMode(mode)
         if (mode is CapsuleMode.Done) scheduleAutoHide()
