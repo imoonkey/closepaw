@@ -19,6 +19,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.lifecycle.LifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import ai.closepaw.ui.overlay.model.GlowState
+import ai.closepaw.ui.theme.ClosePawMotion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -33,8 +34,7 @@ class GlowOverlayHost(
 ) {
     companion object {
         private const val TAG = "GlowOverlayHost"
-        private const val PULSE_DURATION_MS = 800
-        private const val FADE_OUT_DURATION_MS = 500L
+        // Hold a Success glow before auto-hiding. UX dwell, not animation timing.
         private const val SUCCESS_HIDE_DELAY_MS = 2000L
     }
 
@@ -68,7 +68,7 @@ class GlowOverlayHost(
                     initialValue = 0.5f,
                     targetValue = 0.85f,
                     animationSpec = infiniteRepeatable(
-                        animation = tween(PULSE_DURATION_MS),
+                        animation = tween(ClosePawMotion.GlowPulse, easing = ClosePawMotion.EaseInOutSine),
                         repeatMode = RepeatMode.Reverse,
                     ),
                     label = "pulseAlpha",
@@ -81,8 +81,8 @@ class GlowOverlayHost(
 
                 AnimatedVisibility(
                     visible = visible,
-                    enter = fadeIn(animationSpec = tween(300)),
-                    exit = fadeOut(animationSpec = tween(FADE_OUT_DURATION_MS.toInt())),
+                    enter = fadeIn(animationSpec = tween(ClosePawMotion.SurfaceSwap)),
+                    exit = fadeOut(animationSpec = tween(ClosePawMotion.OverlayFadeOut)),
                 ) {
                     EdgeGlowCompose(
                         state = currentState,
@@ -105,7 +105,7 @@ class GlowOverlayHost(
         isVisible.value = false
         pendingRemoveJob?.cancel()
         pendingRemoveJob = scope.launch {
-            delay(FADE_OUT_DURATION_MS)
+            delay(ClosePawMotion.OverlayFadeOut.toLong())
             composeHost.hide()
         }
     }

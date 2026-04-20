@@ -1,6 +1,7 @@
 package ai.closepaw.ui.capsule.surface
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -13,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.HorizontalDivider
@@ -38,6 +38,9 @@ import ai.closepaw.ui.overlay.model.CapsuleContext
 import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.ui.overlay.model.CapsuleRenderSpec
 import ai.closepaw.ui.overlay.model.NavSpec
+import ai.closepaw.ui.theme.ClosePawMotion
+import ai.closepaw.ui.theme.closePaw
+import ai.closepaw.ui.theme.foldedPaper
 
 /**
  * SmartCapsuleSurface — orchestrator composable for the Smart Capsule.
@@ -86,18 +89,21 @@ fun SmartCapsuleSurface(
         NavSpec.from(context, platformMode, hasIsland = hasIsland, mode = mode)
     }
     val isTaskActive = mode !is CapsuleMode.Hidden
+    val shape = MaterialTheme.shapes.large
+    val spacing = MaterialTheme.closePaw.spacing
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .foldedPaper(shape),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 8.dp,
-        shape = RoundedCornerShape(24.dp),
+        shape = shape,
     ) {
         Column(
             modifier = Modifier
-                .padding(horizontal = 12.dp)
+                .padding(horizontal = spacing.md)
                 .navigationBarsPadding()
-                .padding(top = 8.dp, bottom = 6.dp),
+                .padding(top = spacing.sm, bottom = 6.dp),
         ) {
             if (isTaskActive) {
                 CapsuleStatusLine(spec = renderSpec, onClick = onStatusClick)
@@ -190,7 +196,7 @@ private fun StartupErrorBanner(
     Surface(
         modifier = surfaceModifier,
         color = MaterialTheme.colorScheme.errorContainer,
-        shape = RoundedCornerShape(10.dp),
+        shape = MaterialTheme.shapes.medium,
     ) {
         Row(
             modifier = Modifier
@@ -223,7 +229,7 @@ private fun CapsuleStatusLine(
     val rowModifier = if (onClick != null) {
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable { onClick() }
             .padding(vertical = 2.dp)
     } else {
@@ -237,6 +243,7 @@ private fun CapsuleStatusLine(
         if (spec.dot != null) {
             val dotColor by animateColorAsState(
                 targetValue = spec.dot.status.toStatusColor(),
+                animationSpec = tween(ClosePawMotion.StatusFlip, easing = ClosePawMotion.EaseInOutSine),
                 label = "dotColor",
             )
             Box(

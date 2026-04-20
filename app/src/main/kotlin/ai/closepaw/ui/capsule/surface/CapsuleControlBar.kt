@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -29,13 +28,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import ai.closepaw.protocol.ApprovalDecision
 import ai.closepaw.protocol.ApprovalScope
 import ai.closepaw.ui.capsule.NavAction
 import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.ui.overlay.model.CapsuleRenderSpec
 import ai.closepaw.ui.overlay.model.NavSpec
+import ai.closepaw.ui.theme.closePaw
 
 /**
  * CapsuleControlBar — the row beneath the status line / detail body.
@@ -92,7 +91,7 @@ private fun ActionButtonCluster(
     onApprovalResponse: (String, ApprovalDecision, ApprovalScope, String?) -> Unit,
     onDismissError: () -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.sm)) {
         buttons.primary?.let { btn ->
             FilledTonalButton(
                 onClick = {
@@ -107,7 +106,7 @@ private fun ActionButtonCluster(
                     }
                 },
                 enabled = btn.enabled,
-                shape = RoundedCornerShape(14.dp),
+                shape = MaterialTheme.shapes.large,
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
             ) {
                 Icon(
@@ -116,7 +115,7 @@ private fun ActionButtonCluster(
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text(text = btn.text, fontSize = 14.sp)
+                Text(text = btn.text, style = MaterialTheme.typography.labelLarge)
             }
         }
 
@@ -144,7 +143,7 @@ private fun ActionButtonCluster(
                     }
                 },
                 enabled = btn.enabled,
-                shape = RoundedCornerShape(14.dp),
+                shape = MaterialTheme.shapes.large,
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
             ) {
                 Icon(
@@ -156,7 +155,7 @@ private fun ActionButtonCluster(
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = btn.text,
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
@@ -169,7 +168,7 @@ private fun NavButtonCluster(
     navSpec: NavSpec,
     onNavigate: (NavAction) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.closePaw.spacing.xs)) {
         if (navSpec.showMinimize) {
             NavIconButton(
                 icon = Icons.Rounded.RemoveCircleOutline,
@@ -203,7 +202,7 @@ private fun NavIconButton(
     FilledTonalIconButton(
         onClick = onClick,
         modifier = Modifier.size(32.dp),
-        shape = RoundedCornerShape(10.dp),
+        shape = MaterialTheme.shapes.medium,
     ) {
         Icon(imageVector = icon, contentDescription = contentDescription, modifier = Modifier.size(18.dp))
     }
@@ -233,11 +232,11 @@ private fun ApprovalScopeButton(
     FilledTonalButton(
         onClick = { onApprovalResponse(mode.callId, ApprovalDecision.APPROVED, scope, mode.packageName) },
         enabled = btn.enabled,
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.large,
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
     ) {
         Icon(Icons.Rounded.Check, null, Modifier.size(16.dp))
         Spacer(Modifier.width(6.dp))
-        Text(text = btn.text, fontSize = 14.sp)
+        Text(text = btn.text, style = MaterialTheme.typography.labelLarge)
     }
 }
