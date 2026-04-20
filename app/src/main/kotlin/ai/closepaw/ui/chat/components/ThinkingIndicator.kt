@@ -46,10 +46,22 @@ fun ThinkingIndicator(modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Box(modifier = Modifier.padding(horizontal = spacing.md, vertical = spacing.sm)) {
-            PawToeSequence(tint = MaterialTheme.colorScheme.onSurface)
+            PawToeSequence(tint = THINKING_INDICATOR_TINT.resolve())
         }
     }
 }
+
+/** Color role used by [ThinkingIndicator]. Pinned by ThinkingIndicatorTintTest. */
+internal enum class ThinkingTintRole {
+    OnSurface;
+
+    @Composable
+    fun resolve(): Color = when (this) {
+        OnSurface -> MaterialTheme.colorScheme.onSurface
+    }
+}
+
+internal val THINKING_INDICATOR_TINT: ThinkingTintRole = ThinkingTintRole.OnSurface
 
 @Composable
 private fun PawToeSequence(tint: Color) {

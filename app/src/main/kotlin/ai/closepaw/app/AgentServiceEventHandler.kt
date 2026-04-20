@@ -165,10 +165,12 @@ internal class AgentServiceEventHandler(
             }
             is AskUser -> {
                 Log.i(logTag, "AskUser: type=${event.type}, callId=${event.callId}")
+                recordingService?.markAwaitingUser()
                 overlay?.onAskUser(event.type, event.message, event.callId)
             }
             is ApprovalRequired -> {
                 Log.i(logTag, "ApprovalRequired: callId=${event.details.callId}")
+                recordingService?.markAwaitingUser()
                 overlay?.onApprovalRequired(event.details)
             }
 

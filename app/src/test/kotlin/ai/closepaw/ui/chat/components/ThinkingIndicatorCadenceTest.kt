@@ -40,4 +40,12 @@ class ThinkingIndicatorCadenceTest {
         val boundary = (0 until PAW_TOE_ELEMENT_COUNT).map { pawToeAlpha(4f, it) }
         assertThat(boundary).containsExactly(1.0f, 1.0f, 1.0f, 1.0f).inOrder()
     }
+
+    @Test
+    fun `tint role pinned to onSurface`() {
+        // ThinkingIndicator() resolves its tint via THINKING_INDICATOR_TINT.
+        // Pin the role so theme refactors that swap to e.g. primary or Claw
+        // trip this test. Color value itself is theme-resolved at runtime.
+        assertThat(THINKING_INDICATOR_TINT).isEqualTo(ThinkingTintRole.OnSurface)
+    }
 }

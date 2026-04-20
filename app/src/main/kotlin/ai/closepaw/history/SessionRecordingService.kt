@@ -32,6 +32,7 @@ class SessionRecordingService(
     private var currentSession: SessionRecord? = null
     private var currentFileName: String? = null
     private var lastTaskOutcome: TaskOutcome? = null
+    private var awaitingUser: Boolean = false
     private val stateLock = Any()
 
     private val agentMessageBuffer = AgentMessageBuffer()
@@ -76,6 +77,7 @@ class SessionRecordingService(
             // Reset state
             agentMessageBuffer.clear()
             lastTaskOutcome = null
+            awaitingUser = false
             saveJob?.cancel()
             saveJob = null
             checkpointSaveJob?.cancel()
@@ -100,6 +102,7 @@ class SessionRecordingService(
             contextFileName = storage.contextFileNameFor(data.fileName)
             // Reset agent message state (we're starting fresh)
             agentMessageBuffer.clear()
+            awaitingUser = false
             checkpointSaveJob?.cancel()
             checkpointSaveJob = null
         }
@@ -142,6 +145,7 @@ class SessionRecordingService(
                     // Finalize any previous agent message
                     finalizeCurrentAgentMessage()
                     agentMessageBuffer.start(id, timestamp)
+                    awaitingUser = false
                     true
                 }
         if (!started) return
@@ -211,6 +215,16 @@ class SessionRecordingService(
 
         Log.d(TAG, "Updated action $actionId state to $state")
 
+        updateAgentMessageInSession()
+        scheduleSave()
+    }
+
+    /** Mark the active agent row as waiting on user input (AskUser/ApprovalRequired). */
+    fun markAwaitingUser() {
+        synchronized(stateLock) {
+            if (!agentMessageBuffer.hasActiveMessage()) return
+            awaitingUser = true
+        }
         updateAgentMessageInSession()
         scheduleSave()
     }
@@ -340,6 +354,7 @@ class SessionRecordingService(
             currentSession = null
             currentFileName = null
             agentMessageBuffer.clear()
+            awaitingUser = false
             contextFileName = null
         }
         Log.d(TAG, "Session tracking cleared")
@@ -426,7 +441,10 @@ class SessionRecordingService(
     /** Finalize the current agent message and add it to the session. */
     private fun finalizeCurrentAgentMessage() {
         synchronized(stateLock) {
-            val snapshot = agentMessageBuffer.finalizeSnapshot() ?: return
+            val snapshot = agentMessageBuffer.finalizeSnapshot() ?: run {
+                awaitingUser = false
+                return
+            }
             val session = currentSession ?: return
             val now = System.currentTimeMillis()
             val rowState = when (lastTaskOutcome) {
@@ -443,6 +461,7 @@ class SessionRecordingService(
                     rowState = rowState,
                     lastUpdated = now
                 )
+            awaitingUser = false
         }
     }
 
@@ -454,12 +473,14 @@ class SessionRecordingService(
         synchronized(stateLock) {
             val snapshot = agentMessageBuffer.buildPartialSnapshot() ?: return
             val session = currentSession ?: return
+            val rowState = if (awaitingUser) "waiting" else null
             currentSession =
                 SessionRecordMessageMerger.mergeAgentSnapshot(
                     session = session,
                     snapshot = snapshot,
                     isComplete = false,
-                    completedTimestamp = null
+                    completedTimestamp = null,
+                    rowState = rowState
                 )
         }
     }
