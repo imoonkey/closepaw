@@ -193,10 +193,14 @@ internal class ChatEventReducer(
     private fun insertUserTurn(text: String, timestamp: Long, agentId: String? = null) {
         // 1. Close current agent message (idempotent if already Complete or absent)
         updateLastAgentMessage { msg ->
+            val sealing = msg.state != AgentMessageState.Complete
             msg.copy(
                 state = AgentMessageState.Complete,
                 rowState = if (msg.rowState == RowState.Error) RowState.Error else RowState.Complete,
-                completedTimestamp = msg.completedTimestamp ?: timestamp
+                // Only stamp on the Live/Waiting → terminal transition; preserve
+                // existing values (including null on legacy rows that never had
+                // their completion timestamp persisted).
+                completedTimestamp = if (sealing) msg.completedTimestamp ?: timestamp else msg.completedTimestamp
             )
         }
 
@@ -229,6 +233,10 @@ internal class ChatEventReducer(
         val index = messages.indexOfLast { it is ChatMessage.Agent }
         if (index >= 0) {
             val current = messages[index] as ChatMessage.Agent
+            // Drop late streaming events that arrive after the row sealed
+            // (e.g. ThoughtUpdate emitted after TaskCompleted). Sealed rows
+            // are immutable per Track A spec §5.
+            if (current.state == AgentMessageState.Complete) return
             messages[index] = transform(current)
         }
     }

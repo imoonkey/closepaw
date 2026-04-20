@@ -6,6 +6,7 @@ import ai.closepaw.ui.chat.model.ActionState
 import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
+import ai.closepaw.ui.chat.model.RowState
 import org.junit.Test
 
 class MessageConverterTest {
@@ -130,5 +131,84 @@ class MessageConverterTest {
         val msg = MessageConverter.fromRecord(record) as ChatMessage.Agent
         val action = (msg.contentBlocks.single() as ContentBlock.Action).data
         assertThat(action.toolName).isEqualTo("Open app")
+    }
+
+    @Test
+    fun `error rowState round-trips through persistence`() {
+        val original = ChatMessage.Agent(
+            id = "a-err",
+            timestamp = 10L,
+            contentBlocks = listOf(ContentBlock.Text("⚠ boom")),
+            state = AgentMessageState.Complete,
+            rowState = RowState.Error,
+            completedTimestamp = 11L
+        )
+
+        val record = MessageConverter.toRecord(original) as MessageRecord.Agent
+        assertThat(record.rowState).isEqualTo("error")
+
+        val restored = MessageConverter.fromRecord(record) as ChatMessage.Agent
+        assertThat(restored.rowState).isEqualTo(RowState.Error)
+    }
+
+    @Test
+    fun `legacy record without rowState derives Complete from isComplete`() {
+        val legacy = MessageRecord.Agent(
+            id = "legacy-1",
+            timestamp = 1L,
+            contentBlocks = emptyList(),
+            isComplete = true
+            // rowState omitted = null (back-compat)
+        )
+
+        val restored = MessageConverter.fromRecord(legacy) as ChatMessage.Agent
+        assertThat(restored.rowState).isEqualTo(RowState.Complete)
+    }
+
+    @Test
+    fun `legacy streaming record without rowState derives Live`() {
+        val legacy = MessageRecord.Agent(
+            id = "legacy-2",
+            timestamp = 1L,
+            contentBlocks = emptyList(),
+            isComplete = false
+        )
+
+        val restored = MessageConverter.fromRecord(legacy) as ChatMessage.Agent
+        assertThat(restored.rowState).isEqualTo(RowState.Live)
+    }
+
+    @Test
+    fun `fromRecords hydrates userPrompt from preceding User record`() {
+        val records = listOf(
+            MessageRecord.User(id = "u1", timestamp = 1L, text = "open settings"),
+            MessageRecord.Agent(
+                id = "a1",
+                timestamp = 2L,
+                contentBlocks = listOf(ContentBlockRecord.Text("ok")),
+                isComplete = true,
+                rowState = "complete"
+            )
+        )
+
+        val restored = MessageConverter.fromRecords(records)
+        val agent = restored[1] as ChatMessage.Agent
+        assertThat(agent.userPrompt).isEqualTo("open settings")
+    }
+
+    @Test
+    fun `fromRecords leaves userPrompt null when no preceding User record`() {
+        val records = listOf(
+            MessageRecord.Agent(
+                id = "a-orphan",
+                timestamp = 1L,
+                contentBlocks = emptyList(),
+                isComplete = true
+            )
+        )
+
+        val restored = MessageConverter.fromRecords(records)
+        val agent = restored[0] as ChatMessage.Agent
+        assertThat(agent.userPrompt).isNull()
     }
 }

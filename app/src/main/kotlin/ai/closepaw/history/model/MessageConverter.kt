@@ -40,15 +40,19 @@ object MessageConverter {
                     }
                 },
                 isComplete = message.state == AgentMessageState.Complete,
-                completedTimestamp = message.completedTimestamp
+                completedTimestamp = message.completedTimestamp,
+                rowState = message.rowState.name.lowercase()
             )
         }
     }
-    
+
     /**
      * Convert a MessageRecord to ChatMessage for UI display.
+     *
+     * Note: [userPrompt] hydration requires the prior record, so callers that
+     * want headline restoration should use [fromRecords] instead.
      */
-    fun fromRecord(record: MessageRecord): ChatMessage {
+    fun fromRecord(record: MessageRecord, userPrompt: String? = null): ChatMessage {
         return when (record) {
             is MessageRecord.User -> ChatMessage.User(
                 id = record.id,
@@ -74,17 +78,25 @@ object MessageConverter {
                     }
                 },
                 state = if (record.isComplete) AgentMessageState.Complete else AgentMessageState.Streaming,
-                rowState = if (record.isComplete) RowState.Complete else RowState.Live,
+                rowState = parseRowState(record.rowState, record.isComplete),
+                userPrompt = userPrompt,
                 completedTimestamp = record.completedTimestamp
             )
         }
     }
-    
+
     /**
      * Convert a list of MessageRecords to ChatMessages.
+     *
+     * Walks one-back to hydrate [ChatMessage.Agent.userPrompt] from the
+     * preceding User record so the collapsed-headline ladder survives reload.
      */
     fun fromRecords(records: List<MessageRecord>): List<ChatMessage> {
-        return records.map { fromRecord(it) }
+        return records.mapIndexed { index, record ->
+            val prev = records.getOrNull(index - 1)
+            val userPrompt = (prev as? MessageRecord.User)?.text
+            fromRecord(record, userPrompt = userPrompt)
+        }
     }
     
     /**
@@ -104,6 +116,17 @@ object MessageConverter {
             "failed" -> ActionState.Failed
             "skipped" -> ActionState.Skipped
             else -> ActionState.Proposed
+        }
+    }
+
+    private fun parseRowState(persisted: String?, isComplete: Boolean): RowState {
+        return when (persisted?.lowercase()) {
+            "live" -> RowState.Live
+            "waiting" -> RowState.Waiting
+            "complete" -> RowState.Complete
+            "error" -> RowState.Error
+            null -> if (isComplete) RowState.Complete else RowState.Live
+            else -> if (isComplete) RowState.Complete else RowState.Live
         }
     }
 }

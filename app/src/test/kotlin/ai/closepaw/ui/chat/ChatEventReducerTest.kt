@@ -11,6 +11,7 @@ import ai.closepaw.protocol.SessionId
 import ai.closepaw.protocol.TaskCompleted
 import ai.closepaw.protocol.TaskOutcome
 import ai.closepaw.protocol.TaskStarted
+import ai.closepaw.protocol.ThoughtUpdate
 import ai.closepaw.ui.chat.model.ActionState
 import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
@@ -144,5 +145,67 @@ class ChatEventReducerTest {
         assertThat(agent.state).isEqualTo(AgentMessageState.Complete)
         val lastText = agent.contentBlocks.filterIsInstance<ContentBlock.Text>().last()
         assertThat(lastText.text).isEqualTo("⚠️ boom")
+    }
+
+    @Test
+    fun `late ThoughtUpdate after TaskCompleted does not mutate sealed row`() {
+        val f = Fixture()
+        f.reducer.handle(TaskStarted(sessionId, 100L, taskId = "task-1", input = "go"))
+        f.reducer.handle(
+            TaskCompleted(
+                sessionId = sessionId,
+                timestamp = 200L,
+                taskId = "task-1",
+                result = "done",
+                outcome = TaskOutcome.GOAL_ACHIEVED
+            )
+        )
+        val sealed = f.messages.last() as ChatMessage.Agent
+        val sealedBlocks = sealed.contentBlocks.toList()
+
+        f.reducer.handle(ThoughtUpdate(sessionId, 250L, thought = "stale thought"))
+
+        val after = f.messages.last() as ChatMessage.Agent
+        assertThat(after.state).isEqualTo(AgentMessageState.Complete)
+        assertThat(after.contentBlocks).isEqualTo(sealedBlocks)
+    }
+
+    @Test
+    fun `next user turn preserves null completedTimestamp on already-complete legacy row`() {
+        // Reproduces Finding #8: insertUserTurn used to clobber legacy
+        // already-complete rows (state == Complete, completedTimestamp == null)
+        // with a fresh wall-clock from the new turn — bogus future timestamp.
+        val f = Fixture()
+        // Seed a legacy-shaped row: Complete with null completedTimestamp.
+        f.messages.add(
+            ChatMessage.User(id = "u-legacy", timestamp = 50L, text = "old")
+        )
+        f.messages.add(
+            ChatMessage.Agent(
+                id = "a-legacy",
+                timestamp = 60L,
+                contentBlocks = listOf(ContentBlock.Text("done long ago")),
+                state = AgentMessageState.Complete,
+                completedTimestamp = null
+            )
+        )
+
+        f.reducer.handle(TaskStarted(sessionId, 9_999L, taskId = "task-new", input = "next"))
+
+        val legacyAfter = f.messages.first { it is ChatMessage.Agent } as ChatMessage.Agent
+        assertThat(legacyAfter.completedTimestamp).isNull()
+    }
+
+    @Test
+    fun `next user turn stamps completedTimestamp on Live → terminal transition`() {
+        val f = Fixture()
+        f.reducer.handle(TaskStarted(sessionId, 100L, taskId = "task-1", input = "go"))
+        // No TaskCompleted — agent is still Thinking/Streaming when next turn arrives.
+
+        f.reducer.handle(TaskStarted(sessionId, 500L, taskId = "task-2", input = "next"))
+
+        val firstAgent = f.messages.first { it is ChatMessage.Agent } as ChatMessage.Agent
+        assertThat(firstAgent.state).isEqualTo(AgentMessageState.Complete)
+        assertThat(firstAgent.completedTimestamp).isEqualTo(500L)
     }
 }

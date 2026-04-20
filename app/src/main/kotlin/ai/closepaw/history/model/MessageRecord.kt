@@ -40,7 +40,12 @@ sealed interface MessageRecord {
          * Null while the message is still streaming. Persisted so resumed
          * history rows can compute elapsed time per Track A spec §4.5/§5.2.
          */
-        val completedTimestamp: Long? = null
+        val completedTimestamp: Long? = null,
+        /**
+         * Persisted row-level state ("live" / "waiting" / "complete" / "error").
+         * Null on legacy records — derived from [isComplete] on read.
+         */
+        val rowState: String? = null
     ) : MessageRecord
 }
 
