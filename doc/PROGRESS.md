@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-04-20: security — enrich app_tiers.json with installed apps
+
+**What changed:**
+- `assets/security/app_tiers.json` grew from 60 → 114 entries: +39 NORMAL (Google suite — Gmail/Maps/Messages/Docs/Chat/Gemini/NotebookLM/YT Music/YouTube; AI — ChatGPT/Claude/Liquid/Arm AI/Doubao/AIRecord; social — WhatsApp/Telegram/FB/Messenger/IG/X/TikTok Lite/小红书; shopping — Amazon/Walmart/AliExpress/Temu/Shein/McDonald's; rideshare — Uber/Lyft/DoorDash; all `com.obric.*` system apps + butterfly), +1 BLOCKED (`com.tencent.mm` — WeChat has integrated wallet/payments), +4 CAUTIOUS (`moe.shizuku.privileged.api`, `com.tailscale.ipn`, `com.aurora.store`, `com.apkmirror.helper.prod` — privileged/sideload tools).
+- Final tier distribution: 74 NORMAL / 36 BLOCKED / 4 CAUTIOUS.
+
+**Why:**
+- Common apps like Gmail/Maps were unlisted and defaulted to `CAUTIOUS`, forcing approval prompts (and timeouts) in SMART mode for routine use. The base tier list shipped with only seed entries; this is the first pass to align it with what's actually installed on the test device.
+- Architecture/semantics unchanged — pure data update. `AppClassifier` and `PolicyEngine` behavior is identical; only the lookup table is fuller.
+
+**Key files:** `app/src/main/assets/security/app_tiers.json`.
+**Verification:** `python3 -m json.tool` valid; `:app:testDebugUnitTest --tests AppClassifierSecurityTest --tests PolicyEngineTest` PASS; live device QA via `debug-run.sh "Open Google Maps and search for coffee shops nearby"` — 3 turns, `outcome=GOAL_ACHIEVED`, `ToolRouter: Policy decision for open_app/mobile_action/complete_task: Allow`, no approval prompts.
+**Commit:** d3f9128f
+**Next:** None — extend list as new common apps appear.
+**Blockers:** None.
+
 ## 2026-04-19: settings — Display Mode section, effective-platform-mode signal, Shizuku status
 
 **What changed:**
