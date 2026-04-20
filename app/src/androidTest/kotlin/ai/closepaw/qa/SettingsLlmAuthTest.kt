@@ -10,6 +10,7 @@ import ai.closepaw.ui.settings.OpenAiAuthUiState
 import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -91,7 +92,9 @@ class SettingsLlmAuthTest {
         }
 
         compose.onNodeWithText("Sign In").performClick()
-        compose.onNodeWithText("Local").performClick()
+        // Local tab is intentionally disabled (LlmAuthSettingsPage.kt:157-174);
+        // assert that state instead of clicking it.
+        compose.onNodeWithText("Local").assertIsNotEnabled()
         compose.onNodeWithText("API Key").performClick()
 
         assertEquals("onBackendChange must not fire on tab switch alone", 0, backendCalls)
