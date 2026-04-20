@@ -174,7 +174,7 @@
   "frontend-ui-revamp": {
     "parent": null,
     "depends": [],
-    "state": "done",
+    "state": "running",
     "title": "Frontend UI Revamp",
     "description": "Three coordinated tracks to fix chat info density, refactor UI architecture with semantic naming, and lock down UI state machines with docs+tests. Visual baseline: doc/todo/frontend-ui-review/.",
     "design": "doc/todo/frontend-ui-review/eng-design/note.md",
@@ -251,5 +251,271 @@
     "created": "2026-04-20T04:11:02Z",
     "updated": "2026-04-20T05:16:18Z",
     "agent": "w-ui-arch-refactor"
+  },
+  "ui-visual-baseline-align": {
+    "parent": "frontend-ui-revamp",
+    "depends": [],
+    "state": "done",
+    "title": "Track D1: Visual Baseline Alignment (UX)",
+    "description": "Cross-review the existing visual baseline in doc/todo/frontend-ui-review/ (design tokens, motion spec, preview, roadmap) — currently a single-designer pass. Run /double-design with /ux-design as the design step to validate visual taste decisions before any implementation.",
+    "design": "doc/todo/frontend-ui-review/eng-design/note.md",
+    "scope": [
+      "doc/todo/frontend-ui-review/design-tokens.md",
+      "doc/todo/frontend-ui-review/motion-spec.md",
+      "doc/todo/frontend-ui-review/preview.html",
+      "doc/todo/frontend-ui-review/roadmap.md"
+    ],
+    "acceptCriteria": [
+      "doc/todo/frontend-ui-review/aligned/design_aligned.md exists",
+      "Aligned spec covers tokens, motion, and high-level layout decisions",
+      "Initial drafts and cross-reviews from both Claude and Codex preserved under doc/todo/frontend-ui-review/aligned/initial/"
+    ],
+    "note": "Design-only, no code. Independent of A/B/C.",
+    "created": "2026-04-20T05:51:23Z",
+    "updated": "2026-04-20T06:34:29Z",
+    "agent": "w-ui-visual-baseline-align"
+  },
+  "ui-visual-impl-design": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "ui-visual-baseline-align"
+    ],
+    "state": "done",
+    "title": "Track D2: Visual Implementation Eng Design",
+    "description": "Eng design for how to implement the aligned visual spec (D1) in Compose: theme extensions, animation primitives, file structure, migration from current ad-hoc styles. Run /double-design with /design as the engineering step.",
+    "design": "doc/todo/frontend-ui-review/eng-design/note.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/theme/**"
+    ],
+    "acceptCriteria": [
+      "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md exists",
+      "Design specifies Compose theme/token API surface",
+      "Design specifies animation primitives wiring D1 motion spec",
+      "Migration plan from current ad-hoc styles documented"
+    ],
+    "note": "Aligned design at doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md. Subtasks d2-1..d2-6 seeded for implementation.",
+    "created": "2026-04-20T05:51:23Z",
+    "updated": "2026-04-20T07:04:07Z",
+    "agent": "w-ui-visual-impl-design"
+  },
+  "d2-1-theme-foundation": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "ui-visual-impl-design"
+    ],
+    "state": "ready",
+    "title": "D2-1: Theme Foundation",
+    "description": "Land ClosePawTheme wrapping MaterialTheme + thin MaterialTheme.closePaw token accessor (single LocalClosePawTokens). Populate Tokens.kt and Motion.kt. Wire fonts (Geist, Fraunces, JetBrains Mono) to res/font/ with attribution. Mechanical sweep removing legacy color/shape symbols.",
+    "design": "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/theme/**",
+      "app/src/main/res/font/**",
+      "app/src/main/kotlin/**"
+    ],
+    "acceptCriteria": [
+      "app/src/main/kotlin/ai/closepaw/ui/theme/Tokens.kt exists",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/Motion.kt exists",
+      "ClosePawTheme composable defined and used at app root",
+      "grep -rn \"Color(0x\" app/src/main/kotlin/ai/closepaw/ui returns 0 results",
+      "./gradlew assembleDebug succeeds"
+    ],
+    "estimate": "m",
+    "worktree": "d2-impl",
+    "created": "2026-04-20T07:04:36Z",
+    "updated": "2026-04-20T07:04:36Z"
+  },
+  "d2-2-semantic-visual-model-cleanup": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "d2-1-theme-foundation"
+    ],
+    "state": "ready",
+    "title": "D2-2: Semantic Visual Model Cleanup",
+    "description": "Remove raw palette values from non-Compose render models (overlay/model, capsule/surface, overlay/compose). Replace with semantic enum/sealed types resolved at composition time.",
+    "design": "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/model/**",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/**",
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/compose/**"
+    ],
+    "acceptCriteria": [
+      "No raw androidx.compose.ui.graphics.Color references in non-Compose render model files",
+      "./gradlew assembleDebug succeeds",
+      "./gradlew test succeeds"
+    ],
+    "estimate": "s",
+    "worktree": "d2-impl",
+    "created": "2026-04-20T07:04:37Z",
+    "updated": "2026-04-20T07:04:37Z"
+  },
+  "d2-3-capsule-overlay-restyle": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "d2-2-semantic-visual-model-cleanup"
+    ],
+    "state": "ready",
+    "title": "D2-3: Capsule + Overlay Restyle",
+    "description": "Migrate capsule surface and overlay glow/island hosts to consume MaterialTheme.closePaw tokens and ClosePawMotion. Remove all local Color(0x..) literals and inline timing constants.",
+    "design": "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/**",
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/**"
+    ],
+    "acceptCriteria": [
+      "grep -rn \"Color(0x\" app/src/main/kotlin/ai/closepaw/ui/capsule app/src/main/kotlin/ai/closepaw/ui/overlay returns 0 results",
+      "grep -rn \"tween(\\|spring(\" app/src/main/kotlin/ai/closepaw/ui/capsule app/src/main/kotlin/ai/closepaw/ui/overlay shows only ClosePawMotion references",
+      "./gradlew assembleDebug succeeds"
+    ],
+    "estimate": "m",
+    "worktree": "d2-impl",
+    "created": "2026-04-20T07:04:37Z",
+    "updated": "2026-04-20T07:04:37Z"
+  },
+  "d2-4-chat-track-a-restyle": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "d2-1-theme-foundation",
+      "a-impl-chat-row"
+    ],
+    "state": "ready",
+    "title": "D2-4: Chat Track-A Restyle + Streaming Cursor",
+    "description": "Apply D2 theme/motion to the Track A row implementation. Implement inlineContent streaming cursor with on-device verification of placeholderVerticalAlign and Fraunces font fallback. Retire legacy action-card path.",
+    "design": "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "Chat rows consume MaterialTheme.closePaw tokens",
+      "inlineContent streaming cursor implemented in chat streaming text",
+      "Streaming cursor visually verified on device (screenshot artifact in doc/todo/frontend-ui-review/eng-design/track-d2/verification/)",
+      "Legacy action-card path removed",
+      "./gradlew assembleDebug succeeds"
+    ],
+    "estimate": "m",
+    "worktree": "d2-impl",
+    "created": "2026-04-20T07:04:37Z",
+    "updated": "2026-04-20T07:06:35Z"
+  },
+  "d2-5-settings-drawer-onboarding-rollout": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "d2-1-theme-foundation"
+    ],
+    "state": "ready",
+    "title": "D2-5: Settings/Drawer/Onboarding Rollout",
+    "description": "Migrate lower-frequency surfaces (settings, navigation drawer, onboarding) to D1 editorial baseline. Settings page transitions use ClosePawMotion page-slide.",
+    "design": "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**",
+      "app/src/main/kotlin/ai/closepaw/ui/navigation/**",
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/**"
+    ],
+    "acceptCriteria": [
+      "Settings/drawer/onboarding consume MaterialTheme.closePaw tokens",
+      "Settings page transitions use ClosePawMotion",
+      "./gradlew assembleDebug succeeds"
+    ],
+    "estimate": "s",
+    "worktree": "d2-impl",
+    "created": "2026-04-20T07:04:37Z",
+    "updated": "2026-04-20T07:04:37Z"
+  },
+  "d2-6-contrast-handoff": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "d2-1-theme-foundation"
+    ],
+    "state": "ready",
+    "title": "D2-6: Contrast Matrix Handoff",
+    "description": "Measure and document foreground/background contrast for all D1 light + dark token pairs. Produce contrast matrix artifact for design verification.",
+    "design": "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md",
+    "scope": [
+      "doc/todo/frontend-ui-review/aligned/contrast-matrix.md"
+    ],
+    "acceptCriteria": [
+      "doc/todo/frontend-ui-review/aligned/contrast-matrix.md exists",
+      "File documents contrast ratios for light + dark token pairs"
+    ],
+    "estimate": "xs",
+    "created": "2026-04-20T07:04:37Z",
+    "updated": "2026-04-20T07:04:37Z"
+  },
+  "a-impl-chat-row": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "ui-chat-info-arch",
+      "ui-arch-refactor"
+    ],
+    "state": "ready",
+    "title": "Track A Impl: Chat Row Info Architecture",
+    "description": "Implement Track A spec in chat: add ContentBlock.Thought(text) variant, route ThoughtUpdate via new branch in ChatEventReducer.handle, lift four row states (Live/Waiting/Complete/Error) into an explicit row-level enum, implement single-tap collapse/expand (one axis). Chronological-trace ordering invariant from §5 must hold (no reordering, no dedup).",
+    "design": "doc/todo/frontend-ui-review/eng-design/track-a/final/design_aligned.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "ContentBlock.Thought(text: String) variant exists",
+      "ChatEventReducer routes ThoughtUpdate into ContentBlock.Thought",
+      "Row-level enum with four states (Live, Waiting, Complete, Error) exists and drives row rendering",
+      "Single-tap collapse/expand control toggles row between collapsed/expanded",
+      "Locked-open invariants for Error and Waiting states enforced (no collapse)",
+      "./gradlew test passes (Track C state-machine tests still green)",
+      "./gradlew assembleDebug succeeds"
+    ],
+    "estimate": "m",
+    "worktree": "a-impl",
+    "created": "2026-04-20T07:06:35Z",
+    "updated": "2026-04-20T07:06:35Z"
+  },
+  "ui-revamp-codex-review": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "a-impl-chat-row",
+      "d2-1-theme-foundation",
+      "d2-2-semantic-visual-model-cleanup",
+      "d2-3-capsule-overlay-restyle",
+      "d2-4-chat-track-a-restyle",
+      "d2-5-settings-drawer-onboarding-rollout",
+      "d2-6-contrast-handoff"
+    ],
+    "state": "ready",
+    "title": "Codex Review + Fix Loop",
+    "description": "Run /code-review via Codex against all frontend-ui-revamp implementation diffs (Track A impl + D2-1..D2-6). Iterate fix-then-rereview until Codex approves with no blocking findings. Capture review transcript and final approval as artifact.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/**",
+      "app/src/main/res/font/**"
+    ],
+    "acceptCriteria": [
+      "Codex review transcript stored at doc/todo/frontend-ui-review/eng-design/review/codex_review.md",
+      "Final transcript ends with explicit Codex approval (no blocking findings remaining)",
+      "./gradlew assembleDebug succeeds",
+      "./gradlew test succeeds"
+    ],
+    "estimate": "m",
+    "created": "2026-04-20T07:09:00Z",
+    "updated": "2026-04-20T07:09:00Z"
+  },
+  "ui-revamp-device-qa": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "ui-revamp-codex-review"
+    ],
+    "state": "ready",
+    "title": "Real Device QA + Fix",
+    "description": "Run /qa and /ux-visual-debug on a real Android device against the full revamped UI surface (capsule, overlay, chat, settings, drawer, onboarding). Verify D1 visual baseline, D1 motion spec, Track A row interactions, and D2 streaming cursor. Iterate fix-then-recheck until all observed regressions are resolved.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/**"
+    ],
+    "acceptCriteria": [
+      "QA report stored at doc/todo/frontend-ui-review/eng-design/qa/device_qa.md",
+      "Report covers capsule, overlay, chat, settings, drawer, onboarding flows on real device",
+      "Screenshot/video evidence captured for each major flow",
+      "No outstanding visual or interaction regressions vs D1 spec",
+      "./scripts/setup.sh runs cleanly + app launches without crash"
+    ],
+    "estimate": "m",
+    "resources": "physical Android device with USB debugging + a11y service permission",
+    "created": "2026-04-20T07:09:00Z",
+    "updated": "2026-04-20T07:09:00Z"
   }
 }

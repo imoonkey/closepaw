@@ -1,0 +1,310 @@
+# Track D1 — Visual Baseline (Aligned Final Spec)
+
+**Authors:** Claude + Codex (independent drafts cross-reviewed and aligned).
+**Date:** 2026-04-20
+**Status:** Final (design-only). Hand-off: Track D2 — implementation design.
+**Scope:** Validates and trims the visual baseline at `doc/todo/frontend-ui-review/{README, design-tokens, motion-spec, roadmap}.md`. No code changes this round. No new visual direction — the baseline's "Tactile Intelligence" identity (Paper / Ink / Claw, Paw glyph, three-voice typography, breath motion) is the brand. This document is what survives a KISS pass.
+
+> **KISS rule applied throughout.** Both reviewers explicitly rejected: golden-ratio spacing rationale, soft palette variants as named brand tokens, serif inside the live trace, persistent claw left rail on the chat row, typeset-receipt action card framing, hanging numerals on Settings, drawer naming metaphors ("// preferences" / "New entry"), edge-glow drift, Perlin-noise swipe, satellite tap ring, the 5-step shape ladder + 2 named specials, the `xxl = 52dp` spacing token, the `tgmTelegram` typography style, the `romanNumeral` typography style, the `PawStamp` shape token, and the 120sp Roman-numeral chapter watermarks.
+
+---
+
+## 1. Verdict
+
+The baseline is **directionally right and tonally too loud**. The bones — Paper/Ink/Claw palette, three-voice typography, Paw glyph, 4-duration / 2-easing motion — are the brand and lock in unchanged. What gets cut is the themed flourishes that compete for attention (journal, telegram, ledger, chapter spread, receipt, fountain pen). The single consolidating principle: **the trace is the structure; everything else gets out of the way.**
+
+Net diff vs baseline: roughly 30% of the surface area in `design-tokens.md` and `motion-spec.md` is removed or demoted. No new tokens. No new motion primitives.
+
+---
+
+## 2. Color tokens
+
+### 2.1 Keep — verbatim
+
+The full Light "Paper" + Dark "Lantern" palettes from `design-tokens.md §1`. Ten primary roles per mode:
+
+```
+Paper        Ink           Claw          Moss          Amber         Rust
+Hairline     InkMuted      InkFaint      InkGhost      ShadowUnder
+```
+
+Plus the four pressed-state companions: `PaperInset`, `PaperDeep`, `ClawDeep`, and the dark-mode equivalents.
+
+### 2.2 Demote — soft tints become derived, not enumerated
+
+`PaperDeep`, `ClawSoft`, `MossSoft`, `AmberSoft`, `RustSoft` and all dark-mode soft variants are **derived tokens computed in code** as `XSoft = X.copy(alpha = 0.12f)`. They exist at call sites; they do not appear as named brand tokens in design discussion or onboarding docs. Reason: alpha-formula tokens dilute the palette story for designers without removing any code utility.
+
+### 2.3 Capsule mode → color mapping — locked
+
+| Capsule mode | Color | Token |
+|---|---|---|
+| Running | Claw (breathing paw) | `Claw` |
+| Takeover / Paused | Amber (frozen paw) | `Amber` |
+| WaitingForInput | Ink (no paw, text only) | `Ink` |
+| WaitingForApproval | Amber + Rust border | `Amber` / `Rust` |
+| Done | Moss (blink-once paw) | `Moss` |
+| Error | Rust (shake paw) | `Rust` |
+
+### 2.4 Two-level hairline rule — clarified
+
+The baseline ships two opacity levels that have distinct semantics:
+
+- **`Hairline` (12% ink)** — separators **between** content blocks (settings rows, drawer entries, between sections).
+- **`InkGhost` (8% ink)** — separators **inside** a content block (the Trace ↔ Final rule inside an agent row, micro-dividers in the receipt, watermark glyphs).
+
+Track A's "ink @ 8%" Trace/Final rule = `InkGhost`. Settings row dividers = `Hairline`. One semantic per opacity, no exceptions.
+
+### 2.5 Claw scarcity — locked invariant
+
+The baseline rule is promoted to a **hard invariant enforced in code review**: never more than two claw-colored elements visible at once. Allowed surfaces: Running capsule paw, primary CTA, watermark paw-print, "+ New session" affordance in drawer. Claw is **never** used for body text or for the Track A action arrow.
+
+Contrast clarification: `Claw on Paper = 5.4:1` is AA-large only. **Body and trace text always use `Ink` or `InkMuted`, never `Claw`.**
+
+---
+
+## 3. Typography
+
+### 3.1 Three voices, locked zoning
+
+| Voice | Family | Where it appears |
+|---|---|---|
+| Display / Identity | **Fraunces** (variable serif) | App title, empty-state question, Settings section heads, onboarding chapter titles. Rare. |
+| Chrome + prose + thoughts | **Geist** (variable sans, regular + italic) | All UI chrome, chat Final block, Track A Thought trace items (italic), capsule live thought line. |
+| Machine output | **JetBrains Mono** | Track A Action items (`tool_name(args)`), shell output, capsule live "executing tool" status, Settings API-key fields, drawer date column. |
+
+The previous baseline placed Fraunces inside the trace via `serifItalic` for thought items. **Aligned decision: Thought = Geist Italic, not Fraunces Italic.** Fraunces is reserved strictly for display surfaces. Reason: inside the trace, Thought is the agent's reasoning — same voice family as the Final answer it leads to. Italic distinguishes inner from outer voice without recruiting a second typeface. This collapses what was about to become four voices back to three.
+
+### 3.2 `Typography` block — keep verbatim
+
+The Material 3 `displayLarge … labelSmall` ladder from `design-tokens.md §2` is well-judged. Adopt verbatim.
+
+### 3.3 `AgentExtraTypography` — three styles only
+
+```
+monoBody    — JBMono 13sp (ActionCard tool name, shell output)
+monoSmall   — JBMono 11sp (drawer dates, status timestamps)
+serifItalic — Fraunces Italic (empty-state question only)
+```
+
+**Cut from `AgentExtraTypography`:**
+- `tgmTelegram` — use `labelSmall` (already 10sp / 1.2sp tracking, ALL CAPS via `text.uppercase()`).
+- `romanNumeral` — not a token; declare inline if/when onboarding chapter watermarks ship (deferred — see §5).
+
+### 3.4 Streaming cursor — sans I-beam
+
+The Final block streaming cursor is a **`|` in Geist Italic, claw color, blink cadence 530ms on / 530ms off** (`1.06s steps(1)`). Replaces the baseline's serif-I-beam: a Fraunces glyph inside Geist prose is a foreign typeface, and the I-beam shape (writing affordance) carries the meaning, not the typeface.
+
+---
+
+## 4. Shape & elevation
+
+### 4.1 Shape ladder — 4 tokens, no specials
+
+```kotlin
+val AgentShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),   // chips, status pills
+    small      = RoundedCornerShape(8.dp),   // buttons, text fields
+    medium     = RoundedCornerShape(12.dp),  // user bubble, action card frames if any
+    large      = RoundedCornerShape(16.dp),  // capsule pill, drawer, modal sheet
+)
+```
+
+**Cuts vs baseline:** drop `extraLarge = 18dp`; collapse drawer/modal radius into `large = 16dp`. Drop named specials `BubbleUser` (now = `medium`) and `CapsulePill` (now = `large`). Drop `PawStamp` (a vector glyph is not a Shape token). Net: 4 shape tokens, 0 specials. Down from baseline's 5 tokens + 3 specials.
+
+The baseline's "no asymmetric tail bubble" rule is preserved: user bubble uses symmetric `medium = 12dp` corners, no tail.
+
+### 4.2 Elevation — folded paper, locked
+
+Two-layer custom elevation (warm under-shadow + 1px hairline top edge) replaces all Material `shadow(...)`. Only **two** surfaces lift: the Capsule and the ModalDrawer. Everything else sits flat on Paper. No exceptions in v1.
+
+---
+
+## 5. Spacing
+
+```kotlin
+object Spacing {
+    val xs   = 4.dp
+    val sm   = 8.dp
+    val md   = 12.dp
+    val lg   = 16.dp     // horizontal page padding
+    val xl   = 24.dp
+    val xxl  = 32.dp     // section spacing
+}
+```
+
+Flat 4pt scale. **Cut the golden-ratio rationale** from baseline (it bought nothing reviewable). **Cut the `52dp` token** (only consumer was chapter watermark, which is deferred).
+
+`lg = 16dp` is **the** horizontal page padding everywhere — page edges, list rows, drawer rows, capsule horizontal padding. Consistency is the luxury.
+
+Track A's local 6dp intra-trace-item spacing (between trace lines) is a layout constant inside the chat row, not a promoted token.
+
+---
+
+## 6. Motion
+
+### 6.1 Hard invariants (enforced in code review)
+
+- **4 durations only:** `120ms` (micro), `240ms` (transition), `480ms` (mode), `900ms` (breath).
+- **2 easings only:** `EaseInOutSine` (loop), `EaseOutCubic` (entry, transition).
+- **No `spring`. No overshoot. No `300ms`/`500ms`/etc. outliers.**
+- **One orchestrated entrance per screen — cold-start of `ChatScreen` only.** Filling this slot is intentional: it removes pressure to add a different "delight" elsewhere.
+
+### 6.2 Keep — load-bearing motions
+
+- **The Breath** — Capsule paw in Running mode, scale 1.0 ↔ 1.04 + alpha 0.85 ↔ 1.0, 900ms inhale / 900ms exhale, `EaseInOutSine`. Pause when `lifecycle.state < RESUMED`.
+- **Capsule mode transitions** — `AnimatedContent`, `slideInVertically + fadeIn` 240ms `EaseOutCubic`, with the four special-case overrides (Done blink + scaleOut, Error shake, Takeover freeze, Hidden→Running stamp) from `motion-spec.md §2`.
+- **Three-toe thinking indicator** — toes fill sequentially over 900ms, tempo-locked to Breath.
+- **Action visualizer — tap & long-press**:
+  - Tap: single ink-drop expanding from r=6dp to r=48dp, alpha 1.0→0 over 280ms, `EaseOutCubic`. Cut the 80ms-delayed satellite ring.
+  - Long-press: same entry, ring freezes at r=32dp, inner fill pulses alpha 0.4 ↔ 0.7 at 900ms `EaseInOutSine`. On release, ring collapses to 0 in 180ms; paw stamps fade in.
+- **Action visualizer — swipe**: straight tapered stroke (4dp at start → 2dp at end), drawn over 360ms `EaseOutCubic`. Paw-stamp at destination (scale 0→1 in 160ms, holds 200ms, fades 240ms). **DEFER Perlin-noise wobble to Phase 5.**
+- **Trace item motion (Track A §8)** — `slideInVertically(8dp) + fadeIn` 240ms; row collapse/expand `expandVertically + fadeIn` 240ms; status glyph cross-fade 120ms.
+- **Edge glow** — static radial gradient anchored to the Capsule's edge, alpha ceiling 0.12. **Cut the 8s drift.** Static is enough.
+- **Cold-start orchestrated entrance** — preserved in spec; **deferred to Phase 5 implementation**. Spec stays so the "one orchestrated moment" slot is occupied.
+
+### 6.3 Anti-rules — keep all six, add two
+
+The six baseline "no" rules stand:
+- No button press scales.
+- No Material ripple (replaced with `Pressed` color via `InteractionSource`).
+- No list item enter animations.
+- No loading skeletons.
+- No parallax.
+- No shadow on chat / action / settings surfaces.
+
+Added:
+- **Only state-significant surfaces animate.** Capsule, row disclosure, waiting affordances, streaming cursor. Ambient/decorative motion is forbidden by default.
+- **No animation for trace-item arrival in collapsed `Complete` rows.** Sealed rows do not receive new motion.
+
+---
+
+## 7. Component-level decisions
+
+### 7.1 Capsule (signature surface) — validate
+
+- Paw glyph replaces 8dp circle dot (`ic_paw.xml` at 10dp).
+- Folded-paper pill replaces `shadow(4.dp)`.
+- Mode-driven color from §2.3 table.
+- **Voice rule on the live capsule:** "thought line" = Geist Italic; "currently executing tool" = JBMono. Same surface, two voices, distinguished by what is being shown. Aligns with the chat row's Thought-vs-Action voice split.
+- All emoji removed from `CapsuleRenderSpec` (✋ ✓ ⚠ 💬 🛡) — replaced by paw + semantic color.
+
+### 7.2 Chat row — validate Track A
+
+The chat row visual treatment is exactly Track A `track-a/final/design_aligned.md §4` with the following resolutions added by this spec:
+
+- **No surrounding bubble or rail.** No claw left tick around the agent row. The row sits on Paper. Internal Thought/Action/Final structure is the affordance.
+- **Trace item glyphs:**
+  - Thought `✱` — render as the existing 10dp `ic_paw` vector tinted `Ink`. Paw-toe shape is the brand glyph at trace size; `✱` text glyph is fallback only if vector availability is a concern.
+  - Action `→` — Geist text glyph (`U+2192`), `InkMuted`. Not a custom asset.
+- **Action status glyphs** — Material symbols (or text glyphs) tinted by semantic color: `⏳` proposed/executing = `InkMuted`; `✓` success = `Moss`; `✕` failed = `Rust`; `⊘` skipped = `InkMuted`.
+- **Action item row** — plain row: `→` + mono `tool_name(args)` + right-aligned status glyph. **No top/bottom hairline rule per action.** Only the Trace/Final region boundary uses `InkGhost`.
+- **Final block** — Geist regular `bodyLarge` on Paper, separated from Trace by an `InkGhost` (8% ink) hairline rule. Streaming cursor per §3.4.
+- **User bubble** — `PaperInset` background, symmetric `medium = 12dp` corners, no tail, `Ink` text.
+- **Empty state** — 160dp paw watermark in `InkGhost`, Fraunces italic question (`serifItalic` style), suggestion chips as underlined Geist Italic links inside paper cards with `Hairline` borders.
+
+### 7.3 Action card — superseded by chat row spec
+
+Baseline's "typeset receipt" framing is superseded by §7.2 above: Action items are plain rows inside the agent row, not separately framed cards. Top/bottom hairline rules per action are cut. The row itself is the only disclosable unit (Track A §5).
+
+### 7.4 Settings — utility, not editorial
+
+- Fraunces section heads at `headlineMedium` — kept (this is the only display-typeface accent on a daily-use surface).
+- **Cut hanging numerals** ("01 — Permissions" → "Permissions"). Settings should scan like a utility list, not a journal index.
+- Hairline row dividers (`Hairline` 12% ink between rows).
+- Mono `→` glyph as the row affordance instead of arrow icons.
+- API-key fields: JBMono, 1px `Ink` border, becomes `Claw` on focus; show/hide is an `Ink` icon.
+
+### 7.5 Drawer — mechanics over metaphor
+
+- Dated session rows: date in `monoSmall`, title in Geist Medium, first-message preview in `bodySmall` at `InkMuted`.
+- Top action: **"+ New session"** in Geist Medium, claw accent. **Cut "New entry" naming.**
+- Bottom: **"Settings"** in Geist Medium. **Cut "// preferences" mono link.**
+- Delete affordance: `Ink` `×` on swipe/long-press, no destructive button chrome.
+
+### 7.6 Onboarding — keep operational; defer flourishes
+
+- **Keep:** Fraunces chapter titles at `headlineLarge`. Five-paw progress row at the bottom (filled = done, claw = current, outline = next).
+- **Defer to Phase 5:** 120sp Fraunces Roman-numeral chapter watermarks. (If a future round reintroduces them, declare the style inline; do not promote to a token.)
+- **Defer to Phase 5:** "telegram-style" permission repair card. v1 uses `labelSmall` (ALL CAPS, tracked) for the header on a normal paper card — the caps + tracking carry the urgency without a custom token.
+
+---
+
+## 8. Roadmap deltas
+
+`roadmap.md` Phase 1 — Identity foundation: stays as-is.
+
+`roadmap.md` Phase 4 — moves these items out of v1:
+- Onboarding 120sp Roman-numeral watermarks → Phase 5.
+- PermissionRepairCard "telegram" treatment → Phase 5.
+
+`roadmap.md` Phase 5 — also picks up:
+- Cold-start orchestrated entrance (kept in spec but not gating Phase 1).
+- Action visualizer Perlin-noise wobble for swipes (straight tapered line ships in Phase 1).
+
+Net Phase 1–4 scope shrinks; Phase 5 grows. Phase 5 is explicitly marked "polish" and not gating.
+
+---
+
+## 9. Diff summary vs. baseline (the receipt)
+
+### Cuts
+| Surface | What was cut | Reason |
+|---|---|---|
+| Color | `PaperDeep / ClawSoft / MossSoft / AmberSoft / RustSoft` as named brand tokens | Demoted to derived `X.copy(alpha = 0.12f)` |
+| Typography | `AgentExtraTypography.tgmTelegram` | Replaced by existing `labelSmall` |
+| Typography | `AgentExtraTypography.romanNumeral` | Not a token; deferred surface |
+| Typography | Fraunces inside the live trace (Thought items) | Thought = Geist Italic; preserves three-voice rule |
+| Typography | Serif I-beam streaming cursor | Replaced by Geist Italic `\|` |
+| Shape | `extraLarge = 18dp`; `BubbleUser`, `CapsulePill`, `PawStamp` named specials | Collapsed into 4-step ladder |
+| Spacing | `xxl = 52dp` token + golden-ratio rationale | Flat 4pt scale `4 / 8 / 12 / 16 / 24 / 32` |
+| Spacing | Page padding `lg = 20dp` → `lg = 16dp` | Aligns with new ladder |
+| Motion | Edge-glow 8s drift | Ambient motion; static gradient suffices |
+| Motion | Action visualizer satellite tap ring (80ms-delayed) | Single ink-drop carries the information |
+| Chat | Persistent claw left tick on agent row | Fights Track A internal structure |
+| Chat | Action card top/bottom hairline rules ("typeset receipt") | Per-card rules conflict with row-as-only-disclosure-axis |
+| Settings | Hanging numerals on section heads | Utility surface, not editorial |
+| Drawer | "// preferences" mono link, "New entry" naming | Decoration over mechanics |
+
+### Deferred to Phase 5
+| Surface | Item |
+|---|---|
+| Motion | Cold-start orchestrated entrance (kept in spec, slotted) |
+| Motion | Action visualizer Perlin-noise wobble for swipes |
+| Onboarding | 120sp Fraunces Roman-numeral chapter watermarks |
+| Onboarding | Permission repair card "telegram" treatment |
+
+### Clarifications added
+| Surface | Clarification |
+|---|---|
+| Color | `Hairline` (12%) = between content; `InkGhost` (8%) = inside content. One semantic per opacity. |
+| Color | Claw scarcity invariant promoted; Claw never used for body/trace text. |
+| Typography | Capsule live "thought line" = Geist Italic; capsule live "executing tool" = JBMono. |
+| Chat | Trace glyph assets: `✱` = `ic_paw` 10dp tinted `Ink`; `→` = Geist text glyph `U+2192`. |
+| Motion | Anti-rule: only state-significant surfaces animate. Ambient motion forbidden by default. |
+| Motion | The 4-duration / 2-easing rule and Claw scarcity are **invariants enforced in code review**, not guidelines. |
+
+### Untouched (validated as-is)
+- The full Light "Paper" + Dark "Lantern" palette structure.
+- The Material 3 `Typography` ladder.
+- Folded-paper elevation; only Capsule + ModalDrawer lift.
+- The Breath, three-toe thinking indicator, capsule mode transitions.
+- Empty state composition (paw watermark + Fraunces italic question + serif-link suggestions).
+- `CapsuleRenderSpec` emoji removal.
+- Track A chat-row composition (Trace + Final + Footer).
+- Phases 1–3 of `roadmap.md` (identity, capsule, chat) — sequencing unchanged.
+
+---
+
+## 10. Hand-off
+
+**Track D2 — implementation design** consumes this spec and produces the engineering plan: which Compose files change, how the existing `ui/theme/{Color, Type, Shape}.kt` are restructured, where derived tokens (soft variants) live, how `AgentExtraTypography` is exposed via a `CompositionLocal`, and how the four-duration / two-easing invariants are enforced (lint rule? convention review?).
+
+**Track A implementation** (which lands after Track D2) consumes the chat-row resolutions in §7.2 directly: glyph assets (`ic_paw` 10dp + `→` text glyph), Thought/Action/Final voice triple (Geist Italic / JBMono / Geist Regular), and the `InkGhost` Trace/Final separator.
+
+---
+
+## 11. Open questions (none blocking)
+
+- **Should the launcher icon foreground be the paw, or paw + claw mark?** Baseline says paw alone. Aligned spec defers to Phase 1 implementation — neither reviewer had a strong opinion.
+- **Does Variable Fraunces ship the italic axis at the SemiBold weight we want?** If not, an additional `fraunces_italic_variable.ttf` is needed. Implementation concern, not design.
+- **Settings section heads — Fraunces or Geist?** Aligned spec keeps Fraunces (one display accent on a daily surface). If first-week dogfood feedback says it feels too literary on a utility screen, swap to Geist SemiBold at `titleLarge`. Cheap to revisit.

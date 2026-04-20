@@ -1,0 +1,44 @@
+# Codex's review of Claude draft
+
+**Reviewer:** Codex (synthesized cross-review based on independent draft).
+**Reviewing:** `design_claude.md`.
+**Stance:** Claude's draft is structurally rigorous and validates the right backbone, but it is too forgiving — it keeps several baseline decisions that fight Track A's structural simplicity. The four token cuts Claude proposes are correct but insufficient.
+
+## Agree
+
+- **Color palette is the brand. No changes.** Same conclusion in both drafts.
+- **`PawStamp` shape token is not a token.** Cut.
+- **`tgmTelegram` typography style replaced by `labelSmall`.** Cut.
+- **`romanNumeral` typography style cut from tokens.** Cut. (Claude defers, I cut outright — same outcome for v1.)
+- **Spacing `xxl` cut.** Cut.
+- **4-duration / 2-easing rule promoted to hard invariant enforced in code review.** Strong agreement. This is the entire value of the motion spec.
+- **Capsule mode color mapping table — keep verbatim.** Strong agreement.
+- **Folded-paper elevation, only Capsule + ModalDrawer lift.** Strong agreement.
+- **Emoji removal from `CapsuleRenderSpec` is non-negotiable.** Strong agreement.
+- **Track A clarifications:** resolving 8%-vs-12% hairline level + glyph assets are valid additions to the aligned spec. Adopt Claude's resolutions for these.
+
+## Disagree (Claude under-cuts)
+
+- **Claude keeps `serifItalic` for Track A Thought items.** This is the central typography mistake. Inserting Fraunces inside the live trace creates four voices (Fraunces display, Fraunces italic for Thought, Geist for Final/UI, JBMono for actions) where three was the design rule. Thought is *agent reasoning* — same voice family as the final answer. Use **Geist Italic**, not Fraunces Italic. Reserve Fraunces strictly for display surfaces.
+- **Claude keeps the serif I-beam cursor.** If Final is in Geist (and it should be), then a Fraunces italic `|` inside Geist prose is a typeface foreign object. Either drop the cursor (my preference) or downgrade it to a sans I-beam.
+- **Claude keeps the persistent claw left tick on agent rows.** Decoration that fights Track A. The trace already has internal structure (italic Thought / mono Action / sans Final). An outer rail is redundant and visually re-frames the row as a "bubble-equivalent."
+- **Claude keeps the typeset-receipt action card framing.** Top + bottom hairline rules per action card imply a contained, disclosable unit. Track A says the row is the only disclosure axis. Plain action rows (no per-action rules) are the consistent answer.
+- **Claude keeps hanging numerals on Settings section heads.** Settings is utility, used regularly. Editorial flourishes on operational surfaces are exactly the kind of "themed flourish" the baseline overloaded with.
+- **Claude keeps "// preferences" and "New entry" in the drawer.** Character-driven names that need justification. Plain "+ New session" + "Settings" is the KISS answer.
+- **Claude keeps edge-glow drift, Perlin swipe, satellite tap ring.** These are ambient motions that don't communicate state changes. The "only state-significant surfaces animate" rule is more enforceable than "these particular delights are OK."
+
+## Disagree (Claude over-keeps)
+
+- **Spacing scale `4 / 8 / 12 / 20 / 32` (Claude) vs `4 / 8 / 12 / 16 / 24 / 32` (mine).** Claude's golden-ratio scale is harder to use because the gaps are nonuniform and there is no `16` or `24`. Flat 4pt scale wins.
+- **Shape 5-step Material ladder + 2 named specials (BubbleUser, CapsulePill).** 7 shape tokens for a paper-based app where most surfaces are unframed is too many. Reduce to 3 (`8 / 12 / 16`). I accept Claude's review counter-proposal of `4 / 8 / 12 / 16` (4-step, no specials) as a fair compromise — better than either original.
+- **Soft color variants (`PaperDeep`, `ClawSoft`, etc.) as named brand tokens.** They are formulaic alpha variants; treat as derived in code, not enumerated in the spec.
+
+## Disagree (where Claude is actually right)
+
+- **Cold-start orchestrated entrance.** I cut it; Claude defers it. Claude's argument — "the 4-duration rule grants exactly one orchestrated entrance per screen, so fill the slot or someone else will fill it worse" — is correct. Adopt Claude's defer-to-Phase-5 position.
+- **Hairline two-level distinction** (8% inside content, 12% between content). I collapsed to one; Claude's two-level read is what Track A actually needs for the Trace/Final separator. Adopt Claude's distinction.
+- **Capsule "executing" → mono switch.** Neither draft handled this cleanly. Claude flagged it for resolution; I missed it. Aligned spec: capsule live thought = Geist Italic; capsule live tool execution = JBMono. (Updated from Claude's draft which used serif italic for capsule thought.)
+
+## Net
+
+Three small Claude wins (cold-start defer, two-level hairline, capsule executing rule), one structural compromise on shapes (4-step ladder), and Claude adopts the rest of my cuts. The aligned spec is thinner than either draft.

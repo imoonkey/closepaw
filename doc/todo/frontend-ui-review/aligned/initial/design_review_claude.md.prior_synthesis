@@ -1,0 +1,33 @@
+# Claude's review of Codex draft
+
+**Reviewer:** Claude. **Reviewing:** `design_codex.md`.
+**Stance:** Codex's cuts are mostly the right call. I am updating my position on ~7 of ~12 disagreements toward Codex's view.
+
+## Agree (adopt verbatim)
+
+- **Soft palette variants demoted** — keep them as derived tokens (formula: `XSoft = X @ 12% alpha`), not first-class brand colors. My draft kept them as named tokens; Codex is right that the spec doesn't need to enumerate them.
+- **Thought voice is sans italic, not serif italic.** This is the cleanest typography zoning move in either draft. Reserves Fraunces strictly for display surfaces (titles, empty state, settings heads, onboarding titles). The agent's *reasoning* belongs in the same voice family as the final answer — italic distinguishes inner voice from outer voice, no second font needed. **I withdraw my §5 Track A claim that `serifItalic` should be reused for Thought items.**
+- **Final block stays sans.** Same logic. Final answer = agent talking to user = chat-chrome voice. Editorial-prose-as-serif was an over-romantic baseline call.
+- **Spacing: flat `4 / 8 / 12 / 16 / 24 / 32`.** Drop the golden-ratio narrative. Codex's flat scale is more KISS than mine and more aligned with how layout reviews actually see.
+- **Cut satellite tap ring.** Single ink-drop carries the information.
+- **Cut edge-glow drift.** Static gradient is enough. Drift is hidden complexity.
+- **Cut persistent claw left rail on chat row.** Track A's internal Thought/Action/Final structure is the affordance; an outer rail is redundant decoration that fights the trace.
+- **Action card → plain action row** (no top/bottom hairline rules per action). The receipt framing fights Track A's "row is the only disclosure axis" rule.
+- **Settings: drop hanging numerals.** Utility surface, used daily. Keep Fraunces section heads alone for identity; lose the editorial number.
+- **Drawer: cut "// preferences" + "New entry" naming.** "+ New session" with claw accent and "Settings" at bottom. Mechanics over metaphor.
+
+## Push back (Codex over-cuts)
+
+- **Shape ladder: `8 / 12 / 16` is too sparse.** No `4dp` for chips/tags. Counter-proposal: **`4 / 8 / 12 / 16dp`** (4-step ladder), drop both bubble specials (`BubbleUser` becomes `medium = 12dp`; `CapsulePill` becomes `large = 16dp`). Net: 4 named shapes, 0 specials. Even cleaner than Codex's draft.
+- **Cold-start orchestrated entrance: don't cut, defer.** Codex's "only state-significant surfaces animate" rule would forbid it. But the 4-duration motion rule explicitly *grants* one orchestrated entrance per screen — without that grant, someone will add a different "delight moment" later that's harder to remove. **Aligned: keep the orchestrated entrance as the *only* allowed identity moment, but defer implementation to Phase 5.** This way the ammunition slot exists and is filled, removing pressure to add another.
+- **Serif I-beam cursor: don't cut, demote to sans I-beam.** If Final is sans, a serif I-beam looks foreign. Replace with `|` in Geist Italic, claw color, same blink cadence. Keeps the "writing" affordance, drops the typeface conflict.
+
+## Where I had it right and Codex didn't address
+
+- **Capsule mono-when-executing rule** — neither of us settled this. Aligned spec needs to state explicitly: capsule "live thought line" stays Geist Italic (matches chat Thought voice); capsule "currently executing tool" status line uses JBMono. Same surface, two voices, distinguished by what is being shown.
+- **Hairline two-level distinction** (`InkGhost` 8% inside content, `Hairline` 12% between content). Codex collapsed to one `Hairline` — this loses the Track A in-row separator semantic. Aligned spec keeps both, but renames for clarity (see aligned doc).
+- **Glyph asset choices for Track A trace items** (`✱` = paw vector at 10dp; `→` = Geist text glyph). Codex acknowledges the Thought marker question but defers — aligned spec resolves it.
+
+## Net
+
+Codex pushed harder on KISS than I did and was right to. The aligned spec adopts ~70% of Codex's cuts, ~30% of mine, with three small counter-refinements above.
