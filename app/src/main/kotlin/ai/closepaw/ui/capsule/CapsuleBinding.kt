@@ -22,6 +22,7 @@ data class CapsuleBinding(
     val previousMode: () -> CapsuleMode?,
     val onStopRequested: () -> Boolean,
     val onApprovalResolved: (String) -> Boolean,
+    val onUserResponseSent: (String) -> Boolean,
 )
 
 /**
@@ -38,4 +39,5 @@ val InertCapsuleBinding: CapsuleBinding = CapsuleBinding(
     previousMode = { null },
     onStopRequested = { true },
     onApprovalResolved = { true },
+    onUserResponseSent = { true },
 )

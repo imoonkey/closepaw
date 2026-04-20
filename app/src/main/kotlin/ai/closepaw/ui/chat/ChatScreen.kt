@@ -150,7 +150,11 @@ fun ChatScreen(
                                 viewModel.stopTask()
                             }
                         },
-                        onUserResponse = viewModel::sendUserResponse,
+                        onUserResponse = { callId, response ->
+                            if (capsuleBinding.onUserResponseSent(callId)) {
+                                viewModel.sendUserResponse(callId, response)
+                            }
+                        },
                         onApprovalResponse = { callId, decision, approvalScope, packageName ->
                             if (capsuleBinding.onApprovalResolved(callId)) {
                                 viewModel.sendApprovalResponse(callId, decision, approvalScope, packageName)

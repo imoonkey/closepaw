@@ -42,6 +42,7 @@ private fun rememberCapsuleBinding(): CapsuleBinding {
             previousMode = { holder.previousMode },
             onStopRequested = { holder.onStopRequested() },
             onApprovalResolved = { callId -> holder.onApprovalResolved(callId) },
+            onUserResponseSent = { callId -> holder.onUserResponseSent(callId) },
         )
     }
 }
