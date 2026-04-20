@@ -421,7 +421,15 @@ private fun formatElapsed(message: ChatMessage.Agent): String? {
     }
 }
 
+/**
+ * Collapsed-row headline ladder (spec §5.2): user prompt → first thought →
+ * first action → "(no activity)". User prompt is truncated to ~6 words with
+ * an ellipsis for compactness.
+ */
 private fun collapsedHeadline(message: ChatMessage.Agent): String {
+    val prompt = message.userPrompt
+    if (!prompt.isNullOrBlank()) return truncateWords(prompt, 6)
+
     val firstThought = message.contentBlocks
         .filterIsInstance<ContentBlock.Thought>()
         .firstOrNull()?.text
@@ -432,12 +440,13 @@ private fun collapsedHeadline(message: ChatMessage.Agent): String {
         .firstOrNull()?.data?.description
     if (!firstAction.isNullOrBlank()) return firstAction
 
-    val firstText = message.contentBlocks
-        .filterIsInstance<ContentBlock.Text>()
-        .firstOrNull()?.text
-    if (!firstText.isNullOrBlank()) return firstText
-
     return "(no activity)"
+}
+
+private fun truncateWords(text: String, maxWords: Int): String {
+    val words = text.trim().split(Regex("\\s+"))
+    return if (words.size <= maxWords) text.trim()
+    else words.take(maxWords).joinToString(" ") + "…"
 }
 
 private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())

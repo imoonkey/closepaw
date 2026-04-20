@@ -219,7 +219,8 @@ internal class ChatEventReducer(
                 timestamp = timestamp,
                 contentBlocks = emptyList(),
                 state = AgentMessageState.Thinking,
-                rowState = RowState.Live
+                rowState = RowState.Live,
+                userPrompt = text,
             )
         )
     }

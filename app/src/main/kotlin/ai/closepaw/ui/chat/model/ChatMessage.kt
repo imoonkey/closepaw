@@ -32,6 +32,12 @@ sealed interface ChatMessage {
         val state: AgentMessageState,
         val rowState: RowState = RowState.Live,
         /**
+         * User prompt that opened this turn — drives the collapsed-row headline
+         * per Track A spec §5.2 (top of the ladder). Null when restored from
+         * historical records or for synthetic agent rows (startup errors).
+         */
+        val userPrompt: String? = null,
+        /**
          * Wall-clock when the row sealed (TaskCompleted / SessionError / supplement).
          * Null while Live or Waiting. Used by the collapsed/footer summary to
          * show elapsed wall time per Track A spec §4.5/§5.2.

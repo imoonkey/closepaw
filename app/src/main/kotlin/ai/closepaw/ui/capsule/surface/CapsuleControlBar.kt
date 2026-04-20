@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
@@ -107,6 +108,10 @@ private fun ActionButtonCluster(
                 },
                 enabled = btn.enabled,
                 shape = MaterialTheme.shapes.large,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                ),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
             ) {
                 Icon(
