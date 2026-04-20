@@ -525,8 +525,8 @@
     "estimate": "m",
     "resources": "physical Android device with USB debugging + a11y service permission",
     "created": "2026-04-20T07:09:00Z",
-    "updated": "2026-04-20T10:35:18Z",
-    "agent": "w-ui-revamp-device-qa-r2",
+    "updated": "2026-04-20T11:24:34Z",
+    "agent": "w-ui-revamp-device-qa-r3",
     "blockReason": "verification-failed",
     "note": "QA found 3 Issues + 3 Polish. Fixer dispatched as ui-revamp-fix-qa. Polish in ui-revamp-qa-polish-followup."
   },
@@ -643,7 +643,7 @@
   "ui-revamp-fix-test-harness": {
     "parent": "frontend-ui-revamp",
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Fix instrumented test harness ClosePawTheme wrap",
     "description": "39/49 instrumented tests fail with IllegalStateException: ClosePawTokens not provided. Round-1 fixer only wrapped ChatAgentRowDisclosureTest; shared harness for 14 other test classes needs the same fix.",
     "scope": [
@@ -655,6 +655,29 @@
     ],
     "agent": "w-ui-revamp-fix-harness",
     "created": "2026-04-20T11:07:41Z",
-    "updated": "2026-04-20T11:07:41Z"
+    "updated": "2026-04-20T11:24:34Z"
+  },
+  "ui-revamp-test-spec-reconcile": {
+    "parent": "frontend-ui-revamp",
+    "depends": [],
+    "state": "ready",
+    "title": "Reconcile 7 instrumented tests with post-revamp UI",
+    "description": "Round-2 harness fixer resolved 39 ClosePawTokens errors. 7 tests still fail due to UI-string/layout drift from the revamp (not theme-related). Each needs to be checked against current behavior — update test expectations OR file a real regression.",
+    "scope": [
+      "app/src/androidTest/kotlin/ai/closepaw/qa/**",
+      "app/src/main/kotlin/ai/closepaw/ui/**"
+    ],
+    "acceptCriteria": [
+      "CapsuleInputTest ×3 reconciled (Send → vs Send content desc)",
+      "CapsuleLifecycleTest reconciled (⚠ Something broke literal)",
+      "ChatAgentRowDisclosureTest reconciled (disclosure StateDescription)",
+      "ChatBubbleAlignmentTest reconciled (agent bubble width — verify if real regression)",
+      "ChatThinkingStateTest reconciled (partial response literal)",
+      "./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa exits 0"
+    ],
+    "priority": "normal",
+    "note": "Independent followup. Each failure is small. ChatBubbleAlignmentTest might be a real regression — investigate first.",
+    "created": "2026-04-20T11:24:34Z",
+    "updated": "2026-04-20T11:24:34Z"
   }
 }
