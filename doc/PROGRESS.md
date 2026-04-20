@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-04-20: ui/{settings,navigation,onboarding} — D2-5 theme rollout
+
+**What changed:**
+- `SettingsSheet` page transitions now use `ClosePawMotion.PageSlide` (240ms / `EaseOutCubic`) instead of the default Compose tween. Settings home ↔ subpage slides share the D1 cadence with the rest of the app.
+- `OnboardingShell`, `NavigationDrawer`, and `SettingsWidgets.SettingsSection` consume `MaterialTheme.closePaw.spacing` for natural-fit scale matches (`xs`/`sm`/`md`/`xl`). Non-matching values (16/24dp) are left as raw `.dp` rather than rounded to the scale.
+
+**Why:**
+- Phase D2-5 acceptance: lower-frequency surfaces stop relying on hardcoded vocabulary; settings transitions live on the shared motion layer (`design_aligned.md` §5).
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/settings/{SettingsSheet,SettingsWidgets}.kt`, `app/src/main/kotlin/ai/closepaw/ui/navigation/NavigationDrawer.kt`, `app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingShell.kt`.
+**Verification:** Targeted edits compile; full `:app:compileDebugKotlin` blocked by w-d2-2's in-flight capsule/overlay edits in the shared `d2-impl` worktree (out of D2-5 scope).
+**Commit:** `7d4740ba` on `task/d2-impl`.
+**Next:** `d2-6-contrast-handoff` (after capsule/chat surfaces settle).
+**Blockers:** None for D2-5 itself.
+
 ## 2026-04-20: ui/theme — D2-1 theme foundation (D1 baseline wired)
 
 **What changed:**
