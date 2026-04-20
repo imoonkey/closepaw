@@ -4,30 +4,39 @@ import ai.closepaw.history.model.ContentBlockRecord
 
 internal data class AgentMessageSnapshot(
     val id: String,
+    val startTimestamp: Long,
     val blocks: List<ContentBlockRecord>
 )
 
 internal class AgentMessageBuffer {
     private var messageId: String? = null
+    private var startTimestamp: Long = 0L
     private val textBuffer = StringBuilder()
     private val contentBlocks = mutableListOf<ContentBlockRecord>()
 
     fun hasActiveMessage(): Boolean = messageId != null
 
-    fun start(id: String) {
+    fun start(id: String, timestamp: Long) {
         messageId = id
+        startTimestamp = timestamp
         textBuffer.clear()
         contentBlocks.clear()
     }
 
     fun clear() {
         messageId = null
+        startTimestamp = 0L
         textBuffer.clear()
         contentBlocks.clear()
     }
 
     fun appendText(delta: String) {
         textBuffer.append(delta)
+    }
+
+    fun recordThought(text: String) {
+        finalizeTextBlock()
+        contentBlocks.add(ContentBlockRecord.Thought(text))
     }
 
     fun recordAction(action: ContentBlockRecord.Action) {
@@ -54,7 +63,7 @@ internal class AgentMessageBuffer {
             blocks.add(ContentBlockRecord.Text(textBuffer.toString()))
         }
         if (blocks.isEmpty()) return null
-        return AgentMessageSnapshot(id, blocks)
+        return AgentMessageSnapshot(id, startTimestamp, blocks)
     }
 
     fun finalizeSnapshot(): AgentMessageSnapshot? {
@@ -64,7 +73,7 @@ internal class AgentMessageBuffer {
             clear()
             return null
         }
-        val snapshot = AgentMessageSnapshot(id, contentBlocks.toList())
+        val snapshot = AgentMessageSnapshot(id, startTimestamp, contentBlocks.toList())
         clear()
         return snapshot
     }

@@ -39,7 +39,8 @@ object MessageConverter {
                         )
                     }
                 },
-                isComplete = message.state == AgentMessageState.Complete
+                isComplete = message.state == AgentMessageState.Complete,
+                completedTimestamp = message.completedTimestamp
             )
         }
     }
@@ -74,7 +75,7 @@ object MessageConverter {
                 },
                 state = if (record.isComplete) AgentMessageState.Complete else AgentMessageState.Streaming,
                 rowState = if (record.isComplete) RowState.Complete else RowState.Live,
-                completedTimestamp = if (record.isComplete) record.timestamp else null
+                completedTimestamp = record.completedTimestamp
             )
         }
     }

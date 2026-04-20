@@ -149,7 +149,7 @@ private fun AgentRow(
 
         if (expanded) {
             ExpandedTrace(message)
-            if (message.rowState == RowState.Complete) {
+            if (message.rowState == RowState.Complete || message.rowState == RowState.Error) {
                 OutcomeFooter(message)
             }
         } else {

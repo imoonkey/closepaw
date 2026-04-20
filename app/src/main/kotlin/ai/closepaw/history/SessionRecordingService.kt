@@ -141,7 +141,7 @@ class SessionRecordingService(
                     }
                     // Finalize any previous agent message
                     finalizeCurrentAgentMessage()
-                    agentMessageBuffer.start(id)
+                    agentMessageBuffer.start(id, timestamp)
                     true
                 }
         if (!started) return
@@ -159,6 +159,19 @@ class SessionRecordingService(
             agentMessageBuffer.appendText(delta)
         }
         // Don't save on every delta - wait for action or completion
+    }
+
+    /** Record a thought block in the current agent message. */
+    fun recordThought(text: String) {
+        synchronized(stateLock) {
+            if (!agentMessageBuffer.hasActiveMessage()) {
+                Log.w(TAG, "No active agent message for thought")
+                return
+            }
+            agentMessageBuffer.recordThought(text)
+        }
+        updateAgentMessageInSession()
+        scheduleSave()
     }
 
     /** Record an action in current agent message. */
@@ -400,11 +413,14 @@ class SessionRecordingService(
         synchronized(stateLock) {
             val snapshot = agentMessageBuffer.finalizeSnapshot() ?: return
             val session = currentSession ?: return
+            val now = System.currentTimeMillis()
             currentSession =
                 SessionRecordMessageMerger.mergeAgentSnapshot(
                     session = session,
                     snapshot = snapshot,
-                    isComplete = true
+                    isComplete = true,
+                    completedTimestamp = now,
+                    lastUpdated = now
                 )
         }
     }
@@ -421,7 +437,8 @@ class SessionRecordingService(
                 SessionRecordMessageMerger.mergeAgentSnapshot(
                     session = session,
                     snapshot = snapshot,
-                    isComplete = false
+                    isComplete = false,
+                    completedTimestamp = null
                 )
         }
     }

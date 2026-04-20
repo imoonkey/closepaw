@@ -48,6 +48,7 @@ internal class AgentServiceEventHandler(
                 recordingService?.appendTextDelta(event.delta)
             }
             is ThoughtUpdate -> {
+                recordingService?.recordThought(event.thought)
                 overlay?.onThoughtUpdate(event.thought)
             }
             is TurnPhaseChanged -> {

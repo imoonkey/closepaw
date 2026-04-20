@@ -8,14 +8,16 @@ internal object SessionRecordMessageMerger {
         session: SessionRecord,
         snapshot: AgentMessageSnapshot,
         isComplete: Boolean,
-        timestamp: Long = System.currentTimeMillis()
+        completedTimestamp: Long? = null,
+        lastUpdated: Long = System.currentTimeMillis()
     ): SessionRecord {
         val agentMessage =
             MessageRecord.Agent(
                 id = snapshot.id,
-                timestamp = timestamp,
+                timestamp = snapshot.startTimestamp,
                 contentBlocks = snapshot.blocks,
-                isComplete = isComplete
+                isComplete = isComplete,
+                completedTimestamp = completedTimestamp
             )
 
         val existingIndex =
@@ -27,10 +29,10 @@ internal object SessionRecordMessageMerger {
                     session.messages.mapIndexed { index, msg ->
                         if (index == existingIndex) agentMessage else msg
                     },
-                lastUpdated = timestamp
+                lastUpdated = lastUpdated
             )
         } else {
-            session.copy(messages = session.messages + agentMessage, lastUpdated = timestamp)
+            session.copy(messages = session.messages + agentMessage, lastUpdated = lastUpdated)
         }
     }
 }

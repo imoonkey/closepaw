@@ -16,7 +16,7 @@ class AgentMessageBufferTest {
     @Test
     fun `start and appendText produces text block`() {
         val buffer = AgentMessageBuffer()
-        buffer.start("msg-1")
+        buffer.start("msg-1", timestamp = 100L)
 
         buffer.appendText("hello")
 
@@ -29,7 +29,7 @@ class AgentMessageBufferTest {
     @Test
     fun `recordAction finalizes text before action`() {
         val buffer = AgentMessageBuffer()
-        buffer.start("msg-2")
+        buffer.start("msg-2", timestamp = 200L)
         buffer.appendText("text")
 
         buffer.recordAction(
@@ -58,7 +58,7 @@ class AgentMessageBufferTest {
     @Test
     fun `updateActionState mutates existing action`() {
         val buffer = AgentMessageBuffer()
-        buffer.start("msg-3")
+        buffer.start("msg-3", timestamp = 300L)
         buffer.recordAction(
             ContentBlockRecord.Action(
                 id = "a2",

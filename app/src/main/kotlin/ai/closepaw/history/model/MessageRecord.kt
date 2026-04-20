@@ -34,7 +34,13 @@ sealed interface MessageRecord {
         override val id: String,
         override val timestamp: Long,
         val contentBlocks: List<ContentBlockRecord>,
-        val isComplete: Boolean
+        val isComplete: Boolean,
+        /**
+         * Wall-clock when the row sealed (TaskCompleted / SessionError).
+         * Null while the message is still streaming. Persisted so resumed
+         * history rows can compute elapsed time per Track A spec §4.5/§5.2.
+         */
+        val completedTimestamp: Long? = null
     ) : MessageRecord
 }
 

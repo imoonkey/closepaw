@@ -1,6 +1,7 @@
 package ai.closepaw.qa
 
 import ai.closepaw.ui.chat.components.MessageBubble
+import ai.closepaw.ui.theme.ClosePawTheme
 import ai.closepaw.ui.chat.model.ActionCardData
 import ai.closepaw.ui.chat.model.ActionState
 import ai.closepaw.ui.chat.model.AgentMessageState
@@ -70,7 +71,9 @@ class ChatAgentRowDisclosureTest {
     }
 
     @Test fun live_row_is_expanded_and_locked_open() {
-        compose.setContent { MessageBubble(agent(RowState.Live, AgentMessageState.Streaming)) }
+        compose.setContent {
+            ClosePawTheme { MessageBubble(agent(RowState.Live, AgentMessageState.Streaming)) }
+        }
 
         compose.onNodeWithTag("qa-agent-bubble")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "live"))
@@ -84,7 +87,7 @@ class ChatAgentRowDisclosureTest {
         compose.setContent {
             val agentState = if (rowState == RowState.Live) AgentMessageState.Streaming
                 else AgentMessageState.Complete
-            MessageBubble(agent(rowState, agentState))
+            ClosePawTheme { MessageBubble(agent(rowState, agentState)) }
         }
 
         // Live → expanded
@@ -98,7 +101,9 @@ class ChatAgentRowDisclosureTest {
     }
 
     @Test fun user_toggle_persists_against_default() {
-        compose.setContent { MessageBubble(agent(RowState.Complete)) }
+        compose.setContent {
+            ClosePawTheme { MessageBubble(agent(RowState.Complete)) }
+        }
 
         // Default = collapsed, then user expands.
         assertCollapsed()
@@ -111,7 +116,9 @@ class ChatAgentRowDisclosureTest {
     }
 
     @Test fun collapsed_summary_includes_action_count_and_elapsed() {
-        compose.setContent { MessageBubble(agent(RowState.Complete)) }
+        compose.setContent {
+            ClosePawTheme { MessageBubble(agent(RowState.Complete)) }
+        }
 
         // Headline ladder picks the first thought as headline; spec §5.2 summary.
         compose.onNodeWithText("opening Settings · 1 action · 3.8s").assertExists()
