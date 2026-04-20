@@ -252,5 +252,37 @@
     "created": "2026-04-20T14:31:17Z",
     "updated": "2026-04-20T15:50:28Z",
     "agent": "w-ui-polish-review"
+  },
+  "ui-logic-review-claude": {
+    "parent": null,
+    "depends": [],
+    "state": "running",
+    "title": "UI logic review (Claude) — revamp diff vs state machines",
+    "description": "Focused review of UI logic correctness introduced by frontend-ui-revamp (diff fcb9e0ac..HEAD). Compare against documented state machines and pre-revamp git history. Ignore appearance.",
+    "scope": [
+      "doc/todo/ui-polish/logic_review_claude.md"
+    ],
+    "acceptCriteria": [
+      "doc/todo/ui-polish/logic_review_claude.md exists with severity-ranked findings"
+    ],
+    "agent": "w-ui-logic-review-claude",
+    "created": "2026-04-20T16:17:17Z",
+    "updated": "2026-04-20T16:17:17Z"
+  },
+  "ui-logic-review-codex": {
+    "parent": null,
+    "depends": [],
+    "state": "running",
+    "title": "UI logic review (Codex) — revamp diff vs state machines",
+    "description": "Independent Codex pass — same scope as Claude review. Cross-signal: findings that both reviewers surface are high-confidence.",
+    "scope": [
+      "doc/todo/ui-polish/logic_review_codex.md"
+    ],
+    "acceptCriteria": [
+      "doc/todo/ui-polish/logic_review_codex.md exists with severity-ranked findings"
+    ],
+    "agent": "w-ui-logic-review-codex",
+    "created": "2026-04-20T16:17:18Z",
+    "updated": "2026-04-20T16:17:18Z"
   }
 }
