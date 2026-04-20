@@ -288,7 +288,7 @@
   "ui-logic-fix-orchestrate": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Orchestrate UI logic fixes from parallel reviews",
     "description": "Drive the fix track for findings from logic_review_claude.md + logic_review_codex.md. May spawn sub-workers (this is an orchestration task — sub-worker dispatch is in scope here, unlike the review/capture tasks). Stops after all critical/important findings landed and verified.",
     "scope": [
@@ -306,7 +306,7 @@
     ],
     "agent": "w-ui-logic-fix-orchestrate",
     "created": "2026-04-20T16:46:35Z",
-    "updated": "2026-04-20T16:46:35Z"
+    "updated": "2026-04-20T17:39:51Z"
   },
   "ui-logic-fix": {
     "parent": null,
@@ -535,5 +535,26 @@
     ],
     "created": "2026-04-20T17:30:00Z",
     "updated": "2026-04-20T17:30:00Z"
+  },
+  "ui-session-fix-orchestrate": {
+    "parent": null,
+    "depends": [],
+    "state": "running",
+    "title": "Orchestrate aligned session-review fixes (11 items)",
+    "description": "Drive the fix track for findings in session_review_aligned.md. May spawn sub-workers — orchestration in scope.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/**",
+      "app/src/test/kotlin/ai/closepaw/**",
+      "app/src/androidTest/kotlin/ai/closepaw/**"
+    ],
+    "acceptCriteria": [
+      "C1, C2, I2, I3, I4 fixed",
+      "All 6 nits addressed (N1, N2, N3, N4, N7, N9)",
+      "./gradlew :app:testDebugUnitTest passes",
+      "Codex re-review confirms no regressions"
+    ],
+    "agent": "w-session-fix-orchestrate",
+    "created": "2026-04-20T21:38:25Z",
+    "updated": "2026-04-20T21:38:25Z"
   }
 }
