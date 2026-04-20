@@ -330,7 +330,7 @@
     "depends": [
       "d2-1-theme-foundation"
     ],
-    "state": "running",
+    "state": "done",
     "title": "D2-2: Semantic Visual Model Cleanup",
     "description": "Remove raw palette values from non-Compose render models (overlay/model, capsule/surface, overlay/compose). Replace with semantic enum/sealed types resolved at composition time.",
     "design": "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md",
@@ -347,7 +347,7 @@
     "estimate": "s",
     "worktree": "d2-impl",
     "created": "2026-04-20T07:04:37Z",
-    "updated": "2026-04-20T08:04:48Z",
+    "updated": "2026-04-20T08:34:50Z",
     "agent": "w-d2-2"
   },
   "d2-3-capsule-overlay-restyle": {
@@ -371,7 +371,7 @@
     "estimate": "m",
     "worktree": "d2-impl",
     "created": "2026-04-20T07:04:37Z",
-    "updated": "2026-04-20T08:33:22Z"
+    "updated": "2026-04-20T08:34:50Z"
   },
   "d2-4-chat-track-a-restyle": {
     "parent": "frontend-ui-revamp",
@@ -379,7 +379,7 @@
       "d2-1-theme-foundation",
       "a-impl-chat-row"
     ],
-    "state": "running",
+    "state": "done",
     "title": "D2-4: Chat Track-A Restyle + Streaming Cursor",
     "description": "Apply D2 theme/motion to the Track A row implementation. Implement inlineContent streaming cursor with on-device verification of placeholderVerticalAlign and Fraunces font fallback. Retire legacy action-card path.",
     "design": "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md",
@@ -396,7 +396,7 @@
     "estimate": "m",
     "worktree": "d2-impl",
     "created": "2026-04-20T07:04:37Z",
-    "updated": "2026-04-20T08:04:49Z",
+    "updated": "2026-04-20T08:34:51Z",
     "agent": "w-d2-4"
   },
   "d2-5-settings-drawer-onboarding-rollout": {
@@ -404,7 +404,7 @@
     "depends": [
       "d2-1-theme-foundation"
     ],
-    "state": "running",
+    "state": "done",
     "title": "D2-5: Settings/Drawer/Onboarding Rollout",
     "description": "Migrate lower-frequency surfaces (settings, navigation drawer, onboarding) to D1 editorial baseline. Settings page transitions use ClosePawMotion page-slide.",
     "design": "doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md",
@@ -421,7 +421,7 @@
     "estimate": "s",
     "worktree": "d2-impl",
     "created": "2026-04-20T07:04:37Z",
-    "updated": "2026-04-20T08:04:49Z",
+    "updated": "2026-04-20T08:34:51Z",
     "agent": "w-d2-5"
   },
   "d2-6-contrast-handoff": {
@@ -484,7 +484,7 @@
       "d2-5-settings-drawer-onboarding-rollout",
       "d2-6-contrast-handoff"
     ],
-    "state": "ready",
+    "state": "running",
     "title": "Codex Review + Fix Loop",
     "description": "Run /code-review via Codex against all frontend-ui-revamp implementation diffs (Track A impl + D2-1..D2-6). Iterate fix-then-rereview until Codex approves with no blocking findings. Capture review transcript and final approval as artifact.",
     "scope": [
@@ -499,7 +499,8 @@
     ],
     "estimate": "m",
     "created": "2026-04-20T07:09:00Z",
-    "updated": "2026-04-20T07:09:00Z"
+    "updated": "2026-04-20T08:34:52Z",
+    "agent": "w-ui-revamp-codex-review"
   },
   "ui-revamp-device-qa": {
     "parent": "frontend-ui-revamp",
