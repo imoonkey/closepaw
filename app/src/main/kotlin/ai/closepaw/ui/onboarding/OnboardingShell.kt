@@ -1,16 +1,20 @@
 package ai.closepaw.ui.onboarding
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -46,12 +50,23 @@ fun OnboardingShell(
         color = MaterialTheme.colorScheme.background
     ) {
         val spacing = MaterialTheme.closePaw.spacing
-        Column(
+        // Wrap in a vertical scroll so short landscape heights don't clip the
+        // page CTA (finding #4). Inner Column uses heightIn(min = screenHeight)
+        // so step content's Spacer(weight) keeps pushing the CTA to the bottom
+        // when the screen is tall enough.
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
-                .padding(horizontal = spacing.lg)
+                .verticalScroll(rememberScrollState())
         ) {
+            val minHeight = maxHeight
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = minHeight)
+                    .padding(horizontal = spacing.lg)
+            ) {
             Spacer(modifier = Modifier.height(spacing.md))
 
             // Back arrow + step counter
@@ -92,6 +107,7 @@ fun OnboardingShell(
 
             // Step content
             content()
+            }
         }
     }
 }

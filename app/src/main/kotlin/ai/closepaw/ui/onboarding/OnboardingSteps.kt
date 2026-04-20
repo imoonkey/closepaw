@@ -102,10 +102,7 @@ fun PermissionStepContent(
             PermissionStepState.Satisfied -> {
                 Button(
                     onClick = onContinue,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    )
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Check,
@@ -332,10 +329,7 @@ private fun ColumnScope.OAuthContent(
 
             Button(
                 onClick = onContinue,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.secondary
-                )
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
                     imageVector = Icons.Filled.Check,
