@@ -216,7 +216,7 @@
   "ui-polish-capture": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Polish: comprehensive UI capture",
     "description": "Systematically screenshot every relevant page/state of the app on device. Output goes to doc/todo/ui-polish/captures/. Stage 1 of 2 — review agent will compare against design specs after.",
     "scope": [
@@ -229,14 +229,14 @@
     ],
     "agent": "w-ui-polish-capture",
     "created": "2026-04-20T14:31:17Z",
-    "updated": "2026-04-20T14:31:17Z"
+    "updated": "2026-04-20T15:34:42Z"
   },
   "ui-polish-review": {
     "parent": null,
     "depends": [
       "ui-polish-capture"
     ],
-    "state": "blocked",
+    "state": "running",
     "title": "Polish: design vs. impl review report",
     "description": "Compare captures against D1 visual spec, Track A UX spec, motion spec, and contrast matrix. Severity-ranked report with exact pixel/spacing/color/typography deltas. Stage 2 of 2.",
     "scope": [
@@ -250,6 +250,7 @@
       "Concrete fix suggestions for each non-PASS finding"
     ],
     "created": "2026-04-20T14:31:17Z",
-    "updated": "2026-04-20T14:31:17Z"
+    "updated": "2026-04-20T15:34:42Z",
+    "agent": "w-ui-polish-review"
   }
 }
