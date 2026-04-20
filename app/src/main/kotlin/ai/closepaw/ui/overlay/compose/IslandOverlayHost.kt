@@ -10,10 +10,10 @@ import android.view.WindowManager
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.LifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import ai.closepaw.protocol.TurnPhase
+import ai.closepaw.ui.capsule.surface.toStatusColor
 import ai.closepaw.ui.overlay.CapsuleStateHolder
 import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.ui.overlay.model.deriveGlowState
@@ -57,7 +57,7 @@ class IslandOverlayHost(
                 val glowState = deriveGlowState(mode, turnPhase)
                 StatusIslandCompose(
                     text = if (text.isBlank()) "Working..." else text,
-                    dotColor = Color(glowState.colorHex),
+                    dotColor = glowState.toStatusColor(),
                     onClick = onExpandCapsule,
                 )
             }

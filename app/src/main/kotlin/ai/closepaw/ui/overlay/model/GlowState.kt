@@ -3,17 +3,16 @@ package ai.closepaw.ui.overlay.model
 import ai.closepaw.protocol.TurnPhase
 
 /**
- * GlowState — visual states for the edge glow effect.
+ * GlowState — semantic status for capsule status dot, edge glow, and status island.
  *
- * Each state maps to a color. Colors are defined here (not in CapsuleColors)
- * because glow uses slightly different shades for visibility on the edge.
+ * Carries no visual values. Compose renderers map this to theme colors at render time.
  */
-enum class GlowState(val colorHex: Int) {
-    Active(CapsuleColors.BLUE),
-    Executing(0xFF3B82F6.toInt()),  // Lighter blue for execution
-    Success(CapsuleColors.TEAL),
-    Error(0xFFDC2626.toInt()),      // Brighter red for glow visibility
-    Paused(CapsuleColors.AMBER),
+enum class GlowState {
+    Active,
+    Executing,
+    Success,
+    Error,
+    Paused,
 }
 
 /**

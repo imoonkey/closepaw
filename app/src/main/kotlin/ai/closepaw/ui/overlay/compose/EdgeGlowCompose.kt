@@ -8,6 +8,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.capsule.surface.toStatusColor
 import ai.closepaw.ui.overlay.model.GlowState
 
 @Composable
@@ -16,9 +17,10 @@ fun EdgeGlowCompose(
     alpha: Float,
     modifier: Modifier = Modifier,
 ) {
+    val baseColor = state.toStatusColor()
     Canvas(modifier = modifier.fillMaxSize()) {
         val glowWidth = 40.dp.toPx()
-        val glowColor = Color(state.colorHex).copy(alpha = alpha)
+        val glowColor = baseColor.copy(alpha = alpha)
         val transparent = Color.Transparent
 
         drawRect(

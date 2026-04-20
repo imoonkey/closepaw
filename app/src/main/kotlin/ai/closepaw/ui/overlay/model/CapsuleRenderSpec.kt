@@ -20,10 +20,10 @@ data class CapsuleRenderSpec(
     val input: InputSpec?,
 ) {
     /** Status dot configuration. null = dot hidden. */
-    data class DotSpec(val color: Int, val pulsing: Boolean)
+    data class DotSpec(val status: GlowState, val pulsing: Boolean)
 
     /** Status-line text (the agent's thought). */
-    data class ThoughtSpec(val text: String, val alpha: Float = 1f)
+    data class ThoughtSpec(val text: String, val dimmed: Boolean = false)
 
     /** A single button in the control bar. */
     data class ButtonSpec(val icon: String, val text: String, val enabled: Boolean = true)
@@ -56,7 +56,7 @@ data class CapsuleRenderSpec(
         ): CapsuleRenderSpec =
             when (mode) {
                 is CapsuleMode.Running -> CapsuleRenderSpec(
-                    dot = DotSpec(CapsuleColors.BLUE, pulsing = true),
+                    dot = DotSpec(GlowState.Active, pulsing = true),
                     thought = ThoughtSpec(mode.thought.ifEmpty { "Thinking..." }),
                     expandedBody = null,
                     buttons = ButtonsSpec(
@@ -67,7 +67,7 @@ data class CapsuleRenderSpec(
                 )
 
                 is CapsuleMode.TakeoverPending -> CapsuleRenderSpec(
-                    dot = DotSpec(CapsuleColors.AMBER, pulsing = false),
+                    dot = DotSpec(GlowState.Paused, pulsing = false),
                     thought = ThoughtSpec("Handing over..."),
                     expandedBody = null,
                     buttons = ButtonsSpec(
@@ -78,10 +78,10 @@ data class CapsuleRenderSpec(
                 )
 
                 is CapsuleMode.Takeover -> CapsuleRenderSpec(
-                    dot = DotSpec(CapsuleColors.AMBER, pulsing = false),
+                    dot = DotSpec(GlowState.Paused, pulsing = false),
                     thought = ThoughtSpec(
                         mode.lastThought.ifEmpty { "Paused" },
-                        alpha = 0.6f,
+                        dimmed = true,
                     ),
                     expandedBody = null,
                     buttons = ButtonsSpec(
@@ -119,7 +119,7 @@ data class CapsuleRenderSpec(
                 )
 
                 is CapsuleMode.WaitingForApproval -> CapsuleRenderSpec(
-                    dot = DotSpec(CapsuleColors.AMBER, pulsing = false),
+                    dot = DotSpec(GlowState.Paused, pulsing = false),
                     thought = ThoughtSpec("🛡 Approve action?"),
                     expandedBody = "${mode.description}\n${mode.appLabel} · ${mode.reason}",
                     buttons = ButtonsSpec(
@@ -132,7 +132,7 @@ data class CapsuleRenderSpec(
                 )
 
                 is CapsuleMode.Done -> CapsuleRenderSpec(
-                    dot = DotSpec(CapsuleColors.TEAL, pulsing = false),
+                    dot = DotSpec(GlowState.Success, pulsing = false),
                     thought = ThoughtSpec("✓ ${mode.message}"),
                     expandedBody = null,
                     buttons = ButtonsSpec(primary = null, stop = null),
@@ -140,7 +140,7 @@ data class CapsuleRenderSpec(
                 )
 
                 is CapsuleMode.Error -> CapsuleRenderSpec(
-                    dot = DotSpec(CapsuleColors.RED, pulsing = false),
+                    dot = DotSpec(GlowState.Error, pulsing = false),
                     thought = ThoughtSpec("⚠ ${mode.message}"),
                     expandedBody = null,
                     buttons = ButtonsSpec(

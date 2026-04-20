@@ -28,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ai.closepaw.protocol.ApprovalDecision
@@ -237,7 +236,7 @@ private fun CapsuleStatusLine(
     ) {
         if (spec.dot != null) {
             val dotColor by animateColorAsState(
-                targetValue = Color(spec.dot.color),
+                targetValue = spec.dot.status.toStatusColor(),
                 label = "dotColor",
             )
             Box(
@@ -252,7 +251,9 @@ private fun CapsuleStatusLine(
         Text(
             text = spec.thought.text,
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = spec.thought.alpha),
+            color = MaterialTheme.colorScheme.onSurface.copy(
+                alpha = if (spec.thought.dimmed) 0.6f else 1f,
+            ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
