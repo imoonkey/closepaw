@@ -509,7 +509,7 @@
     "depends": [
       "ui-revamp-codex-review"
     ],
-    "state": "blocked",
+    "state": "running",
     "title": "Real Device QA + Fix",
     "description": "Run /qa and /ux-visual-debug on a real Android device against the full revamped UI surface (capsule, overlay, chat, settings, drawer, onboarding). Verify D1 visual baseline, D1 motion spec, Track A row interactions, and D2 streaming cursor. Iterate fix-then-recheck until all observed regressions are resolved.",
     "scope": [
@@ -525,8 +525,8 @@
     "estimate": "m",
     "resources": "physical Android device with USB debugging + a11y service permission",
     "created": "2026-04-20T07:09:00Z",
-    "updated": "2026-04-20T10:23:54Z",
-    "agent": "w-ui-revamp-device-qa",
+    "updated": "2026-04-20T10:35:18Z",
+    "agent": "w-ui-revamp-device-qa-r2",
     "blockReason": "verification-failed",
     "note": "QA found 3 Issues + 3 Polish. Fixer dispatched as ui-revamp-fix-qa. Polish in ui-revamp-qa-polish-followup."
   },
@@ -604,7 +604,7 @@
   "ui-revamp-fix-qa": {
     "parent": "frontend-ui-revamp",
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Fix device QA issues (I-1, I-2, I-3)",
     "description": "Address 3 Issues from device QA report (qa_report.md). Polish items deferred to separate tasks.",
     "scope": [
@@ -619,7 +619,7 @@
     ],
     "agent": "w-ui-revamp-fix-qa",
     "created": "2026-04-20T10:23:41Z",
-    "updated": "2026-04-20T10:23:41Z"
+    "updated": "2026-04-20T10:35:18Z"
   },
   "ui-revamp-qa-polish-followup": {
     "parent": "frontend-ui-revamp",
@@ -639,5 +639,22 @@
     "note": "Optional polish — not blocking archive of frontend-ui-revamp.",
     "created": "2026-04-20T10:23:41Z",
     "updated": "2026-04-20T10:23:41Z"
+  },
+  "ui-revamp-fix-test-harness": {
+    "parent": "frontend-ui-revamp",
+    "depends": [],
+    "state": "running",
+    "title": "Fix instrumented test harness ClosePawTheme wrap",
+    "description": "39/49 instrumented tests fail with IllegalStateException: ClosePawTokens not provided. Round-1 fixer only wrapped ChatAgentRowDisclosureTest; shared harness for 14 other test classes needs the same fix.",
+    "scope": [
+      "app/src/androidTest/kotlin/ai/closepaw/qa/**"
+    ],
+    "acceptCriteria": [
+      "All 14 failing test classes pass: CapsuleApprovalTest, CapsuleInputTest, CapsuleLifecycleTest, CapsuleRenderingTest, ChatBubbleAlignmentTest, ChatEmptyStateTest, ChatStreamingCursorTest, ChatThinkingStateTest, DisplayModeSettingsTest, SettingsAgentBehaviorTest, SettingsLlmAuthTest, SettingsNavTest, SettingsPermissionsTest, plus full ChatAgentRowDisclosureTest",
+      "./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=ai.closepaw.qa exits 0"
+    ],
+    "agent": "w-ui-revamp-fix-harness",
+    "created": "2026-04-20T11:07:41Z",
+    "updated": "2026-04-20T11:07:41Z"
   }
 }
