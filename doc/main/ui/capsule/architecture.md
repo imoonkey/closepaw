@@ -13,6 +13,7 @@
 - **SmartCapsuleSurface** — single Compose entry point used by both the overlay host (`CapsuleOverlayHost`) and `ChatScreen`'s `Scaffold.bottomBar`. Slim orchestrator: derives `CapsuleRenderSpec` + `NavSpec`, lays out the four slots (status line, optional detail body, control bar, optional input bar), and routes submit intent. Receives `previousMode` from `CapsuleStateHolder` for input-clearing.
 - **CapsuleControlBar** — control-bar composable: action-button cluster (mode-driven Takeover / Resume / Done / Allow / Deny / Stop / Close) on the left, nav-button cluster (Minimize / OpenApp / OpenViewer, gated by `NavSpec`) on the right.
 - **CapsuleInputBar** — text-field + send composable. Owns the draft state and the `pendingInputText` / `clearDraft` / `inputEnabled` lifecycle. Exposes a single `onSubmit(text)` callback; routing (Hidden → onSend / WaitingForInput → onUserResponse / else → onSupplement) lives in the orchestrator.
+- **CapsuleBinding** — value type bridging the agent runtime and a UI host. Wraps the three StateFlows (`mode`, `platformMode`, `isStopPending`) and the two callbacks (`onStopRequested`, `onApprovalResolved`) the chat surface needs from `CapsuleStateHolder`. `InertCapsuleBinding` is the unbound-runtime fallback so `ChatScreen` can render its idle state without reaching for `AgentService.instance`. Activities (e.g. `MainActivity`) build the live binding from the service.
 
 ## CapsuleMode
 

@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-04-20: chat — decouple ChatScreen from AgentService singleton + drop dead getters
+
+**What changed:**
+- New `ui/capsule/CapsuleBinding.kt` — value type wrapping the three StateFlows (`mode`, `platformMode`, `isStopPending`) and two callbacks (`onStopRequested`, `onApprovalResolved`) the chat surface needs from `CapsuleStateHolder`. `InertCapsuleBinding` is the unbound-runtime fallback.
+- `ChatScreen` now takes a `CapsuleBinding` parameter instead of reaching into `AgentService.instance?.capsuleStateHolder` and threading three remembered fallback flows through itself; no more `AgentService` import in the chat package's renderer.
+- `MainActivityContent` builds the live binding via a private `rememberCapsuleBinding()` helper that reads the singleton (the activity is the right place for that lookup).
+- Deleted the unused `ChatMessage.Agent.content` and `Agent.actions` "backward-compatibility" convenience getters. The one real consumer (`ChatScreen.scrollKey` text-length signal) inlined into a single `when (block)`.
+
+**Why:**
+- Track B follow-up. UI-layer code shouldn't know about `AgentService.instance` — the singleton dep made `ChatScreen` un-previewable, hard to test, and tied to the runtime's bind state. The fix isolates that coupling at the activity boundary.
+- The dead getters were flagged in the Track B audit as "backward compatibility" with no compatibility consumers; removing them simplifies `ChatMessage` and forces callers to handle `ContentBlock` variants explicitly.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/capsule/CapsuleBinding.kt`, `app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt`, `app/src/main/kotlin/ai/closepaw/ui/chat/model/ChatMessage.kt`, `app/src/main/kotlin/ai/closepaw/app/MainActivityContent.kt`, `doc/main/ui/capsule/architecture.md`, `doc/main/ui/{overlay,tech_design}.md`, `doc/main/README.md`.
+**Verification:** `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest` PASS. `grep -rn "AgentService" app/src/main/kotlin/ai/closepaw/ui/chat/` shows only `ChatViewModel.kt` (out of scope — separate `dismissError()` call).
+**Commit:** e0cf9c61
+**Next:** Track A implement (add `ContentBlock.Thought` reducer branch + renderer arm).
+**Blockers:** None.
+
 ## 2026-04-20: capsule UI — semantic naming + slim orchestrator (Track B)
 
 **What changed:**

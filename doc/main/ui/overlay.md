@@ -123,6 +123,7 @@ ui/overlay/
 
 ui/capsule/
 ├── NavAction.kt                     # Capsule nav-cluster action enum
+├── CapsuleBinding.kt                # Runtime-bridge value type (chat hosts)
 └── surface/
     ├── SmartCapsuleSurface.kt       # Slim orchestrator: status / detail / control / input
     ├── CapsuleControlBar.kt         # Action + nav clusters

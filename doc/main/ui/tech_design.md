@@ -44,6 +44,7 @@ ui/
 │
 ├── capsule/
 │   ├── NavAction.kt             # Capsule nav-cluster action enum
+│   ├── CapsuleBinding.kt        # Runtime-bridge value type for chat hosts
 │   └── surface/
 │       ├── SmartCapsuleSurface.kt   # Orchestrator: status/detail/control/input
 │       ├── CapsuleControlBar.kt     # Action + nav clusters
