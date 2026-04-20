@@ -287,7 +287,7 @@ private fun DrawerSessionItem(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    
+
                     // Separator dot
                     Box(
                         modifier = Modifier
@@ -295,16 +295,18 @@ private fun DrawerSessionItem(
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.onSurfaceVariant)
                     )
-                    
+
+                    // D1 §6.6: ledger treatment — mono dates.
                     Text(
                         text = TimeUtils.formatRelativeTime(session.lastUpdated),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.closePaw.monoSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-            
-            // Delete button
+
+            // Delete button — ghosted; visible but de-emphasised so the row
+            // reads as a passive ledger entry, not a destructive surface.
             IconButton(
                 onClick = { showDeleteConfirm = true },
                 modifier = Modifier.size(32.dp)
@@ -313,7 +315,7 @@ private fun DrawerSessionItem(
                     imageVector = Icons.Rounded.Delete,
                     contentDescription = "Delete session",
                     modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.closePaw.inkFaint
                 )
             }
         }
@@ -379,10 +381,11 @@ private fun SettingsEntry(
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            
+
+            // D1 §6.6: machine-text ledger — model + version in mono.
             Text(
-                text = "$currentModel • v$appVersion",
-                style = MaterialTheme.typography.bodySmall,
+                text = "$currentModel · v$appVersion",
+                style = MaterialTheme.closePaw.monoSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

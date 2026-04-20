@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -155,10 +156,21 @@ internal fun LlmAuthSettingsPage(
 
         TabRow(selectedTabIndex = selectedTab.ordinal) {
             LlmAuthTab.entries.forEach { tab ->
+                // Local backend isn't wired through this page yet; show the tab
+                // as visibly disabled (no Claw underline, dimmed label) until
+                // it is, so users don't tap a no-op affordance.
+                val isEnabled = tab != LlmAuthTab.LOCAL
                 Tab(
                     selected = selectedTab == tab,
-                    onClick = { selectedTab = tab },
-                    text = { Text(tab.label) }
+                    onClick = { if (isEnabled) selectedTab = tab },
+                    enabled = isEnabled,
+                    text = {
+                        Text(
+                            text = tab.label,
+                            color = if (isEnabled) androidx.compose.ui.graphics.Color.Unspecified
+                                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
                 )
             }
         }

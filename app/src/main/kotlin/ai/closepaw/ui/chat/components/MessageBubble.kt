@@ -455,7 +455,11 @@ private fun truncateWords(text: String, maxWords: Int): String {
     else words.take(maxWords).joinToString(" ") + "…"
 }
 
-private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault())
+// Pin the chat timestamp formatter to Locale.US: the app's UI strings are
+// English, so device-locale AM/PM markers (e.g. "上午") visibly leaked an
+// otherwise-English chat. App-driven format keeps the chat coherent until a
+// real per-app localization story exists.
+private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
 
 private fun formatTime(timestamp: Long): String {
     val dateTime = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())

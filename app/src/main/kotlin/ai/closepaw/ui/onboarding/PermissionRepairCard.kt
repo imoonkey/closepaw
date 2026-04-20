@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
+import ai.closepaw.ui.theme.closePaw
 
 /**
  * In-chat repair card shown when a permission is revoked after onboarding completes.
@@ -52,8 +53,8 @@ fun PermissionRepairCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Setup Issue",
-                    style = MaterialTheme.typography.titleSmall,
+                    text = "SETUP ISSUE",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onErrorContainer
                 )
             }
@@ -101,7 +102,7 @@ private fun RepairRow(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.closePaw.monoBody,
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.weight(1f)
         )
