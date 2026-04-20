@@ -1,7 +1,9 @@
 # Capsule State Machine
 
 > Formal state vector, transition rules, and visibility decision machine.
-> Last updated: 2026-02-22
+> Last updated: 2026-04-20
+>
+> -> See: [`doc/main/state_machines/ui_capsule.md`](../../state_machines/ui_capsule.md) for the test-locked CapsuleMode transition reference (mirrors source + has corresponding unit tests). This doc covers the broader location/visibility decision machine on top of that.
 
 ## 1. Canonical State Vector
 

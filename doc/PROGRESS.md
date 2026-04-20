@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-04-20: ui — Track C state-machine docs + tests as refactor safety net
+
+**What changed:**
+- New `doc/main/state_machines/ui_capsule.md` — test-locked CapsuleMode FSM reference (9 states, transition matrix, guard rules, sidecar flags, render derivation, input routing).
+- New `doc/main/state_machines/ui_chat.md` — chat reducer reference (per-message `AgentMessageState`, per-action `ActionState`, conversation timeline append/split rules).
+- Indexed both in `doc/main/state_machines/README.md`. Cross-linked from `doc/main/ui/capsule/state_machine.md` (visibility decision machine) and `doc/main/ui/tech_design.md` (ChatEventReducer section).
+- New `app/src/test/kotlin/ai/closepaw/ui/overlay/CapsuleApprovalTransitionTest.kt` — 28 tests filling gaps in `CapsuleStateHolderTest`: approval flow, takeover-from-Running shortcut, stop-request guards across all source modes, ERROR-from-active-mode terminal mapping, all `TaskOutcome` variants.
+- New `app/src/test/kotlin/ai/closepaw/ui/chat/ChatSupplementAndActionTransitionTest.kt` — 8 tests covering supplement-as-user-turn, executed-without-proposal (with seeded buffer), FAILED/SKIPPED outcomes, error-without-open-agent, TurnStarted buffer reset, action-splits-text.
+- Extended `app/src/test/kotlin/ai/closepaw/ui/overlay/model/CapsuleRenderSpecTest.kt` (+2 tests) — `clearInput=true` on entering `WaitingForInput` from a different mode; `clearInput=false` re-entering from itself.
+
+**Why:**
+- Track C is the safety-net before Track B's UI architecture refactor (semantic naming + capsule componentization). Without behavioral tests + a doc that mirrors current code, the refactor could silently regress UX. Two iterations of dual-reviewer (code-reviewer subagent + Codex gpt-5.4) feedback ensured docs match Kotlin source — no invented states, no aspirational design.
+
+**Key files:** `doc/main/state_machines/ui_capsule.md`, `doc/main/state_machines/ui_chat.md`, `doc/main/state_machines/README.md`, `doc/main/ui/capsule/state_machine.md`, `doc/main/ui/tech_design.md`, `app/src/test/kotlin/ai/closepaw/ui/overlay/CapsuleApprovalTransitionTest.kt`, `app/src/test/kotlin/ai/closepaw/ui/chat/ChatSupplementAndActionTransitionTest.kt`, `app/src/test/kotlin/ai/closepaw/ui/overlay/model/CapsuleRenderSpecTest.kt`
+**Verification:** `./gradlew test` — 1151 tests, 0 failures. Two independent review rounds (Claude code-reviewer + Codex) both APPROVE.
+**Next:** Track B (UI architecture refactor + semantic naming) is now unblocked.
+**Blockers:** None.
+
 ## 2026-04-20: chat — decouple ChatScreen from AgentService singleton + drop dead getters
 
 **What changed:**

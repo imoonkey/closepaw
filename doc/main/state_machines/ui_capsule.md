@@ -11,6 +11,8 @@ Authoritative reference for the Smart Capsule's user-facing finite state machine
 - Tests: `app/src/test/kotlin/ai/closepaw/ui/overlay/CapsuleStateHolderTest.kt`,
   `CapsuleApprovalTransitionTest.kt`, `model/CapsuleRenderSpecTest.kt`, `model/NavSpecTest.kt`
 
+> -> See: [`doc/main/ui/capsule/state_machine.md`](../ui/capsule/state_machine.md) for the broader location/visibility decision machine (CapsuleMode × OverlayUserLocation × ShowPreference) layered on top of this FSM.
+
 ## Why this exists
 
 The capsule is the primary surface where the agent talks back to the user. Every visual

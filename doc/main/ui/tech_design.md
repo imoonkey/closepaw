@@ -117,6 +117,8 @@ Key patterns:
 ### ChatEventReducer
 
 > See: `ui/chat/ChatEventReducer.kt`
+>
+> -> See: [`doc/main/state_machines/ui_chat.md`](../state_machines/ui_chat.md) for the test-locked event → timeline reducer reference (per-message state, action lifecycle, conversation timeline invariants).
 
 Maps protocol events to UI mutations:
 

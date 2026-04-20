@@ -170,5 +170,86 @@
       "Financial/payment/auth apps correctly classified as BLOCKED",
       "Classification methodology documented"
     ]
+  },
+  "frontend-ui-revamp": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Frontend UI Revamp",
+    "description": "Three coordinated tracks to fix chat info density, refactor UI architecture with semantic naming, and lock down UI state machines with docs+tests. Visual baseline: doc/todo/frontend-ui-review/.",
+    "design": "doc/todo/frontend-ui-review/eng-design/note.md",
+    "acceptCriteria": [
+      "All three child tracks done"
+    ],
+    "note": "Tracks A and B run /double-design. Track C runs /investigate -> /tdd -> /update-doc.",
+    "created": "2026-04-20T04:10:29Z",
+    "updated": "2026-04-20T04:10:29Z"
+  },
+  "ui-chat-info-arch": {
+    "parent": "frontend-ui-revamp",
+    "depends": [],
+    "state": "done",
+    "title": "Track A: Chat Row Info Architecture",
+    "description": "UX design for chat turn info density. Surface agent thought + action + result (not just mobile action). Define collapse/expand behavior and which agent-pipeline events get surfaced. Run /double-design (Claude + Codex independent designs -> cross-review -> aligned spec).",
+    "design": "doc/todo/frontend-ui-review/eng-design/note.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "doc/todo/frontend-ui-review/eng-design/track-a/final/design_aligned.md exists",
+      "Spec defines what events from agent pipeline are surfaced in chat row",
+      "Spec defines collapse/expand interaction for thought+action+result"
+    ],
+    "note": "Independent of C; output consumed by B.",
+    "created": "2026-04-20T04:10:38Z",
+    "updated": "2026-04-20T04:48:46Z",
+    "agent": "w-ui-chat-info-arch"
+  },
+  "ui-state-machines": {
+    "parent": "frontend-ui-revamp",
+    "depends": [],
+    "state": "done",
+    "title": "Track C: UI State Machines (Doc + Tests)",
+    "description": "Document current capsule + chat UI state machines under doc/main/state_machines/ and add TDD tests around state transitions. Workflow: /investigate to map current state enums and transition points -> /tdd to lock down transitions -> /update-doc to publish state machine docs. No /double-design needed (no design choices to cross-review; mostly discovery + documentation).",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/**",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**",
+      "app/src/test/kotlin/ai/closepaw/ui/**",
+      "doc/main/state_machines/**"
+    ],
+    "acceptCriteria": [
+      "doc/main/state_machines/ contains capsule and chat UI state machine docs",
+      "Unit tests covering all documented state transitions exist under app/src/test/",
+      "./gradlew test passes"
+    ],
+    "note": "Must complete before Track B implementation. No design phase.",
+    "created": "2026-04-20T04:10:55Z",
+    "updated": "2026-04-20T04:48:46Z",
+    "agent": "w-ui-state-machines"
+  },
+  "ui-arch-refactor": {
+    "parent": "frontend-ui-revamp",
+    "depends": [
+      "ui-chat-info-arch",
+      "ui-state-machines"
+    ],
+    "state": "done",
+    "title": "Track B: UI Architecture Refactor + Semantic Naming",
+    "description": "Audit capsule + chat composables, define target module boundaries, replace garbage names (row2/row3) with semantic names (CapsuleInputRow / CapsuleStatusRow / CapsuleControlRow or better). Migration plan to reduce spaghetti and make appearance-aspect changes easy. Run /double-design.",
+    "design": "doc/todo/frontend-ui-review/eng-design/note.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/**",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "doc/todo/frontend-ui-review/eng-design/track-b/final/design_aligned.md exists",
+      "All row2/row3-style names replaced with semantic names in capsule code",
+      "Target module boundaries documented with migration plan",
+      "All UI state-machine tests from Track C still pass after refactor"
+    ],
+    "note": "Blocked on A (consumes spec) and C (uses tests as refactor safety net).",
+    "created": "2026-04-20T04:11:02Z",
+    "updated": "2026-04-20T05:16:18Z",
+    "agent": "w-ui-arch-refactor"
   }
 }
