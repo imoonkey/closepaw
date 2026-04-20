@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -36,9 +37,8 @@ import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
 import ai.closepaw.ui.chat.model.RowState
 import ai.closepaw.ui.theme.closePaw
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import android.content.Context
+import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -91,7 +91,7 @@ private fun UserBubble(
                 }
             }
             Text(
-                text = formatTime(message.timestamp),
+                text = formatTime(LocalContext.current, message.timestamp),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -455,13 +455,8 @@ private fun truncateWords(text: String, maxWords: Int): String {
     else words.take(maxWords).joinToString(" ") + "…"
 }
 
-// Pin the chat timestamp formatter to Locale.US: the app's UI strings are
-// English, so device-locale AM/PM markers (e.g. "上午") visibly leaked an
-// otherwise-English chat. App-driven format keeps the chat coherent until a
-// real per-app localization story exists.
-private val timeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
-
-private fun formatTime(timestamp: Long): String {
-    val dateTime = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault())
-    return dateTime.format(timeFormatter)
-}
+// Use the platform's time format (respects user's 12/24h preference and
+// locale). On 24h-default locales (e.g. zh-CN) this avoids the AM/PM marker
+// entirely instead of forcing a hard Locale.US pin.
+private fun formatTime(context: Context, timestamp: Long): String =
+    android.text.format.DateFormat.getTimeFormat(context).format(Date(timestamp))
