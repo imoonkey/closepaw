@@ -509,7 +509,7 @@
     "depends": [
       "ui-revamp-codex-review"
     ],
-    "state": "running",
+    "state": "blocked",
     "title": "Real Device QA + Fix",
     "description": "Run /qa and /ux-visual-debug on a real Android device against the full revamped UI surface (capsule, overlay, chat, settings, drawer, onboarding). Verify D1 visual baseline, D1 motion spec, Track A row interactions, and D2 streaming cursor. Iterate fix-then-recheck until all observed regressions are resolved.",
     "scope": [
@@ -525,8 +525,10 @@
     "estimate": "m",
     "resources": "physical Android device with USB debugging + a11y service permission",
     "created": "2026-04-20T07:09:00Z",
-    "updated": "2026-04-20T09:57:18Z",
-    "agent": "w-ui-revamp-device-qa"
+    "updated": "2026-04-20T10:23:54Z",
+    "agent": "w-ui-revamp-device-qa",
+    "blockReason": "verification-failed",
+    "note": "QA found 3 Issues + 3 Polish. Fixer dispatched as ui-revamp-fix-qa. Polish in ui-revamp-qa-polish-followup."
   },
   "d2-fontbinary-followup": {
     "parent": "frontend-ui-revamp",
@@ -598,5 +600,44 @@
     "agent": "w-ui-revamp-fixer-r2",
     "created": "2026-04-20T09:25:03Z",
     "updated": "2026-04-20T09:41:31Z"
+  },
+  "ui-revamp-fix-qa": {
+    "parent": "frontend-ui-revamp",
+    "depends": [],
+    "state": "running",
+    "title": "Fix device QA issues (I-1, I-2, I-3)",
+    "description": "Address 3 Issues from device QA report (qa_report.md). Polish items deferred to separate tasks.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/theme/**",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "Theme.kt overrides primaryContainer/secondaryContainer/tertiaryContainer/errorContainer slots with PaperInset/Amber/Moss palette",
+      "Collapsed Complete row headline matches Track A spec §5.2 format",
+      "EmptyState renders paw watermark instead of Icons.Rounded.SmartToy",
+      "./gradlew :app:testDebugUnitTest passes"
+    ],
+    "agent": "w-ui-revamp-fix-qa",
+    "created": "2026-04-20T10:23:41Z",
+    "updated": "2026-04-20T10:23:41Z"
+  },
+  "ui-revamp-qa-polish-followup": {
+    "parent": "frontend-ui-revamp",
+    "depends": [],
+    "state": "ready",
+    "title": "QA polish items (P-1, P-2, P-3)",
+    "description": "Polish items from device QA report. Lower priority than the 3 Issues. P-1: investigate missing Final block on instant-completion tasks (debug-run trace check). P-2: muted Claw for send-disabled state. P-3: landscape EmptyState clipping (only if landscape is a target form factor).",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "P-1 investigated; either fixed or root-cause documented",
+      "P-2 send-disabled state matches Claw ladder if confirmed as intent",
+      "P-3 landscape clipping fixed OR explicitly de-scoped"
+    ],
+    "priority": "low",
+    "note": "Optional polish — not blocking archive of frontend-ui-revamp.",
+    "created": "2026-04-20T10:23:41Z",
+    "updated": "2026-04-20T10:23:41Z"
   }
 }
