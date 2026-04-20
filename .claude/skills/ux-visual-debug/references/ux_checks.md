@@ -58,7 +58,7 @@ When examining screenshots or visible text dumps, use this reference to determin
 | Blue pulsing dot + thought text + "Takeover" button | **Running** |
 | Amber dot + "Handing over..." + disabled primary button | **TakeoverPending** |
 | Amber dot + dimmed thought + "Resume" button | **Takeover** |
-| "Awaiting response" + expanded question text + "Send" in Row3 | **WaitingForInput** |
+| "Awaiting response" + expanded question text + "Send" in input bar | **WaitingForInput** |
 | "Action needed" + expanded instruction + "Done" button | **WaitingForAction** |
 | Teal dot + completion message + no buttons | **Done** |
 | Red dot + error message + "Close" button | **Error** |
@@ -70,16 +70,16 @@ When examining screenshots or visible text dumps, use this reference to determin
 #### Running
 
 - [ ] Blue dot is pulsing (animated)
-- [ ] Row1 shows thought text (updates as agent thinks)
-- [ ] "Takeover" button visible and enabled in Row2
-- [ ] "Stop" button visible in Row2
-- [ ] Row3 shows input with hint "Got ideas? Add a note..."
-- [ ] "Add note" button in Row3
+- [ ] Status line shows thought text (updates as agent thinks)
+- [ ] "Takeover" button visible and enabled in control bar
+- [ ] "Stop" button visible in control bar
+- [ ] Input bar shows hint "Got ideas? Add a note..."
+- [ ] "Add note" button in input bar
 
 #### TakeoverPending
 
 - [ ] Amber dot, static (not pulsing)
-- [ ] Row1 shows "Handing over..."
+- [ ] Status line shows "Handing over..."
 - [ ] Primary button shows "Handing over" and is DISABLED (not tappable)
 - [ ] "Stop" button still available
 - [ ] This state is transient — should transition to Takeover within seconds
@@ -87,57 +87,57 @@ When examining screenshots or visible text dumps, use this reference to determin
 #### Takeover
 
 - [ ] Amber dot, static
-- [ ] Row1 shows last thought text with reduced opacity (visually dimmed)
+- [ ] Status line shows last thought text with reduced opacity (visually dimmed)
 - [ ] "Resume" button visible and enabled
 - [ ] "Stop" button visible
-- [ ] Row3 still shows "Add note" input (supplements allowed during takeover)
+- [ ] Input bar still shows "Add note" input (supplements allowed during takeover)
 
 #### WaitingForInput
 
 - [ ] No status dot visible
-- [ ] Row1 shows "Awaiting response"
-- [ ] Expanded body visible with agent's question text
-- [ ] Row3 shows input with hint "Type your response..."
-- [ ] Row3 button shows "Send"
+- [ ] Status line shows "Awaiting response"
+- [ ] Detail body visible with agent's question text
+- [ ] Input bar shows hint "Type your response..."
+- [ ] Input-bar submit button shows "Send"
 - [ ] In overlay mode: overlay should be focusable, keyboard may auto-appear
 - [ ] No "Takeover" or "Resume" button (only "Stop")
 
 #### WaitingForAction
 
 - [ ] No status dot visible
-- [ ] Row1 shows "Action needed"
-- [ ] Expanded body visible with agent's instruction text
+- [ ] Status line shows "Action needed"
+- [ ] Detail body visible with agent's instruction text
 - [ ] "Done" button visible
 - [ ] "Stop" button visible
-- [ ] Row3 is HIDDEN (no text input)
+- [ ] Input bar is HIDDEN (no text input)
 
 #### Done
 
 - [ ] Teal dot, static
-- [ ] Row1 shows completion message (e.g., "Task completed successfully")
+- [ ] Status line shows completion message (e.g., "Task completed successfully")
 - [ ] No buttons visible (no Takeover, no Stop, no Close)
-- [ ] Row3 hidden
+- [ ] Input bar hidden
 - [ ] Should auto-hide after ~3 seconds (capsule disappears)
 
 #### Error
 
 - [ ] Red dot, static
-- [ ] Row1 shows error message
+- [ ] Status line shows error message
 - [ ] Only "Close" button visible (no Takeover/Resume/Stop)
 - [ ] Does NOT auto-hide — persists until user taps Close
 - [ ] After Close: transitions to Hidden
 
 #### Hidden (Main App)
 
-- [ ] No Row1 (thought line) visible
-- [ ] No Row2 (buttons) visible
-- [ ] Row3 shows input dock with "What can I help you with?" hint
-- [ ] "Send" button in Row3
+- [ ] No status line (thought line) visible
+- [ ] No control bar (buttons) visible
+- [ ] Input bar shows "What can I help you with?" hint
+- [ ] "Send" button in input bar
 
 ### 7.3 Supplement Flash Verification
 
 When user submits a supplement ("Add note") during Running/Takeover:
-- [ ] Row1 briefly shows "Received, will apply next step" (if agent mid-turn) or "Received"
+- [ ] Status line briefly shows "Received, will apply next step" (if agent mid-turn) or "Received"
 - [ ] Flash lasts ~1.5-2 seconds
 - [ ] Original thought text restores after flash
 - [ ] Task is NOT interrupted by the supplement
@@ -167,8 +167,8 @@ When user submits a supplement ("Add note") during Running/Takeover:
 
 - [ ] Overlay capsule appears when user leaves the main app during active task
 - [ ] Overlay hides when user returns to main app (Compose capsule takes over)
-- [ ] Row1 tap ("Open main app" desc) brings main app to foreground
-- [ ] "Open app" nav button works same as Row1 tap
+- [ ] Status-line tap ("Open main app" desc) brings main app to foreground
+- [ ] "Open app" nav button works same as status-line tap
 - [ ] Overlay EditText becomes focusable in WaitingForInput state
 - [ ] Overlay EditText returns to non-focusable when exiting WaitingForInput
 

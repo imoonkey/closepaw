@@ -43,12 +43,16 @@ ui/
 │       └── ChatMessage.kt       # UI data classes
 │
 ├── capsule/
-│   ├── SmartCapsuleCompose.kt   # Compose capsule for main app
-│   ├── SmartCapsuleSurface.kt   # 3-row surface layout
-│   ├── SmartCapsuleSurfaceParts.kt # Row1/Row2/Row3 components
+│   ├── NavAction.kt             # Capsule nav-cluster action enum
+│   └── surface/
+│       ├── SmartCapsuleSurface.kt   # Orchestrator: status/detail/control/input
+│       ├── CapsuleControlBar.kt     # Action + nav clusters
+│       ├── CapsuleInputBar.kt       # Text field + send (owns draft state)
+│       └── SmartCapsuleHostLayout.kt
+│
+├── overlay/model/
 │   ├── CapsuleRenderSpec.kt     # Stateless: CapsuleMode → visual properties
-│   ├── CapsuleNavSpec.kt        # Navigation button visibility spec
-│   └── StatusIslandCompose.kt   # Compact status pill (Compose)
+│   └── (NavSpec lives here too)
 │
 ├── navigation/
 │   └── NavigationDrawer.kt      # Side drawer (sessions + settings entry)
@@ -175,7 +179,7 @@ fun ChatScreen(
 
         Scaffold(
             topBar = { ChatHeader(...) },
-            bottomBar = { SmartCapsuleCompose(...) }
+            bottomBar = { SmartCapsuleSurface(...) }
         ) {
             MessageList(...)  // LazyColumn, auto-scrolls to bottom
         }

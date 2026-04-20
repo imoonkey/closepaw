@@ -235,7 +235,7 @@ app/src/main/kotlin/ai/closepaw/
 ├── ui/                           # UI layer
 │   ├── theme/                    # Design system (Color, Shape, Theme, Type)
 │   ├── chat/                     # ChatScreen, ChatViewModel, ChatEventReducer
-│   ├── capsule/                  # SmartCapsuleCompose, SmartCapsuleSurface
+│   ├── capsule/                  # SmartCapsuleSurface, CapsuleControlBar, CapsuleInputBar
 │   ├── common/                   # Shared composables
 │   ├── navigation/               # Navigation drawer
 │   ├── overlay/                  # System overlays (capsule, glow, island, visualizer)

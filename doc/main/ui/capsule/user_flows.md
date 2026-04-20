@@ -5,7 +5,7 @@
 
 ## 1. Render Surfaces
 
-1. `SmartCapsuleCompose` (Main App bottom bar)
+1. `SmartCapsuleSurface` (Main App bottom bar)
 2. `CapsuleOverlayHost` (system overlay capsule)
 3. `IslandOverlayHost` (system overlay island)
 4. `GlowOverlayHost` (decorative edge glow)
@@ -14,14 +14,14 @@
 
 ## 2. Capsule Mode UI Mapping
 
-- `Hidden`: Row3 only (`What can I help you with?` + Send)
-- `Running`: Row1 thought + Row2 (`Takeover`/`Stop`) + Row3 Add note
-- `TakeoverPending`: Row1 `Handing over...` + Row2 (`Handing over` disabled / `Stop`) + Row3 Add note
-- `Takeover`: Row1 paused thought (60% alpha) + Row2 (`Resume`/`Stop`) + Row3 Add note
-- `WaitingForInput`: Row1 `Awaiting response` + Row2 (`Stop`) + Row3 expanded (question body + response input, auto-focus)
-- `WaitingForAction`: Row1 `Action needed` + instruction body + Row2 (`Done`/`Stop`) + no Row3
-- `Done`: Row1 only (`message`), then 3s auto-hide to Hidden
-- `Error`: Row1 (`message`) + Row2 (`Close`) + no Row3
+- `Hidden`: input bar only (`What can I help you with?` + Send)
+- `Running`: status line (thought) + control bar (`Takeover` / `Stop`) + input bar (`Add note`)
+- `TakeoverPending`: status line `Handing over...` + control bar (`Handing over` disabled / `Stop`) + input bar (`Add note`)
+- `Takeover`: status line paused thought (60% alpha) + control bar (`Resume` / `Stop`) + input bar (`Add note`)
+- `WaitingForInput`: status line `Awaiting response` + detail body (question) + control bar (`Stop`) + input bar (`Type your response...` + auto-focus)
+- `WaitingForAction`: status line `Action needed` + detail body (instruction) + control bar (`Done` / `Stop`); no input bar
+- `Done`: status line only (`message`), then 3s auto-hide to Hidden
+- `Error`: status line (`message`) + control bar (`Close`); no input bar
 
 Input enablement:
 - Main App: always enabled
@@ -47,7 +47,7 @@ Input enablement:
 
 - System overlays hidden
 - Compose capsule shown
-- No Row3 viewer icon — VD viewer is only reachable via island tap or nav icon in overlay
+- No input-bar viewer icon — VD viewer is only reachable via island tap or nav icon in overlay
 
 ### 3.4 VD + VD_VIEWER
 
@@ -103,7 +103,7 @@ Input enablement:
 ## 5. Navigation and Special Behaviors
 
 - Nav derivation is context-based (`NavSpec`)
-- `Done` hides all nav buttons (Row2 hidden entirely)
+- `Done` hides all nav buttons (control bar hidden entirely)
 - `WaitingForInput|WaitingForAction|WaitingForApproval|Error` hide minimize button
 - A11y mode blocks app and viewer nav icons
 - VD viewer: `showWatch` hidden when already in `SCREEN_VIEWING` context

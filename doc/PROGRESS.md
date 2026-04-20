@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-04-20: capsule UI — semantic naming + slim orchestrator (Track B)
+
+**What changed:**
+- Renamed all positional capsule names. Spec: `row3 → input`, `Row3Spec → InputSpec`, `buttonText → submitLabel`, `clearInput → clearDraft`, local `row2Hidden → controlBarHidden`. Composables: `CapsuleRow1/2/3 → CapsuleStatusLine / CapsuleControlBar / CapsuleInputBar`. Public param `onRow1Click → onStatusClick`.
+- File reorg: `SmartCapsuleSurfaceParts.kt → CapsuleControlBar.kt` (also factored into private `ActionButtonCluster` + `NavButtonCluster`); new `CapsuleInputBar.kt` owns the draft state + `pendingInputText` / `clearDraft` / `inputEnabled` lifecycle; `SmartCapsuleCompose.kt` pass-through wrapper deleted (`ChatScreen` calls `SmartCapsuleSurface` directly); `NavAction` enum hoisted into its own file.
+- Synced affected SOTA docs and the `ux-visual-debug` skill to the new vocabulary.
+
+**Why:**
+- `Row1/Row2/Row3` named where things sat, not what they did. Item 2 of `doc/todo/frontend-ui-review/eng-design/note.md` explicitly called this out, and `SmartCapsuleSurface` had grown into a god-composable that owned layout + input draft + submit routing + startup-error placement at once. Track A's chronological-trace chat row also benefits from a stable, semantically-named capsule surface as the bottomBar.
+- Path was decided via `/double-design` (Claude + Codex independent designs → cross-review → aligned spec). KISS line: one decomposition that earned its keep, no `ChatTurnRenderSpec`, no MVI wrapper, no theming churn. `ContentBlock.Thought` deferred to Track A's implement phase.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/capsule/**`, `app/src/main/kotlin/ai/closepaw/ui/overlay/model/CapsuleRenderSpec.kt`, `app/src/main/kotlin/ai/closepaw/ui/overlay/compose/CapsuleOverlayHost.kt`, `app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt`, `doc/main/state_machines/ui_capsule.md`, `doc/main/ui/capsule/{architecture,user_flows,state_machine}.md`, `doc/main/ui/{overlay,user_interaction,tech_design}.md`, `doc/main/README.md`, `.claude/skills/ux-visual-debug/{SKILL.md,references/ux_checks.md}`, `doc/todo/frontend-ui-review/eng-design/track-b/`.
+**Verification:** `./gradlew :app:compileDebugKotlin` + `:app:testDebugUnitTest` green (all Track C state-machine tests preserved). `grep -rn "row[123]\|Row[123]" app/src/main/kotlin/ai/closepaw/ui/` returns 0 hits.
+**Commit:** 2d51d580 (refactor + Track B design docs + state-machine doc); follow-up commit pending for SOTA-doc + skill sync.
+**Next:** Track A implement (add `ContentBlock.Thought` reducer branch + `MessageBubble.AgentBubble` thought rendering on the cleaned chat surface).
+**Blockers:** None.
+
 ## 2026-04-20: security — enrich app_tiers.json with installed apps
 
 **What changed:**

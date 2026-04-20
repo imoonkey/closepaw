@@ -109,7 +109,7 @@ Derived:
 
 ### VD
 
-- `MAIN_APP` or inactive: all overlays hidden; compose capsule shows input only (no Row3 viewer icon)
+- `MAIN_APP` or inactive: all overlays hidden; compose capsule shows input bar only (no input-bar viewer icon)
 - non-main + active: capsule/island by preference (mutually exclusive)
 - glow only when `location=VD_VIEWER && hasActiveTask=true`
 

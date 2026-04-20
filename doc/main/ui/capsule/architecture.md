@@ -10,8 +10,9 @@
 
 - **CapsuleStateHolder** — single source of truth. Holds `CapsuleMode`, `CapsuleContext`, `PlatformMode`, `hasIsland`, `turnPhase`, `isAgentMidTurn`, `isStopPending` as `StateFlow`s.
 - **CapsuleOverlayHost** — Compose overlay via `OverlayComposeHost`. Reads mode, context, platformMode, and hasIsland from `CapsuleStateHolder`. Owns only host-specific state (focusability, touchability, interactionLocked, inputFocused). Dynamic touchability (only `Hidden` sets `FLAG_NOT_TOUCHABLE`). Debounces button callbacks (300ms). Touch gate for agent gesture injection.
-- **SmartCapsuleSurface** — 3-row Compose layout consuming `CapsuleMode`, `previousMode`, and `CapsuleRenderSpec`. Callers provide `previousMode`; input clearing via `LaunchedEffect` keyed on mode transition.
-- **SmartCapsuleCompose** — Compose version for main app (`Scaffold.bottomBar`). Same surface, same callbacks. Passes `previousMode` from `CapsuleStateHolder`.
+- **SmartCapsuleSurface** — single Compose entry point used by both the overlay host (`CapsuleOverlayHost`) and `ChatScreen`'s `Scaffold.bottomBar`. Slim orchestrator: derives `CapsuleRenderSpec` + `NavSpec`, lays out the four slots (status line, optional detail body, control bar, optional input bar), and routes submit intent. Receives `previousMode` from `CapsuleStateHolder` for input-clearing.
+- **CapsuleControlBar** — control-bar composable: action-button cluster (mode-driven Takeover / Resume / Done / Allow / Deny / Stop / Close) on the left, nav-button cluster (Minimize / OpenApp / OpenViewer, gated by `NavSpec`) on the right.
+- **CapsuleInputBar** — text-field + send composable. Owns the draft state and the `pendingInputText` / `clearDraft` / `inputEnabled` lifecycle. Exposes a single `onSubmit(text)` callback; routing (Hidden → onSend / WaitingForInput → onUserResponse / else → onSupplement) lives in the orchestrator.
 
 ## CapsuleMode
 
@@ -30,8 +31,8 @@ sealed interface CapsuleMode {
 
 ### Mode Rendering
 
-| Mode | Dot | Row 1 | Row 2 Primary | Row 3 |
-|------|-----|-------|---------------|-------|
+| Mode | Dot | Status line | Action button (primary) | Input bar |
+|------|-----|-------------|-------------------------|-----------|
 | **Running** | Blue (pulsing) | Thought text | [Takeover] | Input + "Add note" |
 | **TakeoverPending** | Amber | "Handing over..." | [Handing over] (disabled) | Input + "Add note" |
 | **Takeover** | Amber | Last thought (60% alpha) | [Resume] | Input + "Add note" |
@@ -45,11 +46,11 @@ sealed interface CapsuleMode {
 
 ```
 ┌──────────────────────────────────────────┐
-│ [●] Thought text...                      │  ← Row 1: status dot + thought
+│ [●] Thought text...                      │  ← Status line (dot + thought)
 │──────────────────────────────────────────│
-│ [Takeover] [Stop]           [⊖] [📱] [👁]│  ← Row 2: controls + nav icons
+│ [Takeover] [Stop]           [⊖] [📱] [👁]│  ← Control bar (actions + nav)
 │──────────────────────────────────────────│
-│ [Got ideas? Add a note...    ] [Add note]│  ← Row 3: input + action button
+│ [Got ideas? Add a note...    ] [Add note]│  ← Input bar (text + send)
 └──────────────────────────────────────────┘
 ```
 
@@ -57,7 +58,7 @@ sealed interface CapsuleMode {
 
 > See: `ui/overlay/model/CapsuleRenderSpec.kt`
 
-`CapsuleRenderSpec` — pure rendering spec derived from `CapsuleMode`: `dot`, `thought`, `expandedBody`, `buttons`, `row3`.
+`CapsuleRenderSpec` — pure rendering spec derived from `CapsuleMode`: `dot`, `thought`, `expandedBody`, `buttons`, `input` (input-bar `hint` / `submitLabel` / `clearDraft`).
 
 `NavSpec` — separate from render spec (depends on `CapsuleContext` + `PlatformMode`, not mode): `showMinimize` (VD only), `showApp` (not in main app), `showWatch` (VD, not already viewing).
 
@@ -113,4 +114,4 @@ Auto-hide: `Done` → `Hidden` after 3000ms.
 
 **Overlay:** `AgentSession` → `AgentEvent` → `AgentService.handleEvent()` → `ServiceOverlayController` → `CapsuleStateHolder` → `SmartCapsuleSurface`
 
-**Compose (in-app):** `CapsuleStateHolder.mode` collected via `StateFlow` in `ChatScreen` → `SmartCapsuleCompose` → `SmartCapsuleSurface`
+**Compose (in-app):** `CapsuleStateHolder.mode` collected via `StateFlow` in `ChatScreen` → `SmartCapsuleSurface`

@@ -23,7 +23,7 @@ The overlay system provides visual feedback and interaction when the agent execu
 
 ## Smart Capsule
 
-The primary UI for user-agent collaboration. Two forms: system overlay (`CapsuleOverlayHost`) and Compose widget (`SmartCapsuleCompose`). Both render `SmartCapsuleSurface` driven by `CapsuleMode` from `CapsuleStateHolder`.
+The primary UI for user-agent collaboration. Single Compose entry point `SmartCapsuleSurface` is consumed by both the system overlay (`CapsuleOverlayHost`) and `ChatScreen.bottomBar`, driven by `CapsuleMode` from `CapsuleStateHolder`.
 
 -> See: [capsule/architecture.md](capsule/architecture.md) for modes, state transitions, rendering spec, and callbacks.
 -> See: [capsule/state_machine.md](capsule/state_machine.md) for formal state vector and transition rules.
@@ -93,7 +93,7 @@ API: `showClick(x, y, longPress)`, `showSwipe(...)`, `showScrollAsSwipe(...)`. C
 
 **VD (SCREEN_VIEWING):** SmartCapsule atop VD viewer
 
-**Main App:** No system overlays. `SmartCapsuleCompose` in `Scaffold.bottomBar`.
+**Main App:** No system overlays. `SmartCapsuleSurface` in `Scaffold.bottomBar`.
 
 ---
 
@@ -122,10 +122,11 @@ ui/overlay/
     └── ActionVisualizerManager.kt   # Visualization orchestrator
 
 ui/capsule/
-├── SmartCapsuleCompose.kt           # Compose capsule for main app
+├── NavAction.kt                     # Capsule nav-cluster action enum
 └── surface/
-    ├── SmartCapsuleSurface.kt       # 3-row capsule layout
-    ├── SmartCapsuleSurfaceParts.kt  # Row components
+    ├── SmartCapsuleSurface.kt       # Slim orchestrator: status / detail / control / input
+    ├── CapsuleControlBar.kt         # Action + nav clusters
+    ├── CapsuleInputBar.kt           # Text field + send (owns draft state)
     └── SmartCapsuleHostLayout.kt    # Host-level padding
 
 app/

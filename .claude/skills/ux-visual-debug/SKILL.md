@@ -86,7 +86,7 @@ Source: `CapsuleRenderSpec.from()` + `SmartCapsuleLayoutBuilder.kt`
 
 #### Modes and UI Elements
 
-| Mode | Dot | Row1 (thought) | Expanded Body | Primary Button | Stop Button | Row3 (input) |
+| Mode | Dot | Status line (thought) | Detail body | Primary Button | Stop Button | Input bar |
 |---|---|---|---|---|---|---|
 | **Hidden** | — | "" | — | — | — | hint="What can I help you with?" btn="Send" |
 | **Running** | blue pulse | thought text | — | "Takeover" | "Stop" | hint="Got ideas? Add a note..." btn="Add note" |
@@ -103,7 +103,7 @@ Source: `CapsuleRenderSpec.from()` + `SmartCapsuleLayoutBuilder.kt`
 |---|---|---|
 | Primary button | Dynamic: "Takeover" / "Handing over" / "Resume" / "Done" | Matches button label |
 | Stop button | Dynamic: "Stop" / "Close" | Matches button label |
-| Row1 container | "Open main app" | Only in overlay mode (when `onRow1Tap` is set) |
+| Status line container | "Open main app" | Only in overlay mode (when `onStatusClick` is set) |
 | Nav: Minimize | "Minimize" | VD BACKGROUND context only |
 | Nav: Open App | "Open app" | Overlay/VD when not in MAIN_APP |
 | Nav: View Screen | "View screen" | VD BACKGROUND context only |
@@ -121,21 +121,21 @@ Source: `CapsuleRenderSpec.from()` + `SmartCapsuleLayoutBuilder.kt`
 
 ### How to Verify Each State
 
-**Running**: Blue pulsing dot visible. Row1 shows thought text (updates as agent thinks). Row2 has "Takeover" and "Stop" buttons. Row3 shows input with "Got ideas? Add a note..." hint.
+**Running**: Blue pulsing dot visible. Status line shows thought text (updates as agent thinks). Control bar has "Takeover" and "Stop" buttons. Input bar shows "Got ideas? Add a note..." hint.
 
-**TakeoverPending**: Amber static dot. Row1 shows "Handing over...". Primary button shows "Handing over" but is disabled. Transition is brief — may jump straight to Takeover if agent responds fast.
+**TakeoverPending**: Amber static dot. Status line shows "Handing over...". Primary button shows "Handing over" but is disabled. Transition is brief — may jump straight to Takeover if agent responds fast.
 
-**Takeover**: Amber static dot. Row1 shows last thought text with reduced opacity (dimmed). "Resume" button replaces "Takeover". "Stop" still available. Row3 still available for supplements.
+**Takeover**: Amber static dot. Status line shows last thought text with reduced opacity (dimmed). "Resume" button replaces "Takeover". "Stop" still available. Input bar still available for supplements.
 
-**WaitingForInput**: No dot. Row1 shows "Awaiting response". Expanded body shows the agent's question. Row3 changes to "Type your response..." with "Send" button. In overlay mode: overlay becomes focusable, keyboard may auto-show.
+**WaitingForInput**: No dot. Status line shows "Awaiting response". Detail body shows the agent's question. Input bar changes to "Type your response..." with "Send" button. In overlay mode: overlay becomes focusable, keyboard may auto-show.
 
-**WaitingForAction**: No dot. Row1 shows "Action needed". Expanded body shows instruction. "Done" button visible. Row3 is hidden (no text input needed).
+**WaitingForAction**: No dot. Status line shows "Action needed". Detail body shows instruction. "Done" button visible. Input bar is hidden (no text input needed).
 
-**Done**: Teal static dot. Row1 shows completion message prefixed with checkmark. All buttons hidden. Row3 hidden. Auto-hides after ~3 seconds.
+**Done**: Teal static dot. Status line shows completion message prefixed with checkmark. All buttons hidden. Input bar hidden. Auto-hides after ~3 seconds.
 
-**Error**: Red static dot. Row1 shows error message prefixed with warning. Only "Close" button visible. Does NOT auto-hide — stays until user taps Close.
+**Error**: Red static dot. Status line shows error message prefixed with warning. Only "Close" button visible. Does NOT auto-hide — stays until user taps Close.
 
-**Hidden**: No capsule visible (in overlay mode). In Main App: only Row3 input dock visible with "What can I help you with?" hint and "Send" button.
+**Hidden**: No capsule visible (in overlay mode). In Main App: only the input bar is visible with "What can I help you with?" hint and "Send" button.
 
 ### Overlay Visibility Note
 

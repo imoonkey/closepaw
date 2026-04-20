@@ -40,7 +40,7 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 | **ThinkingIndicator** | 3 animated dots (staggered 200ms delay, 600ms alpha cycle) |
 | **ActionCard** | Tool execution card with state-dependent styling |
 | **EmptyState** | First-launch with SmartToy icon + 3 suggestion chips |
-| **SmartCapsuleCompose** | 3-row capsule: status dot + thought, controls, input |
+| **SmartCapsuleSurface** | Capsule layout: status line + detail body + control bar + input bar |
 
 ### ActionCard States
 
