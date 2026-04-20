@@ -6,6 +6,7 @@ import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.settings.DisplayModeSection
 import ai.closepaw.ui.settings.SettingsHomePage
 import ai.closepaw.ui.settings.ShizukuStatus
+import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,17 +38,19 @@ class DisplayModeSettingsTest {
         var lastMode: PlatformMode? = null
         compose.setContent {
             var mode by remember { mutableStateOf(PlatformMode.ACCESSIBILITY) }
-            DisplayModeSection(
-                persistedMode = mode,
-                effectiveMode = null,
-                status = ShizukuStatus.Ready,
-                onModeChange = {
-                    lastMode = it
-                    mode = it
-                },
-                onLearnMore = {},
-                onGrant = {},
-            )
+            ClosePawTheme {
+                DisplayModeSection(
+                    persistedMode = mode,
+                    effectiveMode = null,
+                    status = ShizukuStatus.Ready,
+                    onModeChange = {
+                        lastMode = it
+                        mode = it
+                    },
+                    onLearnMore = {},
+                    onGrant = {},
+                )
+            }
         }
 
         // Tap Virtual Display when Shizuku Ready → callback fires with VIRTUAL_DISPLAY.
@@ -63,14 +66,16 @@ class DisplayModeSettingsTest {
     @Test fun virtual_display_option_is_noop_when_shizuku_unavailable() {
         var callbackCount = 0
         compose.setContent {
-            DisplayModeSection(
-                persistedMode = PlatformMode.ACCESSIBILITY,
-                effectiveMode = null,
-                status = ShizukuStatus.Unavailable,
-                onModeChange = { callbackCount++ },
-                onLearnMore = {},
-                onGrant = {},
-            )
+            ClosePawTheme {
+                DisplayModeSection(
+                    persistedMode = PlatformMode.ACCESSIBILITY,
+                    effectiveMode = null,
+                    status = ShizukuStatus.Unavailable,
+                    onModeChange = { callbackCount++ },
+                    onLearnMore = {},
+                    onGrant = {},
+                )
+            }
         }
 
         compose.onNodeWithText("Virtual Display").performClick()
@@ -103,20 +108,22 @@ class DisplayModeSettingsTest {
 
 @androidx.compose.runtime.Composable
 private fun HomeUnderTest(effectivePlatformMode: PlatformMode?) {
-    SettingsHomePage(
-        llmBackend = LLMBackendType.OPENAI,
-        selectedModel = "gpt-5.2",
-        modelOptions = listOf("gpt-5.2" to "GPT-5.2"),
-        selectedLocalModel = "LFM2.5-1.2B-Instruct",
-        modelCatalog = testModelCatalog(),
-        agentMode = AgentMode.BASIC,
-        maxTurns = 20,
-        perceptionMode = "accessibility_only",
-        isAccessibilityEnabled = false,
-        isOverlayEnabled = false,
-        debugMode = false,
-        effectivePlatformMode = effectivePlatformMode,
-        onNavigate = {},
-        onDismiss = {},
-    )
+    ClosePawTheme {
+        SettingsHomePage(
+            llmBackend = LLMBackendType.OPENAI,
+            selectedModel = "gpt-5.2",
+            modelOptions = listOf("gpt-5.2" to "GPT-5.2"),
+            selectedLocalModel = "LFM2.5-1.2B-Instruct",
+            modelCatalog = testModelCatalog(),
+            agentMode = AgentMode.BASIC,
+            maxTurns = 20,
+            perceptionMode = "accessibility_only",
+            isAccessibilityEnabled = false,
+            isOverlayEnabled = false,
+            debugMode = false,
+            effectivePlatformMode = effectivePlatformMode,
+            onNavigate = {},
+            onDismiss = {},
+        )
+    }
 }

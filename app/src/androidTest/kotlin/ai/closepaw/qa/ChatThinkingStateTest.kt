@@ -4,6 +4,7 @@ import ai.closepaw.ui.chat.components.MessageBubble
 import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
+import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -26,7 +27,7 @@ class ChatThinkingStateTest {
             contentBlocks = emptyList(),
             state = AgentMessageState.Thinking
         )
-        compose.setContent { MessageBubble(msg) }
+        compose.setContent { ClosePawTheme { MessageBubble(msg) } }
 
         compose.onNodeWithTag("qa-thinking-indicator").assertExists()
     }
@@ -38,7 +39,7 @@ class ChatThinkingStateTest {
             contentBlocks = listOf(ContentBlock.Text("partial response")),
             state = AgentMessageState.Streaming
         )
-        compose.setContent { MessageBubble(msg) }
+        compose.setContent { ClosePawTheme { MessageBubble(msg) } }
 
         compose.onAllNodesWithTag("qa-thinking-indicator").assertCountEquals(0)
         compose.onNodeWithText("partial response").assertExists()

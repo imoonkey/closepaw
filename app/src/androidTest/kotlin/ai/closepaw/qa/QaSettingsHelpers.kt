@@ -10,6 +10,7 @@ import ai.closepaw.ui.settings.ModelLoadingStatus
 import ai.closepaw.ui.settings.OpenAiAuthUiState
 import ai.closepaw.ui.settings.PermissionsAdvancedSettingsPage
 import ai.closepaw.ui.settings.SettingsSheet
+import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.runtime.Composable
 
 /** Minimal model catalog with one model per provider, both API shapes on OpenAI. */
@@ -35,40 +36,42 @@ internal fun TestSettingsSheet(
     agentMode: AgentMode = AgentMode.BASIC,
     onDismiss: () -> Unit = {},
 ) {
-    SettingsSheet(
-        llmBackend = llmBackend,
-        onBackendChange = {},
-        selectedModel = selectedModel,
-        onModelChange = {},
-        modelCatalog = testModelCatalog(),
-        selectedExecutorModel = null,
-        onExecutorModelChange = {},
-        selectedLocalModel = "LFM2.5-1.2B-Instruct",
-        onLocalModelChange = {},
-        modelLoadingStatus = ModelLoadingStatus.Idle,
-        maxTurns = 20,
-        onMaxTurnsChange = {},
-        agentMode = agentMode,
-        onAgentModeChange = {},
-        perceptionMode = "accessibility_only",
-        onPerceptionModeChange = {},
-        debugMode = false,
-        onDebugModeChange = {},
-        traceEnabled = false,
-        onTraceEnabledChange = {},
-        isAccessibilityEnabled = true,
-        isOverlayEnabled = true,
-        onAccessibilityClick = {},
-        onOverlayClick = {},
-        openAiAuthUiState = OpenAiAuthUiState.SignedOut,
-        onStartOAuth = {},
-        onCancelOAuth = {},
-        onSignOut = {},
-        platformMode = PlatformMode.ACCESSIBILITY,
-        effectivePlatformMode = null,
-        onPlatformModeChange = {},
-        onDismiss = onDismiss,
-    )
+    ClosePawTheme {
+        SettingsSheet(
+            llmBackend = llmBackend,
+            onBackendChange = {},
+            selectedModel = selectedModel,
+            onModelChange = {},
+            modelCatalog = testModelCatalog(),
+            selectedExecutorModel = null,
+            onExecutorModelChange = {},
+            selectedLocalModel = "LFM2.5-1.2B-Instruct",
+            onLocalModelChange = {},
+            modelLoadingStatus = ModelLoadingStatus.Idle,
+            maxTurns = 20,
+            onMaxTurnsChange = {},
+            agentMode = agentMode,
+            onAgentModeChange = {},
+            perceptionMode = "accessibility_only",
+            onPerceptionModeChange = {},
+            debugMode = false,
+            onDebugModeChange = {},
+            traceEnabled = false,
+            onTraceEnabledChange = {},
+            isAccessibilityEnabled = true,
+            isOverlayEnabled = true,
+            onAccessibilityClick = {},
+            onOverlayClick = {},
+            openAiAuthUiState = OpenAiAuthUiState.SignedOut,
+            onStartOAuth = {},
+            onCancelOAuth = {},
+            onSignOut = {},
+            platformMode = PlatformMode.ACCESSIBILITY,
+            effectivePlatformMode = null,
+            onPlatformModeChange = {},
+            onDismiss = onDismiss,
+        )
+    }
 }
 
 /**
@@ -88,25 +91,27 @@ internal fun TestLlmAuthPage(
     openAiAuthUiState: OpenAiAuthUiState = OpenAiAuthUiState.SignedOut,
     onStartOAuth: () -> Unit = {},
 ) {
-    LlmAuthSettingsPage(
-        llmBackend = llmBackend,
-        onBackendChange = onBackendChange,
-        selectedModel = selectedModel,
-        onModelChange = onModelChange,
-        modelCatalog = testModelCatalog(),
-        selectedExecutorModel = selectedExecutorModel,
-        onExecutorModelChange = onExecutorModelChange,
-        agentMode = agentMode,
-        selectedLocalModel = selectedLocalModel,
-        onLocalModelChange = onLocalModelChange,
-        modelLoadingStatus = ModelLoadingStatus.Idle,
-        openAiAuthUiState = openAiAuthUiState,
-        onStartOAuth = onStartOAuth,
-        onCancelOAuth = {},
-        onSignOut = {},
-        onBack = {},
-        onClose = {},
-    )
+    ClosePawTheme {
+        LlmAuthSettingsPage(
+            llmBackend = llmBackend,
+            onBackendChange = onBackendChange,
+            selectedModel = selectedModel,
+            onModelChange = onModelChange,
+            modelCatalog = testModelCatalog(),
+            selectedExecutorModel = selectedExecutorModel,
+            onExecutorModelChange = onExecutorModelChange,
+            agentMode = agentMode,
+            selectedLocalModel = selectedLocalModel,
+            onLocalModelChange = onLocalModelChange,
+            modelLoadingStatus = ModelLoadingStatus.Idle,
+            openAiAuthUiState = openAiAuthUiState,
+            onStartOAuth = onStartOAuth,
+            onCancelOAuth = {},
+            onSignOut = {},
+            onBack = {},
+            onClose = {},
+        )
+    }
 }
 
 /** Render the Permissions page with caller-controlled trace toggle state. */
@@ -115,19 +120,21 @@ internal fun TestPermissionsPage(
     traceEnabled: Boolean,
     onTraceEnabledChange: (Boolean) -> Unit = {},
 ) {
-    PermissionsAdvancedSettingsPage(
-        isAccessibilityEnabled = true,
-        isOverlayEnabled = true,
-        onAccessibilityClick = {},
-        onOverlayClick = {},
-        debugMode = false,
-        onDebugModeChange = {},
-        traceEnabled = traceEnabled,
-        onTraceEnabledChange = onTraceEnabledChange,
-        platformMode = PlatformMode.ACCESSIBILITY,
-        effectivePlatformMode = null,
-        onPlatformModeChange = {},
-        onBack = {},
-        onClose = {},
-    )
+    ClosePawTheme {
+        PermissionsAdvancedSettingsPage(
+            isAccessibilityEnabled = true,
+            isOverlayEnabled = true,
+            onAccessibilityClick = {},
+            onOverlayClick = {},
+            debugMode = false,
+            onDebugModeChange = {},
+            traceEnabled = traceEnabled,
+            onTraceEnabledChange = onTraceEnabledChange,
+            platformMode = PlatformMode.ACCESSIBILITY,
+            effectivePlatformMode = null,
+            onPlatformModeChange = {},
+            onBack = {},
+            onClose = {},
+        )
+    }
 }

@@ -5,6 +5,7 @@ import ai.closepaw.ui.chat.components.MessageBubble
 import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
+import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -26,7 +27,7 @@ class ChatStreamingCursorTest {
             contentBlocks = listOf(ContentBlock.Text("streaming content")),
             state = AgentMessageState.Streaming
         )
-        compose.setContent { MessageBubble(msg) }
+        compose.setContent { ClosePawTheme { MessageBubble(msg) } }
 
         compose.onNodeWithTag(CURSOR_TEST_TAG).assertExists()
     }
@@ -38,7 +39,7 @@ class ChatStreamingCursorTest {
             contentBlocks = listOf(ContentBlock.Text("done")),
             state = AgentMessageState.Complete
         )
-        compose.setContent { MessageBubble(msg) }
+        compose.setContent { ClosePawTheme { MessageBubble(msg) } }
 
         compose.onAllNodesWithTag(CURSOR_TEST_TAG).assertCountEquals(0)
     }

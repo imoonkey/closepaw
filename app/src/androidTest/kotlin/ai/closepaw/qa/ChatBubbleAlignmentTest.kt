@@ -4,6 +4,7 @@ import ai.closepaw.ui.chat.components.MessageBubble
 import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
+import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
@@ -23,8 +24,10 @@ class ChatBubbleAlignmentTest {
 
     @Test fun user_bubble_sits_in_right_half() {
         compose.setContent {
-            Box(Modifier.fillMaxWidth()) {
-                MessageBubble(ChatMessage.User(id = "u1", timestamp = 0L, text = "hi from user"))
+            ClosePawTheme {
+                Box(Modifier.fillMaxWidth()) {
+                    MessageBubble(ChatMessage.User(id = "u1", timestamp = 0L, text = "hi from user"))
+                }
             }
         }
 
@@ -44,7 +47,9 @@ class ChatBubbleAlignmentTest {
             state = AgentMessageState.Complete
         )
         compose.setContent {
-            Box(Modifier.fillMaxWidth()) { MessageBubble(agent) }
+            ClosePawTheme {
+                Box(Modifier.fillMaxWidth()) { MessageBubble(agent) }
+            }
         }
 
         val rootW = compose.onRoot().fetchSemanticsNode().boundsInRoot.width

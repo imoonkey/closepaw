@@ -7,6 +7,7 @@ import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.ui.settings.LlmAuthSettingsPage
 import ai.closepaw.ui.settings.ModelLoadingStatus
 import ai.closepaw.ui.settings.OpenAiAuthUiState
+import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -54,26 +55,28 @@ class SettingsLlmAuthTest {
         onStartOAuth: () -> Unit = {},
         initialAuthTab: AuthMode? = null,
     ) {
-        LlmAuthSettingsPage(
-            llmBackend = llmBackend,
-            onBackendChange = onBackendChange,
-            selectedModel = selectedModel,
-            onModelChange = onModelChange,
-            modelCatalog = catalog(),
-            selectedExecutorModel = selectedExecutorModel,
-            onExecutorModelChange = onExecutorModelChange,
-            agentMode = AgentMode.BASIC,
-            selectedLocalModel = "LFM2.5-1.2B-Instruct",
-            onLocalModelChange = {},
-            modelLoadingStatus = ModelLoadingStatus.Idle,
-            openAiAuthUiState = OpenAiAuthUiState.SignedOut,
-            onStartOAuth = onStartOAuth,
-            onCancelOAuth = {},
-            onSignOut = {},
-            onBack = {},
-            onClose = {},
-            initialAuthTab = initialAuthTab,
-        )
+        ClosePawTheme {
+            LlmAuthSettingsPage(
+                llmBackend = llmBackend,
+                onBackendChange = onBackendChange,
+                selectedModel = selectedModel,
+                onModelChange = onModelChange,
+                modelCatalog = catalog(),
+                selectedExecutorModel = selectedExecutorModel,
+                onExecutorModelChange = onExecutorModelChange,
+                agentMode = AgentMode.BASIC,
+                selectedLocalModel = "LFM2.5-1.2B-Instruct",
+                onLocalModelChange = {},
+                modelLoadingStatus = ModelLoadingStatus.Idle,
+                openAiAuthUiState = OpenAiAuthUiState.SignedOut,
+                onStartOAuth = onStartOAuth,
+                onCancelOAuth = {},
+                onSignOut = {},
+                onBack = {},
+                onClose = {},
+                initialAuthTab = initialAuthTab,
+            )
+        }
     }
 
     // S5: switching tabs (no action) does NOT fire backend/model commits.

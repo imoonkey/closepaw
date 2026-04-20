@@ -1,6 +1,7 @@
 package ai.closepaw.qa
 
 import ai.closepaw.ui.chat.components.EmptyState
+import ai.closepaw.ui.theme.ClosePawTheme
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -24,7 +25,7 @@ class ChatEmptyStateTest {
     )
 
     @Test fun shows_three_suggestion_chips() {
-        compose.setContent { EmptyState(onSuggestionClick = {}) }
+        compose.setContent { ClosePawTheme { EmptyState(onSuggestionClick = {}) } }
 
         suggestions.forEach { text ->
             compose.onNodeWithText("\"$text\"").assertExists()
@@ -34,7 +35,7 @@ class ChatEmptyStateTest {
 
     @Test fun tapping_suggestion_fires_callback_with_text() {
         var clicked: String? = null
-        compose.setContent { EmptyState(onSuggestionClick = { clicked = it }) }
+        compose.setContent { ClosePawTheme { EmptyState(onSuggestionClick = { clicked = it }) } }
 
         compose.onNodeWithText("\"${suggestions[1]}\"").performClick()
 
