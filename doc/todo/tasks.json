@@ -307,5 +307,233 @@
     "agent": "w-ui-logic-fix-orchestrate",
     "created": "2026-04-20T16:46:35Z",
     "updated": "2026-04-20T16:46:35Z"
+  },
+  "ui-logic-fix": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "UI Logic Fix Track",
+    "description": "All 8 findings resolved across 2 commits (951c82f5, 89977c14). Codex re-review: 8 VERIFIED / 0 PARTIAL / 0 REGRESSION (doc/todo/ui-polish/logic_review_round2.md).",
+    "acceptCriteria": [
+      "all met"
+    ],
+    "note": "Re-review confirms clean. One nit: parseRowState malformed-string branch untested (defer).",
+    "created": "2026-04-20T16:47:58Z",
+    "updated": "2026-04-20T17:05:49Z"
+  },
+  "ui-logic-fix-pr-a": {
+    "parent": "ui-logic-fix",
+    "depends": [],
+    "state": "done",
+    "title": "PR-A: persistence + reducer state",
+    "description": "Commit 951c82f5. Findings #1 #2 #5 #8 implemented. Tests added (5). Full unit suite green.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/history/model/MessageRecord.kt",
+      "app/src/main/kotlin/ai/closepaw/history/model/MessageConverter.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatEventReducer.kt"
+    ],
+    "acceptCriteria": [
+      "all met"
+    ],
+    "created": "2026-04-20T16:47:59Z",
+    "updated": "2026-04-20T16:53:24Z",
+    "agent": "w-logic-fix-1"
+  },
+  "ui-logic-fix-pr-b": {
+    "parent": "ui-logic-fix",
+    "depends": [
+      "ui-logic-fix-pr-a"
+    ],
+    "state": "done",
+    "title": "PR-B: renderer + outcome routing",
+    "description": "Commit 89977c14. C3 (per-Text composable), #6 (ERROR→RowState.Error), #7 (sniff removed entirely), #3 (text-fallback rung). 3 new tests + CollapsedHeadlineTest.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/MessageBubble.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatEventReducer.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatViewModel.kt"
+    ],
+    "acceptCriteria": [
+      "all met"
+    ],
+    "created": "2026-04-20T16:47:59Z",
+    "updated": "2026-04-20T17:00:50Z",
+    "agent": "w-logic-fix-2"
+  },
+  "ui-polish-fix": {
+    "parent": null,
+    "depends": [
+      "ui-polish-review"
+    ],
+    "state": "ready",
+    "title": "UI polish — implement findings from polish_report.md",
+    "description": "Parent task. Apply the 6+9 Issue/Polish findings + 1 investigation + 2 runtime bugs from doc/todo/ui-polish/polish_report.md across onboarding, chat, settings, drawer, capsule, and chat-runtime surfaces.",
+    "acceptCriteria": [
+      "All child polish-fix tasks done",
+      "Codex final review approves cumulative diff"
+    ],
+    "note": "Orchestrator track — dispatched 2026-04-20.",
+    "created": "2026-04-20T17:30:00Z",
+    "updated": "2026-04-20T17:30:00Z"
+  },
+  "ui-polish-fix-onboarding": {
+    "parent": "ui-polish-fix",
+    "depends": [],
+    "state": "ready",
+    "worktree": "ui-polish-onb",
+    "title": "Onboarding polish — Fraunces titles, 5-paw progress, CTA color, landscape scroll",
+    "description": "Implement polish_report.md findings #1, #2, #3, #4. ULTRATHINK before changing code. Refer to D1 §4.2/§6.4 + contrast matrix. Decision needed for finding #3 (Moss vs Claw on step 1/2 Continue): if intent is unclear, default to Claw (matches D1 §4.1 'primary CTA') and flag in commit body. For finding #2 (5-paw progress), reuse `ic_paw` drawable; do not introduce a new vector asset. For finding #4 (landscape), wrap step content in verticalScroll.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/**",
+      "app/src/main/kotlin/ai/closepaw/onboarding/**",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/**"
+    ],
+    "acceptCriteria": [
+      "Step titles render with Fraunces (verify via Type.kt usage)",
+      "Progress indicator is 5 paw glyphs (filled/ghosted) — not a LinearProgressIndicator",
+      "Primary CTA color rule consistent across steps 1–4",
+      "Landscape step 4 reaches CTA without content cutoff (verticalScroll or equivalent)",
+      "./gradlew :app:assembleDebug passes",
+      "./gradlew :app:testDebugUnitTest passes"
+    ],
+    "created": "2026-04-20T17:30:00Z",
+    "updated": "2026-04-20T17:30:00Z"
+  },
+  "ui-polish-fix-chat": {
+    "parent": "ui-polish-fix",
+    "depends": [],
+    "state": "ready",
+    "worktree": "ui-polish-chat",
+    "title": "Chat polish — Fraunces empty state, paw-toe thinking, hairline, banner typography, locale",
+    "description": "Implement polish_report.md findings #6, #7, #8, #10, #12, #14. ULTRATHINK first. Per Track A §4.4 + D1 §4.1, the InkGhost (8% Ink) hairline above Final must be present. Per motion spec §4, the thinking indicator is paw-toes filling in sequence (225/450/675/900ms) — replace generic 3-dots. Per D1 §4.2, the empty-state question uses serifItalic (Fraunces italic), the empty-state title uses Fraunces. Per D1 §6.5, Setup Issue header is tracked-caps labelSmall + monoBody body. Timestamps must follow app locale, not device locale leak.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/**",
+      "app/src/main/res/drawable/**"
+    ],
+    "acceptCriteria": [
+      "Empty-state title uses Fraunces; empty-state question uses Fraunces italic (serifItalic token)",
+      "Paw watermark on empty state is sized as a watermark (≥160dp visual), Ink-tinted",
+      "Thinking indicator implements paw-toe sequence per motion spec §4 (NOT generic dots)",
+      "Visible InkGhost hairline rule between trace and Final block in expanded completed row",
+      "Setup Issue banner header is tracked-caps labelSmall; body uses monoBody",
+      "Timestamps render in app locale (English/24h or app-driven), not device-locale Chinese AM/PM",
+      "./gradlew :app:assembleDebug passes",
+      "./gradlew :app:testDebugUnitTest passes"
+    ],
+    "note": "Avoid touching ChatEventReducer.kt or MessageRecord.kt (owned by ui-logic-fix-pr-a/b). MessageBubble.kt may need touching for hairline — coordinate at merge.",
+    "created": "2026-04-20T17:30:00Z",
+    "updated": "2026-04-20T17:30:00Z"
+  },
+  "ui-polish-fix-settings": {
+    "parent": "ui-polish-fix",
+    "depends": [],
+    "state": "ready",
+    "worktree": "ui-polish-set",
+    "title": "Settings polish — Fraunces section heads, mono → row arrow, Local tab, version footer",
+    "description": "Implement polish_report.md findings #15, #16, #18, #20 (version footer slice). ULTRATHINK first. Per D1 §6.3, settings keeps 'serif section heads' + 'mono → glyph instead of decorative arrows'. Replace ChevronRight with Text('→') in monoBody style. Sub-page titles + section heads use Fraunces. Local tab is currently inert per INDEX — gate enabled=false with visible disabled treatment until wired. Version footer (Version 1.0 (1)) uses monoSmall.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/**",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/**"
+    ],
+    "acceptCriteria": [
+      "Settings sheet title + sub-page titles + section heads use Fraunces",
+      "Settings home rows use mono '→' glyph (monoBody) instead of ChevronRight icon",
+      "'Local' tab in LLM & Authentication has visible disabled treatment OR is wired to a real screen",
+      "Version footer uses monoSmall (JBMono 11sp)",
+      "./gradlew :app:assembleDebug passes",
+      "./gradlew :app:testDebugUnitTest passes"
+    ],
+    "created": "2026-04-20T17:30:00Z",
+    "updated": "2026-04-20T17:30:00Z"
+  },
+  "ui-polish-fix-drawer": {
+    "parent": "ui-polish-fix",
+    "depends": [],
+    "state": "ready",
+    "worktree": "ui-polish-drw",
+    "title": "Drawer polish — mono dates, Claw new-entry, restrained trash icons",
+    "description": "Implement polish_report.md finding #20 (drawer slice). ULTRATHINK first. Per D1 §6.6: mono dates in ledger, ONE claw-accented new-entry affordance, restrained settings link. Apply monoSmall to '3 minutes ago' / 'v1.0' subtitles. Tint the '+ New Conversation' button (border + icon + text) with Claw. Consider hiding row trash icons behind long-press or swipe so they don't pull eye on a passive list.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/session/**",
+      "app/src/main/kotlin/ai/closepaw/ui/navigation/**",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/**"
+    ],
+    "acceptCriteria": [
+      "Session row timestamps use monoSmall",
+      "Settings entry 'v1.0' tag uses monoSmall",
+      "'+ New Conversation' button is Claw-accented (border + icon + text)",
+      "Trash icons either hidden behind long-press/swipe OR ghosted (low alpha) to reduce visual pull",
+      "./gradlew :app:assembleDebug passes",
+      "./gradlew :app:testDebugUnitTest passes"
+    ],
+    "created": "2026-04-20T17:30:00Z",
+    "updated": "2026-04-20T17:30:00Z"
+  },
+  "ui-polish-investigate-capsule": {
+    "parent": "ui-polish-fix",
+    "depends": [],
+    "state": "ready",
+    "worktree": "capsule-investigation",
+    "title": "Capsule overlay never rendered — diagnose runtime regression (INV-1)",
+    "description": "INVESTIGATION ONLY. Per polish_report.md INV-1, no capsule overlay was visible during basic-mode runs, VD-mode runs, or after directly launching VirtualDisplayViewerActivity. ULTRATHINK. Identify (a) root cause of CapsuleOverlayHost not drawing over other apps, (b) the eye-icon affordance entry path the user mentioned, (c) why VirtualDisplayViewerActivity launches as black screen. Produce diagnosis at doc/todo/ui-polish/capsule_investigation.md with file:line refs and a proposed fix plan. Do NOT change runtime behavior unless root cause is a trivial wiring fix (then make minimum change + document).",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/**",
+      "app/src/main/kotlin/ai/closepaw/ui/overlay/**",
+      "app/src/main/kotlin/ai/closepaw/ui/viewer/**",
+      "doc/todo/ui-polish/capsule_investigation.md"
+    ],
+    "acceptCriteria": [
+      "doc/todo/ui-polish/capsule_investigation.md exists",
+      "Document identifies root cause with file:line evidence",
+      "Document explains the eye-icon affordance entry path (or notes it does not exist)",
+      "Document includes proposed fix plan with effort estimate"
+    ],
+    "created": "2026-04-20T17:30:00Z",
+    "updated": "2026-04-20T17:30:00Z"
+  },
+  "ui-polish-fix-runtime-bugs": {
+    "parent": "ui-polish-fix",
+    "depends": [],
+    "state": "ready",
+    "worktree": "ui-runtime-bugs",
+    "title": "Runtime bugs — supplement Done no-op + stale Setup Issue banner",
+    "description": "Implement polish_report.md B-1 + B-2 (already-diagnosed runtime bugs). ULTRATHINK before edits. B-1: ChatScreen.onUserResponse does not call CapsuleStateHolder.onUserResponseSent(callId). Add hook in ChatScreen.kt:153 mirroring the Stop pattern + add onUserResponseSent to CapsuleBinding. B-2: MainActivity.deriveRepairModel() runs once in setContent; not recomputed in onResume. Convert repairModel to mutableStateOf, recompute in onResume / on lifecycle resume.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/MainActivity.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/**"
+    ],
+    "acceptCriteria": [
+      "Tapping Done in supplement Action-needed capsule resolves the prompt and unblocks the agent",
+      "Setup Issue banner clears after granting accessibility permission and returning to ClosePaw",
+      "./gradlew :app:assembleDebug passes",
+      "./gradlew :app:testDebugUnitTest passes"
+    ],
+    "created": "2026-04-20T17:30:00Z",
+    "updated": "2026-04-20T17:30:00Z"
+  },
+  "ui-polish-final-codex-review": {
+    "parent": "ui-polish-fix",
+    "depends": [
+      "ui-polish-fix-onboarding",
+      "ui-polish-fix-chat",
+      "ui-polish-fix-settings",
+      "ui-polish-fix-drawer",
+      "ui-polish-investigate-capsule",
+      "ui-polish-fix-runtime-bugs"
+    ],
+    "state": "blocked",
+    "title": "Codex final review — cumulative polish diff",
+    "description": "After all polish-fix workers complete, dispatch codex (NOT claude) to review the cumulative diff across all 6 worktrees vs main. Review for: (a) regression risk, (b) spec drift inadvertently introduced, (c) ChatScreen.kt/MessageBubble.kt collision with ui-logic-fix-pr-a/b, (d) test coverage gaps. Output verdict + per-worktree merge recommendation.",
+    "scope": [
+      "doc/todo/ui-polish/codex_final_review.md"
+    ],
+    "acceptCriteria": [
+      "doc/todo/ui-polish/codex_final_review.md exists",
+      "Per-worktree merge verdict (approve / request-changes / block)",
+      "Any cross-worktree conflicts flagged with file:line"
+    ],
+    "created": "2026-04-20T17:30:00Z",
+    "updated": "2026-04-20T17:30:00Z"
   }
 }
