@@ -212,5 +212,44 @@
     "note": "Independent followup. Each failure is small. ChatBubbleAlignmentTest might be a real regression — investigate first.",
     "created": "2026-04-20T11:24:34Z",
     "updated": "2026-04-20T11:46:26Z"
+  },
+  "ui-polish-capture": {
+    "parent": null,
+    "depends": [],
+    "state": "running",
+    "title": "Polish: comprehensive UI capture",
+    "description": "Systematically screenshot every relevant page/state of the app on device. Output goes to doc/todo/ui-polish/captures/. Stage 1 of 2 — review agent will compare against design specs after.",
+    "scope": [
+      "doc/todo/ui-polish/captures/**"
+    ],
+    "acceptCriteria": [
+      "doc/todo/ui-polish/captures/ contains organized screenshots covering: chat (empty, live task, completed, error, supplement, takeover-approval), capsule (all 4+ states), settings home + each sub-page, onboarding (each step), navigation drawer, sessions list",
+      "Each capture has filename indicating page+state (e.g. capsule_takeover.png, settings_llm_auth.png)",
+      "doc/todo/ui-polish/captures/INDEX.md lists every capture with one-line context"
+    ],
+    "agent": "w-ui-polish-capture",
+    "created": "2026-04-20T14:31:17Z",
+    "updated": "2026-04-20T14:31:17Z"
+  },
+  "ui-polish-review": {
+    "parent": null,
+    "depends": [
+      "ui-polish-capture"
+    ],
+    "state": "blocked",
+    "title": "Polish: design vs. impl review report",
+    "description": "Compare captures against D1 visual spec, Track A UX spec, motion spec, and contrast matrix. Severity-ranked report with exact pixel/spacing/color/typography deltas. Stage 2 of 2.",
+    "scope": [
+      "doc/todo/ui-polish/**"
+    ],
+    "acceptCriteria": [
+      "doc/todo/ui-polish/polish_report.md exists",
+      "Every capture cross-referenced against design spec with PASS/POLISH/ISSUE verdict",
+      "Report severity-buckets: Issue (visible drift) / Polish (subtle) / Pass",
+      "Each finding cites design spec line number + code file/line where applicable",
+      "Concrete fix suggestions for each non-PASS finding"
+    ],
+    "created": "2026-04-20T14:31:17Z",
+    "updated": "2026-04-20T14:31:17Z"
   }
 }
