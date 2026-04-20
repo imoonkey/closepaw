@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -21,22 +20,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.theme.ClosePawMotion
+import ai.closepaw.ui.theme.closePaw
 
 /**
- * ThinkingIndicator - Three animated dots showing agent is processing.
- * 
- * Appears before the first delta is received.
+ * ThinkingIndicator — three pulsing dots shown before any content arrives.
+ * Uses the shared [ClosePawMotion.ThinkingPulse] cadence (480ms).
  */
 @Composable
 fun ThinkingIndicator(modifier: Modifier = Modifier) {
+    val spacing = MaterialTheme.closePaw.spacing
     Surface(
         modifier = modifier.testTag("qa-thinking-indicator"),
-        shape = RoundedCornerShape(16.dp),
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.padding(horizontal = spacing.lg, vertical = spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(spacing.xs + 2.dp)
         ) {
             repeat(3) { index ->
                 AnimatedDot(index = index)
@@ -47,25 +48,24 @@ fun ThinkingIndicator(modifier: Modifier = Modifier) {
 
 @Composable
 private fun AnimatedDot(index: Int) {
-    val delay = index * 200
     val infiniteTransition = rememberInfiniteTransition(label = "dot$index")
     val alpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(600, delayMillis = delay),
+            animation = tween(
+                durationMillis = ClosePawMotion.ThinkingPulse,
+                delayMillis = index * (ClosePawMotion.ThinkingPulse / 3)
+            ),
             repeatMode = RepeatMode.Reverse
         ),
         label = "dotAlpha$index"
     )
-    
+
     Box(
         modifier = Modifier
             .size(8.dp)
             .alpha(alpha)
-            .background(
-                MaterialTheme.colorScheme.primary,
-                CircleShape
-            )
+            .background(MaterialTheme.colorScheme.primary, CircleShape)
     )
 }

@@ -1,13 +1,14 @@
 package ai.closepaw.qa
 
+import ai.closepaw.ui.chat.components.CURSOR_TEST_TAG
 import ai.closepaw.ui.chat.components.MessageBubble
 import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -18,9 +19,7 @@ class ChatStreamingCursorTest {
 
     @get:Rule val compose = createComposeRule()
 
-    private val cursor = "█"
-
-    @Test fun streaming_message_shows_cursor_on_last_text_block() {
+    @Test fun streaming_message_shows_inline_cursor_on_last_text_block() {
         val msg = ChatMessage.Agent(
             id = "a1",
             timestamp = 0L,
@@ -29,7 +28,7 @@ class ChatStreamingCursorTest {
         )
         compose.setContent { MessageBubble(msg) }
 
-        compose.onNodeWithText(cursor).assertExists()
+        compose.onNodeWithTag(CURSOR_TEST_TAG).assertExists()
     }
 
     @Test fun complete_message_has_no_cursor() {
@@ -41,6 +40,6 @@ class ChatStreamingCursorTest {
         )
         compose.setContent { MessageBubble(msg) }
 
-        compose.onAllNodesWithText(cursor).assertCountEquals(0)
+        compose.onAllNodesWithTag(CURSOR_TEST_TAG).assertCountEquals(0)
     }
 }

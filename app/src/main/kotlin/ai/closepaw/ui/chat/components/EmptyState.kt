@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material3.Icon
@@ -23,69 +22,67 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.theme.closePaw
 
 /**
- * EmptyState - First launch experience with suggestions.
- * 
- * Clean design: Clear icon, visible suggestions, good contrast.
+ * EmptyState — first launch experience with suggestions.
+ * Identity-tier subtitle uses the Fraunces serif italic from `ClosePawTokens`.
  */
 @Composable
 fun EmptyState(
     onSuggestionClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val spacing = MaterialTheme.closePaw.spacing
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(32.dp),
+            .padding(spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Icon - visible, friendly
         Icon(
             imageVector = Icons.Rounded.SmartToy,
             contentDescription = null,
             modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant  // No alpha! Visible.
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        // Title - clear, readable
+
+        Spacer(modifier = Modifier.height(spacing.lg + spacing.xs))
+
         Text(
             text = "ClosePaw",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
         )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        // Subtitle - visible secondary text
+
+        Spacer(modifier = Modifier.height(spacing.sm))
+
+        // Identity-tier serif italic per Track A / aligned visual spec §6.
         Text(
-            text = "Your AI assistant for everything on Android",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,  // No alpha!
+            text = "What can I help you with?",
+            style = MaterialTheme.closePaw.serifItalic,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center
         )
-        
-        Spacer(modifier = Modifier.height(40.dp))
-        
-        // Suggestions - clearly tappable
+
+        Spacer(modifier = Modifier.height(spacing.xl + spacing.sm))
+
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(spacing.md)
         ) {
             SuggestionChip(
                 text = "Check my unread emails",
                 onClick = { onSuggestionClick("Check my unread emails") }
             )
-            
+
             SuggestionChip(
                 text = "Turn on Do Not Disturb",
                 onClick = { onSuggestionClick("Turn on Do Not Disturb") }
             )
-            
+
             SuggestionChip(
                 text = "Search for nearby restaurants",
                 onClick = { onSuggestionClick("Search for nearby restaurants") }
@@ -94,33 +91,27 @@ fun EmptyState(
     }
 }
 
-/**
- * SuggestionChip - Tappable suggestion.
- * 
- * Clear, visible design - looks clickable.
- */
 @Composable
 private fun SuggestionChip(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val spacing = MaterialTheme.closePaw.spacing
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,  // Full opacity - visible!
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-        )
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Text(
             text = "\"$text\"",
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            modifier = Modifier.padding(horizontal = spacing.lg, vertical = spacing.md + spacing.xs),
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface  // Full contrast text
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
+
