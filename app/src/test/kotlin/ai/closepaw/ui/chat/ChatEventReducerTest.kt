@@ -17,6 +17,7 @@ import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ChatUiState
 import ai.closepaw.ui.chat.model.ContentBlock
+import ai.closepaw.ui.chat.model.RowState
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Test
 
@@ -207,5 +208,46 @@ class ChatEventReducerTest {
         val firstAgent = f.messages.first { it is ChatMessage.Agent } as ChatMessage.Agent
         assertThat(firstAgent.state).isEqualTo(AgentMessageState.Complete)
         assertThat(firstAgent.completedTimestamp).isEqualTo(500L)
+    }
+
+    @Test
+    fun `task completion with ERROR outcome routes to RowState Error`() {
+        val f = Fixture()
+        f.reducer.handle(TaskStarted(sessionId, 100L, taskId = "task-1", input = "go"))
+
+        f.reducer.handle(
+            TaskCompleted(
+                sessionId = sessionId,
+                timestamp = 200L,
+                taskId = "task-1",
+                result = "something broke",
+                outcome = TaskOutcome.ERROR
+            )
+        )
+
+        val agent = f.messages.last() as ChatMessage.Agent
+        assertThat(agent.state).isEqualTo(AgentMessageState.Complete)
+        assertThat(agent.rowState).isEqualTo(RowState.Error)
+        val lastText = agent.contentBlocks.filterIsInstance<ContentBlock.Text>().last()
+        assertThat(lastText.text).startsWith("⚠️")
+    }
+
+    @Test
+    fun `task completion with GOAL_ACHIEVED outcome routes to RowState Complete`() {
+        val f = Fixture()
+        f.reducer.handle(TaskStarted(sessionId, 100L, taskId = "task-1", input = "go"))
+
+        f.reducer.handle(
+            TaskCompleted(
+                sessionId = sessionId,
+                timestamp = 200L,
+                taskId = "task-1",
+                result = "done",
+                outcome = TaskOutcome.GOAL_ACHIEVED
+            )
+        )
+
+        val agent = f.messages.last() as ChatMessage.Agent
+        assertThat(agent.rowState).isEqualTo(RowState.Complete)
     }
 }

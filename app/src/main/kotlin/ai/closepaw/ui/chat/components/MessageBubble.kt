@@ -149,7 +149,10 @@ private fun AgentRow(
 
         if (expanded) {
             ExpandedTrace(message)
-            if (message.rowState == RowState.Complete || message.rowState == RowState.Error) {
+            // §4.5: Complete rows get the success footer. Error rows already
+            // surface the ⚠️ text block inline (rendered by ExpandedTrace), so
+            // a duplicate footer would just restate it.
+            if (message.rowState == RowState.Complete) {
                 OutcomeFooter(message)
             }
         } else {
@@ -223,25 +226,31 @@ private fun ExpandedTrace(message: ChatMessage.Agent) {
             }
         }
 
-        val finalText = message.contentBlocks
+        // Render each Text block as its own composable so independent emissions
+        // (streaming prose + completion summary + error text) keep visual
+        // separation. The enclosing Column's spacedBy(sm) handles spacing.
+        val finalTexts = message.contentBlocks
             .filterIsInstance<ContentBlock.Text>()
-            .joinToString(separator = "") { it.text }
-        if (finalText.isNotEmpty()) {
+            .filter { it.text.isNotEmpty() }
+        if (finalTexts.isNotEmpty()) {
             FinalSeparator()
             val isStreaming = message.state == AgentMessageState.Streaming
-            if (isStreaming) {
-                StreamingText(
-                    text = finalText,
-                    isStreaming = true,
-                    textColor = MaterialTheme.colorScheme.onSurface
-                )
-            } else {
-                SelectionContainer {
-                    Text(
-                        text = finalText,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
+            finalTexts.forEachIndexed { index, block ->
+                val isLastStreaming = isStreaming && index == finalTexts.lastIndex
+                if (isLastStreaming) {
+                    StreamingText(
+                        text = block.text,
+                        isStreaming = true,
+                        textColor = MaterialTheme.colorScheme.onSurface
                     )
+                } else {
+                    SelectionContainer {
+                        Text(
+                            text = block.text,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
             }
         }
@@ -388,18 +397,10 @@ internal fun collapsedSummary(message: ChatMessage.Agent): String {
 
 /**
  * Outcome-footer text (spec §4.5): single-line `✓ N actions · elapsed` on
- * success, `⚠ <error>` on error.
+ * Complete rows. Error rows surface `⚠️ <message>` inline as a Text block, so
+ * no footer is rendered for them — gating happens at the call site.
  */
 internal fun outcomeFooter(message: ChatMessage.Agent): String {
-    if (message.rowState == RowState.Error) {
-        val errorBlock = message.contentBlocks
-            .filterIsInstance<ContentBlock.Text>()
-            .lastOrNull { it.text.startsWith("⚠") }
-            ?.text
-            ?.removePrefix("⚠️")
-            ?.trim()
-        return "⚠ ${errorBlock ?: "Error"}"
-    }
     val actionCount = countActions(message)
     val elapsed = formatElapsed(message)
     val parts = buildList {
@@ -423,10 +424,10 @@ private fun formatElapsed(message: ChatMessage.Agent): String? {
 
 /**
  * Collapsed-row headline ladder (spec §5.2): user prompt → first thought →
- * first action → "(no activity)". User prompt is truncated to ~6 words with
- * an ellipsis for compactness.
+ * first action → first text → "(no activity)". User prompt is truncated to
+ * ~6 words with an ellipsis for compactness.
  */
-private fun collapsedHeadline(message: ChatMessage.Agent): String {
+internal fun collapsedHeadline(message: ChatMessage.Agent): String {
     val prompt = message.userPrompt
     if (!prompt.isNullOrBlank()) return truncateWords(prompt, 6)
 
@@ -439,6 +440,11 @@ private fun collapsedHeadline(message: ChatMessage.Agent): String {
         .filterIsInstance<ContentBlock.Action>()
         .firstOrNull()?.data?.description
     if (!firstAction.isNullOrBlank()) return firstAction
+
+    val firstText = message.contentBlocks
+        .filterIsInstance<ContentBlock.Text>()
+        .firstOrNull()?.text
+    if (!firstText.isNullOrBlank()) return firstText
 
     return "(no activity)"
 }
