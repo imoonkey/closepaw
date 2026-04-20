@@ -284,5 +284,28 @@
     "agent": "w-ui-logic-review-codex",
     "created": "2026-04-20T16:17:18Z",
     "updated": "2026-04-20T16:39:40Z"
+  },
+  "ui-logic-fix-orchestrate": {
+    "parent": null,
+    "depends": [],
+    "state": "running",
+    "title": "Orchestrate UI logic fixes from parallel reviews",
+    "description": "Drive the fix track for findings from logic_review_claude.md + logic_review_codex.md. May spawn sub-workers (this is an orchestration task — sub-worker dispatch is in scope here, unlike the review/capture tasks). Stops after all critical/important findings landed and verified.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/**",
+      "app/src/test/kotlin/ai/closepaw/**"
+    ],
+    "acceptCriteria": [
+      "All 3 high-confidence findings (RowState.Error persistence, userPrompt persistence, headline text fallback) fixed",
+      "Critical C3 (Final paragraph fusion) fixed",
+      "Important I3, I4 fixed",
+      "Codex #2 (legacy timestamp clobber) fixed",
+      "I7 dropped or refactored after C3",
+      "./gradlew :app:testDebugUnitTest passes",
+      "Either all instrumented tests pass OR new ones added covering the round-trip behaviors fixed"
+    ],
+    "agent": "w-ui-logic-fix-orchestrate",
+    "created": "2026-04-20T16:46:35Z",
+    "updated": "2026-04-20T16:46:35Z"
   }
 }
