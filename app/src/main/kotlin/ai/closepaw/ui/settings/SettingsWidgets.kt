@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
 
 /**
@@ -50,7 +51,7 @@ internal fun SettingsHeader(
     ) {
         Text(
             text = "Settings",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleLarge.copy(fontFamily = Fraunces),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -177,10 +178,11 @@ internal fun SettingsSection(
     content: @Composable () -> Unit
 ) {
     Column {
+        // D1 §6.3: serif section heads in settings.
         Text(
             text = title,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.titleMedium.copy(fontFamily = Fraunces),
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = MaterialTheme.closePaw.spacing.md)
         )
         content()
@@ -305,7 +307,7 @@ internal fun SettingsSubPageHeader(
         }
         Text(
             text = title,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleLarge.copy(fontFamily = Fraunces),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,

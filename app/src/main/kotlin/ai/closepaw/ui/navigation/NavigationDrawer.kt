@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.history.model.SessionInfo
 import ai.closepaw.ui.session.TimeUtils
 import ai.closepaw.ui.theme.AppWindowInsets
+import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
 
 /**
@@ -171,7 +172,7 @@ private fun DrawerHeader(
     ) {
         Text(
             text = "Sessions",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleLarge.copy(fontFamily = Fraunces),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
         )

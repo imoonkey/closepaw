@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
 
 /**
@@ -81,10 +82,10 @@ fun OnboardingShell(
 
             Spacer(modifier = Modifier.height(spacing.xl))
 
-            // Step title
+            // Step title — D1 §4.2 identity surface (Fraunces).
             Text(
                 text = title,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.displaySmall.copy(fontFamily = Fraunces),
                 color = MaterialTheme.colorScheme.onBackground
             )
 

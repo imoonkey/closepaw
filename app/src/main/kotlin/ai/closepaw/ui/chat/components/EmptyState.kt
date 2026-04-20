@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ai.closepaw.R
+import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
 
 /**
@@ -41,18 +42,19 @@ fun EmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // D1 §6.2: large paw watermark, Ink at full opacity.
         Icon(
             painter = painterResource(R.drawable.ic_paw),
             contentDescription = null,
-            modifier = Modifier.size(112.dp),
-            tint = MaterialTheme.closePaw.inkFaint
+            modifier = Modifier.size(160.dp),
+            tint = MaterialTheme.colorScheme.onSurface
         )
 
         Spacer(modifier = Modifier.height(spacing.lg + spacing.xs))
 
         Text(
             text = "ClosePaw",
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.headlineMedium.copy(fontFamily = Fraunces),
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
         )
