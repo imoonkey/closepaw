@@ -5,10 +5,10 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -50,21 +50,24 @@ fun OnboardingShell(
         color = MaterialTheme.colorScheme.background
     ) {
         val spacing = MaterialTheme.closePaw.spacing
-        // Wrap in a vertical scroll so short landscape heights don't clip the
-        // page CTA (finding #4). Inner Column uses heightIn(min = screenHeight)
-        // so step content's Spacer(weight) keeps pushing the CTA to the bottom
-        // when the screen is tall enough.
+        // Two layout modes via a height heuristic so step bodies' Spacer(weight)
+        // pattern keeps pinning CTAs on tall screens, while short landscape
+        // heights fall back to a scrollable column (finding #4).
+        // Threshold: typical landscape phones are <480dp tall; portrait phones
+        // and tablets exceed it comfortably.
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
-                .verticalScroll(rememberScrollState())
         ) {
-            val minHeight = maxHeight
+            val needsScroll = maxHeight < 480.dp
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = minHeight)
+                    .then(
+                        if (needsScroll) Modifier.verticalScroll(rememberScrollState())
+                        else Modifier.fillMaxHeight()
+                    )
                     .padding(horizontal = spacing.lg)
             ) {
             Spacer(modifier = Modifier.height(spacing.md))
