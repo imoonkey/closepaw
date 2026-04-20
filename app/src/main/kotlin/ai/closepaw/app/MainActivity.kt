@@ -10,9 +10,14 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -204,6 +209,17 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             } else {
+                var repairModel by remember { mutableStateOf(deriveRepairModel()) }
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            repairModel = deriveRepairModel()
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
                 MainActivityContent(
                     viewModel = viewModel,
                     settingsState = settingsState,
@@ -238,7 +254,7 @@ class MainActivity : ComponentActivity() {
                     isOverlayEnabled = Settings.canDrawOverlays(this@MainActivity),
                     onAccessibilityClick = { openAccessibilitySettings(this@MainActivity) },
                     onOverlayClick = { openOverlaySettings(this@MainActivity) },
-                    repairModel = deriveRepairModel(),
+                    repairModel = repairModel,
                     onFixBattery = {
                         handleOnboardingEffect(OnboardingEffect.OpenBatteryOptimization)
                     },
