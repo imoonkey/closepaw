@@ -21,10 +21,12 @@
 ```
 ui/
 ├── theme/
-│   ├── Color.kt                 # Light/Dark color schemes
-│   ├── Shape.kt                 # Bubble shapes, card shapes
-│   ├── Theme.kt                 # ChatTheme composable
-│   ├── Type.kt                  # Typography scale (AgentTypography)
+│   ├── Color.kt                 # D1 palette (Paper / Ink / Claw / Moss / Amber / Rust)
+│   ├── Shape.kt                 # ClosePawShapes — three Material radii (8 / 10 / 16dp)
+│   ├── Theme.kt                 # ClosePawTheme composable + Material role mapping
+│   ├── Tokens.kt                # ClosePawTokens (extras), ClosePawSpacing, Modifier.foldedPaper
+│   ├── Motion.kt                # ClosePawMotion (durations, easings, reducedMotion())
+│   ├── Type.kt                  # ClosePawTypography — Geist on every Material slot
 │   └── WindowInsets.kt          # AppWindowInsets singleton
 │
 ├── chat/

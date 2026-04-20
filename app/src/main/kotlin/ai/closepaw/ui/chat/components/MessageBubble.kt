@@ -32,7 +32,6 @@ import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
 import ai.closepaw.ui.chat.model.RowState
-import ai.closepaw.ui.theme.BubbleShapeUser
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -74,14 +73,14 @@ private fun UserBubble(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Surface(
-                shape = BubbleShapeUser,
-                color = ai.closepaw.ui.theme.UserBubble
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 SelectionContainer {
                     Text(
                         text = message.text,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = ai.closepaw.ui.theme.UserBubbleText,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
                     )
                 }

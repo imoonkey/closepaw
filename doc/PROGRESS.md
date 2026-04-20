@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-04-20: ui/theme — D2-1 theme foundation (D1 baseline wired)
+
+**What changed:**
+- Renamed `ChatTheme` → `ClosePawTheme`. Wraps `MaterialTheme` and provides one thin extension surface — `MaterialTheme.closePaw: ClosePawTokens` — for the D1 residue Material does not slot cleanly.
+- Rewrote `ui/theme/Color.kt` around the D1 palette (Paper / Ink / Claw / Moss / Amber / Rust + light + dark). Removed every legacy `Chat*` / `UserBubble*` / `Status*` color. Mapped D1 onto Material roles per the eng spec table.
+- Rewrote `ui/theme/Type.kt`: every Material slot is Geist; Fraunces and JetBrains Mono are reached only through `ClosePawTokens` extras (`bodyItalic`, `serifItalic`, `monoBody`, `monoSmall`). Brand families currently fall back to system `SansSerif` / `Serif` / `Monospace`; binaries land in `app/src/main/res/font/` per `app/src/main/assets/FONT_ATTRIBUTION.md` with a one-line swap.
+- Rewrote `ui/theme/Shape.kt`: three Material radii (8 / 10 / 16dp). Removed `BubbleShapeUser/Agent`, `CapsuleShape`, `CardShape`, `InputShape`, `PillShape`, `SheetShape`, `AgentShapes`, `AgentTypography`.
+- Added `ui/theme/Tokens.kt` (`ClosePawTokens`, `ClosePawSpacing`, `LocalClosePawTokens`, `MaterialTheme.closePaw`, `Modifier.foldedPaper`).
+- Added `ui/theme/Motion.kt` (`ClosePawMotion`: four durations, two easings, named primitives, `reducedMotion()` helper).
+- Mechanical sweep across call sites (`MainActivity*`, `OverlayComposeHost`, `MessageBubble`, `ActionCard`, `SettingsWidgets`, `OpenAiAuthCard`, `IslandOverlayHost`, `ActionVisualizerCompose`) — every legacy color/shape symbol replaced with a Material slot or `closePaw` token. Zero `Color(0x..)` literals remain in `app/src/main/kotlin/ai/closepaw/ui/` outside `theme/Color.kt` (the palette source).
+
+**Why:**
+- Track D2 is "implement D1 in Compose with the smallest architecture that can carry it." A foundation, not a framework: Material first; one extra token surface; one motion surface; nothing pre-built for hypothetical second callers. D2-1 is the load-bearing first step every other `d2-*` task depends on.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/theme/{Theme,Color,Type,Shape,Tokens,Motion}.kt`, `app/src/main/kotlin/ai/closepaw/{app,ui/chat/components,ui/settings,ui/overlay/compose}/*`, `app/src/main/assets/FONT_ATTRIBUTION.md`, `doc/main/ui/style.md`, `doc/main/ui/tech_design.md`.
+**Verification:** `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest :app:assembleDebug` all green. Acceptance greps confirmed: `Tokens.kt` + `Motion.kt` exist, `ClosePawTheme` used at app root + overlay host, no legacy color/shape symbol survives, no `Color(0x..)` outside the palette source.
+**Commit:** task/d2-impl branch.
+**Next:** `d2-2-semantic-visual-model-cleanup` (drop raw palette values from non-Compose render models).
+**Blockers:** None. Font binaries can be dropped in any time without changing call sites.
+
 ## 2026-04-20: ui — Track C state-machine docs + tests as refactor safety net
 
 **What changed:**

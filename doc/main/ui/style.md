@@ -1,11 +1,14 @@
 # UI Style Guide
 
-> Design system: colors, typography, shapes, and visual specifications.
-> Last updated: 2026-02-20 (commit: 2493be6)
+> Design system: D1 visual baseline wired through Material 3 + one thin token surface.
+> Last updated: 2026-04-20 (D2-1 theme foundation)
 
 ## Design System
 
-ClosePaw uses Material 3 with a chat-focused aesthetic. Dark mode support via system theme detection.
+ClosePaw uses Material 3 with the **D1 visual baseline** (warm paper surfaces, deep
+warm ink, scarce Claw accent, paw glyph identity). The aligned eng spec lives in
+[`doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md`](../../todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md);
+the visual baseline lives in [`doc/todo/frontend-ui-review/aligned/design_aligned.md`](../../todo/frontend-ui-review/aligned/design_aligned.md).
 
 ### Theme Files
 
@@ -13,111 +16,70 @@ ClosePaw uses Material 3 with a chat-focused aesthetic. Dark mode support via sy
 
 | File | Purpose |
 |------|---------|
-| `Color.kt` | Light/Dark color definitions |
-| `Shape.kt` | Bubble shapes, card shapes, special shapes |
-| `Theme.kt` | `ChatTheme` composable + system bar config |
-| `Type.kt` | `AgentTypography` scale |
-| `WindowInsets.kt` | `AppWindowInsets` singleton for consistent inset handling |
+| `Color.kt` | D1 palette (Paper / Ink / Claw / Moss / Amber / Rust + light + dark) |
+| `Shape.kt` | `ClosePawShapes` — three Material radii (8 / 10 / 16dp) |
+| `Theme.kt` | `ClosePawTheme` composable + D1 → Material role mapping |
+| `Tokens.kt` | `ClosePawTokens`, `ClosePawSpacing`, `Modifier.foldedPaper`, `MaterialTheme.closePaw` accessor |
+| `Motion.kt` | `ClosePawMotion` (durations, easings, named primitives, `reducedMotion()`) |
+| `Type.kt` | `ClosePawTypography` — Geist on every Material slot; identity / mono extras carried in `ClosePawTokens` |
+| `WindowInsets.kt` | `AppWindowInsets` singleton |
 
-### ChatTheme
+### ClosePawTheme
 
 > See: `ui/theme/Theme.kt`
 
 ```kotlin
 @Composable
-fun ChatTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit)
+fun ClosePawTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit)
 ```
 
-- Selects `ChatLightColorScheme` or `ChatDarkColorScheme` based on system theme
-- Configures status bar icon appearance (`isAppearanceLightStatusBars`)
-- Sets bar colors on API < 35
-- Applies `AgentTypography` and `AgentShapes`
+- Selects light/dark color scheme from D1 palette
+- Provides `LocalClosePawTokens` for the `MaterialTheme.closePaw` accessor
+- Configures status-bar icon appearance and bar colors on API < 35
+- Applies `ClosePawTypography` and `ClosePawShapes`
+
+Call sites use Material slots first (`MaterialTheme.colorScheme.*`, `MaterialTheme.typography.*`,
+`MaterialTheme.shapes.*`); only the D1 residue (extra text roles, identity / mono styles,
+spacing tiers, folded-paper chrome) goes through `MaterialTheme.closePaw`.
 
 ---
 
-## Color Palette
+## D1 → Material Role Mapping
 
-Clean, modern palette inspired by contemporary AI assistants. High clarity, warm neutrals.
+> See: `ui/theme/Theme.kt`
 
-### Light Theme
+| D1 token | Material slot |
+|---|---|
+| `Paper` | `background`, `surface`, `surfaceContainerLowest` |
+| `PaperInset` | `surfaceVariant`, `surfaceContainerLow…High` |
+| `Ink` | `onBackground`, `onSurface` |
+| `InkMuted` | `onSurfaceVariant` |
+| `Claw` | `primary` |
+| `Moss` | `secondary` |
+| `Amber` | `tertiary` |
+| `Rust` | `error` |
+| `Hairline` (12% Ink) | `outline` |
+| `InkGhost` (8% Ink) | `outlineVariant` |
 
-> See: `ui/theme/Color.kt`
+`InkFaint` is a text role and lives in `ClosePawTokens.inkFaint`, not in any Material slot.
 
-| Role | Color | Hex | Usage |
-|------|-------|-----|-------|
-| Primary | Soft black | `#3B3B3B` | Send button, CTA elements |
-| On Primary | White | `#FFFFFF` | Text on primary |
-| Primary Container | Light gray | `#F0F0F0` | Chips, secondary containers |
-| Secondary | Teal | `#10A37F` | Success states, accents |
-| Secondary Container | Light teal | `#E6F4F1` | Success backgrounds |
-| Surface | Pure white | `#FFFFFF` | Main surface |
-| Surface Variant | Light gray | `#F7F7F8` | Agent bubble background |
-| On Surface | Near black | `#0D0D0D` | Primary text |
-| On Surface Variant | Medium gray | `#5D5D5D` | Secondary text, icon tints |
-| Background | Pure white | `#FFFFFF` | Screen background |
-| Error | Red | `#EF4146` | Error states |
-| Error Background | Light red | `#FEEEF` | Error containers |
-| Outline | Light border | `#E5E5E5` | Visible borders |
-| Outline Variant | Subtle border | `#EEEEEE` | Secondary borders |
+### Light Palette ("Paper")
 
-### Dark Theme
+| Role | Hex |
+|---|---|
+| `Paper` | `#F5F1EA` |
+| `PaperInset` | `#EDE7DC` |
+| `Ink` | `#14110F` |
+| `InkMuted` | `#5C554C` |
+| `InkFaint` | `#8B8278` |
+| `Claw` | `#C44528` |
+| `Moss` | `#4A5D3A` |
+| `Amber` | `#E8A33D` |
+| `Rust` | `#8B2E1F` |
 
-| Role | Color | Hex |
-|------|-------|-----|
-| Primary | Light gray | `#EEEEEE` |
-| On Primary | Dark text | `#1A1A1A` |
-| Primary Container | Dark container | `#2D2D2D` |
-| Secondary | Bright teal | `#4ADE9E` |
-| Surface | Dark surface | `#1A1A1A` |
-| Surface Variant | Slightly lighter | `#2D2D2D` |
-| On Surface | Light text | `#EEEEEE` |
-| On Surface Variant | Medium text | `#B4B4B4` |
-| Background | Near black | `#0D0D0D` |
-| Error | Light red | `#FF6B6B` |
-| Outline | Dark border | `#3D3D3D` |
+### Dark Palette ("Lantern")
 
-### Semantic Colors
-
-| Role | Light | Dark | Hex (Light) |
-|------|-------|------|------------|
-| Success | Teal | Bright teal | `#10A37F` |
-| Warning | Warm amber | — | `#F5A623` |
-| Error | Clear red | Light red | `#EF4146` |
-| Info | Blue | — | `#2563EB` |
-
-### Chat-Specific Colors
-
-| Element | Light Hex | Description |
-|---------|-----------|-------------|
-| User Bubble | `#EFEFEF` | Light gray background |
-| User Bubble Text | `#1A1A1A` | Dark text on light bubble |
-| Send Button Active | `#000000` | Pure black when input has text |
-| Send Button Icon | `#FFFFFF` | White icon on black button |
-| Icon Primary | `#5D5D5D` | Medium gray icon tint |
-| Icon Secondary | `#8E8E8E` | Lighter icon tint |
-
-### Interactive States
-
-| State | Hex |
-|-------|-----|
-| Hover | `#F7F7F8` |
-| Pressed | `#EEEEEE` |
-| Disabled Background | `#E5E5E5` |
-| Disabled Text | `#B4B4B4` |
-
-### Overlay Colors
-
-Overlay elements use a separate palette defined in `CapsuleColors`:
-
-| Role | Color | Hex |
-|------|-------|-----|
-| Running / Active | Blue | `#2563EB` |
-| Takeover / Paused | Amber | `#F59E0B` |
-| Done / Success | Teal | `#0D9488` |
-| Error | Red | `#EF4444` |
-| Executing (glow) | Purple | `#7C3AED` |
-
-See [Overlay](overlay.md) for full color specifications per component.
+Separate from light, not inverted. `*Dark` counterparts in `ui/theme/Color.kt`.
 
 ---
 
@@ -125,47 +87,23 @@ See [Overlay](overlay.md) for full color specifications per component.
 
 > See: `ui/theme/Type.kt`
 
-Full Material 3 typography scale (`AgentTypography`):
+Three families:
 
-### Display
+- **Geist** (sans) — every Material slot, including `bodyLarge`, all `title*`, `label*`, etc.
+- **Fraunces** (serif) — identity surfaces only. Reached via `ClosePawTokens.serifItalic` or local TextStyle. Never auto-applied through a Material slot.
+- **JetBrains Mono** — machine text. Reached via `ClosePawTokens.monoBody` / `monoSmall`.
 
-| Style | Weight | Size | Line Height | Usage |
-|-------|--------|------|-------------|-------|
-| `displayLarge` | Bold | 48sp | 56sp | — |
-| `displayMedium` | Bold | 36sp | 44sp | — |
-| `displaySmall` | SemiBold | 28sp | 36sp | Empty state title |
+Track A row voice is locked:
 
-### Headline
+| Item | Style |
+|---|---|
+| Thought | `MaterialTheme.closePaw.bodyItalic` (Geist italic) |
+| Action | `MaterialTheme.closePaw.monoBody` |
+| Final | `MaterialTheme.typography.bodyLarge` (Geist regular) |
 
-| Style | Weight | Size | Line Height | Usage |
-|-------|--------|------|-------------|-------|
-| `headlineLarge` | SemiBold | 24sp | 32sp | — |
-| `headlineMedium` | SemiBold | 20sp | 28sp | — |
-| `headlineSmall` | Medium | 18sp | 24sp | — |
-
-### Title
-
-| Style | Weight | Size | Line Height | Usage |
-|-------|--------|------|-------------|-------|
-| `titleLarge` | SemiBold | 18sp | 24sp | Header title |
-| `titleMedium` | Medium | 16sp | 22sp | — |
-| `titleSmall` | Medium | 14sp | 20sp | — |
-
-### Body
-
-| Style | Weight | Size | Line Height | Usage |
-|-------|--------|------|-------------|-------|
-| `bodyLarge` | Normal | 16sp | 24sp | Chat messages |
-| `bodyMedium` | Normal | 14sp | 20sp | Secondary content |
-| `bodySmall` | Normal | 12sp | 16sp | Timestamps |
-
-### Label
-
-| Style | Weight | Size | Line Height | Usage |
-|-------|--------|------|-------------|-------|
-| `labelLarge` | Medium | 14sp | 20sp | Action cards, buttons |
-| `labelMedium` | Medium | 12sp | 16sp | Status island text |
-| `labelSmall` | Medium | 10sp | 14sp | Captions |
+Font binaries belong in `app/src/main/res/font/` with attribution per
+`app/src/main/assets/FONT_ATTRIBUTION.md`. Until binaries land, `Geist` / `Fraunces` /
+`JetBrainsMono` resolve to system `SansSerif` / `Serif` / `Monospace` — the swap is one file.
 
 ---
 
@@ -173,79 +111,58 @@ Full Material 3 typography scale (`AgentTypography`):
 
 > See: `ui/theme/Shape.kt`
 
-### Material 3 Shape Scale (`AgentShapes`)
+`ClosePawShapes` ships exactly three Material radii. No bubble / capsule / card / input shape globals.
 
-| Scale | Radius | Usage |
-|-------|--------|-------|
-| `small` | 8dp | Chips, small cards |
-| `medium` | 12dp | Action cards, list items |
-| `large` | 20dp | Bubbles, sheets, dialogs |
-| `extraLarge` | 24dp | Extra large sheets |
-
-### Chat Bubble Shapes
-
-Asymmetric corners for natural conversation feel:
-
-```kotlin
-// User bubble: rounded except bottom-right (pointing right)
-val BubbleShapeUser = RoundedCornerShape(
-    topStart = 20.dp, topEnd = 20.dp,
-    bottomStart = 20.dp, bottomEnd = 6.dp
-)
-
-// Agent bubble: rounded except top-left (pointing left)
-val BubbleShapeAgent = RoundedCornerShape(
-    topStart = 6.dp, topEnd = 20.dp,
-    bottomStart = 20.dp, bottomEnd = 20.dp
-)
-```
-
-### Special Shapes
-
-| Shape | Definition | Usage |
-|-------|-----------|-------|
-| `CapsuleShape` | `RoundedCornerShape(24.dp)` | Smart Capsule overlay |
-| `PillShape` | `RoundedCornerShape(percent = 50)` | Fully rounded pills |
-| `CardShape` | `RoundedCornerShape(12.dp)` | Action cards, containers |
-| `InputShape` | `RoundedCornerShape(24.dp)` | Text input fields |
-| `SheetShape` | Top corners 20dp, bottom 0dp | Bottom sheets |
+| Slot | Radius | Usage |
+|---|---|---|
+| `small` | 8dp | controls, fields |
+| `medium` | 10dp | card-like surfaces, user bubble |
+| `large` | 16dp | capsule / pill chrome |
 
 ---
 
-## Visual Identity
+## Spacing
 
-| Element | Light Mode | Dark Mode |
-|---------|-----------|-----------|
-| Background | Pure white (`#FFFFFF`) | Near black (`#0D0D0D`) |
-| User Bubbles | Light gray (`#EFEFEF`) + dark text | Dark container + light text |
-| Agent Bubbles | Surface variant (`#F7F7F8`) + dark text | Dark variant + light text |
-| Action Cards | Bordered cards with status colors | Same pattern, dark surfaces |
-| Send Button | Pure black when text entered, gray when empty | Light gray when text, dark when empty |
+> See: `ui/theme/Tokens.kt` — `ClosePawSpacing`
+
+Five steps on the 4dp baseline grid: `xs=4` · `sm=8` · `md=12` · `lg=20` · `xl=32`.
+Reached via `MaterialTheme.closePaw.spacing`. No `xxl`; horizontal page padding is `lg`.
 
 ---
 
-## System Configuration
+## Motion
 
-### Edge-to-Edge
+> See: `ui/theme/Motion.kt` — `ClosePawMotion`
 
-- Status bar: Transparent (icon color adapts to theme)
-- Navigation bar: Transparent (color set on API < 35)
-- Insets managed via `AppWindowInsets` singleton
+Durations: `120 / 240 / 480 / 900 ms`. Easings: `EaseInOutSine`, `EaseOutCubic`. No springs.
 
-### AppWindowInsets
+Named primitives map onto real surface needs:
 
-> See: `ui/theme/WindowInsets.kt`
+| Primitive | Duration | Where |
+|---|---|---|
+| `StatusFlip` | 120 | status / glyph flip |
+| `TraceEnter`, `RowExpand`, `PageSlide`, `SurfaceSwap` | 240 | trace items, row expand, settings page slide, surface/content/color swap |
+| `CursorBlink`, `ThinkingPulse`, `OverlayFadeOut` | 480 | streaming cursor, thinking pulse, overlay fade |
+| `CapsuleBreath`, `GlowPulse` | 900 | running-mode breath, glow pulse |
 
-```kotlin
-object AppWindowInsets {
-    val systemBars: WindowInsets     // Full system bars (status + navigation)
-    val statusBars: WindowInsets     // Status bar only (headers, drawers)
-    val navigationBars: WindowInsets // Navigation bar only (bottom content)
-    val none: WindowInsets           // Edge-to-edge (parent handles insets)
-}
-```
+`ClosePawMotion.reducedMotion()` is read once per call site; each surface picks instant-or-fade
+itself rather than wrapping every transition globally. The contract:
 
-Use Material 3 built-in `windowInsets` parameters on components (`ModalBottomSheet`, `Scaffold`, etc.) rather than manual `windowInsetsPadding()` modifiers.
+- trace enter → instant + 120ms fade
+- collapse / expand → instant
+- capsule breath → static paw at full alpha
+- decorative loops (glow, thinking) → paused
+- streaming cursor → keeps blinking (liveness signal, never suppressed)
+
+---
+
+## Folded Paper
+
+> See: `ui/theme/Tokens.kt` — `Modifier.foldedPaper(shape)`
+
+The only shared chrome primitive. Subtle warm under-shadow + a top hairline.
+Capsule and modal sheet/drawer use it; everything else stays flat. Chained onto
+the existing `Surface`, not wrapped around one.
 
 ---
 
@@ -253,17 +170,31 @@ Use Material 3 built-in `windowInsets` parameters on components (`ModalBottomShe
 
 ```
 ui/theme/
-├── Color.kt          # Light/Dark color definitions (semantic + chat-specific)
-├── Shape.kt          # AgentShapes, bubble shapes, special shapes
-├── Theme.kt          # ChatTheme composable (light/dark scheme selection)
-├── Type.kt           # AgentTypography (full Material 3 scale)
+├── Color.kt          # D1 palette (light + dark)
+├── Shape.kt          # ClosePawShapes (small / medium / large)
+├── Theme.kt          # ClosePawTheme + D1 → Material role mapping
+├── Tokens.kt         # ClosePawTokens, ClosePawSpacing, MaterialTheme.closePaw, foldedPaper
+├── Motion.kt         # ClosePawMotion (durations, easings, primitives, reducedMotion)
+├── Type.kt           # ClosePawTypography (Geist) + identity / mono extras
 └── WindowInsets.kt   # AppWindowInsets singleton
 ```
 
 ---
 
+## Edge-to-Edge
+
+- Status / nav bar: transparent, icon color adapts to theme
+- API < 35: bar colors set explicitly to `colorScheme.background`
+- Insets via `AppWindowInsets`; prefer Material 3 component `windowInsets` parameters over manual `windowInsetsPadding()`
+
+> See: `ui/theme/WindowInsets.kt`
+
+---
+
 ## Related Docs
 
-- [User Interaction](user_interaction.md) - Pages, components, user behaviors
-- [Tech Design](tech_design.md) - Technical implementation details
-- [Overlay](overlay.md) - Overlay visual specifications and capsule colors
+- [User Interaction](user_interaction.md) — pages, components, behaviors
+- [Tech Design](tech_design.md) — implementation details
+- [Overlay](overlay.md) — overlay visual specifications and capsule colors
+- [Track D2 eng spec](../../todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md)
+- [D1 visual baseline](../../todo/frontend-ui-review/aligned/design_aligned.md)

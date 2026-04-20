@@ -48,7 +48,7 @@ import ai.closepaw.ui.chat.ChatViewModel
 import ai.closepaw.ui.onboarding.OnboardingScreen
 import ai.closepaw.ui.overlay.visualizer.ActionVisualizerManager
 import ai.closepaw.ui.settings.ModelLoadingStatus
-import ai.closepaw.ui.theme.ChatTheme
+import ai.closepaw.ui.theme.ClosePawTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -172,7 +172,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             if (onboardingRequired) {
                 val vm = onboardingViewModel!!
-                ChatTheme {
+                ClosePawTheme {
                     OnboardingScreen(
                         currentStep = vm.currentStep,
                         stepState = vm.stepState,

@@ -3,6 +3,7 @@ package ai.closepaw.ui.overlay.compose
 import android.os.SystemClock
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -11,7 +12,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
@@ -48,6 +48,10 @@ internal fun ActionVisualizerCompose(
     modifier: Modifier = Modifier,
 ) {
     var frameTimeMs by remember { mutableLongStateOf(SystemClock.uptimeMillis()) }
+    val tapColor = MaterialTheme.colorScheme.primary
+    val longPressColor = MaterialTheme.colorScheme.tertiary
+    val swipeColor = MaterialTheme.colorScheme.primary
+    val scrollColor = MaterialTheme.colorScheme.secondary
 
     LaunchedEffect(items.isNotEmpty()) {
         if (!items.isNotEmpty()) return@LaunchedEffect
@@ -72,7 +76,7 @@ internal fun ActionVisualizerCompose(
                 is VisualizationItem.Click -> {
                     val radius = lerp(initialClickRadius, maxClickRadius, progress)
                     val alpha = (0.6f * (1f - progress * 0.7f)).coerceIn(0f, 0.6f)
-                    val color = if (item.longPress) Color(0xFF7C3AED) else Color(0xFF2563EB)
+                    val color = if (item.longPress) longPressColor else tapColor
                     drawCircle(
                         color = color.copy(alpha = alpha),
                         radius = radius,
@@ -81,7 +85,7 @@ internal fun ActionVisualizerCompose(
                 }
 
                 is VisualizationItem.Swipe -> {
-                    val color = if (item.scroll) Color(0xFF6366F1) else Color(0xFF3B82F6)
+                    val color = if (item.scroll) scrollColor else swipeColor
                     val currentX = lerp(item.startX, item.endX, progress)
                     val currentY = lerp(item.startY, item.endY, progress)
                     val lineAlpha = (0.5f * (1f - progress * 0.4f)).coerceIn(0f, 0.5f)

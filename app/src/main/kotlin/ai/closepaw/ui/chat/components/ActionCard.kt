@@ -34,11 +34,6 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import ai.closepaw.ui.chat.model.ActionCardData
 import ai.closepaw.ui.chat.model.ActionState
-import ai.closepaw.ui.theme.ChatError
-import ai.closepaw.ui.theme.ChatErrorBg
-import ai.closepaw.ui.theme.ChatPrimary
-import ai.closepaw.ui.theme.ChatSuccess
-import ai.closepaw.ui.theme.ChatSuccessBg
 
 /**
  * ActionCard - Displays a tool execution in the chat.
@@ -54,17 +49,17 @@ fun ActionCard(
     
     val backgroundColor = when (data.state) {
         ActionState.Proposed -> MaterialTheme.colorScheme.surface
-        ActionState.Executing -> ChatPrimary.copy(alpha = 0.05f)
-        ActionState.Success -> ChatSuccessBg
-        ActionState.Failed -> ChatErrorBg
+        ActionState.Executing -> MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
+        ActionState.Success -> MaterialTheme.colorScheme.secondaryContainer
+        ActionState.Failed -> MaterialTheme.colorScheme.errorContainer
         ActionState.Skipped -> MaterialTheme.colorScheme.surface
     }
-    
+
     val borderColor = when (data.state) {
         ActionState.Proposed -> MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-        ActionState.Executing -> ChatPrimary
-        ActionState.Success -> ChatSuccess
-        ActionState.Failed -> ChatError
+        ActionState.Executing -> MaterialTheme.colorScheme.primary
+        ActionState.Success -> MaterialTheme.colorScheme.secondary
+        ActionState.Failed -> MaterialTheme.colorScheme.error
         ActionState.Skipped -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
     }
     
@@ -160,7 +155,7 @@ fun ActionStatusIcon(state: ActionState) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
                 strokeWidth = 2.dp,
-                color = ChatPrimary
+                color = MaterialTheme.colorScheme.primary
             )
         }
         ActionState.Success -> {
@@ -168,7 +163,7 @@ fun ActionStatusIcon(state: ActionState) {
                 imageVector = Icons.Rounded.Check,
                 contentDescription = "Success",
                 modifier = Modifier.size(20.dp),
-                tint = ChatSuccess
+                tint = MaterialTheme.colorScheme.secondary
             )
         }
         ActionState.Failed -> {
@@ -176,7 +171,7 @@ fun ActionStatusIcon(state: ActionState) {
                 imageVector = Icons.Rounded.Close,
                 contentDescription = "Failed",
                 modifier = Modifier.size(20.dp),
-                tint = ChatError
+                tint = MaterialTheme.colorScheme.error
             )
         }
         ActionState.Skipped -> {

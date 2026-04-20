@@ -23,7 +23,7 @@ import ai.closepaw.ui.onboarding.PermissionRepairCard
 import ai.closepaw.ui.settings.OpenAiAuthUiState
 import ai.closepaw.ui.settings.SettingsPage
 import ai.closepaw.ui.settings.SettingsSheet
-import ai.closepaw.ui.theme.ChatTheme
+import ai.closepaw.ui.theme.ClosePawTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -72,7 +72,7 @@ internal fun MainActivityContent(
     initialSettingsDeepLink: SettingsDeepLink? = null,
     effectivePlatformModeFlow: StateFlow<PlatformMode?> = MutableStateFlow(null),
 ) {
-    ChatTheme {
+    ClosePawTheme {
         val sessions by viewModel.sessions.collectAsStateWithLifecycle()
         val effectivePlatformMode by effectivePlatformModeFlow.collectAsStateWithLifecycle()
 

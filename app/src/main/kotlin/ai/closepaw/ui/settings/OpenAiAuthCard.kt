@@ -26,7 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import ai.closepaw.ui.theme.ChatSuccess
 
 sealed interface OpenAiAuthUiState {
     data object SignedOut : OpenAiAuthUiState
@@ -121,12 +120,12 @@ private fun SignedInContent(email: String?, onSignOut: () -> Unit) {
             modifier = Modifier
                 .size(8.dp)
                 .clip(CircleShape)
-                .background(ChatSuccess)
+                .background(MaterialTheme.colorScheme.secondary)
         )
         Text(
             text = "Signed in",
             style = MaterialTheme.typography.bodyMedium,
-            color = ChatSuccess
+            color = MaterialTheme.colorScheme.secondary
         )
     }
     if (!email.isNullOrBlank()) {

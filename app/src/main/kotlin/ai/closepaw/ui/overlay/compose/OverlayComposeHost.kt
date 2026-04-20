@@ -10,7 +10,7 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import androidx.lifecycle.setViewTreeLifecycleOwner
-import ai.closepaw.ui.theme.ChatTheme
+import ai.closepaw.ui.theme.ClosePawTheme
 
 /**
  * Small utility for WindowManager overlays backed by ComposeView.
@@ -38,7 +38,7 @@ class OverlayComposeHost(
                 setViewTreeLifecycleOwner(lifecycleOwner)
                 setViewTreeSavedStateRegistryOwner(savedStateRegistryOwner)
                 setContent {
-                    ChatTheme {
+                    ClosePawTheme {
                         content()
                     }
                 }

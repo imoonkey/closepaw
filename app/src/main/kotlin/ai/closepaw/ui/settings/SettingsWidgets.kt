@@ -33,8 +33,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import ai.closepaw.ui.theme.ChatSuccess
-import ai.closepaw.ui.theme.ChatWarning
 
 /**
  * Settings header with title and close button.
@@ -129,7 +127,7 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
         is ModelLoadingStatus.Ready -> {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = ChatSuccess.copy(alpha = 0.1f),
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
@@ -141,12 +139,12 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(ChatSuccess)
+                            .background(MaterialTheme.colorScheme.secondary)
                     )
                     Text(
                         text = "Model ready",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = ChatSuccess
+                        color = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
@@ -227,16 +225,17 @@ internal fun SettingsRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
+                val statusColor = if (isEnabled) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary
                 Box(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(if (isEnabled) ChatSuccess else ChatWarning)
+                        .background(statusColor)
                 )
                 Text(
                     text = if (isEnabled) "Enabled" else "Required",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (isEnabled) ChatSuccess else ChatWarning
+                    color = statusColor
                 )
             }
         }

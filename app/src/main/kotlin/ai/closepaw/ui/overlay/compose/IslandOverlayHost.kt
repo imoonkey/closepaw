@@ -7,6 +7,7 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.WindowManager
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
@@ -46,7 +47,7 @@ class IslandOverlayHost(
             if (holder == null) {
                 StatusIslandCompose(
                     text = "Working...",
-                    dotColor = Color(0xFF2563EB),
+                    dotColor = MaterialTheme.colorScheme.primary,
                     onClick = onExpandCapsule,
                 )
             } else {
