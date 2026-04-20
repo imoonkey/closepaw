@@ -2,17 +2,27 @@ package ai.closepaw.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import ai.closepaw.R
 
-// Brand families. Until binaries land in res/font/ (see assets/FONT_ATTRIBUTION.md),
-// each alias falls back to the matching system family. Swap to FontFamily(Font(R.font.*))
-// here when assets ship — call sites do not change.
-val Geist: FontFamily = FontFamily.SansSerif
-val Fraunces: FontFamily = FontFamily.Serif
-val JetBrainsMono: FontFamily = FontFamily.Monospace
+val Geist: FontFamily = FontFamily(
+    Font(R.font.geist_regular, FontWeight.Normal),
+    Font(R.font.geist_medium, FontWeight.Medium),
+)
+
+val Fraunces: FontFamily = FontFamily(
+    Font(R.font.fraunces_regular, FontWeight.Normal),
+    Font(R.font.fraunces_italic, FontWeight.Normal, FontStyle.Italic),
+)
+
+val JetBrainsMono: FontFamily = FontFamily(
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_medium, FontWeight.Medium),
+)
 
 // Material Typography — every slot is Geist. Fraunces is reserved for identity surfaces
 // (D1 §4.2) and is reached only through ClosePawTokens or local TextStyles.
