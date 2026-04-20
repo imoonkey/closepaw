@@ -1,10 +1,8 @@
 package ai.closepaw.ui.chat.model
 
-import androidx.compose.ui.graphics.vector.ImageVector
-
 /**
  * ChatMessage - UI data classes for the chat conversation.
- * 
+ *
  * These classes represent the visual representation of messages in the chat interface.
  * They map from AgentEvents emitted by the session to UI-friendly data structures.
  */
@@ -32,7 +30,13 @@ sealed interface ChatMessage {
         override val timestamp: Long,
         val contentBlocks: List<ContentBlock>,
         val state: AgentMessageState,
-        val rowState: RowState = RowState.Live
+        val rowState: RowState = RowState.Live,
+        /**
+         * Wall-clock when the row sealed (TaskCompleted / SessionError / supplement).
+         * Null while Live or Waiting. Used by the collapsed/footer summary to
+         * show elapsed wall time per Track A spec §4.5/§5.2.
+         */
+        val completedTimestamp: Long? = null
     ) : ChatMessage
 }
 
@@ -99,7 +103,6 @@ enum class AgentMessageState {
 data class ActionCardData(
     val id: String,
     val toolName: String,
-    val toolIcon: ImageVector? = null,
     val description: String,
     val state: ActionState,
     val resultSummary: String? = null,

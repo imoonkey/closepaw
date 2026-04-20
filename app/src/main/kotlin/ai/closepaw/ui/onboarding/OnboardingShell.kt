@@ -46,9 +46,9 @@ fun OnboardingShell(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = spacing.lg)
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(spacing.md))
 
             // Back arrow + step counter
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -25,8 +25,8 @@ data class CapsuleRenderSpec(
     /** Status-line text (the agent's thought). */
     data class ThoughtSpec(val text: String, val dimmed: Boolean = false)
 
-    /** A single button in the control bar. */
-    data class ButtonSpec(val icon: String, val text: String, val enabled: Boolean = true)
+    /** A single button in the control bar. The Compose layer chooses the icon. */
+    data class ButtonSpec(val text: String, val enabled: Boolean = true)
 
     /** Control-bar button configuration. null fields = button hidden. */
     data class ButtonsSpec(
@@ -60,7 +60,7 @@ data class CapsuleRenderSpec(
                     thought = ThoughtSpec(mode.thought.ifEmpty { "Thinking..." }),
                     expandedBody = null,
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("✋", "Takeover"),
+                        primary = ButtonSpec("Takeover"),
                         stop = stopButtonSpec(isStopPending),
                     ),
                     input = InputSpec("Got ideas? Add a note...", "Add note"),
@@ -71,7 +71,7 @@ data class CapsuleRenderSpec(
                     thought = ThoughtSpec("Handing over..."),
                     expandedBody = null,
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("✋", "Handing over", enabled = false),
+                        primary = ButtonSpec("Handing over", enabled = false),
                         stop = stopButtonSpec(isStopPending),
                     ),
                     input = InputSpec("Got ideas? Add a note...", "Add note"),
@@ -85,7 +85,7 @@ data class CapsuleRenderSpec(
                     ),
                     expandedBody = null,
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("▶", "Resume"),
+                        primary = ButtonSpec("Resume"),
                         stop = stopButtonSpec(isStopPending),
                     ),
                     input = InputSpec("Got ideas? Add a note...", "Add note"),
@@ -93,7 +93,7 @@ data class CapsuleRenderSpec(
 
                 is CapsuleMode.WaitingForInput -> CapsuleRenderSpec(
                     dot = null,
-                    thought = ThoughtSpec("💬 Awaiting response"),
+                    thought = ThoughtSpec("Awaiting response"),
                     expandedBody = mode.question,
                     buttons = ButtonsSpec(
                         primary = null,
@@ -101,7 +101,7 @@ data class CapsuleRenderSpec(
                     ),
                     input = InputSpec(
                         hint = "Type your response...",
-                        submitLabel = "Send →",
+                        submitLabel = "Send",
                         clearDraft = previousMode != null
                             && previousMode !is CapsuleMode.WaitingForInput,
                     ),
@@ -109,10 +109,10 @@ data class CapsuleRenderSpec(
 
                 is CapsuleMode.WaitingForAction -> CapsuleRenderSpec(
                     dot = null,
-                    thought = ThoughtSpec("✋ Action needed"),
+                    thought = ThoughtSpec("Action needed"),
                     expandedBody = mode.instruction,
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("✅", "Done"),
+                        primary = ButtonSpec("Done"),
                         stop = stopButtonSpec(isStopPending),
                     ),
                     input = null,
@@ -120,20 +120,20 @@ data class CapsuleRenderSpec(
 
                 is CapsuleMode.WaitingForApproval -> CapsuleRenderSpec(
                     dot = DotSpec(GlowState.Paused, pulsing = false),
-                    thought = ThoughtSpec("🛡 Approve action?"),
+                    thought = ThoughtSpec("Approve action?"),
                     expandedBody = "${mode.description}\n${mode.appLabel} · ${mode.reason}",
                     buttons = ButtonsSpec(
-                        primary = ButtonSpec("✓", "Allow"),
-                        secondary = if (mode.packageName != null) ButtonSpec("✓", "Session") else null,
-                        tertiary = if (mode.packageName != null) ButtonSpec("✓", "Always") else null,
-                        stop = ButtonSpec("✕", "Deny"),
+                        primary = ButtonSpec("Allow"),
+                        secondary = if (mode.packageName != null) ButtonSpec("Session") else null,
+                        tertiary = if (mode.packageName != null) ButtonSpec("Always") else null,
+                        stop = ButtonSpec("Deny"),
                     ),
                     input = null,
                 )
 
                 is CapsuleMode.Done -> CapsuleRenderSpec(
                     dot = DotSpec(GlowState.Success, pulsing = false),
-                    thought = ThoughtSpec("✓ ${mode.message}"),
+                    thought = ThoughtSpec(mode.message),
                     expandedBody = null,
                     buttons = ButtonsSpec(primary = null, stop = null),
                     input = null,
@@ -141,11 +141,11 @@ data class CapsuleRenderSpec(
 
                 is CapsuleMode.Error -> CapsuleRenderSpec(
                     dot = DotSpec(GlowState.Error, pulsing = false),
-                    thought = ThoughtSpec("⚠ ${mode.message}"),
+                    thought = ThoughtSpec(mode.message),
                     expandedBody = null,
                     buttons = ButtonsSpec(
                         primary = null,
-                        stop = ButtonSpec("✕", "Close"),
+                        stop = ButtonSpec("Close"),
                     ),
                     input = null,
                 )
@@ -155,13 +155,13 @@ data class CapsuleRenderSpec(
                     thought = ThoughtSpec(""),
                     expandedBody = null,
                     buttons = ButtonsSpec(primary = null, stop = null),
-                    input = InputSpec("What can I help you with?", "Send →"),
+                    input = InputSpec("What can I help you with?", "Send"),
                 )
             }
 
         private fun stopButtonSpec(isStopPending: Boolean): ButtonSpec =
-            if (isStopPending) ButtonSpec("⏹", "Stopping...", enabled = false)
-            else ButtonSpec("⏹", "Stop")
+            if (isStopPending) ButtonSpec("Stopping...", enabled = false)
+            else ButtonSpec("Stop")
     }
 }
 

@@ -197,7 +197,7 @@ private fun NewSessionButton(
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = MaterialTheme.shapes.medium,
         border = BorderStroke(
             1.dp,
             MaterialTheme.colorScheme.outline

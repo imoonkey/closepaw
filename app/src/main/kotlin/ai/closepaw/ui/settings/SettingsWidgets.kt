@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -77,7 +76,7 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -108,7 +107,7 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -129,7 +128,7 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f),
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -154,7 +153,7 @@ internal fun ModelLoadingStatusIndicator(status: ModelLoadingStatus) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.errorContainer,
-                shape = RoundedCornerShape(12.dp)
+                shape = MaterialTheme.shapes.medium
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
@@ -198,10 +197,10 @@ internal fun SettingsRow(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
         color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp)
+        shape = MaterialTheme.shapes.medium
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -226,17 +225,20 @@ internal fun SettingsRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                val statusColor = if (isEnabled) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary
+                val dotColor = if (isEnabled) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.tertiary
+                // Contrast-matrix.md §issues: Amber (tertiary) on PaperInset (surfaceVariant) is 1.77:1 — hard fail.
+                // Keep Amber as the dot fill; the label uses an AA-safe foreground (onSurface).
+                val labelColor = if (isEnabled) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface
                 Box(
                     modifier = Modifier
                         .size(8.dp)
                         .clip(CircleShape)
-                        .background(statusColor)
+                        .background(dotColor)
                 )
                 Text(
                     text = if (isEnabled) "Enabled" else "Required",
                     style = MaterialTheme.typography.labelMedium,
-                    color = statusColor
+                    color = labelColor
                 )
             }
         }
@@ -253,10 +255,10 @@ internal fun SettingsNavigationRow(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
         color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp)
+        shape = MaterialTheme.shapes.medium
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -333,7 +335,7 @@ internal fun PerceptionModeSelector(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp)
+        shape = MaterialTheme.shapes.medium
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -376,7 +378,7 @@ internal fun PerceptionModeSelector(
                         } else {
                             MaterialTheme.colorScheme.surface
                         },
-                        shape = RoundedCornerShape(8.dp),
+                        shape = MaterialTheme.shapes.small,
                         tonalElevation = if (isSelected) 2.dp else 0.dp
                     ) {
                         Text(

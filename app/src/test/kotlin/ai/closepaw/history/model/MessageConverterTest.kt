@@ -130,6 +130,5 @@ class MessageConverterTest {
         val msg = MessageConverter.fromRecord(record) as ChatMessage.Agent
         val action = (msg.contentBlocks.single() as ContentBlock.Action).data
         assertThat(action.toolName).isEqualTo("Open app")
-        assertThat(action.toolIcon).isNotNull()
     }
 }

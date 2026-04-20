@@ -21,7 +21,6 @@ import ai.closepaw.ui.chat.model.ChatUiState
 import ai.closepaw.ui.chat.model.ContentBlock
 import ai.closepaw.ui.chat.model.RowState
 import ai.closepaw.ui.common.formatToolName
-import ai.closepaw.ui.common.getToolIcon
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -101,7 +100,6 @@ internal class ChatEventReducer(
             ActionCardData(
                 id = event.actionId,
                 toolName = formatToolName(event.toolName),
-                toolIcon = getToolIcon(event.toolName),
                 description = event.description,
                 state = ActionState.Proposed,
                 resultSummary = null
@@ -137,7 +135,6 @@ internal class ChatEventReducer(
                         ActionCardData(
                             id = event.actionId,
                             toolName = formatToolName(event.toolName),
-                            toolIcon = getToolIcon(event.toolName),
                             description = event.result ?: event.toolName,
                             state = newState,
                             resultSummary = event.result
@@ -163,7 +160,8 @@ internal class ChatEventReducer(
             messages[index] = current.copy(
                 contentBlocks = current.contentBlocks + ContentBlock.Text(errorText),
                 state = AgentMessageState.Complete,
-                rowState = RowState.Error
+                rowState = RowState.Error,
+                completedTimestamp = event.timestamp
             )
         } else {
             messages.add(
@@ -172,7 +170,8 @@ internal class ChatEventReducer(
                     timestamp = event.timestamp,
                     contentBlocks = listOf(ContentBlock.Text(errorText)),
                     state = AgentMessageState.Complete,
-                    rowState = RowState.Error
+                    rowState = RowState.Error,
+                    completedTimestamp = event.timestamp
                 )
             )
             uiState.update { it.copy(showEmptyState = false) }
@@ -196,7 +195,8 @@ internal class ChatEventReducer(
         updateLastAgentMessage { msg ->
             msg.copy(
                 state = AgentMessageState.Complete,
-                rowState = if (msg.rowState == RowState.Error) RowState.Error else RowState.Complete
+                rowState = if (msg.rowState == RowState.Error) RowState.Error else RowState.Complete,
+                completedTimestamp = msg.completedTimestamp ?: timestamp
             )
         }
 

@@ -44,7 +44,8 @@ internal fun appendCompletionToMessages(
                 current.copy(
                         contentBlocks = current.contentBlocks + ContentBlock.Text(completionText),
                         state = AgentMessageState.Complete,
-                        rowState = if (current.rowState == RowState.Error) RowState.Error else RowState.Complete
+                        rowState = if (current.rowState == RowState.Error) RowState.Error else RowState.Complete,
+                        completedTimestamp = timestamp
                 )
         return
     }
@@ -55,7 +56,8 @@ internal fun appendCompletionToMessages(
                     timestamp = timestamp,
                     contentBlocks = listOf(ContentBlock.Text(completionText)),
                     state = AgentMessageState.Complete,
-                    rowState = RowState.Complete
+                    rowState = RowState.Complete,
+                    completedTimestamp = timestamp
             )
     )
 }
@@ -108,7 +110,8 @@ internal fun appendStartupFailureMessages(
                     contentBlocks =
                             listOf(ContentBlock.Text("⚠️ Failed to start: $errorMessage")),
                     state = AgentMessageState.Complete,
-                    rowState = RowState.Error
+                    rowState = RowState.Error,
+                    completedTimestamp = timestamp
             )
     )
 }

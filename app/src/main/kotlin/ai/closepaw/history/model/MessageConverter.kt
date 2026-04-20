@@ -7,7 +7,6 @@ import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
 import ai.closepaw.ui.chat.model.RowState
 import ai.closepaw.ui.common.formatToolName
-import ai.closepaw.ui.common.getToolIcon
 
 /**
  * Utility functions for converting between ChatMessage (UI) and MessageRecord (persistence).
@@ -66,7 +65,6 @@ object MessageConverter {
                             ActionCardData(
                                 id = block.id,
                                 toolName = formatToolName(block.toolName),
-                                toolIcon = getToolIcon(block.toolName),
                                 description = block.description,
                                 state = parseActionState(block.state),
                                 resultSummary = block.resultSummary
@@ -75,7 +73,8 @@ object MessageConverter {
                     }
                 },
                 state = if (record.isComplete) AgentMessageState.Complete else AgentMessageState.Streaming,
-                rowState = if (record.isComplete) RowState.Complete else RowState.Live
+                rowState = if (record.isComplete) RowState.Complete else RowState.Live,
+                completedTimestamp = if (record.isComplete) record.timestamp else null
             )
         }
     }

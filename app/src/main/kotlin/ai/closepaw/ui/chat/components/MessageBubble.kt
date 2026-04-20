@@ -106,8 +106,9 @@ private fun UserBubble(
  *  - Live/Waiting/Error: locked open. No collapse control.
  *  - Complete: tappable header toggles collapsed ↔ expanded; default collapsed.
  *
- * Per-action expand intentionally absent (spec §4.2 / §9). D2 restyle: tokens
- * + typography only. No structural changes.
+ * The user's manual toggle wins over the default. Default is re-evaluated when
+ * the row transitions Live → Complete (so a row that was watched live then
+ * completes folds itself away, per spec §5).
  */
 @Composable
 private fun AgentRow(
@@ -116,8 +117,10 @@ private fun AgentRow(
 ) {
     val spacing = MaterialTheme.closePaw.spacing
     val collapsible = message.rowState == RowState.Complete
-    var collapsed by remember(message.id) { mutableStateOf(collapsible) }
-    val expanded = !collapsible || !collapsed
+    // Tri-state: null = follow default, true/false = user override.
+    var userCollapsed by remember(message.id) { mutableStateOf<Boolean?>(null) }
+    val collapsed = if (collapsible) (userCollapsed ?: true) else false
+    val expanded = !collapsed
 
     val rowDescription = when (message.rowState) {
         RowState.Live -> "live"
@@ -131,7 +134,7 @@ private fun AgentRow(
         .testTag("qa-agent-bubble")
         .semantics { stateDescription = rowDescription }
         .then(
-            if (collapsible) Modifier.clickable { collapsed = !collapsed } else Modifier
+            if (collapsible) Modifier.clickable { userCollapsed = !collapsed } else Modifier
         )
 
     Column(
@@ -146,16 +149,11 @@ private fun AgentRow(
 
         if (expanded) {
             ExpandedTrace(message)
+            if (message.rowState == RowState.Complete) {
+                OutcomeFooter(message)
+            }
         } else {
             CollapsedHeader(message)
-        }
-
-        if (message.rowState == RowState.Complete && message.state == AgentMessageState.Complete) {
-            Text(
-                text = formatTime(message.timestamp),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.closePaw.inkFaint
-            )
         }
     }
 }
@@ -163,7 +161,7 @@ private fun AgentRow(
 @Composable
 private fun CollapsedHeader(message: ChatMessage.Agent) {
     val spacing = MaterialTheme.closePaw.spacing
-    val headline = collapsedHeadline(message)
+    val summary = collapsedSummary(message)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().padding(vertical = spacing.sm)
@@ -176,7 +174,7 @@ private fun CollapsedHeader(message: ChatMessage.Agent) {
         )
         Spacer(Modifier.width(spacing.sm))
         Text(
-            text = headline,
+            text = summary,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f)
@@ -189,6 +187,26 @@ private fun CollapsedHeader(message: ChatMessage.Agent) {
     }
 }
 
+/**
+ * Outcome footer — Track A spec §4.5: `✓ N actions · elapsed` on Complete rows.
+ */
+@Composable
+private fun OutcomeFooter(message: ChatMessage.Agent) {
+    val text = outcomeFooter(message)
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.closePaw.inkFaint
+    )
+}
+
+/**
+ * Track A model: `Trace* + (optional) Final`.
+ * Trace items are chronological Thought + Action blocks. Final is the closing
+ * assistant prose — the concatenation of every Text block streamed in (older
+ * Text fragments interrupted by a Thought/Action are merged back together so
+ * the user sees one coherent answer, per spec §4.4).
+ */
 @Composable
 private fun ExpandedTrace(message: ChatMessage.Agent) {
     val spacing = MaterialTheme.closePaw.spacing
@@ -197,38 +215,33 @@ private fun ExpandedTrace(message: ChatMessage.Agent) {
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Find index of the first Final (Text) block — used to draw an InkGhost
-        // hairline above it per Track A §4.4.
-        val finalIndex = message.contentBlocks.indexOfFirst {
-            it is ContentBlock.Text && it.text.isNotEmpty()
-        }
-
-        message.contentBlocks.forEachIndexed { index, block ->
-            val isLast = index == message.contentBlocks.lastIndex
+        message.contentBlocks.forEach { block ->
             when (block) {
                 is ContentBlock.Thought -> ThoughtItem(block.text)
                 is ContentBlock.Action -> ActionRow(data = block.data)
-                is ContentBlock.Text -> {
-                    if (block.text.isEmpty()) return@forEachIndexed
-                    if (index == finalIndex) {
-                        FinalSeparator()
-                    }
-                    val showCursor = isLast && message.state == AgentMessageState.Streaming
-                    if (showCursor) {
-                        StreamingText(
-                            text = block.text,
-                            isStreaming = true,
-                            textColor = MaterialTheme.colorScheme.onSurface
-                        )
-                    } else {
-                        SelectionContainer {
-                            Text(
-                                text = block.text,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
+                is ContentBlock.Text -> Unit // Text → Final, rendered below.
+            }
+        }
+
+        val finalText = message.contentBlocks
+            .filterIsInstance<ContentBlock.Text>()
+            .joinToString(separator = "") { it.text }
+        if (finalText.isNotEmpty()) {
+            FinalSeparator()
+            val isStreaming = message.state == AgentMessageState.Streaming
+            if (isStreaming) {
+                StreamingText(
+                    text = finalText,
+                    isStreaming = true,
+                    textColor = MaterialTheme.colorScheme.onSurface
+                )
+            } else {
+                SelectionContainer {
+                    Text(
+                        text = finalText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         }
@@ -356,12 +369,58 @@ private fun formatToolCall(data: ActionCardData): String {
 }
 
 /**
- * Collapsed-row headline ladder (spec §5.2).
+ * Collapsed-row summary (spec §5.2): `headline · N actions · elapsed`.
  *
- * v1 implements steps 2–4 (first thought / first action / fallback). The
- * preferred user-prompt headline (step 1) requires the previous user bubble
- * and is left to a later pass.
+ * Headline ladder (first non-empty wins): first thought → first action → first
+ * text → "(no activity)". Step 1 of the spec ladder (the prior user prompt)
+ * lives outside this row; we fall back to the in-row signals.
  */
+internal fun collapsedSummary(message: ChatMessage.Agent): String {
+    val headline = collapsedHeadline(message)
+    val actionCount = countActions(message)
+    val parts = buildList {
+        add(headline)
+        if (actionCount > 0) add("$actionCount action${if (actionCount == 1) "" else "s"}")
+        formatElapsed(message)?.let { add(it) }
+    }
+    return parts.joinToString(separator = " · ")
+}
+
+/**
+ * Outcome-footer text (spec §4.5): single-line `✓ N actions · elapsed` on
+ * success, `⚠ <error>` on error.
+ */
+internal fun outcomeFooter(message: ChatMessage.Agent): String {
+    if (message.rowState == RowState.Error) {
+        val errorBlock = message.contentBlocks
+            .filterIsInstance<ContentBlock.Text>()
+            .lastOrNull { it.text.startsWith("⚠") }
+            ?.text
+            ?.removePrefix("⚠️")
+            ?.trim()
+        return "⚠ ${errorBlock ?: "Error"}"
+    }
+    val actionCount = countActions(message)
+    val elapsed = formatElapsed(message)
+    val parts = buildList {
+        if (actionCount > 0) add("$actionCount action${if (actionCount == 1) "" else "s"}")
+        elapsed?.let { add(it) }
+    }
+    return if (parts.isEmpty()) "✓" else "✓  ${parts.joinToString(separator = " · ")}"
+}
+
+private fun countActions(message: ChatMessage.Agent): Int =
+    message.contentBlocks.count { it is ContentBlock.Action }
+
+private fun formatElapsed(message: ChatMessage.Agent): String? {
+    val end = message.completedTimestamp ?: return null
+    val deltaMs = (end - message.timestamp).coerceAtLeast(0)
+    return when {
+        deltaMs < 10_000 -> String.format(Locale.US, "%.1fs", deltaMs / 1000.0)
+        else -> "${deltaMs / 1000}s"
+    }
+}
+
 private fun collapsedHeadline(message: ChatMessage.Agent): String {
     val firstThought = message.contentBlocks
         .filterIsInstance<ContentBlock.Thought>()
