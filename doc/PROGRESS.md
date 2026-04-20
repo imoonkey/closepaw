@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-04-19: settings — Display Mode section, effective-platform-mode signal, Shizuku status
+
+**What changed:**
+- New **Display Mode** section in `PermissionsAdvancedSettingsPage` (between Permissions and Debug): 2-option selector (Accessibility / Virtual Display) + reactive Shizuku status row. VD option disabled iff Shizuku status != Ready; Grant button calls `ShizukuClient.requestPermission`, Learn-more opens shizuku.rikka.app.
+- `AgentService.effectivePlatformMode: StateFlow<PlatformMode?>` published from the actually-constructed `AndroidPlatform.mode` (not persisted intent). Collected by `MainActivityContent` and threaded into Settings + Home subtitle (chip ` · A11y` / ` · VD` shown only when non-null).
+- `ShizukuClient.addRequestPermissionResultListener` / `remove…` wrappers (proxied via `ShizukuRuntimeGateway`) so the Compose layer never imports `Shizuku.*`. `rememberShizukuStatus` uses `produceState` + ON_RESUME + permission-result + binder-dead listeners — no polling.
+- `AndroidPlatform.mode` promoted to abstract member; `AccessibilityPlatform`, `VirtualDisplayPlatform`, and test fakes override.
+- New instrumented `DisplayModeSettingsTest` (3 tests).
+
+**Why:**
+- `PlatformMode` was already persisted and wired through `PlatformFactory`, but only changeable via debug intent — end users had no way to switch, and no signal for why VD might be unavailable. Coupling Shizuku status to the VD option turns "why is this disabled?" into one canonical answer.
+- Persisted vs. effective split tells the truth in two places: selector reflects intent for next session; subtitle chip reflects what the live session actually built. Binder-death mid-session does not retro-snap the selector.
+- App-tier global override toggle explicitly rejected: security policy that the user can disable isn't policy.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/settings/{DisplayModeSection,RememberShizukuStatus,ShizukuStatus,PermissionsAdvancedSettingsPage,SettingsHomePage,SettingsSheet}.kt`, `app/src/main/kotlin/ai/closepaw/app/{AgentService,MainActivity,MainActivityContent}.kt`, `app/src/main/kotlin/ai/closepaw/platform/{AndroidPlatform,AccessibilityPlatform}.kt`, `app/src/main/kotlin/ai/closepaw/platform/virtualdisplay/{ShizukuClient,ShizukuRuntimeGateway,VirtualDisplayPlatform}.kt`, `app/src/androidTest/kotlin/ai/closepaw/qa/{DisplayModeSettingsTest,QaSettingsHelpers}.kt`.
+**Verification:** `./gradlew :app:assembleDebug :app:compileDebugAndroidTestKotlin :app:lintDebug` green. `connectedDebugAndroidTest` `DisplayModeSettingsTest` 3/3 PASS. Real-device QA matrix on EP0110MZ0BC101266W (Shizuku Ready): selector toggles A11y↔VD both directions and persists; intent-path `--es platform_mode VIRTUAL_DISPLAY` still applies; Home subtitle chip appears after first session — all PASS.
+**Commit:** 44b6cb83
+**Next:** None.
+**Blockers:** None.
+
 ## 2026-04-18: settings — Cloud Model dropdown placeholder when cross-provider
 
 **What changed:**
