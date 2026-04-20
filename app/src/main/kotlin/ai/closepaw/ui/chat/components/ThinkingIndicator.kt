@@ -1,31 +1,32 @@
 package ai.closepaw.ui.chat.components
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.closePaw
 
 /**
- * ThinkingIndicator — three pulsing dots shown before any content arrives.
- * Uses the shared [ClosePawMotion.ThinkingPulse] cadence (480ms).
+ * ThinkingIndicator — paw-toe sequence (motion spec §4). Five elements
+ * (4 toes + pad) cycle at 900ms tempo-locked to the breath cycle. Each
+ * element holds at 100% alpha for one phase, 30% otherwise. Alpha-only
+ * animation per spec; no scale.
  */
 @Composable
 fun ThinkingIndicator(modifier: Modifier = Modifier) {
@@ -33,39 +34,61 @@ fun ThinkingIndicator(modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.testTag("qa-thinking-indicator"),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = spacing.lg, vertical = spacing.md),
-            horizontalArrangement = Arrangement.spacedBy(spacing.xs + 2.dp)
-        ) {
-            repeat(3) { index ->
-                AnimatedDot(index = index)
-            }
+        Box(modifier = Modifier.padding(horizontal = spacing.md, vertical = spacing.sm)) {
+            PawToeSequence(tint = MaterialTheme.colorScheme.primary)
         }
     }
 }
 
 @Composable
-private fun AnimatedDot(index: Int) {
-    val infiniteTransition = rememberInfiniteTransition(label = "dot$index")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
+private fun PawToeSequence(tint: androidx.compose.ui.graphics.Color) {
+    val transition = rememberInfiniteTransition(label = "paw-thinking")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = ELEMENT_COUNT.toFloat(),
         animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = ClosePawMotion.ThinkingPulse,
-                delayMillis = index * (ClosePawMotion.ThinkingPulse / 3)
-            ),
-            repeatMode = RepeatMode.Reverse
+            animation = tween(ClosePawMotion.Breath, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
         ),
-        label = "dotAlpha$index"
+        label = "phase",
     )
-
-    Box(
-        modifier = Modifier
-            .size(8.dp)
-            .alpha(alpha)
-            .background(MaterialTheme.colorScheme.primary, CircleShape)
-    )
+    Canvas(modifier = Modifier.size(28.dp)) {
+        val active = phase.toInt().coerceIn(0, ELEMENT_COUNT - 1)
+        fun alphaFor(index: Int) = if (index == active) 1.0f else 0.30f
+        val s = size.minDimension / 64f  // ic_paw viewport is 64x64.
+        // Pad — phase 0
+        drawOval(
+            color = tint.copy(alpha = alphaFor(0)),
+            topLeft = Offset(16f * s, 28f * s),
+            size = Size(32f * s, 26f * s),
+        )
+        // Outer-left toe — phase 1
+        drawOval(
+            color = tint.copy(alpha = alphaFor(1)),
+            topLeft = Offset(9f * s, 10f * s),
+            size = Size(10f * s, 14f * s),
+        )
+        // Inner-left toe — phase 2
+        drawOval(
+            color = tint.copy(alpha = alphaFor(2)),
+            topLeft = Offset(20.5f * s, 0f),
+            size = Size(9f * s, 12f * s),
+        )
+        // Inner-right toe — phase 3
+        drawOval(
+            color = tint.copy(alpha = alphaFor(3)),
+            topLeft = Offset(34.5f * s, 0f),
+            size = Size(9f * s, 12f * s),
+        )
+        // Outer-right toe — phase 4
+        drawOval(
+            color = tint.copy(alpha = alphaFor(4)),
+            topLeft = Offset(45f * s, 10f * s),
+            size = Size(10f * s, 14f * s),
+        )
+    }
 }
+
+private const val ELEMENT_COUNT = 5

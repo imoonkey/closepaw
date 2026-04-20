@@ -1,5 +1,6 @@
 package ai.closepaw.ui.onboarding
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,20 +8,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import ai.closepaw.R
 import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
 
@@ -72,13 +75,9 @@ fun OnboardingShell(
 
             Spacer(modifier = Modifier.height(spacing.sm))
 
-            // Progress bar
-            LinearProgressIndicator(
-                progress = { stepIndex.toFloat() / totalSteps },
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.secondary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+            // D1 §6.4: five-paw progress treatment — filled paws for completed
+            // steps, ghosted for upcoming. Reuses ic_paw at small size.
+            FivePawProgress(stepIndex = stepIndex, totalSteps = totalSteps)
 
             Spacer(modifier = Modifier.height(spacing.xl))
 
@@ -93,6 +92,27 @@ fun OnboardingShell(
 
             // Step content
             content()
+        }
+    }
+}
+
+@Composable
+private fun FivePawProgress(stepIndex: Int, totalSteps: Int) {
+    val spacing = MaterialTheme.closePaw.spacing
+    val pawCount = 5
+    // Map progress onto five paws regardless of totalSteps (spec is fixed at 5).
+    val filled = ((stepIndex.toFloat() / totalSteps) * pawCount)
+        .toInt()
+        .coerceIn(0, pawCount)
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        repeat(pawCount) { i ->
+            Icon(
+                painter = painterResource(R.drawable.ic_paw),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = if (i < filled) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.outlineVariant
+            )
         }
     }
 }

@@ -188,7 +188,7 @@ private fun DrawerHeader(
 }
 
 /**
- * New session button - Outlined style (like ChatGPT).
+ * New session button — D1 §6.6: the one Claw-accented new-entry affordance.
  */
 @Composable
 private fun NewSessionButton(
@@ -201,16 +201,17 @@ private fun NewSessionButton(
         shape = MaterialTheme.shapes.medium,
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outline
+            MaterialTheme.colorScheme.primary
         ),
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = MaterialTheme.colorScheme.onSurface
+            contentColor = MaterialTheme.colorScheme.primary
         )
     ) {
         Icon(
             imageVector = Icons.Rounded.Add,
             contentDescription = null,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text("New Conversation")

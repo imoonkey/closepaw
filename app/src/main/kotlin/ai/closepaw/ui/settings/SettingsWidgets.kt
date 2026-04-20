@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
@@ -277,10 +276,11 @@ internal fun SettingsNavigationRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            // D1 §6.3: mono → glyph instead of decorative chevron.
+            Text(
+                text = "→",
+                style = MaterialTheme.closePaw.monoBody,
+                color = MaterialTheme.closePaw.inkFaint
             )
         }
     }
