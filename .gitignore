@@ -111,3 +111,10 @@ debug-output
 .reference/
 doc/todo/progress.json*
 .multmux
+# Runtime locks
+.claude/scheduled_tasks.lock
+doc/todo/.tasks.json.lock
+doc/todo/tasks.json.lock
+
+# Worktrees
+.worktrees/
