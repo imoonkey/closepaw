@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-04-20: ui/{capsule,overlay} — D2-3 capsule + overlay restyle on tokens + motion
+
+**What changed:**
+- `GlowOverlayHost` retired its local `PULSE_DURATION_MS` (800ms) and `FADE_OUT_DURATION_MS` (500ms) constants. Pulse, fade-in, fade-out, and the post-fade hide delay all route through `ClosePawMotion` (`GlowPulse` 900ms / `EaseInOutSine`, `SurfaceSwap` 240ms, `OverlayFadeOut` 480ms). The `SUCCESS_HIDE_DELAY_MS` (2000ms UX dwell) stays — it is product timing, not animation cadence.
+- `SmartCapsuleSurface` now wears `Modifier.foldedPaper(MaterialTheme.shapes.large)` per D1 §4.4 (warm under-shadow + top hairline), drops `shadowElevation = 8.dp`, and consumes `closePaw.spacing` for inner padding. Status-dot color animates on `tween(ClosePawMotion.StatusFlip, EaseInOutSine)` instead of the default Compose spring.
+- `StatusIslandCompose`, `CapsuleControlBar`, `CapsuleInputBar`: all `RoundedCornerShape(...)` literals replaced with `MaterialTheme.shapes.large/medium`; arrangement / dot sizing / horizontal padding flow through `closePaw.spacing` (`xs`/`sm`/`md`). Action button text switched from raw `14.sp` to `MaterialTheme.typography.labelLarge`.
+- `Color(0x...)` literals: zero in `ui/capsule/**` and `ui/overlay/**`. `tween(`/`spring(` references: only via `ClosePawMotion`.
+
+**Why:**
+- Phase D2-3 acceptance (`design_aligned.md` §5): capsule + overlay consume D1 palette / shapes / typography / motion; no local ad-hoc timing constants; no raw color literals. Folded-paper modifier carries the D1 §4.4 chrome onto the capsule per §2.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/capsule/surface/{SmartCapsuleSurface,CapsuleControlBar,CapsuleInputBar}.kt`, `app/src/main/kotlin/ai/closepaw/ui/overlay/compose/{GlowOverlayHost,StatusIslandCompose}.kt`.
+**Verification:** `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest` green. `grep -rn "Color(0x" app/src/main/kotlin/ai/closepaw/ui/capsule app/src/main/kotlin/ai/closepaw/ui/overlay` → 0 results. `grep -rn "tween(\|spring("` → only `ClosePawMotion`-prefixed references.
+**Commit:** `bc9cc4e8` on `task/d2-impl`.
+**Next:** `d2-6-contrast-handoff` is the only remaining D2 task.
+**Blockers:** None.
+
 ## 2026-04-20: ui/chat — D2-4 Track-A restyle + inlineContent streaming cursor
 
 **What changed:**
