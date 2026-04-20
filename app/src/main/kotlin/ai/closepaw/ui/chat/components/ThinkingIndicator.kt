@@ -44,16 +44,23 @@ fun ThinkingIndicator(modifier: Modifier = Modifier) {
 
 @Composable
 private fun PawToeSequence(tint: Color) {
-    val transition = rememberInfiniteTransition(label = "paw-thinking")
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = ELEMENT_COUNT.toFloat(),
-        animationSpec = infiniteRepeatable(
-            animation = tween(ClosePawMotion.Breath, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "phase",
-    )
+    val reduced = ClosePawMotion.reducedMotion()
+    val phase = if (reduced) {
+        // D1 §8: looping decoration paused → static full paw at full alpha.
+        ELEMENT_COUNT.toFloat()
+    } else {
+        val transition = rememberInfiniteTransition(label = "paw-thinking")
+        val animated by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = ELEMENT_COUNT.toFloat(),
+            animationSpec = infiniteRepeatable(
+                animation = tween(ClosePawMotion.Breath, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart,
+            ),
+            label = "phase",
+        )
+        animated
+    }
     Canvas(modifier = Modifier.size(28.dp)) {
         val active = phase.toInt().coerceIn(0, ELEMENT_COUNT - 1)
         // Cumulative fill per spec §4: element lights at its phase and stays

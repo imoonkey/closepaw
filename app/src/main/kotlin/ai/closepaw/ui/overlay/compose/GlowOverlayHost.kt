@@ -63,26 +63,34 @@ class GlowOverlayHost(
             composeHost.show(createLayoutParams()) {
                 val visible by isVisible.collectAsState(initial = false)
                 val currentState by glowState.collectAsState(initial = GlowState.Active)
-                val pulseTransition = rememberInfiniteTransition(label = "glowPulse")
-                val pulseAlpha by pulseTransition.animateFloat(
-                    initialValue = 0.5f,
-                    targetValue = 0.85f,
-                    animationSpec = infiniteRepeatable(
-                        animation = tween(ClosePawMotion.GlowPulse, easing = ClosePawMotion.EaseInOutSine),
-                        repeatMode = RepeatMode.Reverse,
-                    ),
-                    label = "pulseAlpha",
-                )
+                val reduced = ClosePawMotion.reducedMotion()
                 val staticAlpha by rememberUpdatedState(0.7f)
-                val alpha = when (currentState) {
-                    GlowState.Active, GlowState.Executing -> pulseAlpha
-                    else -> staticAlpha
+                val alpha = if (reduced) {
+                    // D1 §8: looping decorative motion paused → hold steady alpha.
+                    staticAlpha
+                } else {
+                    val pulseTransition = rememberInfiniteTransition(label = "glowPulse")
+                    val pulseAlpha by pulseTransition.animateFloat(
+                        initialValue = 0.5f,
+                        targetValue = 0.85f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(ClosePawMotion.GlowPulse, easing = ClosePawMotion.EaseInOutSine),
+                            repeatMode = RepeatMode.Reverse,
+                        ),
+                        label = "pulseAlpha",
+                    )
+                    when (currentState) {
+                        GlowState.Active, GlowState.Executing -> pulseAlpha
+                        else -> staticAlpha
+                    }
                 }
+                val fadeMs = if (reduced) ClosePawMotion.Quick else ClosePawMotion.SurfaceSwap
+                val outMs = if (reduced) ClosePawMotion.Quick else ClosePawMotion.OverlayFadeOut
 
                 AnimatedVisibility(
                     visible = visible,
-                    enter = fadeIn(animationSpec = tween(ClosePawMotion.SurfaceSwap)),
-                    exit = fadeOut(animationSpec = tween(ClosePawMotion.OverlayFadeOut)),
+                    enter = fadeIn(animationSpec = tween(fadeMs)),
+                    exit = fadeOut(animationSpec = tween(outMs)),
                 ) {
                     EdgeGlowCompose(
                         state = currentState,

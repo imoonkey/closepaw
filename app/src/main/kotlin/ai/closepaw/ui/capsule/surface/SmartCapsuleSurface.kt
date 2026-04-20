@@ -2,7 +2,6 @@ package ai.closepaw.ui.capsule.surface
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.HorizontalDivider
@@ -246,11 +244,10 @@ private fun CapsuleStatusLine(
                 animationSpec = tween(ClosePawMotion.StatusFlip, easing = ClosePawMotion.EaseInOutSine),
                 label = "dotColor",
             )
-            Box(
-                modifier = Modifier
-                    .size(9.dp)
-                    .clip(CircleShape)
-                    .background(dotColor),
+            StatusPawGlyph(
+                color = dotColor,
+                size = 14.dp,
+                pulsing = spec.dot.pulsing,
             )
             Spacer(Modifier.width(8.dp))
         }

@@ -1,14 +1,10 @@
 package ai.closepaw.ui.overlay.compose
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,12 +19,14 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.capsule.surface.StatusPawGlyph
 import ai.closepaw.ui.theme.closePaw
 
 @Composable
 fun StatusIslandCompose(
     text: String,
     dotColor: Color,
+    pulsing: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -54,11 +52,10 @@ fun StatusIslandCompose(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(spacing.sm)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(spacing.sm)
-                    .clip(CircleShape)
-                    .background(dotColor)
+            StatusPawGlyph(
+                color = dotColor,
+                size = 14.dp,
+                pulsing = pulsing,
             )
             Text(
                 text = text,

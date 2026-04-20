@@ -2,6 +2,8 @@ package ai.closepaw.ui.settings
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -69,6 +71,7 @@ fun SettingsSheet(
     initialAuthTab: AuthMode? = null,
 ) {
     var settingsPage by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
+    val reducedMotion = ClosePawMotion.reducedMotion()
 
     Column(
         modifier = modifier
@@ -80,16 +83,22 @@ fun SettingsSheet(
         AnimatedContent(
             targetState = settingsPage,
             transitionSpec = {
-                // D1 §5: 240ms page slide on EaseOutCubic. Sourced from ClosePawMotion
-                // so settings shares the same page-transition cadence as the rest of the app.
-                val spec = tween<androidx.compose.ui.unit.IntOffset>(
-                    durationMillis = ClosePawMotion.PageSlide,
-                    easing = ClosePawMotion.EaseOutCubic,
-                )
-                if (targetState == SettingsPage.HOME) {
-                    slideInHorizontally(spec) { -it } togetherWith slideOutHorizontally(spec) { it }
+                if (reducedMotion) {
+                    // D1 §8: page slide collapses to a 120ms fade under reduced motion.
+                    val fade = tween<Float>(durationMillis = ClosePawMotion.Quick)
+                    fadeIn(fade) togetherWith fadeOut(fade)
                 } else {
-                    slideInHorizontally(spec) { it } togetherWith slideOutHorizontally(spec) { -it }
+                    // D1 §5: 240ms page slide on EaseOutCubic. Sourced from ClosePawMotion
+                    // so settings shares the same page-transition cadence as the rest of the app.
+                    val spec = tween<androidx.compose.ui.unit.IntOffset>(
+                        durationMillis = ClosePawMotion.PageSlide,
+                        easing = ClosePawMotion.EaseOutCubic,
+                    )
+                    if (targetState == SettingsPage.HOME) {
+                        slideInHorizontally(spec) { -it } togetherWith slideOutHorizontally(spec) { it }
+                    } else {
+                        slideInHorizontally(spec) { it } togetherWith slideOutHorizontally(spec) { -it }
+                    }
                 }
             },
             label = "SettingsPageTransition"

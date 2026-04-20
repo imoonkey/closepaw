@@ -48,6 +48,7 @@ class IslandOverlayHost(
                 StatusIslandCompose(
                     text = "Working...",
                     dotColor = MaterialTheme.colorScheme.primary,
+                    pulsing = true,
                     onClick = onExpandCapsule,
                 )
             } else {
@@ -58,6 +59,7 @@ class IslandOverlayHost(
                 StatusIslandCompose(
                     text = if (text.isBlank()) "Working..." else text,
                     dotColor = glowState.toStatusColor(),
+                    pulsing = mode is CapsuleMode.Running,
                     onClick = onExpandCapsule,
                 )
             }
