@@ -5,6 +5,7 @@ import ai.closepaw.ui.chat.model.ActionState
 import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
+import ai.closepaw.ui.chat.model.RowState
 import ai.closepaw.ui.common.formatToolName
 import ai.closepaw.ui.common.getToolIcon
 
@@ -29,6 +30,7 @@ object MessageConverter {
                 contentBlocks = message.contentBlocks.map { block ->
                     when (block) {
                         is ContentBlock.Text -> ContentBlockRecord.Text(block.text)
+                        is ContentBlock.Thought -> ContentBlockRecord.Thought(block.text)
                         is ContentBlock.Action -> ContentBlockRecord.Action(
                             id = block.data.id,
                             toolName = block.data.toolName,
@@ -59,6 +61,7 @@ object MessageConverter {
                 contentBlocks = record.contentBlocks.map { block ->
                     when (block) {
                         is ContentBlockRecord.Text -> ContentBlock.Text(block.text)
+                        is ContentBlockRecord.Thought -> ContentBlock.Thought(block.text)
                         is ContentBlockRecord.Action -> ContentBlock.Action(
                             ActionCardData(
                                 id = block.id,
@@ -71,7 +74,8 @@ object MessageConverter {
                         )
                     }
                 },
-                state = if (record.isComplete) AgentMessageState.Complete else AgentMessageState.Streaming
+                state = if (record.isComplete) AgentMessageState.Complete else AgentMessageState.Streaming,
+                rowState = if (record.isComplete) RowState.Complete else RowState.Live
             )
         }
     }

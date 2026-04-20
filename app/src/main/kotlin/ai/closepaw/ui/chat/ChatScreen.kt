@@ -243,6 +243,7 @@ private fun MessageList(
                     for (block in last.contentBlocks) {
                         when (block) {
                             is ContentBlock.Text -> signal += block.text.length
+                            is ContentBlock.Thought -> signal += block.text.length
                             is ContentBlock.Action -> signal += block.data.state.ordinal +
                                 (block.data.resultSummary?.length ?: 0)
                         }

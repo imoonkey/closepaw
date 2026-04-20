@@ -119,7 +119,7 @@ Three visible regions, top to bottom. Trace is the only mandatory region; Final 
 
 ### 4.6 Row chrome
 
-- No surrounding bubble or card. The trace items sit on the page background, separated by 6dp vertical spacing.
+- No surrounding bubble or card. The trace items sit on the page background, separated by 8dp vertical spacing. *(Updated 2026-04-20 during a-impl-chat-row: aligned with Track D1 — supersedes the 6dp draft value.)*
 - Visual style (palette, typography) inherits from `frontend-ui-review/` direction; this spec does not introduce new tokens.
 
 ---

@@ -16,6 +16,7 @@ import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ChatUiState
 import ai.closepaw.ui.chat.model.ContentBlock
+import ai.closepaw.ui.chat.model.RowState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,7 +43,8 @@ internal fun appendCompletionToMessages(
         messages[index] =
                 current.copy(
                         contentBlocks = current.contentBlocks + ContentBlock.Text(completionText),
-                        state = AgentMessageState.Complete
+                        state = AgentMessageState.Complete,
+                        rowState = if (current.rowState == RowState.Error) RowState.Error else RowState.Complete
                 )
         return
     }
@@ -52,7 +54,8 @@ internal fun appendCompletionToMessages(
                     id = taskId,
                     timestamp = timestamp,
                     contentBlocks = listOf(ContentBlock.Text(completionText)),
-                    state = AgentMessageState.Complete
+                    state = AgentMessageState.Complete,
+                    rowState = RowState.Complete
             )
     )
 }
@@ -104,7 +107,8 @@ internal fun appendStartupFailureMessages(
                     timestamp = timestamp,
                     contentBlocks =
                             listOf(ContentBlock.Text("⚠️ Failed to start: $errorMessage")),
-                    state = AgentMessageState.Complete
+                    state = AgentMessageState.Complete,
+                    rowState = RowState.Error
             )
     )
 }

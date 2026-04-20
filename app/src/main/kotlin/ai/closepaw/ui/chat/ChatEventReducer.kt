@@ -10,6 +10,7 @@ import ai.closepaw.protocol.SessionError
 import ai.closepaw.protocol.SupplementReceived
 import ai.closepaw.protocol.TaskCompleted
 import ai.closepaw.protocol.TaskStarted
+import ai.closepaw.protocol.ThoughtUpdate
 import ai.closepaw.protocol.TurnPhaseChanged
 import ai.closepaw.protocol.TurnStarted
 import ai.closepaw.ui.chat.model.ActionCardData
@@ -18,6 +19,7 @@ import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ChatUiState
 import ai.closepaw.ui.chat.model.ContentBlock
+import ai.closepaw.ui.chat.model.RowState
 import ai.closepaw.ui.common.formatToolName
 import ai.closepaw.ui.common.getToolIcon
 import java.util.UUID
@@ -42,6 +44,7 @@ internal class ChatEventReducer(
                 is TurnStarted -> handleTurnStarted(event)
                 is TurnPhaseChanged -> Unit
                 is MessageDelta -> handleMessageDelta(event)
+                is ThoughtUpdate -> handleThoughtUpdate(event)
                 is ActionProposed -> handleActionProposed(event)
                 is ActionExecuted -> handleActionExecuted(event)
                 is TaskCompleted -> handleTaskCompleted(event)
@@ -79,6 +82,17 @@ internal class ChatEventReducer(
             blocks.dropLast(1) + ContentBlock.Text(text)
         } else {
             blocks + ContentBlock.Text(text)
+        }
+    }
+
+    private fun handleThoughtUpdate(event: ThoughtUpdate) {
+        val text = event.thought
+        if (text.isEmpty()) return
+        // Streaming text after a thought begins a new Text block, mirroring the
+        // ActionProposed behavior — the trace is chronological.
+        streamingBuffer.clear()
+        updateLastAgentMessage { msg ->
+            msg.copy(contentBlocks = msg.contentBlocks + ContentBlock.Thought(text))
         }
     }
 
@@ -148,7 +162,8 @@ internal class ChatEventReducer(
             val current = messages[index] as ChatMessage.Agent
             messages[index] = current.copy(
                 contentBlocks = current.contentBlocks + ContentBlock.Text(errorText),
-                state = AgentMessageState.Complete
+                state = AgentMessageState.Complete,
+                rowState = RowState.Error
             )
         } else {
             messages.add(
@@ -156,7 +171,8 @@ internal class ChatEventReducer(
                     id = "error-${event.timestamp}",
                     timestamp = event.timestamp,
                     contentBlocks = listOf(ContentBlock.Text(errorText)),
-                    state = AgentMessageState.Complete
+                    state = AgentMessageState.Complete,
+                    rowState = RowState.Error
                 )
             )
             uiState.update { it.copy(showEmptyState = false) }
@@ -178,7 +194,10 @@ internal class ChatEventReducer(
     private fun insertUserTurn(text: String, timestamp: Long, agentId: String? = null) {
         // 1. Close current agent message (idempotent if already Complete or absent)
         updateLastAgentMessage { msg ->
-            msg.copy(state = AgentMessageState.Complete)
+            msg.copy(
+                state = AgentMessageState.Complete,
+                rowState = if (msg.rowState == RowState.Error) RowState.Error else RowState.Complete
+            )
         }
 
         // 2. Insert user message
@@ -199,7 +218,8 @@ internal class ChatEventReducer(
                 id = id,
                 timestamp = timestamp,
                 contentBlocks = emptyList(),
-                state = AgentMessageState.Thinking
+                state = AgentMessageState.Thinking,
+                rowState = RowState.Live
             )
         )
     }

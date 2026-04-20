@@ -52,7 +52,14 @@ sealed interface ContentBlockRecord {
     @Serializable
     @SerialName("text")
     data class Text(val text: String) : ContentBlockRecord
-    
+
+    /**
+     * Agent reasoning emitted via `ThoughtUpdate`.
+     */
+    @Serializable
+    @SerialName("thought")
+    data class Thought(val text: String) : ContentBlockRecord
+
     /**
      * An action card (tool execution).
      */

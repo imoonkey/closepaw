@@ -31,8 +31,29 @@ sealed interface ChatMessage {
         override val id: String,
         override val timestamp: Long,
         val contentBlocks: List<ContentBlock>,
-        val state: AgentMessageState
+        val state: AgentMessageState,
+        val rowState: RowState = RowState.Live
     ) : ChatMessage
+}
+
+/**
+ * RowState — explicit row-level state machine (Track A spec §5).
+ *
+ * Independent of [AgentMessageState] (which tracks streaming lifecycle).
+ * Drives the collapse/expand UX and locked-open invariants.
+ */
+enum class RowState {
+    /** Task in progress — auto-tracking trace, no collapse. */
+    Live,
+
+    /** Awaiting user reply (AskUser/Approval) — locked open. */
+    Waiting,
+
+    /** Task finished — collapsible (default collapsed). */
+    Complete,
+
+    /** Task errored — locked open until acknowledged, then collapsible. */
+    Error
 }
 
 /**
@@ -42,10 +63,16 @@ sealed interface ChatMessage {
  */
 sealed interface ContentBlock {
     /**
-     * Text content from the LLM response.
+     * Text content from the LLM response (the Final block in spec terms).
      */
     data class Text(val text: String) : ContentBlock
-    
+
+    /**
+     * Agent reasoning emitted via `ThoughtUpdate`. One block per update;
+     * never merged with the prior Thought (spec §4.1: chronological story).
+     */
+    data class Thought(val text: String) : ContentBlock
+
     /**
      * An action card (tool execution).
      */
