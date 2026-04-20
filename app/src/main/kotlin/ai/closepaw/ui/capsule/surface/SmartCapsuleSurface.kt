@@ -23,11 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +40,15 @@ import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.ui.overlay.model.CapsuleRenderSpec
 import ai.closepaw.ui.overlay.model.NavSpec
 
+/**
+ * SmartCapsuleSurface — orchestrator composable for the Smart Capsule.
+ *
+ * Renders, top-to-bottom: status line, optional detail body, control bar,
+ * optional input bar (with optional startup-error banner above it).
+ *
+ * The orchestrator owns derivation (`CapsuleRenderSpec`, `NavSpec`) and submit-intent
+ * routing, but not the input draft state — that lives in [CapsuleInputBar].
+ */
 @Composable
 fun SmartCapsuleSurface(
     mode: CapsuleMode,
@@ -62,7 +68,7 @@ fun SmartCapsuleSurface(
     hasIsland: Boolean = true,
     previousMode: CapsuleMode? = null,
     transientThought: String? = null,
-    onRow1Click: (() -> Unit)? = null,
+    onStatusClick: (() -> Unit)? = null,
     onInputFocusChanged: (Boolean) -> Unit = {},
     onInputSubmitted: () -> Unit = {},
     autoFocusInput: Boolean = false,
@@ -72,17 +78,6 @@ fun SmartCapsuleSurface(
     onDismissStartupError: () -> Unit = {},
     onStartupErrorClick: (() -> Unit)? = null,
 ) {
-    var inputText by remember { mutableStateOf("") }
-
-    // Restore preserved input after a session bootstrap failure. Seeds once per
-    // non-empty pendingInputText value, then tells the VM to clear it.
-    LaunchedEffect(pendingInputText) {
-        if (pendingInputText.isNotEmpty()) {
-            inputText = pendingInputText
-            onPendingInputConsumed()
-        }
-    }
-    val isTaskActive = mode !is CapsuleMode.Hidden
     val renderSpec = remember(mode, isStopPending, previousMode, transientThought) {
         val baseSpec = CapsuleRenderSpec.from(mode, previousMode, isStopPending)
         if (transientThought.isNullOrBlank()) baseSpec
@@ -91,48 +86,29 @@ fun SmartCapsuleSurface(
     val navSpec = remember(context, platformMode, mode, hasIsland) {
         NavSpec.from(context, platformMode, hasIsland = hasIsland, mode = mode)
     }
-
-    LaunchedEffect(renderSpec.row3?.clearInput) {
-        if (renderSpec.row3?.clearInput == true && inputText.isNotEmpty()) {
-            inputText = ""
-        }
-    }
-
-    val inputEnabled = when {
-        context == CapsuleContext.MAIN_APP -> true
-        mode is CapsuleMode.Running && platformMode == PlatformMode.ACCESSIBILITY -> false
-        mode is CapsuleMode.TakeoverPending && platformMode == PlatformMode.ACCESSIBILITY -> false
-        else -> true
-    }
+    val isTaskActive = mode !is CapsuleMode.Hidden
 
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 8.dp,
-        shape = RoundedCornerShape(24.dp)
+        shape = RoundedCornerShape(24.dp),
     ) {
         Column(
             modifier = Modifier
                 .padding(horizontal = 12.dp)
                 .navigationBarsPadding()
-                .padding(top = 8.dp, bottom = 6.dp)
+                .padding(top = 8.dp, bottom = 6.dp),
         ) {
             if (isTaskActive) {
-                CapsuleRow1(spec = renderSpec, onClick = onRow1Click)
+                CapsuleStatusLine(spec = renderSpec, onClick = onStatusClick)
                 if (mode !is CapsuleMode.Done) {
                     if (renderSpec.expandedBody != null) {
                         CapsuleDivider()
-                        Text(
-                            text = renderSpec.expandedBody,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 2.dp)
-                        )
+                        CapsuleDetailBody(text = renderSpec.expandedBody)
                     }
                     CapsuleDivider()
-                    CapsuleRow2(
+                    CapsuleControlBar(
                         spec = renderSpec,
                         navSpec = navSpec,
                         mode = mode,
@@ -147,8 +123,7 @@ fun SmartCapsuleSurface(
                 }
             }
 
-            renderSpec.row3?.let { row3 ->
-                val hintText = if (inputEnabled) row3.hint else "Take over to type note"
+            renderSpec.input?.let { input ->
                 if (isTaskActive && mode !is CapsuleMode.Done) {
                     CapsuleDivider()
                 }
@@ -159,24 +134,21 @@ fun SmartCapsuleSurface(
                         onClick = onStartupErrorClick,
                     )
                 }
-                CapsuleRow3(
-                    row3Spec = row3.copy(hint = hintText),
-                    inputText = inputText,
-                    onInputChange = { inputText = it },
-                    inputEnabled = inputEnabled,
-                    autoFocusInput = autoFocusInput && mode is CapsuleMode.WaitingForInput,
+                CapsuleInputBar(
+                    spec = input,
+                    mode = mode,
+                    platformMode = platformMode,
+                    context = context,
+                    pendingInputText = pendingInputText,
+                    onPendingInputConsumed = onPendingInputConsumed,
+                    autoFocusInput = autoFocusInput,
                     onInputFocusChanged = onInputFocusChanged,
-                    showOpenViewer = false, // §1.4: VD viewer reachable via Row1 nav / island, not idle Row3
-                    onOpenViewer = { onNavigate(NavAction.OPEN_VIEWER) },
-                    onSubmit = {
-                        val text = inputText.trim()
-                        if (text.isEmpty()) return@CapsuleRow3
+                    onSubmit = { text ->
                         when (mode) {
                             is CapsuleMode.Hidden -> onSend(text)
                             is CapsuleMode.WaitingForInput -> onUserResponse(mode.callId, text)
                             else -> onSupplement(text)
                         }
-                        inputText = ""
                         onInputSubmitted()
                     },
                 )
@@ -191,6 +163,18 @@ private fun CapsuleDivider() {
         modifier = Modifier.padding(vertical = 6.dp),
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.28f),
         thickness = 1.dp,
+    )
+}
+
+@Composable
+private fun CapsuleDetailBody(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp),
     )
 }
 
@@ -233,9 +217,9 @@ private fun StartupErrorBanner(
 }
 
 @Composable
-private fun CapsuleRow1(
+private fun CapsuleStatusLine(
     spec: CapsuleRenderSpec,
-    onClick: (() -> Unit)?
+    onClick: (() -> Unit)?,
 ) {
     val rowModifier = if (onClick != null) {
         Modifier
@@ -249,18 +233,18 @@ private fun CapsuleRow1(
 
     Row(
         modifier = rowModifier,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         if (spec.dot != null) {
             val dotColor by animateColorAsState(
                 targetValue = Color(spec.dot.color),
-                label = "dotColor"
+                label = "dotColor",
             )
             Box(
                 modifier = Modifier
                     .size(9.dp)
                     .clip(CircleShape)
-                    .background(dotColor)
+                    .background(dotColor),
             )
             Spacer(Modifier.width(8.dp))
         }
@@ -271,7 +255,7 @@ private fun CapsuleRow1(
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = spec.thought.alpha),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
     }
 }

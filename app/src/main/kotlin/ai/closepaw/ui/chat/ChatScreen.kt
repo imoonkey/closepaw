@@ -41,7 +41,7 @@ import ai.closepaw.app.AgentService
 import ai.closepaw.history.model.SessionInfo
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.capsule.NavAction
-import ai.closepaw.ui.capsule.SmartCapsuleCompose
+import ai.closepaw.ui.capsule.surface.SmartCapsuleSurface
 import ai.closepaw.ui.capsule.surface.smartCapsuleHostPadding
 import ai.closepaw.ui.chat.components.ChatHeader
 import ai.closepaw.ui.chat.components.EmptyState
@@ -58,7 +58,7 @@ import kotlinx.coroutines.launch
  * 
  * Orchestrates all chat components into a cohesive conversation experience.
  * Includes navigation drawer for session history and settings access.
- * Uses SmartCapsuleCompose as bottomBar (replaces old InputDock).
+ * Uses SmartCapsuleSurface as bottomBar (replaces old InputDock).
  */
 @Composable
 fun ChatScreen(
@@ -143,7 +143,7 @@ fun ChatScreen(
                         .fillMaxWidth()
                         .smartCapsuleHostPadding()
                 ) {
-                    SmartCapsuleCompose(
+                    SmartCapsuleSurface(
                         mode = capsuleMode,
                         isStopPending = isStopPending,
                         platformMode = capsulePlatformMode,

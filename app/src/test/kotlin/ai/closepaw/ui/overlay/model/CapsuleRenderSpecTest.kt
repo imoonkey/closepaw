@@ -32,4 +32,22 @@ class CapsuleRenderSpecTest {
         assertThat(stop?.text).isEqualTo("Close")
         assertThat(stop?.enabled).isTrue()
     }
+
+    @Test
+    fun `entering WaitingForInput from a different mode sets clearInput true`() {
+        val spec = CapsuleRenderSpec.from(
+            mode = CapsuleMode.WaitingForInput("question?", callId = "c1"),
+            previousMode = CapsuleMode.Running("thinking"),
+        )
+        assertThat(spec.input?.clearDraft).isTrue()
+    }
+
+    @Test
+    fun `re-entering WaitingForInput from itself leaves clearInput false`() {
+        val spec = CapsuleRenderSpec.from(
+            mode = CapsuleMode.WaitingForInput("another?", callId = "c2"),
+            previousMode = CapsuleMode.WaitingForInput("first?", callId = "c1"),
+        )
+        assertThat(spec.input?.clearDraft).isFalse()
+    }
 }

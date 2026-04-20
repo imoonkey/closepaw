@@ -142,7 +142,7 @@ class CapsuleOverlayHost(
                         }
                     },
                     hasIsland = islandEnabled,
-                    onRow1Click = if (platform != PlatformMode.ACCESSIBILITY) {
+                    onStatusClick = if (platform != PlatformMode.ACCESSIBILITY) {
                         { debounced { onOpenApp?.invoke() } }
                     } else {
                         null
