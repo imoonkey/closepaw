@@ -39,6 +39,12 @@ internal class AgentMessageBuffer {
         contentBlocks.add(ContentBlockRecord.Thought(text))
     }
 
+    /** Append a discrete terminal text block (TaskCompleted result / SessionError). */
+    fun recordTerminalText(text: String) {
+        finalizeTextBlock()
+        contentBlocks.add(ContentBlockRecord.Text(text))
+    }
+
     fun recordAction(action: ContentBlockRecord.Action) {
         finalizeTextBlock()
         contentBlocks.add(action)

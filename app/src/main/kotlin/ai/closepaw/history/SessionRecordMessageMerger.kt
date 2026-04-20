@@ -9,6 +9,7 @@ internal object SessionRecordMessageMerger {
         snapshot: AgentMessageSnapshot,
         isComplete: Boolean,
         completedTimestamp: Long? = null,
+        rowState: String? = null,
         lastUpdated: Long = System.currentTimeMillis()
     ): SessionRecord {
         val agentMessage =
@@ -17,7 +18,8 @@ internal object SessionRecordMessageMerger {
                 timestamp = snapshot.startTimestamp,
                 contentBlocks = snapshot.blocks,
                 isComplete = isComplete,
-                completedTimestamp = completedTimestamp
+                completedTimestamp = completedTimestamp,
+                rowState = rowState
             )
 
         val existingIndex =

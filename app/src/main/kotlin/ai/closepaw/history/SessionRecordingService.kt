@@ -222,6 +222,21 @@ class SessionRecordingService(
         scheduleSave()
     }
 
+    /**
+     * Append a discrete terminal text block to the active agent message
+     * (TaskCompleted result / SessionError message). Must be called before
+     * [completeAgentMessage] so the text lands in the finalized snapshot.
+     */
+    fun appendTerminalText(text: String) {
+        synchronized(stateLock) {
+            if (!agentMessageBuffer.hasActiveMessage()) {
+                Log.w(TAG, "No active agent message for terminal text")
+                return
+            }
+            agentMessageBuffer.recordTerminalText(text)
+        }
+    }
+
     /** Record the outcome of the most recently completed task in the session. */
     fun recordTaskOutcome(outcome: TaskOutcome) {
         synchronized(stateLock) { lastTaskOutcome = outcome }
@@ -414,12 +429,18 @@ class SessionRecordingService(
             val snapshot = agentMessageBuffer.finalizeSnapshot() ?: return
             val session = currentSession ?: return
             val now = System.currentTimeMillis()
+            val rowState = when (lastTaskOutcome) {
+                TaskOutcome.ERROR -> "error"
+                null -> null
+                else -> "complete"
+            }
             currentSession =
                 SessionRecordMessageMerger.mergeAgentSnapshot(
                     session = session,
                     snapshot = snapshot,
                     isComplete = true,
                     completedTimestamp = now,
+                    rowState = rowState,
                     lastUpdated = now
                 )
         }

@@ -75,13 +75,18 @@ internal class AgentServiceEventHandler(
             }
             is TaskCompleted -> {
                 Log.i(logTag, "Task completed: ${event.taskId}, outcome: ${event.outcome}")
-                // Finalize the agent message buffer so the session file
-                // is complete before Hot Idle. Without this, the agent
-                // message stays in the buffer and the on-disk session
-                // record is missing the final text/actions until the
-                // next recordUserMessage() call triggers finalization.
-                recordingService?.completeAgentMessage()
+                // Stash outcome BEFORE finalize so the recorder can derive
+                // rowState ("error" vs "complete") on the persisted row.
                 recordingService?.recordTaskOutcome(event.outcome)
+                // Persist the terminal result text (success summary or "⚠ ..."
+                // error string). Without this, a turn that ended with no prior
+                // MessageDelta loses the entire agent row on reload.
+                val terminalText = event.result?.takeIf { it.isNotBlank() }
+                    ?: defaultTerminalText(event.outcome)
+                recordingService?.appendTerminalText(terminalText)
+                // Finalize the agent message buffer so the session file
+                // is complete before Hot Idle.
+                recordingService?.completeAgentMessage()
                 overlay?.onTaskCompleted(event.outcome, event.result)
             }
             is ActionProposed -> {
@@ -126,6 +131,12 @@ internal class AgentServiceEventHandler(
             }
             is SessionError -> {
                 Log.e(logTag, "Session error: ${event.message}")
+                // Record the error text + outcome to the active agent message
+                // before it finalizes, so the persisted row carries the actual
+                // error string instead of vanishing.
+                recordingService?.recordTaskOutcome(TaskOutcome.ERROR)
+                recordingService?.appendTerminalText("⚠ ${event.message}")
+                recordingService?.completeAgentMessage()
                 updateStatus("❌ Error: ${event.message}")
                 overlay?.onSessionError(event.message)
             }
@@ -165,5 +176,13 @@ internal class AgentServiceEventHandler(
                 Log.d(logTag, "Unhandled event type: ${event::class.simpleName}")
             }
         }
+    }
+
+    private fun defaultTerminalText(outcome: TaskOutcome): String = when (outcome) {
+        TaskOutcome.GOAL_ACHIEVED -> "Done"
+        TaskOutcome.MAX_TURNS -> "⚠ Max turns reached"
+        TaskOutcome.TASK_IMPOSSIBLE -> "⚠ Task cannot be completed"
+        TaskOutcome.ERROR -> "⚠ Error"
+        TaskOutcome.USER_STOPPED -> "Stopped"
     }
 }
