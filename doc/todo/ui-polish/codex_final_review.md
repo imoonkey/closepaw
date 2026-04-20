@@ -76,3 +76,29 @@ Verification:
 
 3. `app/src/main/kotlin/ai/closepaw/ui/chat/components/MessageBubble.kt:458-466`
    - Replace the `Locale.US` formatter pin with app/display-locale time formatting (`DateFormat.getTimeFormat(...)` or equivalent app-locale resolution) so the fix stays localized to formatting rather than forcing US English.
+
+## Round 2 re-review
+
+Reviewed `4a44053e..HEAD`:
+
+- `4d0e1168` `fix(ui): paw-toe thinking indicator cadence and tint per motion spec §4 (#8)`
+- `8069e5fc` `fix(onboarding): preserve bottom-pin while allowing scroll on short heights (#4)`
+- `784b8b2e` `fix(ui): timestamp uses app DateFormat instead of hard Locale.US pin (#14)`
+- `89096886` `test(qa): SettingsLlmAuthTest reflects disabled Local tab (#18)`
+
+| Finding | Verdict | Verification |
+| --- | --- | --- |
+| `#8` ThinkingIndicator | RESOLVED | `app/src/main/kotlin/ai/closepaw/ui/chat/components/ThinkingIndicator.kt:47-91` now animates four phases over `ClosePawMotion.Breath` (`app/src/main/kotlin/ai/closepaw/ui/theme/Motion.kt:10-16` = `900ms`), with draw order `toe₁ → toe₂ → toe₃ → pad`, cumulative `30% → 100%` alpha via `index <= active`, and `onSurface` tint instead of `primary`. `Theme.kt` maps `onSurface` to Ink. |
+| `#4` Onboarding scroll | RESOLVED | `app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingShell.kt:58-72` now uses two layout modes: `<480.dp` height stays scrollable, while taller screens switch back to a finite-height shell via `fillMaxHeight()` with no outer scroll modifier. That restores the existing step-body `Spacer(weight(1f))` bottom-pin behavior on tall screens (for example `app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingSteps.kt:95`) while still allowing short heights to scroll. |
+| `#14` Timestamp | RESOLVED | `app/src/main/kotlin/ai/closepaw/ui/chat/components/MessageBubble.kt:458-462` removes the `Locale.US` pin and uses `android.text.format.DateFormat.getTimeFormat(context)` via `LocalContext.current`, which is app/device-locale aware. |
+| `#18` Settings LLM auth test | RESOLVED | `app/src/androidTest/kotlin/ai/closepaw/qa/SettingsLlmAuthTest.kt:94-98` no longer clicks `Local`; it asserts disabled state instead, matching `app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthSettingsPage.kt:157-174`, where the Local tab is explicitly `enabled = false`. |
+
+Verification:
+
+- `./gradlew :app:assembleDebug` — passed
+- `./gradlew :app:testDebugUnitTest` — passed
+- `./gradlew :app:compileDebugAndroidTestKotlin` — passed
+
+### Updated final merge recommendation
+
+`MERGE`
