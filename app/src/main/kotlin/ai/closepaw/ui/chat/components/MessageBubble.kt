@@ -39,7 +39,8 @@ import ai.closepaw.ui.chat.model.RowState
 import ai.closepaw.ui.theme.closePaw
 import android.content.Context
 import java.util.Date
-import java.util.Locale
+
+private val WHITESPACE = Regex("\\s+")
 
 @Composable
 fun MessageBubble(
@@ -417,7 +418,7 @@ private fun formatElapsed(message: ChatMessage.Agent): String? {
     val end = message.completedTimestamp ?: return null
     val deltaMs = (end - message.timestamp).coerceAtLeast(0)
     return when {
-        deltaMs < 10_000 -> String.format(Locale.US, "%.1fs", deltaMs / 1000.0)
+        deltaMs < 10_000 -> String.format("%.1fs", deltaMs / 1000.0)
         else -> "${deltaMs / 1000}s"
     }
 }
@@ -450,7 +451,7 @@ internal fun collapsedHeadline(message: ChatMessage.Agent): String {
 }
 
 private fun truncateWords(text: String, maxWords: Int): String {
-    val words = text.trim().split(Regex("\\s+"))
+    val words = text.trim().split(WHITESPACE)
     return if (words.size <= maxWords) text.trim()
     else words.take(maxWords).joinToString(" ") + "…"
 }

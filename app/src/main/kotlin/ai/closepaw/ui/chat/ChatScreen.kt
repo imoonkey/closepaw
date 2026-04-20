@@ -154,9 +154,7 @@ fun ChatScreen(
                             }
                         },
                         onUserResponse = { callId, response ->
-                            if (capsuleBinding.onUserResponseSent(callId)) {
-                                viewModel.sendUserResponse(callId, response)
-                            }
+                            forwardUserResponse(capsuleBinding, viewModel::sendUserResponse, callId, response)
                         },
                         onApprovalResponse = { callId, decision, approvalScope, packageName ->
                             if (capsuleBinding.onApprovalResolved(callId)) {
@@ -333,5 +331,22 @@ private fun MessageList(
                 }
             }
         }
+    }
+}
+
+/**
+ * Routes a Done/response tap from chat through the capsule before falling
+ * back to the ViewModel send. Pinned by ChatDoneBridgeTest — the capsule
+ * step must run first so a stale WaitingFor* state clears (see commit
+ * d23537e8).
+ */
+internal fun forwardUserResponse(
+    binding: ai.closepaw.ui.capsule.CapsuleBinding,
+    sendUserResponse: (String, String) -> Unit,
+    callId: String,
+    response: String,
+) {
+    if (binding.onUserResponseSent(callId)) {
+        sendUserResponse(callId, response)
     }
 }

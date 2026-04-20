@@ -71,10 +71,9 @@ private fun PawToeSequence(tint: Color) {
         animated
     }
     Canvas(modifier = Modifier.size(28.dp)) {
-        val active = phase.toInt().coerceIn(0, ELEMENT_COUNT - 1)
         // Cumulative fill per spec §4: element lights at its phase and stays
         // lit until the 900ms reset.
-        fun alphaFor(index: Int) = if (index <= active) 1.0f else 0.30f
+        fun alphaFor(index: Int) = pawToeAlpha(phase, index)
         val s = size.minDimension / 64f  // 64x64 design viewport.
         // Order: toe₁ → toe₂ → toe₃ → pad.
         // toe₁ — left
@@ -105,3 +104,13 @@ private fun PawToeSequence(tint: Color) {
 }
 
 private const val ELEMENT_COUNT = 4
+
+/** Alpha for paw-toe `index` at animation `phase` ∈ [0, ELEMENT_COUNT].
+ *  Active and prior elements at full alpha (1.0); not-yet-active at 0.30.
+ *  Pinned by ThinkingIndicatorCadenceTest. */
+internal fun pawToeAlpha(phase: Float, index: Int): Float {
+    val active = phase.toInt().coerceIn(0, ELEMENT_COUNT - 1)
+    return if (index <= active) 1.0f else 0.30f
+}
+
+internal const val PAW_TOE_ELEMENT_COUNT = ELEMENT_COUNT
