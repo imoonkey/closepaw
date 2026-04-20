@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.theme.closePaw
 
 /**
  * Shared scaffold for every onboarding step.
@@ -40,6 +41,7 @@ fun OnboardingShell(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
+        val spacing = MaterialTheme.closePaw.spacing
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -58,7 +60,7 @@ fun OnboardingShell(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(spacing.xs))
                 }
                 Text(
                     text = "Step $stepIndex of $totalSteps",
@@ -67,7 +69,7 @@ fun OnboardingShell(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(spacing.sm))
 
             // Progress bar
             LinearProgressIndicator(
@@ -77,7 +79,7 @@ fun OnboardingShell(
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(spacing.xl))
 
             // Step title
             Text(

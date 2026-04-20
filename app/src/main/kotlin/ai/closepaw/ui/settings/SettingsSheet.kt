@@ -1,6 +1,7 @@
 package ai.closepaw.ui.settings
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -20,6 +21,7 @@ import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.ui.theme.ClosePawMotion
 
 enum class SettingsPage {
     HOME,
@@ -78,10 +80,16 @@ fun SettingsSheet(
         AnimatedContent(
             targetState = settingsPage,
             transitionSpec = {
+                // D1 §5: 240ms page slide on EaseOutCubic. Sourced from ClosePawMotion
+                // so settings shares the same page-transition cadence as the rest of the app.
+                val spec = tween<androidx.compose.ui.unit.IntOffset>(
+                    durationMillis = ClosePawMotion.PageSlide,
+                    easing = ClosePawMotion.EaseOutCubic,
+                )
                 if (targetState == SettingsPage.HOME) {
-                    slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+                    slideInHorizontally(spec) { -it } togetherWith slideOutHorizontally(spec) { it }
                 } else {
-                    slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
+                    slideInHorizontally(spec) { it } togetherWith slideOutHorizontally(spec) { -it }
                 }
             },
             label = "SettingsPageTransition"

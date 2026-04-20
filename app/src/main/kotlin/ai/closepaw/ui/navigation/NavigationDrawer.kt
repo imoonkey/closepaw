@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.history.model.SessionInfo
 import ai.closepaw.ui.session.TimeUtils
 import ai.closepaw.ui.theme.AppWindowInsets
+import ai.closepaw.ui.theme.closePaw
 
 /**
  * NavigationDrawer - Side drawer containing session history and settings access.
@@ -84,6 +85,7 @@ fun NavigationDrawerContent(
         drawerContainerColor = MaterialTheme.colorScheme.surface,
         windowInsets = AppWindowInsets.statusBars  // Handle status bar at container level
     ) {
+        val spacing = MaterialTheme.closePaw.spacing
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -123,8 +125,8 @@ fun NavigationDrawerContent(
                     )
                 } else {
                     LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        contentPadding = PaddingValues(horizontal = spacing.md, vertical = spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(spacing.xs)
                     ) {
                         items(
                             items = sessions,
@@ -146,7 +148,7 @@ fun NavigationDrawerContent(
                 appVersion = appVersion,
                 onClick = onSettingsClick,
                 modifier = Modifier
-                    .padding(bottom = 8.dp)  // Consistent bottom spacing
+                    .padding(bottom = spacing.sm)  // Consistent bottom spacing
                     .windowInsetsPadding(WindowInsets.navigationBars)
             )
         }

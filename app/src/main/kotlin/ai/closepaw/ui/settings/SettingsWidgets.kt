@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import ai.closepaw.ui.theme.closePaw
 
 /**
  * Settings header with title and close button.
@@ -181,7 +182,7 @@ internal fun SettingsSection(
             text = title,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 12.dp)
+            modifier = Modifier.padding(bottom = MaterialTheme.closePaw.spacing.md)
         )
         content()
     }
