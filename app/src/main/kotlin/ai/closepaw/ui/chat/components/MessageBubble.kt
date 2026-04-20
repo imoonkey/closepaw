@@ -407,7 +407,7 @@ internal fun outcomeFooter(message: ChatMessage.Agent): String {
         if (actionCount > 0) add("$actionCount action${if (actionCount == 1) "" else "s"}")
         elapsed?.let { add(it) }
     }
-    return if (parts.isEmpty()) "✓" else "✓  ${parts.joinToString(separator = " · ")}"
+    return if (parts.isEmpty()) "✓" else "✓ ${parts.joinToString(separator = " · ")}"
 }
 
 private fun countActions(message: ChatMessage.Agent): Int =

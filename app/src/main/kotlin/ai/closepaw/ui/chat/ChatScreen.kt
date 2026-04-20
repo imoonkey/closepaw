@@ -1,13 +1,15 @@
 package ai.closepaw.ui.chat
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,12 +19,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +51,7 @@ import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
 import ai.closepaw.ui.navigation.NavigationDrawerContent
 import ai.closepaw.ui.overlay.model.CapsuleContext
+import ai.closepaw.ui.theme.ClosePawMotion
 import kotlinx.coroutines.launch
 
 /**
@@ -288,32 +291,46 @@ private fun MessageList(
             }
         }
 
-        // Scroll-to-bottom FAB when user has scrolled up
+        // Scroll-to-bottom 'live' pill (Track A §5.1) when user has scrolled up.
         AnimatedVisibility(
             visible = !followMode && messages.isNotEmpty(),
-            enter = fadeIn() + scaleIn(),
-            exit = fadeOut() + scaleOut(),
+            enter = fadeIn(animationSpec = tween(ClosePawMotion.StatusFlip)),
+            exit = fadeOut(animationSpec = tween(ClosePawMotion.StatusFlip)),
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(16.dp)
         ) {
-            SmallFloatingActionButton(
-                onClick = {
-                    followMode = true
-                    scope.launch {
-                        programmaticScroll = true
-                        listState.scrollToItem(messages.size - 1, Int.MAX_VALUE)
-                        programmaticScroll = false
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceVariant,
                 contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+                tonalElevation = 4.dp,
+                shadowElevation = 4.dp,
+                modifier = Modifier
+                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                    .clickable {
+                        followMode = true
+                        scope.launch {
+                            programmaticScroll = true
+                            listState.scrollToItem(messages.size - 1, Int.MAX_VALUE)
+                            programmaticScroll = false
+                        }
+                    }
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = "Scroll to bottom"
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = null
+                    )
+                    Text(
+                        text = "live",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
         }
     }

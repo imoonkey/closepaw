@@ -19,6 +19,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.closePaw
@@ -32,7 +36,12 @@ import ai.closepaw.ui.theme.closePaw
 fun ThinkingIndicator(modifier: Modifier = Modifier) {
     val spacing = MaterialTheme.closePaw.spacing
     Surface(
-        modifier = modifier.testTag("qa-thinking-indicator"),
+        modifier = modifier
+            .testTag("qa-thinking-indicator")
+            .semantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = "Thinking"
+            },
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
