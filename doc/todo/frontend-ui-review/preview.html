@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ClosePaw — Tactile Intelligence (visual preview)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F5F1EA; --paper-inset:#EDE7DC; --paper-deep:#E5DED1;
+    --hairline:rgba(20,17,15,.12); --hairline-strong:rgba(20,17,15,.20);
+    --ink:#14110F; --ink-muted:#5C554C; --ink-faint:#8B8278; --ink-ghost:rgba(20,17,15,.08);
+    --claw:#C44528; --claw-deep:#A83820; --claw-soft:rgba(196,69,40,.12);
+    --moss:#4A5D3A; --moss-soft:rgba(74,93,58,.12);
+    --amber:#E8A33D; --amber-soft:rgba(232,163,61,.14);
+    --rust:#8B2E1F; --rust-soft:rgba(139,46,31,.12);
+    --shadow-under:rgba(20,17,15,.06);
+
+    --serif:'Fraunces',ui-serif,Georgia,serif;
+    --sans:'Geist',ui-sans-serif,-apple-system,BlinkMacSystemFont,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  /* Lantern (dark) — separate palette, not inverted */
+  .dark{
+    --paper:#0F0D0B; --paper-inset:#1A1612; --paper-deep:#221C17;
+    --hairline:rgba(240,234,224,.12); --hairline-strong:rgba(240,234,224,.22);
+    --ink:#F0EAE0; --ink-muted:#B9B0A3; --ink-faint:#7A7268; --ink-ghost:rgba(240,234,224,.08);
+    --claw:#E56B4A; --claw-deep:#C44528; --claw-soft:rgba(229,107,74,.18);
+    --moss:#7A9466; --amber:#F2B960; --rust:#D55A42;
+    --shadow-under:rgba(0,0,0,.30);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#2a2622;font-family:var(--sans);color:var(--ink)}
+  body{padding:48px 32px 96px}
+  .page-title{
+    font-family:var(--serif);font-weight:700;font-size:42px;letter-spacing:-.8px;
+    color:#F5F1EA;text-align:center;margin:0 0 8px;
+  }
+  .page-sub{
+    font-family:var(--mono);font-size:12px;letter-spacing:.8px;text-transform:uppercase;
+    color:#8B8278;text-align:center;margin:0 0 48px;
+  }
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:32px;max-width:1280px;margin:0 auto}
+
+  /* Phone frame */
+  .phone{
+    width:380px;height:780px;margin:0 auto;border-radius:44px;
+    background:var(--paper);position:relative;overflow:hidden;
+    box-shadow:0 0 0 10px #1a1612,0 0 0 11px #2a2622,0 30px 60px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4);
+    color:var(--ink);
+  }
+  .phone .notch{
+    position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    width:120px;height:30px;background:#0a0807;border-radius:18px;z-index:50;
+  }
+  .phone-label{
+    font-family:var(--mono);font-size:11px;letter-spacing:1.2px;text-transform:uppercase;
+    color:#7A7268;text-align:center;margin:16px 0 0;
+  }
+  .scene{display:flex;flex-direction:column;align-items:center}
+
+  /* ---------- Paw glyph ---------- */
+  .paw{display:inline-block;vertical-align:middle}
+  .paw svg{display:block}
+  @keyframes breath{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+  @keyframes blink{0%,80%,100%{opacity:1}90%{opacity:.3}}
+  .paw.breath{animation:breath 1.8s ease-in-out infinite}
+  /* Three-toe loader */
+  @keyframes toe1{0%,100%{opacity:.3}25%{opacity:1}}
+  @keyframes toe2{0%,100%{opacity:.3}50%{opacity:1}}
+  @keyframes toe3{0%,100%{opacity:.3}75%{opacity:1}}
+  @keyframes pad {0%,100%{opacity:.3}99%{opacity:1}}
+  .think .t1{animation:toe1 .9s linear infinite}
+  .think .t2{animation:toe2 .9s linear infinite}
+  .think .t3{animation:toe3 .9s linear infinite}
+  .think .pd{animation:pad  .9s linear infinite}
+
+  /* I-beam serif cursor */
+  @keyframes ibeam{0%,49%{opacity:1}50%,100%{opacity:0}}
+  .cursor{font-family:var(--serif);font-style:italic;animation:ibeam 1.06s steps(1) infinite;color:var(--claw)}
+
+  /* ---------- Capsule (Smart Capsule overlay) ---------- */
+  .capsule{
+    background:var(--paper);border-radius:18px;padding:14px 18px;
+    box-shadow:0 1px 0 var(--hairline) inset, 0 2px 0 var(--shadow-under), 0 6px 14px rgba(0,0,0,.08);
+    border:1px solid var(--hairline);
+    display:flex;align-items:center;gap:12px;font-size:13px;color:var(--ink);
+    min-height:44px;
+  }
+  .capsule .label{font-family:var(--sans);font-weight:500}
+  .capsule .label.mono{font-family:var(--mono);font-size:12px}
+  .capsule .row{display:flex;align-items:center;gap:10px;width:100%}
+  .capsule .actions{margin-left:auto;display:flex;gap:6px}
+  .btn{
+    font-family:var(--sans);font-size:12px;font-weight:500;
+    padding:6px 12px;border-radius:10px;border:1px solid var(--hairline);background:var(--paper-inset);color:var(--ink);
+    cursor:pointer;
+  }
+  .btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .btn.claw{background:var(--claw);color:var(--paper);border-color:var(--claw-deep)}
+  .btn.danger{background:transparent;color:var(--rust);border-color:var(--rust-soft)}
+
+  /* ---------- Chat ---------- */
+  .chat-header{
+    display:flex;align-items:center;gap:10px;padding:14px 20px;
+    border-bottom:1px solid var(--hairline);width:100%;
+  }
+  .chat-header .title{font-family:var(--serif);font-weight:600;font-size:18px;letter-spacing:-.2px}
+  .chat-header .menu, .chat-header .new{font-family:var(--mono);font-size:14px;color:var(--ink-muted)}
+  .chat-header .new{margin-left:auto;color:var(--claw);font-weight:500}
+
+  .chat{padding:20px;display:flex;flex-direction:column;gap:18px;width:100%;flex:1;overflow:hidden}
+  .msg-user{
+    align-self:flex-end;background:var(--paper-inset);color:var(--ink);
+    padding:10px 14px;border-radius:10px;max-width:78%;font-size:14px;line-height:1.5;
+  }
+  .msg-agent{
+    align-self:flex-start;max-width:90%;font-size:14px;line-height:1.6;color:var(--ink);
+    border-left:3px solid var(--claw);padding-left:12px;
+  }
+  .msg-agent.thinking{border-left-color:var(--ink-faint);color:var(--ink-muted);font-style:italic}
+
+  /* Action card — typeset receipt */
+  .receipt{
+    margin:6px 0;padding:10px 0;border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);
+    font-family:var(--mono);font-size:12px;color:var(--ink-muted);
+    display:flex;align-items:flex-start;gap:10px;
+  }
+  .receipt .tool{flex:1}
+  .receipt .tool .name{color:var(--ink);font-weight:500}
+  .receipt .tool .out{margin-top:6px;color:var(--ink-faint);white-space:pre-wrap;font-size:11.5px}
+  .receipt .stat{display:flex;align-items:center;gap:6px;font-family:var(--sans);font-size:11px;letter-spacing:.4px}
+
+  /* Empty state */
+  .empty{
+    flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+    padding:32px 24px;width:100%;position:relative;
+  }
+  .empty .watermark{position:absolute;right:-20px;top:30px;opacity:.08}
+  .empty h1{font-family:var(--serif);font-style:italic;font-weight:500;font-size:32px;line-height:1.15;margin:0 0 8px;letter-spacing:-.5px}
+  .empty p{color:var(--ink-muted);font-size:13px;margin:0 0 24px}
+  .chips{display:flex;flex-direction:column;gap:8px;width:100%}
+  .chip{
+    background:var(--paper);border:1px solid var(--hairline);border-radius:10px;padding:12px 14px;
+    font-family:var(--serif);font-size:14px;color:var(--ink);text-decoration:underline;text-decoration-color:var(--hairline-strong);text-underline-offset:3px;
+  }
+
+  /* Settings */
+  .settings{padding:24px 20px;width:100%}
+  .sec-head{
+    display:flex;align-items:baseline;gap:14px;
+    font-family:var(--serif);font-weight:600;font-size:22px;letter-spacing:-.3px;
+    margin:24px 0 10px;
+  }
+  .sec-head .num{font-family:var(--mono);font-size:11px;color:var(--claw);letter-spacing:1.2px}
+  .row-set{display:flex;align-items:center;padding:14px 0;border-bottom:1px solid var(--hairline)}
+  .row-set .l{flex:1}
+  .row-set .t{font-family:var(--sans);font-weight:500;font-size:14px}
+  .row-set .s{font-family:var(--sans);font-size:12px;color:var(--ink-muted);margin-top:2px}
+  .row-set .r{font-family:var(--mono);font-size:14px;color:var(--ink-faint)}
+
+  /* Onboarding */
+  .onboard{padding:32px 24px;width:100%;flex:1;position:relative}
+  .roman{
+    position:absolute;left:18px;top:24px;font-family:var(--serif);font-weight:700;
+    font-size:120px;line-height:1;color:var(--ink-ghost);user-select:none;
+  }
+  .onboard .body{position:relative;margin-top:120px}
+  .onboard h2{font-family:var(--serif);font-weight:600;font-size:28px;letter-spacing:-.4px;margin:0 0 12px}
+  .onboard p{color:var(--ink-muted);font-size:14px;line-height:1.6;margin:0 0 24px}
+  .pawline{display:flex;gap:14px;justify-content:center;padding:20px 0;border-top:1px solid var(--hairline)}
+
+  /* Telegram (permission repair) */
+  .telegram{
+    border:1px solid var(--hairline-strong);border-radius:8px;padding:14px;font-family:var(--mono);
+    font-size:12px;color:var(--ink);background:var(--paper);
+  }
+  .telegram .head{
+    font-size:10px;letter-spacing:1.4px;color:var(--rust);font-weight:500;margin-bottom:8px;
+  }
+  .telegram .body{line-height:1.5;color:var(--ink-muted)}
+
+  /* Color swatches */
+  .palette{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;max-width:1280px;margin:0 auto 48px}
+  .swatch{display:flex;flex-direction:column;border-radius:10px;overflow:hidden;background:#1a1612;border:1px solid #3a3530}
+  .swatch .chip{height:80px}
+  .swatch .meta{padding:8px 10px;font-family:var(--mono);font-size:10.5px;color:#B9B0A3;letter-spacing:.4px}
+  .swatch .meta b{color:#F0EAE0;font-weight:500;display:block;font-size:11.5px;margin-bottom:2px;font-family:var(--sans)}
+
+  /* Section heading on dark page */
+  .section-h{
+    max-width:1280px;margin:64px auto 24px;
+    font-family:var(--serif);font-weight:500;font-size:24px;color:#F5F1EA;letter-spacing:-.3px;
+  }
+  .section-h .sub{font-family:var(--mono);font-size:11px;color:#7A7268;letter-spacing:1.2px;margin-left:12px;text-transform:uppercase}
+
+  /* Caption under each phone */
+  .cap{
+    margin-top:14px;text-align:center;font-family:var(--sans);font-size:13px;color:#B9B0A3;line-height:1.5;
+    max-width:380px;
+  }
+  .cap b{color:#F0EAE0;font-weight:500}
+
+  /* Capsule float demo */
+  .float-stage{
+    width:380px;margin:0 auto;height:140px;background:var(--paper-deep);
+    border:1px solid var(--hairline);border-radius:12px;
+    padding:20px;font-size:12px;color:var(--ink-faint);
+    display:flex;align-items:flex-end;justify-content:center;
+  }
+  .float-stage .capsule{width:100%}
+
+  /* edge glow visualization */
+  .glow-stage{
+    width:380px;height:560px;border-radius:32px;background:linear-gradient(180deg,#222,#111);
+    margin:0 auto;position:relative;overflow:hidden;border:1px solid #3a3530;
+  }
+  .glow-stage::before{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(180px 600px at 50% 100%, rgba(196,69,40,.18), transparent 70%);
+    pointer-events:none;
+  }
+  .glow-stage .fake-app{padding:20px;color:#888;font-family:var(--sans);font-size:12px}
+  .glow-stage .fake-app .h{color:#bbb;font-size:14px;font-weight:500;margin-bottom:8px}
+  .glow-stage .capsule-pos{position:absolute;left:20px;right:20px;bottom:20px}
+</style>
+</head>
+<body>
+
+<h1 class="page-title">ClosePaw</h1>
+<p class="page-sub">Tactile Intelligence — visual preview · 2026-04-17</p>
+
+<!-- =============== PALETTE =============== -->
+<div class="section-h">01 Palette <span class="sub">Ink on bone, claw on paper</span></div>
+<div class="palette">
+  <div class="swatch"><div class="chip" style="background:#F5F1EA"></div><div class="meta"><b>Paper</b>#F5F1EA · canvas</div></div>
+  <div class="swatch"><div class="chip" style="background:#EDE7DC"></div><div class="meta"><b>Paper Inset</b>#EDE7DC · user bubble</div></div>
+  <div class="swatch"><div class="chip" style="background:#14110F"></div><div class="meta"><b>Ink</b>#14110F · text</div></div>
+  <div class="swatch"><div class="chip" style="background:#5C554C"></div><div class="meta"><b>Ink Muted</b>#5C554C · subtitles</div></div>
+  <div class="swatch"><div class="chip" style="background:#C44528"></div><div class="meta"><b>Claw</b>#C44528 · the accent</div></div>
+  <div class="swatch"><div class="chip" style="background:#4A5D3A"></div><div class="meta"><b>Moss</b>#4A5D3A · success</div></div>
+  <div class="swatch"><div class="chip" style="background:#E8A33D"></div><div class="meta"><b>Amber</b>#E8A33D · pause</div></div>
+  <div class="swatch"><div class="chip" style="background:#8B2E1F"></div><div class="meta"><b>Rust</b>#8B2E1F · error</div></div>
+</div>
+
+<!-- =============== TYPOGRAPHY =============== -->
+<div class="section-h">02 Typography <span class="sub">Three voices, clearly zoned</span></div>
+<div style="max-width:1280px;margin:0 auto 32px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
+  <div style="background:var(--paper);color:var(--ink);padding:28px;border-radius:14px">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.4px;color:var(--claw);margin-bottom:14px">FRAUNCES · IDENTITY</div>
+    <div style="font-family:var(--serif);font-weight:600;font-size:36px;line-height:1.1;letter-spacing:-.6px">What should we look into?</div>
+    <div style="font-family:var(--serif);font-style:italic;font-size:18px;color:var(--ink-muted);margin-top:8px">Display · Headlines · Empty state</div>
+  </div>
+  <div style="background:var(--paper);color:var(--ink);padding:28px;border-radius:14px">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.4px;color:var(--claw);margin-bottom:14px">GEIST · UI</div>
+    <div style="font-family:var(--sans);font-weight:600;font-size:18px">Open Settings and turn on Bluetooth</div>
+    <div style="font-family:var(--sans);font-size:14px;color:var(--ink-muted);margin-top:8px;line-height:1.6">All chat body, buttons, settings rows, navigation. Operational clarity, no decoration.</div>
+  </div>
+  <div style="background:var(--paper);color:var(--ink);padding:28px;border-radius:14px">
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:1.4px;color:var(--claw);margin-bottom:14px">JETBRAINS MONO · MACHINE</div>
+    <div style="font-family:var(--mono);font-size:14px;line-height:1.6">click(target="Bluetooth")<br>→ result: ok<br>→ 1.2s · turn 4/12</div>
+  </div>
+</div>
+
+<!-- =============== CAPSULE STATES =============== -->
+<div class="section-h">03 Smart Capsule <span class="sub">Eight modes, one breathing paw</span></div>
+<div class="grid">
+
+  <!-- Running -->
+  <div class="scene">
+    <div class="float-stage">
+      <div class="capsule">
+        <span class="paw breath">
+          <svg width="18" height="18" viewBox="0 0 24 24"><g fill="#C44528"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg>
+        </span>
+        <div class="label">Opening Settings…</div>
+        <div class="actions">
+          <button class="btn">Take over</button>
+          <button class="btn danger">Stop</button>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><b>Running</b> — the paw <i>breathes</i> in claw-red, 0.9 s in, 0.9 s out. Calm, alive, tempo-locked to the rest of the app.</div>
+  </div>
+
+  <!-- Takeover -->
+  <div class="scene">
+    <div class="float-stage">
+      <div class="capsule">
+        <span class="paw">
+          <svg width="18" height="18" viewBox="0 0 24 24"><g fill="#E8A33D"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg>
+        </span>
+        <div class="label" style="color:var(--ink-muted)">Tap into Bluetooth, then resume</div>
+        <div class="actions">
+          <button class="btn primary">Resume</button>
+          <button class="btn danger">Stop</button>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><b>Takeover</b> — paw freezes mid-breath, color crossfades to amber. Thought line dims to muted ink.</div>
+  </div>
+
+  <!-- Approval -->
+  <div class="scene">
+    <div class="float-stage" style="height:180px">
+      <div class="capsule" style="flex-direction:column;align-items:flex-start;gap:10px">
+        <div class="row">
+          <span class="paw">
+            <svg width="18" height="18" viewBox="0 0 24 24"><g fill="#E8A33D"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg>
+          </span>
+          <div class="label">Approve sending message to Sarah?</div>
+        </div>
+        <div class="actions" style="margin-left:0">
+          <button class="btn primary">Allow once</button>
+          <button class="btn">This session</button>
+          <button class="btn">Always</button>
+          <button class="btn danger">Deny</button>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><b>WaitingForApproval</b> — scope-aware: <i>Once / Session / Always / Deny</i>. Most agents ship one button; we keep the four.</div>
+  </div>
+
+  <!-- Done -->
+  <div class="scene">
+    <div class="float-stage">
+      <div class="capsule">
+        <span class="paw" style="animation:blink 2s ease-in-out 1">
+          <svg width="18" height="18" viewBox="0 0 24 24"><g fill="#4A5D3A"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg>
+        </span>
+        <div class="label">Bluetooth turned on</div>
+      </div>
+    </div>
+    <div class="cap"><b>Done</b> — paw flashes moss green, blinks once, the whole pill scales out and fades after 900 ms. No checkmark emoji.</div>
+  </div>
+
+  <!-- Error -->
+  <div class="scene">
+    <div class="float-stage">
+      <div class="capsule" style="border-color:var(--rust-soft)">
+        <span class="paw">
+          <svg width="18" height="18" viewBox="0 0 24 24"><g fill="#8B2E1F"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg>
+        </span>
+        <div class="label">Couldn't reach Settings — permission missing</div>
+        <div class="actions">
+          <button class="btn">Fix</button>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><b>Error</b> — paw turns rust, capsule shakes once on entry (±3 dp, 120 ms). Stays until acknowledged.</div>
+  </div>
+
+  <!-- Edge glow -->
+  <div class="scene">
+    <div class="glow-stage">
+      <div class="fake-app">
+        <div class="h">Settings</div>
+        <div>Bluetooth</div>
+        <div style="margin-top:6px">Wi-Fi</div>
+        <div style="margin-top:6px">Display</div>
+      </div>
+      <div class="capsule-pos">
+        <div class="capsule" style="background:#F5F1EA;color:#14110F">
+          <span class="paw breath">
+            <svg width="18" height="18" viewBox="0 0 24 24"><g fill="#C44528"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg>
+          </span>
+          <div class="label" style="color:#14110F">Tapping Bluetooth…</div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><b>Edge glow</b> over a host app — radial falloff <i>emanates</i> from the capsule's anchor edge, capped at 12% alpha. Drifts ±2 dp over 8 s — a living halo, not a stroke.</div>
+  </div>
+
+</div>
+
+<!-- =============== CHAT =============== -->
+<div class="section-h">04 Chat — editorial prose, not bubbles <span class="sub">Agent speaks; user is quoted</span></div>
+<div class="grid">
+
+  <div class="scene">
+    <div class="phone">
+      <div class="notch"></div>
+      <div style="height:54px"></div>
+      <div class="chat-header">
+        <span class="menu">≡</span>
+        <span class="paw"><svg width="18" height="18" viewBox="0 0 24 24"><g fill="#C44528"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg></span>
+        <div class="title">ClosePaw</div>
+        <span class="new">+ New</span>
+      </div>
+
+      <div class="chat">
+        <div class="msg-user">Turn on bluetooth, then pair my AirPods.</div>
+
+        <div class="msg-agent">I'll open Settings → Bluetooth and look for AirPods nearby.</div>
+
+        <div class="msg-agent">
+          <div class="receipt">
+            <div class="tool">
+              <div class="name">click(target="Settings")</div>
+              <div class="out">→ ok · 0.6s</div>
+            </div>
+            <div class="stat" style="color:var(--moss)">
+              <span class="paw"><svg width="11" height="11" viewBox="0 0 24 24"><g fill="#4A5D3A"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg></span>
+              done
+            </div>
+          </div>
+        </div>
+
+        <div class="msg-agent">Bluetooth was off — I turned it on. Now scanning for AirPods<span class="cursor">|</span></div>
+
+        <div class="msg-agent thinking">
+          <span class="paw think" style="margin-right:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24"><g fill="#5C554C"><circle class="t1" cx="6" cy="7" r="2.2"/><circle class="t2" cx="12" cy="5.5" r="2.4"/><circle class="t3" cx="18" cy="7" r="2.2"/><path class="pd" d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg>
+          </span>
+          thinking
+        </div>
+      </div>
+    </div>
+    <div class="cap"><b>Chat</b> — agent has <i>no bubble</i>. Prose flows on paper with a 3 dp claw left-margin tick. ActionCard becomes a typeset receipt (mono, hairline rules). Cursor is a serif I-beam.</div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="scene">
+    <div class="phone">
+      <div class="notch"></div>
+      <div style="height:54px"></div>
+      <div class="chat-header">
+        <span class="menu">≡</span>
+        <span class="paw"><svg width="18" height="18" viewBox="0 0 24 24"><g fill="#C44528"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg></span>
+        <div class="title">ClosePaw</div>
+        <span class="new">+ New</span>
+      </div>
+      <div class="empty">
+        <div class="watermark">
+          <svg width="200" height="200" viewBox="0 0 24 24"><g fill="#14110F"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg>
+        </div>
+        <h1>What should<br/>we look into?</h1>
+        <p>I can open apps, change settings, send messages, or read what's on screen.</p>
+        <div class="chips">
+          <div class="chip">Reply to Sarah's last message</div>
+          <div class="chip">Find a quiet café open now</div>
+          <div class="chip">Turn off all notifications for an hour</div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><b>Empty state</b> — Fraunces italic question, claw paw watermark at 8 % opacity, suggestions as <i>underlined serif links</i> in paper cards. No "How can I help?" — change the voice.</div>
+  </div>
+</div>
+
+<!-- =============== SETTINGS / ONBOARDING =============== -->
+<div class="section-h">05 Settings &amp; Onboarding <span class="sub">Field-journal treatment</span></div>
+<div class="grid">
+
+  <div class="scene">
+    <div class="phone">
+      <div class="notch"></div>
+      <div style="height:54px"></div>
+      <div class="chat-header">
+        <span class="menu">←</span>
+        <div class="title">Preferences</div>
+      </div>
+      <div class="settings">
+        <div class="sec-head"><span class="num">01 —</span> Permissions</div>
+        <div class="row-set"><div class="l"><div class="t">Accessibility service</div><div class="s">Required to operate other apps</div></div><div class="r" style="color:var(--moss)">on</div></div>
+        <div class="row-set"><div class="l"><div class="t">Display over other apps</div><div class="s">For the floating capsule</div></div><div class="r" style="color:var(--moss)">on</div></div>
+        <div class="row-set"><div class="l"><div class="t">Ignore battery optimization</div><div class="s">Keeps the agent responsive</div></div><div class="r" style="color:var(--amber)">off</div></div>
+
+        <div class="sec-head"><span class="num">02 —</span> Model</div>
+        <div class="row-set"><div class="l"><div class="t">Provider</div><div class="s">Claude Opus 4.7 · 1M context</div></div><div class="r">→</div></div>
+        <div class="row-set"><div class="l"><div class="t">API key</div><div class="s" style="font-family:var(--mono)">sk-ant-…7f2a</div></div><div class="r">→</div></div>
+
+        <div class="sec-head"><span class="num">03 —</span> Behavior</div>
+        <div class="row-set"><div class="l"><div class="t">Approval scope</div><div class="s">Confirm sends, payments, deletes</div></div><div class="r">→</div></div>
+      </div>
+    </div>
+    <div class="cap"><b>Settings</b> — Fraunces section heads with hanging numerals (<i>01 —</i> in mono claw). Hairline dividers, no surface tints. Mono <span style="font-family:var(--mono);color:#F0EAE0">→</span> as row affordance.</div>
+  </div>
+
+  <div class="scene">
+    <div class="phone">
+      <div class="notch"></div>
+      <div style="height:54px"></div>
+      <div class="chat-header"><span class="menu">←</span><div class="title">Setup</div></div>
+      <div class="onboard">
+        <div class="roman">II</div>
+        <div class="body">
+          <h2>Let me see your screen</h2>
+          <p>ClosePaw works through Android's accessibility service. Without it, the paw can't reach the apps you use. Granting it keeps the agent honest — every action it takes is one you'd be able to make yourself.</p>
+          <div class="telegram" style="margin-bottom:24px">
+            <div class="head">⏤ MISSING — ACCESSIBILITY SERVICE</div>
+            <div class="body">Settings → Apps → Accessibility → ClosePaw → Use service</div>
+          </div>
+          <button class="btn claw" style="font-size:13px;padding:10px 16px">Open Accessibility settings</button>
+        </div>
+        <div class="pawline">
+          <span class="paw"><svg width="14" height="14" viewBox="0 0 24 24"><g fill="#14110F"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg></span>
+          <span class="paw"><svg width="14" height="14" viewBox="0 0 24 24"><g fill="#C44528"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg></span>
+          <span class="paw"><svg width="14" height="14" viewBox="0 0 24 24"><g fill="none" stroke="#8B8278" stroke-width="1.4"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg></span>
+          <span class="paw"><svg width="14" height="14" viewBox="0 0 24 24"><g fill="none" stroke="#8B8278" stroke-width="1.4"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg></span>
+          <span class="paw"><svg width="14" height="14" viewBox="0 0 24 24"><g fill="none" stroke="#8B8278" stroke-width="1.4"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg></span>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><b>Onboarding</b> — chapter spread: <i>120 sp Roman numeral</i> watermark, Fraunces title, editorial prose, telegram-style permission card. Progress is five paws — filled (done), claw (current), outline (next).</div>
+  </div>
+
+</div>
+
+<!-- =============== DARK / LANTERN =============== -->
+<div class="section-h">06 Dark mode — "Lantern" <span class="sub">Separate palette, not inverted</span></div>
+<div class="grid">
+  <div class="scene">
+    <div class="phone dark">
+      <div class="notch"></div>
+      <div style="height:54px"></div>
+      <div class="chat-header">
+        <span class="menu">≡</span>
+        <span class="paw"><svg width="18" height="18" viewBox="0 0 24 24"><g fill="#E56B4A"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg></span>
+        <div class="title">ClosePaw</div>
+        <span class="new" style="color:#E56B4A">+ New</span>
+      </div>
+      <div class="chat">
+        <div class="msg-user">Schedule lunch with Mike for Thursday at noon.</div>
+        <div class="msg-agent" style="border-left-color:#E56B4A">I'll open Calendar and create the event.</div>
+        <div class="msg-agent" style="border-left-color:#E56B4A">
+          <div class="receipt">
+            <div class="tool"><div class="name">create_event(title="Lunch w/ Mike", at="Thu 12:00")</div><div class="out">→ ok · created</div></div>
+            <div class="stat" style="color:#7A9466">
+              <span class="paw"><svg width="11" height="11" viewBox="0 0 24 24"><g fill="#7A9466"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg></span>
+              done
+            </div>
+          </div>
+        </div>
+        <div class="msg-agent" style="border-left-color:#E56B4A">Done — Thursday 12:00. Want me to invite Mike?<span class="cursor" style="color:#E56B4A">|</span></div>
+      </div>
+    </div>
+    <div class="cap"><b>Lantern</b> — deep walnut paper (<span style="font-family:var(--mono)">#0F0D0B</span>), warm bone ink, claw glows warmer (<span style="font-family:var(--mono)">#E56B4A</span>). Reads as a desk lamp, not a screen-off LCD.</div>
+  </div>
+
+  <div class="scene">
+    <div class="float-stage" style="background:#1A1612;border-color:#3a3530;color:#F0EAE0">
+      <div class="capsule dark">
+        <span class="paw breath">
+          <svg width="18" height="18" viewBox="0 0 24 24"><g fill="#E56B4A"><circle cx="6" cy="7" r="2.2"/><circle cx="12" cy="5.5" r="2.4"/><circle cx="18" cy="7" r="2.2"/><path d="M5 14 Q5 10 12 10 Q19 10 19 14 L19 18 Q19 21 12 21 Q5 21 5 18 Z"/></g></svg>
+        </span>
+        <div class="label">Drafting reply…</div>
+        <div class="actions">
+          <button class="btn" style="background:#221C17;color:#F0EAE0;border-color:#3a3530">Take over</button>
+          <button class="btn danger" style="color:#D55A42">Stop</button>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><b>Capsule in dark</b> — same folded-paper card, lantern surface. Claw breathes warmer. The paw is recognisably the same animal in both modes.</div>
+  </div>
+</div>
+
+<!-- =============== MOTION =============== -->
+<div class="section-h">07 Motion principles <span class="sub">Breath, not bounce</span></div>
+<div style="max-width:880px;margin:0 auto;background:#1A1612;border:1px solid #3a3530;border-radius:14px;padding:32px;color:#F0EAE0">
+  <table style="width:100%;border-collapse:collapse;font-size:14px">
+    <tr style="border-bottom:1px solid #3a3530">
+      <td style="padding:10px 0;font-family:var(--mono);color:#E56B4A;width:120px">120 ms</td>
+      <td style="color:#B9B0A3">Micro — pressed state, color tint, error shake</td>
+    </tr>
+    <tr style="border-bottom:1px solid #3a3530">
+      <td style="padding:10px 0;font-family:var(--mono);color:#E56B4A">240 ms</td>
+      <td style="color:#B9B0A3">Transition — capsule slide-in, action visualizer paw-stamp</td>
+    </tr>
+    <tr style="border-bottom:1px solid #3a3530">
+      <td style="padding:10px 0;font-family:var(--mono);color:#E56B4A">480 ms</td>
+      <td style="color:#B9B0A3">Mode change — Running → Done, capsule scaleOut + fade, blink-once</td>
+    </tr>
+    <tr>
+      <td style="padding:10px 0;font-family:var(--mono);color:#E56B4A">900 ms</td>
+      <td style="color:#B9B0A3">Breath — paw scale 1.0 ↔ 1.04, three-toe loader cycle, edge-glow drift</td>
+    </tr>
+  </table>
+  <p style="font-family:var(--serif);font-style:italic;font-size:18px;margin:28px 0 0;color:#F0EAE0">
+    Two easings only — <span style="font-family:var(--mono);font-style:normal;font-size:14px;color:#E56B4A">EaseInOutSine</span> for breath, <span style="font-family:var(--mono);font-style:normal;font-size:14px;color:#E56B4A">EaseOutCubic</span> for entry. No springs. No overshoot. No ripple.
+  </p>
+</div>
+
+<p style="text-align:center;margin:64px 0 0;font-family:var(--mono);font-size:11px;color:#7A7268;letter-spacing:1.4px">
+  ClosePaw · Tactile Intelligence · concept preview
+</p>
+
+</body>
+</html>

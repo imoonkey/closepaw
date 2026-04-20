@@ -1,0 +1,5 @@
+NEXT=DONE
+FIRST_MOVER=CLAUDE
+BASE=CODEX
+ROUNDS=2
+NOTES=Both cross-reviews independently selected CODEX as the better base. Claude wrote the first aligned draft incorporating Codex's row container + 4-state machine + sub-agent rule + supplement rule, plus Claude's chronological-trace amendment (preserving multiple ThoughtUpdates as ordered Thought items rather than "latest wins"). Codex flagged one inconsistency in the first draft (per-action expand contradicted single-axis disclosure rule). Resolved in v2 — result rendering now governed solely by row disclosure state. Codex confirmed NO BLOCKING OBJECTIONS on v2.
