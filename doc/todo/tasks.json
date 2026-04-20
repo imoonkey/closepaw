@@ -256,7 +256,7 @@
   "ui-logic-review-claude": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "UI logic review (Claude) — revamp diff vs state machines",
     "description": "Focused review of UI logic correctness introduced by frontend-ui-revamp (diff fcb9e0ac..HEAD). Compare against documented state machines and pre-revamp git history. Ignore appearance.",
     "scope": [
@@ -267,12 +267,12 @@
     ],
     "agent": "w-ui-logic-review-claude",
     "created": "2026-04-20T16:17:17Z",
-    "updated": "2026-04-20T16:17:17Z"
+    "updated": "2026-04-20T16:39:40Z"
   },
   "ui-logic-review-codex": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "UI logic review (Codex) — revamp diff vs state machines",
     "description": "Independent Codex pass — same scope as Claude review. Cross-signal: findings that both reviewers surface are high-confidence.",
     "scope": [
@@ -283,6 +283,6 @@
     ],
     "agent": "w-ui-logic-review-codex",
     "created": "2026-04-20T16:17:18Z",
-    "updated": "2026-04-20T16:17:18Z"
+    "updated": "2026-04-20T16:39:40Z"
   }
 }
