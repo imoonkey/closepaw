@@ -36,11 +36,10 @@ ui/
 │   ├── ChatSessionHistoryController.kt # Session list/resume/delete
 │   ├── components/
 │   │   ├── ChatHeader.kt        # Header: [≡] Title [+]
-│   │   ├── MessageBubble.kt     # User/Agent bubbles (asymmetric shapes)
-│   │   ├── StreamingText.kt     # Text with blinking cursor
-│   │   ├── ThinkingIndicator.kt # 3 animated dots
-│   │   ├── ActionCard.kt        # Tool execution card (state-colored)
-│   │   └── EmptyState.kt        # First launch with suggestion chips
+│   │   ├── MessageBubble.kt     # User bubble + Track A AgentRow (inline trace + Final + footer)
+│   │   ├── StreamingText.kt     # Final-block Text with inlineContent serif `|` cursor
+│   │   ├── ThinkingIndicator.kt # 3 animated dots (ClosePawMotion.ThinkingPulse)
+│   │   └── EmptyState.kt        # First launch with suggestion chips + serif italic question
 │   └── model/
 │       └── ChatMessage.kt       # UI data classes
 │
@@ -146,8 +145,9 @@ sealed interface ChatMessage {
 }
 
 sealed interface ContentBlock {
-    data class Text(text: String)
-    data class Action(data: ActionCardData)
+    data class Text(text: String)        // Final block (streaming prose)
+    data class Thought(text: String)     // Track A trace item (italic)
+    data class Action(data: ActionCardData)  // Renders inline (→ tool(args) ✓), not a card
 }
 
 enum class AgentMessageState { Thinking, Streaming, Complete }

@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-04-20: ui/chat — D2-4 Track-A restyle + inlineContent streaming cursor
+
+**What changed:**
+- Chat row + components consume `MaterialTheme.closePaw` tokens (spacing, `bodyItalic`, `serifItalic`, `monoBody`, `inkFaint`). Trace items keep the 8dp Track A spacing via `closePaw.spacing.sm`. Final block now sits below an `outlineVariant` (InkGhost) hairline.
+- Legacy bordered `ActionCard` composable retired. Actions render as inline trace rows (`→ tool_name(args)` mono + right-aligned status glyph `⏳/✓/✕/⊘`) inside `MessageBubble.AgentRow`. The `ActionCardData` *model* survives — only the surface form is replaced. `ActionCard.kt` and its androidTests deleted.
+- `StreamingText` rewritten to use `inlineContent` with `Placeholder(0.5em × 1em, TextCenter)`. Cursor is a serif `|` at `bodyLarge` size, blinking on `ClosePawMotion.CursorBlink` (480ms / Linear / Reverse). Cursor child carries `qa-streaming-cursor` test tag; `ChatStreamingCursorTest` updated to match.
+- `ThinkingIndicator` runs on `ClosePawMotion.ThinkingPulse`. `EmptyState` subtitle switched to identity-tier `closePaw.serifItalic`; spacing/shape now flow through tokens + `MaterialTheme.shapes.large`.
+- Verification artifact: `doc/todo/frontend-ui-review/eng-design/track-d2/verification/d2-4-streaming-cursor.md` + on-device screenshot of D2-themed chat surface. Full Fraunces baseline check is gated on font binaries shipping in `res/font/` (current alias falls back to system Serif).
+
+**Why:**
+- Phase D2-4 acceptance: Track A row styling lands on D2 theme/motion; `inlineContent` cursor implemented per `track-d2/final/design_aligned.md` §2; legacy action-card path retired (visual aligned spec §6.2: actions are inline trace rows, not cards).
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/chat/components/{MessageBubble,StreamingText,ThinkingIndicator,EmptyState}.kt`, removed `app/src/main/kotlin/ai/closepaw/ui/chat/components/ActionCard.kt`, `app/src/androidTest/kotlin/ai/closepaw/qa/ChatStreamingCursorTest.kt`.
+**Verification:** `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest :app:assembleDebug` green. JVM unit suite (Track A reducer + Track C state-machine tests) stays green. APK installed and chat surface verified on a physical device (screenshot in verification dir).
+**Commit:** `b0c741f9` on `task/d2-impl`.
+**Next:** `d2-6-contrast-handoff` once D2-3 capsule/overlay restyle settles.
+**Blockers:** Streaming-cursor Fraunces baseline check is deferred to font-asset bundling; the design's documented Geist `|` fallback is one style swap away.
+
 ## 2026-04-20: ui/{settings,navigation,onboarding} — D2-5 theme rollout
 
 **What changed:**
