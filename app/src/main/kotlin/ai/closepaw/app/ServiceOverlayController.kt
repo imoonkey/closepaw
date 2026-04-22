@@ -155,6 +155,14 @@ class ServiceOverlayController(
             hasActiveTask = stateHolder.hasActiveTask,
             showPreference = showPreference,
         )
+        Log.i(
+            logTag,
+            "applyVisibility: platformMode=$platformMode, location=$userLocation, " +
+                "mode=${mode::class.simpleName}, hasActiveTask=${stateHolder.hasActiveTask}, " +
+                "showPreference=$showPreference => showCapsule=${decision.showCapsule}, " +
+                "showIsland=${decision.showIsland}, showGlow=${decision.showGlow}, " +
+                "normalizedShowPreference=${decision.normalizedShowPreference}"
+        )
         val lockInteraction = shouldLockUserInteraction(
             platformMode = platformMode,
             location = userLocation,
