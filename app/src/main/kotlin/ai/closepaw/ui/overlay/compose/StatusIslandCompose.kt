@@ -1,10 +1,13 @@
 package ai.closepaw.ui.overlay.compose
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -19,9 +22,12 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import ai.closepaw.protocol.compactThought
 import ai.closepaw.ui.capsule.surface.StatusPawGlyph
+import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.closePaw
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StatusIslandCompose(
     text: String,
@@ -32,6 +38,7 @@ fun StatusIslandCompose(
 ) {
     val shape = MaterialTheme.shapes.large
     val spacing = MaterialTheme.closePaw.spacing
+    val reducedMotion = ClosePawMotion.reducedMotion()
     Surface(
         modifier = modifier
             .clip(shape)
@@ -57,13 +64,29 @@ fun StatusIslandCompose(
                 size = 14.dp,
                 pulsing = pulsing,
             )
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (reducedMotion) {
+                Text(
+                    text = compactThought(text),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .widthIn(max = 220.dp)
+                        .basicMarquee(
+                            iterations = Int.MAX_VALUE,
+                            velocity = 30.dp,
+                            initialDelayMillis = 1500,
+                        ),
+                )
+            }
         }
     }
 }

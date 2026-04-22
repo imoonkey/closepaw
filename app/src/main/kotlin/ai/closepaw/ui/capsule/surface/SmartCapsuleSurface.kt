@@ -2,6 +2,8 @@ package ai.closepaw.ui.capsule.surface
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ai.closepaw.protocol.ApprovalDecision
+import ai.closepaw.protocol.compactThought
 import ai.closepaw.protocol.ApprovalScope
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.ui.capsule.NavAction
@@ -219,6 +222,7 @@ private fun StartupErrorBanner(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CapsuleStatusLine(
     spec: CapsuleRenderSpec,
@@ -233,6 +237,8 @@ private fun CapsuleStatusLine(
     } else {
         Modifier.fillMaxWidth()
     }
+
+    val reducedMotion = ClosePawMotion.reducedMotion()
 
     Row(
         modifier = rowModifier,
@@ -252,15 +258,32 @@ private fun CapsuleStatusLine(
             Spacer(Modifier.width(8.dp))
         }
 
-        Text(
-            text = spec.thought.text,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(
-                alpha = if (spec.thought.dimmed) 0.6f else 1f,
-            ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
+        val textColor = MaterialTheme.colorScheme.onSurface.copy(
+            alpha = if (spec.thought.dimmed) 0.6f else 1f,
         )
+        if (reducedMotion) {
+            Text(
+                text = compactThought(spec.thought.text),
+                style = MaterialTheme.typography.titleMedium,
+                color = textColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            Text(
+                text = spec.thought.text,
+                style = MaterialTheme.typography.titleMedium,
+                color = textColor,
+                maxLines = 1,
+                modifier = Modifier
+                    .weight(1f)
+                    .basicMarquee(
+                        iterations = Int.MAX_VALUE,
+                        velocity = 30.dp,
+                        initialDelayMillis = 1500,
+                    ),
+            )
+        }
     }
 }
