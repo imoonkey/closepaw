@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -51,21 +53,23 @@ fun OnboardingShell(
         color = MaterialTheme.colorScheme.background
     ) {
         val spacing = MaterialTheme.closePaw.spacing
-        // Two layout modes via a height heuristic so step bodies' Spacer(weight)
-        // pattern keeps pinning CTAs on tall screens, while short landscape
-        // heights fall back to a scrollable column (finding #4).
-        // Threshold: typical landscape phones are <480dp tall; portrait phones
-        // and tablets exceed it comfortably.
+        // Two layout modes via height + IME heuristics so step bodies'
+        // Spacer(weight) pattern keeps pinning CTAs on tall screens, while
+        // short heights — landscape OR portrait-with-IME — fall back to a
+        // scrollable column so the CTA stays reachable.
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
                 .imePadding()
         ) {
-            // Activity uses adjustNothing so imePadding above shrinks maxHeight
-            // when the keyboard opens — short heights then naturally fall back
-            // to the scrollable column path (covers IME-visible state too).
-            val needsScroll = maxHeight < 480.dp
+            // imePadding above shrinks maxHeight when the keyboard opens, but
+            // on most portrait phones the residual ~500-600dp still exceeds
+            // the static <480dp threshold, so also force scroll whenever the
+            // IME is up — that catches the API-key step CTA reliably.
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            val imeVisible = WindowInsets.isImeVisible
+            val needsScroll = maxHeight < 480.dp || imeVisible
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
