@@ -1,0 +1,184 @@
+{
+  "platform-robustness": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Platform Robustness Hardening",
+    "description": "\u57fa\u4e8e holistic review \u7684\u5e73\u53f0\u5c42\u5065\u58ee\u6027\u5f3a\u5316\u30028 \u4e2a\u9636\u6bb5\uff1aVD \u751f\u547d\u5468\u671f\u4e32\u884c\u5316\u3001\u56de\u8c03\u8d85\u65f6\u3001\u624b\u52bf\u53d6\u6d88\u5b89\u5168\u3001\u7a97\u53e3\u9009\u62e9\u3001\u65cb\u8f6c\u5904\u7406\u3001\u8fb9\u754c\u6b63\u786e\u6027\u3001\u8d44\u6e90\u6e05\u7406\u3001\u56de\u5f52\u6d4b\u8bd5\u3002",
+    "design": "projects/archive/20260417_holistic-review/platform-robustness/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "pr-vd-lifecycle": {
+    "parent": "platform-robustness",
+    "depends": [],
+    "state": "done",
+    "title": "P1: \u4e32\u884c\u5316 VD \u751f\u547d\u5468\u671f",
+    "description": "\u6dfb\u52a0\u751f\u547d\u5468\u671f\u4ef2\u88c1\u8005\uff0c\u751f\u547d\u5468\u671f\u8f6c\u6362\u6392\u4ed6\u8bbf\u95ee\uff0c\u64cd\u4f5c\u8c03\u7528\u5171\u4eab Running lease\u3002\u663e\u5f0f\u72b6\u6001\u66ff\u4ee3 volatile\u3002clearCachedProxies() \u5728 shutdown/broken teardown \u8c03\u7528\u3002start() \u6dfb\u52a0 rollback\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplaySurfaceController.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayInputInjector.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuClient.kt"
+    ],
+    "acceptCriteria": [
+      "No public VD method can observe half-stopped state",
+      "start() cancellation/exception does not leave resources with no owner",
+      "Lifecycle transitions cannot invalidate resources under in-flight operational calls",
+      "Binder death transitions platform to Broken",
+      "Restart after stop does not reuse stale proxies",
+      "Operational calls fail fast if platform not Running",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "pr-bounded-callbacks": {
+    "parent": "platform-robustness",
+    "depends": [],
+    "state": "done",
+    "title": "P2: \u56de\u8c03\u7b49\u5f85\u8d85\u65f6\u9650\u5236",
+    "description": "\u6dfb\u52a0 callback-to-suspend \u6865\u63a5\u8f85\u52a9\u5de5\u5177\uff0c\u5e26\u8d85\u65f6\u548c invokeOnCancellation \u6e05\u7406\u3002\u5e94\u7528\u4e8e takeScreenshot\u3001takeScreenshotOfWindow\u3001PixelCopy.request\u3002coroutines 1.7.3 \u4e2d\u5ef6\u8fdf resume \u4e0d\u5d29\u6e83\u4f46\u6cc4\u6f0f\u8d44\u6e90\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityScreenshotCapturer.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt"
+    ],
+    "acceptCriteria": [
+      "captureScreen() always completes inside a bounded deadline",
+      "Cancellation cleans up preallocated resources (Bitmap)",
+      "PixelCopy failure falls back cleanly without wedging capture",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "pr-gesture-cleanup": {
+    "parent": "platform-robustness",
+    "depends": [
+      "pr-vd-lifecycle",
+      "pr-bounded-callbacks"
+    ],
+    "state": "done",
+    "title": "P3: \u8f93\u5165\u6ce8\u5165\u53d6\u6d88\u5b89\u5168",
+    "description": "VD \u957f\u6309\u548c\u6ed1\u52a8\u53d6\u6d88\u5b89\u5168\u3002DOWN \u53d1\u9001\u540e\u8ffd\u8e2a\u624b\u52bf\u6240\u6709\u6743\u3002MOVE \u5931\u8d25\u89c6\u4e3a\u624b\u52bf\u5931\u8d25\u3002finally \u53d1\u9001 ACTION_CANCEL/UP\u3002IME \u6291\u5236\u5728\u4e32\u884c\u5316\u751f\u547d\u5468\u671f\u5185\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayInputInjector.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt"
+    ],
+    "acceptCriteria": [
+      "Cancelling long-press/swipe does not leave target UI in stuck touch state",
+      "IME suppression and restore cannot race across overlapping calls",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "pr-window-selection": {
+    "parent": "platform-robustness",
+    "depends": [
+      "pr-gesture-cleanup"
+    ],
+    "state": "done",
+    "title": "P4: \u7a97\u53e3\u9009\u62e9\u548c root \u4e00\u81f4\u6027",
+    "description": "\u663e\u5f0f\u6700\u9876\u5c42\u7a97\u53e3\u9009\u62e9\u89c4\u5219\u3002VD \u7a97\u53e3\u6309 layer \u6392\u5e8f\u3002\u4fee\u590d getRootOnDisplay() \u5f71\u54cd\u64cd\u4f5c\u5b9a\u4f4d\u548c\u9690\u79c1\u95e8\u63a7\u3002Accessibility \u4fa7\u5bf9\u9f50 capture/action/privacy root \u7b56\u7565\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayWindowAccessor.kt"
+    ],
+    "acceptCriteria": [
+      "Dialogs/popups do not cause screenshot/tree mismatch",
+      "Node actions do not target background windows when higher-layer window is active",
+      "getCurrentPackageName() returns correct foreground package under multi-window",
+      "Capture, action, and privacy-gating root policies are aligned on both platforms",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "pr-rotation-handling": {
+    "parent": "platform-robustness",
+    "depends": [
+      "pr-gesture-cleanup"
+    ],
+    "state": "done",
+    "title": "P5: \u65cb\u8f6c\u548c display \u5c3a\u5bf8\u5904\u7406",
+    "description": "\u901a\u8fc7 WindowManager.maximumWindowMetrics.bounds \u83b7\u53d6\u771f\u5b9e display metrics\u3002\u68c0\u6d4b\u5bbd\u9ad8/\u5bc6\u5ea6\u53d8\u5316\u3002\u51e0\u4f55\u53d8\u5316\u65f6\u91cd\u5efa VD \u548c ImageReader\u3002VD \u662f\u81ea\u5305\u542b\u5750\u6807\u7a7a\u95f4\uff0c\u4e3b\u8981\u5f71\u54cd viewer UX\u3002Medium \u4f18\u5148\u7ea7\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayConfig.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayViewerTouchHandler.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt"
+    ],
+    "acceptCriteria": [
+      "Rotating device does not break screenshot cropping, touch scaling, or bounds interpretation",
+      "VD geometry matches real display geometry after rotation",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "pr-boundary-correctness": {
+    "parent": "platform-robustness",
+    "depends": [
+      "pr-window-selection",
+      "pr-rotation-handling"
+    ],
+    "state": "done",
+    "title": "P6: \u5e73\u53f0\u8fb9\u754c\u6b63\u786e\u6027\u5f3a\u5316",
+    "description": "A11y \u622a\u56fe\u8def\u5f84\u8f6f\u5931\u8d25\u3002captureA11yTreeWithArtifacts() \u91cd\u629b CancellationException\u3002Perceptor \u79fb\u51fa Dispatchers.Main\u3002\u5e94\u7528\u542f\u52a8\u8fd4\u56de\u771f\u5b9e\u7ed3\u679c\u3002\u65e0\u6548 display \u72b6\u6001\u65e9\u671f\u62d2\u7edd\u3002Surface \u66ff\u6362\u4fee\u590d\u3002Shell fallback \u79fb\u51fa\u8c03\u7528\u7ebf\u7a0b\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayAppController.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/ShizukuActivityLauncher.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplaySurfaceController.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayViewerTouchHandler.kt"
+    ],
+    "acceptCriteria": [
+      "A11y capture errors return best-effort results instead of aborting turn",
+      "VD capture cancellation propagates correctly",
+      "Failed VD app launch visible to callers",
+      "Viewer recreation does not strand display on dead surface",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "pr-resource-cleanup": {
+    "parent": "platform-robustness",
+    "depends": [
+      "pr-boundary-correctness"
+    ],
+    "state": "done",
+    "title": "P7: \u8d44\u6e90\u6e05\u7406\u548c\u4f4e\u98ce\u9669\u7ef4\u62a4",
+    "description": "\u4fee\u590d getCurrentPackageName() rootInActiveWindow \u6cc4\u6f0f\u3002\u4fee\u590d isKeyboardVisibleOnMainDisplay() window \u6cc4\u6f0f\u3002A11y debug \u622a\u56fe\u4fdd\u7559\u4e0a\u9650\u3002\u5220\u9664\u6b7b\u4ee3\u7801 (gestureDisplayId, performNodeActionAt)\u3002DISPLAY_FLAGS \u6587\u6863\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityScreenshotCapturer.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayScreenshotProcessor.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityGestureInjector.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/NodeActionPerformer.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayPlatform.kt"
+    ],
+    "acceptCriteria": [
+      "getCurrentPackageName() no longer leaks root node on every call",
+      "isKeyboardVisibleOnMainDisplay() no longer leaks window objects",
+      "Repeated platform use does not grow unrecycled object pressure",
+      "Dead private helpers removed",
+      "DISPLAY_FLAGS documented inline",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "pr-regression-tests": {
+    "parent": "platform-robustness",
+    "depends": [
+      "pr-resource-cleanup"
+    ],
+    "state": "done",
+    "title": "P8: \u56de\u5f52\u6d4b\u8bd5",
+    "description": "\u9488\u5bf9\u6027\u6d4b\u8bd5\uff1a\u622a\u56fe\u8d85\u65f6\u3001VD \u624b\u52bf\u53d6\u6d88\u3001binder death proxy \u5931\u6548\u3001\u591a\u7a97\u53e3\u9009\u62e9\u3001\u65cb\u8f6c resize\u3001surface \u66ff\u6362\u3001\u5e94\u7528\u542f\u52a8\u5931\u8d25\u4f20\u64ad\u3002",
+    "scope": [
+      "app/src/test/kotlin/com/moonkey/androidagent/platform/**"
+    ],
+    "acceptCriteria": [
+      "Bounded screenshot timeout behavior tested",
+      "Cancellation during VD gestures tested",
+      "Binder death and stale proxy invalidation tested",
+      "Window selection under multiple windows tested",
+      "Truthful app-launch failure propagation tested",
+      "./gradlew test passes"
+    ]
+  }
+}

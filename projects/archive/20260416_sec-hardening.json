@@ -1,0 +1,203 @@
+{
+  "sec-hardening": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Security & Privacy Hardening",
+    "description": "Holistic security review \u540e\u7684\u6539\u8fdb\u8ba1\u5212\u3002\u4fee\u590d\u8fb9\u754c\u653e\u7f6e\u4e0e\u6743\u9650\u7ec4\u5408\u95ee\u9898: intent \u63a7\u5236\u5e73\u9762\u3001\u6355\u83b7\u5c42\u9690\u79c1\u62e6\u622a\u3001secret \u5b58\u50a8\u3001\u65e5\u5fd7 PII\u3001\u5bc6\u7801\u5b57\u6bb5\u8131\u654f\u3001shell blocklist\u3001InsecureSsl\u3001AppClassifier \u5931\u8d25\u6a21\u5f0f\u3002",
+    "design": "projects/archive/20260417_holistic-review/security-privacy/final/cn/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-intent-lockdown": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P0.1 \u5173\u95ed\u5bfc\u51fa Intent \u63a7\u5236\u5e73\u9762",
+    "description": "Production build \u5ffd\u7565\u5916\u90e8 caller \u7684\u5b89\u5168\u654f\u611f intent extras (API key, base URL, backend, mode, debug/trace flags)\u3002\u6c38\u4e0d\u6301\u4e45\u5316 intent \u63d0\u4f9b\u7684\u51ed\u636e\u3002\u5916\u90e8 goal \u9700\u7528\u6237\u786e\u8ba4\u3002Debug build \u4fdd\u7559\u73b0\u6709\u884c\u4e3a\u3002",
+    "scope": [
+      "app/src/main/AndroidManifest.xml",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivityIntentPayload.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivityIntentApplier.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/MainActivity.kt"
+    ],
+    "acceptCriteria": [
+      "External ACTION_MAIN launch cannot persist API keys or routing changes",
+      "External launch cannot force BASIC mode",
+      "External launch cannot auto-start agent without user confirmation",
+      "Debug build debug workflow unaffected",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sec-fail-closed-secrets": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P0.3 Secret \u5b58\u50a8\u5173\u95ed\u5f0f\u5931\u8d25",
+    "description": "\u79fb\u9664\u660e\u6587 SharedPreferences fallback\u3002\u52a0\u5bc6\u5b58\u50a8\u5931\u8d25\u65f6\u4ec5\u4fdd\u6301\u5185\u5b58\u4e2d\u51ed\u636e, \u663e\u793a\u964d\u7ea7\u6a2a\u5e45\u3002loadApiKeyFromFile() \u7528 BuildConfig.DEBUG \u95e8\u63a7\u3002\u6e05\u7406\u76f8\u5173 deadcode (prefsFailed flag, plaintext prefs init)\u3002\u52a0 test\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/app/AppSettingsStore.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/auth/OAuthCredentialStore.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/onboarding/OnboardingStore.kt"
+    ],
+    "acceptCriteria": [
+      "No long-lived secret written to plain SharedPreferences",
+      "Encryption failure visible to user via degraded-security banner",
+      "Current-session credentials work in memory without persistence",
+      "Production build has no path reading api_key.txt from shared storage",
+      "Related deadcode (prefsFailed, plaintext init) removed",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-remove-auth-pii": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P0.4 \u79fb\u9664 auth PII \u65e5\u5fd7",
+    "description": "\u5220\u9664 OpenAIOAuth.kt \u4e2d id_token claims \u65e5\u5fd7\u548c OpenAiSignIn.kt \u4e2d email \u65e5\u5fd7\u3002\u5982\u9700\u8c03\u8bd5\u4ec5\u8bb0\u5f55 token \u5b58\u5728\u4e0e\u957f\u5ea6, \u53d7 BuildConfig.DEBUG \u95e8\u63a7\u3002LlmLogger \u5df2\u6709 DEBUG \u95e8\u63a7, \u65e0\u9700\u6539\u52a8\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/auth/OpenAIOAuth.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/auth/OpenAiSignIn.kt"
+    ],
+    "acceptCriteria": [
+      "No token claims, emails, or account identifiers in logcat",
+      "grep -rn 'id_token claims' app/src/main/kotlin/ returns empty",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sec-capture-privacy-gate": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P0.2 \u6355\u83b7\u5c42\u9690\u79c1\u62e6\u622a (TDD)",
+    "description": "\u5c06 blocked-app masking \u79fb\u5165\u6355\u83b7\u6808, \u5728\u4efb\u4f55\u5236\u54c1\u521b\u5efa\u4e4b\u524d\u6267\u884c\u3002BLOCKED app \u7acb\u5373\u8fd4\u56de\u906e\u7f69 snapshot, \u4e0d\u5199\u5165 raw/sanitized tree \u6216\u622a\u56fe, \u4e0d\u53d1\u51fa\u542b\u6355\u83b7\u5185\u5bb9\u7684 post-action observation\u3002\u7edf\u4e00 post-action capture \u8def\u5f84\u3002\u7528 /tdd \u5148\u5199 test \u518d\u6539\u4ee3\u7801\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityPlatform.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayCaptureCoordinator.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/AccessibilityScreenshotCapturer.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/platform/virtualdisplay/VirtualDisplayScreenshotProcessor.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/OpenAppTool.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/UIActionInvocation.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ObservationBuilder.kt"
+    ],
+    "acceptCriteria": [
+      "Tracing on a blocked app writes no screenshot or tree artifact",
+      "open_app and UIActionInvocation cannot return raw blocked-app observations",
+      "Blocked-app session produces only masked snapshots and policy warnings",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-shell-blocklist": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P1.2 Shell blocklist \u7cbe\u7b80",
+    "description": "\u5c06 ShellTool BLOCKED_COMMANDS \u4ece 14 \u4e2a\u7cbe\u7b80\u4e3a 4 \u4e2a: am, pm, reboot, su\u3002\u89e3\u9664 rm, mv, cp, chmod, chown, sh, bash, eval, exec, settings\u3002\u4e0d\u9650\u5236\u5143\u5b57\u7b26, \u4e0d\u6dfb\u52a0 path denylist\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt"
+    ],
+    "acceptCriteria": [
+      "BLOCKED_COMMANDS contains exactly: am, pm, reboot, su",
+      "rm, mv, cp, settings and other previously blocked commands are allowed",
+      "Shell metacharacters (pipe, redirect, subshell) unrestricted",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sec-insecure-ssl-debug": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P1.3 InsecureSsl \u7f16\u8bd1\u65f6 Debug-only",
+    "description": "\u5c06 InsecureSslConfig.kt \u79fb\u81f3 debug/ source set, release source set \u63d0\u4f9b no-op stub\u3002\u9a8c\u8bc1 base URL \u8986\u76d6\u5728 debug \u4e4b\u5916\u8981\u6c42 HTTPS\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/InsecureSslConfig.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/ChatCompletionClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/OpenAIResponseClient.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/llm/CodexResponseClient.kt"
+    ],
+    "acceptCriteria": [
+      "InsecureSslConfig.kt exists only in debug/ source set",
+      "Release build cannot compile any insecure TLS helper",
+      "Production base URL rejects non-HTTPS URLs",
+      "./gradlew assembleRelease passes"
+    ]
+  },
+  "sec-classifier-fail-closed": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P1.4 AppClassifier \u5173\u95ed\u5f0f\u5931\u8d25",
+    "description": "fromAssets() \u5728 app_tiers.json \u52a0\u8f7d\u5931\u8d25\u65f6\u629b\u5f02\u5e38\u800c\u975e\u8fd4\u56de\u7a7a\u5206\u7c7b\u5668\u3002Session \u521b\u5efa\u4e2d\u6b62\u5e76\u5411\u7528\u6237\u5c55\u793a\u9519\u8bef\u3002\u4e0d\u6dfb\u52a0\u7279\u6b8a escape action \u8def\u5f84\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/AppClassifier.kt"
+    ],
+    "acceptCriteria": [
+      "Missing/corrupt app_tiers.json prevents session start",
+      "User sees error explaining the issue",
+      "No empty-classifier fallback path in production code",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-password-suppression": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P1.1 \u5bc6\u7801\u5b57\u6bb5\u8131\u654f (isPassword)",
+    "description": "\u5728 Perceptor \u6784\u5efa PerceptionElement \u65f6\u68c0\u67e5 AccessibilityNodeInfo.isPassword(), \u4e3a true \u5219\u6291\u5236 text/contentDescription\u3002\u6240\u6709\u4e0b\u6e38\u8def\u5f84\u81ea\u52a8\u7ee7\u627f\u3002\u4e0d\u505a editable \u5b57\u6bb5\u6291\u5236\u3001\u4e0d\u62c6\u5206 serializer\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/perception/Perceptor.kt"
+    ],
+    "acceptCriteria": [
+      "Password fields never appear with raw text in prompt/history/trace",
+      "Non-password fields (including editable) unchanged",
+      "./gradlew test passes"
+    ]
+  },
+  "sec-data-retention": {
+    "parent": "sec-hardening",
+    "depends": [],
+    "state": "done",
+    "title": "P2.2 \u6570\u636e\u7559\u5b58\u63a7\u5236",
+    "description": "\u5728 Settings \u2192 Permissions & Advanced \u9875\u9762\u65b0\u589e Data & Storage section\u3002\u63d0\u4f9b session history/checkpoints/memory/trace \u7559\u5b58\u8bbe\u7f6e\u3001\u4e00\u952e\u5b89\u5168\u64e6\u9664\u3001\u9ed8\u8ba4\u5173\u95ed trace \u5e76\u542f\u7528\u65f6\u7ed9\u51fa\u63d0\u793a\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/PermissionsAdvancedSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "Data & Storage section visible in Permissions & Advanced settings",
+      "One-tap wipe for traces and stored sessions works",
+      "Trace defaults to off with clear messaging when enabled",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "sec-regression-tests": {
+    "parent": "sec-hardening",
+    "depends": [
+      "sec-intent-lockdown",
+      "sec-fail-closed-secrets",
+      "sec-remove-auth-pii",
+      "sec-capture-privacy-gate",
+      "sec-shell-blocklist",
+      "sec-insecure-ssl-debug",
+      "sec-classifier-fail-closed",
+      "sec-password-suppression"
+    ],
+    "state": "done",
+    "title": "P2.3 \u5b89\u5168\u56de\u5f52\u6d4b\u8bd5",
+    "description": "\u4e3a\u6240\u6709 security hardening items \u7f16\u5199\u56de\u5f52\u6d4b\u8bd5\u3002\u4e3b\u8981\u4e3a JVM unit test, \u4ec5 blocked-app trace test \u9700\u8981 instrumentation test\u3002",
+    "scope": [
+      "app/src/test/**"
+    ],
+    "acceptCriteria": [
+      "Test: external intent with sensitive extras ignored in production",
+      "Test: blocked app produces no trace screenshots/trees",
+      "Test: password fields redacted from prompt/history/trace",
+      "Test: encrypted storage failure does not persist secrets in plaintext",
+      "Test: shell blocklist contains only am/pm/reboot/su",
+      "Test: AppClassifier load failure prevents session start",
+      "./gradlew test passes"
+    ]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "ui-logic-review-codex": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "UI logic review (Codex) \u2014 revamp diff vs state machines",
+    "description": "Independent Codex pass \u2014 same scope as Claude review. Cross-signal: findings that both reviewers surface are high-confidence.",
+    "scope": [
+      "projects/archive/20260422_ui-polish/logic_review_codex.md"
+    ],
+    "acceptCriteria": [
+      "projects/archive/20260422_ui-polish/logic_review_codex.md exists with severity-ranked findings"
+    ],
+    "agent": "w-ui-logic-review-codex",
+    "created": "2026-04-20T16:17:18Z",
+    "updated": "2026-04-20T16:39:40Z"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "ui-logic-review-claude": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "UI logic review (Claude) \u2014 revamp diff vs state machines",
+    "description": "Focused review of UI logic correctness introduced by frontend-ui-revamp (diff fcb9e0ac..HEAD). Compare against documented state machines and pre-revamp git history. Ignore appearance.",
+    "scope": [
+      "projects/archive/20260422_ui-polish/logic_review_claude.md"
+    ],
+    "acceptCriteria": [
+      "projects/archive/20260422_ui-polish/logic_review_claude.md exists with severity-ranked findings"
+    ],
+    "agent": "w-ui-logic-review-claude",
+    "created": "2026-04-20T16:17:17Z",
+    "updated": "2026-04-20T16:39:40Z"
+  }
+}

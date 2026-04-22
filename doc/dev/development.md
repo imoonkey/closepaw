@@ -107,7 +107,7 @@ What is and isn't covered:
 - `app/src/androidTest/kotlin/ai/closepaw/qa/` — Compose UI behavior guards across Chat, SmartCapsule, Settings (45 tests as of 2026-04-17). Layout is flat, files grouped by area (`ChatHeaderTest`, `CapsuleInputTest`, `SettingsLlmAuthTest`, ...). No Robot pattern, no annotations, no base classes.
 - `eval/` — AndroidWorld-style agent benchmarks (separate Python harness, see `/autotune`).
 
-Design rules: `doc/todo/qa_test/final/cn/design_kiss.md`. Add new tests when adding behavior or fixing bugs — don't wait for bugs to grow guards.
+Design rules: `projects/active/qa_test/final/cn/design_kiss.md`. Add new tests when adding behavior or fixing bugs — don't wait for bugs to grow guards.
 
 Critical pitfall: **never use Kotlin built-in `assert(...)` for verdicts** in androidTest — it's a no-op without `-ea` and silently passes. Use `org.junit.Assert.assertTrue` / `assertEquals` or Compose's `onNode(...).assertExists()` / `assertCountEquals(...)`.
 

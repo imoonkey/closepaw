@@ -1,0 +1,1258 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ClosePaw — Bound Edition · Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400;1,9..144,500&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================
+   D1 Tokens — Bound Edition
+   ============================================================ */
+:root[data-theme="light"] {
+  --paper:           #F5F1EA;
+  --paper-inset:     #EDE7DC;
+  --ink:             #14110F;
+  --ink-muted:       #5C554C;
+  --ink-faint:       #8B8278;
+  --claw:            #C44528;
+  --moss:            #4A5D3A;
+  --amber:           #E8A33D;
+  --rust:            #8B2E1F;
+  --hairline:        rgba(20,17,15,.12);
+  --ink-ghost:       rgba(20,17,15,.08);
+  --primary-container: #EBCFC3;
+  --tertiary-container: #F2E2C7;
+  --error-container: #E0CAC1;
+  --shadow-warm:     rgba(80,50,30,.18);
+  --grain-opacity:   .55;
+  --vignette-opacity: 0;
+}
+:root[data-theme="dark"] {
+  --paper:           #0F0D0B;
+  --paper-inset:     #1A1612;
+  --ink:             #F0EAE0;
+  --ink-muted:       #B9B0A3;
+  --ink-faint:       #7A7268;
+  --claw:            #E56B4A;
+  --moss:            #7A9466;
+  --amber:           #F2B960;
+  --rust:            #D55A42;
+  --hairline:        rgba(240,234,224,.14);
+  --ink-ghost:       rgba(240,234,224,.08);
+  --primary-container: #3A2018;
+  --tertiary-container: #3C2F1C;
+  --error-container: #361C16;
+  --shadow-warm:     rgba(0,0,0,.55);
+  --grain-opacity:   0;
+  --vignette-opacity: .35;
+}
+:root {
+  /* radii */
+  --r-sm: 8px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  /* spacing */
+  --xs: 4px; --sm: 8px; --md: 12px; --lg: 20px; --xl: 32px;
+  /* type */
+  --serif: "Fraunces", "Iowan Old Style", "Apple Garamond", Georgia, serif;
+  --sans:  "Geist", -apple-system, "Inter", system-ui, sans-serif;
+  --mono:  "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+  /* motion */
+  --t-quick: 120ms;
+  --t-std: 240ms;
+  --t-pulse: 480ms;
+  --t-breath: 900ms;
+  --ease-sine: cubic-bezier(.37,0,.63,1);
+  --ease-out-cubic: cubic-bezier(.33,1,.68,1);
+}
+
+/* ============================================================
+   Page chrome (the preview itself in Bound-Edition voice)
+   ============================================================ */
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+/* paper grain overlay (light only via tokens) */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.07  0 0 0 0 0.06  0 0 0 0.04 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+}
+/* dark vignette */
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: var(--vignette-opacity);
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,.6) 100%);
+}
+
+.toolbar {
+  position: sticky; top: 0; z-index: 100;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--hairline);
+  padding: 14px 28px;
+  display: flex; align-items: center; gap: 16px;
+}
+.toolbar .brand {
+  display: flex; align-items: baseline; gap: 12px;
+}
+.toolbar .brand .title {
+  font-family: var(--serif); font-style: italic; font-weight: 500;
+  font-size: 22px; color: var(--ink);
+}
+.toolbar .brand .badge {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  letter-spacing: .04em;
+}
+.toolbar .spacer { flex: 1; }
+.toolbar .switch {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
+  cursor: pointer;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: 6px 12px;
+  background: var(--paper-inset);
+  transition: background var(--t-std) var(--ease-out-cubic),
+              color var(--t-std) var(--ease-out-cubic);
+}
+.toolbar .switch:hover { color: var(--ink); }
+
+.intro {
+  max-width: 760px;
+  margin: 36px auto 8px;
+  padding: 0 28px;
+}
+.intro h1 {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 44px; line-height: 1.1; margin: 0 0 16px;
+  letter-spacing: -.01em;
+}
+.intro p {
+  color: var(--ink-muted);
+  margin: 0 0 12px;
+  max-width: 60ch;
+}
+.intro .meta {
+  font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
+  margin-top: 24px;
+  display: flex; gap: 18px; flex-wrap: wrap;
+}
+.intro .meta b { color: var(--ink); font-weight: 500; }
+
+.fleuron-page {
+  text-align: center;
+  font-family: var(--serif); font-style: italic;
+  color: var(--ink-faint);
+  font-size: 18px;
+  margin: 36px 0;
+  letter-spacing: .4em;
+}
+
+/* ============================================================
+   Phone gallery
+   ============================================================ */
+.gallery {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 28px 80px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 56px 36px;
+}
+.scene {
+  display: flex; flex-direction: column; align-items: center;
+}
+.scene .label {
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: .05em;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+.scene .label .num {
+  color: var(--claw);
+  margin-right: 8px;
+}
+.scene .caption {
+  margin-top: 16px;
+  font-family: var(--serif); font-style: italic;
+  color: var(--ink-muted);
+  font-size: 14px; max-width: 320px; text-align: center;
+}
+
+/* phone frame */
+.phone {
+  width: 320px; height: 660px;
+  border-radius: 38px;
+  background: var(--paper);
+  box-shadow:
+    0 0 0 8px color-mix(in srgb, var(--ink) 88%, transparent),
+    0 0 0 9px var(--ink-faint),
+    0 22px 40px -16px var(--shadow-warm),
+    0 6px 14px -8px var(--shadow-warm);
+  position: relative;
+  overflow: hidden;
+}
+.phone .notch {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  width: 96px; height: 24px;
+  background: color-mix(in srgb, var(--ink) 90%, transparent);
+  border-radius: 14px;
+  z-index: 50;
+}
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--paper);
+  overflow: hidden;
+}
+/* per-screen paper grain (subtle, in addition to global) */
+.screen.grain::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.07  0 0 0 0 0.06  0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+  opacity: var(--grain-opacity);
+}
+
+/* ============================================================
+   Components — Bound Edition
+   ============================================================ */
+
+/* PageMasthead */
+.masthead {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px 10px;
+  position: relative; z-index: 2;
+}
+.masthead .left {
+  display: flex; align-items: center; gap: 10px;
+}
+.masthead .paw { width: 18px; height: 18px; color: var(--ink); }
+.masthead .title {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 18px; color: var(--ink);
+  line-height: 1;
+}
+.masthead .right {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  letter-spacing: .03em;
+}
+.masthead.with-icon-buttons {
+  padding: 8px 4px 6px;
+}
+.icon-btn {
+  width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink-muted);
+  background: transparent; border: none; cursor: pointer;
+  border-radius: var(--r-md);
+}
+.icon-btn:hover { background: var(--paper-inset); }
+.icon-btn svg { width: 22px; height: 22px; }
+
+.masthead-rule {
+  height: 1px; margin: 0 16px;
+  background: var(--hairline);
+}
+
+/* Generic */
+.kbd-mono { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: .03em; }
+
+/* Fleuron */
+.fleuron {
+  text-align: center;
+  font-family: var(--serif); font-style: italic;
+  font-size: 16px;
+  color: var(--ink-faint);
+  padding: 12px 0;
+  user-select: none;
+}
+
+/* ============================================================
+   Scene 1 — EmptyState (asymmetric)
+   ============================================================ */
+.empty {
+  flex: 1; position: relative; padding: 0;
+}
+.empty .bleed-paw {
+  position: absolute;
+  top: -56px; right: -72px;
+  width: 240px; height: 240px;
+  color: var(--ink);
+  opacity: .82;
+  z-index: 1;
+  transform: rotate(-8deg);
+}
+.empty .stack {
+  position: absolute;
+  left: 20px; right: 20px;
+  bottom: 16px;
+  display: flex; flex-direction: column; gap: 14px;
+  z-index: 2;
+}
+.empty .question {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 30px; line-height: 1.18;
+  color: var(--ink);
+  margin: 0;
+}
+.empty .rule { width: 64px; height: 1px; background: var(--hairline); }
+.empty .suggestion {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background var(--t-quick) var(--ease-out-cubic);
+}
+.empty .suggestion:hover { background: color-mix(in srgb, var(--ink-faint) 8%, transparent); }
+.empty .suggestion .arrow {
+  color: var(--ink-faint);
+  font-family: var(--sans); font-size: 16px;
+  line-height: 1.2; padding-top: 2px;
+}
+.empty .suggestion .verb {
+  font-family: var(--sans); font-size: 15px; font-weight: 400;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.empty .suggestion .gloss {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 13px;
+  color: var(--ink-muted);
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+/* staggered reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: revealIn var(--t-std) var(--ease-out-cubic) forwards;
+}
+.reveal.r0 { animation-delay: 0ms; }
+.reveal.r1 { animation-delay: 80ms; }
+.reveal.r2 { animation-delay: 160ms; }
+.reveal.r3 { animation-delay: 240ms; }
+.reveal.r4 { animation-delay: 320ms; }
+@keyframes revealIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; animation: none; }
+}
+
+/* ============================================================
+   Capsule (used in multiple scenes)
+   ============================================================ */
+.capsule {
+  margin: 0 12px 12px;
+  background: var(--paper);
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 1px 0 var(--ink-faint) inset,
+    0 6px 14px -6px var(--shadow-warm),
+    0 2px 4px -2px var(--shadow-warm);
+  padding: 8px 12px 8px;
+  position: relative;
+}
+.capsule .top-rule {
+  position: absolute; top: 0; left: 8px; right: 8px; height: 1px;
+  background: var(--hairline);
+}
+.capsule-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0 4px;
+}
+.capsule-status .dot {
+  width: 14px; height: 14px;
+  color: var(--moss);
+  display: inline-flex;
+}
+.capsule-status .dot.breath { animation: breath var(--t-breath) var(--ease-sine) infinite alternate; }
+@keyframes breath { from { opacity: .6 } to { opacity: 1 } }
+
+.capsule-status .ledger {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  letter-spacing: .03em;
+  font-variant-numeric: tabular-nums;
+}
+.capsule-status .thought {
+  font-family: var(--sans); font-weight: 500; font-size: 15px; color: var(--ink);
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.capsule-divider {
+  height: 1px; background: color-mix(in srgb, var(--ink-ghost) 70%, transparent);
+  margin: 6px 0;
+}
+.capsule-detail {
+  font-size: 12px; color: var(--ink-muted);
+  padding: 0 2px;
+}
+.capsule-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 2px;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: var(--r-lg);
+  padding: 6px 12px;
+  font-family: var(--sans); font-weight: 500; font-size: 14px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform var(--t-quick) var(--ease-out-cubic),
+              background var(--t-quick) var(--ease-out-cubic);
+}
+.btn-primary {
+  background: var(--tertiary-container);
+  color: var(--ink);
+}
+.btn-stop {
+  background: transparent;
+  color: var(--rust);
+  border: 1px solid var(--rust);
+}
+.btn svg { width: 16px; height: 16px; }
+.nav-cluster { display: inline-flex; gap: 4px; }
+.nav-icon {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--paper-inset);
+  border: none; border-radius: var(--r-md);
+  color: var(--ink-muted); cursor: pointer;
+}
+.nav-icon svg { width: 18px; height: 18px; }
+
+/* Capsule input bar */
+.capsule-input {
+  display: flex; align-items: flex-end; gap: 8px;
+  padding-top: 4px;
+}
+.capsule-input .field {
+  flex: 1;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--paper-inset);
+  border-radius: var(--r-lg);
+  padding: 10px 14px;
+  color: var(--ink-faint);
+  font-family: var(--sans); font-size: 14px;
+}
+.capsule-input .field svg { width: 18px; height: 18px; color: var(--ink-faint); }
+.send-btn {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--claw);
+  color: var(--paper);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer;
+}
+.send-btn svg { width: 18px; height: 18px; }
+.send-btn.breath {
+  animation: sendBreath var(--t-std) var(--ease-out-cubic);
+}
+@keyframes sendBreath {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* ============================================================
+   Conversation scene
+   ============================================================ */
+.conv {
+  flex: 1; overflow-y: auto;
+  padding: 8px 16px 4px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+/* Agent row */
+.agent-row {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.agent-row .collapsed {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
+  cursor: pointer;
+}
+.agent-row .collapsed .bracket { color: var(--ink); }
+.agent-row .collapsed .summary { color: var(--ink-muted); flex: 1; }
+
+.thought {
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.thought .marker { color: var(--ink); font-size: 14px; line-height: 1.3; }
+.thought .body {
+  font-family: var(--serif); font-style: italic; font-size: 15px; line-height: 1.45;
+  color: var(--ink-muted);
+}
+.action {
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.action .marker { color: var(--ink-faint); font-family: var(--mono); font-size: 13px; padding-top: 2px; }
+.action .body {
+  flex: 1;
+  font-family: var(--mono); font-size: 13px; line-height: 1.45;
+  color: var(--ink);
+}
+.action .body .sub {
+  display: block; font-family: var(--sans); font-size: 12px; color: var(--ink-muted);
+  font-style: normal; margin-top: 1px;
+}
+.action .status { font-family: var(--mono); font-size: 13px; }
+.action .status.ok { color: var(--moss); }
+.action .status.fail { color: var(--rust); }
+.action .status.run { color: var(--ink-faint); }
+
+.final {
+  font-family: var(--sans); font-size: 15px; line-height: 1.5; color: var(--ink);
+}
+
+.outcome {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  letter-spacing: .03em;
+}
+.outcome .bracket { color: var(--ink); }
+
+/* User bubble — letter to the editor */
+.user-bubble {
+  display: flex; justify-content: flex-end;
+}
+.user-bubble .col {
+  max-width: 75%;
+  display: flex; gap: 12px;
+}
+.user-bubble .rule { width: 1px; background: var(--hairline); }
+.user-bubble .body {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+}
+.user-bubble .text {
+  font-family: var(--sans); font-size: 15px; line-height: 1.5; color: var(--ink);
+  text-align: right;
+}
+.user-bubble .ts {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
+  letter-spacing: .04em;
+}
+
+/* ThinkingIndicator naked */
+.thinking {
+  display: flex; align-items: center; gap: 10px;
+}
+.thinking .paw {
+  width: 28px; height: 28px;
+  color: var(--ink);
+  position: relative;
+}
+.thinking .paw .toe { animation: pawToe 900ms linear infinite; }
+.thinking .paw .toe.t0 { animation-delay: 0ms; }
+.thinking .paw .toe.t1 { animation-delay: 225ms; }
+.thinking .paw .toe.t2 { animation-delay: 450ms; }
+.thinking .paw .toe.t3 { animation-delay: 675ms; }
+@keyframes pawToe {
+  0%   { opacity: .30; }
+  25%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+.thinking .label {
+  font-family: var(--serif); font-style: italic;
+  font-size: 14px; color: var(--ink-muted);
+}
+
+/* ============================================================
+   Onboarding
+   ============================================================ */
+.onb {
+  flex: 1;
+  display: flex; flex-direction: column;
+  padding: 16px 20px 24px;
+}
+.onb-step {
+  display: flex; align-items: center; gap: 4px;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  letter-spacing: .04em;
+}
+.onb-step .back {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: -8px;
+}
+.onb-paws {
+  display: flex; gap: 10px;
+  margin-top: 14px;
+}
+.onb-paws .p {
+  width: 22px; height: 22px;
+}
+.onb-paws .p.on  { color: var(--claw); }
+.onb-paws .p.off { color: var(--ink-faint); opacity: .5; }
+.onb-title {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 30px; line-height: 1.15;
+  color: var(--ink);
+  margin: 28px 0 16px;
+}
+.onb-body {
+  font-size: 15px; color: var(--ink-muted); line-height: 1.5;
+}
+.onb-card {
+  margin-top: 18px;
+  padding: 16px;
+  background: var(--paper-inset);
+  border-radius: var(--r-md);
+  border: 1px solid var(--hairline);
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.onb-card .ico { color: var(--moss); }
+.onb-card .ico svg { width: 22px; height: 22px; }
+.onb-card .t { font-weight: 500; color: var(--ink); }
+.onb-card .s { color: var(--ink-muted); font-size: 13px; margin-top: 2px; }
+
+.onb-cta {
+  margin-top: auto;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.btn-block {
+  width: 100%;
+  background: var(--claw);
+  color: var(--paper);
+  border: none;
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  font-family: var(--sans); font-weight: 500; font-size: 15px;
+  cursor: pointer;
+}
+.btn-block.ghost {
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+/* ============================================================
+   Settings
+   ============================================================ */
+.settings {
+  flex: 1;
+  padding: 8px 20px 24px;
+  display: flex; flex-direction: column;
+}
+.section-h {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 17px; color: var(--ink-faint);
+  margin: 18px 0 6px;
+}
+.nav-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--hairline);
+  cursor: pointer;
+}
+.nav-row:hover { background: color-mix(in srgb, var(--ink-faint) 5%, transparent); }
+.nav-row .t { font-size: 15px; color: var(--ink); font-weight: 500; }
+.nav-row .s { font-size: 12px; color: var(--ink-muted); margin-top: 2px; }
+.nav-row .s .num { font-family: var(--mono); }
+.version {
+  text-align: center;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  letter-spacing: .04em;
+  margin-top: 8px;
+}
+
+/* ============================================================
+   Drawer
+   ============================================================ */
+.drawer {
+  flex: 1;
+  padding: 0 0 0 0;
+  display: flex; flex-direction: column;
+}
+.drawer .new-conv {
+  margin: 0 16px 14px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid var(--claw);
+  border-radius: var(--r-md);
+  color: var(--claw);
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+}
+.drawer .new-conv svg { width: 18px; height: 18px; }
+.drawer .recent-h {
+  font-size: 13px; font-weight: 500;
+  color: var(--ink-muted);
+  padding: 8px 16px;
+}
+.drawer .session {
+  margin: 4px 12px;
+  padding: 12px;
+  background: var(--paper-inset);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+}
+.drawer .session .meta {
+  flex: 1;
+}
+.drawer .session .title {
+  font-size: 14px; font-weight: 500; color: var(--ink);
+  line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.drawer .session .sub {
+  margin-top: 4px;
+  display: flex; gap: 8px; align-items: center;
+  font-size: 11px; color: var(--ink-faint);
+}
+.drawer .session .sub .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-faint); }
+.drawer .session .sub .date { font-family: var(--mono); }
+.drawer .settings-entry {
+  margin-top: auto;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--hairline);
+  cursor: pointer;
+}
+.drawer .settings-entry .t { font-weight: 500; font-size: 15px; color: var(--ink); }
+.drawer .settings-entry .s { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.drawer .settings-entry svg { width: 22px; height: 22px; color: var(--ink-muted); }
+
+/* ============================================================
+   Comparison strip
+   ============================================================ */
+.compare {
+  max-width: 1080px; margin: 64px auto 24px; padding: 0 28px;
+}
+.compare h2 {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 28px; margin: 0 0 6px;
+}
+.compare .sub { color: var(--ink-muted); margin-bottom: 24px; }
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.compare-cell {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  position: relative;
+}
+.compare-cell .tag {
+  position: absolute; top: 12px; right: 16px;
+  font-family: var(--mono); font-size: 10px;
+  letter-spacing: .1em;
+  color: var(--ink-faint);
+}
+.compare-cell.before .tag { color: var(--ink-faint); }
+.compare-cell.after  .tag { color: var(--claw); }
+.compare-cell h3 {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  margin: 0 0 14px; font-size: 16px; color: var(--ink-muted);
+}
+.before-line {
+  height: 1px; background: var(--ink-ghost);
+  margin: 22px 0;
+}
+.after-fleuron {
+  text-align: center;
+  font-family: var(--serif); font-style: italic;
+  color: var(--ink-faint);
+  font-size: 16px;
+  padding: 14px 0;
+}
+.snippet-thought {
+  font-family: var(--serif); font-style: italic; font-size: 15px;
+  color: var(--ink-muted); margin-bottom: 10px;
+}
+.snippet-action {
+  font-family: var(--mono); font-size: 13px; color: var(--ink); margin-bottom: 6px;
+}
+.snippet-final {
+  font-family: var(--sans); font-size: 15px; color: var(--ink);
+}
+
+/* footer */
+.colophon {
+  text-align: center; padding: 36px 28px 64px;
+  color: var(--ink-faint);
+  font-family: var(--mono); font-size: 11px;
+  letter-spacing: .08em;
+}
+.colophon a { color: var(--ink-muted); text-decoration: none; border-bottom: 1px solid var(--hairline); }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="brand">
+    <span class="title">ClosePaw</span>
+    <span class="badge">No 04 · Bound Edition · Apr 22</span>
+  </div>
+  <span class="spacer"></span>
+  <button class="switch" id="themeToggle" type="button">
+    <span id="themeLabel">Light · Paper</span>
+    <span style="opacity:.6">⇄</span>
+  </button>
+</div>
+
+<section class="intro">
+  <h1>A bound edition of the agent.</h1>
+  <p>D1 is intact. What changes is register: page mastheads on every surface, a centered fleuron between Trace and Final, an asymmetric first page, a ledger counter on the running capsule, and paper grain you can feel.</p>
+  <div class="meta">
+    <span><b>Palette</b> Paper · Ink · Claw · Moss · Amber · Rust</span>
+    <span><b>Type</b> Geist · Fraunces italic · JetBrains Mono</span>
+    <span><b>Motion</b> 120 · 240 · 480 · 900 ms</span>
+  </div>
+</section>
+
+<div class="fleuron-page">❦</div>
+
+<!-- ======================================================
+     GALLERY
+====================================================== -->
+<section class="gallery">
+
+<!-- ============== Scene 1: EmptyState ============== -->
+<div class="scene">
+  <div class="label"><span class="num">01</span>First page</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen grain">
+      <!-- Masthead with menu / new-chat -->
+      <div class="masthead with-icon-buttons">
+        <div style="display:flex;align-items:center;gap:0;">
+          <button class="icon-btn" aria-label="Menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+          </button>
+          <div class="left" style="margin-left:6px;">
+            <svg class="paw" viewBox="0 0 64 64" fill="currentColor"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+            <span class="title">ClosePaw</span>
+          </div>
+        </div>
+        <span class="right">No 04 · Apr 22</span>
+      </div>
+      <div class="masthead-rule"></div>
+
+      <!-- Empty -->
+      <div class="empty">
+        <svg class="bleed-paw" viewBox="0 0 64 64" fill="currentColor"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+        <div class="stack">
+          <p class="question reveal r0">What can I<br/>help you with?</p>
+          <div class="rule reveal r1"></div>
+          <div class="suggestion reveal r2">
+            <span class="arrow">→</span>
+            <div>
+              <div class="verb">Check unread emails</div>
+              <div class="gloss">a quick triage</div>
+            </div>
+          </div>
+          <div class="suggestion reveal r3">
+            <span class="arrow">→</span>
+            <div>
+              <div class="verb">Turn on Do Not Disturb</div>
+              <div class="gloss">for the next hour</div>
+            </div>
+          </div>
+          <div class="suggestion reveal r4">
+            <span class="arrow">→</span>
+            <div>
+              <div class="verb">Find nearby restaurants</div>
+              <div class="gloss">open right now</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Capsule (Hidden mode = input only) -->
+      <div class="capsule">
+        <div class="top-rule"></div>
+        <div class="capsule-input">
+          <div class="field">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17.5V21h3.5L18.5 9 15 5.5 3 17.5z"/></svg>
+            <span>What's on your mind?</span>
+          </div>
+          <button class="send-btn" data-send>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Asymmetric paw bleeds top-right. Marginalia suggestions: verb in body, gloss in serif italic.</p>
+</div>
+
+<!-- ============== Scene 2: Conversation ============== -->
+<div class="scene">
+  <div class="label"><span class="num">02</span>Conversation</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen grain">
+      <div class="masthead with-icon-buttons">
+        <div style="display:flex;align-items:center;gap:0;">
+          <button class="icon-btn" aria-label="Menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+          </button>
+          <div class="left" style="margin-left:6px;">
+            <svg class="paw" viewBox="0 0 64 64" fill="currentColor"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+            <span class="title">ClosePaw</span>
+          </div>
+        </div>
+        <span class="right">No 04 · Apr 22</span>
+      </div>
+      <div class="masthead-rule"></div>
+
+      <div class="conv">
+
+        <!-- Collapsed earlier turn -->
+        <div class="agent-row">
+          <div class="collapsed">
+            <span class="bracket">[+]</span>
+            <span class="summary">Turned on Do Not Disturb · 2 actions · 2.4s</span>
+          </div>
+        </div>
+
+        <!-- User message -->
+        <div class="user-bubble">
+          <div class="col">
+            <div class="rule"></div>
+            <div class="body">
+              <div class="text">What's in my inbox today?</div>
+              <div class="ts">14:32</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Expanded agent row -->
+        <div class="agent-row">
+          <div class="thought">
+            <span class="marker">✱</span>
+            <div class="body">Looking at unread mail — only the threads from this morning matter.</div>
+          </div>
+          <div class="action">
+            <span class="marker">→</span>
+            <div class="body">readInbox(filter="unread", since="08:00")
+              <span class="sub">3 threads matched</span>
+            </div>
+            <span class="status ok">✓</span>
+          </div>
+          <div class="action">
+            <span class="marker">→</span>
+            <div class="body">summarize(threads=3)
+              <span class="sub">summarising…</span>
+            </div>
+            <span class="status run">⏳</span>
+          </div>
+
+          <div class="fleuron">❦</div>
+
+          <div class="final">Three threads landed: Maya wants a Tuesday window for the Capsule review, AWS wants you to rotate a key by Friday, and the dentist confirms 9:30 next Wednesday. The dentist is the only one with a hard date.</div>
+
+          <div class="outcome"><span class="bracket">[−]</span> · ✓ 2 actions · 4.8s</div>
+        </div>
+
+        <!-- ThinkingIndicator naked (next turn) -->
+        <div class="thinking">
+          <svg class="paw" viewBox="0 0 64 64" fill="currentColor">
+            <ellipse class="toe t0" cx="16.5" cy="15" rx="5.5" ry="7"/>
+            <ellipse class="toe t1" cx="32" cy="7" rx="5.5" ry="7"/>
+            <ellipse class="toe t2" cx="47.5" cy="15" rx="5.5" ry="7"/>
+            <ellipse class="toe t3" cx="32" cy="41" rx="16" ry="13"/>
+          </svg>
+          <span class="label">Thinking…</span>
+        </div>
+      </div>
+
+      <!-- Capsule input -->
+      <div class="capsule">
+        <div class="top-rule"></div>
+        <div class="capsule-input">
+          <div class="field">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17.5V21h3.5L18.5 9 15 5.5 3 17.5z"/></svg>
+            <span>Reply to the agent…</span>
+          </div>
+          <button class="send-btn" data-send>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">User bubble with margin rule · agent trace with mono actions · centered fleuron between Trace and Final · ThinkingIndicator without its chip.</p>
+</div>
+
+<!-- ============== Scene 3: Smart Capsule (Running) ============== -->
+<div class="scene">
+  <div class="label"><span class="num">03</span>Smart Capsule · Running</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen grain" style="background:var(--paper-inset);">
+      <!-- mock host content (a phantom calendar) -->
+      <div style="flex:1; padding: 28px 20px; opacity:.55;">
+        <div style="font-family:var(--mono); font-size:11px; color:var(--ink-faint); letter-spacing:.06em;">PHANTOM HOST · GMAIL</div>
+        <div style="margin-top:18px; font-family:var(--serif); font-style:italic; font-size:24px; color:var(--ink-muted);">Inbox</div>
+        <div style="margin-top:18px; height:1px; background:var(--hairline);"></div>
+        <div style="margin-top:14px; font-size:13px; color:var(--ink-muted); line-height:1.6;">
+          <div>Maya Chen — Capsule review window?</div>
+          <div>AWS — Action required: rotate access key</div>
+          <div>Dr. Pham's office — Appointment confirmation</div>
+          <div>GitHub — 14 new notifications</div>
+          <div>Linear — Weekly digest</div>
+        </div>
+      </div>
+
+      <!-- Capsule on top -->
+      <div class="capsule" style="margin: 0 12px 12px; box-shadow: 0 1px 0 var(--ink-faint) inset, 0 14px 28px -10px var(--shadow-warm), 0 4px 8px -4px var(--shadow-warm);">
+        <div class="top-rule"></div>
+        <div class="capsule-status">
+          <span class="dot breath" aria-label="status">
+            <svg viewBox="0 0 64 64" fill="currentColor" width="14" height="14"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+          </span>
+          <span class="ledger" id="ledger">[t+12s]</span>
+          <span class="thought">summarising three threads…</span>
+        </div>
+        <div class="capsule-divider"></div>
+        <div class="capsule-detail">Selected "Updates" label · scanning headers · 2 of 3 threads parsed</div>
+        <div class="capsule-divider"></div>
+        <div class="capsule-bar">
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 11V7a3 3 0 0 1 6 0v4"/><path d="M11 11V5a3 3 0 0 1 6 0v6"/><path d="M17 11V7a3 3 0 0 1 6 0v8a7 7 0 0 1-7 7H8a7 7 0 0 1-7-7v-2a3 3 0 0 1 6 0"/></svg>
+              Take over
+            </button>
+            <button class="btn btn-stop">
+              <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9" y="9" width="6" height="6"/></svg>
+              Stop
+            </button>
+          </div>
+          <div class="nav-cluster">
+            <button class="nav-icon" aria-label="Minimize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="8" y1="12" x2="16" y2="12"/></svg></button>
+            <button class="nav-icon" aria-label="App"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg></button>
+            <button class="nav-icon" aria-label="Watch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Folded-paper capsule over a phantom host. Mono <code style="font-family:var(--mono);font-size:11px;">[t+12s]</code> ledger ticks beside the breathing paw. Stop button is now full Rust.</p>
+</div>
+
+<!-- ============== Scene 4: Onboarding ============== -->
+<div class="scene">
+  <div class="label"><span class="num">04</span>Onboarding · Step 2</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen grain">
+      <div class="onb">
+        <div class="onb-step">
+          <span class="back">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </span>
+          STEP 2 OF 5
+        </div>
+        <div class="onb-paws">
+          <svg class="p on" viewBox="0 0 64 64" fill="currentColor"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+          <svg class="p on" viewBox="0 0 64 64" fill="currentColor"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+          <svg class="p off" viewBox="0 0 64 64" fill="currentColor"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+          <svg class="p off" viewBox="0 0 64 64" fill="currentColor"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+          <svg class="p off" viewBox="0 0 64 64" fill="currentColor"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+        </div>
+        <h2 class="onb-title">See controls while the agent works</h2>
+        <p class="onb-body">ClosePaw needs the overlay permission so the Smart Capsule can stay on screen — even when another app is in front. You can take over at any moment.</p>
+        <div class="onb-card">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+          </span>
+          <div>
+            <div class="t">Display over other apps</div>
+            <div class="s">Tap "Open settings" and toggle the switch for ClosePaw.</div>
+          </div>
+        </div>
+        <div class="onb-cta">
+          <button class="btn-block">Open settings</button>
+          <button class="btn-block ghost">Skip for now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Five-paw progress at full <code style="font-family:var(--mono);font-size:11px;">inkFaint</code> — finally visible. Title in Fraunces italic Regular (no synthesised weight).</p>
+</div>
+
+<!-- ============== Scene 5: Settings ============== -->
+<div class="scene">
+  <div class="label"><span class="num">05</span>Settings</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen grain">
+      <div class="masthead">
+        <div class="left">
+          <svg class="paw" viewBox="0 0 64 64" fill="currentColor"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+          <span class="title">Settings</span>
+        </div>
+        <span class="right">No 04 · Apr 22</span>
+      </div>
+      <div class="masthead-rule"></div>
+
+      <div class="settings">
+        <div class="section-h">Voice</div>
+        <div class="nav-row">
+          <div class="t">LLM &amp; Authentication</div>
+          <div class="s">Claude Sonnet 4.6 · OAuth</div>
+        </div>
+
+        <div class="section-h">Behavior</div>
+        <div class="nav-row">
+          <div class="t">Agent Behavior</div>
+          <div class="s">Pro · <span class="num">60</span> turns · Hybrid</div>
+        </div>
+
+        <div class="section-h">System</div>
+        <div class="nav-row">
+          <div class="t">Permissions &amp; Advanced</div>
+          <div class="s">All granted · Debug off · A11y</div>
+        </div>
+
+        <div style="flex:1"></div>
+        <div class="fleuron">❦</div>
+        <div class="version">v0.5.3 (273)</div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Three sections, serif-italic subheads, fleuron above the colophon. Mono version line as ledger.</p>
+</div>
+
+<!-- ============== Scene 6: Drawer ============== -->
+<div class="scene">
+  <div class="label"><span class="num">06</span>Sessions drawer</div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen grain">
+      <div class="masthead">
+        <div class="left">
+          <svg class="paw" viewBox="0 0 64 64" fill="currentColor"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
+          <span class="title">Sessions</span>
+        </div>
+        <span class="right">Today · Apr 22</span>
+      </div>
+      <div class="masthead-rule" style="margin-bottom:14px;"></div>
+
+      <div class="drawer">
+        <button class="new-conv">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Conversation
+        </button>
+        <div class="recent-h">Recent</div>
+        <div class="session">
+          <div class="meta">
+            <div class="title">Reply to Maya about Tuesday window</div>
+            <div class="sub"><span>14 msgs</span><span class="dot"></span><span class="date">14:08</span></div>
+          </div>
+        </div>
+        <div class="session">
+          <div class="meta">
+            <div class="title">Plan tomorrow's focus blocks in calendar</div>
+            <div class="sub"><span>9 msgs</span><span class="dot"></span><span class="date">Apr 21</span></div>
+          </div>
+        </div>
+        <div class="session">
+          <div class="meta">
+            <div class="title">Track sleep over the week from Health</div>
+            <div class="sub"><span>22 msgs</span><span class="dot"></span><span class="date">Apr 19</span></div>
+          </div>
+        </div>
+        <div class="settings-entry">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 1 1 4.29 16.96l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h0A1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <div style="flex:1">
+            <div class="t">Settings</div>
+            <div class="s">claude-sonnet-4-6 · v0.5.3</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="caption">Sessions masthead with running date. Mono ledger dates per row. Bottom colophon shows model + version in machine register.</p>
+</div>
+
+</section>
+
+<!-- ======================================================
+     COMPARISON STRIP
+====================================================== -->
+<div class="fleuron-page">❦</div>
+<section class="compare">
+  <h2>Trace → Final, before and after</h2>
+  <p class="sub">The rhythm beat where the agent stops reasoning and starts answering. Today: a 1px line at 8% Ink. After: a centered fleuron in Fraunces italic.</p>
+  <div class="compare-grid">
+    <div class="compare-cell before">
+      <span class="tag">BEFORE</span>
+      <h3>current — InkGhost hairline</h3>
+      <div class="snippet-thought">Looking at unread mail — only the threads from this morning matter.</div>
+      <div class="snippet-action">→ readInbox(filter="unread")  ✓</div>
+      <div class="before-line"></div>
+      <div class="snippet-final">Three threads landed: Maya wants a Tuesday window, AWS wants a key rotated, the dentist confirms 9:30 next Wednesday.</div>
+    </div>
+    <div class="compare-cell after">
+      <span class="tag">AFTER · BOUND EDITION</span>
+      <h3>fleuron — Fraunces ❦</h3>
+      <div class="snippet-thought">Looking at unread mail — only the threads from this morning matter.</div>
+      <div class="snippet-action">→ readInbox(filter="unread")  ✓</div>
+      <div class="after-fleuron">❦</div>
+      <div class="snippet-final">Three threads landed: Maya wants a Tuesday window, AWS wants a key rotated, the dentist confirms 9:30 next Wednesday.</div>
+    </div>
+  </div>
+</section>
+
+<div class="colophon">
+  ClosePaw · Bound Edition preview · doc/todo/ui-refresh-0422/preview.html
+</div>
+
+<script>
+/* Theme toggle */
+const root = document.documentElement;
+const btn = document.getElementById('themeToggle');
+const lbl = document.getElementById('themeLabel');
+btn.addEventListener('click', () => {
+  const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+  root.dataset.theme = next;
+  lbl.textContent = next === 'light' ? 'Light · Paper' : 'Dark · Lantern';
+});
+
+/* Capsule ledger ticker */
+const ledger = document.getElementById('ledger');
+let t = 12;
+setInterval(() => {
+  t += 1;
+  if (t > 47) t = 12; // loop the demo
+  ledger.textContent = `[t+${t}s]`;
+}, 1000);
+
+/* Send-button breath on click */
+document.querySelectorAll('[data-send]').forEach(b => {
+  b.addEventListener('click', () => {
+    b.classList.remove('breath');
+    void b.offsetWidth;
+    b.classList.add('breath');
+  });
+});
+</script>
+
+</body>
+</html>

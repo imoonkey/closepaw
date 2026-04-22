@@ -1,0 +1,124 @@
+{
+  "tool-system-design": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Tool System Design \u6539\u8fdb",
+    "description": "\u57fa\u4e8e holistic review + \u53cc\u76f2\u9a8c\u8bc1\u7684 tool system \u6539\u8fdb\u30026 \u4e2a\u9636\u6bb5: \u89c2\u6d4b\u8fb9\u754c\u5b89\u5168\u3001ToolName \u5143\u6570\u636e\u4fee\u6b63\u3001action runtime \u89c4\u8303\u5316\u3001shell \u52a0\u56fa\u3001router \u5408\u7ea6\u6536\u7d27\u3001\u6b7b\u4ee3\u7801\u6e05\u7406\u3002",
+    "design": "projects/archive/20260417_holistic-review/tool-system-design/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "tsd-observation-boundary": {
+    "parent": "tool-system-design",
+    "depends": [],
+    "state": "done",
+    "title": "Phase 0: \u4fee\u590d PostActionAnalysis \u89c2\u6d4b\u906e\u853d\u7f3a\u53e3",
+    "description": "PostActionAnalysis.kt:45 \u8c03\u7528 buildObservation(it, platform) \u672a\u4f20 appClassifier\uff0c\u5bfc\u81f4 mobile_action (click/type/scroll/swipe/long_press) \u7684 post-action observation \u5728 BLOCKED app \u4e0a\u4e0d\u906e\u853d\u3002\u5c06 appClassifier \u4ece ToolExecutionContext \u7ebf\u7a0b\u5230 capturePostActionAnalysis \u2192 buildObservation\u3002\u540c\u65f6\u8ba9 open_app \u5728\u6267\u884c\u65f6 re-check \u76ee\u6807\u5305\u7684 tier\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PostActionAnalysis.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/SwipeExecutor.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/TypeExecutor.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ScrollExecutor.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/OpenAppTool.kt"
+    ],
+    "acceptCriteria": [
+      "PostActionAnalysis.capturePostActionAnalysis accepts appClassifier parameter",
+      "buildObservation call in PostActionAnalysis.kt passes appClassifier",
+      "All 5 executor callers thread appClassifier from ToolExecutionContext",
+      "open_app re-checks destination tier before launchApp()",
+      "grep -n 'buildObservation.*platform)$' app/src/main/kotlin/com/moonkey/androidagent/tool/action/PostActionAnalysis.kt returns empty",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "tsd-toolname-stopgap": {
+    "parent": "tool-system-design",
+    "depends": [],
+    "state": "done",
+    "title": "Phase 1a: \u6dfb\u52a0 ask_user/shell \u5230 ToolName",
+    "description": "ask_user \u548c shell \u4e0d\u5728 ToolName enum \u4e2d\uff0c\u89e3\u6790\u4e3a Unknown(isScreenChanging=true)\uff0c\u5bfc\u81f4: (1) CAUTIOUS app \u4e0a ask_user \u89e6\u53d1\u4e0d\u5fc5\u8981\u7684\u5ba1\u6279, (2) TurnToolPolicy \u5c06\u4e24\u8005\u5f52\u4e3a screen action \u5bfc\u81f4\u540c turn \u7684 complete_task \u88ab\u4e22\u5f03\u3002\u6dfb\u52a0 AskUser \u548c Shell \u4e24\u4e2a data object\uff0cisScreenChanging \u8fd4\u56de false\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolName.kt"
+    ],
+    "acceptCriteria": [
+      "ToolName.from('ask_user') returns ToolName.AskUser, not Unknown",
+      "ToolName.from('shell') returns ToolName.Shell, not Unknown",
+      "ToolName.AskUser.isScreenChanging == false",
+      "ToolName.Shell.isScreenChanging == false",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "tsd-action-runtime": {
+    "parent": "tool-system-design",
+    "depends": [
+      "tsd-observation-boundary"
+    ],
+    "state": "done",
+    "title": "Phase 2: Action Runtime \u89c4\u8303\u5316",
+    "description": "\u4e09\u4e2a\u4fee\u590d: (1) SwipeExecutor.kt:49-53 \u5c06 ActionResult.Cancelled \u6620\u5c04\u4e3a Failed \u2192 \u6539\u4e3a Cancelled, (2) TypeExecutor \u5404\u8def\u5f84\u6dfb\u52a0\u663e\u5f0f Cancelled \u5904\u7406, (3) ScrollExecutor.resolveScrollArea() \u5728\u663e\u5f0f\u76ee\u6807 (element_index/text) \u89e3\u6790\u5931\u8d25\u65f6\u8fd4\u56de\u9519\u8bef\u800c\u975e\u9759\u9ed8\u964d\u7ea7\u4e3a\u5168\u5c4f\u6eda\u52a8, (4) refinePointActionTarget() \u91cd\u5b9a\u5411\u65f6\u5728 attempt trail \u4e2d\u6dfb\u52a0\u8bf4\u660e\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/SwipeExecutor.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/TypeExecutor.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ScrollExecutor.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/PointActionExecutorCore.kt"
+    ],
+    "acceptCriteria": [
+      "SwipeExecutor maps ActionResult.Cancelled to ActionOutcome.Cancelled",
+      "TypeExecutor explicitly handles ActionResult.Cancelled in all performAction paths",
+      "ScrollExecutor returns error when explicit target (element_index/text) fails to resolve",
+      "refinePointActionTarget retargeting adds note to warnings/trail",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "tsd-shell-hardening": {
+    "parent": "tool-system-design",
+    "depends": [],
+    "state": "done",
+    "title": "Phase 3: Shell \u52a0\u56fa",
+    "description": "\u4e24\u4e2a\u4fee\u590d: (1) Shell \u9a8c\u8bc1\u6269\u5c55 \u2014 \u62d2\u7edd\u5305\u542b\u5143\u5b57\u7b26 (; | & $( `) \u7684\u547d\u4ee4\uff0c\u6216\u6dfb\u52a0 env/xargs/find \u5230 blocklist, (2) \u8f93\u51fa\u622a\u65ad\u65f6\u8ffd\u52a0 '[output truncated at N chars]' \u6807\u8bb0\uff0c\u8ba9 LLM \u77e5\u9053\u6570\u636e\u4e0d\u5b8c\u6574\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt"
+    ],
+    "acceptCriteria": [
+      "Shell commands with metacharacters (;|&) are rejected or additional dangerous commands blocked",
+      "Output exceeding MAX_OUTPUT_CHARS includes truncation indicator",
+      "grep -q 'truncated' app/src/main/kotlin/com/moonkey/androidagent/tool/impl/ShellTool.kt exits 0",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  },
+  "tsd-dead-code-cleanup": {
+    "parent": "tool-system-design",
+    "depends": [],
+    "state": "done",
+    "title": "Phase 5: \u6b7b\u4ee3\u7801\u6e05\u7406\u6279\u6b21",
+    "description": "6 \u9879\u786e\u8ba4\u7684\u6b7b\u4ee3\u7801\u6e05\u7406: (1) \u5220\u9664 UIActionInvocation.detectScrollBoundary() (lines 53-58, 87-110), (2) \u5220\u9664 UiChangeDetector.detectScrollBoundary() (lines 31-49), (3) \u5220\u9664 PolicyEngine.isEscape() \u4e2d MobileActionName.Back/Home fallback \u5206\u652f (\u6ce8\u610f: enum \u6210\u5458\u88ab ToolUi.kt \u4f7f\u7528\uff0c\u4ec5\u5220\u5206\u652f), (4) \u5220\u9664 OpenAppTool companion \u4e2d\u672a\u4f7f\u7528\u7684 UI_SETTLE_DELAY_MS \u548c SUGGESTION_LIMIT, (5) SystemButtonTool.kt:71 else branch \u6539\u4e3a error('Unreachable'), (6) \u5220\u9664 DataQueryInvocation.kt (\u96f6\u8c03\u7528\u8005), (7) \u4fee\u590d ActionPriorityOrder.kt \u4e2d\u6307\u5411\u4e0d\u5b58\u5728\u8def\u5f84\u7684 doc \u5f15\u7528\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/UIActionInvocation.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/UiChangeDetector.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/PolicyEngine.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/OpenAppTool.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/SystemButtonTool.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/handlers/DataQueryInvocation.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/action/ActionPriorityOrder.kt"
+    ],
+    "acceptCriteria": [
+      "UIActionInvocation has no detectScrollBoundary method",
+      "UiChangeDetector has no detectScrollBoundary method",
+      "PolicyEngine.isEscape() has no MobileActionName.Back/Home branch",
+      "OpenAppTool companion has no UI_SETTLE_DELAY_MS or SUGGESTION_LIMIT",
+      "SystemButtonTool else branch throws error",
+      "DataQueryInvocation.kt does not exist",
+      "ActionPriorityOrder doc reference updated or removed",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ]
+  }
+}

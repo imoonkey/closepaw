@@ -1,0 +1,22 @@
+{
+  "ui-polish-review": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Polish: design vs. impl review report",
+    "description": "Compare captures against D1 visual spec, Track A UX spec, motion spec, and contrast matrix. Severity-ranked report with exact pixel/spacing/color/typography deltas. Stage 2 of 2.",
+    "scope": [
+      "projects/archive/20260422_ui-polish/**"
+    ],
+    "acceptCriteria": [
+      "projects/archive/20260422_ui-polish/polish_report.md exists",
+      "Every capture cross-referenced against design spec with PASS/POLISH/ISSUE verdict",
+      "Report severity-buckets: Issue (visible drift) / Polish (subtle) / Pass",
+      "Each finding cites design spec line number + code file/line where applicable",
+      "Concrete fix suggestions for each non-PASS finding"
+    ],
+    "created": "2026-04-20T14:31:17Z",
+    "updated": "2026-04-20T15:50:28Z",
+    "agent": "w-ui-polish-review"
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "agent-core-simplicity": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Agent Core \u7b80\u5316",
+    "description": "\u57fa\u4e8e holistic review \u7684 agent core \u7b80\u5316\u3002",
+    "design": "projects/archive/20260417_holistic-review/agent-core-simplicity/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "updated": "2026-04-08T03:00:00+08:00"
+  },
+  "acs-action-signature": {
+    "parent": "agent-core-simplicity",
+    "depends": [],
+    "state": "done",
+    "title": "P0: \u4fee\u590d action signature \u6d3e\u751f\u903b\u8f91",
+    "description": "\u4ece\u5b9e\u9645\u6267\u884c\u6210\u529f\u7684\u64cd\u4f5c\u6d3e\u751f\u7b7e\u540d\uff0c\u800c\u975e\u9884\u8ba1\u7b97\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt"
+    ],
+    "acceptCriteria": [
+      "Action signature reflects actually executed tools",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-split-step-policy": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-action-signature"
+    ],
+    "state": "done",
+    "title": "P1: \u62c6\u5206 ExecutorStepPolicy",
+    "description": "\u62c6\u4e3a isFinalTurn() + DelegationSummaryFormatter\u3002\u79fb\u9664 WarnApproaching \u548c narrativeSummaryOnLimit\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/policy/ExecutorStepPolicy.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt"
+    ],
+    "acceptCriteria": [
+      "WarnApproaching removed",
+      "narrativeSummaryOnLimit removed",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-unify-role-defs": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-action-signature"
+    ],
+    "state": "done",
+    "title": "P1: \u7edf\u4e00 agent \u89d2\u8272\u5b9a\u4e49",
+    "description": "\u7edf\u4e00 AgentDef + AgentDefinition \u4e3a AgentRoleDef\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/definition/**",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/impl/DelegateTaskTool.kt"
+    ],
+    "acceptCriteria": [
+      "One definition source for all agents",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-dead-code": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-split-step-policy",
+      "acs-unify-role-defs"
+    ],
+    "state": "done",
+    "title": "P2: \u6b7b\u4ee3\u7801\u4e0e\u6b8b\u7559\u72b6\u6001\u79fb\u9664",
+    "description": "\u79fb\u9664 NavigationState \u6b7b\u5b57\u6bb5\u3001fingerprint\u3001CRITICAL\u3001appTier\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/context/NavigationState.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt"
+    ],
+    "acceptCriteria": [
+      "No unused fields remain",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-observation-unify": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-dead-code"
+    ],
+    "state": "done",
+    "title": "P3: Observation \u8868\u793a\u7edf\u4e00",
+    "description": "\u63d0\u53d6\u89c4\u8303 observation payload\uff0c\u6d88\u9664 prompt/history \u65f6\u5e8f\u8026\u5408\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/cognition/prompt/PromptBuilder.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnPlanningPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "Prompt and history project from same source",
+      "No ordering dependency",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-event-consolidation": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-dead-code"
+    ],
+    "state": "done",
+    "title": "P3: Event emission \u6574\u5408",
+    "description": "\u5411 AgentEventDispatcher \u6dfb\u52a0\u7f3a\u5931\u65b9\u6cd5\uff0c\u79fb\u9664 raw eventEmitter \u900f\u4f20\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentEventDispatcher.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/AgentTurnRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/subagent/SubAgentRunner.kt"
+    ],
+    "acceptCriteria": [
+      "No raw eventEmitter alongside dispatcher",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-tool-arg-decode": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-dead-code"
+    ],
+    "state": "done",
+    "title": "P3: Tool \u53c2\u6570\u89e3\u7801\u6574\u5408",
+    "description": "\u5171\u4eab action-target decoder \u4f9b ActionDescriptionFormatter \u548c ActionSignature \u4f7f\u7528\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/ActionDescriptionFormatter.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/ActionSignature.kt"
+    ],
+    "acceptCriteria": [
+      "Single decoder shared by both",
+      "./gradlew test passes"
+    ]
+  },
+  "acs-text-recovery-audit": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-dead-code"
+    ],
+    "state": "done",
+    "title": "P4: Turn.kt \u6587\u672c\u6062\u590d\u5ba1\u8ba1",
+    "description": "\u6dfb\u52a0\u9065\u6d4b\u8ffd\u8e2a recoverToolCallFromText \u89e6\u53d1\u7387\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/Turn.kt"
+    ],
+    "acceptCriteria": [
+      "Telemetry logs fire rate of each recovery path",
+      "./gradlew assembleDebug passes"
+    ]
+  },
+  "acs-magic-delays": {
+    "parent": "agent-core-simplicity",
+    "depends": [
+      "acs-dead-code"
+    ],
+    "state": "done",
+    "title": "P4: \u9b54\u6cd5\u5ef6\u8fdf\u5e38\u91cf\u547d\u540d",
+    "description": "\u4e3a delay(200) \u548c delay(500) \u547d\u540d\u5e76\u6dfb\u52a0\u6ce8\u91ca\u3002",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/TurnExecutionPhaseRunner.kt"
+    ],
+    "acceptCriteria": [
+      "Named constants with comments",
+      "./gradlew assembleDebug passes"
+    ]
+  }
+}

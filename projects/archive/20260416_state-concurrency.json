@@ -1,0 +1,259 @@
+{
+  "state-concurrency": {
+    "title": "State & Concurrency \u6539\u8fdb",
+    "description": "Fix cross-component state/concurrency issues: persistence write ordering, lifecycle serialization, takeover state machine, tool cancellation. Based on verified double-design review (Claude + Codex).",
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "design": "projects/archive/20260417_holistic-review/state-concurrency/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "Minimum test matrix green (6 tests from review)",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-p0-hardening": {
+    "title": "Phase 0: Trivial Hardening",
+    "description": "Low-effort thread-safety fixes that don't require structural changes. Land opportunistically alongside Phase 1, not as a gating tranche. 4 items: (0a) ToolRegistry mutableMapOf \u2192 ConcurrentHashMap, (0b) TodoState add @Volatile to onMutation, (0c) HistoryManager add @Volatile to onMutation, (0d) SessionAgentRunner pre-register RunnerState with null job before scope.launch then update with captured job reference.",
+    "parent": "state-concurrency",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRegistry.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/TodoState.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/history/HistoryManager.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt"
+    ],
+    "acceptCriteria": [
+      "ToolRegistry.tools uses ConcurrentHashMap",
+      "TodoState.onMutation has @Volatile annotation",
+      "HistoryManager.onMutation has @Volatile annotation",
+      "SessionAgentRunner.start() assigns RunnerState before scope.launch",
+      "./gradlew test passes"
+    ],
+    "estimate": "xs",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-p1-persistence": {
+    "title": "Phase 1: Persistence Single-Writer",
+    "description": "Serialize all disk writes in SessionRecordingService through one Mutex-guarded writer with a monotonically increasing revision number. Stale writes are dropped. Make SessionStorage.writeSession() atomic via temp-file + rename (matching existing writeSnapshot() pattern). forceCheckpoint() preempts pending debounced work instead of waiting behind it.",
+    "parent": "state-concurrency",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/history/SessionRecordingService.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/history/storage/SessionStorage.kt"
+    ],
+    "acceptCriteria": [
+      "All disk writes serialized through single Mutex-guarded writer with revision counter",
+      "Older save cannot overwrite newer session record (revision check)",
+      "SessionStorage.writeSession() uses temp-file + rename atomic write",
+      "forceCheckpoint() preempts pending debounced checkpoint",
+      "Test: overlapping saves \u2014 later revision wins regardless of completion order",
+      "Test: forceCheckpoint while debounced checkpoint pending \u2192 persisted file has forced state",
+      "Test: session writes use temp-file replacement",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-p2-lifecycle": {
+    "title": "Phase 2: Serialize AgentSession Lifecycle",
+    "description": "Put all AgentSession lifecycle inputs through one serialized path: UserInput, Takeover, Resume, Interrupt, Shutdown, runner completion callback, idle-timeout expiry. Prefer Mutex if sufficient; use minimal command serializer if multi-source event pattern makes it clearer (decision at implementation time). Route SessionAgentRunner.onComplete through same path instead of direct state mutation. Keep idleTimeoutJob creation/cancellation under the serialized owner.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p0-hardening",
+      "sc-p1-persistence"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionAgentRunner.kt"
+    ],
+    "acceptCriteria": [
+      "All lifecycle inputs (ops + completion + idle-timeout) routed through single serialized path",
+      "SessionAgentRunner.onComplete does not mutate session state directly",
+      "idleTimeoutJob creation/cancellation under serialized owner",
+      "Test: completion + shutdown back-to-back \u2192 final state is Shutdown, not Idle",
+      "Test: two UserInput ops around Idle\u2192Running \u2192 only one task starts",
+      "Test: duplicate shutdown \u2192 exactly one terminal event emitted",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:35:00+08:00"
+  },
+  "sc-p3-takeover": {
+    "title": "Phase 3: Model Takeover as Real Multi-Step State",
+    "description": "Add internal transient state (e.g. PauseRequested/TakeoverPending). Do not publish Paused until agent confirms it reached the pause point. Reject Resume while takeover is still pending. Keep protocol surface minimal \u2014 transient state can be internal if UI doesn't need it.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p2-lifecycle"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionState.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/agent/Agent.kt"
+    ],
+    "acceptCriteria": [
+      "Internal transient state (PauseRequested or TakeoverPending) exists",
+      "Paused not published until agent confirms pause point reached",
+      "Resume rejected while takeover still pending",
+      "Implementation matches Op.Takeover contract",
+      "Test: takeover-then-immediate-resume \u2014 correct ordering",
+      "Test: Paused not observable before pause confirmation",
+      "Test: takeover/resume events emitted in valid order only",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-p4-tool-cancel": {
+    "title": "Phase 4: Make Tool Cancellation Real",
+    "description": "Store per-call ToolExecutionContext (or cancellation token) in activeToolCalls. cancel(callId) signals the token for both approval waiters and executing invocations. cancelAll() transitions calls toward cancellation, only removes tracking once terminal. If a tool cannot be cooperatively cancelled, state machine says so explicitly.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p2-lifecycle"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolRouter.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/tool/ToolSpec.kt"
+    ],
+    "acceptCriteria": [
+      "Per-call cancellation token stored in activeToolCalls",
+      "router.cancel(callId) propagates to executing tools via context",
+      "cancelAll() transitions calls toward cancellation, removes tracking only at terminal state",
+      "Test: tool stub polling context.isCancelled() \u2014 router.cancel(callId) flips it",
+      "Test: cancelAll() while one tool awaits approval and another executes",
+      "Test: cleanup verifies terminal tool state before dropping tracking",
+      "./gradlew test passes"
+    ],
+    "estimate": "m",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-p5-shutdown-reason": {
+    "title": "Phase 5: Correct Shutdown Reason Semantics",
+    "description": "Pass explicit shutdown cause into lifecycle transition instead of inferring from previous state. Map SessionCompleted.reason from the explicit cause. Manual shutdown from Idle must be USER_STOPPED, not IDLE_TIMEOUT.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p2-lifecycle",
+      "sc-p3-takeover"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/AgentSession.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/protocol/SessionCompleted.kt"
+    ],
+    "acceptCriteria": [
+      "handleShutdown() accepts explicit shutdown cause parameter",
+      "SessionCompleted.reason derived from explicit cause, not previous state",
+      "Test: manual shutdown from Idle \u2192 reason is USER_STOPPED",
+      "Test: actual idle-timeout \u2192 reason is IDLE_TIMEOUT",
+      "./gradlew test passes"
+    ],
+    "estimate": "s",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:35:00+08:00"
+  },
+  "sc-p6-bootstrap": {
+    "title": "Phase 6: Bootstrap Hardening",
+    "description": "Evidence-driven, lowest priority. Enforce off-main bootstrap inside the layer itself, not at call sites. Change requireOffMainThread() from warning to invariant or internal dispatcher hop. Consider whether high-frequency MessageDelta should be best-effort while lifecycle events are lossless. Only implement if evidence justifies after core invariants are fixed.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p3-takeover",
+      "sc-p4-tool-cancel",
+      "sc-p5-shutdown-reason"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/session/SessionLlmBootstrapper.kt"
+    ],
+    "acceptCriteria": [
+      "Session creation cannot do asset I/O on main thread (enforced, not convention)",
+      "requireOffMainThread() is an invariant or internal dispatcher hop",
+      "Test: session/bootstrap creation safe from main-thread caller",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "s",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-cleanup-cache": {
+    "title": "Cleanup: SessionHistoryManager Cache Simplification",
+    "description": "Remove redundant ConcurrentHashMap + Mutex in SessionHistoryManager. Replace ConcurrentHashMap<String, CachedSessionInfo> with plain HashMap \u2014 all access already guarded by cacheMutex. Pure cleanup, no correctness impact.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p1-persistence"
+    ],
+    "state": "done",
+    "scope": [
+      "All access still guarded by cacheMutex",
+      "./gradlew test passes"
+    ],
+    "priority": "low",
+    "estimate": "xs",
+    "created": "2026-04-08T02:30:00+08:00",
+    "updated": "2026-04-08T02:30:00+08:00"
+  },
+  "sc-codex-review": {
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all state-concurrency changes to Codex for systematic code review. Codex reviews the diff of all sc-p0 through sc-p6 + sc-cleanup changes against the aligned design (doc/todo/holistic-review/state-concurrency/final/improvement_plan.md). Fix any findings before proceeding to QA. Use /code-review skill via multmux.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-p0-hardening",
+      "sc-p1-persistence",
+      "sc-p2-lifecycle",
+      "sc-p3-takeover",
+      "sc-p4-tool-cancel",
+      "sc-p5-shutdown-reason",
+      "sc-p6-bootstrap",
+      "sc-cleanup-cache"
+    ],
+    "state": "done",
+    "acceptCriteria": [
+      "Codex code review report exists (projects/archive/20260417_holistic-review/state-concurrency/codex_review.md)",
+      "All critical/high findings from review are addressed",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes"
+    ],
+    "estimate": "s",
+    "created": "2026-04-08T03:15:00+08:00",
+    "updated": "2026-04-08T03:15:00+08:00"
+  },
+  "sc-qa-real-device": {
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on real device to validate state-concurrency fixes don't regress user-facing behavior. Test scenarios: (1) rapid takeover/resume during agent execution, (2) session persistence across process death (force-stop mid-task, relaunch, verify session resumes correctly), (3) tool cancellation during execution (interrupt agent mid-action), (4) idle timeout vs manual stop (verify correct reason in session history), (5) normal multi-turn task completion. Use /ux-visual-debug or adb-driven interaction.",
+    "parent": "state-concurrency",
+    "depends": [
+      "sc-codex-review"
+    ],
+    "state": "done",
+    "note": "QA report at doc/todo/holistic-review/state-concurrency/qa_report.md. 4/5 automated scenarios PASS + 1 crash found and fixed (NetworkOnMainThreadException in CodexResponseClient.cleanup). Takeover/resume manually verified on device \u2014 correct state transitions, no crash. Human approved.",
+    "acceptCriteria": [
+      "QA report exists with pass/fail per scenario",
+      "Rapid takeover/resume: no crash, correct state transitions, no stale UI",
+      "Process death recovery: session file not corrupted, checkpoint loads correctly",
+      "Tool cancellation: executing tool actually stops, no orphaned actions",
+      "Idle timeout vs manual stop: correct reason shown in session history",
+      "Normal multi-turn task: completes without regression",
+      "No ANR or crash in logcat during QA run"
+    ],
+    "estimate": "m",
+    "requireHumanReview": true,
+    "created": "2026-04-08T03:15:00+08:00",
+    "updated": "2026-04-08T03:15:00+08:00"
+  }
+}

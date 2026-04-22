@@ -1,0 +1,243 @@
+{
+  "ui-ux-quality": {
+    "title": "UI/UX Quality \u6539\u8fdb",
+    "description": "Fix state ownership drift, composition correctness, and UX gaps across the ui/ module. Based on double-design review (Claude + Codex, 2026-04-08) and re-review (2026-04-15). Central thesis: state ownership drift is the primary quality problem \u2014 fix correctness before polish.",
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "design": "projects/archive/20260417_holistic-review/ui-ux-quality/final/improvement_plan.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T16:02:40Z"
+  },
+  "uiux-capsule-compose": {
+    "title": "Phase 1: Capsule Composition Correctness",
+    "description": "SmartCapsuleSurface.kt violates Compose's side-effect-free render model in two ways: (1) `previousModeState.value = mode` is written inside `remember(...)` block at line 71, making behavior depend on recomposition order, (2) `inputText = \"\"` is written during composition at line 80 when `clearInput` is true. This is amplified because the surface is shared by both in-app and overlay rendering paths.\n\nAdditionally, SmartCapsuleCompose.kt (the in-app wrapper) does not pass `previousMode` at all (line 41-56), relying entirely on the internal fallback that depends on the composition-time write.\n\nApproach:\n- Remove `previousModeState` from SmartCapsuleSurface \u2014 callers provide previous mode\n- Add `previousMode` parameter plumbing through SmartCapsuleCompose.kt (the in-app caller must track and pass it, matching what CapsuleOverlayHost already does)\n- Replace composition-time `inputText = \"\"` with a `LaunchedEffect` keyed on mode transition (or renderSpec.row3?.clearInput)\n- Keep CapsuleRenderSpec.from() pure \u2014 no state writes inside remember",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/surface/SmartCapsuleSurface.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/SmartCapsuleCompose.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatScreen.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'previousModeState' SmartCapsuleSurface.kt returns no results (internal tracking removed)",
+      "SmartCapsuleCompose.kt passes previousMode parameter to SmartCapsuleSurface",
+      "No state writes inside remember {} blocks in SmartCapsuleSurface.kt (grep -n 'previousModeState.value =' returns empty)",
+      "inputText clearing happens inside LaunchedEffect or DisposableEffect, not during composition body",
+      "CapsuleRenderSpec.from() is a pure function with no side effects",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "s",
+    "tags": [
+      "compose",
+      "correctness"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-settings-state": {
+    "title": "Phase 2: Settings State Hoisting + rememberSaveable",
+    "description": "Settings state drifts from real app state in three ways: (1) SettingsSheet.kt:70 keeps page selection in local `remember` that resets on config change, (2) LlmAuthSettingsPage.kt:72-79 initializes `selectedTab` once from external authMethod/llmBackend and never updates when those change externally, (3) LlmAuthSettingsPage.kt:88-112 tab taps immediately fire `onBackendChange`/`onAuthMethodChange` \u2014 exploring tabs mutates committed backend/auth state. Same pattern at lines 225-250 for API-key provider selection.\n\nAdditionally, zero `rememberSaveable` usage exists across the entire ui/ module \u2014 rotation or activity recreation resets all user-visible local state.\n\nApproach:\n- Replace `remember` with `rememberSaveable` for settingsPage, selectedTab, selectedProvider\n- Make selectedTab/selectedProvider reactive to external state changes (use derivedStateOf or re-key on external inputs)\n- Separate UI-only tab exploration from committed mutations: tab taps update local selection only; actual backend/auth changes happen on explicit user action (e.g., 'Apply' or selecting a model within the tab)\n- Same decoupling for API-key provider selection",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/LlmAuthSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "grep -rn 'rememberSaveable' SettingsSheet.kt LlmAuthSettingsPage.kt returns at least one match per file",
+      "Reopening settings after external model/auth change shows the correct tab and provider (not stale cached value)",
+      "Tapping a tab does NOT immediately call onBackendChange or onAuthMethodChange (grep confirms no direct call inside tab onClick)",
+      "Screen rotation on a nested settings page preserves the current page/tab/provider selection",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "critical",
+    "estimate": "m",
+    "tags": [
+      "state",
+      "settings"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-chat-scroll": {
+    "title": "Phase 3: Chat Scroll + Cleanup",
+    "description": "Chat auto-scroll is broken for streaming: LaunchedEffect(messages.size) at ChatScreen.kt:191-196 only fires when the message count changes. Streaming text updates and action-card additions mutate the last message in place (ChatEventReducer.kt:68-71, :95-98) without changing list size, so content grows below the fold without the viewport following. Conversely, any new message snaps to bottom even if the user is reading history.\n\nTwo additional chat cleanup items:\n- MessageBubble.kt:188-190 allocates a new SimpleDateFormat per recomposition (not thread-safe, GC pressure during streaming). TimeUtils.kt already has a thread-safe DateTimeFormatter pattern.\n- ActionCard.kt:171-184 wraps CircularProgressIndicator (which already animates internally) in an extra infiniteTransition rotation, creating double animation.\n\nApproach:\n- Implement 'stick to bottom' policy: track whether user is near bottom of list before auto-scrolling\n- Trigger scroll on last-message content growth (not just message count change) when user is following\n- Show a 'scroll to bottom' FAB when user has scrolled up and new content arrives\n- Replace SimpleDateFormat with top-level DateTimeFormatter val\n- Remove infiniteTransition rotation wrapper; use plain indeterminate CircularProgressIndicator",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/ChatScreen.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/components/MessageBubble.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/chat/components/ActionCard.kt"
+    ],
+    "acceptCriteria": [
+      "ChatScreen no longer uses LaunchedEffect(messages.size) as sole scroll trigger (grep confirms removal or replacement)",
+      "Scroll behavior tracks user position: auto-scroll only when user is near bottom",
+      "A 'scroll to bottom' FAB or equivalent appears when user scrolls up during active streaming",
+      "grep -n 'SimpleDateFormat' MessageBubble.kt returns no results (replaced with DateTimeFormatter)",
+      "grep -n 'infiniteTransition' ActionCard.kt returns no results (redundant rotation removed)",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "chat",
+      "ux"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-destructive-confirm": {
+    "title": "Phase 4: Destructive Action Confirmation Dialogs",
+    "description": "Three destructive actions execute immediately with no confirmation:\n1. Session delete in NavigationDrawer.kt:274-283 \u2014 IconButton calls onDelete directly, 32dp touch target increases accidental tap risk\n2. 'Clear Traces' in PermissionsAdvancedSettingsPage.kt (~line 208-215) \u2014 executes immediately\n3. 'Clear Session History' in PermissionsAdvancedSettingsPage.kt (~line 216-227) \u2014 executes immediately\n\nAll three are irreversible data-loss actions that should require explicit user confirmation.\n\nApproach:\n- Add a `showDeleteConfirm` state + AlertDialog pattern to each action\n- Dialog text: describe what will be lost, with [Cancel] and [Delete/Clear] buttons\n- ~15 lines per dialog, no structural changes needed",
+    "parent": "ui-ux-quality",
+    "depends": [],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/navigation/NavigationDrawer.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/settings/PermissionsAdvancedSettingsPage.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'AlertDialog' NavigationDrawer.kt returns at least one match (confirmation dialog exists)",
+      "grep -n 'AlertDialog' PermissionsAdvancedSettingsPage.kt returns at least two matches (one per destructive action)",
+      "Session delete requires two taps: delete button \u2192 confirm dialog \u2192 confirm button",
+      "Clear Traces requires two taps: button \u2192 confirm dialog \u2192 confirm button",
+      "Clear Session History requires two taps: button \u2192 confirm dialog \u2192 confirm button",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "high",
+    "estimate": "xs",
+    "tags": [
+      "ux",
+      "safety"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-a11y-fixes": {
+    "title": "Phase 5: 3 Targeted Accessibility Fixes",
+    "description": "Three specific accessibility gaps remain (chat header and drawer already fixed):\n\n1. OnboardingShell.kt:54-61 \u2014 back button uses Icon + Modifier.clickable at 24dp instead of IconButton. Missing the standard 48dp minimum touch target. Screen readers see a clickable image with no button role.\n\n2. StatusIslandCompose.kt:30-43 \u2014 clickable Surface with no explicit role or action label, only defaultMinSize(minHeight=32.dp). Also uses hardcoded Color.White and Color(0xFF171717) instead of theme tokens. Fix both a11y and theming together.\n\n3. SmartCapsuleSurfaceParts.kt:255-266 \u2014 NavIconButton has contentDescription = null for icon-only capsule navigation actions (minimize, open app, open viewer).\n\nApproach:\n- Replace Icon+clickable with IconButton in OnboardingShell\n- Add semantics { role = Role.Button } + contentDescription to StatusIslandCompose Surface; replace hardcoded colors with MaterialTheme tokens\n- Add meaningful contentDescription strings to NavIconButton calls (derive from NavAction: 'Minimize', 'Open app', 'Open viewer')",
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-capsule-compose"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/onboarding/OnboardingShell.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/overlay/compose/StatusIslandCompose.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/capsule/surface/SmartCapsuleSurfaceParts.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'IconButton' OnboardingShell.kt returns at least one match (back button uses IconButton)",
+      "grep -n 'Modifier.clickable' OnboardingShell.kt returns no matches for the back button area",
+      "grep -n 'contentDescription = null' SmartCapsuleSurfaceParts.kt returns no matches in NavIconButton calls",
+      "grep -n 'Color.White\\|0xFF171717' StatusIslandCompose.kt returns no matches (hardcoded colors replaced with theme tokens)",
+      "grep -n 'Role.Button\\|contentDescription' StatusIslandCompose.kt returns at least one match",
+      "./gradlew assembleDebug passes"
+    ],
+    "priority": "normal",
+    "estimate": "xs",
+    "tags": [
+      "a11y",
+      "ux"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-overlay-state": {
+    "title": "Phase 6: Narrow Overlay State Unification",
+    "description": "CapsuleOverlayHost.kt:73-76 still keeps its own `capsuleContext`, `platformMode`, and `hasIsland` MutableStateFlow instances that duplicate canonical state from CapsuleStateHolder. CapsuleOverlayHost.kt:213-221 exposes `updateNavContext()` to mutate these local flows. ServiceOverlayController.kt:376-383 writes the same render inputs into both stateHolder and capsuleManager, duplicating the mutation path.\n\nCapsuleStateHolder already centralizes mode, context, platformMode, and turnPhase. IslandOverlayHost already reads from stateHolder. The gap is only in CapsuleOverlayHost.\n\nHost-only concerns (focusability, touchability, interaction locks, inputFocused) are correctly host-owned and must stay.\n\nApproach:\n- Remove duplicate `capsuleContext`, `platformMode`, `hasIsland` flows from CapsuleOverlayHost\n- CapsuleOverlayHost reads these values from CapsuleStateHolder instead\n- Remove `updateNavContext()` \u2014 callers use CapsuleStateHolder.setContext() etc.\n- Update ServiceOverlayController to write render state only to stateHolder, not both\n- Keep host-only state (focusability, touchability, interactionLocked, inputFocused) in CapsuleOverlayHost",
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-capsule-compose"
+    ],
+    "state": "done",
+    "scope": [
+      "app/src/main/kotlin/com/moonkey/androidagent/ui/overlay/compose/CapsuleOverlayHost.kt",
+      "app/src/main/kotlin/com/moonkey/androidagent/app/ServiceOverlayController.kt"
+    ],
+    "acceptCriteria": [
+      "grep -n 'private val capsuleContext' CapsuleOverlayHost.kt returns no results (duplicate flow removed)",
+      "grep -n 'private val platformMode' CapsuleOverlayHost.kt returns no results (duplicate flow removed)",
+      "grep -n 'private val hasIsland' CapsuleOverlayHost.kt returns no results (duplicate flow removed)",
+      "grep -n 'updateNavContext' CapsuleOverlayHost.kt returns no results (method removed)",
+      "CapsuleOverlayHost reads context/platformMode/hasIsland from stateHolder flows",
+      "ServiceOverlayController writes render state to stateHolder only, not both stateHolder and capsuleManager",
+      "./gradlew assembleDebug passes",
+      "./gradlew test passes"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "state",
+      "overlay"
+    ],
+    "created": "2026-04-16T00:00:00+08:00",
+    "updated": "2026-04-16T00:00:00+08:00"
+  },
+  "uiux-codex-review": {
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-capsule-compose",
+      "uiux-settings-state",
+      "uiux-chat-scroll",
+      "uiux-destructive-confirm",
+      "uiux-a11y-fixes",
+      "uiux-overlay-state"
+    ],
+    "state": "done",
+    "title": "Codex Code Review + Fix Round",
+    "description": "Send all UI/UX quality changes to Codex for systematic code review. Codex reviews the diff of all uiux-* task changes against the aligned design (doc/todo/holistic-review/ui-ux-quality/final/improvement_plan.md). Covers: (1) capsule composition correctness \u2014 verify no state writes during composition, previousMode plumbing correct, (2) settings state hoisting \u2014 rememberSaveable usage, tab/provider mutation decoupling, (3) chat scroll \u2014 bottom-stickiness policy, SimpleDateFormat removal, double rotation removal, (4) destructive action confirmation dialogs, (5) a11y fixes \u2014 IconButton, contentDescription, theme tokens, (6) overlay state unification \u2014 duplicate flows removed. Fix any critical/high findings before proceeding to QA. Use /code-review skill via multmux.",
+    "acceptCriteria": [
+      "Codex code review report exists at projects/archive/20260417_holistic-review/ui-ux-quality/final/codex_review.md",
+      "All critical/high findings from review are addressed",
+      "./gradlew test passes after fixes",
+      "./gradlew assembleDebug passes after fixes"
+    ],
+    "estimate": "s",
+    "tags": [
+      "review"
+    ],
+    "created": "2026-04-16T16:20:21Z",
+    "updated": "2026-04-16T16:20:21Z"
+  },
+  "uiux-qa-real-device": {
+    "parent": "ui-ux-quality",
+    "depends": [
+      "uiux-codex-review"
+    ],
+    "state": "done",
+    "title": "QA Round: Real Device Validation",
+    "description": "Run end-to-end QA on real device to validate UI/UX changes do not regress user-facing behavior. Test scenarios:\n\n1. Capsule transitions: overlay capsule Hidden\u2192WaitingForInput\u2192Running\u2192Done cycle \u2014 input clears exactly once on transition, no repeated focus/input glitches, in-app and overlay paths behave identically\n2. Settings state: open settings, switch tabs (OAuth/API Key/Local), rotate device \u2014 tab/provider preserved; change model externally via intent, reopen settings \u2014 correct tab shown; explore tabs without committing \u2014 backend/auth state unchanged\n3. Chat streaming: send a task that produces a long streaming response \u2014 viewport follows content growth; scroll up mid-stream \u2014 not yanked back, scroll-to-bottom affordance appears; new message after scrolling up \u2014 affordance visible\n4. Destructive actions: tap session delete \u2014 confirmation dialog appears, cancel works, confirm deletes; same for Clear Traces and Clear Session History in settings\n5. Accessibility: TalkBack pass on onboarding back button, capsule nav buttons, status island \u2014 all announced with correct labels and roles\n6. Normal multi-turn task: complete a real task end-to-end without regression\n\nUse /ux-visual-debug or adb-driven interaction.",
+    "acceptCriteria": [
+      "QA report exists at projects/archive/20260417_holistic-review/ui-ux-quality/final/qa_report.md with pass/fail per scenario",
+      "Capsule transitions: no focus/input glitches, input clears once, in-app and overlay identical",
+      "Settings state: rotation preserves page/tab/provider, external change reflected on reopen, tab exploration does not mutate backend",
+      "Chat streaming: viewport follows when at bottom, does not yank when scrolled up, scroll-to-bottom affordance appears",
+      "Destructive actions: all 3 actions require confirmation dialog before executing",
+      "Accessibility: TalkBack announces correct labels for onboarding back, capsule nav, status island",
+      "Normal multi-turn task completes without regression",
+      "No ANR or crash in logcat during QA run"
+    ],
+    "estimate": "m",
+    "requireHumanReview": true,
+    "tags": [
+      "qa"
+    ],
+    "created": "2026-04-16T16:20:40Z",
+    "updated": "2026-04-16T16:20:40Z"
+  }
+}

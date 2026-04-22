@@ -1,0 +1,235 @@
+{
+  "auth-setting-cleanup": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Auth Setting Cleanup (mode/provider/model separation)",
+    "description": "Flatten mode\u00d7provider into a single LLMProvider enum; consolidate all cloud credentials (OAuth + ApiKey) into one AuthStore; eliminate buildApiKeys fallback chain and __AUTH_METHOD_OPENAI magic key; bump SessionRuntimeSnapshot schemaVersion; no runtime migration (pre-release one-time re-auth on upgrade). Fixes Codex OAuth \u2192 Run Demo failure.",
+    "design": "projects/archive/20260418_auth-setting-cleanup/design_claude.md",
+    "acceptCriteria": [
+      "All child tasks done",
+      "Onboarding OAuth \u2192 Run Demo succeeds on device",
+      "Onboarding API key \u2192 Run Demo succeeds",
+      "Upgrade from prior build \u2192 empty AuthStore \u2192 banner \u2192 Settings re-auth path works"
+    ],
+    "note": "v4 design (KISS, zero migration). Reviewed by Codex v1 + v2. Ready for orchestrate.",
+    "updated": "2026-04-18T01:51:06.144523+00:00"
+  },
+  "auth-store-core": {
+    "parent": "auth-setting-cleanup",
+    "depends": [],
+    "state": "done",
+    "title": "AuthStore + AuthCredential + AuthErrors",
+    "description": "New unified credential store keyed by flat LLMProvider. Sealed AuthCredential = ApiKey | OAuth. Internal Mutex guards OAuth refresh. codexHeaders() returns full {accessToken, chatgptAccountId, email} bundle. Encrypted-prefs backed with in-memory fallback on crypto failure (same pattern as existing OAuthCredentialStore). Per-provider generation counter for cache invalidation.",
+    "design": "projects/archive/20260418_auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/auth/AuthStore.kt",
+      "app/src/main/kotlin/ai/closepaw/auth/AuthCredential.kt",
+      "app/src/main/kotlin/ai/closepaw/auth/AuthErrors.kt",
+      "app/src/test/kotlin/ai/closepaw/auth/**"
+    ],
+    "acceptCriteria": [
+      "AuthStore.kt, AuthCredential.kt, AuthErrors.kt exist",
+      "get/set/clear/has work for all cloud providers",
+      "codexHeaders() refreshes near expiry under mutex",
+      "Wrong credential type clears store and throws WrongCredentialType",
+      "Encryption-degraded mode uses in-memory fallback",
+      "./gradlew :app:testDebugUnitTest --tests ai.closepaw.auth.AuthStoreTest passes"
+    ],
+    "estimate": "s",
+    "updated": "2026-04-17T21:40:20.118769+00:00",
+    "agent": "w-auth-store-core"
+  },
+  "provider-enum-split": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "auth-store-core"
+    ],
+    "state": "done",
+    "title": "Flatten LLMProvider enum + split catalog",
+    "description": "Rename OPENAI\u2192OPENAI_API; add OPENAI_CODEX; add provider.mode accessor returning AuthMode. Split llm_models.json: OpenAI RESPONSE models get -codex variants under OPENAI_CODEX. Add catalog.defaultModel(provider) helper.",
+    "design": "projects/archive/20260418_auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/llm/LLMProvider.kt",
+      "app/src/main/assets/llm_models.json",
+      "app/src/main/kotlin/ai/closepaw/llm/ModelCatalog.kt"
+    ],
+    "acceptCriteria": [
+      "Enum contains OPENAI_API, OPENAI_CODEX, OPENROUTER, NOVITA, LOCAL_LFM",
+      "provider.mode returns correct AuthMode for each",
+      "gpt-5.4 resolves under OPENAI_API, gpt-5.4-codex under OPENAI_CODEX",
+      "catalog.defaultModel(OPENAI_CODEX) returns a valid -codex model key",
+      "./gradlew :app:compileDebugKotlin succeeds"
+    ],
+    "estimate": "s",
+    "updated": "2026-04-17T21:46:24.964393+00:00",
+    "agent": "w-provider-enum-split"
+  },
+  "factory-rewrite": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "provider-enum-split"
+    ],
+    "state": "done",
+    "title": "LLMClientFactory by-provider routing + Codex header supplier",
+    "description": "Factory routes purely on entry.provider. CodexResponseClient accepts suspend () -> CodexHeaders supplier instead of captured accessToken/accountId. ApiKey providers use generation counter for cache invalidation; Codex cache also invalidates on OAuth set/clear. Delete apiKeyResolver, resolveApiKey, isOAuth, __AUTH_METHOD_OPENAI.",
+    "design": "projects/archive/20260418_auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/llm/LLMClientFactory.kt",
+      "app/src/main/kotlin/ai/closepaw/llm/CodexResponseClient.kt",
+      "app/src/test/kotlin/ai/closepaw/llm/**"
+    ],
+    "acceptCriteria": [
+      "Factory resolves client purely from entry.provider (no env-var sniffing)",
+      "CodexResponseClient has no captured OAuth state; reads headers via supplier per request",
+      "ApiKey cache invalidates on authStore.set via generation mismatch",
+      "__AUTH_METHOD_OPENAI constant removed from codebase",
+      "MissingCredential / OAuthRefreshFailed / WrongCredentialType thrown at correct sites",
+      "Factory unit tests pass"
+    ],
+    "estimate": "m",
+    "updated": "2026-04-17T22:02:31.404740+00:00",
+    "agent": "w-factory-rewrite"
+  },
+  "runtime-wiring": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "factory-rewrite"
+    ],
+    "state": "done",
+    "title": "Runtime wiring: session boot, checkpoint schema, banner deep-link",
+    "description": "Update all session/main-activity callsites to resolve credentials via AuthStore (not apiKeys map / env vars). Bump SessionRuntimeSnapshot.schemaVersion 1\u21922; AgentSession.reload rejects v1 snapshots with user message. ChatViewModel.reportStartupFailure banner payload carries openSettingsAt(page=LLM_AUTH, tab=mode) action. SmartCapsuleSurface banner becomes tappable; ChatScreen/MainActivityContent route the action to SettingsSheet. Debug intent handlers write credentials to AuthStore; openai_base_url moves to AppSettingsState.openAiBaseUrlOverride.",
+    "design": "projects/archive/20260418_auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/MainActivity.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityContent.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityModelValidation.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityIntentApplier.kt",
+      "app/src/main/kotlin/ai/closepaw/app/MainActivityIntentPayload.kt",
+      "app/src/main/kotlin/ai/closepaw/session/AgentSession.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionCheckpointCoordinator.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionServices.kt",
+      "app/src/main/kotlin/ai/closepaw/session/SessionLlmBootstrapper.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatViewModel.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/SmartCapsuleSurface.kt"
+    ],
+    "acceptCriteria": [
+      "No callsite reads appSettings.authMethod / openAiOAuthAccessToken / openAiManualApiKey / apiKey / openRouterApiKey / novitaApiKey / buildApiKeys",
+      "SessionCheckpointCoordinator writes schemaVersion=2; AgentSession.reload returns null for schemaVersion==1 snapshots",
+      "Startup failure banner is tappable and opens SettingsSheet on correct LLM auth tab",
+      "Debug intent api_key/openrouter_api_key/novita_api_key write to AuthStore; openai_base_url writes to openAiBaseUrlOverride",
+      "./gradlew :app:compileDebugKotlin succeeds"
+    ],
+    "estimate": "l",
+    "updated": "2026-04-17T22:34:19.840287+00:00",
+    "agent": "w-runtime-wiring"
+  },
+  "settings-ui-align": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "runtime-wiring"
+    ],
+    "state": "done",
+    "title": "Settings UI tab canonicalization + executor model safety",
+    "description": "LlmAuthSettingsPage: tabs drive selectedProviderForTab via canonicalization rule (if selectedModel.provider.mode != tab.mode, use tab default provider). Tab switch itself is inert \u2014 no writes until model commit. On model commit, executorModel is reset/remapped if its provider no longer matches selectedModel.provider. SettingsSheet accepts initialPage + initialAuthTab for deep-link.",
+    "design": "projects/archive/20260418_auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/settings/LlmAuthSettingsPage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsSheet.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "app/src/androidTest/kotlin/ai/closepaw/qa/SettingsLlmAuthTest.kt"
+    ],
+    "acceptCriteria": [
+      "Tab switch writes nothing to settings state until a model pick is committed",
+      "Selecting OAuth tab while selectedModel is OPENAI_API shows OPENAI_CODEX provider by default",
+      "Changing main model provider resets executorModel when provider mismatches",
+      "SettingsSheet(initialPage=LLM_AUTH, initialAuthTab=OAUTH) opens correct tab",
+      "SettingsLlmAuthTest updated and passes on device"
+    ],
+    "estimate": "m",
+    "updated": "2026-04-17T22:45:52.873643+00:00",
+    "agent": "w-settings-ui-align"
+  },
+  "onboarding-rewrite": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "runtime-wiring"
+    ],
+    "state": "done",
+    "title": "Onboarding rewrite: AuthStore writes, no drafts, transient text",
+    "description": "OnboardingViewModel: OAuth success writes authStore.set(OPENAI_CODEX); API key text is ViewModel-transient (no encrypted draft); Next/Run Demo commits to AuthStore. OnboardingStore: delete KEY_AUTH_METHOD, KEY_API_KEY_DRAFT, onboarding_secure_prefs entirely. Step-resume derives mode from selectedModel.provider.mode + AuthStore.has(). OnboardingState cloud provider enum aligned with flat LLMProvider. MissingCredential / OAuthRefreshFailed render inline error card with re-auth action.",
+    "design": "projects/archive/20260418_auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingViewModel.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingState.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingStore.kt",
+      "app/src/main/kotlin/ai/closepaw/onboarding/OnboardingDemoController.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingSteps.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingScreen.kt"
+    ],
+    "acceptCriteria": [
+      "OnboardingStore has no KEY_AUTH_METHOD or KEY_API_KEY_DRAFT",
+      "OAuth completion results in authStore.has(OPENAI_CODEX) == true",
+      "ApiKey typed text not persisted across process death",
+      "Step-resume does not call loadAuthMethod() or loadApiKeyDraft()",
+      "Run Demo succeeds end-to-end on device for both OAuth and API key paths",
+      "Missing credential surfaces inline error card with re-auth action"
+    ],
+    "estimate": "m",
+    "updated": "2026-04-17T22:45:52.873643+00:00",
+    "agent": "w-onboarding-rewrite"
+  },
+  "settings-state-shrink": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "settings-ui-align",
+      "onboarding-rewrite"
+    ],
+    "state": "done",
+    "title": "Delete legacy AppSettingsState auth fields",
+    "description": "Remove authMethod, openAiOAuthAccessToken, openAiManualApiKey, apiKey, openRouterApiKey, novitaApiKey, buildApiKeys() from AppSettingsState + AppSettingsStore. Add openAiBaseUrlOverride (debug). Delete OAuthCredentialStore.kt. Project must still compile \u2014 by construction there should be no remaining readers after tasks 5 and 6.",
+    "design": "projects/archive/20260418_auth-setting-cleanup/design_claude.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsState.kt",
+      "app/src/main/kotlin/ai/closepaw/app/AppSettingsStore.kt",
+      "app/src/main/kotlin/ai/closepaw/auth/OAuthCredentialStore.kt"
+    ],
+    "acceptCriteria": [
+      "AppSettingsState has no authMethod, openAiOAuthAccessToken, openAiManualApiKey, apiKey, openRouterApiKey, novitaApiKey, buildApiKeys fields",
+      "openAiBaseUrlOverride exists (debug-only semantics)",
+      "OAuthCredentialStore.kt deleted",
+      "grep -r openAiManualApiKey app/src returns no hits",
+      "grep -r __AUTH_METHOD_OPENAI app/src returns no hits",
+      "./gradlew :app:assembleDebug succeeds"
+    ],
+    "estimate": "s",
+    "updated": "2026-04-17T22:56:11.345865+00:00",
+    "agent": "w-settings-state-shrink"
+  },
+  "auth-cleanup-qa-device": {
+    "parent": "auth-setting-cleanup",
+    "depends": [
+      "settings-state-shrink"
+    ],
+    "state": "done",
+    "title": "Device QA: end-to-end auth flows",
+    "description": "Use /ux-visual-debug to verify all user-facing auth paths on a real device.",
+    "design": "projects/archive/20260418_auth-setting-cleanup/design_claude.md",
+    "acceptCriteria": [
+      "Fresh install \u2192 Onboarding OAuth \u2192 Run Demo succeeds",
+      "Fresh install \u2192 Onboarding API key (OpenAI) \u2192 Run Demo succeeds",
+      "Fresh install \u2192 Onboarding API key (OpenRouter) \u2192 Run Demo succeeds",
+      "Novita key entered via Settings \u2192 chat Run succeeds",
+      "Settings tab switch preserves credentials",
+      "Upgrade from prior build \u2192 empty AuthStore \u2192 startup banner appears \u2192 tap \u2192 Settings \u2192 re-auth \u2192 Run Demo succeeds",
+      "Old (v1 schema) checkpoint shows rejection message; new session can be started",
+      "Startup failure banner tap opens Settings on correct LLM auth tab"
+    ],
+    "estimate": "m",
+    "updated": "2026-04-18T01:51:06.144523+00:00",
+    "agent": "w-qa-device",
+    "blockReason": null,
+    "note": "S2-S5,S8 verified on device EP0110MZ0BC101266W. F1+F2 fixed and re-verified. S1/S6/S7 skipped (OAuth + prior-build APK needed)."
+  }
+}
