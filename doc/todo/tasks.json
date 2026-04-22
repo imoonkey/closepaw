@@ -174,7 +174,8 @@
   "ui-polish-investigate-capsule": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
+    "resolution": "not-a-bug — capsule renders correctly. Original report was a screenshot-pipeline artifact: AccessibilityService.takeScreenshot() excludes TYPE_ACCESSIBILITY_OVERLAY windows by Android API contract, so debug-output/turn_*.png never shows the capsule even when fully visible on device. Verified via adb screencap (doc/todo/inv1_evidence/capsule_overlay_running.png) and applyVisibility logcat. See commit 266a9fdb.",
     "worktree": "capsule-investigation",
     "title": "Capsule overlay never rendered — diagnose runtime regression (INV-1)",
     "description": "INVESTIGATION ONLY. Per polish_report.md INV-1, no capsule overlay was visible during basic-mode runs, VD-mode runs, or after directly launching VirtualDisplayViewerActivity. ULTRATHINK. Identify (a) root cause of CapsuleOverlayHost not drawing over other apps, (b) the eye-icon affordance entry path the user mentioned, (c) why VirtualDisplayViewerActivity launches as black screen. Produce diagnosis at doc/todo/ui-polish/capsule_investigation.md with file:line refs and a proposed fix plan. Do NOT change runtime behavior unless root cause is a trivial wiring fix (then make minimum change + document).",
