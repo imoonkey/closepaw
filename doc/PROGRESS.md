@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-04-22: Doc / project separation cutover
+
+**What changed:**
+- `doc/todo/` → `projects/active/`, `doc/archive/` → `projects/archive/`. State files (`tasks.json`, `progress.json`, `.tasks.json.lock` if present) promoted to `projects/` root. `doc/PROGRESS.md` stays in `doc/`.
+- Sweep across `CLAUDE.md`, `README.md`, `AGENTS.md`, `doc/main/`, `doc/dev/`, `projects/active/` for stale `doc/todo` / `doc/archive` strings. Targeted rewrite of `projects/archive/*.json` design fields where present.
+
+**Why:**
+- `doc/` was mixing stable reference (read to *learn* the codebase) with live workstream state (read to *execute* in-flight work). Splitting on audience lets the file explorer surface coherent content and unblocks publishing `doc/` as a public artifact later. Cross-workspace rollout coordinated from `~/workspace/workflow/projects/archive/20260422_doc-separation/design.md`; this repo is one of the 11 migrated.
+
+**Key files:** all of `doc/{todo,archive}` (renamed), state files at `projects/`, plus the swept reference docs above.
+**Verification:** `grep -rE 'doc/(todo|archive)'` in source code returns empty (excluding `doc/PROGRESS.md` narrative + `projects/archive/**` historical prose). Single migration commit landed on `main`.
+**Commit:** `b22be2b9`.
+**Next:** None — Phase 0 skill freeze across `~/workspace/*` has been lifted.
+**Blockers:** None.
+
+
 ## 2026-04-22: ui — frontend revamp polish, logic, session-fix landing (post-D2)
 
 **What changed:**
