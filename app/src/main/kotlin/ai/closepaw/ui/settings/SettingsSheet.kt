@@ -10,6 +10,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
@@ -79,6 +80,7 @@ fun SettingsSheet(
             .statusBarsPadding()
             .displayCutoutPadding()
             .navigationBarsPadding()
+            .imePadding()
     ) {
         AnimatedContent(
             targetState = settingsPage,

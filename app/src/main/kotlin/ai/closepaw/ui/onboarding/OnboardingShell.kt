@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -59,7 +60,11 @@ fun OnboardingShell(
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
+                .imePadding()
         ) {
+            // Activity uses adjustNothing so imePadding above shrinks maxHeight
+            // when the keyboard opens — short heights then naturally fall back
+            // to the scrollable column path (covers IME-visible state too).
             val needsScroll = maxHeight < 480.dp
             Column(
                 modifier = Modifier
