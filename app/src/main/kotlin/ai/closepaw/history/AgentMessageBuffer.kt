@@ -39,8 +39,30 @@ internal class AgentMessageBuffer {
         contentBlocks.add(ContentBlockRecord.Thought(text))
     }
 
-    /** Append a discrete terminal text block (TaskCompleted result / SessionError). */
-    fun recordTerminalText(text: String) {
+    /**
+     * Append a final-answer block (TaskCompleted with non-blank result that
+     * carries the agent's closing answer). Mirrors `ChatViewModel`'s live
+     * reducer rule — only call this when there is a real answer to surface.
+     *
+     * If the streaming text buffer or the last committed Text block already
+     * holds this same answer (text-completion path emits the answer through
+     * MessageDelta events first, then resurfaces it via TaskCompleted),
+     * promote in place instead of duplicating.
+     */
+    fun recordFinalAnswer(text: String) {
+        // Drain any pending streamed text — TaskCompleted is replacing it
+        // with the canonical answer.
+        textBuffer.clear()
+        val last = contentBlocks.lastOrNull()
+        if (last is ContentBlockRecord.Text && last.text == text) {
+            contentBlocks[contentBlocks.lastIndex] = ContentBlockRecord.FinalText(text)
+        } else {
+            contentBlocks.add(ContentBlockRecord.FinalText(text))
+        }
+    }
+
+    /** Append an inline error/warning text block (SessionError, "⚠ …"). */
+    fun recordErrorText(text: String) {
         finalizeTextBlock()
         contentBlocks.add(ContentBlockRecord.Text(text))
     }

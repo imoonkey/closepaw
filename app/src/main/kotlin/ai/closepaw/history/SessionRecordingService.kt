@@ -237,17 +237,31 @@ class SessionRecordingService(
     }
 
     /**
-     * Append a discrete terminal text block to the active agent message
-     * (TaskCompleted result / SessionError message). Must be called before
-     * [completeAgentMessage] so the text lands in the finalized snapshot.
+     * Append the agent's closing answer to the active agent message
+     * (`TaskCompleted` with a real answer). Persists as `FinalText` so reload
+     * matches the live reducer's classification — see
+     * `ChatViewModel.applyCompletionToBlocks`. No-answer completions
+     * (USER_STOPPED, side-effect-only) intentionally skip this call so the
+     * persisted row has no final region.
      */
-    fun appendTerminalText(text: String) {
+    fun recordFinalAnswer(text: String) {
         synchronized(stateLock) {
             if (!agentMessageBuffer.hasActiveMessage()) {
-                Log.w(TAG, "No active agent message for terminal text")
+                Log.w(TAG, "No active agent message for final answer")
                 return
             }
-            agentMessageBuffer.recordTerminalText(text)
+            agentMessageBuffer.recordFinalAnswer(text)
+        }
+    }
+
+    /** Append an inline `⚠ …` error/warning text on the active agent message. */
+    fun recordErrorText(text: String) {
+        synchronized(stateLock) {
+            if (!agentMessageBuffer.hasActiveMessage()) {
+                Log.w(TAG, "No active agent message for error text")
+                return
+            }
+            agentMessageBuffer.recordErrorText(text)
         }
     }
 

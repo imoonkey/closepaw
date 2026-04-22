@@ -82,4 +82,35 @@ class AgentMessageBufferTest {
             )
         )
     }
+
+    @Test
+    fun `recordFinalAnswer drains streamed text buffer to avoid duplication`() {
+        // Tool-less text completion: deltas stream the answer into textBuffer,
+        // then TaskCompleted resurfaces it as the FinalText. Without draining,
+        // the snapshot would contain Text("Done") + FinalText("Done"). uxfb-3
+        // codex final review HIGH.
+        val buffer = AgentMessageBuffer()
+        buffer.start("msg", timestamp = 1L)
+        buffer.appendText("Hello, here is the answer.")
+        buffer.recordFinalAnswer("Hello, here is the answer.")
+
+        val snapshot = buffer.finalizeSnapshot()
+        assertThat(snapshot?.blocks).containsExactly(
+            ContentBlockRecord.FinalText("Hello, here is the answer.")
+        )
+    }
+
+    @Test
+    fun `recordFinalAnswer with mismatched answer drops streamed text and appends final`() {
+        // complete_task path: arguments.answer can differ from any streamed prose.
+        val buffer = AgentMessageBuffer()
+        buffer.start("msg", timestamp = 1L)
+        buffer.appendText("Trying to open the app...")
+        buffer.recordFinalAnswer("Done — opened Settings.")
+
+        val snapshot = buffer.finalizeSnapshot()
+        assertThat(snapshot?.blocks).containsExactly(
+            ContentBlockRecord.FinalText("Done — opened Settings.")
+        )
+    }
 }

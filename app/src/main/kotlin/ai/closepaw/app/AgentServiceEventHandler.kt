@@ -78,12 +78,20 @@ internal class AgentServiceEventHandler(
                 // Stash outcome BEFORE finalize so the recorder can derive
                 // rowState ("error" vs "complete") on the persisted row.
                 recordingService?.recordTaskOutcome(event.outcome)
-                // Persist the terminal result text (success summary or "⚠ ..."
-                // error string). Without this, a turn that ended with no prior
-                // MessageDelta loses the entire agent row on reload.
-                val terminalText = event.result?.takeIf { it.isNotBlank() }
-                    ?: defaultTerminalText(event.outcome)
-                recordingService?.appendTerminalText(terminalText)
+                // Persist the closing answer as FinalText only when there IS one.
+                // No-answer completions (USER_STOPPED, side-effect-only) skip
+                // this so reload matches the live reducer — see uxfb-3 README §3
+                // and ChatViewModel.applyCompletionToBlocks. Error outcomes still
+                // get a fallback marker as inline ⚠ text so the row isn't empty.
+                val realAnswer = event.result?.takeIf { it.isNotBlank() }
+                when {
+                    realAnswer != null && !event.outcome.isError() ->
+                        recordingService?.recordFinalAnswer(realAnswer)
+                    event.outcome.isError() ->
+                        recordingService?.recordErrorText(
+                            "⚠ ${realAnswer ?: defaultErrorText(event.outcome)}"
+                        )
+                }
                 // Finalize the agent message buffer so the session file
                 // is complete before Hot Idle.
                 recordingService?.completeAgentMessage()
@@ -135,7 +143,7 @@ internal class AgentServiceEventHandler(
                 // before it finalizes, so the persisted row carries the actual
                 // error string instead of vanishing.
                 recordingService?.recordTaskOutcome(TaskOutcome.ERROR)
-                recordingService?.appendTerminalText("⚠ ${event.message}")
+                recordingService?.recordErrorText("⚠ ${event.message}")
                 recordingService?.completeAgentMessage()
                 updateStatus("❌ Error: ${event.message}")
                 overlay?.onSessionError(event.message)
@@ -180,11 +188,20 @@ internal class AgentServiceEventHandler(
         }
     }
 
-    private fun defaultTerminalText(outcome: TaskOutcome): String = when (outcome) {
-        TaskOutcome.GOAL_ACHIEVED -> "Done"
-        TaskOutcome.MAX_TURNS -> "⚠ Max turns reached"
-        TaskOutcome.TASK_IMPOSSIBLE -> "⚠ Task cannot be completed"
-        TaskOutcome.ERROR -> "⚠ Error"
-        TaskOutcome.USER_STOPPED -> "Stopped"
+    private fun TaskOutcome.isError(): Boolean = when (this) {
+        TaskOutcome.MAX_TURNS,
+        TaskOutcome.TASK_IMPOSSIBLE,
+        TaskOutcome.ERROR -> true
+        TaskOutcome.GOAL_ACHIEVED,
+        TaskOutcome.USER_STOPPED -> false
+    }
+
+    private fun defaultErrorText(outcome: TaskOutcome): String = when (outcome) {
+        TaskOutcome.MAX_TURNS -> "Max turns reached"
+        TaskOutcome.TASK_IMPOSSIBLE -> "Task cannot be completed"
+        TaskOutcome.ERROR -> "Error"
+        // Non-error outcomes never enter defaultErrorText — kept for exhaustiveness.
+        TaskOutcome.GOAL_ACHIEVED,
+        TaskOutcome.USER_STOPPED -> ""
     }
 }
