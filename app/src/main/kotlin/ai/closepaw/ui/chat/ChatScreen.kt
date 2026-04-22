@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -124,6 +126,7 @@ fun ChatScreen(
     ) {
         Scaffold(
             modifier = modifier,
+            contentWindowInsets = WindowInsets(0, 0, 0, 0),
             topBar = {
                 ChatHeader(
                     onMenuClick = {
@@ -137,6 +140,7 @@ fun ChatScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .imePadding()
                         .smartCapsuleHostPadding()
                 ) {
                     SmartCapsuleSurface(

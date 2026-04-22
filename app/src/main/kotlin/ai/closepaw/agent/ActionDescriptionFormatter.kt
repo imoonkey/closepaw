@@ -92,7 +92,7 @@ object ActionDescriptionFormatter {
 
     private fun formatCompleteTask(args: JSONObject): String {
         val status = args.optString("status", "")
-        val answer = args.optString("answer", "").take(50)
+        val answer = args.optString("answer", "")
         return "Complete ($status): $answer"
     }
 }
