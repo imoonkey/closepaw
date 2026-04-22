@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -24,19 +25,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Track A spec §5: row disclosure UI.
- *
- * Locks the regression covered by codex review round-1 critical #2 — a row
- * that starts Live and later transitions to Complete must default-collapse.
- * The reducer-only ChatThoughtAndRowStateTest does not exercise the Compose
- * layer; this does.
+ * D2/D3 row disclosure: pill owns the toggle; row root is not clickable; the
+ * final-answer region stays visible across collapse.
  */
 @RunWith(AndroidJUnit4::class)
 class ChatAgentRowDisclosureTest {
 
     @get:Rule val compose = createComposeRule()
 
-    private val sampleBlocks = listOf(
+    private val traceBlocks = listOf(
         ContentBlock.Thought("opening Settings"),
         ContentBlock.Action(
             ActionCardData(
@@ -47,18 +44,23 @@ class ChatAgentRowDisclosureTest {
                 resultSummary = "ok"
             )
         ),
-        ContentBlock.Text("All set.")
     )
 
-    private fun agent(rowState: RowState, state: AgentMessageState = AgentMessageState.Complete) =
-        ChatMessage.Agent(
+    private fun agent(
+        rowState: RowState,
+        state: AgentMessageState = AgentMessageState.Complete,
+        withFinal: Boolean = true,
+    ): ChatMessage.Agent {
+        val blocks = if (withFinal) traceBlocks + ContentBlock.FinalText("All set.") else traceBlocks
+        return ChatMessage.Agent(
             id = "a1",
             timestamp = 1_000L,
-            contentBlocks = sampleBlocks,
+            contentBlocks = blocks,
             state = state,
             rowState = rowState,
-            completedTimestamp = if (rowState == RowState.Complete) 4_800L else null
+            completedTimestamp = if (rowState == RowState.Complete) 4_800L else null,
         )
+    }
 
     private fun assertExpanded() {
         compose.onNodeWithTag("qa-agent-bubble")
@@ -72,55 +74,70 @@ class ChatAgentRowDisclosureTest {
 
     @Test fun live_row_is_expanded_and_locked_open() {
         compose.setContent {
-            ClosePawTheme { MessageBubble(agent(RowState.Live, AgentMessageState.Streaming)) }
+            ClosePawTheme {
+                MessageBubble(
+                    agent(RowState.Live, AgentMessageState.Streaming, withFinal = false)
+                )
+            }
         }
 
         compose.onNodeWithTag("qa-agent-bubble")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "live"))
-        // Trace items rendered.
-        compose.onNodeWithText("opening Settings").assertExists()
+        compose.onNodeWithText("opening Settings").assertIsDisplayed()
+        // No pill on locked-open rows.
+        compose.onNodeWithTag("qa-collapse-pill").assertDoesNotExist()
     }
 
     @Test fun row_default_collapses_when_transitioning_live_to_complete() {
-        // Mimic the producer pattern: same row id, rowState swaps mid-flight.
         var rowState by mutableStateOf(RowState.Live)
         compose.setContent {
             val agentState = if (rowState == RowState.Live) AgentMessageState.Streaming
                 else AgentMessageState.Complete
-            ClosePawTheme { MessageBubble(agent(rowState, agentState)) }
+            ClosePawTheme {
+                MessageBubble(agent(rowState, agentState))
+            }
         }
 
-        // Live → expanded
         assertExpanded()
 
-        // Transition to Complete → default must collapse (regression guard).
         rowState = RowState.Complete
         compose.waitForIdle()
 
         assertCollapsed()
     }
 
-    @Test fun user_toggle_persists_against_default() {
+    @Test fun pill_toggles_trace_visibility() {
         compose.setContent {
             ClosePawTheme { MessageBubble(agent(RowState.Complete)) }
         }
 
-        // Default = collapsed, then user expands.
+        // Default = collapsed; user expands via pill.
         assertCollapsed()
-        compose.onNodeWithTag("qa-agent-bubble").performClick()
+        compose.onNodeWithTag("qa-collapse-pill").performClick()
+        compose.waitForIdle()
         assertExpanded()
 
-        // User toggle wins until they tap again.
-        compose.onNodeWithTag("qa-agent-bubble").performClick()
+        compose.onNodeWithTag("qa-collapse-pill").performClick()
+        compose.waitForIdle()
         assertCollapsed()
     }
 
-    @Test fun collapsed_summary_includes_action_count_and_elapsed() {
+    @Test fun final_answer_stays_visible_when_collapsed() {
         compose.setContent {
             ClosePawTheme { MessageBubble(agent(RowState.Complete)) }
         }
 
-        // Headline ladder picks the first thought as headline; spec §5.2 summary.
-        compose.onNodeWithText("opening Settings · 1 action · 3.8s").assertExists()
+        assertCollapsed()
+        compose.onNodeWithTag("qa-final-answer").assertIsDisplayed()
+        compose.onNodeWithText("All set.").assertIsDisplayed()
+    }
+
+    @Test fun complete_with_no_final_renders_pill_but_no_final_region() {
+        compose.setContent {
+            ClosePawTheme { MessageBubble(agent(RowState.Complete, withFinal = false)) }
+        }
+
+        compose.onNodeWithTag("qa-collapse-pill").assertIsDisplayed()
+        compose.onNodeWithTag("qa-final-answer").assertDoesNotExist()
     }
 }

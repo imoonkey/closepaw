@@ -26,14 +26,28 @@ import kotlinx.coroutines.launch
 internal fun completionSummary(result: String?): String =
         result?.takeIf { it.isNotBlank() } ?: "Task completed"
 
+/** Display name of `complete_task` after [formatToolName] — used to detect the
+ *  Turn.kt:205-209 stop signal in the chat trace (the tool's args.answer is
+ *  surfaced via [TaskCompleted.result]). */
+private val COMPLETE_TASK_DISPLAY = ai.closepaw.ui.common.formatToolName("complete_task")
+
 internal fun shouldHandleReboundEvent(
         eventTimestamp: Long,
         replayCutoffTimestamp: Long?
 ): Boolean = replayCutoffTimestamp == null || eventTimestamp > replayCutoffTimestamp
 
+/**
+ * Apply Turn.kt:205-209 stop criteria to the row at [TaskCompleted] time:
+ *  - if a `complete_task` action ran in this row → append [ContentBlock.FinalText]
+ *    carrying [rawResult] (which is `arguments.answer` per TurnToolPolicy.kt:103);
+ *  - else if the most recent block is a streaming [ContentBlock.Text] → promote
+ *    it in place to [ContentBlock.FinalText] (the "last text without tools" path);
+ *  - else → append a [ContentBlock.FinalText] with the resolved completion text.
+ *  Error rows still get a Text block prefixed with ⚠️ and never produce a final.
+ */
 internal fun appendCompletionToMessages(
         messages: MutableList<ChatMessage>,
-        completionText: String,
+        rawResult: String?,
         timestamp: Long,
         taskId: String,
         isError: Boolean = false
@@ -42,9 +56,10 @@ internal fun appendCompletionToMessages(
     val index = messages.indexOfLast { it is ChatMessage.Agent }
     if (index >= 0) {
         val current = messages[index] as ChatMessage.Agent
+        val newBlocks = applyCompletionToBlocks(current.contentBlocks, rawResult, isError)
         messages[index] =
                 current.copy(
-                        contentBlocks = current.contentBlocks + ContentBlock.Text(completionText),
+                        contentBlocks = newBlocks,
                         state = AgentMessageState.Complete,
                         rowState = if (current.rowState == RowState.Error || isError) RowState.Error else RowState.Complete,
                         completedTimestamp = timestamp
@@ -52,16 +67,46 @@ internal fun appendCompletionToMessages(
         return
     }
 
+    val seedBlocks = applyCompletionToBlocks(emptyList(), rawResult, isError)
     messages.add(
             ChatMessage.Agent(
                     id = taskId,
                     timestamp = timestamp,
-                    contentBlocks = listOf(ContentBlock.Text(completionText)),
+                    contentBlocks = seedBlocks,
                     state = AgentMessageState.Complete,
                     rowState = terminalRowState,
                     completedTimestamp = timestamp
             )
     )
+}
+
+private fun applyCompletionToBlocks(
+        blocks: List<ContentBlock>,
+        rawResult: String?,
+        isError: Boolean
+): List<ContentBlock> {
+    if (isError) {
+        return blocks + ContentBlock.Text("⚠️ ${completionSummary(rawResult)}")
+    }
+    val hasCompleteTask = blocks.any { block ->
+        block is ContentBlock.Action && block.data.toolName == COMPLETE_TASK_DISPLAY
+    }
+    val resolved = completionSummary(rawResult)
+    if (hasCompleteTask) {
+        return blocks + ContentBlock.FinalText(resolved)
+    }
+    val lastTextIndex = blocks.indexOfLast { it is ContentBlock.Text }
+    if (lastTextIndex >= 0) {
+        val existing = (blocks[lastTextIndex] as ContentBlock.Text).text
+        val finalText = existing.takeIf { it.isNotBlank() } ?: resolved
+        return blocks.mapIndexed { i, b ->
+            if (i == lastTextIndex) ContentBlock.FinalText(finalText) else b
+        }
+    }
+    // Pure no-text completion (e.g. side-effect-only turn that got sealed by a
+    // user supplement or shutdown). Surface a final region with the fallback so
+    // the row isn't empty.
+    return blocks + ContentBlock.FinalText(resolved)
 }
 
 internal fun updateActionBlockForExecution(

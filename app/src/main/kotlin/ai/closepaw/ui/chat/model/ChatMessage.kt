@@ -67,29 +67,6 @@ enum class RowState {
 }
 
 /**
- * ContentBlock - A unit of content in an agent message.
- * 
- * Enables interleaved display of text and action cards in the order they occurred.
- */
-sealed interface ContentBlock {
-    /**
-     * Text content from the LLM response (the Final block in spec terms).
-     */
-    data class Text(val text: String) : ContentBlock
-
-    /**
-     * Agent reasoning emitted via `ThoughtUpdate`. One block per update;
-     * never merged with the prior Thought (spec §4.1: chronological story).
-     */
-    data class Thought(val text: String) : ContentBlock
-
-    /**
-     * An action card (tool execution).
-     */
-    data class Action(val data: ActionCardData) : ContentBlock
-}
-
-/**
  * AgentMessageState - The visual state of an agent message.
  */
 enum class AgentMessageState {

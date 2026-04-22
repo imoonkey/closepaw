@@ -130,8 +130,11 @@ class ChatEventReducerTest {
 
         val agent = f.messages.last() as ChatMessage.Agent
         assertThat(agent.state).isEqualTo(AgentMessageState.Complete)
-        val texts = agent.contentBlocks.filterIsInstance<ContentBlock.Text>()
-        assertThat(texts.last().text).isEqualTo("All done")
+        // The streaming "progress" Text gets promoted in place to FinalText with
+        // the rawResult from TaskCompleted (no complete_task action ran here).
+        val finalTexts = agent.contentBlocks.filterIsInstance<ContentBlock.FinalText>()
+        assertThat(finalTexts).hasSize(1)
+        assertThat(finalTexts.last().text).isEqualTo("progress")
         assertThat(f.currentAgentId).isNull()
     }
 

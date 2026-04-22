@@ -65,6 +65,14 @@ sealed interface ContentBlockRecord {
     data class Text(val text: String) : ContentBlockRecord
 
     /**
+     * Concluding answer (per Turn.kt:205-209 stop criteria) — promoted from
+     * [Text] by the chat reducer when the row sealed.
+     */
+    @Serializable
+    @SerialName("final_text")
+    data class FinalText(val text: String) : ContentBlockRecord
+
+    /**
      * Agent reasoning emitted via `ThoughtUpdate`.
      */
     @Serializable
