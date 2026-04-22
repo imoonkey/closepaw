@@ -93,13 +93,20 @@ Three families:
 - **Fraunces** (serif) — identity surfaces only. Reached via `ClosePawTokens.serifItalic` or local TextStyle. Never auto-applied through a Material slot.
 - **JetBrains Mono** — machine text. Reached via `ClosePawTokens.monoBody` / `monoSmall`.
 
-Track A row voice is locked:
+Track A row voice (UXFB-4 ThoughtGroup hierarchy):
 
 | Item | Style |
 |---|---|
-| Thought | `MaterialTheme.closePaw.bodyItalic` (Geist italic) |
-| Action | `MaterialTheme.closePaw.monoBody` |
-| Final | `MaterialTheme.typography.bodyLarge` (Geist regular) |
+| Thought header | `MaterialTheme.typography.bodyLarge` (Geist regular, `onSurface`) — group marker; left rule replaces the prior `✱` glyph |
+| Action | `MaterialTheme.closePaw.monoSmall`, `onSurfaceVariant`, indented `spacing.lg` inside the group |
+| Final | `MaterialTheme.typography.bodyLarge` (Geist regular, `onSurface`) |
+
+Each `ContentBlock.Thought` opens a ThoughtGroup; subsequent Actions belong to
+it until the next Thought. Groups render as `Row` with a 2dp left rule
+(`outlineVariant`) plus a `Column` (`spacing.md` start padding) — see
+`ui/chat/components/AgentTrace.kt`. Italic + `onSurfaceVariant` thought styling
+was retired in UXFB-4 (inverted hierarchy made actions read as more prominent
+than the reasoning that produced them).
 
 Font binaries ship in `app/src/main/res/font/` (`geist_{regular,medium}.ttf`,
 `fraunces_{regular,italic}.ttf`, `jetbrains_mono_{regular,medium}.ttf`) with
