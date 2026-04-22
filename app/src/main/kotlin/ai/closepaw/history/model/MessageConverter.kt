@@ -60,10 +60,8 @@ object MessageConverter {
                 timestamp = record.timestamp,
                 text = record.text
             )
-            is MessageRecord.Agent -> ChatMessage.Agent(
-                id = record.id,
-                timestamp = record.timestamp,
-                contentBlocks = record.contentBlocks.map { block ->
+            is MessageRecord.Agent -> {
+                val rawBlocks = record.contentBlocks.map { block ->
                     when (block) {
                         is ContentBlockRecord.Text -> ContentBlock.Text(block.text)
                         is ContentBlockRecord.FinalText -> ContentBlock.FinalText(block.text)
@@ -78,12 +76,17 @@ object MessageConverter {
                             )
                         )
                     }
-                },
-                state = if (record.isComplete) AgentMessageState.Complete else AgentMessageState.Streaming,
-                rowState = parseRowState(record.rowState, record.isComplete),
-                userPrompt = userPrompt,
-                completedTimestamp = record.completedTimestamp
-            )
+                }
+                ChatMessage.Agent(
+                    id = record.id,
+                    timestamp = record.timestamp,
+                    contentBlocks = migrateLegacyFinalText(rawBlocks, record.isComplete),
+                    state = if (record.isComplete) AgentMessageState.Complete else AgentMessageState.Streaming,
+                    rowState = parseRowState(record.rowState, record.isComplete),
+                    userPrompt = userPrompt,
+                    completedTimestamp = record.completedTimestamp
+                )
+            }
         }
     }
 
@@ -129,6 +132,30 @@ object MessageConverter {
             "error" -> RowState.Error
             null -> if (isComplete) RowState.Complete else RowState.Live
             else -> if (isComplete) RowState.Complete else RowState.Live
+        }
+    }
+
+    /**
+     * Pre-uxfb-3 history persisted every closing answer as ContentBlockRecord.Text.
+     * AgentRow only renders ContentBlock.FinalText outside the collapsible trace,
+     * so legacy completed rows would default-collapse with their answer hidden.
+     * If a restored Complete row has no FinalText but does have a non-blank trailing
+     * Text, promote that Text to FinalText in place — same rule the live reducer
+     * applies when sealing a row without complete_task.
+     */
+    private fun migrateLegacyFinalText(
+        blocks: List<ContentBlock>,
+        isComplete: Boolean
+    ): List<ContentBlock> {
+        if (!isComplete) return blocks
+        if (blocks.any { it is ContentBlock.FinalText }) return blocks
+        val lastTextIndex = blocks.indexOfLast {
+            it is ContentBlock.Text && it.text.isNotBlank()
+        }
+        if (lastTextIndex < 0) return blocks
+        val text = (blocks[lastTextIndex] as ContentBlock.Text).text
+        return blocks.mapIndexed { i, b ->
+            if (i == lastTextIndex) ContentBlock.FinalText(text) else b
         }
     }
 }

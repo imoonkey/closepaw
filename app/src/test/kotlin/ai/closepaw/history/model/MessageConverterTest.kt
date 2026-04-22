@@ -236,4 +236,45 @@ class MessageConverterTest {
         val restoredThought = restored.contentBlocks.single() as ContentBlock.Thought
         assertThat(restoredThought.text).isEqualTo(longThought)
     }
+
+    @Test
+    fun `legacy completed agent record promotes trailing Text to FinalText on restore`() {
+        // Pre-uxfb-3 history persisted answers as plain Text. AgentRow only renders
+        // FinalText outside the collapsible trace, so without this migration legacy
+        // rows would default-collapse with their answer hidden.
+        val legacyRecord = MessageRecord.Agent(
+            id = "legacy",
+            timestamp = 1L,
+            contentBlocks = listOf(
+                ContentBlockRecord.Thought("planning"),
+                ContentBlockRecord.Text("Yes, Wi-Fi is on.")
+            ),
+            isComplete = true,
+            completedTimestamp = 2L,
+            rowState = "complete"
+        )
+
+        val restored = MessageConverter.fromRecord(legacyRecord) as ChatMessage.Agent
+        assertThat(restored.contentBlocks).containsExactly(
+            ContentBlock.Thought("planning"),
+            ContentBlock.FinalText("Yes, Wi-Fi is on.")
+        ).inOrder()
+    }
+
+    @Test
+    fun `legacy incomplete agent record keeps Text as Text on restore`() {
+        // Migration only triggers for Complete records — a streaming row's
+        // trailing Text is genuinely mid-stream prose, not a final answer.
+        val legacyRecord = MessageRecord.Agent(
+            id = "legacy-live",
+            timestamp = 1L,
+            contentBlocks = listOf(ContentBlockRecord.Text("partial...")),
+            isComplete = false,
+            completedTimestamp = null,
+            rowState = "live"
+        )
+
+        val restored = MessageConverter.fromRecord(legacyRecord) as ChatMessage.Agent
+        assertThat(restored.contentBlocks).containsExactly(ContentBlock.Text("partial..."))
+    }
 }

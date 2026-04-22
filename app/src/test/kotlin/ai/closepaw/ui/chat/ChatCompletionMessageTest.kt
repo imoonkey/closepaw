@@ -72,7 +72,7 @@ class ChatCompletionMessageTest {
     }
 
     @Test
-    fun `completion with no answer and no text appends fallback FinalText`() {
+    fun `completion with no answer and no text leaves no final region`() {
         val messages =
                 mutableListOf<ChatMessage>(
                         ChatMessage.User(id = "u1", timestamp = 1L, text = "go"),
@@ -92,7 +92,10 @@ class ChatCompletionMessageTest {
         )
 
         val last = messages.last() as ChatMessage.Agent
-        assertThat(last.contentBlocks).containsExactly(ContentBlock.FinalText("Task completed"))
+        // USER_STOPPED / side-effect-only completions never fabricate a "Task completed"
+        // FinalText — uxfb-3 contract: missing answer ⇒ no final region.
+        assertThat(last.contentBlocks).isEmpty()
+        assertThat(last.state).isEqualTo(AgentMessageState.Complete)
     }
 
     @Test

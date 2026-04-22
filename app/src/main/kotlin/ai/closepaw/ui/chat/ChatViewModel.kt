@@ -88,25 +88,32 @@ private fun applyCompletionToBlocks(
     if (isError) {
         return blocks + ContentBlock.Text("⚠️ ${completionSummary(rawResult)}")
     }
+    val realAnswer = rawResult?.trim()?.takeIf { it.isNotBlank() }
     val hasCompleteTask = blocks.any { block ->
         block is ContentBlock.Action && block.data.toolName == COMPLETE_TASK_DISPLAY
     }
-    val resolved = completionSummary(rawResult)
     if (hasCompleteTask) {
-        return blocks + ContentBlock.FinalText(resolved)
+        // complete_task path: only emit FinalText when the answer is real.
+        // Missing/empty answer ⇒ no final region (per uxfb-3 README §3).
+        return if (realAnswer != null) blocks + ContentBlock.FinalText(realAnswer) else blocks
     }
-    val lastTextIndex = blocks.indexOfLast { it is ContentBlock.Text }
+    // Last-text-without-tools path (Turn.kt:205-209 second branch): promote the
+    // most recent non-blank Text in place. Otherwise fall back to rawResult only
+    // if it's a real answer — never fabricate "Task completed" for USER_STOPPED
+    // / side-effect-only completions where rawResult is null.
+    val lastTextIndex = blocks.indexOfLast {
+        it is ContentBlock.Text && it.text.isNotBlank()
+    }
     if (lastTextIndex >= 0) {
         val existing = (blocks[lastTextIndex] as ContentBlock.Text).text
-        val finalText = existing.takeIf { it.isNotBlank() } ?: resolved
         return blocks.mapIndexed { i, b ->
-            if (i == lastTextIndex) ContentBlock.FinalText(finalText) else b
+            if (i == lastTextIndex) ContentBlock.FinalText(existing) else b
         }
     }
-    // Pure no-text completion (e.g. side-effect-only turn that got sealed by a
-    // user supplement or shutdown). Surface a final region with the fallback so
-    // the row isn't empty.
-    return blocks + ContentBlock.FinalText(resolved)
+    if (realAnswer != null) {
+        return blocks + ContentBlock.FinalText(realAnswer)
+    }
+    return blocks
 }
 
 internal fun updateActionBlockForExecution(
