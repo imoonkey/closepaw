@@ -6,9 +6,9 @@
 ## Design System
 
 ClosePaw uses Material 3 with the **D1 visual baseline** (warm paper surfaces, deep
-warm ink, scarce Claw accent, paw glyph identity). The aligned eng spec lives in
-[`doc/archive/20260420_frontend-ui-revamp/eng-design/track-d2/final/design_aligned.md`](../../archive/20260420_frontend-ui-revamp/eng-design/track-d2/final/design_aligned.md);
-the visual baseline lives in [`doc/archive/20260420_frontend-ui-revamp/aligned/design_aligned.md`](../../archive/20260420_frontend-ui-revamp/aligned/design_aligned.md).
+warm ink, scarce Claw accent, paw glyph identity). The full token set, role mapping,
+motion vocabulary, and folded-paper chrome are documented below — this file is the
+authoritative reference.
 
 ### Theme Files
 
@@ -196,5 +196,3 @@ ui/theme/
 - [User Interaction](user_interaction.md) — pages, components, behaviors
 - [Tech Design](tech_design.md) — implementation details
 - [Overlay](overlay.md) — overlay visual specifications and capsule colors
-- [Track D2 eng spec](../../archive/20260420_frontend-ui-revamp/eng-design/track-d2/final/design_aligned.md)
-- [D1 visual baseline](../../archive/20260420_frontend-ui-revamp/aligned/design_aligned.md)

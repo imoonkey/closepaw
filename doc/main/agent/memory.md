@@ -159,8 +159,3 @@ Eval hygiene still relies on two guarantees:
 - The eval bridge clears `files/memory` before each task launch.
 
 That keeps prompt recall empty at task start and prevents cross-task contamination during eval runs.
-
-## Design References
-
-- Current design note: `doc/todo/0.5_memory/memory_v2_note.md`
-- This task's implementation plan: `doc/todo/0.5_memory/memory_v2_implementation_plan.md`
