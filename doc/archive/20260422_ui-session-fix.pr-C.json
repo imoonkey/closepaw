@@ -1,0 +1,18 @@
+{
+  "ui-session-fix.pr-C": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "PR-C: motion + identity (I3, I4)",
+    "description": "Reduced-motion fallback + paw glyph + breath.",
+    "status": "pending",
+    "acceptCriteria": [
+      "ThinkingIndicator/GlowOverlayHost/SettingsSheet read ClosePawMotion.reducedMotion()",
+      "SmartCapsuleSurface + StatusIslandCompose render ic_paw at spec size",
+      "DotSpec.pulsing drives running-state breath",
+      "compile + tests pass"
+    ],
+    "created": "2026-04-20T21:40:01Z",
+    "updated": "2026-04-20T21:44:54Z"
+  }
+}

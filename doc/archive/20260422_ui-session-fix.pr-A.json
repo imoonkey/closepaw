@@ -1,0 +1,18 @@
+{
+  "ui-session-fix.pr-A": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "PR-A: recorder persistence (C1, C2)",
+    "description": "Persist terminal text + rowState round-trip.",
+    "status": "pending",
+    "acceptCriteria": [
+      "TaskCompleted writes terminal Text block before completeAgentMessage",
+      "SessionError records error block to active agent message",
+      "mergeAgentSnapshot threads rowState (and completedTimestamp) into MessageRecord.Agent",
+      "compileDebugKotlin + testDebugUnitTest pass"
+    ],
+    "created": "2026-04-20T21:40:01Z",
+    "updated": "2026-04-20T21:45:30Z"
+  }
+}

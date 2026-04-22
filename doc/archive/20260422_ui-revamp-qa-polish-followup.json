@@ -1,0 +1,21 @@
+{
+  "ui-revamp-qa-polish-followup": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "QA polish items (P-1, P-2, P-3)",
+    "description": "Polish items from device QA report. Lower priority than the 3 Issues. P-1: investigate missing Final block on instant-completion tasks (debug-run trace check). P-2: muted Claw for send-disabled state. P-3: landscape EmptyState clipping (only if landscape is a target form factor).",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/**"
+    ],
+    "acceptCriteria": [
+      "P-1 investigated; either fixed or root-cause documented",
+      "P-2 send-disabled state matches Claw ladder if confirmed as intent",
+      "P-3 landscape clipping fixed OR explicitly de-scoped"
+    ],
+    "priority": "low",
+    "note": "Optional polish — not blocking archive of frontend-ui-revamp.",
+    "created": "2026-04-20T10:23:41Z",
+    "updated": "2026-04-22T15:46:28Z"
+  }
+}

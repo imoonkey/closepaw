@@ -1,0 +1,18 @@
+{
+  "ui-session-fix.pr-D": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "PR-D: visible polish (N1, N2, N4)",
+    "description": "Live pill, single space, ThinkingIndicator semantics.",
+    "status": "pending",
+    "acceptCriteria": [
+      "ChatScreen FAB replaced by live-pill matching Track A §5.1",
+      "outcomeFooter uses single space after check glyph",
+      "ThinkingIndicator declares liveRegion=Polite + contentDescription",
+      "compile + tests pass"
+    ],
+    "created": "2026-04-20T21:40:02Z",
+    "updated": "2026-04-20T21:47:48Z"
+  }
+}

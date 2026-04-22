@@ -1,0 +1,16 @@
+{
+  "ui-session-fix.pr-B": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "PR-B: capsule error message (I2)",
+    "description": "Capsule preserves real error text.",
+    "status": "pending",
+    "acceptCriteria": [
+      "onTaskCompleted(ERROR) uses sanitize(message) ?: \"Error occurred\"",
+      "compile + tests pass"
+    ],
+    "created": "2026-04-20T21:40:01Z",
+    "updated": "2026-04-20T21:42:06Z"
+  }
+}

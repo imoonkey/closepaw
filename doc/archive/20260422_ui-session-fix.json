@@ -1,0 +1,16 @@
+{
+  "ui-session-fix": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "UI session-review fixes (11 items, 5 PRs)",
+    "description": "Land C1, C2, I2, I3, I4, N1-N4, N7, N9 from session_review_aligned.md as 5 PRs.",
+    "priority": "high",
+    "acceptCriteria": [
+      "All 5 PRs land",
+      "codex r2 review clean or single fixer round done"
+    ],
+    "created": "2026-04-20T21:40:32Z",
+    "updated": "2026-04-20T22:02:25Z"
+  }
+}

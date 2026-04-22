@@ -1,0 +1,23 @@
+{
+  "ui-session-fix-orchestrate": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "Orchestrate aligned session-review fixes (11 items)",
+    "description": "Drive the fix track for findings in session_review_aligned.md. May spawn sub-workers — orchestration in scope.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/**",
+      "app/src/test/kotlin/ai/closepaw/**",
+      "app/src/androidTest/kotlin/ai/closepaw/**"
+    ],
+    "acceptCriteria": [
+      "C1, C2, I2, I3, I4 fixed",
+      "All 6 nits addressed (N1, N2, N3, N4, N7, N9)",
+      "./gradlew :app:testDebugUnitTest passes",
+      "Codex re-review confirms no regressions"
+    ],
+    "agent": "w-session-fix-orchestrate",
+    "created": "2026-04-20T21:38:25Z",
+    "updated": "2026-04-22T14:44:35Z"
+  }
+}

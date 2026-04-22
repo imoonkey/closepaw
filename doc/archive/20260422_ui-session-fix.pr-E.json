@@ -1,0 +1,19 @@
+{
+  "ui-session-fix.pr-E": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "PR-E: cleanup + tests (N3, N7, N9)",
+    "description": "Hoist regex, drop Locale.US, add 2 tests.",
+    "status": "pending",
+    "acceptCriteria": [
+      "WHITESPACE regex hoisted to top-level",
+      "formatElapsed drops Locale.US arg",
+      "done-bridge test wires CapsuleStateHolder.onUserResponseSent(callId)",
+      "ThinkingIndicator 4-phase reveal test",
+      "compile + tests pass"
+    ],
+    "created": "2026-04-20T21:40:02Z",
+    "updated": "2026-04-20T21:52:09Z"
+  }
+}

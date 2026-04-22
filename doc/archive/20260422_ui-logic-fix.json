@@ -1,0 +1,53 @@
+{
+  "ui-logic-fix": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "UI Logic Fix Track",
+    "description": "All 8 findings resolved across 2 commits (951c82f5, 89977c14). Codex re-review: 8 VERIFIED / 0 PARTIAL / 0 REGRESSION (doc/todo/ui-polish/logic_review_round2.md).",
+    "acceptCriteria": [
+      "all met"
+    ],
+    "note": "Re-review confirms clean. One nit: parseRowState malformed-string branch untested (defer).",
+    "created": "2026-04-20T16:47:58Z",
+    "updated": "2026-04-20T17:05:49Z"
+  },
+  "ui-logic-fix-pr-a": {
+    "parent": "ui-logic-fix",
+    "depends": [],
+    "state": "done",
+    "title": "PR-A: persistence + reducer state",
+    "description": "Commit 951c82f5. Findings #1 #2 #5 #8 implemented. Tests added (5). Full unit suite green.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/history/model/MessageRecord.kt",
+      "app/src/main/kotlin/ai/closepaw/history/model/MessageConverter.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatEventReducer.kt"
+    ],
+    "acceptCriteria": [
+      "all met"
+    ],
+    "created": "2026-04-20T16:47:59Z",
+    "updated": "2026-04-20T16:53:24Z",
+    "agent": "w-logic-fix-1"
+  },
+  "ui-logic-fix-pr-b": {
+    "parent": "ui-logic-fix",
+    "depends": [
+      "ui-logic-fix-pr-a"
+    ],
+    "state": "done",
+    "title": "PR-B: renderer + outcome routing",
+    "description": "Commit 89977c14. C3 (per-Text composable), #6 (ERROR→RowState.Error), #7 (sniff removed entirely), #3 (text-fallback rung). 3 new tests + CollapsedHeadlineTest.",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/MessageBubble.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatEventReducer.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatViewModel.kt"
+    ],
+    "acceptCriteria": [
+      "all met"
+    ],
+    "created": "2026-04-20T16:47:59Z",
+    "updated": "2026-04-20T17:00:50Z",
+    "agent": "w-logic-fix-2"
+  }
+}
