@@ -174,7 +174,7 @@
   "ui-revamp-qa-polish-followup": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "QA polish items (P-1, P-2, P-3)",
     "description": "Polish items from device QA report. Lower priority than the 3 Issues. P-1: investigate missing Final block on instant-completion tasks (debug-run trace check). P-2: muted Claw for send-disabled state. P-3: landscape EmptyState clipping (only if landscape is a target form factor).",
     "scope": [
@@ -188,12 +188,12 @@
     "priority": "low",
     "note": "Optional polish — not blocking archive of frontend-ui-revamp.",
     "created": "2026-04-20T10:23:41Z",
-    "updated": "2026-04-20T11:46:26Z"
+    "updated": "2026-04-22T15:46:28Z"
   },
   "ui-revamp-test-spec-reconcile": {
     "parent": null,
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "title": "Reconcile 7 instrumented tests with post-revamp UI",
     "description": "Round-2 harness fixer resolved 39 ClosePawTokens errors. 7 tests still fail due to UI-string/layout drift from the revamp (not theme-related). Each needs to be checked against current behavior — update test expectations OR file a real regression.",
     "scope": [
@@ -211,7 +211,7 @@
     "priority": "normal",
     "note": "Independent followup. Each failure is small. ChatBubbleAlignmentTest might be a real regression — investigate first.",
     "created": "2026-04-20T11:24:34Z",
-    "updated": "2026-04-20T11:46:26Z"
+    "updated": "2026-04-22T15:46:28Z"
   },
   "ui-polish-capture": {
     "parent": null,
@@ -378,7 +378,7 @@
   "ui-polish-fix-onboarding": {
     "parent": "ui-polish-fix",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "worktree": "ui-polish-onb",
     "title": "Onboarding polish — Fraunces titles, 5-paw progress, CTA color, landscape scroll",
     "description": "Implement polish_report.md findings #1, #2, #3, #4. ULTRATHINK before changing code. Refer to D1 §4.2/§6.4 + contrast matrix. Decision needed for finding #3 (Moss vs Claw on step 1/2 Continue): if intent is unclear, default to Claw (matches D1 §4.1 'primary CTA') and flag in commit body. For finding #2 (5-paw progress), reuse `ic_paw` drawable; do not introduce a new vector asset. For finding #4 (landscape), wrap step content in verticalScroll.",
@@ -396,12 +396,12 @@
       "./gradlew :app:testDebugUnitTest passes"
     ],
     "created": "2026-04-20T17:30:00Z",
-    "updated": "2026-04-20T17:30:00Z"
+    "updated": "2026-04-22T15:46:27Z"
   },
   "ui-polish-fix-chat": {
     "parent": "ui-polish-fix",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "worktree": "ui-polish-chat",
     "title": "Chat polish — Fraunces empty state, paw-toe thinking, hairline, banner typography, locale",
     "description": "Implement polish_report.md findings #6, #7, #8, #10, #12, #14. ULTRATHINK first. Per Track A §4.4 + D1 §4.1, the InkGhost (8% Ink) hairline above Final must be present. Per motion spec §4, the thinking indicator is paw-toes filling in sequence (225/450/675/900ms) — replace generic 3-dots. Per D1 §4.2, the empty-state question uses serifItalic (Fraunces italic), the empty-state title uses Fraunces. Per D1 §6.5, Setup Issue header is tracked-caps labelSmall + monoBody body. Timestamps must follow app locale, not device locale leak.",
@@ -422,12 +422,12 @@
     ],
     "note": "Avoid touching ChatEventReducer.kt or MessageRecord.kt (owned by ui-logic-fix-pr-a/b). MessageBubble.kt may need touching for hairline — coordinate at merge.",
     "created": "2026-04-20T17:30:00Z",
-    "updated": "2026-04-20T17:30:00Z"
+    "updated": "2026-04-22T15:46:27Z"
   },
   "ui-polish-fix-settings": {
     "parent": "ui-polish-fix",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "worktree": "ui-polish-set",
     "title": "Settings polish — Fraunces section heads, mono → row arrow, Local tab, version footer",
     "description": "Implement polish_report.md findings #15, #16, #18, #20 (version footer slice). ULTRATHINK first. Per D1 §6.3, settings keeps 'serif section heads' + 'mono → glyph instead of decorative arrows'. Replace ChevronRight with Text('→') in monoBody style. Sub-page titles + section heads use Fraunces. Local tab is currently inert per INDEX — gate enabled=false with visible disabled treatment until wired. Version footer (Version 1.0 (1)) uses monoSmall.",
@@ -444,12 +444,12 @@
       "./gradlew :app:testDebugUnitTest passes"
     ],
     "created": "2026-04-20T17:30:00Z",
-    "updated": "2026-04-20T17:30:00Z"
+    "updated": "2026-04-22T15:46:27Z"
   },
   "ui-polish-fix-drawer": {
     "parent": "ui-polish-fix",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "worktree": "ui-polish-drw",
     "title": "Drawer polish — mono dates, Claw new-entry, restrained trash icons",
     "description": "Implement polish_report.md finding #20 (drawer slice). ULTRATHINK first. Per D1 §6.6: mono dates in ledger, ONE claw-accented new-entry affordance, restrained settings link. Apply monoSmall to '3 minutes ago' / 'v1.0' subtitles. Tint the '+ New Conversation' button (border + icon + text) with Claw. Consider hiding row trash icons behind long-press or swipe so they don't pull eye on a passive list.",
@@ -467,7 +467,7 @@
       "./gradlew :app:testDebugUnitTest passes"
     ],
     "created": "2026-04-20T17:30:00Z",
-    "updated": "2026-04-20T17:30:00Z"
+    "updated": "2026-04-22T15:46:27Z"
   },
   "ui-polish-investigate-capsule": {
     "parent": "ui-polish-fix",
@@ -494,7 +494,7 @@
   "ui-polish-fix-runtime-bugs": {
     "parent": "ui-polish-fix",
     "depends": [],
-    "state": "ready",
+    "state": "done",
     "worktree": "ui-runtime-bugs",
     "title": "Runtime bugs — supplement Done no-op + stale Setup Issue banner",
     "description": "Implement polish_report.md B-1 + B-2 (already-diagnosed runtime bugs). ULTRATHINK before edits. B-1: ChatScreen.onUserResponse does not call CapsuleStateHolder.onUserResponseSent(callId). Add hook in ChatScreen.kt:153 mirroring the Stop pattern + add onUserResponseSent to CapsuleBinding. B-2: MainActivity.deriveRepairModel() runs once in setContent; not recomputed in onResume. Convert repairModel to mutableStateOf, recompute in onResume / on lifecycle resume.",
@@ -510,7 +510,7 @@
       "./gradlew :app:testDebugUnitTest passes"
     ],
     "created": "2026-04-20T17:30:00Z",
-    "updated": "2026-04-20T17:30:00Z"
+    "updated": "2026-04-22T15:46:28Z"
   },
   "ui-polish-final-codex-review": {
     "parent": "ui-polish-fix",
@@ -522,7 +522,7 @@
       "ui-polish-investigate-capsule",
       "ui-polish-fix-runtime-bugs"
     ],
-    "state": "blocked",
+    "state": "done",
     "title": "Codex final review — cumulative polish diff",
     "description": "After all polish-fix workers complete, dispatch codex (NOT claude) to review the cumulative diff across all 6 worktrees vs main. Review for: (a) regression risk, (b) spec drift inadvertently introduced, (c) ChatScreen.kt/MessageBubble.kt collision with ui-logic-fix-pr-a/b, (d) test coverage gaps. Output verdict + per-worktree merge recommendation.",
     "scope": [
@@ -534,7 +534,7 @@
       "Any cross-worktree conflicts flagged with file:line"
     ],
     "created": "2026-04-20T17:30:00Z",
-    "updated": "2026-04-20T17:30:00Z"
+    "updated": "2026-04-22T15:46:28Z"
   },
   "ui-session-fix-orchestrate": {
     "parent": null,
