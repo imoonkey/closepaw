@@ -1,7 +1,7 @@
 # UI Tech Design
 
 > Technical implementation: tech stack, code structure, state management.
-> Last updated: 2026-04-16 (commit: ce30041)
+> Last updated: 2026-04-22 (post-D2 polish + semantic naming + font binaries)
 
 ## Tech Stack
 
@@ -48,9 +48,12 @@ ui/
 │   ├── CapsuleBinding.kt        # Runtime-bridge value type for chat hosts
 │   └── surface/
 │       ├── SmartCapsuleSurface.kt   # Orchestrator: status/detail/control/input
+│       ├── SmartCapsuleSurfaceParts.kt # Status / Detail composable parts (semantic names)
 │       ├── CapsuleControlBar.kt     # Action + nav clusters
 │       ├── CapsuleInputBar.kt       # Text field + send (owns draft state)
-│       └── SmartCapsuleHostLayout.kt
+│       ├── SmartCapsuleHostLayout.kt
+│       ├── StatusColors.kt          # Mode → status dot/glow color derivation
+│       └── StatusPawGlyph.kt        # Paw glyph (identity surface)
 │
 ├── overlay/model/
 │   ├── CapsuleRenderSpec.kt     # Stateless: CapsuleMode → visual properties
@@ -61,16 +64,21 @@ ui/
 │
 ├── overlay/
 │   ├── CapsuleStateHolder.kt    # Single source of truth (StateFlows)
-│   ├── CapsuleOverlayHost.kt    # System overlay: capsule in WindowManager
-│   ├── IslandOverlayHost.kt     # System overlay: compact island
-│   ├── GlowOverlayHost.kt       # System overlay: edge glow (Canvas)
-│   ├── VisualizerOverlayHost.kt # System overlay: click/swipe feedback
-│   ├── OverlayComposeHost.kt    # Generic ComposeView → WindowManager wrapper
-│   ├── ServiceLifecycleOwner.kt # LifecycleOwner for AccessibilityService
+│   ├── compose/                 # WindowManager-hosted Compose overlays
+│   │   ├── CapsuleOverlayHost.kt    # System overlay: capsule
+│   │   ├── IslandOverlayHost.kt     # System overlay: compact island
+│   │   ├── GlowOverlayHost.kt       # System overlay: edge glow (Canvas)
+│   │   ├── VisualizerOverlayHost.kt # System overlay: click/swipe feedback
+│   │   ├── ActionVisualizerCompose.kt
+│   │   ├── EdgeGlowCompose.kt
+│   │   ├── StatusIslandCompose.kt
+│   │   ├── OverlayComposeHost.kt    # Generic ComposeView → WindowManager wrapper
+│   │   └── ServiceLifecycleOwner.kt # LifecycleOwner for AccessibilityService
+│   ├── visualizer/
+│   │   └── ActionVisualizerManager.kt
 │   └── model/
 │       ├── CapsuleMode.kt       # Sealed interface (Running, Takeover, etc.)
 │       ├── CapsuleContext.kt    # MAIN_APP / SCREEN_VIEWING / BACKGROUND
-│       ├── CapsuleColors.kt     # Status dot and glow colors
 │       └── GlowState.kt         # State enum with hex colors
 │
 ├── session/
@@ -231,7 +239,7 @@ Full-screen `SurfaceView` for live VD preview:
 
 ### OverlayComposeHost
 
-> See: `ui/overlay/OverlayComposeHost.kt`
+> See: `ui/overlay/compose/OverlayComposeHost.kt`
 
 Wraps a Compose composable in a `ComposeView` for system overlay via `WindowManager`:
 
@@ -248,7 +256,7 @@ Uses `ServiceLifecycleOwner` to bridge the AccessibilityService context into Com
 
 ### ServiceLifecycleOwner
 
-> See: `ui/overlay/ServiceLifecycleOwner.kt`
+> See: `ui/overlay/compose/ServiceLifecycleOwner.kt`
 
 Implements `LifecycleOwner` + `SavedStateRegistryOwner` for services. Manual lifecycle events: `onCreate()` → Resume, `onDestroy()` → Destroy. Enables Compose in non-Activity contexts.
 

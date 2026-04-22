@@ -1,14 +1,14 @@
 # UI Style Guide
 
 > Design system: D1 visual baseline wired through Material 3 + one thin token surface.
-> Last updated: 2026-04-20 (D2-1 theme foundation)
+> Last updated: 2026-04-22 (post-D2 polish + font binaries shipped)
 
 ## Design System
 
 ClosePaw uses Material 3 with the **D1 visual baseline** (warm paper surfaces, deep
 warm ink, scarce Claw accent, paw glyph identity). The aligned eng spec lives in
-[`doc/todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md`](../../todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md);
-the visual baseline lives in [`doc/todo/frontend-ui-review/aligned/design_aligned.md`](../../todo/frontend-ui-review/aligned/design_aligned.md).
+[`doc/archive/20260420_frontend-ui-revamp/eng-design/track-d2/final/design_aligned.md`](../../archive/20260420_frontend-ui-revamp/eng-design/track-d2/final/design_aligned.md);
+the visual baseline lives in [`doc/archive/20260420_frontend-ui-revamp/aligned/design_aligned.md`](../../archive/20260420_frontend-ui-revamp/aligned/design_aligned.md).
 
 ### Theme Files
 
@@ -101,9 +101,9 @@ Track A row voice is locked:
 | Action | `MaterialTheme.closePaw.monoBody` |
 | Final | `MaterialTheme.typography.bodyLarge` (Geist regular) |
 
-Font binaries belong in `app/src/main/res/font/` with attribution per
-`app/src/main/assets/FONT_ATTRIBUTION.md`. Until binaries land, `Geist` / `Fraunces` /
-`JetBrainsMono` resolve to system `SansSerif` / `Serif` / `Monospace` — the swap is one file.
+Font binaries ship in `app/src/main/res/font/` (`geist_{regular,medium}.ttf`,
+`fraunces_{regular,italic}.ttf`, `jetbrains_mono_{regular,medium}.ttf`) with
+attribution in `app/src/main/assets/FONT_ATTRIBUTION.md`.
 
 ---
 
@@ -196,5 +196,5 @@ ui/theme/
 - [User Interaction](user_interaction.md) — pages, components, behaviors
 - [Tech Design](tech_design.md) — implementation details
 - [Overlay](overlay.md) — overlay visual specifications and capsule colors
-- [Track D2 eng spec](../../todo/frontend-ui-review/eng-design/track-d2/final/design_aligned.md)
-- [D1 visual baseline](../../todo/frontend-ui-review/aligned/design_aligned.md)
+- [Track D2 eng spec](../../archive/20260420_frontend-ui-revamp/eng-design/track-d2/final/design_aligned.md)
+- [D1 visual baseline](../../archive/20260420_frontend-ui-revamp/aligned/design_aligned.md)

@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-04-22: ui — frontend revamp polish, logic, session-fix landing (post-D2)
+
+**What changed:**
+- Font binaries shipped (D2): `res/font/{geist,fraunces,jetbrains_mono}_*.ttf` real files; Fraunces/Geist/JetBrains Mono now resolve to bundled glyphs instead of system fallbacks (`882d8dc1`).
+- Semantic naming convention rolled out across capsule + overlay: dropped `Row1/Row2/Row3` for `Status* / Detail / Control / Input` parts; `CapsuleColors.kt` retired in favor of inline derivation; `CapsuleBinding` value type extracted so `ChatScreen` no longer reaches into `AgentService` singletons (`2d51d580`, `e9e1f608`, `e0cf9c61`).
+- Track A chat row anatomy locked (`fc48c183` + `d507e37e`): trace items render `Thought` (italic) / `Action` (mono `→ tool(args) ✓`) / `Final` (bodyLarge), separated by `outlineVariant` hairline. Inline-content streaming cursor (`Placeholder 0.5em × 1em` + serif `|` on `CursorBlink`).
+- Reducer + row-state hardening (`951c82f5`, `89977c14`, `ecf67fae`, `a2bba8a7`, `c9c36282`, `823b5332`): per-bubble `RowState` (Live/Waiting/Complete/Error) round-trips through history persistence; `Error` is locked-open and never downgraded to `Complete`; final block split from terminal text; `TaskOutcome.ERROR` preserves real error text (was clobbered by generic copy); ThinkingIndicator tint pinned + a11y label + done-bridge guard; live-pill FAB; collapsed-headline tri-state fallback. JVM tests + new `CollapsedHeadlineTest`, `ChatThoughtAndRowStateTest`, `ChatSupplementAndActionTransitionTest`, `ChatDoneBridgeTest`, `ChatStreamingCursorTest`, `ThinkingIndicatorCadenceTest`.
+- Surface polish (`68150070`, `aa8ee97d`, `d730ab07`, `4d0e1168`, `43c2a61f`, `8069e5fc`, `4b6e55bd`, `784b8b2e`): Material defaults swapped for ClosePaw motifs; Fraunces on identity surfaces; reduced-motion contract wired (`ClosePawMotion.reducedMotion()` per surface); paw-glyph thinking cadence per Motion §4; consistent Claw primary CTA; banner typography + Local-tab gating; onboarding bottom-pin preserved on short heights; resume refresh of Setup Issue banner; timestamps via app DateFormat instead of hardcoded `Locale.US`.
+- Capsule waiting-row persistence fix (`d23537e8`): tapping Done in chat clears stale `WaitingFor*` capsule state.
+- INV-1 in flight: capsule overlay verify+fix worker dispatched for missing-overlay diagnosis (`8a027442`, `e597e7b1`); root-cause doc in `doc/archive/20260422_ui-polish/capsule_investigation.md`. `OverlayComposeHost.kt` has uncommitted changes pending the worker output.
+- Security: `app_tiers.json` enriched with installed apps (`d3f9128f`).
+- Settings: platform mode toggle + Shizuku status surface landed and milestone archived (`44b6cb83`, `7c58661b`).
+
+**Why:**
+- Track A/D2 visual baseline + state-machine refactor needed end-to-end UX validation. Two parallel review passes (Claude + Codex) on logic and polish surfaced regressions that were fixed in dedicated PR-A through PR-E orchestrators (11/11 landed). Session-review round 2 cleared the milestone for archive.
+
+**Key files:** `app/src/main/kotlin/ai/closepaw/ui/{theme,chat,capsule,overlay,onboarding,settings,navigation}/**`, `app/src/main/res/font/*.ttf`, `app/src/{androidTest,test}/kotlin/ai/closepaw/{qa,ui,history}/**`.
+**Verification:** `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest` green across rounds; on-device QA reports in `doc/archive/20260420_frontend-ui-revamp/eng-design/qa_report*.md`; aligned session review in `doc/archive/20260422_ui-polish/session_review_aligned.md` (8 VERIFIED / 0 PARTIAL / 0 REGRESSION on round 2).
+**Commit:** `f4a699b9..HEAD` (71 commits).
+**Next:** INV-1 worker output → fix overlay missing case; reconcile 7 deferred test specs (followup task filed).
+**Blockers:** None at code level. INV-1 still investigating.
+
 ## 2026-04-20: ui/{capsule,overlay} — D2-3 capsule + overlay restyle on tokens + motion
 
 **What changed:**
