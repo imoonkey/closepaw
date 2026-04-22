@@ -47,10 +47,10 @@ class CapsuleStateHolderTest {
 
     @Test
     fun `onTaskStarted truncates long input`() {
-        val longInput = "a".repeat(50)
+        val longInput = "a".repeat(100)
         holder.onTaskStarted("task1", longInput)
         val thought = (holder.mode.value as CapsuleMode.Running).thought
-        assertThat(thought).hasLength(43) // 40 + "..."
+        assertThat(thought).hasLength(83) // 80 + "..."
         assertThat(thought).endsWith("...")
     }
 

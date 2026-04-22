@@ -83,7 +83,7 @@ class IslandOverlayHost(
     }
 
     private fun modeText(mode: CapsuleMode): String = when (mode) {
-        is CapsuleMode.Running -> mode.thought.take(24)
+        is CapsuleMode.Running -> mode.thought
         is CapsuleMode.TakeoverPending -> "Handing over..."
         is CapsuleMode.Takeover -> "Paused"
         is CapsuleMode.WaitingForInput -> "Awaiting response"

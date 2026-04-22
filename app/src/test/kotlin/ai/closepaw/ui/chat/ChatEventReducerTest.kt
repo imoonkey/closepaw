@@ -164,7 +164,7 @@ class ChatEventReducerTest {
         val sealed = f.messages.last() as ChatMessage.Agent
         val sealedBlocks = sealed.contentBlocks.toList()
 
-        f.reducer.handle(ThoughtUpdate(sessionId, 250L, thought = "stale thought"))
+        f.reducer.handle(ThoughtUpdate(sessionId, 250L, full = "stale thought", compact = "stale thought"))
 
         val after = f.messages.last() as ChatMessage.Agent
         assertThat(after.state).isEqualTo(AgentMessageState.Complete)

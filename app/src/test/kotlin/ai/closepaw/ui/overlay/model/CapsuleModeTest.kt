@@ -1,42 +1,42 @@
 package ai.closepaw.ui.overlay.model
 
 import com.google.common.truth.Truth.assertThat
-import ai.closepaw.protocol.sanitizeThought
+import ai.closepaw.protocol.compactThought
 import org.junit.Test
 
 class CapsuleModeTest {
 
     @Test
-    fun `sanitizeThought trims whitespace`() {
-        assertThat(sanitizeThought("  hello world  ")).isEqualTo("hello world")
+    fun `compactThought trims whitespace`() {
+        assertThat(compactThought("  hello world  ")).isEqualTo("hello world")
     }
 
     @Test
-    fun `sanitizeThought truncates at 40 chars`() {
-        val long = "a".repeat(50)
-        val result = sanitizeThought(long)
-        assertThat(result).hasLength(43)  // 40 + "..."
+    fun `compactThought truncates at 80 chars`() {
+        val long = "a".repeat(100)
+        val result = compactThought(long)
+        assertThat(result).hasLength(83)  // 80 + "..."
         assertThat(result).endsWith("...")
     }
 
     @Test
-    fun `sanitizeThought preserves short text`() {
-        assertThat(sanitizeThought("Open Taobao")).isEqualTo("Open Taobao")
+    fun `compactThought preserves short text`() {
+        assertThat(compactThought("Open Taobao")).isEqualTo("Open Taobao")
     }
 
     @Test
-    fun `sanitizeThought handles empty string`() {
-        assertThat(sanitizeThought("")).isEqualTo("")
+    fun `compactThought handles empty string`() {
+        assertThat(compactThought("")).isEqualTo("")
     }
 
     @Test
-    fun `sanitizeThought handles whitespace only`() {
-        assertThat(sanitizeThought("   ")).isEqualTo("")
+    fun `compactThought handles whitespace only`() {
+        assertThat(compactThought("   ")).isEqualTo("")
     }
 
     @Test
-    fun `sanitizeThought handles exactly 40 chars`() {
-        val exact = "a".repeat(40)
-        assertThat(sanitizeThought(exact)).isEqualTo(exact)
+    fun `compactThought handles exactly 80 chars`() {
+        val exact = "a".repeat(80)
+        assertThat(compactThought(exact)).isEqualTo(exact)
     }
 }

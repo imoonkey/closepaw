@@ -1,13 +1,14 @@
 package ai.closepaw.protocol
 
 /**
- * Sanitize raw text for compact capsule display.
- * Trims whitespace and truncates to 40 characters with ellipsis.
- *
- * Used by CapsuleStateHolder (UI layer) and AgentTurnRunner (agent layer).
- * Lives in protocol/ so both layers can depend on it without cross-layer imports.
+ * Compact a thought string for surfaces that explicitly opt into a single-line preview
+ * (capsule reduced-motion fallback, error/status banners). Trims whitespace and clips
+ * to ~80 chars with an ellipsis. Canonical pipeline preserves full text — only callers
+ * that need a bounded form should use this.
  */
-fun sanitizeThought(raw: String): String {
+fun compactThought(raw: String): String {
     val trimmed = raw.trim()
-    return if (trimmed.length > 40) trimmed.take(40) + "..." else trimmed
+    return if (trimmed.length > COMPACT_THOUGHT_MAX) trimmed.take(COMPACT_THOUGHT_MAX) + "..." else trimmed
 }
+
+private const val COMPACT_THOUGHT_MAX = 80

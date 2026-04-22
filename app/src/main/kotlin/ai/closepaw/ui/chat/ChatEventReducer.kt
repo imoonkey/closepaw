@@ -85,7 +85,7 @@ internal class ChatEventReducer(
     }
 
     private fun handleThoughtUpdate(event: ThoughtUpdate) {
-        val text = event.thought
+        val text = event.full
         if (text.isEmpty()) return
         // Streaming text after a thought begins a new Text block, mirroring the
         // ActionProposed behavior — the trace is chronological.

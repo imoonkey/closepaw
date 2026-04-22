@@ -211,4 +211,29 @@ class MessageConverterTest {
         val agent = restored[0] as ChatMessage.Agent
         assertThat(agent.userPrompt).isNull()
     }
+
+    @Test
+    fun `agent message preserves long thought verbatim through round trip`() {
+        val longThought = "I should open Settings, scroll down to Accessibility, " +
+            "tap Installed Services, find ClosePaw, toggle the switch, and confirm " +
+            "the system dialog so the agent gains accessibility permission, then " +
+            "verify the service is enabled before returning to the home screen."
+        check(longThought.length > 200) { "test fixture must exceed 200 chars, was ${longThought.length}" }
+
+        val original = ChatMessage.Agent(
+            id = "a-long",
+            timestamp = 1L,
+            contentBlocks = listOf(ContentBlock.Thought(longThought)),
+            state = AgentMessageState.Streaming
+        )
+
+        val record = MessageConverter.toRecord(original) as MessageRecord.Agent
+        val thoughtRecord = record.contentBlocks.single() as
+            ai.closepaw.history.model.ContentBlockRecord.Thought
+        assertThat(thoughtRecord.text).isEqualTo(longThought)
+
+        val restored = MessageConverter.fromRecord(record) as ChatMessage.Agent
+        val restoredThought = restored.contentBlocks.single() as ContentBlock.Thought
+        assertThat(restoredThought.text).isEqualTo(longThought)
+    }
 }

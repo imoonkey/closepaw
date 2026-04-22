@@ -118,7 +118,7 @@ class TurnPlanningPhaseRunnerTest {
 
         val thoughts = harness.events.filterIsInstance<ThoughtUpdate>()
         assertThat(thoughts).hasSize(1)
-        assertThat(thoughts[0].thought).isEqualTo("Tapping settings icon")
+        assertThat(thoughts[0].full).isEqualTo("Tapping settings icon")
     }
 
     @Test

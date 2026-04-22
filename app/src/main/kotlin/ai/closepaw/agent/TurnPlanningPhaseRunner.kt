@@ -9,7 +9,7 @@ import ai.closepaw.history.MessageKind
 import ai.closepaw.history.ResponseItem
 import ai.closepaw.model.ScreenSnapshot
 import ai.closepaw.protocol.TurnPhase
-import ai.closepaw.protocol.sanitizeThought
+import ai.closepaw.protocol.compactThought
 import ai.closepaw.session.SessionServices
 import ai.closepaw.tool.ToolName
 import ai.closepaw.trace.AgentTrace
@@ -232,9 +232,10 @@ internal class TurnPlanningPhaseRunner(
                                 }
                                 ?: return
 
-                val sanitized = sanitizeThought(thought)
-                Log.d(TAG, "Turn $turnNumber: agent_thought = $sanitized")
-                eventDispatcher.thoughtUpdate(sanitized)
+                val full = thought.trim()
+                val compact = compactThought(full)
+                Log.d(TAG, "Turn $turnNumber: agent_thought = $compact")
+                eventDispatcher.thoughtUpdate(full = full, compact = compact)
         }
 
         private fun buildArbitrationDecision(

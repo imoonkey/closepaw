@@ -48,7 +48,7 @@ class ChatThoughtAndRowStateTest {
         val f = Fixture()
         f.reducer.handle(TaskStarted(sessionId, 100L, taskId = "task-1", input = "go"))
 
-        f.reducer.handle(ThoughtUpdate(sessionId, 110L, thought = "I should open Settings"))
+        f.reducer.handle(ThoughtUpdate(sessionId, 110L, full = "I should open Settings", compact = "I should open Settings"))
 
         val agent = f.messages.last() as ChatMessage.Agent
         val thought = agent.contentBlocks.single() as ContentBlock.Thought
@@ -60,9 +60,9 @@ class ChatThoughtAndRowStateTest {
         val f = Fixture()
         f.reducer.handle(TaskStarted(sessionId, 100L, taskId = "task-1", input = "go"))
 
-        f.reducer.handle(ThoughtUpdate(sessionId, 110L, thought = "step one"))
-        f.reducer.handle(ThoughtUpdate(sessionId, 111L, thought = "step two"))
-        f.reducer.handle(ThoughtUpdate(sessionId, 112L, thought = "step three"))
+        f.reducer.handle(ThoughtUpdate(sessionId, 110L, full = "step one", compact = "step one"))
+        f.reducer.handle(ThoughtUpdate(sessionId, 111L, full = "step two", compact = "step two"))
+        f.reducer.handle(ThoughtUpdate(sessionId, 112L, full = "step three", compact = "step three"))
 
         val agent = f.messages.last() as ChatMessage.Agent
         val thoughts = agent.contentBlocks.filterIsInstance<ContentBlock.Thought>()
@@ -76,11 +76,11 @@ class ChatThoughtAndRowStateTest {
         val f = Fixture()
         f.reducer.handle(TaskStarted(sessionId, 100L, taskId = "task-1", input = "go"))
 
-        f.reducer.handle(ThoughtUpdate(sessionId, 110L, thought = "open Settings"))
+        f.reducer.handle(ThoughtUpdate(sessionId, 110L, full = "open Settings", compact = "open Settings"))
         f.reducer.handle(
             ActionProposed(sessionId, 111L, actionId = "a1", toolName = "click", description = "tap")
         )
-        f.reducer.handle(ThoughtUpdate(sessionId, 112L, thought = "now find Accessibility"))
+        f.reducer.handle(ThoughtUpdate(sessionId, 112L, full = "now find Accessibility", compact = "now find Accessibility"))
 
         val agent = f.messages.last() as ChatMessage.Agent
         val kinds = agent.contentBlocks.map { it::class.simpleName }
@@ -92,7 +92,7 @@ class ChatThoughtAndRowStateTest {
         val f = Fixture()
         f.reducer.handle(TaskStarted(sessionId, 100L, taskId = "task-1", input = "go"))
         f.reducer.handle(MessageDelta(sessionId, 105L, turnId = "t1", delta = "first"))
-        f.reducer.handle(ThoughtUpdate(sessionId, 110L, thought = "rethinking"))
+        f.reducer.handle(ThoughtUpdate(sessionId, 110L, full = "rethinking", compact = "rethinking"))
         f.reducer.handle(MessageDelta(sessionId, 115L, turnId = "t1", delta = "second"))
 
         val agent = f.messages.last() as ChatMessage.Agent
@@ -107,7 +107,7 @@ class ChatThoughtAndRowStateTest {
         val f = Fixture()
         f.reducer.handle(TaskStarted(sessionId, 100L, taskId = "task-1", input = "go"))
 
-        f.reducer.handle(ThoughtUpdate(sessionId, 110L, thought = ""))
+        f.reducer.handle(ThoughtUpdate(sessionId, 110L, full = "", compact = ""))
 
         val agent = f.messages.last() as ChatMessage.Agent
         assertThat(agent.contentBlocks.filterIsInstance<ContentBlock.Thought>()).isEmpty()
@@ -183,7 +183,7 @@ class ChatThoughtAndRowStateTest {
                 result = "ok"
             )
         )
-        f.reducer.handle(ThoughtUpdate(sessionId, 103L, thought = "now what"))
+        f.reducer.handle(ThoughtUpdate(sessionId, 103L, full = "now what", compact = "now what"))
 
         val agent = f.messages.last() as ChatMessage.Agent
         assertThat(agent.contentBlocks).hasSize(2)

@@ -6,7 +6,7 @@ import ai.closepaw.protocol.SessionEndReason
 import ai.closepaw.protocol.TaskOutcome
 import ai.closepaw.protocol.PlatformMode
 import ai.closepaw.protocol.TurnPhase
-import ai.closepaw.protocol.sanitizeThought
+import ai.closepaw.protocol.compactThought
 import ai.closepaw.ui.overlay.model.CapsuleContext
 import ai.closepaw.ui.overlay.model.CapsuleMode
 import ai.closepaw.ui.overlay.model.GlowState
@@ -112,13 +112,13 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
         cancelAutoHide()
         _isStopPending.value = false
         _turnPhase.value = null
-        setMode(CapsuleMode.Running(sanitizeThought(input)))
+        setMode(CapsuleMode.Running(compactThought(input)))
     }
 
     fun onError(message: String) {
         cancelAutoHide()
         _isStopPending.value = false
-        setMode(CapsuleMode.Error(sanitizeThought(message)))
+        setMode(CapsuleMode.Error(compactThought(message)))
     }
 
     fun onAskUser(type: AskUserType, message: String, callId: String) {
@@ -249,7 +249,7 @@ class CapsuleStateHolder(private val scope: CoroutineScope) {
             TaskOutcome.TASK_IMPOSSIBLE -> CapsuleMode.Done("Task impossible")
             TaskOutcome.USER_STOPPED -> CapsuleMode.Done("Stopped")
             TaskOutcome.ERROR -> CapsuleMode.Error(
-                message?.takeIf { it.isNotBlank() }?.let(::sanitizeThought) ?: "Error occurred"
+                message?.takeIf { it.isNotBlank() }?.let(::compactThought) ?: "Error occurred"
             )
         }
         setMode(mode)
