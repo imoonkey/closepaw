@@ -539,7 +539,7 @@
   "ui-session-fix-orchestrate": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "Orchestrate aligned session-review fixes (11 items)",
     "description": "Drive the fix track for findings in session_review_aligned.md. May spawn sub-workers — orchestration in scope.",
     "scope": [
@@ -555,6 +555,99 @@
     ],
     "agent": "w-session-fix-orchestrate",
     "created": "2026-04-20T21:38:25Z",
-    "updated": "2026-04-20T21:38:25Z"
+    "updated": "2026-04-22T14:44:35Z"
+  },
+  "ui-session-fix.pr-A": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "PR-A: recorder persistence (C1, C2)",
+    "description": "Persist terminal text + rowState round-trip.",
+    "status": "pending",
+    "acceptCriteria": [
+      "TaskCompleted writes terminal Text block before completeAgentMessage",
+      "SessionError records error block to active agent message",
+      "mergeAgentSnapshot threads rowState (and completedTimestamp) into MessageRecord.Agent",
+      "compileDebugKotlin + testDebugUnitTest pass"
+    ],
+    "created": "2026-04-20T21:40:01Z",
+    "updated": "2026-04-20T21:45:30Z"
+  },
+  "ui-session-fix.pr-B": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "PR-B: capsule error message (I2)",
+    "description": "Capsule preserves real error text.",
+    "status": "pending",
+    "acceptCriteria": [
+      "onTaskCompleted(ERROR) uses sanitize(message) ?: \"Error occurred\"",
+      "compile + tests pass"
+    ],
+    "created": "2026-04-20T21:40:01Z",
+    "updated": "2026-04-20T21:42:06Z"
+  },
+  "ui-session-fix.pr-C": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "PR-C: motion + identity (I3, I4)",
+    "description": "Reduced-motion fallback + paw glyph + breath.",
+    "status": "pending",
+    "acceptCriteria": [
+      "ThinkingIndicator/GlowOverlayHost/SettingsSheet read ClosePawMotion.reducedMotion()",
+      "SmartCapsuleSurface + StatusIslandCompose render ic_paw at spec size",
+      "DotSpec.pulsing drives running-state breath",
+      "compile + tests pass"
+    ],
+    "created": "2026-04-20T21:40:01Z",
+    "updated": "2026-04-20T21:44:54Z"
+  },
+  "ui-session-fix.pr-D": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "PR-D: visible polish (N1, N2, N4)",
+    "description": "Live pill, single space, ThinkingIndicator semantics.",
+    "status": "pending",
+    "acceptCriteria": [
+      "ChatScreen FAB replaced by live-pill matching Track A §5.1",
+      "outcomeFooter uses single space after check glyph",
+      "ThinkingIndicator declares liveRegion=Polite + contentDescription",
+      "compile + tests pass"
+    ],
+    "created": "2026-04-20T21:40:02Z",
+    "updated": "2026-04-20T21:47:48Z"
+  },
+  "ui-session-fix.pr-E": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "PR-E: cleanup + tests (N3, N7, N9)",
+    "description": "Hoist regex, drop Locale.US, add 2 tests.",
+    "status": "pending",
+    "acceptCriteria": [
+      "WHITESPACE regex hoisted to top-level",
+      "formatElapsed drops Locale.US arg",
+      "done-bridge test wires CapsuleStateHolder.onUserResponseSent(callId)",
+      "ThinkingIndicator 4-phase reveal test",
+      "compile + tests pass"
+    ],
+    "created": "2026-04-20T21:40:02Z",
+    "updated": "2026-04-20T21:52:09Z"
+  },
+  "ui-session-fix": {
+    "parent": null,
+    "depends": [],
+    "state": "done",
+    "title": "UI session-review fixes (11 items, 5 PRs)",
+    "description": "Land C1, C2, I2, I3, I4, N1-N4, N7, N9 from session_review_aligned.md as 5 PRs.",
+    "priority": "high",
+    "acceptCriteria": [
+      "All 5 PRs land",
+      "codex r2 review clean or single fixer round done"
+    ],
+    "created": "2026-04-20T21:40:32Z",
+    "updated": "2026-04-20T22:02:25Z"
   }
 }
