@@ -64,6 +64,7 @@ fun StatusIslandCompose(
                 size = 14.dp,
                 pulsing = pulsing,
             )
+            val textModifier = Modifier.widthIn(max = 220.dp)
             if (reducedMotion) {
                 Text(
                     text = compactThought(text),
@@ -71,6 +72,7 @@ fun StatusIslandCompose(
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = textModifier,
                 )
             } else {
                 Text(
@@ -78,13 +80,11 @@ fun StatusIslandCompose(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    modifier = Modifier
-                        .widthIn(max = 220.dp)
-                        .basicMarquee(
-                            iterations = Int.MAX_VALUE,
-                            velocity = 30.dp,
-                            initialDelayMillis = 1500,
-                        ),
+                    modifier = textModifier.basicMarquee(
+                        iterations = Int.MAX_VALUE,
+                        velocity = 30.dp,
+                        initialDelayMillis = 1500,
+                    ),
                 )
             }
         }
