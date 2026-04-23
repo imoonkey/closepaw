@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-04-22: ux-feedback-0422 — capsule + chat hierarchy + final-answer survives collapse
+
+**What changed:**
+- **uxfb-1 · full thought preservation** — `sanitizeThought` (40-char truncation) renamed to `compactThought` (80-char, opt-in only). `ThoughtUpdate` carries `{full, compact}` — reducer + history persist `full`. `IslandOverlayHost.modeText` `.take(24)` removed.
+- **uxfb-2 · capsule marquee** — `Modifier.basicMarquee` on `StatusIslandCompose` + `SmartCapsuleSurface` thought lines. Reduced-motion (`ClosePawMotion.reducedMotion()`) renders `compactThought` ellipsis instead. StatusIsland `widthIn(max = 220.dp)` on both branches stops overlay growing off-screen.
+- **uxfb-3 · FinalText + CollapsePill + MessageBubble split** — new `ContentBlock.FinalText` populated by reducer per `Turn.kt:205-209` stop criteria (complete_task.answer or last text-without-tools). Recorder mirrors via `AgentMessageBuffer.recordFinalAnswer` (drains streamed `textBuffer` to avoid duplicate Text+FinalText). Legacy history migration in `MessageConverter.migrateLegacyFinalText`. New `CollapsePill` owns click + `Role.Button`; row root no longer clickable. `MessageBubble.kt` 463 → ~90 lines, extracted into `AgentRow.kt` + `AgentSummary.kt` + `CollapsePill.kt`.
+- **uxfb-4 · ThoughtGroup hierarchy** — `AgentTrace.kt` extracted, restructures `ExpandedTrace` into ThoughtGroups (one `Thought` + N consecutive `Action`s = one group). 2dp `outlineVariant` left rule, thought as `bodyLarge` group header (no italic, no `✱`), actions indented `monoSmall onSurfaceVariant`. `style.md` typography table updated.
+- **uxfb-followup · IME header anchoring + complete_task answer untrimmed** — `ActionDescriptionFormatter.formatCompleteTask` `.take(50)` removed. `AndroidManifest.xml` MainActivity gets `android:windowSoftInputMode="adjustNothing"`; `ChatScreen` bottomBar uses `Modifier.imePadding()` + Scaffold `contentWindowInsets = WindowInsets(0)`. Followup2 added `imePadding` to `OnboardingShell` + `SettingsSheet`; `OnboardingShell` also keys scroll fallback off `WindowInsets.isImeVisible` so portrait API-key step CTA stays reachable.
+
+**Why:**
+- User feedback: (1) thought truncated with `…` in capsule and chat; (2) chat trace was a flat dump with thought styled as the *least* prominent item while mono actions looked most prominent; (3) on collapse, the agent's actual closing answer disappeared because `collapsedHeadline` showed the *first* in-row signal. Three architectural decisions locked before implementation: D1 thought preserved end-to-end, D2 dedicated CollapsePill (row root no longer clickable to avoid fighting selection/copy), D3 final defined by `Turn.kt` stop criteria.
+
+**Key files:**
+- protocol: `TextUtils.kt`, `ThoughtEvents.kt`
+- agent: `TurnPlanningPhaseRunner.kt`, `AgentEventDispatcher.kt`, `ActionDescriptionFormatter.kt`
+- app: `AgentServiceEventHandler.kt`, `AndroidManifest.xml`
+- history: `AgentMessageBuffer.kt`, `SessionRecordingService.kt`, `MessageRecord.kt`, `MessageConverter.kt`
+- ui chat: `ChatViewModel.kt`, `ChatEventReducer.kt`, `ChatScreen.kt`, `model/ContentBlock.kt`, `components/{MessageBubble,AgentRow,AgentTrace,AgentSummary,CollapsePill}.kt`
+- ui overlay: `StatusIslandCompose.kt`, `SmartCapsuleSurface.kt`, `IslandOverlayHost.kt`, `CapsuleStateHolder.kt`
+- ui onboarding/settings: `OnboardingShell.kt`, `SettingsSheet.kt`
+- docs: `doc/main/ui/{tech_design,style}.md`, `doc/main/ui/capsule/{architecture,state_machine}.md`, `doc/main/protocol/overview.md`
+
+**Verification:** `./gradlew :app:assembleDebug :app:test` green throughout (1185+ tests). Real-device QA on EP0110MZ0BC101266W validated all 4 chat scenarios + IME header anchoring + Settings API-key with IME open. 5 codex `/code-review` rounds caught 5 HIGHs (island width, fabricated FinalText, legacy migration, recorder boundary, activity-wide adjustNothing scope, onboarding scroll threshold) — all fixed; final pass clean.
+**Commit:** `7bede637..f34e6d21` (10 commits).
+**Next:** P3 deferred — in expanded state the final answer also shows as `complete_task` action's `resultSummary` inside trace, duplicating the FinalText below. Decide whether to drop the duplicate or keep both for redundancy.
+**Blockers:** None.
+
+
 ## 2026-04-22: Doc / project separation cutover
 
 **What changed:**

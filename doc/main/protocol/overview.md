@@ -106,7 +106,7 @@ Factory: `AgentError.from(e: Throwable)` creates appropriate subtype.
 
 **SessionId** (`protocol/SessionId.kt`): `@JvmInline value class SessionId(val value: String)` — UUID-based unique identifier.
 
-**sanitizeThought** (`protocol/TextUtils.kt`): Trims whitespace, truncates to 40 chars with ellipsis.
+**compactThought** (`protocol/TextUtils.kt`): Trims whitespace, truncates to 80 chars with ellipsis. Opt-in only — used by surfaces that explicitly need a single-line preview (capsule reduced-motion fallback, error/status banners). Canonical pipeline preserves full text. Renamed from `sanitizeThought` in uxfb-1 (was 40 chars and called everywhere, silently dropping data).
 
 ## Subpages
 
@@ -132,7 +132,7 @@ protocol/
 │   Thought/SubAgent/Perception/StatusEvents.kt
 ├── ApprovalTypes.kt          # ApprovalDecision, RiskLevel
 ├── TodoModels.kt             # Todo, TodoStatus
-└── TextUtils.kt              # sanitizeThought
+└── TextUtils.kt              # compactThought (opt-in 80-char preview)
 ```
 
 ## Related Docs

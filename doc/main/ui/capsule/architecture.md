@@ -85,10 +85,22 @@ Auto-hide: `Done` → `Hidden` after 3000ms.
 
 ## Thought Pipeline
 
-1. LLM returns tool call with `agent_thought` parameter
-2. `AgentTurnRunner` sanitizes thought (≤40 chars via `sanitizeThought`)
-3. `AgentEvent.ThoughtUpdate` → `CapsuleStateHolder.onThoughtUpdate()` → `Running(thought)`
-4. `SmartCapsuleSurface` recomposes via `stateHolder.mode` StateFlow
+1. LLM returns tool call with `agent_thought` parameter.
+2. `TurnPlanningPhaseRunner.emitAgentThought` trims whitespace and emits
+   `ThoughtUpdate(full, compact)` — `full` is the untouched text, `compact`
+   is the ~80-char single-line preview produced via `compactThought()` (uxfb-1
+   replaced the old 40-char `sanitizeThought` which silently dropped data).
+3. `AgentEvent.ThoughtUpdate` →
+   - `CapsuleStateHolder.onThoughtUpdate(full)` → `Running(full)` for the
+     overlay surfaces.
+   - `ChatEventReducer` stores `full` as `ContentBlock.Thought` for the chat.
+   - `SessionRecordingService.recordThought(full)` for history.
+4. Capsule renderers (`StatusIslandCompose`, `SmartCapsuleSurface`) display
+   the full text via `Modifier.basicMarquee`. Reduced-motion users (per
+   `ClosePawMotion.reducedMotion()`) get `compactThought(full)` with
+   ellipsis instead. `StatusIslandCompose` pins width via `widthIn(max =
+   220.dp)` in both branches so the overlay can't grow off-screen (uxfb-2).
+5. `SmartCapsuleSurface` recomposes via `stateHolder.mode` StateFlow.
 
 ## Supplement & Stop Feedback
 

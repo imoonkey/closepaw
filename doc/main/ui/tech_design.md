@@ -1,7 +1,7 @@
 # UI Tech Design
 
 > Technical implementation: tech stack, code structure, state management.
-> Last updated: 2026-04-22 (post-D2 polish + semantic naming + font binaries)
+> Last updated: 2026-04-22 (uxfb-0422 — ThoughtGroup hierarchy + FinalText + CollapsePill)
 
 ## Tech Stack
 
@@ -36,12 +36,17 @@ ui/
 │   ├── ChatSessionHistoryController.kt # Session list/resume/delete
 │   ├── components/
 │   │   ├── ChatHeader.kt        # Header: [≡] Title [+]
-│   │   ├── MessageBubble.kt     # User bubble + Track A AgentRow (inline trace + Final + footer)
+│   │   ├── MessageBubble.kt     # Dispatcher: User bubble | AgentRow (slim, ~90 lines post-uxfb-3)
+│   │   ├── AgentRow.kt          # Agent row shell: [trace · CollapsePill · final region]
+│   │   ├── AgentTrace.kt        # ThoughtGroup hierarchy (uxfb-4): one Thought + N Actions per group, 2dp left rule
+│   │   ├── AgentSummary.kt      # outcomeFooter + collapsedSummary helpers
+│   │   ├── CollapsePill.kt      # Pill chip: [▸ ✓ N actions · 12s], owns click + Role.Button
 │   │   ├── StreamingText.kt     # Final-block Text with inlineContent serif `|` cursor
 │   │   ├── ThinkingIndicator.kt # 3 animated dots (ClosePawMotion.ThinkingPulse)
 │   │   └── EmptyState.kt        # First launch with suggestion chips + serif italic question
 │   └── model/
-│       └── ChatMessage.kt       # UI data classes
+│       ├── ChatMessage.kt       # User + Agent message wrappers
+│       └── ContentBlock.kt      # Text / FinalText / Thought / Action variants
 │
 ├── capsule/
 │   ├── NavAction.kt             # Capsule nav-cluster action enum
@@ -138,8 +143,8 @@ Maps protocol events to UI mutations:
 | `MessageDelta` | Append to buffer, update Agent message to Streaming |
 | `ActionProposed` | Add Action content block |
 | `ActionExecuted` | Update action state + result summary |
-| `TaskCompleted` | Append completion text, mark Complete |
-| `SessionError` | Mark agent state Complete |
+| `TaskCompleted` | Apply Turn.kt:205-209 rule: complete_task path → append `FinalText(answer)`; tool-less path → promote trailing non-blank `Text` in place to `FinalText`; missing answer → no final block. Mark Complete. |
+| `SessionError` | Append inline `⚠ ...` Text block; mark agent state Complete |
 | `SupplementReceived` | Add user message for supplement |
 
 ### ChatMessage Model
@@ -153,9 +158,14 @@ sealed interface ChatMessage {
 }
 
 sealed interface ContentBlock {
-    data class Text(text: String)        // Final block (streaming prose)
-    data class Thought(text: String)     // Track A trace item (italic)
-    data class Action(data: ActionCardData)  // Renders inline (→ tool(args) ✓), not a card
+    data class Text(text: String)        // Mid-stream prose (rendered inside trace)
+    data class FinalText(text: String)   // Closing answer — uxfb-3, Turn.kt:205-209 stop criteria.
+                                          // Set by reducer when complete_task.answer arrives OR
+                                          // when row seals with no tools and a non-blank text.
+                                          // AgentRow renders this in the always-visible final
+                                          // region below the CollapsePill.
+    data class Thought(text: String)     // Opens a ThoughtGroup; bodyLarge header (no italic, no ✱)
+    data class Action(data: ActionCardData)  // Indented monoSmall row inside the group, status glyph right
 }
 
 enum class AgentMessageState { Thinking, Streaming, Complete }

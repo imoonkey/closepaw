@@ -464,7 +464,7 @@
   "ui-refresh-0422-codex-review": {
     "parent": "ui-refresh-0422",
     "depends": [],
-    "state": "ready",
+    "state": "running",
     "title": "Codex review of ui-refresh-0422 round before merge",
     "description": "Bound Edition round (`projects/active/ui-refresh-0422/`) hasn't been independently reviewed. It touches just-shipped uxfb-3/4 surfaces — specifically AgentTrace.kt:109 (left rule color) and CollapsePill.kt:72 (summary register). Run `/code-review` or `/double-design` against the round's `direction.md` + `changes.md` + `align-with-uxfb-0422.md` before opening Phase 1 PR.",
     "design": "projects/active/ui-refresh-0422/",
@@ -481,7 +481,8 @@
     "priority": "high",
     "estimate": "s",
     "created": "2026-04-22T23:55:00Z",
-    "updated": "2026-04-23T00:38:09Z"
+    "updated": "2026-04-23T00:46:11Z",
+    "agent": "w-ui-refresh-0422-codex-review"
   },
   "ui-refresh-0422": {
     "parent": null,
@@ -508,7 +509,7 @@
   "ui-refresh-0422-phase1-primitives": {
     "parent": "ui-refresh-0422",
     "depends": [],
-    "state": "ready",
+    "state": "running",
     "title": "Phase 1 — Theme primitives (Ornaments + PaperGrain + Fraunces)",
     "description": "Add ui/theme/Ornaments.kt with Fleuron() and PageMasthead() composables. Add ui/theme/PaperGrain.kt with Modifier.paperGrain() (1.5%-alpha noise tile baked once via drawWithCache; no-op in dark theme; lanternVignette() seam for dark). Decide Fraunces approach: ship fraunces_medium.ttf (Option A) or retire upright Fraunces (Option B); update Type.kt FontFamily accordingly. No call sites change yet — primitives only.",
     "design": "projects/active/ui-refresh-0422/changes.md",
@@ -534,7 +535,8 @@
       "theme"
     ],
     "created": "2026-04-23T00:37:38Z",
-    "updated": "2026-04-23T00:37:38Z"
+    "updated": "2026-04-23T00:46:11Z",
+    "agent": "w-ui-refresh-0422-phase1-primitives"
   },
   "ui-refresh-0422-phase2-page-chrome": {
     "parent": "ui-refresh-0422",

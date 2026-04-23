@@ -24,8 +24,8 @@ Ownership:
 
 ### 2.1 Universal events (any source mode)
 
-- `onTaskStarted(taskId, input)` → `Running(sanitizeThought(input))` — also clears `isStopPending` and `turnPhase`
-- `onError(message)` → `Error(sanitizeThought(message))` — also clears `isStopPending`
+- `onTaskStarted(taskId, input)` → `Running(compactThought(input))` — also clears `isStopPending` and `turnPhase`. CapsuleStateHolder uses `compactThought` because the input echo here is for the bare title slot; live thought updates from `onThoughtUpdate(full)` carry the full text and override.
+- `onError(message)` → `Error(compactThought(message))` — also clears `isStopPending`
 - `onAskUser(QUESTION, msg, callId)` → `WaitingForInput(msg, callId)`
 - `onAskUser(ACTION, msg, callId)` → `WaitingForAction(msg, callId)`
 - `onApprovalRequired(callId, description, appLabel, packageName, reason)` → `WaitingForApproval(...)`
