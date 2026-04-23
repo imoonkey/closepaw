@@ -3,6 +3,11 @@
 > Five phases, each independently shippable. Run `./gradlew lint test` after each.
 > If a phase trips an existing test, fix the test only if the test is asserting
 > the *removed* aesthetic (e.g. asserting `outlineVariant` separator color).
+>
+> Reflects code as of `08ae6378` — i.e. after `uxfb-1 → uxfb-followup` landed
+> ThoughtGroup, CollapsePill, FinalText, and capsule marquee. Phase 3 was
+> trimmed (two moves withdrawn, two one-liners added) to fit the new chat
+> shape. See `align-with-uxfb-0422.md` for the diff history.
 
 ## Phase 1 — Theme primitives (foundation, no UX change)
 
@@ -30,15 +35,18 @@
 
 ## Phase 3 — Chat content ornaments
 
-- [ ] `MessageBubble.kt::FinalSeparator` → `Fleuron()`.
-- [ ] `MessageBubble.kt::CollapsedHeader` and `OutcomeFooter` → `[+]/[−]` brackets.
 - [ ] `MessageBubble.kt::UserBubble` → letter-to-the-editor (drop Surface, add
       Hairline left margin rule, mono timestamp inline).
 - [ ] `ThinkingIndicator.kt` → naked Row, no Surface chip.
+- [ ] `AgentTrace.kt:109` — left-rule color from `outlineVariant` → `outline`
+      (Hairline). One-line bump; flag P2 to original author of `uxfb-4`.
+- [ ] `CollapsePill.kt:72` — summary style from `labelLarge` → `monoSmall`.
+      One-line; P2 polish, no test impact.
 - [ ] `ChatScreen.kt::live pill` → mono pill with explicit border.
 - [ ] Verify: pinned tests `ThinkingIndicatorTintTest`, `ThinkingIndicatorCadenceTest`,
-      `ChatDoneBridgeTest` still pass. QA test tags (`qa-user-bubble`,
-      `qa-thinking-indicator`, `qa-agent-bubble`) preserved.
+      `ChatDoneBridgeTest`, `CollapsePillTest`, `ThoughtGroupTest` still pass.
+      QA test tags (`qa-user-bubble`, `qa-thinking-indicator`, `qa-agent-bubble`,
+      `qa-collapse-pill`, `qa-final-answer`) preserved.
 
 **Gate:** chat reads as editorial page, not as Material card stack.
 
@@ -57,8 +65,9 @@
 
 - [ ] `SmartCapsuleSurface.kt`: add `produceElapsedLabel(mode)` ticker; pass
       to `CapsuleStatusLine`.
-- [ ] `CapsuleStatusLine`: render `[t+12s]` mono ledger before thought text
-      when `elapsedLabel != null`.
+- [ ] `CapsuleStatusLine`: render `[t+12s]` mono ledger as its own `Text`
+      *before* the marqueed thought (uxfb-2 contract). Ledger stays fixed
+      while thought scrolls.
 - [ ] `CapsuleControlBar.kt`: stop button gets explicit Rust `BorderStroke`.
 - [ ] `CapsuleInputBar.kt`: send-button breath on submit (240ms scale).
 - [ ] `SmartCapsuleSurface.kt::StartupErrorBanner`: 2dp Rust left rule + ⚠ glyph.
@@ -94,8 +103,8 @@ commit; phases ≤ N-1 stand on their own.
 |---|---|---|
 | 1 | New files, no UX | 1-2h |
 | 2 | Mechanical replace, paperGrain wiring | 2-3h |
-| 3 | Chat ornament work, retest | 3-4h |
+| 3 | Chat ornament work + 2 one-liners on uxfb-3/4 code, retest | 2h |
 | 4 | EmptyState rebuild + stagger | 3-4h |
 | 5 | Ticker + small polishes across 5 files | 2-3h |
 
-Total: ~12-16h focused work. Single coding session feasible if no surprises.
+Total: ~10-14h focused work. Single coding session feasible if no surprises.

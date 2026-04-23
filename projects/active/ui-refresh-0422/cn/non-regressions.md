@@ -15,7 +15,7 @@
 | **Two divider levels only** —— `Hairline`（12% Ink）在组件之间，`InkGhost`（8% Ink）在组合 surface 内部 | 守。UserBubble 左 rule 复用 `Hairline`。`FinalSeparator` 这条规则被 fleuron *替换* —— 没有引入新 divider 级别。 |
 | **Mono is reserved for machine-like strings**，不是"executing mode"通用字体替换 | 守。新增 mono call site：capsule `[t+12s]` ledger 计数器（机器计时）、`[+]/[−]` 折叠括号（交互状态 ledger）、`live` pill（状态 ledger）。EmptyState 的 suggestion 动词**保持 `bodyLarge` Geist** —— 明确*不*用 mono ——因为它们是用户语气的 prose，不是机器输出。 |
 | **Capsule breath in Running only** | 守。Send-button breath 是 submit 时的 one-shot，不是常驻 loop。 |
-| **Track A row voice locked**：Thought=Geist italic、Action=mono、Final=Geist regular | 守。`MessageBubble.kt` 中 thought/action/final 样式不变；只动 `FinalSeparator`、`CollapsedHeader`、`OutcomeFooter` 的 ornament。 |
+| **Track A row voice locked**：Thought=Geist regular（uxfb-4 后）、Action=mono、Final=Geist regular | 守。`AgentTrace.kt` 中 ThoughtHeader / Action / Text 样式不变；本轮在 chat 区只动 `UserBubble`、`ThinkingIndicator`、`AgentTrace` 左 rule 颜色（N2）、`CollapsePill` summary register（N3）。 |
 | **Reduced-motion 契约**：每个 call site 自己读一次，无全局 wrapper | 守。EmptyState stagger 与 send-button breath 各自调用 `ClosePawMotion.reducedMotion()` 并就地跳过；capsule counter 无条件 tick（status signal，与 streaming cursor 同类）。 |
 | **Horizontal page padding 是 `lg` (20dp)，硬 invariant** | 守。`smartCapsuleHostPadding`（16dp）与各屏幕的 padding 数值不变。 |
 | **三个 Material radii** —— small (8) / medium (10) / large (16) | 守。无新 shape 常量。 |
@@ -47,18 +47,25 @@ question only"的措辞本就是理想，未被强制。本轮把这些 identity
 identity call site（包括 title slot）都只用 italic Regular。两条路都保住
 "Fraunces is identity"的纪律。
 
-### 2. JetBrains Mono 扩到 `[+]/[−]` 折叠括号
+### 2. JetBrains Mono 扩到 `CollapsePill` 的 summary 文本
 
 **先验原文：**`Mono is allowed only for explicitly machine-like strings,
 not as a blanket "executing mode" font swap.`
 
-**本轮：**`CollapsedHeader` 与 `OutcomeFooter` 中代表折叠状态的括号用
-`monoSmall`。
+**本轮：**`CollapsePill.kt:72` 的 summary 文本（渲染形如 `✓ N actions · 12s`
+的字串）从 `labelLarge`（Geist medium）换到 `monoSmall`（即 `direction.md`
+里的 6b）。
 
-**理由：**这些括号是 UI 控件状态的文本化呈现（等同于 `▸` / `▾` icon），不是
-叙述 prose。它们与既有的 mono action subtitle、mono ledger date、新加的 ledger
-counter 同 register、同角色。它们*不是*在 row body 内容上做字体替换；headline
-summary、action description、Final body 都保持各自原本的 voice。
+**理由：**summary 内容本身就是 ledger 形（status glyph + 数量 + 时长），旁
+边的 chevron 已经是 `monoBody`。这一换让 32dp 的小 surface 读作一个 machine-
+ledger 对象。它与既有的 mono action subtitle、mono drawer ledger date、新加
+的 capsule ledger counter 同 register、同角色。它*不是*在 row body 内容上做
+字体替换；ThoughtHeader、action description、FinalAnswer body 都保持 Geist。
+
+> 早先版本里讨论的是给 legacy `CollapsedHeader` 加 `[+]/[−]` mono *括号*。
+> `uxfb-3` 发布了真正的 `CollapsePill`（带可旋转 chevron）后，那条 move 已
+> 撤回 —— 见 `align-with-uxfb-0422.md`（W2）。上面这条 mono summary 替换
+> 才是本轮真正引入的 mono 扩张。
 
 ## 先验中本提案不重新审视的事项
 
@@ -76,8 +83,9 @@ archive 列出了若干已结案的关切。一律不重开：
 - [ ] Fraunces 仅出现在：PageMasthead 标题、SettingsHomePage section header、
       EmptyState 问句、Fleuron ornament。（统一 italic Regular。）
 - [ ] Mono 仅出现在：ledger date（drawer、settings footer）、action subtitle
-      （现有）、capsule ledger counter（新）、`[+]/[−]` 括号（新）、`live`
-      pill（新）。
+      （现有）、capsule ledger counter（新，位于 marquee 之外）、`CollapsePill`
+      summary（新 —— 6b）、`live` pill（新）、`CollapsePill` chevron（现有，
+      uxfb-3）。
 - [ ] Geist body voice 覆盖所有 prose，包括 suggestion 动词。
 - [ ] `Color.kt` 无新 color slot。`Shape.kt` 无新 shape。`Motion.kt` 无新
       duration。

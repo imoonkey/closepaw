@@ -198,7 +198,7 @@
   "ux-feedback-0422": {
     "parent": null,
     "depends": [],
-    "state": "running",
+    "state": "done",
     "title": "UX Feedback (capsule + chat) — 2026-04-22",
     "description": "Three UX issues: thought truncation end-to-end, chat trace hierarchy, final-answer survives collapse. See projects/active/ux-feedback-0422/README.md.",
     "design": "projects/active/ux-feedback-0422/README.md",
@@ -429,6 +429,271 @@
     "priority": "high",
     "estimate": "s",
     "created": "2026-04-22T23:39:02Z",
-    "updated": "2026-04-22T23:55:00Z"
+    "updated": "2026-04-22T23:45:59Z"
+  },
+  "markdown-rendering": {
+    "parent": null,
+    "depends": [
+      "ui-refresh-0422"
+    ],
+    "state": "blocked",
+    "title": "Markdown rendering for FinalAnswer + StreamingText",
+    "description": "Agent answers contain markdown (bold, italic, inline/fenced code, lists, links) but render today as plain Text(bodyLarge) with raw asterisks/backticks visible. Need a streaming-safe Compose renderer — Vercel-streamdown-equivalent — that handles incomplete tokens gracefully (no flicker as the closing ** arrives token by token). Library survey, integration shape, and D1/Bound-Edition typography alignment captured in the design note. No implementation in this task.",
+    "design": "projects/active/markdown-rendering/README.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentRow.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/StreamingText.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentTrace.kt",
+      "app/build.gradle.kts (new dependency)"
+    ],
+    "acceptCriteria": [
+      "Library decision documented (default candidate: mikepenz/multiplatform-markdown-renderer)",
+      "Streaming-safety strategy defined",
+      "D1 typography mapping decided (Geist body / mono code / optional Fraunces italic / Claw links)",
+      "Open questions in design note resolved or explicitly deferred",
+      "Build subtask split out with size estimate before implementation begins"
+    ],
+    "note": "Filed by ui-refresh-0422 review. Land Bound Edition first; markdown layers on top of the same FinalAnswer surface.",
+    "priority": "medium",
+    "estimate": "s",
+    "created": "2026-04-22T23:55:00Z",
+    "updated": "2026-04-23T00:38:29Z",
+    "blockReason": "human-review",
+    "requireHumanReview": true
+  },
+  "ui-refresh-0422-codex-review": {
+    "parent": "ui-refresh-0422",
+    "depends": [],
+    "state": "ready",
+    "title": "Codex review of ui-refresh-0422 round before merge",
+    "description": "Bound Edition round (`projects/active/ui-refresh-0422/`) hasn't been independently reviewed. It touches just-shipped uxfb-3/4 surfaces — specifically AgentTrace.kt:109 (left rule color) and CollapsePill.kt:72 (summary register). Run `/code-review` or `/double-design` against the round's `direction.md` + `changes.md` + `align-with-uxfb-0422.md` before opening Phase 1 PR.",
+    "design": "projects/active/ui-refresh-0422/",
+    "scope": [
+      "projects/active/ui-refresh-0422/**"
+    ],
+    "acceptCriteria": [
+      "Reviewer confirms N2 (left-rule color bump) doesn't regress reduced-motion or dark-theme contrast",
+      "Reviewer confirms N3 (CollapsePill summary mono swap) doesn't break CollapsePillTest",
+      "Reviewer confirms ledger-counter + basicMarquee layout (N1) is implementable without new tests breaking",
+      "Two consciously-expanded scope items in non-regressions.md (Fraunces italic surfaces, mono summary) accepted or trimmed"
+    ],
+    "note": "Codex's prior review on ux-feedback-0422 (commit a6f4e9fe addressed it) gives a good baseline for review register and depth.",
+    "priority": "high",
+    "estimate": "s",
+    "created": "2026-04-22T23:55:00Z",
+    "updated": "2026-04-23T00:38:09Z"
+  },
+  "ui-refresh-0422": {
+    "parent": null,
+    "depends": [],
+    "state": "ready",
+    "title": "UI Refresh 2026-04-22 — Bound Edition",
+    "description": "Post-D2 polish round: PageMasthead on every top-level surface, asymmetric EmptyState, capsule [t+12s] ledger counter, paper grain, send-button breath, Stop button full Rust, five-paw progress contrast bump, Settings sectioning + fleuron, plus two one-liners on uxfb-3/4 code (AgentTrace left-rule color, CollapsePill summary register). D1 token system, Track A row model, motion vocabulary, folded-paper chrome unchanged. Aligned with uxfb-1 -> uxfb-followup (commit 08ae6378).",
+    "design": "projects/active/ui-refresh-0422/README.md",
+    "acceptCriteria": [
+      "All 5 phase subtasks complete",
+      "Final gates subtask complete (gradle clean+lint+test green, /verify, /ux-visual-debug, doc/main/ui/style.md and user_interaction.md updated)",
+      "ui-refresh-0422-codex-review subtask done"
+    ],
+    "priority": "high",
+    "estimate": "l",
+    "tags": [
+      "ui",
+      "bound-edition",
+      "post-d2"
+    ],
+    "created": "2026-04-23T00:36:47Z",
+    "updated": "2026-04-23T00:36:47Z"
+  },
+  "ui-refresh-0422-phase1-primitives": {
+    "parent": "ui-refresh-0422",
+    "depends": [],
+    "state": "ready",
+    "title": "Phase 1 — Theme primitives (Ornaments + PaperGrain + Fraunces)",
+    "description": "Add ui/theme/Ornaments.kt with Fleuron() and PageMasthead() composables. Add ui/theme/PaperGrain.kt with Modifier.paperGrain() (1.5%-alpha noise tile baked once via drawWithCache; no-op in dark theme; lanternVignette() seam for dark). Decide Fraunces approach: ship fraunces_medium.ttf (Option A) or retire upright Fraunces (Option B); update Type.kt FontFamily accordingly. No call sites change yet — primitives only.",
+    "design": "projects/active/ui-refresh-0422/changes.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/theme/Ornaments.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/PaperGrain.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/theme/Type.kt",
+      "app/src/main/res/font/**"
+    ],
+    "acceptCriteria": [
+      "test -f app/src/main/kotlin/ai/closepaw/ui/theme/Ornaments.kt",
+      "test -f app/src/main/kotlin/ai/closepaw/ui/theme/PaperGrain.kt",
+      "grep -q \"fun Fleuron\" app/src/main/kotlin/ai/closepaw/ui/theme/Ornaments.kt",
+      "grep -q \"fun PageMasthead\" app/src/main/kotlin/ai/closepaw/ui/theme/Ornaments.kt",
+      "grep -q \"fun.*paperGrain\" app/src/main/kotlin/ai/closepaw/ui/theme/PaperGrain.kt",
+      "Fraunces approach (A or B) documented in commit message or doc",
+      "./gradlew assembleDebug lint exits 0"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "ui",
+      "theme"
+    ],
+    "created": "2026-04-23T00:37:38Z",
+    "updated": "2026-04-23T00:37:38Z"
+  },
+  "ui-refresh-0422-phase2-page-chrome": {
+    "parent": "ui-refresh-0422",
+    "depends": [
+      "ui-refresh-0422-phase1-primitives"
+    ],
+    "state": "ready",
+    "title": "Phase 2 — PageMasthead on top-level surfaces + paperGrain + Settings sectioning + live pill",
+    "description": "Brand chrome on every top-level surface. ChatHeader: replace center title with PageMasthead. NavigationDrawer DrawerHeader: replace Sessions text with PageMasthead. SettingsHomePage: prepend PageMasthead, wrap nav rows in three sections (Voice/Behavior/System) with serif-italic SectionHeader, add Fleuron above mono version footer. ChatScreen: wrap root in paperGrain Box (light only); restyle live-pill to mono with explicit border. todayLabel() helper added (DateFormat.getMediumDateFormat).",
+    "design": "projects/active/ui-refresh-0422/changes.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/ChatHeader.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/navigation/NavigationDrawer.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q PageMasthead app/src/main/kotlin/ai/closepaw/ui/chat/components/ChatHeader.kt",
+      "grep -q PageMasthead app/src/main/kotlin/ai/closepaw/ui/navigation/NavigationDrawer.kt",
+      "grep -q PageMasthead app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "grep -q paperGrain app/src/main/kotlin/ai/closepaw/ui/chat/ChatScreen.kt",
+      "grep -q \"SectionHeader\\|Fleuron\" app/src/main/kotlin/ai/closepaw/ui/settings/SettingsHomePage.kt",
+      "./gradlew lint test exits 0"
+    ],
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "ui"
+    ],
+    "created": "2026-04-23T00:37:38Z",
+    "updated": "2026-04-23T00:37:38Z"
+  },
+  "ui-refresh-0422-phase3-chat-ornaments": {
+    "parent": "ui-refresh-0422",
+    "depends": [
+      "ui-refresh-0422-phase1-primitives"
+    ],
+    "state": "ready",
+    "title": "Phase 3 — Chat content ornaments + 2 one-liners on uxfb-3/4 code",
+    "description": "MessageBubble.UserBubble: drop Surface, add 1dp Hairline left margin rule, mono timestamp inline (letter-to-the-editor). ThinkingIndicator: drop Surface(surfaceVariant) chip, render PawToeSequence + Thinking… (bodyItalic, inkMuted) inline. AgentTrace.kt:109 — bump 2dp left rule color from outlineVariant (8%) to outline (Hairline 12%); rule is now the *primary* turn marker after ✱ glyph removed in uxfb-4. CollapsePill.kt:72 — swap summary text style from labelLarge (Geist) to monoSmall so chevron+summary read as one ledger object. Both one-liners are P2; flag to original uxfb-3/4 author before merge.",
+    "design": "projects/active/ui-refresh-0422/changes.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/MessageBubble.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/ThinkingIndicator.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentTrace.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/CollapsePill.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q VerticalDivider app/src/main/kotlin/ai/closepaw/ui/chat/components/MessageBubble.kt",
+      "! grep -q \"surfaceVariant\" app/src/main/kotlin/ai/closepaw/ui/chat/components/ThinkingIndicator.kt",
+      "grep -q \"colorScheme.outline\\b\" app/src/main/kotlin/ai/closepaw/ui/chat/components/AgentTrace.kt",
+      "grep -q \"closePaw.monoSmall\" app/src/main/kotlin/ai/closepaw/ui/chat/components/CollapsePill.kt",
+      "./gradlew :app:testDebugUnitTest exits 0",
+      "Pinned tests pass: ThinkingIndicatorTintTest, ThinkingIndicatorCadenceTest, ChatDoneBridgeTest, CollapsePillTest, ThoughtGroupTest",
+      "QA test tags preserved: qa-user-bubble, qa-thinking-indicator, qa-agent-bubble, qa-collapse-pill, qa-final-answer"
+    ],
+    "priority": "high",
+    "estimate": "s",
+    "tags": [
+      "ui"
+    ],
+    "created": "2026-04-23T00:37:38Z",
+    "updated": "2026-04-23T00:37:38Z"
+  },
+  "ui-refresh-0422-phase4-empty-state": {
+    "parent": "ui-refresh-0422",
+    "depends": [
+      "ui-refresh-0422-phase1-primitives"
+    ],
+    "state": "ready",
+    "title": "Phase 4 — EmptyState asymmetric rebuild + staggered reveal",
+    "description": "Full rewrite of EmptyState: 240dp paw bleeds top-right at 80% Ink (clipped by Box bounds), Fraunces italic 32sp question (\"What can I help you with?\") aligned bottom-left lower-third, Hairline 64dp rule, three marginalia suggestions (verb in bodyLarge / gloss in Fraunces italic / leading → arrow). StaggeredReveal helper: 4 steps × TraceEnter (240ms) at 80ms intervals. Reduced-motion: instant render. paperGrain on root Box. Drop the \"…\" ASCII quotes around suggestions (wrong attribution).",
+    "design": "projects/active/ui-refresh-0422/changes.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/chat/components/EmptyState.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q \"bleed-paw\\|bleeds\\|TopEnd\" app/src/main/kotlin/ai/closepaw/ui/chat/components/EmptyState.kt",
+      "grep -q \"Fraunces\" app/src/main/kotlin/ai/closepaw/ui/chat/components/EmptyState.kt",
+      "grep -q \"animation-delay\\|StaggeredReveal\\|animationDelay\\|tween.*TraceEnter\" app/src/main/kotlin/ai/closepaw/ui/chat/components/EmptyState.kt",
+      "grep -q \"paperGrain\" app/src/main/kotlin/ai/closepaw/ui/chat/components/EmptyState.kt",
+      "! grep -q \"\\\\\\\"\\$text\\\\\\\"\" app/src/main/kotlin/ai/closepaw/ui/chat/components/EmptyState.kt",
+      "./gradlew :app:testDebugUnitTest exits 0"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "ui"
+    ],
+    "created": "2026-04-23T00:38:08Z",
+    "updated": "2026-04-23T00:38:08Z"
+  },
+  "ui-refresh-0422-phase5-capsule-onboarding": {
+    "parent": "ui-refresh-0422",
+    "depends": [
+      "ui-refresh-0422-phase1-primitives"
+    ],
+    "state": "ready",
+    "title": "Phase 5 — Capsule polish + onboarding + StartupErrorBanner",
+    "description": "SmartCapsuleSurface: produceElapsedLabel(mode) ticker (LaunchedEffect + delay 1s); CapsuleStatusLine renders [t+12s] mono ledger as its OWN Text BEFORE the marqueed thought (uxfb-2 contract — paw and ledger stay fixed, thought scrolls). CapsuleControlBar Stop button: explicit BorderStroke(1.dp, colorScheme.error). CapsuleInputBar send button: 240ms breath on submit (Animatable scale 1.0->1.04->1.0; reduced-motion skips). SmartCapsuleSurface StartupErrorBanner: 2dp Rust left rule + ⚠ glyph (monoBody, error). OnboardingShell FivePawProgress: unfilled tint outlineVariant -> closePaw.inkFaint (visible in light mode).",
+    "design": "projects/active/ui-refresh-0422/changes.md",
+    "scope": [
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/SmartCapsuleSurface.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleControlBar.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt",
+      "app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingShell.kt"
+    ],
+    "acceptCriteria": [
+      "grep -q \"produceElapsedLabel\\|elapsedLabel\" app/src/main/kotlin/ai/closepaw/ui/capsule/surface/SmartCapsuleSurface.kt",
+      "grep -q \"BorderStroke.*colorScheme.error\\|colorScheme.error\\b.*border\" app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleControlBar.kt",
+      "grep -q \"Animatable\\|animateTo.*1.04\\|graphicsLayer\" app/src/main/kotlin/ai/closepaw/ui/capsule/surface/CapsuleInputBar.kt",
+      "grep -q \"closePaw.inkFaint\" app/src/main/kotlin/ai/closepaw/ui/onboarding/OnboardingShell.kt",
+      "./gradlew :app:testDebugUnitTest exits 0"
+    ],
+    "priority": "normal",
+    "estimate": "m",
+    "tags": [
+      "ui",
+      "capsule",
+      "onboarding"
+    ],
+    "created": "2026-04-23T00:38:08Z",
+    "updated": "2026-04-23T00:38:08Z"
+  },
+  "ui-refresh-0422-final-gates": {
+    "parent": "ui-refresh-0422",
+    "depends": [
+      "ui-refresh-0422-phase2-page-chrome",
+      "ui-refresh-0422-phase3-chat-ornaments",
+      "ui-refresh-0422-phase4-empty-state",
+      "ui-refresh-0422-phase5-capsule-onboarding",
+      "ui-refresh-0422-codex-review"
+    ],
+    "state": "ready",
+    "title": "Final gates — verify + UX visual debug + doc sync + archive",
+    "description": "Final verification gate. Run gradle clean+lint+test (all green). Run /verify skill. Run /ux-visual-debug for: cold launch -> EmptyState; send message -> ChatHeader masthead visible; trigger long task -> capsule [t+Xs] ticker; open drawer -> masthead + ledger dates; open settings -> sections + fleuron. Update doc/main/ui/style.md (add Fleuron, PageMasthead, paperGrain, ledger counter sections). Update doc/main/ui/user_interaction.md (mastheaded surfaces list, EmptyState marginalia layout, capsule running counter behavior). Archive projects/active/ui-refresh-0422/ -> doc/archive/20260422_ui-refresh/.",
+    "design": "projects/active/ui-refresh-0422/plan.md",
+    "scope": [
+      "doc/main/ui/style.md",
+      "doc/main/ui/user_interaction.md",
+      "projects/active/ui-refresh-0422/**",
+      "doc/archive/20260422_ui-refresh/**"
+    ],
+    "acceptCriteria": [
+      "./gradlew clean assembleDebug lint test exits 0",
+      "/verify skill report has no failures",
+      "/ux-visual-debug produces screenshots covering: EmptyState, ChatHeader masthead, capsule [t+Xs] running, drawer masthead, settings sections+fleuron",
+      "grep -q \"PageMasthead\\|Fleuron\\|paperGrain\" doc/main/ui/style.md",
+      "test -d doc/archive/20260422_ui-refresh/ || test -d doc/archive/$(date +%Y%m%d)_ui-refresh/"
+    ],
+    "requireHumanReview": true,
+    "priority": "high",
+    "estimate": "m",
+    "tags": [
+      "ui",
+      "verify",
+      "docs"
+    ],
+    "created": "2026-04-23T00:38:29Z",
+    "updated": "2026-04-23T00:38:29Z"
   }
 }

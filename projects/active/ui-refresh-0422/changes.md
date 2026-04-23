@@ -189,9 +189,49 @@ Row {
 ```
 Tap target: full row width, padding `vertical = sm`.
 
-### `ui/chat/components/MessageBubble.kt`
+### `ui/chat/components/AgentTrace.kt` *(uxfb-4)*
 
-#### `UserBubble` (lines 65-101)
+#### ThoughtGroup left rule color (line 109)
+
+The 2dp left rule is the new ThoughtGroup marker. `outlineVariant` (8% Ink)
+is borderline at 2dp on Paper. Bump to `outline` (Hairline, 12%):
+
+```kotlin
+// AgentTrace.kt:109 — was: MaterialTheme.colorScheme.outlineVariant
+.background(MaterialTheme.colorScheme.outline),
+```
+
+One-line change. P2 — flag to the original author before landing.
+
+### `ui/chat/components/CollapsePill.kt` *(uxfb-3)*
+
+#### Summary text register (line 72)
+
+Pill chevron is `monoBody`; summary content is itself ledger-shaped
+(`✓ N actions · 12s`). Unify the register so the whole pill reads as one
+machine-ledger object:
+
+```kotlin
+// CollapsePill.kt:72 — was: MaterialTheme.typography.labelLarge
+style = MaterialTheme.closePaw.monoSmall,
+```
+
+One-line change. P2 polish — won't disturb tests.
+
+### `ui/chat/components/MessageBubble.kt` (post-uxfb split)
+
+> Note: as of `uxfb-3/4`, `MessageBubble.kt` is now an entry-point dispatcher.
+> `AgentRow` lives in `AgentRow.kt`; `ExpandedTrace` / `ThoughtGroupView` /
+> `ActionRow` in `AgentTrace.kt`; `CollapsePill` in `CollapsePill.kt`. The
+> only piece this round still touches in `MessageBubble.kt` is `UserBubble`.
+
+> **Withdrawn:** the original spec also proposed (a) replacing `FinalSeparator`
+> with a fleuron, (b) swapping `▸` glyphs in `CollapsedHeader` for `[+]/[−]`
+> mono brackets. Both are obsolete after `uxfb-3` shipped `FinalText`,
+> `CollapsePill`, and a new `AgentRow` shape. See `align-with-uxfb-0422.md`
+> (W1, W2). Only the `UserBubble` change below remains.
+
+#### `UserBubble`
 
 ```kotlin
 @Composable
@@ -231,29 +271,6 @@ private fun UserBubble(message: ChatMessage.User, maxWidth: Dp, modifier: Modifi
     }
 }
 ```
-
-#### `FinalSeparator` (line 262)
-
-Replace entire composable body with a call to `Fleuron()`. Delete the
-`outlineVariant` rule.
-
-#### `CollapsedHeader` (line 166) and `OutcomeFooter` (line 198)
-
-Swap glyphs:
-
-```kotlin
-// CollapsedHeader leading:
-Text("[+]", style = MaterialTheme.closePaw.monoBody, color = MaterialTheme.closePaw.inkFaint)
-// CollapsedHeader trailing (remove the standalone "▸"; fold into summary):
-// summary already includes "headline · N actions · 4.2s" — append nothing.
-
-// OutcomeFooter:
-Text("[−] $text", style = MaterialTheme.closePaw.monoSmall, color = MaterialTheme.closePaw.inkFaint)
-```
-
-(The `[+] / [−]` brackets are also clearer for screen readers — no
-`stateDescription` change needed; the existing one already says "collapsed"/
-"expanded".)
 
 ### `ui/chat/components/ThinkingIndicator.kt`
 
@@ -301,8 +318,11 @@ OutlinedButton(
 
 #### `CapsuleStatusLine` (lines 222-266)
 
-Add ledger counter for `Running` mode. Take a `mode` parameter (or compute
-elapsed at call site and pass `String?`):
+Add ledger counter for `Running` mode. **Critical layout note:** as of `uxfb-2`,
+the thought `Text` carries `Modifier.basicMarquee(...)`. The ledger counter
+must sit **outside** that marquee — its own `Text`, placed *before* the
+thought `Text` in the same `Row`. Result: paw + ledger stay fixed; only the
+thought scrolls.
 
 ```kotlin
 @Composable
@@ -314,6 +334,7 @@ private fun CapsuleStatusLine(
     Row(...) {
         if (spec.dot != null) { StatusPawGlyph(...); Spacer(Modifier.width(8.dp)) }
         if (elapsedLabel != null) {
+            // Independent Text — NOT inside the marqueed thought widget.
             Text(
                 text = elapsedLabel,
                 style = MaterialTheme.closePaw.monoSmall,
@@ -321,7 +342,8 @@ private fun CapsuleStatusLine(
             )
             Spacer(Modifier.width(8.dp))
         }
-        Text(spec.thought.text, ...)
+        // The marquee modifier (uxfb-2) stays on this Text; ledger above is unaffected.
+        Text(spec.thought.text, modifier = Modifier.basicMarquee(...), ...)
     }
 }
 ```
@@ -334,7 +356,9 @@ val elapsedLabel = produceElapsedLabel(mode)  // ticks 1Hz when Running, null ot
 
 `produceElapsedLabel` is a small composable that uses `LaunchedEffect(mode)`
 + `delay(1.seconds)` + `remember` of the start timestamp from `mode`. Reduced
-motion has no bearing — it's a status, not motion.
+motion has no bearing on the ledger — it's a status, not motion. (The
+thought's marquee independently honors reduced-motion via the existing
+uxfb-2 fallback to `compactThought()`.)
 
 #### `StartupErrorBanner` (lines 184-220)
 

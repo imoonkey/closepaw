@@ -21,13 +21,14 @@ In:
 - **ChatHeader** — give the brand a body. Currently `[Menu] ClosePaw [+]` 56dp Material standard.
 - **EmptyState** — push from centered grid to asymmetric editorial first-page.
 - **MessageBubble (User)** — drop the chip-shape box, adopt a "letter to the editor" treatment.
-- **AgentRow ornaments** — replace the 8%-Ink hairline `FinalSeparator` with a centered fleuron; replace `▸` collapse glyph with bracketed mono `[+]/[−]`.
+- **AgentTrace left rule** — bump 2dp left rule color from `outlineVariant` (8% Ink, JND-borderline at 2dp on Paper) to `Hairline` (12% Ink). The rule is now the *primary* structural marker of a turn (replaces the retired `✱` glyph), so it deserves the weight.
+- **CollapsePill summary** — swap pill summary text style from `labelLarge` (Geist) to `monoSmall`. The pill content is ledger-shaped (`✓ N actions · 12s`) and sits next to a mono chevron — unify the register.
 - **ThinkingIndicator** — lose the surfaceVariant chip, render the paw-toe canvas inline with a serif-italic "Thinking…".
 - **OnboardingShell** — five-paw progress contrast bump (current `outlineVariant` is invisible in light mode); add running date in monoSmall.
 - **NavigationDrawer header** — "Sessions" in actually-loaded Fraunces italic Regular (current SemiBold is synthesized, since only Regular + Italic ship).
 - **SettingsHomePage** — add section grouping with serif-italic subheads; centered fleuron version footer.
 - **CapsuleControlBar** — Stop button gets full Rust treatment (border, text, icon — currently mixed).
-- **CapsuleStatusLine (Running)** — prepend mono `[t+12s]` ledger counter.
+- **CapsuleStatusLine (Running)** — prepend mono `[t+12s]` ledger counter, sitting *outside* the existing `basicMarquee` (`uxfb-2`) so the counter and paw stay fixed while the thought scrolls.
 - **Page chrome primitive** — small running-head composable (`PageMasthead`) that any top-level surface can opt into.
 - **Paper grain primitive** — opt-in Modifier that bakes a 1.5%-alpha noise texture once.
 - **First-paint choreography** — staggered EmptyState reveal using existing `TraceEnter`.
@@ -46,11 +47,13 @@ Out:
 |---|---|
 | `README.md` | this file |
 | `critique.md` | current-state review with file:line references, severity-tagged |
-| `direction.md` | "Bound Edition" aesthetic vision and the 8 ornament moves |
+| `direction.md` | "Bound Edition" aesthetic vision and the ornament moves |
 | `changes.md` | per-file concrete change list with code sketches |
 | `motion.md` | choreography deltas (all reuse existing `ClosePawMotion` durations) |
 | `plan.md` | phased implementation order, verify gates |
 | `non-regressions.md` | what we're explicitly *not* undoing from D1/D2 |
+| `align-with-uxfb-0422.md` | changelog: what was reconciled when `uxfb-1 → uxfb-followup` landed mid-round |
+| `preview.html` | self-contained interactive preview of all surfaces (light/dark) |
 
 ## Success criteria
 

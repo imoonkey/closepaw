@@ -3,6 +3,11 @@
 > 五阶段，每阶段独立可发。每阶段后跑 `./gradlew lint test`。如果某阶段触发了
 > 现有测试失败，只在该测试断言的是*被移除*的美学（例如断言 `outlineVariant`
 > 分隔色）时才修测试。
+>
+> 反映的代码状态截至 `08ae6378` —— 即 `uxfb-1 → uxfb-followup` 落地了
+> ThoughtGroup、CollapsePill、FinalText、capsule marquee 之后。Phase 3 已被
+> 裁掉（撤回两条 move、新增两条一行 move）以匹配新的 chat 形态。差异历史见
+> `align-with-uxfb-0422.md`。
 
 ## Phase 1 — Theme 原语（地基，不改 UX）
 
@@ -30,15 +35,18 @@
 
 ## Phase 3 — Chat 内容 ornament
 
-- [ ] `MessageBubble.kt::FinalSeparator` → `Fleuron()`。
-- [ ] `MessageBubble.kt::CollapsedHeader` 与 `OutcomeFooter` → `[+]/[−]` 括号。
 - [ ] `MessageBubble.kt::UserBubble` → letter-to-the-editor（去掉 Surface，加
       Hairline 左侧 margin rule，mono timestamp inline）。
 - [ ] `ThinkingIndicator.kt` → 裸露 Row，无 Surface chip。
+- [ ] `AgentTrace.kt:109` —— 左 rule 颜色从 `outlineVariant` → `outline`
+      （Hairline）。一行改动；P2，落地前知会 `uxfb-4` 原作者。
+- [ ] `CollapsePill.kt:72` —— summary style 从 `labelLarge` → `monoSmall`。
+      一行；P2 抛光，无测试影响。
 - [ ] `ChatScreen.kt::live pill` → mono pill，显式 border。
 - [ ] 验证：固定测试 `ThinkingIndicatorTintTest`、`ThinkingIndicatorCadenceTest`、
-      `ChatDoneBridgeTest` 仍通过。QA test tag（`qa-user-bubble`、
-      `qa-thinking-indicator`、`qa-agent-bubble`）保留。
+      `ChatDoneBridgeTest`、`CollapsePillTest`、`ThoughtGroupTest` 仍通过。
+      QA test tag（`qa-user-bubble`、`qa-thinking-indicator`、`qa-agent-bubble`、
+      `qa-collapse-pill`、`qa-final-answer`）保留。
 
 **Gate：**chat 读作 editorial page，不是 Material card 堆。
 
@@ -57,8 +65,9 @@
 
 - [ ] `SmartCapsuleSurface.kt`：加 `produceElapsedLabel(mode)` ticker，传给
       `CapsuleStatusLine`。
-- [ ] `CapsuleStatusLine`：当 `elapsedLabel != null` 时在 thought text 前渲染
-      `[t+12s]` mono ledger。
+- [ ] `CapsuleStatusLine`：把 `[t+12s]` mono ledger 渲染为它自己的 `Text`，
+      放在带 marquee 的 thought *之前*（uxfb-2 契约）。Ledger 保持固定，
+      thought 滚动。
 - [ ] `CapsuleControlBar.kt`：Stop button 显式 Rust `BorderStroke`。
 - [ ] `CapsuleInputBar.kt`：submit 时 send-button breath（240ms scale）。
 - [ ] `SmartCapsuleSurface.kt::StartupErrorBanner`：2dp Rust 左 rule + ⚠ glyph。
@@ -92,8 +101,8 @@
 |---|---|---|
 | 1 | 新文件，无 UX | 1-2h |
 | 2 | 机械替换 + paperGrain wiring | 2-3h |
-| 3 | chat ornament 工作，回测 | 3-4h |
+| 3 | chat ornament 工作 + 在 uxfb-3/4 代码上加两个一行 move，回测 | 2h |
 | 4 | EmptyState 重建 + stagger | 3-4h |
 | 5 | ticker + 跨 5 个文件的小抛光 | 2-3h |
 
-总计：~12-16h 专注工作。无意外的话单 session 可完成。
+总计：~10-14h 专注工作。无意外的话单 session 可完成。

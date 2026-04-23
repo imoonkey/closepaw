@@ -185,7 +185,46 @@ Row {
 ```
 点击目标：整行宽，padding `vertical = sm`。
 
-### `ui/chat/components/MessageBubble.kt`
+### `ui/chat/components/AgentTrace.kt` *(uxfb-4)*
+
+#### ThoughtGroup 左 rule 颜色（行 109）
+
+2dp 左 rule 是新的 ThoughtGroup marker。`outlineVariant`（8% Ink）在 Paper 上
+2dp 偏边缘。提到 `outline`（Hairline，12%）：
+
+```kotlin
+// AgentTrace.kt:109 —— 原为 MaterialTheme.colorScheme.outlineVariant
+.background(MaterialTheme.colorScheme.outline),
+```
+
+一行改动。P2 —— 落地前知会原作者。
+
+### `ui/chat/components/CollapsePill.kt` *(uxfb-3)*
+
+#### Summary 文本 register（行 72）
+
+Pill chevron 是 `monoBody`；summary 内容本身就是 ledger 形
+（`✓ N actions · 12s`）。统一 register，让整个 pill 读作一个 machine-ledger
+对象：
+
+```kotlin
+// CollapsePill.kt:72 —— 原为 MaterialTheme.typography.labelLarge
+style = MaterialTheme.closePaw.monoSmall,
+```
+
+一行改动。P2 抛光 —— 不打扰测试。
+
+### `ui/chat/components/MessageBubble.kt`（uxfb 拆分后）
+
+> 注意：`uxfb-3/4` 之后，`MessageBubble.kt` 已变为入口 dispatcher。`AgentRow`
+> 在 `AgentRow.kt`；`ExpandedTrace` / `ThoughtGroupView` / `ActionRow` 在
+> `AgentTrace.kt`；`CollapsePill` 在 `CollapsePill.kt`。本轮在 `MessageBubble.kt`
+> 中仍要触动的只有 `UserBubble`。
+
+> **撤回：**原方案还提议 (a) 把 `FinalSeparator` 换成 fleuron、(b) 把
+> `CollapsedHeader` 里的 `▸` glyph 换成 `[+]/[−]` mono 括号。`uxfb-3` 发布了
+> `FinalText`、`CollapsePill` 与新的 `AgentRow` 形态后，两者均已过时。
+> 见 `align-with-uxfb-0422.md`（W1、W2）。下方仅保留 `UserBubble` 的改动。
 
 #### `UserBubble`（行 65-101）
 
@@ -230,24 +269,15 @@ private fun UserBubble(message: ChatMessage.User, maxWidth: Dp, modifier: Modifi
 
 #### `FinalSeparator`（行 262）
 
-整个 composable body 替换为 `Fleuron()` 调用。删除 `outlineVariant` rule。
+> **撤回。**`uxfb-3` 把 Trace → Final 的边界做成结构性的（`AgentRow.kt`：
+> `[trace] [CollapsePill] [FinalAnswer]`），pill 本身就是边界。
+> 见 `align-with-uxfb-0422.md`（W1）。
 
 #### `CollapsedHeader`（行 166）与 `OutcomeFooter`（行 198）
 
-替换 glyph：
-
-```kotlin
-// CollapsedHeader 引导：
-Text("[+]", style = MaterialTheme.closePaw.monoBody, color = MaterialTheme.closePaw.inkFaint)
-// CollapsedHeader 尾部（去掉单独的 "▸"；并入 summary）：
-// summary 已包含 "headline · N actions · 4.2s" —— 不再追加。
-
-// OutcomeFooter:
-Text("[−] $text", style = MaterialTheme.closePaw.monoSmall, color = MaterialTheme.closePaw.inkFaint)
-```
-
-（`[+] / [−]` 括号对屏幕阅读器也更清晰——不需改 `stateDescription`，现有的
-"collapsed"/"expanded" 标签已经覆盖。）
+> **撤回。**`uxfb-3` 发布了 `CollapsePill.kt`，带可旋转的 `▸` chevron。
+> 已 codex-review。不要去对抗刚发的组件。
+> 见 `align-with-uxfb-0422.md`（W2）。
 
 ### `ui/chat/components/ThinkingIndicator.kt`
 
@@ -294,8 +324,10 @@ OutlinedButton(
 
 #### `CapsuleStatusLine`（行 222-266）
 
-为 `Running` mode 加 ledger 计数器。增一个 `mode` 参数（或在 call site 计算
-elapsed 后传入 `String?`）：
+为 `Running` mode 加 ledger 计数器。**关键布局注意：**`uxfb-2` 之后，thought
+`Text` 上挂了 `Modifier.basicMarquee(...)`。ledger 计数器必须**位于** marquee
+之外 —— 是它自己的 `Text`，放在 thought `Text` *之前*的同一个 `Row`。结果：
+paw + ledger 保持固定，只有 thought 滚动。
 
 ```kotlin
 @Composable
@@ -307,6 +339,7 @@ private fun CapsuleStatusLine(
     Row(...) {
         if (spec.dot != null) { StatusPawGlyph(...); Spacer(Modifier.width(8.dp)) }
         if (elapsedLabel != null) {
+            // 独立的 Text —— 不放在带 marquee 的 thought widget 内。
             Text(
                 text = elapsedLabel,
                 style = MaterialTheme.closePaw.monoSmall,
@@ -314,7 +347,8 @@ private fun CapsuleStatusLine(
             )
             Spacer(Modifier.width(8.dp))
         }
-        Text(spec.thought.text, ...)
+        // marquee modifier（uxfb-2）挂在这一个 Text 上；上方 ledger 不受影响。
+        Text(spec.thought.text, modifier = Modifier.basicMarquee(...), ...)
     }
 }
 ```
@@ -326,8 +360,9 @@ val elapsedLabel = produceElapsedLabel(mode)  // Running 时 1Hz tick，否则 n
 ```
 
 `produceElapsedLabel` 是一个小 composable，用 `LaunchedEffect(mode)` +
-`delay(1.seconds)` + `remember` 记住 `mode` 的开始时间戳。Reduced-motion 与它
-无关——它是 status，不是 motion。
+`delay(1.seconds)` + `remember` 记住 `mode` 的开始时间戳。Reduced-motion 与
+ledger 无关——它是 status，不是 motion。（thought 自身的 marquee 通过
+uxfb-2 既有的 `compactThought()` 回退独立处理 reduced-motion。）
 
 #### `StartupErrorBanner`（行 184-220）
 

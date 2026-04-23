@@ -400,6 +400,21 @@ body::after {
   flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Visual stand-in for Compose basicMarquee (uxfb-2). The ledger and paw stay fixed; only this text scrolls. */
+#marqueeThought {
+  display: inline-block;
+  animation: marqueeSlide 12s linear infinite;
+  text-overflow: clip;
+}
+@keyframes marqueeSlide {
+  0%   { transform: translateX(0); }
+  10%  { transform: translateX(0); }
+  90%  { transform: translateX(calc(-1 * (100% - 160px))); }
+  100% { transform: translateX(calc(-1 * (100% - 160px))); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #marqueeThought { animation: none; }
+}
 .capsule-divider {
   height: 1px; background: color-mix(in srgb, var(--ink-ghost) 70%, transparent);
   margin: 6px 0;
@@ -476,60 +491,74 @@ body::after {
 }
 
 /* ============================================================
-   Conversation scene
+   Conversation scene — uxfb-3/4 shape
    ============================================================ */
 .conv {
   flex: 1; overflow-y: auto;
   padding: 8px 16px 4px;
   display: flex; flex-direction: column; gap: 16px;
 }
-/* Agent row */
-.agent-row {
-  display: flex; flex-direction: column; gap: 8px;
-}
-.agent-row .collapsed {
-  display: flex; align-items: center; gap: 8px;
-  font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
-  cursor: pointer;
-}
-.agent-row .collapsed .bracket { color: var(--ink); }
-.agent-row .collapsed .summary { color: var(--ink-muted); flex: 1; }
+.agent-row { display: flex; flex-direction: column; gap: 10px; }
 
-.thought {
-  display: flex; gap: 8px; align-items: flex-start;
+/* ThoughtGroup with 2dp left rule (uxfb-4). Bound Edition N2: bumps rule color from outlineVariant to Hairline */
+.tgroup { display: flex; gap: 12px; align-items: stretch; }
+.tgroup .rule {
+  width: 2px; flex: 0 0 2px;
+  background: var(--hairline);
+  border-radius: 1px;
 }
-.thought .marker { color: var(--ink); font-size: 14px; line-height: 1.3; }
-.thought .body {
-  font-family: var(--serif); font-style: italic; font-size: 15px; line-height: 1.45;
+.tgroup .col {
+  flex: 1;
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 0;
+}
+.tgroup .thought-h {
+  font-family: var(--sans); font-size: 15px; line-height: 1.45;
+  color: var(--ink); font-weight: 400;
+}
+.tgroup .action {
+  padding-left: 20px;
+  display: flex; align-items: flex-start; gap: 8px;
+  font-family: var(--mono); font-size: 12px; line-height: 1.5;
   color: var(--ink-muted);
 }
-.action {
-  display: flex; align-items: flex-start; gap: 8px;
+.tgroup .action .marker { color: var(--ink-faint); }
+.tgroup .action .body { flex: 1; min-width: 0; }
+.tgroup .action .body .sub {
+  display: block; font-family: var(--sans); font-size: 12px;
+  color: var(--ink-muted); margin-top: 1px;
 }
-.action .marker { color: var(--ink-faint); font-family: var(--mono); font-size: 13px; padding-top: 2px; }
-.action .body {
-  flex: 1;
-  font-family: var(--mono); font-size: 13px; line-height: 1.45;
-  color: var(--ink);
-}
-.action .body .sub {
-  display: block; font-family: var(--sans); font-size: 12px; color: var(--ink-muted);
-  font-style: normal; margin-top: 1px;
-}
-.action .status { font-family: var(--mono); font-size: 13px; }
-.action .status.ok { color: var(--moss); }
-.action .status.fail { color: var(--rust); }
-.action .status.run { color: var(--ink-faint); }
+.tgroup .action .status { font-family: var(--mono); font-size: 12px; }
+.tgroup .action .status.ok { color: var(--moss); }
+.tgroup .action .status.fail { color: var(--rust); }
+.tgroup .action .status.run { color: var(--ink-faint); }
 
-.final {
-  font-family: var(--sans); font-size: 15px; line-height: 1.5; color: var(--ink);
+/* CollapsePill (uxfb-3). Bound Edition N3: summary -> monoSmall for ledger coherence */
+.pill {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--paper-inset);
+  border-radius: var(--r-sm);
+  padding: 6px 12px; min-height: 32px;
+  cursor: pointer;
+  color: var(--ink-muted);
+  user-select: none;
 }
-
-.outcome {
-  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+.pill .chev {
+  font-family: var(--mono); font-size: 13px;
+  display: inline-block;
+  transition: transform var(--t-std) var(--ease-out-cubic);
+}
+.pill.expanded .chev { transform: rotate(90deg); }
+.pill .summary {
+  font-family: var(--mono); font-size: 11px;
   letter-spacing: .03em;
 }
-.outcome .bracket { color: var(--ink); }
+
+/* FinalAnswer always visible below pill (uxfb-3) */
+.final-answer {
+  font-family: var(--sans); font-size: 15px; line-height: 1.5; color: var(--ink);
+}
 
 /* User bubble — letter to the editor */
 .user-bubble {
@@ -816,7 +845,8 @@ body::after {
 
 <section class="intro">
   <h1>A bound edition of the agent.</h1>
-  <p>D1 is intact. What changes is register: page mastheads on every surface, a centered fleuron between Trace and Final, an asymmetric first page, a ledger counter on the running capsule, and paper grain you can feel.</p>
+  <p>D1 is intact. What changes is register: page mastheads on every surface, asymmetric first page, ledger counter on the running capsule, paper grain you can feel, and a few targeted polishes against the new <code style="font-family:var(--mono);font-size:13px;">uxfb-3/4</code> chat shape.</p>
+  <p style="font-family:var(--mono); font-size:12px; color:var(--ink-faint); border-left:2px solid var(--hairline); padding-left:12px;">Aligned with <b style="color:var(--ink-muted);">uxfb-1 → uxfb-followup</b> (2026-04-22). ThoughtGroup, CollapsePill, and FinalAnswer now ship in <code>main</code>; this preview shows the resulting shape, plus N1 (ledger outside marquee), N2 (left rule → Hairline), N3 (pill summary → mono). See <code>align-with-uxfb-0422.md</code>.</p>
   <div class="meta">
     <span><b>Palette</b> Paper · Ink · Claw · Moss · Amber · Rust</span>
     <span><b>Type</b> Geist · Fraunces italic · JetBrains Mono</span>
@@ -922,12 +952,13 @@ body::after {
 
       <div class="conv">
 
-        <!-- Collapsed earlier turn -->
+        <!-- Earlier collapsed turn (CollapsePill alone, no trace open) -->
         <div class="agent-row">
-          <div class="collapsed">
-            <span class="bracket">[+]</span>
-            <span class="summary">Turned on Do Not Disturb · 2 actions · 2.4s</span>
+          <div class="pill" onclick="this.classList.toggle('expanded')">
+            <span class="chev">▸</span>
+            <span class="summary">✓ 2 actions · 2.4s</span>
           </div>
+          <div class="final-answer">Done — Do Not Disturb is on for 60 minutes.</div>
         </div>
 
         <!-- User message -->
@@ -941,32 +972,43 @@ body::after {
           </div>
         </div>
 
-        <!-- Expanded agent row -->
+        <!-- Expanded agent row: ThoughtGroup + ThoughtGroup + CollapsePill (expanded) + FinalAnswer -->
         <div class="agent-row">
-          <div class="thought">
-            <span class="marker">✱</span>
-            <div class="body">Looking at unread mail — only the threads from this morning matter.</div>
-          </div>
-          <div class="action">
-            <span class="marker">→</span>
-            <div class="body">readInbox(filter="unread", since="08:00")
-              <span class="sub">3 threads matched</span>
+          <!-- Group 1 -->
+          <div class="tgroup">
+            <div class="rule"></div>
+            <div class="col">
+              <div class="thought-h">Looking at unread mail — only the threads from this morning matter.</div>
+              <div class="action">
+                <span class="marker">→</span>
+                <div class="body">readInbox(filter="unread", since="08:00")
+                  <span class="sub">3 threads matched</span>
+                </div>
+                <span class="status ok">✓</span>
+              </div>
             </div>
-            <span class="status ok">✓</span>
           </div>
-          <div class="action">
-            <span class="marker">→</span>
-            <div class="body">summarize(threads=3)
-              <span class="sub">summarising…</span>
+          <!-- Group 2 -->
+          <div class="tgroup">
+            <div class="rule"></div>
+            <div class="col">
+              <div class="thought-h">Three threads — let me summarise each one quickly.</div>
+              <div class="action">
+                <span class="marker">→</span>
+                <div class="body">summarize(threads=3)
+                  <span class="sub">summarised</span>
+                </div>
+                <span class="status ok">✓</span>
+              </div>
             </div>
-            <span class="status run">⏳</span>
           </div>
 
-          <div class="fleuron">❦</div>
+          <div class="pill expanded" onclick="this.classList.toggle('expanded')">
+            <span class="chev">▸</span>
+            <span class="summary">✓ 2 actions · 4.8s</span>
+          </div>
 
-          <div class="final">Three threads landed: Maya wants a Tuesday window for the Capsule review, AWS wants you to rotate a key by Friday, and the dentist confirms 9:30 next Wednesday. The dentist is the only one with a hard date.</div>
-
-          <div class="outcome"><span class="bracket">[−]</span> · ✓ 2 actions · 4.8s</div>
+          <div class="final-answer">Three threads landed: Maya wants a Tuesday window for the Capsule review, AWS wants you to rotate a key by Friday, and the dentist confirms 9:30 next Wednesday. The dentist is the only one with a hard date.</div>
         </div>
 
         <!-- ThinkingIndicator naked (next turn) -->
@@ -996,7 +1038,7 @@ body::after {
       </div>
     </div>
   </div>
-  <p class="caption">User bubble with margin rule · agent trace with mono actions · centered fleuron between Trace and Final · ThinkingIndicator without its chip.</p>
+  <p class="caption">User bubble with margin rule · ThoughtGroup with 2dp Hairline left rule (uxfb-4) · CollapsePill in mono-ledger voice · FinalAnswer always visible below the pill (uxfb-3) · ThinkingIndicator without its chip.</p>
 </div>
 
 <!-- ============== Scene 3: Smart Capsule (Running) ============== -->
@@ -1027,7 +1069,7 @@ body::after {
             <svg viewBox="0 0 64 64" fill="currentColor" width="14" height="14"><ellipse cx="16.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="7" rx="5.5" ry="7"/><ellipse cx="47.5" cy="15" rx="5.5" ry="7"/><ellipse cx="32" cy="41" rx="16" ry="13"/></svg>
           </span>
           <span class="ledger" id="ledger">[t+12s]</span>
-          <span class="thought">summarising three threads…</span>
+          <span class="thought" id="marqueeThought" title="basicMarquee in app · loops here for preview">summarising three threads — Maya wants a Tuesday window, AWS wants a key rotated, the dentist…</span>
         </div>
         <div class="capsule-divider"></div>
         <div class="capsule-detail">Selected "Updates" label · scanning headers · 2 of 3 threads parsed</div>
@@ -1052,7 +1094,7 @@ body::after {
       </div>
     </div>
   </div>
-  <p class="caption">Folded-paper capsule over a phantom host. Mono <code style="font-family:var(--mono);font-size:11px;">[t+12s]</code> ledger ticks beside the breathing paw. Stop button is now full Rust.</p>
+  <p class="caption">Folded-paper capsule over a phantom host. Mono <code style="font-family:var(--mono);font-size:11px;">[t+12s]</code> ledger ticks beside the breathing paw — both stay fixed while the thought marquees alongside (uxfb-2 + Bound-Edition N1: ledger sits <em>outside</em> the marquee). Stop button is now full Rust.</p>
 </div>
 
 <!-- ============== Scene 4: Onboarding ============== -->
@@ -1198,24 +1240,71 @@ body::after {
 ====================================================== -->
 <div class="fleuron-page">❦</div>
 <section class="compare">
-  <h2>Trace → Final, before and after</h2>
-  <p class="sub">The rhythm beat where the agent stops reasoning and starts answering. Today: a 1px line at 8% Ink. After: a centered fleuron in Fraunces italic.</p>
+  <h2>Trace hierarchy, before and after</h2>
+  <p class="sub">The before is the pre-uxfb shape: every block at one indent level, ✱ glyph for Thought, italic + onSurfaceVariant — the least prominent voice carrying the most important content. After (shipped in <code style="font-family:var(--mono);font-size:11px;">uxfb-4</code>, plus Bound-Edition tune-ups N2 + N3): grouped by Thought, 2dp Hairline left rule replaces the glyph, ThoughtHeader in <code style="font-family:var(--mono);font-size:11px;">bodyLarge / onSurface</code>, actions indented in mono, CollapsePill summary unified to mono.</p>
   <div class="compare-grid">
+
+    <!-- BEFORE -->
     <div class="compare-cell before">
       <span class="tag">BEFORE</span>
-      <h3>current — InkGhost hairline</h3>
-      <div class="snippet-thought">Looking at unread mail — only the threads from this morning matter.</div>
-      <div class="snippet-action">→ readInbox(filter="unread")  ✓</div>
-      <div class="before-line"></div>
-      <div class="snippet-final">Three threads landed: Maya wants a Tuesday window, AWS wants a key rotated, the dentist confirms 9:30 next Wednesday.</div>
+      <h3>flat trace · ✱ glyph · italic + muted Thought</h3>
+      <div style="display:flex; gap:8px; align-items:flex-start; margin-bottom:6px;">
+        <span style="color:var(--ink); font-size:14px;">✱</span>
+        <span style="font-family:var(--serif); font-style:italic; color:var(--ink-muted); font-size:14px;">Looking at unread mail — only the threads from this morning matter.</span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:flex-start; font-family:var(--mono); font-size:13px; color:var(--ink); margin-bottom:6px;">
+        <span style="color:var(--ink-faint);">→</span>
+        <span style="flex:1;">readInbox(filter="unread")</span>
+        <span style="color:var(--moss);">✓</span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:flex-start; margin-top:10px; margin-bottom:6px;">
+        <span style="color:var(--ink); font-size:14px;">✱</span>
+        <span style="font-family:var(--serif); font-style:italic; color:var(--ink-muted); font-size:14px;">Three threads — let me summarise each one quickly.</span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:flex-start; font-family:var(--mono); font-size:13px; color:var(--ink); margin-bottom:6px;">
+        <span style="color:var(--ink-faint);">→</span>
+        <span style="flex:1;">summarize(threads=3)</span>
+        <span style="color:var(--moss);">✓</span>
+      </div>
+      <div style="height:1px; background:var(--ink-ghost); margin:14px 0;"></div>
+      <div style="font-family:var(--sans); font-size:14px;">Three threads landed: Maya wants a Tuesday window, AWS wants a key rotated, the dentist confirms 9:30 next Wednesday.</div>
     </div>
+
+    <!-- AFTER -->
     <div class="compare-cell after">
-      <span class="tag">AFTER · BOUND EDITION</span>
-      <h3>fleuron — Fraunces ❦</h3>
-      <div class="snippet-thought">Looking at unread mail — only the threads from this morning matter.</div>
-      <div class="snippet-action">→ readInbox(filter="unread")  ✓</div>
-      <div class="after-fleuron">❦</div>
-      <div class="snippet-final">Three threads landed: Maya wants a Tuesday window, AWS wants a key rotated, the dentist confirms 9:30 next Wednesday.</div>
+      <span class="tag">AFTER · uxfb-4 + N2/N3</span>
+      <h3>ThoughtGroup · 2dp Hairline rule · CollapsePill</h3>
+
+      <div style="display:flex; gap:12px; align-items:stretch; margin-bottom:10px;">
+        <div style="width:2px; flex:0 0 2px; background:var(--hairline); border-radius:1px;"></div>
+        <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+          <div style="font-family:var(--sans); font-size:14px; color:var(--ink);">Looking at unread mail — only the threads from this morning matter.</div>
+          <div style="padding-left:18px; display:flex; gap:8px; font-family:var(--mono); font-size:12px; color:var(--ink-muted);">
+            <span style="color:var(--ink-faint);">→</span>
+            <span style="flex:1;">readInbox(filter="unread")</span>
+            <span style="color:var(--moss);">✓</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; align-items:stretch; margin-bottom:14px;">
+        <div style="width:2px; flex:0 0 2px; background:var(--hairline); border-radius:1px;"></div>
+        <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+          <div style="font-family:var(--sans); font-size:14px; color:var(--ink);">Three threads — let me summarise each one quickly.</div>
+          <div style="padding-left:18px; display:flex; gap:8px; font-family:var(--mono); font-size:12px; color:var(--ink-muted);">
+            <span style="color:var(--ink-faint);">→</span>
+            <span style="flex:1;">summarize(threads=3)</span>
+            <span style="color:var(--moss);">✓</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:inline-flex; align-items:center; gap:8px; background:var(--paper-inset); border-radius:var(--r-sm); padding:6px 12px; margin-bottom:10px;">
+        <span style="font-family:var(--mono); font-size:13px; transform:rotate(90deg); display:inline-block; color:var(--ink-muted);">▸</span>
+        <span style="font-family:var(--mono); font-size:11px; color:var(--ink-muted); letter-spacing:.03em;">✓ 2 actions · 4.8s</span>
+      </div>
+
+      <div style="font-family:var(--sans); font-size:14px;">Three threads landed: Maya wants a Tuesday window, AWS wants a key rotated, the dentist confirms 9:30 next Wednesday.</div>
     </div>
   </div>
 </section>

@@ -4,6 +4,11 @@
 > deep Ink, scarce Claw, paw-glyph identity, Geist body, Fraunces italic
 > identity, JetBrains Mono ledger. What changes is the **register** —
 > from "competent editorial layout" to "object you'd pick up off a shelf."
+>
+> Reflects code as of `08ae6378` — i.e. after `uxfb-1 → uxfb-followup` landed
+> ThoughtGroup, CollapsePill, FinalText, and capsule marquee. §6 was rewritten
+> to tune those new components rather than fight them. See `align-with-uxfb-0422.md`
+> for the diff history.
 
 ## Mental model
 
@@ -11,9 +16,10 @@ Imagine ClosePaw shipping as a small zine, perfect-bound, paper stock 90gsm
 warm white. Each screen is a spread: a running head at the top, a fleuron
 where sections divide, marginalia where the system speaks beside the user, a
 ledger date in mono down by the colophon. The Smart Capsule is the dust
-jacket — folded, with a real shadow under it. The agent's running thoughts
-are typeset in serif italic, like a translator's gloss. The user's turn is a
-hand-set letter, flush right against a margin rule.
+jacket — folded, with a real shadow under it. The agent's running trace is a
+column of grouped thoughts, each marked by a thin vertical rule like the
+margin rule of a chapbook. The user's turn is a hand-set letter, flush right
+against the same kind of rule.
 
 Every ornament that lands on screen has a print-shop reason to be there.
 Nothing is decorative-for-decorative — every move below resolves a real
@@ -44,13 +50,18 @@ read as colophon, not data — the user shouldn't *parse* them, they should
 ### 2. Fleuron separator
 
 A centered Fraunces glyph `❦` (U+2767) at `inkFaint`, 16sp, with 12dp vertical
-breathing room. Replaces:
+breathing room. Used in:
 
-- `MessageBubble.kt::FinalSeparator` (Trace → Final beat)
 - The blank gap above the version footer in SettingsHomePage
 - (Optional) the empty space between drawer session list and Settings entry
 
-One glyph, three call sites, single composable in `ui/theme/Ornaments.kt`.
+One glyph, two call sites, single composable in `ui/theme/Ornaments.kt`.
+
+> **Withdrawn call site:** the original spec had a third use — between Trace
+> and Final inside `AgentRow`. `uxfb-3` made that boundary structural
+> (`AgentRow.kt`: `[trace] [CollapsePill] [FinalAnswer]`), so the pill
+> itself *is* the boundary on Complete rows. The fleuron has no remaining
+> chat-row job. See `align-with-uxfb-0422.md` (W1).
 
 ### 3. Asymmetric EmptyState (new composition)
 
@@ -80,8 +91,10 @@ Layout (portrait):
 ```
 
 Removes the suggestion chip card entirely. Each suggestion is two stacked rows:
-verb in mono (the user's voice), italic gloss in serif (the system's
-interpretation). Tap target: full row width, generous vertical pad.
+verb in `bodyLarge` (the user's voice in their natural register — `bodyLarge`
+not mono, since suggestions are user-facing prose, not machine output), italic
+gloss in serif (the system's interpretation). Tap target: full row width,
+generous vertical pad.
 
 Reveal choreography: 4 stagger steps × `TraceEnter` (240ms), 80ms apart.
 Total 480ms. Reduced-motion → instant.
@@ -114,15 +127,37 @@ Drop `Surface(shape = large, color = surfaceVariant)`. Place inline in the
 `AgentRow` `Column`. Width auto. The paw-toe animation is already a designed
 ornament; it doesn't need a chip around it.
 
-### 6. AgentRow brackets
+### 6. AgentTrace left rule + CollapsePill summary, in one register
 
-Replace the `▸` and `✓` glyphs in `CollapsedHeader` with mono brackets:
+Two one-line moves on code that `uxfb-3/4` just shipped. Both tighten the
+ledger voice the new chat shape already gestures at.
 
-- collapsed: leading `[+]`, trailing `· N actions · 4.2s` in monoSmall
-- expanded outcome footer: leading `[−]`, trailing `· ✓ N actions · 4.2s` in monoSmall
+**6a. ThoughtGroup left rule weight.** `AgentTrace.kt:109` colors the 2dp
+left rule as `outlineVariant` (8% Ink). At 2dp on Paper that computes to
+roughly the visual weight of a 1dp Hairline — borderline acceptable, faint
+in sustained reading. Since the rule is now the *only* marker that says
+"a turn starts here" (the `✱` glyph is gone), it deserves the weight of
+an actual structural divider.
 
-The `[+]/[−]` reads as "expand/collapse" universally and matches the JetBrains
-Mono register the rest of the ledger uses.
+```kotlin
+// AgentTrace.kt:109
+.background(MaterialTheme.colorScheme.outline),  // was outlineVariant
+```
+
+**6b. CollapsePill summary register.** `CollapsePill.kt:72` renders the
+summary (`✓ N actions · 12s`) as `labelLarge` (Geist medium 14sp). The
+chevron next to it is `monoBody` (JetBrains Mono). The summary content is
+itself ledger-shaped — unify the register so the whole pill reads as one
+machine-ledger object.
+
+```kotlin
+// CollapsePill.kt:72
+style = MaterialTheme.closePaw.monoSmall,        // was labelLarge
+```
+
+> The earlier `[+]/[−]` mono-bracket move on `CollapsedHeader` is withdrawn
+> — `uxfb-3` shipped a real `CollapsePill` with rotating chevron that
+> supersedes it. See `align-with-uxfb-0422.md` (W2).
 
 ### 7. Capsule ledger counter
 
@@ -130,13 +165,19 @@ When `mode is CapsuleMode.Running`, prepend a mono counter to the
 `CapsuleStatusLine` thought text:
 
 ```
-[●]  [t+12s]  reading inbox…
- ↑    ↑       ↑ titleMedium, inkMuted (current)
- paw  monoSmall, inkFaint
+[●]  [t+12s]  reading inbox — three threads landed, the dentist…→ marqueeing
+ ↑    ↑       ↑ titleMedium, basicMarquee (uxfb-2), reduced-motion → compactThought()
+ paw  monoSmall, inkFaint — fixed
 ```
 
 Updates every 1s via a `LaunchedEffect(mode)` ticker. Stops at Done/Error.
 Reduced-motion: still ticks (it's a status signal, not decoration).
+
+**Layout note:** the ledger counter is its **own `Text`** placed before
+the thought `Text`, **not** wrapped inside the marquee row. The paw and
+ledger stay fixed while the thought scrolls past. Under reduced-motion,
+the ledger continues to tick and the thought falls back to
+`compactThought()` (uxfb-2 contract) — both signals are independent.
 
 This is the most product-functional ornament in the round — users have
 asked for elapsed time before; the editorial register makes it free to add.

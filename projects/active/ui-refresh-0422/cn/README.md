@@ -20,8 +20,8 @@ In（在内）：
 - **ChatHeader** — 给 brand 一个躯壳。当前是 `[Menu] ClosePaw [+]` 56dp Material 标准件。
 - **EmptyState** — 从居中网格推到非对称的 editorial first-page。
 - **MessageBubble (User)** — 抛掉 chip-shape 盒子，采用"letter to the editor"处理。
-- **AgentRow ornaments** — 把 8%-Ink 的 hairline `FinalSeparator` 换成居中 fleuron；
-  把 `▸` collapse glyph 换成 mono 括号 `[+]/[−]`。
+- **AgentTrace 左 rule** — 把 2dp 左 rule 颜色从 `outlineVariant`（8% Ink，Paper 上 2dp 处于 JND 边缘）提到 `Hairline`（12% Ink）。这条 rule 现在是一个 turn 的*主要*结构标记（替代了已退役的 `✱` glyph），值这个分量。
+- **CollapsePill summary** — 把 pill summary 文本样式从 `labelLarge` (Geist) 换成 `monoSmall`。pill 内容是 ledger 形（`✓ N actions · 12s`），旁边又是 mono chevron —— 统一 register。
 - **ThinkingIndicator** — 去掉 surfaceVariant chip，让 paw-toe canvas 与
   serif-italic 的 "Thinking…" 并排裸露。
 - **OnboardingShell** — 五枚 paw 进度的对比度提升（当前 `outlineVariant` 在 light
@@ -31,7 +31,7 @@ In（在内）：
 - **SettingsHomePage** — 加 section grouping，subhead 用 serif italic；版本 footer
   上方居中放一个 fleuron。
 - **CapsuleControlBar** — Stop button 全套 Rust 处理（border、text、icon——目前是混的）。
-- **CapsuleStatusLine (Running)** — 在前面加 mono `[t+12s]` ledger 计数器。
+- **CapsuleStatusLine (Running)** — 在前面加 mono `[t+12s]` ledger 计数器，位于已有 `basicMarquee`（`uxfb-2`）**之外**，让计数器与 paw 保持固定，只有 thought 滚动。
 - **Page chrome 原语** — 一个 `PageMasthead` composable，任一 top-level surface 可选用。
 - **Paper grain 原语** — 一个 opt-in Modifier，把 1.5%-alpha 的 noise texture 烘焙一次。
 - **First-paint choreography** — EmptyState 的 staggered reveal，复用现有 `TraceEnter`。
@@ -51,11 +51,13 @@ Out（不在内）：
 |---|---|
 | `README.md` | 本文件 |
 | `critique.md` | 当前状态评审，附 file:line 引用与 severity 标签 |
-| `direction.md` | "Bound Edition" 美学方向与 8 个 ornament moves |
+| `direction.md` | "Bound Edition" 美学方向与 ornament moves |
 | `changes.md` | 按文件给出的具体修改清单与代码草图 |
 | `motion.md` | choreography 的 delta（全部复用现有 `ClosePawMotion` duration） |
 | `plan.md` | 分阶段实施顺序与 verify gate |
 | `non-regressions.md` | 明确**不**撤销的 D1/D2 决议 |
+| `align-with-uxfb-0422.md` | changelog：`uxfb-1 → uxfb-followup` 中途落地时所对齐的内容 |
+| `preview.html` | 自包含的所有 surface 交互预览（light/dark） |
 
 ## 成功判据
 

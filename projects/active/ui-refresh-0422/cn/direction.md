@@ -3,14 +3,19 @@
 > 这是这一轮的代号，不是新 theme。美学仍是 D1：暖色 Paper、深色 Ink、稀缺 Claw、
 > paw-glyph identity、Geist body、Fraunces italic identity、JetBrains Mono ledger。
 > 改的是**register** ——从"称职的 editorial layout"走向"你愿意从书架上拿起来的物件"。
+>
+> 反映的代码状态截至 `08ae6378` —— 即 `uxfb-1 → uxfb-followup` 落地了 ThoughtGroup、
+> CollapsePill、FinalText、capsule marquee 之后。§6 已被改写，用于调音这些新组件
+> 而不是与它们对抗。差异历史见 `align-with-uxfb-0422.md`。
 
 ## 心理模型
 
 想象 ClosePaw 以一本小册子的形态出版，perfect-bound，纸张 90gsm 暖白。每个屏幕
 是一个 spread：顶端有 running head，章节之间有 fleuron，系统在用户旁边说话的地方
 有 marginalia，colophon 附近有 mono 的 ledger date。Smart Capsule 是 dust jacket
-——折起来，下面有真实的影子。Agent 的运行思考用 serif italic 排版，像译者注释。
-用户的轮次是一封手写信，紧贴一条 margin rule、右对齐。
+——折起来，下面有真实的影子。Agent 的运行 trace 是一列分组的 thought，每组以一条
+细垂直 rule 标记，像章本的 margin rule。用户的轮次是一封手写信，紧贴同样的 rule、
+右对齐。
 
 凡是落到屏幕上的 ornament，都有一个 print-shop 的理由要存在。没有装饰为装饰。
 下面每一个动作都对应一个真实的 trust signal、归属问题或节奏拍子——这些目前都被
@@ -39,13 +44,17 @@ Material 3 默认值留作匿名状态。
 ### 2. Fleuron 分隔符
 
 居中的 Fraunces glyph `❦` (U+2767)，颜色 `inkFaint`，16sp，上下各 12dp 呼吸空间。
-替换：
+用于：
 
-- `MessageBubble.kt::FinalSeparator`（Trace → Final 拍子）
 - SettingsHomePage 中版本 footer 上方的空白
 -（可选）drawer session 列表与 Settings entry 之间的空白
 
-一个 glyph、三个 call site、一个 composable，落在 `ui/theme/Ornaments.kt`。
+一个 glyph、两个 call site、一个 composable，落在 `ui/theme/Ornaments.kt`。
+
+> **撤回的 call site：**原方案有第三个用法 —— 在 `AgentRow` 里 Trace 与 Final
+> 之间。`uxfb-3` 把这条边界做成结构性的（`AgentRow.kt`：`[trace] [CollapsePill]
+> [FinalAnswer]`），所以在 Complete 行上 pill 本身*就是*边界。fleuron 在 chat
+> 行里没有剩余职责。见 `align-with-uxfb-0422.md`（W1）。
 
 ### 3. 非对称 EmptyState（新构图）
 
@@ -106,14 +115,35 @@ token；复用 `Hairline` 与 `monoSmall`。
 里 inline 渲染。宽度自适应。paw-toe 动画本身就是被设计过的 ornament，不需要
 chip 包它。
 
-### 6. AgentRow 括号
+### 6. AgentTrace 左 rule + CollapsePill summary，统一 register
 
-把 `CollapsedHeader` 里的 `▸` 与 `✓` glyph 换成 mono 括号：
+针对 `uxfb-3/4` 刚发的代码做两个一行改动。两个动作都收紧新 chat 形态已经
+暗示的 ledger voice。
 
-- collapsed：引导 `[+]`，尾部 `· N actions · 4.2s`，monoSmall
-- expanded outcome footer：引导 `[−]`，尾部 `· ✓ N actions · 4.2s`，monoSmall
+**6a. ThoughtGroup 左 rule 重量。**`AgentTrace.kt:109` 把 2dp 左 rule 涂成
+`outlineVariant`（8% Ink）。在 Paper 上 2dp × 8% 的视觉权重大约等于 1dp
+Hairline —— 勉强可接受，长时间阅读偏弱。鉴于这条 rule 现在是说"一个 turn
+从这里开始"的*唯一*marker（`✱` glyph 已退役），它应当具备一根真正结构 divider
+的分量。
 
-`[+]/[−]` 普遍读作"展开/折叠"，且与 ledger 的 JetBrains Mono register 一致。
+```kotlin
+// AgentTrace.kt:109
+.background(MaterialTheme.colorScheme.outline),  // 原为 outlineVariant
+```
+
+**6b. CollapsePill summary register。**`CollapsePill.kt:72` 把 summary
+（`✓ N actions · 12s`）渲染成 `labelLarge`（Geist medium 14sp）。旁边的
+chevron 是 `monoBody`（JetBrains Mono）。summary 内容本身就是 ledger 形 ——
+统一 register，让整个 pill 读作一个 machine-ledger 对象。
+
+```kotlin
+// CollapsePill.kt:72
+style = MaterialTheme.closePaw.monoSmall,        // 原为 labelLarge
+```
+
+> 早先关于 `CollapsedHeader` 用 `[+]/[−]` mono 括号的 move 已撤回 ——
+> `uxfb-3` 发布的真正 `CollapsePill` 带可旋转 chevron，已取代它。
+> 见 `align-with-uxfb-0422.md`（W2）。
 
 ### 7. Capsule ledger 计数器
 
@@ -121,14 +151,19 @@ chip 包它。
 加一个 mono 计数器：
 
 ```
-[●]  [t+12s]  reading inbox…
- ↑    ↑       ↑ titleMedium, inkMuted (现状)
- paw  monoSmall, inkFaint
+[●]  [t+12s]  reading inbox — three threads landed, the dentist…→ marqueeing
+ ↑    ↑       ↑ titleMedium, basicMarquee（uxfb-2），reduced-motion → compactThought()
+ paw  monoSmall, inkFaint —— 固定
 ```
 
 通过 `LaunchedEffect(mode)` 的 ticker 每 1s 更新。Done/Error 时停。Reduced-motion：
 继续 tick（这是 status signal，不是装饰——与 streaming cursor blink 同类，
 对应 `Motion.kt:42-43`）。
+
+**布局注意：**ledger 计数器是**独立的 `Text`**，放在 thought `Text` 之前，
+**不要**包进 marquee 的 row。paw 与 ledger 保持固定，只有 thought 滚动。
+Reduced-motion 下 ledger 仍 tick；thought 退到 `compactThought()`（沿用
+uxfb-2 既有契约）—— 两者独立。
 
 这是这一轮里产品功能性最强的 ornament ——用户以前就要过 elapsed time；editorial
 register 让加上它显得免费。

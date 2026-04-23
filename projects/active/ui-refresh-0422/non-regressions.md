@@ -15,7 +15,7 @@
 | **Two divider levels only** — `Hairline` (12% Ink) between components, `InkGhost` (8% Ink) inside a composed surface | Held. UserBubble left rule reuses `Hairline`. The `FinalSeparator` rule is *replaced* by the fleuron — no new divider level introduced. |
 | **Mono is reserved for machine-like strings**, not a blanket "executing mode" font swap | Held. New mono call sites are: capsule `[t+12s]` ledger counter (machine timing), `[+]/[−]` collapse brackets (interaction-state ledger), `live` pill (state ledger). Suggestion verbs in EmptyState **stay in `bodyLarge` Geist** — explicitly *not* mono — because they are user-voice prose, not machine output. |
 | **Capsule breath in Running only** | Held. Send-button breath is one-shot on submit, not a continuous loop. |
-| **Track A row voice locked**: Thought=Geist italic, Action=mono, Final=Geist regular | Held. The thought/action/final styles in `MessageBubble.kt` are unchanged; only `FinalSeparator`, `CollapsedHeader`, `OutcomeFooter` ornaments change. |
+| **Track A row voice locked**: Thought=Geist regular (post uxfb-4), Action=mono, Final=Geist regular | Held. ThoughtHeader / Action / Text styles in `AgentTrace.kt` are unchanged; this round only touches `UserBubble`, `ThinkingIndicator`, the `AgentTrace` left-rule color (N2), and the `CollapsePill` summary register (N3). |
 | **Reduced-motion contract** read once per call site, no global wrapper | Held. EmptyState stagger and send-button breath each call `ClosePawMotion.reducedMotion()` and skip locally; capsule counter ticks unconditionally (status signal, same class as streaming cursor). |
 | **Horizontal page padding is `lg` (20dp), hard invariant** | Held. `smartCapsuleHostPadding` (16dp) and per-screen padding values are unchanged. |
 | **Three Material radii only** — small (8) / medium (10) / large (16) | Held. No new shape constants. |
@@ -51,20 +51,28 @@ identity surfaces entirely and use only italic Regular at every identity
 call site, including title slots. Either path keeps the "Fraunces is identity"
 discipline intact.
 
-### 2. JetBrains Mono extended to `[+]/[−]` collapse brackets
+### 2. JetBrains Mono extended to `CollapsePill` summary text
 
 **Prior wording:** `Mono is allowed only for explicitly machine-like strings,
 not as a blanket "executing mode" font swap.`
 
-**This round:** brackets used in `CollapsedHeader` and `OutcomeFooter` to
-represent collapse state are set in `monoSmall`.
+**This round:** `CollapsePill.kt:72` summary text (which renders strings of
+the form `✓ N actions · 12s`) moves from `labelLarge` (Geist medium) to
+`monoSmall` (move 6b in `direction.md`).
 
-**Justification:** the brackets are a textual rendering of UI control state
-(equivalent to a `▸` / `▾` icon), not narrative prose. They sit alongside
-existing mono action subtitles, mono ledger dates, and the new ledger counter
-— same register, same role. They are *not* a font swap on row body content;
-the headline summary, action descriptions, and Final body all stay in their
-existing voices.
+**Justification:** the summary content is itself ledger-shaped (status glyph
++ count + duration), and the chevron next to it is already `monoBody`. The
+swap unifies a tiny 32dp surface so it reads as one machine-ledger object.
+It sits alongside existing mono action subtitles, mono drawer ledger dates,
+and the new capsule ledger counter — same register, same role. It is *not*
+a font swap on row body content; ThoughtHeader, action descriptions, and
+FinalAnswer body all stay in Geist.
+
+> The earlier draft of this section justified `[+]/[−]` mono *brackets* in
+> the legacy `CollapsedHeader`. That move was withdrawn after `uxfb-3`
+> shipped a real `CollapsePill` with a rotating chevron — see
+> `align-with-uxfb-0422.md` (W2). The mono-summary swap above is the
+> remaining mono expansion this round actually introduces.
 
 ## Things from the prior round this proposal explicitly does **not** revisit
 
@@ -84,8 +92,9 @@ After implementation, confirm:
       headers, EmptyState question, Fleuron ornament. (Italic Regular
       everywhere.)
 - [ ] Mono appears only in: ledger dates (drawer, settings footer), action
-      subtitles (existing), capsule ledger counter (new), `[+]/[−]` brackets
-      (new), `live` pill (new).
+      subtitles (existing), capsule ledger counter (new, sits outside
+      marquee), `CollapsePill` summary (new — move 6b), `live` pill (new),
+      `CollapsePill` chevron (existing, uxfb-3).
 - [ ] Geist body voice covers all prose, including suggestion verbs.
 - [ ] No new color slot in `Color.kt`. No new shape in `Shape.kt`. No new
       duration in `Motion.kt`.

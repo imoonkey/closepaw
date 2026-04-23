@@ -1,8 +1,15 @@
-# Critique — current state, post-D2
+# Critique — current state, post-D2 + post-uxfb
 
 > Reviewed: 2026-04-22. Files inspected: theme/*, chat/*, capsule/surface/*,
 > onboarding/{OnboardingScreen,OnboardingShell}, settings/SettingsHomePage,
 > navigation/NavigationDrawer.
+>
+> Reflects code as of `08ae6378` — i.e. after `uxfb-1 → uxfb-followup` landed
+> ThoughtGroup, CollapsePill, FinalText, and capsule marquee. Two earlier
+> findings (`FinalSeparator` weight, `✱`-glyph + italic-Thought hierarchy)
+> were absorbed by that work and have been removed; two new findings
+> (AgentTrace left-rule weight, CollapsePill summary register) replaced them.
+> See `align-with-uxfb-0422.md` for the diff history.
 >
 > Severity legend: **[H]** = breaks brand identity or trust signal,
 > **[M]** = competent but generic, **[L]** = polish.
@@ -56,14 +63,25 @@
   (12% Ink). The destructive verb reads as "muted text + warm icon," not "stop."
 - **Move:** explicit `BorderStroke(1.dp, MaterialTheme.colorScheme.error)`.
 
-### [H] `FinalSeparator` between Trace and Final is a barely-visible JPEG line
-- `MessageBubble.kt:262-272` — 1dp `outlineVariant` (8% Ink). On a Paper
-  surface the rule is below the just-noticeable-difference threshold for many
-  displays at typical brightness. The "switch from agent reasoning to its
-  answer" beat — one of the most important rhythm moments in the chat — has
-  no perceptual signal.
-- **Move:** centered Fraunces fleuron (`❦` U+2767) at `inkFaint`, no rule.
-  Restores the editorial-print metaphor and is unambiguously visible.
+### [H] AgentTrace 2dp left rule is below visual weight for a *primary* structural marker
+- `AgentTrace.kt:105-110` (landed in `uxfb-4`) replaced the legacy `✱` glyph with
+  a 2dp left rule as the ThoughtGroup marker. The rule is colored
+  `outlineVariant` (8% Ink). On Paper, 2dp × 8% computes to roughly the visual
+  weight of a 1dp Hairline — borderline acceptable, faint in sustained reading.
+  Since the rule is now the *only* marker that says "a turn starts here," it
+  deserves the weight of an actual structural divider.
+- **Move:** swap to `MaterialTheme.colorScheme.outline` (Hairline, 12% Ink). At
+  2dp × 12% the rule reads as a confident vertical column without becoming a
+  heavy divider. One-line code change.
+
+### [M] CollapsePill summary text is in the wrong typographic register
+- `CollapsePill.kt:70-73` (landed in `uxfb-3`) renders the summary
+  (`✓ N actions · 12s`) as `labelLarge` (Geist medium). The chevron next to it
+  is `monoBody` (JetBrains Mono). The summary content is itself ledger-shaped
+  (status + count + duration). The pill mixes registers in a tiny 32dp surface.
+- **Move:** swap summary style from `labelLarge` → `MaterialTheme.closePaw.monoSmall`
+  so the whole pill reads as one machine-ledger object. Falls within D1 mono
+  usage (numeric + state, not narrative prose). One-line code change.
 
 ### [M] EmptyState is grid-centered and predictable
 - `EmptyState.kt:32-94` — paw → title → subtitle → 3 vertically stacked chips,

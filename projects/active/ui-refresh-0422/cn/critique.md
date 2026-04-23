@@ -1,8 +1,14 @@
-# 当前状态评审 — post-D2
+# 当前状态评审 — post-D2 + post-uxfb
 
 > 评审日期：2026-04-22。检视文件：theme/*、chat/*、capsule/surface/*、
 > onboarding/{OnboardingScreen,OnboardingShell}、settings/SettingsHomePage、
 > navigation/NavigationDrawer。
+>
+> 反映的代码状态截至 `08ae6378` —— 即 `uxfb-1 → uxfb-followup` 落地了
+> ThoughtGroup、CollapsePill、FinalText、capsule marquee 之后。先前的两条
+> finding（`FinalSeparator` 重量、`✱` glyph + italic Thought 倒置层级）已被
+> 该工作吸收并移除；两条新 finding（AgentTrace 左 rule 重量、CollapsePill
+> summary register）顶替进来。差异历史见 `align-with-uxfb-0422.md`。
 >
 > Severity：**[H]** = 破坏 brand identity 或 trust signal，
 > **[M]** = 称职但平庸，**[L]** = 抛光。
@@ -55,13 +61,24 @@
   不是"stop"。
 - **动作：**显式 `BorderStroke(1.dp, MaterialTheme.colorScheme.error)`。
 
-### [H] Trace 与 Final 之间的 `FinalSeparator` 是几乎看不见的 JPEG 线
-- `MessageBubble.kt:262-272` — 1dp `outlineVariant`（8% Ink）。在 Paper surface
-  上，这条线在常见亮度下低于多数显示器的 just-noticeable-difference。
-  "agent 推理切换到 agent 答案"——chat 里最重要的节奏拍子之一——目前没有任何
-  感知信号。
-- **动作：**居中的 Fraunces fleuron（`❦` U+2767），`inkFaint`，不再用线。
-  恢复 editorial-print 的隐喻，且无歧义可见。
+### [H] AgentTrace 2dp 左 rule 作为*主要*结构标记，分量不够
+- `AgentTrace.kt:105-110`（`uxfb-4` 落地）用 2dp 左 rule 作为 ThoughtGroup
+  marker，替代了原先的 `✱` glyph。颜色是 `outlineVariant`（8% Ink）。在 Paper 上
+  2dp × 8% 的视觉权重大致等于 1dp Hairline —— 勉强可接受，长时间阅读偏弱。
+  鉴于这条 rule 现在是说"一个 turn 从这里开始"的*唯一*marker，它应当具备一根
+  真正结构 divider 的分量。
+- **动作：**改用 `MaterialTheme.colorScheme.outline`（Hairline，12% Ink）。
+  2dp × 12% 让 rule 读作一根有信心的垂直 column，又不至于变成厚重 divider。
+  一行代码改动。
+
+### [M] CollapsePill summary 文本走错了 typographic register
+- `CollapsePill.kt:70-73`（`uxfb-3` 落地）把 summary（`✓ N actions · 12s`）渲染
+  成 `labelLarge`（Geist medium）。旁边的 chevron 是 `monoBody`（JetBrains Mono）。
+  summary 内容本身就是 ledger 形（status + 数量 + 时长）。这个 32dp 的小 surface
+  上混了两种 register。
+- **动作：**summary style 从 `labelLarge` → `MaterialTheme.closePaw.monoSmall`，
+  让整个 pill 读作一个 machine-ledger 对象。落在 D1 mono 使用规则内（数值 +
+  状态，不是叙述 prose）。一行代码改动。
 
 ### [M] EmptyState 是网格居中、可预测的
 - `EmptyState.kt:32-94` — paw → title → subtitle → 三个垂直堆叠的 chip，全
