@@ -54,8 +54,9 @@ import androidx.compose.ui.unit.dp
 import ai.closepaw.history.model.SessionInfo
 import ai.closepaw.ui.session.TimeUtils
 import ai.closepaw.ui.theme.AppWindowInsets
-import ai.closepaw.ui.theme.Fraunces
+import ai.closepaw.ui.theme.PageMasthead
 import ai.closepaw.ui.theme.closePaw
+import ai.closepaw.ui.theme.todayLabel
 
 /**
  * NavigationDrawer - Side drawer containing session history and settings access.
@@ -157,7 +158,7 @@ fun NavigationDrawerContent(
 }
 
 /**
- * Drawer header with title and close button.
+ * Drawer header — Bound Edition running head + close affordance.
  */
 @Composable
 private fun DrawerHeader(
@@ -167,16 +168,15 @@ private fun DrawerHeader(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "Sessions",
-            style = MaterialTheme.typography.titleLarge.copy(fontFamily = Fraunces),
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
+        PageMasthead(
+            title = "Sessions",
+            rightSlot = todayLabel(),
+            leadingPaw = true,
+            modifier = Modifier.weight(1f),
         )
-        
+
         IconButton(onClick = onClose) {
             Icon(
                 imageVector = Icons.Rounded.Close,

@@ -2,13 +2,19 @@ package ai.closepaw.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -18,6 +24,11 @@ import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.protocol.AgentMode
 import ai.closepaw.protocol.LLMBackendType
 import ai.closepaw.protocol.PlatformMode
+import ai.closepaw.ui.theme.Fleuron
+import ai.closepaw.ui.theme.PageMasthead
+import ai.closepaw.ui.theme.SectionHeader
+import ai.closepaw.ui.theme.closePaw
+import ai.closepaw.ui.theme.todayLabel
 
 @Composable
 internal fun SettingsHomePage(
@@ -37,38 +48,60 @@ internal fun SettingsHomePage(
     onDismiss: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        SettingsHeader(onClose = onDismiss)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PageMasthead(
+                title = "Settings",
+                rightSlot = todayLabel(),
+                leadingPaw = true,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "Close",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            SectionHeader("Voice")
             SettingsNavigationRow(
                 title = "LLM & Authentication",
                 subtitle = llmSubtitle(llmBackend, selectedModel, modelOptions, selectedLocalModel, modelCatalog),
                 onClick = { onNavigate(SettingsPage.LLM_AUTH) }
             )
 
+            SectionHeader("Behavior")
             SettingsNavigationRow(
                 title = "Agent Behavior",
                 subtitle = agentBehaviorSubtitle(agentMode, maxTurns, perceptionMode),
                 onClick = { onNavigate(SettingsPage.AGENT_BEHAVIOR) }
             )
 
+            SectionHeader("System")
             SettingsNavigationRow(
                 title = "Permissions & Advanced",
                 subtitle = permissionsSubtitle(isAccessibilityEnabled, isOverlayEnabled, debugMode, effectivePlatformMode),
                 onClick = { onNavigate(SettingsPage.PERMISSIONS_ADVANCED) }
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Fleuron()
 
             Text(
                 text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.closePaw.monoSmall,
+                color = MaterialTheme.closePaw.inkFaint,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )

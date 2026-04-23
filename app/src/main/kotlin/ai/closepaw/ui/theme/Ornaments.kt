@@ -15,8 +15,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -24,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ai.closepaw.R
+import android.text.format.DateFormat
+import java.util.Date
 
 // "Bound Edition" ornaments. Single source for the paper-zine register —
 // fleuron + running-head — so call sites never reinvent them.
@@ -98,4 +102,30 @@ fun PageMasthead(
             color = MaterialTheme.colorScheme.outline,
         )
     }
+}
+
+// Section subhead — Fraunces italic Regular at 18sp on identity surfaces
+// (e.g. Settings home groupings). Bound Edition direction.md §sectioning.
+@Composable
+fun SectionHeader(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = TextStyle(
+            fontFamily = Fraunces,
+            fontStyle = FontStyle.Italic,
+            fontWeight = FontWeight.Normal,
+            fontSize = 18.sp,
+            lineHeight = 22.sp,
+        ),
+        color = MaterialTheme.closePaw.inkFaint,
+        modifier = modifier.padding(top = 16.dp, bottom = 4.dp),
+    )
+}
+
+// Locale-formatted current day used by [PageMasthead] right-slot ledger.
+@Composable
+fun todayLabel(): String {
+    val context = LocalContext.current
+    val format = remember(context) { DateFormat.getMediumDateFormat(context) }
+    return remember(format) { format.format(Date()) }
 }
