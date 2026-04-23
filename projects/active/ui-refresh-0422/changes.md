@@ -354,11 +354,31 @@ The ticker lives in `SmartCapsuleSurface`:
 val elapsedLabel = produceElapsedLabel(mode)  // ticks 1Hz when Running, null otherwise
 ```
 
-`produceElapsedLabel` is a small composable that uses `LaunchedEffect(mode)`
-+ `delay(1.seconds)` + `remember` of the start timestamp from `mode`. Reduced
-motion has no bearing on the ledger — it's a status, not motion. (The
-thought's marquee independently honors reduced-motion via the existing
-uxfb-2 fallback to `compactThought()`.)
+`produceElapsedLabel` is a small composable that ticks at 1Hz while the
+capsule is in `Running` and returns `null` otherwise.
+
+> **N1 correctness gate (per codex review 2026-04-22, GO-WITH-CHANGES):**
+> The elapsed clock must NOT be keyed off the full `mode` value or the
+> full `CapsuleMode.Running` instance. `CapsuleStateHolder` recreates
+> `CapsuleMode.Running(...)` on every thought update
+> (`CapsuleStateHolder.kt:162-165`), so a literal `LaunchedEffect(mode)`
+> resets the counter every time the agent emits a new thought.
+>
+> Implementation rule: latch a `runningStartedAtMs: Long` inside
+> `SmartCapsuleSurface` when the surface transitions into `Running` from
+> a non-`Running` mode (use the existing `previousMode` seam at
+> `SmartCapsuleSurface.kt:72-83`). Keep the latch stable across
+> `onThoughtUpdate`. Recompute elapsed off `System.currentTimeMillis() -
+> runningStartedAtMs`. Drop the latch on transition out of `Running`.
+>
+> Phase 5 verify gate: prove (a) the ledger `Text` node is a sibling of
+> the marqueed thought `Text` (not nested inside the marquee) and
+> (b) the elapsed label monotonically advances across at least one
+> `onThoughtUpdate` call.
+
+Reduced motion has no bearing on the ledger — it's a status, not motion.
+(The thought's marquee independently honors reduced-motion via the
+existing uxfb-2 fallback to `compactThought()`.)
 
 #### `StartupErrorBanner` (lines 184-220)
 
