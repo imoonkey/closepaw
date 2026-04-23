@@ -1,7 +1,7 @@
 # UI User Interaction
 
 > Pages, components, and user interaction flows.
-> Last updated: 2026-02-22 (commit: 2d13bb1)
+> Last updated: 2026-04-22 (Bound Edition: mastheads, marginalia EmptyState, ledger counter)
 
 ## Overview
 
@@ -15,7 +15,7 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 ┌────────────────────────────────────────────────────────────────┐
 │                        ChatScreen                              │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │ ChatHeader     │ [≡] ClosePaw [+]                       │   │
+│  │ ChatHeader     │ [≡] · paw · ClosePaw · todayLabel · [+] │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
 │  │ MessageList   │ User/Agent bubbles, Action cards        │   │
 │  ├───────────────┼─────────────────────────────────────────┤   │
@@ -34,13 +34,60 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 
 | Component | Purpose |
 |-----------|---------|
-| **ChatHeader** | Menu (≡) left, title center, new chat (+) right (visible when messages exist) |
+| **ChatHeader** | `[≡]` menu + `PageMasthead("ClosePaw", todayLabel())` + `[+]` new chat (when messages exist). The masthead carries the leading paw, Fraunces italic title, and `monoSmall` ledger date — see `style.md` Bound Edition Ornaments |
 | **MessageBubble** | User/Agent message bubbles (asymmetric corner shapes; text wrapped in `SelectionContainer` so users can long-press to select & copy via the native menu) |
 | **StreamingText** | Text with blinking cursor (530ms alpha animation) |
-| **ThinkingIndicator** | 3 animated dots (staggered 200ms delay, 600ms alpha cycle) |
+| **ThinkingIndicator** | Paw-toe sequence + Fraunces italic "Thinking…" label, polite live region |
 | **ActionCard** | Tool execution card with state-dependent styling |
-| **EmptyState** | First-launch with SmartToy icon + 3 suggestion chips |
-| **SmartCapsuleSurface** | Capsule layout: status line + detail body + control bar + input bar |
+| **EmptyState** | Asymmetric marginalia layout (Bound Edition) — see below |
+| **SmartCapsuleSurface** | Capsule layout: status line (paw + `[t+Xs]` ledger when Running + thought) + detail body + control bar + input bar |
+
+### Mastheaded Surfaces
+
+The `PageMasthead` running-head appears on the three "page-level" identity
+surfaces; each pairs the leading paw + Fraunces italic title with a
+`todayLabel()` ledger in the right slot:
+
+| Surface | Title | Trailing slot |
+|---|---|---|
+| `ChatHeader` | "ClosePaw" | `[+]` new-chat icon (when messages exist) |
+| `NavigationDrawer` `DrawerHeader` | "Sessions" | `[×]` close icon |
+| `SettingsHomePage` | "Settings" | `[×]` close icon (in the modal sheet) |
+
+### EmptyState (Bound Edition Marginalia)
+
+Asymmetric one-screen layout, no chips:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ [≡] · paw · ClosePaw · todayLabel ─────────────────  [+] │
+├──────────────────────────────────────────────────────────┤
+│                                            ◐ paw bleed   │
+│                                          ◐◐ (top-right,  │
+│                                          ◐   240dp,      │
+│                                              80% alpha)  │
+│                                                          │
+│                                                          │
+│  What can I                                              │
+│  help you with?           ← Fraunces italic 32sp         │
+│                                                          │
+│  ─── (80dp hairline rule)                                │
+│                                                          │
+│  → Check                                                 │
+│    my unread emails       ← marginalia: verb (Geist)     │
+│  → Turn on                  + gloss (Fraunces italic)    │
+│    Do Not Disturb                                        │
+│  → Search                                                │
+│    for nearby restaurants                                │
+└──────────────────────────────────────────────────────────┘
+```
+
+- Title and rule + 3 suggestions are `StaggeredReveal` (80ms-stepped
+  fade + slide); reduced-motion renders them visible immediately.
+- Each suggestion row is its own tap target; tap dispatches the same
+  prompt that the legacy chip used to send.
+- The `→` is an ASCII arrow (Geist), not mono — D1 reserves mono for
+  machine text. Verb is `bodyLarge`; gloss is `bodyItalic` `inkMuted`.
 
 ### ActionCard States
 
@@ -54,9 +101,25 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 
 ### EmptyState Suggestion Chips
 
-- "Check my unread emails"
-- "Turn on Do Not Disturb"
-- "Search for nearby restaurants"
+Replaced in 2026-04-22 by the marginalia layout described under
+"EmptyState (Bound Edition Marginalia)" above. Suggestion *content* is
+unchanged ("Check my unread emails", "Turn on Do Not Disturb", "Search
+for nearby restaurants") — only the visual register moved from chip
+shapes to verb-and-gloss rows.
+
+### Capsule Running Counter
+
+While the capsule is in `Running` mode, the status line shows a
+monospaced elapsed-time chip (`[t+12s]`, `monoSmall`, `inkFaint`) wedged
+between the paw glyph and the thought text. The counter latches at the
+moment the surface enters `Running` and ticks at 1Hz; it does NOT reset
+when the agent emits a new thought (the `Running` mode value is
+recreated on every `onThoughtUpdate`, but the latch is keyed off the
+running-vs-not transition only). See `style.md` "Ledger Counter
+(Capsule Running Mode)" for the implementation contract.
+
+The ledger sits *outside* the thought's `basicMarquee` modifier: paw +
+ledger stay fixed, only the thought scrolls when truncated.
 
 ---
 
@@ -68,7 +131,7 @@ Opens via menu button (≡). Contains session history and settings access.
 
 ```
 ┌─────────────────────────────────┐
-│  Sessions                   [X] │
+│ paw · Sessions · todayLabel · X │
 ├─────────────────────────────────┤
 │  [ + New Conversation ]         │
 ├─────────────────────────────────┤

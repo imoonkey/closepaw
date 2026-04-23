@@ -1,7 +1,7 @@
 # UI Style Guide
 
 > Design system: D1 visual baseline wired through Material 3 + one thin token surface.
-> Last updated: 2026-04-22 (post-D2 polish + font binaries shipped)
+> Last updated: 2026-04-22 (Bound Edition: ornaments + paper grain + ledger counter)
 
 ## Design System
 
@@ -22,6 +22,8 @@ authoritative reference.
 | `Tokens.kt` | `ClosePawTokens`, `ClosePawSpacing`, `Modifier.foldedPaper`, `MaterialTheme.closePaw` accessor |
 | `Motion.kt` | `ClosePawMotion` (durations, easings, named primitives, `reducedMotion()`) |
 | `Type.kt` | `ClosePawTypography` — Geist on every Material slot; identity / mono extras carried in `ClosePawTokens` |
+| `Ornaments.kt` | `Fleuron`, `PageMasthead`, `SectionHeader`, `todayLabel` — the Bound Edition paper-zine register |
+| `PaperGrain.kt` | `Modifier.paperGrain` (light) and `Modifier.lanternVignette` (dark) background passes |
 | `WindowInsets.kt` | `AppWindowInsets` singleton |
 
 ### ClosePawTheme
@@ -173,6 +175,81 @@ the existing `Surface`, not wrapped around one.
 
 ---
 
+## Bound Edition Ornaments
+
+> See: `ui/theme/Ornaments.kt`
+
+Three ornaments give the chat shell its paper-zine register. Call sites use
+these primitives directly — never reinvent the glyph or layout.
+
+| Primitive | Purpose | Where |
+|---|---|---|
+| `Fleuron()` | Centered Fraunces italic `❦` (16sp, `inkFaint`), 12dp vertical padding. The single shared section divider. | Settings home (above Version footer); end-of-conversation seal candidates |
+| `PageMasthead(title, rightSlot, leadingPaw)` | Running-head row: optional paw glyph + Fraunces italic title (18sp `onSurface`) + optional `monoSmall` right slot, followed by a 1dp `outline` hairline. | `ChatHeader`, `NavigationDrawer` header, `SettingsHomePage` |
+| `SectionHeader(text)` | Fraunces italic 18sp `inkFaint`, 16dp top / 4dp bottom padding. Section subhead inside identity surfaces. | Settings home (`Voice`, `Behavior`, `System`) |
+| `todayLabel()` | Locale-formatted current day from `DateFormat.getMediumDateFormat`. The canonical right-slot ledger string for `PageMasthead`. | All masthead surfaces |
+
+### Mastheaded Surfaces
+
+The `PageMasthead` running-head appears on every "page-level" identity surface:
+
+- `ChatHeader` — `[≡] · paw · ClosePaw · todayLabel · [+]`
+- `NavigationDrawer` `DrawerHeader` — `paw · Sessions · todayLabel · [×]`
+- `SettingsHomePage` — `paw · Settings · todayLabel`
+
+The leading paw + Fraunces italic title + monoSmall ledger date is the
+identity contract — the right slot is text-only and read-only (no tap target).
+
+---
+
+## Paper Grain & Lantern Vignette
+
+> See: `ui/theme/PaperGrain.kt`
+
+Two complementary background modifiers, theme-selected:
+
+| Modifier | Theme | Behavior |
+|---|---|---|
+| `Modifier.paperGrain(strength = 0.015f)` | Light only (no-op in dark) | Tiles a 256×256 deterministic-noise bitmap (seed = `42`) tinted at `onSurface`, alpha = `strength`, repeated across the surface |
+| `Modifier.lanternVignette()` | Dark only (no-op in light) | Radial gradient from transparent → `primary @ 6% alpha`, centered, radius = `0.7 × max(width, height)` |
+
+The grain bitmap is `remember`-cached per (strength, ink) so the bake runs
+once. Detection is luminance-based on `colorScheme.background` — calling
+either modifier in the wrong theme is safe and free.
+
+Apply at the outermost `Box` / `Scaffold` of any identity surface (chat shell,
+empty state, settings home). Do not stack — one grain pass per surface.
+
+---
+
+## Ledger Counter (Capsule Running Mode)
+
+> See: `ui/capsule/surface/SmartCapsuleSurface.kt` — `produceElapsedLabel(...)`
+
+While the capsule is in `Running` mode, the status line carries a monospaced
+elapsed-time chip (`[t+12s]`, `monoSmall`, `inkFaint`) immediately to the
+right of the paw glyph and immediately to the left of the (potentially
+marqueed) thought text.
+
+**Critical layout invariant:** the ledger `Text` is a *sibling* of the
+thought `Text` inside the same `Row`, never nested inside the thought's
+`basicMarquee` modifier. Paw + ledger stay fixed; only the thought scrolls.
+
+**Latch contract (N1 correctness gate, 2026-04-22 codex review):**
+`CapsuleStateHolder` recreates `CapsuleMode.Running(...)` on every
+`onThoughtUpdate`, so the ticker MUST NOT key off the full `mode` value.
+`SmartCapsuleSurface` latches a `runningStartedAtMs: Long?` when the surface
+transitions *into* `Running` from a non-`Running` mode and clears it on
+transition out. Elapsed = `System.currentTimeMillis() - runningStartedAtMs`,
+ticking at 1Hz. Verified: counter advances `[t+40s] → [t+55s]` across
+multiple thought updates within a single Running session.
+
+The ledger is a status, not motion — `reducedMotion()` has no effect on it.
+The thought's marquee independently honors reduced motion via the existing
+`compactThought()` fallback.
+
+---
+
 ## File Structure
 
 ```
@@ -183,6 +260,8 @@ ui/theme/
 ├── Tokens.kt         # ClosePawTokens, ClosePawSpacing, MaterialTheme.closePaw, foldedPaper
 ├── Motion.kt         # ClosePawMotion (durations, easings, primitives, reducedMotion)
 ├── Type.kt           # ClosePawTypography (Geist) + identity / mono extras
+├── Ornaments.kt      # Fleuron, PageMasthead, SectionHeader, todayLabel
+├── PaperGrain.kt     # Modifier.paperGrain (light) / Modifier.lanternVignette (dark)
 └── WindowInsets.kt   # AppWindowInsets singleton
 ```
 
