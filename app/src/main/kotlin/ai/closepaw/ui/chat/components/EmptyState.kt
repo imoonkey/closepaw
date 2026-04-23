@@ -1,119 +1,193 @@
 package ai.closepaw.ui.chat.components
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ai.closepaw.R
+import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
+import ai.closepaw.ui.theme.paperGrain
+import kotlinx.coroutines.delay
+
+private data class Suggestion(val verb: String, val gloss: String) {
+    val full: String get() = "$verb $gloss"
+}
+
+private val SUGGESTIONS = listOf(
+    Suggestion("Check", "my unread emails"),
+    Suggestion("Turn on", "Do Not Disturb"),
+    Suggestion("Search", "for nearby restaurants"),
+)
 
 /**
- * EmptyState — first launch experience with suggestions.
- * Identity-tier subtitle uses the Fraunces serif italic from `ClosePawTokens`.
+ * EmptyState — Bound Edition first page. The 240dp paw bleeds from the top-right
+ * corner; the question and marginalia suggestions sit in the lower-left third,
+ * separated by a 64dp hairline rule. Reveal staggers at 80ms intervals over
+ * `TraceEnter`; reduced-motion renders everything immediately.
  */
 @Composable
 fun EmptyState(
     onSuggestionClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.closePaw.spacing
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(spacing.xl),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .clipToBounds()
+            .paperGrain(),
     ) {
-        // D1 §6.2: large paw watermark, Ink at full opacity.
+        // Top-right paw, bleeds beyond the corner (clipped by Box bounds).
         Icon(
             painter = painterResource(R.drawable.ic_paw),
             contentDescription = null,
-            modifier = Modifier.size(160.dp),
-            tint = MaterialTheme.colorScheme.onSurface
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.80f),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 56.dp, y = (-32).dp)
+                .size(240.dp),
         )
-
-        Spacer(modifier = Modifier.height(spacing.lg + spacing.xs))
-
-        Text(
-            text = "ClosePaw",
-            style = MaterialTheme.typography.headlineMedium.copy(fontFamily = Fraunces),
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(modifier = Modifier.height(spacing.sm))
-
-        // Identity-tier serif italic per Track A / aligned visual spec §6.
-        Text(
-            text = "What can I help you with?",
-            style = MaterialTheme.closePaw.serifItalic,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(spacing.xl + spacing.sm))
 
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(spacing.md)
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(horizontal = spacing.lg)
+                .padding(bottom = spacing.xl),
         ) {
-            SuggestionChip(
-                text = "Check my unread emails",
-                onClick = { onSuggestionClick("Check my unread emails") }
-            )
+            StaggeredReveal(index = 0) {
+                Text(
+                    text = "What can I\nhelp you with?",
+                    style = TextStyle(
+                        fontFamily = Fraunces,
+                        fontStyle = FontStyle.Italic,
+                        fontSize = 32.sp,
+                        lineHeight = 38.sp,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
 
-            SuggestionChip(
-                text = "Turn on Do Not Disturb",
-                onClick = { onSuggestionClick("Turn on Do Not Disturb") }
-            )
+            Spacer(Modifier.size(spacing.md))
 
-            SuggestionChip(
-                text = "Search for nearby restaurants",
-                onClick = { onSuggestionClick("Search for nearby restaurants") }
-            )
+            StaggeredReveal(index = 1) {
+                HorizontalDivider(
+                    modifier = Modifier.width(64.dp),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+
+            Spacer(Modifier.size(spacing.md))
+
+            SUGGESTIONS.forEachIndexed { i, s ->
+                StaggeredReveal(index = 2 + i) {
+                    MarginaliaSuggestion(
+                        verb = s.verb,
+                        gloss = s.gloss,
+                        onClick = { onSuggestionClick(s.full) },
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SuggestionChip(
-    text: String,
+private fun MarginaliaSuggestion(
+    verb: String,
+    gloss: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.closePaw.spacing
-    Surface(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+            .clickable(onClick = onClick)
+            .padding(vertical = spacing.sm),
+        verticalAlignment = Alignment.Top,
     ) {
+        // ASCII arrow — D1 reserves mono for machine text, so this stays bodyLarge.
         Text(
-            text = "\"$text\"",
-            modifier = Modifier.padding(horizontal = spacing.lg, vertical = spacing.md + spacing.xs),
+            text = "→",
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.closePaw.inkFaint,
         )
+        Spacer(Modifier.width(spacing.sm))
+        Column {
+            Text(
+                text = verb,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = gloss,
+                style = MaterialTheme.closePaw.bodyItalic,
+                color = MaterialTheme.closePaw.inkFaint,
+            )
+        }
     }
 }
 
+// 4-step choreography per motion.md: each index waits 80ms longer than the
+// previous, then fades + slides 8dp into place over `TraceEnter`. Reduced-motion
+// short-circuits to immediate render.
+@Composable
+private fun StaggeredReveal(
+    index: Int,
+    content: @Composable () -> Unit,
+) {
+    if (ClosePawMotion.reducedMotion()) {
+        content()
+        return
+    }
+    val offsetPx = with(LocalDensity.current) { 8.dp.roundToPx() }
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(index * 80L)
+        visible = true
+    }
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(animationSpec = tween(ClosePawMotion.TraceEnter)) +
+            slideInVertically(
+                animationSpec = tween(ClosePawMotion.TraceEnter),
+                initialOffsetY = { offsetPx },
+            ),
+    ) {
+        content()
+    }
+}
