@@ -1,5 +1,8 @@
 package ai.closepaw.ui.onboarding
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,13 +11,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,64 +25,52 @@ import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
 import ai.closepaw.ui.theme.closePaw
 
 /**
- * In-chat repair card shown when a permission is revoked after onboarding completes.
+ * PermissionRepairCard — floating advisory shown above the input bar when a
+ * permission required for autonomous operation is revoked or never granted.
  *
- * Not a full wizard replay — just a targeted fix for the specific revoked permission.
+ * Renders as a thin paper-toned card (44dp per row) with an inline Rust dot,
+ * a brief sentence, and an outlined Fix button. Caller is responsible for
+ * positioning it above the input bar (typical: as a Column entry inside
+ * Scaffold's bottomBar, above SmartCapsuleSurface). One row per missing
+ * permission so multiple issues stack visually.
  */
 @Composable
 fun PermissionRepairCard(
     model: PermissionRepairModel,
     onFixAccessibility: () -> Unit,
     onFixOverlay: () -> Unit,
-    onFixBattery: () -> Unit
+    onFixBattery: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Card(
-        modifier = Modifier
+    Surface(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(10.dp),
+        tonalElevation = 2.dp,
+        shadowElevation = 2.dp,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Filled.Warning,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.error
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "SETUP ISSUE",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
+        Column {
             if (model.accessibilityMissing) {
                 RepairRow(
-                    label = "Accessibility service is disabled. The agent cannot automate tasks.",
-                    buttonLabel = "Fix",
-                    onClick = onFixAccessibility
+                    text = "Accessibility disabled",
+                    detail = "Agent cannot automate.",
+                    onFix = onFixAccessibility,
                 )
             }
-
             if (model.overlayMissing) {
                 RepairRow(
-                    label = "Overlay permission is revoked. You won't see controls while the agent works.",
-                    buttonLabel = "Fix",
-                    onClick = onFixOverlay
+                    text = "Overlay revoked",
+                    detail = "Capsule controls hidden during tasks.",
+                    onFix = onFixOverlay,
                 )
             }
-
             if (model.batteryMissing) {
                 RepairRow(
-                    label = "Battery optimization re-enabled. Long tasks may stop.",
-                    buttonLabel = "Fix",
-                    onClick = onFixBattery
+                    text = "Battery optimization on",
+                    detail = "Long tasks may stop.",
+                    onFix = onFixBattery,
                 )
             }
         }
@@ -90,25 +79,50 @@ fun PermissionRepairCard(
 
 @Composable
 private fun RepairRow(
-    label: String,
-    buttonLabel: String,
-    onClick: () -> Unit
+    text: String,
+    detail: String,
+    onFix: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .height(44.dp)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.closePaw.monoBody,
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.weight(1f)
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(MaterialTheme.colorScheme.error, CircleShape),
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        Button(onClick = onClick) {
-            Text(buttonLabel)
+        Spacer(Modifier.width(10.dp))
+        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.closePaw.inkFaint,
+            )
+        }
+        OutlinedButton(
+            onClick = onFix,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                horizontal = 12.dp,
+                vertical = 0.dp,
+            ),
+            modifier = Modifier.height(28.dp),
+        ) {
+            Text(
+                text = "Fix",
+                style = MaterialTheme.closePaw.monoSmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }

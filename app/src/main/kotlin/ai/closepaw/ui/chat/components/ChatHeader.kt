@@ -16,7 +16,6 @@ import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,10 +25,11 @@ import ai.closepaw.ui.theme.PageMasthead
 /**
  * ChatHeader — Bound Edition running head.
  *
- * Layout: [Menu] PageMasthead("ClosePaw" · today) [+]
- * The masthead carries the brand identity (paw + Fraunces italic title +
- * mono ledger date + 1dp Hairline rule). Menu and New-chat icons stay as
- * IconButton affordances on the flanks.
+ * Layout: [Menu] PageMasthead("ClosePaw") [+]
+ *
+ * Renders WITHOUT a backing Surface so the EmptyState paw glyph can bleed
+ * upward into the masthead row. Status-bar inset is applied so the row sits
+ * below the system status bar.
  */
 @Composable
 fun ChatHeader(
@@ -38,54 +38,48 @@ fun ChatHeader(
     showNewChatButton: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    Surface(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.statusBars),
-        color = MaterialTheme.colorScheme.background
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .height(56.dp)
+            .padding(start = 4.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(start = 4.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+        IconButton(
+            onClick = onMenuClick,
+            modifier = Modifier.size(48.dp)
         ) {
+            Icon(
+                imageVector = Icons.Rounded.Menu,
+                contentDescription = "Open menu",
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.width(4.dp))
+
+        PageMasthead(
+            title = "ClosePaw",
+            leadingPaw = true,
+            modifier = Modifier.weight(1f),
+        )
+
+        if (showNewChatButton && onNewChatClick != null) {
             IconButton(
-                onClick = onMenuClick,
+                onClick = onNewChatClick,
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Menu,
-                    contentDescription = "Open menu",
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = "New conversation",
                     modifier = Modifier.size(24.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            PageMasthead(
-                title = "ClosePaw",
-                leadingPaw = true,
-                modifier = Modifier.weight(1f),
-            )
-
-            if (showNewChatButton && onNewChatClick != null) {
-                IconButton(
-                    onClick = onNewChatClick,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = "New conversation",
-                        modifier = Modifier.size(24.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                Spacer(modifier = Modifier.size(48.dp))
-            }
+        } else {
+            Spacer(modifier = Modifier.size(48.dp))
         }
     }
 }

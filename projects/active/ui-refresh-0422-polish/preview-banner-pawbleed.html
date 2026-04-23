@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="zh" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<title>Polish round 2 — banner + paw bleed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400;1,9..144,500&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root[data-theme="light"] {
+  --paper:           #F5F1EA;
+  --paper-inset:     #EDE7DC;
+  --paper-wash:      #EFE8DA;
+  --ink:             #14110F;
+  --ink-muted:       #5C554C;
+  --ink-faint:       #8B8278;
+  --claw:            #C44528;
+  --amber:           #E8A33D;
+  --rust:            #8B2E1F;
+  --rust-soft:       rgba(139,46,31,.10);
+  --error-container: #E0CAC1;
+  --hairline-12:     rgba(20,17,15,.12);
+  --hairline-18:     rgba(20,17,15,.18);
+}
+:root[data-theme="dark"] {
+  --paper:           #0F0D0B;
+  --paper-inset:     #1A1612;
+  --paper-wash:      #1C1813;
+  --ink:             #F0EAE0;
+  --ink-muted:       #B9B0A3;
+  --ink-faint:       #7A7268;
+  --claw:            #E56B4A;
+  --amber:           #F2B960;
+  --rust:            #D55A42;
+  --rust-soft:       rgba(213,90,66,.16);
+  --error-container: #361C16;
+  --hairline-12:     rgba(240,234,224,.14);
+  --hairline-18:     rgba(240,234,224,.20);
+}
+:root {
+  --serif: "Fraunces", Georgia, serif;
+  --sans:  "Geist", -apple-system, system-ui, sans-serif;
+  --mono:  "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+}
+header.page {
+  padding: 20px 24px 8px;
+  border-bottom: 1px solid var(--hairline-12);
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+header.page h1 {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 24px; margin: 0;
+}
+.meta { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.theme-toggle {
+  font-family: var(--mono); font-size: 11px; padding: 4px 10px;
+  background: transparent; border: 1px solid var(--hairline-18); color: var(--ink-muted);
+  cursor: pointer; border-radius: 4px;
+}
+main { padding: 20px 24px 64px; max-width: 1280px; margin: 0 auto; }
+section { margin-bottom: 48px; }
+section h2 {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 20px; margin: 0 0 4px;
+}
+section h2 .num { color: var(--ink-faint); margin-right: 8px; }
+section .lede { color: var(--ink-muted); font-size: 13px; margin: 0 0 16px; max-width: 720px; }
+.grid {
+  display: grid; gap: 14px;
+}
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.option {
+  border: 1px solid var(--hairline-12);
+  border-radius: 8px;
+  background: var(--paper);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.option .label {
+  padding: 7px 12px;
+  background: var(--paper-inset);
+  border-bottom: 1px solid var(--hairline-12);
+  font-family: var(--mono); font-size: 11px; color: var(--ink-muted);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
+.option .label .tag {
+  font-family: var(--mono); font-size: 10px; padding: 1px 6px;
+  background: transparent; border: 1px solid var(--hairline-18); color: var(--ink-muted);
+  border-radius: 3px;
+}
+.option .label .tag.curr { color: var(--rust); border-color: var(--rust); }
+.option .label .tag.rec { color: #4A5D3A; border-color: #4A5D3A; }
+.option .notes {
+  padding: 9px 12px;
+  border-top: 1px dashed var(--hairline-12);
+  font-size: 12px; color: var(--ink-muted);
+}
+.option .notes strong { color: var(--ink); font-weight: 500; }
+
+/* ============================================================
+   Phone-frame mockup
+   ============================================================ */
+.phone {
+  width: 100%;
+  aspect-ratio: 9 / 19;
+  background: var(--paper);
+  position: relative;
+  overflow: hidden;
+}
+.phone .statusbar {
+  position: absolute; top: 0; left: 0; right: 0; height: 22px;
+  font-family: var(--mono); font-size: 10px; color: var(--ink);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 10px;
+  background: transparent; z-index: 30;
+}
+
+/* The opaque ChatHeader masthead (current behaviour) */
+.masthead {
+  position: absolute; top: 22px; left: 0; right: 0; height: 56px;
+  background: var(--paper);  /* opaque — the cause of the paw clip */
+  display: flex; align-items: center; padding: 0 8px;
+  z-index: 20;
+  font-family: var(--serif); font-style: italic; font-size: 18px;
+  gap: 8px;
+}
+.masthead.transparent { background: transparent; }
+.masthead .menu, .masthead .add {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); color: var(--ink-faint); font-size: 18px;
+}
+.masthead .paw { font-size: 14px; }
+.masthead .title { flex: 1; }
+
+/* Empty state content (paw + question + marginalia) */
+.content {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  padding-top: 78px;  /* clears statusbar + masthead in current layout */
+}
+.content.bleed-top { padding-top: 22px; } /* clears statusbar only — paw can pass under masthead */
+.bigpaw {
+  position: absolute; right: -36px;
+  width: 50%; aspect-ratio: 1;
+  z-index: 5;
+}
+.bigpaw.below-masthead { top: 56px; }   /* current — paw starts below opaque masthead */
+.bigpaw.bleed-32 { top: 28px; }          /* slight bleed — needs transparent masthead */
+.bigpaw.bleed-deep { top: -8px; }        /* bleeds from very top — needs transparent masthead + bleed-top content */
+.bigpaw svg { width: 100%; height: 100%; opacity: 0.85; }
+.question {
+  position: absolute; left: 16px; bottom: 35%;
+  font-family: var(--serif); font-style: italic; font-size: 24px; line-height: 1.1;
+  max-width: 70%;
+}
+.rule64 { position: absolute; left: 16px; bottom: 33%; width: 56px; height: 1px; background: var(--hairline-18); }
+.suggestions {
+  position: absolute; left: 16px; bottom: 14%; right: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.sg { display: flex; gap: 8px; align-items: baseline; }
+.sg .arrow { color: var(--ink-faint); font-family: var(--mono); }
+.sg .verb { font-weight: 500; }
+.sg .gloss { font-family: var(--serif); font-style: italic; color: var(--ink-faint); }
+
+/* Input bar at bottom */
+.inputbar {
+  position: absolute; bottom: 8px; left: 12px; right: 12px;
+  background: var(--paper-inset);
+  border-radius: 22px;
+  height: 44px;
+  display: flex; align-items: center;
+  padding: 0 6px 0 14px;
+  font-size: 13px; color: var(--ink-faint);
+  z-index: 25;
+}
+.inputbar .send {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--ink-faint);
+  opacity: .5;
+  margin-left: auto;
+}
+
+/* ============================================================
+   SETUP ISSUE banner variants
+   ============================================================ */
+.banner {
+  position: absolute; top: 22px; left: 0; right: 0;
+  z-index: 22;
+}
+/* When a banner is present the masthead shifts down by banner height */
+.with-banner-A .masthead { top: calc(22px + 96px); }
+.with-banner-A .content { padding-top: calc(22px + 96px + 56px); }
+.with-banner-B .masthead { top: calc(22px + 36px); }
+.with-banner-B .content { padding-top: calc(22px + 36px + 56px); }
+.with-banner-C .masthead { top: calc(22px + 28px); }
+.with-banner-C .content { padding-top: calc(22px + 28px + 56px); }
+.with-banner-D .masthead { top: calc(22px + 44px); }
+.with-banner-D .content { padding-top: calc(22px + 44px + 56px); }
+
+.banner-A {
+  background: var(--error-container);
+  border-radius: 12px;
+  margin: 8px;
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.banner-A .head { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; color: var(--rust); }
+.banner-A .body { display: flex; align-items: center; gap: 8px; }
+.banner-A .body .text { font-size: 12px; flex: 1; line-height: 1.3; }
+.banner-A .body .fix { background: var(--rust); color: white; font-family: var(--mono); font-size: 11px; padding: 6px 14px; border-radius: 14px; }
+
+/* B — thin strip with Rust left rule + glyph + Fix link */
+.banner-B {
+  background: var(--rust-soft);
+  height: 36px;
+  display: flex; align-items: center;
+  padding-right: 12px;
+  border-bottom: 1px solid var(--hairline-12);
+}
+.banner-B .rule { width: 3px; align-self: stretch; background: var(--rust); }
+.banner-B .glyph { width: 30px; text-align: center; font-family: var(--mono); color: var(--rust); }
+.banner-B .text { flex: 1; font-size: 12px; color: var(--ink); }
+.banner-B .fix { font-family: var(--mono); font-size: 11px; color: var(--rust); border-bottom: 1px solid var(--rust); padding-bottom: 1px; cursor: pointer; }
+
+/* C — top-edge ribbon (28px) flush with status bar, mono */
+.banner-C {
+  background: var(--rust);
+  height: 28px;
+  display: flex; align-items: center;
+  padding: 0 10px;
+  font-family: var(--mono); font-size: 10px; color: var(--paper);
+  gap: 8px;
+}
+.banner-C .text { flex: 1; }
+.banner-C .fix { text-decoration: underline; cursor: pointer; }
+
+/* D — paper-toned with rust accent dot, no harsh container */
+.banner-D {
+  background: transparent;
+  border-top: 1px solid var(--hairline-12);
+  border-bottom: 1px solid var(--hairline-12);
+  height: 44px;
+  display: flex; align-items: center;
+  padding: 0 12px;
+  gap: 10px;
+}
+.banner-D .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rust); flex-shrink: 0; }
+.banner-D .text { flex: 1; font-size: 12px; color: var(--ink-muted); }
+.banner-D .text strong { color: var(--ink); font-weight: 500; }
+.banner-D .fix { font-family: var(--mono); font-size: 11px; color: var(--rust); border: 1px solid var(--rust); padding: 4px 12px; border-radius: 4px; }
+
+/* Status bar always on top */
+.statusbar { z-index: 30; }
+@media (max-width: 800px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Polish round 2 — SETUP ISSUE banner + paw bleed</h1>
+  <div style="display:flex; gap:12px; align-items:center;">
+    <span class="meta">2026-04-23</span>
+    <button class="theme-toggle" onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'">toggle theme</button>
+  </div>
+</header>
+
+<main>
+
+<!-- ====================================================== -->
+<section>
+  <h2><span class="num">4.</span>Paw bleed — root cause &amp; fix</h2>
+  <p class="lede">
+    The opaque <code>ChatHeader</code> Surface (Paper-colored, full width, 56dp + status bar)
+    sits ABOVE the EmptyState content area and clips any paw that tries to bleed upward.
+    Three layouts side-by-side. (No SETUP ISSUE banner shown here — that's section 1.)
+  </p>
+
+  <div class="grid grid-3">
+
+    <div class="option">
+      <div class="label">A · Current — opaque masthead, paw clipped<span class="tag curr">SHIPPED</span></div>
+      <div class="phone">
+        <div class="statusbar"><span>22:35</span><span>100%</span></div>
+        <div class="masthead">
+          <span class="menu">≡</span><span class="paw">🐾</span><span class="title">ClosePaw</span><span class="add">+</span>
+        </div>
+        <div class="content">
+          <div class="bigpaw below-masthead"><svg viewBox="0 0 100 100"><circle cx="60" cy="50" r="32" fill="#14110F"/><circle cx="20" cy="35" r="11" fill="#14110F"/><circle cx="42" cy="20" r="10" fill="#14110F"/><circle cx="68" cy="14" r="9" fill="#14110F"/></svg></div>
+          <div class="question">What can I<br/>help you with?</div>
+          <div class="rule64"></div>
+          <div class="suggestions">
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Check</div><div class="gloss">my unread emails</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Turn on</div><div class="gloss">Do Not Disturb</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Search</div><div class="gloss">for nearby restaurants</div></div></div>
+          </div>
+          <div class="inputbar"><span>What can I help you with?</span><div class="send"></div></div>
+        </div>
+      </div>
+      <div class="notes">
+        Paw starts at top of EmptyState's content area (below the masthead). The two right pads are clipped by the screen edge. Paw reads as "severed sticker" not "bleeding off canvas."
+      </div>
+    </div>
+
+    <div class="option">
+      <div class="label">B · Transparent masthead — paw bleeds 32dp behind it</div>
+      <div class="phone">
+        <div class="statusbar"><span>22:35</span><span>100%</span></div>
+        <div class="masthead transparent">
+          <span class="menu">≡</span><span class="paw">🐾</span><span class="title">ClosePaw</span><span class="add">+</span>
+        </div>
+        <div class="content bleed-top">
+          <div class="bigpaw bleed-32"><svg viewBox="0 0 100 100"><circle cx="60" cy="50" r="32" fill="#14110F"/><circle cx="20" cy="35" r="11" fill="#14110F"/><circle cx="42" cy="20" r="10" fill="#14110F"/><circle cx="68" cy="14" r="9" fill="#14110F"/></svg></div>
+          <div class="question">What can I<br/>help you with?</div>
+          <div class="rule64"></div>
+          <div class="suggestions">
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Check</div><div class="gloss">my unread emails</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Turn on</div><div class="gloss">Do Not Disturb</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Search</div><div class="gloss">for nearby restaurants</div></div></div>
+          </div>
+          <div class="inputbar"><span>What can I help you with?</span><div class="send"></div></div>
+        </div>
+      </div>
+      <div class="notes">
+        Drop ChatHeader's Surface backing, drop topBar from Scaffold, render masthead as a <code>Box</code> overlay inside ChatScreen. Paw extends 32dp behind the masthead — the existing offset finally pays off. Drawer/menu still tappable (z-index above paw).
+      </div>
+    </div>
+
+    <div class="option">
+      <div class="label">C · Transparent + deep bleed — paw rises to status bar<span class="tag rec">RECOMMENDED</span></div>
+      <div class="phone">
+        <div class="statusbar"><span>22:35</span><span>100%</span></div>
+        <div class="masthead transparent">
+          <span class="menu">≡</span><span class="paw">🐾</span><span class="title">ClosePaw</span><span class="add">+</span>
+        </div>
+        <div class="content bleed-top">
+          <div class="bigpaw bleed-deep"><svg viewBox="0 0 100 100"><circle cx="60" cy="50" r="32" fill="#14110F"/><circle cx="20" cy="35" r="11" fill="#14110F"/><circle cx="42" cy="20" r="10" fill="#14110F"/><circle cx="68" cy="14" r="9" fill="#14110F"/></svg></div>
+          <div class="question">What can I<br/>help you with?</div>
+          <div class="rule64"></div>
+          <div class="suggestions">
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Check</div><div class="gloss">my unread emails</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Turn on</div><div class="gloss">Do Not Disturb</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Search</div><div class="gloss">for nearby restaurants</div></div></div>
+          </div>
+          <div class="inputbar"><span>What can I help you with?</span><div class="send"></div></div>
+        </div>
+      </div>
+      <div class="notes">
+        Same as B but the paw offset is bumped to bleed all the way up to the status bar. Maximum bound-book cover effect — paw is the dominant visual, masthead reads as a small running-head laid on top. The pads still clip at the right edge but now read as "edge of the page" rather than "edge of a sticker."
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<section>
+  <h2><span class="num">1.</span>SETUP ISSUE banner — appearance</h2>
+  <p class="lede">
+    Current banner is a peach <code>Card</code> with `errorContainer` background, Warning icon,
+    "SETUP ISSUE" label, body copy, and a Fix button. Visually heavy, eats ~96dp at the
+    top of every screen. Below: 4 lighter treatments. All combined with bleed-deep paw (Variant C above).
+  </p>
+
+  <div class="grid grid-2">
+
+    <div class="option with-banner-A">
+      <div class="label">A · Current — peach Card<span class="tag curr">SHIPPED</span></div>
+      <div class="phone">
+        <div class="statusbar"><span>22:35</span><span>100%</span></div>
+        <div class="banner banner-A" style="position:absolute;top:22px;left:0;right:0;">
+          <div class="head"><span>⚠</span><span>SETUP ISSUE</span></div>
+          <div class="body">
+            <div class="text">Accessibility service is disabled. The agent cannot automate tasks.</div>
+            <div class="fix">Fix</div>
+          </div>
+        </div>
+        <div class="masthead transparent">
+          <span class="menu">≡</span><span class="paw">🐾</span><span class="title">ClosePaw</span><span class="add">+</span>
+        </div>
+        <div class="content bleed-top">
+          <div class="bigpaw bleed-deep"><svg viewBox="0 0 100 100"><circle cx="60" cy="50" r="32" fill="#14110F"/><circle cx="20" cy="35" r="11" fill="#14110F"/><circle cx="42" cy="20" r="10" fill="#14110F"/><circle cx="68" cy="14" r="9" fill="#14110F"/></svg></div>
+          <div class="question">What can I<br/>help you with?</div>
+          <div class="rule64"></div>
+          <div class="suggestions">
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Check</div><div class="gloss">my unread emails</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Turn on</div><div class="gloss">Do Not Disturb</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Search</div><div class="gloss">for nearby restaurants</div></div></div>
+          </div>
+          <div class="inputbar"><span>What can I help you with?</span><div class="send"></div></div>
+        </div>
+      </div>
+      <div class="notes">
+        96dp tall, peach errorContainer fill, two-line layout (label + body+button). Reads as "warning card at the top of a Material chat" — does not match the Bound Edition register. Pushes the masthead and paw further down.
+      </div>
+    </div>
+
+    <div class="option with-banner-B">
+      <div class="label">B · 36dp Rust strip — single line + inline Fix link</div>
+      <div class="phone">
+        <div class="statusbar"><span>22:35</span><span>100%</span></div>
+        <div class="banner banner-B" style="position:absolute;top:22px;left:0;right:0;">
+          <div class="rule"></div>
+          <div class="glyph">⚠</div>
+          <div class="text">Accessibility service disabled — agent cannot automate.</div>
+          <div class="fix">Fix</div>
+        </div>
+        <div class="masthead transparent">
+          <span class="menu">≡</span><span class="paw">🐾</span><span class="title">ClosePaw</span><span class="add">+</span>
+        </div>
+        <div class="content bleed-top">
+          <div class="bigpaw bleed-deep"><svg viewBox="0 0 100 100"><circle cx="60" cy="50" r="32" fill="#14110F"/><circle cx="20" cy="35" r="11" fill="#14110F"/><circle cx="42" cy="20" r="10" fill="#14110F"/><circle cx="68" cy="14" r="9" fill="#14110F"/></svg></div>
+          <div class="question">What can I<br/>help you with?</div>
+          <div class="rule64"></div>
+          <div class="suggestions">
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Check</div><div class="gloss">my unread emails</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Turn on</div><div class="gloss">Do Not Disturb</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Search</div><div class="gloss">for nearby restaurants</div></div></div>
+          </div>
+          <div class="inputbar"><span>What can I help you with?</span><div class="send"></div></div>
+        </div>
+      </div>
+      <div class="notes">
+        36dp tall, soft Rust wash + 3dp Rust left rule + ⚠ glyph + inline "Fix" underline link. Same Rust treatment as the in-capsule StartupErrorBanner from Phase 5 — consistent error vocabulary across surfaces.
+      </div>
+    </div>
+
+    <div class="option with-banner-C">
+      <div class="label">C · 28dp top ribbon — flush with status bar</div>
+      <div class="phone">
+        <div class="statusbar"><span>22:35</span><span>100%</span></div>
+        <div class="banner banner-C" style="position:absolute;top:22px;left:0;right:0;">
+          <div class="text">⚠ ACCESSIBILITY DISABLED — agent cannot automate</div>
+          <div class="fix">Fix →</div>
+        </div>
+        <div class="masthead transparent">
+          <span class="menu">≡</span><span class="paw">🐾</span><span class="title">ClosePaw</span><span class="add">+</span>
+        </div>
+        <div class="content bleed-top">
+          <div class="bigpaw bleed-deep"><svg viewBox="0 0 100 100"><circle cx="60" cy="50" r="32" fill="#14110F"/><circle cx="20" cy="35" r="11" fill="#14110F"/><circle cx="42" cy="20" r="10" fill="#14110F"/><circle cx="68" cy="14" r="9" fill="#14110F"/></svg></div>
+          <div class="question">What can I<br/>help you with?</div>
+          <div class="rule64"></div>
+          <div class="suggestions">
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Check</div><div class="gloss">my unread emails</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Turn on</div><div class="gloss">Do Not Disturb</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Search</div><div class="gloss">for nearby restaurants</div></div></div>
+          </div>
+          <div class="inputbar"><span>What can I help you with?</span><div class="send"></div></div>
+        </div>
+      </div>
+      <div class="notes">
+        28dp solid Rust ribbon flush with status bar, mono uppercase text. Smallest footprint, loudest signal. Risk: encroaches on the system status bar visually + uppercase mono can feel heavy for a passive warning.
+      </div>
+    </div>
+
+    <div class="option with-banner-D">
+      <div class="label">D · 44dp paper-toned — Rust dot + outlined Fix<span class="tag rec">RECOMMENDED</span></div>
+      <div class="phone">
+        <div class="statusbar"><span>22:35</span><span>100%</span></div>
+        <div class="banner banner-D" style="position:absolute;top:22px;left:0;right:0;">
+          <div class="dot"></div>
+          <div class="text"><strong>Accessibility disabled</strong> — agent cannot automate.</div>
+          <div class="fix">Fix</div>
+        </div>
+        <div class="masthead transparent">
+          <span class="menu">≡</span><span class="paw">🐾</span><span class="title">ClosePaw</span><span class="add">+</span>
+        </div>
+        <div class="content bleed-top">
+          <div class="bigpaw bleed-deep"><svg viewBox="0 0 100 100"><circle cx="60" cy="50" r="32" fill="#14110F"/><circle cx="20" cy="35" r="11" fill="#14110F"/><circle cx="42" cy="20" r="10" fill="#14110F"/><circle cx="68" cy="14" r="9" fill="#14110F"/></svg></div>
+          <div class="question">What can I<br/>help you with?</div>
+          <div class="rule64"></div>
+          <div class="suggestions">
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Check</div><div class="gloss">my unread emails</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Turn on</div><div class="gloss">Do Not Disturb</div></div></div>
+            <div class="sg"><span class="arrow">→</span><div><div class="verb">Search</div><div class="gloss">for nearby restaurants</div></div></div>
+          </div>
+          <div class="inputbar"><span>What can I help you with?</span><div class="send"></div></div>
+        </div>
+      </div>
+      <div class="notes">
+        44dp transparent strip with hairline top + bottom rules, 8dp Rust dot, prose copy ("<strong>Accessibility disabled</strong> — agent cannot automate."), small outlined "Fix" button (Rust border, mono). Reads as a typeset margin note rather than a Material warning. The strip is wider than B but the empty center lets the masthead breathe; combined with the bleed-deep paw, the page still reads as a printed page.
+      </div>
+    </div>
+
+  </div>
+
+</section>
+
+</main>
+</body>
+</html>

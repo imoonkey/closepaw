@@ -142,13 +142,14 @@ adb shell settings put secure enabled_accessibility_services "$PACKAGE/$PACKAGE.
 adb shell settings put secure accessibility_enabled 1
 sleep 1
 
-# Verify
+# Verify (some OEM builds — notably OPPO/ColorOS — silently no-op the put;
+# fail loudly so the user knows to toggle the service manually before testing).
 ENABLED=$(adb shell settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r')
-if [[ "$ENABLED" == *"$PACKAGE"* ]]; then
+A11Y_FLAG=$(adb shell settings get secure accessibility_enabled 2>/dev/null | tr -d '\r')
+if [[ "$ENABLED" == *"$PACKAGE"* && "$A11Y_FLAG" == "1" ]]; then
     ok "Accessibility service enabled"
 else
-    warn "Accessibility service may need manual activation"
-    warn "Path: Settings > Accessibility > Downloaded apps > ClosePaw"
+    err "Accessibility service did NOT stick (settings get returned: enabled_accessibility_services='$ENABLED', accessibility_enabled='$A11Y_FLAG'). This OEM build (e.g. OPPO/ColorOS) blocks adb-driven a11y enablement. Toggle manually: Settings > Accessibility > Downloaded apps > ClosePaw, then re-run."
 fi
 
 # 7. Launch app

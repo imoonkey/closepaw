@@ -19,7 +19,6 @@ import ai.closepaw.ui.chat.ChatScreen
 import ai.closepaw.ui.chat.ChatViewModel
 import ai.closepaw.ui.chat.SettingsDeepLink
 import ai.closepaw.ui.chat.SettingsPage as DeepLinkPage
-import ai.closepaw.ui.onboarding.PermissionRepairCard
 import ai.closepaw.ui.settings.OpenAiAuthUiState
 import ai.closepaw.ui.settings.SettingsPage
 import ai.closepaw.ui.settings.SettingsSheet
@@ -54,7 +53,6 @@ internal fun MainActivityContent(
     settingsState: AppSettingsState,
     modelLoadingStatusHolder: ModelLoadingStatusHolder,
     modelCatalog: ModelCatalog,
-    appVersion: String,
     showSettings: Boolean,
     onShowSettingsChange: (Boolean) -> Unit,
     onSessionSelect: (ai.closepaw.history.model.SessionInfo) -> Unit,
@@ -86,21 +84,11 @@ internal fun MainActivityContent(
         }
 
         Column {
-            if (repairModel != null) {
-                PermissionRepairCard(
-                    model = repairModel,
-                    onFixAccessibility = onAccessibilityClick,
-                    onFixOverlay = onOverlayClick,
-                    onFixBattery = onFixBattery
-                )
-            }
-
             ChatScreen(
                 viewModel = viewModel,
                 capsuleBinding = rememberCapsuleBinding(),
                 sessions = sessions,
                 currentModel = settingsState.selectedModel,
-                appVersion = appVersion,
                 onOpenSettings = { deepLink ->
                     pendingDeepLink = deepLink
                     onShowSettingsChange(true)
@@ -109,7 +97,11 @@ internal fun MainActivityContent(
                 onNewSession = onNewSession,
                 onDeleteSession = { session -> viewModel.deleteSession(session) },
                 onLoadSessions = { viewModel.loadSessions() },
-                onOpenViewer = onOpenViewer
+                onOpenViewer = onOpenViewer,
+                repairModel = repairModel,
+                onFixAccessibility = onAccessibilityClick,
+                onFixOverlay = onOverlayClick,
+                onFixBattery = onFixBattery,
             )
         }
 

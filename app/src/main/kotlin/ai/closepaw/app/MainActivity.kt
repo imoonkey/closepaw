@@ -225,7 +225,6 @@ class MainActivity : ComponentActivity() {
                     settingsState = settingsState,
                     modelLoadingStatusHolder = modelLoadingStatusHolder,
                     modelCatalog = modelCatalog,
-                    appVersion = BuildConfig.VERSION_NAME,
                     showSettings = showSettings,
                     onShowSettingsChange = {
                         showSettings = it

@@ -8,6 +8,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -50,12 +51,14 @@ import ai.closepaw.ui.capsule.CapsuleBinding
 import ai.closepaw.ui.capsule.NavAction
 import ai.closepaw.ui.capsule.surface.SmartCapsuleSurface
 import ai.closepaw.ui.capsule.surface.smartCapsuleHostPadding
+import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
 import ai.closepaw.ui.chat.components.ChatHeader
 import ai.closepaw.ui.chat.components.EmptyState
 import ai.closepaw.ui.chat.components.MessageBubble
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
 import ai.closepaw.ui.navigation.NavigationDrawerContent
+import ai.closepaw.ui.onboarding.PermissionRepairCard
 import ai.closepaw.ui.overlay.model.CapsuleContext
 import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.closePaw
@@ -75,13 +78,16 @@ fun ChatScreen(
     capsuleBinding: CapsuleBinding,
     sessions: List<SessionInfo>,
     currentModel: String,
-    appVersion: String,
     onOpenSettings: (SettingsDeepLink?) -> Unit,
     onSessionSelect: (SessionInfo) -> Unit,
     onNewSession: () -> Unit,
     onDeleteSession: (SessionInfo) -> Unit,
     onLoadSessions: () -> Unit,
     onOpenViewer: () -> Unit,
+    repairModel: PermissionRepairModel? = null,
+    onFixAccessibility: () -> Unit = {},
+    onFixOverlay: () -> Unit = {},
+    onFixBattery: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -110,7 +116,6 @@ fun ChatScreen(
             NavigationDrawerContent(
                 sessions = sessions,
                 currentModel = currentModel,
-                appVersion = appVersion,
                 onSessionSelect = { session ->
                     scope.launch { drawerState.close() }
                     onSessionSelect(session)
@@ -144,12 +149,20 @@ fun ChatScreen(
                 )
             },
             bottomBar = {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .imePadding()
                         .smartCapsuleHostPadding()
                 ) {
+                    if (repairModel != null) {
+                        PermissionRepairCard(
+                            model = repairModel,
+                            onFixAccessibility = onFixAccessibility,
+                            onFixOverlay = onFixOverlay,
+                            onFixBattery = onFixBattery,
+                        )
+                    }
                     SmartCapsuleSurface(
                         mode = capsuleMode,
                         isStopPending = isStopPending,
