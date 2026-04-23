@@ -7,13 +7,14 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -35,19 +36,22 @@ import ai.closepaw.ui.theme.closePaw
 @Composable
 fun ThinkingIndicator(modifier: Modifier = Modifier) {
     val spacing = MaterialTheme.closePaw.spacing
-    Surface(
+    Row(
         modifier = modifier
             .testTag("qa-thinking-indicator")
             .semantics {
                 liveRegion = LiveRegionMode.Polite
                 contentDescription = "Thinking"
             },
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        Box(modifier = Modifier.padding(horizontal = spacing.md, vertical = spacing.sm)) {
-            PawToeSequence(tint = THINKING_INDICATOR_TINT.resolve())
-        }
+        PawToeSequence(tint = THINKING_INDICATOR_TINT.resolve())
+        Text(
+            text = "Thinking…",
+            style = MaterialTheme.closePaw.bodyItalic,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

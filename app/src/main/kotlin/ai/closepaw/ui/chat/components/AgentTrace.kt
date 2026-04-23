@@ -106,7 +106,7 @@ private fun ThoughtGroupView(
             modifier = Modifier
                 .width(2.dp)
                 .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.outlineVariant),
+                .background(MaterialTheme.colorScheme.outline),
         )
         Spacer(Modifier.width(spacing.md))
         Column(

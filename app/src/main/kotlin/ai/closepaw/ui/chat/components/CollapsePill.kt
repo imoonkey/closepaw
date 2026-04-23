@@ -69,7 +69,7 @@ fun CollapsePill(
             Spacer(Modifier.width(spacing.sm))
             Text(
                 text = summary,
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.closePaw.monoSmall,
             )
         }
     }
