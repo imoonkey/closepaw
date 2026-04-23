@@ -3,13 +3,17 @@ package ai.closepaw.ui.capsule.surface
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,8 +27,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +50,7 @@ import ai.closepaw.ui.overlay.model.NavSpec
 import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.closePaw
 import ai.closepaw.ui.theme.foldedPaper
+import kotlinx.coroutines.delay
 
 /**
  * SmartCapsuleSurface — orchestrator composable for the Smart Capsule.
@@ -93,6 +102,18 @@ fun SmartCapsuleSurface(
     val shape = MaterialTheme.shapes.large
     val spacing = MaterialTheme.closePaw.spacing
 
+    // N1 ledger: latch a stable start timestamp the first composition we see
+    // Running, drop it on transition out. CapsuleStateHolder recreates
+    // CapsuleMode.Running(thought) on every thought update (CapsuleStateHolder.kt:162-165),
+    // so keying remember/LaunchedEffect on `mode` would reset the clock every
+    // thought tick. Key the latch on the Running boolean only.
+    val isRunning = mode is CapsuleMode.Running
+    var runningStartedAtMs by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(isRunning) {
+        runningStartedAtMs = if (isRunning) System.currentTimeMillis() else null
+    }
+    val elapsedLabel = produceElapsedLabel(runningStartedAtMs)
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -107,7 +128,7 @@ fun SmartCapsuleSurface(
                 .padding(top = spacing.sm, bottom = 6.dp),
         ) {
             if (isTaskActive) {
-                CapsuleStatusLine(spec = renderSpec, onClick = onStatusClick)
+                CapsuleStatusLine(spec = renderSpec, elapsedLabel = elapsedLabel, onClick = onStatusClick)
                 if (mode !is CapsuleMode.Done) {
                     if (renderSpec.expandedBody != null) {
                         CapsuleDivider()
@@ -202,9 +223,24 @@ private fun StartupErrorBanner(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                .height(IntrinsicSize.Min)
+                .padding(end = 4.dp, top = 6.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 2dp Rust left rule.
+            Box(
+                modifier = Modifier
+                    .width(2.dp)
+                    .fillMaxHeight()
+                    .background(MaterialTheme.colorScheme.error),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "⚠",
+                style = MaterialTheme.closePaw.monoBody,
+                color = MaterialTheme.colorScheme.error,
+            )
+            Spacer(Modifier.width(8.dp))
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
@@ -226,6 +262,7 @@ private fun StartupErrorBanner(
 @Composable
 private fun CapsuleStatusLine(
     spec: CapsuleRenderSpec,
+    elapsedLabel: String?,
     onClick: (() -> Unit)?,
 ) {
     val rowModifier = if (onClick != null) {
@@ -254,6 +291,18 @@ private fun CapsuleStatusLine(
                 color = dotColor,
                 size = 14.dp,
                 pulsing = spec.dot.pulsing,
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+
+        // N1 ledger: a SIBLING of the marqueed thought Text below — fixed,
+        // not scrolling. The basicMarquee modifier is only on the thought.
+        if (elapsedLabel != null) {
+            Text(
+                text = elapsedLabel,
+                style = MaterialTheme.closePaw.monoSmall,
+                color = MaterialTheme.closePaw.inkFaint,
+                maxLines = 1,
             )
             Spacer(Modifier.width(8.dp))
         }
@@ -287,3 +336,20 @@ private fun CapsuleStatusLine(
         }
     }
 }
+
+// 1Hz ticker producing "[t+12s]" for as long as startedAtMs is non-null.
+// Returns null when not Running so the ledger Text is not composed at all.
+@Composable
+private fun produceElapsedLabel(startedAtMs: Long?): String? {
+    if (startedAtMs == null) return null
+    val elapsed by produceState(initialValue = elapsedSecondsFrom(startedAtMs), startedAtMs) {
+        while (true) {
+            value = elapsedSecondsFrom(startedAtMs)
+            delay(1000L)
+        }
+    }
+    return "[t+${elapsed}s]"
+}
+
+private fun elapsedSecondsFrom(startedAtMs: Long): Long =
+    ((System.currentTimeMillis() - startedAtMs) / 1000L).coerceAtLeast(0L)

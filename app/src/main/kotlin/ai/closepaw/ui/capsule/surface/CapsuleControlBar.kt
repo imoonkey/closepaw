@@ -1,5 +1,6 @@
 package ai.closepaw.ui.capsule.surface
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -149,6 +150,7 @@ private fun ActionButtonCluster(
                 },
                 enabled = btn.enabled,
                 shape = MaterialTheme.shapes.large,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
             ) {
                 Icon(

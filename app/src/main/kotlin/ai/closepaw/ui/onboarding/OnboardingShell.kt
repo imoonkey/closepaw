@@ -139,7 +139,7 @@ private fun FivePawProgress(stepIndex: Int, totalSteps: Int) {
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = if (i < filled) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.outlineVariant
+                    else MaterialTheme.closePaw.inkFaint
             )
         }
     }
