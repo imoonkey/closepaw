@@ -6,7 +6,6 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -38,20 +37,20 @@ class CapsuleInputTest {
         compose.onNodeWithTag("qa-capsule-input").assertExists()
         compose.onNodeWithText("Type your response...").assertExists()
         compose.onNodeWithText("What size?").assertExists()
-        compose.onNodeWithContentDescription("Send →").assertIsNotEnabled()
+        compose.onNodeWithTag("qa-capsule-send", useUnmergedTree = true).assertIsNotEnabled()
     }
 
     // K6
     @Test fun send_enabled_only_when_non_blank() {
         compose.setContent { TestCapsule(mode = waiting) }
 
-        compose.onNodeWithContentDescription("Send →").assertIsNotEnabled()
+        compose.onNodeWithTag("qa-capsule-send", useUnmergedTree = true).assertIsNotEnabled()
 
         compose.onNodeWithTag("qa-capsule-input").performTextInput("   ")
-        compose.onNodeWithContentDescription("Send →").assertIsNotEnabled()
+        compose.onNodeWithTag("qa-capsule-send", useUnmergedTree = true).assertIsNotEnabled()
 
         compose.onNodeWithTag("qa-capsule-input").performTextReplacement("hello")
-        compose.onNodeWithContentDescription("Send →").assertIsEnabled()
+        compose.onNodeWithTag("qa-capsule-send", useUnmergedTree = true).assertIsEnabled()
     }
 
     // K7
@@ -75,10 +74,10 @@ class CapsuleInputTest {
         compose.onNodeWithTag("qa-capsule-input").performTextInput("hello")
         assertEquals("hello", compose.onNodeWithTag("qa-capsule-input").editableTextValue())
 
-        compose.onNodeWithContentDescription("Send →").performClick()
+        compose.onNodeWithTag("qa-capsule-send", useUnmergedTree = true).performClick()
 
         assertEquals("c-1" to "hello", received)
         assertEquals("", compose.onNodeWithTag("qa-capsule-input").editableTextValue())
-        compose.onNodeWithContentDescription("Send →").assertIsNotEnabled()
+        compose.onNodeWithTag("qa-capsule-send", useUnmergedTree = true).assertIsNotEnabled()
     }
 }

@@ -47,6 +47,11 @@ import kotlinx.coroutines.launch
 /**
  * CapsuleInputBar — text field with the send button as a trailing icon.
  *
+ * The send button lives inside `TextField.trailingIcon` so the field reads as
+ * one object. Material3 TextField merges its trailingIcon subtree into the
+ * field's own semantics root, so tests must address the send button by its
+ * `qa-capsule-send` testTag rather than by contentDescription.
+ *
  * Owns its own draft state (`inputText`) plus the lifecycle effects that mutate it:
  *  - seed from `pendingInputText` after a session bootstrap failure (then signal consume),
  *  - clear on transitions into `WaitingForInput` (per `InputSpec.clearDraft`).
