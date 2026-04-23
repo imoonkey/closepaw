@@ -39,12 +39,6 @@ import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
 import ai.closepaw.ui.theme.paperGrain
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.delay
 
 private data class Suggestion(val verb: String, val gloss: String) {
@@ -75,30 +69,17 @@ fun EmptyState(
             .clipToBounds()
             .paperGrain(),
     ) {
-        // Top-right paw bleeds beyond the corner. Right edge fades horizontally
-        // (rightmost ~50% gradient → transparent) so the screen-edge clip reads
-        // as "page edge" rather than a hard cut. Vertical -32dp offset bleeds
-        // up under the (now transparent) ChatHeader masthead.
+        // Top-right paw bleeds horizontally past the right edge (hard-clipped at
+        // the screen edge — reads as "page edge"). Sits fully below the masthead;
+        // no upward bleed, since the transparent ChatHeader still renders text on top.
         Icon(
             painter = painterResource(R.drawable.ic_paw),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.80f),
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .offset(x = 56.dp, y = (-32).dp)
-                .size(240.dp)
-                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                .drawWithCache {
-                    val mask = Brush.horizontalGradient(
-                        0f to Color.Black,
-                        0.5f to Color.Black,
-                        1f to Color.Transparent,
-                    )
-                    onDrawWithContent {
-                        drawContent()
-                        drawRect(brush = mask, blendMode = BlendMode.DstIn)
-                    }
-                },
+                .offset(x = 56.dp, y = 0.dp)
+                .size(240.dp),
         )
 
         Column(
