@@ -28,7 +28,6 @@ import ai.closepaw.ui.theme.Fleuron
 import ai.closepaw.ui.theme.PageMasthead
 import ai.closepaw.ui.theme.SectionHeader
 import ai.closepaw.ui.theme.closePaw
-import ai.closepaw.ui.theme.todayLabel
 
 @Composable
 internal fun SettingsHomePage(
@@ -56,7 +55,6 @@ internal fun SettingsHomePage(
         ) {
             PageMasthead(
                 title = "Settings",
-                rightSlot = todayLabel(),
                 leadingPaw = true,
                 modifier = Modifier.weight(1f),
             )

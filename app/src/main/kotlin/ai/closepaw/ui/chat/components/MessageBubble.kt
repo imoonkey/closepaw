@@ -1,19 +1,16 @@
 package ai.closepaw.ui.chat.components
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +47,16 @@ fun MessageBubble(
     }
 }
 
+// Letter-on-paper: paper-wash background + asymmetric "folded corner" radius
+// (the top-start corner is the binding edge). No left rule — the corner shape
+// alone reads as the binding.
+private val UserBubbleShape = RoundedCornerShape(
+    topStart = 4.dp,
+    topEnd = 12.dp,
+    bottomEnd = 12.dp,
+    bottomStart = 12.dp,
+)
+
 @Composable
 private fun UserBubble(
     message: ChatMessage.User,
@@ -61,21 +68,20 @@ private fun UserBubble(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.End,
     ) {
-        Box(
+        Surface(
             modifier = Modifier
                 .widthIn(max = maxWidth)
-                .height(IntrinsicSize.Min)
                 .testTag("qa-user-bubble"),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = UserBubbleShape,
         ) {
-            VerticalDivider(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .align(Alignment.TopStart),
-                color = MaterialTheme.colorScheme.outline,
-                thickness = 1.dp,
-            )
             Column(
-                modifier = Modifier.padding(start = spacing.md),
+                modifier = Modifier.padding(
+                    start = spacing.md,
+                    end = spacing.md,
+                    top = spacing.sm,
+                    bottom = 6.dp,
+                ),
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {

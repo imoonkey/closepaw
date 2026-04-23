@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="zh" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Polish Compare — UserBubble + Action Rule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400;1,9..144,500&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root[data-theme="light"] {
+  --paper:           #F5F1EA;
+  --paper-inset:     #EDE7DC;
+  --paper-wash:      #EFE8DA;
+  --ink:             #14110F;
+  --ink-muted:       #5C554C;
+  --ink-faint:       #8B8278;
+  --claw:            #C44528;
+  --amber:           #E8A33D;
+  --rust:            #8B2E1F;
+  --moss:            #4A5D3A;
+  --hairline-08:     rgba(20,17,15,.08);
+  --hairline-12:     rgba(20,17,15,.12);
+  --hairline-18:     rgba(20,17,15,.18);
+  --hairline-24:     rgba(20,17,15,.24);
+}
+:root[data-theme="dark"] {
+  --paper:           #0F0D0B;
+  --paper-inset:     #1A1612;
+  --paper-wash:      #1C1813;
+  --ink:             #F0EAE0;
+  --ink-muted:       #B9B0A3;
+  --ink-faint:       #7A7268;
+  --claw:            #E56B4A;
+  --amber:           #F2B960;
+  --rust:            #D55A42;
+  --moss:            #7A9466;
+  --hairline-08:     rgba(240,234,224,.08);
+  --hairline-12:     rgba(240,234,224,.14);
+  --hairline-18:     rgba(240,234,224,.20);
+  --hairline-24:     rgba(240,234,224,.28);
+}
+:root {
+  --serif: "Fraunces", Georgia, serif;
+  --sans:  "Geist", -apple-system, system-ui, sans-serif;
+  --mono:  "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+header.page {
+  padding: 24px 32px 8px;
+  border-bottom: 1px solid var(--hairline-12);
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+header.page h1 {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 28px; margin: 0;
+}
+header.page .meta { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+.theme-toggle {
+  font-family: var(--mono); font-size: 11px; padding: 4px 10px;
+  background: transparent; border: 1px solid var(--hairline-18); color: var(--ink-muted);
+  cursor: pointer; border-radius: 4px;
+}
+main { padding: 24px 32px 64px; max-width: 1280px; margin: 0 auto; }
+section { margin-bottom: 48px; }
+section h2 {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: 22px; margin: 0 0 4px;
+}
+section h2 .num { color: var(--ink-faint); margin-right: 8px; }
+section .lede { color: var(--ink-muted); font-size: 14px; margin: 0 0 20px; max-width: 720px; }
+.grid {
+  display: grid; gap: 16px;
+}
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.option {
+  border: 1px solid var(--hairline-12);
+  border-radius: 8px;
+  background: var(--paper);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.option .label {
+  padding: 8px 12px;
+  background: var(--paper-inset);
+  border-bottom: 1px solid var(--hairline-12);
+  font-family: var(--mono); font-size: 11px; color: var(--ink-muted);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
+.option .label .tag {
+  font-family: var(--mono); font-size: 10px; padding: 1px 6px;
+  background: transparent; border: 1px solid var(--hairline-18); color: var(--ink-muted);
+  border-radius: 3px;
+}
+.option .label .tag.curr { color: var(--rust); border-color: var(--rust); }
+.option .label .tag.rec { color: var(--moss); border-color: var(--moss); }
+.option .stage {
+  padding: 24px 16px 28px;
+  background: var(--paper);
+  min-height: 180px;
+  display: flex; flex-direction: column;
+  gap: 14px;
+}
+.option .notes {
+  padding: 10px 12px;
+  border-top: 1px dashed var(--hairline-12);
+  font-size: 12px; color: var(--ink-muted);
+}
+.option .notes strong { color: var(--ink); font-weight: 500; }
+
+/* ============================================================
+   Chat shell — minimal context for the bubbles
+   ============================================================ */
+.chatcol { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.bubble-row { display: flex; }
+.bubble-row.user { justify-content: flex-end; }
+.bubble-row.agent { justify-content: flex-start; }
+
+/* ---------- USER BUBBLE OPTIONS ---------- */
+
+/* Variant A: Phase 3 current — 1dp Hairline rule + plain text + mono ts */
+.user-A {
+  display: flex; align-items: stretch;
+  max-width: 85%;
+}
+.user-A .rule { width: 1px; background: var(--hairline-12); align-self: stretch; }
+.user-A .body { padding-left: 12px; display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+.user-A .text { font-size: 16px; }
+.user-A .ts { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+
+/* Variant B: Pre-Phase 3 — Surface chip on tonal Paper-inset */
+.user-B {
+  background: var(--paper-inset);
+  padding: 10px 14px;
+  border-radius: 16px 16px 4px 16px;
+  max-width: 85%;
+}
+.user-B .text { font-size: 16px; }
+.user-B .ts { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 4px; text-align: right; }
+
+/* Variant C: Stronger rule — 2dp Claw amber + 4dp gutter */
+.user-C {
+  display: flex; align-items: stretch;
+  max-width: 85%;
+}
+.user-C .rule { width: 2px; background: var(--amber); align-self: stretch; opacity: .8; }
+.user-C .body { padding-left: 14px; display: flex; flex-direction: column; gap: 2px; align-items: flex-end; }
+.user-C .text { font-size: 16px; }
+.user-C .ts { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+
+/* Variant D: Letter-on-paper — Paper-wash bg + 2dp Hairline rule (recommended) */
+.user-D {
+  display: flex; align-items: stretch;
+  max-width: 85%;
+  background: var(--paper-wash);
+  border-radius: 4px 12px 12px 12px;
+  /* padding moved off the parent so the rule fills the full wash height */
+  overflow: hidden;
+}
+.user-D .rule { width: 2px; background: var(--hairline-24); align-self: stretch; flex-shrink: 0; }
+.user-D .body { padding: 10px 12px 8px 12px; display: flex; flex-direction: column; gap: 2px; align-items: flex-end; flex: 1; }
+.user-D .text { font-size: 16px; }
+.user-D .ts { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+
+/* Variant D2: Letter-on-paper, no rule — wash + asymmetric corner alone */
+.user-D2 {
+  max-width: 85%;
+  background: var(--paper-wash);
+  border-radius: 4px 12px 12px 12px;
+  padding: 10px 12px 8px 12px;
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-end;
+}
+.user-D2 .text { font-size: 16px; }
+.user-D2 .ts { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+
+/* ============================================================
+   Agent trace + actions — left rule comparison
+   ============================================================ */
+.trace {
+  display: flex; align-items: stretch;
+  width: 100%;
+}
+.trace .rule { flex-shrink: 0; align-self: stretch; }
+.trace .body {
+  padding-left: 12px; flex: 1;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.trace .thought {
+  font-family: var(--serif); font-style: italic; font-size: 15px;
+  color: var(--ink-muted);
+}
+.trace .action {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 13px; color: var(--ink);
+}
+.trace .action .icon { width: 14px; text-align: center; color: var(--ink-faint); }
+.trace .action .arg { color: var(--ink-muted); }
+
+/* Variants */
+.rule-curr  { width: 2px; background: var(--hairline-12); }                /* current 12% Ink */
+.rule-thick { width: 3px; background: var(--hairline-18); }                /* 3dp + 18% */
+.rule-amber { width: 3px; background: var(--amber); opacity: .85; }        /* Claw amber */
+.rule-rust  { width: 2px; background: var(--rust); }                       /* Rust (NOT recommended — semantic conflict) */
+.rule-moss  { width: 3px; background: var(--moss); opacity: .8; }          /* Moss accent */
+
+.callout {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--rust);
+  background: rgba(139,46,31,.06);
+  font-size: 13px; color: var(--ink-muted);
+}
+.callout strong { color: var(--rust); font-weight: 500; }
+
+/* ============================================================
+   Input bar variants — send button placement
+   ============================================================ */
+.input-stage {
+  background: var(--paper);
+  padding: 12px 12px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+/* shared text field skin (mimics M3 TextField on surfaceContainerLow) */
+.tf {
+  background: var(--paper-inset);
+  border-radius: 16px;
+  display: flex; align-items: center;
+  padding: 0 12px;
+  min-height: 44px;
+  font-size: 15px; color: var(--ink);
+  flex: 1;
+}
+.tf .placeholder { color: var(--ink-faint); flex: 1; }
+.tf .leading-ic, .tf .trailing-ic {
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+.tf .leading-ic { margin-right: 8px; }
+.tf .trailing-ic { margin-left: 8px; }
+
+.send-circle {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.send-circle.muted {
+  background: var(--ink-faint);
+  opacity: .55;
+}
+.send-circle.inline {
+  width: 32px; height: 32px;
+}
+.send-circle.amber {
+  background: var(--claw);
+  color: var(--paper);
+}
+.input-row { display: flex; align-items: flex-end; gap: 8px; }
+.tf.with-trailing { padding-right: 4px; }
+.tf .send-inline-wrap {
+  margin-left: 8px;
+  display: flex; align-items: center;
+}
+
+/* Two-line growth demo */
+.tf.two-line {
+  align-items: flex-start;
+  padding: 10px 12px;
+  min-height: 70px;
+}
+.tf.two-line .text-block { flex: 1; align-self: stretch; display: flex; flex-direction: column; gap: 2px; }
+.tf.two-line .send-inline-wrap { align-self: flex-end; }
+
+@media (max-width: 800px) {
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Polish compare — UserBubble &amp; Action rule</h1>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <span class="meta">2026-04-22 · ui-refresh-0422-polish</span>
+    <button class="theme-toggle" onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'">toggle theme</button>
+  </div>
+</header>
+
+<main>
+
+<!-- ====================================================== -->
+<section>
+  <h2><span class="num">1.</span>UserBubble — visual weight</h2>
+  <p class="lede">
+    Phase 3 dropped the Surface chip in favor of a 1dp Hairline left rule + plain text
+    ("letter to the editor"). Concern: it now reads too thin against the ChatScreen's
+    paper grain. Four candidates below.
+  </p>
+
+  <div class="grid grid-2">
+
+    <div class="option">
+      <div class="label">A · Current (Phase 3)<span class="tag curr">SHIPPED</span></div>
+      <div class="stage">
+        <div class="bubble-row user">
+          <div class="user-A">
+            <div class="rule"></div>
+            <div class="body">
+              <div class="text">Help me draft a reply to my landlord about the leaky faucet.</div>
+              <div class="ts">14:32</div>
+            </div>
+          </div>
+        </div>
+        <div class="bubble-row user">
+          <div class="user-A">
+            <div class="rule"></div>
+            <div class="body">
+              <div class="text">Make it polite but firm.</div>
+              <div class="ts">14:33</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        <strong>1dp Hairline + plain text.</strong> Editorial, but reads as agent-style. Not enough weight to mark "I said this."
+      </div>
+    </div>
+
+    <div class="option">
+      <div class="label">B · Revert to Surface chip (pre-D2)</div>
+      <div class="stage">
+        <div class="bubble-row user">
+          <div class="user-B">
+            <div class="text">Help me draft a reply to my landlord about the leaky faucet.</div>
+            <div class="ts">14:32</div>
+          </div>
+        </div>
+        <div class="bubble-row user">
+          <div class="user-B">
+            <div class="text">Make it polite but firm.</div>
+            <div class="ts">14:33</div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        <strong>Paper-inset chip, asymmetric corner.</strong> Maximum weight + clearest "user" affordance. Loses Bound Edition editorial tone — looks like every other chat app.
+      </div>
+    </div>
+
+    <div class="option">
+      <div class="label">C · Stronger rule — 2dp amber accent</div>
+      <div class="stage">
+        <div class="bubble-row user">
+          <div class="user-C">
+            <div class="rule"></div>
+            <div class="body">
+              <div class="text">Help me draft a reply to my landlord about the leaky faucet.</div>
+              <div class="ts">14:32</div>
+            </div>
+          </div>
+        </div>
+        <div class="bubble-row user">
+          <div class="user-C">
+            <div class="rule"></div>
+            <div class="body">
+              <div class="text">Make it polite but firm.</div>
+              <div class="ts">14:33</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        <strong>2dp Claw amber rule.</strong> Keeps editorial silhouette + adds color identity. Risk: amber is under-used elsewhere, may read as "warning" without context.
+      </div>
+    </div>
+
+    <div class="option">
+      <div class="label">D · Wash bg + 2dp full-height rule (rule fixed)</div>
+      <div class="stage">
+        <div class="bubble-row user">
+          <div class="user-D">
+            <div class="rule"></div>
+            <div class="body">
+              <div class="text">Help me draft a reply to my landlord about the leaky faucet.</div>
+              <div class="ts">14:32</div>
+            </div>
+          </div>
+        </div>
+        <div class="bubble-row user">
+          <div class="user-D">
+            <div class="rule"></div>
+            <div class="body">
+              <div class="text">Make it polite but firm.</div>
+              <div class="ts">14:33</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        <strong>Fixed:</strong> rule now flush full-height with the wash (padding moved off parent). Still has the "extra stripe" tension you flagged — the rule reads as a separate decoration on top of the wash, doing duplicate work.
+      </div>
+    </div>
+
+    <div class="option">
+      <div class="label">D2 · Wash + asymmetric corner only — no rule<span class="tag rec">RECOMMENDED</span></div>
+      <div class="stage">
+        <div class="bubble-row user">
+          <div class="user-D2">
+            <div class="text">Help me draft a reply to my landlord about the leaky faucet.</div>
+            <div class="ts">14:32</div>
+          </div>
+        </div>
+        <div class="bubble-row user">
+          <div class="user-D2">
+            <div class="text">Make it polite but firm.</div>
+            <div class="ts">14:33</div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        <strong>Just the wash + asymmetric radius (4 / 12 / 12 / 12).</strong> The folded-corner shape itself reads as the binding edge — no rule needed. Quietest, most editorial, gains weight from the wash alone.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<section>
+  <h2><span class="num">2.</span>AgentTrace left rule — color</h2>
+  <p class="lede">
+    Current: 2dp at 12% Ink. Question: should it be theme red? <strong>No</strong> —
+    Rust is reserved for Stop / error semantics; coloring every action red dilutes
+    that affordance. Comparing five options below.
+  </p>
+
+  <div class="grid grid-3">
+
+    <div class="option">
+      <div class="label">A · Current — 2dp 12% Ink<span class="tag curr">SHIPPED</span></div>
+      <div class="stage">
+        <div class="trace">
+          <div class="rule rule-curr"></div>
+          <div class="body">
+            <div class="thought">Reading the unread emails…</div>
+            <div class="action"><span class="icon">→</span><span>open_app</span><span class="arg">com.google.android.gm</span></div>
+            <div class="action"><span class="icon">→</span><span>scroll</span><span class="arg">inbox · 3</span></div>
+            <div class="action"><span class="icon">→</span><span>tap</span><span class="arg">"Lease renewal"</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">Hairline. Reads as a soft margin, not as the primary turn marker.</div>
+    </div>
+
+    <div class="option">
+      <div class="label">B · 3dp + 18% Ink</div>
+      <div class="stage">
+        <div class="trace">
+          <div class="rule rule-thick"></div>
+          <div class="body">
+            <div class="thought">Reading the unread emails…</div>
+            <div class="action"><span class="icon">→</span><span>open_app</span><span class="arg">com.google.android.gm</span></div>
+            <div class="action"><span class="icon">→</span><span>scroll</span><span class="arg">inbox · 3</span></div>
+            <div class="action"><span class="icon">→</span><span>tap</span><span class="arg">"Lease renewal"</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">Same Ink family, just denser. Conservative, no new color. Easiest to ship.</div>
+    </div>
+
+    <div class="option">
+      <div class="label">C · 3dp Claw amber<span class="tag rec">RECOMMENDED</span></div>
+      <div class="stage">
+        <div class="trace">
+          <div class="rule rule-amber"></div>
+          <div class="body">
+            <div class="thought">Reading the unread emails…</div>
+            <div class="action"><span class="icon">→</span><span>open_app</span><span class="arg">com.google.android.gm</span></div>
+            <div class="action"><span class="icon">→</span><span>scroll</span><span class="arg">inbox · 3</span></div>
+            <div class="action"><span class="icon">→</span><span>tap</span><span class="arg">"Lease renewal"</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">D1 already has Claw amber. Reads as "the agent is doing something" without colliding with Rust=stop.</div>
+    </div>
+
+    <div class="option">
+      <div class="label">D · 2dp Rust (theme red)</div>
+      <div class="stage">
+        <div class="trace">
+          <div class="rule rule-rust"></div>
+          <div class="body">
+            <div class="thought">Reading the unread emails…</div>
+            <div class="action"><span class="icon">→</span><span>open_app</span><span class="arg">com.google.android.gm</span></div>
+            <div class="action"><span class="icon">→</span><span>scroll</span><span class="arg">inbox · 3</span></div>
+            <div class="action"><span class="icon">→</span><span>tap</span><span class="arg">"Lease renewal"</span></div>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>Semantic conflict:</strong> Rust marks the Stop button + StartupErrorBanner. If every action turn is also Rust, the user can't tell "agent is working" from "something failed / press to stop."
+        </div>
+      </div>
+      <div class="notes">Visually arresting, but breaks the color system. Not recommended.</div>
+    </div>
+
+    <div class="option">
+      <div class="label">E · 3dp Moss</div>
+      <div class="stage">
+        <div class="trace">
+          <div class="rule rule-moss"></div>
+          <div class="body">
+            <div class="thought">Reading the unread emails…</div>
+            <div class="action"><span class="icon">→</span><span>open_app</span><span class="arg">com.google.android.gm</span></div>
+            <div class="action"><span class="icon">→</span><span>scroll</span><span class="arg">inbox · 3</span></div>
+            <div class="action"><span class="icon">→</span><span>tap</span><span class="arg">"Lease renewal"</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">Less visible than amber, reads as "successful path." Could be reserved for completed turns instead of in-progress.</div>
+    </div>
+
+    <div class="option">
+      <div class="label">F · 3dp amber + thought header on Paper-wash</div>
+      <div class="stage">
+        <div class="trace">
+          <div class="rule rule-amber"></div>
+          <div class="body">
+            <div class="thought" style="background: var(--paper-wash); padding: 6px 10px; border-radius: 4px; align-self: flex-start;">
+              Reading the unread emails…
+            </div>
+            <div class="action"><span class="icon">→</span><span>open_app</span><span class="arg">com.google.android.gm</span></div>
+            <div class="action"><span class="icon">→</span><span>scroll</span><span class="arg">inbox · 3</span></div>
+            <div class="action"><span class="icon">→</span><span>tap</span><span class="arg">"Lease renewal"</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">If we go for D (washed UserBubble), pair the trace thought header with the same wash for symmetry. Optional add-on to C.</div>
+    </div>
+
+  </div>
+
+</section>
+
+<!-- ====================================================== -->
+<section>
+  <h2><span class="num">·</span>Combined preview — D2 + C side by side</h2>
+  <p class="lede">My recommendation lined up: UserBubble Variant D2 (wash, no rule), AgentTrace Variant C (3dp Claw amber).</p>
+  <div class="option" style="max-width: 540px;">
+    <div class="label">Chat — recommended combination</div>
+    <div class="stage" style="gap: 16px;">
+      <div class="bubble-row user">
+        <div class="user-D2">
+          <div class="text">Help me draft a reply to my landlord about the leaky faucet.</div>
+          <div class="ts">14:32</div>
+        </div>
+      </div>
+      <div class="trace">
+        <div class="rule rule-amber"></div>
+        <div class="body">
+          <div class="thought">On it — drafting now.</div>
+          <div class="action"><span class="icon">→</span><span>compose_text</span><span class="arg">subject: leaky faucet</span></div>
+          <div class="action"><span class="icon">→</span><span>review</span><span class="arg">tone: polite, firm</span></div>
+        </div>
+      </div>
+      <div class="bubble-row user">
+        <div class="user-D2">
+          <div class="text">Make it polite but firm.</div>
+          <div class="ts">14:33</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<section>
+  <h2><span class="num">6.</span>Send button placement &amp; input bar leading icon</h2>
+  <p class="lede">
+    Current: send is a separate 40dp circle outside the text field, with an
+    EditNote leading icon inside (decorative). Concerns: send button steals
+    horizontal space; leading icon serves no purpose. Comparing four layouts
+    (single-line + two-line growth shown for each).
+  </p>
+
+  <div class="grid grid-2">
+
+    <div class="option">
+      <div class="label">A · Current — separate send + leading icon<span class="tag curr">SHIPPED</span></div>
+      <div class="stage input-stage">
+        <div class="input-row">
+          <div class="tf">
+            <span class="leading-ic">✎</span>
+            <span class="placeholder">Ask anything…</span>
+          </div>
+          <div class="send-circle muted">↑</div>
+        </div>
+        <div class="input-row">
+          <div class="tf">
+            <span class="leading-ic">✎</span>
+            <span style="flex:1;">Help me draft a reply</span>
+          </div>
+          <div class="send-circle">↑</div>
+        </div>
+        <div class="input-row">
+          <div class="tf two-line">
+            <span class="leading-ic">✎</span>
+            <div class="text-block">
+              <div>Help me draft a polite but firm reply to my landlord</div>
+              <div>about the leaky faucet that's been ignored for two weeks</div>
+            </div>
+          </div>
+          <div class="send-circle">↑</div>
+        </div>
+      </div>
+      <div class="notes">
+        Send sits outside (40dp + 8dp gap = 48dp gone). Leading icon is purely decorative — adds 30dp on the left for no semantic gain. Two-line case: send pinned to bottom-right of the row.
+      </div>
+    </div>
+
+    <div class="option">
+      <div class="label">B · Send inline (trailing icon) + drop leading icon<span class="tag rec">RECOMMENDED</span></div>
+      <div class="stage input-stage">
+        <div class="input-row">
+          <div class="tf with-trailing">
+            <span class="placeholder">Ask anything…</span>
+            <div class="send-inline-wrap">
+              <div class="send-circle inline muted">↑</div>
+            </div>
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="tf with-trailing">
+            <span style="flex:1;">Help me draft a reply</span>
+            <div class="send-inline-wrap">
+              <div class="send-circle inline">↑</div>
+            </div>
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="tf with-trailing two-line">
+            <div class="text-block">
+              <div>Help me draft a polite but firm reply to my landlord</div>
+              <div>about the leaky faucet that's been ignored for two weeks</div>
+            </div>
+            <div class="send-inline-wrap">
+              <div class="send-circle inline">↑</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        Compose <code>TextField(trailingIcon = { … })</code>. Send becomes part of the field, leading icon gone. Reads as one object, gains ~50dp horizontal. Two-line case: send anchors to the field's bottom-right (matches iMessage / Telegram convention).
+      </div>
+    </div>
+
+    <div class="option">
+      <div class="label">C · Send inline + show only when text is non-empty</div>
+      <div class="stage input-stage">
+        <div class="input-row">
+          <div class="tf with-trailing">
+            <span class="placeholder">Ask anything…</span>
+            <!-- no trailing icon when empty -->
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="tf with-trailing">
+            <span style="flex:1;">Help me draft a reply</span>
+            <div class="send-inline-wrap">
+              <div class="send-circle inline">↑</div>
+            </div>
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="tf with-trailing two-line">
+            <div class="text-block">
+              <div>Help me draft a polite but firm reply to my landlord</div>
+              <div>about the leaky faucet that's been ignored for two weeks</div>
+            </div>
+            <div class="send-inline-wrap">
+              <div class="send-circle inline">↑</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        Same as B, but send is fully hidden in the empty/idle state — pure rest. Risk: empty state has no visible affordance for "where do I press send?" (mitigated by IME's on-screen send key).
+      </div>
+    </div>
+
+    <div class="option">
+      <div class="label">D · Inline send + Claw amber tint (warm send)</div>
+      <div class="stage input-stage">
+        <div class="input-row">
+          <div class="tf with-trailing">
+            <span class="placeholder">Ask anything…</span>
+            <div class="send-inline-wrap">
+              <div class="send-circle inline muted">↑</div>
+            </div>
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="tf with-trailing">
+            <span style="flex:1;">Help me draft a reply</span>
+            <div class="send-inline-wrap">
+              <div class="send-circle inline amber">↑</div>
+            </div>
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="tf with-trailing two-line">
+            <div class="text-block">
+              <div>Help me draft a polite but firm reply to my landlord</div>
+              <div>about the leaky faucet that's been ignored for two weeks</div>
+            </div>
+            <div class="send-inline-wrap">
+              <div class="send-circle inline amber">↑</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">
+        B with the active state colored Claw (the brand's warm accent). Stronger affordance, costs one new color usage but keeps Rust isolated to Stop/error.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout" style="border-left-color: var(--ink-muted); background: rgba(20,17,15,.04); margin-top: 24px;">
+    <strong style="color: var(--ink);">Implementation notes (B/C/D):</strong>
+    Compose <code>TextField</code> supports <code>trailingIcon</code> natively — no layout rewrite. Drop <code>leadingIcon = { Icon(EditNote) }</code> at <code>CapsuleInputBar.kt:154-160</code>. The 240ms breath animation already on the send button (<code>Animatable scale 1.0→1.04</code>) wraps the inner icon either way.
+    Two-line growth fix (#3): set <code>Modifier.heightIn(min = 44.dp)</code> + <code>maxLines = 4</code> + <code>singleLine = false</code>. Today the two-line min comes from the leadingIcon padding — removing the icon also fixes the height regression.
+  </div>
+</section>
+
+</main>
+</body>
+</html>

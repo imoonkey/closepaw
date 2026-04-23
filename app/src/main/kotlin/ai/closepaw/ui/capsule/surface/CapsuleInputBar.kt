@@ -2,9 +2,9 @@ package ai.closepaw.ui.capsule.surface
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -12,9 +12,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -26,7 +26,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -46,7 +45,7 @@ import ai.closepaw.ui.theme.closePaw
 import kotlinx.coroutines.launch
 
 /**
- * CapsuleInputBar — text field + send button.
+ * CapsuleInputBar — text field with the send button as a trailing icon.
  *
  * Owns its own draft state (`inputText`) plus the lifecycle effects that mutate it:
  *  - seed from `pendingInputText` after a session bootstrap failure (then signal consume),
@@ -77,7 +76,6 @@ internal fun CapsuleInputBar(
             onPendingInputConsumed()
         }
     }
-
     LaunchedEffect(spec.clearDraft) {
         if (spec.clearDraft && inputText.isNotEmpty()) {
             inputText = ""
@@ -114,6 +112,7 @@ internal fun CapsuleInputBar(
     val reducedMotion = ClosePawMotion.reducedMotion()
     val scope = rememberCoroutineScope()
     val sendScale = remember { Animatable(1f) }
+    val canSend = inputEnabled && inputText.isNotBlank()
     val onSendClick: () -> Unit = {
         if (!reducedMotion) {
             scope.launch {
@@ -130,64 +129,60 @@ internal fun CapsuleInputBar(
         submit()
     }
 
-    Row(
+    TextField(
+        value = inputText,
+        onValueChange = { inputText = it },
+        enabled = inputEnabled,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 1.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        TextField(
-            value = inputText,
-            onValueChange = { inputText = it },
-            enabled = inputEnabled,
-            modifier = Modifier
-                .weight(1f)
-                .focusRequester(focusRequester)
-                .onFocusChanged { onInputFocusChanged(it.isFocused) }
-                .testTag("qa-capsule-input"),
-            placeholder = {
-                Text(text = hint, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Rounded.EditNote,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
-                )
-            },
-            shape = MaterialTheme.shapes.large,
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent,
-            ),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { submit() }),
-            maxLines = 2,
-            singleLine = false,
-        )
-
-        FilledIconButton(
-            onClick = onSendClick,
-            enabled = inputEnabled && inputText.isNotBlank(),
-            modifier = Modifier
-                .size(40.dp)
-                .graphicsLayer {
-                    scaleX = sendScale.value
-                    scaleY = sendScale.value
-                },
-            shape = CircleShape,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.ArrowUpward,
-                contentDescription = spec.submitLabel,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-    }
+            .padding(top = 1.dp)
+            .heightIn(min = 48.dp)
+            .focusRequester(focusRequester)
+            .onFocusChanged { onInputFocusChanged(it.isFocused) }
+            .testTag("qa-capsule-input"),
+        placeholder = {
+            Text(text = hint, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        },
+        trailingIcon = {
+            Box(modifier = Modifier.padding(end = 4.dp)) {
+                FilledIconButton(
+                    onClick = onSendClick,
+                    enabled = canSend,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("qa-capsule-send")
+                        .graphicsLayer {
+                            scaleX = sendScale.value
+                            scaleY = sendScale.value
+                        },
+                    shape = CircleShape,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        disabledContainerColor = MaterialTheme.closePaw.inkFaint.copy(alpha = 0.30f),
+                        disabledContentColor = MaterialTheme.closePaw.inkFaint,
+                    ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ArrowUpward,
+                        contentDescription = spec.submitLabel,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        },
+        shape = MaterialTheme.shapes.large,
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+        ),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+        keyboardActions = KeyboardActions(onSend = { submit() }),
+        maxLines = 4,
+        singleLine = false,
+    )
 }

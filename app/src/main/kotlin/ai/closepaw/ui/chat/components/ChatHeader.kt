@@ -22,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ai.closepaw.ui.theme.PageMasthead
-import ai.closepaw.ui.theme.todayLabel
 
 /**
  * ChatHeader — Bound Edition running head.
@@ -68,7 +67,6 @@ fun ChatHeader(
 
             PageMasthead(
                 title = "ClosePaw",
-                rightSlot = todayLabel(),
                 leadingPaw = true,
                 modifier = Modifier.weight(1f),
             )

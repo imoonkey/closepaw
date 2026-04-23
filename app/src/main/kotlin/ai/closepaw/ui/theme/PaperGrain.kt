@@ -38,7 +38,7 @@ private fun bakeNoiseTile(size: Int, ink: Color, alpha: Float): ImageBitmap {
 
 // Light theme: tile a baked noise texture under the modifier's content.
 // Dark theme: no-op — Lantern uses [lanternVignette] instead.
-fun Modifier.paperGrain(strength: Float = 0.015f): Modifier = composed {
+fun Modifier.paperGrain(strength: Float = 0.04f): Modifier = composed {
     val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
     if (isDark) return@composed this
     val ink = MaterialTheme.colorScheme.onSurface

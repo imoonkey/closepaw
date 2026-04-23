@@ -104,9 +104,9 @@ private fun ThoughtGroupView(
     ) {
         Box(
             modifier = Modifier
-                .width(2.dp)
+                .width(3.dp)
                 .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.outline),
+                .background(MaterialTheme.colorScheme.tertiary),
         )
         Spacer(Modifier.width(spacing.md))
         Column(
@@ -202,7 +202,7 @@ internal fun ActionRow(
                 Text(
                     text = formatToolCall(data),
                     style = mono,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 val subtitle = data.resultSummary
                     ?: data.description.takeIf { it.isNotEmpty() && data.state != ActionState.Success }

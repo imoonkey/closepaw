@@ -56,7 +56,6 @@ import ai.closepaw.ui.session.TimeUtils
 import ai.closepaw.ui.theme.AppWindowInsets
 import ai.closepaw.ui.theme.PageMasthead
 import ai.closepaw.ui.theme.closePaw
-import ai.closepaw.ui.theme.todayLabel
 
 /**
  * NavigationDrawer - Side drawer containing session history and settings access.
@@ -172,7 +171,6 @@ private fun DrawerHeader(
     ) {
         PageMasthead(
             title = "Sessions",
-            rightSlot = todayLabel(),
             leadingPaw = true,
             modifier = Modifier.weight(1f),
         )
