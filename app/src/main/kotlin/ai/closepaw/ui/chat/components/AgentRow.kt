@@ -1,6 +1,11 @@
 package ai.closepaw.ui.chat.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,10 +21,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.IntSize
 import ai.closepaw.ui.chat.model.AgentMessageState
 import ai.closepaw.ui.chat.model.ChatMessage
 import ai.closepaw.ui.chat.model.ContentBlock
 import ai.closepaw.ui.chat.model.RowState
+import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.closePaw
 
 /**
@@ -67,7 +74,13 @@ internal fun AgentRow(
         }
 
         if (hasTrace) {
-            AnimatedVisibility(visible = expanded) {
+            val rowTween = tween<IntSize>(ClosePawMotion.RowExpand, easing = ClosePawMotion.EaseInOutSine)
+            val fadeTween = tween<Float>(ClosePawMotion.RowExpand, easing = ClosePawMotion.EaseInOutSine)
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(animationSpec = rowTween) + fadeIn(animationSpec = fadeTween),
+                exit = shrinkVertically(animationSpec = rowTween) + fadeOut(animationSpec = fadeTween),
+            ) {
                 ExpandedTrace(traceBlocks, message.state)
             }
             if (collapsible) {

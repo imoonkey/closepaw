@@ -1,27 +1,33 @@
 package ai.closepaw.ui.chat.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.ArrowRight
+import com.composables.icons.lucide.Ban
+import com.composables.icons.lucide.Check
+import com.composables.icons.lucide.LoaderCircle
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.X
 import ai.closepaw.ui.chat.model.ActionCardData
 import ai.closepaw.ui.chat.model.ActionState
 import ai.closepaw.ui.chat.model.AgentMessageState
@@ -97,50 +103,48 @@ private fun ThoughtGroupView(
     allBlocks: List<ContentBlock>,
 ) {
     val spacing = MaterialTheme.closePaw.spacing
-    Row(
+    val ruleColor = MaterialTheme.colorScheme.tertiary
+    val ruleWidthDp = 3.dp
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(IntrinsicSize.Min),
+            .drawBehind {
+                drawRect(
+                    color = ruleColor,
+                    topLeft = Offset.Zero,
+                    size = Size(ruleWidthDp.toPx(), size.height),
+                )
+            }
+            .padding(start = ruleWidthDp + spacing.md),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .fillMaxHeight()
-                .background(MaterialTheme.colorScheme.tertiary),
-        )
-        Spacer(Modifier.width(spacing.md))
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(spacing.xs),
-        ) {
-            group.thought?.let { ThoughtHeader(it.text) }
-            group.items.forEach { item ->
-                when (item) {
-                    is ContentBlock.Action -> ActionRow(
-                        data = item.data,
-                        modifier = Modifier.padding(start = spacing.lg),
-                    )
-                    is ContentBlock.Text -> {
-                        val streamingTail =
-                            isStreaming && allBlocks.indexOf(item) == streamingTextBlockIndex
-                        if (streamingTail) {
-                            StreamingText(
+        group.thought?.let { ThoughtHeader(it.text) }
+        group.items.forEach { item ->
+            when (item) {
+                is ContentBlock.Action -> ActionRow(
+                    data = item.data,
+                    modifier = Modifier.padding(start = spacing.lg),
+                )
+                is ContentBlock.Text -> {
+                    val streamingTail =
+                        isStreaming && allBlocks.indexOf(item) == streamingTextBlockIndex
+                    if (streamingTail) {
+                        StreamingText(
+                            text = item.text,
+                            isStreaming = true,
+                            textColor = MaterialTheme.colorScheme.onSurface,
+                        )
+                    } else if (item.text.isNotEmpty()) {
+                        SelectionContainer(modifier = Modifier.fillMaxWidth()) {
+                            Text(
                                 text = item.text,
-                                isStreaming = true,
-                                textColor = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
                             )
-                        } else if (item.text.isNotEmpty()) {
-                            SelectionContainer(modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    text = item.text,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                            }
                         }
                     }
-                    else -> Unit
                 }
+                else -> Unit
             }
         }
     }
@@ -168,13 +172,11 @@ internal fun ActionRow(
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.closePaw.spacing
-    val mono = MaterialTheme.closePaw.monoSmall
-    val statusGlyph = when (data.state) {
-        ActionState.Proposed -> "⏳"
-        ActionState.Executing -> "⏳"
-        ActionState.Success -> "✓"
-        ActionState.Failed -> "✕"
-        ActionState.Skipped -> "⊘"
+    val statusIcon = when (data.state) {
+        ActionState.Proposed, ActionState.Executing -> Lucide.LoaderCircle
+        ActionState.Success -> Lucide.Check
+        ActionState.Failed -> Lucide.X
+        ActionState.Skipped -> Lucide.Ban
     }
     val statusDescription = when (data.state) {
         ActionState.Proposed -> "Proposed"
@@ -191,17 +193,18 @@ internal fun ActionRow(
     }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "→",
-                style = mono,
-                color = MaterialTheme.closePaw.inkFaint,
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Icon(
+                imageVector = Lucide.ArrowRight,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.closePaw.inkFaint,
             )
             Spacer(Modifier.width(spacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = formatToolCall(data),
-                    style = mono,
+                    style = MaterialTheme.closePaw.monoSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 val subtitle = data.resultSummary
@@ -215,11 +218,11 @@ internal fun ActionRow(
                 }
             }
             Spacer(Modifier.width(spacing.sm))
-            Text(
-                text = statusGlyph,
-                style = mono,
-                color = statusColor,
-                modifier = Modifier.semantics { stateDescription = statusDescription },
+            Icon(
+                imageVector = statusIcon,
+                contentDescription = statusDescription,
+                modifier = Modifier.size(14.dp),
+                tint = statusColor,
             )
         }
         val expanded = data.expandedContent

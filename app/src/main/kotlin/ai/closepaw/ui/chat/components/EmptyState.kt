@@ -1,9 +1,7 @@
 package ai.closepaw.ui.chat.components
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,12 +26,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.composables.icons.lucide.ArrowRight
+import com.composables.icons.lucide.Lucide
 import ai.closepaw.R
 import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.Fraunces
@@ -142,11 +143,11 @@ private fun MarginaliaSuggestion(
             .padding(vertical = spacing.sm),
         verticalAlignment = Alignment.Top,
     ) {
-        // ASCII arrow — D1 reserves mono for machine text, so this stays bodyLarge.
-        Text(
-            text = "→",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.closePaw.inkFaint,
+        Icon(
+            imageVector = Lucide.ArrowRight,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.closePaw.inkFaint,
         )
         Spacer(Modifier.width(spacing.sm))
         Column {
@@ -177,18 +178,21 @@ private fun StaggeredReveal(
         return
     }
     val offsetPx = with(LocalDensity.current) { 8.dp.roundToPx() }
-    var visible by remember { mutableStateOf(false) }
+    var revealed by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(index * 80L)
-        visible = true
+        revealed = true
     }
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(animationSpec = tween(ClosePawMotion.TraceEnter)) +
-            slideInVertically(
-                animationSpec = tween(ClosePawMotion.TraceEnter),
-                initialOffsetY = { offsetPx },
-            ),
+    val progress by animateFloatAsState(
+        targetValue = if (revealed) 1f else 0f,
+        animationSpec = tween(ClosePawMotion.TraceEnter, easing = ClosePawMotion.EaseOutCubic),
+        label = "StaggeredReveal",
+    )
+    Box(
+        modifier = Modifier.graphicsLayer {
+            alpha = progress
+            translationY = (1f - progress) * offsetPx
+        },
     ) {
         content()
     }
