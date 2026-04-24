@@ -1,7 +1,7 @@
 # UI Tech Design
 
 > Technical implementation: tech stack, code structure, state management.
-> Last updated: 2026-04-22 (uxfb-0422 — ThoughtGroup hierarchy + FinalText + CollapsePill)
+> Last updated: 2026-04-23 (Lucide icons, animation tween fixes)
 
 ## Tech Stack
 
@@ -13,6 +13,7 @@
 | **Material 3** | Modern design system |
 | **Activity Compose** | `setContent {}` entry point |
 | **Material Icons Extended** | Comprehensive icon set |
+| **Lucide Icons (CMP)** | `com.composables:icons-lucide-cmp:2.2.1` — modern line icons for UI glyphs |
 
 ---
 
@@ -38,9 +39,9 @@ ui/
 │   │   ├── ChatHeader.kt        # Header: [≡] Title [+]
 │   │   ├── MessageBubble.kt     # Dispatcher: User bubble | AgentRow (slim, ~90 lines post-uxfb-3)
 │   │   ├── AgentRow.kt          # Agent row shell: [trace · CollapsePill · final region]
-│   │   ├── AgentTrace.kt        # ThoughtGroup hierarchy (uxfb-4): one Thought + N Actions per group, 2dp left rule
+│   │   ├── AgentTrace.kt        # ThoughtGroup hierarchy (uxfb-4): one Thought + N Actions per group, drawBehind left rule
 │   │   ├── AgentSummary.kt      # outcomeFooter + collapsedSummary helpers
-│   │   ├── CollapsePill.kt      # Pill chip: [▸ ✓ N actions · 12s], owns click + Role.Button
+│   │   ├── CollapsePill.kt      # Pill chip: [▸ ✓ N actions · 12s], Lucide icons, tween animation
 │   │   ├── StreamingText.kt     # Final-block Text with inlineContent serif `|` cursor
 │   │   ├── ThinkingIndicator.kt # 3 animated dots (ClosePawMotion.ThinkingPulse)
 │   │   └── EmptyState.kt        # First launch with suggestion chips + serif italic question
@@ -165,7 +166,7 @@ sealed interface ContentBlock {
                                           // AgentRow renders this in the always-visible final
                                           // region below the CollapsePill.
     data class Thought(text: String)     // Opens a ThoughtGroup; bodyLarge header (no italic, no ✱)
-    data class Action(data: ActionCardData)  // Indented monoSmall row inside the group, status glyph right
+    data class Action(data: ActionCardData)  // Indented monoSmall row inside the group, Lucide status icon right
 }
 
 enum class AgentMessageState { Thinking, Streaming, Complete }

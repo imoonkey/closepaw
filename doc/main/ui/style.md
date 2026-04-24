@@ -1,7 +1,7 @@
 # UI Style Guide
 
 > Design system: D1 visual baseline wired through Material 3 + one thin token surface.
-> Last updated: 2026-04-22 (Bound Edition: ornaments + paper grain + ledger counter)
+> Last updated: 2026-04-23 (Lucide icons, tween animations, drawBehind left rule)
 
 ## Design System
 
@@ -99,14 +99,13 @@ Track A row voice (UXFB-4 ThoughtGroup hierarchy):
 
 | Item | Style |
 |---|---|
-| Thought header | `MaterialTheme.typography.bodyLarge` (Geist regular, `onSurface`) — group marker; left rule replaces the prior `✱` glyph |
-| Action | `MaterialTheme.closePaw.monoSmall`, `onSurfaceVariant`, indented `spacing.lg` inside the group |
+| Thought header | `MaterialTheme.typography.bodyLarge` (Geist regular, `onSurface`) — group marker; `drawBehind` left rule replaces the prior `✱` glyph |
+| Action | `MaterialTheme.closePaw.monoSmall`, `onSurfaceVariant`, indented `spacing.lg` inside the group; Lucide icons for status (`Check`, `X`, `LoaderCircle`, `Ban`) and arrow (`ArrowRight`) |
 | Final | `MaterialTheme.typography.bodyLarge` (Geist regular, `onSurface`) |
 
 Each `ContentBlock.Thought` opens a ThoughtGroup; subsequent Actions belong to
-it until the next Thought. Groups render as `Row` with a 2dp left rule
-(`outlineVariant`) plus a `Column` (`spacing.md` start padding) — see
-`ui/chat/components/AgentTrace.kt`. Italic + `onSurfaceVariant` thought styling
+it until the next Thought. Groups render as `Column` with a 3dp `drawBehind` left rule
+(`tertiary`) plus start padding — see `ui/chat/components/AgentTrace.kt`. Italic + `onSurfaceVariant` thought styling
 was retired in UXFB-4 (inverted hierarchy made actions read as more prominent
 than the reasoning that produced them).
 

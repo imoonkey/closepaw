@@ -1,7 +1,7 @@
 # Overlay System
 
 > Smart Capsule, Edge Glow, Status Island, Action Visualizer, and mode-aware overlay branching.
-> Last updated: 2026-04-16 (commit: ce30041)
+> Last updated: 2026-04-23 (isActivityWindowClass blacklist fix, Lucide TriangleAlert for error)
 
 ## Overview
 
