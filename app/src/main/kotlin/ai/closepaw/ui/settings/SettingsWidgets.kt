@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.ChevronRight
+import com.composables.icons.lucide.Lucide
 import ai.closepaw.ui.theme.Fraunces
 import ai.closepaw.ui.theme.closePaw
 
@@ -276,11 +278,11 @@ internal fun SettingsNavigationRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            // D1 §6.3: mono → glyph instead of decorative chevron.
-            Text(
-                text = "→",
-                style = MaterialTheme.closePaw.monoBody,
-                color = MaterialTheme.closePaw.inkFaint
+            Icon(
+                imageVector = Lucide.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.closePaw.inkFaint,
             )
         }
     }

@@ -50,6 +50,8 @@ import ai.closepaw.ui.overlay.model.NavSpec
 import ai.closepaw.ui.theme.ClosePawMotion
 import ai.closepaw.ui.theme.closePaw
 import ai.closepaw.ui.theme.foldedPaper
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.TriangleAlert
 import kotlinx.coroutines.delay
 
 /**
@@ -235,10 +237,11 @@ private fun StartupErrorBanner(
                     .background(MaterialTheme.colorScheme.error),
             )
             Spacer(Modifier.width(12.dp))
-            Text(
-                text = "⚠",
-                style = MaterialTheme.closePaw.monoBody,
-                color = MaterialTheme.colorScheme.error,
+            Icon(
+                imageVector = Lucide.TriangleAlert,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.error,
             )
             Spacer(Modifier.width(8.dp))
             Text(

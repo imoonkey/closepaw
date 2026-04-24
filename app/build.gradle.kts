@@ -93,11 +93,14 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.foundation:foundation")
-    
+
     // Material 3
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    
+
+    // Lucide icons
+    implementation("com.composables:icons-lucide-cmp:2.2.1")
+
     // Activity Compose integration
     implementation("androidx.activity:activity-compose:1.9.3")
     
