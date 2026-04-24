@@ -8276,5 +8276,23 @@
     "timestamp": "2026-04-24T16:05:50.409Z",
     "status": "active",
     "sessionName": "claude-archive-next-step"
+  },
+  {
+    "id": "session-idle-claude-archive-next-step-1777047422447",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-archive-next-step finished processing",
+    "timestamp": "2026-04-24T16:17:02.447Z",
+    "status": "active",
+    "sessionName": "claude-archive-next-step"
+  },
+  {
+    "id": "session-idle-claude-archive-next-step-1777048279932",
+    "agent": "claude",
+    "type": "session_idle",
+    "message": "claude-archive-next-step finished processing",
+    "timestamp": "2026-04-24T16:31:19.932Z",
+    "status": "active",
+    "sessionName": "claude-archive-next-step"
   }
 ]
