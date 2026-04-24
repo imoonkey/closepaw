@@ -24,12 +24,14 @@ internal data class OverlayVisibilityDecision(
 )
 
 internal fun isActivityWindowClass(className: String?): Boolean {
-    val normalizedClassName = className?.substringBefore('$') ?: return false
-    return normalizedClassName.endsWith("Activity") ||
-        normalizedClassName.contains("Activity") ||
-        normalizedClassName.contains("Launcher") ||
-        normalizedClassName.contains(".app.") ||
-        normalizedClassName.contains("Home")
+    val name = className?.substringBefore('$') ?: return false
+    if (name.startsWith("android.widget.") ||
+        name.startsWith("android.view.") ||
+        name.startsWith("android.app.") ||
+        name.startsWith("android.inputmethodservice.") ||
+        name.startsWith("androidx.") ||
+        name.contains("inputmethod", ignoreCase = true)) return false
+    return name.contains('.')
 }
 
 internal fun resolveUserLocation(

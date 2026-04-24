@@ -40,11 +40,41 @@ class OverlayLocationPolicyTest {
     }
 
     @Test
+    fun `resolve user location detects other app even without Activity suffix`() {
+        val location = resolveUserLocation(
+            appPackage = "ai.closepaw",
+            packageName = "com.android.settings",
+            className = "com.android.settings.Settings",
+        )
+        assertThat(location).isEqualTo(OverlayUserLocation.OTHER_APP)
+    }
+
+    @Test
     fun `resolve user location ignores non-activity windows`() {
         val location = resolveUserLocation(
             appPackage = "ai.closepaw",
             packageName = "com.google.android.youtube",
             className = "android.widget.FrameLayout",
+        )
+        assertThat(location).isNull()
+    }
+
+    @Test
+    fun `resolve user location ignores input method windows`() {
+        val location = resolveUserLocation(
+            appPackage = "ai.closepaw",
+            packageName = "com.google.android.inputmethod.latin",
+            className = "com.google.android.inputmethod.latin.LatinIME",
+        )
+        assertThat(location).isNull()
+    }
+
+    @Test
+    fun `resolve user location ignores androidx library windows`() {
+        val location = resolveUserLocation(
+            appPackage = "ai.closepaw",
+            packageName = "ai.closepaw",
+            className = "androidx.compose.ui.platform.ComposeView",
         )
         assertThat(location).isNull()
     }
