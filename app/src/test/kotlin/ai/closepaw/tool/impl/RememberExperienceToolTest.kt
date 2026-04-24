@@ -2,6 +2,7 @@ package ai.closepaw.tool.impl
 
 import com.google.common.truth.Truth.assertThat
 import ai.closepaw.memory.MemoryStore
+import ai.closepaw.protocol.AppTier
 import ai.closepaw.test.FakeAndroidPlatform
 import ai.closepaw.tool.AppClassifier
 import ai.closepaw.tool.ToolExecutionContext
@@ -107,6 +108,46 @@ class RememberExperienceToolTest {
         val content = store.readAppMemory("com.android.settings")!!
         assertThat(content).contains("BACK may dismiss keyboard first")
         assertThat(content).doesNotContain("[pitfall]")
+    }
+
+    @Test
+    fun `app scope write denied when target package is BLOCKED`() = runTest {
+        val blockedTool = RememberExperienceTool(
+            store,
+            AppClassifier(mapOf("com.blocked.bank" to AppTier.BLOCKED))
+        )
+        val params = JSONObject()
+            .put("scope", "app")
+            .put("section", "operational_notes")
+            .put("package_name", "com.blocked.bank")
+            .put("content", "Some note about the banking app")
+
+        val result = blockedTool.createInvocation(params).execute(buildContext())
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Failure::class.java)
+        assertThat((result as ToolExecutionResult.Failure).error)
+            .contains("restricted by security policy")
+        assertThat(store.readAppMemory("com.blocked.bank")).isNull()
+    }
+
+    @Test
+    fun `app scope write allowed when target package is NORMAL`() = runTest {
+        val classifiedTool = RememberExperienceTool(
+            store,
+            AppClassifier(mapOf(
+                "com.blocked.bank" to AppTier.BLOCKED,
+                "com.normal.app" to AppTier.NORMAL
+            ))
+        )
+        val params = JSONObject()
+            .put("scope", "app")
+            .put("section", "operational_notes")
+            .put("package_name", "com.normal.app")
+            .put("content", "This app works great")
+
+        val result = classifiedTool.createInvocation(params).execute(buildContext())
+
+        assertThat(result).isInstanceOf(ToolExecutionResult.Success::class.java)
     }
 
     private fun buildContext(): ToolExecutionContext {

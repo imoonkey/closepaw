@@ -149,6 +149,15 @@ private class RememberExperienceInvocation(
             )
         }
 
+        // Layer 4b: Block app-scoped writes targeting a BLOCKED package
+        if (scope == MemoryScope.APP && packageName != null &&
+            appClassifier.classify(packageName) == AppTier.BLOCKED
+        ) {
+            return ToolExecutionResult.Failure(
+                "Cannot save memory: target app is restricted by security policy"
+            )
+        }
+
         return try {
             val saved =
                 store.append(
