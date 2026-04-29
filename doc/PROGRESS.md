@@ -11,8 +11,8 @@
 - KISS: bottom sheet added complexity (drag state, partial expand, scrim, dismiss gestures) with no benefit for a full-screen settings flow. Full-screen pages are simpler and less error-prone.
 
 **Key files:** `app/MainActivityContent.kt`, `ui/settings/SettingsSheet.kt`
-**Verification:** `./gradlew assembleDebug` green. UX visual debug QA: all flows PASS (settings home, 3 sub-pages, back navigation, close from any level). Codex code review: 2 findings (BackHandler, modal barrier) — both addressed.
-**Commit:** `21cdd77e`, `72bfd550`
+**Verification:** `./gradlew assembleDebug` green. Real-device QA on Nubia P0110 (via Tailscale ADB): all 8 flows PASS — settings home fullscreen, 3 sub-pages fullscreen, system back from each sub-page → HOME, system back from HOME → dismiss to chat. Codex code review: 2 findings (BackHandler, modal barrier) — both addressed.
+**Commit:** `21cdd77e`, `72bfd550`, `aa074bcc`
 **Next:** None
 **Blockers:** None
 
