@@ -1,5 +1,6 @@
 package ai.closepaw.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -73,6 +74,11 @@ fun SettingsSheet(
 ) {
     var settingsPage by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
     val reducedMotion = ClosePawMotion.reducedMotion()
+
+    BackHandler {
+        if (settingsPage != SettingsPage.HOME) settingsPage = SettingsPage.HOME
+        else onDismiss()
+    }
 
     Column(
         modifier = modifier

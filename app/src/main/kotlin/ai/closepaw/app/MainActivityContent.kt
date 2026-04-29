@@ -1,14 +1,16 @@
 package ai.closepaw.app
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.closepaw.llm.ModelCatalog
 import ai.closepaw.onboarding.PermissionStateMonitor.PermissionRepairModel
@@ -46,7 +48,6 @@ private fun rememberCapsuleBinding(): CapsuleBinding {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MainActivityContent(
     viewModel: ChatViewModel,
@@ -106,14 +107,13 @@ internal fun MainActivityContent(
         }
 
         if (showSettings) {
-            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-            ModalBottomSheet(
-                onDismissRequest = {
-                    onShowSettingsChange(false)
-                    pendingDeepLink = null
-                },
-                sheetState = sheetState,
-                dragHandle = {}
+            val dismissSettings = {
+                onShowSettingsChange(false)
+                pendingDeepLink = null
+            }
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.surface,
             ) {
                 SettingsSheet(
                     llmBackend = settingsState.llmBackend,
@@ -147,10 +147,7 @@ internal fun MainActivityContent(
                     onStartOAuth = onStartOAuth,
                     onCancelOAuth = onCancelOAuth,
                     onSignOut = onSignOut,
-                    onDismiss = {
-                        onShowSettingsChange(false)
-                        pendingDeepLink = null
-                    },
+                    onDismiss = dismissSettings,
                     initialPage = when (pendingDeepLink?.page) {
                         DeepLinkPage.LLM_AUTH -> SettingsPage.LLM_AUTH
                         DeepLinkPage.HOME, null -> SettingsPage.HOME
