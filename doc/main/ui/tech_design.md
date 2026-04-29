@@ -1,7 +1,7 @@
 # UI Tech Design
 
 > Technical implementation: tech stack, code structure, state management.
-> Last updated: 2026-04-23 (Lucide icons, animation tween fixes)
+> Last updated: 2026-04-28 (settings: full-screen pages replace ModalBottomSheet)
 
 ## Tech Stack
 
@@ -95,7 +95,7 @@ ui/
 │   └── VirtualDisplayViewerActivity.kt  # VD live preview (SurfaceView)
 │
 └── settings/
-    ├── SettingsSheet.kt         # Modal bottom sheet
+    ├── SettingsSheet.kt         # Full-screen page overlay + BackHandler
     ├── SettingsModels.kt        # LocalModelOption, ModelLoadingStatus
     ├── SettingsDropdowns.kt     # Backend/model/mode/turns dropdowns
     ├── SettingsDropdown.kt      # Generic reusable dropdown
@@ -239,10 +239,9 @@ Full-screen `SurfaceView` for live VD preview:
 |-----------|-------|
 | `OutlinedTextField` | Capsule input field |
 | `FilledIconButton` | Send button |
-| `Surface` | Bubbles, cards, capsule |
+| `Surface` | Bubbles, cards, capsule, settings overlay |
 | `LazyColumn` | Message list |
 | `ModalNavigationDrawer` | Session history |
-| `ModalBottomSheet` | Settings |
 
 ---
 

@@ -1,7 +1,7 @@
 # UI User Interaction
 
 > Pages, components, and user interaction flows.
-> Last updated: 2026-04-22 (Bound Edition: mastheads, marginalia EmptyState, ledger counter)
+> Last updated: 2026-04-28 (settings: full-screen pages replace bottom sheet)
 
 ## Overview
 
@@ -24,7 +24,7 @@ Chat-first conversational interface built with Jetpack Compose and Material 3. T
 ├────────────────────────────────────────────────────────────────┤
 │  NavigationDrawer (session history + settings entry)           │
 ├────────────────────────────────────────────────────────────────┤
-│  SettingsSheet (modal bottom sheet)                            │
+│  Settings (full-screen page overlay, BackHandler)             │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -52,7 +52,7 @@ surfaces; each pairs the leading paw + Fraunces italic title with a
 |---|---|---|
 | `ChatHeader` | "ClosePaw" | `[+]` new-chat icon (when messages exist) |
 | `NavigationDrawer` `DrawerHeader` | "Sessions" | `[×]` close icon |
-| `SettingsHomePage` | "Settings" | `[×]` close icon (in the modal sheet) |
+| `SettingsHomePage` | "Settings" | `[×]` close icon |
 
 ### EmptyState (Bound Edition Marginalia)
 

@@ -239,7 +239,7 @@ app/src/main/kotlin/ai/closepaw/
 │   ├── common/                   # Shared composables
 │   ├── navigation/               # Navigation drawer
 │   ├── overlay/                  # System overlays (capsule, glow, island, visualizer)
-│   ├── settings/                 # Settings bottom sheet
+│   ├── settings/                 # Settings full-screen pages
 │   ├── session/                  # Session history UI
 │   └── viewer/                   # VirtualDisplayViewerActivity
 │

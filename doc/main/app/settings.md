@@ -1,7 +1,7 @@
 # Settings & Configuration
 
 > User settings, preferences, and configuration persistence.
-> Last updated: 2026-04-18 (auth-setting-cleanup: credentials moved to AuthStore)
+> Last updated: 2026-04-28 (settings UI: full-screen pages replace bottom sheet)
 
 ## Overview
 
@@ -96,7 +96,7 @@ Mode can be set from:
 
 > See: `ui/settings/SettingsSheet.kt`
 
-The settings sheet is a modal bottom sheet with sectioned layout:
+The settings UI is a full-screen page overlay with sub-page navigation (system back: sub-page → HOME, HOME → dismiss):
 
 | Section | Contents |
 |---------|----------|
@@ -125,7 +125,7 @@ The settings sheet is a modal bottom sheet with sectioned layout:
 
 ```
 ui/settings/
-├── SettingsSheet.kt         # Main composable (modal bottom sheet)
+├── SettingsSheet.kt         # Main composable (full-screen page + BackHandler)
 ├── SettingsModels.kt        # Data models (LocalModelOption, ModelLoadingStatus)
 ├── SettingsDropdowns.kt     # Backend/model/mode/turns dropdowns
 ├── SettingsDropdown.kt      # Generic reusable dropdown composable
