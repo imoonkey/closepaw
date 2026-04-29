@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-04-28: Settings UI — full-screen pages replace ModalBottomSheet
+
+**What changed:**
+- Replaced `ModalBottomSheet` wrapper in `MainActivityContent.kt` with a full-screen `Surface` overlay
+- Added `BackHandler` in `SettingsSheet.kt`: sub-page → system back returns to HOME; HOME → system back dismisses settings
+- Removed `ExperimentalMaterial3Api` opt-in (no longer needed)
+
+**Why:**
+- KISS: bottom sheet added complexity (drag state, partial expand, scrim, dismiss gestures) with no benefit for a full-screen settings flow. Full-screen pages are simpler and less error-prone.
+
+**Key files:** `app/MainActivityContent.kt`, `ui/settings/SettingsSheet.kt`
+**Verification:** `./gradlew assembleDebug` green. UX visual debug QA: all flows PASS (settings home, 3 sub-pages, back navigation, close from any level). Codex code review: 2 findings (BackHandler, modal barrier) — both addressed.
+**Commit:** `21cdd77e`, `72bfd550`
+**Next:** None
+**Blockers:** None
+
 ## 2026-04-22: ux-feedback-0422 — capsule + chat hierarchy + final-answer survives collapse
 
 **What changed:**
