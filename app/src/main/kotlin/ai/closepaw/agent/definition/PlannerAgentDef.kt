@@ -11,7 +11,8 @@ internal val PlannerRoleDef = AgentRoleDef(
             "write_todos",
             "scratchpad",
             "delegate_task",
-            "complete_task"
+            "complete_task",
+            "activate_skill"
         ),
     systemPrompt =
         """

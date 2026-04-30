@@ -16,7 +16,8 @@ internal val StandaloneRoleDef = AgentRoleDef(
                     "write_todos",
                     "complete_task",
                     "ask_user",
-                    "remember_experience"
+                    "remember_experience",
+                    "activate_skill"
             ),
     systemPrompt =
             """

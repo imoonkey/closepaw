@@ -43,6 +43,7 @@ private fun resolveToolDisplay(toolName: String): ToolDisplay {
         ToolName.RememberExperience -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
         ToolName.AskUser -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
         ToolName.Shell -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
+        ToolName.ActivateSkill -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
         is ToolName.Unknown -> ToolDisplay(tool.displayName, Icons.Rounded.Build)
     }
 }

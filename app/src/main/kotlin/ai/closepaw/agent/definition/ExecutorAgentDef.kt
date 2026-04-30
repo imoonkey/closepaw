@@ -13,7 +13,8 @@ internal val ExecutorRoleDef = AgentRoleDef(
                     "open_app",
                     "scratchpad",
                     "complete_task",
-                    "ask_user"
+                    "ask_user",
+                    "activate_skill"
             ),
     delegatable = true,
     description = "Execute ONE atomic UI action on the current screen",
