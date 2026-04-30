@@ -120,6 +120,9 @@ dependencies {
     
     // Kotlin Serialization for session persistence
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+    // YAML frontmatter parsing for Agent Skills
+    implementation("org.yaml:snakeyaml:2.2")
     
     // Shizuku — binder forwarding with shell UID for virtual display
     implementation("dev.rikka.shizuku:api:13.1.5")
