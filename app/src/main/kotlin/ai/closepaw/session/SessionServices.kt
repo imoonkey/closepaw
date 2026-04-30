@@ -6,6 +6,7 @@ import ai.closepaw.app.AppSettingsStore
 import ai.closepaw.agent.cognition.prompt.AppSkillRepository
 import ai.closepaw.agent.cognition.prompt.AssetAppSkillRepository
 import ai.closepaw.agent.cognition.prompt.EmptyAppSkillRepository
+import ai.closepaw.agent.cognition.skills.AgentSkillManager
 import ai.closepaw.auth.AuthStore
 import ai.closepaw.history.HistoryManager
 import ai.closepaw.history.SessionRecordingService
@@ -65,6 +66,7 @@ class SessionServices internal constructor(
         val traceRecorder: TraceRecorder,
         val recordingService: SessionRecordingService,
         internal val appSkillRepository: AppSkillRepository = EmptyAppSkillRepository,
+        val agentSkillManager: AgentSkillManager = AgentSkillManager(java.io.File("")),
         val userResponseChannel: UserResponseChannel = UserResponseChannel(),
         val memoryStore: MemoryStore = MemoryStore(java.io.File("")),
         val memoryRecaller: MemoryRecaller = MemoryRecaller(memoryStore)
@@ -101,13 +103,15 @@ class SessionServices internal constructor(
             Log.d(TAG, "Created LLMClient: ${llmClient.javaClass.simpleName}")
 
             val classifier = appClassifier ?: AppClassifier.fromAssets(context.assets)
+            val agentSkillManager = AgentSkillManager(java.io.File(context.filesDir, "skills"))
             val settingsStore = AppSettingsStore(context)
             val persistentAllowList = settingsStore.loadPersistentAllowList()
             val tooling = SessionToolingBootstrapper.create(
                 approvalMode = config.approvalMode,
                 appClassifier = classifier,
                 initialPersistentAllowList = persistentAllowList,
-                onPersistentAllowListChanged = { packages -> settingsStore.savePersistentAllowList(packages) }
+                onPersistentAllowListChanged = { packages -> settingsStore.savePersistentAllowList(packages) },
+                agentSkillManager = agentSkillManager
             )
             val policyEngine = tooling.policyEngine
             val sessionState = tooling.sessionState
@@ -143,6 +147,7 @@ class SessionServices internal constructor(
                     traceRecorder = traceRecorder,
                     recordingService = recordingService,
                     appSkillRepository = appSkillRepository,
+                    agentSkillManager = agentSkillManager,
                     memoryStore = memoryStore,
                     memoryRecaller = memoryRecaller
             )
@@ -165,6 +170,7 @@ class SessionServices internal constructor(
             traceRecorder: TraceRecorder = this.traceRecorder,
             recordingService: SessionRecordingService = this.recordingService,
             appSkillRepository: AppSkillRepository = this.appSkillRepository,
+            agentSkillManager: AgentSkillManager = this.agentSkillManager,
             userResponseChannel: UserResponseChannel = this.userResponseChannel,
             memoryStore: MemoryStore = this.memoryStore,
             memoryRecaller: MemoryRecaller = this.memoryRecaller
@@ -184,6 +190,7 @@ class SessionServices internal constructor(
                 traceRecorder = traceRecorder,
                 recordingService = recordingService,
                 appSkillRepository = appSkillRepository,
+                agentSkillManager = agentSkillManager,
                 userResponseChannel = userResponseChannel,
                 memoryStore = memoryStore,
                 memoryRecaller = memoryRecaller

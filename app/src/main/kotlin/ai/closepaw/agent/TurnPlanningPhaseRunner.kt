@@ -62,6 +62,17 @@ internal class TurnPlanningPhaseRunner(
                                 "System prompt must be provided by AgentRoleDef."
                         }
 
+                // Activate any /skill-name mentions in the goal before prompt build.
+                services.agentSkillManager.activateExplicitMentions(config.goal)
+
+                // Append agent skill catalog to system prompt when skills exist.
+                val catalogSection = services.agentSkillManager.catalogPrompt()
+                val fullSystemPrompt = if (catalogSection != null) {
+                        "$systemPrompt\n\n$catalogSection"
+                } else {
+                        systemPrompt
+                }
+
                 // Canonical observation — computed once, consumed by prompt and history.
                 val observation = TurnObservation.capture(
                         snapshot = snapshot,
@@ -99,7 +110,7 @@ internal class TurnPlanningPhaseRunner(
                         turnId = turnId,
                         turnNumber = turnNumber,
                         snapshot = snapshot,
-                        systemPrompt = systemPrompt,
+                        systemPrompt = fullSystemPrompt,
                         userContextText = "(built by PromptBuilder)",
                         history = services.historyManager.forPrompt(),
                         inputItems = inputItems,
@@ -110,7 +121,7 @@ internal class TurnPlanningPhaseRunner(
                 var turnResult: TurnResult? = null
                 var streamError: Throwable? = null
                 turn.runStreaming(
-                                systemPrompt = systemPrompt,
+                                systemPrompt = fullSystemPrompt,
                                 inputItems = inputItems,
                                 model = model.modelId
                         )
