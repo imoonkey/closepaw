@@ -1,0 +1,208 @@
+package ai.closepaw.agent.cognition.skills
+
+import com.google.common.truth.Truth.assertThat
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+
+class AgentSkillManagerTest {
+
+    @get:Rule
+    val tempDir = TemporaryFolder()
+
+    private fun createSkill(name: String, description: String, body: String = "Instructions.") {
+        val dir = tempDir.newFolder(name)
+        dir.resolve("SKILL.md").writeText(
+            """
+            |---
+            |name: $name
+            |description: $description
+            |---
+            |$body
+            """.trimMargin()
+        )
+    }
+
+    @Test
+    fun `activate returns success with body on first call`() {
+        createSkill("date-math", "Compute date ranges", "Use ISO-8601 format.")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val result = manager.activate("date-math")
+
+        assertThat(result).isInstanceOf(ActivationResult.Success::class.java)
+        val success = result as ActivationResult.Success
+        assertThat(success.name).isEqualTo("date-math")
+        assertThat(success.body).isEqualTo("Use ISO-8601 format.")
+    }
+
+    @Test
+    fun `activate returns already active on duplicate`() {
+        createSkill("date-math", "Compute date ranges")
+        val manager = AgentSkillManager(tempDir.root)
+        manager.activate("date-math")
+
+        val result = manager.activate("date-math")
+
+        assertThat(result).isInstanceOf(ActivationResult.AlreadyActive::class.java)
+        assertThat((result as ActivationResult.AlreadyActive).name).isEqualTo("date-math")
+    }
+
+    @Test
+    fun `activate returns not found for unknown skill`() {
+        val manager = AgentSkillManager(tempDir.root)
+
+        val result = manager.activate("nonexistent")
+
+        assertThat(result).isInstanceOf(ActivationResult.NotFound::class.java)
+        assertThat((result as ActivationResult.NotFound).name).isEqualTo("nonexistent")
+    }
+
+    @Test
+    fun `activate strips frontmatter and returns only body`() {
+        val body = "# Step 1\nDo the thing.\n\n# Step 2\nDo the other thing."
+        createSkill("multi-step", "Multi-step skill", body)
+        val manager = AgentSkillManager(tempDir.root)
+
+        val result = manager.activate("multi-step") as ActivationResult.Success
+
+        assertThat(result.body).isEqualTo(body)
+    }
+
+    @Test
+    fun `catalogPrompt delegates to catalog`() {
+        createSkill("date-math", "Compute date ranges")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val prompt = manager.catalogPrompt()
+
+        assertThat(prompt).isNotNull()
+        assertThat(prompt).contains("date-math")
+        assertThat(prompt).contains("Compute date ranges")
+    }
+
+    @Test
+    fun `catalogPrompt returns null when no skills`() {
+        val manager = AgentSkillManager(tempDir.root)
+
+        assertThat(manager.catalogPrompt()).isNull()
+    }
+
+    @Test
+    fun `entries exposes catalog entries`() {
+        createSkill("date-math", "Compute date ranges")
+        createSkill("table-read", "Read tables from screenshots")
+        val manager = AgentSkillManager(tempDir.root)
+
+        assertThat(manager.entries).hasSize(2)
+        assertThat(manager.entries).containsKey("date-math")
+        assertThat(manager.entries).containsKey("table-read")
+    }
+
+    @Test
+    fun `activateExplicitMentions matches slash skill names`() {
+        createSkill("date-math", "Compute date ranges", "Date body.")
+        createSkill("table-read", "Read tables", "Table body.")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("Please /date-math and /table-read")
+
+        assertThat(results).hasSize(2)
+        assertThat(results[0]).isInstanceOf(ActivationResult.Success::class.java)
+        assertThat((results[0] as ActivationResult.Success).name).isEqualTo("date-math")
+        assertThat(results[1]).isInstanceOf(ActivationResult.Success::class.java)
+        assertThat((results[1] as ActivationResult.Success).name).isEqualTo("table-read")
+    }
+
+    @Test
+    fun `activateExplicitMentions at start of text`() {
+        createSkill("date-math", "Compute date ranges", "Body.")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("/date-math compute something")
+
+        assertThat(results).hasSize(1)
+        assertThat((results[0] as ActivationResult.Success).name).isEqualTo("date-math")
+    }
+
+    @Test
+    fun `activateExplicitMentions ignores file paths`() {
+        createSkill("data", "Some data skill")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("push to /data/local/tmp")
+
+        assertThat(results).isEmpty()
+    }
+
+    @Test
+    fun `activateExplicitMentions ignores URLs`() {
+        createSkill("something", "A skill")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("visit https://example.com/something")
+
+        assertThat(results).isEmpty()
+    }
+
+    @Test
+    fun `activateExplicitMentions ignores unknown skills`() {
+        createSkill("date-math", "Compute date ranges")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("/date-math and /unknown-skill")
+
+        assertThat(results).hasSize(1)
+        assertThat((results[0] as ActivationResult.Success).name).isEqualTo("date-math")
+    }
+
+    @Test
+    fun `activateExplicitMentions deduplicates mentions`() {
+        createSkill("date-math", "Compute date ranges", "Body.")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("/date-math then /date-math again")
+
+        assertThat(results).hasSize(1)
+    }
+
+    @Test
+    fun `activateExplicitMentions returns already active for pre-activated skills`() {
+        createSkill("date-math", "Compute date ranges", "Body.")
+        val manager = AgentSkillManager(tempDir.root)
+        manager.activate("date-math")
+
+        val results = manager.activateExplicitMentions("/date-math")
+
+        assertThat(results).hasSize(1)
+        assertThat(results[0]).isInstanceOf(ActivationResult.AlreadyActive::class.java)
+    }
+
+    @Test
+    fun `active skills preserved on same instance`() {
+        createSkill("date-math", "Compute date ranges", "Body.")
+        val manager = AgentSkillManager(tempDir.root)
+        manager.activate("date-math")
+
+        val second = manager.activate("date-math")
+        assertThat(second).isInstanceOf(ActivationResult.AlreadyActive::class.java)
+    }
+
+    @Test
+    fun `activation order is stable`() {
+        createSkill("aaa-skill", "First", "A body.")
+        createSkill("bbb-skill", "Second", "B body.")
+        createSkill("ccc-skill", "Third", "C body.")
+        val manager = AgentSkillManager(tempDir.root)
+
+        manager.activate("ccc-skill")
+        manager.activate("aaa-skill")
+        manager.activate("bbb-skill")
+
+        val results = manager.activateExplicitMentions("/ccc-skill /aaa-skill /bbb-skill")
+        assertThat(results).hasSize(3)
+        assertThat(results.map { (it as ActivationResult.AlreadyActive).name })
+            .containsExactly("ccc-skill", "aaa-skill", "bbb-skill")
+            .inOrder()
+    }
+}
