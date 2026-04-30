@@ -20,7 +20,8 @@ class AgentDefTest {
                 "write_todos",
                 "complete_task",
                 "ask_user",
-                "remember_experience"
+                "remember_experience",
+                "activate_skill"
             )
         assertThat(StandaloneRoleDef.delegatable).isFalse()
         assertThat(StandaloneRoleDef.systemPrompt).contains("standalone Android automation agent")
@@ -35,7 +36,8 @@ class AgentDefTest {
                 "write_todos",
                 "scratchpad",
                 "delegate_task",
-                "complete_task"
+                "complete_task",
+                "activate_skill"
             )
         assertThat(PlannerRoleDef.allowedTools).contains("delegate_task")
         assertThat(PlannerRoleDef.systemPrompt).contains("MAIN PLANNER")
@@ -52,7 +54,8 @@ class AgentDefTest {
                 "open_app",
                 "scratchpad",
                 "complete_task",
-                "ask_user"
+                "ask_user",
+                "activate_skill"
             )
         assertThat(ExecutorRoleDef.delegatable).isTrue()
         assertThat(ExecutorRoleDef.systemPrompt).contains("Executor agent")

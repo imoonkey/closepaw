@@ -205,4 +205,34 @@ class AgentSkillManagerTest {
             .containsExactly("ccc-skill", "aaa-skill", "bbb-skill")
             .inOrder()
     }
+
+    @Test
+    fun `activateExplicitMentions with empty text returns empty`() {
+        createSkill("date-math", "Compute date ranges")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("")
+
+        assertThat(results).isEmpty()
+    }
+
+    @Test
+    fun `activateExplicitMentions with blank text returns empty`() {
+        createSkill("date-math", "Compute date ranges")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("   ")
+
+        assertThat(results).isEmpty()
+    }
+
+    @Test
+    fun `activateExplicitMentions with no slash mentions returns empty`() {
+        createSkill("date-math", "Compute date ranges")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("just some plain text")
+
+        assertThat(results).isEmpty()
+    }
 }

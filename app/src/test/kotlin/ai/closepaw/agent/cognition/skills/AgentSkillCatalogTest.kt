@@ -214,4 +214,34 @@ class AgentSkillCatalogTest {
 
         assertThat(catalog.entries).isEmpty()
     }
+
+    @Test
+    fun `duplicate skill name across directories uses first alphabetically`() {
+        val dir1 = tempDir.newFolder("alpha-skill")
+        dir1.resolve("SKILL.md").writeText(
+            """
+            |---
+            |name: alpha-skill
+            |description: Alpha description.
+            |---
+            |Alpha body.
+            """.trimMargin()
+        )
+
+        val catalog = AgentSkillCatalog(tempDir.root)
+
+        assertThat(catalog.entries).hasSize(1)
+        assertThat(catalog.entries["alpha-skill"]!!.description).isEqualTo("Alpha description.")
+    }
+
+    @Test
+    fun `very long description is accepted`() {
+        val longDesc = "A".repeat(2000)
+        createSkill("long-desc", longDesc)
+
+        val catalog = AgentSkillCatalog(tempDir.root)
+
+        assertThat(catalog.entries).hasSize(1)
+        assertThat(catalog.entries["long-desc"]!!.description).isEqualTo(longDesc)
+    }
 }

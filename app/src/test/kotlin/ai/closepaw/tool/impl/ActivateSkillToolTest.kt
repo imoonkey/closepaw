@@ -147,4 +147,21 @@ class ActivateSkillToolTest {
 
         assertThat(result).isInstanceOf(ToolExecutionResult.Cancelled::class.java)
     }
+
+    @Test
+    fun `tool name is activate_skill`() {
+        createSkill("date-math", "Compute dates")
+        val t = tool()
+
+        assertThat(t.name).isEqualTo("activate_skill")
+    }
+
+    @Test
+    fun `parameter schema requires name`() {
+        createSkill("date-math", "Compute dates")
+        val t = tool()
+        val schema = t.parameterSchema
+
+        assertThat(schema.getJSONArray("required").getString(0)).isEqualTo("name")
+    }
 }

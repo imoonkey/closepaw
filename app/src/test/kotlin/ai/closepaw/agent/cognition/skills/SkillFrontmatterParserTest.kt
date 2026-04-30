@@ -167,6 +167,45 @@ class SkillFrontmatterParserTest {
     }
 
     @Test
+    fun `metadata with nested values flattened to string`() {
+        val content = """
+            |---
+            |name: nested-meta
+            |description: Skill with nested metadata.
+            |metadata:
+            |  simple: value
+            |  nested:
+            |    inner: deep
+            |---
+            |Body.
+        """.trimMargin()
+
+        val result = SkillFrontmatterParser.parse(content)!!
+
+        assertThat(result.frontmatter.metadata).containsEntry("simple", "value")
+        assertThat(result.frontmatter.metadata).containsKey("nested")
+    }
+
+    @Test
+    fun `body containing triple-dash separator is preserved`() {
+        val content = """
+            |---
+            |name: dash-body
+            |description: Body has dashes.
+            |---
+            |Some instructions.
+            |---
+            |More instructions after separator.
+        """.trimMargin()
+
+        val result = SkillFrontmatterParser.parse(content)!!
+
+        assertThat(result.frontmatter.name).isEqualTo("dash-body")
+        assertThat(result.body).contains("Some instructions.")
+        assertThat(result.body).contains("More instructions after separator.")
+    }
+
+    @Test
     fun `app skill with metadata package field`() {
         val content = """
             |---
