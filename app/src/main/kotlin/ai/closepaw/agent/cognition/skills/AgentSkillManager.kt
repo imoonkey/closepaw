@@ -1,11 +1,13 @@
 package ai.closepaw.agent.cognition.skills
 
 import java.io.File
+import java.io.IOException
 
 sealed class ActivationResult {
     data class Success(val name: String, val body: String) : ActivationResult()
     data class AlreadyActive(val name: String) : ActivationResult()
     data class NotFound(val name: String) : ActivationResult()
+    data class ReadFailure(val name: String, val cause: IOException) : ActivationResult()
 }
 
 class AgentSkillManager(skillsDir: File) {
@@ -17,19 +19,27 @@ class AgentSkillManager(skillsDir: File) {
 
     fun catalogPrompt(): String? = catalog.catalogPrompt()
 
+    @Synchronized
     fun activate(name: String): ActivationResult {
         val entry = catalog.entries[name]
             ?: return ActivationResult.NotFound(name)
 
-        if (!activeSkills.add(name)) {
+        if (activeSkills.contains(name)) {
             return ActivationResult.AlreadyActive(name)
         }
 
-        val content = File(entry.filePath).readText()
+        val content = try {
+            File(entry.filePath).readText()
+        } catch (e: IOException) {
+            return ActivationResult.ReadFailure(name, e)
+        }
+
         val body = SkillFrontmatterParser.parse(content)?.body ?: content
+        activeSkills.add(name)
         return ActivationResult.Success(name, body)
     }
 
+    @Synchronized
     fun activateExplicitMentions(text: String): List<ActivationResult> {
         return MENTION_REGEX.findAll(text)
             .map { it.groupValues[1] }
@@ -41,6 +51,6 @@ class AgentSkillManager(skillsDir: File) {
 
     companion object {
         private val MENTION_REGEX =
-            Regex("""(?:^|(?<=\s))/([a-z][a-z0-9-]{0,63})(?!/)""")
+            Regex("""(?:^|(?<=\s))/([a-z][a-z0-9-]{0,63})(?![/\w-])""")
     }
 }

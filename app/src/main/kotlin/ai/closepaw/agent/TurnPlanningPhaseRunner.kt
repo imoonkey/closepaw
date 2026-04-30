@@ -1,6 +1,7 @@
 package ai.closepaw.agent
 
 import android.util.Log
+import ai.closepaw.agent.cognition.skills.ActivationResult
 import ai.closepaw.agent.cognition.policy.ToolArbitrationResult
 import ai.closepaw.agent.cognition.policy.TurnToolPolicy
 import ai.closepaw.agent.cognition.prompt.PromptBuilder
@@ -63,14 +64,24 @@ internal class TurnPlanningPhaseRunner(
                         }
 
                 // Activate any /skill-name mentions in the goal before prompt build.
-                services.agentSkillManager.activateExplicitMentions(config.goal)
+                val activationResults = services.agentSkillManager.activateExplicitMentions(config.goal)
+                val activatedSkillBodies = activationResults
+                        .filterIsInstance<ActivationResult.Success>()
+                        .joinToString("\n\n") { "## Skill: ${it.name}\n${it.body}" }
+                        .takeIf { it.isNotEmpty() }
 
-                // Append agent skill catalog to system prompt when skills exist.
+                // Append agent skill catalog and activated skill bodies to system prompt.
                 val catalogSection = services.agentSkillManager.catalogPrompt()
-                val fullSystemPrompt = if (catalogSection != null) {
-                        "$systemPrompt\n\n$catalogSection"
-                } else {
-                        systemPrompt
+                val fullSystemPrompt = buildString {
+                        append(systemPrompt)
+                        if (catalogSection != null) {
+                                append("\n\n")
+                                append(catalogSection)
+                        }
+                        if (activatedSkillBodies != null) {
+                                append("\n\n")
+                                append(activatedSkillBodies)
+                        }
                 }
 
                 // Canonical observation — computed once, consumed by prompt and history.

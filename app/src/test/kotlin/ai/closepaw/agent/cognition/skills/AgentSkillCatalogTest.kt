@@ -235,13 +235,35 @@ class AgentSkillCatalogTest {
     }
 
     @Test
-    fun `very long description is accepted`() {
-        val longDesc = "A".repeat(2000)
-        createSkill("long-desc", longDesc)
+    fun `description at max length is accepted`() {
+        val maxDesc = "A".repeat(1024)
+        createSkill("max-desc", maxDesc)
 
         val catalog = AgentSkillCatalog(tempDir.root)
 
         assertThat(catalog.entries).hasSize(1)
-        assertThat(catalog.entries["long-desc"]!!.description).isEqualTo(longDesc)
+        assertThat(catalog.entries["max-desc"]!!.description).isEqualTo(maxDesc)
+    }
+
+    @Test
+    fun `description exceeding 1024 chars is rejected`() {
+        val longDesc = "A".repeat(1025)
+        createSkill("long-desc", longDesc)
+
+        val catalog = AgentSkillCatalog(tempDir.root)
+
+        assertThat(catalog.entries).isEmpty()
+    }
+
+    @Test
+    fun `overlong description does not block valid skills`() {
+        createSkill("good-skill", "Short description.")
+        val longDesc = "A".repeat(2000)
+        createSkill("bad-desc", longDesc)
+
+        val catalog = AgentSkillCatalog(tempDir.root)
+
+        assertThat(catalog.entries).hasSize(1)
+        assertThat(catalog.entries).containsKey("good-skill")
     }
 }

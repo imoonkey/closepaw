@@ -25,6 +25,7 @@ class AgentSkillCatalog(skillsDir: File) {
 
     companion object {
         private const val TAG = "AgentSkillCatalog"
+        private const val MAX_DESCRIPTION_LENGTH = 1024
         private val NAME_PATTERN = Regex("^[a-z][a-z0-9-]{0,63}$")
     }
 
@@ -60,6 +61,11 @@ class AgentSkillCatalog(skillsDir: File) {
 
             if (fm.name != dir.name) {
                 Log.w(TAG, "Directory '${dir.name}' does not match skill name '${fm.name}'")
+                continue
+            }
+
+            if (fm.description.length > MAX_DESCRIPTION_LENGTH) {
+                Log.w(TAG, "Description too long (${fm.description.length} chars) in ${dir.name}")
                 continue
             }
 

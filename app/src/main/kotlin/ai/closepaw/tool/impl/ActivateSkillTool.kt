@@ -81,6 +81,8 @@ private class ActivateSkillInvocation(
                 textToolSuccess("Skill '${result.name}' is already active.")
             is ActivationResult.NotFound ->
                 ToolExecutionResult.Failure("Unknown skill '${result.name}'. Check the skill catalog in the system prompt.")
+            is ActivationResult.ReadFailure ->
+                ToolExecutionResult.Failure("Failed to read skill '${result.name}': ${result.cause.message}")
         }
     }
 }

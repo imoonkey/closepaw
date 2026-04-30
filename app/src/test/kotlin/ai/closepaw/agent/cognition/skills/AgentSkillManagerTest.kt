@@ -4,6 +4,8 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.atomic.AtomicInteger
 
 class AgentSkillManagerTest {
 
@@ -70,6 +72,66 @@ class AgentSkillManagerTest {
     }
 
     @Test
+    fun `activate returns read failure when file is deleted after catalog build`() {
+        createSkill("ephemeral", "Will be deleted")
+        val manager = AgentSkillManager(tempDir.root)
+        // Delete the file after catalog was built
+        java.io.File(tempDir.root, "ephemeral/SKILL.md").delete()
+
+        val result = manager.activate("ephemeral")
+
+        assertThat(result).isInstanceOf(ActivationResult.ReadFailure::class.java)
+        assertThat((result as ActivationResult.ReadFailure).name).isEqualTo("ephemeral")
+    }
+
+    @Test
+    fun `activate read failure does not mark skill as active`() {
+        createSkill("ephemeral", "Will be deleted", "Body.")
+        val manager = AgentSkillManager(tempDir.root)
+        java.io.File(tempDir.root, "ephemeral/SKILL.md").delete()
+
+        manager.activate("ephemeral")
+
+        // Restore the file — a retry should succeed, not return AlreadyActive
+        tempDir.root.resolve("ephemeral/SKILL.md").writeText(
+            """
+            |---
+            |name: ephemeral
+            |description: Restored
+            |---
+            |Restored body.
+            """.trimMargin()
+        )
+        val retry = manager.activate("ephemeral")
+        assertThat(retry).isInstanceOf(ActivationResult.Success::class.java)
+    }
+
+    @Test
+    fun `concurrent activations do not corrupt state`() {
+        createSkill("shared-skill", "Concurrent test", "Body.")
+        val manager = AgentSkillManager(tempDir.root)
+        val barrier = CyclicBarrier(10)
+        val successCount = AtomicInteger(0)
+        val alreadyActiveCount = AtomicInteger(0)
+
+        val threads = (1..10).map {
+            Thread {
+                barrier.await()
+                when (manager.activate("shared-skill")) {
+                    is ActivationResult.Success -> successCount.incrementAndGet()
+                    is ActivationResult.AlreadyActive -> alreadyActiveCount.incrementAndGet()
+                    else -> {}
+                }
+            }
+        }
+        threads.forEach { it.start() }
+        threads.forEach { it.join() }
+
+        assertThat(successCount.get()).isEqualTo(1)
+        assertThat(alreadyActiveCount.get()).isEqualTo(9)
+    }
+
+    @Test
     fun `catalogPrompt delegates to catalog`() {
         createSkill("date-math", "Compute date ranges")
         val manager = AgentSkillManager(tempDir.root)
@@ -112,6 +174,20 @@ class AgentSkillManagerTest {
         assertThat((results[0] as ActivationResult.Success).name).isEqualTo("date-math")
         assertThat(results[1]).isInstanceOf(ActivationResult.Success::class.java)
         assertThat((results[1] as ActivationResult.Success).name).isEqualTo("table-read")
+    }
+
+    @Test
+    fun `activateExplicitMentions returns bodies for injection`() {
+        createSkill("date-math", "Compute date ranges", "Use ISO-8601.")
+        createSkill("table-read", "Read tables", "Parse rows carefully.")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("Use /date-math and /table-read")
+
+        val bodies = results
+            .filterIsInstance<ActivationResult.Success>()
+            .map { it.body }
+        assertThat(bodies).containsExactly("Use ISO-8601.", "Parse rows carefully.").inOrder()
     }
 
     @Test
@@ -234,5 +310,58 @@ class AgentSkillManagerTest {
         val results = manager.activateExplicitMentions("just some plain text")
 
         assertThat(results).isEmpty()
+    }
+
+    @Test
+    fun `activateExplicitMentions rejects false positive with trailing underscore suffix`() {
+        createSkill("date-math", "Compute date ranges")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("/date-math_tmp should not match")
+
+        assertThat(results).isEmpty()
+    }
+
+    @Test
+    fun `activateExplicitMentions rejects false positive with trailing alphanumeric`() {
+        createSkill("date-math", "Compute date ranges")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("/date-mathx should not match")
+
+        assertThat(results).isEmpty()
+    }
+
+    @Test
+    fun `activateExplicitMentions matches skill followed by comma`() {
+        createSkill("date-math", "Compute date ranges", "Body.")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("/date-math, please")
+
+        assertThat(results).hasSize(1)
+        assertThat((results[0] as ActivationResult.Success).name).isEqualTo("date-math")
+    }
+
+    @Test
+    fun `activateExplicitMentions matches skill followed by period`() {
+        createSkill("date-math", "Compute date ranges", "Body.")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("Run /date-math.")
+
+        assertThat(results).hasSize(1)
+        assertThat((results[0] as ActivationResult.Success).name).isEqualTo("date-math")
+    }
+
+    @Test
+    fun `activateExplicitMentions matches skill at end of string`() {
+        createSkill("date-math", "Compute date ranges", "Body.")
+        val manager = AgentSkillManager(tempDir.root)
+
+        val results = manager.activateExplicitMentions("Run /date-math")
+
+        assertThat(results).hasSize(1)
+        assertThat((results[0] as ActivationResult.Success).name).isEqualTo("date-math")
     }
 }
